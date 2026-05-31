@@ -1,0 +1,64 @@
+name = "Release Signoff"
+order = 99
+description = "Final release signoff checks for versioning, CLI version output, Python hygiene, and design coverage"
+enabled = true
+concerns = ["release", "contracts", "signoff", "docs"]
+
+objectives = [
+    "Package version metadata matches the release date contract",
+    "CLI version output matches package metadata",
+    "Python signoff does not regress against the accepted baseline",
+    "CLI parser commands, the command manifest, and CLI design docs stay synchronized",
+    "Registered CLI commands have matching HTML design documentation",
+    "Public config files have machine-readable schema links when needed",
+    "Dataclasses and major interfaces have design docs and Rack test ownership",
+    "Package source passes ruff and pyright",
+]
+
+[dependencies]
+strata = ["L0_public_cli", "L3_public_workflows"]
+note = "L99 is enabled in this public repo because the initial signoff lane is lightweight."
+
+[[subtests]]
+id = "L99_001"
+file = "test_L99_001_release_signoff.py"
+name = "Release Signoff"
+description = "Validate version contract and run py_signoff"
+concerns = ["release", "contracts"]
+test_case_type = "audit_meta"
+
+[subtests.code_under_test]
+module = "kicad_cruncher._version"
+
+[[subtests]]
+id = "L99_002"
+file = "test_L99_002_design_docs.py"
+name = "Design Documentation Signoff"
+description = "Validate CLI design document coverage"
+concerns = ["release", "contracts", "docs", "signoff"]
+test_case_type = "audit_meta"
+
+[[subtests]]
+id = "L99_003"
+file = "test_L99_003_quality_tools.py"
+name = "Quality Tools"
+description = "Validate package-wide source quality gates"
+concerns = ["release", "signoff"]
+test_case_type = "audit_meta"
+
+[[subtests]]
+id = "L99_004"
+file = "test_L99_004_interface_design_docs.py"
+name = "Interface Design Documentation Signoff"
+description = "Validate dataclass and major-interface design documentation and test ownership"
+concerns = ["release", "signoff", "docs"]
+test_case_type = "audit_meta"
+
+[[subtests]]
+id = "L99_005"
+file = "test_L99_005_config_contracts.py"
+name = "Config Contract Signoff"
+description = "Validate public CLI config contract declarations"
+concerns = ["release", "contracts", "docs", "signoff"]
+test_case_type = "audit_meta"
+

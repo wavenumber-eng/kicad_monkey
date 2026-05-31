@@ -1,0 +1,44 @@
+name = "Public CLI"
+order = 0
+description = "Tests for the standalone public CLI package and command manifest"
+enabled = true
+concerns = ["cli", "contracts", "release"]
+
+objectives = [
+    "The package exposes the expected public version string",
+    "The CLI can start through the installed console entry point",
+    "The public command manifest stays aligned with help output",
+]
+
+[dependencies]
+strata = []
+note = "This is the first standalone Rack stratum; broader command tests move into additional strata as commands are added."
+
+[[subtests]]
+id = "L0_001"
+file = "test_L0_001_cli_entrypoint.py"
+name = "CLI Entrypoint"
+description = "Validate version/help startup and public command-manifest visibility"
+concerns = ["cli", "contracts", "release"]
+test_case_type = "contract"
+test_cases = "../../docs/contracts/command_manifest.v0.json"
+
+[subtests.code_under_test]
+module = "kicad_cruncher._cli"
+
+[subtests.objectives]
+cli_startup = "CLI entry point starts without private workspace dependencies"
+manifest_alignment = "Manifest commands remain visible in alphabetical help output"
+command_help = "Each manifest command exposes versioned command-level help"
+
+[subtests.approach]
+subprocess_cli = "Invoke the package command through the current Python environment"
+
+[subtests.test_functions]
+test_cli_version_command = "Version subcommand reports the package version"
+test_cli_no_args_prints_versioned_help = "Bare CLI invocation prints versioned root help"
+test_cli_help_lists_manifest_commands = "Root help lists each command declared in the manifest"
+test_cli_help_lists_commands_alphabetically = "Root help lists commands alphabetically"
+test_cli_command_help_starts_for_manifest_commands = "Each manifest command starts and prints versioned command-level help"
+test_design_help_describes_design_json_contents = "Design help describes the KiCad-native JSON payload"
+

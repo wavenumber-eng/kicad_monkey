@@ -1,0 +1,102 @@
+[project]
+name = "kicad-cruncher"
+version = "2026.5.31"
+description = "Cross-platform KiCad CLI workflows built on public kicad-monkey"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "Wavenumber LLC" },
+]
+dependencies = [
+    "colorama>=0.4.6",
+    "kicad-monkey==2026.5.31",
+]
+
+[project.optional-dependencies]
+test = [
+    "build>=1.2.0",
+    "pyright>=1.1.390",
+    "pytest>=8.0.0",
+    "pytest-json-report>=1.5.0",
+    "ruff>=0.8.0",
+    "twine>=5.0.0",
+    "wn-rack>=1.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "build>=1.2.0",
+    "pyright>=1.1.390",
+    "pytest>=8.0.0",
+    "pytest-json-report>=1.5.0",
+    "ruff>=0.8.0",
+    "twine>=5.0.0",
+    "wn-rack>=1.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/wavenumber-eng/kicad_cruncher"
+Repository = "https://github.com/wavenumber-eng/kicad_cruncher"
+Issues = "https://github.com/wavenumber-eng/kicad_cruncher/issues"
+
+[project.scripts]
+kicad-cruncher = "kicad_cruncher._cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "docs/**",
+    "pyproject.toml",
+    "src/py/kicad_cruncher/**",
+    "tests/**",
+]
+exclude = [
+    "docs/plans/**",
+    "docs/research/**",
+    "rack_results/**",
+    "tests/**/output/**",
+    "**/__pycache__/**",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/py/kicad_cruncher"]
+
+[tool.hatch.version]
+path = "src/py/kicad_cruncher/_version.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src/py"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.pyright]
+include = [
+    "src/py/kicad_cruncher",
+    "tests/L0_public_cli",
+    "tests/L3_public_workflows",
+    "tests/L99_signoff",
+    "tests/support_scripts",
+]
+exclude = [
+    "tests/support_scripts/py_signoff.py",
+]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = false
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = []

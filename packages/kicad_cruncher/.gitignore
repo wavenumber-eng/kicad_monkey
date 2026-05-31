@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.pyright/
+dist/
+build/
+*.egg-info/
+output/
+rack_results/
+*.pyc
+
+# KiCad transient project folders
+*-backups/
+*.kicad_sch-bak
+*.kicad_pcb-bak
+fp-info-cache
+
