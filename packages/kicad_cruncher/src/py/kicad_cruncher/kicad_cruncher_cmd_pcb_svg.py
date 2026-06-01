@@ -418,11 +418,19 @@ def _physical_layers_for_tokens(tokens: list[str]) -> list[str]:
 def _layer_output_tokens(config: _PcbSvgConfig, pcb: KiCadPcb) -> list[str]:
     configured = config.layer_outputs.get("layers", "auto")
     if configured == "auto":
-        layers = [str(getattr(layer, "name", "") or "") for layer in getattr(pcb, "layers", [])]
+        layers = [_pcb_layer_name(layer) for layer in getattr(pcb, "layers", [])]
         return [layer for layer in layers if layer]
     if not isinstance(configured, list):
         return []
     return [normalize_layer_token(str(token)) for token in configured]
+
+
+def _pcb_layer_name(layer: object) -> str:
+    return str(
+        getattr(layer, "canonical_name", None)
+        or getattr(layer, "name", None)
+        or ""
+    )
 
 
 def _layer_output_special_tokens(config: _PcbSvgConfig) -> list[str]:

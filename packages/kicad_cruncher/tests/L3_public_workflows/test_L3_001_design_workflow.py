@@ -131,7 +131,7 @@ def _write_pcb_svg_config(root: Path, *, include_hlr: bool) -> Path:
                 "global": {"include_metadata": True, "show_empty_layers": False},
                 "layer_outputs": {
                     "enabled": not include_hlr,
-                    "layers": ["F.Cu"],
+                    "layers": "auto",
                     "include_special_layers": ["BOARD_OUTLINE"],
                 },
                 "views": views,
@@ -223,7 +223,10 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     manifest = json.loads((output_dir / "led_component__views.json").read_text(encoding="utf-8"))
     assert manifest["schema"] == "pcb.svg.manifest.a0"
     assert manifest["board"] == "led_component"
+    assert "F.Cu" in manifest["layer_outputs"]
+    assert "B.Cu" in manifest["layer_outputs"]
     assert (output_dir / "layers" / "led_component__F.Cu.svg").exists()
+    assert (output_dir / "layers" / "led_component__B.Cu.svg").exists()
     assert (output_dir / "top_view" / "led_component__top_view.svg").exists()
 
 
