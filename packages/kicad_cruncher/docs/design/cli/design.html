@@ -8,10 +8,9 @@
 <section id="usage"><h2>Usage</h2><pre><code>kicad-cruncher design project.kicad_pro -o output/design
 kicad-cruncher design schematic.kicad_sch
 kicad-cruncher design --no-indexes</code></pre></section>
-<section id="arguments"><h2>Arguments</h2><p><code>file</code> accepts <code>.kicad_pro</code> or <code>.kicad_sch</code>. When omitted, the command attempts project auto-detection when exactly one <code>.kicad_pro</code> exists in the current directory. <code>-o</code> selects the output directory, and <code>--no-indexes</code> omits lookup indexes.</p></section>
-<section id="output"><h2>Output</h2><p>The command writes <code>KiCadDesign.to_json()</code> output to <code>&lt;input-stem&gt;_design.json</code>. The payload is owned by <code>kicad-monkey</code> and includes project metadata, schematic hierarchy, sheets, components, nets, variants, optional PnP data, and optional lookup indexes.</p></section>
+<section id="arguments"><h2>Arguments</h2><p><code>file</code> accepts <code>.kicad_pro</code> or <code>.kicad_sch</code>. When omitted, the command attempts project auto-detection when exactly one <code>.kicad_pro</code> exists in the current directory. <code>-o</code> selects the output directory directly, and <code>--no-indexes</code> omits lookup indexes.</p></section>
+<section id="output"><h2>Output</h2><p>The command writes <code>KiCadDesign.to_json()</code> output to <code>&lt;input-stem&gt;_design.json</code>. When <code>-o</code> is omitted, the artifact is written under <code>./output/design/</code>. The payload is owned by <code>kicad-monkey</code> and includes project metadata, schematic hierarchy, sheets, components, nets, variants, optional PnP data, and optional lookup indexes.</p></section>
 <section id="tests"><h2>Tests</h2><p>L3 verifies command execution against a redistributable synthetic KiCad project and asserts the design JSON schema, project text variables, component list, net list, and index suppression behavior.</p></section>
 </main>
 </body>
 </html>
-

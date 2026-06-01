@@ -8,6 +8,16 @@ import sys
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_CORPUS_LED_PROJECT = (
+    _PROJECT_ROOT
+    / "tests"
+    / "corpus"
+    / "kicad"
+    / "board_svg"
+    / "input"
+    / "led_component"
+    / "led_component.kicad_pro"
+)
 
 _MIN_SCH_TEXT = """(kicad_sch (version 20250114) (generator "eeschema")
   (generator_version "9.0")
@@ -81,6 +91,21 @@ def test_design_command_generates_project_json(tmp_path: Path) -> None:
     assert "indexes" in payload
 
 
+def test_design_command_uses_copied_kicad_monkey_corpus_project(tmp_path: Path) -> None:
+    """Verify design runs against a copied real KiCad Monkey corpus project."""
+    output_dir = tmp_path / "out"
+
+    result = _run_cli("design", str(_CORPUS_LED_PROJECT), "-o", str(output_dir))
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    payload = json.loads((output_dir / "led_component_design.json").read_text(encoding="utf-8"))
+    assert payload["schema"] == "kicad_monkey.design.a1"
+    assert payload["components"][0]["designator"] == "D1"
+    assert payload["components"][0]["value"] == "FD-3RGB45-N6"
+    assert len(payload["nets"]) == 6
+    assert "pnp" in payload
+
+
 def test_design_command_can_auto_detect_single_project(tmp_path: Path) -> None:
     """Verify design auto-detects one project in the working directory."""
     _write_synthetic_project(tmp_path)
@@ -103,4 +128,3 @@ def test_design_command_rejects_pcb_only_input(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "Unsupported file type" in result.stdout
-

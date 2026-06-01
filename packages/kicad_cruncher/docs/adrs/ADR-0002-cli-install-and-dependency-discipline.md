@@ -23,7 +23,13 @@ The first runtime dependency set is intentionally narrow:
 The top-level CLI stays an orchestrator. Command behavior lives in
 command-specific modules named `kicad_cruncher_cmd_<command>.py`.
 
+Output-producing commands accept `-o/--output` as an output directory. When the
+option is omitted, commands write under `./output/<command>/`. Passing
+`-o/--output` replaces the whole command output directory.
+
 ## Consequences
 
 Adding private workspace packages or heavy visualization dependencies to the
 public runtime requires a new ADR or explicit design-doc update.
+New output-producing commands should use the shared output-directory helper so
+the default layout stays consistent across commands.

@@ -8,9 +8,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from colorama import Fore, Style
 from kicad_cruncher._cli import _color_command_names_in_help, _format_parser_error_line
 from kicad_cruncher._version import __version__, cli_version_text
+from kicad_cruncher.kicad_cruncher_common import resolve_output_dir
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _MANIFEST_PATH = _PROJECT_ROOT / "docs" / "contracts" / "command_manifest.v0.json"
@@ -148,3 +150,18 @@ def test_cli_command_help_starts_for_manifest_commands() -> None:
         assert "usage:" in result.stdout
         assert command in result.stdout
 
+
+def test_resolve_output_dir_defaults_to_command_subfolder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify shared output policy defaults to ./output/<command>/."""
+    monkeypatch.chdir(tmp_path)
+
+    output_dir = resolve_output_dir(None, "design")
+    assert output_dir == Path("output") / "design"
+    assert (tmp_path / "output" / "design").is_dir()
+
+    explicit_dir = tmp_path / "custom"
+    resolved = resolve_output_dir(explicit_dir, "design")
+    assert resolved == explicit_dir
+    assert explicit_dir.is_dir()

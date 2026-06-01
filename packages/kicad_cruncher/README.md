@@ -54,6 +54,14 @@ kicad-cruncher design board.kicad_sch --no-indexes
 kicad-cruncher design -o output/design
 ```
 
+## Output Layout
+
+Output-producing commands follow the same directory policy:
+
+- when `-o/--output` is omitted, write artifacts under `./output/<command>/`;
+- when `-o/--output` is supplied, use that directory directly;
+- command modules own filenames inside their command output directory.
+
 ## Tests
 
 Run the Rack suite:
@@ -89,4 +97,3 @@ Versioning, tagging, release, and traceability are defined in
 `docs/adrs/ADR-0001-versioning-tagging-release-policy.md`. The intended release
 workflow is GitHub Actions plus PyPI Trusted Publishing/OIDC. Local Twine upload
 is fallback only.
-

@@ -14,4 +14,5 @@ modules. L99 signoff runs:
 
 The first command, `design`, is backed by a public synthetic KiCad fixture and
 uses the public `kicad-monkey` design JSON API.
-
+Output-producing commands default to `./output/<command>/`, with explicit
+`-o/--output` values replacing the command directory.

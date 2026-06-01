@@ -1,4 +1,10 @@
-"""KiCad Cruncher CLI entry point."""
+"""KiCad Cruncher CLI entry point.
+
+Output policy:
+    - Output-producing commands accept ``-o/--output`` as an output directory.
+    - If omitted, artifacts are written under ``./output/<command>/``.
+    - Command modules own artifact filenames inside that command directory.
+"""
 
 from __future__ import annotations
 
@@ -190,4 +196,3 @@ def main(argv: Sequence[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
-
