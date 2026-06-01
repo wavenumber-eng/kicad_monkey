@@ -22,6 +22,9 @@ from kicad_cruncher._version import cli_version_report, cli_version_text
 from kicad_cruncher.kicad_cruncher_cmd_design import (
     register_parser as register_design_parser,
 )
+from kicad_cruncher.kicad_cruncher_cmd_pcb_svg import (
+    register_parser as register_pcb_svg_parser,
+)
 from kicad_cruncher.logging_utils import setup_cli_logging
 
 LOG_LEVEL_BY_NAME = {
@@ -177,6 +180,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
 
     register_design_parser(command_subparsers)
+    register_pcb_svg_parser(command_subparsers)
     version_parser = command_subparsers.add_parser("version", help="Print version information")
     version_parser.set_defaults(handler=_cmd_version)
     _configure_root_help_color(parser, command_subparsers)

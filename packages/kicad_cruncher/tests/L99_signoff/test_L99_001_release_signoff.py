@@ -26,7 +26,7 @@ PACKAGE_ROOT = _project_root()
 EXPECTED_VERSION = "2026.5.31"
 EXPECTED_RELEASE_DATE = date(2026, 5, 31)
 EXPECTED_RELEASE_NOTE = PACKAGE_ROOT / "docs" / "releases" / "2026-05-31.md"
-CONTROLLED_DEPENDENCIES = {"kicad-monkey": "2026.5.31"}
+CONTROLLED_DEPENDENCIES = {"kicad-monkey": "2026.5.31", "wn-geometer": "2026.5.25"}
 
 
 def test_version_contract_matches_date_based_release() -> None:
@@ -123,4 +123,3 @@ def test_python_signoff_does_not_regress() -> None:
     assert completed.returncode == 0, completed.stderr + completed.stdout
     payload = json.loads(completed.stdout)
     assert payload["finding_count"] == 0
-

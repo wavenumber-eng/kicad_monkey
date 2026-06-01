@@ -18,7 +18,11 @@ packages, and justified by command behavior.
 The first runtime dependency set is intentionally narrow:
 
 - `kicad-monkey==2026.5.31`
+- `wn-geometer==2026.5.25`
 - `colorama>=0.4.6`
+
+`wn-geometer` is included for the public `pcb-svg` command's assembly HLR
+projection path. It remains a pinned controlled Wavenumber dependency.
 
 The top-level CLI stays an orchestrator. Command behavior lives in
 command-specific modules named `kicad_cruncher_cmd_<command>.py`.

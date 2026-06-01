@@ -11,6 +11,7 @@ authors = [
 dependencies = [
     "colorama>=0.4.6",
     "kicad-monkey==2026.5.31",
+    "wn-geometer==2026.5.25",
 ]
 
 [project.optional-dependencies]

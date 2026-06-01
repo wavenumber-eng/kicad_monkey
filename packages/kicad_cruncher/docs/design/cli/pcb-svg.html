@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>pcb-svg command design</title><link rel="stylesheet" href="../styles.css"></head>
+<body data-command="pcb-svg" data-config-contract="docs/contracts/pcb_svg_config.a0.schema.json">
+<main>
+<nav class="nav"><a href="index.html">Commands</a><a href="../index.html">Design Index</a></nav>
+<header><p class="status">Public command</p><h1>pcb-svg</h1><p class="lede">Generate KiCad PCB layer SVG artifacts and configured design views from an Altium-style A0 PCB SVG config.</p></header>
+<section id="usage"><h2>Usage</h2><pre><code>kicad-cruncher pcb-svg board.kicad_pcb
+kicad-cruncher pcb-svg project.kicad_pro --views assembly-top
+kicad-cruncher pcb-svg board.kicad_pcb --config pcb.svg.config -o output/pcb-svg
+kicad-cruncher pcb-svg board.kicad_pcb --layers F.Cu,Edge.Cuts --views layers</code></pre></section>
+<section id="arguments"><h2>Arguments</h2><p><code>file</code> accepts <code>.kicad_pcb</code> or <code>.kicad_pro</code>. When omitted, the command attempts auto-detection when exactly one KiCad project or PCB file exists in the current directory. <code>--config</code> selects a <code>pcb.svg.config.a0</code> JSON/JSONC config file; when omitted, <code>pcb.svg.config</code> next to each input is used or created. <code>--doc</code> selects the board file for project inputs. <code>--views</code> filters configured views and layer outputs. <code>--layers</code> filters layer-output tokens. <code>-o</code> selects the output directory directly.</p></section>
+<section id="output"><h2>Output</h2><p>When <code>-o</code> is omitted, artifacts are written under <code>./output/pcb-svg/</code>. The command writes one <code>&lt;board&gt;__views.json</code> manifest, optional per-layer SVGs under <code>layers/</code>, and configured view SVGs such as <code>top_view/</code> and <code>assembly_top_view/</code>. Physical layer SVGs are rendered through <code>kicad-monkey</code>. <code>ASSEMBLY_HLR_TOP</code> and <code>ASSEMBLY_HLR_BOTTOM</code> views use <code>wn-geometer</code> for STEP hidden-line projection when an embedded or resolvable STEP model is present, with footprint-bounds fallback for missing models.</p></section>
+<section id="tests"><h2>Tests</h2><p>L0 verifies command registration and help. L3 runs <code>pcb-svg</code> against copied public KiCad corpus boards with explicit <code>pcb.svg.config.a0</code> files, checking the manifest, layer SVG output, configured view output, and geometer-backed HLR overlay markers.</p></section>
+</main>
+</body>
+</html>

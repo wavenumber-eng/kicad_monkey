@@ -11,7 +11,7 @@ from importlib.metadata import version as distribution_version
 __version__ = "2026.5.31"
 
 _DISTRIBUTION_NAME = "kicad-cruncher"
-_CONTROLLED_DEPENDENCIES = ("kicad-monkey",)
+_CONTROLLED_DEPENDENCIES = ("kicad-monkey", "wn-geometer")
 _VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$")
 
 
@@ -101,4 +101,3 @@ __all__ = [
     "parse_version",
     "version",
 ]
-

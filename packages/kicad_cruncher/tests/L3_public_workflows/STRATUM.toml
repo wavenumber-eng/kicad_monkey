@@ -9,6 +9,7 @@ objectives = [
     "Generated outputs have expected schemas or artifact shapes",
     "Workflow tests do not require a private corpus",
     "Copied KiCad Monkey corpus projects exercise real KiCad files",
+    "PCB SVG workflows exercise config-driven layer outputs and geometer HLR",
 ]
 
 [dependencies]
@@ -18,19 +19,22 @@ note = "A synthetic minimal KiCad project is the first redistributable workflow 
 [[subtests]]
 id = "L3_001"
 file = "test_L3_001_design_workflow.py"
-name = "Design JSON Workflow"
-description = "Run the design command against a synthetic KiCad project and validate JSON output"
+name = "Design And PCB SVG Workflows"
+description = "Run design and pcb-svg commands against public KiCad projects and validate outputs"
 concerns = ["cli", "contracts", "release"]
 test_case_type = "reference"
 test_cases = "tmp_path synthetic KiCad project; tests/corpus/kicad/board_svg/input/led_component; tests/corpus/kicad/projects/taillight/input; tests/corpus/kicad/projects/charge_indicator/input"
 
 [subtests.code_under_test]
 module = "kicad_cruncher.kicad_cruncher_cmd_design"
+pcb_svg_module = "kicad_cruncher.kicad_cruncher_cmd_pcb_svg"
 
 [subtests.objectives]
 design_output = "design writes a KiCad-native JSON artifact"
 auto_detect = "design can auto-detect a single .kicad_pro in CWD"
 index_policy = "design honors --no-indexes"
+pcb_svg_outputs = "pcb-svg writes manifests, layer SVGs, and configured views"
+pcb_svg_hlr = "pcb-svg assembly views include geometer-backed HLR overlays"
 
 [subtests.approach]
 subprocess_cli = "Invoke public CLI commands through the current Python environment"
@@ -40,3 +44,5 @@ test_design_command_generates_project_json = "Generate design JSON from a projec
 test_design_command_uses_copied_kicad_monkey_corpus_projects = "Generate design JSON from copied KiCad Monkey corpus projects"
 test_design_command_can_auto_detect_single_project = "Generate design JSON by auto-detecting one project"
 test_design_command_rejects_pcb_only_input = "Reject PCB-only input for schematic-backed design JSON"
+test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config = "Generate PCB SVG layer outputs and a configured view"
+test_pcb_svg_assembly_view_uses_geometer_hlr = "Generate assembly HLR SVG using an embedded STEP model"

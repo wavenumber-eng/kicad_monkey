@@ -2,7 +2,7 @@
   "schema": "kicad_cruncher.command_manifest.v0",
   "commands": [
     {"name": "design", "status": "public", "requires_extra": null},
+    {"name": "pcb-svg", "status": "public", "requires_extra": null},
     {"name": "version", "status": "public", "requires_extra": null}
   ]
 }
-

@@ -4,8 +4,8 @@
 workflows. It consumes the public `kicad-monkey` package and keeps higher-level
 CLI behavior outside the core parser package.
 
-The first public command is `design`, which writes KiCad-native design JSON from
-a `.kicad_pro` project or `.kicad_sch` schematic.
+The initial public commands generate KiCad-native design JSON and PCB SVG
+artifacts from public `kicad-monkey` parsers/renderers.
 
 ## Install
 
@@ -44,6 +44,7 @@ Run `kicad-cruncher <command> --help` for command-specific options.
 | Command | Purpose | Status |
 | --- | --- | --- |
 | `design` | Generate KiCad-native design JSON with project metadata, hierarchy, components, nets, variants, and optional lookup indexes. | Public |
+| `pcb-svg` | Generate PCB layer SVG artifacts and configured design views, including geometer-backed assembly HLR overlays. | Public |
 | `version` | Print `kicad-cruncher` and controlled dependency versions. | Public |
 
 The `design` command writes to `./output/design/` by default:
@@ -52,6 +53,16 @@ The `design` command writes to `./output/design/` by default:
 kicad-cruncher design board.kicad_pro
 kicad-cruncher design board.kicad_sch --no-indexes
 kicad-cruncher design -o output/design
+```
+
+The `pcb-svg` command writes to `./output/pcb-svg/` by default and uses
+`pcb.svg.config` JSON/JSONC configs compatible with the A0 PCB SVG view
+contract:
+
+```powershell
+kicad-cruncher pcb-svg board.kicad_pcb
+kicad-cruncher pcb-svg project.kicad_pro --views assembly-top
+kicad-cruncher pcb-svg board.kicad_pcb --config pcb.svg.config -o output/pcb-svg
 ```
 
 ## Output Layout

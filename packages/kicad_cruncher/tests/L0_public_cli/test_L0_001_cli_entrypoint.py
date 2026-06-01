@@ -88,6 +88,16 @@ def test_design_help_describes_design_json_contents() -> None:
     assert "nets" in result.stdout
 
 
+def test_pcb_svg_help_describes_config_and_hlr() -> None:
+    """Verify pcb-svg help explains config-driven SVG/HLR behavior."""
+    result = _run_cli("pcb-svg", "--help")
+
+    assert result.returncode == 0, result.stderr
+    assert "pcb.svg.config" in result.stdout
+    assert "geometer-backed assembly HLR" in result.stdout
+    assert ".kicad_pcb" in result.stdout
+
+
 def test_cli_help_lists_commands_alphabetically() -> None:
     """Verify that root help presents commands in alphabetical order."""
     expected_commands = _manifest_commands()
@@ -112,14 +122,16 @@ def test_cli_help_colorizes_root_command_names_with_kicad_amber() -> None:
             "positional arguments:",
             "  <command>             Available commands",
             "    design              generate KiCad-native design JSON",
+            "    pcb-svg             generate PCB SVG layer outputs",
             "    version             Print version information",
         ]
     )
 
-    colored = _color_command_names_in_help(help_text, ("design", "version"))
+    colored = _color_command_names_in_help(help_text, ("design", "pcb-svg", "version"))
     color = f"{Style.BRIGHT}{Fore.YELLOW}"
 
     assert f"    {color}design{Style.RESET_ALL}              generate" in colored
+    assert f"    {color}pcb-svg{Style.RESET_ALL}             generate" in colored
     assert f"    {color}version{Style.RESET_ALL}             Print" in colored
 
 
