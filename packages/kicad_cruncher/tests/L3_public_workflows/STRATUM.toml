@@ -8,7 +8,7 @@ objectives = [
     "Stable public commands run against redistributable KiCad fixtures",
     "Generated outputs have expected schemas or artifact shapes",
     "Workflow tests do not require a private corpus",
-    "A copied KiCad Monkey corpus project exercises real KiCad files",
+    "Copied KiCad Monkey corpus projects exercise real KiCad files",
 ]
 
 [dependencies]
@@ -22,7 +22,7 @@ name = "Design JSON Workflow"
 description = "Run the design command against a synthetic KiCad project and validate JSON output"
 concerns = ["cli", "contracts", "release"]
 test_case_type = "reference"
-test_cases = "tmp_path synthetic KiCad project; tests/corpus/kicad/board_svg/input/led_component"
+test_cases = "tmp_path synthetic KiCad project; tests/corpus/kicad/board_svg/input/led_component; tests/corpus/kicad/projects/taillight/input; tests/corpus/kicad/projects/charge_indicator/input"
 
 [subtests.code_under_test]
 module = "kicad_cruncher.kicad_cruncher_cmd_design"
@@ -37,6 +37,6 @@ subprocess_cli = "Invoke public CLI commands through the current Python environm
 
 [subtests.test_functions]
 test_design_command_generates_project_json = "Generate design JSON from a project input"
-test_design_command_uses_copied_kicad_monkey_corpus_project = "Generate design JSON from a copied KiCad Monkey corpus project"
+test_design_command_uses_copied_kicad_monkey_corpus_projects = "Generate design JSON from copied KiCad Monkey corpus projects"
 test_design_command_can_auto_detect_single_project = "Generate design JSON by auto-detecting one project"
 test_design_command_rejects_pcb_only_input = "Reject PCB-only input for schematic-backed design JSON"

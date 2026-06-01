@@ -7,16 +7,40 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_CORPUS_LED_PROJECT = (
-    _PROJECT_ROOT
-    / "tests"
-    / "corpus"
-    / "kicad"
-    / "board_svg"
-    / "input"
-    / "led_component"
-    / "led_component.kicad_pro"
+_CORPUS_ROOT = _PROJECT_ROOT / "tests" / "corpus" / "kicad"
+_CORPUS_PROJECT_CASES = (
+    pytest.param(
+        _CORPUS_ROOT / "board_svg" / "input" / "led_component" / "led_component.kicad_pro",
+        "led_component_design.json",
+        1,
+        6,
+        id="led_component",
+    ),
+    pytest.param(
+        _CORPUS_ROOT
+        / "projects"
+        / "taillight"
+        / "input"
+        / "11-10045__taillight__C.kicad_pro",
+        "11-10045__taillight__C_design.json",
+        97,
+        75,
+        id="taillight",
+    ),
+    pytest.param(
+        _CORPUS_ROOT
+        / "projects"
+        / "charge_indicator"
+        / "input"
+        / "11-10043__charge_indicator__C.kicad_pro",
+        "11-10043__charge_indicator__C_design.json",
+        117,
+        76,
+        id="charge_indicator",
+    ),
 )
 
 _MIN_SCH_TEXT = """(kicad_sch (version 20250114) (generator "eeschema")
@@ -91,18 +115,22 @@ def test_design_command_generates_project_json(tmp_path: Path) -> None:
     assert "indexes" in payload
 
 
-def test_design_command_uses_copied_kicad_monkey_corpus_project(tmp_path: Path) -> None:
-    """Verify design runs against a copied real KiCad Monkey corpus project."""
+@pytest.mark.parametrize(
+    ("project_path", "output_name", "component_count", "net_count"), _CORPUS_PROJECT_CASES
+)
+def test_design_command_uses_copied_kicad_monkey_corpus_projects(
+    tmp_path: Path, project_path: Path, output_name: str, component_count: int, net_count: int
+) -> None:
+    """Verify design runs against copied real KiCad Monkey corpus projects."""
     output_dir = tmp_path / "out"
 
-    result = _run_cli("design", str(_CORPUS_LED_PROJECT), "-o", str(output_dir))
+    result = _run_cli("design", str(project_path), "-o", str(output_dir))
 
     assert result.returncode == 0, result.stderr + result.stdout
-    payload = json.loads((output_dir / "led_component_design.json").read_text(encoding="utf-8"))
+    payload = json.loads((output_dir / output_name).read_text(encoding="utf-8"))
     assert payload["schema"] == "kicad_monkey.design.a1"
-    assert payload["components"][0]["designator"] == "D1"
-    assert payload["components"][0]["value"] == "FD-3RGB45-N6"
-    assert len(payload["nets"]) == 6
+    assert len(payload["components"]) == component_count
+    assert len(payload["nets"]) == net_count
     assert "pnp" in payload
 
 
