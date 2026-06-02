@@ -51,7 +51,7 @@ def _color_command_names_in_help(help_text: str, command_names: tuple[str, ...])
         return help_text
     command_pattern = "|".join(re.escape(command) for command in command_names)
     line_pattern = re.compile(
-        rf"^(?P<indent>\s{{4}})(?P<command>{command_pattern})(?P<rest>(?:\s{{2,}}.*)?)$",
+        rf"^(?P<indent>\s{{4}})(?P<command>{command_pattern})(?P<rest>(?:\s.*)?)$",
         re.MULTILINE,
     )
 

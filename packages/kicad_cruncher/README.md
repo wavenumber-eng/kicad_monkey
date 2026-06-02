@@ -4,8 +4,8 @@
 workflows. It consumes the public `kicad-monkey` package and keeps higher-level
 CLI behavior outside the core parser package.
 
-The initial public commands generate KiCad-native design JSON and PCB SVG
-artifacts from public `kicad-monkey` parsers/renderers.
+The initial public commands generate KiCad-native design review bundles and PCB
+SVG artifacts from public `kicad-monkey` parsers/renderers.
 
 ## Install
 
@@ -43,17 +43,25 @@ Run `kicad-cruncher <command> --help` for command-specific options.
 
 | Command | Purpose | Status |
 | --- | --- | --- |
-| `design` | Generate KiCad-native design JSON with project metadata, hierarchy, components, nets, variants, and optional lookup indexes. | Public |
+| `design` / `design-review` / `dr` | Generate a design review bundle with KiCad-native design JSON, schematic SVGs, PCB copper-layer SVGs, a manifest, and a README for agents. | Public |
 | `pcb-svg` | Generate PCB layer SVG artifacts and configured design views, including geometer-backed assembly HLR overlays. | Public |
 | `version` | Print `kicad-cruncher` and controlled dependency versions. | Public |
 
-The `design` command writes to `./output/design/` by default:
+The `design` command writes to `./output/design/` by default. Its aliases
+`design-review` and `dr` produce the same output:
 
 ```powershell
 kicad-cruncher design board.kicad_pro
-kicad-cruncher design board.kicad_sch --no-indexes
+kicad-cruncher design-review board.kicad_pro
+kicad-cruncher dr board.kicad_sch --no-indexes
 kicad-cruncher design -o output/design
 ```
+
+The design review output includes `<input-stem>_design.json`,
+`design_review_manifest.json`, `README.md`, enriched schematic SVGs under
+`schematics/`, and one PCB review SVG per copper layer under
+`pcb/copper_layers/` when a board is present. PCB review SVGs include the
+copper layer, `Edge.Cuts`, and coloured drill/slot overlays.
 
 The `pcb-svg` command writes to `./output/pcb-svg/` by default and uses
 `pcb.svg.config` JSON/JSONC configs compatible with the A0 PCB SVG view

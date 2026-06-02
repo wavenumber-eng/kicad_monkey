@@ -4,13 +4,15 @@
 <body data-doc-kind="cli-design" data-command="design" data-config-contract="none">
 <main>
 <nav class="nav"><a href="../index.html">Design Index</a><a href="index.html">CLI</a></nav>
-<header><p class="status">CLI command design</p><h1>design</h1><p class="lede">Generates machine-consumable KiCad-native design JSON from KiCad project or schematic inputs.</p></header>
+<header><p class="status">CLI command design</p><h1>design</h1><p class="lede">Generates a KiCad design review bundle from KiCad project or schematic inputs.</p></header>
 <section id="usage"><h2>Usage</h2><pre><code>kicad-cruncher design project.kicad_pro -o output/design
+kicad-cruncher design-review project.kicad_pro
+kicad-cruncher dr project.kicad_pro
 kicad-cruncher design schematic.kicad_sch
 kicad-cruncher design --no-indexes</code></pre></section>
-<section id="arguments"><h2>Arguments</h2><p><code>file</code> accepts <code>.kicad_pro</code> or <code>.kicad_sch</code>. When omitted, the command attempts project auto-detection when exactly one <code>.kicad_pro</code> exists in the current directory. <code>-o</code> selects the output directory directly, and <code>--no-indexes</code> omits lookup indexes.</p></section>
-<section id="output"><h2>Output</h2><p>The command writes <code>KiCadDesign.to_json()</code> output to <code>&lt;input-stem&gt;_design.json</code>. When <code>-o</code> is omitted, the artifact is written under <code>./output/design/</code>. The payload is owned by <code>kicad-monkey</code> and includes project metadata, schematic hierarchy, sheets, components, nets, variants, optional PnP data, and optional lookup indexes.</p></section>
-<section id="tests"><h2>Tests</h2><p>L3 verifies command execution against a redistributable synthetic KiCad project and asserts the design JSON schema, project text variables, component list, net list, and index suppression behavior.</p></section>
+<section id="arguments"><h2>Arguments</h2><p><code>file</code> accepts <code>.kicad_pro</code> or <code>.kicad_sch</code>. When omitted, the command attempts project auto-detection when exactly one <code>.kicad_pro</code> exists in the current directory. <code>-o</code> selects the output directory directly, and <code>--no-indexes</code> omits lookup indexes from the design JSON. <code>design-review</code> and <code>dr</code> are public aliases for the same command.</p></section>
+<section id="output"><h2>Output</h2><p>The command writes <code>KiCadDesign.to_json()</code> output to <code>&lt;input-stem&gt;_design.json</code>. When <code>-o</code> is omitted, artifacts are written under <code>./output/design/</code>. The payload is owned by <code>kicad-monkey</code> and includes project metadata, schematic hierarchy, sheets, components, nets, variants, optional PnP data, and optional lookup indexes.</p><p>The command also writes <code>design_review_manifest.json</code>, <code>README.md</code>, enriched black-and-white schematic SVGs under <code>schematics/</code>, and one PCB review SVG per copper layer under <code>pcb/copper_layers/</code> when a board exists. PCB review SVGs include the selected copper layer, <code>Edge.Cuts</code>, and coloured drill/slot overlays. The PCB review theme is <code>kicad_cruncher.design_review.pcb_svg.a0</code>; draw order is tracks/arcs, polygons/zones, edge cuts, pads, then drill/slot overlays.</p></section>
+<section id="tests"><h2>Tests</h2><p>L3 verifies command execution against a redistributable synthetic KiCad project and copied public KiCad corpus projects. It asserts the design JSON schema, project text variables, component list, net list, index suppression behavior, alias behavior, manifest schema, README content, schematic SVG artifacts, and PCB review SVG colors, metadata, and drill/slot overlays.</p></section>
 </main>
 </body>
 </html>

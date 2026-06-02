@@ -6,7 +6,7 @@ concerns = ["cli", "contracts", "release"]
 
 objectives = [
     "Stable public commands run against redistributable KiCad fixtures",
-    "Generated outputs have expected schemas or artifact shapes",
+    "Generated outputs have expected schemas, README guidance, and artifact shapes",
     "Workflow tests do not require a private corpus",
     "Copied KiCad Monkey corpus projects exercise real KiCad files",
     "PCB SVG workflows exercise config-driven layer outputs and geometer HLR",
@@ -30,7 +30,9 @@ module = "kicad_cruncher.kicad_cruncher_cmd_design"
 pcb_svg_module = "kicad_cruncher.kicad_cruncher_cmd_pcb_svg"
 
 [subtests.objectives]
-design_output = "design writes a KiCad-native JSON artifact"
+design_output = "design writes a KiCad-native JSON artifact and review manifest"
+design_review_svgs = "design writes schematic SVGs and PCB copper-layer review SVGs"
+design_aliases = "design-review and dr aliases generate the same review bundle"
 auto_detect = "design can auto-detect a single .kicad_pro in CWD"
 index_policy = "design honors --no-indexes"
 pcb_svg_outputs = "pcb-svg writes manifests, layer SVGs, and configured views"
@@ -40,8 +42,9 @@ pcb_svg_hlr = "pcb-svg assembly views include geometer-backed HLR overlays"
 subprocess_cli = "Invoke public CLI commands through the current Python environment"
 
 [subtests.test_functions]
-test_design_command_generates_project_json = "Generate design JSON from a project input"
-test_design_command_uses_copied_kicad_monkey_corpus_projects = "Generate design JSON from copied KiCad Monkey corpus projects"
+test_design_command_generates_project_json = "Generate design JSON and review artifacts from a project input"
+test_design_aliases_generate_review_bundle = "Generate design review artifacts through public aliases"
+test_design_command_uses_copied_kicad_monkey_corpus_projects = "Generate design review artifacts from copied KiCad Monkey corpus projects"
 test_design_command_can_auto_detect_single_project = "Generate design JSON by auto-detecting one project"
 test_design_command_rejects_pcb_only_input = "Reject PCB-only input for schematic-backed design JSON"
 test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config = "Generate PCB SVG layer outputs and a configured view"

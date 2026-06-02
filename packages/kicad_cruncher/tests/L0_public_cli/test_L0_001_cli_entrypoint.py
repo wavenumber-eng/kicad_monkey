@@ -78,14 +78,27 @@ def test_cli_help_lists_global_logging_controls() -> None:
 
 
 def test_design_help_describes_design_json_contents() -> None:
-    """Verify design help explains the broader design JSON payload."""
+    """Verify design help explains the broader design review payload."""
     result = _run_cli("design", "--help")
 
     assert result.returncode == 0, result.stderr
+    assert "design review bundle" in result.stdout
+    assert "enriched schematic SVGs" in result.stdout
+    assert "enriched PCB copper-layer SVGs" in result.stdout
     assert "project metadata" in result.stdout
     assert "schematic hierarchy" in result.stdout
     assert "components" in result.stdout
     assert "nets" in result.stdout
+
+
+@pytest.mark.parametrize("alias", ("design-review", "dr"))
+def test_design_alias_help_starts(alias: str) -> None:
+    """Verify the public design review aliases start and print help."""
+    result = _run_cli(alias, "--help")
+
+    assert result.returncode == 0, result.stderr
+    assert "usage:" in result.stdout
+    assert "design review bundle" in result.stdout
 
 
 def test_pcb_svg_help_describes_config_and_hlr() -> None:
@@ -121,7 +134,8 @@ def test_cli_help_colorizes_root_command_names_with_kicad_amber() -> None:
         [
             "positional arguments:",
             "  <command>             Available commands",
-            "    design              generate KiCad-native design JSON",
+            "    design (design-review, dr)",
+            "                        generate KiCad design review artifacts",
             "    pcb-svg             generate PCB SVG layer outputs",
             "    version             Print version information",
         ]
@@ -130,7 +144,7 @@ def test_cli_help_colorizes_root_command_names_with_kicad_amber() -> None:
     colored = _color_command_names_in_help(help_text, ("design", "pcb-svg", "version"))
     color = f"{Style.BRIGHT}{Fore.YELLOW}"
 
-    assert f"    {color}design{Style.RESET_ALL}              generate" in colored
+    assert f"    {color}design{Style.RESET_ALL} (design-review, dr)" in colored
     assert f"    {color}pcb-svg{Style.RESET_ALL}             generate" in colored
     assert f"    {color}version{Style.RESET_ALL}             Print" in colored
 

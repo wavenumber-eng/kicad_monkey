@@ -32,6 +32,7 @@ manifest_alignment = "Manifest commands remain visible in alphabetical help outp
 command_help = "Each manifest command exposes versioned command-level help"
 output_layout = "Output-producing commands share a default ./output/<command>/ layout"
 pcb_svg_help = "pcb-svg help describes config and HLR behavior"
+design_review_help = "design help describes JSON, schematic SVG, PCB SVG, manifest, and README outputs"
 
 [subtests.approach]
 subprocess_cli = "Invoke the package command through the current Python environment"
@@ -42,6 +43,7 @@ test_cli_no_args_prints_versioned_help = "Bare CLI invocation prints versioned r
 test_cli_help_lists_manifest_commands = "Root help lists each command declared in the manifest"
 test_cli_help_lists_commands_alphabetically = "Root help lists commands alphabetically"
 test_cli_command_help_starts_for_manifest_commands = "Each manifest command starts and prints versioned command-level help"
-test_design_help_describes_design_json_contents = "Design help describes the KiCad-native JSON payload"
+test_design_help_describes_design_json_contents = "Design help describes the design review bundle payload"
+test_design_alias_help_starts = "Design review aliases start and print command help"
 test_pcb_svg_help_describes_config_and_hlr = "pcb-svg help describes config-driven SVG and HLR behavior"
 test_resolve_output_dir_defaults_to_command_subfolder = "Shared output resolver defaults to output/<command>"

@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -143,6 +144,74 @@ def _write_pcb_svg_config(root: Path, *, include_hlr: bool) -> Path:
     return config_path
 
 
+def _read_json(path: Path) -> dict[str, Any]:
+    """Read a JSON object from a generated artifact."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict)
+    return payload
+
+
+def _assert_design_review_bundle(
+    output_dir: Path,
+    *,
+    design_json_name: str,
+    expect_pcb_svgs: bool,
+) -> dict[str, Any]:
+    """Verify the design command emitted the shared review bundle layout."""
+    manifest_path = output_dir / "design_review_manifest.json"
+    readme_path = output_dir / "README.md"
+
+    assert manifest_path.exists()
+    assert readme_path.exists()
+    manifest = _read_json(manifest_path)
+    assert manifest["schema"] == "kicad_cruncher.design_review_manifest.a0"
+    assert manifest["design_json"] == design_json_name
+    assert manifest["readme"] == "README.md"
+    assert (output_dir / design_json_name).exists()
+
+    readme_text = readme_path.read_text(encoding="utf-8")
+    assert "KiCad Design Review Bundle" in readme_text
+    assert "Design JSON Relationships" in readme_text
+    assert "Schematic SVGs" in readme_text
+    assert "PCB Review SVGs" in readme_text
+    assert "kicad_monkey.design.a0" in readme_text
+
+    schematic_svgs = manifest["schematic_svgs"]
+    assert isinstance(schematic_svgs, list)
+    assert schematic_svgs
+    for item in schematic_svgs:
+        svg_path = output_dir / item["file"]
+        assert svg_path.exists()
+        schematic_svg = svg_path.read_text(encoding="utf-8")
+        assert "<svg" in schematic_svg
+        assert item["sheet_path"]
+        assert item["sheet_instance_path"]
+
+    pcb_svgs = manifest["pcb_svgs"]
+    assert isinstance(pcb_svgs, list)
+    if expect_pcb_svgs:
+        assert pcb_svgs
+    else:
+        assert pcb_svgs == []
+    return manifest
+
+
+def _assert_pcb_review_svg_contract(output_dir: Path, item: dict[str, Any]) -> None:
+    """Verify a generated PCB review SVG carries the visual review contract."""
+    svg_path = output_dir / item["file"]
+    assert svg_path.exists()
+    svg_text = svg_path.read_text(encoding="utf-8")
+    assert 'data-review-theme="kicad_cruncher.design_review.pcb_svg.a0"' in svg_text
+    assert f'data-review-layer="{item["layer"]}"' in svg_text
+    assert 'data-review-draw-order="tracks,polygons-zones,edge-cuts,pads,drills-slots"' in svg_text
+    assert "#D0D0D0" in svg_text
+    assert "#000000" in svg_text
+    if int(item["drill_slot_overlay_count"]) > 0:
+        assert 'id="design-review-drills-slots"' in svg_text
+        assert "data-hole-kind=" in svg_text
+        assert "data-hole-plating=" in svg_text
+
+
 def test_design_command_generates_project_json(tmp_path: Path) -> None:
     """Verify design writes a KiCad-native JSON payload for a project."""
     project_path = _write_synthetic_project(tmp_path)
@@ -160,6 +229,27 @@ def test_design_command_generates_project_json(tmp_path: Path) -> None:
     assert isinstance(payload["components"], list)
     assert isinstance(payload["nets"], list)
     assert "indexes" in payload
+    _assert_design_review_bundle(
+        output_dir,
+        design_json_name="demo_design.json",
+        expect_pcb_svgs=False,
+    )
+
+
+@pytest.mark.parametrize("command", ("design-review", "dr"))
+def test_design_aliases_generate_review_bundle(tmp_path: Path, command: str) -> None:
+    """Verify public aliases generate the same review bundle shape."""
+    project_path = _write_synthetic_project(tmp_path)
+    output_dir = tmp_path / command
+
+    result = _run_cli(command, str(project_path), "-o", str(output_dir))
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    _assert_design_review_bundle(
+        output_dir,
+        design_json_name="demo_design.json",
+        expect_pcb_svgs=False,
+    )
 
 
 @pytest.mark.parametrize(
@@ -174,11 +264,25 @@ def test_design_command_uses_copied_kicad_monkey_corpus_projects(
     result = _run_cli("design", str(project_path), "-o", str(output_dir))
 
     assert result.returncode == 0, result.stderr + result.stdout
-    payload = json.loads((output_dir / output_name).read_text(encoding="utf-8"))
+    payload = _read_json(output_dir / output_name)
     assert payload["schema"] == "kicad_monkey.design.a0"
     assert len(payload["components"]) == component_count
     assert len(payload["nets"]) == net_count
     assert "pnp" in payload
+    manifest = _assert_design_review_bundle(
+        output_dir,
+        design_json_name=output_name,
+        expect_pcb_svgs=True,
+    )
+    assert any(item["layer"] == "F.Cu" for item in manifest["pcb_svgs"])
+    assert any(item["layer"] == "B.Cu" for item in manifest["pcb_svgs"])
+    _assert_pcb_review_svg_contract(output_dir, manifest["pcb_svgs"][0])
+    all_pcb_svg_text = "\n".join(
+        (output_dir / item["file"]).read_text(encoding="utf-8")
+        for item in manifest["pcb_svgs"]
+    )
+    if output_name != "led_component_design.json":
+        assert "#B8B8B8" in all_pcb_svg_text
 
 
 def test_design_command_can_auto_detect_single_project(tmp_path: Path) -> None:
@@ -189,9 +293,14 @@ def test_design_command_can_auto_detect_single_project(tmp_path: Path) -> None:
 
     assert result.returncode == 0, result.stderr + result.stdout
     output_file = tmp_path / "output" / "design" / "demo_design.json"
-    payload = json.loads(output_file.read_text(encoding="utf-8"))
+    payload = _read_json(output_file)
     assert payload["schema"] == "kicad_monkey.design.a0"
     assert "indexes" not in payload
+    _assert_design_review_bundle(
+        tmp_path / "output" / "design",
+        design_json_name="demo_design.json",
+        expect_pcb_svgs=False,
+    )
 
 
 def test_design_command_rejects_pcb_only_input(tmp_path: Path) -> None:
