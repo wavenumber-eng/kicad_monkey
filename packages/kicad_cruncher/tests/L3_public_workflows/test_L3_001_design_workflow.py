@@ -154,7 +154,7 @@ def test_design_command_generates_project_json(tmp_path: Path) -> None:
     output_file = output_dir / "demo_design.json"
     assert output_file.exists()
     payload = json.loads(output_file.read_text(encoding="utf-8"))
-    assert payload["schema"] == "kicad_monkey.design.a1"
+    assert payload["schema"] == "kicad_monkey.design.a0"
     assert payload["generator"] == "kicad_monkey"
     assert payload["project"]["text_variables"] == {"TITLE": "Demo"}
     assert isinstance(payload["components"], list)
@@ -175,7 +175,7 @@ def test_design_command_uses_copied_kicad_monkey_corpus_projects(
 
     assert result.returncode == 0, result.stderr + result.stdout
     payload = json.loads((output_dir / output_name).read_text(encoding="utf-8"))
-    assert payload["schema"] == "kicad_monkey.design.a1"
+    assert payload["schema"] == "kicad_monkey.design.a0"
     assert len(payload["components"]) == component_count
     assert len(payload["nets"]) == net_count
     assert "pnp" in payload
@@ -190,7 +190,7 @@ def test_design_command_can_auto_detect_single_project(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr + result.stdout
     output_file = tmp_path / "output" / "design" / "demo_design.json"
     payload = json.loads(output_file.read_text(encoding="utf-8"))
-    assert payload["schema"] == "kicad_monkey.design.a1"
+    assert payload["schema"] == "kicad_monkey.design.a0"
     assert "indexes" not in payload
 
 

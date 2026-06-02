@@ -10,7 +10,7 @@ authors = [
 ]
 dependencies = [
     "colorama>=0.4.6",
-    "kicad-monkey==2026.5.31",
+    "kicad-monkey==2026.6.2",
     "wn-geometer==2026.5.25",
 ]
 

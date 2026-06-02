@@ -311,7 +311,7 @@ dev = [
 requires-dist = [
     { name = "build", marker = "extra == 'test'", specifier = ">=1.2.0" },
     { name = "colorama", specifier = ">=0.4.6" },
-    { name = "kicad-monkey", specifier = "==2026.5.31" },
+    { name = "kicad-monkey", specifier = "==2026.6.2" },
     { name = "pyright", marker = "extra == 'test'", specifier = ">=1.1.390" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
     { name = "pytest-json-report", marker = "extra == 'test'", specifier = ">=1.5.0" },
@@ -335,7 +335,7 @@ dev = [
 
 [[package]]
 name = "kicad-monkey"
-version = "2026.5.31"
+version = "2026.6.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama" },
@@ -346,9 +346,9 @@ dependencies = [
     { name = "uharfbuzz" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/96/3d/871f817c697eeab843d0d82f98a91a74d8853c19b9f8d8467abf2591e02f/kicad_monkey-2026.5.31.tar.gz", hash = "sha256:d9218de1d26d3e8a14b6815d9f9360456ad670b256565011706aece4d55ce9ee", size = 2864970, upload-time = "2026-05-31T22:32:25.443Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9e/43/2a3bb5fdb7d912a9d9f144ac8f5e8c44712bfaa4ab2b36cb602b9eb62adf/kicad_monkey-2026.6.2.tar.gz", hash = "sha256:6542964eb2655ab489f0a24a5c70b6e8ca0dc8cdd77c700e07ffd36f3f116298", size = 2912416, upload-time = "2026-06-02T18:33:20.972Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/2f/8f85d6869931a595d1cab1903dae12d51d740282357f84f8df5873685e8f/kicad_monkey-2026.5.31-py3-none-any.whl", hash = "sha256:3fb3e43dd149fb152fe11220e43ca16d930da5af120d2bd53f445c9b05f3209f", size = 611528, upload-time = "2026-05-31T22:32:23.448Z" },
+    { url = "https://files.pythonhosted.org/packages/b8/82/0965d2ff2e15cc329beed4ffb62cb74c42eb116d023cfcdeb14a70d20ce1/kicad_monkey-2026.6.2-py3-none-any.whl", hash = "sha256:a2248b68e86a8cb293a68740b08820b7c2ff14ef14ffac015cb0f67334c6263c", size = 633171, upload-time = "2026-06-02T18:33:19.256Z" },
 ]
 
 [[package]]
