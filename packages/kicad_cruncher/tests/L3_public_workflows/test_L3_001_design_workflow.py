@@ -239,31 +239,56 @@ def _assert_pcb_review_svg_contract(output_dir: Path, item: dict[str, Any]) -> N
     assert 'data-review-draw-order="tracks,polygons-zones,edge-cuts,pads,drills-slots"' in svg_text
     assert "#D0D0D0" in svg_text
     assert "#000000" in svg_text
-    if int(item["drill_slot_overlay_count"]) > 0:
-        assert 'id="design-review-drills-slots"' in svg_text
+    assert 'id="design-review-drills-slots"' not in svg_text
+    assert "data-review-object=" not in svg_text
+    assert "data-source-uuid=" not in svg_text
+    assert "data-hole-plated=" not in svg_text
+    assert 'data-hole-plating="non-plated"' not in svg_text
+    if int(item["drill_slot_record_count"]) > 0:
+        assert 'data-primitive="pad-hole"' in svg_text or 'data-primitive="via-hole"' in svg_text
         assert "data-hole-kind=" in svg_text
         assert "data-hole-plating=" in svg_text
+        assert any(color in svg_text for color in ("#2563EB", "#0891B2", "#DC2626", "#F97316"))
 
 
 def _review_attrs_by_source_uuid(
     svg_text: str,
     *,
-    review_object: str,
     component: str,
 ) -> dict[str, dict[str, str]]:
-    """Index review overlay SVG attributes for a component by source UUID."""
+    """Index KiCad Monkey enriched hole attributes for a component by owner UUID."""
     root = ET.fromstring(svg_text)
     attrs_by_uuid: dict[str, dict[str, str]] = {}
     for element in root.iter():
         attrs = element.attrib
-        if attrs.get("data-review-object") != review_object:
+        if attrs.get("data-primitive") not in {"pad-hole", "via-hole"}:
             continue
         if attrs.get("data-component") != component:
             continue
-        source_uuid = attrs.get("data-source-uuid")
+        source_uuid = attrs.get("data-hole-owner")
         if source_uuid:
             attrs_by_uuid[source_uuid] = dict(attrs)
     return attrs_by_uuid
+
+
+def _review_svgs_by_source_uuid(
+    svg_text: str,
+    *,
+    component: str,
+) -> dict[str, str]:
+    """Index KiCad Monkey enriched hole SVG subtrees for a component by owner UUID."""
+    root = ET.fromstring(svg_text)
+    svg_by_uuid: dict[str, str] = {}
+    for element in root.iter():
+        attrs = element.attrib
+        if attrs.get("data-primitive") not in {"pad-hole", "via-hole"}:
+            continue
+        if attrs.get("data-component") != component:
+            continue
+        source_uuid = attrs.get("data-hole-owner")
+        if source_uuid:
+            svg_by_uuid[source_uuid] = ET.tostring(element, encoding="unicode")
+    return svg_by_uuid
 
 
 def test_design_command_generates_project_json(tmp_path: Path) -> None:
@@ -355,8 +380,8 @@ def test_design_command_uses_copied_kicad_monkey_corpus_projects(
         assert "#B8B8B8" in all_pcb_svg_text
 
 
-def test_design_review_pcb_overlay_distinguishes_pth_and_npth_pads(tmp_path: Path) -> None:
-    """Verify design-review drill overlays keep real PTH and NPTH pads distinct."""
+def test_design_review_pcb_records_distinguish_pth_and_npth_pads(tmp_path: Path) -> None:
+    """Verify design-review drill records keep real PTH and NPTH pads distinct."""
     project_path = (
         _CORPUS_ROOT
         / "projects"
@@ -374,23 +399,30 @@ def test_design_review_pcb_overlay_distinguishes_pth_and_npth_pads(tmp_path: Pat
     svg_text = (output_dir / front_copper["file"]).read_text(encoding="utf-8")
     j1_pad_holes = _review_attrs_by_source_uuid(
         svg_text,
-        review_object="pad-hole",
+        component="J1",
+    )
+    j1_pad_hole_svgs = _review_svgs_by_source_uuid(
+        svg_text,
         component="J1",
     )
 
     npth_pad = j1_pad_holes["7f60e5a9-d550-4d97-99c7-c6445de4e457"]
-    assert npth_pad["data-hole-plating"] == "non-plated"
+    assert npth_pad["data-hole-plating"] == "non_plated"
     assert npth_pad["data-hole-kind"] == "round"
-    assert npth_pad["fill"] == "#DC2626"
+    assert npth_pad["data-pad-type"] == "np_thru_hole"
+    assert npth_pad["data-hole-diameter-mm"] == "2.5"
     assert "data-pad-number" not in npth_pad
+    assert "#DC2626" in j1_pad_hole_svgs["7f60e5a9-d550-4d97-99c7-c6445de4e457"]
 
     pth_pad = j1_pad_holes["5c2e78b7-48b3-4842-94d6-1a03bfcd6e8d"]
     assert pth_pad["data-hole-plating"] == "plated"
     assert pth_pad["data-hole-kind"] == "round"
-    assert pth_pad["fill"] == "#2563EB"
+    assert pth_pad["data-pad-type"] == "thru_hole"
+    assert pth_pad["data-hole-diameter-mm"] == "0.889"
     assert pth_pad["data-pad-number"] == "1"
+    assert "#2563EB" in j1_pad_hole_svgs["5c2e78b7-48b3-4842-94d6-1a03bfcd6e8d"]
 
-    assert sum(attrs["data-hole-plating"] == "non-plated" for attrs in j1_pad_holes.values()) == 4
+    assert sum(attrs["data-hole-plating"] == "non_plated" for attrs in j1_pad_holes.values()) == 4
     assert sum(attrs["data-hole-plating"] == "plated" for attrs in j1_pad_holes.values()) == 4
 
 

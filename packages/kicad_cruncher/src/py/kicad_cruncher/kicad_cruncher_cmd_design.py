@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import math
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -35,6 +34,7 @@ _PCB_PTH_DRILL_COLOR = "#2563EB"
 _PCB_PTH_SLOT_COLOR = "#0891B2"
 _PCB_NPTH_DRILL_COLOR = "#DC2626"
 _PCB_NPTH_SLOT_COLOR = "#F97316"
+_PCB_UNKNOWN_HOLE_COLOR = "#6B7280"
 
 ET.register_namespace("", _SVG_NS)
 ET.register_namespace("xlink", _XLINK_NS)
@@ -182,9 +182,9 @@ def _set_svg_element_color(element: ET.Element, color: str) -> None:
 
 def _is_drill_review_category(attrs: dict[str, str]) -> bool:
     return (
-        "drill" in attrs.get("data-ref", "")
-        or "drill" in attrs.get("data-primitive", "")
-        or attrs.get("data-hole-render", "") == "drill"
+        attrs.get("data-ref", "") in {"drill_overlay", "pad_hole"}
+        or attrs.get("data-primitive", "") in {"pad-hole", "via-hole"}
+        or attrs.get("data-hole-render", "") in {"drill", "slot"}
     )
 
 
@@ -233,12 +233,25 @@ def _merged_data_attrs(chain: list[dict[str, str]], element: ET.Element) -> dict
     return attrs
 
 
+def _pcb_hole_review_color(attrs: dict[str, str]) -> str:
+    plating = attrs.get("data-hole-plating", "")
+    hole_kind = attrs.get("data-hole-kind", "")
+    if plating not in {"plated", "non_plated"}:
+        return _PCB_UNKNOWN_HOLE_COLOR
+    is_non_plated = plating == "non_plated"
+    if hole_kind == "slot":
+        return _PCB_NPTH_SLOT_COLOR if is_non_plated else _PCB_PTH_SLOT_COLOR
+    return _PCB_NPTH_DRILL_COLOR if is_non_plated else _PCB_PTH_DRILL_COLOR
+
+
 def _apply_pcb_review_theme(element: ET.Element, chain: list[dict[str, str]] | None = None) -> None:
     """Apply review colours based on enriched SVG data attributes."""
     inherited = [] if chain is None else chain
     attrs = _merged_data_attrs(inherited, element)
     category = _svg_review_category(attrs)
-    if category == "edge":
+    if category == "drill":
+        _set_svg_element_color(element, _pcb_hole_review_color(attrs))
+    elif category == "edge":
         _set_svg_element_color(element, _PCB_EDGE_COLOR)
     elif category in {"track", "zone"}:
         _set_svg_element_color(element, _PCB_TRACE_COLOR)
@@ -273,323 +286,18 @@ def _reorder_pcb_review_groups(root: ET.Element) -> None:
     root[:] = [child for _index, child in sorted(indexed, key=sort_key)]
 
 
-def _fmt_svg(value: float) -> str:
-    text = f"{float(value):.6f}".rstrip("0").rstrip(".")
-    return text or "0"
-
-
-def _layer_matches(layer: str, wanted: str) -> bool:
-    if layer == wanted:
-        return True
-    if layer == "*.Cu":
-        return wanted.endswith(".Cu")
-    if layer == "F&B.Cu":
-        return wanted in {"F.Cu", "B.Cu"}
-    return False
-
-
-def _pad_reaches_layer(pad: object, layer: str) -> bool:
-    return any(
-        _layer_matches(str(raw_layer), layer) for raw_layer in getattr(pad, "layers", []) or []
+def _count_pcb_hole_records(root: ET.Element) -> int:
+    """Count KiCad Monkey enriched drill/slot records in a styled SVG."""
+    return sum(
+        1
+        for element in root.iter()
+        if element.attrib.get("data-primitive") in {"pad-hole", "via-hole"}
+        and element.attrib.get("data-hole-kind")
+        and element.attrib.get("data-hole-plating")
     )
 
 
-def _copper_layer_index_map(pcb: KiCadPcb) -> dict[str, int]:
-    return {layer: index for index, layer in enumerate(_pcb_copper_layers(pcb))}
-
-
-def _via_reaches_layer(via: object, layer: str, layer_indexes: dict[str, int]) -> bool:
-    layers = [str(item) for item in getattr(via, "layers", []) or []]
-    if any(_layer_matches(item, layer) for item in layers):
-        return True
-    endpoints = [layer_indexes[item] for item in layers if item in layer_indexes]
-    if len(endpoints) < 2 or layer not in layer_indexes:
-        return False
-    return min(endpoints) <= layer_indexes[layer] <= max(endpoints)
-
-
-def _pad_type_value(pad: object) -> str:
-    pad_type = getattr(pad, "pad_type", "")
-    return str(getattr(pad_type, "value", pad_type))
-
-
-def _rotated_point(x: float, y: float, angle_deg: float) -> tuple[float, float]:
-    radians = math.radians(angle_deg)
-    return (
-        x * math.cos(radians) - y * math.sin(radians),
-        x * math.sin(radians) + y * math.cos(radians),
-    )
-
-
-def _float_attr(obj: object, attr: str) -> float:
-    return float(getattr(obj, attr, 0.0) or 0.0)
-
-
-def _pad_drill_offset_mm(pad: object) -> tuple[float, float]:
-    offset_x = _float_attr(pad, "drill_offset_x")
-    offset_y = _float_attr(pad, "drill_offset_y")
-    if not offset_x and not offset_y:
-        return (0.0, 0.0)
-    return _rotated_point(offset_x, offset_y, _float_attr(pad, "at_angle"))
-
-
-def _pad_drill_center_mm(footprint: object, pad: object) -> tuple[float, float]:
-    offset_x, offset_y = _pad_drill_offset_mm(pad)
-    rel_x, rel_y = _rotated_point(
-        _float_attr(pad, "at_x") + offset_x,
-        _float_attr(pad, "at_y") + offset_y,
-        _float_attr(footprint, "at_angle"),
-    )
-    return (_float_attr(footprint, "at_x") + rel_x, _float_attr(footprint, "at_y") + rel_y)
-
-
-def _component_reference(footprint: object) -> str:
-    getter = getattr(footprint, "get_property_value", None)
-    if callable(getter):
-        return str(getter("Reference", "") or "")
-    return ""
-
-
-def _append_round_hole(
-    group: ET.Element,
-    *,
-    cx: float,
-    cy: float,
-    diameter: float,
-    color: str,
-    attrs: dict[str, str],
-) -> None:
-    element = ET.SubElement(group, f"{{{_SVG_NS}}}circle")
-    element.set("cx", _fmt_svg(cx))
-    element.set("cy", _fmt_svg(cy))
-    element.set("r", _fmt_svg(diameter / 2.0))
-    element.set("fill", color)
-    element.set("fill-opacity", "0.82")
-    element.set("stroke", color)
-    element.set("stroke-width", "0.05")
-    for key, value in attrs.items():
-        if value:
-            element.set(key, value)
-
-
-def _append_slot(
-    group: ET.Element,
-    *,
-    cx: float,
-    cy: float,
-    width: float,
-    height: float,
-    angle_deg: float,
-    color: str,
-    attrs: dict[str, str],
-) -> None:
-    major = max(width, height)
-    minor = min(width, height)
-    if major <= 0 or minor <= 0:
-        return
-    slot_angle = math.radians(-angle_deg)
-    if height > width:
-        slot_angle += math.pi / 2.0
-    dx = math.cos(slot_angle) * (major - minor) / 2.0
-    dy = math.sin(slot_angle) * (major - minor) / 2.0
-    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
-        _append_round_hole(group, cx=cx, cy=cy, diameter=minor, color=color, attrs=attrs)
-        return
-    element = ET.SubElement(group, f"{{{_SVG_NS}}}line")
-    element.set("x1", _fmt_svg(cx - dx))
-    element.set("y1", _fmt_svg(cy - dy))
-    element.set("x2", _fmt_svg(cx + dx))
-    element.set("y2", _fmt_svg(cy + dy))
-    element.set("stroke", color)
-    element.set("stroke-width", _fmt_svg(minor))
-    element.set("stroke-opacity", "0.82")
-    element.set("stroke-linecap", "round")
-    for key, value in attrs.items():
-        if value:
-            element.set(key, value)
-
-
-def _bbox_svg_point(bbox: object, x_mm: float, y_mm: float) -> tuple[float, float]:
-    return (x_mm - _float_attr(bbox, "min_x"), y_mm - _float_attr(bbox, "min_y"))
-
-
-def _pad_hole_attrs(pad: object, *, component: str, plating: str) -> dict[str, str]:
-    return {
-        "data-review-object": "pad-hole",
-        "data-component": component,
-        "data-pad-number": str(getattr(pad, "number", "") or ""),
-        "data-hole-plating": plating,
-        "data-source-uuid": str(getattr(pad, "uuid", "") or ""),
-    }
-
-
-def _append_pad_slot_overlay(
-    group: ET.Element,
-    *,
-    footprint: object,
-    pad: object,
-    cx: float,
-    cy: float,
-    plating: str,
-    attrs: dict[str, str],
-) -> bool:
-    width = _float_attr(pad, "drill_width")
-    height = _float_attr(pad, "drill_height")
-    if width <= 0 or height <= 0:
-        return False
-    attrs["data-hole-kind"] = "slot"
-    color = _PCB_NPTH_SLOT_COLOR if plating == "non-plated" else _PCB_PTH_SLOT_COLOR
-    _append_slot(
-        group,
-        cx=cx,
-        cy=cy,
-        width=width,
-        height=height,
-        angle_deg=_float_attr(footprint, "at_angle") + _float_attr(pad, "at_angle"),
-        color=color,
-        attrs=attrs,
-    )
-    return True
-
-
-def _append_pad_round_overlay(
-    group: ET.Element,
-    *,
-    pad: object,
-    cx: float,
-    cy: float,
-    plating: str,
-    attrs: dict[str, str],
-) -> bool:
-    drill = _float_attr(pad, "drill")
-    if drill <= 0:
-        return False
-    attrs["data-hole-kind"] = "round"
-    color = _PCB_NPTH_DRILL_COLOR if plating == "non-plated" else _PCB_PTH_DRILL_COLOR
-    _append_round_hole(group, cx=cx, cy=cy, diameter=drill, color=color, attrs=attrs)
-    return True
-
-
-def _append_pad_hole_overlay(
-    group: ET.Element,
-    *,
-    bbox: object,
-    footprint: object,
-    pad: object,
-    component: str,
-    pad_type: str,
-) -> bool:
-    plating = "non-plated" if pad_type == "np_thru_hole" else "plated"
-    cx_mm, cy_mm = _pad_drill_center_mm(footprint, pad)
-    cx, cy = _bbox_svg_point(bbox, cx_mm, cy_mm)
-    attrs = _pad_hole_attrs(pad, component=component, plating=plating)
-    if bool(getattr(pad, "drill_oval", False)):
-        return _append_pad_slot_overlay(
-            group,
-            footprint=footprint,
-            pad=pad,
-            cx=cx,
-            cy=cy,
-            plating=plating,
-            attrs=attrs,
-        )
-    return _append_pad_round_overlay(
-        group,
-        pad=pad,
-        cx=cx,
-        cy=cy,
-        plating=plating,
-        attrs=attrs,
-    )
-
-
-def _append_pad_hole_overlays(
-    group: ET.Element,
-    *,
-    pcb: KiCadPcb,
-    bbox: object,
-    layer: str,
-) -> int:
-    count = 0
-    for footprint in getattr(pcb, "footprints", []) or []:
-        component = _component_reference(footprint)
-        for pad in getattr(footprint, "pads", []) or []:
-            if not _pad_reaches_layer(pad, layer):
-                continue
-            pad_type = _pad_type_value(pad)
-            if pad_type not in {"thru_hole", "np_thru_hole"}:
-                continue
-            count += int(
-                _append_pad_hole_overlay(
-                    group,
-                    bbox=bbox,
-                    footprint=footprint,
-                    pad=pad,
-                    component=component,
-                    pad_type=pad_type,
-                )
-            )
-    return count
-
-
-def _append_via_hole_overlay(group: ET.Element, *, bbox: object, via: object) -> bool:
-    drill = _float_attr(via, "drill")
-    if drill <= 0:
-        return False
-    cx, cy = _bbox_svg_point(bbox, _float_attr(via, "at_x"), _float_attr(via, "at_y"))
-    _append_round_hole(
-        group,
-        cx=cx,
-        cy=cy,
-        diameter=drill,
-        color=_PCB_PTH_DRILL_COLOR,
-        attrs={
-            "data-review-object": "via-hole",
-            "data-hole-kind": "round",
-            "data-hole-plating": "plated",
-            "data-via-type": str(getattr(via, "via_type", "") or "through"),
-            "data-source-uuid": str(getattr(via, "uuid", "") or ""),
-        },
-    )
-    return True
-
-
-def _append_via_hole_overlays(
-    group: ET.Element,
-    *,
-    pcb: KiCadPcb,
-    bbox: object,
-    layer: str,
-) -> int:
-    count = 0
-    layer_indexes = _copper_layer_index_map(pcb)
-    for via in getattr(pcb, "vias", []) or []:
-        if _via_reaches_layer(via, layer, layer_indexes):
-            count += int(_append_via_hole_overlay(group, bbox=bbox, via=via))
-    return count
-
-
-def _append_pcb_drill_slot_overlay(root: ET.Element, pcb: KiCadPcb, layer: str) -> int:
-    """Append coloured drill/slot overlay geometry for one copper layer."""
-    from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
-
-    bbox = compute_pcb_svg_bounding_box(pcb, None)
-    if getattr(bbox, "is_empty", False):
-        return 0
-
-    group = ET.Element(f"{{{_SVG_NS}}}g")
-    group.set("id", "design-review-drills-slots")
-    group.set("data-review-role", "drills-slots")
-    group.set("data-layer-name", layer)
-    count = _append_pad_hole_overlays(group, pcb=pcb, bbox=bbox, layer=layer)
-    count += _append_via_hole_overlays(group, pcb=pcb, bbox=bbox, layer=layer)
-
-    if count:
-        root.append(group)
-    return count
-
-
-def _style_pcb_review_svg(svg_text: str, pcb: KiCadPcb, layer: str) -> tuple[str, int]:
+def _style_pcb_review_svg(svg_text: str, layer: str) -> tuple[str, int]:
     """Apply the design-review PCB visual contract to a rendered SVG string."""
     root = ET.fromstring(svg_text)
     root.set("data-review-theme", "kicad_cruncher.design_review.pcb_svg.a0")
@@ -597,17 +305,17 @@ def _style_pcb_review_svg(svg_text: str, pcb: KiCadPcb, layer: str) -> tuple[str
     root.set("data-review-draw-order", "tracks,polygons-zones,edge-cuts,pads,drills-slots")
     _apply_pcb_review_theme(root)
     _reorder_pcb_review_groups(root)
-    overlay_count = _append_pcb_drill_slot_overlay(root, pcb, layer)
+    drill_slot_record_count = _count_pcb_hole_records(root)
     ET.indent(root, space="  ")
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(
         root,
         encoding="unicode",
         short_empty_elements=True,
-    ), overlay_count
+    ), drill_slot_record_count
 
 
 def _render_pcb_review_svgs(design: KiCadDesign, output_dir: Path) -> list[Artifact]:
-    """Write one review SVG per copper layer, including edge cuts and drill overlays."""
+    """Write one review SVG per copper layer, including edge cuts and hole records."""
     pcb = design.pcb
     if pcb is None:
         return []
@@ -625,7 +333,7 @@ def _render_pcb_review_svgs(design: KiCadDesign, output_dir: Path) -> list[Artif
             black_and_white=False,
             profile="enriched",
         )
-        styled_svg, overlay_count = _style_pcb_review_svg(svg_text, pcb, copper_layer)
+        styled_svg, drill_slot_record_count = _style_pcb_review_svg(svg_text, copper_layer)
         layer_file = pcb_dir / f"{board_name}__{_safe_filename(copper_layer)}__review.svg"
         layer_file.parent.mkdir(parents=True, exist_ok=True)
         layer_file.write_text(styled_svg, encoding="utf-8")
@@ -634,7 +342,7 @@ def _render_pcb_review_svgs(design: KiCadDesign, output_dir: Path) -> list[Artif
                 "file": _relpath(layer_file, output_dir),
                 "layer": copper_layer,
                 "included_layers": [copper_layer, "Edge.Cuts"],
-                "drill_slot_overlay_count": overlay_count,
+                "drill_slot_record_count": drill_slot_record_count,
             }
         )
     return artifacts
@@ -655,7 +363,7 @@ def _readme_text(
     ) or "- No schematic SVGs were generated."
     pcb_lines = "\n".join(
         f"- `{item['file']}`: copper layer `{item['layer']}` plus `Edge.Cuts` and "
-        f"{item['drill_slot_overlay_count']} drill/slot overlays"
+        f"{item['drill_slot_record_count']} enriched drill/slot records"
         for item in pcb_svgs
     ) or "- No PCB copper-layer SVGs were generated."
     return f"""# KiCad Design Review Bundle
@@ -707,13 +415,19 @@ review theme:
 - plated drills: blue (`{_PCB_PTH_DRILL_COLOR}`);
 - plated slots: cyan (`{_PCB_PTH_SLOT_COLOR}`);
 - non-plated drills: red (`{_PCB_NPTH_DRILL_COLOR}`);
-- non-plated slots: orange (`{_PCB_NPTH_SLOT_COLOR}`).
+- non-plated slots: orange (`{_PCB_NPTH_SLOT_COLOR}`);
+- unknown-plating holes: neutral gray (`{_PCB_UNKNOWN_HOLE_COLOR}`).
 
-Plated drill and slot overlays correspond to electrical through-hole pads and
-vias. Non-plated overlays correspond to KiCad `np_thru_hole` mechanical pads.
+Drill and slot cutouts come from the enriched `kicad-monkey` PCB SVG records.
+Applications should use `data-hole-plating` and `data-hole-kind` to distinguish
+plated through-hole pads/vias from KiCad `np_thru_hole` mechanical pads. Valid
+plating values are `plated`, `non_plated`, and `unknown`. The design-review
+theme colors those existing records in place; it does not create a second
+drill/slot overlay, add duplicate boolean plating fields, or change the
+`kicad-monkey` spelling of `non_plated`.
 
 Draw order is tracks/arcs first, polygons/zones above those, edge cuts, pads,
-then the coloured drill/slot overlay last.
+then the `kicad-monkey` drill/slot records last.
 """
 
 

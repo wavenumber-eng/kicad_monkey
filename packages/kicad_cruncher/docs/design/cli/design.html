@@ -1,18 +1,86 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>design command</title><link rel="stylesheet" href="../styles.css"></head>
-<body data-doc-kind="cli-design" data-command="design" data-config-contract="none">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>design command design</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body
+  data-doc-kind="cli-design"
+  data-command="design"
+  data-config-contract="none"
+  data-output-contract="kicad_cruncher.design_review_manifest.a0">
 <main>
 <nav class="nav"><a href="../index.html">Design Index</a><a href="index.html">CLI</a></nav>
-<header><p class="status">CLI command design</p><h1>design</h1><p class="lede">Generates a KiCad design review bundle from KiCad project or schematic inputs.</p></header>
-<section id="usage"><h2>Usage</h2><pre><code>kicad-cruncher design project.kicad_pro -o output/design
+<header>
+  <p class="status">Public command</p>
+  <h1>design</h1>
+  <p class="lede">Generate a KiCad design review bundle from a KiCad project or schematic input.</p>
+</header>
+
+<section id="usage">
+  <h2>Usage</h2>
+  <pre><code>kicad-cruncher design project.kicad_pro -o output/design
 kicad-cruncher design-review project.kicad_pro
 kicad-cruncher dr project.kicad_pro
 kicad-cruncher design schematic.kicad_sch
-kicad-cruncher design --no-indexes</code></pre></section>
-<section id="arguments"><h2>Arguments</h2><p><code>file</code> accepts <code>.kicad_pro</code> or <code>.kicad_sch</code>. When omitted, the command attempts project auto-detection when exactly one <code>.kicad_pro</code> exists in the current directory. <code>-o</code> selects the output directory directly, and <code>--no-indexes</code> omits lookup indexes from the design JSON. <code>design-review</code> and <code>dr</code> are public aliases for the same command.</p></section>
-<section id="output"><h2>Output</h2><p>The command writes <code>KiCadDesign.to_json()</code> output to <code>&lt;input-stem&gt;_design.json</code>. When <code>-o</code> is omitted, artifacts are written under <code>./output/design/</code>. The payload is owned by <code>kicad-monkey</code> and includes project metadata, schematic hierarchy, sheets, components, nets, variants, optional PnP data, and optional lookup indexes.</p><p>The command also writes <code>design_review_manifest.json</code>, <code>README.md</code>, enriched black-and-white schematic SVGs under <code>schematics/</code>, and one PCB review SVG per copper layer under <code>pcb/copper_layers/</code> when a board exists. PCB review SVGs include the selected copper layer, <code>Edge.Cuts</code>, and coloured drill/slot overlays. Plated pads and vias use blue/cyan drill or slot overlays; KiCad <code>np_thru_hole</code> mechanical pads use red/orange overlays. The PCB review theme is <code>kicad_cruncher.design_review.pcb_svg.a0</code>; draw order is tracks/arcs, polygons/zones, edge cuts, pads, then drill/slot overlays.</p></section>
-<section id="tests"><h2>Tests</h2><p>L3 verifies command execution against a redistributable synthetic KiCad project and copied public KiCad corpus projects. It asserts the design JSON schema, project text variables, component list, net list, index suppression behavior, alias behavior, manifest schema, README content, schematic SVG artifacts, and PCB review SVG colors, metadata, and drill/slot overlays.</p></section>
+kicad-cruncher design --no-indexes</code></pre>
+</section>
+
+<section id="arguments">
+  <h2>Arguments</h2>
+  <p><code>file</code> accepts <code>.kicad_pro</code> and <code>.kicad_sch</code>. If no file is provided, the command auto-detects exactly one <code>.kicad_pro</code> in the current directory. PCB-only inputs are intentionally rejected because the review bundle is centered on the schematic-backed <code>KiCadDesign</code> aggregate.</p>
+  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/design/</code>. <code>--no-indexes</code> omits optional lookup indexes from the design JSON. <code>design-review</code> and <code>dr</code> are aliases for the same command and output contract.</p>
+</section>
+
+<section id="ownership">
+  <h2>Ownership</h2>
+  <p>The semantic model and SVG enrichment contract are owned by <code>kicad-monkey</code>. <code>kicad-cruncher</code> must not re-parse KiCad pads, vias, nets, or hierarchy to invent parallel metadata. It calls the public <code>kicad-monkey</code> APIs, writes the returned artifacts into a review bundle, and applies a review visual theme to the enriched SVG records.</p>
+  <p>Design JSON is produced from <code>KiCadDesign.to_json()</code>. Schematic SVGs are produced from <code>design.schematic_instances()</code>, <code>design.to_schematic_instance_ir(...)</code>, and <code>render_ir_to_svg(...)</code> with enriched black-and-white render options. PCB review SVGs are produced from <code>design.pcb.to_svg(..., profile="enriched")</code> with the selected copper layer plus <code>Edge.Cuts</code>.</p>
+</section>
+
+<section id="output">
+  <h2>Output</h2>
+  <p>The command writes the following files into the selected output directory:</p>
+  <ul>
+    <li><code>&lt;input-stem&gt;_design.json</code>: <code>kicad_monkey.design.a0</code> JSON.</li>
+    <li><code>design_review_manifest.json</code>: <code>kicad_cruncher.design_review_manifest.a0</code> artifact index.</li>
+    <li><code>README.md</code>: agent-facing explanation of the generated bundle.</li>
+    <li><code>schematics/*.svg</code>: one enriched schematic SVG per concrete hierarchy instance.</li>
+    <li><code>pcb/copper_layers/*__review.svg</code>: one enriched PCB review SVG per copper layer when a board is present.</li>
+  </ul>
+</section>
+
+<section id="design-json">
+  <h2>Design JSON</h2>
+  <p>The design JSON keeps the <code>kicad_monkey.design.a0</code> schema unchanged. It includes project metadata and text variables, schematic hierarchy, sheet instances, components, nets, variants, optional PnP data, and optional lookup indexes. <code>kicad-cruncher</code> does not rename <code>text_variables</code> or add duplicate parameter fields.</p>
+  <p>Higher-level applications should use the JSON relationships and SVG link fields together. Repeated hierarchical sheets can share source UUIDs, so instance-aware fields such as sheet path and sheet instance path must be preserved.</p>
+</section>
+
+<section id="schematic-svgs">
+  <h2>Schematic SVGs</h2>
+  <p>Schematic SVGs use the enriched <code>kicad-monkey</code> schematic SVG contract. Groups are wrapped around source objects so tools can connect rendered graphics back to symbols, pins, sheets, ports, power symbols, and nets. Filenames use the concrete sheet instance name, not just the reusable schematic source filename, so repeated hierarchical sheets are reviewable as separate pages.</p>
+  <p>The design-review command applies a black-and-white schematic theme for review consistency, while keeping the enriched SVG metadata and embedded metadata payload intact.</p>
+</section>
+
+<section id="pcb-svgs">
+  <h2>PCB Review SVGs</h2>
+  <p>Each PCB review SVG contains one copper layer plus <code>Edge.Cuts</code>. Physical geometry comes from <code>kicad-monkey</code> enriched PCB SVG output. <code>kicad-cruncher</code> only adds root review attributes such as <code>data-review-theme</code>, <code>data-review-layer</code>, and <code>data-review-draw-order</code>, then recolors existing SVG elements according to the review theme.</p>
+  <p>Drill and slot semantics come from existing <code>kicad-monkey</code> records. The records must use <code>data-primitive="pad-hole"</code> or <code>data-primitive="via-hole"</code>, <code>data-hole-owner</code>, <code>data-hole-kind</code>, <code>data-hole-plating</code>, and dimensional fields such as <code>data-hole-diameter-mm</code> or <code>data-hole-width-mm</code> / <code>data-hole-height-mm</code>. The plating values are <code>plated</code>, <code>non_plated</code>, or <code>unknown</code>.</p>
+  <p>The review theme colors pads black, tracks/arcs/vias/zones light gray, <code>Edge.Cuts</code> light gray, plated drill records blue, plated slot records cyan, non-plated drill records red, non-plated slot records orange, and unknown-plating hole records neutral gray. Unknown plating is retained as <code>unknown</code> and should be treated as review-required data, not silently converted to plated or non-plated.</p>
+  <p>The command must not create a second drill/slot overlay group, add duplicate plating attributes such as boolean mirrors, or translate <code>non_plated</code> into a different spelling. Applications should read the canonical <code>kicad-monkey</code> attributes directly.</p>
+</section>
+
+<section id="manifest">
+  <h2>Manifest</h2>
+  <p><code>design_review_manifest.json</code> records the design JSON path, README path, schematic SVG list, and PCB SVG list. Each schematic artifact records sheet number, sheet count, sheet name, sheet path, sheet UUID path, sheet instance path, and source schematic path. Each PCB artifact records the SVG path, copper layer, included layers, and the count of enriched drill/slot records present in that SVG.</p>
+</section>
+
+<section id="tests">
+  <h2>Tests</h2>
+  <p>L3 public workflow tests execute <code>design</code>, <code>design-review</code>, and <code>dr</code> against a synthetic project and copied public KiCad corpus projects, including taillight, yoshi, and speedy cases. The tests verify the design JSON schema, text variables, component and net counts, alias behavior, manifest schema, README content, schematic SVG artifacts, PCB review SVG colors, and the exact PTH/NPTH hole metadata emitted by <code>kicad-monkey</code>.</p>
+</section>
 </main>
 </body>
 </html>

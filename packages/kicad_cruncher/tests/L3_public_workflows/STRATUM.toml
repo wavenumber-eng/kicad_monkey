@@ -9,7 +9,7 @@ objectives = [
     "Generated outputs have expected schemas, README guidance, and artifact shapes",
     "Workflow tests do not require a private corpus",
     "Copied KiCad Monkey corpus projects exercise real KiCad files",
-    "PCB review overlays distinguish plated and non-plated drill features",
+    "PCB review records distinguish plated and non-plated drill features",
     "PCB SVG workflows exercise config-driven layer outputs and geometer HLR",
 ]
 
@@ -39,7 +39,7 @@ auto_detect = "design can auto-detect a single .kicad_pro in CWD"
 index_policy = "design honors --no-indexes"
 pcb_svg_outputs = "pcb-svg writes manifests, layer SVGs, and configured views"
 pcb_svg_hlr = "pcb-svg assembly views include geometer-backed HLR overlays"
-review_drill_plating = "design review SVGs keep PTH and NPTH pad drills distinct"
+review_drill_plating = "design review SVG records keep PTH and NPTH pad drills distinct"
 
 [subtests.approach]
 subprocess_cli = "Invoke public CLI commands through the current Python environment"
@@ -48,7 +48,7 @@ subprocess_cli = "Invoke public CLI commands through the current Python environm
 test_design_command_generates_project_json = "Generate design JSON and review artifacts from a project input"
 test_design_aliases_generate_review_bundle = "Generate design review artifacts through public aliases"
 test_design_command_uses_copied_kicad_monkey_corpus_projects = "Generate design review artifacts from copied KiCad Monkey corpus projects"
-test_design_review_pcb_overlay_distinguishes_pth_and_npth_pads = "Verify review PCB overlays distinguish PTH and NPTH pads"
+test_design_review_pcb_records_distinguish_pth_and_npth_pads = "Verify review PCB records distinguish PTH and NPTH pads"
 test_design_command_can_auto_detect_single_project = "Generate design JSON by auto-detecting one project"
 test_design_command_rejects_pcb_only_input = "Reject PCB-only input for schematic-backed design JSON"
 test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config = "Generate PCB SVG layer outputs and a configured view"

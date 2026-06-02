@@ -61,9 +61,13 @@ The design review output includes `<input-stem>_design.json`,
 `design_review_manifest.json`, `README.md`, enriched schematic SVGs under
 `schematics/`, and one PCB review SVG per copper layer under
 `pcb/copper_layers/` when a board is present. PCB review SVGs include the
-copper layer, `Edge.Cuts`, and coloured drill/slot overlays. Plated pads and
-vias use blue/cyan drill or slot overlays; KiCad `np_thru_hole` mechanical pads
-use red/orange overlays.
+copper layer, `Edge.Cuts`, and `kicad-monkey` enriched drill/slot records.
+Plated pads and vias, and KiCad `np_thru_hole` mechanical pads, are
+distinguished with `data-hole-plating` and `data-hole-kind` attributes.
+Design-review styling colors those existing records in place: plated drills are
+blue, plated slots are cyan, non-plated drills are red, and non-plated slots are
+orange. KiCad Cruncher does not add a second drill/slot overlay or duplicate
+the `kicad-monkey` plating metadata.
 
 The `pcb-svg` command writes to `./output/pcb-svg/` by default and uses
 `pcb.svg.config` JSON/JSONC configs compatible with the A0 PCB SVG view
