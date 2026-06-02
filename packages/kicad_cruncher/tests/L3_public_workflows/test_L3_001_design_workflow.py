@@ -22,6 +22,8 @@ _CORPUS_PROJECT_CASES = (
         "led_component_design.json",
         1,
         6,
+        1,
+        2,
         id="led_component",
     ),
     pytest.param(
@@ -33,6 +35,8 @@ _CORPUS_PROJECT_CASES = (
         "11-10045__taillight__C_design.json",
         97,
         75,
+        6,
+        4,
         id="taillight",
     ),
     pytest.param(
@@ -44,7 +48,35 @@ _CORPUS_PROJECT_CASES = (
         "11-10043__charge_indicator__C_design.json",
         117,
         76,
+        6,
+        4,
         id="charge_indicator",
+    ),
+    pytest.param(
+        _CORPUS_ROOT
+        / "projects"
+        / "yoshi_mainboard"
+        / "input"
+        / "11-10080__yoshi-mainboard__A.kicad_pro",
+        "11-10080__yoshi-mainboard__A_design.json",
+        38,
+        58,
+        1,
+        6,
+        id="yoshi_mainboard",
+    ),
+    pytest.param(
+        _CORPUS_ROOT
+        / "projects"
+        / "speedy_processing_module"
+        / "input"
+        / "11-10084__speedy_processing_module__B.kicad_pro",
+        "11-10084__speedy_processing_module__B_design.json",
+        534,
+        500,
+        17,
+        10,
+        id="speedy_processing_module",
     ),
 )
 
@@ -275,10 +307,24 @@ def test_design_aliases_generate_review_bundle(tmp_path: Path, command: str) -> 
 
 
 @pytest.mark.parametrize(
-    ("project_path", "output_name", "component_count", "net_count"), _CORPUS_PROJECT_CASES
+    (
+        "project_path",
+        "output_name",
+        "component_count",
+        "net_count",
+        "schematic_svg_count",
+        "pcb_svg_count",
+    ),
+    _CORPUS_PROJECT_CASES,
 )
 def test_design_command_uses_copied_kicad_monkey_corpus_projects(
-    tmp_path: Path, project_path: Path, output_name: str, component_count: int, net_count: int
+    tmp_path: Path,
+    project_path: Path,
+    output_name: str,
+    component_count: int,
+    net_count: int,
+    schematic_svg_count: int,
+    pcb_svg_count: int,
 ) -> None:
     """Verify design runs against copied real KiCad Monkey corpus projects."""
     output_dir = tmp_path / "out"
@@ -296,6 +342,8 @@ def test_design_command_uses_copied_kicad_monkey_corpus_projects(
         design_json_name=output_name,
         expect_pcb_svgs=True,
     )
+    assert len(manifest["schematic_svgs"]) == schematic_svg_count
+    assert len(manifest["pcb_svgs"]) == pcb_svg_count
     assert any(item["layer"] == "F.Cu" for item in manifest["pcb_svgs"])
     assert any(item["layer"] == "B.Cu" for item in manifest["pcb_svgs"])
     _assert_pcb_review_svg_contract(output_dir, manifest["pcb_svgs"][0])

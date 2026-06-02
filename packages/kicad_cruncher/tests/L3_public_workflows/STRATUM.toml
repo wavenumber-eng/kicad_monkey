@@ -24,7 +24,7 @@ name = "Design And PCB SVG Workflows"
 description = "Run design and pcb-svg commands against public KiCad projects and validate outputs"
 concerns = ["cli", "contracts", "release"]
 test_case_type = "reference"
-test_cases = "tmp_path synthetic KiCad project; tests/corpus/kicad/board_svg/input/led_component; tests/corpus/kicad/projects/taillight/input; tests/corpus/kicad/projects/charge_indicator/input"
+test_cases = "tmp_path synthetic KiCad project; tests/corpus/kicad/board_svg/input/led_component; tests/corpus/kicad/projects/taillight/input; tests/corpus/kicad/projects/charge_indicator/input; tests/corpus/kicad/projects/yoshi_mainboard/input; tests/corpus/kicad/projects/speedy_processing_module/input"
 
 [subtests.code_under_test]
 module = "kicad_cruncher.kicad_cruncher_cmd_design"
@@ -33,6 +33,7 @@ pcb_svg_module = "kicad_cruncher.kicad_cruncher_cmd_pcb_svg"
 [subtests.objectives]
 design_output = "design writes a KiCad-native JSON artifact and review manifest"
 design_review_svgs = "design writes schematic SVGs and PCB copper-layer review SVGs"
+design_review_counts = "copied corpus projects have stable component, net, schematic SVG, and PCB SVG counts"
 design_aliases = "design-review and dr aliases generate the same review bundle"
 auto_detect = "design can auto-detect a single .kicad_pro in CWD"
 index_policy = "design honors --no-indexes"

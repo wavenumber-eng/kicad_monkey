@@ -1,0 +1,4457 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "ec5a60ee-4b7e-4ccf-83aa-313890be3cdf")
+	(paper "D")
+	(lib_symbols
+		(symbol "speedy:TPS62A01DRLR"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "U"
+				(at -7.112 10.414 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "TPS62A01DRLR"
+				(at -1.27 8.636 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Buck Switching Regulator IC Positive Adjustable 0.6V 1 Output 1A SOT-563, SOT-666"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Texas Instruments"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "TPS62A01DRLR"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "Buck Switching Regulator IC Positive Adjustable 0.6V 1 Output 1A SOT-563, SOT-666"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "TPS62A01DRLR_1_1"
+				(rectangle
+					(start -7.62 7.62)
+					(end 7.62 -7.62)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin passive line
+					(at 0 -10.16 90)
+					(length 2.54)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_out line
+					(at 10.16 3.81 180)
+					(length 2.54)
+					(name "SW"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at -10.16 5.08 0)
+					(length 2.54)
+					(name "VIN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -10.16 0 0)
+					(length 2.54)
+					(name "EN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "FB"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin open_collector line
+					(at 10.16 -3.81 180)
+					(length 2.54)
+					(name "PG"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:ASPI-8040S-1R0N-T"
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "L"
+				(at 312.166 164.592 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "1µH 9.85A"
+				(at -0.254 -0.254 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "wavenumber:L_ASPI-8040S"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Inductor 1µH 9.85A"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Abracon LLC"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "ASPI-8040S-1R0N-T"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "ASPI-8040S-1R0N-T"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "L_2P"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "wavenumber:L_ASPI-8040S"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "ASPI-8040S-1R0N-T_1_0"
+				(arc
+					(start 2.54 0)
+					(mid 2.912 0.898)
+					(end 3.81 1.27)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 3.81 1.27)
+					(mid 4.708 0.898)
+					(end 5.08 0)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 5.08 0)
+					(mid 5.452 0.898)
+					(end 6.35 1.27)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 6.35 1.27)
+					(mid 7.248 0.898)
+					(end 7.62 0)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 7.62 0)
+					(mid 7.992 0.898)
+					(end 8.89 1.27)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 8.89 1.27)
+					(mid 9.788 0.898)
+					(end 10.16 0)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 10.16 0)
+					(mid 10.532 0.898)
+					(end 11.43 1.27)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 11.43 1.27)
+					(mid 12.328 0.898)
+					(end 12.7 0)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 15.24 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:CGA5L1X7R0J226M160AE"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "C"
+				(at 2.54 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "22µF"
+				(at 2.54 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "wavenumber:C1206_1.90MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "CAP CER 22UF 6.3V X7R 1206"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "TDK Corporation"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "CGA5L1X7R0J226M160AE"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "CGA5L1X7R0J226M160AE"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "C_2P_NP"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "wavenumber:C1206_1.90MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "CGA5L1X7R0J226M160AE_1_0"
+				(polyline
+					(pts
+						(xy 2.54 0) (xy 3.302 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 1.778) (xy 3.302 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.318 1.778) (xy 4.318 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.334 0) (xy 4.318 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:ERJ-2RKF1003X"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "100kΩ"
+				(at 2.54 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "wavenumber:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "RES 100K OHM 1/10W 1% 0402 SMD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-2RKF1003X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "ERJ-2RKF1003X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "wavenumber:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "ERJ-2RKF1003X_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:GCM155R71H104KE02J"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "C"
+				(at 2.54 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "0.1µF"
+				(at 2.54 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "wavenumber:C0402_0.55MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "CAP CER 0.1UF 50V X7R 0402"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Murata Electronics"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "GCM155R71H104KE02J"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "GCM155R71H104KE02J"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "C_2P_NP"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "wavenumber:C0402_0.55MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GCM155R71H104KE02J_1_0"
+				(polyline
+					(pts
+						(xy 2.54 0) (xy 3.302 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 1.778) (xy 3.302 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.318 1.778) (xy 4.318 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.334 0) (xy 4.318 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:GCM21BR70J106KE22K"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "C"
+				(at 2.54 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "10µF"
+				(at 2.54 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "wavenumber:C0805_1.40MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "CAP CER 10UF 6.3V X7R 0805"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Murata Electronics"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "GCM21BR70J106KE22K"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "GCM21BR70J106KE22K"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "C_2P_NP"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "wavenumber:C0805_1.40MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GCM21BR70J106KE22K_1_0"
+				(polyline
+					(pts
+						(xy 2.54 0) (xy 3.302 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 1.778) (xy 3.302 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.318 1.778) (xy 4.318 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.334 0) (xy 4.318 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:GCQ1555C1H390JB01D"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "C"
+				(at 2.54 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "39pF"
+				(at 2.54 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "wavenumber:C0402_0.55MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "CAP CER 39PF 50V C0G/NP0 0402"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Murata Electronics"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "GCQ1555C1H390JB01D"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "GCQ1555C1H390JB01D"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "C_2P_NP"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "wavenumber:C0402_0.55MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GCQ1555C1H390JB01D_1_0"
+				(polyline
+					(pts
+						(xy 2.54 0) (xy 3.302 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 1.778) (xy 3.302 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.318 1.778) (xy 4.318 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.334 0) (xy 4.318 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn_power:+3v3"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at -0.508 3.302 0)
+				(show_name no)
+				(do_not_autoplace yes)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "+3v3"
+				(at -0.508 3.556 0)
+				(show_name no)
+				(do_not_autoplace yes)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.905 1.905)
+						(thickness 0.254)
+						(bold yes)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+				(at 0.762 9.652 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "+3v3_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 2.54) (xy -1.27 2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "+3v3_1_1"
+				(pin power_in line
+					(at 0 0 90)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(text "VO = 0.6V (1 + R1 / R2)"
+		(exclude_from_sim no)
+		(at 461.518 253.492 0)
+		(effects
+			(font
+				(face "Berkeley Mono")
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "fdfc779b-d7d4-4077-9b97-35facf9885ca")
+	)
+	(junction
+		(at 534.67 264.16)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "431126b0-1676-4430-966e-6769f90a9218")
+	)
+	(junction
+		(at 403.86 262.89)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "638e14ed-0238-4ef4-a659-dc2299499194")
+	)
+	(junction
+		(at 521.97 264.16)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "a22c4e80-1abe-4b24-93c1-013d2e4c07f1")
+	)
+	(junction
+		(at 429.26 262.89)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ab4f623f-5f41-4430-ac01-469bcec83432")
+	)
+	(junction
+		(at 494.03 264.16)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c66ca9be-2860-4ece-8598-cdb1dc0f9b16")
+	)
+	(junction
+		(at 417.83 262.89)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "d0fde82e-9de4-411e-b5fc-6e262f238ab8")
+	)
+	(junction
+		(at 494.03 274.32)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e72f074b-1f68-42d0-a0a4-a6418c4bf84a")
+	)
+	(junction
+		(at 444.5 267.97)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "fe0fbf54-911f-4307-a26e-824cf66582e2")
+	)
+	(wire
+		(pts
+			(xy 444.5 267.97) (xy 449.58 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "01dc9b9b-90df-4309-8f0d-89e0d932d02e")
+	)
+	(wire
+		(pts
+			(xy 444.5 274.32) (xy 444.5 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "09ae6ca1-17ee-4d35-94fc-bc52b787c119")
+	)
+	(wire
+		(pts
+			(xy 439.42 267.97) (xy 444.5 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0fe018ee-1229-49f5-a9f7-0e0a2d8e7ff0")
+	)
+	(wire
+		(pts
+			(xy 429.26 262.89) (xy 449.58 262.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "21250f65-e0f2-44f1-ade8-d9ab738f6d9c")
+	)
+	(wire
+		(pts
+			(xy 552.45 264.16) (xy 534.67 264.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "22deec3f-b9d1-4b1a-8824-d0380075f6e0")
+	)
+	(wire
+		(pts
+			(xy 417.83 262.89) (xy 429.26 262.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "24738de2-62cb-47eb-8aa6-fe11b5c1bb26")
+	)
+	(wire
+		(pts
+			(xy 433.07 274.32) (xy 444.5 274.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3f9d1ee1-dc17-4077-a56a-9a5ccdb9672d")
+	)
+	(wire
+		(pts
+			(xy 403.86 262.89) (xy 417.83 262.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "480256ca-b128-4da3-8f5c-9e70c86ea399")
+	)
+	(wire
+		(pts
+			(xy 494.03 274.32) (xy 494.03 273.05)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4cbd05ff-74a1-426b-87b0-e450617f92aa")
+	)
+	(wire
+		(pts
+			(xy 506.73 274.32) (xy 494.03 274.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "593f6835-20ba-44db-b2d2-f358157cf6f0")
+	)
+	(wire
+		(pts
+			(xy 521.97 264.16) (xy 534.67 264.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5dbbbabb-4cbf-439d-8134-c44b5155beff")
+	)
+	(wire
+		(pts
+			(xy 472.44 280.67) (xy 472.44 271.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5f650ffc-e117-49c1-8e7a-596b02329dbf")
+	)
+	(wire
+		(pts
+			(xy 472.44 271.78) (xy 469.9 271.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "700c0ee6-e940-4038-8106-71930cc27c6f")
+	)
+	(wire
+		(pts
+			(xy 477.52 280.67) (xy 472.44 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7b9ea432-efd6-47ef-9bfb-25f6d187c7ae")
+	)
+	(wire
+		(pts
+			(xy 487.68 264.16) (xy 494.03 264.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8591a8dc-454c-4286-9805-6a53bdd76518")
+	)
+	(wire
+		(pts
+			(xy 483.87 267.97) (xy 483.87 274.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "875b5a5b-1b90-4431-97d3-cd9320441efe")
+	)
+	(wire
+		(pts
+			(xy 494.03 265.43) (xy 494.03 264.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8fd2cb37-97a7-4034-a9a5-527b029b05f5")
+	)
+	(wire
+		(pts
+			(xy 494.03 264.16) (xy 521.97 264.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9d9de413-c190-4e09-9193-ac725a59d749")
+	)
+	(wire
+		(pts
+			(xy 469.9 264.16) (xy 472.44 264.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a84e68b6-ecf2-47a6-88df-323dd00adb21")
+	)
+	(wire
+		(pts
+			(xy 483.87 274.32) (xy 494.03 274.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b486e640-724b-42d6-8497-9ac211207d46")
+	)
+	(wire
+		(pts
+			(xy 429.26 262.89) (xy 429.26 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b93eeeb9-a34a-4261-8f48-d55990f64b9c")
+	)
+	(wire
+		(pts
+			(xy 469.9 267.97) (xy 483.87 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bb2f551b-6eb9-4caa-8b42-4f9d145ae8c8")
+	)
+	(hierarchical_label "OUT"
+		(shape output)
+		(at 552.45 264.16 0)
+		(effects
+			(font
+				(size 1.524 1.524)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left)
+		)
+		(uuid "400941ee-73bb-44fd-aec1-8d3e64f2e752")
+	)
+	(hierarchical_label "EN"
+		(shape input)
+		(at 433.07 274.32 180)
+		(effects
+			(font
+				(size 1.524 1.524)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify right)
+		)
+		(uuid "6424e959-68ee-43c8-a9d8-167bc59594ad")
+	)
+	(hierarchical_label "FB"
+		(shape input)
+		(at 506.73 274.32 0)
+		(effects
+			(font
+				(size 1.524 1.524)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left)
+		)
+		(uuid "8373dcb2-413e-478c-9e2b-a2361dbabb7a")
+	)
+	(hierarchical_label "PG"
+		(shape output)
+		(at 477.52 280.67 0)
+		(effects
+			(font
+				(size 1.524 1.524)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify left)
+		)
+		(uuid "bf41cfd0-2061-4093-bf68-f177c9ca0f66")
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ASPI-8040S-1R0N-T")
+		(at 472.44 264.16 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "202b5a75-1657-46ab-82d0-4e14664ea613")
+		(property "Reference" "L15"
+			(at 479.552 261.366 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "1µH"
+			(at 479.298 265.684 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.524 1.524)
+				)
+			)
+		)
+		(property "Footprint" "speedy:Inductor 1210 (3225 Metric)"
+			(at 472.44 264.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 472.44 264.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Inductor 1µH 9.85A"
+			(at 472.44 264.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Category" "Inductors"
+			(at 472.186 264.414 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "CategorySort" "300"
+			(at 472.186 264.414 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "ALTIUM_VALUE" "VALUE"
+			(at 471.932 272.034 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 472.44 264.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at 472.44 264.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "1277AS-H-1R0M=P2"
+			(at 472.44 264.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "1277AS-H-1R0M=P2"
+			(at 472.44 264.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "flags" ""
+			(at 472.44 264.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "05225bd8-0a7f-4a58-8f6f-516e9122b483")
+		)
+		(pin "2"
+			(uuid "9773561c-61c3-42c4-a3fb-37d198747a1d")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "L13")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "L12")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "L15")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "L11")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 417.83 270.51 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "31547254-0024-459c-901e-b881e42408f9")
+		(property "Reference" "#PWR0218"
+			(at 418.338 273.812 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 417.576 274.828 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 417.83 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 417.83 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 417.068 280.162 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "651110e2-09e3-4cf6-a4c0-f4a944e5c3a5")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "#PWR0236")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "#PWR0211")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "#PWR0218")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "#PWR0229")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 521.97 271.78 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "36e52c6b-238c-4b2f-888c-caf2ec7dd503")
+		(property "Reference" "#PWR0223"
+			(at 522.478 275.082 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 521.716 276.098 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 521.97 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 521.97 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 521.208 281.432 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "0603bea2-d34f-47b5-b0fd-8a275d67c85a")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "#PWR0239")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "#PWR0214")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "#PWR0223")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "#PWR0232")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-2RKF1003X")
+		(at 494.03 284.48 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "4c8fbd02-5e97-467f-8004-e37da0332057")
+		(property "Reference" "R91"
+			(at 496.57 277.495 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "100kΩ"
+			(at 496.316 280.162 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "wavenumber:R0402_0.40MM_HD"
+			(at 494.03 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 494.03 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "RES 100K OHM 1/10W 1% 0402 SMD"
+			(at 494.03 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 497.84 279.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 500.38 279.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.4478 1.4478)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 490.22 284.988 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 2.1844 2.1844)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 494.03 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 494.03 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-2RKF1003X"
+			(at 494.03 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "ERJ-2RKF1003X"
+			(at 494.03 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "flags" ""
+			(at 494.03 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "a04aa22a-11c4-46ce-af82-9a651ddcf1ee")
+		)
+		(pin "1"
+			(uuid "1d3f8da2-79f0-4553-a121-635414d6e19e")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "R87")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "R81")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "R91")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "R77")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 403.86 270.51 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "525f2b3e-044e-4a7a-bb37-d110c1e9d379")
+		(property "Reference" "#PWR0217"
+			(at 404.368 273.812 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 403.606 274.828 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 403.86 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 403.86 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 403.098 280.162 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "79e2fa2a-bd3a-43e9-be1c-f62a039328c1")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "#PWR0235")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "#PWR0210")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "#PWR0217")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "#PWR0228")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 403.86 262.89 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "5e00a661-2a11-402a-a47f-c3944f7fe187")
+		(property "Reference" "#PWR0216"
+			(at 403.352 259.588 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "+5V_CONN"
+			(at 403.352 259.334 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 403.86 262.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 403.86 262.89 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+VPGA\" , ground"
+			(at 404.622 253.238 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "1f6234fa-0461-439d-8481-3780f2783a3e")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "#PWR0234")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "#PWR0209")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "#PWR0216")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "#PWR0227")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "speedy:TPS62A01DRLR")
+		(at 459.74 267.97 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "6d94216d-63bb-4438-be37-49a7978e5040")
+		(property "Reference" "U25"
+			(at 459.74 256.54 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "TPS62A02NDRLR"
+			(at 459.74 259.08 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.524 1.524)
+				)
+			)
+		)
+		(property "Footprint" "speedy:SOT-563"
+			(at 459.74 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 459.74 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Buck Switching Regulator IC Positive Adjustable 0.6V 1 Output 1A SOT-563, SOT-666"
+			(at 459.74 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Texas Instruments"
+			(at 459.74 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "TPS62A02NDRLR"
+			(at 459.74 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "3"
+			(uuid "207aa873-0ed7-461f-a251-069a3b35813b")
+		)
+		(pin "4"
+			(uuid "e7fd881b-e562-4d74-82ab-c8761c52240f")
+		)
+		(pin "1"
+			(uuid "66237eb4-1b87-4db9-9cec-6ffa5c1bd817")
+		)
+		(pin "2"
+			(uuid "02f01d97-63a9-4fde-9382-74c8b0d150d1")
+		)
+		(pin "5"
+			(uuid "024d429c-f16a-48b8-99ac-0d343f844c59")
+		)
+		(pin "6"
+			(uuid "c4a3dade-bbb7-4ab3-ad4f-4e26dc36ac8e")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "U23")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "U22")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "U25")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "U21")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:GCQ1555C1H390JB01D")
+		(at 494.03 273.05 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "73f73dc5-24a5-4652-9d0a-3fb9d2ff167d")
+		(property "Reference" "C239"
+			(at 497.586 267.97 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "39pF"
+			(at 498.094 270.51 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "wavenumber:C0402_0.55MM_HD"
+			(at 494.03 273.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 494.03 273.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 39PF 50V C0G/NP0 0402"
+			(at 494.03 273.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 497.84 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "Temperature Coefficient"
+			(at 501.65 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.4478 1.4478)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 494.03 273.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at 494.03 273.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCQ1555C1H390JB01D"
+			(at 494.03 273.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCQ1555C1H390JB01D"
+			(at 494.03 273.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "flags" ""
+			(at 494.03 273.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "94ad53b3-3a82-4a40-a647-9adf3f749833")
+		)
+		(pin "2"
+			(uuid "04310937-c309-4ed3-8179-459e0b895129")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "C229")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "C223")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "C239")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "C219")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:CGA5L1X7R0J226M160AE")
+		(at 521.97 271.78 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "88bc2e9d-1c84-4121-baa6-7bf06eec905e")
+		(property "Reference" "C240"
+			(at 524.764 266.446 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.4369)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "22µF"
+			(at 524.764 269.24 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "wavenumber:C1206_1.90MM_MD"
+			(at 521.97 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 521.97 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 22UF 6.3V X7R 1206"
+			(at 521.97 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 525.78 266.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "Temperature Coefficient"
+			(at 529.59 266.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.4478 1.4478)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 521.97 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "TDK Corporation"
+			(at 521.97 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "CGA5L1X7R0J226M160AE"
+			(at 521.97 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "CGA5L1X7R0J226M160AE"
+			(at 521.97 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "flags" ""
+			(at 521.97 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "01d00270-4843-46a6-8aab-0115e0cd7476")
+		)
+		(pin "2"
+			(uuid "c6a32d2c-a7db-497b-9d61-e57d7e14bfca")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "C230")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "C224")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "C240")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "C222")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:GCM155R71H104KE02J")
+		(at 417.83 270.51 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a1686390-8946-4088-ae04-4f37c55e1d61")
+		(property "Reference" "C238"
+			(at 420.624 265.938 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "0.1µF"
+			(at 420.878 268.224 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "wavenumber:C0402_0.55MM_HD"
+			(at 417.83 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 417.83 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0402"
+			(at 417.83 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 421.64 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "Temperature Coefficient"
+			(at 425.45 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.4478 1.4478)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 417.83 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at 417.83 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCM155R71H104KE02J"
+			(at 417.83 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCM155R71H104KE02J"
+			(at 417.83 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "flags" ""
+			(at 417.83 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "9053b30c-b127-460c-8ba9-22de851d91bc")
+		)
+		(pin "1"
+			(uuid "e379f9e3-43c0-45c4-ad76-d60ee1ed115a")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "C228")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "C221")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "C238")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "C218")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:CGA5L1X7R0J226M160AE")
+		(at 534.67 271.78 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "bd3f7059-5284-49c0-8b0c-a1049987d009")
+		(property "Reference" "C241"
+			(at 537.464 266.192 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.4369)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "22µF"
+			(at 537.718 268.986 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "wavenumber:C1206_1.90MM_MD"
+			(at 534.67 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 534.67 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 22UF 6.3V X7R 1206"
+			(at 534.67 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 538.48 266.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "Temperature Coefficient"
+			(at 542.29 266.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.4478 1.4478)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 534.67 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "TDK Corporation"
+			(at 534.67 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "CGA5L1X7R0J226M160AE"
+			(at 534.67 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "CGA5L1X7R0J226M160AE"
+			(at 534.67 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "flags" ""
+			(at 534.67 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4dd29cb8-d4ea-43d9-9a71-547b16085d5a")
+		)
+		(pin "2"
+			(uuid "8cec6074-fca3-4395-bba6-7f977317457e")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "C231")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "C225")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "C241")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "C226")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 494.03 284.48 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c56fbdff-b935-4141-a7d0-ca2f8e9cc5bf")
+		(property "Reference" "#PWR0222"
+			(at 494.538 287.782 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 493.776 288.798 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 494.03 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 494.03 284.48 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 493.268 294.132 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "efa38b69-30d4-43c2-b58e-fa571a4eb63f")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "#PWR0238")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "#PWR0213")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "#PWR0222")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "#PWR0231")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 534.67 271.78 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d24a66d7-6123-43d6-a33e-906e47a99f6a")
+		(property "Reference" "#PWR0226"
+			(at 535.178 275.082 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 534.416 276.098 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 534.67 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 534.67 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 533.908 281.432 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a8510135-74e1-4573-9989-b12bf72e8b6d")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "#PWR0240")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "#PWR0215")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "#PWR0226")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "#PWR0233")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:GCM21BR70J106KE22K")
+		(at 403.86 270.51 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e6ed169f-8ca1-41ac-92d2-19d449579388")
+		(property "Reference" "C237"
+			(at 406.654 265.684 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.4369)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10µF"
+			(at 406.4 268.478 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "wavenumber:C0805_1.40MM_MD"
+			(at 403.86 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 403.86 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 10UF 6.3V X7R 0805"
+			(at 403.86 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 407.67 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Temperature Coefficient" "Temperature Coefficient"
+			(at 411.48 265.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.4478 1.4478)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 403.86 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at 403.86 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCM21BR70J106KE22K"
+			(at 403.86 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCM21BR70J106KE22K"
+			(at 403.86 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "flags" ""
+			(at 403.86 270.51 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "951145eb-1af8-4fb6-8f14-942ae56cef91")
+		)
+		(pin "2"
+			(uuid "ee0f9177-12dd-4422-b5ee-0b02846dd186")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "C227")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "C220")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "C237")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "C217")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 459.74 278.13 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "f90bbaf5-b3c3-4f2a-98ab-74a7fa38daee")
+		(property "Reference" "#PWR0221"
+			(at 460.248 281.432 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 459.486 282.448 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 459.74 278.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 459.74 278.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 458.978 287.782 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "0773d5dd-0536-4f35-a163-2f77a1b5d610")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "#PWR0237")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "#PWR0212")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "#PWR0221")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "#PWR0230")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-2RKF1003X")
+		(at 439.42 267.97 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "feaea63c-3d97-4c0d-8f26-a026c3907f97")
+		(property "Reference" "R90"
+			(at 434.086 265.938 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.905 1.905)
+					(thickness 0.3048)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "100kΩ"
+			(at 434.34 270.002 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.524 1.524)
+				)
+			)
+		)
+		(property "Footprint" "wavenumber:R0402_0.40MM_HD"
+			(at 439.42 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 439.42 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "RES 100K OHM 1/10W 1% 0402 SMD"
+			(at 439.42 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 434.34 264.16 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 434.34 261.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.4478 1.4478)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 439.928 271.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 2.1844 2.1844)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 439.42 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 439.42 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-2RKF1003X"
+			(at 439.42 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "ERJ-2RKF1003X"
+			(at 439.42 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "flags" ""
+			(at 439.42 267.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Berkeley Mono")
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "8783bb47-e287-4166-b4b5-8976a911b23e")
+		)
+		(pin "1"
+			(uuid "7510b23c-71aa-41c1-94c8-4b64eb236685")
+		)
+		(instances
+			(project "11-10084__speedy_processing_module__B"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/8a7d3c2b-6515-441f-978e-a63b9b8e053e"
+					(reference "R83")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/d0152d3e-2eb4-4a0c-8a6c-a8dcc8b48234"
+					(reference "R80")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/db72812f-eed2-46d2-9d1f-21b117f75d72"
+					(reference "R90")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/4638be5d-2eb6-43b3-bdc0-90c620477d49/e773859c-03f8-48c5-b314-46ca2b8931c8"
+					(reference "R84")
+					(unit 1)
+				)
+			)
+		)
+	)
+)
