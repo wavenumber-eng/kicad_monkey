@@ -709,6 +709,9 @@ review theme:
 - non-plated drills: red (`{_PCB_NPTH_DRILL_COLOR}`);
 - non-plated slots: orange (`{_PCB_NPTH_SLOT_COLOR}`).
 
+Plated drill and slot overlays correspond to electrical through-hole pads and
+vias. Non-plated overlays correspond to KiCad `np_thru_hole` mechanical pads.
+
 Draw order is tracks/arcs first, polygons/zones above those, edge cuts, pads,
 then the coloured drill/slot overlay last.
 """

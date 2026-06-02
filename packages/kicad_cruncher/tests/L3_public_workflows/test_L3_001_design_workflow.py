@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -212,6 +213,27 @@ def _assert_pcb_review_svg_contract(output_dir: Path, item: dict[str, Any]) -> N
         assert "data-hole-plating=" in svg_text
 
 
+def _review_attrs_by_source_uuid(
+    svg_text: str,
+    *,
+    review_object: str,
+    component: str,
+) -> dict[str, dict[str, str]]:
+    """Index review overlay SVG attributes for a component by source UUID."""
+    root = ET.fromstring(svg_text)
+    attrs_by_uuid: dict[str, dict[str, str]] = {}
+    for element in root.iter():
+        attrs = element.attrib
+        if attrs.get("data-review-object") != review_object:
+            continue
+        if attrs.get("data-component") != component:
+            continue
+        source_uuid = attrs.get("data-source-uuid")
+        if source_uuid:
+            attrs_by_uuid[source_uuid] = dict(attrs)
+    return attrs_by_uuid
+
+
 def test_design_command_generates_project_json(tmp_path: Path) -> None:
     """Verify design writes a KiCad-native JSON payload for a project."""
     project_path = _write_synthetic_project(tmp_path)
@@ -283,6 +305,45 @@ def test_design_command_uses_copied_kicad_monkey_corpus_projects(
     )
     if output_name != "led_component_design.json":
         assert "#B8B8B8" in all_pcb_svg_text
+
+
+def test_design_review_pcb_overlay_distinguishes_pth_and_npth_pads(tmp_path: Path) -> None:
+    """Verify design-review drill overlays keep real PTH and NPTH pads distinct."""
+    project_path = (
+        _CORPUS_ROOT
+        / "projects"
+        / "taillight"
+        / "input"
+        / "11-10045__taillight__C.kicad_pro"
+    )
+    output_dir = tmp_path / "out"
+
+    result = _run_cli("dr", str(project_path), "-o", str(output_dir))
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    manifest = _read_json(output_dir / "design_review_manifest.json")
+    front_copper = next(item for item in manifest["pcb_svgs"] if item["layer"] == "F.Cu")
+    svg_text = (output_dir / front_copper["file"]).read_text(encoding="utf-8")
+    j1_pad_holes = _review_attrs_by_source_uuid(
+        svg_text,
+        review_object="pad-hole",
+        component="J1",
+    )
+
+    npth_pad = j1_pad_holes["7f60e5a9-d550-4d97-99c7-c6445de4e457"]
+    assert npth_pad["data-hole-plating"] == "non-plated"
+    assert npth_pad["data-hole-kind"] == "round"
+    assert npth_pad["fill"] == "#DC2626"
+    assert "data-pad-number" not in npth_pad
+
+    pth_pad = j1_pad_holes["5c2e78b7-48b3-4842-94d6-1a03bfcd6e8d"]
+    assert pth_pad["data-hole-plating"] == "plated"
+    assert pth_pad["data-hole-kind"] == "round"
+    assert pth_pad["fill"] == "#2563EB"
+    assert pth_pad["data-pad-number"] == "1"
+
+    assert sum(attrs["data-hole-plating"] == "non-plated" for attrs in j1_pad_holes.values()) == 4
+    assert sum(attrs["data-hole-plating"] == "plated" for attrs in j1_pad_holes.values()) == 4
 
 
 def test_design_command_can_auto_detect_single_project(tmp_path: Path) -> None:
