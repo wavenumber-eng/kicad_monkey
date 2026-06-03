@@ -311,7 +311,7 @@ dev = [
 requires-dist = [
     { name = "build", marker = "extra == 'test'", specifier = ">=1.2.0" },
     { name = "colorama", specifier = ">=0.4.6" },
-    { name = "kicad-monkey", editable = "../kicad_monkey" },
+    { name = "kicad-monkey", specifier = "==2026.6.3" },
     { name = "pyright", marker = "extra == 'test'", specifier = ">=1.1.390" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
     { name = "pytest-json-report", marker = "extra == 'test'", specifier = ">=1.5.0" },
@@ -336,7 +336,7 @@ dev = [
 [[package]]
 name = "kicad-monkey"
 version = "2026.6.3"
-source = { editable = "../kicad_monkey" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama" },
     { name = "freetype-py" },
@@ -346,37 +346,9 @@ dependencies = [
     { name = "uharfbuzz" },
     { name = "zstandard" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "build", marker = "extra == 'test'", specifier = ">=1.2.0" },
-    { name = "colorama" },
-    { name = "freetype-py" },
-    { name = "numpy" },
-    { name = "pyright", marker = "extra == 'test'", specifier = ">=1.1.390" },
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
-    { name = "pytest-json-report", marker = "extra == 'test'" },
-    { name = "ruff", marker = "extra == 'test'", specifier = ">=0.8.0" },
-    { name = "shapely" },
-    { name = "tomli-w", marker = "extra == 'test'", specifier = ">=1.2.0" },
-    { name = "trimesh" },
-    { name = "twine", marker = "extra == 'test'", specifier = ">=5.0.0" },
-    { name = "uharfbuzz" },
-    { name = "wn-rack", marker = "extra == 'test'", specifier = ">=1.1.0" },
-    { name = "zstandard" },
-]
-provides-extras = ["test"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "build", specifier = ">=1.2.0" },
-    { name = "pyright", specifier = ">=1.1.390" },
-    { name = "pytest", specifier = ">=8.0.0" },
-    { name = "pytest-json-report" },
-    { name = "ruff", specifier = ">=0.8.0" },
-    { name = "tomli-w", specifier = ">=1.2.0" },
-    { name = "twine", specifier = ">=5.0.0" },
-    { name = "wn-rack", specifier = ">=1.1.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/c3/f8/768c8ff84ac4e26c7e337258cb9a61ae7314ae39e67069856ce7ec671e21/kicad_monkey-2026.6.3.tar.gz", hash = "sha256:091a4f6e553c76648d623648c5f63070442f41440500191378fc7a0fb8e97927", size = 2916585, upload-time = "2026-06-03T18:58:11.263Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5d/72/910644faadfea1b5a304c2a5d427190664f596424738af08dc9f350d4b0a/kicad_monkey-2026.6.3-py3-none-any.whl", hash = "sha256:444daa73278cbe3429a429fe8290898781b21fb6115c4d35c9ec3c600bb4093a", size = 635109, upload-time = "2026-06-03T18:58:09.624Z" },
 ]
 
 [[package]]
