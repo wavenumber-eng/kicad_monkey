@@ -614,17 +614,74 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     assert manifest["board"] == "led_component"
     assert "F.Cu" in manifest["layer_outputs"]
     assert "B.Cu" in manifest["layer_outputs"]
-    assert manifest["layer_outputs"]["F.Cu"]["layers"] == ["F.Cu"]
+    assert manifest["layer_outputs"]["F.Cu"]["layers"] == [
+        "F.Cu",
+        "Edge.Cuts",
+        "DRILLS",
+        "SLOTS",
+    ]
+    assert manifest["layer_outputs"]["F.Cu"]["context_layers"] == [
+        "Edge.Cuts",
+        "DRILLS",
+        "SLOTS",
+    ]
+    assert manifest["layer_outputs"]["Edge.Cuts"]["layers"] == ["Edge.Cuts"]
+    assert manifest["layer_outputs"]["Edge.Cuts"]["context_layers"] == []
     assert manifest["layer_outputs"]["BOARD_OUTLINE"]["virtual"] is True
     assert manifest["layer_outputs"]["BOARD_OUTLINE"]["layers"] == ["BOARD_OUTLINE"]
     assert (output_dir / "layers" / "led_component__F.Cu.svg").exists()
     assert (output_dir / "layers" / "led_component__B.Cu.svg").exists()
+    assert (output_dir / "layers" / "led_component__Edge.Cuts.svg").exists()
     assert (output_dir / "layers" / "led_component__virtual__board_outline.svg").exists()
     front_layer_svg = (output_dir / "layers" / "led_component__F.Cu.svg").read_text(
         encoding="utf-8"
     )
+    edge_cuts_svg = (output_dir / "layers" / "led_component__Edge.Cuts.svg").read_text(
+        encoding="utf-8"
+    )
+    assert 'data-layer-name="Edge.Cuts"' in front_layer_svg
     assert 'data-layer-token="BOARD_OUTLINE"' not in front_layer_svg
+    assert 'data-layer-token="BOARD_OUTLINE"' not in edge_cuts_svg
+    assert 'data-layer-token="DRILLS"' not in edge_cuts_svg
+    assert 'data-layer-token="SLOTS"' not in edge_cuts_svg
     assert (output_dir / "top_view" / "led_component__top_view.svg").exists()
+
+
+def test_pcb_svg_layer_context_overlays_can_be_disabled(tmp_path: Path) -> None:
+    """Verify physical layer outputs can be kept raw for debugging."""
+    config_path = _write_pcb_svg_config(tmp_path, include_hlr=False)
+    config_payload = _read_json(config_path)
+    config_payload["layer_outputs"]["add_edge_cuts_to_physical_layers"] = False
+    config_payload["layer_outputs"]["add_drills_to_physical_layers"] = False
+    config_payload["layer_outputs"]["add_slots_to_physical_layers"] = False
+    config_payload["layer_outputs"]["include_special_layers"] = []
+    config_path.write_text(json.dumps(config_payload, indent=2), encoding="utf-8")
+    output_dir = tmp_path / "pcb-svg"
+
+    result = _run_cli(
+        "pcb-svg",
+        str(_CORPUS_LED_PCB),
+        "--config",
+        str(config_path),
+        "-o",
+        str(output_dir),
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    manifest = _read_json(output_dir / "led_component__views.json")
+    assert manifest["layer_outputs"]["F.Cu"]["layers"] == ["F.Cu"]
+    assert manifest["layer_outputs"]["F.Cu"]["context_layers"] == []
+    assert "BOARD_OUTLINE" not in manifest["layer_outputs"]
+    front_layer_svg = (output_dir / "layers" / "led_component__F.Cu.svg").read_text(
+        encoding="utf-8"
+    )
+    root = ET.fromstring(front_layer_svg)
+    assert not any(
+        element.attrib.get("data-layer-name") == "Edge.Cuts"
+        for element in root.iter()
+    )
+    assert 'data-layer-token="DRILLS"' not in front_layer_svg
+    assert 'data-layer-token="SLOTS"' not in front_layer_svg
 
 
 def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
@@ -633,6 +690,9 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
     views = {view.name: view for view in config.views}
 
     assert config.layer_outputs["layers"] == "auto"
+    assert config.layer_outputs["add_edge_cuts_to_physical_layers"] is True
+    assert config.layer_outputs["add_drills_to_physical_layers"] is True
+    assert config.layer_outputs["add_slots_to_physical_layers"] is True
     assert config.layer_outputs["include_special_layers"] == [
         "BOARD_OUTLINE",
         "BOARD_CUTOUTS",

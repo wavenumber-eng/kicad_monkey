@@ -157,6 +157,9 @@ def _default_pcb_svg_config_text() -> str:
         "*/\n"
         "\n"
         "// Set layer_outputs.enabled=false if you only want composed views.\n"
+        "// layer_outputs.add_*_to_physical_layers controls per-layer context:\n"
+        "//   raw Edge.Cuts plus computed DRILLS/SLOTS overlays are included by default.\n"
+        "// include_special_layers writes standalone __virtual__ debug outputs.\n"
         f"{payload}\n"
     )
 
@@ -430,6 +433,36 @@ def _layer_output_special_tokens(config: _PcbSvgConfig) -> list[str]:
     return [normalize_layer_token(str(token)) for token in raw_include_special]
 
 
+def _layer_output_bool(config: _PcbSvgConfig, key: str, default: bool) -> bool:
+    value = config.layer_outputs.get(key, default)
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int | float):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    raise ValueError(f"Invalid pcb-svg layer_outputs.{key} boolean value: {value!r}")
+
+
+def _physical_layer_context_tokens(config: _PcbSvgConfig, layer_token: str) -> list[str]:
+    if layer_token == "Edge.Cuts":
+        return []
+    tokens: list[str] = []
+    if _layer_output_bool(config, "add_edge_cuts_to_physical_layers", True):
+        tokens.append("Edge.Cuts")
+    if _layer_output_bool(config, "add_drills_to_physical_layers", True):
+        tokens.append("DRILLS")
+    if _layer_output_bool(config, "add_slots_to_physical_layers", True):
+        tokens.append("SLOTS")
+    return tokens
+
+
 def _append_unique_token(tokens: list[str], token: str) -> None:
     if token not in tokens:
         tokens.append(token)
@@ -469,7 +502,7 @@ def _render_a0_layer_outputs(
     written = 0
     for layer_token in physical_tokens:
         group_id = f"pcb-svg-layer-{_safe_svg_id(layer_token.lower())}"
-        view_layers = [layer_token]
+        view_layers = [layer_token, *_physical_layer_context_tokens(config, layer_token)]
         composition = render_pcb_svg_composition(
             pcb,
             view_layers,
@@ -485,6 +518,7 @@ def _render_a0_layer_outputs(
         layer_manifest[layer_token] = {
             "file": str(layer_path.relative_to(output_dir)).replace("\\", "/"),
             "layers": view_layers,
+            "context_layers": view_layers[1:],
             "physical_layers": composition.physical_layers,
             "group_id": group_id,
         }

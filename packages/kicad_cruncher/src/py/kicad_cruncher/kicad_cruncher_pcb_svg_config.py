@@ -736,6 +736,9 @@ class _PcbSvgConfig:
             layer_outputs={
                 "enabled": True,
                 "layers": "auto",
+                "add_edge_cuts_to_physical_layers": True,
+                "add_drills_to_physical_layers": True,
+                "add_slots_to_physical_layers": True,
                 "include_special_layers": [
                     "BOARD_OUTLINE",
                     "BOARD_CUTOUTS",
@@ -859,6 +862,13 @@ class _PcbSvgConfig:
                 layer_outputs.get("include_special_layers"),
                 field_name="layer_outputs.include_special_layers",
             )
+        for key in (
+            "add_edge_cuts_to_physical_layers",
+            "add_drills_to_physical_layers",
+            "add_slots_to_physical_layers",
+        ):
+            if key in layer_outputs:
+                layer_outputs[key] = _coerce_bool(layer_outputs.get(key), True)
 
         raw_views = data.get("views", [view.to_dict() for view in default.views])
         if not isinstance(raw_views, list):
