@@ -220,8 +220,10 @@ def _assert_design_review_bundle(
         schematic_svg = svg_path.read_text(encoding="utf-8")
         assert "<svg" in schematic_svg
         assert "kicad_monkey.schematic.svg.enrichment.a0" in schematic_svg
+        assert 'data-review-theme="kicad_cruncher.design_review.schematic_svg.a0"' in schematic_svg
         colors = {match.upper() for match in _SVG_COLOR_RE.findall(schematic_svg)}
-        assert colors - {"#000000", "#FFFFFF"}
+        assert colors <= {"#000000", "#FFFFFF"}
+        assert "#000000" in colors
         assert item["sheet_path"]
         assert item["sheet_instance_path"]
 

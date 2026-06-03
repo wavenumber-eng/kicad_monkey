@@ -83,7 +83,7 @@ def test_design_help_describes_design_json_contents() -> None:
 
     assert result.returncode == 0, result.stderr
     assert "design review bundle" in result.stdout
-    assert "enriched schematic SVGs" in result.stdout
+    assert "enriched black-and-white schematic SVGs" in result.stdout
     assert "enriched PCB copper-layer SVGs" in result.stdout
     assert "project metadata" in result.stdout
     assert "schematic hierarchy" in result.stdout

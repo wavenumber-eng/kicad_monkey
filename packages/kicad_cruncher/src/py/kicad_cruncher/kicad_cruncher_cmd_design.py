@@ -35,6 +35,7 @@ _PCB_PTH_SLOT_COLOR = "#0891B2"
 _PCB_NPTH_DRILL_COLOR = "#DC2626"
 _PCB_NPTH_SLOT_COLOR = "#F97316"
 _PCB_UNKNOWN_HOLE_COLOR = "#6B7280"
+_SCHEMATIC_REVIEW_THEME = "kicad_cruncher.design_review.schematic_svg.a0"
 
 ET.register_namespace("", _SVG_NS)
 ET.register_namespace("xlink", _XLINK_NS)
@@ -90,8 +91,12 @@ def _render_schematic_svgs(
     *,
     design_payload: JsonObject,
 ) -> list[Artifact]:
-    """Write one enriched KiCad-style SVG per concrete schematic instance."""
-    from kicad_monkey import KiCadSvgRenderOptions, render_ir_to_svg
+    """Write one enriched black-and-white SVG per concrete schematic instance."""
+    from kicad_monkey import (
+        SCHEMATIC_SVG_BLACK_AND_WHITE_ROLE_COLORS,
+        KiCadSvgRenderOptions,
+        render_ir_to_svg,
+    )
     from kicad_monkey.kicad_schematic_svg_enrichment import (
         schematic_root_svg_attrs,
         schematic_svg_enrichment_metadata_element,
@@ -102,7 +107,9 @@ def _render_schematic_svgs(
     artifacts: list[Artifact] = []
     used_names: set[str] = set()
 
-    options = KiCadSvgRenderOptions.enriched_default()
+    options = KiCadSvgRenderOptions.enriched_default().with_schematic_role_colors(
+        SCHEMATIC_SVG_BLACK_AND_WHITE_ROLE_COLORS
+    )
     profile_obj = options.profile
     profile_value = str(getattr(profile_obj, "value", profile_obj))
 
@@ -128,15 +135,17 @@ def _render_schematic_svgs(
             sheet_instance_path=instance.sheet_instance_path,
             profile=profile_value,
         )
+        root_attrs = schematic_root_svg_attrs(
+            source_path=source_path or "",
+            sheet_name=instance.sheet_name,
+            sheet_path=instance.sheet_path,
+            profile=profile_value,
+        )
+        root_attrs["data-review-theme"] = _SCHEMATIC_REVIEW_THEME
         svg_text = render_ir_to_svg(
             ir,
             options=options,
-            root_extra_attrs=schematic_root_svg_attrs(
-                source_path=source_path or "",
-                sheet_name=instance.sheet_name,
-                sheet_path=instance.sheet_path,
-                profile=profile_value,
-            ),
+            root_extra_attrs=root_attrs,
             metadata_elements=[schematic_svg_enrichment_metadata_element(metadata_payload)],
         )
         svg_path.parent.mkdir(parents=True, exist_ok=True)
@@ -404,7 +413,7 @@ model plus visual context.
 
 - `{design_json}`: KiCad-native design JSON from `kicad-monkey`.
 - `{manifest_file}`: artifact index for this review bundle.
-- `schematics/`: enriched KiCad-style schematic SVGs, one file per
+- `schematics/`: enriched black-and-white schematic SVGs, one file per
   concrete hierarchy instance.
 - `pcb/copper_layers/`: enriched PCB SVGs, one file per copper layer.
 
@@ -427,6 +436,9 @@ source board provides it.
 
 Repeated hierarchical sheets produce separate SVGs. Use `sheet_path` for the
 human hierarchy path and `sheet_instance_path` for the KiCad UUID instance path.
+Schematic SVGs use the `{_SCHEMATIC_REVIEW_THEME}` role theme from
+`kicad-monkey`: enriched source-object groups and net metadata are preserved,
+while schematic graphics are rendered as black on a white page for review.
 
 ## PCB Review SVGs
 
@@ -547,8 +559,9 @@ def register_parser(
         help="generate KiCad design review artifacts",
         description=(
             "Generate a KiCad design review bundle from .kicad_pro or .kicad_sch files. "
-            "The output includes KiCad-native design JSON, enriched schematic SVGs, "
-            "enriched PCB copper-layer SVGs, a manifest, and a README for review agents. "
+            "The output includes KiCad-native design JSON, enriched black-and-white "
+            "schematic SVGs, enriched PCB copper-layer SVGs, a manifest, and a README "
+            "for review agents. "
             "The design JSON includes project metadata, schematic hierarchy, components, "
             "nets, variants, and optional lookup indexes."
         ),

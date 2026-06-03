@@ -37,7 +37,7 @@ kicad-cruncher design --no-indexes</code></pre>
 <section id="ownership">
   <h2>Ownership</h2>
   <p>The semantic model and SVG enrichment contract are owned by <code>kicad-monkey</code>. <code>kicad-cruncher</code> must not re-parse KiCad pads, vias, nets, or hierarchy to invent parallel metadata. It calls the public <code>kicad-monkey</code> APIs, writes the returned artifacts into a review bundle, and applies a review visual theme to the enriched SVG records.</p>
-  <p>Design JSON is produced from <code>KiCadDesign.to_json()</code>. Schematic SVGs are produced from <code>design.schematic_instances()</code>, <code>design.to_schematic_instance_ir(...)</code>, <code>render_ir_to_svg(...)</code>, and the <code>kicad-monkey</code> schematic SVG enrichment helpers with enriched KiCad-style render options. PCB review SVGs are produced from <code>design.pcb.to_svg(..., profile="enriched")</code> with the selected copper layer plus <code>Edge.Cuts</code>.</p>
+  <p>Design JSON is produced from <code>KiCadDesign.to_json()</code>. Schematic SVGs are produced from <code>design.schematic_instances()</code>, <code>design.to_schematic_instance_ir(...)</code>, <code>render_ir_to_svg(...)</code>, and the <code>kicad-monkey</code> schematic SVG enrichment helpers with enriched black-and-white role-theme render options. PCB review SVGs are produced from <code>design.pcb.to_svg(..., profile="enriched")</code> with the selected copper layer plus <code>Edge.Cuts</code>.</p>
 </section>
 
 <section id="output">
@@ -61,7 +61,7 @@ kicad-cruncher design --no-indexes</code></pre>
 <section id="schematic-svgs">
   <h2>Schematic SVGs</h2>
   <p>Schematic SVGs use the enriched <code>kicad-monkey</code> schematic SVG contract. Groups are wrapped around source objects so tools can connect rendered graphics back to symbols, pins, sheets, ports, power symbols, and nets. Filenames use the concrete sheet instance name, not just the reusable schematic source filename, so repeated hierarchical sheets are reviewable as separate pages.</p>
-  <p>The design-review command keeps the enriched schematic SVG colors produced by <code>kicad-monkey</code> so visual output matches the parser/rendering test corpus. The root enrichment attributes and <code>schematic-enrichment-a0</code> metadata payload are embedded in every schematic SVG.</p>
+  <p>The design-review command uses the <code>kicad_cruncher.design_review.schematic_svg.a0</code> black-and-white schematic role theme from <code>kicad-monkey</code>. The root enrichment attributes and <code>schematic-enrichment-a0</code> metadata payload are embedded in every schematic SVG, so tools still map graphics back to source objects and nets.</p>
 </section>
 
 <section id="pcb-svgs">

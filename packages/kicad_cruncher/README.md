@@ -58,10 +58,13 @@ kicad-cruncher design -o output/design
 ```
 
 The design review output includes `<input-stem>_design.json`,
-`design_review_manifest.json`, `README.md`, enriched schematic SVGs under
-`schematics/`, and one PCB review SVG per copper layer under
-`pcb/copper_layers/` when a board is present. PCB review SVGs include the
-copper layer, `Edge.Cuts`, and `kicad-monkey` enriched drill/slot records.
+`design_review_manifest.json`, `README.md`, enriched black-and-white schematic
+SVGs under `schematics/`, and one PCB review SVG per copper layer under
+`pcb/copper_layers/` when a board is present. Schematic review SVGs preserve
+the `kicad-monkey` enrichment metadata while applying the
+`kicad_cruncher.design_review.schematic_svg.a0` black-and-white role theme.
+PCB review SVGs include the copper layer, `Edge.Cuts`, and `kicad-monkey`
+enriched drill/slot records.
 Plated pads and vias, and KiCad `np_thru_hole` mechanical pads, are
 distinguished with `data-hole-plating` and `data-hole-kind` attributes.
 Design-review styling colors those existing records in place: plated drills are
