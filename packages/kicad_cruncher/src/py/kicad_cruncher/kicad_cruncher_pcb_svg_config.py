@@ -777,7 +777,7 @@ class _PcbSvgConfig:
                     name="board_cutouts",
                     group_id="pcb-svg-view-board-cutouts",
                     output_svg="views/{board}__board_cutouts.svg",
-                    layers=["BOARD_CUTOUTS"],
+                    layers=["BOARD_OUTLINE", "BOARD_CUTOUTS"],
                     assembly_hlr_mode="none",
                     description="Board cutouts",
                 ),

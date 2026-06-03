@@ -267,7 +267,7 @@ def _write_pcb_svg_virtual_config(root: Path) -> Path:
                         "enabled": True,
                         "group_id": "pcb-svg-view-board-cutouts",
                         "output_svg": "views/{board}__board_cutouts.svg",
-                        "layers": ["BOARD_CUTOUTS"],
+                        "layers": ["BOARD_OUTLINE", "BOARD_CUTOUTS"],
                         "assembly_hlr_mode": "none",
                     },
                     {
@@ -623,7 +623,7 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
         "DRILLS",
         "SLOTS",
     ]
-    assert views["board_cutouts"].layers == ["BOARD_CUTOUTS"]
+    assert views["board_cutouts"].layers == ["BOARD_OUTLINE", "BOARD_CUTOUTS"]
     assert views["top_pin1_view"].layers == [
         "BOARD_OUTLINE",
         "TOP",
@@ -666,11 +666,13 @@ def test_pcb_svg_board_cutouts_detect_generic_internal_closed_regions(tmp_path: 
         encoding="utf-8"
     )
     assert 'id="board-cutout-hatch"' in svg
+    assert 'data-layer-token="BOARD_OUTLINE"' in svg
     assert 'data-layer-token="BOARD_CUTOUTS"' in svg
     assert 'data-cutout-count="2"' in svg
     assert 'data-source-kinds="gr_arc+gr_line"' in svg
     assert 'data-source-kinds="gr_circle"' in svg
-    assert 'data-source-kinds="gr_rect"' not in svg
+    cutout_group = svg.split('id="pcb-svg-board-cutouts"', 1)[1]
+    assert 'data-source-kinds="gr_rect"' not in cutout_group
 
 
 def test_pcb_svg_cutout_project_detects_generalized_edge_cut_regions(
@@ -696,6 +698,7 @@ def test_pcb_svg_cutout_project_detects_generalized_edge_cut_regions(
         encoding="utf-8"
     )
     assert 'id="board-cutout-hatch"' in svg
+    assert 'data-layer-token="BOARD_OUTLINE"' in svg
     assert 'data-layer-token="BOARD_CUTOUTS"' in svg
     assert 'data-cutout-count="8"' in svg
     root = ET.fromstring(svg)
