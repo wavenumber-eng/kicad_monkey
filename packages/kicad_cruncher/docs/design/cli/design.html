@@ -37,7 +37,7 @@ kicad-cruncher design --no-indexes</code></pre>
 <section id="ownership">
   <h2>Ownership</h2>
   <p>The semantic model and SVG enrichment contract are owned by <code>kicad-monkey</code>. <code>kicad-cruncher</code> must not re-parse KiCad pads, vias, nets, or hierarchy to invent parallel metadata. It calls the public <code>kicad-monkey</code> APIs, writes the returned artifacts into a review bundle, and applies a review visual theme to the enriched SVG records.</p>
-  <p>Design JSON is produced from <code>KiCadDesign.to_json()</code>. Schematic SVGs are produced from <code>design.schematic_instances()</code>, <code>design.to_schematic_instance_ir(...)</code>, and <code>render_ir_to_svg(...)</code> with enriched black-and-white render options. PCB review SVGs are produced from <code>design.pcb.to_svg(..., profile="enriched")</code> with the selected copper layer plus <code>Edge.Cuts</code>.</p>
+  <p>Design JSON is produced from <code>KiCadDesign.to_json()</code>. Schematic SVGs are produced from <code>design.schematic_instances()</code>, <code>design.to_schematic_instance_ir(...)</code>, <code>render_ir_to_svg(...)</code>, and the <code>kicad-monkey</code> schematic SVG enrichment helpers with enriched KiCad-style render options. PCB review SVGs are produced from <code>design.pcb.to_svg(..., profile="enriched")</code> with the selected copper layer plus <code>Edge.Cuts</code>.</p>
 </section>
 
 <section id="output">
@@ -61,14 +61,14 @@ kicad-cruncher design --no-indexes</code></pre>
 <section id="schematic-svgs">
   <h2>Schematic SVGs</h2>
   <p>Schematic SVGs use the enriched <code>kicad-monkey</code> schematic SVG contract. Groups are wrapped around source objects so tools can connect rendered graphics back to symbols, pins, sheets, ports, power symbols, and nets. Filenames use the concrete sheet instance name, not just the reusable schematic source filename, so repeated hierarchical sheets are reviewable as separate pages.</p>
-  <p>The design-review command applies a black-and-white schematic theme for review consistency, while keeping the enriched SVG metadata and embedded metadata payload intact.</p>
+  <p>The design-review command keeps the enriched schematic SVG colors produced by <code>kicad-monkey</code> so visual output matches the parser/rendering test corpus. The root enrichment attributes and <code>schematic-enrichment-a0</code> metadata payload are embedded in every schematic SVG.</p>
 </section>
 
 <section id="pcb-svgs">
   <h2>PCB Review SVGs</h2>
   <p>Each PCB review SVG contains one copper layer plus <code>Edge.Cuts</code>. Physical geometry comes from <code>kicad-monkey</code> enriched PCB SVG output. <code>kicad-cruncher</code> only adds root review attributes such as <code>data-review-theme</code>, <code>data-review-layer</code>, and <code>data-review-draw-order</code>, then recolors existing SVG elements according to the review theme.</p>
   <p>Drill and slot semantics come from existing <code>kicad-monkey</code> records. The records must use <code>data-primitive="pad-hole"</code> or <code>data-primitive="via-hole"</code>, <code>data-hole-owner</code>, <code>data-hole-kind</code>, <code>data-hole-plating</code>, and dimensional fields such as <code>data-hole-diameter-mm</code> or <code>data-hole-width-mm</code> / <code>data-hole-height-mm</code>. The plating values are <code>plated</code>, <code>non_plated</code>, or <code>unknown</code>.</p>
-  <p>The review theme colors pads black, tracks/arcs/vias/zones light gray, <code>Edge.Cuts</code> light gray, plated drill records blue, plated slot records cyan, non-plated drill records red, non-plated slot records orange, and unknown-plating hole records neutral gray. Unknown plating is retained as <code>unknown</code> and should be treated as review-required data, not silently converted to plated or non-plated.</p>
+  <p>The review theme colors pads black, tracks/arcs/vias/zones light gray, <code>Edge.Cuts</code> black, plated drill records blue, plated slot records cyan, non-plated drill records red, non-plated slot records orange, and unknown-plating hole records neutral gray. Unknown plating is retained as <code>unknown</code> and should be treated as review-required data, not silently converted to plated or non-plated.</p>
   <p>The command must not create a second drill/slot overlay group, add duplicate plating attributes such as boolean mirrors, or translate <code>non_plated</code> into a different spelling. Applications should read the canonical <code>kicad-monkey</code> attributes directly.</p>
 </section>
 

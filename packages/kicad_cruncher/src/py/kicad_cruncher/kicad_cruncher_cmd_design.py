@@ -27,7 +27,7 @@ Artifact = dict[str, object]
 _SVG_NS = "http://www.w3.org/2000/svg"
 _XLINK_NS = "http://www.w3.org/1999/xlink"
 _DRAWABLE_TAGS = {"circle", "ellipse", "line", "path", "polygon", "polyline", "rect"}
-_PCB_EDGE_COLOR = "#D0D0D0"
+_PCB_EDGE_COLOR = "#000000"
 _PCB_TRACE_COLOR = "#B8B8B8"
 _PCB_PAD_COLOR = "#000000"
 _PCB_PTH_DRILL_COLOR = "#2563EB"
@@ -84,19 +84,27 @@ def _write_json(path: Path, payload: JsonObject) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def _render_schematic_svgs(design: KiCadDesign, output_dir: Path) -> list[Artifact]:
-    """Write one enriched black-and-white SVG per concrete schematic instance."""
+def _render_schematic_svgs(
+    design: KiCadDesign,
+    output_dir: Path,
+    *,
+    design_payload: JsonObject,
+) -> list[Artifact]:
+    """Write one enriched KiCad-style SVG per concrete schematic instance."""
     from kicad_monkey import KiCadSvgRenderOptions, render_ir_to_svg
+    from kicad_monkey.kicad_schematic_svg_enrichment import (
+        schematic_root_svg_attrs,
+        schematic_svg_enrichment_metadata_element,
+        schematic_svg_enrichment_payload,
+    )
 
     schematic_dir = output_dir / "schematics"
     artifacts: list[Artifact] = []
     used_names: set[str] = set()
 
     options = KiCadSvgRenderOptions.enriched_default()
-    options.black_and_white = True
-    options.background_color = "#FFFFFF"
-    options.default_fill_color = "#000000"
-    options.default_stroke_color = "#000000"
+    profile_obj = options.profile
+    profile_value = str(getattr(profile_obj, "value", profile_obj))
 
     for instance in design.schematic_instances():
         sheet_name = str(getattr(instance, "sheet_name", "") or "")
@@ -112,7 +120,25 @@ def _render_schematic_svgs(design: KiCadDesign, output_dir: Path) -> list[Artifa
 
         svg_path = schematic_dir / filename
         ir = design.to_schematic_instance_ir(instance)
-        svg_text = render_ir_to_svg(ir, options=options)
+        metadata_payload = schematic_svg_enrichment_payload(
+            design_payload,
+            source_path=source_path or "",
+            sheet_name=instance.sheet_name,
+            sheet_path=instance.sheet_path,
+            sheet_instance_path=instance.sheet_instance_path,
+            profile=profile_value,
+        )
+        svg_text = render_ir_to_svg(
+            ir,
+            options=options,
+            root_extra_attrs=schematic_root_svg_attrs(
+                source_path=source_path or "",
+                sheet_name=instance.sheet_name,
+                sheet_path=instance.sheet_path,
+                profile=profile_value,
+            ),
+            metadata_elements=[schematic_svg_enrichment_metadata_element(metadata_payload)],
+        )
         svg_path.parent.mkdir(parents=True, exist_ok=True)
         svg_path.write_text(svg_text, encoding="utf-8")
 
@@ -378,7 +404,7 @@ model plus visual context.
 
 - `{design_json}`: KiCad-native design JSON from `kicad-monkey`.
 - `{manifest_file}`: artifact index for this review bundle.
-- `schematics/`: enriched black-and-white schematic SVGs, one file per
+- `schematics/`: enriched KiCad-style schematic SVGs, one file per
   concrete hierarchy instance.
 - `pcb/copper_layers/`: enriched PCB SVGs, one file per copper layer.
 
@@ -411,7 +437,7 @@ review theme:
 
 - pads belonging to footprints: black (`{_PCB_PAD_COLOR}`);
 - tracks, arcs, vias, and zones/polygons: light gray (`{_PCB_TRACE_COLOR}`);
-- board outline / `Edge.Cuts`: light gray (`{_PCB_EDGE_COLOR}`);
+- board outline / `Edge.Cuts`: black (`{_PCB_EDGE_COLOR}`);
 - plated drills: blue (`{_PCB_PTH_DRILL_COLOR}`);
 - plated slots: cyan (`{_PCB_PTH_SLOT_COLOR}`);
 - non-plated drills: red (`{_PCB_NPTH_DRILL_COLOR}`);
@@ -472,7 +498,11 @@ def cmd_design(args: argparse.Namespace) -> int:
         design = KiCadDesign.from_file(input_file)
         payload = design.to_json(include_indexes=include_indexes)
         _write_json(output_file, payload)
-        schematic_svgs = _render_schematic_svgs(design, output_dir)
+        schematic_svgs = _render_schematic_svgs(
+            design,
+            output_dir,
+            design_payload=payload,
+        )
         pcb_svgs = _render_pcb_review_svgs(design, output_dir)
         manifest_path = output_dir / "design_review_manifest.json"
         manifest = {

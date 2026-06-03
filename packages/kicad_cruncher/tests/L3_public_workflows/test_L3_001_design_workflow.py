@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -13,6 +14,7 @@ import pytest
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _CORPUS_ROOT = _PROJECT_ROOT / "tests" / "corpus" / "kicad"
+_SVG_COLOR_RE = re.compile(r"#[0-9A-Fa-f]{6}")
 _CORPUS_LED_PCB = (
     _CORPUS_ROOT / "board_svg" / "input" / "led_component" / "led_component.kicad_pcb"
 )
@@ -217,6 +219,9 @@ def _assert_design_review_bundle(
         assert svg_path.exists()
         schematic_svg = svg_path.read_text(encoding="utf-8")
         assert "<svg" in schematic_svg
+        assert "kicad_monkey.schematic.svg.enrichment.a0" in schematic_svg
+        colors = {match.upper() for match in _SVG_COLOR_RE.findall(schematic_svg)}
+        assert colors - {"#000000", "#FFFFFF"}
         assert item["sheet_path"]
         assert item["sheet_instance_path"]
 
@@ -237,8 +242,24 @@ def _assert_pcb_review_svg_contract(output_dir: Path, item: dict[str, Any]) -> N
     assert 'data-review-theme="kicad_cruncher.design_review.pcb_svg.a0"' in svg_text
     assert f'data-review-layer="{item["layer"]}"' in svg_text
     assert 'data-review-draw-order="tracks,polygons-zones,edge-cuts,pads,drills-slots"' in svg_text
-    assert "#D0D0D0" in svg_text
     assert "#000000" in svg_text
+    root = ET.fromstring(svg_text)
+    has_trace_or_zone = any(
+        element.attrib.get("data-ref") in {"segment", "track_arc", "via", "zone_fill"}
+        or element.attrib.get("data-primitive") in {"track", "via", "zone"}
+        for element in root.iter()
+    )
+    if has_trace_or_zone:
+        assert "#B8B8B8" in svg_text
+    edge_cut_subtrees = [
+        ET.tostring(element, encoding="unicode")
+        for element in root.iter()
+        if element.attrib.get("data-layer-name") == "Edge.Cuts"
+        or "Edge.Cuts" in element.attrib.get("data-layer-names", "")
+    ]
+    assert edge_cut_subtrees
+    assert any("#000000" in subtree for subtree in edge_cut_subtrees)
+    assert all("#D0D0D0" not in subtree for subtree in edge_cut_subtrees)
     assert 'id="design-review-drills-slots"' not in svg_text
     assert "data-review-object=" not in svg_text
     assert "data-source-uuid=" not in svg_text
