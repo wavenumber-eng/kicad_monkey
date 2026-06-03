@@ -736,7 +736,12 @@ class _PcbSvgConfig:
             layer_outputs={
                 "enabled": True,
                 "layers": "auto",
-                "include_special_layers": [],
+                "include_special_layers": [
+                    "BOARD_OUTLINE",
+                    "BOARD_CUTOUTS",
+                    "DRILLS",
+                    "SLOTS",
+                ],
                 "output_dir": "layers",
             },
             views=[

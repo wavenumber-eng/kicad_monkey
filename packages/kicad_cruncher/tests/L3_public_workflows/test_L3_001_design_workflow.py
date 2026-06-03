@@ -614,8 +614,16 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     assert manifest["board"] == "led_component"
     assert "F.Cu" in manifest["layer_outputs"]
     assert "B.Cu" in manifest["layer_outputs"]
+    assert manifest["layer_outputs"]["F.Cu"]["layers"] == ["F.Cu"]
+    assert manifest["layer_outputs"]["BOARD_OUTLINE"]["virtual"] is True
+    assert manifest["layer_outputs"]["BOARD_OUTLINE"]["layers"] == ["BOARD_OUTLINE"]
     assert (output_dir / "layers" / "led_component__F.Cu.svg").exists()
     assert (output_dir / "layers" / "led_component__B.Cu.svg").exists()
+    assert (output_dir / "layers" / "led_component__virtual__board_outline.svg").exists()
+    front_layer_svg = (output_dir / "layers" / "led_component__F.Cu.svg").read_text(
+        encoding="utf-8"
+    )
+    assert 'data-layer-token="BOARD_OUTLINE"' not in front_layer_svg
     assert (output_dir / "top_view" / "led_component__top_view.svg").exists()
 
 
@@ -625,7 +633,12 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
     views = {view.name: view for view in config.views}
 
     assert config.layer_outputs["layers"] == "auto"
-    assert config.layer_outputs["include_special_layers"] == []
+    assert config.layer_outputs["include_special_layers"] == [
+        "BOARD_OUTLINE",
+        "BOARD_CUTOUTS",
+        "DRILLS",
+        "SLOTS",
+    ]
     assert views["board_cutouts"].layers == ["BOARD_OUTLINE", "BOARD_CUTOUTS"]
     assert views["top_pin1_view"].layers == [
         "BOARD_OUTLINE",

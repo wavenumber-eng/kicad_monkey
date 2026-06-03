@@ -22,6 +22,7 @@ from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
     PCB_SVG_CONFIG_SCHEMA,
     _PcbSvgConfig,
     _PcbSvgViewConfig,
+    is_synthetic_layer_token,
     normalize_layer_token,
     parse_pcb_layer_selector,
     resolve_config_output_path,
@@ -429,6 +430,11 @@ def _layer_output_special_tokens(config: _PcbSvgConfig) -> list[str]:
     return [normalize_layer_token(str(token)) for token in raw_include_special]
 
 
+def _append_unique_token(tokens: list[str], token: str) -> None:
+    if token not in tokens:
+        tokens.append(token)
+
+
 def _view_mirror(config: _PcbSvgConfig, view: _PcbSvgViewConfig) -> bool:
     if view.mirror is not None:
         return bool(view.mirror)
@@ -450,11 +456,20 @@ def _render_a0_layer_outputs(
     if not bool(config.layer_outputs.get("enabled", True)):
         return 0
     layer_dir = output_dir / str(config.layer_outputs.get("output_dir") or "layers")
-    include_special = _layer_output_special_tokens(config)
-    written = 0
+    physical_tokens: list[str] = []
+    virtual_tokens: list[str] = []
     for layer_token in _layer_output_tokens(config, pcb):
+        if is_synthetic_layer_token(layer_token):
+            _append_unique_token(virtual_tokens, layer_token)
+        else:
+            _append_unique_token(physical_tokens, layer_token)
+    for layer_token in _layer_output_special_tokens(config):
+        _append_unique_token(virtual_tokens, layer_token)
+
+    written = 0
+    for layer_token in physical_tokens:
         group_id = f"pcb-svg-layer-{_safe_svg_id(layer_token.lower())}"
-        view_layers = [layer_token, *include_special]
+        view_layers = [layer_token]
         composition = render_pcb_svg_composition(
             pcb,
             view_layers,
@@ -472,6 +487,27 @@ def _render_a0_layer_outputs(
             "layers": view_layers,
             "physical_layers": composition.physical_layers,
             "group_id": group_id,
+        }
+        written += 1
+    for layer_token in virtual_tokens:
+        group_id = f"pcb-svg-layer-virtual-{_safe_svg_id(layer_token.lower())}"
+        view_layers = [layer_token]
+        composition = render_pcb_svg_composition(
+            pcb,
+            view_layers,
+            styles=config.global_options.styles,
+            group_id=group_id,
+            config=config,
+        )
+        layer_path = layer_dir / f"{board_name}__virtual__{_safe_svg_id(layer_token.lower())}.svg"
+        layer_path.parent.mkdir(parents=True, exist_ok=True)
+        layer_path.write_text(composition.svg_text, encoding="utf-8")
+        layer_manifest[layer_token] = {
+            "file": str(layer_path.relative_to(output_dir)).replace("\\", "/"),
+            "layers": view_layers,
+            "physical_layers": composition.physical_layers,
+            "group_id": group_id,
+            "virtual": True,
         }
         written += 1
     return written

@@ -14,6 +14,7 @@ objectives = [
     "PCB SVG cutout views detect closed Edge.Cuts circles, rectangles, polygons, lines, arcs, and curves",
     "PCB SVG virtual overlays use the same full-board canvas origin as KiCad Monkey SVG renders",
     "PCB SVG Edge.Cuts loop detection tolerates floating-point arc endpoint noise",
+    "PCB SVG layer outputs keep raw physical layers separate from computed virtual layers",
 ]
 
 [dependencies]
@@ -46,6 +47,7 @@ review_drill_plating = "design review SVG records keep PTH and NPTH pad drills d
 pcb_svg_cutouts = "pcb-svg BOARD_CUTOUTS detects closed Edge.Cuts regions and ignores open shapes"
 pcb_svg_alignment = "virtual board outline and cutout overlays align with physical layer SVG content"
 pcb_svg_edge_loop_tolerance = "arc/line Edge.Cuts loops survive sampled arc endpoint float noise"
+pcb_svg_layer_outputs = "raw physical layer files are distinct from __virtual__ computed layer files"
 
 [subtests.approach]
 subprocess_cli = "Invoke public CLI commands through the current Python environment"
