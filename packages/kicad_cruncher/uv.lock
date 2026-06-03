@@ -311,7 +311,7 @@ dev = [
 requires-dist = [
     { name = "build", marker = "extra == 'test'", specifier = ">=1.2.0" },
     { name = "colorama", specifier = ">=0.4.6" },
-    { name = "kicad-monkey", specifier = "==2026.6.2" },
+    { name = "kicad-monkey", editable = "../kicad_monkey" },
     { name = "pyright", marker = "extra == 'test'", specifier = ">=1.1.390" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
     { name = "pytest-json-report", marker = "extra == 'test'", specifier = ">=1.5.0" },
@@ -336,7 +336,7 @@ dev = [
 [[package]]
 name = "kicad-monkey"
 version = "2026.6.2"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../kicad_monkey" }
 dependencies = [
     { name = "colorama" },
     { name = "freetype-py" },
@@ -346,9 +346,37 @@ dependencies = [
     { name = "uharfbuzz" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/43/2a3bb5fdb7d912a9d9f144ac8f5e8c44712bfaa4ab2b36cb602b9eb62adf/kicad_monkey-2026.6.2.tar.gz", hash = "sha256:6542964eb2655ab489f0a24a5c70b6e8ca0dc8cdd77c700e07ffd36f3f116298", size = 2912416, upload-time = "2026-06-02T18:33:20.972Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b8/82/0965d2ff2e15cc329beed4ffb62cb74c42eb116d023cfcdeb14a70d20ce1/kicad_monkey-2026.6.2-py3-none-any.whl", hash = "sha256:a2248b68e86a8cb293a68740b08820b7c2ff14ef14ffac015cb0f67334c6263c", size = 633171, upload-time = "2026-06-02T18:33:19.256Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "build", marker = "extra == 'test'", specifier = ">=1.2.0" },
+    { name = "colorama" },
+    { name = "freetype-py" },
+    { name = "numpy" },
+    { name = "pyright", marker = "extra == 'test'", specifier = ">=1.1.390" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
+    { name = "pytest-json-report", marker = "extra == 'test'" },
+    { name = "ruff", marker = "extra == 'test'", specifier = ">=0.8.0" },
+    { name = "shapely" },
+    { name = "tomli-w", marker = "extra == 'test'", specifier = ">=1.2.0" },
+    { name = "trimesh" },
+    { name = "twine", marker = "extra == 'test'", specifier = ">=5.0.0" },
+    { name = "uharfbuzz" },
+    { name = "wn-rack", marker = "extra == 'test'", specifier = ">=1.1.0" },
+    { name = "zstandard" },
+]
+provides-extras = ["test"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "build", specifier = ">=1.2.0" },
+    { name = "pyright", specifier = ">=1.1.390" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-json-report" },
+    { name = "ruff", specifier = ">=0.8.0" },
+    { name = "tomli-w", specifier = ">=1.2.0" },
+    { name = "twine", specifier = ">=5.0.0" },
+    { name = "wn-rack", specifier = ">=1.1.0" },
 ]
 
 [[package]]

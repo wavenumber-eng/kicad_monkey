@@ -14,6 +14,11 @@ dependencies = [
     "wn-geometer==2026.5.25",
 ]
 
+[tool.uv.sources]
+# Development override: use the sibling kicad_monkey worktree until the next
+# kicad-monkey release is published and this dependency pin is bumped.
+kicad-monkey = { path = "../kicad_monkey", editable = true }
+
 [project.optional-dependencies]
 test = [
     "build>=1.2.0",
