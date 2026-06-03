@@ -74,7 +74,9 @@ the `kicad-monkey` plating metadata.
 
 The `pcb-svg` command writes to `./output/pcb-svg/` by default and uses
 `pcb.svg.config` JSON/JSONC configs compatible with the A0 PCB SVG view
-contract:
+contract. This is a preview feature in the `2026.6.3` release: SVG structure,
+virtual-layer metadata, default views, and config controls may change as more
+real-world boards are tested.
 
 ```powershell
 kicad-cruncher pcb-svg board.kicad_pcb
@@ -84,10 +86,18 @@ kicad-cruncher pcb-svg board.kicad_pcb --config pcb.svg.config -o output/pcb-svg
 
 `pcb-svg` composes KiCad Monkey enriched physical layer SVG with explicit
 virtual layers. `BOARD_OUTLINE` and `BOARD_CUTOUTS` are synthesized from closed
-`Edge.Cuts` regions, `DRILLS` and `SLOTS` preserve KiCad Monkey hole metadata,
-`PIN1_TOP`/`PIN1_BOTTOM` add pad-linked marker groups, and
+`Edge.Cuts` regions, with derived arc/curve/circle smoothness controlled by
+`styles.board_outline.max_*_segment_mm`, `DRILLS` and `SLOTS` preserve KiCad
+Monkey hole metadata, `PIN1_TOP`/`PIN1_BOTTOM` add configurable pad-linked
+marker groups, and
 `ASSEMBLY_HLR_TOP`/`ASSEMBLY_HLR_BOTTOM` append geometer-backed STEP hidden-line
-overlays or footprint-bound fallbacks.
+overlays or footprint-bound fallbacks. Default assembly views use pad bounding
+boxes with aspect-preserving fitted
+`ASSEMBLY_DESIGNATORS_TOP`/`ASSEMBLY_DESIGNATORS_BOTTOM` labels drawn above the
+75% opacity HLR/bounds overlay. Assembly labels are blue by default and rotate
+90 degrees in the configurable `ccw`/`cw` direction when their fitted bounds
+exceed the configurable height/width aspect threshold. Assembly designator
+style overrides can target exact refs, prefixes, wildcards, or ranges.
 
 ## Output Layout
 

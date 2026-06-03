@@ -309,6 +309,24 @@ Current validation on 2026-06-03:
   `hlr_test`, `cutout_test`, `taillight`, `charge_indicator`,
   `speedy_processing_module`, and `yoshi_mainboard`.
 
+Recovered wrap-up request from the interrupted 2026-06-03 session:
+
+- Pin-1 views need global and per-view exclusion overrides. Defaults should
+  exclude single-pin parts plus all `R` and `C` designators. Selectors should
+  support exact designators, numeric ranges such as `U5-U15`, and full-prefix
+  selectors such as `U` or `U*`.
+- Pin-1 marker dot size should be configurable as a fraction of the selected
+  pad size.
+- Add assembly designator virtual layers for top and bottom assembly views.
+  Default assembly views should use pad bounding boxes, draw designators on top,
+  and fit designator text inside the projected component bounds.
+- Use step-model bounds for designator text placement when HLR/model projection
+  is selected, and pad bounds when pad-bounds projection is selected.
+- Designator orientation should be 0 degrees for 0/180-degree parts and 90
+  degrees for 90/270-degree parts. Color and font should be configurable.
+- HLR and bounding-box overlays should have configurable opacity, defaulting to
+  75%.
+
 Run L99 before release-facing docs/contracts are declared complete:
 
 ```powershell

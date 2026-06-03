@@ -56,6 +56,7 @@ _STYLE_ORDER = (
     "silkscreen_designators",
     "silkscreen_board_graphics",
     "pin1_marker",
+    "assembly_designators",
     "keepout",
     "assembly_hlr",
 )
@@ -186,6 +187,32 @@ def _coerce_raw_str_list(
     return [str(item).strip() for item in value if str(item).strip()]
 
 
+def _coerce_selector_list(
+    value: object,
+    default: list[str],
+    *,
+    field_name: str,
+) -> list[str]:
+    if value is None:
+        return list(default)
+    raw_items: list[object]
+    if isinstance(value, str):
+        raw_items = [value]
+    elif isinstance(value, list):
+        raw_items = value
+    else:
+        raise ValueError(
+            f"pcb-svg config field '{field_name}' must be a string or an array"
+        )
+    selectors: list[str] = []
+    for item in raw_items:
+        for token in str(item).split(","):
+            text = token.strip()
+            if text:
+                selectors.append(text.upper())
+    return selectors
+
+
 def _coerce_projection_mode(value: object, default: str, *, field_name: str) -> str:
     raw = str(value or default).strip().lower().replace("-", "_")
     aliases = {
@@ -294,7 +321,20 @@ def parse_pcb_layer_selector(raw_layers: str | None) -> list[str] | None:
 def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
     """Return the default A0 style table shared with Altium-style configs."""
     return {
-        "board_outline": {"enabled": True, "color": "#000000", "line_width_mm": 0.10},
+        "board_outline": {
+            "enabled": True,
+            "color": "#000000",
+            "line_width_mm": 0.10,
+            "max_arc_segment_mm": 1.0,
+            "max_curve_segment_mm": 0.5,
+            "max_circle_segment_mm": 1.0,
+            "min_arc_segments": 6,
+            "min_curve_segments": 8,
+            "min_circle_segments": 64,
+            "max_arc_segments": 2048,
+            "max_curve_segments": 2048,
+            "max_circle_segments": 2048,
+        },
         "board_cutouts": {
             "enabled": True,
             "color": "#FF0000",
@@ -330,13 +370,27 @@ def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
             "enabled": True,
             "color": "#2563EB",
             "dot_diameter_mm": 0.55,
+            "pad_diameter_ratio": 0.60,
             "min_dot_diameter_mm": 0.25,
+            "max_dot_diameter_mm": 1.0,
+        },
+        "assembly_designators": {
+            "enabled": True,
+            "color": "#2563EB",
+            "font_family": "Arial, sans-serif",
+            "box_fill_ratio": 0.80,
+            "min_font_size_mm": 0.35,
+            "max_font_size_mm": 2.5,
+            "rotation_aspect_threshold": 1.5,
+            "rotation_direction": "ccw",
+            "opacity": 1.0,
         },
         "keepout": {"enabled": True, "color": "#CC00CC"},
         "assembly_hlr": {
             "enabled": True,
             "color": "#F59E0B",
             "line_width_mm": 0.12,
+            "opacity": 0.75,
             "curve_mode": "native_arcs",
             "samples_per_curve": 24,
             "round_digits": 3,
@@ -344,6 +398,17 @@ def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
             "include_outline": True,
             "union_polygons": True,
         },
+    }
+
+
+def default_pcb_svg_assembly_view_styles() -> dict[str, dict[str, object]]:
+    """Return muted copper overrides for default assembly review views."""
+    return {
+        "copper_traces": {"color": "#BBBBBB"},
+        "vias": {"color": "#BBBBBB"},
+        "copper_polygons": {"color": "#DDDDDD"},
+        "smd_pads": {"color": "#AAAAAA"},
+        "through_hole_pads": {"color": "#AAAAAA"},
     }
 
 
@@ -466,6 +531,7 @@ class _PcbSvgViewConfig:
     mirror: bool | None = None
     assembly_hlr_mode: str = "detail"
     styles: dict[str, dict[str, object]] = field(default_factory=dict)
+    pin1: _PcbSvgPin1Config | None = None
     description: str | None = None
 
     @classmethod
@@ -496,6 +562,13 @@ class _PcbSvgViewConfig:
             data.get("styles"),
             field_name=f"views.{name}.styles",
         ) or {}
+        pin1_config = (
+            _PcbSvgPin1Config.from_dict(
+                _coerce_object_mapping(data.get("pin1"), field_name=f"views.{name}.pin1")
+            )
+            if data.get("pin1") is not None
+            else None
+        )
         return cls(
             name=name,
             enabled=_coerce_bool(data.get("enabled"), True),
@@ -505,6 +578,7 @@ class _PcbSvgViewConfig:
             mirror=None if data.get("mirror") is None else _coerce_bool(data.get("mirror"), False),
             assembly_hlr_mode=mode,
             styles=merge_pcb_svg_styles({}, styles),
+            pin1=pin1_config,
             description=_coerce_optional_str(data.get("description")),
         )
 
@@ -527,6 +601,8 @@ class _PcbSvgViewConfig:
             result["mirror"] = self.mirror
         if self.styles:
             result["styles"] = self.styles
+        if self.pin1 is not None:
+            result["pin1"] = self.pin1.to_dict()
         if self.description:
             result["description"] = self.description
         return result
@@ -534,7 +610,7 @@ class _PcbSvgViewConfig:
 
 @dataclass(slots=True)
 class _PcbSvgAssemblyConfig:
-    default_projection: str = "detail"
+    default_projection: str = "pad_bounds"
     dnp_projection: str = "bounding_box"
     designator_color: str = "#111111"
     dnp_designator_color: str = "#FF0000"
@@ -657,22 +733,46 @@ class _PcbSvgDiodeConfig:
 
 @dataclass(slots=True)
 class _PcbSvgPin1Config:
-    exclude_designator_prefixes: list[str] = field(default_factory=lambda: ["R", "C", "L"])
+    exclude_designators: list[str] = field(default_factory=lambda: ["R", "C"])
+    exclude_designator_prefixes: list[str] = field(default_factory=list)
+    exclude_single_pin: bool = True
 
     @classmethod
-    def from_dict(cls, data: dict[str, object] | None) -> _PcbSvgPin1Config:
-        default = cls()
+    def from_dict(
+        cls,
+        data: dict[str, object] | None,
+        default: _PcbSvgPin1Config | None = None,
+    ) -> _PcbSvgPin1Config:
+        default = default or cls()
         if data is None:
             return default
-        prefixes = _coerce_raw_str_list(
+        selectors = _coerce_selector_list(
+            data.get("exclude_designators"),
+            default.exclude_designators,
+            field_name="pin1.exclude_designators",
+        )
+        legacy_prefixes = _coerce_selector_list(
             data.get("exclude_designator_prefixes"),
             default.exclude_designator_prefixes,
             field_name="pin1.exclude_designator_prefixes",
         )
-        return cls([prefix.upper() for prefix in prefixes if prefix.strip()])
+        return cls(
+            exclude_designators=selectors,
+            exclude_designator_prefixes=legacy_prefixes,
+            exclude_single_pin=_coerce_bool(
+                data.get("exclude_single_pin"),
+                default.exclude_single_pin,
+            ),
+        )
 
     def to_dict(self) -> dict[str, object]:
-        return {"exclude_designator_prefixes": list(self.exclude_designator_prefixes)}
+        result: dict[str, object] = {
+            "exclude_designators": list(self.exclude_designators),
+            "exclude_single_pin": self.exclude_single_pin,
+        }
+        if self.exclude_designator_prefixes:
+            result["exclude_designator_prefixes"] = list(self.exclude_designator_prefixes)
+        return result
 
 
 @dataclass(slots=True)
@@ -680,6 +780,7 @@ class _PcbSvgComponentOverride:
     side: str | None = None
     projection: str | None = None
     assembly_hlr: dict[str, object] = field(default_factory=dict)
+    assembly_designators: dict[str, object] = field(default_factory=dict)
     pin1_enabled: bool | None = None
     pin1_pad: str | None = None
     cathode_pad: str | None = None
@@ -708,6 +809,11 @@ class _PcbSvgComponentOverride:
             assembly_hlr=_coerce_object_mapping(
                 data.get("assembly_hlr"),
                 field_name=f"components.{designator}.assembly_hlr",
+            )
+            or {},
+            assembly_designators=_coerce_object_mapping(
+                data.get("assembly_designators"),
+                field_name=f"components.{designator}.assembly_designators",
             )
             or {},
             pin1_enabled=(
@@ -747,6 +853,8 @@ class _PcbSvgComponentOverride:
                 result[key] = value
         if self.assembly_hlr:
             result["assembly_hlr"] = dict(self.assembly_hlr)
+        if self.assembly_designators:
+            result["assembly_designators"] = dict(self.assembly_designators)
         return result
 
 
@@ -841,6 +949,8 @@ class _PcbSvgConfig:
                     "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
                     "ASSEMBLY_BOUNDS_TOP_PADS",
                     "ASSEMBLY_BOUNDS_BOTTOM_PADS",
+                    "ASSEMBLY_DESIGNATORS_TOP",
+                    "ASSEMBLY_DESIGNATORS_BOTTOM",
                 ],
                 "output_dir": "layers",
             },
@@ -954,14 +1064,26 @@ class _PcbSvgConfig:
                 _PcbSvgViewConfig(
                     name="assembly_top_view",
                     output_svg="views/{board}__assembly_top_view.svg",
-                    layers=["BOARD_OUTLINE", "F.Cu", "ASSEMBLY_HLR_TOP"],
-                    assembly_hlr_mode="simple",
+                    layers=[
+                        "BOARD_OUTLINE",
+                        "F.Cu",
+                        "ASSEMBLY_HLR_TOP",
+                        "ASSEMBLY_DESIGNATORS_TOP",
+                    ],
+                    assembly_hlr_mode="pad_bounds",
+                    styles=default_pcb_svg_assembly_view_styles(),
                 ),
                 _PcbSvgViewConfig(
                     name="assembly_bottom_view",
                     output_svg="views/{board}__assembly_bottom_view.svg",
-                    layers=["BOARD_OUTLINE", "B.Cu", "ASSEMBLY_HLR_BOTTOM"],
-                    assembly_hlr_mode="simple",
+                    layers=[
+                        "BOARD_OUTLINE",
+                        "B.Cu",
+                        "ASSEMBLY_HLR_BOTTOM",
+                        "ASSEMBLY_DESIGNATORS_BOTTOM",
+                    ],
+                    assembly_hlr_mode="pad_bounds",
+                    styles=default_pcb_svg_assembly_view_styles(),
                 ),
             ],
         )
@@ -1001,6 +1123,9 @@ class _PcbSvgConfig:
 
     def resolved_styles_for_view(self, view: _PcbSvgViewConfig) -> dict[str, dict[str, object]]:
         return merge_pcb_svg_styles(self.global_options.styles, view.styles)
+
+    def resolved_pin1_for_view(self, view: _PcbSvgViewConfig) -> _PcbSvgPin1Config:
+        return view.pin1 or self.pin1
 
     def to_dict(self) -> dict[str, object]:
         return {

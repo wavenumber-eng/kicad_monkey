@@ -277,7 +277,7 @@ wheels = [
 
 [[package]]
 name = "kicad-cruncher"
-version = "2026.5.31"
+version = "2026.6.3"
 source = { editable = "." }
 dependencies = [
     { name = "colorama" },
@@ -335,7 +335,7 @@ dev = [
 
 [[package]]
 name = "kicad-monkey"
-version = "2026.6.2"
+version = "2026.6.3"
 source = { editable = "../kicad_monkey" }
 dependencies = [
     { name = "colorama" },

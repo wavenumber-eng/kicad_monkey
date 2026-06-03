@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from kicad_cruncher.kicad_cruncher_cmd_pcb_svg import (
+    _assembly_designator_rotation,
+    _default_pcb_svg_config_text,
+    _svg_assembly_designator_text,
+)
 from kicad_cruncher.kicad_cruncher_pcb_model_pose import (
     board_world_to_svg,
     kicad_model_pose,
@@ -20,9 +25,13 @@ from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import (
     _classify_edge_cut_regions,
     _interior_board_regions,
     _outer_board_region,
+    _reorder_top_level_groups,
     render_pcb_svg_composition,
 )
-from kicad_cruncher.kicad_cruncher_pcb_svg_config import _PcbSvgConfig
+from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
+    PCB_SVG_SPECIAL_LAYERS,
+    _PcbSvgConfig,
+)
 from kicad_monkey import KiCadPcb
 from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
 
@@ -37,6 +46,13 @@ _CORPUS_HLR_TEST_PROJECT = (
 )
 _CORPUS_CUTOUT_TEST_PCB = (
     _CORPUS_ROOT / "projects" / "cutout_test" / "cutout_test.kicad_pcb"
+)
+_CORPUS_CHARGE_INDICATOR_PCB = (
+    _CORPUS_ROOT
+    / "projects"
+    / "charge_indicator"
+    / "input"
+    / "11-10043__charge_indicator__C.kicad_pcb"
 )
 _CORPUS_PROJECT_CASES = (
     pytest.param(
@@ -719,7 +735,24 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
         "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
         "ASSEMBLY_BOUNDS_TOP_PADS",
         "ASSEMBLY_BOUNDS_BOTTOM_PADS",
+        "ASSEMBLY_DESIGNATORS_TOP",
+        "ASSEMBLY_DESIGNATORS_BOTTOM",
     ]
+    assert config.pin1.exclude_designators == ["R", "C"]
+    assert config.pin1.exclude_single_pin is True
+    assert config.global_options.styles["pin1_marker"]["pad_diameter_ratio"] == 0.60
+    assert config.global_options.styles["board_outline"]["max_arc_segment_mm"] == 1.0
+    assert config.global_options.styles["board_outline"]["max_curve_segment_mm"] == 0.5
+    assert config.global_options.styles["board_outline"]["max_circle_segment_mm"] == 1.0
+    assert config.global_options.styles["board_outline"]["max_arc_segments"] == 2048
+    assert config.global_options.styles["assembly_hlr"]["opacity"] == 0.75
+    assert config.global_options.styles["assembly_designators"]["color"] == "#2563EB"
+    assert config.global_options.styles["assembly_designators"]["opacity"] == 1.0
+    assert (
+        config.global_options.styles["assembly_designators"]["rotation_aspect_threshold"]
+        == 1.5
+    )
+    assert config.global_options.styles["assembly_designators"]["rotation_direction"] == "ccw"
     assert views["board_cutouts"].layers == ["BOARD_OUTLINE", "BOARD_CUTOUTS"]
     assert views["top_pin1_view"].layers == [
         "BOARD_OUTLINE",
@@ -743,6 +776,48 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
     assert "bottom_model_bounding_boxes" in views
     assert "top_pad_bounding_boxes" in views
     assert "bottom_pad_bounding_boxes" in views
+    assert views["assembly_top_view"].layers == [
+        "BOARD_OUTLINE",
+        "F.Cu",
+        "ASSEMBLY_HLR_TOP",
+        "ASSEMBLY_DESIGNATORS_TOP",
+    ]
+    assert views["assembly_top_view"].assembly_hlr_mode == "pad_bounds"
+    assert views["assembly_top_view"].styles["smd_pads"]["color"] == "#AAAAAA"
+    assert views["assembly_top_view"].styles["through_hole_pads"]["color"] == "#AAAAAA"
+    assert views["assembly_top_view"].styles["copper_traces"]["color"] == "#BBBBBB"
+    assert views["assembly_top_view"].styles["vias"]["color"] == "#BBBBBB"
+    assert views["assembly_top_view"].styles["copper_polygons"]["color"] == "#DDDDDD"
+    assert views["assembly_bottom_view"].layers == [
+        "BOARD_OUTLINE",
+        "B.Cu",
+        "ASSEMBLY_HLR_BOTTOM",
+        "ASSEMBLY_DESIGNATORS_BOTTOM",
+    ]
+    assert views["assembly_bottom_view"].assembly_hlr_mode == "pad_bounds"
+
+
+def test_pcb_svg_default_config_header_documents_virtual_layers_and_overrides() -> None:
+    """Verify the generated config keeps comments up top and documents overrides."""
+    text = _default_pcb_svg_config_text()
+    header, body = text.split("*/\n", 1)
+
+    assert text.startswith("/*\n")
+    assert text.count("/*") == 1
+    assert "\n//" not in text
+    assert body.startswith("{\n")
+    json.loads(body)
+
+    for token in sorted(PCB_SVG_SPECIAL_LAYERS):
+        assert token in header
+
+    assert "Per-view override resolution:" in header
+    assert "view.styles" in header
+    assert "view.pin1" in header
+    assert "components.<designator>.projection" in header
+    assert "components.<designator>.assembly_hlr" in header
+    assert "components.<designator>.assembly_designators" in header
+    assert "evaluated per view" in header
 
 
 def test_pcb_svg_hlr_test_model_pose_matches_kicad_step_order() -> None:
@@ -940,9 +1015,31 @@ def test_pcb_svg_yoshi_board_outline_loop_survives_arc_float_noise() -> None:
 
     assert outer_region is not None
     assert outer_region.source_kind == "gr_arc+gr_line"
-    assert outer_region.area == pytest.approx(361.879, abs=0.001)
+    assert outer_region.area == pytest.approx(361.647, abs=0.001)
     assert len(cutouts) == 5
     assert {region.source_kind for region in cutouts} == {"gr_circle"}
+
+
+def test_pcb_svg_charge_indicator_long_outline_arcs_are_smoothly_sampled() -> None:
+    """Verify large-radius board-outline arcs use chord-length sampling."""
+    pcb = KiCadPcb.from_file(_CORPUS_CHARGE_INDICATOR_PCB)
+    config = _PcbSvgConfig.default()
+    smooth_region = _outer_board_region(
+        _classify_edge_cut_regions(pcb, styles=config.global_options.styles)
+    )
+    coarse_styles = {
+        name: dict(style) for name, style in config.global_options.styles.items()
+    }
+    coarse_styles["board_outline"]["max_arc_segment_mm"] = 100.0
+    coarse_region = _outer_board_region(
+        _classify_edge_cut_regions(pcb, styles=coarse_styles)
+    )
+
+    assert smooth_region is not None
+    assert coarse_region is not None
+    assert smooth_region.source_kind == "gr_arc"
+    assert len(smooth_region.points) > 500
+    assert len(smooth_region.points) > len(coarse_region.points) * 8
 
 
 def test_pcb_svg_board_cutouts_detect_generic_internal_closed_regions(tmp_path: Path) -> None:
@@ -1067,6 +1164,207 @@ def test_pcb_svg_pin1_view_uses_virtual_markers_and_enriched_drill_metadata(
     assert 'data-hole-plating="non_plated"' in svg
     assert "#90EE90" in svg
     assert "#ADD8E6" in svg
+
+
+def test_pcb_svg_pin1_selector_exclusions_and_relative_dot_size() -> None:
+    """Verify pin-1 selectors handle ranges, prefixes, exact refs, and one-pin parts."""
+    pcb = KiCadPcb.from_file(
+        _CORPUS_ROOT
+        / "projects"
+        / "taillight"
+        / "input"
+        / "11-10045__taillight__C.kicad_pcb"
+    )
+    config = _PcbSvgConfig.default()
+    config.pin1.exclude_designators = ["U1-U9", "Q*", "R44"]
+    config.pin1.exclude_single_pin = True
+
+    composition = render_pcb_svg_composition(
+        pcb,
+        ["BOTTOM", "PIN1_BOTTOM"],
+        styles=config.global_options.styles,
+        group_id="pin1-selector-test",
+        config=config,
+    )
+    svg = composition.svg_text
+    root = ET.fromstring(svg)
+    marker_components = {
+        element.attrib.get("data-component")
+        for element in root.iter()
+        if element.attrib.get("data-primitive") == "pin1-marker"
+    }
+
+    assert "U5" not in marker_components
+    assert "Q9" not in marker_components
+    assert "R44" not in marker_components
+    assert "TP1" not in marker_components
+    assert "R28" in marker_components
+    assert 'data-dot-diameter-mm="' in svg
+
+
+def test_pcb_svg_view_pin1_override_replaces_global_defaults() -> None:
+    """Verify a view can provide its own pin-1 exclusion policy."""
+    payload = _PcbSvgConfig.default().to_dict()
+    payload["views"] = [
+        {
+            "name": "pin1_custom",
+            "layers": ["BOTTOM", "PIN1_BOTTOM"],
+            "pin1": {
+                "exclude_designators": ["R"],
+                "exclude_single_pin": False,
+            },
+            "assembly_hlr_mode": "none",
+        }
+    ]
+    config = _PcbSvgConfig.from_dict(payload)
+    view = config.views[0]
+    resolved = config.resolved_pin1_for_view(view)
+
+    assert resolved.exclude_designators == ["R"]
+    assert resolved.exclude_single_pin is False
+
+
+def test_pcb_svg_default_assembly_view_draws_pad_bounds_designators_and_opacity(
+    tmp_path: Path,
+) -> None:
+    """Verify default assembly view uses pad bounds, designators, and 75% HLR opacity."""
+    config_payload: dict[str, Any] = _PcbSvgConfig.default().to_dict()
+    layer_outputs = config_payload["layer_outputs"]
+    assert isinstance(layer_outputs, dict)
+    layer_outputs["enabled"] = False
+    views = config_payload["views"]
+    assert isinstance(views, list)
+    selected_views = [
+        view
+        for view in views
+        if isinstance(view, dict) and view["name"] == "assembly_top_view"
+    ]
+    selected_views[0]["styles"] = {
+        "assembly_designators": {
+            "selector_overrides": {
+                "U": {
+                    "color": "#00AAFF",
+                    "opacity": 0.4,
+                    "rotation_aspect_threshold": 0.5,
+                    "rotation_direction": "cw",
+                }
+            }
+        }
+    }
+    config_payload["views"] = selected_views
+    config_payload["components"] = {
+        "U1": {
+            "assembly_designators": {
+                "color": "#FF00AA",
+                "opacity": 0.6,
+            }
+        }
+    }
+    config_path = tmp_path / "pcb.svg.config"
+    config_path.write_text(json.dumps(config_payload, indent=2), encoding="utf-8")
+    output_dir = tmp_path / "pcb-svg-assembly-designators"
+
+    result = _run_cli(
+        "pcb-svg",
+        str(_CORPUS_HLR_TEST_PCB),
+        "--config",
+        str(config_path),
+        "-o",
+        str(output_dir),
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    svg = (output_dir / "views" / "hlr_test__assembly_top_view.svg").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'data-assembly-symbol="pad_bounds"' in svg
+    assert 'data-projection="pad_bounds"' in svg
+    assert 'data-bounds-kind="pads"' in svg
+    assert 'opacity="0.75"' in svg
+    assert 'data-layer-token="ASSEMBLY_DESIGNATORS_TOP"' in svg
+    assert 'data-primitive="assembly-designator"' in svg
+    assert 'data-component="U1"' in svg
+    u1_designator = next(
+        line
+        for line in svg.splitlines()
+        if 'data-primitive="assembly-designator"' in line and 'data-component="U1"' in line
+    )
+    assert 'transform="rotate(90 ' in u1_designator
+    assert 'fill="#FF00AA"' in u1_designator
+    assert 'opacity="0.6"' in u1_designator
+    assert "textLength=" not in svg
+    assert "lengthAdjust=" not in svg
+    assert svg.index('data-projection="pad_bounds"') < svg.index(
+        'data-primitive="assembly-designator"'
+    )
+
+
+def test_pcb_svg_copper_draw_priority_orders_traces_polygons_vias_pads() -> None:
+    """Verify copper primitives draw tracks/arcs, polygons, vias, then pads."""
+    root = ET.Element("svg")
+    for primitive, attrs in (
+        ("pad", {"data-primitive": "pad"}),
+        ("via", {"data-primitive": "via"}),
+        ("zone", {"data-ref": "zone_fill"}),
+        ("arc", {"data-primitive": "arc"}),
+        ("track", {"data-primitive": "track"}),
+    ):
+        root.append(ET.Element("g", {"id": primitive, **attrs}))
+
+    _reorder_top_level_groups(root)
+
+    assert [child.attrib["id"] for child in root] == [
+        "arc",
+        "track",
+        "zone",
+        "via",
+        "pad",
+    ]
+
+
+def test_pcb_svg_assembly_designator_orientation_and_aspect_fit() -> None:
+    """Verify assembly designators rotate by bounds aspect without glyph scaling."""
+    styles = _PcbSvgConfig.default().global_options.styles
+    cw_styles = {name: dict(style) for name, style in styles.items()}
+    cw_styles["assembly_designators"]["rotation_direction"] = "cw"
+
+    assert _assembly_designator_rotation((1.0, 2.0, 3.0, 6.0), styles) == -90
+    assert _assembly_designator_rotation((1.0, 2.0, 3.0, 6.0), cw_styles) == 90
+    assert _assembly_designator_rotation((1.0, 2.0, 6.0, 3.0), styles) == 0
+
+    rotated_svg = _svg_assembly_designator_text(
+        "U1",
+        (1.0, 2.0, 3.0, 6.0),
+        bounds_kind="pads",
+        projection_mode="pad_bounds",
+        token="ASSEMBLY_DESIGNATORS_TOP",
+        styles=styles,
+    )
+    cw_svg = _svg_assembly_designator_text(
+        "U3",
+        (1.0, 2.0, 3.0, 6.0),
+        bounds_kind="pads",
+        projection_mode="pad_bounds",
+        token="ASSEMBLY_DESIGNATORS_TOP",
+        styles=cw_styles,
+    )
+    flat_svg = _svg_assembly_designator_text(
+        "U2",
+        (1.0, 2.0, 6.0, 3.0),
+        bounds_kind="pads",
+        projection_mode="pad_bounds",
+        token="ASSEMBLY_DESIGNATORS_TOP",
+        styles=styles,
+    )
+
+    assert 'transform="rotate(-90 ' in rotated_svg
+    assert 'transform="rotate(90 ' in cw_svg
+    assert 'fill="#2563EB"' in rotated_svg
+    assert 'opacity="1"' in rotated_svg
+    assert "transform=" not in flat_svg
+    assert "textLength=" not in rotated_svg + cw_svg + flat_svg
+    assert "lengthAdjust=" not in rotated_svg + cw_svg + flat_svg
 
 
 def test_pcb_svg_assembly_view_uses_geometer_hlr(tmp_path: Path) -> None:

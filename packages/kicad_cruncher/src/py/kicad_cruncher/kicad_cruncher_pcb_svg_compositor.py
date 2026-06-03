@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
     PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS,
     _PcbSvgConfig,
+    _PcbSvgPin1Config,
     normalize_layer_token,
     physical_layer_from_token,
 )
@@ -39,6 +40,7 @@ _VIRTUAL_TOKENS = {
 }
 _DRAWABLE_TAGS = {"circle", "ellipse", "line", "path", "polygon", "polyline", "rect", "text"}
 _GRID_PAD_RE = re.compile(r"^([A-Za-z]+)(\d+)$")
+_DESIGNATOR_RANGE_RE = re.compile(r"^([A-Za-z]+)(\d+)-([A-Za-z]*)(\d+)$")
 _POINT_PRECISION = 4
 _POINT_KEY_EPSILON = 1.0e-6
 _MIN_REGION_AREA_MM2 = 1.0e-4
@@ -97,6 +99,21 @@ class _EdgeSegment:
         return _point_key(self.points[-1])
 
 
+@dataclass(frozen=True, slots=True)
+class _BoardGeometrySampling:
+    """Sampling controls for derived Edge.Cuts virtual layers."""
+
+    max_arc_segment_mm: float = 1.0
+    max_curve_segment_mm: float = 0.5
+    max_circle_segment_mm: float = 1.0
+    min_arc_segments: int = 6
+    min_curve_segments: int = 8
+    min_circle_segments: int = 64
+    max_arc_segments: int = 2048
+    max_curve_segments: int = 2048
+    max_circle_segments: int = 2048
+
+
 def render_pcb_svg_composition(
     pcb: KiCadPcb,
     layer_tokens: list[str],
@@ -104,6 +121,7 @@ def render_pcb_svg_composition(
     styles: dict[str, dict[str, object]],
     group_id: str,
     config: _PcbSvgConfig,
+    pin1_config: _PcbSvgPin1Config | None = None,
 ) -> PcbSvgComposition:
     """Render an A0 composed SVG using KiCad Monkey plus virtual layer renderers."""
     tokens = [normalize_layer_token(token) for token in layer_tokens]
@@ -123,7 +141,7 @@ def render_pcb_svg_composition(
 
     physical_layers = _physical_layers_for_tokens(tokens)
     copied_physical = False
-    board_regions = _classify_edge_cut_regions(pcb)
+    board_regions = _classify_edge_cut_regions(pcb, styles=styles)
 
     for token in tokens:
         copied_physical = _append_composition_token(
@@ -136,6 +154,7 @@ def render_pcb_svg_composition(
             origin=origin,
             styles=styles,
             config=config,
+            pin1_config=pin1_config or config.pin1,
             copied_physical=copied_physical,
         )
 
@@ -166,6 +185,7 @@ def _append_composition_token(
     origin: tuple[float, float],
     styles: dict[str, dict[str, object]],
     config: _PcbSvgConfig,
+    pin1_config: _PcbSvgPin1Config,
     copied_physical: bool,
 ) -> bool:
     if token in _HLR_TOKENS:
@@ -180,7 +200,15 @@ def _append_composition_token(
         _append_holes(root, source_children, token, styles=styles)
         return True
     if token in _PIN1_TOKENS:
-        _append_pin1_markers(root, pcb, token, origin=origin, styles=styles, config=config)
+        _append_pin1_markers(
+            root,
+            pcb,
+            token,
+            origin=origin,
+            styles=styles,
+            config=config,
+            pin1_config=pin1_config,
+        )
         return copied_physical
     physical = physical_layer_from_token(token)
     if physical is None:
@@ -418,15 +446,12 @@ def _append_pin1_markers(
     origin: tuple[float, float],
     styles: dict[str, dict[str, object]],
     config: _PcbSvgConfig,
+    pin1_config: _PcbSvgPin1Config,
 ) -> None:
     if not _style_enabled(styles, "pin1_marker"):
         return
     side = "bottom" if token == "PIN1_BOTTOM" else "top"
     color = _style_color(styles, "pin1_marker", "#2563EB")
-    diameter = max(
-        _style_float(styles, "pin1_marker", "dot_diameter_mm", 0.55),
-        _style_float(styles, "pin1_marker", "min_dot_diameter_mm", 0.25),
-    )
     group = ET.Element(
         _svg_tag("g"),
         {
@@ -436,10 +461,16 @@ def _append_pin1_markers(
         },
     )
     for footprint in getattr(pcb, "footprints", []) or []:
-        marker = _pin1_marker_target(footprint, side=side, config=config)
+        marker = _pin1_marker_target(
+            footprint,
+            side=side,
+            config=config,
+            pin1_config=pin1_config,
+        )
         if marker is None:
             continue
         designator, pad = marker
+        diameter = _pin1_marker_diameter(pad, styles)
         ET.SubElement(group, _svg_tag("circle"), _pin1_marker_attrs(
             footprint,
             pad,
@@ -458,21 +489,76 @@ def _pin1_marker_target(
     *,
     side: str,
     config: _PcbSvgConfig,
+    pin1_config: _PcbSvgPin1Config,
 ) -> tuple[str, object] | None:
     if not _footprint_is_side(footprint, side, config=config):
         return None
     designator = _footprint_designator(footprint)
     override = config.components.get(designator)
-    if override and override.pin1_enabled is False:
+    if _pin1_disabled(override):
         return None
-    if not (override and override.pin1_enabled is True) and _excluded_pin1_designator(
-        designator, config
-    ):
+    pads = list(getattr(footprint, "pads", []) or [])
+    if _pin1_marker_excluded(designator, pads, pin1_config, override):
         return None
-    pad = _select_pin1_pad(footprint, override_pin=(override.pin1_pad if override else None))
+    pad = _select_pin1_pad(
+        footprint,
+        pads=pads,
+        override_pin=_pin1_override_pad(override),
+    )
     if pad is None:
         return None
     return designator, pad
+
+
+def _pin1_disabled(override: object | None) -> bool:
+    return bool(override and getattr(override, "pin1_enabled", None) is False)
+
+
+def _pin1_forced_enabled(override: object | None) -> bool:
+    return bool(override and getattr(override, "pin1_enabled", None) is True)
+
+
+def _pin1_override_pad(override: object | None) -> str | None:
+    if override is None:
+        return None
+    return getattr(override, "pin1_pad", None)
+
+
+def _pin1_marker_excluded(
+    designator: str,
+    pads: list[object],
+    pin1_config: _PcbSvgPin1Config,
+    override: object | None,
+) -> bool:
+    if _pin1_forced_enabled(override):
+        return False
+    if pin1_config.exclude_single_pin and len(pads) <= 1:
+        return True
+    return _excluded_pin1_designator(designator, pin1_config)
+
+
+def _pin1_marker_diameter(
+    pad: object,
+    styles: dict[str, dict[str, object]],
+) -> float:
+    absolute = _style_float(styles, "pin1_marker", "dot_diameter_mm", 0.55)
+    ratio = _style_float(styles, "pin1_marker", "pad_diameter_ratio", 0.60)
+    minimum = _style_float(styles, "pin1_marker", "min_dot_diameter_mm", 0.25)
+    maximum = _style_float(styles, "pin1_marker", "max_dot_diameter_mm", 1.0)
+    diameter = absolute
+    if ratio > 0.0:
+        diameter = _pad_marker_base_diameter(pad) * ratio
+    diameter = max(diameter, minimum)
+    if maximum > 0.0:
+        diameter = min(diameter, maximum)
+    return diameter
+
+
+def _pad_marker_base_diameter(pad: object) -> float:
+    size_x = abs(float(getattr(pad, "size_x", 0.0) or 0.0))
+    size_y = abs(float(getattr(pad, "size_y", 0.0) or 0.0))
+    positive = [value for value in (size_x, size_y) if value > 0.0]
+    return min(positive) if positive else 1.0
 
 
 def _pin1_marker_attrs(
@@ -500,23 +586,33 @@ def _pin1_marker_attrs(
         "data-footprint": str(getattr(footprint, "library_link", "") or ""),
         "data-pad-number": str(getattr(pad, "number", "") or ""),
         "data-pad-uuid": str(getattr(pad, "uuid", "") or ""),
+        "data-dot-diameter-mm": _fmt(diameter),
     }
 
 
-def _classify_edge_cut_regions(pcb: KiCadPcb) -> list[_BoardRegion]:
+def _classify_edge_cut_regions(
+    pcb: KiCadPcb,
+    *,
+    styles: dict[str, dict[str, object]] | None = None,
+) -> list[_BoardRegion]:
+    sampling = _board_geometry_sampling(styles)
     regions: list[_BoardRegion] = []
-    regions.extend(_closed_regions_from_open_segment_loops(pcb))
+    regions.extend(_closed_regions_from_open_segment_loops(pcb, sampling=sampling))
     regions.extend(_closed_regions_from_rects(pcb))
-    regions.extend(_closed_regions_from_circles(pcb))
+    regions.extend(_closed_regions_from_circles(pcb, sampling=sampling))
     regions.extend(_closed_regions_from_polys(pcb))
     return [region for region in regions if region.area > _MIN_REGION_AREA_MM2]
 
 
-def _closed_regions_from_open_segment_loops(pcb: KiCadPcb) -> list[_BoardRegion]:
+def _closed_regions_from_open_segment_loops(
+    pcb: KiCadPcb,
+    *,
+    sampling: _BoardGeometrySampling,
+) -> list[_BoardRegion]:
     segments = [
         *_edge_cut_line_segments(pcb),
-        *_edge_cut_arc_segments(pcb),
-        *_edge_cut_curve_segments(pcb),
+        *_edge_cut_arc_segments(pcb, sampling=sampling),
+        *_edge_cut_curve_segments(pcb, sampling=sampling),
     ]
     return _assemble_closed_segment_regions(segments)
 
@@ -539,14 +635,18 @@ def _edge_cut_line_segments(pcb: KiCadPcb) -> list[_EdgeSegment]:
     return segments
 
 
-def _edge_cut_arc_segments(pcb: KiCadPcb) -> list[_EdgeSegment]:
+def _edge_cut_arc_segments(
+    pcb: KiCadPcb,
+    *,
+    sampling: _BoardGeometrySampling,
+) -> list[_EdgeSegment]:
     segments: list[_EdgeSegment] = []
     for arc in getattr(pcb, "gr_arcs", []) or []:
         if str(getattr(arc, "layer", "")) != _EDGE_CUTS_LAYER:
             continue
         segments.append(
             _EdgeSegment(
-                points=_sample_arc_points(arc),
+                points=_sample_arc_points(arc, sampling=sampling),
                 source_kind="gr_arc",
                 source_id=str(getattr(arc, "uuid", "") or ""),
             )
@@ -554,12 +654,16 @@ def _edge_cut_arc_segments(pcb: KiCadPcb) -> list[_EdgeSegment]:
     return segments
 
 
-def _edge_cut_curve_segments(pcb: KiCadPcb) -> list[_EdgeSegment]:
+def _edge_cut_curve_segments(
+    pcb: KiCadPcb,
+    *,
+    sampling: _BoardGeometrySampling,
+) -> list[_EdgeSegment]:
     segments: list[_EdgeSegment] = []
     for curve in getattr(pcb, "gr_curves", []) or []:
         if str(getattr(curve, "layer", "")) != _EDGE_CUTS_LAYER:
             continue
-        points = _sample_curve_points(curve)
+        points = _sample_curve_points(curve, sampling=sampling)
         if len(points) < 2:
             continue
         segments.append(
@@ -591,7 +695,11 @@ def _closed_regions_from_rects(pcb: KiCadPcb) -> list[_BoardRegion]:
     return regions
 
 
-def _closed_regions_from_circles(pcb: KiCadPcb) -> list[_BoardRegion]:
+def _closed_regions_from_circles(
+    pcb: KiCadPcb,
+    *,
+    sampling: _BoardGeometrySampling,
+) -> list[_BoardRegion]:
     regions: list[_BoardRegion] = []
     for circle in getattr(pcb, "gr_circles", []) or []:
         if str(getattr(circle, "layer", "")) != _EDGE_CUTS_LAYER:
@@ -606,12 +714,19 @@ def _closed_regions_from_circles(pcb: KiCadPcb) -> list[_BoardRegion]:
         )
         if radius <= 0.0:
             continue
+        samples = _sample_count_for_length(
+            2.0 * math.pi * radius,
+            max_segment_mm=sampling.max_circle_segment_mm,
+            min_samples=sampling.min_circle_segments,
+            max_samples=sampling.max_circle_segments,
+            closed=True,
+        )
         points = [
             (
-                center[0] + math.cos(2.0 * math.pi * index / 64.0) * radius,
-                center[1] + math.sin(2.0 * math.pi * index / 64.0) * radius,
+                center[0] + math.cos(2.0 * math.pi * index / samples) * radius,
+                center[1] + math.sin(2.0 * math.pi * index / samples) * radius,
             )
-            for index in range(64)
+            for index in range(samples)
         ]
         regions.append(
             _BoardRegion(
@@ -777,7 +892,11 @@ def _region_inside_outer(region: _BoardRegion, outer: _BoardRegion) -> bool:
     return _point_in_polygon(region.centroid, outer.points)
 
 
-def _sample_arc_points(arc: object) -> list[tuple[float, float]]:
+def _sample_arc_points(
+    arc: object,
+    *,
+    sampling: _BoardGeometrySampling,
+) -> list[tuple[float, float]]:
     start = (float(getattr(arc, "start_x", 0.0)), float(getattr(arc, "start_y", 0.0)))
     mid = (float(getattr(arc, "mid_x", 0.0)), float(getattr(arc, "mid_y", 0.0)))
     end = (float(getattr(arc, "end_x", 0.0)), float(getattr(arc, "end_y", 0.0)))
@@ -791,7 +910,12 @@ def _sample_arc_points(arc: object) -> list[tuple[float, float]]:
     ccw_delta = _positive_angle_delta(start_angle, end_angle)
     mid_delta = _positive_angle_delta(start_angle, mid_angle)
     sweep = ccw_delta if mid_delta <= ccw_delta else -(2.0 * math.pi - ccw_delta)
-    samples = max(6, min(96, int(abs(sweep) / (math.pi / 24.0)) + 2))
+    samples = _sample_count_for_length(
+        abs(sweep) * radius,
+        max_segment_mm=sampling.max_arc_segment_mm,
+        min_samples=sampling.min_arc_segments + 1,
+        max_samples=sampling.max_arc_segments + 1,
+    )
     return [
         (
             center_x + math.cos(start_angle + sweep * index / (samples - 1)) * radius,
@@ -801,7 +925,11 @@ def _sample_arc_points(arc: object) -> list[tuple[float, float]]:
     ]
 
 
-def _sample_curve_points(curve: object) -> list[tuple[float, float]]:
+def _sample_curve_points(
+    curve: object,
+    *,
+    sampling: _BoardGeometrySampling,
+) -> list[tuple[float, float]]:
     raw_points = getattr(curve, "points", []) or []
     points = [(float(x), float(y)) for x, y in raw_points[:4]]
     if len(points) != 4:
@@ -813,7 +941,12 @@ def _sample_curve_points(curve: object) -> list[tuple[float, float]]:
         + math.dist(p1, p2)
         + math.dist(p2, p3)
     )
-    samples = max(8, min(128, int(control_length / 0.5) + 2))
+    samples = _sample_count_for_length(
+        control_length,
+        max_segment_mm=sampling.max_curve_segment_mm,
+        min_samples=sampling.min_curve_segments + 1,
+        max_samples=sampling.max_curve_segments + 1,
+    )
     result: list[tuple[float, float]] = []
     for index in range(samples):
         t = index / (samples - 1)
@@ -832,6 +965,68 @@ def _sample_curve_points(curve: object) -> list[tuple[float, float]]:
         )
         result.append((x, y))
     return result
+
+
+def _sample_count_for_length(
+    length_mm: float,
+    *,
+    max_segment_mm: float,
+    min_samples: int,
+    max_samples: int,
+    closed: bool = False,
+) -> int:
+    segment_count = int(math.ceil(length_mm / max(max_segment_mm, 1.0e-6)))
+    if not closed:
+        segment_count += 1
+    return max(min_samples, min(max_samples, segment_count))
+
+
+def _board_geometry_sampling(
+    styles: dict[str, dict[str, object]] | None,
+) -> _BoardGeometrySampling:
+    if styles is None:
+        return _BoardGeometrySampling()
+    min_arc_segments = max(
+        1,
+        _style_int(styles, "board_outline", "min_arc_segments", 6),
+    )
+    min_curve_segments = max(
+        1,
+        _style_int(styles, "board_outline", "min_curve_segments", 8),
+    )
+    min_circle_segments = max(
+        8,
+        _style_int(styles, "board_outline", "min_circle_segments", 64),
+    )
+    return _BoardGeometrySampling(
+        max_arc_segment_mm=max(
+            0.01,
+            _style_float(styles, "board_outline", "max_arc_segment_mm", 1.0),
+        ),
+        max_curve_segment_mm=max(
+            0.01,
+            _style_float(styles, "board_outline", "max_curve_segment_mm", 0.5),
+        ),
+        max_circle_segment_mm=max(
+            0.01,
+            _style_float(styles, "board_outline", "max_circle_segment_mm", 1.0),
+        ),
+        min_arc_segments=min_arc_segments,
+        min_curve_segments=min_curve_segments,
+        min_circle_segments=min_circle_segments,
+        max_arc_segments=max(
+            min_arc_segments,
+            _style_int(styles, "board_outline", "max_arc_segments", 2048),
+        ),
+        max_curve_segments=max(
+            min_curve_segments,
+            _style_int(styles, "board_outline", "max_curve_segments", 2048),
+        ),
+        max_circle_segments=max(
+            min_circle_segments,
+            _style_int(styles, "board_outline", "max_circle_segments", 2048),
+        ),
+    )
 
 
 def _circle_from_three_points(
@@ -1074,8 +1269,10 @@ def _a0_theme_color_style(attrs: dict[str, str], category: str) -> str | None:
         return "board_outline"
     if category == "zone":
         return "copper_polygons"
+    if category == "via":
+        return "vias"
     if category == "track":
-        return "vias" if attrs.get("data-primitive", "") == "via" else "copper_traces"
+        return "copper_traces"
     if category == "pad":
         return _pad_style_name(attrs)
     if category == "silk":
@@ -1107,9 +1304,13 @@ def _is_zone_category(attrs: dict[str, str]) -> bool:
 
 
 def _is_track_category(attrs: dict[str, str]) -> bool:
-    return attrs.get("data-ref", "") in {"segment", "track_arc", "via"} or attrs.get(
+    return attrs.get("data-ref", "") in {"segment", "track_arc"} or attrs.get(
         "data-primitive", ""
-    ) in {"track", "arc", "via"}
+    ) in {"track", "arc"}
+
+
+def _is_via_category(attrs: dict[str, str]) -> bool:
+    return attrs.get("data-ref", "") == "via" or attrs.get("data-primitive", "") == "via"
 
 
 def _is_pad_category(attrs: dict[str, str]) -> bool:
@@ -1136,6 +1337,7 @@ _SVG_CATEGORY_RULES = (
     ("hole", _is_hole_category),
     ("edge", _is_edge_category),
     ("zone", _is_zone_category),
+    ("via", _is_via_category),
     ("track", _is_track_category),
     ("pad", _is_pad_category),
     ("silk", _is_silk_category),
@@ -1158,7 +1360,8 @@ def _reorder_top_level_groups(root: ET.Element) -> None:
     order = {
         "track": 10,
         "zone": 20,
-        "other": 25,
+        "via": 25,
+        "other": 30,
         "edge": 30,
         "pad": 40,
         "hole": 50,
@@ -1196,16 +1399,53 @@ def _footprint_is_side(footprint: object, side: str, *, config: _PcbSvgConfig) -
     )
 
 
-def _excluded_pin1_designator(designator: str, config: _PcbSvgConfig) -> bool:
-    upper = designator.upper()
+def _excluded_pin1_designator(
+    designator: str,
+    pin1_config: _PcbSvgPin1Config,
+) -> bool:
+    selectors = [
+        *pin1_config.exclude_designators,
+        *pin1_config.exclude_designator_prefixes,
+    ]
     return any(
-        upper.startswith(prefix.upper())
-        for prefix in config.pin1.exclude_designator_prefixes
+        _designator_selector_matches(designator, selector)
+        for selector in selectors
     )
 
 
-def _select_pin1_pad(footprint: object, *, override_pin: str | None) -> object | None:
-    pads = list(getattr(footprint, "pads", []) or [])
+def _designator_selector_matches(designator: str, selector: str) -> bool:
+    upper = designator.strip().upper()
+    raw = selector.strip().upper()
+    if not raw:
+        return False
+    if raw.endswith("*"):
+        return upper.startswith(raw[:-1])
+    if raw.isalpha():
+        return upper.startswith(raw)
+    range_match = _DESIGNATOR_RANGE_RE.match(raw)
+    if range_match:
+        prefix_a, start, prefix_b, end = range_match.groups()
+        prefix_b = prefix_b or prefix_a
+        if prefix_a != prefix_b:
+            return False
+        designator_match = _GRID_PAD_RE.match(upper)
+        if not designator_match:
+            return False
+        designator_prefix, designator_number = designator_match.groups()
+        if designator_prefix != prefix_a:
+            return False
+        low = min(int(start), int(end))
+        high = max(int(start), int(end))
+        return low <= int(designator_number) <= high
+    return upper == raw
+
+
+def _select_pin1_pad(
+    footprint: object,
+    *,
+    pads: list[object],
+    override_pin: str | None,
+) -> object | None:
     if not pads:
         return None
     if override_pin:
@@ -1320,6 +1560,18 @@ def _style_float(
     if not isinstance(value, int | float | str):
         raise ValueError(f"Invalid pcb-svg style value {name}.{key}")
     return float(value)
+
+
+def _style_int(
+    styles: dict[str, dict[str, object]],
+    name: str,
+    key: str,
+    default: int,
+) -> int:
+    value = styles.get(name, {}).get(key, default)
+    if not isinstance(value, int | float | str):
+        raise ValueError(f"Invalid pcb-svg style value {name}.{key}")
+    return int(value)
 
 
 def _style_bool(

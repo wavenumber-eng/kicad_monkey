@@ -10,6 +10,7 @@ import json
 import logging
 import math
 import os
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
@@ -82,6 +83,9 @@ _VIEW_ALIASES = {
 }
 
 _HLR_TOKENS = set(PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS)
+_DESIGNATOR_TOKENS = {"ASSEMBLY_DESIGNATORS_TOP", "ASSEMBLY_DESIGNATORS_BOTTOM"}
+_DESIGNATOR_RANGE_RE = re.compile(r"^([A-Za-z]+)(\d+)-([A-Za-z]*)(\d+)$")
+_DESIGNATOR_NUMBER_RE = re.compile(r"^([A-Za-z]+)(\d+)$")
 _ASSEMBLY_TOKEN_MODE_BY_TOKEN = {
     "ASSEMBLY_HLR_TOP_SIMPLE": ("top", "simple"),
     "ASSEMBLY_HLR_TOP_DETAIL": ("top", "detail"),
@@ -106,6 +110,8 @@ _ASSEMBLY_HLR_EDGE_FLAG_KEYS = {
 }
 _PCB_SVG_ASSEMBLY_HLR_TOP_LAYER_ID = 9004
 _PCB_SVG_ASSEMBLY_HLR_BOTTOM_LAYER_ID = 9005
+_PCB_SVG_ASSEMBLY_DESIGNATORS_TOP_LAYER_ID = 9006
+_PCB_SVG_ASSEMBLY_DESIGNATORS_BOTTOM_LAYER_ID = 9007
 _MODEL_BOUNDS_CACHE: dict[tuple[str, tuple[float, ...]], dict[str, object]] = {}
 
 
@@ -125,30 +131,61 @@ def _comment_safe(value: object) -> str:
 def _default_pcb_svg_config_text() -> str:
     """Return the JSONC text used for auto-created PCB SVG configs."""
     payload = json.dumps(_PcbSvgConfig.default().to_dict(), indent=2)
-    return (
-        "// kicad-cruncher pcb-svg configuration\n"
-        "// This file is JSONC: // comments, /* block comments */, and trailing\n"
-        "//   commas are accepted.\n"
-        "\n"
-        f"// Schema: {PCB_SVG_CONFIG_SCHEMA}\n"
-        "\n"
-        "// Common physical layer tokens: TOP, BOTTOM, TOPOVERLAY, BOTTOMOVERLAY,\n"
-        "//   TOPPASTE, BOTTOMPASTE, TOPSOLDER, BOTTOMSOLDER, F.Cu, B.Cu,\n"
-        "//   F.SilkS, B.SilkS, F.Fab, B.Fab, Edge.Cuts.\n"
-        "\n"
-        "// Synthetic layer tokens: BOARD_OUTLINE, BOARD_CUTOUTS, DRILLS, SLOTS,\n"
-        "//   ASSEMBLY_HLR_TOP, ASSEMBLY_HLR_BOTTOM, ASSEMBLY_HLR_TOP_SIMPLE,\n"
-        "//   ASSEMBLY_HLR_TOP_DETAIL, ASSEMBLY_HLR_BOTTOM_SIMPLE,\n"
-        "//   ASSEMBLY_HLR_BOTTOM_DETAIL, ASSEMBLY_BOUNDS_TOP_MODEL,\n"
-        "//   ASSEMBLY_BOUNDS_BOTTOM_MODEL, ASSEMBLY_BOUNDS_TOP_PADS,\n"
-        "//   ASSEMBLY_BOUNDS_BOTTOM_PADS,\n"
-        "//   ASSEMBLY_DESIGNATORS_TOP, ASSEMBLY_DESIGNATORS_BOTTOM, PIN1_TOP, PIN1_BOTTOM.\n"
-        "\n"
-        "// In each view, the layers array is the draw order. KiCad physical layers\n"
-        "//   are rendered by kicad-monkey; ASSEMBLY_HLR_* adds geometer STEP HLR\n"
-        "//   overlays from embedded or resolvable STEP models.\n"
-        "\n"
+    header = (
         "/*\n"
+        "kicad-cruncher pcb-svg configuration\n"
+        "\n"
+        "This file is JSONC: block comments, line comments, and trailing commas\n"
+        "are accepted. The generated template keeps all explanatory comments in\n"
+        "this top block so the configuration body stays easy to scan.\n"
+        "\n"
+        f"Schema: {PCB_SVG_CONFIG_SCHEMA}\n"
+        "\n"
+        "Common physical layer tokens:\n"
+        "  TOP, BOTTOM, TOPOVERLAY, BOTTOMOVERLAY, TOPPASTE, BOTTOMPASTE,\n"
+        "  TOPSOLDER, BOTTOMSOLDER, F.Cu, B.Cu, F.SilkS, B.SilkS, F.Fab,\n"
+        "  B.Fab, Edge.Cuts.\n"
+        "\n"
+        "Virtual layer tokens:\n"
+        "  BOARD_OUTLINE - board perimeter derived from Edge.Cuts.\n"
+        "  BOARD_CUTOUTS - internal cutout regions derived from Edge.Cuts.\n"
+        "  DRILLS - through-hole and non-plated circular drill overlays.\n"
+        "  SLOTS - slotted through-hole and non-plated slot overlays.\n"
+        "  PIN1_TOP - top-side pin-1 marker overlay.\n"
+        "  PIN1_BOTTOM - bottom-side pin-1 marker overlay.\n"
+        "  ASSEMBLY_HLR_TOP - top-side assembly overlay using the view HLR mode.\n"
+        "  ASSEMBLY_HLR_BOTTOM - bottom-side assembly overlay using the view HLR mode.\n"
+        "  ASSEMBLY_HLR_TOP_SIMPLE - top-side Geometer simple STEP outline output.\n"
+        "  ASSEMBLY_HLR_TOP_DETAIL - top-side Geometer detailed STEP projection output.\n"
+        "  ASSEMBLY_HLR_BOTTOM_SIMPLE - bottom-side Geometer simple STEP outline output.\n"
+        "  ASSEMBLY_HLR_BOTTOM_DETAIL - bottom-side Geometer detailed STEP projection output.\n"
+        "  ASSEMBLY_BOUNDS_TOP_MODEL - top-side transformed STEP model bounds.\n"
+        "  ASSEMBLY_BOUNDS_BOTTOM_MODEL - bottom-side transformed STEP model bounds.\n"
+        "  ASSEMBLY_BOUNDS_TOP_PADS - top-side copper-bearing pad bounds.\n"
+        "  ASSEMBLY_BOUNDS_BOTTOM_PADS - bottom-side copper-bearing pad bounds.\n"
+        "  ASSEMBLY_DESIGNATORS_TOP - top-side assembly reference designator overlay.\n"
+        "  ASSEMBLY_DESIGNATORS_BOTTOM - bottom-side assembly reference designator overlay.\n"
+        "\n"
+        "Views and draw order:\n"
+        "  Each view has its own layers array, assembly_hlr_mode, styles, and pin1\n"
+        "  settings. The layers array is the draw order. KiCad physical layers are\n"
+        "  rendered by kicad-monkey; ASSEMBLY_HLR_* layers add Geometer STEP HLR\n"
+        "  overlays from embedded or resolvable STEP models.\n"
+        "  styles.board_outline.max_arc_segment_mm, max_curve_segment_mm, and\n"
+        "  max_circle_segment_mm control smoothing of derived BOARD_OUTLINE and\n"
+        "  BOARD_CUTOUTS paths; smaller values create smoother, larger SVG paths.\n"
+        "\n"
+        "Per-view override resolution:\n"
+        "  Global styles/config are merged with each view.styles and view.pin1 while\n"
+        "  rendering that view. components.<designator>.projection,\n"
+        "  components.<designator>.assembly_hlr, and\n"
+        "  components.<designator>.assembly_designators are evaluated per view over\n"
+        "  that view's resolved mode/styles. This means one component override can\n"
+        "  suppress or restyle HLR in a view that renders HLR while another view\n"
+        "  continues to use its own resolved settings. For designators,\n"
+        "  styles.assembly_designators.selector_overrides apply after global/view\n"
+        "  style resolution and before exact components.<designator> overrides.\n"
+        "\n"
         "HLR modes:\n"
         "  bounding_box - transformed STEP model bounds, falling back to pad bounds.\n"
         "  model_bounds - transformed STEP model bounds rectangle only.\n"
@@ -181,17 +218,37 @@ def _default_pcb_svg_config_text() -> str:
         "Component override examples:\n"
         "  \"components\": {\n"
         "    \"J1\": {\"projection\": \"none\"},\n"
-        "    \"U5\": {\"projection\": \"detail\", \"assembly_hlr\": {\"color\": \"#2563EB\"}}\n"
+        "    \"U5\": {\"projection\": \"detail\", \"assembly_hlr\": {\"color\": \"#2563EB\"}},\n"
+        "    \"R12\": {\"assembly_designators\": {\n"
+        "      \"opacity\": 0.65,\n"
+        "      \"rotation_aspect_threshold\": 1.2,\n"
+        "      \"rotation_direction\": \"cw\"\n"
+        "    }}\n"
         "  }\n"
-        "*/\n"
         "\n"
-        "// Set layer_outputs.enabled=false if you only want composed views.\n"
-        "// layer_outputs.add_*_to_physical_layers controls per-layer context:\n"
-        "//   raw Edge.Cuts plus computed DRILLS/SLOTS overlays are included by default.\n"
-        "// layer_outputs.write_virtual_layers controls standalone __virtual__ debug outputs;\n"
-        "//   include_special_layers selects which virtual layer files are written.\n"
-        f"{payload}\n"
+        "Pin-1 exclusion examples, globally or inside a view.pin1 object:\n"
+        "  \"pin1\": {\n"
+        "    \"exclude_single_pin\": true,\n"
+        "    \"exclude_designators\": [\"R\", \"C\", \"U1\", \"U5-U15\", \"J*\"]\n"
+        "  }\n"
+        "\n"
+        "Assembly designator views use assembly_designators style controls and fit\n"
+        "text inside pad/model bounds according to the view projection mode. Text\n"
+        "rotates 90 degrees when bounds height/width exceeds\n"
+        "assembly_designators.rotation_aspect_threshold, default 1.5.\n"
+        "assembly_designators.rotation_direction selects cw or ccw, and\n"
+        "assembly_designators.selector_overrides can target ranges/groups.\n"
+        "\n"
+        "Layer outputs:\n"
+        "  Set layer_outputs.enabled=false if you only want composed views.\n"
+        "  layer_outputs.add_*_to_physical_layers controls per-layer context;\n"
+        "  raw Edge.Cuts plus computed DRILLS/SLOTS overlays are included by default.\n"
+        "  layer_outputs.write_virtual_layers controls standalone __virtual__ debug\n"
+        "  outputs; include_special_layers selects which virtual layer files are\n"
+        "  written.\n"
+        "*/\n"
     )
+    return f"{header}{payload}\n"
 
 
 def _write_default_pcb_svg_config(config_path: Path) -> None:
@@ -639,11 +696,21 @@ def _render_virtual_layer_composition(
     group_id: str,
     config: _PcbSvgConfig,
 ) -> PcbSvgComposition:
-    if _is_assembly_virtual_layer_token(layer_token):
+    token = normalize_layer_token(layer_token)
+    if token in _DESIGNATOR_TOKENS:
+        return _render_assembly_designator_virtual_layer_output(
+            pcb,
+            pcb_path,
+            token,
+            group_id=group_id,
+            styles=config.global_options.styles,
+            config=config,
+        )
+    if _is_assembly_virtual_layer_token(token):
         return _render_assembly_virtual_layer_output(
             pcb,
             pcb_path,
-            layer_token,
+            token,
             group_id=group_id,
             styles=config.global_options.styles,
             config=config,
@@ -692,6 +759,40 @@ def _render_assembly_virtual_layer_output(
         styles=styles,
         config=config,
         mirror=False,
+    )
+    svg_text = _insert_svg_overlay(composition.svg_text, overlay)
+    return PcbSvgComposition(svg_text=svg_text, physical_layers=composition.physical_layers)
+
+
+def _render_assembly_designator_virtual_layer_output(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    layer_token: str,
+    *,
+    group_id: str,
+    styles: dict[str, dict[str, object]],
+    config: _PcbSvgConfig,
+) -> PcbSvgComposition:
+    token = normalize_layer_token(layer_token)
+    composition = render_pcb_svg_composition(
+        pcb,
+        ["BOARD_OUTLINE"],
+        styles=styles,
+        group_id=group_id,
+        config=config,
+    )
+    view = _PcbSvgViewConfig(
+        name=f"virtual_{token.lower()}",
+        group_id=group_id,
+        layers=[token],
+        assembly_hlr_mode=config.assembly.default_projection,
+    )
+    overlay = _render_assembly_designator_overlay(
+        pcb,
+        pcb_path,
+        view,
+        styles=styles,
+        config=config,
     )
     svg_text = _insert_svg_overlay(composition.svg_text, overlay)
     return PcbSvgComposition(svg_text=svg_text, physical_layers=composition.physical_layers)
@@ -755,28 +856,30 @@ def _render_view_svg(
         styles=styles,
         group_id=group_id,
         config=config,
+        pin1_config=config.resolved_pin1_for_view(view),
     )
     svg_text = composition.svg_text
-    overlay = _render_assembly_hlr_overlay(
-        pcb,
-        pcb_path,
-        view,
-        styles=styles,
-        config=config,
-        mirror=mirror,
-    )
+    overlays = [
+        _render_assembly_hlr_overlay(
+            pcb,
+            pcb_path,
+            view,
+            styles=styles,
+            config=config,
+            mirror=mirror,
+        ),
+        _render_assembly_designator_overlay(
+            pcb,
+            pcb_path,
+            view,
+            styles=styles,
+            config=config,
+        ),
+    ]
+    overlay = "\n".join(piece for piece in overlays if piece)
     if not overlay:
         return svg_text
     return _insert_svg_overlay(svg_text, overlay)
-
-
-def _insert_svg_overlay(svg_text: str, overlay: str) -> str:
-    if not overlay:
-        return svg_text
-    insert_at = svg_text.rfind("</svg>")
-    if insert_at < 0:
-        return svg_text + "\n" + overlay
-    return svg_text[:insert_at] + overlay + "\n" + svg_text[insert_at:]
 
 
 def _render_assembly_hlr_overlay(
@@ -813,6 +916,218 @@ def _render_assembly_hlr_overlay(
         for token in hlr_tokens
     ]
     return "\n" + "\n".join(pieces)
+
+
+def _render_assembly_designator_overlay(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    view: _PcbSvgViewConfig,
+    *,
+    styles: dict[str, dict[str, object]],
+    config: _PcbSvgConfig,
+) -> str:
+    tokens = _designator_tokens_for_view(view)
+    if not tokens or not _style_enabled(styles, "assembly_designators"):
+        return ""
+    bbox = _compute_pcb_svg_bbox(pcb)
+    if bbox.is_empty:
+        return ""
+    pieces = [
+        _render_assembly_designator_token_group(
+            pcb,
+            pcb_path,
+            token,
+            view=view,
+            styles=styles,
+            config=config,
+            bbox=bbox,
+        )
+        for token in tokens
+    ]
+    return "\n" + "\n".join(pieces)
+
+
+def _render_assembly_designator_token_group(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    token: str,
+    *,
+    view: _PcbSvgViewConfig,
+    styles: dict[str, dict[str, object]],
+    config: _PcbSvgConfig,
+    bbox: BoundingBox,
+) -> str:
+    side = "bottom" if normalize_layer_token(token) == "ASSEMBLY_DESIGNATORS_BOTTOM" else "top"
+    layer_id = (
+        _PCB_SVG_ASSEMBLY_DESIGNATORS_BOTTOM_LAYER_ID
+        if side == "bottom"
+        else _PCB_SVG_ASSEMBLY_DESIGNATORS_TOP_LAYER_ID
+    )
+    group_lines = [
+        (
+            f'<g id="assembly-designators-{side}" data-layer-id="{layer_id}" '
+            f'data-layer-token="{html.escape(token)}" '
+            f'data-feature="assembly-designators">'
+        )
+    ]
+    for footprint in _pcb_footprints(pcb):
+        if _footprint_side(footprint) != side:
+            continue
+        designator = _footprint_designator(footprint)
+        override = config.components.get(designator)
+        if override and override.show_designator is False:
+            continue
+        component_styles = _component_designator_styles(
+            styles,
+            config=config,
+            designator=designator,
+        )
+        if not _style_enabled(component_styles, "assembly_designators"):
+            continue
+        projection = _component_projection_mode(
+            view.assembly_hlr_mode,
+            config=config,
+            designator=designator,
+        )
+        rect, bounds_kind = _designator_bounds_rect(
+            pcb,
+            pcb_path,
+            footprint,
+            projection_mode=projection,
+            bbox=bbox,
+        )
+        if rect is None:
+            continue
+        group_lines.append(
+            _svg_assembly_designator_text(
+                designator,
+                rect,
+                bounds_kind=bounds_kind,
+                projection_mode=projection,
+                token=token,
+                styles=component_styles,
+            )
+        )
+    group_lines.append("</g>")
+    return "\n".join(group_lines)
+
+
+def _designator_bounds_rect(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    footprint: Footprint,
+    *,
+    projection_mode: str,
+    bbox: BoundingBox,
+) -> tuple[tuple[float, float, float, float] | None, str]:
+    if projection_mode == "pad_bounds":
+        return _footprint_pad_bounds_rect_values(footprint, bbox=bbox), "pads"
+    if projection_mode == "none":
+        rect = _footprint_pad_bounds_rect_values(footprint, bbox=bbox)
+        return rect, "pads"
+    model_rect = _footprint_model_bounds_rect_values(pcb, pcb_path, footprint, bbox=bbox)
+    if model_rect is not None:
+        return model_rect, "model"
+    return _footprint_pad_bounds_rect_values(footprint, bbox=bbox), "pads"
+
+
+def _svg_assembly_designator_text(
+    designator: str,
+    rect: tuple[float, float, float, float],
+    *,
+    bounds_kind: str,
+    projection_mode: str,
+    token: str,
+    styles: dict[str, dict[str, object]],
+) -> str:
+    x, y, width, height = rect
+    if width <= 0.0 or height <= 0.0:
+        return ""
+    fill_ratio = min(
+        1.0,
+        max(0.05, _style_float(styles, "assembly_designators", "box_fill_ratio", 0.80)),
+    )
+    min_font = _style_float(styles, "assembly_designators", "min_font_size_mm", 0.35)
+    max_font = _style_float(styles, "assembly_designators", "max_font_size_mm", 2.5)
+    rotation = _assembly_designator_rotation(rect, styles)
+    available_text_width = (height if rotation else width) * fill_ratio
+    available_text_height = (width if rotation else height) * fill_ratio
+    estimated_font = available_text_width / max(len(designator) * 0.62, 1.0)
+    font_size = min(max_font, available_text_height, estimated_font)
+    if font_size < min_font:
+        font_size = min(min_font, available_text_height, estimated_font)
+    if font_size <= 0.0 or available_text_width <= 0.0:
+        return ""
+    cx = x + width / 2.0
+    cy = y + height / 2.0
+    color = _style_color(styles, "assembly_designators", "#2563EB")
+    font_family = str(
+        styles.get("assembly_designators", {}).get("font_family")
+        or "Arial, sans-serif"
+    )
+    opacity = _style_float(styles, "assembly_designators", "opacity", 1.0)
+    transform = (
+        f' transform="rotate({_fmt(rotation)} {_fmt(cx)} {_fmt(cy)})"'
+        if rotation
+        else ""
+    )
+    return (
+        f'<text x="{_fmt(cx)}" y="{_fmt(cy)}"{transform} '
+        f'font-size="{_fmt(font_size)}" text-anchor="middle" '
+        f'dominant-baseline="central" fill="{html.escape(color)}" '
+        f'font-family="{html.escape(font_family)}" opacity="{_fmt(opacity)}" '
+        f'data-layer-token="{html.escape(token)}" '
+        f'data-primitive="assembly-designator" '
+        f'data-component="{html.escape(designator)}" '
+        f'data-bounds-kind="{html.escape(bounds_kind)}" '
+        f'data-projection="{html.escape(projection_mode)}">'
+        f'{html.escape(designator)}</text>'
+    )
+
+
+def _assembly_designator_rotation(
+    rect: tuple[float, float, float, float],
+    styles: dict[str, dict[str, object]],
+) -> int:
+    _x, _y, width, height = rect
+    if width <= 0.0:
+        return 0
+    threshold = _style_float(
+        styles,
+        "assembly_designators",
+        "rotation_aspect_threshold",
+        1.5,
+    )
+    return _assembly_designator_rotation_direction(styles) if height / width > threshold else 0
+
+
+def _assembly_designator_rotation_direction(
+    styles: dict[str, dict[str, object]],
+) -> int:
+    raw = styles.get("assembly_designators", {}).get("rotation_direction", "ccw")
+    direction = str(raw).strip().lower()
+    if direction in {"cw", "clockwise", "right", "+90", "90"}:
+        return 90
+    if direction in {"ccw", "counterclockwise", "counter-clockwise", "left", "-90"}:
+        return -90
+    return -90
+
+
+def _designator_tokens_for_view(view: _PcbSvgViewConfig) -> list[str]:
+    return [
+        normalized
+        for token in view.layers
+        if (normalized := normalize_layer_token(token)) in _DESIGNATOR_TOKENS
+    ]
+
+
+def _insert_svg_overlay(svg_text: str, overlay: str) -> str:
+    if not overlay:
+        return svg_text
+    insert_at = svg_text.rfind("</svg>")
+    if insert_at < 0:
+        return svg_text + "\n" + overlay
+    return svg_text[:insert_at] + overlay + "\n" + svg_text[insert_at:]
 
 
 def _hlr_tokens_for_view(view: _PcbSvgViewConfig) -> list[str]:
@@ -893,6 +1208,12 @@ def _render_assembly_hlr_token_group(
             "line_width_mm",
             line_width,
         )
+        component_opacity = _style_float(
+            component_styles,
+            "assembly_hlr",
+            "opacity",
+            0.75,
+        )
         component_mode = _component_projection_mode(
             mode,
             config=config,
@@ -909,6 +1230,7 @@ def _render_assembly_hlr_token_group(
                 styles=component_styles,
                 color=component_color,
                 line_width=component_line_width,
+                opacity=component_opacity,
                 bbox=bbox,
             )
         )
@@ -968,6 +1290,72 @@ def _component_hlr_styles(
     return merged
 
 
+def _component_designator_styles(
+    styles: dict[str, dict[str, object]],
+    *,
+    config: _PcbSvgConfig,
+    designator: str,
+) -> dict[str, dict[str, object]]:
+    override = config.components.get(designator)
+    selector_overrides = _matching_assembly_designator_selector_overrides(
+        designator,
+        styles,
+    )
+    if not selector_overrides and (not override or not override.assembly_designators):
+        return styles
+    merged = {name: dict(style) for name, style in styles.items()}
+    assembly_designators = dict(merged.get("assembly_designators", {}))
+    for selector_override in selector_overrides:
+        assembly_designators.update(selector_override)
+    if override and override.assembly_designators:
+        assembly_designators.update(override.assembly_designators)
+    merged["assembly_designators"] = assembly_designators
+    return merged
+
+
+def _matching_assembly_designator_selector_overrides(
+    designator: str,
+    styles: dict[str, dict[str, object]],
+) -> list[dict[str, object]]:
+    raw_overrides = styles.get("assembly_designators", {}).get("selector_overrides")
+    if not isinstance(raw_overrides, Mapping):
+        return []
+    matches: list[dict[str, object]] = []
+    for selector, raw_style in raw_overrides.items():
+        if not isinstance(raw_style, Mapping):
+            continue
+        if _designator_selector_matches(designator, str(selector)):
+            matches.append(dict(raw_style))
+    return matches
+
+
+def _designator_selector_matches(designator: str, selector: str) -> bool:
+    upper = designator.strip().upper()
+    raw = selector.strip().upper()
+    if not raw:
+        return False
+    if raw.endswith("*"):
+        return upper.startswith(raw[:-1])
+    if raw.isalpha():
+        return upper.startswith(raw)
+    range_match = _DESIGNATOR_RANGE_RE.match(raw)
+    if range_match:
+        prefix_a, start, prefix_b, end = range_match.groups()
+        prefix_b = prefix_b or prefix_a
+        if prefix_a != prefix_b:
+            return False
+        designator_match = _DESIGNATOR_NUMBER_RE.match(upper)
+        if not designator_match:
+            return False
+        designator_prefix, designator_number = designator_match.groups()
+        if designator_prefix != prefix_a:
+            return False
+        low = min(int(start), int(end))
+        high = max(int(start), int(end))
+        return low <= int(designator_number) <= high
+    return upper == raw
+
+
 def _render_footprint_hlr(
     pcb: KiCadPcb,
     pcb_path: Path,
@@ -979,6 +1367,7 @@ def _render_footprint_hlr(
     styles: dict[str, dict[str, object]],
     color: str,
     line_width: float,
+    opacity: float,
     bbox: BoundingBox,
 ) -> list[str]:
     projection_mode = mode
@@ -995,6 +1384,7 @@ def _render_footprint_hlr(
             styles=styles,
             color=color,
             line_width=line_width,
+            opacity=opacity,
             bbox=bbox,
         )
     return _render_footprint_bounds_group(
@@ -1005,6 +1395,7 @@ def _render_footprint_hlr(
         projection_mode=projection_mode,
         color=color,
         line_width=line_width,
+        opacity=opacity,
         bbox=bbox,
     )
 
@@ -1020,6 +1411,7 @@ def _render_hlr_projection_group(
     styles: dict[str, dict[str, object]],
     color: str,
     line_width: float,
+    opacity: float,
     bbox: BoundingBox,
 ) -> list[str]:
     rendered = _render_footprint_geometer_hlr(
@@ -1039,6 +1431,7 @@ def _render_hlr_projection_group(
         rendered,
         color=color,
         line_width=line_width,
+        opacity=opacity,
     )
 
 
@@ -1051,6 +1444,7 @@ def _render_footprint_bounds_group(
     projection_mode: str,
     color: str,
     line_width: float,
+    opacity: float,
     bbox: BoundingBox,
 ) -> list[str]:
     rect = _footprint_bounds_rect(
@@ -1074,6 +1468,7 @@ def _render_footprint_bounds_group(
         [rect],
         color=color,
         line_width=line_width,
+        opacity=opacity,
     )
 
 
@@ -1112,12 +1507,15 @@ def _svg_component_projection_group(
     *,
     color: str,
     line_width: float,
+    opacity: float,
 ) -> list[str]:
+    opacity_attr = f' opacity="{_fmt(opacity)}"' if opacity < 1.0 else ""
     return [
         (
             f'<g data-component="{html.escape(designator)}" '
             f'data-projection="{html.escape(projection)}" '
-            f'stroke="{html.escape(color)}" stroke-width="{_fmt(line_width)}">'
+            f'stroke="{html.escape(color)}" stroke-width="{_fmt(line_width)}"'
+            f'{opacity_attr}>'
         ),
         *lines,
         "</g>",
@@ -1327,12 +1725,33 @@ def _render_footprint_model_bounds_rect(
     bbox: BoundingBox,
     color: str,
 ) -> str:
+    rect = _footprint_model_bounds_rect_values(pcb, pcb_path, footprint, bbox=bbox)
+    if rect is None:
+        return ""
+    model = _first_step_model(footprint)
+    return _svg_rect_from_values(
+        rect,
+        color=color,
+        data_attrs={
+            "data-bounds-kind": "model",
+            "data-model-path": str(getattr(model, "path", "") if model else ""),
+        },
+    )
+
+
+def _footprint_model_bounds_rect_values(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    footprint: Footprint,
+    *,
+    bbox: BoundingBox,
+) -> tuple[float, float, float, float] | None:
     model = _first_step_model(footprint)
     if model is None:
-        return ""
+        return None
     step_bytes = _resolve_model_step_bytes(pcb, footprint, model, pcb_path)
     if step_bytes is None:
-        return ""
+        return None
     pose = kicad_model_pose(pcb, footprint, model)
     model_hash = hashlib.sha256(step_bytes).hexdigest()
     try:
@@ -1349,18 +1768,8 @@ def _render_footprint_model_bounds_rect(
             _footprint_designator(footprint),
             exc,
         )
-        return ""
-    rect = model_bounds_to_svg_rect(bounds, bbox=bbox)
-    if rect is None:
-        return ""
-    return _svg_rect_from_values(
-        rect,
-        color=color,
-        data_attrs={
-            "data-bounds-kind": "model",
-            "data-model-path": str(getattr(model, "path", "") or ""),
-        },
-    )
+        return None
+    return model_bounds_to_svg_rect(bounds, bbox=bbox)
 
 
 def _geometer_model_bounds(
@@ -1395,18 +1804,29 @@ def _render_footprint_pad_bounds_rect(
     bbox: BoundingBox,
     color: str,
 ) -> str:
+    rect = _footprint_pad_bounds_rect_values(footprint, bbox=bbox)
+    if rect is None:
+        return ""
+    return _svg_rect_from_values(
+        rect,
+        color=color,
+        data_attrs={"data-bounds-kind": "pads"},
+    )
+
+
+def _footprint_pad_bounds_rect_values(
+    footprint: Footprint,
+    *,
+    bbox: BoundingBox,
+) -> tuple[float, float, float, float] | None:
     bounds = _footprint_pad_bounds(footprint)
     if bounds is None or not bounds.is_valid():
-        return ""
+        return None
     x = float(bounds.min_x) - float(bbox.min_x)
     y = float(bounds.min_y) - float(bbox.min_y)
     width = float(bounds.max_x) - float(bounds.min_x)
     height = float(bounds.max_y) - float(bounds.min_y)
-    return _svg_rect_from_values(
-        (x, y, width, height),
-        color=color,
-        data_attrs={"data-bounds-kind": "pads"},
-    )
+    return x, y, width, height
 
 
 def _footprint_pad_bounds(footprint: Footprint) -> BoundingBox | None:
