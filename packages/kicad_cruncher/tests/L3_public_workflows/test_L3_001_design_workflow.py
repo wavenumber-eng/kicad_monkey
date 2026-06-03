@@ -12,7 +12,15 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import (
+    _classify_edge_cut_regions,
+    _interior_board_regions,
+    _outer_board_region,
+    render_pcb_svg_composition,
+)
 from kicad_cruncher.kicad_cruncher_pcb_svg_config import _PcbSvgConfig
+from kicad_monkey import KiCadPcb
+from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _CORPUS_ROOT = _PROJECT_ROOT / "tests" / "corpus" / "kicad"
@@ -617,12 +625,7 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
     views = {view.name: view for view in config.views}
 
     assert config.layer_outputs["layers"] == "auto"
-    assert config.layer_outputs["include_special_layers"] == [
-        "BOARD_OUTLINE",
-        "BOARD_CUTOUTS",
-        "DRILLS",
-        "SLOTS",
-    ]
+    assert config.layer_outputs["include_special_layers"] == []
     assert views["board_cutouts"].layers == ["BOARD_OUTLINE", "BOARD_CUTOUTS"]
     assert views["top_pin1_view"].layers == [
         "BOARD_OUTLINE",
@@ -642,6 +645,77 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
     ]
     assert "top_hlr_bounding_boxes" in views
     assert "bottom_hlr_bounding_boxes" in views
+
+
+def test_pcb_svg_virtual_layers_use_full_board_canvas_origin() -> None:
+    """Verify virtual overlays align with KiCad Monkey's all-layer SVG canvas."""
+    pcb = KiCadPcb.from_file(
+        _CORPUS_ROOT
+        / "projects"
+        / "taillight"
+        / "input"
+        / "11-10045__taillight__C.kicad_pcb"
+    )
+    config = _PcbSvgConfig.default()
+    composition = render_pcb_svg_composition(
+        pcb,
+        ["F.Cu", "BOARD_OUTLINE"],
+        styles=config.global_options.styles,
+        group_id="pcb-svg-test-origin",
+        config=config,
+    )
+    root = ET.fromstring(composition.svg_text)
+    outline_group = next(
+        element
+        for element in root.iter()
+        if element.attrib.get("id") == "pcb-svg-board-outline"
+    )
+    outline_path = next(
+        element
+        for element in outline_group.iter()
+        if element.tag.endswith("path")
+    )
+    match = re.match(r"M ([\d.-]+) ([\d.-]+)", outline_path.attrib["d"])
+    assert match is not None
+    first_svg_point = (float(match.group(1)), float(match.group(2)))
+
+    outer_region = _outer_board_region(_classify_edge_cut_regions(pcb))
+    assert outer_region is not None
+    first_board_point = outer_region.points[0]
+    full_bbox = compute_pcb_svg_bounding_box(pcb, None)
+    layer_bbox = compute_pcb_svg_bounding_box(pcb, ["F.Cu", "Edge.Cuts"])
+    expected = (
+        first_board_point[0] - full_bbox.min_x,
+        first_board_point[1] - full_bbox.min_y,
+    )
+    layer_specific_origin = (
+        first_board_point[0] - layer_bbox.min_x,
+        first_board_point[1] - layer_bbox.min_y,
+    )
+
+    assert first_svg_point == pytest.approx(expected, abs=0.0001)
+    assert abs(first_svg_point[0] - layer_specific_origin[0]) > 1.0
+    assert abs(first_svg_point[1] - layer_specific_origin[1]) > 1.0
+
+
+def test_pcb_svg_yoshi_board_outline_loop_survives_arc_float_noise() -> None:
+    """Verify yoshi's arc/line Edge.Cuts profile is not mistaken for a cutout."""
+    pcb = KiCadPcb.from_file(
+        _CORPUS_ROOT
+        / "projects"
+        / "yoshi_mainboard"
+        / "input"
+        / "11-10080__yoshi-mainboard__A.kicad_pcb"
+    )
+    regions = _classify_edge_cut_regions(pcb)
+    outer_region = _outer_board_region(regions)
+    cutouts = _interior_board_regions(regions)
+
+    assert outer_region is not None
+    assert outer_region.source_kind == "gr_arc+gr_line"
+    assert outer_region.area == pytest.approx(361.879, abs=0.001)
+    assert len(cutouts) == 5
+    assert {region.source_kind for region in cutouts} == {"gr_circle"}
 
 
 def test_pcb_svg_board_cutouts_detect_generic_internal_closed_regions(tmp_path: Path) -> None:

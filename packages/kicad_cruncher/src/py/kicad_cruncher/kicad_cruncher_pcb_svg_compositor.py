@@ -38,6 +38,7 @@ _VIRTUAL_TOKENS = {
 _DRAWABLE_TAGS = {"circle", "ellipse", "line", "path", "polygon", "polyline", "rect", "text"}
 _GRID_PAD_RE = re.compile(r"^([A-Za-z]+)(\d+)$")
 _POINT_PRECISION = 4
+_POINT_KEY_EPSILON = 1.0e-6
 _MIN_REGION_AREA_MM2 = 1.0e-4
 
 ET.register_namespace("", _SVG_NS)
@@ -210,7 +211,8 @@ def _root_origin_from_bbox(
 ) -> tuple[float, float]:
     from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
 
-    bbox = compute_pcb_svg_bounding_box(pcb, layers or None)
+    del layers
+    bbox = compute_pcb_svg_bounding_box(pcb, None)
     if not bbox.is_valid():
         return (0.0, 0.0)
     return (float(bbox.min_x), float(bbox.min_y))
@@ -1174,7 +1176,14 @@ def _point_in_polygon(point: tuple[float, float], polygon: list[tuple[float, flo
 
 def _point_key(point: tuple[float, float]) -> tuple[int, int]:
     scale = 10**_POINT_PRECISION
-    return (round(point[0] * scale), round(point[1] * scale))
+    return (_quantize_point_coord(point[0], scale), _quantize_point_coord(point[1], scale))
+
+
+def _quantize_point_coord(value: float, scale: int) -> int:
+    scaled = value * scale
+    if scaled >= 0.0:
+        return math.floor(scaled + 0.5 + _POINT_KEY_EPSILON)
+    return math.ceil(scaled - 0.5 - _POINT_KEY_EPSILON)
 
 
 def _svg_tag(local_name: str) -> str:
