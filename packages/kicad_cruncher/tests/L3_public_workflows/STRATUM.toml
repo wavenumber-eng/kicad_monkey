@@ -16,6 +16,7 @@ objectives = [
     "PCB SVG Edge.Cuts loop detection tolerates floating-point arc endpoint noise",
     "PCB SVG layer outputs keep raw physical layers separate from computed virtual layers",
     "PCB SVG physical layer outputs include configurable Edge.Cuts, drill, and slot context overlays",
+    "PCB SVG standalone virtual layer files can be disabled independently from physical context overlays",
 ]
 
 [dependencies]
@@ -50,6 +51,7 @@ pcb_svg_alignment = "virtual board outline and cutout overlays align with physic
 pcb_svg_edge_loop_tolerance = "arc/line Edge.Cuts loops survive sampled arc endpoint float noise"
 pcb_svg_layer_outputs = "raw physical layer files are distinct from __virtual__ computed layer files"
 pcb_svg_layer_context = "physical layer files include configurable raw Edge.Cuts and computed drill/slot context overlays"
+pcb_svg_virtual_layer_toggle = "standalone __virtual__ layer output files can be disabled by config"
 
 [subtests.approach]
 subprocess_cli = "Invoke public CLI commands through the current Python environment"
@@ -62,7 +64,7 @@ test_design_review_pcb_records_distinguish_pth_and_npth_pads = "Verify review PC
 test_design_command_can_auto_detect_single_project = "Generate design JSON by auto-detecting one project"
 test_design_command_rejects_pcb_only_input = "Reject PCB-only input for schematic-backed design JSON"
 test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config = "Generate PCB SVG layer outputs and a configured view"
-test_pcb_svg_layer_context_overlays_can_be_disabled = "Verify physical layer context overlays can be disabled for raw debugging"
+test_pcb_svg_layer_context_and_virtual_outputs_can_be_disabled = "Verify physical layer context overlays and standalone virtual outputs can be disabled for raw debugging"
 test_pcb_svg_virtual_layers_use_full_board_canvas_origin = "Verify virtual overlays use KiCad Monkey's full-board SVG canvas origin"
 test_pcb_svg_yoshi_board_outline_loop_survives_arc_float_noise = "Verify yoshi's arc/line Edge.Cuts profile is the outer board outline"
 test_pcb_svg_board_cutouts_detect_generic_internal_closed_regions = "Detect generic closed internal Edge.Cuts regions in a synthetic board"

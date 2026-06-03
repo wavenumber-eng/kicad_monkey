@@ -159,7 +159,8 @@ def _default_pcb_svg_config_text() -> str:
         "// Set layer_outputs.enabled=false if you only want composed views.\n"
         "// layer_outputs.add_*_to_physical_layers controls per-layer context:\n"
         "//   raw Edge.Cuts plus computed DRILLS/SLOTS overlays are included by default.\n"
-        "// include_special_layers writes standalone __virtual__ debug outputs.\n"
+        "// layer_outputs.write_virtual_layers controls standalone __virtual__ debug outputs;\n"
+        "//   include_special_layers selects which virtual layer files are written.\n"
         f"{payload}\n"
     )
 
@@ -426,13 +427,6 @@ def _pcb_layer_name(layer: object) -> str:
     )
 
 
-def _layer_output_special_tokens(config: _PcbSvgConfig) -> list[str]:
-    raw_include_special = config.layer_outputs.get("include_special_layers", [])
-    if not isinstance(raw_include_special, list):
-        return []
-    return [normalize_layer_token(str(token)) for token in raw_include_special]
-
-
 def _layer_output_bool(config: _PcbSvgConfig, key: str, default: bool) -> bool:
     value = config.layer_outputs.get(key, default)
     if value is None:
@@ -448,6 +442,15 @@ def _layer_output_bool(config: _PcbSvgConfig, key: str, default: bool) -> bool:
         if normalized in {"0", "false", "no", "off"}:
             return False
     raise ValueError(f"Invalid pcb-svg layer_outputs.{key} boolean value: {value!r}")
+
+
+def _layer_output_special_tokens(config: _PcbSvgConfig) -> list[str]:
+    if not _layer_output_bool(config, "write_virtual_layers", True):
+        return []
+    raw_include_special = config.layer_outputs.get("include_special_layers", [])
+    if not isinstance(raw_include_special, list):
+        return []
+    return [normalize_layer_token(str(token)) for token in raw_include_special]
 
 
 def _physical_layer_context_tokens(config: _PcbSvgConfig, layer_token: str) -> list[str]:
@@ -491,9 +494,11 @@ def _render_a0_layer_outputs(
     layer_dir = output_dir / str(config.layer_outputs.get("output_dir") or "layers")
     physical_tokens: list[str] = []
     virtual_tokens: list[str] = []
+    write_virtual_layers = _layer_output_bool(config, "write_virtual_layers", True)
     for layer_token in _layer_output_tokens(config, pcb):
         if is_synthetic_layer_token(layer_token):
-            _append_unique_token(virtual_tokens, layer_token)
+            if write_virtual_layers:
+                _append_unique_token(virtual_tokens, layer_token)
         else:
             _append_unique_token(physical_tokens, layer_token)
     for layer_token in _layer_output_special_tokens(config):

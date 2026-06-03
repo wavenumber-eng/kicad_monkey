@@ -108,6 +108,22 @@
           "type": "array",
           "items": { "$ref": "#/$defs/syntheticLayer" }
         },
+        "add_edge_cuts_to_physical_layers": {
+          "type": "boolean",
+          "description": "Include raw Edge.Cuts geometry as context in each non-Edge.Cuts physical layer output."
+        },
+        "add_drills_to_physical_layers": {
+          "type": "boolean",
+          "description": "Include computed round drill overlays as context in each non-Edge.Cuts physical layer output."
+        },
+        "add_slots_to_physical_layers": {
+          "type": "boolean",
+          "description": "Include computed slot overlays as context in each non-Edge.Cuts physical layer output."
+        },
+        "write_virtual_layers": {
+          "type": "boolean",
+          "description": "Write standalone __virtual__ layer SVG files selected by include_special_layers and synthetic layer tokens."
+        },
         "output_dir": { "type": "string" }
       }
     },

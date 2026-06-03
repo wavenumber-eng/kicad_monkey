@@ -647,14 +647,16 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     assert (output_dir / "top_view" / "led_component__top_view.svg").exists()
 
 
-def test_pcb_svg_layer_context_overlays_can_be_disabled(tmp_path: Path) -> None:
-    """Verify physical layer outputs can be kept raw for debugging."""
+def test_pcb_svg_layer_context_and_virtual_outputs_can_be_disabled(
+    tmp_path: Path,
+) -> None:
+    """Verify physical outputs can stay raw while standalone virtual files are disabled."""
     config_path = _write_pcb_svg_config(tmp_path, include_hlr=False)
     config_payload = _read_json(config_path)
     config_payload["layer_outputs"]["add_edge_cuts_to_physical_layers"] = False
     config_payload["layer_outputs"]["add_drills_to_physical_layers"] = False
     config_payload["layer_outputs"]["add_slots_to_physical_layers"] = False
-    config_payload["layer_outputs"]["include_special_layers"] = []
+    config_payload["layer_outputs"]["write_virtual_layers"] = False
     config_path.write_text(json.dumps(config_payload, indent=2), encoding="utf-8")
     output_dir = tmp_path / "pcb-svg"
 
@@ -672,6 +674,9 @@ def test_pcb_svg_layer_context_overlays_can_be_disabled(tmp_path: Path) -> None:
     assert manifest["layer_outputs"]["F.Cu"]["layers"] == ["F.Cu"]
     assert manifest["layer_outputs"]["F.Cu"]["context_layers"] == []
     assert "BOARD_OUTLINE" not in manifest["layer_outputs"]
+    assert "DRILLS" not in manifest["layer_outputs"]
+    assert "SLOTS" not in manifest["layer_outputs"]
+    assert not (output_dir / "layers" / "led_component__virtual__board_outline.svg").exists()
     front_layer_svg = (output_dir / "layers" / "led_component__F.Cu.svg").read_text(
         encoding="utf-8"
     )
@@ -693,6 +698,7 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
     assert config.layer_outputs["add_edge_cuts_to_physical_layers"] is True
     assert config.layer_outputs["add_drills_to_physical_layers"] is True
     assert config.layer_outputs["add_slots_to_physical_layers"] is True
+    assert config.layer_outputs["write_virtual_layers"] is True
     assert config.layer_outputs["include_special_layers"] == [
         "BOARD_OUTLINE",
         "BOARD_CUTOUTS",
