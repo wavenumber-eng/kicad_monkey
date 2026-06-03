@@ -144,7 +144,15 @@
           },
           "mirror": { "type": "boolean" },
           "assembly_hlr_mode": {
-            "enum": ["simple", "detail", "detailed", "bounding_box", "none"]
+            "enum": [
+              "simple",
+              "detail",
+              "detailed",
+              "bounding_box",
+              "model_bounds",
+              "pad_bounds",
+              "none"
+            ]
           },
           "styles": { "$ref": "#/$defs/styleTable" },
           "description": { "type": "string" }
@@ -164,11 +172,19 @@
         "ASSEMBLY_DESIGNATORS_TOP",
         "ASSEMBLY_DESIGNATORS_BOTTOM",
         "PIN1_TOP",
-        "PIN1_BOTTOM"
+        "PIN1_BOTTOM",
+        "ASSEMBLY_HLR_TOP_SIMPLE",
+        "ASSEMBLY_HLR_TOP_DETAIL",
+        "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+        "ASSEMBLY_HLR_BOTTOM_DETAIL",
+        "ASSEMBLY_BOUNDS_TOP_MODEL",
+        "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
+        "ASSEMBLY_BOUNDS_TOP_PADS",
+        "ASSEMBLY_BOUNDS_BOTTOM_PADS"
       ]
     },
     "projectionMode": {
-      "enum": ["detail", "simple", "bounding_box", "none"]
+      "enum": ["detail", "simple", "bounding_box", "model_bounds", "pad_bounds", "none"]
     },
     "componentOverride": {
       "type": "object",

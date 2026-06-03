@@ -89,8 +89,8 @@ _ASSEMBLY_TOKEN_MODE_BY_TOKEN = {
     "ASSEMBLY_HLR_BOTTOM_DETAIL": ("bottom", "detail"),
     "ASSEMBLY_BOUNDS_TOP_MODEL": ("top", "model_bounds"),
     "ASSEMBLY_BOUNDS_BOTTOM_MODEL": ("bottom", "model_bounds"),
-    "ASSEMBLY_BOUNDS_TOP_COPPER": ("top", "copper_bounds"),
-    "ASSEMBLY_BOUNDS_BOTTOM_COPPER": ("bottom", "copper_bounds"),
+    "ASSEMBLY_BOUNDS_TOP_PADS": ("top", "pad_bounds"),
+    "ASSEMBLY_BOUNDS_BOTTOM_PADS": ("bottom", "pad_bounds"),
 }
 _ASSEMBLY_HLR_EDGE_FLAG_KEYS = {
     "edge_v_sharp",
@@ -140,8 +140,8 @@ def _default_pcb_svg_config_text() -> str:
         "//   ASSEMBLY_HLR_TOP, ASSEMBLY_HLR_BOTTOM, ASSEMBLY_HLR_TOP_SIMPLE,\n"
         "//   ASSEMBLY_HLR_TOP_DETAIL, ASSEMBLY_HLR_BOTTOM_SIMPLE,\n"
         "//   ASSEMBLY_HLR_BOTTOM_DETAIL, ASSEMBLY_BOUNDS_TOP_MODEL,\n"
-        "//   ASSEMBLY_BOUNDS_BOTTOM_MODEL, ASSEMBLY_BOUNDS_TOP_COPPER,\n"
-        "//   ASSEMBLY_BOUNDS_BOTTOM_COPPER,\n"
+        "//   ASSEMBLY_BOUNDS_BOTTOM_MODEL, ASSEMBLY_BOUNDS_TOP_PADS,\n"
+        "//   ASSEMBLY_BOUNDS_BOTTOM_PADS,\n"
         "//   ASSEMBLY_DESIGNATORS_TOP, ASSEMBLY_DESIGNATORS_BOTTOM, PIN1_TOP, PIN1_BOTTOM.\n"
         "\n"
         "// In each view, the layers array is the draw order. KiCad physical layers\n"
@@ -150,9 +150,9 @@ def _default_pcb_svg_config_text() -> str:
         "\n"
         "/*\n"
         "HLR modes:\n"
-        "  bounding_box - transformed STEP model bounds, falling back to copper-pad bounds.\n"
+        "  bounding_box - transformed STEP model bounds, falling back to pad bounds.\n"
         "  model_bounds - transformed STEP model bounds rectangle only.\n"
-        "  copper_bounds - copper-pad bounds rectangle only; no STEP projection.\n"
+        "  pad_bounds   - copper-bearing pad bounds rectangle only; no STEP projection.\n"
         "  simple       - Geometer simple outline, with bounds fallback when no\n"
         "                 STEP model is available.\n"
         "  detail       - Geometer detailed visible projection, with bounds fallback\n"
@@ -998,7 +998,7 @@ def _render_footprint_bounds_group(
         return []
     group_mode = (
         projection_mode
-        if projection_mode in {"model_bounds", "copper_bounds"}
+        if projection_mode in {"model_bounds", "pad_bounds"}
         else "bounding_box"
     )
     return _svg_component_projection_group(designator, group_mode, [rect])
@@ -1021,15 +1021,15 @@ def _footprint_bounds_rect(
             bbox=bbox,
             color=color,
         )
-    if projection_mode == "copper_bounds":
-        return _render_footprint_copper_bounds_rect(footprint, bbox=bbox, color=color)
+    if projection_mode == "pad_bounds":
+        return _render_footprint_pad_bounds_rect(footprint, bbox=bbox, color=color)
     return _render_footprint_model_bounds_rect(
         pcb,
         pcb_path,
         footprint,
         bbox=bbox,
         color=color,
-    ) or _render_footprint_copper_bounds_rect(footprint, bbox=bbox, color=color)
+    ) or _render_footprint_pad_bounds_rect(footprint, bbox=bbox, color=color)
 
 
 def _svg_component_projection_group(
@@ -1309,13 +1309,13 @@ def _geometer_model_bounds(
     return bounds
 
 
-def _render_footprint_copper_bounds_rect(
+def _render_footprint_pad_bounds_rect(
     footprint: Footprint,
     *,
     bbox: BoundingBox,
     color: str,
 ) -> str:
-    bounds = _footprint_copper_bounds(footprint)
+    bounds = _footprint_pad_bounds(footprint)
     if bounds is None or not bounds.is_valid():
         return ""
     x = float(bounds.min_x) - float(bbox.min_x)
@@ -1325,11 +1325,11 @@ def _render_footprint_copper_bounds_rect(
     return _svg_rect_from_values(
         (x, y, width, height),
         color=color,
-        data_attrs={"data-bounds-kind": "copper"},
+        data_attrs={"data-bounds-kind": "pads"},
     )
 
 
-def _footprint_copper_bounds(footprint: Footprint) -> BoundingBox | None:
+def _footprint_pad_bounds(footprint: Footprint) -> BoundingBox | None:
     from kicad_monkey.kicad_geometry import BoundingBox
 
     bounds = BoundingBox()

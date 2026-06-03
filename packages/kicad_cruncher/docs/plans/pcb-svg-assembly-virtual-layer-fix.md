@@ -114,6 +114,28 @@ The source tests for the pinned version verify transformed model bounds. This
 means Kicad Cruncher should compute one KiCad model-to-board-world matrix and
 send the same matrix to both Geometer HLR and Geometer bounds.
 
+The current Python HLR result exposes flattened SVG-ready primitives only:
+
+- `modes.simple.segments`
+- `modes.simple.arcs`
+- `modes.detail.segments`
+- `modes.detail.arcs`
+
+It does not expose projected loop IDs, face IDs, edge classifications, polygon
+regions, or an explicit silhouette/outer-contour result. On `hlr_test`,
+`edge_v_sharp=True` produces the current simple/detail geometry, including a
+small visible model feature inside the outer body outline. `edge_v_outline=True`
+without visible sharp edges returns no geometry for this fixture. That means the
+current Geometer API cannot directly ask for "outer projected component
+perimeter only".
+
+Preferred fix: add a Geometer outer-contour or classified-loop mode that returns
+the projected outside silhouette separately from visible internal edges. A
+Kicad Cruncher post-process is possible as a stopgap, but it would infer loops
+from flattened segments/arcs and drop contained loops heuristically. That can
+work for closed interior features, but it is weaker when the model perimeter is
+fragmented or internal visible edges are not clean closed loops.
+
 ### New HLR Fixture
 
 `tests/corpus/kicad/projects/hlr_test/hlr_test.kicad_pcb` contains one top-side
@@ -213,9 +235,12 @@ Implemented two explicit bounding-box modes after the first HLR pose fix:
 
 - [x] `model_bounds`: use `geometer.model_bounds()` with the same full KiCad pose
   matrix, then project the transformed model bounds into the current view.
-- [x] `copper_bounds`: for missing models or selected overrides, compute a 2D
+- [x] `pad_bounds`: for missing models or selected overrides, compute a 2D
   component box from copper-bearing pads only, including SMT pads and
   through-hole pad copper.
+- [x] default views now include separate top/bottom model bounding box and
+  top/bottom pad bounding box views, so manual review can compare the two
+  bounding-box sources directly.
 
 Do not use `footprint.get_bounds()` for the primary assembly bounding-box mode.
 It includes non-copper graphics/text and is not the requested fallback.
@@ -240,12 +265,12 @@ The selected projection should be able to choose:
 - HLR detail
 - HLR simple
 - transformed model bounding box
-- copper bounding box
+- pad bounding box
 - none
 
 Final naming should avoid ambiguity between HLR projection modes and bounding
 box kinds. A likely contract is `projection` for high-level selection plus
-`bounding_box_kind` for `model_bounds` or `copper_bounds`.
+`bounding_box_kind` for `model_bounds` or `pad_bounds`.
 
 ### 7. Tests And Signoff
 
@@ -255,8 +280,8 @@ Add tests before broad tuning:
 - [x] L3 workflow test that generates `hlr_test` PCB SVG and asserts visible HLR
   geometry lands near the footprint.
 - [x] L3 test for `model_bounds` using Geometer transformed bounds.
-- [x] L3 test for `copper_bounds` output on the HLR fixture.
-- [ ] L3 test for `copper_bounds` on a no-model synthetic footprint.
+- [x] L3 test for `pad_bounds` output on the HLR fixture.
+- [ ] L3 test for `pad_bounds` on a no-model synthetic footprint.
 - L3 test for component override precedence.
 - L3 test for selector groups once implemented.
 - [x] Regenerate ignored signoff outputs for `hlr_test`, taillight, yoshi,

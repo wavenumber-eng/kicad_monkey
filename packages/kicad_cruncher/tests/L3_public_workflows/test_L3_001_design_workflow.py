@@ -717,8 +717,8 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
         "ASSEMBLY_HLR_BOTTOM_DETAIL",
         "ASSEMBLY_BOUNDS_TOP_MODEL",
         "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
-        "ASSEMBLY_BOUNDS_TOP_COPPER",
-        "ASSEMBLY_BOUNDS_BOTTOM_COPPER",
+        "ASSEMBLY_BOUNDS_TOP_PADS",
+        "ASSEMBLY_BOUNDS_BOTTOM_PADS",
     ]
     assert views["board_cutouts"].layers == ["BOARD_OUTLINE", "BOARD_CUTOUTS"]
     assert views["top_pin1_view"].layers == [
@@ -739,6 +739,10 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
     ]
     assert "top_hlr_bounding_boxes" in views
     assert "bottom_hlr_bounding_boxes" in views
+    assert "top_model_bounding_boxes" in views
+    assert "bottom_model_bounding_boxes" in views
+    assert "top_pad_bounding_boxes" in views
+    assert "bottom_pad_bounding_boxes" in views
 
 
 def test_pcb_svg_hlr_test_model_pose_matches_kicad_step_order() -> None:
@@ -773,11 +777,11 @@ def test_pcb_svg_hlr_debug_layers_emit_all_projection_and_bounds_modes(
         "ASSEMBLY_HLR_TOP_SIMPLE",
         "ASSEMBLY_HLR_TOP_DETAIL",
         "ASSEMBLY_BOUNDS_TOP_MODEL",
-        "ASSEMBLY_BOUNDS_TOP_COPPER",
+        "ASSEMBLY_BOUNDS_TOP_PADS",
         "ASSEMBLY_HLR_BOTTOM_SIMPLE",
         "ASSEMBLY_HLR_BOTTOM_DETAIL",
         "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
-        "ASSEMBLY_BOUNDS_BOTTOM_COPPER",
+        "ASSEMBLY_BOUNDS_BOTTOM_PADS",
     ]
     config_path.write_text(json.dumps(config_payload, indent=2), encoding="utf-8")
     output_dir = tmp_path / "pcb-svg-hlr-layers"
@@ -806,7 +810,7 @@ def test_pcb_svg_hlr_debug_layers_emit_all_projection_and_bounds_modes(
     top_model = (layers_dir / "hlr_test__virtual__assembly_bounds_top_model.svg").read_text(
         encoding="utf-8"
     )
-    top_copper = (layers_dir / "hlr_test__virtual__assembly_bounds_top_copper.svg").read_text(
+    top_pads = (layers_dir / "hlr_test__virtual__assembly_bounds_top_pads.svg").read_text(
         encoding="utf-8"
     )
     bottom_model_path = layers_dir / "hlr_test__virtual__assembly_bounds_bottom_model.svg"
@@ -818,8 +822,8 @@ def test_pcb_svg_hlr_debug_layers_emit_all_projection_and_bounds_modes(
     assert 'data-projection="detail"' in top_detail
     assert 'data-bounds-kind="model"' in top_model
     assert 'data-projection="model_bounds"' in top_model
-    assert 'data-bounds-kind="copper"' in top_copper
-    assert 'data-projection="copper_bounds"' in top_copper
+    assert 'data-bounds-kind="pads"' in top_pads
+    assert 'data-projection="pad_bounds"' in top_pads
     assert bottom_model_path.exists()
 
 

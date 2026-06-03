@@ -11,7 +11,7 @@ PCB_SVG_CONFIG_SCHEMA = "pcb.svg.config.a0"
 PCB_DEFAULT_SVG_SCALE = 10.0
 PCB_SVG_CANVAS_BOUNDS_MODES = frozenset({"board_outline", "all_geometry"})
 PCB_SVG_COMPONENT_PROJECTION_MODES = frozenset(
-    {"detail", "simple", "bounding_box", "model_bounds", "copper_bounds", "none"}
+    {"detail", "simple", "bounding_box", "model_bounds", "pad_bounds", "none"}
 )
 PCB_SVG_COMPONENT_SIDES = frozenset({"top", "bottom"})
 PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS = frozenset(
@@ -24,8 +24,8 @@ PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS = frozenset(
         "ASSEMBLY_HLR_BOTTOM_DETAIL",
         "ASSEMBLY_BOUNDS_TOP_MODEL",
         "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
-        "ASSEMBLY_BOUNDS_TOP_COPPER",
-        "ASSEMBLY_BOUNDS_BOTTOM_COPPER",
+        "ASSEMBLY_BOUNDS_TOP_PADS",
+        "ASSEMBLY_BOUNDS_BOTTOM_PADS",
     }
 )
 PCB_SVG_SPECIAL_LAYERS = frozenset(
@@ -195,9 +195,9 @@ def _coerce_projection_mode(value: object, default: str, *, field_name: str) -> 
         "model-bounds": "model_bounds",
         "model_bbox": "model_bounds",
         "model-bbox": "model_bounds",
-        "copper-bounds": "copper_bounds",
-        "pad_bounds": "copper_bounds",
-        "pad-bounds": "copper_bounds",
+        "pad_bounds": "pad_bounds",
+        "pad-bounds": "pad_bounds",
+        "pad-bbox": "pad_bounds",
         "off": "none",
         "disabled": "none",
     }
@@ -238,8 +238,8 @@ def normalize_layer_token(value: str) -> str:
         "HLR_BOTTOM_DETAIL": "ASSEMBLY_HLR_BOTTOM_DETAIL",
         "MODEL_BOUNDS_TOP": "ASSEMBLY_BOUNDS_TOP_MODEL",
         "MODEL_BOUNDS_BOTTOM": "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
-        "COPPER_BOUNDS_TOP": "ASSEMBLY_BOUNDS_TOP_COPPER",
-        "COPPER_BOUNDS_BOTTOM": "ASSEMBLY_BOUNDS_BOTTOM_COPPER",
+        "PAD_BOUNDS_TOP": "ASSEMBLY_BOUNDS_TOP_PADS",
+        "PAD_BOUNDS_BOTTOM": "ASSEMBLY_BOUNDS_BOTTOM_PADS",
         "DESIGNATORS_TOP": "ASSEMBLY_DESIGNATORS_TOP",
         "DESIGNATORS_BOTTOM": "ASSEMBLY_DESIGNATORS_BOTTOM",
         "PIN_1_TOP": "PIN1_TOP",
@@ -483,8 +483,8 @@ class _PcbSvgViewConfig:
             "box": "bounding_box",
             "model-bounds": "model_bounds",
             "model-bbox": "model_bounds",
-            "copper-bounds": "copper_bounds",
-            "pad-bounds": "copper_bounds",
+            "pad-bounds": "pad_bounds",
+            "pad-bbox": "pad_bounds",
             "off": "none",
         }
         mode = aliases.get(mode, mode)
@@ -839,8 +839,8 @@ class _PcbSvgConfig:
                     "ASSEMBLY_HLR_BOTTOM_DETAIL",
                     "ASSEMBLY_BOUNDS_TOP_MODEL",
                     "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
-                    "ASSEMBLY_BOUNDS_TOP_COPPER",
-                    "ASSEMBLY_BOUNDS_BOTTOM_COPPER",
+                    "ASSEMBLY_BOUNDS_TOP_PADS",
+                    "ASSEMBLY_BOUNDS_BOTTOM_PADS",
                 ],
                 "output_dir": "layers",
             },
@@ -894,6 +894,34 @@ class _PcbSvgConfig:
                     output_svg="views/{board}__bottom_hlr_bounding_boxes.svg",
                     layers=["BOARD_OUTLINE", "B.Cu", "ASSEMBLY_HLR_BOTTOM"],
                     assembly_hlr_mode="bounding_box",
+                ),
+                _PcbSvgViewConfig(
+                    name="top_model_bounding_boxes",
+                    group_id="pcb-svg-view-top-model-bounding-boxes",
+                    output_svg="views/{board}__top_model_bounding_boxes.svg",
+                    layers=["BOARD_OUTLINE", "F.Cu", "ASSEMBLY_HLR_TOP"],
+                    assembly_hlr_mode="model_bounds",
+                ),
+                _PcbSvgViewConfig(
+                    name="bottom_model_bounding_boxes",
+                    group_id="pcb-svg-view-bottom-model-bounding-boxes",
+                    output_svg="views/{board}__bottom_model_bounding_boxes.svg",
+                    layers=["BOARD_OUTLINE", "B.Cu", "ASSEMBLY_HLR_BOTTOM"],
+                    assembly_hlr_mode="model_bounds",
+                ),
+                _PcbSvgViewConfig(
+                    name="top_pad_bounding_boxes",
+                    group_id="pcb-svg-view-top-pad-bounding-boxes",
+                    output_svg="views/{board}__top_pad_bounding_boxes.svg",
+                    layers=["BOARD_OUTLINE", "F.Cu", "ASSEMBLY_HLR_TOP"],
+                    assembly_hlr_mode="pad_bounds",
+                ),
+                _PcbSvgViewConfig(
+                    name="bottom_pad_bounding_boxes",
+                    group_id="pcb-svg-view-bottom-pad-bounding-boxes",
+                    output_svg="views/{board}__bottom_pad_bounding_boxes.svg",
+                    layers=["BOARD_OUTLINE", "B.Cu", "ASSEMBLY_HLR_BOTTOM"],
+                    assembly_hlr_mode="pad_bounds",
                 ),
                 _PcbSvgViewConfig(
                     name="top_pin1_view",
