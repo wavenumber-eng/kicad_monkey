@@ -251,6 +251,8 @@ Keep Altium Cruncher terminology where practical:
 
 - [x] default view mode: `detail`, `simple`, `bounding_box`, or `none`
 - [x] component overrides by exact designator continue to work
+- [x] exact component overrides now apply to assembly HLR projection and
+  `assembly_hlr` style, including Geometer option knobs
 - [ ] add component selector groups after exact overrides are stable
 
 Planned selector shapes:
@@ -282,7 +284,7 @@ Add tests before broad tuning:
 - [x] L3 test for `model_bounds` using Geometer transformed bounds.
 - [x] L3 test for `pad_bounds` output on the HLR fixture.
 - [ ] L3 test for `pad_bounds` on a no-model synthetic footprint.
-- L3 test for component override precedence.
+- [x] L3 test for exact component override precedence.
 - L3 test for selector groups once implemented.
 - [x] Regenerate ignored signoff outputs for `hlr_test`, taillight, yoshi,
   speedy, cutout test, and charge indicator.

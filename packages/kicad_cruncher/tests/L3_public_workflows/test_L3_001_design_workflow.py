@@ -827,6 +827,53 @@ def test_pcb_svg_hlr_debug_layers_emit_all_projection_and_bounds_modes(
     assert bottom_model_path.exists()
 
 
+def test_pcb_svg_component_hlr_overrides_apply_projection_and_style(
+    tmp_path: Path,
+) -> None:
+    """Verify exact component HLR overrides affect projection and style."""
+    config_path = _write_pcb_svg_config(tmp_path, include_hlr=True)
+    config_payload = _read_json(config_path)
+    config_payload["components"] = {
+        "U1": {
+            "projection": "model_bounds",
+            "assembly_hlr": {
+                "color": "#123456",
+                "line_width_mm": 0.33,
+            },
+        }
+    }
+    config_path.write_text(json.dumps(config_payload, indent=2), encoding="utf-8")
+    output_dir = tmp_path / "pcb-svg-component-hlr"
+
+    result = _run_cli(
+        "pcb-svg",
+        str(_CORPUS_HLR_TEST_PCB),
+        "--config",
+        str(config_path),
+        "-o",
+        str(output_dir),
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    svg_text = (
+        output_dir / "assembly_top_view" / "hlr_test__assembly_top_view.svg"
+    ).read_text(encoding="utf-8")
+    root = ET.fromstring(svg_text)
+    component_group = next(
+        element
+        for element in root.iter()
+        if element.attrib.get("data-component") == "U1"
+        and element.attrib.get("data-projection") == "model_bounds"
+    )
+
+    assert component_group.attrib["stroke"] == "#123456"
+    assert component_group.attrib["stroke-width"] == "0.33"
+    assert any(
+        element.attrib.get("data-bounds-kind") == "model"
+        for element in component_group.iter()
+    )
+
+
 def test_pcb_svg_virtual_layers_use_full_board_canvas_origin() -> None:
     """Verify virtual overlays align with KiCad Monkey's all-layer SVG canvas."""
     pcb = KiCadPcb.from_file(

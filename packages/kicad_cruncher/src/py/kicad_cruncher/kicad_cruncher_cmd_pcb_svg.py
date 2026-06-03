@@ -690,6 +690,7 @@ def _render_assembly_virtual_layer_output(
         pcb_path,
         view,
         styles=styles,
+        config=config,
         mirror=False,
     )
     svg_text = _insert_svg_overlay(composition.svg_text, overlay)
@@ -761,6 +762,7 @@ def _render_view_svg(
         pcb_path,
         view,
         styles=styles,
+        config=config,
         mirror=mirror,
     )
     if not overlay:
@@ -783,11 +785,12 @@ def _render_assembly_hlr_overlay(
     view: _PcbSvgViewConfig,
     *,
     styles: dict[str, dict[str, object]],
+    config: _PcbSvgConfig,
     mirror: bool,
 ) -> str:
     del mirror
     hlr_tokens = _hlr_tokens_for_view(view)
-    if not _should_render_assembly_hlr(view, styles, hlr_tokens):
+    if not _should_render_assembly_hlr(view, styles, hlr_tokens, config=config):
         return ""
 
     bbox = _compute_pcb_svg_bbox(pcb)
@@ -802,6 +805,7 @@ def _render_assembly_hlr_overlay(
             token,
             view=view,
             styles=styles,
+            config=config,
             bbox=bbox,
             color=color,
             line_width=line_width,
@@ -823,14 +827,17 @@ def _should_render_assembly_hlr(
     view: _PcbSvgViewConfig,
     styles: dict[str, dict[str, object]],
     hlr_tokens: list[str],
+    *,
+    config: _PcbSvgConfig,
 ) -> bool:
-    return bool(
-        hlr_tokens
-        and any(
-            _assembly_token_projection(token, view.assembly_hlr_mode)[1] != "none"
-            for token in hlr_tokens
-        )
-        and _style_enabled(styles, "assembly_hlr")
+    if not hlr_tokens or not _style_enabled(styles, "assembly_hlr"):
+        return False
+    return any(
+        _assembly_token_projection(token, view.assembly_hlr_mode)[1] != "none"
+        for token in hlr_tokens
+    ) or any(
+        override.projection and override.projection != "none"
+        for override in config.components.values()
     )
 
 
@@ -857,6 +864,7 @@ def _render_assembly_hlr_token_group(
     *,
     view: _PcbSvgViewConfig,
     styles: dict[str, dict[str, object]],
+    config: _PcbSvgConfig,
     bbox: BoundingBox,
     color: str,
     line_width: float,
@@ -874,14 +882,33 @@ def _render_assembly_hlr_token_group(
     for footprint in _pcb_footprints(pcb):
         if _footprint_side(footprint) != side:
             continue
+        designator = _footprint_designator(footprint)
+        component_styles = _component_hlr_styles(styles, config=config, designator=designator)
+        if not _style_enabled(component_styles, "assembly_hlr"):
+            continue
+        component_color = _style_color(component_styles, "assembly_hlr", color)
+        component_line_width = _style_float(
+            component_styles,
+            "assembly_hlr",
+            "line_width_mm",
+            line_width,
+        )
+        component_mode = _component_projection_mode(
+            mode,
+            config=config,
+            designator=designator,
+        )
         group_lines.extend(
             _render_footprint_hlr(
                 pcb,
                 pcb_path,
                 footprint,
+                designator=designator,
                 side=side,
-                mode=mode,
-                styles=styles,
+                mode=component_mode,
+                styles=component_styles,
+                color=component_color,
+                line_width=component_line_width,
                 bbox=bbox,
             )
         )
@@ -915,17 +942,45 @@ def _footprint_designator(footprint: Footprint) -> str:
     return str(getattr(footprint, "library_link", "") or "component").strip() or "component"
 
 
+def _component_projection_mode(
+    default_mode: str,
+    *,
+    config: _PcbSvgConfig,
+    designator: str,
+) -> str:
+    override = config.components.get(designator)
+    return override.projection if override and override.projection else default_mode
+
+
+def _component_hlr_styles(
+    styles: dict[str, dict[str, object]],
+    *,
+    config: _PcbSvgConfig,
+    designator: str,
+) -> dict[str, dict[str, object]]:
+    override = config.components.get(designator)
+    if not override or not override.assembly_hlr:
+        return styles
+    merged = {name: dict(style) for name, style in styles.items()}
+    assembly_hlr = dict(merged.get("assembly_hlr", {}))
+    assembly_hlr.update(override.assembly_hlr)
+    merged["assembly_hlr"] = assembly_hlr
+    return merged
+
+
 def _render_footprint_hlr(
     pcb: KiCadPcb,
     pcb_path: Path,
     footprint: Footprint,
     *,
+    designator: str,
     side: str,
     mode: str,
     styles: dict[str, dict[str, object]],
+    color: str,
+    line_width: float,
     bbox: BoundingBox,
 ) -> list[str]:
-    designator = _footprint_designator(footprint)
     projection_mode = mode
     if projection_mode == "none":
         return []
@@ -938,6 +993,8 @@ def _render_footprint_hlr(
             side=side,
             mode=projection_mode,
             styles=styles,
+            color=color,
+            line_width=line_width,
             bbox=bbox,
         )
     return _render_footprint_bounds_group(
@@ -946,7 +1003,8 @@ def _render_footprint_hlr(
         footprint,
         designator=designator,
         projection_mode=projection_mode,
-        color=str(styles.get("assembly_hlr", {}).get("color") or "#F59E0B"),
+        color=color,
+        line_width=line_width,
         bbox=bbox,
     )
 
@@ -960,6 +1018,8 @@ def _render_hlr_projection_group(
     side: str,
     mode: str,
     styles: dict[str, dict[str, object]],
+    color: str,
+    line_width: float,
     bbox: BoundingBox,
 ) -> list[str]:
     rendered = _render_footprint_geometer_hlr(
@@ -973,7 +1033,13 @@ def _render_hlr_projection_group(
     )
     if not rendered:
         return []
-    return _svg_component_projection_group(designator, mode, rendered)
+    return _svg_component_projection_group(
+        designator,
+        mode,
+        rendered,
+        color=color,
+        line_width=line_width,
+    )
 
 
 def _render_footprint_bounds_group(
@@ -984,6 +1050,7 @@ def _render_footprint_bounds_group(
     designator: str,
     projection_mode: str,
     color: str,
+    line_width: float,
     bbox: BoundingBox,
 ) -> list[str]:
     rect = _footprint_bounds_rect(
@@ -1001,7 +1068,13 @@ def _render_footprint_bounds_group(
         if projection_mode in {"model_bounds", "pad_bounds"}
         else "bounding_box"
     )
-    return _svg_component_projection_group(designator, group_mode, [rect])
+    return _svg_component_projection_group(
+        designator,
+        group_mode,
+        [rect],
+        color=color,
+        line_width=line_width,
+    )
 
 
 def _footprint_bounds_rect(
@@ -1036,9 +1109,16 @@ def _svg_component_projection_group(
     designator: str,
     projection: str,
     lines: list[str],
+    *,
+    color: str,
+    line_width: float,
 ) -> list[str]:
     return [
-        f'<g data-component="{html.escape(designator)}" data-projection="{projection}">',
+        (
+            f'<g data-component="{html.escape(designator)}" '
+            f'data-projection="{html.escape(projection)}" '
+            f'stroke="{html.escape(color)}" stroke-width="{_fmt(line_width)}">'
+        ),
         *lines,
         "</g>",
     ]
