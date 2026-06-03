@@ -272,7 +272,7 @@ def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
             "enabled": True,
             "color": "#FF0000",
             "hatch": True,
-            "hatch_spacing_mm": 2.0,
+            "hatch_spacing_mm": 0.5,
             "hatch_angle_deg": 45.0,
             "hatch_line_width_mm": 0.08,
             "outline_style": "solid",

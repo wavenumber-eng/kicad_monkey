@@ -353,7 +353,7 @@ def _ensure_cutout_hatch_defs(
     if any(child.get("id") == "board-cutout-hatch" for child in defs):
         return
     color = _style_color(styles, "board_cutouts", "#FF0000")
-    spacing = _style_float(styles, "board_cutouts", "hatch_spacing_mm", 2.0)
+    spacing = _style_float(styles, "board_cutouts", "hatch_spacing_mm", 0.5)
     angle = _style_float(styles, "board_cutouts", "hatch_angle_deg", 45.0)
     width = _style_float(styles, "board_cutouts", "hatch_line_width_mm", 0.08)
     pattern = ET.SubElement(
