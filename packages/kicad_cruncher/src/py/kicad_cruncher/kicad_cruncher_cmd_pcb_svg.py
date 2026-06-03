@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Literal, cast
 
 from kicad_cruncher.config_json import load_json_config
 from kicad_cruncher.kicad_cruncher_common import resolve_output_dir
+from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import render_pcb_svg_composition
 from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
     PCB_DEFAULT_SVG_SCALE,
     PCB_SVG_CONFIG_FILENAME,
@@ -23,7 +24,6 @@ from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
     _PcbSvgViewConfig,
     normalize_layer_token,
     parse_pcb_layer_selector,
-    physical_layer_from_token,
     resolve_config_output_path,
 )
 from kicad_cruncher.kicad_cruncher_pcb_svg_projection import (
@@ -46,6 +46,10 @@ _VIEW_ALIASES = {
     "top-view": "top_view",
     "bottom": "bottom_view",
     "bottom-view": "bottom_view",
+    "cutout": "board_cutouts",
+    "cutouts": "board_cutouts",
+    "board-cutouts": "board_cutouts",
+    "board_cutouts": "board_cutouts",
     "top-pin1": "top_pin1_view",
     "top-pin-1": "top_pin1_view",
     "pin1-top": "top_pin1_view",
@@ -54,20 +58,17 @@ _VIEW_ALIASES = {
     "bottom-pin-1": "bottom_pin1_view",
     "pin1-bottom": "bottom_pin1_view",
     "pin-1-bottom": "bottom_pin1_view",
+    "top-hlr-bounds": "top_hlr_bounding_boxes",
+    "top-hlr-bounding-boxes": "top_hlr_bounding_boxes",
+    "hlr-bounds-top": "top_hlr_bounding_boxes",
+    "bottom-hlr-bounds": "bottom_hlr_bounding_boxes",
+    "bottom-hlr-bounding-boxes": "bottom_hlr_bounding_boxes",
+    "hlr-bounds-bottom": "bottom_hlr_bounding_boxes",
     "assembly-top": "assembly_top_view",
     "assembly-bottom": "assembly_bottom_view",
 }
 
 _HLR_TOKENS = {"ASSEMBLY_HLR_TOP", "ASSEMBLY_HLR_BOTTOM"}
-_SYNTHETIC_NO_PHYSICAL = {
-    "BOARD_CUTOUTS",
-    "DRILLS",
-    "SLOTS",
-    "ASSEMBLY_DESIGNATORS_TOP",
-    "ASSEMBLY_DESIGNATORS_BOTTOM",
-    "PIN1_TOP",
-    "PIN1_BOTTOM",
-}
 _ASSEMBLY_HLR_EDGE_FLAG_KEYS = {
     "edge_v_sharp",
     "edge_v_outline",
@@ -403,18 +404,6 @@ def _style_bool(
     return bool(value)
 
 
-def _physical_layers_for_tokens(tokens: list[str]) -> list[str]:
-    layers: list[str] = []
-    for raw_token in tokens:
-        token = normalize_layer_token(raw_token)
-        if token in _HLR_TOKENS or token in _SYNTHETIC_NO_PHYSICAL:
-            continue
-        physical = physical_layer_from_token(token)
-        if physical is not None and physical not in layers:
-            layers.append(physical)
-    return layers
-
-
 def _layer_output_tokens(config: _PcbSvgConfig, pcb: KiCadPcb) -> list[str]:
     configured = config.layer_outputs.get("layers", "auto")
     if configured == "auto":
@@ -438,10 +427,6 @@ def _layer_output_special_tokens(config: _PcbSvgConfig) -> list[str]:
     if not isinstance(raw_include_special, list):
         return []
     return [normalize_layer_token(str(token)) for token in raw_include_special]
-
-
-def _render_kicad_svg(pcb: KiCadPcb, layers: list[str]) -> str:
-    return str(pcb.to_svg(layers=layers or None))
 
 
 def _view_mirror(config: _PcbSvgConfig, view: _PcbSvgViewConfig) -> bool:
@@ -470,17 +455,22 @@ def _render_a0_layer_outputs(
     for layer_token in _layer_output_tokens(config, pcb):
         group_id = f"pcb-svg-layer-{_safe_svg_id(layer_token.lower())}"
         view_layers = [layer_token, *include_special]
-        physical_layers = _physical_layers_for_tokens(view_layers)
-        if not physical_layers and not bool(config.global_options.show_empty_layers):
+        composition = render_pcb_svg_composition(
+            pcb,
+            view_layers,
+            styles=config.global_options.styles,
+            group_id=group_id,
+            config=config,
+        )
+        if not composition.physical_layers and not bool(config.global_options.show_empty_layers):
             continue
-        svg_text = _render_kicad_svg(pcb, physical_layers)
         layer_path = layer_dir / f"{board_name}__{_safe_svg_id(layer_token)}.svg"
         layer_path.parent.mkdir(parents=True, exist_ok=True)
-        layer_path.write_text(svg_text, encoding="utf-8")
+        layer_path.write_text(composition.svg_text, encoding="utf-8")
         layer_manifest[layer_token] = {
             "file": str(layer_path.relative_to(output_dir)).replace("\\", "/"),
             "layers": view_layers,
-            "physical_layers": physical_layers,
+            "physical_layers": composition.physical_layers,
             "group_id": group_id,
         }
         written += 1
@@ -508,6 +498,7 @@ def _render_a0_configured_views(
             group_id=group_id,
             mirror=mirror,
             styles=styles,
+            config=config,
         )
         view_path = resolve_config_output_path(
             output_dir,
@@ -536,9 +527,16 @@ def _render_view_svg(
     group_id: str,
     mirror: bool,
     styles: dict[str, dict[str, object]],
+    config: _PcbSvgConfig,
 ) -> str:
-    physical_layers = _physical_layers_for_tokens(view.layers)
-    svg_text = _render_kicad_svg(pcb, physical_layers)
+    composition = render_pcb_svg_composition(
+        pcb,
+        view.layers,
+        styles=styles,
+        group_id=group_id,
+        config=config,
+    )
+    svg_text = composition.svg_text
     overlay = _render_assembly_hlr_overlay(
         pcb,
         pcb_path,

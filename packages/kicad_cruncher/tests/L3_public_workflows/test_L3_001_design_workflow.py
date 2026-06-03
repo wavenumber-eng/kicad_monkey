@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from kicad_cruncher.kicad_cruncher_pcb_svg_config import _PcbSvgConfig
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _CORPUS_ROOT = _PROJECT_ROOT / "tests" / "corpus" / "kicad"
@@ -100,6 +101,67 @@ _MIN_PCB_TEXT = """(kicad_pcb
 )
 """
 
+_SYNTHETIC_CUTOUT_PCB_TEXT = """(kicad_pcb
+  (version 20241229)
+  (generator "pcbnew")
+  (generator_version "9.0")
+  (general (thickness 1.6) (legacy_teardrops no))
+  (paper "A4")
+  (layers
+    (0 "F.Cu" signal)
+    (31 "B.Cu" signal)
+    (25 "Edge.Cuts" user)
+  )
+  (gr_rect
+    (start 0 0)
+    (end 60 40)
+    (stroke (width 0.1) (type solid))
+    (fill no)
+    (layer "Edge.Cuts")
+    (uuid "00000000-0000-4000-8000-000000000001")
+  )
+  (gr_line
+    (start 15 14)
+    (end 25 14)
+    (stroke (width 0.1) (type solid))
+    (layer "Edge.Cuts")
+    (uuid "00000000-0000-4000-8000-000000000002")
+  )
+  (gr_arc
+    (start 25 14)
+    (mid 29 18)
+    (end 25 22)
+    (stroke (width 0.1) (type solid))
+    (layer "Edge.Cuts")
+    (uuid "00000000-0000-4000-8000-000000000003")
+  )
+  (gr_line
+    (start 25 22)
+    (end 15 22)
+    (stroke (width 0.1) (type solid))
+    (layer "Edge.Cuts")
+    (uuid "00000000-0000-4000-8000-000000000004")
+  )
+  (gr_arc
+    (start 15 22)
+    (mid 11 18)
+    (end 15 14)
+    (stroke (width 0.1) (type solid))
+    (layer "Edge.Cuts")
+    (uuid "00000000-0000-4000-8000-000000000005")
+  )
+  (gr_circle
+    (center 45 26)
+    (end 48 26)
+    (stroke (width 0.1) (type solid))
+    (fill no)
+    (layer "Edge.Cuts")
+    (uuid "00000000-0000-4000-8000-000000000006")
+  )
+  (embedded_fonts no)
+)
+"""
+
 
 def _run_cli(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     """Run the current checkout's CLI through the active Python environment."""
@@ -133,6 +195,13 @@ def _write_synthetic_project(root: Path) -> Path:
     (root / "demo.kicad_sch").write_text(_MIN_SCH_TEXT, encoding="utf-8")
     (root / "demo.kicad_pcb").write_text(_MIN_PCB_TEXT, encoding="utf-8")
     return project_path
+
+
+def _write_synthetic_cutout_pcb(root: Path) -> Path:
+    """Write a minimal PCB with generic internal Edge.Cuts regions."""
+    pcb_path = root / "cutout_regions.kicad_pcb"
+    pcb_path.write_text(_SYNTHETIC_CUTOUT_PCB_TEXT, encoding="utf-8")
+    return pcb_path
 
 
 def _write_pcb_svg_config(root: Path, *, include_hlr: bool) -> Path:
@@ -171,6 +240,41 @@ def _write_pcb_svg_config(root: Path, *, include_hlr: bool) -> Path:
                     "include_special_layers": ["BOARD_OUTLINE"],
                 },
                 "views": views,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return config_path
+
+
+def _write_pcb_svg_virtual_config(root: Path) -> Path:
+    """Write a focused config for virtual layer composition tests."""
+    config_path = root / "pcb.svg.config"
+    config_path.write_text(
+        json.dumps(
+            {
+                "schema": "pcb.svg.config.a0",
+                "global": {"include_metadata": True, "show_empty_layers": True},
+                "layer_outputs": {"enabled": False},
+                "views": [
+                    {
+                        "name": "board_cutouts",
+                        "enabled": True,
+                        "group_id": "pcb-svg-view-board-cutouts",
+                        "output_svg": "views/{board}__board_cutouts.svg",
+                        "layers": ["BOARD_CUTOUTS"],
+                        "assembly_hlr_mode": "none",
+                    },
+                    {
+                        "name": "top_pin1_view",
+                        "enabled": True,
+                        "group_id": "pcb-svg-view-top-pin1",
+                        "output_svg": "views/{board}__top_pin1_view.svg",
+                        "layers": ["BOARD_OUTLINE", "F.Cu", "DRILLS", "SLOTS", "PIN1_TOP"],
+                        "assembly_hlr_mode": "none",
+                    },
+                ],
             },
             indent=2,
         ),
@@ -501,6 +605,109 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     assert (output_dir / "layers" / "led_component__F.Cu.svg").exists()
     assert (output_dir / "layers" / "led_component__B.Cu.svg").exists()
     assert (output_dir / "top_view" / "led_component__top_view.svg").exists()
+
+
+def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
+    """Verify the default A0 config includes the expected virtual layer views."""
+    config = _PcbSvgConfig.default()
+    views = {view.name: view for view in config.views}
+
+    assert config.layer_outputs["layers"] == "auto"
+    assert config.layer_outputs["include_special_layers"] == [
+        "BOARD_OUTLINE",
+        "BOARD_CUTOUTS",
+        "DRILLS",
+        "SLOTS",
+    ]
+    assert views["board_cutouts"].layers == ["BOARD_CUTOUTS"]
+    assert views["top_pin1_view"].layers == [
+        "BOARD_OUTLINE",
+        "TOP",
+        "DRILLS",
+        "SLOTS",
+        "PIN1_TOP",
+        "ASSEMBLY_HLR_TOP",
+    ]
+    assert views["bottom_pin1_view"].layers == [
+        "BOARD_OUTLINE",
+        "BOTTOM",
+        "DRILLS",
+        "SLOTS",
+        "PIN1_BOTTOM",
+        "ASSEMBLY_HLR_BOTTOM",
+    ]
+    assert "top_hlr_bounding_boxes" in views
+    assert "bottom_hlr_bounding_boxes" in views
+
+
+def test_pcb_svg_board_cutouts_detect_generic_internal_closed_regions(tmp_path: Path) -> None:
+    """Verify BOARD_CUTOUTS is synthesized from any internal closed Edge.Cuts region."""
+    pcb_path = _write_synthetic_cutout_pcb(tmp_path)
+    config_path = _write_pcb_svg_virtual_config(tmp_path)
+    output_dir = tmp_path / "pcb-svg"
+
+    result = _run_cli(
+        "pcb-svg",
+        str(pcb_path),
+        "--config",
+        str(config_path),
+        "--views",
+        "cutouts",
+        "-o",
+        str(output_dir),
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    svg = (output_dir / "views" / "cutout_regions__board_cutouts.svg").read_text(
+        encoding="utf-8"
+    )
+    assert 'id="board-cutout-hatch"' in svg
+    assert 'data-layer-token="BOARD_CUTOUTS"' in svg
+    assert 'data-cutout-count="2"' in svg
+    assert 'data-source-kinds="gr_arc+gr_line"' in svg
+    assert 'data-source-kinds="gr_circle"' in svg
+    assert 'data-source-kinds="gr_rect"' not in svg
+
+
+def test_pcb_svg_pin1_view_uses_virtual_markers_and_enriched_drill_metadata(
+    tmp_path: Path,
+) -> None:
+    """Verify pin-1 and drill virtual layers compose with KiCad Monkey enrichment."""
+    config_path = _write_pcb_svg_virtual_config(tmp_path)
+    output_dir = tmp_path / "pcb-svg"
+    project_path = (
+        _CORPUS_ROOT
+        / "projects"
+        / "taillight"
+        / "input"
+        / "11-10045__taillight__C.kicad_pro"
+    )
+
+    result = _run_cli(
+        "pcb-svg",
+        str(project_path),
+        "--config",
+        str(config_path),
+        "--views",
+        "top-pin1",
+        "-o",
+        str(output_dir),
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    svg = (
+        output_dir / "views" / "11-10045__taillight__C__top_pin1_view.svg"
+    ).read_text(encoding="utf-8")
+    assert 'id="pcb-svg-board-outline"' in svg
+    assert 'id="pcb-svg-drills"' in svg
+    assert 'data-layer-token="PIN1_TOP"' in svg
+    assert 'data-primitive="pin1-marker"' in svg
+    assert 'data-component="J1"' in svg
+    assert 'data-pad-number="1"' in svg
+    assert 'data-hole-plating="plated"' in svg
+    assert 'data-hole-plating="non_plated"' in svg
+    assert "#90EE90" in svg
+    assert "#ADD8E6" in svg
 
 
 def test_pcb_svg_assembly_view_uses_geometer_hlr(tmp_path: Path) -> None:

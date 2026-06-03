@@ -82,6 +82,13 @@ kicad-cruncher pcb-svg project.kicad_pro --views assembly-top
 kicad-cruncher pcb-svg board.kicad_pcb --config pcb.svg.config -o output/pcb-svg
 ```
 
+`pcb-svg` composes KiCad Monkey enriched physical layer SVG with explicit
+virtual layers. `BOARD_OUTLINE` and `BOARD_CUTOUTS` are synthesized from closed
+`Edge.Cuts` regions, `DRILLS` and `SLOTS` preserve KiCad Monkey hole metadata,
+`PIN1_TOP`/`PIN1_BOTTOM` add pad-linked marker groups, and
+`ASSEMBLY_HLR_TOP`/`ASSEMBLY_HLR_BOTTOM` append geometer-backed STEP hidden-line
+overlays or footprint-bound fallbacks.
+
 ## Output Layout
 
 Output-producing commands follow the same directory policy:
