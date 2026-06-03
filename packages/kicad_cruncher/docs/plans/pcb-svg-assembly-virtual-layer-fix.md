@@ -28,25 +28,30 @@ The latest generated review/signoff outputs are under
 `output/pcb-svg-signoff/`. They are ignored outputs and are not release
 artifacts.
 
-The current dirty/untracked fixture state is intentional user work in progress:
+This slice now uses `tests/corpus/kicad/projects/hlr_test/` as the dedicated
+HLR pose fixture. The old `tests/corpus/kicad/board_svg/input/led_component/`
+fixture has been removed from the filesystem and from the L3 workflow contract.
+Generated/editor state in `hlr_test` was removed before adding the fixture.
 
-- `tests/corpus/kicad/projects/hlr_test/` is untracked and contains the new
-  one-component pose fixture.
-- `hlr_test` currently contains `hlr_test-backups/*.zip`; remove these before
-  committing the fixture.
-- `cutout_test` and `yoshi_mainboard` have local fixture edits outside this
-  planning change.
+Current unrelated fixture edits remain local user work in progress:
+
+- `tests/corpus/kicad/projects/cutout_test/cutout_test.kicad_pro`
+- `tests/corpus/kicad/projects/yoshi_mainboard/input/11-10080__yoshi-mainboard__A.kicad_pro`
+- `tests/corpus/kicad/projects/yoshi_mainboard/input/11-10080__yoshi-mainboard__A.kicad_prl`
+
+These should not be staged with the HLR implementation unless explicitly
+requested.
 
 ## Findings
 
-### Current Kicad Cruncher HLR Defect
+### Previous Kicad Cruncher HLR Defect
 
-Current HLR rendering is split across:
+Before this slice, HLR rendering was split across:
 
 - `src/py/kicad_cruncher/kicad_cruncher_cmd_pcb_svg.py`
 - `src/py/kicad_cruncher/kicad_cruncher_pcb_svg_projection.py`
 
-The current `_model_transform_matrix()` sends only model scale to Geometer.
+The old `_model_transform_matrix()` sent only model scale to Geometer.
 `_model_point_to_svg()` then applies model XY offset plus a 2D footprint
 translation/rotation after Geometer projection.
 
@@ -59,7 +64,7 @@ That is not KiCad's transform chain. It ignores:
 - KiCad's inverted board Y axis in 3D/STEP space
 - footprint pose in the Geometer cache key
 
-The result can only work accidentally for simple, unrotated models.
+The result could only work accidentally for simple, unrotated models.
 
 ### KiCad Source Findings
 
@@ -142,24 +147,26 @@ plain matrices/pose metadata.
 
 ### 1. Fixture Hygiene And Oracle Setup
 
-- Remove `hlr_test-backups/` and generated/editor state before committing the
-  fixture.
-- Add `hlr_test` to the L3 PCB SVG corpus only after cleanup.
-- Add a focused test that locates `U1`, reads the model pose fields, and asserts
-  the computed matrix values for this exact fixture.
+- [x] Remove `hlr_test-backups/` and generated/editor state before committing
+  the fixture.
+- [x] Remove the old LED fixture from the corpus and tests.
+- [x] Add `hlr_test` to the L3 PCB SVG corpus after cleanup.
+- [x] Add a focused test that locates `U1`, reads the model pose fields, and
+  asserts the computed matrix values for this exact fixture.
 - If a KiCad CLI path is available for this fixture, add an optional comparison
   artifact that exports KiCad's 3D/STEP placement for manual audit. The required
   test should not depend on a private KiCad build.
 
 ### 2. Build A Single KiCad Model Pose Helper
 
-Create a private helper module first, likely
-`kicad_cruncher_pcb_model_pose.py`, with:
+Created private helper module `kicad_cruncher_pcb_model_pose.py`, with:
 
-- `KiCadModelPose`: normalized footprint/model pose fields and derived side
-- `kicad_model_to_board_world_matrix(...)`: row-major 4x4 matrix in millimeters
-- `board_world_to_svg_xy(...)`: convert Geometer projected board-world XY back
-  to SVG board coordinates
+- [x] `KiCadModelPose`: normalized footprint/model pose fields and derived side.
+- [x] `kicad_model_pose(...)`: row-major 4x4 matrix in millimeters.
+- [x] `board_world_to_svg(...)`: convert Geometer projected board-world XY back
+  to SVG board coordinates.
+- [x] `model_bounds_to_svg_rect(...)`: convert Geometer transformed model
+  bounds into an SVG rectangle.
 - tests for top side, bottom side, model rotations, model offsets, and scale
 
 The matrix should follow KiCad STEP exporter semantics:
@@ -173,37 +180,40 @@ The matrix should follow KiCad STEP exporter semantics:
 - footprint XY translation with KiCad 3D Y inversion
 - board/copper Z offset
 
-Record any sign convention discovered during fixture validation in the helper
-docstring and in the design doc once stable.
+The first automated fixture test covers the top-side offset/rotation case. Add
+bottom-side, scale, and model-rotation synthetic cases before declaring this API
+release-final. Record the sign convention in the design doc once stable.
 
 ### 3. Refactor HLR Rendering To Use Full Pose
 
-- Send the full model-to-board-world matrix to Geometer.
-- Stop adding model offset and footprint XY/rotation in `_model_point_to_svg()`.
-- Convert projected Geometer points from KiCad board-world XY to SVG board XY in
-  one place.
-- Include the full pose signature in the HLR cache key, including footprint
+- [x] Send the full model-to-board-world matrix to Geometer.
+- [x] Stop adding model offset and footprint XY/rotation after Geometer
+  projection.
+- [x] Convert projected Geometer points from KiCad board-world XY to SVG board
+  XY in one place.
+- [x] Include the full pose signature in the HLR cache key, including footprint
   position, footprint rotation, side, model offset, model rotation, model scale,
-  and relevant board Z terms.
-- Keep Geometer options and simple/detail extraction unchanged until pose is
+  and board thickness terms.
+- [x] Keep Geometer options and simple/detail extraction unchanged until pose is
   validated.
 
 ### 4. Validate `hlr_test` First
 
-- Generate top assembly HLR and top pin-1 view for `hlr_test`.
-- Verify the HLR outline lands around the footprint pads/body in SVG coordinates.
-- Add assertions on SVG bounding extents for `U1` so the test fails on obvious
+- [x] Generate top assembly HLR and top pin-1 view for `hlr_test`.
+- [ ] Manually verify the HLR outline lands around the footprint pads/body in
+  SVG coordinates.
+- [x] Add assertions on SVG extents for `U1` so the test fails on obvious
   translation, rotation, side, or Y-axis mistakes.
 - Only after this passes, regenerate and inspect taillight, yoshi, speedy, and
   charge indicator.
 
 ### 5. Fix Bounding Box Virtual Layer
 
-Implement two explicit bounding-box modes after HLR pose is correct:
+Implemented two explicit bounding-box modes after the first HLR pose fix:
 
-- `model_bounds`: use `geometer.model_bounds()` with the same full KiCad pose
+- [x] `model_bounds`: use `geometer.model_bounds()` with the same full KiCad pose
   matrix, then project the transformed model bounds into the current view.
-- `copper_bounds`: for missing models or selected overrides, compute a 2D
+- [x] `copper_bounds`: for missing models or selected overrides, compute a 2D
   component box from copper-bearing pads only, including SMT pads and
   through-hole pad copper.
 
@@ -214,9 +224,9 @@ It includes non-copper graphics/text and is not the requested fallback.
 
 Keep Altium Cruncher terminology where practical:
 
-- default view mode: `detail`, `simple`, `bounding_box`, or `none`
-- component overrides by exact designator continue to work
-- add component selector groups after exact overrides are stable
+- [x] default view mode: `detail`, `simple`, `bounding_box`, or `none`
+- [x] component overrides by exact designator continue to work
+- [ ] add component selector groups after exact overrides are stable
 
 Planned selector shapes:
 
@@ -241,23 +251,36 @@ box kinds. A likely contract is `projection` for high-level selection plus
 
 Add tests before broad tuning:
 
-- L3 unit-style test for the `hlr_test` pose matrix.
-- L3 workflow test that generates `hlr_test` PCB SVG and asserts visible HLR
+- [x] L3 unit-style test for the `hlr_test` pose matrix.
+- [x] L3 workflow test that generates `hlr_test` PCB SVG and asserts visible HLR
   geometry lands near the footprint.
-- L3 test for `model_bounds` using Geometer transformed bounds.
-- L3 test for `copper_bounds` on a no-model synthetic footprint.
+- [x] L3 test for `model_bounds` using Geometer transformed bounds.
+- [x] L3 test for `copper_bounds` output on the HLR fixture.
+- [ ] L3 test for `copper_bounds` on a no-model synthetic footprint.
 - L3 test for component override precedence.
 - L3 test for selector groups once implemented.
-- Regenerate ignored signoff outputs for `hlr_test`, taillight, yoshi, speedy,
-  and charge indicator.
+- [x] Regenerate ignored signoff outputs for `hlr_test`, taillight, yoshi,
+  speedy, cutout test, and charge indicator.
 
 Run before committing implementation:
 
 ```powershell
-uv run --extra test ruff check src\py\kicad_cruncher tests\L3_public_workflows\test_L3_001_design_workflow.py
-uv run --extra test pyright src\py\kicad_cruncher tests\L3_public_workflows\test_L3_001_design_workflow.py
-uv run --extra test pytest tests\L3_public_workflows\test_L3_001_design_workflow.py -q
+uv run ruff check src\py\kicad_cruncher tests\L3_public_workflows\test_L3_001_design_workflow.py
+uv run pyright
+uv run pytest tests\L3_public_workflows\test_L3_001_design_workflow.py -q
 ```
+
+Current validation on 2026-06-03:
+
+- `uv run pytest tests\L3_public_workflows\test_L3_001_design_workflow.py -q`
+  passed: `22 passed`
+- `uv run pyright` passed with zero errors.
+- `uv run ruff check src\py\kicad_cruncher tests\L3_public_workflows\test_L3_001_design_workflow.py`
+  passed.
+- `uv run pytest tests\L99_signoff -q` passed: `17 passed`.
+- Ignored signoff outputs were regenerated under `output\pcb-svg-signoff\` for
+  `hlr_test`, `cutout_test`, `taillight`, `charge_indicator`,
+  `speedy_processing_module`, and `yoshi_mainboard`.
 
 Run L99 before release-facing docs/contracts are declared complete:
 

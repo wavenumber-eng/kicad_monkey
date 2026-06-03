@@ -4,7 +4,7 @@
 <body data-doc-kind="api-index">
 <main>
 <nav class="nav"><a href="../index.html">Design Index</a><a href="../cli/index.html">CLI</a></nav>
-<header><p class="status">API design docs</p><h1>API</h1><p class="lede">The initial package API is intentionally limited to version helpers.</p></header>
+<header><p class="status">API design docs</p><h1>API</h1><p class="lede">Typed helper interfaces used by the public CLI workflows and release gates.</p></header>
 <section
   id="version"
   data-interface="Version"
@@ -20,6 +20,38 @@
   <p>L99 verifies that pyproject metadata, package API, CLI output, changelog, and dated release notes all match the same date-version contract.</p>
   <h3>Working Definition</h3>
   <p>The interface is working when <code>kicad_cruncher.version()</code> parses the installed distribution version or source fallback into a valid date-version object.</p>
+</section>
+<section
+  id="kicad-model-pose"
+  data-interface="KiCadModelPose"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_001_design_workflow.py"
+  data-test-target="test_pcb_svg_hlr_test_model_pose_matches_kicad_step_order">
+  <h2>KiCadModelPose</h2>
+  <h3>Rationale</h3>
+  <p>Assembly SVG projection needs one KiCad-facing model pose that can be passed unchanged to Geometer HLR and model-bounds calls.</p>
+  <h3>Purpose</h3>
+  <p><code>KiCadModelPose</code> carries the resolved model-to-KiCad-3D-world matrix, footprint side, board thickness, and a rounded cache signature for one footprint model.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 verifies the dedicated HLR fixture against KiCad STEP-exporter transform order, including model offset, rotations, board thickness, and world-to-SVG coordinate conversion.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when the same pose matrix aligns HLR detail, HLR simple, transformed model bounds, and copper fallback bounds for the signoff fixture and broader PCB SVG outputs.</p>
+</section>
+<section
+  id="pcb-svg-composition"
+  data-interface="PcbSvgComposition"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_001_design_workflow.py"
+  data-test-target="test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config">
+  <h2>PcbSvgComposition</h2>
+  <h3>Rationale</h3>
+  <p>The PCB SVG command composes physical KiCad layers with derived virtual layers, so callers need both rendered SVG text and the physical layer dependencies used to build it.</p>
+  <h3>Purpose</h3>
+  <p><code>PcbSvgComposition</code> is the internal return contract for A0 PCB SVG composition: it carries complete SVG text and the normalized physical layers represented in that output.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 exercises explicit config rendering, layer outputs, virtual outputs, manifests, configured views, and enriched metadata that depends on the composition contract.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when layer and view outputs render from the same compositor path and their manifests accurately report the physical layers behind each SVG artifact.</p>
 </section>
 <section id="policy"><h2>Policy</h2><p>When another public dataclass or major interface is added, it must be listed here with machine-readable test ownership before L99 signoff can pass.</p></section>
 </main>

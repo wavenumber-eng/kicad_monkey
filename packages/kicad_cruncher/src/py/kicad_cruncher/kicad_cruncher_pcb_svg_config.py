@@ -11,17 +11,30 @@ PCB_SVG_CONFIG_SCHEMA = "pcb.svg.config.a0"
 PCB_DEFAULT_SVG_SCALE = 10.0
 PCB_SVG_CANVAS_BOUNDS_MODES = frozenset({"board_outline", "all_geometry"})
 PCB_SVG_COMPONENT_PROJECTION_MODES = frozenset(
-    {"detail", "simple", "bounding_box", "none"}
+    {"detail", "simple", "bounding_box", "model_bounds", "copper_bounds", "none"}
 )
 PCB_SVG_COMPONENT_SIDES = frozenset({"top", "bottom"})
+PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS = frozenset(
+    {
+        "ASSEMBLY_HLR_TOP",
+        "ASSEMBLY_HLR_BOTTOM",
+        "ASSEMBLY_HLR_TOP_SIMPLE",
+        "ASSEMBLY_HLR_TOP_DETAIL",
+        "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+        "ASSEMBLY_HLR_BOTTOM_DETAIL",
+        "ASSEMBLY_BOUNDS_TOP_MODEL",
+        "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
+        "ASSEMBLY_BOUNDS_TOP_COPPER",
+        "ASSEMBLY_BOUNDS_BOTTOM_COPPER",
+    }
+)
 PCB_SVG_SPECIAL_LAYERS = frozenset(
     {
         "BOARD_OUTLINE",
         "BOARD_CUTOUTS",
         "DRILLS",
         "SLOTS",
-        "ASSEMBLY_HLR_TOP",
-        "ASSEMBLY_HLR_BOTTOM",
+        *PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS,
         "ASSEMBLY_DESIGNATORS_TOP",
         "ASSEMBLY_DESIGNATORS_BOTTOM",
         "PIN1_TOP",
@@ -179,6 +192,12 @@ def _coerce_projection_mode(value: object, default: str, *, field_name: str) -> 
         "bbox": "bounding_box",
         "box": "bounding_box",
         "bounds": "bounding_box",
+        "model-bounds": "model_bounds",
+        "model_bbox": "model_bounds",
+        "model-bbox": "model_bounds",
+        "copper-bounds": "copper_bounds",
+        "pad_bounds": "copper_bounds",
+        "pad-bounds": "copper_bounds",
         "off": "none",
         "disabled": "none",
     }
@@ -213,6 +232,14 @@ def normalize_layer_token(value: str) -> str:
         "CUTOUT": "BOARD_CUTOUTS",
         "HLR_TOP": "ASSEMBLY_HLR_TOP",
         "HLR_BOTTOM": "ASSEMBLY_HLR_BOTTOM",
+        "HLR_TOP_SIMPLE": "ASSEMBLY_HLR_TOP_SIMPLE",
+        "HLR_TOP_DETAIL": "ASSEMBLY_HLR_TOP_DETAIL",
+        "HLR_BOTTOM_SIMPLE": "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+        "HLR_BOTTOM_DETAIL": "ASSEMBLY_HLR_BOTTOM_DETAIL",
+        "MODEL_BOUNDS_TOP": "ASSEMBLY_BOUNDS_TOP_MODEL",
+        "MODEL_BOUNDS_BOTTOM": "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
+        "COPPER_BOUNDS_TOP": "ASSEMBLY_BOUNDS_TOP_COPPER",
+        "COPPER_BOUNDS_BOTTOM": "ASSEMBLY_BOUNDS_BOTTOM_COPPER",
         "DESIGNATORS_TOP": "ASSEMBLY_DESIGNATORS_TOP",
         "DESIGNATORS_BOTTOM": "ASSEMBLY_DESIGNATORS_BOTTOM",
         "PIN_1_TOP": "PIN1_TOP",
@@ -454,10 +481,14 @@ class _PcbSvgViewConfig:
             "bounding-box": "bounding_box",
             "bbox": "bounding_box",
             "box": "bounding_box",
+            "model-bounds": "model_bounds",
+            "model-bbox": "model_bounds",
+            "copper-bounds": "copper_bounds",
+            "pad-bounds": "copper_bounds",
             "off": "none",
         }
         mode = aliases.get(mode, mode)
-        if mode not in {"simple", "detail", "bounding_box", "none"}:
+        if mode not in PCB_SVG_COMPONENT_PROJECTION_MODES:
             raise ValueError(
                 f"Unsupported assembly_hlr_mode {mode!r} for pcb-svg view {name!r}"
             )
@@ -719,6 +750,63 @@ class _PcbSvgComponentOverride:
         return result
 
 
+def _coerce_layer_outputs_config(
+    data: dict[str, object],
+    default: _PcbSvgConfig,
+) -> dict[str, object]:
+    raw_layer_outputs = data.get("layer_outputs", default.layer_outputs)
+    if not isinstance(raw_layer_outputs, dict):
+        raise ValueError("pcb-svg config field 'layer_outputs' must be an object")
+    layer_outputs = dict(raw_layer_outputs)
+    if "layers" in layer_outputs and isinstance(layer_outputs["layers"], list):
+        layer_outputs["layers"] = [
+            normalize_layer_token(str(token)) for token in layer_outputs["layers"]
+        ]
+    if "include_special_layers" in layer_outputs:
+        layer_outputs["include_special_layers"] = _coerce_str_list(
+            layer_outputs.get("include_special_layers"),
+            field_name="layer_outputs.include_special_layers",
+        )
+    _coerce_layer_output_booleans(layer_outputs)
+    return layer_outputs
+
+
+def _coerce_layer_output_booleans(layer_outputs: dict[str, object]) -> None:
+    for key in (
+        "add_edge_cuts_to_physical_layers",
+        "add_drills_to_physical_layers",
+        "add_slots_to_physical_layers",
+        "write_virtual_layers",
+    ):
+        if key in layer_outputs:
+            layer_outputs[key] = _coerce_bool(layer_outputs.get(key), True)
+
+
+def _coerce_view_configs(
+    data: dict[str, object],
+    default: _PcbSvgConfig,
+) -> list[_PcbSvgViewConfig]:
+    raw_views = data.get("views", [view.to_dict() for view in default.views])
+    if not isinstance(raw_views, list):
+        raise ValueError("pcb-svg config field 'views' must be an array")
+    return [_PcbSvgViewConfig.from_dict(view) for view in raw_views]
+
+
+def _coerce_component_overrides(
+    data: dict[str, object],
+) -> dict[str, _PcbSvgComponentOverride]:
+    raw_components = data.get("components", {})
+    if raw_components is None:
+        raw_components = {}
+    if not isinstance(raw_components, dict):
+        raise ValueError("pcb-svg config field 'components' must be an object")
+    return {
+        str(designator): _PcbSvgComponentOverride.from_dict(str(designator), raw)
+        for designator, raw in raw_components.items()
+        if isinstance(raw, dict)
+    }
+
+
 @dataclass(slots=True)
 class _PcbSvgConfig:
     global_options: _PcbSvgGlobalConfig = field(default_factory=_PcbSvgGlobalConfig)
@@ -745,6 +833,14 @@ class _PcbSvgConfig:
                     "BOARD_CUTOUTS",
                     "DRILLS",
                     "SLOTS",
+                    "ASSEMBLY_HLR_TOP_SIMPLE",
+                    "ASSEMBLY_HLR_TOP_DETAIL",
+                    "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+                    "ASSEMBLY_HLR_BOTTOM_DETAIL",
+                    "ASSEMBLY_BOUNDS_TOP_MODEL",
+                    "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
+                    "ASSEMBLY_BOUNDS_TOP_COPPER",
+                    "ASSEMBLY_BOUNDS_BOTTOM_COPPER",
                 ],
                 "output_dir": "layers",
             },
@@ -850,37 +946,6 @@ class _PcbSvgConfig:
                 f"pcb-svg config schema must be {PCB_SVG_CONFIG_SCHEMA!r}; got {schema!r}"
             )
         default = cls.default()
-        raw_layer_outputs = data.get("layer_outputs", default.layer_outputs)
-        if not isinstance(raw_layer_outputs, dict):
-            raise ValueError("pcb-svg config field 'layer_outputs' must be an object")
-        layer_outputs = dict(raw_layer_outputs)
-        if "layers" in layer_outputs and isinstance(layer_outputs["layers"], list):
-            layer_outputs["layers"] = [
-                normalize_layer_token(str(token)) for token in layer_outputs["layers"]
-            ]
-        if "include_special_layers" in layer_outputs:
-            layer_outputs["include_special_layers"] = _coerce_str_list(
-                layer_outputs.get("include_special_layers"),
-                field_name="layer_outputs.include_special_layers",
-            )
-        for key in (
-            "add_edge_cuts_to_physical_layers",
-            "add_drills_to_physical_layers",
-            "add_slots_to_physical_layers",
-            "write_virtual_layers",
-        ):
-            if key in layer_outputs:
-                layer_outputs[key] = _coerce_bool(layer_outputs.get(key), True)
-
-        raw_views = data.get("views", [view.to_dict() for view in default.views])
-        if not isinstance(raw_views, list):
-            raise ValueError("pcb-svg config field 'views' must be an array")
-
-        raw_components = data.get("components", {})
-        if raw_components is None:
-            raw_components = {}
-        if not isinstance(raw_components, dict):
-            raise ValueError("pcb-svg config field 'components' must be an object")
 
         return cls(
             global_options=_PcbSvgGlobalConfig.from_dict(
@@ -898,13 +963,9 @@ class _PcbSvgConfig:
             pin1=_PcbSvgPin1Config.from_dict(
                 _coerce_object_mapping(data.get("pin1"), field_name="pin1")
             ),
-            components={
-                str(designator): _PcbSvgComponentOverride.from_dict(str(designator), raw)
-                for designator, raw in raw_components.items()
-                if isinstance(raw, dict)
-            },
-            layer_outputs=layer_outputs,
-            views=[_PcbSvgViewConfig.from_dict(view) for view in raw_views],
+            components=_coerce_component_overrides(data),
+            layer_outputs=_coerce_layer_outputs_config(data, default),
+            views=_coerce_view_configs(data, default),
         )
 
     def enabled_views(self) -> list[_PcbSvgViewConfig]:

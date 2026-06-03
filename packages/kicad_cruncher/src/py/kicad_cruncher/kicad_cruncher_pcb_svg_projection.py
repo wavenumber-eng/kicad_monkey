@@ -149,11 +149,11 @@ class _AssemblyProjectionCache:
         if side == "bottom":
             view_id = "bottom"
             direction = [0.0, 0.0, -1.0]
-            projection_y_direction = [1.0, 0.0, 0.0]
+            projection_y_direction = [0.0, 1.0, 0.0]
         else:
             view_id = "top"
             direction = [0.0, 0.0, 1.0]
-            projection_y_direction = [-1.0, 0.0, 0.0]
+            projection_y_direction = [0.0, 1.0, 0.0]
 
         round_digits = int(max(0, options.round_digits))
         curve_mode = str(options.curve_mode).strip().lower()

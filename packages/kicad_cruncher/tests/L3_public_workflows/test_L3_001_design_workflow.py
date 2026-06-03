@@ -12,6 +12,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from kicad_cruncher.kicad_cruncher_pcb_model_pose import (
+    board_world_to_svg,
+    kicad_model_pose,
+)
 from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import (
     _classify_edge_cut_regions,
     _interior_board_regions,
@@ -25,21 +29,24 @@ from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _CORPUS_ROOT = _PROJECT_ROOT / "tests" / "corpus" / "kicad"
 _SVG_COLOR_RE = re.compile(r"#[0-9A-Fa-f]{6}")
-_CORPUS_LED_PCB = (
-    _CORPUS_ROOT / "board_svg" / "input" / "led_component" / "led_component.kicad_pcb"
+_CORPUS_HLR_TEST_PCB = (
+    _CORPUS_ROOT / "projects" / "hlr_test" / "hlr_test.kicad_pcb"
+)
+_CORPUS_HLR_TEST_PROJECT = (
+    _CORPUS_ROOT / "projects" / "hlr_test" / "hlr_test.kicad_pro"
 )
 _CORPUS_CUTOUT_TEST_PCB = (
     _CORPUS_ROOT / "projects" / "cutout_test" / "cutout_test.kicad_pcb"
 )
 _CORPUS_PROJECT_CASES = (
     pytest.param(
-        _CORPUS_ROOT / "board_svg" / "input" / "led_component" / "led_component.kicad_pro",
-        "led_component_design.json",
+        _CORPUS_HLR_TEST_PROJECT,
+        "hlr_test_design.json",
         1,
-        6,
+        5,
         1,
         2,
-        id="led_component",
+        id="hlr_test",
     ),
     pytest.param(
         _CORPUS_ROOT
@@ -515,7 +522,7 @@ def test_design_command_uses_copied_kicad_monkey_corpus_projects(
         (output_dir / item["file"]).read_text(encoding="utf-8")
         for item in manifest["pcb_svgs"]
     )
-    if output_name != "led_component_design.json":
+    if output_name != "hlr_test_design.json":
         assert "#B8B8B8" in all_pcb_svg_text
 
 
@@ -601,7 +608,7 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
 
     result = _run_cli(
         "pcb-svg",
-        str(_CORPUS_LED_PCB),
+        str(_CORPUS_HLR_TEST_PCB),
         "--config",
         str(config_path),
         "-o",
@@ -609,9 +616,9 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     )
 
     assert result.returncode == 0, result.stderr + result.stdout
-    manifest = json.loads((output_dir / "led_component__views.json").read_text(encoding="utf-8"))
+    manifest = json.loads((output_dir / "hlr_test__views.json").read_text(encoding="utf-8"))
     assert manifest["schema"] == "pcb.svg.manifest.a0"
-    assert manifest["board"] == "led_component"
+    assert manifest["board"] == "hlr_test"
     assert "F.Cu" in manifest["layer_outputs"]
     assert "B.Cu" in manifest["layer_outputs"]
     assert manifest["layer_outputs"]["F.Cu"]["layers"] == [
@@ -629,14 +636,14 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     assert manifest["layer_outputs"]["Edge.Cuts"]["context_layers"] == []
     assert manifest["layer_outputs"]["BOARD_OUTLINE"]["virtual"] is True
     assert manifest["layer_outputs"]["BOARD_OUTLINE"]["layers"] == ["BOARD_OUTLINE"]
-    assert (output_dir / "layers" / "led_component__F.Cu.svg").exists()
-    assert (output_dir / "layers" / "led_component__B.Cu.svg").exists()
-    assert (output_dir / "layers" / "led_component__Edge.Cuts.svg").exists()
-    assert (output_dir / "layers" / "led_component__virtual__board_outline.svg").exists()
-    front_layer_svg = (output_dir / "layers" / "led_component__F.Cu.svg").read_text(
+    assert (output_dir / "layers" / "hlr_test__F.Cu.svg").exists()
+    assert (output_dir / "layers" / "hlr_test__B.Cu.svg").exists()
+    assert (output_dir / "layers" / "hlr_test__Edge.Cuts.svg").exists()
+    assert (output_dir / "layers" / "hlr_test__virtual__board_outline.svg").exists()
+    front_layer_svg = (output_dir / "layers" / "hlr_test__F.Cu.svg").read_text(
         encoding="utf-8"
     )
-    edge_cuts_svg = (output_dir / "layers" / "led_component__Edge.Cuts.svg").read_text(
+    edge_cuts_svg = (output_dir / "layers" / "hlr_test__Edge.Cuts.svg").read_text(
         encoding="utf-8"
     )
     assert 'data-layer-name="Edge.Cuts"' in front_layer_svg
@@ -644,7 +651,7 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     assert 'data-layer-token="BOARD_OUTLINE"' not in edge_cuts_svg
     assert 'data-layer-token="DRILLS"' not in edge_cuts_svg
     assert 'data-layer-token="SLOTS"' not in edge_cuts_svg
-    assert (output_dir / "top_view" / "led_component__top_view.svg").exists()
+    assert (output_dir / "top_view" / "hlr_test__top_view.svg").exists()
 
 
 def test_pcb_svg_layer_context_and_virtual_outputs_can_be_disabled(
@@ -662,7 +669,7 @@ def test_pcb_svg_layer_context_and_virtual_outputs_can_be_disabled(
 
     result = _run_cli(
         "pcb-svg",
-        str(_CORPUS_LED_PCB),
+        str(_CORPUS_HLR_TEST_PCB),
         "--config",
         str(config_path),
         "-o",
@@ -670,14 +677,14 @@ def test_pcb_svg_layer_context_and_virtual_outputs_can_be_disabled(
     )
 
     assert result.returncode == 0, result.stderr + result.stdout
-    manifest = _read_json(output_dir / "led_component__views.json")
+    manifest = _read_json(output_dir / "hlr_test__views.json")
     assert manifest["layer_outputs"]["F.Cu"]["layers"] == ["F.Cu"]
     assert manifest["layer_outputs"]["F.Cu"]["context_layers"] == []
     assert "BOARD_OUTLINE" not in manifest["layer_outputs"]
     assert "DRILLS" not in manifest["layer_outputs"]
     assert "SLOTS" not in manifest["layer_outputs"]
-    assert not (output_dir / "layers" / "led_component__virtual__board_outline.svg").exists()
-    front_layer_svg = (output_dir / "layers" / "led_component__F.Cu.svg").read_text(
+    assert not (output_dir / "layers" / "hlr_test__virtual__board_outline.svg").exists()
+    front_layer_svg = (output_dir / "layers" / "hlr_test__F.Cu.svg").read_text(
         encoding="utf-8"
     )
     root = ET.fromstring(front_layer_svg)
@@ -704,6 +711,14 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
         "BOARD_CUTOUTS",
         "DRILLS",
         "SLOTS",
+        "ASSEMBLY_HLR_TOP_SIMPLE",
+        "ASSEMBLY_HLR_TOP_DETAIL",
+        "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+        "ASSEMBLY_HLR_BOTTOM_DETAIL",
+        "ASSEMBLY_BOUNDS_TOP_MODEL",
+        "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
+        "ASSEMBLY_BOUNDS_TOP_COPPER",
+        "ASSEMBLY_BOUNDS_BOTTOM_COPPER",
     ]
     assert views["board_cutouts"].layers == ["BOARD_OUTLINE", "BOARD_CUTOUTS"]
     assert views["top_pin1_view"].layers == [
@@ -724,6 +739,88 @@ def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
     ]
     assert "top_hlr_bounding_boxes" in views
     assert "bottom_hlr_bounding_boxes" in views
+
+
+def test_pcb_svg_hlr_test_model_pose_matches_kicad_step_order() -> None:
+    """Verify the HLR fixture pose resolves KiCad model offset and rotations."""
+    pcb = KiCadPcb.from_file(_CORPUS_HLR_TEST_PCB)
+    footprint = pcb.footprints[0]
+    model = footprint.models[0]
+
+    pose = kicad_model_pose(pcb, footprint, model)
+    bbox = compute_pcb_svg_bounding_box(pcb, None)
+    origin_svg = board_world_to_svg((pose.matrix[0][3], pose.matrix[1][3]), bbox=bbox)
+
+    assert pose.side == "top"
+    assert pose.board_thickness_mm == pytest.approx(1.6)
+    assert pose.matrix[0][3] == pytest.approx(136.5208)
+    assert pose.matrix[1][3] == pytest.approx(-96.15)
+    assert pose.matrix[2][3] == pytest.approx(1.6)
+    assert pose.matrix[0][0] == pytest.approx(0.0, abs=1e-9)
+    assert pose.matrix[1][0] == pytest.approx(-1.0)
+    assert pose.matrix[2][1] == pytest.approx(1.0)
+    assert pose.matrix[0][2] == pytest.approx(-1.0)
+    assert origin_svg == pytest.approx((25.5208, 12.15))
+
+
+def test_pcb_svg_hlr_debug_layers_emit_all_projection_and_bounds_modes(
+    tmp_path: Path,
+) -> None:
+    """Verify standalone layer outputs expose HLR and bounds modes separately."""
+    config_path = _write_pcb_svg_config(tmp_path, include_hlr=False)
+    config_payload = _read_json(config_path)
+    config_payload["layer_outputs"]["include_special_layers"] = [
+        "ASSEMBLY_HLR_TOP_SIMPLE",
+        "ASSEMBLY_HLR_TOP_DETAIL",
+        "ASSEMBLY_BOUNDS_TOP_MODEL",
+        "ASSEMBLY_BOUNDS_TOP_COPPER",
+        "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+        "ASSEMBLY_HLR_BOTTOM_DETAIL",
+        "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
+        "ASSEMBLY_BOUNDS_BOTTOM_COPPER",
+    ]
+    config_path.write_text(json.dumps(config_payload, indent=2), encoding="utf-8")
+    output_dir = tmp_path / "pcb-svg-hlr-layers"
+
+    result = _run_cli(
+        "pcb-svg",
+        str(_CORPUS_HLR_TEST_PCB),
+        "--config",
+        str(config_path),
+        "-o",
+        str(output_dir),
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    manifest = _read_json(output_dir / "hlr_test__views.json")
+    for token in config_payload["layer_outputs"]["include_special_layers"]:
+        assert manifest["layer_outputs"][token]["virtual"] is True
+
+    layers_dir = output_dir / "layers"
+    top_simple = (layers_dir / "hlr_test__virtual__assembly_hlr_top_simple.svg").read_text(
+        encoding="utf-8"
+    )
+    top_detail = (layers_dir / "hlr_test__virtual__assembly_hlr_top_detail.svg").read_text(
+        encoding="utf-8"
+    )
+    top_model = (layers_dir / "hlr_test__virtual__assembly_bounds_top_model.svg").read_text(
+        encoding="utf-8"
+    )
+    top_copper = (layers_dir / "hlr_test__virtual__assembly_bounds_top_copper.svg").read_text(
+        encoding="utf-8"
+    )
+    bottom_model_path = layers_dir / "hlr_test__virtual__assembly_bounds_bottom_model.svg"
+
+    assert 'data-assembly-symbol="simple"' in top_simple
+    assert 'data-projection="simple"' in top_simple
+    assert "<line " in top_simple
+    assert 'data-assembly-symbol="detail"' in top_detail
+    assert 'data-projection="detail"' in top_detail
+    assert 'data-bounds-kind="model"' in top_model
+    assert 'data-projection="model_bounds"' in top_model
+    assert 'data-bounds-kind="copper"' in top_copper
+    assert 'data-projection="copper_bounds"' in top_copper
+    assert bottom_model_path.exists()
 
 
 def test_pcb_svg_virtual_layers_use_full_board_canvas_origin() -> None:
@@ -928,7 +1025,7 @@ def test_pcb_svg_assembly_view_uses_geometer_hlr(tmp_path: Path) -> None:
 
     result = _run_cli(
         "pcb-svg",
-        str(_CORPUS_LED_PCB),
+        str(_CORPUS_HLR_TEST_PCB),
         "--config",
         str(config_path),
         "-o",
@@ -936,7 +1033,7 @@ def test_pcb_svg_assembly_view_uses_geometer_hlr(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, result.stderr + result.stdout
-    svg = (output_dir / "assembly_top_view" / "led_component__assembly_top_view.svg").read_text(
+    svg = (output_dir / "assembly_top_view" / "hlr_test__assembly_top_view.svg").read_text(
         encoding="utf-8"
     )
     assert 'id="assembly-overlay"' in svg

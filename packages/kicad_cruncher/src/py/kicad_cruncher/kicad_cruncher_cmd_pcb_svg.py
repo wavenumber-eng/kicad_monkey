@@ -10,14 +10,26 @@ import json
 import logging
 import math
 import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
 from kicad_cruncher.config_json import load_json_config
 from kicad_cruncher.kicad_cruncher_common import resolve_output_dir
-from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import render_pcb_svg_composition
+from kicad_cruncher.kicad_cruncher_pcb_model_pose import (
+    Matrix4,
+    board_world_to_svg,
+    kicad_model_pose,
+    model_bounds_to_svg_rect,
+    transform_footprint_local_to_board,
+)
+from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import (
+    PcbSvgComposition,
+    render_pcb_svg_composition,
+)
 from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
     PCB_DEFAULT_SVG_SCALE,
+    PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS,
     PCB_SVG_CONFIG_FILENAME,
     PCB_SVG_CONFIG_SCHEMA,
     _PcbSvgConfig,
@@ -69,7 +81,17 @@ _VIEW_ALIASES = {
     "assembly-bottom": "assembly_bottom_view",
 }
 
-_HLR_TOKENS = {"ASSEMBLY_HLR_TOP", "ASSEMBLY_HLR_BOTTOM"}
+_HLR_TOKENS = set(PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS)
+_ASSEMBLY_TOKEN_MODE_BY_TOKEN = {
+    "ASSEMBLY_HLR_TOP_SIMPLE": ("top", "simple"),
+    "ASSEMBLY_HLR_TOP_DETAIL": ("top", "detail"),
+    "ASSEMBLY_HLR_BOTTOM_SIMPLE": ("bottom", "simple"),
+    "ASSEMBLY_HLR_BOTTOM_DETAIL": ("bottom", "detail"),
+    "ASSEMBLY_BOUNDS_TOP_MODEL": ("top", "model_bounds"),
+    "ASSEMBLY_BOUNDS_BOTTOM_MODEL": ("bottom", "model_bounds"),
+    "ASSEMBLY_BOUNDS_TOP_COPPER": ("top", "copper_bounds"),
+    "ASSEMBLY_BOUNDS_BOTTOM_COPPER": ("bottom", "copper_bounds"),
+}
 _ASSEMBLY_HLR_EDGE_FLAG_KEYS = {
     "edge_v_sharp",
     "edge_v_outline",
@@ -84,6 +106,7 @@ _ASSEMBLY_HLR_EDGE_FLAG_KEYS = {
 }
 _PCB_SVG_ASSEMBLY_HLR_TOP_LAYER_ID = 9004
 _PCB_SVG_ASSEMBLY_HLR_BOTTOM_LAYER_ID = 9005
+_MODEL_BOUNDS_CACHE: dict[tuple[str, tuple[float, ...]], dict[str, object]] = {}
 
 
 def _safe_svg_id(value: str) -> str:
@@ -114,7 +137,11 @@ def _default_pcb_svg_config_text() -> str:
         "//   F.SilkS, B.SilkS, F.Fab, B.Fab, Edge.Cuts.\n"
         "\n"
         "// Synthetic layer tokens: BOARD_OUTLINE, BOARD_CUTOUTS, DRILLS, SLOTS,\n"
-        "//   ASSEMBLY_HLR_TOP, ASSEMBLY_HLR_BOTTOM,\n"
+        "//   ASSEMBLY_HLR_TOP, ASSEMBLY_HLR_BOTTOM, ASSEMBLY_HLR_TOP_SIMPLE,\n"
+        "//   ASSEMBLY_HLR_TOP_DETAIL, ASSEMBLY_HLR_BOTTOM_SIMPLE,\n"
+        "//   ASSEMBLY_HLR_BOTTOM_DETAIL, ASSEMBLY_BOUNDS_TOP_MODEL,\n"
+        "//   ASSEMBLY_BOUNDS_BOTTOM_MODEL, ASSEMBLY_BOUNDS_TOP_COPPER,\n"
+        "//   ASSEMBLY_BOUNDS_BOTTOM_COPPER,\n"
         "//   ASSEMBLY_DESIGNATORS_TOP, ASSEMBLY_DESIGNATORS_BOTTOM, PIN1_TOP, PIN1_BOTTOM.\n"
         "\n"
         "// In each view, the layers array is the draw order. KiCad physical layers\n"
@@ -123,7 +150,9 @@ def _default_pcb_svg_config_text() -> str:
         "\n"
         "/*\n"
         "HLR modes:\n"
-        "  bounding_box - footprint bounds rectangle; no Geometer/STEP projection.\n"
+        "  bounding_box - transformed STEP model bounds, falling back to copper-pad bounds.\n"
+        "  model_bounds - transformed STEP model bounds rectangle only.\n"
+        "  copper_bounds - copper-pad bounds rectangle only; no STEP projection.\n"
         "  simple       - Geometer simple outline, with bounds fallback when no\n"
         "                 STEP model is available.\n"
         "  detail       - Geometer detailed visible projection, with bounds fallback\n"
@@ -484,6 +513,7 @@ def _view_mirror(config: _PcbSvgConfig, view: _PcbSvgViewConfig) -> bool:
 def _render_a0_layer_outputs(
     config: _PcbSvgConfig,
     pcb: KiCadPcb,
+    pcb_path: Path,
     *,
     output_dir: Path,
     board_name: str,
@@ -492,6 +522,34 @@ def _render_a0_layer_outputs(
     if not bool(config.layer_outputs.get("enabled", True)):
         return 0
     layer_dir = output_dir / str(config.layer_outputs.get("output_dir") or "layers")
+    physical_tokens, virtual_tokens = _layer_output_token_groups(config, pcb)
+
+    written = 0
+    for layer_token in physical_tokens:
+        written += _write_physical_layer_output(
+            pcb,
+            config=config,
+            layer_token=layer_token,
+            layer_dir=layer_dir,
+            output_dir=output_dir,
+            board_name=board_name,
+            layer_manifest=layer_manifest,
+        )
+    for layer_token in virtual_tokens:
+        written += _write_virtual_layer_output(
+            pcb,
+            pcb_path,
+            config=config,
+            layer_token=layer_token,
+            layer_dir=layer_dir,
+            output_dir=output_dir,
+            board_name=board_name,
+            layer_manifest=layer_manifest,
+        )
+    return written
+
+
+def _layer_output_token_groups(config: _PcbSvgConfig, pcb: KiCadPcb) -> tuple[list[str], list[str]]:
     physical_tokens: list[str] = []
     virtual_tokens: list[str] = []
     write_virtual_layers = _layer_output_bool(config, "write_virtual_layers", True)
@@ -499,57 +557,143 @@ def _render_a0_layer_outputs(
         if is_synthetic_layer_token(layer_token):
             if write_virtual_layers:
                 _append_unique_token(virtual_tokens, layer_token)
-        else:
-            _append_unique_token(physical_tokens, layer_token)
+            continue
+        _append_unique_token(physical_tokens, layer_token)
     for layer_token in _layer_output_special_tokens(config):
         _append_unique_token(virtual_tokens, layer_token)
+    return physical_tokens, virtual_tokens
 
-    written = 0
-    for layer_token in physical_tokens:
-        group_id = f"pcb-svg-layer-{_safe_svg_id(layer_token.lower())}"
-        view_layers = [layer_token, *_physical_layer_context_tokens(config, layer_token)]
-        composition = render_pcb_svg_composition(
+
+def _write_physical_layer_output(
+    pcb: KiCadPcb,
+    *,
+    config: _PcbSvgConfig,
+    layer_token: str,
+    layer_dir: Path,
+    output_dir: Path,
+    board_name: str,
+    layer_manifest: dict[str, object],
+) -> int:
+    group_id = f"pcb-svg-layer-{_safe_svg_id(layer_token.lower())}"
+    view_layers = [layer_token, *_physical_layer_context_tokens(config, layer_token)]
+    composition = render_pcb_svg_composition(
+        pcb,
+        view_layers,
+        styles=config.global_options.styles,
+        group_id=group_id,
+        config=config,
+    )
+    if not composition.physical_layers and not bool(config.global_options.show_empty_layers):
+        return 0
+    layer_path = layer_dir / f"{board_name}__{_safe_svg_id(layer_token)}.svg"
+    layer_path.parent.mkdir(parents=True, exist_ok=True)
+    layer_path.write_text(composition.svg_text, encoding="utf-8")
+    layer_manifest[layer_token] = {
+        "file": str(layer_path.relative_to(output_dir)).replace("\\", "/"),
+        "layers": view_layers,
+        "context_layers": view_layers[1:],
+        "physical_layers": composition.physical_layers,
+        "group_id": group_id,
+    }
+    return 1
+
+
+def _write_virtual_layer_output(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    *,
+    config: _PcbSvgConfig,
+    layer_token: str,
+    layer_dir: Path,
+    output_dir: Path,
+    board_name: str,
+    layer_manifest: dict[str, object],
+) -> int:
+    group_id = f"pcb-svg-layer-virtual-{_safe_svg_id(layer_token.lower())}"
+    view_layers = [layer_token]
+    composition = _render_virtual_layer_composition(
+        pcb,
+        pcb_path,
+        layer_token,
+        group_id=group_id,
+        config=config,
+    )
+    layer_path = layer_dir / f"{board_name}__virtual__{_safe_svg_id(layer_token.lower())}.svg"
+    layer_path.parent.mkdir(parents=True, exist_ok=True)
+    layer_path.write_text(composition.svg_text, encoding="utf-8")
+    layer_manifest[layer_token] = {
+        "file": str(layer_path.relative_to(output_dir)).replace("\\", "/"),
+        "layers": view_layers,
+        "physical_layers": composition.physical_layers,
+        "group_id": group_id,
+        "virtual": True,
+    }
+    return 1
+
+
+def _render_virtual_layer_composition(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    layer_token: str,
+    *,
+    group_id: str,
+    config: _PcbSvgConfig,
+) -> PcbSvgComposition:
+    if _is_assembly_virtual_layer_token(layer_token):
+        return _render_assembly_virtual_layer_output(
             pcb,
-            view_layers,
-            styles=config.global_options.styles,
+            pcb_path,
+            layer_token,
             group_id=group_id,
+            styles=config.global_options.styles,
             config=config,
         )
-        if not composition.physical_layers and not bool(config.global_options.show_empty_layers):
-            continue
-        layer_path = layer_dir / f"{board_name}__{_safe_svg_id(layer_token)}.svg"
-        layer_path.parent.mkdir(parents=True, exist_ok=True)
-        layer_path.write_text(composition.svg_text, encoding="utf-8")
-        layer_manifest[layer_token] = {
-            "file": str(layer_path.relative_to(output_dir)).replace("\\", "/"),
-            "layers": view_layers,
-            "context_layers": view_layers[1:],
-            "physical_layers": composition.physical_layers,
-            "group_id": group_id,
-        }
-        written += 1
-    for layer_token in virtual_tokens:
-        group_id = f"pcb-svg-layer-virtual-{_safe_svg_id(layer_token.lower())}"
-        view_layers = [layer_token]
-        composition = render_pcb_svg_composition(
-            pcb,
-            view_layers,
-            styles=config.global_options.styles,
-            group_id=group_id,
-            config=config,
-        )
-        layer_path = layer_dir / f"{board_name}__virtual__{_safe_svg_id(layer_token.lower())}.svg"
-        layer_path.parent.mkdir(parents=True, exist_ok=True)
-        layer_path.write_text(composition.svg_text, encoding="utf-8")
-        layer_manifest[layer_token] = {
-            "file": str(layer_path.relative_to(output_dir)).replace("\\", "/"),
-            "layers": view_layers,
-            "physical_layers": composition.physical_layers,
-            "group_id": group_id,
-            "virtual": True,
-        }
-        written += 1
-    return written
+    return render_pcb_svg_composition(
+        pcb,
+        [layer_token],
+        styles=config.global_options.styles,
+        group_id=group_id,
+        config=config,
+    )
+
+
+def _is_assembly_virtual_layer_token(token: str) -> bool:
+    return normalize_layer_token(token) in _HLR_TOKENS
+
+
+def _render_assembly_virtual_layer_output(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    layer_token: str,
+    *,
+    group_id: str,
+    styles: dict[str, dict[str, object]],
+    config: _PcbSvgConfig,
+) -> PcbSvgComposition:
+    token = normalize_layer_token(layer_token)
+    _, mode = _assembly_token_projection(token, config.assembly.default_projection)
+    composition = render_pcb_svg_composition(
+        pcb,
+        ["BOARD_OUTLINE"],
+        styles=styles,
+        group_id=group_id,
+        config=config,
+    )
+    view = _PcbSvgViewConfig(
+        name=f"virtual_{token.lower()}",
+        group_id=group_id,
+        layers=[token],
+        assembly_hlr_mode=mode,
+    )
+    overlay = _render_assembly_hlr_overlay(
+        pcb,
+        pcb_path,
+        view,
+        styles=styles,
+        mirror=False,
+    )
+    svg_text = _insert_svg_overlay(composition.svg_text, overlay)
+    return PcbSvgComposition(svg_text=svg_text, physical_layers=composition.physical_layers)
 
 
 def _render_a0_configured_views(
@@ -621,6 +765,12 @@ def _render_view_svg(
     )
     if not overlay:
         return svg_text
+    return _insert_svg_overlay(svg_text, overlay)
+
+
+def _insert_svg_overlay(svg_text: str, overlay: str) -> str:
+    if not overlay:
+        return svg_text
     insert_at = svg_text.rfind("</svg>")
     if insert_at < 0:
         return svg_text + "\n" + overlay
@@ -676,7 +826,10 @@ def _should_render_assembly_hlr(
 ) -> bool:
     return bool(
         hlr_tokens
-        and view.assembly_hlr_mode != "none"
+        and any(
+            _assembly_token_projection(token, view.assembly_hlr_mode)[1] != "none"
+            for token in hlr_tokens
+        )
         and _style_enabled(styles, "assembly_hlr")
     )
 
@@ -708,12 +861,12 @@ def _render_assembly_hlr_token_group(
     color: str,
     line_width: float,
 ) -> str:
-    side = "top" if token == "ASSEMBLY_HLR_TOP" else "bottom"
+    side, mode = _assembly_token_projection(token, view.assembly_hlr_mode)
     group_lines = [
         (
             f'<g id="assembly-overlay" data-layer-id="{_assembly_hlr_layer_id(side)}" '
             f'data-layer-token="{html.escape(token)}" '
-            f'data-assembly-symbol="{html.escape(view.assembly_hlr_mode)}" '
+            f'data-assembly-symbol="{html.escape(mode)}" '
             f'stroke="{html.escape(color)}" stroke-width="{_fmt(line_width)}" '
             'fill="none" stroke-linecap="round" stroke-linejoin="round">'
         )
@@ -727,13 +880,22 @@ def _render_assembly_hlr_token_group(
                 pcb_path,
                 footprint,
                 side=side,
-                mode=view.assembly_hlr_mode,
+                mode=mode,
                 styles=styles,
                 bbox=bbox,
             )
         )
     group_lines.append("</g>")
     return "\n".join(group_lines)
+
+
+def _assembly_token_projection(token: str, fallback_mode: str) -> tuple[str, str]:
+    normalized = normalize_layer_token(token)
+    if normalized == "ASSEMBLY_HLR_TOP":
+        return "top", fallback_mode
+    if normalized == "ASSEMBLY_HLR_BOTTOM":
+        return "bottom", fallback_mode
+    return _ASSEMBLY_TOKEN_MODE_BY_TOKEN.get(normalized, ("top", fallback_mode))
 
 
 def _footprint_side(footprint: Footprint) -> str:
@@ -764,37 +926,120 @@ def _render_footprint_hlr(
     bbox: BoundingBox,
 ) -> list[str]:
     designator = _footprint_designator(footprint)
-    component_style = styles.get("assembly_hlr", {})
     projection_mode = mode
+    if projection_mode == "none":
+        return []
     if projection_mode in {"simple", "detail"}:
-        rendered = _render_footprint_geometer_hlr(
+        return _render_hlr_projection_group(
             pcb,
             pcb_path,
             footprint,
+            designator=designator,
             side=side,
             mode=projection_mode,
             styles=styles,
             bbox=bbox,
         )
-        if rendered:
-            group_start = (
-                f'<g data-component="{html.escape(designator)}" '
-                f'data-projection="{projection_mode}">'
-            )
-            return [
-                group_start,
-                *rendered,
-                "</g>",
-            ]
-    if projection_mode == "none":
+    return _render_footprint_bounds_group(
+        pcb,
+        pcb_path,
+        footprint,
+        designator=designator,
+        projection_mode=projection_mode,
+        color=str(styles.get("assembly_hlr", {}).get("color") or "#F59E0B"),
+        bbox=bbox,
+    )
+
+
+def _render_hlr_projection_group(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    footprint: Footprint,
+    *,
+    designator: str,
+    side: str,
+    mode: str,
+    styles: dict[str, dict[str, object]],
+    bbox: BoundingBox,
+) -> list[str]:
+    rendered = _render_footprint_geometer_hlr(
+        pcb,
+        pcb_path,
+        footprint,
+        side=side,
+        mode=mode,
+        styles=styles,
+        bbox=bbox,
+    )
+    if not rendered:
         return []
-    return [
-        f'<g data-component="{html.escape(designator)}" data-projection="bounding_box">',
-        _render_footprint_bounds_rect(
+    return _svg_component_projection_group(designator, mode, rendered)
+
+
+def _render_footprint_bounds_group(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    footprint: Footprint,
+    *,
+    designator: str,
+    projection_mode: str,
+    color: str,
+    bbox: BoundingBox,
+) -> list[str]:
+    rect = _footprint_bounds_rect(
+        pcb,
+        pcb_path,
+        footprint,
+        projection_mode=projection_mode,
+        color=color,
+        bbox=bbox,
+    )
+    if not rect:
+        return []
+    group_mode = (
+        projection_mode
+        if projection_mode in {"model_bounds", "copper_bounds"}
+        else "bounding_box"
+    )
+    return _svg_component_projection_group(designator, group_mode, [rect])
+
+
+def _footprint_bounds_rect(
+    pcb: KiCadPcb,
+    pcb_path: Path,
+    footprint: Footprint,
+    *,
+    projection_mode: str,
+    color: str,
+    bbox: BoundingBox,
+) -> str | None:
+    if projection_mode == "model_bounds":
+        return _render_footprint_model_bounds_rect(
+            pcb,
+            pcb_path,
             footprint,
             bbox=bbox,
-            color=str(component_style.get("color") or "#F59E0B"),
-        ),
+            color=color,
+        )
+    if projection_mode == "copper_bounds":
+        return _render_footprint_copper_bounds_rect(footprint, bbox=bbox, color=color)
+    return _render_footprint_model_bounds_rect(
+        pcb,
+        pcb_path,
+        footprint,
+        bbox=bbox,
+        color=color,
+    ) or _render_footprint_copper_bounds_rect(footprint, bbox=bbox, color=color)
+
+
+def _svg_component_projection_group(
+    designator: str,
+    projection: str,
+    lines: list[str],
+) -> list[str]:
+    return [
+        f'<g data-component="{html.escape(designator)}" data-projection="{projection}">',
+        *lines,
         "</g>",
     ]
 
@@ -816,21 +1061,21 @@ def _render_footprint_geometer_hlr(
     if step_bytes is None:
         return []
     model_hash = hashlib.sha256(step_bytes).hexdigest()
-    transform = _model_transform_matrix(model)
+    pose = kicad_model_pose(pcb, footprint, model)
     options = _assembly_projection_options(side=side, styles=styles)
     try:
         _, projected = _get_assembly_projection_cache().project(
             model_hash=model_hash,
             step_bytes=step_bytes,
-            pose_signature=_model_pose_signature(model),
-            transform_matrix=transform,
+            pose_signature=pose.signature,
+            transform_matrix=pose.matrix,
             options=options,
             model_label=str(getattr(model, "path", "")),
         )
     except Exception as exc:
         log.warning("Geometer HLR failed for %s: %s", _footprint_designator(footprint), exc)
         return []
-    return _projected_geometry_to_svg(projected, footprint, model, mode=mode, bbox=bbox)
+    return _projected_geometry_to_svg(projected, mode=mode, bbox=bbox)
 
 
 def _assembly_projection_options(
@@ -952,79 +1197,8 @@ def _resolve_external_model_path(raw_path: str, base_dir: Path) -> Path | None:
     return base_dir / path
 
 
-def _model_pose_signature(model: Model) -> tuple[float, ...]:
-    values: list[float] = []
-    for attr in ("offset", "scale", "rotate"):
-        values.extend(float(value) for value in getattr(model, attr, ()))
-    return tuple(values)
-
-
-def _model_transform_matrix(model: Model) -> list[list[float]]:
-    raw_scale = tuple(float(value) for value in getattr(model, "scale", (1.0, 1.0, 1.0)))
-    scale = (
-        raw_scale[0] if len(raw_scale) > 0 else 1.0,
-        raw_scale[1] if len(raw_scale) > 1 else 1.0,
-        raw_scale[2] if len(raw_scale) > 2 else 1.0,
-    )
-    return _scale_matrix(scale)
-
-
-def _scale_matrix(scale: tuple[float, float, float]) -> list[list[float]]:
-    return [
-        [scale[0], 0.0, 0.0, 0.0],
-        [0.0, scale[1], 0.0, 0.0],
-        [0.0, 0.0, scale[2], 0.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ]
-
-
-def _rotation_x_matrix(angle: float) -> list[list[float]]:
-    cosine = math.cos(angle)
-    sine = math.sin(angle)
-    return [
-        [1.0, 0.0, 0.0, 0.0],
-        [0.0, cosine, -sine, 0.0],
-        [0.0, sine, cosine, 0.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ]
-
-
-def _rotation_y_matrix(angle: float) -> list[list[float]]:
-    cosine = math.cos(angle)
-    sine = math.sin(angle)
-    return [
-        [cosine, 0.0, sine, 0.0],
-        [0.0, 1.0, 0.0, 0.0],
-        [-sine, 0.0, cosine, 0.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ]
-
-
-def _rotation_z_matrix(angle: float) -> list[list[float]]:
-    cosine = math.cos(angle)
-    sine = math.sin(angle)
-    return [
-        [cosine, -sine, 0.0, 0.0],
-        [sine, cosine, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ]
-
-
-def _matrix_multiply(left: list[list[float]], right: list[list[float]]) -> list[list[float]]:
-    return [
-        [
-            sum(left[row][idx] * right[idx][col] for idx in range(4))
-            for col in range(4)
-        ]
-        for row in range(4)
-    ]
-
-
 def _projected_geometry_to_svg(
     projected: _AssemblyProjectedGeometry,
-    footprint: Footprint,
-    model: Model,
     *,
     mode: str,
     bbox: BoundingBox,
@@ -1037,11 +1211,11 @@ def _projected_geometry_to_svg(
         arcs = projected.simple_arcs or projected.detail_arcs
     lines: list[str] = []
     for start, end in segments:
-        x1, y1 = _model_point_to_svg(start, footprint, model, bbox)
-        x2, y2 = _model_point_to_svg(end, footprint, model, bbox)
+        x1, y1 = board_world_to_svg(start, bbox=bbox)
+        x2, y2 = board_world_to_svg(end, bbox=bbox)
         lines.append(f'<line x1="{_fmt(x1)}" y1="{_fmt(y1)}" x2="{_fmt(x2)}" y2="{_fmt(y2)}"/>')
     for arc in arcs:
-        rendered = _projected_arc_to_svg(arc, footprint, model, bbox)
+        rendered = _projected_arc_to_svg(arc, bbox)
         if rendered:
             lines.append(rendered)
     return lines
@@ -1049,13 +1223,11 @@ def _projected_geometry_to_svg(
 
 def _projected_arc_to_svg(
     arc: _AssemblyProjectedArc,
-    footprint: Footprint,
-    model: Model,
     bbox: BoundingBox,
 ) -> str:
-    center = _model_point_to_svg(arc.center, footprint, model, bbox)
-    start = _model_point_to_svg(arc.start, footprint, model, bbox)
-    end = _model_point_to_svg(arc.end, footprint, model, bbox)
+    center = board_world_to_svg(arc.center, bbox=bbox)
+    start = board_world_to_svg(arc.start, bbox=bbox)
+    end = board_world_to_svg(arc.end, bbox=bbox)
     if arc.full_circle:
         return f'<circle cx="{_fmt(center[0])}" cy="{_fmt(center[1])}" r="{_fmt(arc.radius)}"/>'
     large_arc = 1 if abs(float(arc.extent_rad)) > math.pi else 0
@@ -1067,37 +1239,139 @@ def _projected_arc_to_svg(
     )
 
 
-def _model_point_to_svg(
-    point: tuple[float, float],
-    footprint: Footprint,
-    model: Model,
-    bbox: BoundingBox,
-) -> tuple[float, float]:
-    offset = tuple(float(value) for value in getattr(model, "offset", (0.0, 0.0, 0.0)))
-    local_x = float(point[0]) + offset[0]
-    local_y = float(point[1]) + offset[1]
-    angle = math.radians(-float(getattr(footprint, "at_angle", 0.0) or 0.0))
-    cosine = math.cos(angle)
-    sine = math.sin(angle)
-    board_x = float(getattr(footprint, "at_x", 0.0) or 0.0) + local_x * cosine - local_y * sine
-    board_y = float(getattr(footprint, "at_y", 0.0) or 0.0) + local_x * sine + local_y * cosine
-    return board_x - float(bbox.min_x), board_y - float(bbox.min_y)
-
-
-def _render_footprint_bounds_rect(
+def _render_footprint_model_bounds_rect(
+    pcb: KiCadPcb,
+    pcb_path: Path,
     footprint: Footprint,
     *,
     bbox: BoundingBox,
     color: str,
 ) -> str:
-    bounds = footprint.get_bounds()
+    model = _first_step_model(footprint)
+    if model is None:
+        return ""
+    step_bytes = _resolve_model_step_bytes(pcb, footprint, model, pcb_path)
+    if step_bytes is None:
+        return ""
+    pose = kicad_model_pose(pcb, footprint, model)
+    model_hash = hashlib.sha256(step_bytes).hexdigest()
+    try:
+        bounds = _geometer_model_bounds(
+            step_bytes,
+            model_hash=model_hash,
+            pose_signature=pose.signature,
+            transform_matrix=pose.matrix,
+            model_label=str(getattr(model, "path", "")),
+        )
+    except Exception as exc:
+        log.warning(
+            "Geometer model bounds failed for %s: %s",
+            _footprint_designator(footprint),
+            exc,
+        )
+        return ""
+    rect = model_bounds_to_svg_rect(bounds, bbox=bbox)
+    if rect is None:
+        return ""
+    return _svg_rect_from_values(
+        rect,
+        color=color,
+        data_attrs={
+            "data-bounds-kind": "model",
+            "data-model-path": str(getattr(model, "path", "") or ""),
+        },
+    )
+
+
+def _geometer_model_bounds(
+    step_bytes: bytes,
+    *,
+    model_hash: str,
+    pose_signature: tuple[float, ...],
+    transform_matrix: Matrix4,
+    model_label: str,
+) -> dict[str, object]:
+    cache_key = (model_hash, pose_signature)
+    cached = _MODEL_BOUNDS_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    try:
+        import geometer
+    except Exception as exc:  # pragma: no cover - dependency failure path
+        raise RuntimeError(
+            "The geometer Python package is required for KiCad Cruncher model bounds."
+        ) from exc
+    label = model_label.strip() or f"hash:{model_hash[:12]}"
+    log.info("Computing Geometer model bounds: %s (hash=%s)", label, model_hash[:12])
+    result = geometer.model_bounds(step_bytes, model_transform=transform_matrix)
+    bounds = dict(result.bounds)
+    _MODEL_BOUNDS_CACHE[cache_key] = bounds
+    return bounds
+
+
+def _render_footprint_copper_bounds_rect(
+    footprint: Footprint,
+    *,
+    bbox: BoundingBox,
+    color: str,
+) -> str:
+    bounds = _footprint_copper_bounds(footprint)
+    if bounds is None or not bounds.is_valid():
+        return ""
     x = float(bounds.min_x) - float(bbox.min_x)
     y = float(bounds.min_y) - float(bbox.min_y)
     width = float(bounds.max_x) - float(bounds.min_x)
     height = float(bounds.max_y) - float(bounds.min_y)
+    return _svg_rect_from_values(
+        (x, y, width, height),
+        color=color,
+        data_attrs={"data-bounds-kind": "copper"},
+    )
+
+
+def _footprint_copper_bounds(footprint: Footprint) -> BoundingBox | None:
+    from kicad_monkey.kicad_geometry import BoundingBox
+
+    bounds = BoundingBox()
+    for pad in getattr(footprint, "pads", []) or []:
+        if not _pad_on_copper(pad):
+            continue
+        local_bounds = pad.get_bounds()
+        if not local_bounds.is_valid():
+            continue
+        for point in (
+            (local_bounds.min_x, local_bounds.min_y),
+            (local_bounds.max_x, local_bounds.min_y),
+            (local_bounds.max_x, local_bounds.max_y),
+            (local_bounds.min_x, local_bounds.max_y),
+        ):
+            bounds.expand(transform_footprint_local_to_board(footprint, point))
+    return bounds if bounds.is_valid() else None
+
+
+def _pad_on_copper(pad: object) -> bool:
+    layers = [str(layer) for layer in getattr(pad, "layers", []) or []]
+    if any(layer == "*.Cu" or layer.endswith(".Cu") for layer in layers):
+        return True
+    pad_type = getattr(getattr(pad, "pad_type", ""), "value", getattr(pad, "pad_type", ""))
+    return str(pad_type) in {"thru_hole", "np_thru_hole"}
+
+
+def _svg_rect_from_values(
+    rect: tuple[float, float, float, float],
+    *,
+    color: str,
+    data_attrs: Mapping[str, str],
+) -> str:
+    x, y, width, height = rect
+    attrs = " ".join(
+        f'{html.escape(str(key))}="{html.escape(str(value))}"'
+        for key, value in sorted(data_attrs.items())
+        if value
+    )
     return (
         f'<rect x="{_fmt(x)}" y="{_fmt(y)}" width="{_fmt(width)}" height="{_fmt(height)}" '
-        f'stroke="{html.escape(color)}" fill="none"/>'
+        f'stroke="{html.escape(color)}" fill="none" {attrs}/>'
     )
 
 
@@ -1122,6 +1396,7 @@ def _render_a0_board_outputs(
     written = _render_a0_layer_outputs(
         config,
         pcb,
+        pcb_path,
         output_dir=output_dir,
         board_name=board_name,
         layer_manifest=layer_manifest,

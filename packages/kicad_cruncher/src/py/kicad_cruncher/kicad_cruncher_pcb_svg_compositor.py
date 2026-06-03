@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
+    PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS,
     _PcbSvgConfig,
     normalize_layer_token,
     physical_layer_from_token,
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 _SVG_NS = "http://www.w3.org/2000/svg"
 _XLINK_NS = "http://www.w3.org/1999/xlink"
 _EDGE_CUTS_LAYER = "Edge.Cuts"
-_HLR_TOKENS = {"ASSEMBLY_HLR_TOP", "ASSEMBLY_HLR_BOTTOM"}
+_HLR_TOKENS = set(PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS)
 _HOLE_TOKENS = {"DRILLS", "SLOTS"}
 _PIN1_TOKENS = {"PIN1_TOP", "PIN1_BOTTOM"}
 _VIRTUAL_TOKENS = {
@@ -30,6 +31,7 @@ _VIRTUAL_TOKENS = {
     "BOARD_CUTOUTS",
     "DRILLS",
     "SLOTS",
+    *_HLR_TOKENS,
     "ASSEMBLY_DESIGNATORS_TOP",
     "ASSEMBLY_DESIGNATORS_BOTTOM",
     "PIN1_TOP",
@@ -124,27 +126,18 @@ def render_pcb_svg_composition(
     board_regions = _classify_edge_cut_regions(pcb)
 
     for token in tokens:
-        if token in _HLR_TOKENS:
-            continue
-        if token == "BOARD_OUTLINE":
-            _append_board_outline(root, board_regions, origin=origin, styles=styles)
-            continue
-        if token == "BOARD_CUTOUTS":
-            _append_board_cutouts(root, board_regions, origin=origin, styles=styles)
-            continue
-        if token in _HOLE_TOKENS:
-            if not copied_physical:
-                copied_physical = True
-            _append_holes(root, source_children, token, styles=styles)
-            continue
-        if token in _PIN1_TOKENS:
-            _append_pin1_markers(root, pcb, token, origin=origin, styles=styles, config=config)
-            continue
-        physical = physical_layer_from_token(token)
-        if physical is None:
-            continue
-        copied_physical = True
-        _append_physical_layer(root, source_children, physical, tokens=tokens, styles=styles)
+        copied_physical = _append_composition_token(
+            root,
+            source_children,
+            token,
+            pcb=pcb,
+            tokens=tokens,
+            board_regions=board_regions,
+            origin=origin,
+            styles=styles,
+            config=config,
+            copied_physical=copied_physical,
+        )
 
     if not copied_physical and not any(token in _VIRTUAL_TOKENS for token in tokens):
         _append_physical_layer(
@@ -160,6 +153,40 @@ def render_pcb_svg_composition(
         svg_text=_svg_to_text(root),
         physical_layers=physical_layers,
     )
+
+
+def _append_composition_token(
+    root: ET.Element,
+    source_children: list[ET.Element],
+    token: str,
+    *,
+    pcb: KiCadPcb,
+    tokens: list[str],
+    board_regions: list[_BoardRegion],
+    origin: tuple[float, float],
+    styles: dict[str, dict[str, object]],
+    config: _PcbSvgConfig,
+    copied_physical: bool,
+) -> bool:
+    if token in _HLR_TOKENS:
+        return copied_physical
+    if token == "BOARD_OUTLINE":
+        _append_board_outline(root, board_regions, origin=origin, styles=styles)
+        return copied_physical
+    if token == "BOARD_CUTOUTS":
+        _append_board_cutouts(root, board_regions, origin=origin, styles=styles)
+        return copied_physical
+    if token in _HOLE_TOKENS:
+        _append_holes(root, source_children, token, styles=styles)
+        return True
+    if token in _PIN1_TOKENS:
+        _append_pin1_markers(root, pcb, token, origin=origin, styles=styles, config=config)
+        return copied_physical
+    physical = physical_layer_from_token(token)
+    if physical is None:
+        return copied_physical
+    _append_physical_layer(root, source_children, physical, tokens=tokens, styles=styles)
+    return True
 
 
 def _root_render_layers(tokens: list[str], pcb: KiCadPcb) -> list[str]:
@@ -409,41 +436,71 @@ def _append_pin1_markers(
         },
     )
     for footprint in getattr(pcb, "footprints", []) or []:
-        if not _footprint_is_side(footprint, side, config=config):
+        marker = _pin1_marker_target(footprint, side=side, config=config)
+        if marker is None:
             continue
-        designator = _footprint_designator(footprint)
-        override = config.components.get(designator)
-        if override and override.pin1_enabled is False:
-            continue
-        if not (override and override.pin1_enabled is True) and _excluded_pin1_designator(
-            designator, config
-        ):
-            continue
-        pad = _select_pin1_pad(footprint, override_pin=(override.pin1_pad if override else None))
-        if pad is None:
-            continue
-        board_x, board_y = _pad_board_position(footprint, pad)
-        ET.SubElement(
-            group,
-            _svg_tag("circle"),
-            {
-                "cx": _fmt(board_x - origin[0]),
-                "cy": _fmt(board_y - origin[1]),
-                "r": _fmt(diameter / 2.0),
-                "fill": color,
-                "stroke": color,
-                "stroke-width": "0",
-                "data-layer-token": token,
-                "data-primitive": "pin1-marker",
-                "data-component": designator,
-                "data-component-uuid": str(getattr(footprint, "uuid", "") or ""),
-                "data-footprint": str(getattr(footprint, "library_link", "") or ""),
-                "data-pad-number": str(getattr(pad, "number", "") or ""),
-                "data-pad-uuid": str(getattr(pad, "uuid", "") or ""),
-            },
-        )
+        designator, pad = marker
+        ET.SubElement(group, _svg_tag("circle"), _pin1_marker_attrs(
+            footprint,
+            pad,
+            designator=designator,
+            token=token,
+            origin=origin,
+            diameter=diameter,
+            color=color,
+        ))
     if len(group):
         root.append(group)
+
+
+def _pin1_marker_target(
+    footprint: object,
+    *,
+    side: str,
+    config: _PcbSvgConfig,
+) -> tuple[str, object] | None:
+    if not _footprint_is_side(footprint, side, config=config):
+        return None
+    designator = _footprint_designator(footprint)
+    override = config.components.get(designator)
+    if override and override.pin1_enabled is False:
+        return None
+    if not (override and override.pin1_enabled is True) and _excluded_pin1_designator(
+        designator, config
+    ):
+        return None
+    pad = _select_pin1_pad(footprint, override_pin=(override.pin1_pad if override else None))
+    if pad is None:
+        return None
+    return designator, pad
+
+
+def _pin1_marker_attrs(
+    footprint: object,
+    pad: object,
+    *,
+    designator: str,
+    token: str,
+    origin: tuple[float, float],
+    diameter: float,
+    color: str,
+) -> dict[str, str]:
+    board_x, board_y = _pad_board_position(footprint, pad)
+    return {
+        "cx": _fmt(board_x - origin[0]),
+        "cy": _fmt(board_y - origin[1]),
+        "r": _fmt(diameter / 2.0),
+        "fill": color,
+        "stroke": color,
+        "stroke-width": "0",
+        "data-layer-token": token,
+        "data-primitive": "pin1-marker",
+        "data-component": designator,
+        "data-component-uuid": str(getattr(footprint, "uuid", "") or ""),
+        "data-footprint": str(getattr(footprint, "library_link", "") or ""),
+        "data-pad-number": str(getattr(pad, "number", "") or ""),
+        "data-pad-uuid": str(getattr(pad, "uuid", "") or ""),
+    }
 
 
 def _classify_edge_cut_regions(pcb: KiCadPcb) -> list[_BoardRegion]:
@@ -456,6 +513,15 @@ def _classify_edge_cut_regions(pcb: KiCadPcb) -> list[_BoardRegion]:
 
 
 def _closed_regions_from_open_segment_loops(pcb: KiCadPcb) -> list[_BoardRegion]:
+    segments = [
+        *_edge_cut_line_segments(pcb),
+        *_edge_cut_arc_segments(pcb),
+        *_edge_cut_curve_segments(pcb),
+    ]
+    return _assemble_closed_segment_regions(segments)
+
+
+def _edge_cut_line_segments(pcb: KiCadPcb) -> list[_EdgeSegment]:
     segments: list[_EdgeSegment] = []
     for line in getattr(pcb, "gr_lines", []) or []:
         if str(getattr(line, "layer", "")) != _EDGE_CUTS_LAYER:
@@ -470,6 +536,11 @@ def _closed_regions_from_open_segment_loops(pcb: KiCadPcb) -> list[_BoardRegion]
                 source_id=str(getattr(line, "uuid", "") or ""),
             )
         )
+    return segments
+
+
+def _edge_cut_arc_segments(pcb: KiCadPcb) -> list[_EdgeSegment]:
+    segments: list[_EdgeSegment] = []
     for arc in getattr(pcb, "gr_arcs", []) or []:
         if str(getattr(arc, "layer", "")) != _EDGE_CUTS_LAYER:
             continue
@@ -480,6 +551,11 @@ def _closed_regions_from_open_segment_loops(pcb: KiCadPcb) -> list[_BoardRegion]
                 source_id=str(getattr(arc, "uuid", "") or ""),
             )
         )
+    return segments
+
+
+def _edge_cut_curve_segments(pcb: KiCadPcb) -> list[_EdgeSegment]:
+    segments: list[_EdgeSegment] = []
     for curve in getattr(pcb, "gr_curves", []) or []:
         if str(getattr(curve, "layer", "")) != _EDGE_CUTS_LAYER:
             continue
@@ -493,7 +569,7 @@ def _closed_regions_from_open_segment_loops(pcb: KiCadPcb) -> list[_BoardRegion]
                 source_id=str(getattr(curve, "uuid", "") or ""),
             )
         )
-    return _assemble_closed_segment_regions(segments)
+    return segments
 
 
 def _closed_regions_from_rects(pcb: KiCadPcb) -> list[_BoardRegion]:
@@ -567,62 +643,109 @@ def _closed_regions_from_polys(pcb: KiCadPcb) -> list[_BoardRegion]:
 
 
 def _assemble_closed_segment_regions(segments: list[_EdgeSegment]) -> list[_BoardRegion]:
-    adjacency: dict[tuple[int, int], list[int]] = {}
-    for index, segment in enumerate(segments):
-        adjacency.setdefault(segment.start_key, []).append(index)
-        adjacency.setdefault(segment.end_key, []).append(index)
-
+    adjacency = _edge_segment_adjacency(segments)
     regions: list[_BoardRegion] = []
     visited: set[int] = set()
     for start_index, segment in enumerate(segments):
         if start_index in visited:
             continue
-        local_seen = {start_index}
-        points = list(segment.points)
-        source_ids = [segment.source_id] if segment.source_id else []
-        source_kinds = {segment.source_kind}
-        start_key = segment.start_key
-        current_key = segment.end_key
-
-        while current_key != start_key:
-            next_index = next(
-                (
-                    candidate
-                    for candidate in adjacency.get(current_key, [])
-                    if candidate not in local_seen
-                ),
-                None,
-            )
-            if next_index is None:
-                break
-            next_segment = segments[next_index]
-            local_seen.add(next_index)
-            if next_segment.start_key == current_key:
-                next_points = next_segment.points
-                current_key = next_segment.end_key
-            else:
-                next_points = list(reversed(next_segment.points))
-                current_key = next_segment.start_key
-            points.extend(next_points[1:])
-            if next_segment.source_id:
-                source_ids.append(next_segment.source_id)
-            source_kinds.add(next_segment.source_kind)
-
-        visited.update(local_seen)
-        if current_key != start_key or len(points) < 3:
-            continue
-        if _point_key(points[-1]) == start_key:
-            points = points[:-1]
-        if abs(_polygon_signed_area(points)) <= _MIN_REGION_AREA_MM2:
-            continue
-        regions.append(
-            _BoardRegion(
-                points=points,
-                source_kind="+".join(sorted(source_kinds)),
-                source_ids=source_ids,
-            )
+        region, local_seen = _closed_region_from_segment_loop(
+            start_index,
+            segment,
+            segments,
+            adjacency,
         )
+        visited.update(local_seen)
+        if region is not None:
+            regions.append(region)
     return regions
+
+
+def _edge_segment_adjacency(segments: list[_EdgeSegment]) -> dict[tuple[int, int], list[int]]:
+    adjacency: dict[tuple[int, int], list[int]] = {}
+    for index, segment in enumerate(segments):
+        adjacency.setdefault(segment.start_key, []).append(index)
+        adjacency.setdefault(segment.end_key, []).append(index)
+    return adjacency
+
+
+def _closed_region_from_segment_loop(
+    start_index: int,
+    segment: _EdgeSegment,
+    segments: list[_EdgeSegment],
+    adjacency: dict[tuple[int, int], list[int]],
+) -> tuple[_BoardRegion | None, set[int]]:
+    points, source_ids, source_kinds, current_key, local_seen = _walk_segment_loop(
+        start_index,
+        segment,
+        segments,
+        adjacency,
+    )
+    start_key = segment.start_key
+    if current_key != start_key or len(points) < 3:
+        return None, local_seen
+    if _point_key(points[-1]) == start_key:
+        points = points[:-1]
+    if abs(_polygon_signed_area(points)) <= _MIN_REGION_AREA_MM2:
+        return None, local_seen
+    return (
+        _BoardRegion(
+            points=points,
+            source_kind="+".join(sorted(source_kinds)),
+            source_ids=source_ids,
+        ),
+        local_seen,
+    )
+
+
+def _walk_segment_loop(
+    start_index: int,
+    segment: _EdgeSegment,
+    segments: list[_EdgeSegment],
+    adjacency: dict[tuple[int, int], list[int]],
+) -> tuple[list[tuple[float, float]], list[str], set[str], tuple[int, int], set[int]]:
+    local_seen = {start_index}
+    points = list(segment.points)
+    source_ids = [segment.source_id] if segment.source_id else []
+    source_kinds = {segment.source_kind}
+    start_key = segment.start_key
+    current_key = segment.end_key
+    while current_key != start_key:
+        next_index = _next_segment_index(adjacency, current_key, local_seen)
+        if next_index is None:
+            break
+        next_segment = segments[next_index]
+        local_seen.add(next_index)
+        next_points, current_key = _oriented_segment_points(next_segment, current_key)
+        points.extend(next_points[1:])
+        if next_segment.source_id:
+            source_ids.append(next_segment.source_id)
+        source_kinds.add(next_segment.source_kind)
+    return points, source_ids, source_kinds, current_key, local_seen
+
+
+def _next_segment_index(
+    adjacency: dict[tuple[int, int], list[int]],
+    current_key: tuple[int, int],
+    local_seen: set[int],
+) -> int | None:
+    return next(
+        (
+            candidate
+            for candidate in adjacency.get(current_key, [])
+            if candidate not in local_seen
+        ),
+        None,
+    )
+
+
+def _oriented_segment_points(
+    segment: _EdgeSegment,
+    current_key: tuple[int, int],
+) -> tuple[list[tuple[float, float]], tuple[int, int]]:
+    if segment.start_key == current_key:
+        return segment.points, segment.end_key
+    return list(reversed(segment.points)), segment.start_key
 
 
 def _outer_board_region(regions: list[_BoardRegion]) -> _BoardRegion | None:
@@ -785,14 +908,37 @@ def _prune_for_layers(
     if prune_holes and _is_hole_category(attrs):
         return False
     keep_self = _attrs_match_layers(attrs, layers)
+    child_kept = _prune_layer_children(
+        element,
+        layers,
+        prune_holes=prune_holes,
+        inherited=_next_inherited_attrs(inherited, element),
+    )
+    return _keep_pruned_layer_element(element, attrs, keep_self, child_kept)
+
+
+def _prune_layer_children(
+    element: ET.Element,
+    layers: set[str],
+    *,
+    prune_holes: bool,
+    inherited: dict[str, str],
+) -> bool:
     child_kept = False
-    own_data = {key: value for key, value in element.attrib.items() if key.startswith("data-")}
-    next_inherited = {**(inherited or {}), **own_data}
     for child in list(element):
-        if not _prune_for_layers(child, layers, prune_holes=prune_holes, inherited=next_inherited):
-            element.remove(child)
-        else:
+        if _prune_for_layers(child, layers, prune_holes=prune_holes, inherited=inherited):
             child_kept = True
+            continue
+        element.remove(child)
+    return child_kept
+
+
+def _keep_pruned_layer_element(
+    element: ET.Element,
+    attrs: dict[str, str],
+    keep_self: bool,
+    child_kept: bool,
+) -> bool:
     local_name = _svg_local_name(element.tag)
     if local_name in {"metadata", "defs"}:
         return False
@@ -831,6 +977,14 @@ def _merged_attrs(inherited: dict[str, str] | None, element: ET.Element) -> dict
     attrs = dict(inherited or {})
     attrs.update({key: value for key, value in element.attrib.items() if key.startswith("data-")})
     return attrs
+
+
+def _next_inherited_attrs(
+    inherited: dict[str, str] | None,
+    element: ET.Element,
+) -> dict[str, str]:
+    own_data = {key: value for key, value in element.attrib.items() if key.startswith("data-")}
+    return {**(inherited or {}), **own_data}
 
 
 def _has_layer_attrs(attrs: dict[str, str]) -> bool:
@@ -882,63 +1036,92 @@ def _apply_a0_theme(
 ) -> None:
     attrs = _merged_attrs(inherited, element)
     category = _svg_category(attrs)
-    if category == "hole":
-        _set_svg_element_color(element, _hole_color(attrs, styles))
-        opacity = _style_float(
-            styles,
-            "slots" if attrs.get("data-hole-kind", "") == "slot" else "drills",
-            "opacity",
-            1.0,
-        )
-        if _svg_local_name(element.tag) in _DRAWABLE_TAGS:
-            element.set("fill-opacity", _fmt(opacity))
-            element.set("stroke-opacity", _fmt(opacity))
-    elif category == "edge":
-        _set_svg_element_color(element, _style_color(styles, "board_outline", "#000000"))
-    elif category == "zone":
-        _set_svg_element_color(element, _style_color(styles, "copper_polygons", "#888888"))
-    elif category == "track":
-        style_name = "vias" if attrs.get("data-primitive", "") == "via" else "copper_traces"
-        _set_svg_element_color(element, _style_color(styles, style_name, "#000000"))
-    elif category == "pad":
-        _set_svg_element_color(element, _style_color(styles, _pad_style_name(attrs), "#000000"))
-    elif category == "silk":
-        style_name = (
-            "silkscreen_designators"
-            if attrs.get("data-footprint-text-role") == "designator"
-            else "silkscreen_component_graphics"
-        )
-        _set_svg_element_color(element, _style_color(styles, style_name, "#000000"))
-    own_data = {key: value for key, value in element.attrib.items() if key.startswith("data-")}
-    next_inherited = {**(inherited or {}), **own_data}
+    _apply_a0_theme_to_element(element, attrs, category, styles)
+    next_inherited = _next_inherited_attrs(inherited, element)
     for child in list(element):
         _apply_a0_theme(child, styles, tokens, next_inherited)
 
 
+def _apply_a0_theme_to_element(
+    element: ET.Element,
+    attrs: dict[str, str],
+    category: str,
+    styles: dict[str, dict[str, object]],
+) -> None:
+    if category == "hole":
+        _apply_hole_theme(element, attrs, styles)
+        return
+    color_style = _a0_theme_color_style(attrs, category)
+    if color_style is not None:
+        _set_svg_element_color(element, _style_color(styles, color_style, "#000000"))
+
+
+def _apply_hole_theme(
+    element: ET.Element,
+    attrs: dict[str, str],
+    styles: dict[str, dict[str, object]],
+) -> None:
+    _set_svg_element_color(element, _hole_color(attrs, styles))
+    style_name = "slots" if attrs.get("data-hole-kind", "") == "slot" else "drills"
+    opacity = _style_float(styles, style_name, "opacity", 1.0)
+    if _svg_local_name(element.tag) in _DRAWABLE_TAGS:
+        element.set("fill-opacity", _fmt(opacity))
+        element.set("stroke-opacity", _fmt(opacity))
+
+
+def _a0_theme_color_style(attrs: dict[str, str], category: str) -> str | None:
+    if category == "edge":
+        return "board_outline"
+    if category == "zone":
+        return "copper_polygons"
+    if category == "track":
+        return "vias" if attrs.get("data-primitive", "") == "via" else "copper_traces"
+    if category == "pad":
+        return _pad_style_name(attrs)
+    if category == "silk":
+        return (
+            "silkscreen_designators"
+            if attrs.get("data-footprint-text-role") == "designator"
+            else "silkscreen_component_graphics"
+        )
+    return None
+
+
 def _svg_category(attrs: dict[str, str]) -> str:
-    if _is_hole_category(attrs):
-        return "hole"
-    if (
+    for category, predicate in _SVG_CATEGORY_RULES:
+        if predicate(attrs):
+            return category
+    return "other"
+
+
+def _is_edge_category(attrs: dict[str, str]) -> bool:
+    return (
         attrs.get("data-layer-name", "") == _EDGE_CUTS_LAYER
         or attrs.get("data-layer-role", "") == "board-outline"
         or _EDGE_CUTS_LAYER in attrs.get("data-layer-names", "")
-    ):
-        return "edge"
-    if attrs.get("data-ref", "") == "zone_fill" or attrs.get("data-primitive", "") == "zone":
-        return "zone"
-    if attrs.get("data-ref", "") in {"segment", "track_arc", "via"} or attrs.get(
+    )
+
+
+def _is_zone_category(attrs: dict[str, str]) -> bool:
+    return attrs.get("data-ref", "") == "zone_fill" or attrs.get("data-primitive", "") == "zone"
+
+
+def _is_track_category(attrs: dict[str, str]) -> bool:
+    return attrs.get("data-ref", "") in {"segment", "track_arc", "via"} or attrs.get(
         "data-primitive", ""
-    ) in {"track", "arc", "via"}:
-        return "track"
-    if attrs.get("data-ref", "") in {"pad", "footprint"} or attrs.get(
+    ) in {"track", "arc", "via"}
+
+
+def _is_pad_category(attrs: dict[str, str]) -> bool:
+    return attrs.get("data-ref", "") in {"pad", "footprint"} or attrs.get(
         "data-primitive", ""
-    ) == "pad":
-        return "pad"
-    if "SilkS" in attrs.get("data-layer-name", "") or "SilkS" in attrs.get(
+    ) == "pad"
+
+
+def _is_silk_category(attrs: dict[str, str]) -> bool:
+    return "SilkS" in attrs.get("data-layer-name", "") or "SilkS" in attrs.get(
         "data-layer-names", ""
-    ):
-        return "silk"
-    return "other"
+    )
 
 
 def _is_hole_category(attrs: dict[str, str]) -> bool:
@@ -947,6 +1130,16 @@ def _is_hole_category(attrs: dict[str, str]) -> bool:
         or attrs.get("data-primitive", "") in {"pad-hole", "via-hole"}
         or attrs.get("data-hole-render", "") in {"drill", "slot"}
     )
+
+
+_SVG_CATEGORY_RULES = (
+    ("hole", _is_hole_category),
+    ("edge", _is_edge_category),
+    ("zone", _is_zone_category),
+    ("track", _is_track_category),
+    ("pad", _is_pad_category),
+    ("silk", _is_silk_category),
+)
 
 
 def _hole_color(attrs: dict[str, str], styles: dict[str, dict[str, object]]) -> str:
@@ -1019,18 +1212,32 @@ def _select_pin1_pad(footprint: object, *, override_pin: str | None) -> object |
         selected = _pad_by_name(pads, override_pin)
         if selected is not None:
             return selected
-    for candidate in ("1", "A1"):
+    selected = _pad_by_candidates(pads, ("1", "A1"))
+    if selected is not None:
+        return selected
+    grid_pad = _grid_pin1_pad(pads)
+    if grid_pad is not None:
+        return grid_pad
+    return pads[0]
+
+
+def _pad_by_candidates(pads: list[object], candidates: tuple[str, ...]) -> object | None:
+    for candidate in candidates:
         selected = _pad_by_name(pads, candidate)
         if selected is not None:
             return selected
+    return None
+
+
+def _grid_pin1_pad(pads: list[object]) -> object | None:
     grid_pads = [
         (match.group(1).upper(), int(match.group(2)), pad)
         for pad in pads
         if (match := _GRID_PAD_RE.match(str(getattr(pad, "number", "") or "")))
     ]
-    if grid_pads:
-        return sorted(grid_pads, key=lambda item: (item[1], item[0]))[0][2]
-    return pads[0]
+    if not grid_pads:
+        return None
+    return sorted(grid_pads, key=lambda item: (item[1], item[0]))[0][2]
 
 
 def _pad_by_name(pads: list[object], name: str) -> object | None:

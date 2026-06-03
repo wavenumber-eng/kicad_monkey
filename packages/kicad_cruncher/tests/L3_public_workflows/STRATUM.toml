@@ -30,7 +30,7 @@ name = "Design And PCB SVG Workflows"
 description = "Run design and pcb-svg commands against public KiCad projects and validate outputs"
 concerns = ["cli", "contracts", "release"]
 test_case_type = "reference"
-test_cases = "tmp_path synthetic KiCad project; tests/corpus/kicad/board_svg/input/led_component; tests/corpus/kicad/projects/taillight/input; tests/corpus/kicad/projects/charge_indicator/input; tests/corpus/kicad/projects/yoshi_mainboard/input; tests/corpus/kicad/projects/speedy_processing_module/input; tests/corpus/kicad/projects/cutout_test"
+test_cases = "tmp_path synthetic KiCad project; tests/corpus/kicad/projects/hlr_test; tests/corpus/kicad/projects/taillight/input; tests/corpus/kicad/projects/charge_indicator/input; tests/corpus/kicad/projects/yoshi_mainboard/input; tests/corpus/kicad/projects/speedy_processing_module/input; tests/corpus/kicad/projects/cutout_test"
 
 [subtests.code_under_test]
 module = "kicad_cruncher.kicad_cruncher_cmd_design"
