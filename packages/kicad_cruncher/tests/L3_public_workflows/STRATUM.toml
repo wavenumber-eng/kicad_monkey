@@ -11,6 +11,7 @@ objectives = [
     "Copied KiCad Monkey corpus projects exercise real KiCad files",
     "PCB review records distinguish plated and non-plated drill features",
     "PCB SVG workflows exercise config-driven layer outputs and geometer HLR",
+    "PCB SVG cutout views detect closed Edge.Cuts circles, rectangles, polygons, lines, arcs, and curves",
 ]
 
 [dependencies]
@@ -24,7 +25,7 @@ name = "Design And PCB SVG Workflows"
 description = "Run design and pcb-svg commands against public KiCad projects and validate outputs"
 concerns = ["cli", "contracts", "release"]
 test_case_type = "reference"
-test_cases = "tmp_path synthetic KiCad project; tests/corpus/kicad/board_svg/input/led_component; tests/corpus/kicad/projects/taillight/input; tests/corpus/kicad/projects/charge_indicator/input; tests/corpus/kicad/projects/yoshi_mainboard/input; tests/corpus/kicad/projects/speedy_processing_module/input"
+test_cases = "tmp_path synthetic KiCad project; tests/corpus/kicad/board_svg/input/led_component; tests/corpus/kicad/projects/taillight/input; tests/corpus/kicad/projects/charge_indicator/input; tests/corpus/kicad/projects/yoshi_mainboard/input; tests/corpus/kicad/projects/speedy_processing_module/input; tests/corpus/kicad/projects/cutout_test"
 
 [subtests.code_under_test]
 module = "kicad_cruncher.kicad_cruncher_cmd_design"
@@ -40,6 +41,7 @@ index_policy = "design honors --no-indexes"
 pcb_svg_outputs = "pcb-svg writes manifests, layer SVGs, and configured views"
 pcb_svg_hlr = "pcb-svg assembly views include geometer-backed HLR overlays"
 review_drill_plating = "design review SVG records keep PTH and NPTH pad drills distinct"
+pcb_svg_cutouts = "pcb-svg BOARD_CUTOUTS detects closed Edge.Cuts regions and ignores open shapes"
 
 [subtests.approach]
 subprocess_cli = "Invoke public CLI commands through the current Python environment"
@@ -52,4 +54,6 @@ test_design_review_pcb_records_distinguish_pth_and_npth_pads = "Verify review PC
 test_design_command_can_auto_detect_single_project = "Generate design JSON by auto-detecting one project"
 test_design_command_rejects_pcb_only_input = "Reject PCB-only input for schematic-backed design JSON"
 test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config = "Generate PCB SVG layer outputs and a configured view"
+test_pcb_svg_board_cutouts_detect_generic_internal_closed_regions = "Detect generic closed internal Edge.Cuts regions in a synthetic board"
+test_pcb_svg_cutout_project_detects_generalized_edge_cut_regions = "Detect closed cutout primitives in the cutout_test corpus board while ignoring open shapes"
 test_pcb_svg_assembly_view_uses_geometer_hlr = "Generate assembly HLR SVG using an embedded STEP model"

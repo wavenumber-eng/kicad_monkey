@@ -446,14 +446,14 @@ def _append_pin1_markers(
 
 def _classify_edge_cut_regions(pcb: KiCadPcb) -> list[_BoardRegion]:
     regions: list[_BoardRegion] = []
-    regions.extend(_closed_regions_from_line_arc_loops(pcb))
+    regions.extend(_closed_regions_from_open_segment_loops(pcb))
     regions.extend(_closed_regions_from_rects(pcb))
     regions.extend(_closed_regions_from_circles(pcb))
     regions.extend(_closed_regions_from_polys(pcb))
     return [region for region in regions if region.area > _MIN_REGION_AREA_MM2]
 
 
-def _closed_regions_from_line_arc_loops(pcb: KiCadPcb) -> list[_BoardRegion]:
+def _closed_regions_from_open_segment_loops(pcb: KiCadPcb) -> list[_BoardRegion]:
     segments: list[_EdgeSegment] = []
     for line in getattr(pcb, "gr_lines", []) or []:
         if str(getattr(line, "layer", "")) != _EDGE_CUTS_LAYER:
@@ -476,6 +476,19 @@ def _closed_regions_from_line_arc_loops(pcb: KiCadPcb) -> list[_BoardRegion]:
                 points=_sample_arc_points(arc),
                 source_kind="gr_arc",
                 source_id=str(getattr(arc, "uuid", "") or ""),
+            )
+        )
+    for curve in getattr(pcb, "gr_curves", []) or []:
+        if str(getattr(curve, "layer", "")) != _EDGE_CUTS_LAYER:
+            continue
+        points = _sample_curve_points(curve)
+        if len(points) < 2:
+            continue
+        segments.append(
+            _EdgeSegment(
+                points=points,
+                source_kind="gr_curve",
+                source_id=str(getattr(curve, "uuid", "") or ""),
             )
         )
     return _assemble_closed_segment_regions(segments)
@@ -661,6 +674,39 @@ def _sample_arc_points(arc: object) -> list[tuple[float, float]]:
         )
         for index in range(samples)
     ]
+
+
+def _sample_curve_points(curve: object) -> list[tuple[float, float]]:
+    raw_points = getattr(curve, "points", []) or []
+    points = [(float(x), float(y)) for x, y in raw_points[:4]]
+    if len(points) != 4:
+        return points
+
+    p0, p1, p2, p3 = points
+    control_length = (
+        math.dist(p0, p1)
+        + math.dist(p1, p2)
+        + math.dist(p2, p3)
+    )
+    samples = max(8, min(128, int(control_length / 0.5) + 2))
+    result: list[tuple[float, float]] = []
+    for index in range(samples):
+        t = index / (samples - 1)
+        omt = 1.0 - t
+        x = (
+            omt**3 * p0[0]
+            + 3.0 * omt**2 * t * p1[0]
+            + 3.0 * omt * t**2 * p2[0]
+            + t**3 * p3[0]
+        )
+        y = (
+            omt**3 * p0[1]
+            + 3.0 * omt**2 * t * p1[1]
+            + 3.0 * omt * t**2 * p2[1]
+            + t**3 * p3[1]
+        )
+        result.append((x, y))
+    return result
 
 
 def _circle_from_three_points(

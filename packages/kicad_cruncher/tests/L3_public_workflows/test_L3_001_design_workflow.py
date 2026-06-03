@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,9 @@ _CORPUS_ROOT = _PROJECT_ROOT / "tests" / "corpus" / "kicad"
 _SVG_COLOR_RE = re.compile(r"#[0-9A-Fa-f]{6}")
 _CORPUS_LED_PCB = (
     _CORPUS_ROOT / "board_svg" / "input" / "led_component" / "led_component.kicad_pcb"
+)
+_CORPUS_CUTOUT_TEST_PCB = (
+    _CORPUS_ROOT / "projects" / "cutout_test" / "cutout_test.kicad_pcb"
 )
 _CORPUS_PROJECT_CASES = (
     pytest.param(
@@ -667,6 +671,57 @@ def test_pcb_svg_board_cutouts_detect_generic_internal_closed_regions(tmp_path: 
     assert 'data-source-kinds="gr_arc+gr_line"' in svg
     assert 'data-source-kinds="gr_circle"' in svg
     assert 'data-source-kinds="gr_rect"' not in svg
+
+
+def test_pcb_svg_cutout_project_detects_generalized_edge_cut_regions(
+    tmp_path: Path,
+) -> None:
+    """Verify the cutout signoff fixture detects closed Edge.Cuts primitives only."""
+    config_path = _write_pcb_svg_virtual_config(tmp_path)
+    output_dir = tmp_path / "pcb-svg"
+
+    result = _run_cli(
+        "pcb-svg",
+        str(_CORPUS_CUTOUT_TEST_PCB),
+        "--config",
+        str(config_path),
+        "--views",
+        "cutouts",
+        "-o",
+        str(output_dir),
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    svg = (output_dir / "views" / "cutout_test__board_cutouts.svg").read_text(
+        encoding="utf-8"
+    )
+    assert 'id="board-cutout-hatch"' in svg
+    assert 'data-layer-token="BOARD_CUTOUTS"' in svg
+    assert 'data-cutout-count="8"' in svg
+    root = ET.fromstring(svg)
+    cutout_elements = [
+        element
+        for element in root.iter()
+        if element.attrib.get("data-feature") == "board-cutout"
+    ]
+    assert len(cutout_elements) == 8
+    assert Counter(
+        element.attrib.get("data-source-kinds") for element in cutout_elements
+    ) == Counter(
+        {
+            "gr_rect": 2,
+            "gr_arc+gr_line": 2,
+            "gr_circle": 1,
+            "gr_curve": 1,
+            "gr_line": 1,
+            "gr_poly": 1,
+        }
+    )
+    source_uuids = ",".join(
+        element.attrib.get("data-source-uuids", "") for element in cutout_elements
+    )
+    assert "2f5a58a7-37b3-4cdf-a529-a917340a8c17" not in source_uuids
+    assert "1b50bc9f-2d6e-41c9-a172-e3815c9c4059" not in source_uuids
 
 
 def test_pcb_svg_pin1_view_uses_virtual_markers_and_enriched_drill_metadata(
