@@ -23,9 +23,9 @@ def _project_root() -> Path:
 
 
 PACKAGE_ROOT = _project_root()
-EXPECTED_VERSION = "2026.6.3"
-EXPECTED_RELEASE_DATE = date(2026, 6, 3)
-EXPECTED_RELEASE_NOTE = PACKAGE_ROOT / "docs" / "releases" / "2026-06-03.md"
+EXPECTED_VERSION = "2026.6.4"
+EXPECTED_RELEASE_DATE = date(2026, 6, 4)
+EXPECTED_RELEASE_NOTE = PACKAGE_ROOT / "docs" / "releases" / "2026-06-04.md"
 CONTROLLED_DEPENDENCIES = {"kicad-monkey": "2026.6.3", "wn-geometer": "2026.5.25"}
 
 
@@ -40,7 +40,7 @@ def test_version_contract_matches_date_based_release() -> None:
     assert (version.major, version.minor, version.patch, version.build) == (
         2026,
         6,
-        3,
+        4,
         None,
     )
     assert version.release_date == EXPECTED_RELEASE_DATE

@@ -19,11 +19,23 @@ from typing import cast
 from colorama import Fore, Style
 
 from kicad_cruncher._version import cli_version_report, cli_version_text
+from kicad_cruncher.kicad_cruncher_cmd_bom import (
+    register_parser as register_bom_parser,
+)
 from kicad_cruncher.kicad_cruncher_cmd_design import (
     register_parser as register_design_parser,
 )
+from kicad_cruncher.kicad_cruncher_cmd_jlc import (
+    register_parser as register_jlc_parser,
+)
+from kicad_cruncher.kicad_cruncher_cmd_pcb_layer_step import (
+    register_parser as register_pcb_layer_step_parser,
+)
 from kicad_cruncher.kicad_cruncher_cmd_pcb_svg import (
     register_parser as register_pcb_svg_parser,
+)
+from kicad_cruncher.kicad_cruncher_cmd_pnp import (
+    register_parser as register_pnp_parser,
 )
 from kicad_cruncher.logging_utils import setup_cli_logging
 
@@ -179,8 +191,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         subparsers,
     )
 
+    register_bom_parser(command_subparsers)
     register_design_parser(command_subparsers)
+    register_jlc_parser(command_subparsers)
+    register_pcb_layer_step_parser(command_subparsers)
     register_pcb_svg_parser(command_subparsers)
+    register_pnp_parser(command_subparsers)
     version_parser = command_subparsers.add_parser("version", help="Print version information")
     version_parser.set_defaults(handler=_cmd_version)
     _configure_root_help_color(parser, command_subparsers)

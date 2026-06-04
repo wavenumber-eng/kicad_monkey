@@ -319,7 +319,7 @@ def parse_pcb_layer_selector(raw_layers: str | None) -> list[str] | None:
 
 
 def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
-    """Return the default A0 style table shared with Altium-style configs."""
+    """Return the default A0 style table for configured PCB SVG views."""
     return {
         "board_outline": {
             "enabled": True,

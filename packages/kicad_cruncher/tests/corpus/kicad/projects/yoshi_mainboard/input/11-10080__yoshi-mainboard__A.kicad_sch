@@ -18861,6 +18861,14 @@
 				(path "/9c364ced-18a6-4ae5-ad14-4d1d20cac7b6"
 					(reference "U2")
 					(unit 1)
+					(variant
+						(name "ADXL355")
+						(dnp no)
+					)
+					(variant
+						(name "IIM42352")
+						(dnp yes)
+					)
 				)
 			)
 		)
@@ -23401,6 +23409,14 @@
 				(path "/9c364ced-18a6-4ae5-ad14-4d1d20cac7b6"
 					(reference "U3")
 					(unit 1)
+					(variant
+						(name "ADXL355")
+						(dnp yes)
+					)
+					(variant
+						(name "IIM42352")
+						(dnp no)
+					)
 				)
 			)
 		)

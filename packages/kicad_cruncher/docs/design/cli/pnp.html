@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>pnp command</title><link rel="stylesheet" href="../styles.css"></head>
+<body data-doc-kind="cli-design" data-command="pnp" data-config-contract="docs/contracts/bom_pnp_config.v1.schema.json">
+<main>
+<nav class="nav"><a href="../index.html">Design Index</a><a href="index.html">CLI</a></nav>
+<header><p class="status">CLI command design</p><h1>pnp</h1><p class="lede">Exports pick-and-place placement data from KiCad project or PCB inputs using the shared BOM/PnP normalization layer for canonical parameter fields, stable sorting, JSON, CSV, XLSX, and JLC CPL output.</p></header>
+<section id="usage"><h2>Usage</h2><pre><code>kicad-cruncher pnp project.kicad_pro --format json -o output/pnp
+kicad-cruncher pnp project.kicad_pro --format csv
+kicad-cruncher pnp project.kicad_pro --format xlsx
+kicad-cruncher pnp project.kicad_pro --format jlc-cpl
+kicad-cruncher pnp project.kicad_pro --format jlc-cpl-xlsx
+kicad-cruncher pnp project.kicad_pro --position-mode component-center
+kicad-cruncher pnp --write-config bom.config
+kicad-cruncher pnp project.kicad_pro --config bom.config</code></pre></section>
+<section id="arguments"><h2>Arguments</h2><p><code>file</code> is a <code>.kicad_pro</code> or <code>.kicad_pcb</code>. <code>--format</code> selects one legacy output format and overrides multi-output config mode. <code>--config</code> loads the shared BOM/PnP JSON or JSONC config; if omitted, <code>bom.config</code> in the working directory is used when present. <code>--write-config</code> writes the documented default JSONC config. <code>--units</code> selects <code>mm</code> or <code>mils</code>; JLC CPL output requires <code>mm</code>. <code>--position-mode</code> defaults to <code>component-center</code>, the only KiCad mode currently documented and accepted. It resolves to KiCad's footprint placement point, not a separate geometric centroid, exported relative to KiCad's aux axis origin, also called the drill/place file origin, with the same coordinate convention used by appz <code>bom_cruncher</code>. <code>--variant</code>, <code>--all-variants</code>, and <code>--exclude-no-bom</code> control variant and component inclusion.</p></section>
+<section id="config"><h2>Config</h2><p>The generated <code>bom.config</code> is shared with the BOM and JLC commands and starts with one block-comment documentation header. <code>pnp.outputs</code> can emit <code>json</code>, <code>csv</code>, <code>xlsx</code>, <code>jlc-cpl</code>, and <code>jlc-cpl-xlsx</code>. <code>pnp.output_fields</code> controls generic table columns. Supported generated fields are <code>designator</code>, <code>comment</code>, <code>layer</code>, <code>footprint</code>, <code>center_x</code>, <code>center_y</code>, <code>rotation</code>, <code>units</code>, and <code>description</code>. Configured table columns can also include canonical fields such as <code>manufacturer</code>, <code>manufacturer_part_number</code>, <code>jlcpcb_part_number</code>, and <code>value</code>; aliases such as <code>mfg</code>, <code>mpn</code>, <code>part_number</code>, and <code>pn</code>; or exact raw KiCad parameter names. JLC CPL ignores <code>pnp.output_fields</code> and always emits <code>Designator</code>, <code>Layer</code>, <code>Mid X</code>, <code>Mid Y</code>, and <code>Rotation</code>. <code>layer_order</code> and <code>prefix_order</code> control stable placement sorting.</p></section>
+<section id="output"><h2>Output</h2><p>Legacy output is written under the selected output directory. Config output uses shared output path templates and can emit <code>json</code>, <code>csv</code>, <code>xlsx</code>, <code>jlc-cpl</code>, and <code>jlc-cpl-xlsx</code> in one run. JSON includes normalized placement records with canonical fields, units, selected position mode, and aux-axis/drill-place-origin-relative coordinates. JLC CPL outputs emit <code>Designator</code>, <code>Layer</code>, <code>Mid X</code>, <code>Mid Y</code>, and <code>Rotation</code>. Configured outputs write <code>bom.config.used.json</code> beside generated artifacts.</p></section>
+<section id="tests"><h2>Tests</h2><p>L0 verifies command registration and help. L3 workflow coverage exercises Yoshi PnP variants, top-before-bottom sorting, natural designator sorting, JSON payload shape, table rows, XLSX generation, and JLC CPL rows.</p></section>
+</main>
+</body>
+</html>

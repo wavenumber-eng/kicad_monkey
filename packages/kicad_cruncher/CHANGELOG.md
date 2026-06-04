@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.6.4
+
+- Add initial public BOM, PnP, and JLC manufacturing output support with shared
+  JSONC config, field alias coalescing, variant-aware DNP handling, grouped
+  BOM review outputs, and JLC BOM/CPL XLSX generation.
+- Add `pcb-layer-step` fixture-alignment STEP output for KiCad PCB layers,
+  including configurable copper bodies, board outline/cutout bodies, drill
+  overlays, fused copper review output, and pad/via trace clipping.
+- Keep `pcb-svg` as a preview feature while continuing real-board coverage for
+  configured views, assembly overlays, virtual layers, and designator rendering.
+- Release `kicad-cruncher` version `2026.6.4` against
+  `kicad-monkey==2026.6.3` and `wn-geometer==2026.5.25`.
+
 ## 2026.6.3
 
 - Release `kicad-cruncher` against `kicad-monkey==2026.6.3`.

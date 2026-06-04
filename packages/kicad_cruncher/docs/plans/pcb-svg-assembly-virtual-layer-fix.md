@@ -247,7 +247,7 @@ It includes non-copper graphics/text and is not the requested fallback.
 
 ### 6. Component And Group Selection
 
-Keep Altium Cruncher terminology where practical:
+Keep the configured view terminology consistent:
 
 - [x] default view mode: `detail`, `simple`, `bounding_box`, or `none`
 - [x] component overrides by exact designator continue to work

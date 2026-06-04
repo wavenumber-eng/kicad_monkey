@@ -19,10 +19,12 @@ The first runtime dependency set is intentionally narrow:
 
 - `kicad-monkey==2026.6.3`
 - `wn-geometer==2026.5.25`
+- `openpyxl>=3.1.0`
 - `colorama>=0.4.6`
 
 `wn-geometer` is included for the public `pcb-svg` command's assembly HLR
 projection path. It remains a pinned controlled Wavenumber dependency.
+`openpyxl` is included for public BOM, PnP, and JLC XLSX workbook outputs.
 
 The top-level CLI stays an orchestrator. Command behavior lives in
 command-specific modules named `kicad_cruncher_cmd_<command>.py`.

@@ -4,8 +4,9 @@
 workflows. It consumes the public `kicad-monkey` package and keeps higher-level
 CLI behavior outside the core parser package.
 
-The initial public commands generate KiCad-native design review bundles and PCB
-SVG artifacts from public `kicad-monkey` parsers/renderers.
+The public commands generate KiCad-native design review bundles, PCB SVG/STEP
+review artifacts, and initial BOM/PnP/JLC manufacturing outputs from public
+`kicad-monkey` parsers/renderers.
 
 ## Install
 
@@ -43,8 +44,12 @@ Run `kicad-cruncher <command> --help` for command-specific options.
 
 | Command | Purpose | Status |
 | --- | --- | --- |
+| `bom` | Generate KiCad BOM outputs with shared field alias coalescing, variant-aware DNP handling, grouped JSON/CSV/XLSX review tables, and JLC BOM rows. | Public |
 | `design` / `design-review` / `dr` | Generate a design review bundle with KiCad-native design JSON, schematic SVGs, PCB copper-layer SVGs, a manifest, and a README for agents. | Public |
+| `jlc` | Generate paired JLCPCB BOM XLSX and CPL XLSX upload workbooks from the shared BOM/PnP normalization layer. | Public |
+| `pcb-layer-step` | Generate compact colored STEP models for fixture-alignment checks on one KiCad PCB layer. | Public |
 | `pcb-svg` | Generate PCB layer SVG artifacts and configured design views, including geometer-backed assembly HLR overlays. | Public |
+| `pnp` | Generate KiCad pick-and-place JSON, CSV, XLSX, and JLC CPL outputs using component-center coordinates relative to the aux axis/drill-place file origin. | Public |
 | `version` | Print `kicad-cruncher` and controlled dependency versions. | Public |
 
 The `design` command writes to `./output/design/` by default. Its aliases
@@ -74,7 +79,7 @@ the `kicad-monkey` plating metadata.
 
 The `pcb-svg` command writes to `./output/pcb-svg/` by default and uses
 `pcb.svg.config` JSON/JSONC configs compatible with the A0 PCB SVG view
-contract. This is a preview feature in the `2026.6.3` release: SVG structure,
+contract. This is a preview feature in the `2026.6.4` release: SVG structure,
 virtual-layer metadata, default views, and config controls may change as more
 real-world boards are tested.
 
@@ -98,6 +103,35 @@ boxes with aspect-preserving fitted
 90 degrees in the configurable `ccw`/`cw` direction when their fitted bounds
 exceed the configurable height/width aspect threshold. Assembly designator
 style overrides can target exact refs, prefixes, wildcards, or ranges.
+
+The `bom`, `pnp`, and `jlc` commands provide initial KiCad manufacturing output
+support. They share a documented `bom.config` JSONC file with a top block
+comment, field aliases for manufacturer/part/JLC/value/description/footprint
+parameters, variant selection, DNP policy, grouping fields, PnP table fields,
+and output path templates.
+
+```powershell
+kicad-cruncher bom project.kicad_pro
+kicad-cruncher pnp project.kicad_pro --format xlsx
+kicad-cruncher jlc project.kicad_pro --variant ADXL355
+kicad-cruncher bom --write-config bom.config
+```
+
+PnP and JLC CPL output use the documented `component-center` mode, which maps to
+KiCad's footprint placement point relative to the aux axis, also called the
+drill/place file origin. Alternate geometric centroid modes are not exposed in
+this release.
+
+The `pcb-layer-step` command writes fixture-alignment STEP artifacts under
+`./output/pcb-layer-step/` by default. The generated config is intentionally
+comment-heavy and can enable tracks, arcs, poured copper, vias, component pads,
+board outline/cutout bodies, drill overlays, and fused copper review bodies.
+
+```powershell
+kicad-cruncher pcb-layer-step board.kicad_pcb
+kicad-cruncher pcb-layer-step project.kicad_pro --doc board.kicad_pcb --layer bottom
+kicad-cruncher pcb-layer-step --init-config --config pcb-layer-step.json
+```
 
 ## Output Layout
 

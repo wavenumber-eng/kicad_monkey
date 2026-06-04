@@ -3278,6 +3278,14 @@
 		(path "/bb868160-d8d2-4a64-b601-3ad974d883ab")
 		(sheetname "/")
 		(sheetfile "11-10080__yoshi-mainboard__A.kicad_sch")
+		(variant
+			(name "ADXL355")
+			(dnp yes)
+		)
+		(variant
+			(name "IIM42352")
+			(dnp no)
+		)
 		(fp_line
 			(start 0.925 -1.25)
 			(end 1.5 -1.25)
@@ -9513,6 +9521,14 @@
 		(sheetname "/")
 		(sheetfile "11-10080__yoshi-mainboard__A.kicad_sch")
 		(attr dnp)
+		(variant
+			(name "ADXL355")
+			(dnp no)
+		)
+		(variant
+			(name "IIM42352")
+			(dnp yes)
+		)
 		(fp_line
 			(start -3.175 -3.15)
 			(end -3.175 -2.45)

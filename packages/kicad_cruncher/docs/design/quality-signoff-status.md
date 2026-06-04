@@ -1,6 +1,6 @@
 # Quality Signoff Status
 
-Status date: 2026-05-31
+Status date: 2026-06-04
 
 The initial public bootstrap has no accepted Python source debt in the package
 modules. L99 signoff runs:
@@ -12,9 +12,11 @@ modules. L99 signoff runs:
 - package-wide ruff;
 - package-wide pyright.
 
-The first command, `design`, is backed by public synthetic and copied KiCad
-fixtures and uses the public `kicad-monkey` design JSON API. The `pcb-svg`
-command is backed by copied KiCad PCB corpus fixtures and uses the A0
-`pcb.svg.config` contract plus `wn-geometer` for assembly HLR overlays.
+The public commands are backed by synthetic and copied KiCad fixtures. `design`
+uses the public `kicad-monkey` design JSON API, `pcb-svg` uses the A0
+`pcb.svg.config` contract plus `wn-geometer` for assembly HLR overlays,
+`pcb-layer-step` validates fixture-alignment STEP requests at the Geometer
+boundary, and the initial `bom`, `pnp`, and `jlc` manufacturing commands
+exercise variant-aware Yoshi outputs through the shared BOM/PnP config contract.
 Output-producing commands default to `./output/<command>/`, with explicit
 `-o/--output` values replacing the command directory.

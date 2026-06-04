@@ -693,7 +693,16 @@
       }
     ],
     "used_designators": "",
-    "variants": []
+    "variants": [
+      {
+        "description": "Fit the ADXL355 accelerometer option",
+        "name": "ADXL355"
+      },
+      {
+        "description": "Fit the IIM-42352 accelerometer option",
+        "name": "IIM42352"
+      }
+    ]
   },
   "sheets": [
     [

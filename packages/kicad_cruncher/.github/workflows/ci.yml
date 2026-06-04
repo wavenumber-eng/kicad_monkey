@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.12"]
 
     steps:
@@ -29,4 +29,3 @@ jobs:
         run: uv run --extra test twine check dist/*
       - name: Run installed console test
         run: uv run --extra test python tests/support_scripts/install_test.py
-

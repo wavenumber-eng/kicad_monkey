@@ -712,7 +712,7 @@ def test_pcb_svg_layer_context_and_virtual_outputs_can_be_disabled(
     assert 'data-layer-token="SLOTS"' not in front_layer_svg
 
 
-def test_pcb_svg_default_config_exposes_altium_style_virtual_views() -> None:
+def test_pcb_svg_default_config_exposes_review_virtual_views() -> None:
     """Verify the default A0 config includes the expected virtual layer views."""
     config = _PcbSvgConfig.default()
     views = {view.name: view for view in config.views}

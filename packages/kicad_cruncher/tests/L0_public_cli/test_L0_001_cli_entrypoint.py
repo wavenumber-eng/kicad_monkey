@@ -111,6 +111,16 @@ def test_pcb_svg_help_describes_config_and_hlr() -> None:
     assert ".kicad_pcb" in result.stdout
 
 
+def test_pcb_layer_step_help_describes_fixture_step_config() -> None:
+    """Verify pcb-layer-step help explains fixture-alignment STEP behavior."""
+    result = _run_cli("pcb-layer-step", "--help")
+
+    assert result.returncode == 0, result.stderr
+    assert "fixture-alignment model" in result.stdout
+    assert "pcb-layer-step.json" in result.stdout
+    assert ".kicad_pcb" in result.stdout
+
+
 def test_cli_help_lists_commands_alphabetically() -> None:
     """Verify that root help presents commands in alphabetical order."""
     expected_commands = _manifest_commands()
@@ -136,15 +146,20 @@ def test_cli_help_colorizes_root_command_names_with_kicad_amber() -> None:
             "  <command>             Available commands",
             "    design (design-review, dr)",
             "                        generate KiCad design review artifacts",
+            "    pcb-layer-step      generate a colored STEP model",
             "    pcb-svg             generate PCB SVG layer outputs",
             "    version             Print version information",
         ]
     )
 
-    colored = _color_command_names_in_help(help_text, ("design", "pcb-svg", "version"))
+    colored = _color_command_names_in_help(
+        help_text,
+        ("design", "pcb-layer-step", "pcb-svg", "version"),
+    )
     color = f"{Style.BRIGHT}{Fore.YELLOW}"
 
     assert f"    {color}design{Style.RESET_ALL} (design-review, dr)" in colored
+    assert f"    {color}pcb-layer-step{Style.RESET_ALL}      generate" in colored
     assert f"    {color}pcb-svg{Style.RESET_ALL}             generate" in colored
     assert f"    {color}version{Style.RESET_ALL}             Print" in colored
 

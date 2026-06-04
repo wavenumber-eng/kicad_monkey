@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/wavenumber-eng/kicad_cruncher/docs/contracts/bom_pnp_config.v1.schema.json",
+  "title": "KiCad Cruncher BOM/PnP Config",
+  "description": "JSON or JSONC configuration shared by the bom, pnp, and jlc commands. Generated templates keep explanatory block comments at the top; effective config snapshots are plain JSON.",
+  "type": "object",
+  "required": ["schema"],
+  "properties": {
+    "schema": {
+      "description": "Version marker for the BOM/PnP/JLC config contract.",
+      "const": "kicad_cruncher.bom.config.v1"
+    },
+    "field_aliases": {
+      "description": "Canonical manufacturing field aliases. Parameter aliases are matched case-insensitively and fall back to intrinsic fields such as value, footprint, and description.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"type": "string"}
+      }
+    },
+    "variants": {
+      "description": "Variant selection policy used when CLI --variant or --all-variants is not supplied.",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "base emits the no-variant base, all emits base plus discovered variants when include_base is true, and named emits variants.names.",
+          "enum": ["base", "all", "named"],
+          "default": "all"
+        },
+        "names": {
+          "description": "Variant names used when mode is named.",
+          "type": "array",
+          "items": {"type": "string"},
+          "default": []
+        },
+        "include_base": {
+          "description": "Include the no-variant base output when mode is all.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "bom": {
+      "description": "Bill-of-materials source, grouping, DNP, and output settings. KiCad DNP state can come from symbol DNP, footprint dnp attributes, or selected variant overrides. BOM eligibility is separate from DNP state.",
+      "type": "object",
+      "properties": {
+        "source_mode": {
+          "description": "schematic uses variant-resolved schematic data, pcb derives lines from placement-eligible footprints, and merged is accepted but currently resolves like schematic in the KiCad command path.",
+          "enum": ["schematic", "pcb", "merged"],
+          "default": "schematic"
+        },
+        "outputs": {
+          "description": "One or more BOM artifacts to emit in config-driven mode.",
+          "type": "array",
+          "items": {
+            "enum": [
+              "raw-json",
+              "legacy-json",
+              "grouped-json",
+              "grouped-csv",
+              "grouped-xlsx",
+              "jlc-csv",
+              "jlc-xlsx"
+            ]
+          },
+          "default": ["raw-json", "grouped-xlsx"]
+        },
+        "group_fields": {
+          "description": "Canonical fields that must match before components collapse into one grouped BOM line. Defaults group by manufacturer, manufacturer part number, and description through the aliases mfg, mpn, and description. If all configured group fields are empty for a component, grouping falls back to value, footprint, and description. When split_dnp is true, DNP state is also part of the grouping key.",
+          "type": "array",
+          "items": {"type": "string"},
+          "default": ["mfg", "mpn", "description"]
+        },
+        "output_fields": {
+          "description": "Columns written by grouped BOM table outputs. Supported generated fields include item, quantity, designators, and dnp. Supported canonical fields include manufacturer, manufacturer_part_number, jlcpcb_part_number, value, description, and footprint. Table aliases include mfg, mpn, qty, part_number, and pn.",
+          "type": "array",
+          "items": {"type": "string"},
+          "default": ["mfg", "mpn", "description", "quantity", "designators"]
+        },
+        "include_dnp": {
+          "description": "Keep DNP components in normalized and grouped BOM outputs when they are otherwise BOM-eligible.",
+          "type": "boolean",
+          "default": true
+        },
+        "split_dnp": {
+          "description": "Keep fitted and DNP components in separate grouped BOM lines even when group_fields match.",
+          "type": "boolean",
+          "default": true
+        },
+        "dnp_placement": {
+          "description": "Where grouped DNP lines are placed relative to populated rows. inline places matching DNP lines after their fitted peer, end moves all DNP lines after fitted lines, and separate currently uses the same ordering as end.",
+          "enum": ["inline", "end", "separate"],
+          "default": "inline"
+        },
+        "highlight_dnp_rows": {
+          "description": "Highlight DNP rows in XLSX review outputs.",
+          "type": "boolean",
+          "default": true
+        },
+        "prefix_order": {
+          "description": "Optional natural-sort prefix priority shared with PnP when pnp.prefix_order is omitted.",
+          "type": "array",
+          "items": {"type": "string"},
+          "default": []
+        },
+        "pcb_line_item": {
+          "description": "Optional synthetic PCB line item for grouped BOM outputs.",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Whether to append a synthetic PCB line item.",
+              "type": "boolean",
+              "default": false
+            },
+            "designator": {
+              "description": "Designator used for the synthetic PCB line.",
+              "type": "string",
+              "default": "PCB"
+            },
+            "fields": {
+              "description": "Canonical field values for the synthetic PCB line. Values can use project/output template expressions.",
+              "type": "object",
+              "additionalProperties": {"type": "string"},
+              "default": {}
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "pnp": {
+      "description": "Pick-and-place placement, sorting, coordinate, and JLC CPL settings. DNP parts are always omitted from PnP/CPL; exclude_no_bom also omits placement-eligible parts that are not BOM-eligible.",
+      "type": "object",
+      "properties": {
+        "outputs": {
+          "description": "One or more PnP artifacts to emit in config-driven mode.",
+          "type": "array",
+          "items": {"enum": ["json", "csv", "xlsx", "jlc-cpl", "jlc-cpl-xlsx"]},
+          "default": ["json", "csv"]
+        },
+        "output_fields": {
+          "description": "Columns written by generic PnP CSV/XLSX table outputs. Generated virtual fields include designator, comment, layer, footprint, center_x, center_y, rotation, units, and description. Canonical fields and aliases such as value, manufacturer, manufacturer_part_number, jlcpcb_part_number, mfg, and mpn are also allowed, as are exact raw KiCad parameter names. JLC CPL outputs ignore this list and always emit Designator, Layer, Mid X, Mid Y, and Rotation.",
+          "type": "array",
+          "items": {"type": "string"},
+          "default": [
+            "designator",
+            "comment",
+            "layer",
+            "footprint",
+            "center_x",
+            "center_y",
+            "rotation",
+            "description"
+          ]
+        },
+        "units": {
+          "description": "Coordinate units for PnP output. JLC CPL outputs require mm.",
+          "enum": ["mm", "mils"],
+          "default": "mm"
+        },
+        "position_mode": {
+          "description": "Placement position mode. component-center is the only KiCad mode currently documented and accepted. It uses the KiCad footprint placement point, not a separate geometric centroid, relative to the aux axis / drill-place file origin.",
+          "enum": ["component-center"],
+          "default": "component-center"
+        },
+        "exclude_no_bom": {
+          "description": "Omit placement-eligible parts that are not BOM-eligible, such as NO_BOM connector pads. DNP parts are omitted from PnP/CPL regardless of this setting.",
+          "type": "boolean",
+          "default": false
+        },
+        "layer_order": {
+          "description": "Layer sorting priority for PnP outputs.",
+          "type": "array",
+          "items": {"type": "string"},
+          "default": ["top", "bottom"]
+        },
+        "prefix_order": {
+          "description": "Optional designator-prefix sorting priority for PnP outputs.",
+          "type": "array",
+          "items": {"type": "string"},
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "description": "Output path templates used in config-driven mode.",
+      "type": "object",
+      "properties": {
+        "dir_template": {
+          "description": "Directory template relative to the selected output root. Supports project text variables plus Command, OutputKind, SourceName, SourceStem, and VariantName.",
+          "type": "string",
+          "default": "{Command}"
+        },
+        "name_template": {
+          "description": "Filename stem template without extension. Supports project text variables plus Command, OutputKind, SourceName, SourceStem, and VariantName.",
+          "type": "string",
+          "default": "{SourceStem}_{VariantName}_{OutputKind}"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
