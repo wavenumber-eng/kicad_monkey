@@ -17,6 +17,7 @@ objectives = [
     "PCB SVG layer outputs keep raw physical layers separate from computed virtual layers",
     "PCB SVG physical layer outputs include configurable Edge.Cuts, drill, and slot context overlays",
     "PCB SVG standalone virtual layer files can be disabled independently from physical context overlays",
+    "PCB clean dry-run reports selected layer cleanup candidates and protected fields from public fixtures",
 ]
 
 [dependencies]
@@ -70,3 +71,29 @@ test_pcb_svg_yoshi_board_outline_loop_survives_arc_float_noise = "Verify yoshi's
 test_pcb_svg_board_cutouts_detect_generic_internal_closed_regions = "Detect generic closed internal Edge.Cuts regions in a synthetic board"
 test_pcb_svg_cutout_project_detects_generalized_edge_cut_regions = "Detect closed cutout primitives in the cutout_test corpus board while ignoring open shapes"
 test_pcb_svg_assembly_view_uses_geometer_hlr = "Generate assembly HLR SVG using an embedded STEP model"
+
+[[subtests]]
+id = "L3_004"
+file = "test_L3_004_pcb_clean_workflow.py"
+name = "PCB Clean Planning Workflow"
+description = "Run pcb clean dry-run against public KiCad fixtures and validate cleanup selection reports"
+concerns = ["cli", "contracts", "release"]
+test_case_type = "reference"
+test_cases = "tests/corpus/kicad/projects/hlr_test"
+
+[subtests.code_under_test]
+module = "kicad_cruncher.kicad_cruncher_pcb_clean"
+cli_module = "kicad_cruncher.kicad_cruncher_cmd_pcb"
+
+[subtests.objectives]
+fixture_selection = "PCB clean reports deterministic user-layer resets and footprint-local cleanup candidates"
+project_resolution = "PCB clean resolves .kicad_pro input to the sibling .kicad_pcb file"
+config_switches = "PCB clean JSONC config disables cleanup target classes without mutating the board"
+
+[subtests.approach]
+subprocess_cli = "Invoke public CLI commands through the current Python environment"
+
+[subtests.test_functions]
+test_pcb_clean_dry_run_reports_fixture_cleanup_candidates = "Verify dry-run JSON from a real public board"
+test_pcb_clean_resolves_project_input_to_sibling_board = "Verify project input resolves to the sibling board"
+test_pcb_clean_config_can_disable_cleanup_target_classes = "Verify target switches suppress candidate selection"

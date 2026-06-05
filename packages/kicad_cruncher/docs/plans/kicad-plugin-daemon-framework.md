@@ -289,11 +289,11 @@ tool-oriented layout.
 
 ### 1. Durable Design
 
-- [ ] Add an ADR for plugin and daemon ownership.
-- [ ] Add daemon architecture/design docs.
-- [ ] Add plugin install contract docs.
-- [ ] Add the CLI/config/GUI parity rule to durable design docs.
-- [ ] Add command manifest entries only when commands become public behavior.
+- [x] Add an ADR for plugin and daemon ownership.
+- [x] Add daemon architecture/design docs.
+- [x] Add plugin install contract docs.
+- [x] Add the CLI/config/GUI parity rule to durable design docs.
+- [x] Add command manifest entries only when commands become public behavior.
 - [ ] Decide metadata namespace and plugin identifier policy.
 
 ### 2. Installer Port
@@ -306,30 +306,30 @@ tool-oriented layout.
 
 ### 3. Daemon Skeleton
 
-- [ ] Add `kicad-cruncher daemon`.
+- [x] Add `kicad-cruncher daemon`.
 - [ ] Add `/health`, `/version`, and command inventory endpoints.
 - [ ] Add daemon startup tests.
 - [ ] Add local-only host defaults and explicit remote-host opt-in.
 - [ ] Add config/port discovery for plugin shims.
-- [ ] Add the initial Lib Cruncher-style tabbed tool-center shell with PCB
+- [x] Add the initial Lib Cruncher-style tabbed tool-center shell with PCB
       Clean as the first active tab.
 
 ### 4. First Plugin Shim
 
-- [ ] Package the first KiCad IPC action as `kicad_cruncher` package data.
-- [ ] Keep the action shim small: discover board/session, call daemon, report
+- [x] Package the first KiCad IPC action as `kicad_cruncher` package data.
+- [x] Keep the action shim small: discover board/session, call daemon, report
       failure clearly.
 - [ ] Add mocked shim tests.
 - [ ] Preserve the useful appz installer diagnostics.
 
 ### 5. PCB Layer Cleanup
 
-- [ ] Define the `pcb.clean.config` JSONC contract.
-- [ ] Add `kicad-cruncher pcb clean --write-config`.
-- [ ] Add `kicad-cruncher pcb clean --config <path> --dry-run`.
+- [x] Define the `pcb.clean.config` JSONC contract.
+- [x] Add `kicad-cruncher pcb clean --write-config`.
+- [x] Add `kicad-cruncher pcb clean --config <path> --dry-run`.
 - [ ] Add explicit apply behavior for CLI and plugin use.
-- [ ] Extract pure cleanup planning from the appz HLR prototype.
-- [ ] Add known-input/known-output tests for cleanup selection and protection
+- [x] Extract pure cleanup planning from the appz HLR prototype.
+- [x] Add known-input/known-output tests for cleanup selection and protection
       rules.
 - [ ] Add daemon endpoint and optional browser UI.
 - [ ] Wire the KiCad plugin action through the daemon.
