@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>KiCad Cruncher Setup</title>
+</head>
+<body data-doc="setup" data-profile="python-package">
+  <h1>Setup</h1>
+  <p>
+    KiCad Cruncher is a pure Python CLI package for KiCad design review,
+    manufacturing, PCB SVG, and PCB STEP workflows. It uses uv, Hatchling,
+    Rack, pytest, Ruff, Pyright, build, and Twine.
+  </p>
+
+  <h2>Required Tools</h2>
+  <ul>
+    <li>Python 3.11 or 3.12</li>
+    <li>uv</li>
+    <li>Git</li>
+  </ul>
+
+  <h2>Development Commands</h2>
+  <pre><code>uv sync --extra test
+uv run kicad-cruncher --help
+uv run rack run --all
+uv run python -m build
+uv run twine check dist/*</code></pre>
+
+  <h2>Artifact Policy</h2>
+  <p>
+    Command outputs under <code>output/</code>, package build artifacts under
+    <code>dist/</code>, Rack results, and local temp files are transient. Stable
+    public behavior belongs in source, contracts, design docs, release notes,
+    and tests.
+  </p>
+</body>
+</html>

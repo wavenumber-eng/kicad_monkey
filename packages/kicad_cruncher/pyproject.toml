@@ -49,8 +49,18 @@ kicad-cruncher = "kicad_cruncher._cli:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.wn_dev_std]
+profile = "python-package"
+distribution = "pypi"
+languages = ["python"]
+strict = true
+
+[tool.uv]
+package = true
+
 [tool.hatch.build.targets.sdist]
 include = [
+    "AGENTS.md",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "LICENSE",
