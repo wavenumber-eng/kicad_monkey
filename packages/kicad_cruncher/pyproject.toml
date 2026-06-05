@@ -10,9 +10,11 @@ authors = [
 ]
 dependencies = [
     "colorama>=0.4.6",
+    "fastapi>=0.115.0",
     "kicad-monkey==2026.6.3",
     "openpyxl>=3.1.0",
-    "wn-geometer==2026.5.25",
+    "uvicorn>=0.30.0",
+    "wn-geometer==2026.6.4",
 ]
 
 [project.optional-dependencies]

@@ -121,6 +121,72 @@ def test_pcb_layer_step_help_describes_fixture_step_config() -> None:
     assert ".kicad_pcb" in result.stdout
 
 
+def test_plugin_help_describes_install_flow() -> None:
+    """Verify plugin help exposes the KiCad IPC install surface."""
+    result = _run_cli("plugin", "install", "--help")
+
+    assert result.returncode == 0, result.stderr
+    assert "--enable-api" in result.stdout
+    assert "--plugins-dir" in result.stdout
+    assert "kicad-cruncher-tools" in result.stdout
+
+
+def test_daemon_health_outputs_json() -> None:
+    """Verify daemon health can be checked without starting a long-running server."""
+    result = _run_cli("daemon", "--health")
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["schema"] == "kicad_cruncher.daemon.health.v0"
+    assert payload["ok"] is True
+    assert payload["service"] == "kicad-cruncher"
+
+
+def test_pcb_clean_writes_config_and_dry_run_plan(tmp_path: Path) -> None:
+    """Verify PCB clean has a CLI/config path before plugin UI work lands."""
+    config_path = tmp_path / "pcb.clean.config"
+    write_result = _run_cli("pcb", "clean", "--write-config", str(config_path))
+
+    assert write_result.returncode == 0, write_result.stderr
+    assert config_path.is_file()
+    assert "kicad_cruncher.pcb.clean.config.v0" in config_path.read_text(encoding="utf-8")
+
+    dry_run = _run_cli("pcb", "clean", "board.kicad_pcb", "--config", str(config_path), "--dry-run")
+    assert dry_run.returncode == 0, dry_run.stderr
+    payload = json.loads(dry_run.stdout)
+    assert payload["schema"] == "kicad_cruncher.pcb.clean.plan.v0"
+    assert payload["dry_run"] is True
+    assert payload["mutation_supported"] is False
+
+
+def test_plugin_install_dry_run_accepts_explicit_target(tmp_path: Path) -> None:
+    """Verify plugin installer can dry-run against an explicit KiCad plugin folder."""
+    plugins_dir = tmp_path / "KiCad" / "10.0" / "plugins"
+    result = _run_cli(
+        "plugin",
+        "install",
+        "--plugins-dir",
+        str(plugins_dir),
+        "--dry-run",
+        "--enable-api",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Would install kicad-cruncher-tools" in result.stdout
+    assert "com.wavenumber.kicad-cruncher.tools" in result.stdout
+    assert not plugins_dir.exists()
+
+
+def test_schematic_clean_is_deferred_json() -> None:
+    """Verify the schematic clean command group exists without mutation behavior."""
+    result = _run_cli("schematic", "clean")
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["schema"] == "kicad_cruncher.schematic.clean.plan.a0"
+    assert payload["status"] == "deferred"
+
+
 def test_cli_help_lists_commands_alphabetically() -> None:
     """Verify that root help presents commands in alphabetical order."""
     expected_commands = _manifest_commands()

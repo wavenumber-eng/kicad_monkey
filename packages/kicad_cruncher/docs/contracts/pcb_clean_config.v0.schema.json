@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kicad_cruncher.pcb.clean.config.v0",
+  "title": "KiCad Cruncher PCB Clean Config",
+  "type": "object",
+  "required": ["schema", "targets", "safety", "layers"],
+  "properties": {
+    "schema": {
+      "const": "kicad_cruncher.pcb.clean.config.v0"
+    },
+    "targets": {
+      "type": "object",
+      "properties": {
+        "user_layers": {"type": "boolean"},
+        "generated_graphics": {"type": "boolean"},
+        "footprint_local_items": {"type": "boolean"},
+        "board_items": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "safety": {
+      "type": "object",
+      "properties": {
+        "protect_pads": {"type": "boolean"},
+        "protect_models": {"type": "boolean"},
+        "protect_mandatory_fields": {"type": "boolean"},
+        "require_explicit_apply": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "layers": {
+      "type": "object",
+      "properties": {
+        "include": {"type": "array", "items": {"type": "string"}},
+        "exclude": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "field_name": {"type": "string"},
+        "schema": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

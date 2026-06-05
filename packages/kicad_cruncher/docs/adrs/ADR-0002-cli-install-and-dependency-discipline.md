@@ -18,7 +18,7 @@ packages, and justified by command behavior.
 The first runtime dependency set is intentionally narrow:
 
 - `kicad-monkey==2026.6.3`
-- `wn-geometer==2026.5.25`
+- `wn-geometer==2026.6.4`
 - `openpyxl>=3.1.0`
 - `colorama>=0.4.6`
 

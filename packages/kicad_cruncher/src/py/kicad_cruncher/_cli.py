@@ -22,11 +22,17 @@ from kicad_cruncher._version import cli_version_report, cli_version_text
 from kicad_cruncher.kicad_cruncher_cmd_bom import (
     register_parser as register_bom_parser,
 )
+from kicad_cruncher.kicad_cruncher_cmd_daemon import (
+    register_parser as register_daemon_parser,
+)
 from kicad_cruncher.kicad_cruncher_cmd_design import (
     register_parser as register_design_parser,
 )
 from kicad_cruncher.kicad_cruncher_cmd_jlc import (
     register_parser as register_jlc_parser,
+)
+from kicad_cruncher.kicad_cruncher_cmd_pcb import (
+    register_parser as register_pcb_parser,
 )
 from kicad_cruncher.kicad_cruncher_cmd_pcb_layer_step import (
     register_parser as register_pcb_layer_step_parser,
@@ -34,8 +40,14 @@ from kicad_cruncher.kicad_cruncher_cmd_pcb_layer_step import (
 from kicad_cruncher.kicad_cruncher_cmd_pcb_svg import (
     register_parser as register_pcb_svg_parser,
 )
+from kicad_cruncher.kicad_cruncher_cmd_plugin import (
+    register_parser as register_plugin_parser,
+)
 from kicad_cruncher.kicad_cruncher_cmd_pnp import (
     register_parser as register_pnp_parser,
+)
+from kicad_cruncher.kicad_cruncher_cmd_schematic import (
+    register_parser as register_schematic_parser,
 )
 from kicad_cruncher.logging_utils import setup_cli_logging
 
@@ -192,11 +204,15 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
 
     register_bom_parser(command_subparsers)
+    register_daemon_parser(command_subparsers)
     register_design_parser(command_subparsers)
     register_jlc_parser(command_subparsers)
+    register_pcb_parser(command_subparsers)
     register_pcb_layer_step_parser(command_subparsers)
     register_pcb_svg_parser(command_subparsers)
+    register_plugin_parser(command_subparsers)
     register_pnp_parser(command_subparsers)
+    register_schematic_parser(command_subparsers)
     version_parser = command_subparsers.add_parser("version", help="Print version information")
     version_parser.set_defaults(handler=_cmd_version)
     _configure_root_help_color(parser, command_subparsers)

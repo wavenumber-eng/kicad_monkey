@@ -11,7 +11,7 @@
 - Keep `pcb-svg` as a preview feature while continuing real-board coverage for
   configured views, assembly overlays, virtual layers, and designator rendering.
 - Release `kicad-cruncher` version `2026.6.4` against
-  `kicad-monkey==2026.6.3` and `wn-geometer==2026.5.25`.
+  `kicad-monkey==2026.6.3` and `wn-geometer==2026.6.4`.
 
 ## 2026.6.3
 

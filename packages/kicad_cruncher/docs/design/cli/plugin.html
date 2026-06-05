@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>plugin command design</title><link rel="stylesheet" href="../styles.css"></head>
+<body data-command="plugin" data-config-contract="none">
+<main>
+<nav class="nav"><a href="index.html">Commands</a><a href="../index.html">Design Index</a></nav>
+<header><p class="status">Public command</p><h1>plugin</h1><p class="lede">Installs and inspects bundled KiCad IPC plugin packages.</p></header>
+<section id="usage"><h2>Usage</h2><pre><code>kicad-cruncher plugin list-targets
+kicad-cruncher plugin install --dry-run
+kicad-cruncher plugin install --enable-api
+kicad-cruncher plugin status
+kicad-cruncher plugin uninstall --dry-run</code></pre></section>
+<section id="arguments"><h2>Arguments</h2><p>Subcommands accept <code>--plugins-dir</code> and <code>--kicad-version</code> to target one KiCad user plugin folder. <code>install</code> also accepts <code>--dry-run</code>, <code>--create-default</code>, <code>--best-effort</code>, <code>--enable-api</code>, <code>--skip-api-setup</code>, and <code>--python-interpreter</code>. The default bundled plugin package is <code>kicad-cruncher-tools</code>.</p></section>
+<section id="output"><h2>Output</h2><p>The command prints discovered target directories, installed/uninstalled plugin paths, and KiCad IPC API preference diagnostics. Installed plugin files are copied from the public package into the user KiCad plugin directory.</p></section>
+<section id="tests"><h2>Tests</h2><p>L0 verifies command registration and help. Future installer tests will use temporary KiCad document and config roots to validate dry-run, copy filters, and API preference updates without touching a real user profile.</p></section>
+</main>
+</body>
+</html>
