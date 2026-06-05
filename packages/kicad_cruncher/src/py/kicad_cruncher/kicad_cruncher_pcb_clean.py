@@ -7,7 +7,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from pathlib import Path
-from typing import cast
+from typing import Protocol, cast
 
 from kicad_monkey import KiCadPcb
 
@@ -18,8 +18,7 @@ PCB_CLEAN_CONFIG_SCHEMA = "kicad_cruncher.pcb.clean.config.v0"
 
 _DEFAULT_INCLUDE_LAYERS = ("*.User", "User.*", "*.Fab", "*.CrtYd")
 _DEFAULT_EXCLUDE_LAYERS = ("F.Cu", "B.Cu", "Edge.Cuts")
-_MANDATORY_FOOTPRINT_FIELDS = frozenset(("Reference", "Value", "Datasheet", "Description"))
-_BOARD_ITEM_COLLECTIONS = (
+_BOARD_GRAPHIC_COLLECTIONS = (
     ("gr_texts", "gr_text"),
     ("gr_lines", "gr_line"),
     ("gr_rects", "gr_rect"),
@@ -28,13 +27,8 @@ _BOARD_ITEM_COLLECTIONS = (
     ("gr_polys", "gr_poly"),
     ("gr_curves", "gr_curve"),
     ("gr_text_boxes", "gr_text_box"),
-    ("images", "image"),
-    ("barcodes", "barcode"),
-    ("tables", "table"),
-    ("dimensions", "dimension"),
 )
-_FOOTPRINT_ITEM_COLLECTIONS = (
-    ("properties", "property"),
+_FOOTPRINT_GRAPHIC_COLLECTIONS = (
     ("fp_texts", "fp_text"),
     ("fp_text_boxes", "fp_text_box"),
     ("fp_lines", "fp_line"),
@@ -42,11 +36,6 @@ _FOOTPRINT_ITEM_COLLECTIONS = (
     ("fp_circles", "fp_circle"),
     ("fp_rects", "fp_rect"),
     ("fp_polys", "fp_poly"),
-    ("images", "image"),
-    ("tables", "table"),
-    ("barcodes", "barcode"),
-    ("dimensions", "dimension"),
-    ("zones", "zone"),
 )
 
 
@@ -77,6 +66,29 @@ class _SelectionTally:
         }
 
 
+class _HideableField(Protocol):
+    hide: bool
+
+
+@dataclass
+class _MutationReport:
+    layer_user_names_reset: int = 0
+    footprint_graphics_removed: _SelectionTally = field(default_factory=_SelectionTally)
+    board_graphics_removed: _SelectionTally = field(default_factory=_SelectionTally)
+    generated_items_removed: _SelectionTally = field(default_factory=_SelectionTally)
+    value_fields_hidden: _SelectionTally = field(default_factory=_SelectionTally)
+
+    def to_json(self, saved_board: Path) -> dict[str, object]:
+        return {
+            "saved_board": str(saved_board),
+            "layer_user_names_reset": self.layer_user_names_reset,
+            "footprint_graphics_removed": self.footprint_graphics_removed.to_json(),
+            "board_graphics_removed": self.board_graphics_removed.to_json(),
+            "generated_items_removed": self.generated_items_removed.to_json(),
+            "value_fields_hidden": self.value_fields_hidden.to_json(),
+        }
+
+
 def default_pcb_clean_config() -> dict[str, object]:
     """Return the default PCB cleanup config object."""
     return {
@@ -84,8 +96,9 @@ def default_pcb_clean_config() -> dict[str, object]:
         "targets": {
             "user_layers": True,
             "generated_graphics": True,
-            "footprint_local_items": True,
-            "board_items": False,
+            "footprint_graphics": True,
+            "board_graphics": False,
+            "value_fields": True,
         },
         "safety": {
             "protect_pads": True,
@@ -142,7 +155,36 @@ def plan_pcb_clean(
         "layer_selection": _layer_selection(config),
         "planned_operations": _planned_operations(board_report),
         "board_report": board_report,
-        "mutation_supported": False,
+        "mutation_supported": True,
+        "apply_policy": _apply_policy(),
+    }
+
+
+def apply_pcb_clean(
+    *,
+    board_path: Path | None,
+    config_path: Path | None,
+) -> dict[str, object]:
+    """Apply configured PCB cleanup mutations and return a deterministic report."""
+    config = (
+        load_pcb_clean_config(config_path)
+        if config_path is not None
+        else default_pcb_clean_config()
+    )
+    mutation_report = (
+        _apply_board_cleanup(board_path, config) if board_path is not None else {}
+    )
+    return {
+        "schema": "kicad_cruncher.pcb.clean.plan.v0",
+        "status": "applied" if mutation_report.get("status") == "applied" else "not_applied",
+        "dry_run": False,
+        "board": str(board_path) if board_path is not None else None,
+        "config": str(config_path) if config_path is not None else None,
+        "config_schema": config.get("schema"),
+        "layer_selection": _layer_selection(config),
+        "mutation_report": mutation_report,
+        "mutation_supported": True,
+        "apply_policy": _apply_policy(),
     }
 
 
@@ -151,9 +193,9 @@ def _default_pcb_clean_config_text() -> str:
     return (
         "/*\n"
         "  KiCad Cruncher PCB Clean config.\n"
-        "  The first implementation targets existing user/generated layers and\n"
-        "  keeps apply behavior explicit. Dry-run reports should be reviewed\n"
-        "  before mutation is enabled.\n"
+        "  Apply removes configured documentation-layer graphics and hides\n"
+        "  visible Value fields. Copper, pads, models, routing, and Edge.Cuts\n"
+        "  stay protected through layer exclusion and object selection.\n"
         "*/\n"
         f"{payload}\n"
     )
@@ -171,10 +213,10 @@ def _plan_board_cleanup(board_path: Path, config: dict[str, object]) -> dict[str
     pcb = KiCadPcb(resolved_path)
     targets = _section(config, "targets")
     layer_user_resets = _layer_user_reset_candidates(pcb, config)
-    footprint_tally = _footprint_cleanup_tally(pcb, config)
+    footprint_tally = _footprint_graphics_tally(pcb, config)
     board_tally = (
-        _board_cleanup_tally(pcb, config)
-        if _bool_value(targets, "board_items", False)
+        _board_graphics_tally(pcb, config)
+        if _bool_value(targets, "board_graphics", False)
         else None
     )
     generated_tally = (
@@ -193,10 +235,16 @@ def _plan_board_cleanup(board_path: Path, config: dict[str, object]) -> dict[str
             "generated_items": len(pcb.generated_items),
         },
         "layer_user_name_resets": layer_user_resets,
+        "footprint_graphics": footprint_tally.to_json(),
         "footprint_local_items": footprint_tally.to_json(),
-        "board_items": board_tally.to_json() if board_tally is not None else _disabled_tally(),
+        "board_graphics": board_tally.to_json() if board_tally is not None else _disabled_tally(),
         "generated_items": (
             generated_tally.to_json() if generated_tally is not None else _disabled_tally()
+        ),
+        "value_fields": (
+            _value_field_tally(pcb, config).to_json()
+            if _bool_value(targets, "value_fields", True)
+            else _disabled_tally()
         ),
     }
 
@@ -244,32 +292,26 @@ def _layer_user_reset_candidates(
     return resets
 
 
-def _footprint_cleanup_tally(pcb: KiCadPcb, config: dict[str, object]) -> _SelectionTally:
+def _footprint_graphics_tally(pcb: KiCadPcb, config: dict[str, object]) -> _SelectionTally:
     targets = _section(config, "targets")
-    if not _bool_value(targets, "footprint_local_items", True):
+    if not _bool_value(targets, "footprint_graphics", True):
         return _SelectionTally()
 
     tally = _SelectionTally()
-    safety = _section(config, "safety")
     for footprint in pcb.footprints:
-        for collection_name, item_type in _FOOTPRINT_ITEM_COLLECTIONS:
+        for collection_name, item_type in _FOOTPRINT_GRAPHIC_COLLECTIONS:
             for item in getattr(footprint, collection_name, ()) or ():
-                _count_layer_item(
-                    tally,
-                    item=item,
-                    item_type=item_type,
-                    config=config,
-                    safety=safety,
-                )
+                if _is_value_text(item, item_type):
+                    continue
+                _count_layer_item(tally, item=item, item_type=item_type, config=config)
     return tally
 
 
-def _board_cleanup_tally(pcb: KiCadPcb, config: dict[str, object]) -> _SelectionTally:
+def _board_graphics_tally(pcb: KiCadPcb, config: dict[str, object]) -> _SelectionTally:
     tally = _SelectionTally()
-    safety = _section(config, "safety")
-    for collection_name, item_type in _BOARD_ITEM_COLLECTIONS:
+    for collection_name, item_type in _BOARD_GRAPHIC_COLLECTIONS:
         for item in getattr(pcb, collection_name, ()) or ():
-            _count_layer_item(tally, item=item, item_type=item_type, config=config, safety=safety)
+            _count_layer_item(tally, item=item, item_type=item_type, config=config)
     return tally
 
 
@@ -288,24 +330,173 @@ def _count_layer_item(
     item: object,
     item_type: str,
     config: dict[str, object],
-    safety: dict[str, object],
 ) -> None:
     layer = _item_layer(item)
     if not _layer_allowed(layer, config):
         return
-    reason = _protection_reason(item, item_type, safety)
-    if reason:
-        tally.add_protected(reason=reason)
+    tally.add_candidate(item_type=item_type, layer=layer)
+
+
+def _value_field_tally(pcb: KiCadPcb, config: dict[str, object]) -> _SelectionTally:
+    tally = _SelectionTally()
+    for footprint in pcb.footprints:
+        for item in getattr(footprint, "properties", ()) or ():
+            _count_value_field(tally, item=item, item_type="property", config=config)
+        for item in getattr(footprint, "fp_texts", ()) or ():
+            _count_value_field(tally, item=item, item_type="fp_text", config=config)
+    return tally
+
+
+def _count_value_field(
+    tally: _SelectionTally,
+    *,
+    item: object,
+    item_type: str,
+    config: dict[str, object],
+) -> None:
+    if not _is_value_field(item, item_type):
+        return
+    layer = _item_layer(item)
+    if not _layer_allowed(layer, config):
+        return
+    if not _is_graphical_value_field(item, item_type):
+        return
+    if bool(getattr(item, "hide", False)):
+        tally.add_protected(reason="already_hidden")
         return
     tally.add_candidate(item_type=item_type, layer=layer)
 
 
-def _protection_reason(item: object, item_type: str, safety: dict[str, object]) -> str:
-    if item_type == "property" and _bool_value(safety, "protect_mandatory_fields", True):
-        name = str(getattr(item, "name", "") or "")
-        if name in _MANDATORY_FOOTPRINT_FIELDS:
-            return "mandatory_field"
-    return ""
+def _apply_board_cleanup(board_path: Path, config: dict[str, object]) -> dict[str, object]:
+    resolved_path = _resolve_board_path(board_path)
+    if resolved_path is None:
+        return {
+            "status": "not_loaded",
+            "reason": "board file was not found",
+            "input": str(board_path),
+        }
+
+    pcb = KiCadPcb(resolved_path)
+    report = _MutationReport()
+    targets = _section(config, "targets")
+    if _bool_value(targets, "user_layers", True):
+        report.layer_user_names_reset = _apply_layer_user_name_resets(pcb, config)
+    if _bool_value(targets, "footprint_graphics", True):
+        _apply_footprint_graphic_removals(pcb, config, report.footprint_graphics_removed)
+    if _bool_value(targets, "board_graphics", False):
+        _apply_board_graphic_removals(pcb, config, report.board_graphics_removed)
+    if _bool_value(targets, "generated_graphics", True):
+        _apply_generated_item_removals(pcb, config, report.generated_items_removed)
+    if _bool_value(targets, "value_fields", True):
+        _apply_value_field_hides(pcb, config, report.value_fields_hidden)
+
+    pcb.save(resolved_path)
+    payload = report.to_json(resolved_path)
+    payload["status"] = "applied"
+    payload["input"] = str(board_path)
+    return payload
+
+
+def _apply_layer_user_name_resets(pcb: KiCadPcb, config: dict[str, object]) -> int:
+    reset_count = 0
+    for layer in pcb.layers:
+        user_name = getattr(layer, "user_name", None)
+        canonical_name = str(getattr(layer, "canonical_name", "") or "")
+        if user_name and _layer_allowed(canonical_name, config):
+            layer.user_name = None
+            reset_count += 1
+    return reset_count
+
+
+def _apply_footprint_graphic_removals(
+    pcb: KiCadPcb,
+    config: dict[str, object],
+    tally: _SelectionTally,
+) -> None:
+    for footprint in pcb.footprints:
+        for collection_name, item_type in _FOOTPRINT_GRAPHIC_COLLECTIONS:
+            collection = getattr(footprint, collection_name, None)
+            if not isinstance(collection, list):
+                continue
+            for item in list(collection):
+                if _is_value_text(item, item_type) or not _layer_allowed(_item_layer(item), config):
+                    continue
+                collection.remove(item)
+                tally.add_candidate(item_type=item_type, layer=_item_layer(item))
+
+
+def _apply_board_graphic_removals(
+    pcb: KiCadPcb,
+    config: dict[str, object],
+    tally: _SelectionTally,
+) -> None:
+    for collection_name, item_type in _BOARD_GRAPHIC_COLLECTIONS:
+        collection = getattr(pcb, collection_name, None)
+        if not isinstance(collection, list):
+            continue
+        for item in list(collection):
+            if not _layer_allowed(_item_layer(item), config):
+                continue
+            collection.remove(item)
+            tally.add_candidate(item_type=item_type, layer=_item_layer(item))
+
+
+def _apply_generated_item_removals(
+    pcb: KiCadPcb,
+    config: dict[str, object],
+    tally: _SelectionTally,
+) -> None:
+    for item in list(pcb.generated_items):
+        layer = _item_layer(item)
+        if _layer_allowed(layer, config) and pcb.remove_object(item):
+            tally.add_candidate(item_type="generated", layer=layer)
+
+
+def _apply_value_field_hides(
+    pcb: KiCadPcb,
+    config: dict[str, object],
+    tally: _SelectionTally,
+) -> None:
+    for footprint in pcb.footprints:
+        for item in getattr(footprint, "properties", ()) or ():
+            _apply_value_field_hide(tally, item=item, item_type="property", config=config)
+        for item in getattr(footprint, "fp_texts", ()) or ():
+            _apply_value_field_hide(tally, item=item, item_type="fp_text", config=config)
+
+
+def _apply_value_field_hide(
+    tally: _SelectionTally,
+    *,
+    item: object,
+    item_type: str,
+    config: dict[str, object],
+) -> None:
+    if not _is_value_field(item, item_type):
+        return
+    layer = _item_layer(item)
+    if not _layer_allowed(layer, config) or not _is_graphical_value_field(item, item_type):
+        return
+    if bool(getattr(item, "hide", False)):
+        tally.add_protected(reason="already_hidden")
+        return
+    cast(_HideableField, item).hide = True
+    tally.add_candidate(item_type=item_type, layer=layer)
+
+
+def _is_value_text(item: object, item_type: str) -> bool:
+    return item_type == "fp_text" and str(getattr(item, "text_type", "") or "") == "value"
+
+
+def _is_value_field(item: object, item_type: str) -> bool:
+    if item_type == "property":
+        return str(getattr(item, "name", "") or "") == "Value"
+    return _is_value_text(item, item_type)
+
+
+def _is_graphical_value_field(item: object, item_type: str) -> bool:
+    if item_type == "property":
+        return bool(getattr(item, "graphical", True))
+    return True
 
 
 def _item_layer(item: object) -> str:
@@ -353,9 +544,36 @@ def _disabled_tally() -> dict[str, object]:
 def _planned_operations(board_report: dict[str, object]) -> list[str]:
     operations = [
         "select configured PCB cleanup layers",
-        "protect pads, models, mandatory fields, and excluded layers",
-        "report generated/user graphics before mutation",
+        "protect copper, pads, models, routing, and excluded layers",
+        "remove configured documentation-layer graphics",
+        "hide visible Value fields on configured documentation layers",
     ]
     if board_report:
         operations.append("load board and summarize cleanup candidates")
     return operations
+
+
+def _apply_policy() -> dict[str, object]:
+    return {
+        "default_layers": {
+            "include": list(_DEFAULT_INCLUDE_LAYERS),
+            "exclude": list(_DEFAULT_EXCLUDE_LAYERS),
+        },
+        "removes": [
+            "footprint graphical primitives on selected layers",
+            "board graphical primitives on selected layers when board_graphics is enabled",
+            "generated board items on selected layers when generated_graphics is enabled",
+            "custom user names from selected layer definitions",
+        ],
+        "hides": ["visible Value fields on selected layers"],
+        "never_removes_by_default": [
+            "copper",
+            "Edge.Cuts",
+            "pads",
+            "models",
+            "routing",
+            "zones",
+            "footprint properties",
+        ],
+        "silkscreen": "opt-in through layers.include; not selected by default",
+    }

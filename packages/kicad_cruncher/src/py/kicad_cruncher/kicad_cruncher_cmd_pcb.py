@@ -8,6 +8,7 @@ from pathlib import Path
 
 from kicad_cruncher.kicad_cruncher_pcb_clean import (
     PCB_CLEAN_CONFIG_FILENAME,
+    apply_pcb_clean,
     plan_pcb_clean,
     write_default_pcb_clean_config,
 )
@@ -28,11 +29,15 @@ def _cmd_pcb_clean(args: argparse.Namespace) -> int:
         write_default_pcb_clean_config(Path(write_config))
         print(f"Wrote PCB clean config: {write_config}")
         return 0
-    if bool(getattr(args, "apply", False)):
-        print("PCB clean apply is not enabled in this planning slice.")
-        return 1
     board = getattr(args, "file", None)
     config = getattr(args, "config", None)
+    if bool(getattr(args, "apply", False)):
+        result = apply_pcb_clean(
+            board_path=Path(board) if board is not None else None,
+            config_path=Path(config) if config is not None else None,
+        )
+        print(json.dumps(result, indent=2))
+        return 0 if result["status"] == "applied" else 1
     plan = plan_pcb_clean(
         board_path=Path(board) if board is not None else None,
         config_path=Path(config) if config is not None else None,
@@ -59,8 +64,9 @@ def register_parser(
         help=f"PCB clean JSONC config ({PCB_CLEAN_CONFIG_FILENAME})",
     )
     clean_parser.add_argument("--write-config", help="Write the default PCB clean config")
-    clean_parser.add_argument("--dry-run", action="store_true", help="Write a cleanup plan only")
-    clean_parser.add_argument("--apply", action="store_true", help="Apply cleanup mutations")
+    clean_mode = clean_parser.add_mutually_exclusive_group()
+    clean_mode.add_argument("--dry-run", action="store_true", help="Write a cleanup plan only")
+    clean_mode.add_argument("--apply", action="store_true", help="Apply cleanup mutations")
     clean_parser.set_defaults(handler=cmd_pcb)
 
     parser.set_defaults(handler=cmd_pcb)

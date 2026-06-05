@@ -17,7 +17,7 @@ objectives = [
     "PCB SVG layer outputs keep raw physical layers separate from computed virtual layers",
     "PCB SVG physical layer outputs include configurable Edge.Cuts, drill, and slot context overlays",
     "PCB SVG standalone virtual layer files can be disabled independently from physical context overlays",
-    "PCB clean dry-run reports selected layer cleanup candidates and protected fields from public fixtures",
+    "PCB clean dry-run and apply remove configured documentation-layer graphics while preserving copper and hiding Value fields",
 ]
 
 [dependencies]
@@ -75,8 +75,8 @@ test_pcb_svg_assembly_view_uses_geometer_hlr = "Generate assembly HLR SVG using 
 [[subtests]]
 id = "L3_004"
 file = "test_L3_004_pcb_clean_workflow.py"
-name = "PCB Clean Planning Workflow"
-description = "Run pcb clean dry-run against public KiCad fixtures and validate cleanup selection reports"
+name = "PCB Clean Workflow"
+description = "Run pcb clean dry-run and apply against public KiCad fixtures and validate safe cleanup behavior"
 concerns = ["cli", "contracts", "release"]
 test_case_type = "reference"
 test_cases = "tests/corpus/kicad/projects/hlr_test"
@@ -86,9 +86,10 @@ module = "kicad_cruncher.kicad_cruncher_pcb_clean"
 cli_module = "kicad_cruncher.kicad_cruncher_cmd_pcb"
 
 [subtests.objectives]
-fixture_selection = "PCB clean reports deterministic user-layer resets and footprint-local cleanup candidates"
+fixture_selection = "PCB clean reports deterministic user-layer resets and footprint graphical cleanup candidates"
 project_resolution = "PCB clean resolves .kicad_pro input to the sibling .kicad_pcb file"
 config_switches = "PCB clean JSONC config disables cleanup target classes without mutating the board"
+apply_behavior = "PCB clean apply removes docs-layer graphics, hides Value fields, and preserves copper-owned objects"
 
 [subtests.approach]
 subprocess_cli = "Invoke public CLI commands through the current Python environment"
@@ -97,3 +98,4 @@ subprocess_cli = "Invoke public CLI commands through the current Python environm
 test_pcb_clean_dry_run_reports_fixture_cleanup_candidates = "Verify dry-run JSON from a real public board"
 test_pcb_clean_resolves_project_input_to_sibling_board = "Verify project input resolves to the sibling board"
 test_pcb_clean_config_can_disable_cleanup_target_classes = "Verify target switches suppress candidate selection"
+test_pcb_clean_apply_mutates_copied_fixture_without_touching_copper = "Verify apply mutates a copied board without removing pads or copper"

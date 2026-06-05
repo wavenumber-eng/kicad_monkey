@@ -156,7 +156,10 @@ def test_pcb_clean_writes_config_and_dry_run_plan(tmp_path: Path) -> None:
     payload = json.loads(dry_run.stdout)
     assert payload["schema"] == "kicad_cruncher.pcb.clean.plan.v0"
     assert payload["dry_run"] is True
-    assert payload["mutation_supported"] is False
+    assert payload["mutation_supported"] is True
+    assert payload["apply_policy"]["silkscreen"] == (
+        "opt-in through layers.include; not selected by default"
+    )
 
 
 def test_plugin_install_dry_run_accepts_explicit_target(tmp_path: Path) -> None:

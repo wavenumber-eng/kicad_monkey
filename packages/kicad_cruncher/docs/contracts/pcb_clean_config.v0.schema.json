@@ -13,8 +13,9 @@
       "properties": {
         "user_layers": {"type": "boolean"},
         "generated_graphics": {"type": "boolean"},
-        "footprint_local_items": {"type": "boolean"},
-        "board_items": {"type": "boolean"}
+        "footprint_graphics": {"type": "boolean"},
+        "board_graphics": {"type": "boolean"},
+        "value_fields": {"type": "boolean"}
       },
       "additionalProperties": false
     },

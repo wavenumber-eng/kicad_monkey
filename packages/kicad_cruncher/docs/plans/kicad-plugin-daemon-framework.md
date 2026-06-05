@@ -327,13 +327,14 @@ tool-oriented layout.
 - [x] Define the `pcb.clean.config` JSONC contract.
 - [x] Add `kicad-cruncher pcb clean --write-config`.
 - [x] Add `kicad-cruncher pcb clean --config <path> --dry-run`.
-- [ ] Add explicit apply behavior for CLI and plugin use.
+- [x] Add explicit apply behavior for the CLI file path.
 - [x] Extract pure cleanup planning from the appz HLR prototype.
 - [x] Add known-input/known-output tests for cleanup selection and protection
       rules.
 - [ ] Add daemon endpoint and optional browser UI.
 - [ ] Wire the KiCad plugin action through the daemon.
-- [ ] Document undo/commit behavior and target-layer safety rules.
+- [x] Document file-path target-layer safety rules.
+- [ ] Document plugin undo/commit behavior.
 - [ ] Start with existing PCB user/generated layers before expanding into HLR
       generation or broader board edits.
 
