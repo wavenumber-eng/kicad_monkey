@@ -307,7 +307,7 @@ tool-oriented layout.
 ### 3. Daemon Skeleton
 
 - [x] Add `kicad-cruncher daemon`.
-- [ ] Add `/health`, `/version`, and command inventory endpoints.
+- [x] Add `/health`, `/version`, and command inventory endpoints.
 - [ ] Add daemon startup tests.
 - [ ] Add local-only host defaults and explicit remote-host opt-in.
 - [ ] Add config/port discovery for plugin shims.
@@ -331,10 +331,10 @@ tool-oriented layout.
 - [x] Extract pure cleanup planning from the appz HLR prototype.
 - [x] Add known-input/known-output tests for cleanup selection and protection
       rules.
-- [ ] Add daemon endpoint and optional browser UI.
-- [ ] Wire the KiCad plugin action through the daemon.
+- [x] Add daemon endpoint and optional browser UI.
+- [x] Wire the KiCad plugin action through the daemon.
 - [x] Document file-path target-layer safety rules.
-- [ ] Document plugin undo/commit behavior.
+- [x] Document plugin undo/commit behavior.
 - [ ] Start with existing PCB user/generated layers before expanding into HLR
       generation or broader board edits.
 

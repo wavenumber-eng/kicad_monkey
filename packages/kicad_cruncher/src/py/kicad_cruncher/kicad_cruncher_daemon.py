@@ -3,10 +3,20 @@
 from __future__ import annotations
 
 from importlib.metadata import version as distribution_version
+from pathlib import Path
 
 from kicad_cruncher._version import __version__
+from kicad_cruncher.kicad_cruncher_pcb_clean import (
+    apply_pcb_clean,
+    build_pcb_clean_mutation_request,
+    plan_pcb_clean,
+)
 
 DAEMON_API_SCHEMA = "kicad_cruncher.daemon.health.v0"
+DAEMON_COMMANDS_SCHEMA = "kicad_cruncher.daemon.commands.v0"
+DAEMON_KICAD_SESSION_SCHEMA = "kicad_cruncher.daemon.kicad_session.v0"
+DAEMON_PCB_LAYER_CLEANUP_REQUEST_SCHEMA = "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0"
+DAEMON_PCB_LAYER_CLEANUP_RESPONSE_SCHEMA = "kicad_cruncher.daemon.pcb.layer_cleanup.response.v0"
 DEFAULT_DAEMON_HOST = "127.0.0.1"
 DEFAULT_DAEMON_PORT = 8765
 
@@ -25,6 +35,95 @@ def daemon_health_payload() -> dict[str, object]:
     }
 
 
+def daemon_command_inventory_payload() -> dict[str, object]:
+    """Return the local daemon command inventory."""
+    return {
+        "schema": DAEMON_COMMANDS_SCHEMA,
+        "service": "kicad-cruncher",
+        "version": __version__,
+        "commands": [
+            {
+                "id": "pcb.clean",
+                "name": "PCB Clean",
+                "status": "available",
+                "adapters": ["cli:file", "daemon:file", "daemon:kicad-ipc-plan"],
+                "endpoint": "/api/v1/pcb/layer-cleanup",
+                "config_schema": "kicad_cruncher.pcb.clean.config.v0",
+                "description": (
+                    "Plan or apply safe documentation-layer cleanup for KiCad PCB files. "
+                    "KiCad IPC plugins request mutation operations and apply them under "
+                    "KiCad's commit/undo model."
+                ),
+            },
+            {
+                "id": "pcb.hlr",
+                "name": "PCB HLR",
+                "status": "planned",
+                "adapters": [],
+                "endpoint": None,
+            },
+            {
+                "id": "schematic.clean",
+                "name": "Schematic Clean",
+                "status": "planned",
+                "adapters": [],
+                "endpoint": None,
+            },
+        ],
+    }
+
+
+def daemon_kicad_session_payload() -> dict[str, object]:
+    """Return daemon-visible KiCad session state."""
+    return {
+        "schema": DAEMON_KICAD_SESSION_SCHEMA,
+        "connected": False,
+        "reason": "no KiCad IPC plugin session has registered with this daemon",
+    }
+
+
+def daemon_pcb_layer_cleanup(payload: dict[str, object]) -> dict[str, object]:
+    """Plan or apply PCB layer cleanup through the daemon contract."""
+    mode = str(payload.get("mode", "kicad-ipc") or "kicad-ipc").strip()
+    board_path = _payload_path(payload, "board_path")
+    config_path = _payload_path(payload, "config_path")
+    apply = bool(payload.get("apply", False))
+
+    if mode in {"file", "direct-file"}:
+        result = (
+            apply_pcb_clean(board_path=board_path, config_path=config_path)
+            if apply
+            else plan_pcb_clean(board_path=board_path, config_path=config_path, dry_run=True)
+        )
+        return _daemon_pcb_layer_cleanup_response(
+            mode=mode,
+            applied=apply and result.get("status") == "applied",
+            result=result,
+        )
+
+    if mode in {"kicad-ipc", "ipc", "ipc-plan"}:
+        result = build_pcb_clean_mutation_request(
+            board_path=board_path,
+            config_path=config_path,
+        )
+        return _daemon_pcb_layer_cleanup_response(
+            mode="kicad-ipc",
+            applied=False,
+            result=result,
+            message="plugin must apply returned operations through KiCad IPC commit/undo",
+        )
+
+    return _daemon_pcb_layer_cleanup_response(
+        mode=mode,
+        applied=False,
+        result={
+            "status": "unsupported_mode",
+            "supported_modes": ["file", "kicad-ipc"],
+        },
+        ok=False,
+    )
+
+
 def create_app() -> object:
     """Create the FastAPI app for the local daemon."""
     from fastapi import FastAPI
@@ -40,11 +139,51 @@ def create_app() -> object:
     def version() -> dict[str, object]:
         return daemon_health_payload()
 
+    @app.get("/api/v1/commands")
+    def commands() -> dict[str, object]:
+        return daemon_command_inventory_payload()
+
+    @app.get("/api/v1/kicad/session")
+    def kicad_session() -> dict[str, object]:
+        return daemon_kicad_session_payload()
+
+    @app.post("/api/v1/pcb/layer-cleanup")
+    def pcb_layer_cleanup(payload: dict[str, object]) -> dict[str, object]:
+        return daemon_pcb_layer_cleanup(payload)
+
     @app.get("/")
     def root() -> HTMLResponse:
         return HTMLResponse(_tool_center_html())
 
     return app
+
+
+def _payload_path(payload: dict[str, object], key: str) -> Path | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return Path(text).expanduser() if text else None
+
+
+def _daemon_pcb_layer_cleanup_response(
+    *,
+    mode: str,
+    applied: bool,
+    result: dict[str, object],
+    ok: bool = True,
+    message: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "schema": DAEMON_PCB_LAYER_CLEANUP_RESPONSE_SCHEMA,
+        "ok": ok,
+        "mode": mode,
+        "applied": applied,
+        "result": result,
+    }
+    if message:
+        payload["message"] = message
+    return payload
 
 
 def _safe_distribution_version(distribution_name: str) -> str | None:

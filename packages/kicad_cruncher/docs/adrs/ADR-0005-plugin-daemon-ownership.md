@@ -27,6 +27,11 @@ configurable, and produces deterministic reports for tests and automation.
 Daemon routes and KiCad IPC actions are adapters over the same shared Python
 logic.
 
+For live KiCad editor mutations, the daemon returns deterministic mutation
+requests and the KiCad IPC plugin applies them under KiCad's commit/undo model.
+The daemon may apply direct file mutations only for explicit file-mode CLI or
+automation workflows; it must not write a board file behind an open KiCad editor.
+
 ## Consequences
 
 The daemon is a localhost router, state holder, and no-build browser UI server.

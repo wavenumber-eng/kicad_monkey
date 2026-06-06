@@ -15,6 +15,8 @@ from kicad_cruncher.config_json import load_json_config
 
 PCB_CLEAN_CONFIG_FILENAME = "pcb.clean.config"
 PCB_CLEAN_CONFIG_SCHEMA = "kicad_cruncher.pcb.clean.config.v0"
+PCB_CLEAN_PLAN_SCHEMA = "kicad_cruncher.pcb.clean.plan.v0"
+PCB_CLEAN_MUTATION_REQUEST_SCHEMA = "kicad_cruncher.pcb.clean.mutation_request.v0"
 
 _DEFAULT_INCLUDE_LAYERS = ("*.User", "User.*", "*.Fab", "*.CrtYd")
 _DEFAULT_EXCLUDE_LAYERS = ("F.Cu", "B.Cu", "Edge.Cuts")
@@ -146,7 +148,7 @@ def plan_pcb_clean(
     )
     board_report = _plan_board_cleanup(board_path, config) if board_path is not None else {}
     return {
-        "schema": "kicad_cruncher.pcb.clean.plan.v0",
+        "schema": PCB_CLEAN_PLAN_SCHEMA,
         "status": "planned",
         "dry_run": dry_run,
         "board": str(board_path) if board_path is not None else None,
@@ -175,7 +177,7 @@ def apply_pcb_clean(
         _apply_board_cleanup(board_path, config) if board_path is not None else {}
     )
     return {
-        "schema": "kicad_cruncher.pcb.clean.plan.v0",
+        "schema": PCB_CLEAN_PLAN_SCHEMA,
         "status": "applied" if mutation_report.get("status") == "applied" else "not_applied",
         "dry_run": False,
         "board": str(board_path) if board_path is not None else None,
@@ -184,6 +186,45 @@ def apply_pcb_clean(
         "layer_selection": _layer_selection(config),
         "mutation_report": mutation_report,
         "mutation_supported": True,
+        "apply_policy": _apply_policy(),
+    }
+
+
+def build_pcb_clean_mutation_request(
+    *,
+    board_path: Path | None,
+    config_path: Path | None,
+) -> dict[str, object]:
+    """Return a KiCad IPC-friendly mutation request without mutating files."""
+    config = (
+        load_pcb_clean_config(config_path)
+        if config_path is not None
+        else default_pcb_clean_config()
+    )
+    board_report = _plan_board_cleanup(board_path, config) if board_path is not None else {}
+    operations = (
+        _board_cleanup_operations(board_path, config)
+        if board_path is not None and board_report.get("status") == "loaded"
+        else []
+    )
+    status = (
+        "planned"
+        if operations or board_report.get("status") == "loaded"
+        else "not_loaded"
+    )
+    return {
+        "schema": PCB_CLEAN_MUTATION_REQUEST_SCHEMA,
+        "status": status,
+        "board": str(board_path) if board_path is not None else None,
+        "config": str(config_path) if config_path is not None else None,
+        "config_schema": config.get("schema"),
+        "operation_target": "kicad-ipc",
+        "commit_label": "KiCad Cruncher PCB clean",
+        "plugin_apply_required": True,
+        "daemon_file_apply_allowed": False,
+        "operations": operations,
+        "operation_counts": _operation_counts(operations),
+        "board_report": board_report,
         "apply_policy": _apply_policy(),
     }
 
@@ -481,6 +522,209 @@ def _apply_value_field_hide(
         return
     cast(_HideableField, item).hide = True
     tally.add_candidate(item_type=item_type, layer=layer)
+
+
+def _board_cleanup_operations(
+    board_path: Path,
+    config: dict[str, object],
+) -> list[dict[str, object]]:
+    resolved_path = _resolve_board_path(board_path)
+    if resolved_path is None:
+        return []
+
+    pcb = KiCadPcb(resolved_path)
+    targets = _section(config, "targets")
+    operations: list[dict[str, object]] = []
+    if _bool_value(targets, "user_layers", True):
+        operations.extend(_layer_user_name_reset_operations(pcb, config))
+    if _bool_value(targets, "footprint_graphics", True):
+        operations.extend(_footprint_graphic_removal_operations(pcb, config))
+    if _bool_value(targets, "board_graphics", False):
+        operations.extend(_board_graphic_removal_operations(pcb, config))
+    if _bool_value(targets, "generated_graphics", True):
+        operations.extend(_generated_item_removal_operations(pcb, config))
+    if _bool_value(targets, "value_fields", True):
+        operations.extend(_value_field_hide_operations(pcb, config))
+    return operations
+
+
+def _layer_user_name_reset_operations(
+    pcb: KiCadPcb,
+    config: dict[str, object],
+) -> list[dict[str, object]]:
+    operations: list[dict[str, object]] = []
+    for candidate in _layer_user_reset_candidates(pcb, config):
+        operations.append(
+            {
+                "op": "reset_layer_user_name",
+                "target": "board.layer",
+                "layer_ordinal": candidate["ordinal"],
+                "canonical_name": candidate["canonical_name"],
+                "previous_user_name": candidate["user_name"],
+            }
+        )
+    return operations
+
+
+def _footprint_graphic_removal_operations(
+    pcb: KiCadPcb,
+    config: dict[str, object],
+) -> list[dict[str, object]]:
+    operations: list[dict[str, object]] = []
+    for footprint_index, footprint in enumerate(pcb.footprints):
+        footprint_payload = _footprint_selector(footprint, footprint_index)
+        for collection_name, item_type in _FOOTPRINT_GRAPHIC_COLLECTIONS:
+            for item_index, item in enumerate(getattr(footprint, collection_name, ()) or ()):
+                if _is_value_text(item, item_type) or not _layer_allowed(_item_layer(item), config):
+                    continue
+                operations.append(
+                    {
+                        "op": "remove_footprint_item",
+                        "target": "footprint.definition.item",
+                        "collection": collection_name,
+                        "item_type": item_type,
+                        "item_index": item_index,
+                        "item_uuid": _optional_text(getattr(item, "uuid", None)),
+                        "layer": _item_layer(item),
+                        **footprint_payload,
+                    }
+                )
+    return operations
+
+
+def _board_graphic_removal_operations(
+    pcb: KiCadPcb,
+    config: dict[str, object],
+) -> list[dict[str, object]]:
+    operations: list[dict[str, object]] = []
+    for collection_name, item_type in _BOARD_GRAPHIC_COLLECTIONS:
+        for item_index, item in enumerate(getattr(pcb, collection_name, ()) or ()):
+            if not _layer_allowed(_item_layer(item), config):
+                continue
+            operations.append(
+                {
+                    "op": "remove_board_item",
+                    "target": "board.item",
+                    "collection": collection_name,
+                    "item_type": item_type,
+                    "item_index": item_index,
+                    "item_uuid": _optional_text(getattr(item, "uuid", None)),
+                    "layer": _item_layer(item),
+                }
+            )
+    return operations
+
+
+def _generated_item_removal_operations(
+    pcb: KiCadPcb,
+    config: dict[str, object],
+) -> list[dict[str, object]]:
+    operations: list[dict[str, object]] = []
+    for item_index, item in enumerate(pcb.generated_items):
+        layer = _item_layer(item)
+        if not _layer_allowed(layer, config):
+            continue
+        operations.append(
+            {
+                "op": "remove_board_item",
+                "target": "board.generated_item",
+                "collection": "generated_items",
+                "item_type": "generated",
+                "item_index": item_index,
+                "item_uuid": _optional_text(getattr(item, "uuid", None)),
+                "layer": layer,
+            }
+        )
+    return operations
+
+
+def _value_field_hide_operations(
+    pcb: KiCadPcb,
+    config: dict[str, object],
+) -> list[dict[str, object]]:
+    operations: list[dict[str, object]] = []
+    for footprint_index, footprint in enumerate(pcb.footprints):
+        footprint_payload = _footprint_selector(footprint, footprint_index)
+        for item_index, item in enumerate(getattr(footprint, "properties", ()) or ()):
+            operation = _value_field_hide_operation(
+                item=item,
+                item_type="property",
+                collection_name="properties",
+                item_index=item_index,
+                config=config,
+            )
+            if operation:
+                operations.append({**operation, **footprint_payload})
+        for item_index, item in enumerate(getattr(footprint, "fp_texts", ()) or ()):
+            operation = _value_field_hide_operation(
+                item=item,
+                item_type="fp_text",
+                collection_name="fp_texts",
+                item_index=item_index,
+                config=config,
+            )
+            if operation:
+                operations.append({**operation, **footprint_payload})
+    return operations
+
+
+def _value_field_hide_operation(
+    *,
+    item: object,
+    item_type: str,
+    collection_name: str,
+    item_index: int,
+    config: dict[str, object],
+) -> dict[str, object] | None:
+    if not _is_value_field(item, item_type):
+        return None
+    layer = _item_layer(item)
+    if not _layer_allowed(layer, config) or not _is_graphical_value_field(item, item_type):
+        return None
+    if bool(getattr(item, "hide", False)):
+        return None
+    return {
+        "op": "hide_footprint_value_field",
+        "target": "footprint.field",
+        "collection": collection_name,
+        "field_type": item_type,
+        "field_name": "Value",
+        "item_index": item_index,
+        "item_uuid": _optional_text(getattr(item, "uuid", None)),
+        "layer": layer,
+    }
+
+
+def _footprint_selector(footprint: object, footprint_index: int) -> dict[str, object]:
+    return {
+        "footprint_index": footprint_index,
+        "footprint_uuid": _optional_text(getattr(footprint, "uuid", None)),
+        "footprint_reference": _footprint_property_value(footprint, "Reference"),
+        "footprint_library_link": str(getattr(footprint, "library_link", "") or ""),
+    }
+
+
+def _footprint_property_value(footprint: object, name: str) -> str:
+    for prop in getattr(footprint, "properties", ()) or ():
+        if str(getattr(prop, "name", "") or "") == name:
+            return str(getattr(prop, "value", "") or "")
+    return ""
+
+
+def _optional_text(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _operation_counts(operations: list[dict[str, object]]) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for operation in operations:
+        operation_name = str(operation.get("op", "") or "")
+        if operation_name:
+            counts[operation_name] += 1
+    return dict(sorted(counts.items()))
 
 
 def _is_value_text(item: object, item_type: str) -> bool:
