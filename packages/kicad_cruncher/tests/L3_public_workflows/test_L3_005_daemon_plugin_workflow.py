@@ -263,6 +263,22 @@ def test_plugin_install_copies_apply_adapter(tmp_path: Path) -> None:
     assert not list(target_dir.rglob("__pycache__"))
 
 
+def test_plugin_namespace_policy_avoids_retired_appz_metadata() -> None:
+    """Verify plugin identity and runtime metadata namespaces follow the ADR."""
+    source_dir = plugin_package_root(DEFAULT_PLUGIN_NAME)
+    metadata = json.loads((source_dir / "plugin.json").read_text(encoding="utf-8"))
+    package_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(source_dir.glob("*"))
+        if path.is_file()
+    )
+
+    assert metadata["identifier"] == "com.wavenumber.kicad-cruncher.tools"
+    assert metadata["name"] == "Wavenumber KiCad Cruncher Tools"
+    assert "ALX_HLR_META" not in package_text
+    assert "wavenumber.kicad_footprint_hlr" not in package_text
+
+
 def test_plugin_copy_filter_excludes_generated_artifacts() -> None:
     """Verify plugin install copy filter excludes caches, tests, and package outputs."""
     ignored = _copy_filter(

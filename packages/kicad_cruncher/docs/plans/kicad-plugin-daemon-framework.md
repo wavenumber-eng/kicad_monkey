@@ -217,17 +217,17 @@ The plugin installer should preserve the useful appz prototype behavior:
 
 ## Naming And Metadata
 
-The appz prototype uses `ALX_HLR_META` as the hidden footprint metadata field
-and `wavenumber.kicad_footprint_hlr.metadata.v1` as the metadata schema.
+KiCad plugin package identifiers and user-facing plugin names are Wavenumber
+branded because they identify the installed Wavenumber tool family. Runtime
+contracts remain generic: command/config schemas, daemon state, mutation
+requests, reports, and future board-persistent metadata use
+`kicad_cruncher.*` schema names and `KICAD_CRUNCHER_*` field/env names.
 
-Before public release, decide whether plugin metadata should be:
-
-- Wavenumber-specific, because these plugins are branded Wavenumber tools; or
-- generic KiCad Cruncher namespaced, because the packages are open-source public
-  utilities.
-
-Do this before users install the first public plugin, because metadata fields
-and plugin identifiers become persistent board/library content.
+The appz prototype's `ALX_HLR_META` hidden footprint field and
+`wavenumber.kicad_footprint_hlr.metadata.v1` schema are retired for new
+`kicad-cruncher` plugin behavior. Add any new board-persistent metadata only
+after a dedicated design/test slice, because metadata fields and plugin
+identifiers are hard to change after public use.
 
 ## Test And Signoff Requirements
 
@@ -298,7 +298,7 @@ tool-oriented layout.
 - [x] Add plugin install contract docs.
 - [x] Add the CLI/config/GUI parity rule to durable design docs.
 - [x] Add command manifest entries only when commands become public behavior.
-- [ ] Decide metadata namespace and plugin identifier policy.
+- [x] Decide metadata namespace and plugin identifier policy.
 
 ### 2. Installer Port
 
