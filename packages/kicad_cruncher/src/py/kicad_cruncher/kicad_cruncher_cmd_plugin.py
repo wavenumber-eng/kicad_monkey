@@ -13,6 +13,8 @@ from kicad_cruncher.kicad_cruncher_plugin_installer import (
     discover_plugin_targets,
     inspect_api_config,
     install_plugin,
+    plugin_identifier,
+    plugin_package_root,
     result_lines,
     uninstall_plugin,
 )
@@ -57,10 +59,10 @@ def _cmd_status(args: argparse.Namespace) -> int:
     if not targets:
         print("No KiCad plugin targets discovered.")
         return 0
-    marker = plugin_name.replace("-", "_")
+    identifier = plugin_identifier(plugin_package_root(plugin_name))
     for target in targets:
         version = target.version or "custom"
-        installed = any(target.plugins_dir.glob(f"*{marker}*"))
+        installed = (target.plugins_dir / identifier).exists()
         print(f"{version}: {target.plugins_dir} installed={str(installed).lower()}")
         if target.version:
             for line in api_report_lines(inspect_api_config(target.version)):

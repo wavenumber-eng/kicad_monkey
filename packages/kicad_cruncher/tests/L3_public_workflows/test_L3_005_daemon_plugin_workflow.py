@@ -18,6 +18,7 @@ from kicad_cruncher.kicad_cruncher_daemon import (
 from kicad_cruncher.kicad_cruncher_daemon_state import DAEMON_STATE_SCHEMA, write_daemon_state
 from kicad_cruncher.kicad_cruncher_plugin_installer import (
     DEFAULT_PLUGIN_NAME,
+    _copy_filter,
     install_plugin,
     plugin_identifier,
     plugin_package_root,
@@ -260,6 +261,25 @@ def test_plugin_install_copies_apply_adapter(tmp_path: Path) -> None:
     assert (target_dir / "main.py").is_file()
     assert (target_dir / "ipc_apply.py").is_file()
     assert not list(target_dir.rglob("__pycache__"))
+
+
+def test_plugin_copy_filter_excludes_generated_artifacts() -> None:
+    """Verify plugin install copy filter excludes caches, tests, and package outputs."""
+    ignored = _copy_filter(
+        "unused",
+        [
+            "plugin.json",
+            "main.py",
+            "ipc_apply.py",
+            "__pycache__",
+            ".venv",
+            "dist",
+            "tests",
+            "plugin.pyc",
+        ],
+    )
+
+    assert ignored == {"__pycache__", ".venv", "dist", "tests", "plugin.pyc"}
 
 
 def test_plugin_discovers_daemon_url_from_state_file(tmp_path: Path, monkeypatch) -> None:

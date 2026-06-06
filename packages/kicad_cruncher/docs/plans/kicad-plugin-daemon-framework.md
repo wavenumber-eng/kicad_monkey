@@ -304,8 +304,8 @@ tool-oriented layout.
 
 - [ ] Port appz `kicad_plugins/shared/install.py` into `kicad_cruncher`.
 - [ ] Convert appz-specific wording to public KiCad Cruncher wording.
-- [ ] Add `plugin list-targets`, `plugin install`, and `plugin status`.
-- [ ] Add installer dry-run and copy-filter tests.
+- [x] Add `plugin list-targets`, `plugin install`, and `plugin status`.
+- [x] Add installer dry-run and copy-filter tests.
 - [ ] Keep appz setup as a wrapper that delegates to public CLI commands.
 
 ### 3. Daemon Skeleton

@@ -202,6 +202,32 @@ def test_plugin_install_dry_run_accepts_explicit_target(tmp_path: Path) -> None:
     assert not plugins_dir.exists()
 
 
+def test_plugin_management_commands_use_manifest_identifier(tmp_path: Path) -> None:
+    """Verify plugin list/status/install/uninstall share the manifest identifier."""
+    plugins_dir = tmp_path / "KiCad" / "10.0" / "plugins"
+
+    list_result = _run_cli("plugin", "list-targets", "--plugins-dir", str(plugins_dir))
+    before_status = _run_cli("plugin", "status", "--plugins-dir", str(plugins_dir))
+    install_result = _run_cli("plugin", "install", "--plugins-dir", str(plugins_dir))
+    after_status = _run_cli("plugin", "status", "--plugins-dir", str(plugins_dir))
+    dry_uninstall = _run_cli("plugin", "uninstall", "--plugins-dir", str(plugins_dir), "--dry-run")
+    uninstall_result = _run_cli("plugin", "uninstall", "--plugins-dir", str(plugins_dir))
+
+    target_dir = plugins_dir / "com.wavenumber.kicad-cruncher.tools"
+    assert list_result.returncode == 0, list_result.stderr
+    assert f"custom: {plugins_dir}" in list_result.stdout
+    assert before_status.returncode == 0, before_status.stderr
+    assert "installed=false" in before_status.stdout
+    assert install_result.returncode == 0, install_result.stderr
+    assert "Installed kicad-cruncher-tools" in install_result.stdout
+    assert after_status.returncode == 0, after_status.stderr
+    assert "installed=true" in after_status.stdout
+    assert dry_uninstall.returncode == 0, dry_uninstall.stderr
+    assert "Would uninstall kicad-cruncher-tools" in dry_uninstall.stdout
+    assert uninstall_result.returncode == 0, uninstall_result.stderr
+    assert not target_dir.exists()
+
+
 def test_schematic_clean_is_deferred_json() -> None:
     """Verify the schematic clean command group exists without mutation behavior."""
     result = _run_cli("schematic", "clean")
