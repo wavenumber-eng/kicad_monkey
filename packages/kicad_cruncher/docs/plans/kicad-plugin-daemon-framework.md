@@ -313,7 +313,7 @@ tool-oriented layout.
 - [x] Add `kicad-cruncher daemon`.
 - [x] Add `/health`, `/version`, and command inventory endpoints.
 - [ ] Add daemon startup tests.
-- [ ] Add local-only host defaults and explicit remote-host opt-in.
+- [x] Add local-only host defaults and explicit remote-host opt-in.
 - [x] Add config/port discovery for plugin shims.
 - [x] Add the initial Lib Cruncher-style tabbed tool-center shell with PCB
       Clean as the first active tab.

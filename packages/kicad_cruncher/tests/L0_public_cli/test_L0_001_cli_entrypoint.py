@@ -12,6 +12,10 @@ import pytest
 from colorama import Fore, Style
 from kicad_cruncher._cli import _color_command_names_in_help, _format_parser_error_line
 from kicad_cruncher._version import __version__, cli_version_text
+from kicad_cruncher.kicad_cruncher_cmd_daemon import (
+    daemon_host_allowed,
+    daemon_host_is_loopback,
+)
 from kicad_cruncher.kicad_cruncher_common import resolve_output_dir
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -140,6 +144,24 @@ def test_daemon_health_outputs_json() -> None:
     assert payload["schema"] == "kicad_cruncher.daemon.health.v0"
     assert payload["ok"] is True
     assert payload["service"] == "kicad-cruncher"
+
+
+def test_daemon_help_describes_remote_host_opt_in() -> None:
+    """Verify daemon help exposes the explicit remote-bind opt in."""
+    result = _run_cli("daemon", "--help")
+
+    assert result.returncode == 0, result.stderr
+    assert "--allow-remote-host" in result.stdout
+
+
+def test_daemon_host_policy_requires_remote_opt_in() -> None:
+    """Verify daemon remote binding is explicit instead of accidental."""
+    assert daemon_host_is_loopback("127.0.0.1") is True
+    assert daemon_host_is_loopback("localhost") is True
+    assert daemon_host_is_loopback("::1") is True
+    assert daemon_host_is_loopback("0.0.0.0") is False
+    assert daemon_host_allowed("0.0.0.0", allow_remote=False) is False
+    assert daemon_host_allowed("0.0.0.0", allow_remote=True) is True
 
 
 def test_pcb_clean_writes_config_and_dry_run_plan(tmp_path: Path) -> None:
