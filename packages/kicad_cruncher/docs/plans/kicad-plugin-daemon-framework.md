@@ -307,7 +307,7 @@ tool-oriented layout.
 - [x] Convert appz-specific wording to public KiCad Cruncher wording.
 - [x] Add `plugin list-targets`, `plugin install`, and `plugin status`.
 - [x] Add installer dry-run and copy-filter tests.
-- [ ] Keep appz setup as a wrapper that delegates to public CLI commands.
+- [x] Keep appz setup as a wrapper that delegates to public CLI commands.
 
 ### 3. Daemon Skeleton
 
@@ -364,11 +364,11 @@ tool-oriented layout.
 
 ### 8. Retire Appz Prototype
 
-- [ ] Update appz setup to call `kicad-cruncher plugin install`.
-- [ ] Remove appz-owned plugin implementation code.
-- [ ] Remove appz-owned plugin installer code.
-- [ ] Remove appz-owned plugin planning docs.
-- [ ] Keep only Wavenumber workspace wrapper behavior in appz.
+- [x] Update appz setup to call `kicad-cruncher plugin install`.
+- [x] Remove appz-owned plugin implementation code.
+- [x] Remove appz-owned plugin installer code.
+- [x] Remove appz-owned plugin planning docs.
+- [x] Keep only Wavenumber workspace wrapper behavior in appz.
 
 ## Risks
 
