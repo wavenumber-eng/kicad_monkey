@@ -10,6 +10,12 @@ from kicad_cruncher.kicad_cruncher_daemon import (
     daemon_command_inventory_payload,
     daemon_pcb_layer_cleanup,
 )
+from kicad_cruncher.kicad_cruncher_plugin_installer import (
+    DEFAULT_PLUGIN_NAME,
+    install_plugin,
+    plugin_identifier,
+    plugin_package_root,
+)
 from kicad_monkey import KiCadPcb
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -44,6 +50,22 @@ def test_daemon_command_inventory_exposes_pcb_clean() -> None:
     assert payload["schema"] == "kicad_cruncher.daemon.commands.v0"
     assert pcb_clean["endpoint"] == "/api/v1/pcb/layer-cleanup"
     assert "daemon:kicad-ipc-plan" in _json_list(pcb_clean["adapters"])
+
+
+def test_plugin_install_copies_apply_adapter(tmp_path: Path) -> None:
+    """Verify installed plugin package includes the IPC apply adapter."""
+    plugins_dir = tmp_path / "plugins"
+
+    results = install_plugin(plugins_dir=plugins_dir)
+
+    source_dir = plugin_package_root(DEFAULT_PLUGIN_NAME)
+    target_dir = plugins_dir / plugin_identifier(source_dir)
+    assert len(results) == 1
+    assert results[0].target_dir == target_dir
+    assert (target_dir / "plugin.json").is_file()
+    assert (target_dir / "main.py").is_file()
+    assert (target_dir / "ipc_apply.py").is_file()
+    assert not list(target_dir.rglob("__pycache__"))
 
 
 def test_daemon_pcb_clean_kicad_ipc_mode_returns_mutation_request() -> None:

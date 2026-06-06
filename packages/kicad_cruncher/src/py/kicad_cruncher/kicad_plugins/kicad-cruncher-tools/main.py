@@ -7,9 +7,19 @@ import urllib.error
 import urllib.request
 import webbrowser
 from importlib import import_module
+from typing import Protocol, cast
 
 DEFAULT_DAEMON_URL = "http://127.0.0.1:8765"
 LAYER_CLEANUP_REQUEST_SCHEMA = "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0"
+PCB_CLEAN_APPLY_ENV = "KICAD_CRUNCHER_PCB_CLEAN_APPLY"
+
+
+class _IpcApplyModule(Protocol):
+    def apply_pcb_clean_mutation_request(
+        self,
+        board: object,
+        mutation_request: dict[str, object],
+    ) -> dict[str, object]: ...
 
 
 def main() -> int:
@@ -30,7 +40,7 @@ def main() -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    session = _discover_kicad_session()
+    board, session = _discover_kicad_session()
     cleanup_payload: dict[str, object] = {
         "schema": LAYER_CLEANUP_REQUEST_SCHEMA,
         "mode": "kicad-ipc",
@@ -59,6 +69,21 @@ def main() -> int:
         print(json.dumps(cleanup_result, indent=2), file=sys.stderr)
         return 1
 
+    if _env_bool(PCB_CLEAN_APPLY_ENV):
+        if board is None:
+            print("KiCad Cruncher cannot apply PCB clean: no KiCad board session.", file=sys.stderr)
+            return 1
+        try:
+            result_payload = cleanup_result.get("result")
+            if not isinstance(result_payload, dict):
+                print("KiCad Cruncher daemon did not return a mutation request.", file=sys.stderr)
+                return 1
+            apply_result = _apply_pcb_clean_mutation_request(board, result_payload)
+        except Exception as exc:
+            print(f"KiCad Cruncher PCB clean IPC apply failed: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(apply_result, indent=2))
+
     webbrowser.open(daemon_url)
     print(f"Opened KiCad Cruncher tools: {daemon_url}")
     print("PCB clean operation plan routed through daemon.")
@@ -81,27 +106,47 @@ def _post_json(url: str, payload: dict[str, object]) -> dict[str, object]:
     return decoded if isinstance(decoded, dict) else {"ok": False, "body": decoded}
 
 
-def _discover_kicad_session() -> dict[str, object]:
+def _apply_pcb_clean_mutation_request(
+    board: object,
+    mutation_request: dict[str, object],
+) -> dict[str, object]:
+    plugin_dir = os.path.dirname(__file__)
+    if plugin_dir not in sys.path:
+        sys.path.insert(0, plugin_dir)
+    ipc_apply = cast(_IpcApplyModule, import_module("ipc_apply"))
+    result = ipc_apply.apply_pcb_clean_mutation_request(board, mutation_request)
+    if not isinstance(result, dict):
+        raise RuntimeError("KiCad Cruncher PCB clean IPC apply returned a non-object result.")
+    return result
+
+
+def _discover_kicad_session() -> tuple[object | None, dict[str, object]]:
     try:
         kipy = import_module("kipy")
         board = kipy.KiCad().get_board()
     except Exception as exc:
-        return {
-            "connected": False,
-            "source": "kicad-ipc-plugin",
-            "reason": str(exc),
-        }
+        return (
+            None,
+            {
+                "connected": False,
+                "source": "kicad-ipc-plugin",
+                "reason": str(exc),
+            },
+        )
 
     board_path = _first_text_attribute(
         board,
         ("file_name", "filename", "path", "board_path", "project_path"),
     )
-    return {
-        "connected": True,
-        "source": "kicad-ipc-plugin",
-        "board_name": _first_text_attribute(board, ("name", "title")),
-        "board_path": board_path,
-    }
+    return (
+        board,
+        {
+            "connected": True,
+            "source": "kicad-ipc-plugin",
+            "board_name": _first_text_attribute(board, ("name", "title")),
+            "board_path": board_path,
+        },
+    )
 
 
 def _first_text_attribute(target: object, names: tuple[str, ...]) -> str | None:
@@ -116,6 +161,11 @@ def _first_text_attribute(target: object, names: tuple[str, ...]) -> str | None:
         if text:
             return text
     return None
+
+
+def _env_bool(name: str) -> bool:
+    value = os.environ.get(name, "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 if __name__ == "__main__":

@@ -239,6 +239,8 @@ Add Rack coverage before making plugin behavior release-facing:
 - daemon startup and `/health` tests;
 - daemon API tests with FastAPI test clients;
 - pure layer-cleanup algorithm tests with known input/output fixtures;
+- mocked KiCad IPC apply-adapter tests for commit, push, drop, and skipped
+  operations;
 - mocked KiCad IPC plugin-shim tests for daemon available/unavailable cases;
 - CLI command manifest, help, design-doc, and module-ownership tests; and
 - optional live KiCad IPC validation outside default CI.
@@ -319,7 +321,8 @@ tool-oriented layout.
 - [x] Package the first KiCad IPC action as `kicad_cruncher` package data.
 - [x] Keep the action shim small: discover board/session, call daemon, report
       failure clearly.
-- [ ] Add mocked shim tests.
+- [x] Add mocked KiCad IPC apply-adapter tests for commit/undo behavior.
+- [ ] Add mocked shim tests for daemon available/unavailable cases.
 - [ ] Preserve the useful appz installer diagnostics.
 
 ### 5. PCB Layer Cleanup
@@ -335,6 +338,8 @@ tool-oriented layout.
 - [x] Wire the KiCad plugin action through the daemon.
 - [x] Document file-path target-layer safety rules.
 - [x] Document plugin undo/commit behavior.
+- [x] Add the plugin-side adapter that applies daemon mutation requests through
+      KiCad IPC commit, update, push, and drop operations.
 - [ ] Start with existing PCB user/generated layers before expanding into HLR
       generation or broader board edits.
 
