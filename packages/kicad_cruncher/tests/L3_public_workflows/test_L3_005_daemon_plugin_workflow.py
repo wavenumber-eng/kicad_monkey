@@ -39,7 +39,22 @@ _PLUGIN_MAIN_PATH = (
 
 
 class _PluginMainModule(Protocol):
+    def main(self) -> int: ...
+
     def _resolve_daemon_url(self) -> str: ...
+
+
+class _UrllibModule(Protocol):
+    request: object
+
+
+class _WebbrowserModule(Protocol):
+    def open(self, url: str) -> bool: ...
+
+
+class _PluginRuntimeModule(_PluginMainModule, Protocol):
+    urllib: _UrllibModule
+    webbrowser: _WebbrowserModule
 
 
 def _json_object(value: object) -> dict[str, object]:
@@ -52,13 +67,17 @@ def _json_list(value: object) -> list[object]:
     return value
 
 
-def _load_plugin_main() -> _PluginMainModule:
+def _load_plugin_main_module() -> ModuleType:
     spec = importlib.util.spec_from_file_location("kicad_cruncher_plugin_main", _PLUGIN_MAIN_PATH)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return cast(_PluginMainModule, cast(ModuleType, module))
+    return cast(ModuleType, module)
+
+
+def _load_plugin_main() -> _PluginMainModule:
+    return cast(_PluginMainModule, _load_plugin_main_module())
 
 
 class _RecordingServerRunner:
@@ -83,6 +102,21 @@ class _RecordingServerRunner:
                 "reload": reload,
             }
         )
+
+
+class _FakeHttpResponse:
+    def __init__(self, *, status: int = 200, body: str = "{}") -> None:
+        self.status = status
+        self._body = body.encode("utf-8")
+
+    def __enter__(self) -> _FakeHttpResponse:
+        return self
+
+    def __exit__(self, _exc_type: object, _exc: object, _tb: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self._body
 
 
 def test_daemon_command_inventory_exposes_pcb_clean() -> None:
@@ -150,6 +184,66 @@ def test_daemon_startup_rejects_remote_host_before_runner(tmp_path: Path, monkey
     assert exit_code == 2
     assert runner.calls == []
     assert not state_path.exists()
+
+
+def test_plugin_main_reports_unreachable_daemon(monkeypatch) -> None:
+    """Verify plugin entrypoint fails clearly when the daemon is unavailable."""
+    module = _load_plugin_main_module()
+    plugin_main = cast(_PluginRuntimeModule, module)
+
+    def fail_urlopen(_request: object, timeout: object = None) -> _FakeHttpResponse:
+        raise OSError(f"daemon unavailable after timeout {timeout}")
+
+    monkeypatch.setattr(module, "_resolve_daemon_url", lambda: "http://127.0.0.1:9999")
+    monkeypatch.setattr(plugin_main.urllib.request, "urlopen", fail_urlopen)
+
+    assert plugin_main.main() == 1
+
+
+def test_plugin_main_posts_cleanup_request_and_opens_daemon(monkeypatch) -> None:
+    """Verify plugin entrypoint health-checks, posts cleanup plan, and opens UI."""
+    module = _load_plugin_main_module()
+    plugin_main = cast(_PluginRuntimeModule, module)
+    posted_payloads: list[dict[str, object]] = []
+    opened_urls: list[str] = []
+
+    def fake_urlopen(request: object, timeout: object = None) -> _FakeHttpResponse:
+        url = str(getattr(request, "full_url", request))
+        if url.endswith("/health"):
+            return _FakeHttpResponse(status=200)
+
+        data = getattr(request, "data", b"{}")
+        if not isinstance(data, bytes):
+            data = b"{}"
+        posted_payloads.append(json.loads(data.decode("utf-8")))
+        return _FakeHttpResponse(
+            status=200,
+            body=json.dumps({"ok": True, "result": {"schema": "mutation"}}),
+        )
+
+    def fake_open(url: str) -> bool:
+        opened_urls.append(url)
+        return True
+
+    monkeypatch.setattr(module, "_resolve_daemon_url", lambda: "http://127.0.0.1:9999")
+    monkeypatch.setattr(
+        module,
+        "_discover_kicad_session",
+        lambda: (None, {"connected": False, "source": "test"}),
+    )
+    monkeypatch.setattr(plugin_main.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(plugin_main.webbrowser, "open", fake_open)
+
+    assert plugin_main.main() == 0
+    assert opened_urls == ["http://127.0.0.1:9999"]
+    assert posted_payloads == [
+        {
+            "schema": "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0",
+            "mode": "kicad-ipc",
+            "apply": False,
+            "session": {"connected": False, "source": "test"},
+        }
+    ]
 
 
 def test_plugin_install_copies_apply_adapter(tmp_path: Path) -> None:

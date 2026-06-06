@@ -324,7 +324,7 @@ tool-oriented layout.
 - [x] Keep the action shim small: discover board/session, call daemon, report
       failure clearly.
 - [x] Add mocked KiCad IPC apply-adapter tests for commit/undo behavior.
-- [ ] Add mocked shim tests for daemon available/unavailable cases.
+- [x] Add mocked shim tests for daemon available/unavailable cases.
 - [ ] Preserve the useful appz installer diagnostics.
 
 ### 5. PCB Layer Cleanup
