@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import shutil
 from pathlib import Path
 from types import ModuleType
 from typing import Protocol, cast
 
+from kicad_cruncher.kicad_cruncher_cmd_daemon import run_daemon
 from kicad_cruncher.kicad_cruncher_daemon import (
     create_app,
     daemon_command_inventory_payload,
     daemon_pcb_layer_cleanup,
 )
-from kicad_cruncher.kicad_cruncher_daemon_state import write_daemon_state
+from kicad_cruncher.kicad_cruncher_daemon_state import DAEMON_STATE_SCHEMA, write_daemon_state
 from kicad_cruncher.kicad_cruncher_plugin_installer import (
     DEFAULT_PLUGIN_NAME,
     install_plugin,
@@ -59,6 +61,30 @@ def _load_plugin_main() -> _PluginMainModule:
     return cast(_PluginMainModule, cast(ModuleType, module))
 
 
+class _RecordingServerRunner:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def __call__(
+        self,
+        app: str,
+        *,
+        factory: bool,
+        host: str,
+        port: int,
+        reload: bool,
+    ) -> None:
+        self.calls.append(
+            {
+                "app": app,
+                "factory": factory,
+                "host": host,
+                "port": port,
+                "reload": reload,
+            }
+        )
+
+
 def test_daemon_command_inventory_exposes_pcb_clean() -> None:
     """Verify the daemon advertises the shared PCB clean command."""
     app = create_app()
@@ -76,6 +102,54 @@ def test_daemon_command_inventory_exposes_pcb_clean() -> None:
     assert payload["schema"] == "kicad_cruncher.daemon.commands.v0"
     assert pcb_clean["endpoint"] == "/api/v1/pcb/layer-cleanup"
     assert "daemon:kicad-ipc-plan" in _json_list(pcb_clean["adapters"])
+
+
+def test_daemon_startup_writes_state_and_invokes_runner(tmp_path: Path, monkeypatch) -> None:
+    """Verify daemon startup writes discovery state before running the server."""
+    state_path = tmp_path / "daemon.json"
+    runner = _RecordingServerRunner()
+    monkeypatch.setenv("KICAD_CRUNCHER_DAEMON_STATE", str(state_path))
+
+    exit_code = run_daemon(
+        host="127.0.0.1",
+        port=9021,
+        reload=True,
+        allow_remote_host=False,
+        server_runner=runner,
+    )
+
+    payload = json.loads(state_path.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert payload["schema"] == DAEMON_STATE_SCHEMA
+    assert payload["url"] == "http://127.0.0.1:9021"
+    assert runner.calls == [
+        {
+            "app": "kicad_cruncher.kicad_cruncher_daemon:create_app",
+            "factory": True,
+            "host": "127.0.0.1",
+            "port": 9021,
+            "reload": True,
+        }
+    ]
+
+
+def test_daemon_startup_rejects_remote_host_before_runner(tmp_path: Path, monkeypatch) -> None:
+    """Verify daemon startup refuses remote hosts unless explicitly allowed."""
+    state_path = tmp_path / "daemon.json"
+    runner = _RecordingServerRunner()
+    monkeypatch.setenv("KICAD_CRUNCHER_DAEMON_STATE", str(state_path))
+
+    exit_code = run_daemon(
+        host="0.0.0.0",
+        port=9021,
+        reload=False,
+        allow_remote_host=False,
+        server_runner=runner,
+    )
+
+    assert exit_code == 2
+    assert runner.calls == []
+    assert not state_path.exists()
 
 
 def test_plugin_install_copies_apply_adapter(tmp_path: Path) -> None:

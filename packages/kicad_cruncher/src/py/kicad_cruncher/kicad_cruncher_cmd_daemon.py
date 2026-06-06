@@ -6,6 +6,7 @@ import argparse
 import ipaddress
 import json
 import sys
+from typing import Protocol
 
 from kicad_cruncher.kicad_cruncher_daemon import (
     DEFAULT_DAEMON_HOST,
@@ -13,6 +14,18 @@ from kicad_cruncher.kicad_cruncher_daemon import (
     daemon_health_payload,
 )
 from kicad_cruncher.kicad_cruncher_daemon_state import write_daemon_state
+
+
+class _ServerRunner(Protocol):
+    def __call__(
+        self,
+        app: str,
+        *,
+        factory: bool,
+        host: str,
+        port: int,
+        reload: bool,
+    ) -> object: ...
 
 
 def cmd_daemon(args: argparse.Namespace) -> int:
@@ -23,24 +36,54 @@ def cmd_daemon(args: argparse.Namespace) -> int:
 
     host = str(getattr(args, "host", DEFAULT_DAEMON_HOST))
     port = int(getattr(args, "port", DEFAULT_DAEMON_PORT))
-    if not daemon_host_allowed(host, allow_remote=bool(getattr(args, "allow_remote_host", False))):
+    return run_daemon(
+        host=host,
+        port=port,
+        reload=bool(getattr(args, "reload", False)),
+        allow_remote_host=bool(getattr(args, "allow_remote_host", False)),
+    )
+
+
+def run_daemon(
+    *,
+    host: str,
+    port: int,
+    reload: bool,
+    allow_remote_host: bool,
+    server_runner: _ServerRunner | None = None,
+) -> int:
+    """Start the local daemon after validating startup policy."""
+    if not daemon_host_allowed(host, allow_remote=allow_remote_host):
         print(
             "Refusing remote daemon host. Use --allow-remote-host for an explicit remote bind.",
             file=sys.stderr,
         )
         return 2
 
-    import uvicorn
+    runner = server_runner or _uvicorn_run
 
     write_daemon_state(host=host, port=port)
-    uvicorn.run(
+    runner(
         "kicad_cruncher.kicad_cruncher_daemon:create_app",
         factory=True,
         host=host,
         port=port,
-        reload=bool(getattr(args, "reload", False)),
+        reload=reload,
     )
     return 0
+
+
+def _uvicorn_run(
+    app: str,
+    *,
+    factory: bool,
+    host: str,
+    port: int,
+    reload: bool,
+) -> object:
+    import uvicorn
+
+    return uvicorn.run(app, factory=factory, host=host, port=port, reload=reload)
 
 
 def daemon_host_allowed(host: str, *, allow_remote: bool) -> bool:
