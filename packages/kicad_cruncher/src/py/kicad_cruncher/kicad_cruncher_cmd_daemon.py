@@ -10,6 +10,7 @@ from kicad_cruncher.kicad_cruncher_daemon import (
     DEFAULT_DAEMON_PORT,
     daemon_health_payload,
 )
+from kicad_cruncher.kicad_cruncher_daemon_state import write_daemon_state
 
 
 def cmd_daemon(args: argparse.Namespace) -> int:
@@ -20,11 +21,14 @@ def cmd_daemon(args: argparse.Namespace) -> int:
 
     import uvicorn
 
+    host = str(getattr(args, "host", DEFAULT_DAEMON_HOST))
+    port = int(getattr(args, "port", DEFAULT_DAEMON_PORT))
+    write_daemon_state(host=host, port=port)
     uvicorn.run(
         "kicad_cruncher.kicad_cruncher_daemon:create_app",
         factory=True,
-        host=str(getattr(args, "host", DEFAULT_DAEMON_HOST)),
-        port=int(getattr(args, "port", DEFAULT_DAEMON_PORT)),
+        host=host,
+        port=port,
         reload=bool(getattr(args, "reload", False)),
     )
     return 0

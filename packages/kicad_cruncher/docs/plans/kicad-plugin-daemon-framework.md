@@ -135,6 +135,8 @@ Defaults:
 - bind to `127.0.0.1`;
 - choose a stable default port or write the selected dynamic port to a config
   file;
+- write a local daemon state file that installed plugins can use for endpoint
+  discovery, with an explicit environment override for custom/test installs;
 - expose no remote host binding unless explicitly requested;
 - keep one process alive for all KiCad Cruncher plugin actions; and
 - serve no-build HTML, CSS, and JavaScript for local utility UI.
@@ -312,7 +314,7 @@ tool-oriented layout.
 - [x] Add `/health`, `/version`, and command inventory endpoints.
 - [ ] Add daemon startup tests.
 - [ ] Add local-only host defaults and explicit remote-host opt-in.
-- [ ] Add config/port discovery for plugin shims.
+- [x] Add config/port discovery for plugin shims.
 - [x] Add the initial Lib Cruncher-style tabbed tool-center shell with PCB
       Clean as the first active tab.
 

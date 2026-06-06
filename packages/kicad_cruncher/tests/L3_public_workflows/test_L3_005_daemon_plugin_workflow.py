@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import importlib.util
 import shutil
 from pathlib import Path
+from types import ModuleType
+from typing import Protocol, cast
 
 from kicad_cruncher.kicad_cruncher_daemon import (
     create_app,
     daemon_command_inventory_payload,
     daemon_pcb_layer_cleanup,
 )
+from kicad_cruncher.kicad_cruncher_daemon_state import write_daemon_state
 from kicad_cruncher.kicad_cruncher_plugin_installer import (
     DEFAULT_PLUGIN_NAME,
     install_plugin,
@@ -21,6 +25,19 @@ from kicad_monkey import KiCadPcb
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _CORPUS_ROOT = _PROJECT_ROOT / "tests" / "corpus" / "kicad"
 _HLR_TEST_PCB = _CORPUS_ROOT / "projects" / "hlr_test" / "hlr_test.kicad_pcb"
+_PLUGIN_MAIN_PATH = (
+    _PROJECT_ROOT
+    / "src"
+    / "py"
+    / "kicad_cruncher"
+    / "kicad_plugins"
+    / "kicad-cruncher-tools"
+    / "main.py"
+)
+
+
+class _PluginMainModule(Protocol):
+    def _resolve_daemon_url(self) -> str: ...
 
 
 def _json_object(value: object) -> dict[str, object]:
@@ -31,6 +48,15 @@ def _json_object(value: object) -> dict[str, object]:
 def _json_list(value: object) -> list[object]:
     assert isinstance(value, list)
     return value
+
+
+def _load_plugin_main() -> _PluginMainModule:
+    spec = importlib.util.spec_from_file_location("kicad_cruncher_plugin_main", _PLUGIN_MAIN_PATH)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return cast(_PluginMainModule, cast(ModuleType, module))
 
 
 def test_daemon_command_inventory_exposes_pcb_clean() -> None:
@@ -66,6 +92,36 @@ def test_plugin_install_copies_apply_adapter(tmp_path: Path) -> None:
     assert (target_dir / "main.py").is_file()
     assert (target_dir / "ipc_apply.py").is_file()
     assert not list(target_dir.rglob("__pycache__"))
+
+
+def test_plugin_discovers_daemon_url_from_state_file(tmp_path: Path, monkeypatch) -> None:
+    """Verify plugin daemon discovery uses the daemon state file."""
+    state_path = tmp_path / "daemon.json"
+    monkeypatch.setenv("KICAD_CRUNCHER_DAEMON_STATE", str(state_path))
+    monkeypatch.delenv("KICAD_CRUNCHER_DAEMON_URL", raising=False)
+    write_daemon_state(host="127.0.0.1", port=9012)
+
+    assert _load_plugin_main()._resolve_daemon_url() == "http://127.0.0.1:9012"
+
+
+def test_plugin_daemon_url_env_overrides_state_file(tmp_path: Path, monkeypatch) -> None:
+    """Verify explicit daemon URL env remains the highest-priority override."""
+    state_path = tmp_path / "daemon.json"
+    monkeypatch.setenv("KICAD_CRUNCHER_DAEMON_STATE", str(state_path))
+    monkeypatch.setenv("KICAD_CRUNCHER_DAEMON_URL", "http://127.0.0.1:9123/")
+    write_daemon_state(host="127.0.0.1", port=9012)
+
+    assert _load_plugin_main()._resolve_daemon_url() == "http://127.0.0.1:9123"
+
+
+def test_plugin_ignores_remote_daemon_state_url(tmp_path: Path, monkeypatch) -> None:
+    """Verify plugin state discovery does not trust remote daemon URLs."""
+    state_path = tmp_path / "daemon.json"
+    monkeypatch.setenv("KICAD_CRUNCHER_DAEMON_STATE", str(state_path))
+    monkeypatch.delenv("KICAD_CRUNCHER_DAEMON_URL", raising=False)
+    write_daemon_state(host="0.0.0.0", port=9012)
+
+    assert _load_plugin_main()._resolve_daemon_url() == "http://127.0.0.1:8765"
 
 
 def test_daemon_pcb_clean_kicad_ipc_mode_returns_mutation_request() -> None:

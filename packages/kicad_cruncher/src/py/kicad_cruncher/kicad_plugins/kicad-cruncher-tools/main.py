@@ -7,8 +7,12 @@ import urllib.error
 import urllib.request
 import webbrowser
 from importlib import import_module
+from pathlib import Path
 from typing import Protocol, cast
+from urllib.parse import urlparse
 
+DAEMON_STATE_ENV = "KICAD_CRUNCHER_DAEMON_STATE"
+DAEMON_URL_ENV = "KICAD_CRUNCHER_DAEMON_URL"
 DEFAULT_DAEMON_URL = "http://127.0.0.1:8765"
 LAYER_CLEANUP_REQUEST_SCHEMA = "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0"
 PCB_CLEAN_APPLY_ENV = "KICAD_CRUNCHER_PCB_CLEAN_APPLY"
@@ -23,7 +27,7 @@ class _IpcApplyModule(Protocol):
 
 
 def main() -> int:
-    daemon_url = os.environ.get("KICAD_CRUNCHER_DAEMON_URL", DEFAULT_DAEMON_URL).rstrip("/")
+    daemon_url = _resolve_daemon_url()
     health_url = f"{daemon_url}/health"
     try:
         with urllib.request.urlopen(health_url, timeout=2) as response:
@@ -104,6 +108,45 @@ def _post_json(url: str, payload: dict[str, object]) -> dict[str, object]:
         body = response.read().decode("utf-8")
     decoded = json.loads(body)
     return decoded if isinstance(decoded, dict) else {"ok": False, "body": decoded}
+
+
+def _resolve_daemon_url() -> str:
+    env_url = os.environ.get(DAEMON_URL_ENV, "").strip()
+    if env_url:
+        return env_url.rstrip("/")
+    state_url = _read_daemon_state_url()
+    return (state_url or DEFAULT_DAEMON_URL).rstrip("/")
+
+
+def _read_daemon_state_url() -> str | None:
+    path = _daemon_state_path()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    url = str(payload.get("url") or "").strip()
+    return url if _is_loopback_http_url(url) else None
+
+
+def _daemon_state_path() -> Path:
+    override = os.environ.get(DAEMON_STATE_ENV)
+    if override:
+        return Path(override).expanduser()
+
+    if os.name == "nt":
+        root = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    elif sys.platform == "darwin":
+        root = Path.home() / "Library" / "Application Support"
+    else:
+        root = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state")
+    return root / "kicad-cruncher" / "daemon.json"
+
+
+def _is_loopback_http_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
 
 
 def _apply_pcb_clean_mutation_request(
