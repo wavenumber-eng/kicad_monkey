@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -22,11 +23,12 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _MANIFEST_PATH = _PROJECT_ROOT / "docs" / "contracts" / "command_manifest.v0.json"
 
 
-def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
+def _run_cli(*args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     """Run the current checkout's CLI through the active Python environment."""
     return subprocess.run(
         [sys.executable, "-m", "kicad_cruncher", *args],
         cwd=_PROJECT_ROOT,
+        env=env,
         capture_output=True,
         text=True,
         check=False,
@@ -200,6 +202,43 @@ def test_plugin_install_dry_run_accepts_explicit_target(tmp_path: Path) -> None:
     assert "Would install kicad-cruncher-tools" in result.stdout
     assert "com.wavenumber.kicad-cruncher.tools" in result.stdout
     assert not plugins_dir.exists()
+
+
+def test_plugin_install_enable_api_sets_discovered_kicad_python(tmp_path: Path) -> None:
+    """Verify plugin install can configure KiCad IPC with the bundled Python path."""
+    plugins_dir = tmp_path / "KiCad" / "10.0" / "plugins"
+    config_root = tmp_path / "config"
+    config_path = config_root / "10.0" / "kicad_common.json"
+    install_root = tmp_path / "KiCadInstall" / "10.0"
+    bin_dir = install_root / "bin"
+    python_path = bin_dir / ("python.exe" if os.name == "nt" else "python3")
+    kicad_cli_path = bin_dir / ("kicad-cli.exe" if os.name == "nt" else "kicad-cli")
+    config_path.parent.mkdir(parents=True)
+    bin_dir.mkdir(parents=True)
+    config_path.write_text('{"api": {}}\n', encoding="utf-8")
+    python_path.write_text("", encoding="utf-8")
+    kicad_cli_path.write_text("", encoding="utf-8")
+    env = os.environ.copy()
+    env["KICAD_CONFIG_HOME"] = str(config_root)
+    env["KICAD_INSTALL_ROOT"] = str(install_root)
+
+    result = _run_cli(
+        "plugin",
+        "install",
+        "--plugins-dir",
+        str(plugins_dir),
+        "--kicad-version",
+        "10.0",
+        "--enable-api",
+        env=env,
+    )
+
+    payload = json.loads(config_path.read_text(encoding="utf-8"))
+    assert result.returncode == 0, result.stderr
+    assert "Updated KiCad 10.0 config: enable KiCad IPC API" in result.stdout
+    assert f"Updated KiCad 10.0 config: set Python interpreter to {python_path}" in result.stdout
+    assert payload["api"]["enable_server"] is True
+    assert payload["api"]["interpreter_path"] == str(python_path)
 
 
 def test_plugin_management_commands_use_manifest_identifier(tmp_path: Path) -> None:

@@ -302,8 +302,9 @@ tool-oriented layout.
 
 ### 2. Installer Port
 
-- [ ] Port appz `kicad_plugins/shared/install.py` into `kicad_cruncher`.
-- [ ] Convert appz-specific wording to public KiCad Cruncher wording.
+- [x] Port generic appz `kicad_plugins/shared/install.py` behavior into
+      `kicad_cruncher`.
+- [x] Convert appz-specific wording to public KiCad Cruncher wording.
 - [x] Add `plugin list-targets`, `plugin install`, and `plugin status`.
 - [x] Add installer dry-run and copy-filter tests.
 - [ ] Keep appz setup as a wrapper that delegates to public CLI commands.
@@ -325,7 +326,7 @@ tool-oriented layout.
       failure clearly.
 - [x] Add mocked KiCad IPC apply-adapter tests for commit/undo behavior.
 - [x] Add mocked shim tests for daemon available/unavailable cases.
-- [ ] Preserve the useful appz installer diagnostics.
+- [x] Preserve the useful appz installer diagnostics.
 
 ### 5. PCB Layer Cleanup
 

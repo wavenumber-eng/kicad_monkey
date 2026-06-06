@@ -5,12 +5,15 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import cast
 
 DEFAULT_KICAD_VERSIONS = ("10.0", "9.0")
 DEFAULT_PLUGIN_NAME = "kicad-cruncher-tools"
+KICAD_EXECUTABLE_NAMES = ("kicad.exe", "kicad-cli.exe", "kicad", "kicad-cli")
+PYTHON_EXECUTABLE_NAMES = ("python.exe", "pythonw.exe", "python3.exe", "python", "python3")
 EXCLUDED_DIRS = {
     ".git",
     ".mypy_cache",
@@ -97,12 +100,50 @@ def plugin_identifier(source_dir: Path) -> str:
     return identifier
 
 
+def known_documents_dir() -> Path:
+    """Return the platform documents folder used by KiCad user plugin paths."""
+    if os.name != "nt":
+        return Path.home() / "Documents"
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class GUID(ctypes.Structure):
+            _fields_ = [
+                ("Data1", wintypes.DWORD),
+                ("Data2", wintypes.WORD),
+                ("Data3", wintypes.WORD),
+                ("Data4", wintypes.BYTE * 8),
+            ]
+
+        folder_id_documents = GUID(
+            0xFDD39AD0,
+            0x238F,
+            0x46AF,
+            (wintypes.BYTE * 8)(0xAD, 0xB4, 0x6C, 0x85, 0x48, 0x03, 0x69, 0xC7),
+        )
+        path_ptr = wintypes.LPWSTR()
+        result = ctypes.windll.shell32.SHGetKnownFolderPath(
+            ctypes.byref(folder_id_documents), 0, None, ctypes.byref(path_ptr)
+        )
+        if result == 0 and path_ptr.value:
+            path = Path(path_ptr.value)
+            ctypes.windll.ole32.CoTaskMemFree(path_ptr)
+            return path
+    except Exception:
+        pass
+
+    return Path.home() / "Documents"
+
+
 def candidate_documents_roots() -> list[Path]:
     """Return likely KiCad documents roots."""
     roots: list[Path] = []
     env_root = os.environ.get("KICAD_DOCUMENTS_HOME")
     if env_root:
         roots.append(Path(env_root).expanduser())
+    roots.append(known_documents_dir() / "KiCad")
     roots.append(Path.home() / "Documents" / "KiCad")
     return _unique_paths(roots)
 
@@ -117,6 +158,7 @@ def candidate_config_roots() -> list[Path]:
         appdata = os.environ.get("APPDATA")
         if appdata:
             roots.append(Path(appdata) / "kicad")
+        roots.append(Path.home() / "AppData" / "Roaming" / "kicad")
     elif sys.platform == "darwin":
         roots.append(Path.home() / "Library" / "Preferences" / "kicad")
     else:
@@ -124,6 +166,113 @@ def candidate_config_roots() -> list[Path]:
         config_root = Path(xdg_config).expanduser() if xdg_config else Path.home() / ".config"
         roots.append(config_root / "kicad")
     return _unique_paths(roots)
+
+
+def _add_kicad_install_candidate(candidates: list[Path], candidate: str | Path | None) -> None:
+    if not candidate:
+        return
+
+    path = Path(candidate).expanduser()
+    if not path.exists():
+        return
+
+    if path.is_file():
+        if path.name.lower() not in KICAD_EXECUTABLE_NAMES:
+            return
+        path = path.parent.parent
+    elif path.name.lower() == "bin":
+        path = path.parent
+
+    bin_dir = path / "bin"
+    if any((bin_dir / name).exists() for name in KICAD_EXECUTABLE_NAMES) and not any(
+        existing == path for existing in candidates
+    ):
+        candidates.append(path)
+
+
+def discover_kicad_installs() -> list[Path]:
+    """Return likely KiCad install roots for interpreter and version diagnostics."""
+    candidates: list[Path] = []
+    _add_env_kicad_install_candidates(candidates)
+    if os.name == "nt":
+        _add_windows_kicad_install_candidates(candidates)
+    return candidates
+
+
+def _add_env_kicad_install_candidates(candidates: list[Path]) -> None:
+    for env_name in ("KICAD_EXE", "KICAD_CLI", "KICAD_INSTALL_ROOT", "KICAD_HOME", "KICAD_PATH"):
+        _add_kicad_install_candidate(candidates, os.environ.get(env_name))
+
+
+def _add_windows_kicad_install_candidates(candidates: list[Path]) -> None:
+    local_programs = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "KiCad"
+    _add_kicad_root_and_children(candidates, local_programs)
+
+    for program_root in (
+        os.environ.get("PROGRAMFILES"),
+        os.environ.get("PROGRAMFILES(X86)"),
+        r"C:\Program Files",
+        r"C:\Program Files (x86)",
+    ):
+        if not program_root:
+            continue
+        _add_kicad_root_and_children(candidates, Path(program_root) / "KiCad")
+
+
+def _add_kicad_root_and_children(candidates: list[Path], root: Path) -> None:
+    _add_kicad_install_candidate(candidates, root)
+    if not root.exists():
+        return
+    for child in root.iterdir():
+        if child.is_dir():
+            _add_kicad_install_candidate(candidates, child)
+
+
+def _install_version(install_root: Path) -> str:
+    return install_root.name
+
+
+def installed_kicad_version(version: str) -> str | None:
+    """Return the first matching KiCad executable version string, if available."""
+    executable_names = ("kicad-cli.exe", "kicad-cli") if os.name == "nt" else ("kicad-cli",)
+    for install_root in discover_kicad_installs():
+        if _install_version(install_root) != version:
+            continue
+        for executable_name in executable_names:
+            executable = install_root / "bin" / executable_name
+            if not executable.exists():
+                continue
+            try:
+                completed = subprocess.run(
+                    [str(executable), "version"],
+                    capture_output=True,
+                    check=False,
+                    text=True,
+                    timeout=10,
+                )
+            except Exception:
+                continue
+            output = (completed.stdout or completed.stderr).strip()
+            if completed.returncode == 0 and output:
+                return output.splitlines()[0].strip()
+    return None
+
+
+def find_default_python_interpreter(version: str, current: Path | None = None) -> Path | None:
+    """Find the Python interpreter bundled with the matching KiCad install."""
+    if current is not None and current.exists():
+        return current
+
+    matches: list[Path] = []
+    for install_root in discover_kicad_installs():
+        if _install_version(install_root) != version:
+            continue
+        bin_dir = install_root / "bin"
+        for executable_name in PYTHON_EXECUTABLE_NAMES:
+            candidate = bin_dir / executable_name
+            if candidate.exists():
+                matches.append(candidate)
+    return matches[0] if matches else None
 
 
 def _unique_paths(paths: list[Path]) -> list[Path]:
@@ -377,14 +526,61 @@ def result_lines(results: list[_PluginInstallResult], *, verb: str) -> list[str]
 def api_report_lines(report: _KiCadApiConfig) -> list[str]:
     """Format KiCad IPC API status lines."""
     if not report.config_exists:
-        return [f"warning: KiCad {report.version} config not found at {report.config_path}"]
+        return [
+            f"warning: KiCad {report.version} config not found at {report.config_path}; "
+            "open KiCad once or configure it with --enable-api."
+        ]
     lines: list[str] = []
     if not report.api_enabled:
-        lines.append(f"warning: KiCad {report.version} IPC API is disabled")
+        lines.append(
+            f"warning: KiCad {report.version} IPC API is disabled in {report.config_path}. "
+            "Enable Preferences > Preferences > Plugins > Enable KiCad API, "
+            "or reinstall with --enable-api while KiCad is closed."
+        )
     if report.interpreter_path is None:
         lines.append(f"warning: KiCad {report.version} has no Python interpreter configured")
     elif not report.interpreter_exists:
         lines.append(f"warning: KiCad {report.version} Python missing: {report.interpreter_path}")
     if report.api_enabled and report.interpreter_exists:
         lines.append(f"KiCad {report.version} IPC config OK: Python={report.interpreter_path}")
+    return lines
+
+
+def version_note_lines(version: str) -> list[str]:
+    """Return known KiCad version-specific install notes."""
+    if installed_kicad_version(version) == "10.0.0":
+        return [
+            "warning: KiCad 10.0.0 has a known IPC plugin toolbar refresh issue. "
+            "The action may load and become ready but not appear on an already-open "
+            "PCB editor toolbar. Upgrade to KiCad 10.0.1 or newer, or open the PCB "
+            "editor after the plugin environment is ready."
+        ]
+    return []
+
+
+def ipc_plugin_note_lines(results: list[_PluginInstallResult]) -> list[str]:
+    """Return post-install notes for KiCad IPC plugin discovery."""
+    installed = [result for result in results if not result.dry_run]
+    if not installed:
+        return []
+
+    roots: list[Path] = []
+    seen: set[str] = set()
+    for result in installed:
+        root = result.target_dir.parent
+        key = str(root.absolute()).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        roots.append(root)
+
+    lines = [f"KiCad IPC plugin directory: {root}" for root in roots]
+    lines.extend(
+        [
+            "Validate IPC actions in KiCad via Preferences > Preferences > PCB Editor > "
+            "Action Plugins, or by their PCB editor toolbar buttons after restart.",
+            "Note: Tools > External Plugins does not list individual IPC actions; some "
+            "KiCad 10 builds open the legacy scripting\\plugins folder from that menu.",
+        ]
+    )
     return lines

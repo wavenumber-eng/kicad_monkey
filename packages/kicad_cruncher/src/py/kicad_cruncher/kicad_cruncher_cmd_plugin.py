@@ -11,12 +11,15 @@ from kicad_cruncher.kicad_cruncher_plugin_installer import (
     available_plugin_names,
     configure_api,
     discover_plugin_targets,
+    find_default_python_interpreter,
     inspect_api_config,
     install_plugin,
+    ipc_plugin_note_lines,
     plugin_identifier,
     plugin_package_root,
     result_lines,
     uninstall_plugin,
+    version_note_lines,
 )
 
 
@@ -89,6 +92,8 @@ def _cmd_install(args: argparse.Namespace) -> int:
     verb = "Would install" if bool(getattr(args, "dry_run", False)) else "Installed"
     for line in result_lines(results, verb=verb):
         print(line)
+    for line in ipc_plugin_note_lines(results):
+        print(line)
     _configure_api_for_results(args, [result.version for result in results])
     return 0
 
@@ -108,24 +113,57 @@ def _cmd_uninstall(args: argparse.Namespace) -> int:
 
 
 def _configure_api_for_results(args: argparse.Namespace, versions: list[str | None]) -> None:
-    setup_api = bool(getattr(args, "enable_api", False)) and not bool(
-        getattr(args, "skip_api_setup", False)
-    )
+    setup_api = _setup_api_requested(args)
     python_interpreter = getattr(args, "python_interpreter", None)
     if not setup_api and python_interpreter is None:
         return
+    dry_run = bool(getattr(args, "dry_run", False))
     for version in _unique_versions(versions):
+        report = inspect_api_config(version)
         changes = configure_api(
             version,
             enable_api=setup_api,
-            python_interpreter=python_interpreter,
-            dry_run=bool(getattr(args, "dry_run", False)),
+            python_interpreter=_selected_python_interpreter(
+                version,
+                setup_api=setup_api,
+                explicit=python_interpreter,
+                current=report.interpreter_path,
+            ),
+            dry_run=dry_run,
         )
-        for change in changes:
-            action = "Would update" if bool(getattr(args, "dry_run", False)) else "Updated"
-            print(f"{action} KiCad {version} config: {change}")
+        _print_config_changes(version, changes, dry_run=dry_run)
         for line in api_report_lines(inspect_api_config(version)):
             print(line)
+        for line in version_note_lines(version):
+            print(line)
+
+
+def _setup_api_requested(args: argparse.Namespace) -> bool:
+    return bool(getattr(args, "enable_api", False)) and not bool(
+        getattr(args, "skip_api_setup", False)
+    )
+
+
+def _selected_python_interpreter(
+    version: str,
+    *,
+    setup_api: bool,
+    explicit: Path | None,
+    current: Path | None,
+) -> Path | None:
+    if explicit is not None:
+        return explicit
+    if not setup_api:
+        return None
+    return find_default_python_interpreter(version, current=current)
+
+
+def _print_config_changes(version: str, changes: list[str], *, dry_run: bool) -> None:
+    for change in changes:
+        action = "Would update" if dry_run else "Updated"
+        print(f"{action} KiCad {version} config: {change}")
+    if dry_run and changes:
+        print(f"Current KiCad {version} config remains unchanged in dry-run.")
 
 
 def _unique_versions(versions: list[str | None]) -> list[str]:
