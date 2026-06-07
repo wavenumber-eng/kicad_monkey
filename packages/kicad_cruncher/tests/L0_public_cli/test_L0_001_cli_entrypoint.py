@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -11,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from colorama import Fore, Style
+from kicad_cruncher import kicad_cruncher_cmd_kicad as kicad_runtime
 from kicad_cruncher._cli import _color_command_names_in_help, _format_parser_error_line
 from kicad_cruncher._version import __version__, cli_version_text
 from kicad_cruncher.kicad_cruncher_cmd_daemon import (
@@ -81,6 +83,18 @@ def test_cli_help_lists_global_logging_controls() -> None:
     assert "--quiet" in result.stdout
     assert "--verbose" in result.stdout
     assert "--log-level" in result.stdout
+
+
+def test_kicad_help_exposes_runtime_helpers() -> None:
+    """Verify kicad help exposes workstation helper actions."""
+    result = _run_cli("kicad", "--help")
+
+    assert result.returncode == 0, result.stderr
+    assert "installs" in result.stdout
+    assert "running" in result.stdout
+    assert "launch" in result.stdout
+    assert "stop" in result.stdout
+    assert "prefs" in result.stdout
 
 
 def test_design_help_describes_design_json_contents() -> None:
@@ -265,6 +279,210 @@ def test_plugin_management_commands_use_manifest_identifier(tmp_path: Path) -> N
     assert "Would uninstall kicad-cruncher-tools" in dry_uninstall.stdout
     assert uninstall_result.returncode == 0, uninstall_result.stderr
     assert not target_dir.exists()
+
+
+def test_kicad_installs_reports_env_install_with_nightly_json(tmp_path: Path) -> None:
+    """Verify kicad installs reports env-discovered nightly install roots."""
+    install_root = tmp_path / "KiCad" / "10.99"
+    bin_dir = install_root / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "kicad-cli").write_text("", encoding="utf-8")
+    (bin_dir / "pcbnew").write_text("", encoding="utf-8")
+    env = os.environ.copy()
+    env["KICAD_INSTALL_ROOT"] = str(install_root)
+
+    result = _run_cli("kicad", "installs", "--version", "10.99", "--json", env=env)
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["schema"] == "kicad_cruncher.kicad.installs.v0"
+    assert payload["installs"][0]["version"] == "10.99"
+    assert payload["installs"][0]["nightly"] is True
+    assert payload["installs"][0]["executables"]["pcbnew"] == str(bin_dir / "pcbnew")
+
+
+def test_kicad_prefs_reports_env_config_documents_and_api(tmp_path: Path) -> None:
+    """Verify kicad prefs reports env-discovered config and plugin paths."""
+    config_root = tmp_path / "config"
+    config_path = config_root / "10.99" / "kicad_common.json"
+    documents_root = tmp_path / "documents" / "KiCad"
+    plugins_dir = documents_root / "10.99" / "plugins"
+    python_path = tmp_path / "KiCad" / "10.99" / "bin" / "python"
+    config_path.parent.mkdir(parents=True)
+    plugins_dir.mkdir(parents=True)
+    python_path.parent.mkdir(parents=True)
+    python_path.write_text("", encoding="utf-8")
+    config_path.write_text(
+        json.dumps({"api": {"enable_server": True, "interpreter_path": str(python_path)}}),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env["KICAD_CONFIG_HOME"] = str(config_root)
+    env["KICAD_DOCUMENTS_HOME"] = str(documents_root)
+
+    result = _run_cli("kicad", "prefs", "--version", "10.99", "--json", env=env)
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    record = payload["preferences"][0]
+    assert payload["schema"] == "kicad_cruncher.kicad.prefs.v0"
+    assert record["version"] == "10.99"
+    assert record["nightly"] is True
+    assert record["config_path"] == str(config_path)
+    assert record["plugins_dir"] == str(plugins_dir)
+    assert record["api_enabled"] is True
+    assert record["python_interpreter"] == str(python_path)
+    assert record["python_exists"] is True
+
+
+def test_kicad_launch_dry_run_uses_requested_version_app_and_project(tmp_path: Path) -> None:
+    """Verify kicad launch can build a safe command without starting KiCad."""
+    install_root = tmp_path / "KiCad" / "10.99"
+    bin_dir = install_root / "bin"
+    project = tmp_path / "board.kicad_pcb"
+    bin_dir.mkdir(parents=True)
+    project.write_text("", encoding="utf-8")
+    (bin_dir / "kicad-cli").write_text("", encoding="utf-8")
+    (bin_dir / "pcbnew").write_text("", encoding="utf-8")
+    env = os.environ.copy()
+    env["KICAD_INSTALL_ROOT"] = str(install_root)
+
+    result = _run_cli(
+        "kicad",
+        "launch",
+        "--version",
+        "10.99",
+        "--app",
+        "pcbnew",
+        "--project",
+        str(project),
+        "--dry-run",
+        "--json",
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["schema"] == "kicad_cruncher.kicad.launch.v0"
+    assert payload["dry_run"] is True
+    assert payload["pid"] is None
+    assert payload["command"] == [str(bin_dir / "pcbnew"), str(project)]
+
+
+def test_kicad_launch_new_flag_prevents_last_project_reload(tmp_path: Path) -> None:
+    """Verify kicad launch exposes KiCad's project-manager --new switch."""
+    install_root = tmp_path / "KiCad" / "10.0"
+    bin_dir = install_root / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "kicad").write_text("", encoding="utf-8")
+    (bin_dir / "kicad-cli").write_text("", encoding="utf-8")
+    env = os.environ.copy()
+    env["KICAD_INSTALL_ROOT"] = str(install_root)
+
+    result = _run_cli(
+        "kicad",
+        "launch",
+        "--version",
+        "10.0",
+        "--new",
+        "--dry-run",
+        "--json",
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["command"] == [str(bin_dir / "kicad"), "--new"]
+
+
+def test_kicad_windows_process_parser_infers_version() -> None:
+    """Verify Windows process JSON parser normalizes KiCad process records."""
+    payload = json.dumps(
+        {
+            "ProcessId": 1234,
+            "Name": "kicad.exe",
+            "ExecutablePath": r"C:\Program Files\KiCad\10.99\bin\kicad.exe",
+            "CommandLine": r'"C:\Program Files\KiCad\10.99\bin\kicad.exe"',
+        }
+    )
+
+    processes = kicad_runtime._processes_from_windows_json(payload)
+
+    assert len(processes) == 1
+    assert processes[0].pid == 1234
+    assert processes[0].name == "kicad.exe"
+    assert processes[0].version == "10.99"
+
+
+def test_kicad_stop_is_dry_run_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Verify kicad stop does not terminate processes without --all."""
+    process = kicad_runtime.KiCadProcess(
+        pid=1234,
+        name="kicad.exe",
+        executable=r"C:\Program Files\KiCad\10.99\bin\kicad.exe",
+        command_line=None,
+        version="10.99",
+    )
+
+    def fail_terminate(_process: kicad_runtime.KiCadProcess) -> dict[str, object]:
+        raise AssertionError("stop should be dry-run without --all")
+
+    monkeypatch.setattr(kicad_runtime, "running_kicad_processes", lambda: [process])
+    monkeypatch.setattr(kicad_runtime, "_terminate_process", fail_terminate)
+    args = argparse.Namespace(
+        kicad_action="stop",
+        version="10.99",
+        app=None,
+        all=False,
+        json=True,
+    )
+
+    assert kicad_runtime.cmd_kicad(args) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dry_run"] is True
+    assert payload["results"] == [{"pid": 1234, "name": "kicad.exe", "status": "dry-run"}]
+
+
+def test_kicad_stop_all_confirms_matching_processes(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Verify --all is the explicit destructive gate for kicad stop."""
+    process = kicad_runtime.KiCadProcess(
+        pid=1234,
+        name="kicad.exe",
+        executable=r"C:\Program Files\KiCad\10.99\bin\kicad.exe",
+        command_line=None,
+        version="10.99",
+    )
+
+    def fake_terminate(item: kicad_runtime.KiCadProcess) -> dict[str, object]:
+        return {
+            "pid": item.pid,
+            "name": item.name,
+            "status": "stopped",
+            "returncode": 0,
+        }
+
+    monkeypatch.setattr(kicad_runtime, "running_kicad_processes", lambda: [process])
+    monkeypatch.setattr(kicad_runtime, "_terminate_process", fake_terminate)
+    args = argparse.Namespace(
+        kicad_action="stop",
+        version="10.99",
+        app=None,
+        all=True,
+        json=True,
+    )
+
+    assert kicad_runtime.cmd_kicad(args) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dry_run"] is False
+    assert payload["results"] == [
+        {"pid": 1234, "name": "kicad.exe", "status": "stopped", "returncode": 0}
+    ]
 
 
 def test_schematic_clean_is_deferred_json() -> None:

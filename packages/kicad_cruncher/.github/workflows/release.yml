@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.2.0
       - name: Verify tag matches package version
         shell: bash
         run: |
@@ -38,4 +38,3 @@ jobs:
         run: uv run --extra test python tests/support_scripts/install_test.py
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-

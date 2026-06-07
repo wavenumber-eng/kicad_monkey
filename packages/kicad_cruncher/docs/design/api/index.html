@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>API design docs</title><link rel="stylesheet" href="../styles.css"></head>
-<body data-doc-kind="api-index">
+<body data-doc-status="accepted" data-doc-kind="api-index">
 <main>
 <nav class="nav"><a href="../index.html">Design Index</a><a href="../cli/index.html">CLI</a></nav>
 <header><p class="status">API design docs</p><h1>API</h1><p class="lede">Typed helper interfaces used by the public CLI workflows and release gates.</p></header>
@@ -212,6 +212,22 @@
   <p>L3 exercises Yoshi variants directly through the adapter and then through the public BOM, PnP, and JLC CLI commands.</p>
   <h3>Working Definition</h3>
   <p>The interface is working when KiCad variant overrides, DNP state, BOM eligibility, placement eligibility, aux-axis/drill-place-origin-relative placement coordinates, and project text variables reach the manufacturing output layer consistently.</p>
+</section>
+<section
+  id="kicad-process"
+  data-interface="KiCadProcess"
+  data-rack-stratum="L0_public_cli"
+  data-test-file="tests/L0_public_cli/test_L0_001_cli_entrypoint.py"
+  data-test-target="test_kicad_windows_process_parser_infers_version">
+  <h2>KiCadProcess</h2>
+  <h3>Rationale</h3>
+  <p>The KiCad workstation helper command needs one normalized process record so Windows and POSIX process discovery can feed the same CLI, JSON, and stop-planning paths.</p>
+  <h3>Purpose</h3>
+  <p><code>KiCadProcess</code> carries the process ID, executable name, resolved executable path, command line, and inferred KiCad version for one running KiCad-family process.</p>
+  <h3>Test Requirements</h3>
+  <p>L0 verifies Windows process JSON parsing and version inference, and command-level tests verify dry-run stop output uses the normalized process record without terminating anything.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when <code>kicad running</code> and <code>kicad stop</code> can report KiCad, pcbnew, eeschema, and kicad-cli processes with stable JSON fields across supported platforms.</p>
 </section>
 <section id="policy"><h2>Policy</h2><p>When another public dataclass or major interface is added, it must be listed here with machine-readable test ownership before L99 signoff can pass.</p></section>
 </main>

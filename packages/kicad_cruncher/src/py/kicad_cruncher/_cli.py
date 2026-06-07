@@ -31,6 +31,9 @@ from kicad_cruncher.kicad_cruncher_cmd_design import (
 from kicad_cruncher.kicad_cruncher_cmd_jlc import (
     register_parser as register_jlc_parser,
 )
+from kicad_cruncher.kicad_cruncher_cmd_kicad import (
+    register_parser as register_kicad_parser,
+)
 from kicad_cruncher.kicad_cruncher_cmd_pcb import (
     register_parser as register_pcb_parser,
 )
@@ -207,6 +210,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     register_daemon_parser(command_subparsers)
     register_design_parser(command_subparsers)
     register_jlc_parser(command_subparsers)
+    register_kicad_parser(command_subparsers)
     register_pcb_parser(command_subparsers)
     register_pcb_layer_step_parser(command_subparsers)
     register_pcb_svg_parser(command_subparsers)

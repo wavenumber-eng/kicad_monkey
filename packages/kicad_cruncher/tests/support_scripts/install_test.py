@@ -82,6 +82,7 @@ def run_install_test(wheel: Path) -> None:
             raise SystemExit(f"Missing console script after install: {executable}")
         _run([str(executable), "--version"], cwd=temp_dir, env=env)
         _run([command, "--version"], cwd=temp_dir, env=env)
+        _run(["kcr", "--version"], cwd=temp_dir, env=env)
 
         legacy_executable = _console_script(venv_dir, "kicad_cruncher")
         if legacy_executable.exists():
@@ -109,4 +110,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

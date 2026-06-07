@@ -20,6 +20,8 @@ def _project_root() -> Path:
 PACKAGE_ROOT = _project_root()
 DESIGN_ROOT = PACKAGE_ROOT / "docs" / "design"
 COMMAND_MANIFEST = PACKAGE_ROOT / "docs" / "contracts" / "command_manifest.v0.json"
+DOC_STATUS_VALUES = {"draft", "proposal", "accepted", "superseded"}
+REPORTABLE_DOC_STATUSES = {"draft", "proposal"}
 
 
 def _manifest_commands() -> list[str]:
@@ -50,22 +52,40 @@ def _root_help_commands() -> list[str]:
 
 
 def _cli_index_commands() -> list[str]:
-    """Return command rows declared by the CLI design index."""
+    """Return accepted command rows declared by the CLI design index."""
     cli_index = (DESIGN_ROOT / "cli" / "index.html").read_text(encoding="utf-8")
-    return re.findall(r'<tr[^>]*data-command="([^"]+)"', cli_index)
+    commands: list[str] = []
+    for match in re.finditer(r"<tr(?P<attrs>[^>]*)>", cli_index):
+        attrs = match.group("attrs")
+        command_match = re.search(r'data-command="([^"]+)"', attrs)
+        if command_match is None:
+            continue
+        status_match = re.search(r'data-doc-status="([^"]+)"', attrs)
+        status = status_match.group(1).strip().lower() if status_match else "accepted"
+        if status not in REPORTABLE_DOC_STATUSES:
+            commands.append(command_match.group(1))
+    return commands
 
 
 def _cli_design_doc_commands() -> dict[str, Path]:
-    """Return command declarations from per-command CLI design docs."""
+    """Return accepted command declarations from per-command CLI design docs."""
     docs: dict[str, Path] = {}
     for design_doc in sorted((DESIGN_ROOT / "cli").glob("*.html")):
         if design_doc.name == "index.html":
             continue
         text = design_doc.read_text(encoding="utf-8")
+        if _doc_status(text) in REPORTABLE_DOC_STATUSES:
+            continue
         match = re.search(r'<body[^>]*data-command="([^"]+)"', text)
         if match is not None:
             docs[match.group(1)] = design_doc
     return docs
+
+
+def _doc_status(text: str) -> str:
+    """Return a design doc status marker from HTML text, if present."""
+    match = re.search(r'\bdata-doc-status="([^"]+)"', text)
+    return match.group(1).strip().lower() if match else ""
 
 
 def _set_diff_message(
@@ -90,6 +110,26 @@ def test_design_entry_points_exist() -> None:
     assert (DESIGN_ROOT / "styles.css").exists()
     assert (DESIGN_ROOT / "cli" / "index.html").exists()
     assert (DESIGN_ROOT / "api" / "index.html").exists()
+
+
+def test_design_docs_have_status_markers() -> None:
+    """Verify HTML design docs declare accepted, draft, proposal, or superseded status."""
+    failures: list[str] = []
+    reportable: list[str] = []
+
+    for design_doc in sorted(DESIGN_ROOT.rglob("*.html")):
+        text = design_doc.read_text(encoding="utf-8")
+        status = _doc_status(text)
+        relative = design_doc.relative_to(PACKAGE_ROOT).as_posix()
+        if not status:
+            failures.append(f"{relative}: missing data-doc-status")
+        elif status not in DOC_STATUS_VALUES:
+            failures.append(f"{relative}: invalid data-doc-status={status}")
+        elif status in REPORTABLE_DOC_STATUSES:
+            reportable.append(f"{relative}={status}")
+
+    assert failures == [], "Design doc status gaps:\n" + "\n".join(failures)
+    assert reportable == []
 
 
 def test_cli_command_inventory_matches_parser_manifest_and_design_docs() -> None:
@@ -166,4 +206,3 @@ def test_cli_commands_have_dedicated_modules() -> None:
             failures.append(f"{command}: missing command module {module_path.name}")
 
     assert failures == [], "CLI command module signoff gaps:\n" + "\n".join(failures)
-

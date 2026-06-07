@@ -5,6 +5,7 @@
     {"name": "daemon", "status": "public", "requires_extra": null},
     {"name": "design", "status": "public", "requires_extra": null},
     {"name": "jlc", "status": "public", "requires_extra": null},
+    {"name": "kicad", "status": "public", "requires_extra": null},
     {"name": "pcb", "status": "public", "requires_extra": null},
     {"name": "pcb-layer-step", "status": "public", "requires_extra": null},
     {"name": "pcb-svg", "status": "public", "requires_extra": null},

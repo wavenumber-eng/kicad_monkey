@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026.6.7
+
+- Add the public `kicad` workstation helper command for KiCad install
+  discovery, running-process inspection, launch, stop, and preference path
+  reporting.
+- Add the short `kcr` console alias for the existing `kicad-cruncher` entry
+  point.
+- Add `kicad launch --new` so automation can start the KiCad project manager
+  without reloading the previous project.
+- Gate destructive process termination behind `kicad stop --all`; no-argument
+  `kicad stop` remains a dry-run process report.
+- Adopt accepted design-doc status markers and update CI/release workflows to
+  current checkout/setup-uv action versions.
+
 ## 2026.6.6
 
 - Add the first public KiCad IPC plugin and daemon framework, including plugin

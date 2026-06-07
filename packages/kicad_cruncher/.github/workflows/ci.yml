@@ -17,8 +17,8 @@ jobs:
         python-version: ["3.12"]
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.2.0
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
       - name: Run Rack suite

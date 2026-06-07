@@ -79,7 +79,7 @@ the `kicad-monkey` plating metadata.
 
 The `pcb-svg` command writes to `./output/pcb-svg/` by default and uses
 `pcb.svg.config` JSON/JSONC configs compatible with the A0 PCB SVG view
-contract. This remains a preview feature in the `2026.6.6` release: SVG structure,
+contract. This remains a preview feature in the `2026.6.7` release: SVG structure,
 virtual-layer metadata, default views, and config controls may change as more
 real-world boards are tested.
 

@@ -8,7 +8,7 @@ from datetime import date
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as distribution_version
 
-__version__ = "2026.6.6"
+__version__ = "2026.6.7"
 
 _DISTRIBUTION_NAME = "kicad-cruncher"
 _CONTROLLED_DEPENDENCIES = ("kicad-monkey", "wn-geometer")
