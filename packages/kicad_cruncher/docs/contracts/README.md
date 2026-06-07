@@ -10,6 +10,8 @@ Current contracts:
   contract used by `bom`, `pnp`, and `jlc`.
 - `interface_design_manifest.v0.json` lists major interfaces that require
   durable design documentation.
+- `pcb_clean_config.v0.schema.json` defines the first PCB cleanup config
+  contract used by `pcb clean`.
 - `pcb_layer_step_config.v2.schema.json` defines the v2 `pcb-layer-step`
   fixture-alignment STEP config contract used by `pcb-layer-step`.
 - `pcb_svg_config.a0.schema.json` defines the A0 `pcb.svg.config` view and

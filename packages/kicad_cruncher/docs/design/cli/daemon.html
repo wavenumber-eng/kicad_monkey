@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>daemon command design</title><link rel="stylesheet" href="../styles.css"></head>
+<body data-command="daemon" data-config-contract="none">
+<main>
+<nav class="nav"><a href="index.html">Commands</a><a href="../index.html">Design Index</a></nav>
+<header><p class="status">Public command</p><h1>daemon</h1><p class="lede">Runs the local KiCad Cruncher plugin daemon and no-build browser tool center.</p></header>
+<section id="usage"><h2>Usage</h2><pre><code>kicad-cruncher daemon
+kicad-cruncher daemon --host 127.0.0.1 --port 8765
+kicad-cruncher daemon --host 0.0.0.0 --allow-remote-host
+kicad-cruncher daemon --health</code></pre></section>
+<section id="arguments"><h2>Arguments</h2><p><code>--host</code> defaults to <code>127.0.0.1</code>. Non-loopback hosts are rejected unless <code>--allow-remote-host</code> is supplied. <code>--port</code> defaults to <code>8765</code>. <code>--reload</code> enables uvicorn reload for local development. <code>--health</code> prints the shared health payload and exits without starting a server.</p></section>
+<section id="output"><h2>Output</h2><p>The running daemon exposes <code>/health</code>, <code>/version</code>, <code>/api/v1/commands</code>, <code>/api/v1/kicad/session</code>, <code>/api/v1/pcb/layer-cleanup</code>, and the initial browser tool center at <code>/</code>. On startup it writes a local <code>kicad_cruncher.daemon.state.v0</code> JSON file containing the loopback URL that installed plugins can discover; <code>KICAD_CRUNCHER_DAEMON_STATE</code> overrides the state-file path for tests and custom installs. The tool center uses a Lib Cruncher-style compact tabbed shell with PCB Clean as the first active tab.</p></section>
+<section id="adapters"><h2>Adapters</h2><p><code>/api/v1/pcb/layer-cleanup</code> delegates to the shared PCB clean logic. <code>mode=file</code> may perform explicit direct-file apply for automation. <code>mode=kicad-ipc</code> returns a mutation request for the KiCad plugin to apply through KiCad IPC under the editor commit/undo model; the daemon does not mutate live KiCad editor state itself.</p></section>
+<section id="tests"><h2>Tests</h2><p>L0 verifies command registration, help, and host policy. L3 exercises startup state writing with an injected server runner, command inventory, plugin daemon-state discovery, plugin-mode PCB clean mutation planning, mocked KiCad IPC apply-adapter behavior, and daemon file-mode apply against public fixtures. L99 verifies package-wide Ruff and Pyright.</p></section>
+</main>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://go.kicad.org/api/schemas/v1",
+  "identifier": "com.wavenumber.kicad-cruncher.tools",
+  "name": "Wavenumber KiCad Cruncher Tools",
+  "description": "Open the local KiCad Cruncher daemon tool center.",
+  "runtime": {
+    "type": "python",
+    "min_version": "3.11"
+  },
+  "actions": [
+    {
+      "identifier": "open-kicad-cruncher-tools",
+      "name": "Open KiCad Cruncher Tools",
+      "description": "Open the local KiCad Cruncher daemon tool center.",
+      "show-button": true,
+      "scopes": ["pcb"],
+      "entrypoint": "main.py"
+    }
+  ]
+}

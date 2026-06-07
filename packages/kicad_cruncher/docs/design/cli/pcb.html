@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>pcb command design</title><link rel="stylesheet" href="../styles.css"></head>
+<body data-command="pcb" data-config-contract="docs/contracts/pcb_clean_config.v0.schema.json">
+<main>
+<nav class="nav"><a href="index.html">Commands</a><a href="../index.html">Design Index</a></nav>
+<header><p class="status">Public command</p><h1>pcb</h1><p class="lede">Runs PCB utility actions that share logic with plugin and daemon workflows.</p></header>
+<section id="usage"><h2>Usage</h2><pre><code>kicad-cruncher pcb clean --write-config pcb.clean.config
+kicad-cruncher pcb clean board.kicad_pcb --config pcb.clean.config --dry-run</code></pre></section>
+<section id="arguments"><h2>Arguments</h2><p><code>pcb clean</code> accepts an optional <code>.kicad_pcb</code> or <code>.kicad_pro</code> input, <code>--config</code> for the JSONC cleanup config, <code>--write-config</code> to write the documented default config, <code>--dry-run</code> for a plan report, and <code>--apply</code> for explicit direct-file mutation.</p></section>
+<section id="output"><h2>Output</h2><p><code>--write-config</code> writes <code>pcb.clean.config</code>. Dry-run emits a deterministic JSON plan describing selected cleanup layers, layer user-name reset candidates, footprint/board/generated graphical candidate counts, and visible <code>Value</code> fields to hide. <code>--apply</code> writes the resolved board file in place, removes configured documentation-layer graphics, hides configured <code>Value</code> fields, and leaves copper, pads, models, routing, zones, and <code>Edge.Cuts</code> protected. Daemon/plugin usage shares the same planner but returns a mutation request for KiCad IPC application instead of editing a board file behind the editor.</p></section>
+<section id="tests"><h2>Tests</h2><p>L0 verifies command registration and help. L3 validates cleanup planning, direct-file apply behavior, daemon routing, and plugin-mode mutation request behavior against public PCB fixtures, including project-to-board resolution, layer reset candidates, footprint graphical removal, <code>Value</code> hiding, and config switches. L99 verifies the linked <code>pcb_clean_config.v0</code> schema.</p></section>
+</main>
+</body>
+</html>
