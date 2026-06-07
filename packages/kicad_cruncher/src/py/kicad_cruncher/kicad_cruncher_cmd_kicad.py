@@ -547,15 +547,14 @@ def _terminate_process(process: KiCadProcess) -> dict[str, object]:
 def _version_from_executable(executable: str | None) -> str | None:
     if not executable:
         return None
-    path = Path(executable)
-    parts = path.parts
+    parts = tuple(part for part in executable.replace("\\", "/").split("/") if part)
     for index, part in enumerate(parts):
         if part.lower() == "kicad" and index + 1 < len(parts):
             version = parts[index + 1]
             if _looks_like_version(version):
                 return version
-    if path.parent.name.lower() == "bin" and _looks_like_version(path.parent.parent.name):
-        return path.parent.parent.name
+    if len(parts) >= 3 and parts[-2].lower() == "bin" and _looks_like_version(parts[-3]):
+        return parts[-3]
     return None
 
 
