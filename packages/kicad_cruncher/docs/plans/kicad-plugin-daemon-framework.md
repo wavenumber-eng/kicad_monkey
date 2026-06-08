@@ -1,9 +1,9 @@
 # KiCad Plugin Daemon Framework Plan
 
 Status: active
-Last updated: 2026-06-05
+Last updated: 2026-06-08
 Owner: kicad_cruncher
-Branch: plugin-daemon-framework-plan
+Branch: pcb-clean-daemon-ui
 
 ## Goal
 
@@ -58,6 +58,50 @@ the right public home for plugin and daemon workflows.
 `kicad_monkey` remains the low-level parser/model/rendering package. It should
 not own plugin lifecycle, daemon UX, Wavenumber workflow commands, or browser
 application orchestration.
+
+## Handoff State: PCB Clean Daemon UI
+
+Branch `pcb-clean-daemon-ui` contains the first functional no-build browser UI
+for PCB Clean. The daemon root page now lets a user:
+
+- enter a `.kicad_pcb` board path;
+- optionally enter a `pcb.clean.config` JSONC config path;
+- request a file-mode cleanup plan through `/api/v1/pcb/layer-cleanup`;
+- view layer-name reset, footprint-graphics, board-graphics, and value-field
+  counts;
+- inspect per-layer totals and the raw daemon JSON response; and
+- explicitly apply direct file-mode cleanup through a confirmation dialog.
+
+The browser UI was smoke-tested against
+`tests/corpus/kicad/projects/hlr_test/hlr_test.kicad_pcb`. The rendered plan
+reported `planned`, `file` mode, 6 layer-name resets, 310 footprint graphics,
+0 board graphics, and 0 value fields. Use a copied board file for any manual
+apply test.
+
+The live KiCad editor path is intentionally not complete from the browser UI.
+The daemon can return KiCad IPC mutation requests, and the plugin-side adapter
+has mocked coverage, but live editor application remains gated behind
+`KICAD_CRUNCHER_PCB_CLEAN_APPLY` and should be finished as a separate KiCad
+manual-validation slice.
+
+Known-good verification for this branch:
+
+```powershell
+uv run pyright
+uv run ruff check src tests
+uv run pytest -q
+uv run pytest tests\L99_signoff -q
+git diff --check
+```
+
+Manual local try flow:
+
+```powershell
+uv tool install --force .
+kcr daemon --host 127.0.0.1 --port 8766
+```
+
+Then open `http://127.0.0.1:8766/`.
 
 ## Ownership Decision
 
@@ -343,6 +387,16 @@ tool-oriented layout.
 - [x] Document plugin undo/commit behavior.
 - [x] Add the plugin-side adapter that applies daemon mutation requests through
       KiCad IPC commit, update, push, and drop operations.
+- [x] Replace the daemon placeholder page with the first usable no-build PCB
+      Clean web UI for plan and direct file-mode apply.
+- [ ] Manually validate the web UI direct-file apply path on a copied real
+      board before release.
+- [ ] Finish and manually validate live KiCad editor apply from the installed
+      plugin using the daemon mutation request path.
+- [ ] Decide whether the plugin should auto-start the daemon or keep requiring
+      users to start `kcr daemon` explicitly.
+- [ ] Factor shared no-build UI primitives only after the second tool tab needs
+      them; do not prematurely abstract this first PCB Clean page.
 - [ ] Start with existing PCB user/generated layers before expanding into HLR
       generation or broader board edits.
 
