@@ -11,6 +11,7 @@ from typing import Protocol, cast
 
 from kicad_cruncher.kicad_cruncher_cmd_daemon import run_daemon
 from kicad_cruncher.kicad_cruncher_daemon import (
+    _tool_center_html,
     create_app,
     daemon_command_inventory_payload,
     daemon_pcb_layer_cleanup,
@@ -137,6 +138,19 @@ def test_daemon_command_inventory_exposes_pcb_clean() -> None:
     assert payload["schema"] == "kicad_cruncher.daemon.commands.v0"
     assert pcb_clean["endpoint"] == "/api/v1/pcb/layer-cleanup"
     assert "daemon:kicad-ipc-plan" in _json_list(pcb_clean["adapters"])
+
+
+def test_daemon_tool_center_exposes_pcb_clean_controls() -> None:
+    """Verify the daemon web UI can drive the PCB clean endpoint."""
+    html = _tool_center_html()
+
+    assert 'id="board-path"' in html
+    assert 'id="config-path"' in html
+    assert 'id="plan-button"' in html
+    assert 'id="apply-button"' in html
+    assert 'id="raw-json"' in html
+    assert "/api/v1/pcb/layer-cleanup" in html
+    assert "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0" in html
 
 
 def test_daemon_startup_writes_state_and_invokes_runner(tmp_path: Path, monkeypatch) -> None:
