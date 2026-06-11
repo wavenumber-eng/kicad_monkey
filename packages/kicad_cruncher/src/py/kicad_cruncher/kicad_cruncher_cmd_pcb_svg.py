@@ -81,15 +81,22 @@ _VIEW_ALIASES = {
     "assembly-top": "assembly_top_view",
     "assembly-bottom": "assembly_bottom_view",
 }
+_MERGED_DEFAULT_VIEW_ALIASES = {
+    "top_view": ("assembly_top_view",),
+    "bottom_view": ("assembly_bottom_view",),
+    "top_pin1_view": ("assembly_top_view",),
+    "bottom_pin1_view": ("assembly_bottom_view",),
+    "board_cutouts": ("assembly_top_view", "assembly_bottom_view"),
+}
 
 _HLR_TOKENS = set(PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS)
 _DESIGNATOR_TOKENS = {"ASSEMBLY_DESIGNATORS_TOP", "ASSEMBLY_DESIGNATORS_BOTTOM"}
 _DESIGNATOR_RANGE_RE = re.compile(r"^([A-Za-z]+)(\d+)-([A-Za-z]*)(\d+)$")
 _DESIGNATOR_NUMBER_RE = re.compile(r"^([A-Za-z]+)(\d+)$")
 _ASSEMBLY_TOKEN_MODE_BY_TOKEN = {
-    "ASSEMBLY_HLR_TOP_SIMPLE": ("top", "simple"),
+    "ASSEMBLY_HLR_TOP_OUTLINE": ("top", "outline"),
     "ASSEMBLY_HLR_TOP_DETAIL": ("top", "detail"),
-    "ASSEMBLY_HLR_BOTTOM_SIMPLE": ("bottom", "simple"),
+    "ASSEMBLY_HLR_BOTTOM_OUTLINE": ("bottom", "outline"),
     "ASSEMBLY_HLR_BOTTOM_DETAIL": ("bottom", "detail"),
     "ASSEMBLY_BOUNDS_TOP_MODEL": ("top", "model_bounds"),
     "ASSEMBLY_BOUNDS_BOTTOM_MODEL": ("bottom", "model_bounds"),
@@ -155,14 +162,14 @@ def _default_pcb_svg_config_text() -> str:
         "  PIN1_BOTTOM - bottom-side pin-1 marker overlay.\n"
         "  ASSEMBLY_HLR_TOP - top-side assembly overlay using the view HLR mode.\n"
         "  ASSEMBLY_HLR_BOTTOM - bottom-side assembly overlay using the view HLR mode.\n"
-        "  ASSEMBLY_HLR_TOP_SIMPLE - top-side Geometer simple STEP outline output.\n"
+        "  ASSEMBLY_HLR_TOP_OUTLINE - top-side Geometer STEP outline output.\n"
         "  ASSEMBLY_HLR_TOP_DETAIL - top-side Geometer detailed STEP projection output.\n"
-        "  ASSEMBLY_HLR_BOTTOM_SIMPLE - bottom-side Geometer simple STEP outline output.\n"
+        "  ASSEMBLY_HLR_BOTTOM_OUTLINE - bottom-side Geometer STEP outline output.\n"
         "  ASSEMBLY_HLR_BOTTOM_DETAIL - bottom-side Geometer detailed STEP projection output.\n"
         "  ASSEMBLY_BOUNDS_TOP_MODEL - top-side transformed STEP model bounds.\n"
         "  ASSEMBLY_BOUNDS_BOTTOM_MODEL - bottom-side transformed STEP model bounds.\n"
-        "  ASSEMBLY_BOUNDS_TOP_PADS - top-side copper-bearing pad bounds.\n"
-        "  ASSEMBLY_BOUNDS_BOTTOM_PADS - bottom-side copper-bearing pad bounds.\n"
+        "  ASSEMBLY_BOUNDS_TOP_PADS - top-side pad/hole bounds.\n"
+        "  ASSEMBLY_BOUNDS_BOTTOM_PADS - bottom-side pad/hole bounds.\n"
         "  ASSEMBLY_DESIGNATORS_TOP - top-side assembly reference designator overlay.\n"
         "  ASSEMBLY_DESIGNATORS_BOTTOM - bottom-side assembly reference designator overlay.\n"
         "\n"
@@ -189,47 +196,49 @@ def _default_pcb_svg_config_text() -> str:
         "HLR modes:\n"
         "  bounding_box - transformed STEP model bounds, falling back to pad bounds.\n"
         "  model_bounds - transformed STEP model bounds rectangle only.\n"
-        "  pad_bounds   - copper-bearing pad bounds rectangle only; no STEP projection.\n"
-        "  simple       - Geometer simple outline, with bounds fallback when no\n"
-        "                 STEP model is available.\n"
-        "  detail       - Geometer detailed visible projection, with bounds fallback\n"
+        "  pad_bounds   - footprint pad/hole bounds rectangle only; no STEP projection.\n"
+        "  outline      - Geometer assembly outline, with hole-first bounds fallback\n"
         "                 when no STEP model is available.\n"
-        "  none         - suppress HLR projection.\n"
+        "  detail       - Geometer detailed visible projection, with hole-first\n"
+        "                 bounds fallback when no STEP model is available.\n"
+        "  none         - suppress HLR projection. Legacy simple values are accepted\n"
+        "                 as aliases for outline.\n"
         "\n"
         "Assembly HLR style override example, globally, inside any view.styles,\n"
         "or inside components.<designator>.assembly_hlr for a single part:\n"
-        "  \"assembly_hlr\": {\n"
-        "    \"enabled\": true,\n"
-        "    \"color\": \"#F59E0B\",\n"
-        "    \"line_width_mm\": 0.12,\n"
-        "    \"projection_algorithm\": \"exact\",\n"
-        "    \"curve_mode\": \"native_arcs\",\n"
-        "    \"samples_per_curve\": 24,\n"
-        "    \"round_digits\": 3,\n"
-        "    \"include_visible\": true,\n"
-        "    \"include_outline\": true,\n"
-        "    \"union_polygons\": true,\n"
-        "    \"mesh_linear_deflection\": 0.01,\n"
-        "    \"mesh_angular_deflection\": 0.5,\n"
-        "    \"mesh_relative\": false,\n"
-        "    \"hlr_angle_tolerance\": 0.0174533\n"
+        '  "assembly_hlr": {\n'
+        '    "enabled": true,\n'
+        '    "color": "#F59E0B",\n'
+        '    "line_width_mm": 0.12,\n'
+        '    "projection_algorithm": "exact",\n'
+        '    "curve_mode": "native_arcs",\n'
+        '    "samples_per_curve": 24,\n'
+        '    "round_digits": 3,\n'
+        '    "include_visible": true,\n'
+        '    "include_outline": true,\n'
+        '    "outline_algorithm": "mesh-shadow",\n'
+        '    "union_polygons": true,\n'
+        '    "mesh_linear_deflection": 0.01,\n'
+        '    "mesh_angular_deflection": 0.5,\n'
+        '    "mesh_relative": false,\n'
+        '    "hlr_angle_tolerance": 0.0174533\n'
         "  }\n"
         "\n"
         "Component override examples:\n"
-        "  \"components\": {\n"
-        "    \"J1\": {\"projection\": \"none\"},\n"
-        "    \"U5\": {\"projection\": \"detail\", \"assembly_hlr\": {\"color\": \"#2563EB\"}},\n"
-        "    \"R12\": {\"assembly_designators\": {\n"
-        "      \"opacity\": 0.65,\n"
-        "      \"rotation_aspect_threshold\": 1.2,\n"
-        "      \"rotation_direction\": \"cw\"\n"
+        '  "components": {\n'
+        '    "J1": {"projection": "none"},\n'
+        '    "U5": {"projection": "detail", "assembly_hlr": {"color": "#2563EB"}},\n'
+        '    "R12": {"assembly_designators": {\n'
+        '      "opacity": 0.65,\n'
+        '      "rotation_aspect_threshold": 1.2,\n'
+        '      "rotation_direction": "cw"\n'
         "    }}\n"
         "  }\n"
         "\n"
         "Pin-1 exclusion examples, globally or inside a view.pin1 object:\n"
-        "  \"pin1\": {\n"
-        "    \"exclude_single_pin\": true,\n"
-        "    \"exclude_designators\": [\"R\", \"C\", \"U1\", \"U5-U15\", \"J*\"]\n"
+        '  "pin1": {\n'
+        '    "exclude_single_pin": true,\n'
+        '    "exclude_designators": ["R", "C", "U1", "U5-U15", "J*"]\n'
         "  }\n"
         "\n"
         "Assembly designator views use assembly_designators style controls and fit\n"
@@ -299,7 +308,12 @@ def _apply_pcb_view_selection(config: _PcbSvgConfig, raw_views: str | None) -> N
 
     config.layer_outputs["enabled"] = "layers" in selected
     known_names = {view.name for view in config.views}
-    requested_views = selected - {"layers", "none"}
+    requested_views: set[str] = set()
+    for view_name in selected - {"layers", "none"}:
+        if view_name in known_names:
+            requested_views.add(view_name)
+        else:
+            requested_views.update(_MERGED_DEFAULT_VIEW_ALIASES.get(view_name, (view_name,)))
     unknown = requested_views - known_names
     if unknown:
         raise ValueError(
@@ -387,8 +401,7 @@ def _resolve_explicit_input(raw_file: str | None) -> list[Path] | None:
     candidates = projects or pcbs
     if len(candidates) != 1:
         log.error(
-            "No file specified and no single .kicad_pro/.kicad_pcb found "
-            "in current directory"
+            "No file specified and no single .kicad_pro/.kicad_pcb found in current directory"
         )
         log.info("Usage: kicad-cruncher pcb-svg [project.kicad_pro | board.kicad_pcb]")
         return None
@@ -506,11 +519,7 @@ def _layer_output_tokens(config: _PcbSvgConfig, pcb: KiCadPcb) -> list[str]:
 
 
 def _pcb_layer_name(layer: object) -> str:
-    return str(
-        getattr(layer, "canonical_name", None)
-        or getattr(layer, "name", None)
-        or ""
-    )
+    return str(getattr(layer, "canonical_name", None) or getattr(layer, "name", None) or "")
 
 
 def _layer_output_bool(config: _PcbSvgConfig, key: str, default: bool) -> bool:
@@ -1028,6 +1037,9 @@ def _designator_bounds_rect(
     model_rect = _footprint_model_bounds_rect_values(pcb, pcb_path, footprint, bbox=bbox)
     if model_rect is not None:
         return model_rect, "model"
+    hole_rect = _footprint_hole_bounds_rect_values(footprint, bbox=bbox)
+    if hole_rect is not None:
+        return hole_rect, "holes"
     return _footprint_pad_bounds_rect_values(footprint, bbox=bbox), "pads"
 
 
@@ -1040,49 +1052,95 @@ def _svg_assembly_designator_text(
     token: str,
     styles: dict[str, dict[str, object]],
 ) -> str:
-    x, y, width, height = rect
-    if width <= 0.0 or height <= 0.0:
+    metrics = _assembly_designator_text_metrics(designator, rect, styles)
+    if metrics is None:
         return ""
-    fill_ratio = min(
-        1.0,
-        max(0.05, _style_float(styles, "assembly_designators", "box_fill_ratio", 0.80)),
-    )
-    min_font = _style_float(styles, "assembly_designators", "min_font_size_mm", 0.35)
-    max_font = _style_float(styles, "assembly_designators", "max_font_size_mm", 2.5)
-    rotation = _assembly_designator_rotation(rect, styles)
-    available_text_width = (height if rotation else width) * fill_ratio
-    available_text_height = (width if rotation else height) * fill_ratio
-    estimated_font = available_text_width / max(len(designator) * 0.62, 1.0)
-    font_size = min(max_font, available_text_height, estimated_font)
-    if font_size < min_font:
-        font_size = min(min_font, available_text_height, estimated_font)
-    if font_size <= 0.0 or available_text_width <= 0.0:
-        return ""
-    cx = x + width / 2.0
-    cy = y + height / 2.0
+    cx, cy, font_size, rotation = metrics
     color = _style_color(styles, "assembly_designators", "#2563EB")
-    font_family = str(
-        styles.get("assembly_designators", {}).get("font_family")
-        or "Arial, sans-serif"
-    )
+    font_family = _assembly_designator_font_family(styles)
+    font_weight = _assembly_designator_font_weight(styles)
     opacity = _style_float(styles, "assembly_designators", "opacity", 1.0)
-    transform = (
-        f' transform="rotate({_fmt(rotation)} {_fmt(cx)} {_fmt(cy)})"'
-        if rotation
-        else ""
-    )
+    transform = f' transform="rotate({_fmt(rotation)} {_fmt(cx)} {_fmt(cy)})"' if rotation else ""
+    weight_attr = f' font-weight="{html.escape(font_weight)}"' if font_weight else ""
     return (
         f'<text x="{_fmt(cx)}" y="{_fmt(cy)}"{transform} '
         f'font-size="{_fmt(font_size)}" text-anchor="middle" '
         f'dominant-baseline="central" fill="{html.escape(color)}" '
-        f'font-family="{html.escape(font_family)}" opacity="{_fmt(opacity)}" '
+        f'font-family="{html.escape(font_family)}"{weight_attr} '
+        f'opacity="{_fmt(opacity)}" '
         f'data-layer-token="{html.escape(token)}" '
         f'data-primitive="assembly-designator" '
         f'data-component="{html.escape(designator)}" '
         f'data-bounds-kind="{html.escape(bounds_kind)}" '
         f'data-projection="{html.escape(projection_mode)}">'
-        f'{html.escape(designator)}</text>'
+        f"{html.escape(designator)}</text>"
     )
+
+
+def _assembly_designator_text_metrics(
+    designator: str,
+    rect: tuple[float, float, float, float],
+    styles: dict[str, dict[str, object]],
+) -> tuple[float, float, float, int] | None:
+    x, y, width, height = rect
+    if width <= 0.0 or height <= 0.0:
+        return None
+    rotation = _assembly_designator_rotation(rect, styles)
+    available_width, available_height = _assembly_designator_available_text_box(
+        width,
+        height,
+        rotation,
+        styles,
+    )
+    font_size = _assembly_designator_font_size(
+        designator,
+        available_width,
+        available_height,
+        styles,
+    )
+    if font_size <= 0.0 or available_width <= 0.0:
+        return None
+    return x + width / 2.0, y + height / 2.0, font_size, rotation
+
+
+def _assembly_designator_available_text_box(
+    width: float,
+    height: float,
+    rotation: int,
+    styles: dict[str, dict[str, object]],
+) -> tuple[float, float]:
+    fill_ratio = min(
+        1.0,
+        max(0.05, _style_float(styles, "assembly_designators", "box_fill_ratio", 0.80)),
+    )
+    text_width = height if rotation else width
+    text_height = width if rotation else height
+    return text_width * fill_ratio, text_height * fill_ratio
+
+
+def _assembly_designator_font_size(
+    designator: str,
+    available_width: float,
+    available_height: float,
+    styles: dict[str, dict[str, object]],
+) -> float:
+    min_font = _style_float(styles, "assembly_designators", "min_font_size_mm", 0.35)
+    max_font = _style_float(styles, "assembly_designators", "max_font_size_mm", 2.5)
+    estimated_font = available_width / max(len(designator) * 0.62, 1.0)
+    font_size = min(max_font, available_height, estimated_font)
+    if font_size < min_font:
+        return min(min_font, available_height, estimated_font)
+    return font_size
+
+
+def _assembly_designator_font_family(styles: dict[str, dict[str, object]]) -> str:
+    return str(
+        styles.get("assembly_designators", {}).get("font_family") or "Arial, sans-serif"
+    )
+
+
+def _assembly_designator_font_weight(styles: dict[str, dict[str, object]]) -> str:
+    return str(styles.get("assembly_designators", {}).get("font_weight") or "")
 
 
 def _assembly_designator_rotation(
@@ -1373,7 +1431,7 @@ def _render_footprint_hlr(
     projection_mode = mode
     if projection_mode == "none":
         return []
-    if projection_mode in {"simple", "detail"}:
+    if projection_mode in {"outline", "detail"}:
         return _render_hlr_projection_group(
             pcb,
             pcb_path,
@@ -1424,7 +1482,14 @@ def _render_hlr_projection_group(
         bbox=bbox,
     )
     if not rendered:
-        return []
+        fallback = _render_footprint_hole_bounds_rect(
+            footprint,
+            bbox=bbox,
+            color=color,
+        ) or _render_footprint_pad_bounds_rect(footprint, bbox=bbox, color=color)
+        if not fallback:
+            return []
+        rendered = [fallback]
     return _svg_component_projection_group(
         designator,
         mode,
@@ -1458,9 +1523,7 @@ def _render_footprint_bounds_group(
     if not rect:
         return []
     group_mode = (
-        projection_mode
-        if projection_mode in {"model_bounds", "pad_bounds"}
-        else "bounding_box"
+        projection_mode if projection_mode in {"model_bounds", "pad_bounds"} else "bounding_box"
     )
     return _svg_component_projection_group(
         designator,
@@ -1515,7 +1578,7 @@ def _svg_component_projection_group(
             f'<g data-component="{html.escape(designator)}" '
             f'data-projection="{html.escape(projection)}" '
             f'stroke="{html.escape(color)}" stroke-width="{_fmt(line_width)}"'
-            f'{opacity_attr}>'
+            f"{opacity_attr}>"
         ),
         *lines,
         "</g>",
@@ -1562,11 +1625,7 @@ def _assembly_projection_options(
     styles: dict[str, dict[str, object]],
 ) -> _AssemblyProjectionOptions:
     style = styles.get("assembly_hlr", {})
-    edge_flags = {
-        key: bool(style[key])
-        for key in _ASSEMBLY_HLR_EDGE_FLAG_KEYS
-        if key in style
-    }
+    edge_flags = {key: bool(style[key]) for key in _ASSEMBLY_HLR_EDGE_FLAG_KEYS if key in style}
     curve_mode: Literal["native_arcs", "polyline"] = (
         "polyline" if str(style.get("curve_mode", "native_arcs")) == "polyline" else "native_arcs"
     )
@@ -1577,6 +1636,7 @@ def _assembly_projection_options(
             if style.get("projection_algorithm") is None
             else str(style.get("projection_algorithm"))
         ),
+        outline_algorithm=str(style.get("outline_algorithm", "mesh-shadow") or "mesh-shadow"),
         curve_mode=curve_mode,
         samples_per_curve=_style_int(styles, "assembly_hlr", "samples_per_curve", 24),
         round_digits=_style_int(styles, "assembly_hlr", "round_digits", 3),
@@ -1640,9 +1700,8 @@ def _find_embedded_file(pcb: KiCadPcb, footprint: Footprint, name: str) -> Embed
     wanted = name.lower()
     for owner in (footprint, pcb):
         for embedded in getattr(owner, "embedded_files", []) or []:
-            if (
-                str(getattr(embedded, "name", "") or "").lower() == wanted
-                and str(getattr(embedded, "data", "") or "")
+            if str(getattr(embedded, "name", "") or "").lower() == wanted and str(
+                getattr(embedded, "data", "") or ""
             ):
                 return embedded
     return None
@@ -1682,11 +1741,11 @@ def _projected_geometry_to_svg(
     bbox: BoundingBox,
 ) -> list[str]:
     if mode == "detail":
-        segments = projected.detail_line_segments or projected.simple_line_segments
-        arcs = projected.detail_arcs or projected.simple_arcs
+        segments = projected.detail_line_segments or projected.outline_line_segments
+        arcs = projected.detail_arcs or projected.outline_arcs
     else:
-        segments = projected.simple_line_segments or projected.detail_line_segments
-        arcs = projected.simple_arcs or projected.detail_arcs
+        segments = projected.outline_line_segments or projected.detail_line_segments
+        arcs = projected.outline_arcs or projected.detail_arcs
     lines: list[str] = []
     for start, end in segments:
         x1, y1 = board_world_to_svg(start, bbox=bbox)
@@ -1712,7 +1771,7 @@ def _projected_arc_to_svg(
     sweep = 0 if arc.ccw else 1
     return (
         f'<path d="M {_fmt(start[0])} {_fmt(start[1])} '
-        f'A {_fmt(arc.radius)} {_fmt(arc.radius)} 0 {large_arc} {sweep} '
+        f"A {_fmt(arc.radius)} {_fmt(arc.radius)} 0 {large_arc} {sweep} "
         f'{_fmt(end[0])} {_fmt(end[1])}"/>'
     )
 
@@ -1798,6 +1857,99 @@ def _geometer_model_bounds(
     return bounds
 
 
+def _render_footprint_hole_bounds_rect(
+    footprint: Footprint,
+    *,
+    bbox: BoundingBox,
+    color: str,
+) -> str:
+    rect = _footprint_hole_bounds_rect_values(footprint, bbox=bbox)
+    if rect is None:
+        return ""
+    return _svg_rect_from_values(
+        rect,
+        color=color,
+        data_attrs={"data-bounds-kind": "holes"},
+    )
+
+
+def _footprint_hole_bounds_rect_values(
+    footprint: Footprint,
+    *,
+    bbox: BoundingBox,
+) -> tuple[float, float, float, float] | None:
+    bounds = _footprint_hole_bounds(footprint)
+    if bounds is None or not bounds.is_valid():
+        return None
+    x = float(bounds.min_x) - float(bbox.min_x)
+    y = float(bounds.min_y) - float(bbox.min_y)
+    width = float(bounds.max_x) - float(bounds.min_x)
+    height = float(bounds.max_y) - float(bounds.min_y)
+    return x, y, width, height
+
+
+def _footprint_hole_bounds(footprint: Footprint) -> BoundingBox | None:
+    from kicad_monkey.kicad_geometry import BoundingBox
+
+    bounds = BoundingBox()
+    for pad in getattr(footprint, "pads", []) or []:
+        for point in _pad_hole_local_corners(pad):
+            bounds.expand(transform_footprint_local_to_board(footprint, point))
+    return bounds if bounds.is_valid() else None
+
+
+def _pad_hole_local_corners(pad: object) -> list[tuple[float, float]]:
+    diameter = _optional_number(getattr(pad, "drill", None))
+    width = _optional_number(getattr(pad, "drill_width", None)) or diameter
+    height = _optional_number(getattr(pad, "drill_height", None)) or diameter
+    if width is None or height is None or width <= 0.0 or height <= 0.0:
+        return []
+    center_x = _number_or_zero(getattr(pad, "at_x", None)) + _number_or_zero(
+        getattr(pad, "drill_offset_x", None)
+    )
+    center_y = _number_or_zero(getattr(pad, "at_y", None)) + _number_or_zero(
+        getattr(pad, "drill_offset_y", None)
+    )
+    half_width = width / 2.0
+    half_height = height / 2.0
+    corners = (
+        (-half_width, -half_height),
+        (half_width, -half_height),
+        (half_width, half_height),
+        (-half_width, half_height),
+    )
+    angle_rad = math.radians(_number_or_zero(getattr(pad, "at_angle", None)))
+    if abs(angle_rad) <= 1.0e-12:
+        return [(center_x + x, center_y + y) for x, y in corners]
+    cos_angle = math.cos(angle_rad)
+    sin_angle = math.sin(angle_rad)
+    return [
+        (
+            center_x + x * cos_angle - y * sin_angle,
+            center_y + x * sin_angle + y * cos_angle,
+        )
+        for x, y in corners
+    ]
+
+
+def _optional_number(value: object) -> float | None:
+    if value is None:
+        return None
+    if not isinstance(value, (int, float, str)):
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(result):
+        return None
+    return result
+
+
+def _number_or_zero(value: object) -> float:
+    return _optional_number(value) or 0.0
+
+
 def _render_footprint_pad_bounds_rect(
     footprint: Footprint,
     *,
@@ -1834,8 +1986,6 @@ def _footprint_pad_bounds(footprint: Footprint) -> BoundingBox | None:
 
     bounds = BoundingBox()
     for pad in getattr(footprint, "pads", []) or []:
-        if not _pad_on_copper(pad):
-            continue
         local_bounds = pad.get_bounds()
         if not local_bounds.is_valid():
             continue
@@ -1847,14 +1997,6 @@ def _footprint_pad_bounds(footprint: Footprint) -> BoundingBox | None:
         ):
             bounds.expand(transform_footprint_local_to_board(footprint, point))
     return bounds if bounds.is_valid() else None
-
-
-def _pad_on_copper(pad: object) -> bool:
-    layers = [str(layer) for layer in getattr(pad, "layers", []) or []]
-    if any(layer == "*.Cu" or layer.endswith(".Cu") for layer in layers):
-        return True
-    pad_type = getattr(getattr(pad, "pad_type", ""), "value", getattr(pad, "pad_type", ""))
-    return str(pad_type) in {"thru_hole", "np_thru_hole"}
 
 
 def _svg_rect_from_values(

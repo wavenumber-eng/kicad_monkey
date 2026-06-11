@@ -11,16 +11,16 @@ PCB_SVG_CONFIG_SCHEMA = "pcb.svg.config.a0"
 PCB_DEFAULT_SVG_SCALE = 10.0
 PCB_SVG_CANVAS_BOUNDS_MODES = frozenset({"board_outline", "all_geometry"})
 PCB_SVG_COMPONENT_PROJECTION_MODES = frozenset(
-    {"detail", "simple", "bounding_box", "model_bounds", "pad_bounds", "none"}
+    {"detail", "outline", "bounding_box", "model_bounds", "pad_bounds", "none"}
 )
 PCB_SVG_COMPONENT_SIDES = frozenset({"top", "bottom"})
 PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS = frozenset(
     {
         "ASSEMBLY_HLR_TOP",
         "ASSEMBLY_HLR_BOTTOM",
-        "ASSEMBLY_HLR_TOP_SIMPLE",
+        "ASSEMBLY_HLR_TOP_OUTLINE",
         "ASSEMBLY_HLR_TOP_DETAIL",
-        "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+        "ASSEMBLY_HLR_BOTTOM_OUTLINE",
         "ASSEMBLY_HLR_BOTTOM_DETAIL",
         "ASSEMBLY_BOUNDS_TOP_MODEL",
         "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
@@ -201,9 +201,7 @@ def _coerce_selector_list(
     elif isinstance(value, list):
         raw_items = value
     else:
-        raise ValueError(
-            f"pcb-svg config field '{field_name}' must be a string or an array"
-        )
+        raise ValueError(f"pcb-svg config field '{field_name}' must be a string or an array")
     selectors: list[str] = []
     for item in raw_items:
         for token in str(item).split(","):
@@ -216,6 +214,7 @@ def _coerce_selector_list(
 def _coerce_projection_mode(value: object, default: str, *, field_name: str) -> str:
     raw = str(value or default).strip().lower().replace("-", "_")
     aliases = {
+        "simple": "outline",
         "bbox": "bounding_box",
         "box": "bounding_box",
         "bounds": "bounding_box",
@@ -259,10 +258,14 @@ def normalize_layer_token(value: str) -> str:
         "CUTOUT": "BOARD_CUTOUTS",
         "HLR_TOP": "ASSEMBLY_HLR_TOP",
         "HLR_BOTTOM": "ASSEMBLY_HLR_BOTTOM",
-        "HLR_TOP_SIMPLE": "ASSEMBLY_HLR_TOP_SIMPLE",
+        "HLR_TOP_SIMPLE": "ASSEMBLY_HLR_TOP_OUTLINE",
+        "HLR_TOP_OUTLINE": "ASSEMBLY_HLR_TOP_OUTLINE",
         "HLR_TOP_DETAIL": "ASSEMBLY_HLR_TOP_DETAIL",
-        "HLR_BOTTOM_SIMPLE": "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+        "HLR_BOTTOM_SIMPLE": "ASSEMBLY_HLR_BOTTOM_OUTLINE",
+        "HLR_BOTTOM_OUTLINE": "ASSEMBLY_HLR_BOTTOM_OUTLINE",
         "HLR_BOTTOM_DETAIL": "ASSEMBLY_HLR_BOTTOM_DETAIL",
+        "ASSEMBLY_HLR_TOP_SIMPLE": "ASSEMBLY_HLR_TOP_OUTLINE",
+        "ASSEMBLY_HLR_BOTTOM_SIMPLE": "ASSEMBLY_HLR_BOTTOM_OUTLINE",
         "MODEL_BOUNDS_TOP": "ASSEMBLY_BOUNDS_TOP_MODEL",
         "MODEL_BOUNDS_BOTTOM": "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
         "PAD_BOUNDS_TOP": "ASSEMBLY_BOUNDS_TOP_PADS",
@@ -396,6 +399,7 @@ def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
             "round_digits": 3,
             "include_visible": True,
             "include_outline": True,
+            "outline_algorithm": "mesh-shadow",
             "union_polygons": True,
         },
     }
@@ -404,11 +408,17 @@ def default_pcb_svg_styles() -> dict[str, dict[str, object]]:
 def default_pcb_svg_assembly_view_styles() -> dict[str, dict[str, object]]:
     """Return muted copper overrides for default assembly review views."""
     return {
+        "drills": {"plated_color": "#F7F7F7", "non_plated_color": "#F7F7F7"},
+        "slots": {"plated_color": "#F7F7F7", "non_plated_color": "#F7F7F7"},
         "copper_traces": {"color": "#BBBBBB"},
         "vias": {"color": "#BBBBBB"},
         "copper_polygons": {"color": "#DDDDDD"},
         "smd_pads": {"color": "#AAAAAA"},
         "through_hole_pads": {"color": "#AAAAAA"},
+        "assembly_designators": {
+            "font_family": "Consolas, 'Liberation Mono', 'Courier New', monospace",
+            "font_weight": "700",
+        },
     }
 
 
@@ -543,6 +553,7 @@ class _PcbSvgViewConfig:
             raise ValueError("Each pcb-svg view must include a non-empty 'name'")
         mode = str(data.get("assembly_hlr_mode", "detail") or "detail").lower()
         aliases = {
+            "simple": "outline",
             "detailed": "detail",
             "bounding-box": "bounding_box",
             "bbox": "bounding_box",
@@ -555,13 +566,14 @@ class _PcbSvgViewConfig:
         }
         mode = aliases.get(mode, mode)
         if mode not in PCB_SVG_COMPONENT_PROJECTION_MODES:
-            raise ValueError(
-                f"Unsupported assembly_hlr_mode {mode!r} for pcb-svg view {name!r}"
+            raise ValueError(f"Unsupported assembly_hlr_mode {mode!r} for pcb-svg view {name!r}")
+        styles = (
+            _coerce_object_mapping(
+                data.get("styles"),
+                field_name=f"views.{name}.styles",
             )
-        styles = _coerce_object_mapping(
-            data.get("styles"),
-            field_name=f"views.{name}.styles",
-        ) or {}
+            or {}
+        )
         pin1_config = (
             _PcbSvgPin1Config.from_dict(
                 _coerce_object_mapping(data.get("pin1"), field_name=f"views.{name}.pin1")
@@ -631,9 +643,7 @@ class _PcbSvgAssemblyConfig:
                 field_name="assembly.dnp_projection",
             ),
             designator_color=str(data.get("designator_color", "#111111") or "#111111"),
-            dnp_designator_color=str(
-                data.get("dnp_designator_color", "#FF0000") or "#FF0000"
-            ),
+            dnp_designator_color=str(data.get("dnp_designator_color", "#FF0000") or "#FF0000"),
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -789,9 +799,7 @@ class _PcbSvgComponentOverride:
     show_designator: bool | None = None
 
     @classmethod
-    def from_dict(
-        cls, designator: str, data: dict[str, object]
-    ) -> _PcbSvgComponentOverride:
+    def from_dict(cls, designator: str, data: dict[str, object]) -> _PcbSvgComponentOverride:
         return cls(
             side=_coerce_component_side(
                 data.get("side"),
@@ -941,9 +949,9 @@ class _PcbSvgConfig:
                     "BOARD_CUTOUTS",
                     "DRILLS",
                     "SLOTS",
-                    "ASSEMBLY_HLR_TOP_SIMPLE",
+                    "ASSEMBLY_HLR_TOP_OUTLINE",
                     "ASSEMBLY_HLR_TOP_DETAIL",
-                    "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+                    "ASSEMBLY_HLR_BOTTOM_OUTLINE",
                     "ASSEMBLY_HLR_BOTTOM_DETAIL",
                     "ASSEMBLY_BOUNDS_TOP_MODEL",
                     "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
@@ -956,121 +964,19 @@ class _PcbSvgConfig:
             },
             views=[
                 _PcbSvgViewConfig(
-                    name="top_view",
-                    group_id="pcb-svg-view-top",
-                    output_svg="views/{board}__top_view.svg",
-                    layers=[
-                        "BOARD_OUTLINE",
-                        "F.Cu",
-                        "F.SilkS",
-                        "DRILLS",
-                        "SLOTS",
-                        "ASSEMBLY_HLR_TOP",
-                    ],
-                    assembly_hlr_mode="detail",
-                ),
-                _PcbSvgViewConfig(
-                    name="bottom_view",
-                    group_id="pcb-svg-view-bottom",
-                    output_svg="views/{board}__bottom_view.svg",
-                    layers=[
-                        "BOARD_OUTLINE",
-                        "B.Cu",
-                        "B.SilkS",
-                        "DRILLS",
-                        "SLOTS",
-                        "ASSEMBLY_HLR_BOTTOM",
-                    ],
-                    assembly_hlr_mode="detail",
-                ),
-                _PcbSvgViewConfig(
-                    name="board_cutouts",
-                    group_id="pcb-svg-view-board-cutouts",
-                    output_svg="views/{board}__board_cutouts.svg",
-                    layers=["BOARD_OUTLINE", "BOARD_CUTOUTS"],
-                    assembly_hlr_mode="none",
-                    description="Board cutouts",
-                ),
-                _PcbSvgViewConfig(
-                    name="top_hlr_bounding_boxes",
-                    group_id="pcb-svg-view-top-hlr-bounding-boxes",
-                    output_svg="views/{board}__top_hlr_bounding_boxes.svg",
-                    layers=["BOARD_OUTLINE", "F.Cu", "ASSEMBLY_HLR_TOP"],
-                    assembly_hlr_mode="bounding_box",
-                ),
-                _PcbSvgViewConfig(
-                    name="bottom_hlr_bounding_boxes",
-                    group_id="pcb-svg-view-bottom-hlr-bounding-boxes",
-                    output_svg="views/{board}__bottom_hlr_bounding_boxes.svg",
-                    layers=["BOARD_OUTLINE", "B.Cu", "ASSEMBLY_HLR_BOTTOM"],
-                    assembly_hlr_mode="bounding_box",
-                ),
-                _PcbSvgViewConfig(
-                    name="top_model_bounding_boxes",
-                    group_id="pcb-svg-view-top-model-bounding-boxes",
-                    output_svg="views/{board}__top_model_bounding_boxes.svg",
-                    layers=["BOARD_OUTLINE", "F.Cu", "ASSEMBLY_HLR_TOP"],
-                    assembly_hlr_mode="model_bounds",
-                ),
-                _PcbSvgViewConfig(
-                    name="bottom_model_bounding_boxes",
-                    group_id="pcb-svg-view-bottom-model-bounding-boxes",
-                    output_svg="views/{board}__bottom_model_bounding_boxes.svg",
-                    layers=["BOARD_OUTLINE", "B.Cu", "ASSEMBLY_HLR_BOTTOM"],
-                    assembly_hlr_mode="model_bounds",
-                ),
-                _PcbSvgViewConfig(
-                    name="top_pad_bounding_boxes",
-                    group_id="pcb-svg-view-top-pad-bounding-boxes",
-                    output_svg="views/{board}__top_pad_bounding_boxes.svg",
-                    layers=["BOARD_OUTLINE", "F.Cu", "ASSEMBLY_HLR_TOP"],
-                    assembly_hlr_mode="pad_bounds",
-                ),
-                _PcbSvgViewConfig(
-                    name="bottom_pad_bounding_boxes",
-                    group_id="pcb-svg-view-bottom-pad-bounding-boxes",
-                    output_svg="views/{board}__bottom_pad_bounding_boxes.svg",
-                    layers=["BOARD_OUTLINE", "B.Cu", "ASSEMBLY_HLR_BOTTOM"],
-                    assembly_hlr_mode="pad_bounds",
-                ),
-                _PcbSvgViewConfig(
-                    name="top_pin1_view",
-                    group_id="pcb-svg-view-top-pin1",
-                    output_svg="views/{board}__top_pin1_view.svg",
-                    layers=[
-                        "BOARD_OUTLINE",
-                        "TOP",
-                        "DRILLS",
-                        "SLOTS",
-                        "PIN1_TOP",
-                        "ASSEMBLY_HLR_TOP",
-                    ],
-                    assembly_hlr_mode="simple",
-                ),
-                _PcbSvgViewConfig(
-                    name="bottom_pin1_view",
-                    group_id="pcb-svg-view-bottom-pin1",
-                    output_svg="views/{board}__bottom_pin1_view.svg",
-                    layers=[
-                        "BOARD_OUTLINE",
-                        "BOTTOM",
-                        "DRILLS",
-                        "SLOTS",
-                        "PIN1_BOTTOM",
-                        "ASSEMBLY_HLR_BOTTOM",
-                    ],
-                    assembly_hlr_mode="simple",
-                ),
-                _PcbSvgViewConfig(
                     name="assembly_top_view",
                     output_svg="views/{board}__assembly_top_view.svg",
                     layers=[
                         "BOARD_OUTLINE",
+                        "BOARD_CUTOUTS",
                         "F.Cu",
+                        "DRILLS",
+                        "SLOTS",
+                        "PIN1_TOP",
                         "ASSEMBLY_HLR_TOP",
                         "ASSEMBLY_DESIGNATORS_TOP",
                     ],
-                    assembly_hlr_mode="pad_bounds",
+                    assembly_hlr_mode="outline",
                     styles=default_pcb_svg_assembly_view_styles(),
                 ),
                 _PcbSvgViewConfig(
@@ -1078,11 +984,15 @@ class _PcbSvgConfig:
                     output_svg="views/{board}__assembly_bottom_view.svg",
                     layers=[
                         "BOARD_OUTLINE",
+                        "BOARD_CUTOUTS",
                         "B.Cu",
+                        "DRILLS",
+                        "SLOTS",
+                        "PIN1_BOTTOM",
                         "ASSEMBLY_HLR_BOTTOM",
                         "ASSEMBLY_DESIGNATORS_BOTTOM",
                     ],
-                    assembly_hlr_mode="pad_bounds",
+                    assembly_hlr_mode="outline",
                     styles=default_pcb_svg_assembly_view_styles(),
                 ),
             ],

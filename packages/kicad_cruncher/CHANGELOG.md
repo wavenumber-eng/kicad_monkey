@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.6.10
+
+- Update the controlled dependencies to `kicad-monkey==2026.6.10` and
+  `wn-geometer==2026.6.10`, including the OCCT V8-backed projection stack.
+- Rename PCB SVG assembly projection output from `simple` to `outline` and use
+  Geometer's mesh-shadow outline algorithm by default for assembly silhouettes.
+- Generate `ASSEMBLY_HLR_TOP_OUTLINE` and `ASSEMBLY_HLR_BOTTOM_OUTLINE`
+  virtual layer tokens while accepting legacy `*_SIMPLE` tokens and `simple`
+  projection values as aliases.
+- Keep `detail`, `bounding_box`, `model_bounds`, and `pad_bounds` projection
+  behavior unchanged.
+
 ## 2026.6.7
 
 - Add the public `kicad` workstation helper command for KiCad install

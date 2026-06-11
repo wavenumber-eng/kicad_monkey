@@ -155,13 +155,14 @@
           "mirror": { "type": "boolean" },
           "assembly_hlr_mode": {
             "enum": [
-              "simple",
+              "outline",
               "detail",
               "detailed",
               "bounding_box",
               "model_bounds",
               "pad_bounds",
-              "none"
+              "none",
+              "simple"
             ]
           },
           "styles": { "$ref": "#/$defs/styleTable" },
@@ -184,6 +185,8 @@
         "ASSEMBLY_DESIGNATORS_BOTTOM",
         "PIN1_TOP",
         "PIN1_BOTTOM",
+        "ASSEMBLY_HLR_TOP_OUTLINE",
+        "ASSEMBLY_HLR_BOTTOM_OUTLINE",
         "ASSEMBLY_HLR_TOP_SIMPLE",
         "ASSEMBLY_HLR_TOP_DETAIL",
         "ASSEMBLY_HLR_BOTTOM_SIMPLE",
@@ -195,7 +198,15 @@
       ]
     },
     "projectionMode": {
-      "enum": ["detail", "simple", "bounding_box", "model_bounds", "pad_bounds", "none"]
+      "enum": [
+        "detail",
+        "outline",
+        "bounding_box",
+        "model_bounds",
+        "pad_bounds",
+        "none",
+        "simple"
+      ]
     },
     "componentOverride": {
       "type": "object",
@@ -279,6 +290,7 @@
             "enabled": { "type": "boolean" },
             "color": { "type": "string" },
             "font_family": { "type": "string" },
+            "font_weight": { "type": ["string", "number"] },
             "box_fill_ratio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
             "min_font_size_mm": { "type": "number", "minimum": 0 },
             "max_font_size_mm": { "type": "number", "minimum": 0 },

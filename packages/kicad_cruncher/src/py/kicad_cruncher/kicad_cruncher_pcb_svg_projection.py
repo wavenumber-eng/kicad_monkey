@@ -18,6 +18,7 @@ _CacheKey = tuple[object, ...]
 class _AssemblyProjectionOptions:
     side: _ProjectionSide
     projection_algorithm: str | None = None
+    outline_algorithm: str = "mesh-shadow"
     curve_mode: _CurveMode = "native_arcs"
     samples_per_curve: int = 24
     round_digits: int = 3
@@ -44,16 +45,16 @@ class _AssemblyProjectedArc:
 
 @dataclass(frozen=True)
 class _AssemblyProjectedGeometry:
-    simple_line_segments: tuple[tuple[tuple[float, float], tuple[float, float]], ...]
-    simple_arcs: tuple[_AssemblyProjectedArc, ...]
+    outline_line_segments: tuple[tuple[tuple[float, float], tuple[float, float]], ...]
+    outline_arcs: tuple[_AssemblyProjectedArc, ...]
     detail_line_segments: tuple[tuple[tuple[float, float], tuple[float, float]], ...]
     detail_arcs: tuple[_AssemblyProjectedArc, ...]
 
     @property
     def is_empty(self) -> bool:
         return (
-            not self.simple_line_segments
-            and not self.simple_arcs
+            not self.outline_line_segments
+            and not self.outline_arcs
             and not self.detail_line_segments
             and not self.detail_arcs
         )
@@ -76,6 +77,7 @@ class _AssemblyProjectionCache:
             str(model_hash),
             str(options.side),
             str(options.projection_algorithm or ""),
+            str(options.outline_algorithm or ""),
             str(options.curve_mode),
             int(max(2, options.samples_per_curve)),
             int(max(0, options.round_digits)),
@@ -89,9 +91,7 @@ class _AssemblyProjectionCache:
             if options.mesh_angular_deflection is None
             else float(options.mesh_angular_deflection),
             None if options.mesh_relative is None else bool(options.mesh_relative),
-            None
-            if options.hlr_angle_tolerance is None
-            else float(options.hlr_angle_tolerance),
+            None if options.hlr_angle_tolerance is None else float(options.hlr_angle_tolerance),
             tuple(sorted((str(k), bool(v)) for k, v in (options.edge_flags or {}).items())),
             tuple(float(value) for value in pose_signature),
         )
@@ -160,13 +160,56 @@ class _AssemblyProjectionCache:
         if curve_mode not in {"native_arcs", "polyline"}:
             curve_mode = "native_arcs"
 
+        result = geometer.project_step_hlr(
+            step_bytes,
+            views=[
+                {
+                    "id": view_id,
+                    "direction": direction,
+                    "up": projection_y_direction,
+                }
+            ],
+            model_transform=_matrix4_for_geometer(transform_matrix),
+            options=self._hlr_options_for_geometer(
+                options,
+                curve_mode=curve_mode,
+                round_digits=round_digits,
+            ),
+        )
+        outline = _mapping_from_object(result.geometry(view_id, "outline"))
+        detail = _mapping_from_object(result.geometry(view_id, "detail"))
+        projected = _AssemblyProjectedGeometry(
+            outline_line_segments=self._dedupe_segments(
+                list(_segments_from_mode(outline)),
+                round_digits=round_digits,
+            ),
+            outline_arcs=self._dedupe_arcs(
+                list(_arcs_from_mode(outline)),
+                round_digits=round_digits,
+            ),
+            detail_line_segments=self._dedupe_segments(
+                list(_segments_from_mode(detail)),
+                round_digits=round_digits,
+            ),
+            detail_arcs=self._dedupe_arcs(list(_arcs_from_mode(detail)), round_digits=round_digits),
+        )
+        return _normalize_projected_geometry(projected, flip_x=side == "bottom")
+
+    def _hlr_options_for_geometer(
+        self,
+        options: _AssemblyProjectionOptions,
+        *,
+        curve_mode: str,
+        round_digits: int,
+    ) -> dict[str, object]:
         hlr_options: dict[str, object] = {
             "curve_mode": curve_mode,
             "samples_per_curve": int(max(2, options.samples_per_curve)),
             "round_digits": round_digits,
             "include_visible": bool(options.include_visible),
             "include_outline": bool(options.include_outline),
-            "union_simple_polygons": bool(options.union_polygons),
+            "union_outline_polygons": bool(options.union_polygons),
+            "outline_algorithm": str(options.outline_algorithm or "mesh-shadow"),
         }
         if options.projection_algorithm:
             hlr_options["projection_algorithm"] = str(options.projection_algorithm)
@@ -179,33 +222,7 @@ class _AssemblyProjectionCache:
         if options.hlr_angle_tolerance is not None:
             hlr_options["hlr_angle_tolerance"] = float(options.hlr_angle_tolerance)
         hlr_options.update({key: bool(value) for key, value in (options.edge_flags or {}).items()})
-
-        result = geometer.project_step_hlr(
-            step_bytes,
-            views=[
-                {
-                    "id": view_id,
-                    "direction": direction,
-                    "up": projection_y_direction,
-                }
-            ],
-            model_transform=_matrix4_for_geometer(transform_matrix),
-            options=hlr_options,
-        )
-        simple = _mapping_from_object(result.geometry(view_id, "simple"))
-        detail = _mapping_from_object(result.geometry(view_id, "detail"))
-        return _AssemblyProjectedGeometry(
-            simple_line_segments=self._dedupe_segments(
-                list(_segments_from_mode(simple)),
-                round_digits=round_digits,
-            ),
-            simple_arcs=self._dedupe_arcs(list(_arcs_from_mode(simple)), round_digits=round_digits),
-            detail_line_segments=self._dedupe_segments(
-                list(_segments_from_mode(detail)),
-                round_digits=round_digits,
-            ),
-            detail_arcs=self._dedupe_arcs(list(_arcs_from_mode(detail)), round_digits=round_digits),
-        )
+        return hlr_options
 
     def _dedupe_segments(
         self,
@@ -378,6 +395,43 @@ def _arcs_from_mode(mode: Mapping[str, object]) -> tuple[_AssemblyProjectedArc, 
         if parsed is not None:
             arcs.append(parsed)
     return tuple(arcs)
+
+
+def _normalize_projected_geometry(
+    geometry: _AssemblyProjectedGeometry,
+    *,
+    flip_x: bool,
+) -> _AssemblyProjectedGeometry:
+    if not flip_x:
+        return geometry
+    return _AssemblyProjectedGeometry(
+        outline_line_segments=tuple(
+            (_flip_point_x(start), _flip_point_x(end))
+            for start, end in geometry.outline_line_segments
+        ),
+        outline_arcs=tuple(_flip_arc_x(arc) for arc in geometry.outline_arcs),
+        detail_line_segments=tuple(
+            (_flip_point_x(start), _flip_point_x(end))
+            for start, end in geometry.detail_line_segments
+        ),
+        detail_arcs=tuple(_flip_arc_x(arc) for arc in geometry.detail_arcs),
+    )
+
+
+def _flip_point_x(point: tuple[float, float]) -> tuple[float, float]:
+    return -float(point[0]), float(point[1])
+
+
+def _flip_arc_x(arc: _AssemblyProjectedArc) -> _AssemblyProjectedArc:
+    return _AssemblyProjectedArc(
+        start=_flip_point_x(arc.start),
+        end=_flip_point_x(arc.end),
+        center=_flip_point_x(arc.center),
+        radius=arc.radius,
+        extent_rad=arc.extent_rad,
+        ccw=bool(arc.ccw) if arc.full_circle else not bool(arc.ccw),
+        full_circle=arc.full_circle,
+    )
 
 
 def _arc_from_json(raw: object) -> _AssemblyProjectedArc | None:

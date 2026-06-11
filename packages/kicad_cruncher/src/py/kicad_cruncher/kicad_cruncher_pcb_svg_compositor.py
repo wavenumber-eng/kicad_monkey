@@ -1375,6 +1375,8 @@ def _reorder_top_level_groups(root: ET.Element) -> None:
         local_name = _svg_local_name(element.tag)
         if local_name in {"defs", "metadata"}:
             return (order[local_name], index)
+        if element.get("data-layer-token", "") in _HOLE_TOKENS:
+            return (order["hole"], index)
         if element.get("data-layer-token", "") in _PIN1_TOKENS:
             return (order["pin1"], index)
         attrs = {name: value for name, value in element.attrib.items() if name.startswith("data-")}

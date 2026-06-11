@@ -13,8 +13,10 @@ from typing import Any
 
 import pytest
 from kicad_cruncher.kicad_cruncher_cmd_pcb_svg import (
+    _apply_pcb_view_selection,
     _assembly_designator_rotation,
     _default_pcb_svg_config_text,
+    _render_footprint_hlr,
     _svg_assembly_designator_text,
 )
 from kicad_cruncher.kicad_cruncher_pcb_model_pose import (
@@ -31,6 +33,13 @@ from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import (
 from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
     PCB_SVG_SPECIAL_LAYERS,
     _PcbSvgConfig,
+    _PcbSvgViewConfig,
+    normalize_layer_token,
+)
+from kicad_cruncher.kicad_cruncher_pcb_svg_projection import (
+    _AssemblyProjectedArc,
+    _AssemblyProjectedGeometry,
+    _normalize_projected_geometry,
 )
 from kicad_monkey import KiCadPcb
 from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
@@ -38,21 +47,18 @@ from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _CORPUS_ROOT = _PROJECT_ROOT / "tests" / "corpus" / "kicad"
 _SVG_COLOR_RE = re.compile(r"#[0-9A-Fa-f]{6}")
-_CORPUS_HLR_TEST_PCB = (
-    _CORPUS_ROOT / "projects" / "hlr_test" / "hlr_test.kicad_pcb"
-)
-_CORPUS_HLR_TEST_PROJECT = (
-    _CORPUS_ROOT / "projects" / "hlr_test" / "hlr_test.kicad_pro"
-)
-_CORPUS_CUTOUT_TEST_PCB = (
-    _CORPUS_ROOT / "projects" / "cutout_test" / "cutout_test.kicad_pcb"
-)
+_CORPUS_HLR_TEST_PCB = _CORPUS_ROOT / "projects" / "hlr_test" / "hlr_test.kicad_pcb"
+_CORPUS_HLR_TEST_PROJECT = _CORPUS_ROOT / "projects" / "hlr_test" / "hlr_test.kicad_pro"
+_CORPUS_CUTOUT_TEST_PCB = _CORPUS_ROOT / "projects" / "cutout_test" / "cutout_test.kicad_pcb"
 _CORPUS_CHARGE_INDICATOR_PCB = (
     _CORPUS_ROOT
     / "projects"
     / "charge_indicator"
     / "input"
     / "11-10043__charge_indicator__C.kicad_pcb"
+)
+_CORPUS_TAILLIGHT_PCB = (
+    _CORPUS_ROOT / "projects" / "taillight" / "input" / "11-10045__taillight__C.kicad_pcb"
 )
 _CORPUS_PROJECT_CASES = (
     pytest.param(
@@ -65,11 +71,7 @@ _CORPUS_PROJECT_CASES = (
         id="hlr_test",
     ),
     pytest.param(
-        _CORPUS_ROOT
-        / "projects"
-        / "taillight"
-        / "input"
-        / "11-10045__taillight__C.kicad_pro",
+        _CORPUS_ROOT / "projects" / "taillight" / "input" / "11-10045__taillight__C.kicad_pro",
         "11-10045__taillight__C_design.json",
         97,
         75,
@@ -260,7 +262,7 @@ def _write_pcb_svg_config(root: Path, *, include_hlr: bool) -> Path:
                 "group_id": "pcb-svg-view-assembly-top",
                 "output_svg": "assembly_top_view/{board}__assembly_top_view.svg",
                 "layers": ["BOARD_OUTLINE", "F.Cu", "ASSEMBLY_HLR_TOP"],
-                "assembly_hlr_mode": "simple",
+                "assembly_hlr_mode": "outline",
                 "styles": {"assembly_hlr": {"curve_mode": "polyline"}},
             }
         ]
@@ -535,8 +537,7 @@ def test_design_command_uses_copied_kicad_monkey_corpus_projects(
     assert any(item["layer"] == "B.Cu" for item in manifest["pcb_svgs"])
     _assert_pcb_review_svg_contract(output_dir, manifest["pcb_svgs"][0])
     all_pcb_svg_text = "\n".join(
-        (output_dir / item["file"]).read_text(encoding="utf-8")
-        for item in manifest["pcb_svgs"]
+        (output_dir / item["file"]).read_text(encoding="utf-8") for item in manifest["pcb_svgs"]
     )
     if output_name != "hlr_test_design.json":
         assert "#B8B8B8" in all_pcb_svg_text
@@ -545,11 +546,7 @@ def test_design_command_uses_copied_kicad_monkey_corpus_projects(
 def test_design_review_pcb_records_distinguish_pth_and_npth_pads(tmp_path: Path) -> None:
     """Verify design-review drill records keep real PTH and NPTH pads distinct."""
     project_path = (
-        _CORPUS_ROOT
-        / "projects"
-        / "taillight"
-        / "input"
-        / "11-10045__taillight__C.kicad_pro"
+        _CORPUS_ROOT / "projects" / "taillight" / "input" / "11-10045__taillight__C.kicad_pro"
     )
     output_dir = tmp_path / "out"
 
@@ -656,12 +653,8 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     assert (output_dir / "layers" / "hlr_test__B.Cu.svg").exists()
     assert (output_dir / "layers" / "hlr_test__Edge.Cuts.svg").exists()
     assert (output_dir / "layers" / "hlr_test__virtual__board_outline.svg").exists()
-    front_layer_svg = (output_dir / "layers" / "hlr_test__F.Cu.svg").read_text(
-        encoding="utf-8"
-    )
-    edge_cuts_svg = (output_dir / "layers" / "hlr_test__Edge.Cuts.svg").read_text(
-        encoding="utf-8"
-    )
+    front_layer_svg = (output_dir / "layers" / "hlr_test__F.Cu.svg").read_text(encoding="utf-8")
+    edge_cuts_svg = (output_dir / "layers" / "hlr_test__Edge.Cuts.svg").read_text(encoding="utf-8")
     assert 'data-layer-name="Edge.Cuts"' in front_layer_svg
     assert 'data-layer-token="BOARD_OUTLINE"' not in front_layer_svg
     assert 'data-layer-token="BOARD_OUTLINE"' not in edge_cuts_svg
@@ -700,14 +693,9 @@ def test_pcb_svg_layer_context_and_virtual_outputs_can_be_disabled(
     assert "DRILLS" not in manifest["layer_outputs"]
     assert "SLOTS" not in manifest["layer_outputs"]
     assert not (output_dir / "layers" / "hlr_test__virtual__board_outline.svg").exists()
-    front_layer_svg = (output_dir / "layers" / "hlr_test__F.Cu.svg").read_text(
-        encoding="utf-8"
-    )
+    front_layer_svg = (output_dir / "layers" / "hlr_test__F.Cu.svg").read_text(encoding="utf-8")
     root = ET.fromstring(front_layer_svg)
-    assert not any(
-        element.attrib.get("data-layer-name") == "Edge.Cuts"
-        for element in root.iter()
-    )
+    assert not any(element.attrib.get("data-layer-name") == "Edge.Cuts" for element in root.iter())
     assert 'data-layer-token="DRILLS"' not in front_layer_svg
     assert 'data-layer-token="SLOTS"' not in front_layer_svg
 
@@ -727,9 +715,9 @@ def test_pcb_svg_default_config_exposes_review_virtual_views() -> None:
         "BOARD_CUTOUTS",
         "DRILLS",
         "SLOTS",
-        "ASSEMBLY_HLR_TOP_SIMPLE",
+        "ASSEMBLY_HLR_TOP_OUTLINE",
         "ASSEMBLY_HLR_TOP_DETAIL",
-        "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+        "ASSEMBLY_HLR_BOTTOM_OUTLINE",
         "ASSEMBLY_HLR_BOTTOM_DETAIL",
         "ASSEMBLY_BOUNDS_TOP_MODEL",
         "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
@@ -748,53 +736,82 @@ def test_pcb_svg_default_config_exposes_review_virtual_views() -> None:
     assert config.global_options.styles["assembly_hlr"]["opacity"] == 0.75
     assert config.global_options.styles["assembly_designators"]["color"] == "#2563EB"
     assert config.global_options.styles["assembly_designators"]["opacity"] == 1.0
-    assert (
-        config.global_options.styles["assembly_designators"]["rotation_aspect_threshold"]
-        == 1.5
-    )
+    assert config.global_options.styles["assembly_designators"]["rotation_aspect_threshold"] == 1.5
     assert config.global_options.styles["assembly_designators"]["rotation_direction"] == "ccw"
-    assert views["board_cutouts"].layers == ["BOARD_OUTLINE", "BOARD_CUTOUTS"]
-    assert views["top_pin1_view"].layers == [
+    assert set(views) == {"assembly_top_view", "assembly_bottom_view"}
+    assert "top_view" not in views
+    assert "bottom_view" not in views
+    assert "board_cutouts" not in views
+    assert "top_pin1_view" not in views
+    assert "bottom_pin1_view" not in views
+    assert "top_hlr_bounding_boxes" not in views
+    assert "bottom_hlr_bounding_boxes" not in views
+    assert "top_model_bounding_boxes" not in views
+    assert "bottom_model_bounding_boxes" not in views
+    assert "top_pad_bounding_boxes" not in views
+    assert "bottom_pad_bounding_boxes" not in views
+    assert views["assembly_top_view"].layers == [
         "BOARD_OUTLINE",
-        "TOP",
+        "BOARD_CUTOUTS",
+        "F.Cu",
         "DRILLS",
         "SLOTS",
         "PIN1_TOP",
         "ASSEMBLY_HLR_TOP",
-    ]
-    assert views["bottom_pin1_view"].layers == [
-        "BOARD_OUTLINE",
-        "BOTTOM",
-        "DRILLS",
-        "SLOTS",
-        "PIN1_BOTTOM",
-        "ASSEMBLY_HLR_BOTTOM",
-    ]
-    assert "top_hlr_bounding_boxes" in views
-    assert "bottom_hlr_bounding_boxes" in views
-    assert "top_model_bounding_boxes" in views
-    assert "bottom_model_bounding_boxes" in views
-    assert "top_pad_bounding_boxes" in views
-    assert "bottom_pad_bounding_boxes" in views
-    assert views["assembly_top_view"].layers == [
-        "BOARD_OUTLINE",
-        "F.Cu",
-        "ASSEMBLY_HLR_TOP",
         "ASSEMBLY_DESIGNATORS_TOP",
     ]
-    assert views["assembly_top_view"].assembly_hlr_mode == "pad_bounds"
+    assert views["assembly_top_view"].assembly_hlr_mode == "outline"
+    assert views["assembly_top_view"].styles["drills"]["plated_color"] == "#F7F7F7"
+    assert views["assembly_top_view"].styles["drills"]["non_plated_color"] == "#F7F7F7"
+    assert views["assembly_top_view"].styles["slots"]["plated_color"] == "#F7F7F7"
+    assert views["assembly_top_view"].styles["slots"]["non_plated_color"] == "#F7F7F7"
     assert views["assembly_top_view"].styles["smd_pads"]["color"] == "#AAAAAA"
     assert views["assembly_top_view"].styles["through_hole_pads"]["color"] == "#AAAAAA"
     assert views["assembly_top_view"].styles["copper_traces"]["color"] == "#BBBBBB"
     assert views["assembly_top_view"].styles["vias"]["color"] == "#BBBBBB"
     assert views["assembly_top_view"].styles["copper_polygons"]["color"] == "#DDDDDD"
+    assert (
+        views["assembly_top_view"].styles["assembly_designators"]["font_family"]
+        == "Consolas, 'Liberation Mono', 'Courier New', monospace"
+    )
+    assert views["assembly_top_view"].styles["assembly_designators"]["font_weight"] == "700"
     assert views["assembly_bottom_view"].layers == [
         "BOARD_OUTLINE",
+        "BOARD_CUTOUTS",
         "B.Cu",
+        "DRILLS",
+        "SLOTS",
+        "PIN1_BOTTOM",
         "ASSEMBLY_HLR_BOTTOM",
         "ASSEMBLY_DESIGNATORS_BOTTOM",
     ]
-    assert views["assembly_bottom_view"].assembly_hlr_mode == "pad_bounds"
+    assert views["assembly_bottom_view"].assembly_hlr_mode == "outline"
+
+
+def test_pcb_svg_pin1_view_aliases_select_merged_assembly_views() -> None:
+    """Verify old default view aliases select the merged assembly views."""
+    config = _PcbSvgConfig.default()
+
+    _apply_pcb_view_selection(config, "top,top-pin1,bottom,bottom-pin1,board-cutouts")
+
+    enabled_views = {view.name for view in config.views if view.enabled}
+    assert enabled_views == {"assembly_top_view", "assembly_bottom_view"}
+    assert config.layer_outputs["enabled"] is False
+
+
+def test_pcb_svg_legacy_simple_projection_aliases_normalize_to_outline() -> None:
+    """Verify old simple config terms parse as outline without being generated."""
+    view = _PcbSvgViewConfig.from_dict(
+        {
+            "name": "legacy_simple",
+            "layers": ["ASSEMBLY_HLR_TOP_SIMPLE"],
+            "assembly_hlr_mode": "simple",
+        }
+    )
+
+    assert view.layers == ["ASSEMBLY_HLR_TOP_OUTLINE"]
+    assert view.assembly_hlr_mode == "outline"
+    assert normalize_layer_token("HLR_BOTTOM_SIMPLE") == "ASSEMBLY_HLR_BOTTOM_OUTLINE"
 
 
 def test_pcb_svg_default_config_header_documents_virtual_layers_and_overrides() -> None:
@@ -842,6 +859,38 @@ def test_pcb_svg_hlr_test_model_pose_matches_kicad_step_order() -> None:
     assert origin_svg == pytest.approx((25.5208, 12.15))
 
 
+def test_pcb_svg_bottom_projection_normalizes_camera_x_to_board_x() -> None:
+    """Verify bottom HLR camera coordinates are mapped back to board-world X."""
+    geometry = _AssemblyProjectedGeometry(
+        outline_line_segments=(((-10.0, -2.0), (-8.0, -2.0)),),
+        outline_arcs=(
+            _AssemblyProjectedArc(
+                start=(-10.0, -1.0),
+                end=(-8.0, -1.0),
+                center=(-9.0, -1.0),
+                radius=1.0,
+                extent_rad=1.5708,
+                ccw=True,
+                full_circle=False,
+            ),
+        ),
+        detail_line_segments=(((-7.0, -3.0), (-6.0, -3.0)),),
+        detail_arcs=(),
+    )
+
+    normalized = _normalize_projected_geometry(geometry, flip_x=True)
+
+    assert normalized.outline_line_segments[0][0] == pytest.approx((10.0, -2.0))
+    assert normalized.outline_line_segments[0][1] == pytest.approx((8.0, -2.0))
+    assert normalized.detail_line_segments[0][0] == pytest.approx((7.0, -3.0))
+    assert normalized.detail_line_segments[0][1] == pytest.approx((6.0, -3.0))
+    assert normalized.outline_arcs[0].start == pytest.approx((10.0, -1.0))
+    assert normalized.outline_arcs[0].end == pytest.approx((8.0, -1.0))
+    assert normalized.outline_arcs[0].center == pytest.approx((9.0, -1.0))
+    assert normalized.outline_arcs[0].ccw is False
+    assert _normalize_projected_geometry(geometry, flip_x=False) is geometry
+
+
 def test_pcb_svg_hlr_debug_layers_emit_all_projection_and_bounds_modes(
     tmp_path: Path,
 ) -> None:
@@ -849,11 +898,11 @@ def test_pcb_svg_hlr_debug_layers_emit_all_projection_and_bounds_modes(
     config_path = _write_pcb_svg_config(tmp_path, include_hlr=False)
     config_payload = _read_json(config_path)
     config_payload["layer_outputs"]["include_special_layers"] = [
-        "ASSEMBLY_HLR_TOP_SIMPLE",
+        "ASSEMBLY_HLR_TOP_OUTLINE",
         "ASSEMBLY_HLR_TOP_DETAIL",
         "ASSEMBLY_BOUNDS_TOP_MODEL",
         "ASSEMBLY_BOUNDS_TOP_PADS",
-        "ASSEMBLY_HLR_BOTTOM_SIMPLE",
+        "ASSEMBLY_HLR_BOTTOM_OUTLINE",
         "ASSEMBLY_HLR_BOTTOM_DETAIL",
         "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
         "ASSEMBLY_BOUNDS_BOTTOM_PADS",
@@ -876,7 +925,7 @@ def test_pcb_svg_hlr_debug_layers_emit_all_projection_and_bounds_modes(
         assert manifest["layer_outputs"][token]["virtual"] is True
 
     layers_dir = output_dir / "layers"
-    top_simple = (layers_dir / "hlr_test__virtual__assembly_hlr_top_simple.svg").read_text(
+    top_outline = (layers_dir / "hlr_test__virtual__assembly_hlr_top_outline.svg").read_text(
         encoding="utf-8"
     )
     top_detail = (layers_dir / "hlr_test__virtual__assembly_hlr_top_detail.svg").read_text(
@@ -890,9 +939,9 @@ def test_pcb_svg_hlr_debug_layers_emit_all_projection_and_bounds_modes(
     )
     bottom_model_path = layers_dir / "hlr_test__virtual__assembly_bounds_bottom_model.svg"
 
-    assert 'data-assembly-symbol="simple"' in top_simple
-    assert 'data-projection="simple"' in top_simple
-    assert "<line " in top_simple
+    assert 'data-assembly-symbol="outline"' in top_outline
+    assert 'data-projection="outline"' in top_outline
+    assert "<line " in top_outline
     assert 'data-assembly-symbol="detail"' in top_detail
     assert 'data-projection="detail"' in top_detail
     assert 'data-bounds-kind="model"' in top_model
@@ -930,9 +979,9 @@ def test_pcb_svg_component_hlr_overrides_apply_projection_and_style(
     )
 
     assert result.returncode == 0, result.stderr + result.stdout
-    svg_text = (
-        output_dir / "assembly_top_view" / "hlr_test__assembly_top_view.svg"
-    ).read_text(encoding="utf-8")
+    svg_text = (output_dir / "assembly_top_view" / "hlr_test__assembly_top_view.svg").read_text(
+        encoding="utf-8"
+    )
     root = ET.fromstring(svg_text)
     component_group = next(
         element
@@ -944,19 +993,46 @@ def test_pcb_svg_component_hlr_overrides_apply_projection_and_style(
     assert component_group.attrib["stroke"] == "#123456"
     assert component_group.attrib["stroke-width"] == "0.33"
     assert any(
-        element.attrib.get("data-bounds-kind") == "model"
-        for element in component_group.iter()
+        element.attrib.get("data-bounds-kind") == "model" for element in component_group.iter()
     )
+
+
+def test_pcb_svg_model_less_outline_falls_back_to_hole_bounds() -> None:
+    """Verify no-model connectors with drills use hole bounds for outline geometry."""
+    pcb = KiCadPcb.from_file(_CORPUS_TAILLIGHT_PCB)
+    footprint = next(
+        footprint
+        for footprint in pcb.footprints
+        if footprint.get_property_value("Reference", "") == "J1"
+    )
+    assert not getattr(footprint, "models", [])
+
+    rendered = _render_footprint_hlr(
+        pcb,
+        _CORPUS_TAILLIGHT_PCB,
+        footprint,
+        designator="J1",
+        side="top",
+        mode="outline",
+        styles=_PcbSvgConfig.default().global_options.styles,
+        color="#000000",
+        line_width=0.12,
+        opacity=0.75,
+        bbox=compute_pcb_svg_bounding_box(pcb, None),
+    )
+    svg = "\n".join(rendered)
+
+    assert 'data-component="J1"' in svg
+    assert 'data-projection="outline"' in svg
+    assert 'data-bounds-kind="holes"' in svg
+    assert 'opacity="0.75"' in svg
+    assert "<rect " in svg
 
 
 def test_pcb_svg_virtual_layers_use_full_board_canvas_origin() -> None:
     """Verify virtual overlays align with KiCad Monkey's all-layer SVG canvas."""
     pcb = KiCadPcb.from_file(
-        _CORPUS_ROOT
-        / "projects"
-        / "taillight"
-        / "input"
-        / "11-10045__taillight__C.kicad_pcb"
+        _CORPUS_ROOT / "projects" / "taillight" / "input" / "11-10045__taillight__C.kicad_pcb"
     )
     config = _PcbSvgConfig.default()
     composition = render_pcb_svg_composition(
@@ -968,15 +1044,9 @@ def test_pcb_svg_virtual_layers_use_full_board_canvas_origin() -> None:
     )
     root = ET.fromstring(composition.svg_text)
     outline_group = next(
-        element
-        for element in root.iter()
-        if element.attrib.get("id") == "pcb-svg-board-outline"
+        element for element in root.iter() if element.attrib.get("id") == "pcb-svg-board-outline"
     )
-    outline_path = next(
-        element
-        for element in outline_group.iter()
-        if element.tag.endswith("path")
-    )
+    outline_path = next(element for element in outline_group.iter() if element.tag.endswith("path"))
     match = re.match(r"M ([\d.-]+) ([\d.-]+)", outline_path.attrib["d"])
     assert match is not None
     first_svg_point = (float(match.group(1)), float(match.group(2)))
@@ -1027,13 +1097,9 @@ def test_pcb_svg_charge_indicator_long_outline_arcs_are_smoothly_sampled() -> No
     smooth_region = _outer_board_region(
         _classify_edge_cut_regions(pcb, styles=config.global_options.styles)
     )
-    coarse_styles = {
-        name: dict(style) for name, style in config.global_options.styles.items()
-    }
+    coarse_styles = {name: dict(style) for name, style in config.global_options.styles.items()}
     coarse_styles["board_outline"]["max_arc_segment_mm"] = 100.0
-    coarse_region = _outer_board_region(
-        _classify_edge_cut_regions(pcb, styles=coarse_styles)
-    )
+    coarse_region = _outer_board_region(_classify_edge_cut_regions(pcb, styles=coarse_styles))
 
     assert smooth_region is not None
     assert coarse_region is not None
@@ -1060,9 +1126,7 @@ def test_pcb_svg_board_cutouts_detect_generic_internal_closed_regions(tmp_path: 
     )
 
     assert result.returncode == 0, result.stderr + result.stdout
-    svg = (output_dir / "views" / "cutout_regions__board_cutouts.svg").read_text(
-        encoding="utf-8"
-    )
+    svg = (output_dir / "views" / "cutout_regions__board_cutouts.svg").read_text(encoding="utf-8")
     assert 'id="board-cutout-hatch"' in svg
     assert 'data-layer-token="BOARD_OUTLINE"' in svg
     assert 'data-layer-token="BOARD_CUTOUTS"' in svg
@@ -1092,18 +1156,14 @@ def test_pcb_svg_cutout_project_detects_generalized_edge_cut_regions(
     )
 
     assert result.returncode == 0, result.stderr + result.stdout
-    svg = (output_dir / "views" / "cutout_test__board_cutouts.svg").read_text(
-        encoding="utf-8"
-    )
+    svg = (output_dir / "views" / "cutout_test__board_cutouts.svg").read_text(encoding="utf-8")
     assert 'id="board-cutout-hatch"' in svg
     assert 'data-layer-token="BOARD_OUTLINE"' in svg
     assert 'data-layer-token="BOARD_CUTOUTS"' in svg
     assert 'data-cutout-count="8"' in svg
     root = ET.fromstring(svg)
     cutout_elements = [
-        element
-        for element in root.iter()
-        if element.attrib.get("data-feature") == "board-cutout"
+        element for element in root.iter() if element.attrib.get("data-feature") == "board-cutout"
     ]
     assert len(cutout_elements) == 8
     assert Counter(
@@ -1132,11 +1192,7 @@ def test_pcb_svg_pin1_view_uses_virtual_markers_and_enriched_drill_metadata(
     config_path = _write_pcb_svg_virtual_config(tmp_path)
     output_dir = tmp_path / "pcb-svg"
     project_path = (
-        _CORPUS_ROOT
-        / "projects"
-        / "taillight"
-        / "input"
-        / "11-10045__taillight__C.kicad_pro"
+        _CORPUS_ROOT / "projects" / "taillight" / "input" / "11-10045__taillight__C.kicad_pro"
     )
 
     result = _run_cli(
@@ -1151,9 +1207,9 @@ def test_pcb_svg_pin1_view_uses_virtual_markers_and_enriched_drill_metadata(
     )
 
     assert result.returncode == 0, result.stderr + result.stdout
-    svg = (
-        output_dir / "views" / "11-10045__taillight__C__top_pin1_view.svg"
-    ).read_text(encoding="utf-8")
+    svg = (output_dir / "views" / "11-10045__taillight__C__top_pin1_view.svg").read_text(
+        encoding="utf-8"
+    )
     assert 'id="pcb-svg-board-outline"' in svg
     assert 'id="pcb-svg-drills"' in svg
     assert 'data-layer-token="PIN1_TOP"' in svg
@@ -1169,11 +1225,7 @@ def test_pcb_svg_pin1_view_uses_virtual_markers_and_enriched_drill_metadata(
 def test_pcb_svg_pin1_selector_exclusions_and_relative_dot_size() -> None:
     """Verify pin-1 selectors handle ranges, prefixes, exact refs, and one-pin parts."""
     pcb = KiCadPcb.from_file(
-        _CORPUS_ROOT
-        / "projects"
-        / "taillight"
-        / "input"
-        / "11-10045__taillight__C.kicad_pcb"
+        _CORPUS_ROOT / "projects" / "taillight" / "input" / "11-10045__taillight__C.kicad_pcb"
     )
     config = _PcbSvgConfig.default()
     config.pin1.exclude_designators = ["U1-U9", "Q*", "R44"]
@@ -1224,10 +1276,10 @@ def test_pcb_svg_view_pin1_override_replaces_global_defaults() -> None:
     assert resolved.exclude_single_pin is False
 
 
-def test_pcb_svg_default_assembly_view_draws_pad_bounds_designators_and_opacity(
+def test_pcb_svg_default_assembly_view_draws_outline_designators_and_opacity(
     tmp_path: Path,
 ) -> None:
-    """Verify default assembly view uses pad bounds, designators, and 75% HLR opacity."""
+    """Verify default assembly view uses outline HLR, designators, and 75% opacity."""
     config_payload: dict[str, Any] = _PcbSvgConfig.default().to_dict()
     layer_outputs = config_payload["layer_outputs"]
     assert isinstance(layer_outputs, dict)
@@ -1235,20 +1287,18 @@ def test_pcb_svg_default_assembly_view_draws_pad_bounds_designators_and_opacity(
     views = config_payload["views"]
     assert isinstance(views, list)
     selected_views = [
-        view
-        for view in views
-        if isinstance(view, dict) and view["name"] == "assembly_top_view"
+        view for view in views if isinstance(view, dict) and view["name"] == "assembly_top_view"
     ]
-    selected_views[0]["styles"] = {
-        "assembly_designators": {
-            "selector_overrides": {
-                "U": {
-                    "color": "#00AAFF",
-                    "opacity": 0.4,
-                    "rotation_aspect_threshold": 0.5,
-                    "rotation_direction": "cw",
-                }
-            }
+    styles = selected_views[0]["styles"]
+    assert isinstance(styles, dict)
+    assembly_designators = styles["assembly_designators"]
+    assert isinstance(assembly_designators, dict)
+    assembly_designators["selector_overrides"] = {
+        "U": {
+            "color": "#00AAFF",
+            "opacity": 0.4,
+            "rotation_aspect_threshold": 0.5,
+            "rotation_direction": "cw",
         }
     }
     config_payload["views"] = selected_views
@@ -1274,13 +1324,11 @@ def test_pcb_svg_default_assembly_view_draws_pad_bounds_designators_and_opacity(
     )
 
     assert result.returncode == 0, result.stderr + result.stdout
-    svg = (output_dir / "views" / "hlr_test__assembly_top_view.svg").read_text(
-        encoding="utf-8"
-    )
+    svg = (output_dir / "views" / "hlr_test__assembly_top_view.svg").read_text(encoding="utf-8")
 
-    assert 'data-assembly-symbol="pad_bounds"' in svg
-    assert 'data-projection="pad_bounds"' in svg
-    assert 'data-bounds-kind="pads"' in svg
+    assert 'data-assembly-symbol="outline"' in svg
+    assert 'data-projection="outline"' in svg
+    assert 'data-bounds-kind="model"' in svg
     assert 'opacity="0.75"' in svg
     assert 'data-layer-token="ASSEMBLY_DESIGNATORS_TOP"' in svg
     assert 'data-primitive="assembly-designator"' in svg
@@ -1292,12 +1340,56 @@ def test_pcb_svg_default_assembly_view_draws_pad_bounds_designators_and_opacity(
     )
     assert 'transform="rotate(90 ' in u1_designator
     assert 'fill="#FF00AA"' in u1_designator
+    assert 'font-family="Consolas,' in u1_designator
+    assert "monospace" in u1_designator
+    assert 'font-weight="700"' in u1_designator
     assert 'opacity="0.6"' in u1_designator
     assert "textLength=" not in svg
     assert "lengthAdjust=" not in svg
-    assert svg.index('data-projection="pad_bounds"') < svg.index(
+    assert svg.index('data-projection="outline"') < svg.index(
         'data-primitive="assembly-designator"'
     )
+
+
+def test_pcb_svg_default_assembly_view_composes_pin1_and_holes(
+    tmp_path: Path,
+) -> None:
+    """Verify the fresh default assembly view includes pin-1, drills, and slots."""
+    config_payload: dict[str, Any] = _PcbSvgConfig.default().to_dict()
+    layer_outputs = config_payload["layer_outputs"]
+    assert isinstance(layer_outputs, dict)
+    layer_outputs["enabled"] = False
+    views = config_payload["views"]
+    assert isinstance(views, list)
+    config_payload["views"] = [
+        view for view in views if isinstance(view, dict) and view["name"] == "assembly_top_view"
+    ]
+    config_path = tmp_path / "pcb.svg.config"
+    config_path.write_text(json.dumps(config_payload, indent=2), encoding="utf-8")
+    output_dir = tmp_path / "pcb-svg-assembly-top"
+
+    result = _run_cli(
+        "pcb-svg",
+        str(_CORPUS_TAILLIGHT_PCB),
+        "--config",
+        str(config_path),
+        "-o",
+        str(output_dir),
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    svg = (output_dir / "views" / "11-10045__taillight__C__assembly_top_view.svg").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'id="pcb-svg-drills"' in svg
+    assert 'data-layer-token="PIN1_TOP"' in svg
+    assert 'data-hole-plating="plated"' in svg
+    assert 'data-hole-plating="non_plated"' in svg
+    assert "#F7F7F7" in svg
+    assert 'data-component="J1"' in svg
+    assert 'data-projection="outline"' in svg
+    assert 'data-bounds-kind="holes"' in svg
 
 
 def test_pcb_svg_copper_draw_priority_orders_traces_polygons_vias_pads() -> None:
@@ -1386,6 +1478,6 @@ def test_pcb_svg_assembly_view_uses_geometer_hlr(tmp_path: Path) -> None:
         encoding="utf-8"
     )
     assert 'id="assembly-overlay"' in svg
-    assert 'data-assembly-symbol="simple"' in svg
-    assert 'data-projection="simple"' in svg
+    assert 'data-assembly-symbol="outline"' in svg
+    assert 'data-projection="outline"' in svg
     assert "<line " in svg
