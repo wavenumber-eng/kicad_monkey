@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from kicad_cruncher.config_json import enum_help, render_commented_jsonc
+
 PCB_SVG_CONFIG_FILENAME = "pcb.svg.config"
 PCB_SVG_CONFIG_SCHEMA = "pcb.svg.config.a0"
 PCB_DEFAULT_SVG_SCALE = 10.0
@@ -41,6 +43,281 @@ PCB_SVG_SPECIAL_LAYERS = frozenset(
         "PIN1_BOTTOM",
     }
 )
+_PCB_SVG_PROJECTION_MODE_OPTIONS = (
+    "detail",
+    "outline",
+    "bounding_box",
+    "model_bounds",
+    "pad_bounds",
+    "none",
+)
+_PCB_SVG_SYNTHETIC_LAYER_OPTIONS = tuple(sorted(PCB_SVG_SPECIAL_LAYERS))
+_PCB_SVG_CONFIG_HEADER = (
+    "kicad-cruncher pcb-svg configuration.",
+    "",
+    "This file is JSONC. Comments and trailing commas are accepted.",
+    "Configured views render physical and virtual layers in the listed draw order.",
+    "The generated default emits assembly_top_view and assembly_bottom_view.",
+    "Default assembly views include cutouts, drills, slots, pin-1 markers,",
+    "Geometer outline HLR, and bold monospace assembly designators.",
+    "Physical layer tokens include F.Cu, B.Cu, F.SilkS, B.SilkS, F.Fab, B.Fab,",
+    "F.Paste, B.Paste, F.Mask, B.Mask, Edge.Cuts, TOP, and BOTTOM.",
+    "Virtual layer tokens include BOARD_OUTLINE, BOARD_CUTOUTS, DRILLS, SLOTS,",
+    "PIN1_TOP, PIN1_BOTTOM, assembly HLR/detail/bounds tokens, and designators.",
+    "Component overrides live under components.<designator>.",
+    "Exact component settings merge over global and per-view styles.",
+)
+_PCB_SVG_CONFIG_COMMENTS = {
+    ("schema",): "Required config contract id.",
+    ("global",): "Global rendering options and default style table.",
+    (
+        "global",
+        "pcbdoc",
+    ): "Project-relative PCB file for .kicad_pro inputs; null auto-resolves.",
+    ("global", "canvas"): "SVG canvas bounds and margin policy.",
+    ("global", "canvas", "bounds"): enum_help(
+        "Canvas bounds mode",
+        ("board_outline", "all_geometry"),
+    ),
+    ("global", "canvas", "margin_mm"): "Extra margin around the selected canvas bounds.",
+    ("global", "include_metadata"): "Emit data-* metadata in generated SVG elements.",
+    ("global", "show_empty_layers"): "Write physical layer SVGs even when no geometry is present.",
+    (
+        "global",
+        "clip_to_outline",
+    ): "Clip rendered copper/layers to the board outline when possible.",
+    (
+        "global",
+        "clip_holes_from_copper",
+    ): "Clip drill and slot holes out of rendered copper layers.",
+    (
+        "global",
+        "mirror_bottom_view",
+    ): "Mirror bottom-side composed views into a board-front reading orientation.",
+    ("global", "svg_scale"): "SVG user-unit scale factor per mm.",
+    (
+        "global",
+        "svg_size_unit",
+    ): "Optional SVG width/height unit suffix; empty string keeps raw user units.",
+    ("global", "clean_output"): "Remove prior generated outputs before writing the new render set.",
+    ("global", "styles"): (
+        "Global style table.",
+        "Per-view styles and component overrides merge over these defaults.",
+    ),
+    ("global", "styles", "board_outline"): "Board perimeter style derived from Edge.Cuts geometry.",
+    (
+        "global",
+        "styles",
+        "board_outline",
+        "max_arc_segment_mm",
+    ): (
+        "Maximum sampled chord length for board-outline arcs.",
+        "Smaller values are smoother and larger.",
+    ),
+    (
+        "global",
+        "styles",
+        "board_outline",
+        "max_curve_segment_mm",
+    ): "Maximum sampled segment length for board-outline curves.",
+    (
+        "global",
+        "styles",
+        "board_outline",
+        "max_circle_segment_mm",
+    ): "Maximum sampled chord length for board-outline circles.",
+    (
+        "global",
+        "styles",
+        "board_cutouts",
+    ): "Internal board cutout style derived from smaller closed Edge.Cuts regions.",
+    ("global", "styles", "board_cutouts", "outline_style"): enum_help(
+        "Cutout outline style",
+        ("solid", "dashed"),
+    ),
+    ("global", "styles", "drills"): "Circular drill overlay style.",
+    ("global", "styles", "slots"): "Slotted drill overlay style.",
+    (
+        "global",
+        "styles",
+        "pin1_marker",
+    ): "Pin-1 marker style for synthesized PIN1_TOP/PIN1_BOTTOM overlays.",
+    ("global", "styles", "assembly_designators"): "Assembly reference designator text style.",
+    (
+        "global",
+        "styles",
+        "assembly_designators",
+        "font_family",
+    ): "CSS font-family for assembly designator text.",
+    (
+        "global",
+        "styles",
+        "assembly_designators",
+        "font_weight",
+    ): "CSS font weight for assembly designator text.",
+    (
+        "global",
+        "styles",
+        "assembly_designators",
+        "rotation_direction",
+    ): enum_help(
+        "Designator rotation direction when bounds are tall",
+        (
+            "cw",
+            "clockwise",
+            "right",
+            "+90",
+            "90",
+            "ccw",
+            "counterclockwise",
+            "counter-clockwise",
+            "left",
+            "-90",
+        ),
+    ),
+    ("global", "styles", "assembly_hlr"): "Geometer-backed assembly projection style.",
+    ("global", "styles", "assembly_hlr", "curve_mode"): enum_help(
+        "Projection curve output mode",
+        ("native_arcs", "segments"),
+    ),
+    ("global", "styles", "assembly_hlr", "outline_algorithm"): enum_help(
+        "Outline algorithm",
+        ("mesh-shadow", "hlr"),
+    ),
+    ("assembly",): "Default assembly projection and designator color policy.",
+    ("assembly", "default_projection"): enum_help(
+        "Default component projection mode",
+        _PCB_SVG_PROJECTION_MODE_OPTIONS,
+    ),
+    ("assembly", "dnp_projection"): enum_help(
+        "Projection mode used for DNP components",
+        _PCB_SVG_PROJECTION_MODE_OPTIONS,
+    ),
+    ("assembly", "designator_color"): "Fallback color for fitted assembly designators.",
+    ("assembly", "dnp_designator_color"): "Fallback color for DNP assembly designators.",
+    ("dnp",): "DNP hatch/marker style for DNP review overlays.",
+    ("diodes",): "Diode/cathode marker detection and rendering options.",
+    (
+        "diodes",
+        "numeric_cathode_pad",
+    ): "Numeric cathode pad name used when no named cathode pad is present.",
+    ("diodes", "cathode_pad_names"): "Named pads treated as cathode markers.",
+    ("diodes", "designator_prefixes"): "Designator prefixes treated as diode-like parts.",
+    (
+        "diodes",
+        "parameter_terms",
+    ): "Case-insensitive parameter text terms treated as diode-like parts.",
+    ("pin1",): (
+        "Global pin-1 marker selection policy.",
+        "Per-view pin1 overrides merge over this object.",
+    ),
+    (
+        "pin1",
+        "exclude_designators",
+    ): "Exact, prefix, wildcard, or range selectors excluded from pin-1 markers.",
+    (
+        "pin1",
+        "exclude_designator_prefixes",
+    ): "Additional prefix selectors excluded from pin-1 marker generation.",
+    ("pin1", "exclude_single_pin"): "Suppress pin-1 markers for one-pin footprints.",
+    ("components",): "Per-component overrides keyed by reference designator, for example J1 or U5.",
+    ("components", "side"): enum_help("Forced component side", ("top", "bottom")),
+    ("components", "projection"): enum_help(
+        "Per-component projection mode",
+        _PCB_SVG_PROJECTION_MODE_OPTIONS,
+    ),
+    ("components", "assembly_hlr"): "Per-component assembly HLR style overrides.",
+    ("components", "assembly_designators"): "Per-component assembly designator style overrides.",
+    ("components", "pin1_enabled"): "Force pin-1 marker on or off for this component.",
+    ("components", "pin1_pad"): "Specific pad name to use for this component's pin-1 marker.",
+    ("components", "cathode_pad"): "Specific pad name to use for this component's cathode marker.",
+    ("components", "diode"): "Force diode/cathode marker detection on or off for this component.",
+    (
+        "components",
+        "diode_line_art",
+    ): "Force diode line-art rendering on or off for this component.",
+    (
+        "components",
+        "show_designator",
+    ): "Force assembly designator rendering on or off for this component.",
+    ("layer_outputs",): "Standalone per-layer and virtual-layer SVG output settings.",
+    ("layer_outputs", "layers"): "Physical layers to write, or auto for all detected board layers.",
+    ("layer_outputs", "include_special_layers"): enum_help(
+        "Virtual layers to write when write_virtual_layers is true",
+        _PCB_SVG_SYNTHETIC_LAYER_OPTIONS,
+    ),
+    (
+        "layer_outputs",
+        "add_edge_cuts_to_physical_layers",
+    ): "Include raw Edge.Cuts context in each non-Edge.Cuts physical layer output.",
+    (
+        "layer_outputs",
+        "add_drills_to_physical_layers",
+    ): "Include computed round drill overlays as context in physical layer outputs.",
+    (
+        "layer_outputs",
+        "add_slots_to_physical_layers",
+    ): "Include computed slot overlays as context in physical layer outputs.",
+    (
+        "layer_outputs",
+        "write_virtual_layers",
+    ): "Write standalone __virtual__ SVG files for selected virtual layers.",
+    (
+        "layer_outputs",
+        "output_dir",
+    ): "Directory for per-layer SVG outputs relative to the selected output root.",
+    ("views",): "Composed SVG views. Each view's layers array is the draw order.",
+    ("views", "name"): "Stable view name used by --views filtering and default output paths.",
+    ("views", "group_id"): "SVG group id for this composed view.",
+    ("views", "output_svg"): (
+        "Output path template relative to the selected output root.",
+        "Supports {board} and {view}.",
+    ),
+    ("views", "layers"): "Ordered physical and virtual layer tokens rendered into this view.",
+    ("views", "mirror"): "Override bottom-view mirroring for this view.",
+    ("views", "assembly_hlr_mode"): enum_help(
+        "View projection mode for ASSEMBLY_HLR_TOP/BOTTOM tokens",
+        _PCB_SVG_PROJECTION_MODE_OPTIONS,
+    ),
+    ("views", "styles"): "Per-view style overrides merged over global styles.",
+    ("views", "pin1"): "Per-view pin-1 selection overrides.",
+    ("views", "description"): "Optional human-readable view description.",
+}
+_PCB_SVG_COMMENTS_BY_KEY = {
+    "enabled": "Enable this feature or output block.",
+    "color": "CSS color used for this rendered feature.",
+    "line_width_mm": "Stroke width in mm.",
+    "opacity": "Opacity from 0 to 1.",
+    "plated_color": "CSS color for plated drill/slot geometry.",
+    "non_plated_color": "CSS color for non-plated drill/slot geometry.",
+    "hatch": "Draw a hatch fill when true.",
+    "hatch_spacing_mm": "Hatch line spacing in mm.",
+    "hatch_angle_deg": "Hatch angle in degrees.",
+    "hatch_line_width_mm": "Hatch stroke width in mm.",
+    "outline_dash_mm": "Dash length for dashed outlines in mm.",
+    "outline_width_mm": "Cutout outline stroke width in mm.",
+    "min_arc_segments": "Minimum segment count when sampling arcs.",
+    "min_curve_segments": "Minimum segment count when sampling curves.",
+    "min_circle_segments": "Minimum segment count when sampling circles.",
+    "max_arc_segments": "Maximum segment count when sampling arcs.",
+    "max_curve_segments": "Maximum segment count when sampling curves.",
+    "max_circle_segments": "Maximum segment count when sampling circles.",
+    "dot_diameter_mm": "Fixed pin-1 dot diameter in mm.",
+    "pad_diameter_ratio": "Pin-1 dot diameter as a ratio of selected pad size.",
+    "min_dot_diameter_mm": "Minimum pin-1 dot diameter in mm.",
+    "max_dot_diameter_mm": "Maximum pin-1 dot diameter in mm.",
+    "box_fill_ratio": "Fraction of component bounds used by fitted designator text.",
+    "min_font_size_mm": "Minimum fitted designator font size in mm.",
+    "max_font_size_mm": "Maximum fitted designator font size in mm.",
+    "rotation_aspect_threshold": (
+        "Rotate designator text when fitted bounds exceed this height/width ratio."
+    ),
+    "include_visible": "Include visible HLR/detail geometry.",
+    "include_outline": "Include outline/silhouette geometry.",
+    "samples_per_curve": "Segment samples per curve when curve output is segmented.",
+    "round_digits": "Decimal digits retained in generated SVG geometry.",
+    "union_polygons": "Union outline polygons before rendering when supported by Geometer.",
+}
 
 _STYLE_ORDER = (
     "board_outline",
@@ -214,7 +491,6 @@ def _coerce_selector_list(
 def _coerce_projection_mode(value: object, default: str, *, field_name: str) -> str:
     raw = str(value or default).strip().lower().replace("-", "_")
     aliases = {
-        "simple": "outline",
         "bbox": "bounding_box",
         "box": "bounding_box",
         "bounds": "bounding_box",
@@ -258,14 +534,10 @@ def normalize_layer_token(value: str) -> str:
         "CUTOUT": "BOARD_CUTOUTS",
         "HLR_TOP": "ASSEMBLY_HLR_TOP",
         "HLR_BOTTOM": "ASSEMBLY_HLR_BOTTOM",
-        "HLR_TOP_SIMPLE": "ASSEMBLY_HLR_TOP_OUTLINE",
         "HLR_TOP_OUTLINE": "ASSEMBLY_HLR_TOP_OUTLINE",
         "HLR_TOP_DETAIL": "ASSEMBLY_HLR_TOP_DETAIL",
-        "HLR_BOTTOM_SIMPLE": "ASSEMBLY_HLR_BOTTOM_OUTLINE",
         "HLR_BOTTOM_OUTLINE": "ASSEMBLY_HLR_BOTTOM_OUTLINE",
         "HLR_BOTTOM_DETAIL": "ASSEMBLY_HLR_BOTTOM_DETAIL",
-        "ASSEMBLY_HLR_TOP_SIMPLE": "ASSEMBLY_HLR_TOP_OUTLINE",
-        "ASSEMBLY_HLR_BOTTOM_SIMPLE": "ASSEMBLY_HLR_BOTTOM_OUTLINE",
         "MODEL_BOUNDS_TOP": "ASSEMBLY_BOUNDS_TOP_MODEL",
         "MODEL_BOUNDS_BOTTOM": "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
         "PAD_BOUNDS_TOP": "ASSEMBLY_BOUNDS_TOP_PADS",
@@ -451,7 +723,6 @@ class _PcbSvgCanvasConfig:
             "board": "board_outline",
             "outline": "board_outline",
             "board_profile": "board_outline",
-            "legacy": "all_geometry",
             "all": "all_geometry",
             "rendered_view": "all_geometry",
             "rendered_geometry": "all_geometry",
@@ -553,8 +824,6 @@ class _PcbSvgViewConfig:
             raise ValueError("Each pcb-svg view must include a non-empty 'name'")
         mode = str(data.get("assembly_hlr_mode", "detail") or "detail").lower()
         aliases = {
-            "simple": "outline",
-            "detailed": "detail",
             "bounding-box": "bounding_box",
             "bbox": "bounding_box",
             "box": "bounding_box",
@@ -761,14 +1030,14 @@ class _PcbSvgPin1Config:
             default.exclude_designators,
             field_name="pin1.exclude_designators",
         )
-        legacy_prefixes = _coerce_selector_list(
+        prefixes = _coerce_selector_list(
             data.get("exclude_designator_prefixes"),
             default.exclude_designator_prefixes,
             field_name="pin1.exclude_designator_prefixes",
         )
         return cls(
             exclude_designators=selectors,
-            exclude_designator_prefixes=legacy_prefixes,
+            exclude_designator_prefixes=prefixes,
             exclude_single_pin=_coerce_bool(
                 data.get("exclude_single_pin"),
                 default.exclude_single_pin,
@@ -1054,6 +1323,16 @@ class _PcbSvgConfig:
         }
 
 
+def pcb_svg_default_config_text(config: _PcbSvgConfig | None = None) -> str:
+    """Render the editable pcb-svg default config."""
+    return render_commented_jsonc(
+        (config or _PcbSvgConfig.default()).to_dict(),
+        comments_by_path=_PCB_SVG_CONFIG_COMMENTS,
+        comments_by_key=_PCB_SVG_COMMENTS_BY_KEY,
+        header_lines=_PCB_SVG_CONFIG_HEADER,
+    )
+
+
 def resolve_config_output_path(
     output_dir: Path,
     template: str,
@@ -1080,5 +1359,6 @@ __all__ = [
     "normalize_layer_token",
     "parse_pcb_layer_selector",
     "physical_layer_from_token",
+    "pcb_svg_default_config_text",
     "resolve_config_output_path",
 ]

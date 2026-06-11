@@ -157,12 +157,10 @@
             "enum": [
               "outline",
               "detail",
-              "detailed",
               "bounding_box",
               "model_bounds",
               "pad_bounds",
-              "none",
-              "simple"
+              "none"
             ]
           },
           "styles": { "$ref": "#/$defs/styleTable" },
@@ -187,9 +185,7 @@
         "PIN1_BOTTOM",
         "ASSEMBLY_HLR_TOP_OUTLINE",
         "ASSEMBLY_HLR_BOTTOM_OUTLINE",
-        "ASSEMBLY_HLR_TOP_SIMPLE",
         "ASSEMBLY_HLR_TOP_DETAIL",
-        "ASSEMBLY_HLR_BOTTOM_SIMPLE",
         "ASSEMBLY_HLR_BOTTOM_DETAIL",
         "ASSEMBLY_BOUNDS_TOP_MODEL",
         "ASSEMBLY_BOUNDS_BOTTOM_MODEL",
@@ -204,8 +200,7 @@
         "bounding_box",
         "model_bounds",
         "pad_bounds",
-        "none",
-        "simple"
+        "none"
       ]
     },
     "componentOverride": {

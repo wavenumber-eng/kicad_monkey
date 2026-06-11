@@ -79,7 +79,7 @@ the `kicad-monkey` plating metadata.
 
 The `pcb-svg` command writes to `./output/pcb-svg/` by default and uses
 `pcb.svg.config` JSON/JSONC configs compatible with the A0 PCB SVG view
-contract. This remains a preview feature in the `2026.6.10` release: SVG structure,
+contract. This remains a preview feature in the `2026.6.11` release: SVG structure,
 virtual-layer metadata, default views, and config controls may change as more
 real-world boards are tested.
 
@@ -97,8 +97,8 @@ Monkey hole metadata, `PIN1_TOP`/`PIN1_BOTTOM` add configurable pad-linked
 marker groups, and
 `ASSEMBLY_HLR_TOP`/`ASSEMBLY_HLR_BOTTOM` append geometer-backed STEP hidden-line
 overlays or footprint-bound fallbacks. The assembly silhouette mode is named
-`outline` and uses Geometer's mesh-shadow outline algorithm by default; legacy
-`simple` config values are accepted as aliases. Default assembly views include
+`outline` and uses Geometer's mesh-shadow outline algorithm by default. Use
+`outline`; legacy `simple` config values are no longer accepted. Default assembly views include
 only top and bottom assembly outputs. They include board cutouts, drills, slots,
 pin-1 markers, Geometer `outline` HLR with hole-first bounds fallback, and
 aspect-preserving fitted `ASSEMBLY_DESIGNATORS_TOP`/
@@ -110,9 +110,10 @@ overrides can target exact refs, prefixes, wildcards, or ranges.
 
 The `bom`, `pnp`, and `jlc` commands provide initial KiCad manufacturing output
 support. They share a documented `bom.config` JSONC file with a top block
-comment, field aliases for manufacturer/part/JLC/value/description/footprint
-parameters, variant selection, DNP policy, grouping fields, PnP table fields,
-and output path templates.
+summary, generated per-field comments, field aliases for
+manufacturer/part/JLC/value/description/footprint parameters, variant
+selection, DNP policy, grouping fields, PnP table fields, and output path
+templates.
 
 ```powershell
 kicad-cruncher bom project.kicad_pro
@@ -134,7 +135,7 @@ board outline/cutout bodies, drill overlays, and fused copper review bodies.
 ```powershell
 kicad-cruncher pcb-layer-step board.kicad_pcb
 kicad-cruncher pcb-layer-step project.kicad_pro --doc board.kicad_pcb --layer bottom
-kicad-cruncher pcb-layer-step --init-config --config pcb-layer-step.json
+kicad-cruncher pcb-layer-step --init-config --config pcb-layer-step.jsonc
 ```
 
 ## Output Layout

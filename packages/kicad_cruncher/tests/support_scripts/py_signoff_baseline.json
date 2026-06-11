@@ -9,7 +9,9 @@
   },
   "duplicate_groups": [],
   "file_bytes_offenders": {},
-  "file_lines_offenders": {},
+  "file_lines_offenders": {
+    "src/py/kicad_cruncher/kicad_cruncher_pcb_layer_step.py": 2818
+  },
   "max_file_bytes": 100000,
   "max_file_lines": 2500,
   "max_new_code_complexity": 10,

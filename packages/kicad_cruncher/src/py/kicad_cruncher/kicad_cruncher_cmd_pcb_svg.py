@@ -38,6 +38,7 @@ from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
     is_synthetic_layer_token,
     normalize_layer_token,
     parse_pcb_layer_selector,
+    pcb_svg_default_config_text,
     resolve_config_output_path,
 )
 from kicad_cruncher.kicad_cruncher_pcb_svg_projection import (
@@ -137,127 +138,7 @@ def _comment_safe(value: object) -> str:
 
 def _default_pcb_svg_config_text() -> str:
     """Return the JSONC text used for auto-created PCB SVG configs."""
-    payload = json.dumps(_PcbSvgConfig.default().to_dict(), indent=2)
-    header = (
-        "/*\n"
-        "kicad-cruncher pcb-svg configuration\n"
-        "\n"
-        "This file is JSONC: block comments, line comments, and trailing commas\n"
-        "are accepted. The generated template keeps all explanatory comments in\n"
-        "this top block so the configuration body stays easy to scan.\n"
-        "\n"
-        f"Schema: {PCB_SVG_CONFIG_SCHEMA}\n"
-        "\n"
-        "Common physical layer tokens:\n"
-        "  TOP, BOTTOM, TOPOVERLAY, BOTTOMOVERLAY, TOPPASTE, BOTTOMPASTE,\n"
-        "  TOPSOLDER, BOTTOMSOLDER, F.Cu, B.Cu, F.SilkS, B.SilkS, F.Fab,\n"
-        "  B.Fab, Edge.Cuts.\n"
-        "\n"
-        "Virtual layer tokens:\n"
-        "  BOARD_OUTLINE - board perimeter derived from Edge.Cuts.\n"
-        "  BOARD_CUTOUTS - internal cutout regions derived from Edge.Cuts.\n"
-        "  DRILLS - through-hole and non-plated circular drill overlays.\n"
-        "  SLOTS - slotted through-hole and non-plated slot overlays.\n"
-        "  PIN1_TOP - top-side pin-1 marker overlay.\n"
-        "  PIN1_BOTTOM - bottom-side pin-1 marker overlay.\n"
-        "  ASSEMBLY_HLR_TOP - top-side assembly overlay using the view HLR mode.\n"
-        "  ASSEMBLY_HLR_BOTTOM - bottom-side assembly overlay using the view HLR mode.\n"
-        "  ASSEMBLY_HLR_TOP_OUTLINE - top-side Geometer STEP outline output.\n"
-        "  ASSEMBLY_HLR_TOP_DETAIL - top-side Geometer detailed STEP projection output.\n"
-        "  ASSEMBLY_HLR_BOTTOM_OUTLINE - bottom-side Geometer STEP outline output.\n"
-        "  ASSEMBLY_HLR_BOTTOM_DETAIL - bottom-side Geometer detailed STEP projection output.\n"
-        "  ASSEMBLY_BOUNDS_TOP_MODEL - top-side transformed STEP model bounds.\n"
-        "  ASSEMBLY_BOUNDS_BOTTOM_MODEL - bottom-side transformed STEP model bounds.\n"
-        "  ASSEMBLY_BOUNDS_TOP_PADS - top-side pad/hole bounds.\n"
-        "  ASSEMBLY_BOUNDS_BOTTOM_PADS - bottom-side pad/hole bounds.\n"
-        "  ASSEMBLY_DESIGNATORS_TOP - top-side assembly reference designator overlay.\n"
-        "  ASSEMBLY_DESIGNATORS_BOTTOM - bottom-side assembly reference designator overlay.\n"
-        "\n"
-        "Views and draw order:\n"
-        "  Each view has its own layers array, assembly_hlr_mode, styles, and pin1\n"
-        "  settings. The layers array is the draw order. KiCad physical layers are\n"
-        "  rendered by kicad-monkey; ASSEMBLY_HLR_* layers add Geometer STEP HLR\n"
-        "  overlays from embedded or resolvable STEP models.\n"
-        "  styles.board_outline.max_arc_segment_mm, max_curve_segment_mm, and\n"
-        "  max_circle_segment_mm control smoothing of derived BOARD_OUTLINE and\n"
-        "  BOARD_CUTOUTS paths; smaller values create smoother, larger SVG paths.\n"
-        "\n"
-        "Per-view override resolution:\n"
-        "  Global styles/config are merged with each view.styles and view.pin1 while\n"
-        "  rendering that view. components.<designator>.projection,\n"
-        "  components.<designator>.assembly_hlr, and\n"
-        "  components.<designator>.assembly_designators are evaluated per view over\n"
-        "  that view's resolved mode/styles. This means one component override can\n"
-        "  suppress or restyle HLR in a view that renders HLR while another view\n"
-        "  continues to use its own resolved settings. For designators,\n"
-        "  styles.assembly_designators.selector_overrides apply after global/view\n"
-        "  style resolution and before exact components.<designator> overrides.\n"
-        "\n"
-        "HLR modes:\n"
-        "  bounding_box - transformed STEP model bounds, falling back to pad bounds.\n"
-        "  model_bounds - transformed STEP model bounds rectangle only.\n"
-        "  pad_bounds   - footprint pad/hole bounds rectangle only; no STEP projection.\n"
-        "  outline      - Geometer assembly outline, with hole-first bounds fallback\n"
-        "                 when no STEP model is available.\n"
-        "  detail       - Geometer detailed visible projection, with hole-first\n"
-        "                 bounds fallback when no STEP model is available.\n"
-        "  none         - suppress HLR projection. Legacy simple values are accepted\n"
-        "                 as aliases for outline.\n"
-        "\n"
-        "Assembly HLR style override example, globally, inside any view.styles,\n"
-        "or inside components.<designator>.assembly_hlr for a single part:\n"
-        '  "assembly_hlr": {\n'
-        '    "enabled": true,\n'
-        '    "color": "#F59E0B",\n'
-        '    "line_width_mm": 0.12,\n'
-        '    "projection_algorithm": "exact",\n'
-        '    "curve_mode": "native_arcs",\n'
-        '    "samples_per_curve": 24,\n'
-        '    "round_digits": 3,\n'
-        '    "include_visible": true,\n'
-        '    "include_outline": true,\n'
-        '    "outline_algorithm": "mesh-shadow",\n'
-        '    "union_polygons": true,\n'
-        '    "mesh_linear_deflection": 0.01,\n'
-        '    "mesh_angular_deflection": 0.5,\n'
-        '    "mesh_relative": false,\n'
-        '    "hlr_angle_tolerance": 0.0174533\n'
-        "  }\n"
-        "\n"
-        "Component override examples:\n"
-        '  "components": {\n'
-        '    "J1": {"projection": "none"},\n'
-        '    "U5": {"projection": "detail", "assembly_hlr": {"color": "#2563EB"}},\n'
-        '    "R12": {"assembly_designators": {\n'
-        '      "opacity": 0.65,\n'
-        '      "rotation_aspect_threshold": 1.2,\n'
-        '      "rotation_direction": "cw"\n'
-        "    }}\n"
-        "  }\n"
-        "\n"
-        "Pin-1 exclusion examples, globally or inside a view.pin1 object:\n"
-        '  "pin1": {\n'
-        '    "exclude_single_pin": true,\n'
-        '    "exclude_designators": ["R", "C", "U1", "U5-U15", "J*"]\n'
-        "  }\n"
-        "\n"
-        "Assembly designator views use assembly_designators style controls and fit\n"
-        "text inside pad/model bounds according to the view projection mode. Text\n"
-        "rotates 90 degrees when bounds height/width exceeds\n"
-        "assembly_designators.rotation_aspect_threshold, default 1.5.\n"
-        "assembly_designators.rotation_direction selects cw or ccw, and\n"
-        "assembly_designators.selector_overrides can target ranges/groups.\n"
-        "\n"
-        "Layer outputs:\n"
-        "  Set layer_outputs.enabled=false if you only want composed views.\n"
-        "  layer_outputs.add_*_to_physical_layers controls per-layer context;\n"
-        "  raw Edge.Cuts plus computed DRILLS/SLOTS overlays are included by default.\n"
-        "  layer_outputs.write_virtual_layers controls standalone __virtual__ debug\n"
-        "  outputs; include_special_layers selects which virtual layer files are\n"
-        "  written.\n"
-        "*/\n"
-    )
-    return f"{header}{payload}\n"
+    return pcb_svg_default_config_text()
 
 
 def _write_default_pcb_svg_config(config_path: Path) -> None:

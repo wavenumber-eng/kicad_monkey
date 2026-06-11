@@ -162,13 +162,13 @@ def resolve_pcb_layer_step_configs(
         return config_by_input, created_paths
 
     for input_file in resolved_input_files:
-        auto_config_path = input_file.parent / PCB_LAYER_STEP_CONFIG_FILENAME
+        auto_config_path = _auto_config_path_for_input(input_file)
         if not auto_config_path.exists():
             write_default_pcb_layer_step_config(auto_config_path)
             created_paths.append(auto_config_path)
 
     for input_file in resolved_input_files:
-        auto_config_path = input_file.parent / PCB_LAYER_STEP_CONFIG_FILENAME
+        auto_config_path = _auto_config_path_for_input(input_file)
         loaded = config_cache.get(auto_config_path)
         if loaded is None:
             loaded = load_pcb_layer_step_config(auto_config_path)
@@ -176,6 +176,10 @@ def resolve_pcb_layer_step_configs(
         config_by_input[input_file] = loaded
 
     return config_by_input, sorted(set(created_paths))
+
+
+def _auto_config_path_for_input(input_file: Path) -> Path:
+    return input_file.parent / PCB_LAYER_STEP_CONFIG_FILENAME
 
 
 def _iter_output_configs(config: PcbLayerStepConfig) -> tuple[PcbLayerStepConfig, ...]:
@@ -287,6 +291,10 @@ def _options_from_config_and_args(
             "drill_plated_ring_shape",
             config.drill_plated_ring_shape,
         ),
+        drill_selected_component_mode=config.drill_selected_component_mode,
+        drill_other_component_mode=config.drill_other_component_mode,
+        drill_free_pad_mode=config.drill_free_pad_mode,
+        drill_via_mode=config.drill_via_mode,
         fuse_copper=False if bool(getattr(args, "no_fuse", False)) else config.fuse_copper,
         fuse_board_outline=False
         if bool(getattr(args, "no_fuse", False))
@@ -303,8 +311,28 @@ def _options_from_config_and_args(
         pad_color_rules=config.pad_color_rules,
         track_color=config.track_color,
         track_body=config.track_body,
+        arc_color=config.arc_color,
+        arc_body=config.arc_body,
+        fill_color=config.fill_color,
+        fill_body=config.fill_body,
         polygon_color=config.polygon_color,
         polygon_body=config.polygon_body,
+        region_color=config.region_color,
+        region_body=config.region_body,
+        via_color=config.via_color,
+        via_body=config.via_body,
+        component_pad_color=config.component_pad_color,
+        component_pad_body=config.component_pad_body,
+        free_pad_color=config.free_pad_color,
+        free_pad_body=config.free_pad_body,
+        track_thickness_bias_mm=config.track_thickness_bias_mm,
+        arc_thickness_bias_mm=config.arc_thickness_bias_mm,
+        fill_thickness_bias_mm=config.fill_thickness_bias_mm,
+        polygon_thickness_bias_mm=config.polygon_thickness_bias_mm,
+        region_thickness_bias_mm=config.region_thickness_bias_mm,
+        via_thickness_bias_mm=config.via_thickness_bias_mm,
+        component_pad_thickness_bias_mm=config.component_pad_thickness_bias_mm,
+        free_pad_thickness_bias_mm=config.free_pad_thickness_bias_mm,
     )
 
 
@@ -405,7 +433,7 @@ def register_parser(
             "drill overlays, and a separate board-outline body."
         ),
         epilog="Examples:\n"
-        "  kicad-cruncher pcb-layer-step --init-config --config pcb-layer-step.json\n"
+        "  kicad-cruncher pcb-layer-step --init-config --config pcb-layer-step.jsonc\n"
         "  kicad-cruncher pcb-layer-step board.kicad_pcb\n"
         "  kicad-cruncher pcb-layer-step project.kicad_pro --doc board.kicad_pcb --layer bottom\n"
         "  kicad-cruncher pcb-layer-step board.kicad_pcb --exclude-poured-polygons\n"
@@ -424,7 +452,8 @@ def register_parser(
         help=(
             "path to pcb-layer-step JSON/JSONC config. "
             f"If omitted, pcb-layer-step looks for {PCB_LAYER_STEP_CONFIG_FILENAME} "
-            "next to each input file; if missing, it creates a template and uses defaults."
+            "next to each input file; "
+            "if missing, it creates a template and uses defaults."
         ),
     )
     parser.add_argument(
@@ -475,12 +504,12 @@ def register_parser(
     parser.add_argument(
         "--outline-color",
         default=None,
-        help="STEP color for board outline, #RRGGBB or name (default: #111111)",
+        help="STEP color for board outline, #RRGGBB or name (default: #FFFF00)",
     )
     parser.add_argument(
         "--board-cutout-color",
         default=None,
-        help="STEP color for interior board-cutout outline bodies (default: #FF0000)",
+        help="STEP color for interior board-cutout outline bodies (default: #FFFF00)",
     )
     parser.add_argument(
         "--exclude-poured-polygons",

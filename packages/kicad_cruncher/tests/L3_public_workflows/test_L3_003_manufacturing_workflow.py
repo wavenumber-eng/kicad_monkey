@@ -7,6 +7,7 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from typing import cast
 
 import pytest
 from kicad_cruncher.bom_pnp_model import (
@@ -15,6 +16,7 @@ from kicad_cruncher.bom_pnp_model import (
     pnp_table_rows,
     write_bom_pnp_config,
 )
+from kicad_cruncher.config_json import load_json_config
 from kicad_cruncher.kicad_manufacturing_design import (
     KiCadManufacturingDesign,
     KiCadPnpEntry,
@@ -65,28 +67,19 @@ def test_default_bom_pnp_config_template_documents_and_loads(tmp_path: Path) -> 
     write_bom_pnp_config(config_path)
 
     text = config_path.read_text(encoding="utf-8")
-    assert text.startswith("/*")
-    assert text.count("/*") == 1
-    assert text.count("*/") == 1
-    header, json_body = text.split("*/", 1)
-    assert "KiCad Cruncher BOM/PnP/JLC config" in header
-    assert "field_aliases" in header
-    assert "variants" in header
-    assert 'source_mode "schematic"' in header
-    assert 'source_mode "pcb"' in header
-    assert 'source_mode "merged"' in header
-    assert "group_fields controls" in header
-    assert "output_fields controls generic PnP" in header
-    assert "DNP parts are always omitted from PnP/CPL outputs" in header
-    assert 'position_mode defaults to "component-center"' in header
-    assert "aux axis / drill-place file origin" in header
-    assert "dir_template" in header
-    assert "/*" not in json_body
-    assert "//" not in json_body
+    assert text.startswith("// KiCad Cruncher BOM/PnP/JLC config.")
+    assert "Variant mode Options: base, all, named." in text
+    assert "BOM source mode; merged currently resolves like schematic" in text
+    assert "PnP artifact kinds to emit Options: json, csv, xlsx, jlc-cpl, jlc-cpl-xlsx." in text
+    assert "Placement position mode; uses the KiCad footprint placement point" in text
+    assert "aux axis / drill-place file origin" in text
 
-    parsed_json = json.loads(json_body)
+    parsed_json = load_json_config(config_path)
     assert parsed_json["schema"] == "kicad_cruncher.bom.config.v1"
-    assert parsed_json["pnp"]["position_mode"] == "component-center"
+    pnp_json = parsed_json["pnp"]
+    assert isinstance(pnp_json, dict)
+    pnp_config = cast(dict[str, object], pnp_json)
+    assert pnp_config["position_mode"] == "component-center"
     loaded = load_bom_pnp_config(config_path)
     assert loaded.bom_outputs == ("raw-json", "grouped-xlsx")
     assert loaded.pnp_outputs == ("json", "csv")
@@ -94,12 +87,11 @@ def test_default_bom_pnp_config_template_documents_and_loads(tmp_path: Path) -> 
     assert loaded.pnp_position_mode == "component-center"
     assert loaded.output_dir_template == "{Command}"
 
-    legacy_config_path = tmp_path / "legacy-bom.config.json"
+    legacy_config_path = tmp_path / "old-schema-bom.config"
     parsed_json["schema"] = "wn.kicad_cruncher.bom.config.v1"
     legacy_config_path.write_text(json.dumps(parsed_json), encoding="utf-8")
-    assert load_bom_pnp_config(legacy_config_path).schema == (
-        "kicad_cruncher.bom.config.v1"
-    )
+    with pytest.raises(ValueError, match="Unsupported BOM/PnP config schema"):
+        load_bom_pnp_config(legacy_config_path)
 
 
 def test_yoshi_accelerometer_variants_drive_bom_and_pnp_selection() -> None:

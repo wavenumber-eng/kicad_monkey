@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026.6.11
+
+- Move all generated command configs to documented JSONC emitted from
+  structured payload/comment metadata.
+- Add per-field generated comments and explicit enum option comments for
+  BOM/PnP/JLC, `pcb-svg`, `pcb clean`, and `pcb-layer-step` configs.
+- Remove legacy config fallback behavior and old schema aliases. BOM/PnP/JLC
+  now require `kicad_cruncher.bom.config.v1`, and `pcb-layer-step` now uses
+  `pcb-layer-step.jsonc` with the v2 schema.
+- Move fixture STEP color/body policy under `features.*`, using
+  `step_body_name`, per-feature `thickness_bias_mm`, and
+  `features.component_pads.highlight_rules`.
+- Add scoped drill modes for selected component pads, other component pads,
+  free pads, and vias.
+- Keep controlled dependency pins at `kicad-monkey==2026.6.10` and
+  `wn-geometer==2026.6.10`.
+
 ## 2026.6.10
 
 - Update the controlled dependencies to `kicad-monkey==2026.6.10` and

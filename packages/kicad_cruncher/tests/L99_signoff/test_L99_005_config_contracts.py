@@ -6,6 +6,22 @@ import json
 from html.parser import HTMLParser
 from pathlib import Path
 
+from kicad_cruncher.bom_pnp_model import BOM_PNP_CONFIG_SCHEMA, default_bom_pnp_config_text
+from kicad_cruncher.config_json import load_json_config
+from kicad_cruncher.kicad_cruncher_pcb_clean import (
+    PCB_CLEAN_CONFIG_SCHEMA,
+    _default_pcb_clean_config_text,
+)
+from kicad_cruncher.kicad_cruncher_pcb_layer_step import PcbLayerStepConfig
+from kicad_cruncher.kicad_cruncher_pcb_layer_step_config import (
+    PCB_LAYER_STEP_CONFIG_SCHEMA_V2,
+    pcb_layer_step_default_config_text,
+)
+from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
+    PCB_SVG_CONFIG_SCHEMA,
+    pcb_svg_default_config_text,
+)
+
 
 def _project_root() -> Path:
     """Find the repository root from this test file."""
@@ -115,3 +131,87 @@ def test_cli_config_contract_links_are_release_ready() -> None:
         failures
     )
 
+
+def test_pcb_layer_step_default_jsonc_documents_enum_options(tmp_path: Path) -> None:
+    """The generated pcb-layer-step config must be documented JSONC, not a bare JSON dump."""
+    text = pcb_layer_step_default_config_text()
+    required_comments = [
+        "Component pad mode. Options: none, all, matching_designators.",
+        "Global drill mode. Options: auto, cut, overlay, none.",
+        "Drill mode for pads selected by component_pads. Options: inherit, cut, overlay, none.",
+        "Overlay shape. Options: solid, ring.",
+        "Plated drill ring policy. Options: annulus, pad.",
+        "Stable Geometer STEP body id/name.",
+        "Symmetric Z bias that prevents overlapping colored bodies from z-fighting.",
+    ]
+    missing = [comment for comment in required_comments if comment not in text]
+    assert missing == []
+
+    config_path = tmp_path / "pcb-layer-step.jsonc"
+    config_path.write_text(text, encoding="utf-8")
+    payload = load_json_config(config_path)
+    assert payload["schema"] == PCB_LAYER_STEP_CONFIG_SCHEMA_V2
+    config = PcbLayerStepConfig.from_dict(payload)
+    assert config.outputs
+    assert config.outputs[0].include_designators == ("TP*", "M*")
+    assert config.outputs[0].pad_color_rules[0].step_body_name == "test_points"
+
+
+def test_pcb_layer_step_v2_contract_removed_old_color_body_fields() -> None:
+    """The v2 contract must not advertise removed colors/body config fields."""
+    schema_text = (CONTRACTS_ROOT / "pcb_layer_step_config.v2.schema.json").read_text(
+        encoding="utf-8"
+    )
+    assert '"colors"' not in schema_text
+    assert '"body"' not in schema_text
+    assert '"step_body_name"' in schema_text
+
+
+def test_all_default_configs_are_generated_documented_jsonc(tmp_path: Path) -> None:
+    """Every generated command config must parse and carry structured field comments."""
+    configs = {
+        "bom.config": (
+            default_bom_pnp_config_text(),
+            BOM_PNP_CONFIG_SCHEMA,
+            [
+                "Variant mode Options: base, all, named.",
+                "BOM artifact kinds to emit Options:",
+                "PnP coordinate units; JLC CPL requires mm Options: mm, mils.",
+            ],
+        ),
+        "pcb.svg.config": (
+            pcb_svg_default_config_text(),
+            PCB_SVG_CONFIG_SCHEMA,
+            [
+                "Canvas bounds mode Options: board_outline, all_geometry.",
+                "Default component projection mode Options: detail, outline, bounding_box",
+                "View projection mode for ASSEMBLY_HLR_TOP/BOTTOM tokens",
+            ],
+        ),
+        "pcb.clean.config": (
+            _default_pcb_clean_config_text(),
+            PCB_CLEAN_CONFIG_SCHEMA,
+            [
+                "Cleanup target groups. Set a group false to keep that class untouched.",
+                "Require explicit --apply for file mutation",
+                "Layer selection globs used by cleanup targets.",
+            ],
+        ),
+        "pcb-layer-step.jsonc": (
+            pcb_layer_step_default_config_text(),
+            PCB_LAYER_STEP_CONFIG_SCHEMA_V2,
+            [
+                "Component pad mode. Options: none, all, matching_designators.",
+                "Global drill mode. Options: auto, cut, overlay, none.",
+                "Stable Geometer STEP body id/name.",
+            ],
+        ),
+    }
+
+    for file_name, (text, schema, required_comments) in configs.items():
+        config_path = tmp_path / file_name
+        config_path.write_text(text, encoding="utf-8")
+        payload = load_json_config(config_path)
+        assert payload["schema"] == schema
+        missing = [comment for comment in required_comments if comment not in text]
+        assert missing == [], f"{file_name} missing comments: {missing}"

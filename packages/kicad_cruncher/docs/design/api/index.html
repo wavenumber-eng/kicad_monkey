@@ -31,9 +31,9 @@
   <h3>Rationale</h3>
   <p>The layer STEP command needs a durable config object that preserves the v2 fixture-alignment shape while resolving KiCad layer selectors and per-output overrides.</p>
   <h3>Purpose</h3>
-  <p><code>PcbLayerStepConfig</code> carries one parsed root config or one parsed output config, including board selection, layer selection, feature switches, colors, drill policy, fusion policy, and nested output definitions.</p>
+  <p><code>PcbLayerStepConfig</code> carries one parsed root config or one parsed output config, including board selection, layer selection, feature switches, feature colors, <code>step_body_name</code> values, pad highlight rules, thickness-bias policy, scoped drill policy, fusion policy, and nested output definitions.</p>
   <h3>Test Requirements</h3>
-  <p>L3 loads the generated default JSONC template through the command path and verifies that yoshi and taillight produce the expected test-point body, board outline body, drill overlays, and manifests.</p>
+  <p>L3 loads the generated default JSONC template through the command path and verifies that yoshi and taillight produce the expected test-point body, board outline body, drill behavior, and manifests. L99 verifies generated JSONC comments for enum options.</p>
   <h3>Working Definition</h3>
   <p>The interface is working when defaults merge into each output consistently and command-line overrides can convert the parsed config into a valid <code>PcbLayerStepOptions</code> object for export.</p>
 </section>
@@ -47,7 +47,7 @@
   <h3>Rationale</h3>
   <p>The exporter needs a normalized, per-output option contract so geometry collection, drill strategy, color grouping, and Geometer body creation do not depend on raw JSON shape.</p>
   <h3>Purpose</h3>
-  <p><code>PcbLayerStepOptions</code> carries the resolved KiCad layer, Z/thickness settings, copper and outline colors, feature switches, drill policy, pad color rules, and body-splitting options used for one STEP output.</p>
+  <p><code>PcbLayerStepOptions</code> carries the resolved KiCad layer, Z/thickness settings, copper and outline colors, feature switches, scoped drill policy, pad highlight rules, feature-specific <code>step_body_name</code> values, and thickness-bias options used for one STEP output.</p>
   <h3>Test Requirements</h3>
   <p>L3 exercises the default options through real yoshi and taillight boards and checks the resulting Geometer request body IDs, colors, drill overlay counts, and selected <code>B.Cu</code> layer manifest data.</p>
   <h3>Working Definition</h3>

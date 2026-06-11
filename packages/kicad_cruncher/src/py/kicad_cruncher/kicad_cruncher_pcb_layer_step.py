@@ -19,9 +19,8 @@ from kicad_monkey.kicad_pcb_polygon_ops import PolygonSet
 
 from kicad_cruncher.config_json import load_json_config
 from kicad_cruncher.kicad_cruncher_pcb_layer_step_config import (
-    PCB_LAYER_STEP_CONFIG_SCHEMA,
     PCB_LAYER_STEP_CONFIG_SCHEMA_V2,
-    PCB_LAYER_STEP_DEFAULT_CONFIG_TEXT,
+    pcb_layer_step_default_config_text,
     resolve_pcb_layer_selector,
 )
 from kicad_cruncher.kicad_cruncher_pcb_model_pose import transform_footprint_local_to_board
@@ -39,15 +38,20 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 DEFAULT_COPPER_COLOR = "#B87333"
-DEFAULT_OUTLINE_COLOR = "#111111"
-DEFAULT_BOARD_CUTOUT_COLOR = "#FF0000"
+DEFAULT_OUTLINE_COLOR = "#FFFF00"
+DEFAULT_BOARD_CUTOUT_COLOR = "#FFFF00"
 DEFAULT_DRILL_HOLE_COLOR = "#FFFFFF"
 DEFAULT_MAX_BOOLEAN_DRILL_CUTS = 128
-PCB_LAYER_STEP_CONFIG_FILENAME = "pcb-layer-step.json"
+PCB_LAYER_STEP_CONFIG_FILENAME = "pcb-layer-step.jsonc"
+DEFAULT_PAD_THICKNESS_BIAS_MM = 0.010
+DEFAULT_VIA_THICKNESS_BIAS_MM = 0.006
+DEFAULT_POLYGON_THICKNESS_BIAS_MM = 0.003
+DEFAULT_TRACE_THICKNESS_BIAS_MM = 0.0
 DRILL_HOLE_MODE_AUTO = "auto"
 DRILL_HOLE_MODE_CUT = "cut"
 DRILL_HOLE_MODE_OVERLAY = "overlay"
 DRILL_HOLE_MODE_NONE = "none"
+DRILL_SCOPE_MODE_INHERIT = "inherit"
 DRILL_HOLE_SHAPE_SOLID = "solid"
 DRILL_HOLE_SHAPE_RING = "ring"
 DRILL_HOLE_SHAPES = frozenset({DRILL_HOLE_SHAPE_SOLID, DRILL_HOLE_SHAPE_RING})
@@ -57,6 +61,14 @@ DRILL_PLATED_RING_SHAPES = frozenset(("annulus", "pad"))
 DRILL_HOLE_MODES = frozenset(
     {
         DRILL_HOLE_MODE_AUTO,
+        DRILL_HOLE_MODE_CUT,
+        DRILL_HOLE_MODE_OVERLAY,
+        DRILL_HOLE_MODE_NONE,
+    }
+)
+DRILL_SCOPE_MODES = frozenset(
+    {
+        DRILL_SCOPE_MODE_INHERIT,
         DRILL_HOLE_MODE_CUT,
         DRILL_HOLE_MODE_OVERLAY,
         DRILL_HOLE_MODE_NONE,
@@ -104,7 +116,7 @@ _RoundRectPolygonMethod = Callable[[float, float, float], list[tuple[float, floa
 class _PadColorRule:
     designators: tuple[str, ...]
     color: str
-    body: str = "matched_pads"
+    step_body_name: str = "matched_pads"
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +145,10 @@ class PcbLayerStepOptions:
     drill_hole_shape: str = DRILL_HOLE_SHAPE_SOLID
     drill_ring_width_mm: float = 0.12
     drill_plated_ring_shape: str = DRILL_PLATED_RING_SHAPE_ANNULUS
+    drill_selected_component_mode: str = DRILL_SCOPE_MODE_INHERIT
+    drill_other_component_mode: str = DRILL_SCOPE_MODE_INHERIT
+    drill_free_pad_mode: str = DRILL_SCOPE_MODE_INHERIT
+    drill_via_mode: str = DRILL_SCOPE_MODE_INHERIT
     fuse_copper: bool = True
     fuse_board_outline: bool = True
     arc_segments: int = 32
@@ -147,8 +163,28 @@ class PcbLayerStepOptions:
     pad_color_rules: tuple[_PadColorRule, ...] = ()
     track_color: str | None = None
     track_body: str = "tracks"
+    arc_color: str | None = None
+    arc_body: str = "arcs"
+    fill_color: str | None = None
+    fill_body: str = "fills"
     polygon_color: str | None = None
     polygon_body: str = "polygons"
+    region_color: str | None = None
+    region_body: str = "regions"
+    via_color: str | None = None
+    via_body: str = "vias"
+    component_pad_color: str | None = None
+    component_pad_body: str = "component_pads"
+    free_pad_color: str | None = None
+    free_pad_body: str = "free_pads"
+    track_thickness_bias_mm: float = DEFAULT_TRACE_THICKNESS_BIAS_MM
+    arc_thickness_bias_mm: float = DEFAULT_TRACE_THICKNESS_BIAS_MM
+    fill_thickness_bias_mm: float = DEFAULT_TRACE_THICKNESS_BIAS_MM
+    polygon_thickness_bias_mm: float = DEFAULT_POLYGON_THICKNESS_BIAS_MM
+    region_thickness_bias_mm: float = DEFAULT_POLYGON_THICKNESS_BIAS_MM
+    via_thickness_bias_mm: float = DEFAULT_VIA_THICKNESS_BIAS_MM
+    component_pad_thickness_bias_mm: float = DEFAULT_PAD_THICKNESS_BIAS_MM
+    free_pad_thickness_bias_mm: float = DEFAULT_PAD_THICKNESS_BIAS_MM
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,23 +308,53 @@ def _coerce_drill_plated_ring_shape(value: object, default: str) -> str:
     return shape
 
 
-def _coerce_pad_color_rules(value: object) -> tuple[_PadColorRule, ...]:
+def _coerce_drill_scope_mode(value: object, default: str) -> str:
+    if value is None:
+        return default
+    normalized = str(value).strip().casefold().replace("-", "_")
+    aliases = {
+        "default": DRILL_SCOPE_MODE_INHERIT,
+        "global": DRILL_SCOPE_MODE_INHERIT,
+        "off": DRILL_HOLE_MODE_NONE,
+        "omit": DRILL_HOLE_MODE_NONE,
+        "boolean": DRILL_HOLE_MODE_CUT,
+        "boolean_cut": DRILL_HOLE_MODE_CUT,
+        "cutout": DRILL_HOLE_MODE_CUT,
+        "cutouts": DRILL_HOLE_MODE_CUT,
+        "cuts": DRILL_HOLE_MODE_CUT,
+    }
+    mode = aliases.get(normalized, normalized)
+    if mode not in DRILL_SCOPE_MODES:
+        raise ValueError(f"Invalid scoped drill mode in pcb-layer-step config: {value!r}")
+    return mode
+
+
+def _coerce_pad_highlight_rules(value: object) -> tuple[_PadColorRule, ...]:
     if value is None:
         return ()
     if not isinstance(value, list):
-        raise ValueError("pcb-layer-step config field 'colors.pad_rules' must be a list")
+        raise ValueError(
+            "pcb-layer-step config field "
+            "'features.component_pads.highlight_rules' must be a list"
+        )
     rules: list[_PadColorRule] = []
     for index, raw_rule in enumerate(value):
         if not isinstance(raw_rule, dict):
-            raise ValueError(f"pcb-layer-step colors.pad_rules[{index}] must be an object")
+            raise ValueError(
+                "pcb-layer-step features.component_pads.highlight_rules"
+                f"[{index}] must be an object"
+            )
         designators = _coerce_str_tuple(raw_rule.get("designators"))
         if not designators:
-            raise ValueError(f"pcb-layer-step colors.pad_rules[{index}] requires designators")
+            raise ValueError(
+                "pcb-layer-step features.component_pads.highlight_rules"
+                f"[{index}] requires designators"
+            )
         rules.append(
             _PadColorRule(
                 designators=designators,
                 color=_coerce_color(raw_rule.get("color"), DEFAULT_COPPER_COLOR),
-                body=_step_name(str(raw_rule.get("body") or "matched_pads")),
+                step_body_name=str(raw_rule.get("step_body_name") or "matched_pads"),
             )
         )
     return tuple(rules)
@@ -329,7 +395,6 @@ def _feature_enabled(
 def _feature_color_and_body(
     *,
     features: Mapping[str, object],
-    colors: Mapping[str, object],
     merged: Mapping[str, object],
     name: str,
     body_default: str,
@@ -337,21 +402,87 @@ def _feature_color_and_body(
     body_key: str,
     aliases: tuple[str, ...] = (),
 ) -> tuple[str | None, str]:
-    color_value = merged.get(color_key)
-    body_value = merged.get(body_key)
-    for candidate in (
-        _feature_value(colors, name, *aliases),
-        _feature_value(features, name, *aliases),
-    ):
-        if isinstance(candidate, Mapping):
-            color_value = candidate.get("color", color_value)
-            body_value = candidate.get("body", body_value)
-        elif candidate is not None and not isinstance(candidate, bool):
-            color_value = candidate
+    del color_key, body_key
+    color_value = None
+    body_value = None
+    candidate = _feature_value(features, name, *aliases)
+    if isinstance(candidate, Mapping):
+        color_value = candidate.get("color", color_value)
+        body_value = candidate.get("step_body_name", body_value)
+    elif candidate is not None and not isinstance(candidate, bool):
+        color_value = candidate
     return (
         _coerce_optional_color(color_value),
-        _step_name(str(body_value or body_default)),
+        str(body_value or body_default),
     )
+
+
+def _feature_thickness_bias(
+    *,
+    features: Mapping[str, object],
+    merged: Mapping[str, object],
+    name: str,
+    default: float,
+    legacy_key: str,
+    aliases: tuple[str, ...] = (),
+) -> float:
+    del merged, legacy_key
+    value = None
+    candidate = _feature_value(features, name, *aliases)
+    if isinstance(candidate, Mapping):
+        value = candidate.get("thickness_bias_mm", value)
+    return _coerce_float(value, default)
+
+
+def _reject_removed_config_fields(
+    *,
+    merged: Mapping[str, object],
+    features: Mapping[str, object],
+) -> None:
+    _reject_removed_root_fields(merged)
+    _reject_removed_feature_body_fields(features)
+
+
+def _reject_removed_root_fields(merged: Mapping[str, object]) -> None:
+    removed_root_fields = {
+        "colors": "use features.defaults, feature color fields, and "
+        "features.component_pads.highlight_rules",
+        "pad_color_rules": "use features.component_pads.highlight_rules",
+        "pad_rules": "use features.component_pads.highlight_rules",
+        "thickness_bias": "put thickness_bias_mm on each feature entry",
+        "thickness_bias_mm": "put thickness_bias_mm on each feature entry",
+    }
+    for field_name, replacement in removed_root_fields.items():
+        if field_name in merged:
+            raise ValueError(
+                f"pcb-layer-step config field '{field_name}' was removed; {replacement}"
+            )
+
+
+def _reject_removed_feature_body_fields(features: Mapping[str, object]) -> None:
+    for feature_name, raw_feature in features.items():
+        if isinstance(raw_feature, Mapping) and "body" in raw_feature:
+            raise ValueError(
+                f"pcb-layer-step config field 'features.{feature_name}.body' "
+                "was removed; use step_body_name"
+            )
+        if feature_name == "component_pads" and isinstance(raw_feature, Mapping):
+            _reject_removed_highlight_rule_body_fields(raw_feature)
+
+
+def _reject_removed_highlight_rule_body_fields(
+    component_pads: Mapping[str, object],
+) -> None:
+    highlight_rules = component_pads.get("highlight_rules")
+    if not isinstance(highlight_rules, list):
+        return
+    for index, rule in enumerate(highlight_rules):
+        if isinstance(rule, Mapping) and "body" in rule:
+            raise ValueError(
+                "pcb-layer-step config field "
+                f"'features.component_pads.highlight_rules[{index}].body' "
+                "was removed; use step_body_name"
+            )
 
 
 def _merge_options(data: Mapping[str, object]) -> dict[str, object]:
@@ -389,14 +520,34 @@ def _component_pad_settings(
     component_pad_designators = merged.get("include_designators")
     include_component_pads = default.include_component_pads
     if isinstance(component_pads, Mapping):
-        include_component_pads = str(component_pads.get("mode") or "all") != "none"
+        mode = str(component_pads.get("mode") or "all").strip().casefold()
+        include_component_pads = mode != "none"
+        if "enabled" in component_pads:
+            include_component_pads = _coerce_bool(
+                component_pads.get("enabled"),
+                include_component_pads,
+            )
         component_pad_designators = component_pads.get(
             "include_designators",
             component_pad_designators,
         )
     elif component_pads is not None:
         include_component_pads = _coerce_bool(component_pads, default.include_component_pads)
+    else:
+        include_component_pads = _coerce_bool(
+            merged.get("include_component_pads"),
+            default.include_component_pads,
+        )
     return include_component_pads, component_pad_designators
+
+
+def _component_pad_highlight_rules(
+    features: Mapping[str, object],
+) -> tuple[_PadColorRule, ...]:
+    component_pads = features.get("component_pads")
+    if not isinstance(component_pads, Mapping):
+        return ()
+    return _coerce_pad_highlight_rules(component_pads.get("highlight_rules"))
 
 
 def _drill_color_source(*, drills: Mapping[str, object], merged: Mapping[str, object]) -> object:
@@ -425,7 +576,7 @@ def _drill_non_plated_color_source(
 class PcbLayerStepConfig:
     """JSON config for one-layer PCB STEP export."""
 
-    schema: str = PCB_LAYER_STEP_CONFIG_SCHEMA
+    schema: str = PCB_LAYER_STEP_CONFIG_SCHEMA_V2
     name: str | None = None
     output_step: str | None = None
     pcbdoc: str | None = None
@@ -451,6 +602,10 @@ class PcbLayerStepConfig:
     drill_hole_shape: str = DRILL_HOLE_SHAPE_SOLID
     drill_ring_width_mm: float = 0.12
     drill_plated_ring_shape: str = DRILL_PLATED_RING_SHAPE_ANNULUS
+    drill_selected_component_mode: str = DRILL_SCOPE_MODE_INHERIT
+    drill_other_component_mode: str = DRILL_SCOPE_MODE_INHERIT
+    drill_free_pad_mode: str = DRILL_SCOPE_MODE_INHERIT
+    drill_via_mode: str = DRILL_SCOPE_MODE_INHERIT
     fuse_copper: bool = True
     fuse_board_outline: bool = True
     arc_segments: int = 32
@@ -465,8 +620,28 @@ class PcbLayerStepConfig:
     pad_color_rules: tuple[_PadColorRule, ...] = ()
     track_color: str | None = None
     track_body: str = "tracks"
+    arc_color: str | None = None
+    arc_body: str = "arcs"
+    fill_color: str | None = None
+    fill_body: str = "fills"
     polygon_color: str | None = None
     polygon_body: str = "polygons"
+    region_color: str | None = None
+    region_body: str = "regions"
+    via_color: str | None = None
+    via_body: str = "vias"
+    component_pad_color: str | None = None
+    component_pad_body: str = "component_pads"
+    free_pad_color: str | None = None
+    free_pad_body: str = "free_pads"
+    track_thickness_bias_mm: float = DEFAULT_TRACE_THICKNESS_BIAS_MM
+    arc_thickness_bias_mm: float = DEFAULT_TRACE_THICKNESS_BIAS_MM
+    fill_thickness_bias_mm: float = DEFAULT_TRACE_THICKNESS_BIAS_MM
+    polygon_thickness_bias_mm: float = DEFAULT_POLYGON_THICKNESS_BIAS_MM
+    region_thickness_bias_mm: float = DEFAULT_POLYGON_THICKNESS_BIAS_MM
+    via_thickness_bias_mm: float = DEFAULT_VIA_THICKNESS_BIAS_MM
+    component_pad_thickness_bias_mm: float = DEFAULT_PAD_THICKNESS_BIAS_MM
+    free_pad_thickness_bias_mm: float = DEFAULT_PAD_THICKNESS_BIAS_MM
     outputs: tuple[PcbLayerStepConfig, ...] = ()
 
     @classmethod
@@ -477,6 +652,11 @@ class PcbLayerStepConfig:
     def from_dict(cls, data: object) -> PcbLayerStepConfig:
         if not isinstance(data, Mapping):
             raise ValueError("pcb-layer-step config root must be a JSON object")
+        if data.get("schema") != PCB_LAYER_STEP_CONFIG_SCHEMA_V2:
+            raise ValueError(
+                "pcb-layer-step config schema must be "
+                f"{PCB_LAYER_STEP_CONFIG_SCHEMA_V2!r}; got {data.get('schema')!r}"
+            )
         if "outputs" in data:
             return cls._from_outputs_dict(data)
         return cls._from_merged_dict(data)
@@ -485,7 +665,7 @@ class PcbLayerStepConfig:
     def _from_outputs_dict(cls, data: Mapping[str, object]) -> PcbLayerStepConfig:
         defaults = _config_mapping(data.get("defaults"), "defaults")
         merged_defaults = {**_root_config_defaults(data), **dict(defaults)}
-        schema = str(data.get("schema") or PCB_LAYER_STEP_CONFIG_SCHEMA_V2)
+        schema = str(data.get("schema"))
         outputs = tuple(
             cls._from_merged_dict({**merged_defaults, **dict(raw_output)}, schema=schema)
             for raw_output in _output_config_dicts(data)
@@ -504,7 +684,8 @@ class PcbLayerStepConfig:
         default = cls()
         board_outline = _config_mapping(merged.get("board_outline"), "board_outline")
         features = _config_mapping(merged.get("features"), "features")
-        colors = _config_mapping(merged.get("colors"), "colors")
+        _reject_removed_config_fields(merged=merged, features=features)
+        feature_defaults = _config_mapping(features.get("defaults"), "features.defaults")
         drills = _config_mapping(merged.get("drills"), "drills")
         include_component_pads, component_pad_designators = _component_pad_settings(
             features=features,
@@ -513,7 +694,6 @@ class PcbLayerStepConfig:
         )
         track_color, track_body = _feature_color_and_body(
             features=features,
-            colors=colors,
             merged=merged,
             name="tracks",
             aliases=("traces",),
@@ -521,15 +701,64 @@ class PcbLayerStepConfig:
             color_key="track_color",
             body_key="track_body",
         )
+        arc_color, arc_body = _feature_color_and_body(
+            features=features,
+            merged=merged,
+            name="arcs",
+            body_default="arcs",
+            color_key="arc_color",
+            body_key="arc_body",
+        )
+        fill_color, fill_body = _feature_color_and_body(
+            features=features,
+            merged=merged,
+            name="fills",
+            body_default="fills",
+            color_key="fill_color",
+            body_key="fill_body",
+        )
         polygon_color, polygon_body = _feature_color_and_body(
             features=features,
-            colors=colors,
             merged=merged,
             name="polygons",
             aliases=("poured_polygons",),
             body_default="polygons",
             color_key="polygon_color",
             body_key="polygon_body",
+        )
+        region_color, region_body = _feature_color_and_body(
+            features=features,
+            merged=merged,
+            name="regions",
+            aliases=("shapebased_regions",),
+            body_default="regions",
+            color_key="region_color",
+            body_key="region_body",
+        )
+        via_color, via_body = _feature_color_and_body(
+            features=features,
+            merged=merged,
+            name="vias",
+            body_default="vias",
+            color_key="via_color",
+            body_key="via_body",
+        )
+        component_pad_color, component_pad_body = _feature_color_and_body(
+            features=features,
+            merged=merged,
+            name="component_pads",
+            aliases=("pads",),
+            body_default="component_pads",
+            color_key="component_pad_color",
+            body_key="component_pad_body",
+        )
+        free_pad_color, free_pad_body = _feature_color_and_body(
+            features=features,
+            merged=merged,
+            name="free_pads",
+            body_default="free_pads",
+            color_key="free_pad_color",
+            body_key="free_pad_body",
         )
         cut_holes = _coerce_bool(merged.get("cut_holes"), default.cut_holes)
         drill_color = _drill_color_source(drills=drills, merged=merged)
@@ -542,7 +771,7 @@ class PcbLayerStepConfig:
             thickness_mm=_coerce_float(merged.get("thickness_mm"), default.thickness_mm),
             z_mm=_coerce_float(merged.get("z_mm"), default.z_mm),
             copper_color=_coerce_color(
-                colors.get("default_copper", merged.get("copper_color")),
+                feature_defaults.get("color", merged.get("copper_color")),
                 default.copper_color,
             ),
             outline_width_mm=_coerce_float(
@@ -625,6 +854,28 @@ class PcbLayerStepConfig:
                 drills.get("plated_ring_shape", merged.get("drill_plated_ring_shape")),
                 default.drill_plated_ring_shape,
             ),
+            drill_selected_component_mode=_coerce_drill_scope_mode(
+                drills.get(
+                    "selected_component_mode",
+                    merged.get("drill_selected_component_mode"),
+                ),
+                default.drill_selected_component_mode,
+            ),
+            drill_other_component_mode=_coerce_drill_scope_mode(
+                drills.get(
+                    "other_component_mode",
+                    merged.get("drill_other_component_mode"),
+                ),
+                default.drill_other_component_mode,
+            ),
+            drill_free_pad_mode=_coerce_drill_scope_mode(
+                drills.get("free_pad_mode", merged.get("drill_free_pad_mode")),
+                default.drill_free_pad_mode,
+            ),
+            drill_via_mode=_coerce_drill_scope_mode(
+                drills.get("via_mode", merged.get("drill_via_mode")),
+                default.drill_via_mode,
+            ),
             fuse_copper=_coerce_bool(merged.get("fuse_copper"), default.fuse_copper),
             fuse_board_outline=_coerce_bool(
                 board_outline.get("fuse", merged.get("fuse_board_outline")),
@@ -639,33 +890,121 @@ class PcbLayerStepConfig:
                 legacy_key="include_tracks",
                 default=default.include_tracks,
             ),
-            include_arcs=_coerce_bool(
-                features.get("arcs", merged.get("include_arcs")),
-                default.include_arcs,
+            include_arcs=_feature_enabled(
+                features=features,
+                merged=merged,
+                name="arcs",
+                legacy_key="include_arcs",
+                default=default.include_arcs,
             ),
-            include_fills=_coerce_bool(
-                features.get("fills", merged.get("include_fills")),
-                default.include_fills,
+            include_fills=_feature_enabled(
+                features=features,
+                merged=merged,
+                name="fills",
+                legacy_key="include_fills",
+                default=default.include_fills,
             ),
-            include_regions=_coerce_bool(
-                features.get("regions", merged.get("include_regions")),
-                default.include_regions,
+            include_regions=_feature_enabled(
+                features=features,
+                merged=merged,
+                name="regions",
+                aliases=("shapebased_regions",),
+                legacy_key="include_regions",
+                default=default.include_regions,
             ),
-            include_vias=_coerce_bool(
-                features.get("vias", merged.get("include_vias")),
-                default.include_vias,
+            include_vias=_feature_enabled(
+                features=features,
+                merged=merged,
+                name="vias",
+                legacy_key="include_vias",
+                default=default.include_vias,
             ),
             include_component_pads=include_component_pads,
-            include_free_pads=_coerce_bool(
-                features.get("free_pads", merged.get("include_free_pads")),
-                default.include_free_pads,
+            include_free_pads=_feature_enabled(
+                features=features,
+                merged=merged,
+                name="free_pads",
+                legacy_key="include_free_pads",
+                default=default.include_free_pads,
             ),
             include_designators=_coerce_str_tuple(component_pad_designators),
-            pad_color_rules=_coerce_pad_color_rules(colors.get("pad_rules")),
+            pad_color_rules=_component_pad_highlight_rules(features),
             track_color=track_color,
             track_body=track_body,
+            arc_color=arc_color,
+            arc_body=arc_body,
+            fill_color=fill_color,
+            fill_body=fill_body,
             polygon_color=polygon_color,
             polygon_body=polygon_body,
+            region_color=region_color,
+            region_body=region_body,
+            via_color=via_color,
+            via_body=via_body,
+            component_pad_color=component_pad_color,
+            component_pad_body=component_pad_body,
+            free_pad_color=free_pad_color,
+            free_pad_body=free_pad_body,
+            track_thickness_bias_mm=_feature_thickness_bias(
+                features=features,
+                merged=merged,
+                name="tracks",
+                aliases=("traces",),
+                legacy_key="track_thickness_bias_mm",
+                default=default.track_thickness_bias_mm,
+            ),
+            arc_thickness_bias_mm=_feature_thickness_bias(
+                features=features,
+                merged=merged,
+                name="arcs",
+                legacy_key="arc_thickness_bias_mm",
+                default=default.arc_thickness_bias_mm,
+            ),
+            fill_thickness_bias_mm=_feature_thickness_bias(
+                features=features,
+                merged=merged,
+                name="fills",
+                legacy_key="fill_thickness_bias_mm",
+                default=default.fill_thickness_bias_mm,
+            ),
+            polygon_thickness_bias_mm=_feature_thickness_bias(
+                features=features,
+                merged=merged,
+                name="polygons",
+                aliases=("poured_polygons",),
+                legacy_key="polygon_thickness_bias_mm",
+                default=default.polygon_thickness_bias_mm,
+            ),
+            region_thickness_bias_mm=_feature_thickness_bias(
+                features=features,
+                merged=merged,
+                name="regions",
+                aliases=("shapebased_regions",),
+                legacy_key="region_thickness_bias_mm",
+                default=default.region_thickness_bias_mm,
+            ),
+            via_thickness_bias_mm=_feature_thickness_bias(
+                features=features,
+                merged=merged,
+                name="vias",
+                legacy_key="via_thickness_bias_mm",
+                default=default.via_thickness_bias_mm,
+            ),
+            component_pad_thickness_bias_mm=_feature_thickness_bias(
+                features=features,
+                merged=merged,
+                name="component_pads",
+                aliases=("pads",),
+                legacy_key="component_pad_thickness_bias_mm",
+                default=default.component_pad_thickness_bias_mm,
+            ),
+            free_pad_thickness_bias_mm=_feature_thickness_bias(
+                features=features,
+                merged=merged,
+                name="free_pads",
+                legacy_key="free_pad_thickness_bias_mm",
+                default=default.free_pad_thickness_bias_mm,
+            ),
         )
 
     def to_options(self) -> PcbLayerStepOptions:
@@ -692,6 +1031,10 @@ class PcbLayerStepConfig:
             drill_hole_shape=self.drill_hole_shape,
             drill_ring_width_mm=self.drill_ring_width_mm,
             drill_plated_ring_shape=self.drill_plated_ring_shape,
+            drill_selected_component_mode=self.drill_selected_component_mode,
+            drill_other_component_mode=self.drill_other_component_mode,
+            drill_free_pad_mode=self.drill_free_pad_mode,
+            drill_via_mode=self.drill_via_mode,
             fuse_copper=self.fuse_copper,
             fuse_board_outline=self.fuse_board_outline,
             arc_segments=self.arc_segments,
@@ -706,8 +1049,28 @@ class PcbLayerStepConfig:
             pad_color_rules=self.pad_color_rules,
             track_color=self.track_color,
             track_body=self.track_body,
+            arc_color=self.arc_color,
+            arc_body=self.arc_body,
+            fill_color=self.fill_color,
+            fill_body=self.fill_body,
             polygon_color=self.polygon_color,
             polygon_body=self.polygon_body,
+            region_color=self.region_color,
+            region_body=self.region_body,
+            via_color=self.via_color,
+            via_body=self.via_body,
+            component_pad_color=self.component_pad_color,
+            component_pad_body=self.component_pad_body,
+            free_pad_color=self.free_pad_color,
+            free_pad_body=self.free_pad_body,
+            track_thickness_bias_mm=self.track_thickness_bias_mm,
+            arc_thickness_bias_mm=self.arc_thickness_bias_mm,
+            fill_thickness_bias_mm=self.fill_thickness_bias_mm,
+            polygon_thickness_bias_mm=self.polygon_thickness_bias_mm,
+            region_thickness_bias_mm=self.region_thickness_bias_mm,
+            via_thickness_bias_mm=self.via_thickness_bias_mm,
+            component_pad_thickness_bias_mm=self.component_pad_thickness_bias_mm,
+            free_pad_thickness_bias_mm=self.free_pad_thickness_bias_mm,
         )
 
 
@@ -774,12 +1137,15 @@ class _DrillFeature:
     rotation_degrees: float = 0.0
     plated: bool = True
     pad_region: _Region | None = None
+    source_kind: str = "pad"
+    component_designator: str | None = None
+    pad_designator: str | None = None
 
 
 def write_default_pcb_layer_step_config(config_path: Path) -> None:
     """Write a default editable pcb-layer-step JSON config."""
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(PCB_LAYER_STEP_DEFAULT_CONFIG_TEXT, encoding="utf-8")
+    config_path.write_text(pcb_layer_step_default_config_text(), encoding="utf-8")
 
 
 def load_pcb_layer_step_config(config_path: Path) -> PcbLayerStepConfig:
@@ -873,6 +1239,19 @@ def _validate_options(opts: PcbLayerStepOptions) -> None:
         raise ValueError("Drill ring width must be non-negative")
     if opts.drill_plated_ring_shape not in DRILL_PLATED_RING_SHAPES:
         raise ValueError("Drill plated ring shape must be 'annulus' or 'pad'")
+    scoped_modes = {
+        "drill_selected_component_mode": opts.drill_selected_component_mode,
+        "drill_other_component_mode": opts.drill_other_component_mode,
+        "drill_free_pad_mode": opts.drill_free_pad_mode,
+        "drill_via_mode": opts.drill_via_mode,
+    }
+    invalid_scoped_modes = [
+        f"{name}={value!r}"
+        for name, value in scoped_modes.items()
+        if value not in DRILL_SCOPE_MODES
+    ]
+    if invalid_scoped_modes:
+        raise ValueError("Invalid scoped drill mode(s): " + ", ".join(invalid_scoped_modes))
 
 
 def _load_geometer() -> _GeometerPlanarStepModule:
@@ -933,6 +1312,10 @@ def _build_manifest(
             "drill_hole_shape": opts.drill_hole_shape,
             "drill_ring_width_mm": float(opts.drill_ring_width_mm),
             "drill_plated_ring_shape": opts.drill_plated_ring_shape,
+            "drill_selected_component_mode": opts.drill_selected_component_mode,
+            "drill_other_component_mode": opts.drill_other_component_mode,
+            "drill_free_pad_mode": opts.drill_free_pad_mode,
+            "drill_via_mode": opts.drill_via_mode,
             "fuse_copper": bool(opts.fuse_copper),
             "fuse_board_outline": bool(opts.fuse_board_outline),
             "arc_segments": int(opts.arc_segments),
@@ -948,12 +1331,35 @@ def _build_manifest(
                 "include_designators": list(opts.include_designators),
             },
             "pad_color_rules": [
-                {"designators": list(rule.designators), "color": rule.color, "body": rule.body}
+                {
+                    "designators": list(rule.designators),
+                    "color": rule.color,
+                    "step_body_name": rule.step_body_name,
+                }
                 for rule in opts.pad_color_rules
             ],
             "feature_color_rules": {
-                "tracks": {"color": opts.track_color, "body": opts.track_body},
-                "polygons": {"color": opts.polygon_color, "body": opts.polygon_body},
+                "tracks": {"color": opts.track_color, "step_body_name": opts.track_body},
+                "arcs": {"color": opts.arc_color, "step_body_name": opts.arc_body},
+                "fills": {"color": opts.fill_color, "step_body_name": opts.fill_body},
+                "polygons": {"color": opts.polygon_color, "step_body_name": opts.polygon_body},
+                "regions": {"color": opts.region_color, "step_body_name": opts.region_body},
+                "vias": {"color": opts.via_color, "step_body_name": opts.via_body},
+                "component_pads": {
+                    "color": opts.component_pad_color,
+                    "step_body_name": opts.component_pad_body,
+                },
+                "free_pads": {"color": opts.free_pad_color, "step_body_name": opts.free_pad_body},
+            },
+            "thickness_bias_mm": {
+                "tracks": float(opts.track_thickness_bias_mm),
+                "arcs": float(opts.arc_thickness_bias_mm),
+                "fills": float(opts.fill_thickness_bias_mm),
+                "polygons": float(opts.polygon_thickness_bias_mm),
+                "regions": float(opts.region_thickness_bias_mm),
+                "vias": float(opts.via_thickness_bias_mm),
+                "component_pads": float(opts.component_pad_thickness_bias_mm),
+                "free_pads": float(opts.free_pad_thickness_bias_mm),
             },
         },
         "counts": counts,
@@ -970,20 +1376,35 @@ def _build_step_bodies(
     drill_hole_mode: str,
 ) -> tuple[list[dict[str, object]], dict[str, int]]:
     board_cutouts = _collect_board_cutout_regions(pcb)
+    drill_mode_by_feature = _drill_modes_for_features(
+        drill_features,
+        opts,
+        drill_hole_mode,
+    )
     boolean_drill_cutouts = [
-        feature.region for feature in drill_features if drill_hole_mode == DRILL_HOLE_MODE_CUT
+        feature.region for feature, mode in drill_mode_by_feature if mode == DRILL_HOLE_MODE_CUT
     ]
-    shared_cutouts = [*boolean_drill_cutouts, *board_cutouts]
+    drill_copper_cutouts = [
+        feature.region
+        for feature, mode in drill_mode_by_feature
+        if mode in {DRILL_HOLE_MODE_CUT, DRILL_HOLE_MODE_OVERLAY}
+    ]
+    overlay_drill_features = [
+        feature for feature, mode in drill_mode_by_feature if mode == DRILL_HOLE_MODE_OVERLAY
+    ]
+    pad_clip_regions = _pad_clip_regions(features)
+    shared_cutouts = [*drill_copper_cutouts, *board_cutouts]
     bodies = [
-        *_copper_bodies_from_features(features, opts, shared_cutouts),
-        *_drill_overlay_bodies(drill_features, drill_hole_mode, opts),
+        *_copper_bodies_from_features(features, opts, shared_cutouts, pad_clip_regions),
+        *_drill_overlay_bodies(overlay_drill_features, DRILL_HOLE_MODE_OVERLAY, opts),
         *_outline_bodies(pcb, opts),
     ]
     counts = _build_counts(
         features=features,
         drill_features=drill_features,
+        overlay_drill_features=overlay_drill_features,
         boolean_drill_cutouts=boolean_drill_cutouts,
-        drill_hole_mode=drill_hole_mode,
+        drill_copper_cutouts=drill_copper_cutouts,
         board_cutouts=board_cutouts,
         bodies=bodies,
     )
@@ -994,24 +1415,29 @@ def _copper_bodies_from_features(
     features: list[_SourceFeature],
     opts: PcbLayerStepOptions,
     cutouts: list[_Region],
+    pad_clip_regions: list[_Region],
 ) -> list[dict[str, object]]:
     if not opts.include_copper:
         return []
-    grouped: dict[tuple[str, str], list[_SourceFeature]] = {}
+    grouped: dict[tuple[str, str, float, bool], list[_SourceFeature]] = {}
     for feature in features:
-        body_id, color = _body_style_for_feature(feature, opts)
-        grouped.setdefault((body_id, color), []).append(feature)
+        body_id, color, thickness_bias_mm = _body_style_for_feature(feature, opts)
+        clip_to_pads = _feature_clips_to_pad_shapes(feature)
+        grouped.setdefault((body_id, color, thickness_bias_mm, clip_to_pads), []).append(feature)
     return [
         _body_from_regions(
             body_id=body_id,
             color=color,
             regions=[feature.region for feature in body_features],
-            z_mm=opts.z_mm,
-            thickness_mm=opts.thickness_mm,
+            z_mm=_biased_z_mm(opts.z_mm, thickness_bias_mm),
+            thickness_mm=_biased_thickness_mm(opts.thickness_mm, thickness_bias_mm),
             fuse_regions=opts.fuse_copper,
-            cutouts=_copper_body_cutouts(features, body_features, opts, cutouts),
+            cutouts=[
+                *_copper_body_cutouts(features, body_features, opts, cutouts),
+                *(pad_clip_regions if clip_to_pads else []),
+            ],
         )
-        for (body_id, color), body_features in grouped.items()
+        for (body_id, color, thickness_bias_mm, clip_to_pads), body_features in grouped.items()
         if body_features
     ]
 
@@ -1022,33 +1448,144 @@ def _copper_body_cutouts(
     opts: PcbLayerStepOptions,
     shared_cutouts: list[_Region],
 ) -> list[_Region]:
-    if not opts.fuse_copper or not _is_trace_only_body(body_features):
-        return shared_cutouts
-    return [
-        *shared_cutouts,
-        *[
-            feature.region
-            for feature in all_features
-            if feature.kind in {"component_pad", "free_pad", "via"}
-        ],
-    ]
+    del all_features, body_features, opts
+    return shared_cutouts
 
 
 def _is_trace_only_body(features: list[_SourceFeature]) -> bool:
     return bool(features) and all(feature.kind in {"track", "arc"} for feature in features)
 
 
-def _body_style_for_feature(feature: _SourceFeature, opts: PcbLayerStepOptions) -> tuple[str, str]:
-    if feature.kind in {"track", "arc"} and opts.track_color is not None:
-        return opts.track_body, opts.track_color
-    if feature.kind == "polygon" and opts.polygon_color is not None:
-        return opts.polygon_body, opts.polygon_color
-    if feature.kind in {"component_pad", "free_pad"}:
-        designator = feature.component_designator or feature.pad_designator or ""
-        for rule in opts.pad_color_rules:
-            if _matches_any_pattern(designator, rule.designators):
-                return rule.body, rule.color
-    return "copper", opts.copper_color
+def _body_style_for_feature(
+    feature: _SourceFeature, opts: PcbLayerStepOptions
+) -> tuple[str, str, float]:
+    thickness_bias_mm = _thickness_bias_for_feature(feature, opts)
+    body_id, color = _configured_body_style(feature, opts)
+    body_id, color = _apply_pad_color_rules(feature, opts, body_id, color)
+    if body_id == "copper" and thickness_bias_mm > 0.0:
+        body_id = f"copper_{_feature_body_suffix(feature.kind)}"
+    return body_id, color, thickness_bias_mm
+
+
+def _configured_body_style(
+    feature: _SourceFeature,
+    opts: PcbLayerStepOptions,
+) -> tuple[str, str]:
+    style = _feature_style_options(opts).get(feature.kind)
+    if style is None:
+        return "copper", opts.copper_color
+    body_template, default_body_id, color = style
+    if color is None and body_template == default_body_id:
+        return "copper", opts.copper_color
+    return (
+        _format_step_body_name(body_template, feature, default_body_id),
+        color or opts.copper_color,
+    )
+
+
+def _feature_style_options(
+    opts: PcbLayerStepOptions,
+) -> dict[str, tuple[str, str, str | None]]:
+    region_style = (opts.region_body, "regions", opts.region_color)
+    return {
+        "track": (opts.track_body, "tracks", opts.track_color),
+        "arc": (opts.arc_body, "arcs", opts.arc_color),
+        "fill": (opts.fill_body, "fills", opts.fill_color),
+        "polygon": (opts.polygon_body, "polygons", opts.polygon_color),
+        "region": region_style,
+        "via": (opts.via_body, "vias", opts.via_color),
+        "component_pad": (
+            opts.component_pad_body,
+            "component_pads",
+            opts.component_pad_color,
+        ),
+        "free_pad": (opts.free_pad_body, "free_pads", opts.free_pad_color),
+    }
+
+
+def _apply_pad_color_rules(
+    feature: _SourceFeature,
+    opts: PcbLayerStepOptions,
+    body_id: str,
+    color: str,
+) -> tuple[str, str]:
+    if feature.kind not in {"component_pad", "free_pad"}:
+        return body_id, color
+    designator = feature.component_designator or feature.pad_designator or ""
+    for rule in opts.pad_color_rules:
+        if _matches_any_pattern(designator, rule.designators):
+            return (
+                _format_step_body_name(rule.step_body_name, feature, "matched_pads"),
+                rule.color,
+            )
+    return body_id, color
+
+
+def _format_step_body_name(
+    template: str,
+    feature: _SourceFeature,
+    fallback: str,
+) -> str:
+    values = {
+        "component": feature.component_designator or "",
+        "pad": feature.pad_designator or "",
+        "feature": _feature_body_suffix(feature.kind),
+    }
+    text = str(template)
+    for key, value in values.items():
+        text = text.replace(f"{{{key}}}", value)
+    name = _step_name(text)
+    return name if name != "board" or text.strip() else _step_name(fallback)
+
+
+def _biased_z_mm(z_mm: float, thickness_bias_mm: float) -> float:
+    return z_mm - max(0.0, thickness_bias_mm)
+
+
+def _biased_thickness_mm(thickness_mm: float, thickness_bias_mm: float) -> float:
+    bias = max(0.0, thickness_bias_mm)
+    return thickness_mm + (2.0 * bias)
+
+
+def _feature_body_suffix(kind: str) -> str:
+    return {
+        "track": "tracks",
+        "arc": "arcs",
+        "fill": "fills",
+        "polygon": "polygons",
+        "region": "regions",
+        "via": "vias",
+        "component_pad": "pads",
+        "free_pad": "pads",
+    }.get(kind, kind)
+
+
+def _pad_clip_regions(features: list[_SourceFeature]) -> list[_Region]:
+    return [
+        feature.region
+        for feature in features
+        if feature.kind in {"component_pad", "free_pad", "via"}
+    ]
+
+
+def _feature_clips_to_pad_shapes(feature: _SourceFeature) -> bool:
+    return feature.kind in {"track", "arc", "fill", "polygon", "region"}
+
+
+def _thickness_bias_for_feature(
+    feature: _SourceFeature,
+    opts: PcbLayerStepOptions,
+) -> float:
+    return {
+        "track": opts.track_thickness_bias_mm,
+        "arc": opts.arc_thickness_bias_mm,
+        "fill": opts.fill_thickness_bias_mm,
+        "polygon": opts.polygon_thickness_bias_mm,
+        "region": opts.region_thickness_bias_mm,
+        "via": opts.via_thickness_bias_mm,
+        "component_pad": opts.component_pad_thickness_bias_mm,
+        "free_pad": opts.free_pad_thickness_bias_mm,
+    }.get(feature.kind, 0.0)
 
 
 def _drill_overlay_bodies(
@@ -1153,19 +1690,20 @@ def _build_counts(
     *,
     features: list[_SourceFeature],
     drill_features: list[_DrillFeature],
+    overlay_drill_features: list[_DrillFeature],
     boolean_drill_cutouts: list[_Region],
-    drill_hole_mode: str,
+    drill_copper_cutouts: list[_Region],
     board_cutouts: list[_Region],
     bodies: list[dict[str, object]],
 ) -> dict[str, int]:
-    drill_overlay_count, plated_overlay_count, non_plated_overlay_count = _drill_overlay_counts(
-        drill_features,
-        drill_hole_mode,
+    drill_overlay_count, plated_overlay_count, non_plated_overlay_count = (
+        _drill_overlay_counts(overlay_drill_features)
     )
     return {
         "source_layer_geometries": len(features),
         "drill_cut_geometries": len(drill_features),
         "drill_boolean_cut_geometries": len(boolean_drill_cutouts),
+        "drill_copper_cutout_geometries": len(drill_copper_cutouts),
         "drill_overlay_geometries": drill_overlay_count,
         "drill_plated_overlay_geometries": plated_overlay_count,
         "drill_non_plated_overlay_geometries": non_plated_overlay_count,
@@ -1184,10 +1722,7 @@ def _build_counts(
 
 def _drill_overlay_counts(
     drill_features: list[_DrillFeature],
-    drill_hole_mode: str,
 ) -> tuple[int, int, int]:
-    if drill_hole_mode != DRILL_HOLE_MODE_OVERLAY:
-        return (0, 0, 0)
     plated_count = sum(1 for feature in drill_features if feature.plated)
     return (len(drill_features), plated_count, len(drill_features) - plated_count)
 
@@ -1215,6 +1750,41 @@ def _effective_drill_hole_mode(opts: PcbLayerStepOptions, drill_count: int) -> s
         int(opts.max_boolean_drill_cuts),
     )
     return DRILL_HOLE_MODE_OVERLAY
+
+
+def _drill_modes_for_features(
+    drill_features: list[_DrillFeature],
+    opts: PcbLayerStepOptions,
+    global_mode: str,
+) -> list[tuple[_DrillFeature, str]]:
+    if global_mode == DRILL_HOLE_MODE_NONE:
+        return [(feature, DRILL_HOLE_MODE_NONE) for feature in drill_features]
+    return [
+        (feature, _effective_drill_feature_mode(feature, opts, global_mode))
+        for feature in drill_features
+    ]
+
+
+def _effective_drill_feature_mode(
+    feature: _DrillFeature,
+    opts: PcbLayerStepOptions,
+    global_mode: str,
+) -> str:
+    scoped_mode = _configured_drill_scope_mode(feature, opts)
+    return global_mode if scoped_mode == DRILL_SCOPE_MODE_INHERIT else scoped_mode
+
+
+def _configured_drill_scope_mode(
+    feature: _DrillFeature,
+    opts: PcbLayerStepOptions,
+) -> str:
+    if feature.source_kind == "via":
+        return opts.drill_via_mode
+    if feature.component_designator:
+        if _include_pad_feature(feature.component_designator, opts):
+            return opts.drill_selected_component_mode
+        return opts.drill_other_component_mode
+    return opts.drill_free_pad_mode
 
 
 def _collect_layer_features(
@@ -1667,12 +2237,16 @@ def _pad_round_hole_feature(
     diameter_mm: float,
 ) -> _DrillFeature:
     local_region = _circle_region(center_local, diameter_mm / 2.0)
+    designator = _footprint_designator(footprint)
     return _DrillFeature(
         region=_transform_region_to_board(footprint, local_region),
         center=_footprint_local_to_board(footprint, center_local),
         diameter_mm=diameter_mm,
         plated=_pad_is_plated(pad),
         pad_region=_pad_region(footprint, pad, layer, opts),
+        source_kind="pad",
+        component_designator=designator or None,
+        pad_designator=str(getattr(pad, "number", "") or "").strip() or None,
     )
 
 
@@ -1703,6 +2277,7 @@ def _pad_slot_hole_feature(
         center_local,
         local_region,
     )
+    designator = _footprint_designator(footprint)
     return _DrillFeature(
         region=_transform_region_to_board(footprint, local_region),
         center=_footprint_local_to_board(footprint, center_local),
@@ -1711,6 +2286,9 @@ def _pad_slot_hole_feature(
         rotation_degrees=rotation - float(getattr(footprint, "at_angle", 0.0) or 0.0),
         plated=_pad_is_plated(pad),
         pad_region=_pad_region(footprint, pad, layer, opts),
+        source_kind="pad",
+        component_designator=designator or None,
+        pad_designator=str(getattr(pad, "number", "") or "").strip() or None,
     )
 
 
@@ -1749,6 +2327,7 @@ def _via_hole_feature(via: object) -> _DrillFeature | None:
         center=center,
         diameter_mm=diameter_mm,
         plated=True,
+        source_kind="via",
     )
 
 
@@ -2092,6 +2671,10 @@ def _pcb_layer_ordinal(pcb: object, layer: str) -> int | None:
 
 def _matches_designator_filter(value: str, patterns: tuple[str, ...]) -> bool:
     return not patterns or _matches_any_pattern(value, patterns)
+
+
+def _include_pad_feature(designator: str, opts: PcbLayerStepOptions) -> bool:
+    return _matches_designator_filter(designator, opts.include_designators)
 
 
 def _matches_any_pattern(value: str, patterns: Iterable[str]) -> bool:

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from kicad_cruncher.config_json import load_json_config
 from kicad_cruncher.kicad_cruncher_cmd_pcb_svg import (
     _apply_pcb_view_selection,
     _assembly_designator_rotation,
@@ -799,42 +800,42 @@ def test_pcb_svg_pin1_view_aliases_select_merged_assembly_views() -> None:
     assert config.layer_outputs["enabled"] is False
 
 
-def test_pcb_svg_legacy_simple_projection_aliases_normalize_to_outline() -> None:
-    """Verify old simple config terms parse as outline without being generated."""
-    view = _PcbSvgViewConfig.from_dict(
-        {
-            "name": "legacy_simple",
-            "layers": ["ASSEMBLY_HLR_TOP_SIMPLE"],
-            "assembly_hlr_mode": "simple",
-        }
-    )
+def test_pcb_svg_removed_simple_projection_aliases_are_rejected() -> None:
+    """Verify old simple config terms are no longer accepted."""
+    with pytest.raises(ValueError, match="Unsupported assembly_hlr_mode"):
+        _PcbSvgViewConfig.from_dict(
+            {
+                "name": "old_simple",
+                "layers": ["ASSEMBLY_HLR_TOP_OUTLINE"],
+                "assembly_hlr_mode": "simple",
+            }
+        )
 
-    assert view.layers == ["ASSEMBLY_HLR_TOP_OUTLINE"]
-    assert view.assembly_hlr_mode == "outline"
-    assert normalize_layer_token("HLR_BOTTOM_SIMPLE") == "ASSEMBLY_HLR_BOTTOM_OUTLINE"
+    assert normalize_layer_token("HLR_BOTTOM_SIMPLE") == "HLR_BOTTOM_SIMPLE"
 
 
-def test_pcb_svg_default_config_header_documents_virtual_layers_and_overrides() -> None:
-    """Verify the generated config keeps comments up top and documents overrides."""
+def test_pcb_svg_default_config_documents_virtual_layers_and_overrides(tmp_path: Path) -> None:
+    """Verify the generated config is documented JSONC and still parses."""
     text = _default_pcb_svg_config_text()
-    header, body = text.split("*/\n", 1)
 
-    assert text.startswith("/*\n")
-    assert text.count("/*") == 1
-    assert "\n//" not in text
-    assert body.startswith("{\n")
-    json.loads(body)
+    assert text.startswith("// kicad-cruncher pcb-svg configuration.")
+    assert "Default component projection mode Options: detail, outline, bounding_box" in text
+    assert "View projection mode for ASSEMBLY_HLR_TOP/BOTTOM tokens" in text
+    assert "Canvas bounds mode Options: board_outline, all_geometry." in text
+    assert "ASSEMBLY_HLR_TOP_SIMPLE" not in text
+    assert '"simple"' not in text
 
     for token in sorted(PCB_SVG_SPECIAL_LAYERS):
-        assert token in header
+        assert token in text
 
-    assert "Per-view override resolution:" in header
-    assert "view.styles" in header
-    assert "view.pin1" in header
-    assert "components.<designator>.projection" in header
-    assert "components.<designator>.assembly_hlr" in header
-    assert "components.<designator>.assembly_designators" in header
-    assert "evaluated per view" in header
+    config_path = tmp_path / "pcb.svg.config"
+    config_path.write_text(text, encoding="utf-8")
+    payload = load_json_config(config_path)
+    assert payload["schema"] == "pcb.svg.config.a0"
+
+    assert "Per-view style overrides merged over global styles." in text
+    assert "Global pin-1 marker selection policy." in text
+    assert "Per-component overrides keyed by reference designator" in text
 
 
 def test_pcb_svg_hlr_test_model_pose_matches_kicad_step_order() -> None:

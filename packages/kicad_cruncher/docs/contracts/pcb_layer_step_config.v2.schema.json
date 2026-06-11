@@ -6,12 +6,7 @@
   "type": "object",
   "required": ["schema"],
   "properties": {
-    "schema": {
-      "enum": [
-        "wn.kicad_cruncher.pcb_layer_step.config.v1",
-        "wn.kicad_cruncher.pcb_layer_step.config.v2"
-      ]
-    },
+    "schema": {"const": "wn.kicad_cruncher.pcb_layer_step.config.v2"},
     "defaults": {"$ref": "#/$defs/outputOptions"},
     "outputs": {
       "type": "array",
@@ -26,10 +21,6 @@
     "thickness_mm": {"type": "number", "exclusiveMinimum": 0},
     "z_mm": {"type": "number"},
     "copper_color": {"$ref": "#/$defs/color"},
-    "track_color": {"$ref": "#/$defs/color"},
-    "track_body": {"type": "string", "minLength": 1},
-    "polygon_color": {"$ref": "#/$defs/color"},
-    "polygon_body": {"type": "string", "minLength": 1},
     "outline_width_mm": {"type": "number", "minimum": 0},
     "outline_color": {"$ref": "#/$defs/color"},
     "board_cutout_color": {"$ref": "#/$defs/color"},
@@ -48,6 +39,10 @@
     "drill_hole_shape": {"$ref": "#/$defs/drillShape"},
     "drill_ring_width_mm": {"type": "number", "minimum": 0},
     "drill_plated_ring_shape": {"$ref": "#/$defs/platedRingShape"},
+    "drill_selected_component_mode": {"$ref": "#/$defs/drillScopeMode"},
+    "drill_other_component_mode": {"$ref": "#/$defs/drillScopeMode"},
+    "drill_free_pad_mode": {"$ref": "#/$defs/drillScopeMode"},
+    "drill_via_mode": {"$ref": "#/$defs/drillScopeMode"},
     "fuse_copper": {"type": "boolean"},
     "fuse_board_outline": {"type": "boolean"},
     "arc_segments": {"type": "integer", "minimum": 1},
@@ -59,23 +54,11 @@
     "include_component_pads": {"type": "boolean"},
     "include_free_pads": {"type": "boolean"},
     "include_designators": {"$ref": "#/$defs/stringList"},
-    "pad_color_rules": {"$ref": "#/$defs/padRules"},
     "board_outline": {"$ref": "#/$defs/boardOutline"},
     "features": {"$ref": "#/$defs/features"},
-    "colors": {"$ref": "#/$defs/colors"},
     "drills": {"$ref": "#/$defs/drills"}
   },
   "additionalProperties": false,
-  "allOf": [
-    {
-      "if": {"required": ["outputs"]},
-      "then": {
-        "properties": {
-          "schema": {"const": "wn.kicad_cruncher.pcb_layer_step.config.v2"}
-        }
-      }
-    }
-  ],
   "$defs": {
     "outputOptions": {
       "type": "object",
@@ -88,10 +71,6 @@
         "thickness_mm": {"type": "number", "exclusiveMinimum": 0},
         "z_mm": {"type": "number"},
         "copper_color": {"$ref": "#/$defs/color"},
-        "track_color": {"$ref": "#/$defs/color"},
-        "track_body": {"type": "string", "minLength": 1},
-        "polygon_color": {"$ref": "#/$defs/color"},
-        "polygon_body": {"type": "string", "minLength": 1},
         "outline_width_mm": {"type": "number", "minimum": 0},
         "outline_color": {"$ref": "#/$defs/color"},
         "board_cutout_color": {"$ref": "#/$defs/color"},
@@ -110,6 +89,10 @@
         "drill_hole_shape": {"$ref": "#/$defs/drillShape"},
         "drill_ring_width_mm": {"type": "number", "minimum": 0},
         "drill_plated_ring_shape": {"$ref": "#/$defs/platedRingShape"},
+        "drill_selected_component_mode": {"$ref": "#/$defs/drillScopeMode"},
+        "drill_other_component_mode": {"$ref": "#/$defs/drillScopeMode"},
+        "drill_free_pad_mode": {"$ref": "#/$defs/drillScopeMode"},
+        "drill_via_mode": {"$ref": "#/$defs/drillScopeMode"},
         "fuse_copper": {"type": "boolean"},
         "fuse_board_outline": {"type": "boolean"},
         "arc_segments": {"type": "integer", "minimum": 1},
@@ -121,10 +104,8 @@
         "include_component_pads": {"type": "boolean"},
         "include_free_pads": {"type": "boolean"},
         "include_designators": {"$ref": "#/$defs/stringList"},
-        "pad_color_rules": {"$ref": "#/$defs/padRules"},
         "board_outline": {"$ref": "#/$defs/boardOutline"},
         "features": {"$ref": "#/$defs/features"},
-        "colors": {"$ref": "#/$defs/colors"},
         "drills": {"$ref": "#/$defs/drills"}
       },
       "additionalProperties": false
@@ -152,55 +133,41 @@
     "features": {
       "type": "object",
       "properties": {
+        "defaults": {
+          "type": "object",
+          "properties": {"color": {"$ref": "#/$defs/color"}},
+          "additionalProperties": false
+        },
         "tracks": {"$ref": "#/$defs/featureSwitch"},
         "traces": {"$ref": "#/$defs/featureSwitch"},
-        "arcs": {"type": "boolean"},
-        "fills": {"type": "boolean"},
+        "arcs": {"$ref": "#/$defs/featureSwitch"},
+        "fills": {"$ref": "#/$defs/featureSwitch"},
         "polygons": {"$ref": "#/$defs/featureSwitch"},
         "poured_polygons": {"$ref": "#/$defs/featureSwitch"},
-        "regions": {"type": "boolean"},
-        "vias": {"type": "boolean"},
+        "regions": {"$ref": "#/$defs/featureSwitch"},
+        "shapebased_regions": {"$ref": "#/$defs/featureSwitch"},
+        "vias": {"$ref": "#/$defs/featureSwitch"},
         "component_pads": {
           "oneOf": [
             {"type": "boolean"},
             {
               "type": "object",
               "properties": {
+                "enabled": {"type": "boolean"},
                 "mode": {"enum": ["none", "all", "matching_designators"]},
-                "include_designators": {"$ref": "#/$defs/stringList"}
+                "include_designators": {"$ref": "#/$defs/stringList"},
+                "color": {"$ref": "#/$defs/color"},
+                "step_body_name": {"type": "string", "minLength": 1},
+                "thickness_bias_mm": {"type": "number", "minimum": 0},
+                "highlight_rules": {"$ref": "#/$defs/highlightRules"}
               },
               "additionalProperties": false
             }
           ]
         },
-        "free_pads": {"type": "boolean"}
+        "free_pads": {"$ref": "#/$defs/featureSwitch"}
       },
       "additionalProperties": false
-    },
-    "colors": {
-      "type": "object",
-      "properties": {
-        "default_copper": {"$ref": "#/$defs/color"},
-        "tracks": {"$ref": "#/$defs/featureColor"},
-        "traces": {"$ref": "#/$defs/featureColor"},
-        "polygons": {"$ref": "#/$defs/featureColor"},
-        "poured_polygons": {"$ref": "#/$defs/featureColor"},
-        "pad_rules": {"$ref": "#/$defs/padRules"}
-      },
-      "additionalProperties": false
-    },
-    "padRules": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["designators", "color"],
-        "properties": {
-          "designators": {"$ref": "#/$defs/stringList"},
-          "color": {"$ref": "#/$defs/color"},
-          "body": {"type": "string", "minLength": 1}
-        },
-        "additionalProperties": false
-      }
     },
     "featureSwitch": {
       "oneOf": [
@@ -210,30 +177,34 @@
           "properties": {
             "enabled": {"type": "boolean"},
             "color": {"$ref": "#/$defs/color"},
-            "body": {"type": "string", "minLength": 1}
+            "step_body_name": {"type": "string", "minLength": 1},
+            "thickness_bias_mm": {"type": "number", "minimum": 0}
           },
           "additionalProperties": false
         }
       ]
     },
-    "featureColor": {
-      "oneOf": [
-        {"$ref": "#/$defs/color"},
-        {
-          "type": "object",
-          "required": ["color"],
-          "properties": {
-            "color": {"$ref": "#/$defs/color"},
-            "body": {"type": "string", "minLength": 1}
-          },
-          "additionalProperties": false
-        }
-      ]
+    "highlightRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["designators", "color"],
+        "properties": {
+          "designators": {"$ref": "#/$defs/stringList"},
+          "color": {"$ref": "#/$defs/color"},
+          "step_body_name": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
     },
     "drills": {
       "type": "object",
       "properties": {
         "mode": {"$ref": "#/$defs/drillMode"},
+        "selected_component_mode": {"$ref": "#/$defs/drillScopeMode"},
+        "other_component_mode": {"$ref": "#/$defs/drillScopeMode"},
+        "free_pad_mode": {"$ref": "#/$defs/drillScopeMode"},
+        "via_mode": {"$ref": "#/$defs/drillScopeMode"},
         "minimum_diameter_mm": {"type": "number", "minimum": 0},
         "shape": {"$ref": "#/$defs/drillShape"},
         "color": {"$ref": "#/$defs/color"},
@@ -246,6 +217,7 @@
       "additionalProperties": false
     },
     "drillMode": {"enum": ["auto", "cut", "overlay", "none"]},
+    "drillScopeMode": {"enum": ["inherit", "cut", "overlay", "none"]},
     "drillShape": {"enum": ["solid", "ring"]},
     "platedRingShape": {"enum": ["annulus", "pad"]}
   }

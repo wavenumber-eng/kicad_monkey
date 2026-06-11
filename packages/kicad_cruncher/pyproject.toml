@@ -1,6 +1,6 @@
 [project]
 name = "kicad-cruncher"
-version = "2026.6.10"
+version = "2026.6.11"
 description = "Cross-platform KiCad CLI workflows built on public kicad-monkey"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"

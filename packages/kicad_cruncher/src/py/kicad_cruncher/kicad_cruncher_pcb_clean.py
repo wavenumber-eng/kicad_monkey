@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections import Counter
 from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
@@ -11,7 +10,7 @@ from typing import Protocol, cast
 
 from kicad_monkey import KiCadPcb
 
-from kicad_cruncher.config_json import load_json_config
+from kicad_cruncher.config_json import load_json_config, render_commented_jsonc
 
 PCB_CLEAN_CONFIG_FILENAME = "pcb.clean.config"
 PCB_CLEAN_CONFIG_SCHEMA = "kicad_cruncher.pcb.clean.config.v0"
@@ -39,6 +38,46 @@ _FOOTPRINT_GRAPHIC_COLLECTIONS = (
     ("fp_rects", "fp_rect"),
     ("fp_polys", "fp_poly"),
 )
+
+_PCB_CLEAN_CONFIG_HEADER = (
+    "KiCad Cruncher PCB Clean config.",
+    "",
+    "This file is JSONC. Comments and trailing commas are accepted.",
+    "Apply removes configured documentation-layer graphics and hides visible Value fields.",
+    "Copper, pads, models, routing, and Edge.Cuts stay protected.",
+    "Protection is enforced through layer exclusion and object selection.",
+    "Daemon/plugin usage shares this planner but returns a KiCad IPC mutation request.",
+    "Daemon/plugin usage does not edit a board file behind the editor.",
+)
+_PCB_CLEAN_CONFIG_COMMENTS = {
+    ("schema",): "Required config contract id.",
+    ("targets",): "Cleanup target groups. Set a group false to keep that class untouched.",
+    ("targets", "user_layers"): "Reset user layer names that match the configured layer selection.",
+    (
+        "targets",
+        "generated_graphics",
+    ): "Remove generated cleanup metadata graphics owned by this tool.",
+    ("targets", "footprint_graphics"): "Remove matching footprint-local documentation graphics.",
+    (
+        "targets",
+        "board_graphics",
+    ): "Remove matching board-level documentation graphics; disabled by default.",
+    ("targets", "value_fields"): "Hide visible footprint Value fields on selected layers.",
+    ("safety",): "Safety gates that prevent cleanup from touching electrical or required objects.",
+    ("safety", "protect_pads"): "Never remove pads.",
+    ("safety", "protect_models"): "Never remove 3D models.",
+    ("safety", "protect_mandatory_fields"): "Never remove mandatory reference/value field objects.",
+    (
+        "safety",
+        "require_explicit_apply",
+    ): "Require explicit --apply for file mutation; dry-run remains non-mutating.",
+    ("layers",): "Layer selection globs used by cleanup targets.",
+    ("layers", "include"): "Glob patterns for documentation layers eligible for cleanup.",
+    ("layers", "exclude"): "Glob patterns that are always protected even when included elsewhere.",
+    ("metadata",): "Generated-item metadata used to recognize this tool's own cleanup annotations.",
+    ("metadata", "field_name"): "KiCad custom field name used for generated cleanup metadata.",
+    ("metadata", "schema"): "Metadata schema id stored on generated cleanup annotations.",
+}
 
 
 @dataclass
@@ -230,15 +269,10 @@ def build_pcb_clean_mutation_request(
 
 
 def _default_pcb_clean_config_text() -> str:
-    payload = json.dumps(default_pcb_clean_config(), indent=2)
-    return (
-        "/*\n"
-        "  KiCad Cruncher PCB Clean config.\n"
-        "  Apply removes configured documentation-layer graphics and hides\n"
-        "  visible Value fields. Copper, pads, models, routing, and Edge.Cuts\n"
-        "  stay protected through layer exclusion and object selection.\n"
-        "*/\n"
-        f"{payload}\n"
+    return render_commented_jsonc(
+        default_pcb_clean_config(),
+        comments_by_path=_PCB_CLEAN_CONFIG_COMMENTS,
+        header_lines=_PCB_CLEAN_CONFIG_HEADER,
     )
 
 

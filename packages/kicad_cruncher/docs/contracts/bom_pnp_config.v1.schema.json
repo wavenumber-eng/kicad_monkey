@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/wavenumber-eng/kicad_cruncher/docs/contracts/bom_pnp_config.v1.schema.json",
   "title": "KiCad Cruncher BOM/PnP Config",
-  "description": "JSON or JSONC configuration shared by the bom, pnp, and jlc commands. Generated templates keep explanatory block comments at the top; effective config snapshots are plain JSON.",
+  "description": "JSONC configuration shared by the bom, pnp, and jlc commands. Generated templates include per-field comments and explicit enum option comments; effective config snapshots are plain JSON.",
   "type": "object",
   "required": ["schema"],
   "properties": {

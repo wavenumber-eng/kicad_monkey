@@ -137,7 +137,7 @@ def test_pcb_layer_step_help_describes_fixture_step_config() -> None:
 
     assert result.returncode == 0, result.stderr
     assert "fixture-alignment model" in result.stdout
-    assert "pcb-layer-step.json" in result.stdout
+    assert "pcb-layer-step.jsonc" in result.stdout
     assert ".kicad_pcb" in result.stdout
 
 

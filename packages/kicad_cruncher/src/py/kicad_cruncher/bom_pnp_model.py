@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from kicad_cruncher.config_json import load_json_config
+from kicad_cruncher.config_json import enum_help, load_json_config, render_commented_jsonc
 from kicad_cruncher.output_path_templates import (
     TemplateValue,
     resolve_output_expression,
@@ -17,9 +16,7 @@ from kicad_cruncher.output_path_templates import (
 )
 
 BOM_PNP_DEFAULT_CONFIG_NAME = "bom.config"
-BOM_PNP_FALLBACK_CONFIG_NAME = "bom.config.json"
 BOM_PNP_CONFIG_SCHEMA = "kicad_cruncher.bom.config.v1"
-_BOM_PNP_LEGACY_CONFIG_SCHEMAS = {"wn.kicad_cruncher.bom.config.v1"}
 BOM_RAW_SCHEMA = "wn.kicad_cruncher.bom.raw.v1"
 BOM_GROUPED_SCHEMA = "wn.kicad_cruncher.bom.grouped.v1"
 PNP_SCHEMA = "wn.kicad_cruncher.pnp.v1"
@@ -74,6 +71,139 @@ _BOM_SOURCE_MODES = frozenset({"schematic", "pcb", "merged"})
 _PNP_POSITION_MODES = frozenset(PNP_POSITION_MODES)
 _DNP_PLACEMENTS = frozenset({"inline", "end", "separate"})
 _VARIANT_MODES = frozenset({"base", "all", "named"})
+
+_BOM_PNP_CONFIG_HEADER = (
+    "KiCad Cruncher BOM/PnP/JLC config.",
+    "",
+    "This file is JSONC. Comments and trailing commas are accepted.",
+    "Generated output snapshots are plain JSON.",
+    "The same config drives kicad-cruncher bom, kicad-cruncher pnp, and kicad-cruncher jlc.",
+    "DNP parts may remain in BOM review outputs when enabled.",
+    "DNP parts are always omitted from PnP/CPL outputs.",
+    "PnP/CPL coordinates use the KiCad footprint placement point.",
+    "PnP/CPL coordinates are relative to the aux axis / drill-place file origin.",
+    "Output templates support project text variables plus Command and OutputKind.",
+    "Output templates also support SourceName, SourceStem, and VariantName.",
+)
+_BOM_PNP_CONFIG_COMMENTS = {
+    ("schema",): "Required config contract id.",
+    ("field_aliases",): (
+        "Canonical manufacturing fields and accepted KiCad parameter aliases.",
+        "Matching is case-insensitive; source parameters win before intrinsic fallbacks.",
+        "Intrinsic fallbacks include value, footprint, and description.",
+    ),
+    ("field_aliases", "manufacturer"): "Aliases for the canonical manufacturer field.",
+    (
+        "field_aliases",
+        "manufacturer_part_number",
+    ): "Aliases for the canonical manufacturer_part_number field.",
+    (
+        "field_aliases",
+        "jlcpcb_part_number",
+    ): "Aliases for the canonical JLC/LCSC part-number field.",
+    ("field_aliases", "value"): "Aliases for the canonical value/comment field.",
+    ("field_aliases", "description"): "Aliases for the canonical description field.",
+    ("field_aliases", "footprint"): "Aliases for the canonical footprint/package field.",
+    ("variants",): "Variant selection used when CLI --variant or --all-variants is not supplied.",
+    ("variants", "mode"): enum_help(
+        "Variant mode",
+        ("base", "all", "named"),
+    ),
+    ("variants", "names"): "Variant names used when mode is named.",
+    ("variants", "include_base"): "Include the no-variant base output when mode is all or named.",
+    ("bom",): (
+        "Bill-of-materials source, grouping, DNP, PCB line-item, and output settings.",
+        "A part can become DNP from schematic DNP state, footprint dnp attributes,",
+        "or selected variant overrides.",
+    ),
+    ("bom", "source_mode"): enum_help(
+        "BOM source mode; merged currently resolves like schematic in the KiCad command path",
+        ("schematic", "pcb", "merged"),
+    ),
+    ("bom", "outputs"): enum_help(
+        "BOM artifact kinds to emit",
+        (
+            "raw-json",
+            "legacy-json",
+            "grouped-json",
+            "grouped-csv",
+            "grouped-xlsx",
+            "jlc-csv",
+            "jlc-xlsx",
+        ),
+    ),
+    ("bom", "group_fields"): (
+        "Canonical fields that must match before components collapse into one grouped line.",
+        "If every configured group field is empty, grouping falls back to value,",
+        "footprint, and description.",
+    ),
+    ("bom", "output_fields"): (
+        "Columns written by grouped BOM table outputs.",
+        "Generated fields include item, quantity, designators, and dnp.",
+        "Aliases include mfg, mpn, qty, part_number, and pn.",
+    ),
+    (
+        "bom",
+        "include_dnp",
+    ): "Keep DNP components in normalized/grouped BOM review outputs when BOM-eligible.",
+    (
+        "bom",
+        "split_dnp",
+    ): "Keep fitted and DNP components in separate grouped lines when group_fields match.",
+    ("bom", "dnp_placement"): enum_help(
+        "Grouped DNP row placement",
+        ("inline", "end", "separate"),
+    ),
+    ("bom", "highlight_dnp_rows"): "Highlight DNP rows in XLSX review outputs.",
+    (
+        "bom",
+        "prefix_order",
+    ): "Optional designator-prefix sort priority used when pnp.prefix_order is omitted.",
+    ("bom", "pcb_line_item"): "Optional synthetic PCB line item for grouped BOM outputs.",
+    ("bom", "pcb_line_item", "enabled"): "Append the synthetic PCB line item when true.",
+    ("bom", "pcb_line_item", "designator"): "Designator text for the synthetic PCB line item.",
+    (
+        "bom",
+        "pcb_line_item",
+        "fields",
+    ): (
+        "Canonical field values for the synthetic PCB line.",
+        "Values can use output template expressions.",
+    ),
+    ("pnp",): (
+        "Pick-and-place placement, sorting, coordinate, and JLC CPL settings.",
+        "DNP parts are omitted from PnP/CPL regardless of exclude_no_bom.",
+    ),
+    ("pnp", "outputs"): enum_help(
+        "PnP artifact kinds to emit",
+        ("json", "csv", "xlsx", "jlc-cpl", "jlc-cpl-xlsx"),
+    ),
+    ("pnp", "output_fields"): (
+        "Columns written by generic PnP CSV/XLSX table outputs.",
+        "Generated fields include designator, comment, layer, footprint, center_x,",
+        "center_y, rotation, units, and description.",
+    ),
+    ("pnp", "units"): enum_help(
+        "PnP coordinate units; JLC CPL requires mm",
+        ("mm", "mils"),
+    ),
+    ("pnp", "position_mode"): enum_help(
+        "Placement position mode; uses the KiCad footprint placement point",
+        (PNP_POSITION_MODE_COMPONENT_CENTER,),
+    ),
+    ("pnp", "exclude_no_bom"): "Omit placement-eligible parts that are not BOM-eligible.",
+    (
+        "pnp",
+        "layer_order",
+    ): "Layer sorting priority for PnP outputs; typical values are top and bottom.",
+    ("pnp", "prefix_order"): "Optional designator-prefix sorting priority for PnP outputs.",
+    ("output",): "Output path templates used in config-driven mode.",
+    ("output", "dir_template"): "Directory template relative to the selected output root.",
+    (
+        "output",
+        "name_template",
+    ): "Filename stem template without extension; each output kind adds its extension.",
+}
 
 _DESIGNATOR_TOKEN_RE = re.compile(r"\d+|[A-Za-z]+|[^A-Za-z\d]+")
 _LEADING_PREFIX_RE = re.compile(r"^[A-Za-z]+")
@@ -216,8 +346,7 @@ class BomPnpConfig:
     @classmethod
     def from_mapping(cls, payload: Mapping[str, object]) -> BomPnpConfig:
         """Build a config from a JSON-style mapping."""
-        accepted_schemas = {None, BOM_PNP_CONFIG_SCHEMA, *_BOM_PNP_LEGACY_CONFIG_SCHEMAS}
-        if payload.get("schema") not in accepted_schemas:
+        if payload.get("schema") != BOM_PNP_CONFIG_SCHEMA:
             raise ValueError(
                 f"Unsupported BOM/PnP config schema: {payload.get('schema')}"
             )
@@ -362,11 +491,8 @@ class BomPnpConfig:
 def find_bom_pnp_config_path(start_dir: Path | None = None) -> Path | None:
     """Return the first default BOM/PnP config path found in a directory."""
     root = (start_dir or Path.cwd()).resolve()
-    for name in (BOM_PNP_DEFAULT_CONFIG_NAME, BOM_PNP_FALLBACK_CONFIG_NAME):
-        candidate = root / name
-        if candidate.exists():
-            return candidate
-    return None
+    candidate = root / BOM_PNP_DEFAULT_CONFIG_NAME
+    return candidate if candidate.exists() else None
 
 
 def load_bom_pnp_config(path: Path) -> BomPnpConfig:
@@ -398,123 +524,10 @@ def write_bom_pnp_config(
 
 def default_bom_pnp_config_text(config: BomPnpConfig | None = None) -> str:
     """Return the documented JSONC BOM/PnP config template."""
-    header = """/*
-KiCad Cruncher BOM/PnP/JLC config.
-
-This file is JSONC. Block comments are accepted by kicad-cruncher; the
-effective config snapshots written beside outputs are plain JSON.
-
-This one config is shared by:
-- kicad-cruncher bom
-- kicad-cruncher pnp
-- kicad-cruncher jlc
-
-schema:
-
-- The current config schema is kicad_cruncher.bom.config.v1.
-
-field_aliases:
-
-- Defines canonical manufacturing fields. The generated defaults coalesce
-  common names for manufacturer, manufacturer_part_number, jlcpcb_part_number,
-  value, description, and footprint.
-
-- Matching is case-insensitive. Source parameters win first; intrinsic fields
-  such as value, footprint, and description are fallbacks.
-
-variants:
-
-- mode "all" emits the no-variant base when include_base is true, then every
-  KiCad variant discovered in the project.
-
-- mode "base" emits only the no-variant base.
-
-- mode "named" emits names listed in variants.names. CLI --variant and
-  --all-variants override this section.
-
-Population and DNP rules:
-
-- A part is treated as DNP if the KiCad schematic symbol is marked DNP, if the
-  PCB footprint has the dnp attribute, or if a selected KiCad variant overrides
-  either side to DNP.
-
-- A DNP part can still appear in BOM review outputs when it is BOM-eligible and
-  bom.include_dnp is true. DNP parts are always omitted from PnP/CPL outputs.
-
-- A part is not BOM-eligible when KiCad marks the symbol as not in BOM, the
-  footprint is excluded from BOM, or the reference is virtual, such as a power
-  symbol beginning with "#".
-
-- A part is not PnP/CPL-eligible when it is DNP, not on the board, excluded
-  from position files, missing a footprint, or virtual. pnp.exclude_no_bom also
-  removes placement-eligible NO_BOM-style parts from PnP/CPL outputs.
-
-bom:
-
-- source_mode "schematic" uses the variant-resolved schematic BOM.
-
-- source_mode "pcb" derives BOM lines from placement-eligible PCB footprints.
-
-- source_mode "merged" is accepted and currently resolves like "schematic" in
-  the KiCad command path.
-
-- outputs can include raw-json, legacy-json, grouped-json, grouped-csv,
-  grouped-xlsx, jlc-csv, and jlc-xlsx.
-
-- group_fields controls which canonical fields must match before components
-  collapse into one line item. The default groups parts by manufacturer, part
-  number, and description via the aliases mfg, mpn, and description. If every
-  configured group field is empty for a component, grouping falls back to value,
-  footprint, and description.
-
-- output_fields controls grouped BOM table columns. Use generated fields such
-  as item, quantity, designators, and dnp; canonical fields such as
-  manufacturer, manufacturer_part_number, jlcpcb_part_number, value,
-  description, and footprint; or table aliases such as mfg, mpn, qty,
-  part_number, and pn.
-
-- include_dnp keeps DNP rows in normalized/grouped BOM outputs. split_dnp,
-  dnp_placement, and highlight_dnp_rows control how those rows are presented.
-
-- pcb_line_item can add a synthetic PCB line to grouped BOM outputs. Field
-  values support the same project/output template expressions as output paths.
-
-pnp:
-
-- outputs can include json, csv, xlsx, jlc-cpl, and jlc-cpl-xlsx.
-
-- output_fields controls generic PnP CSV/XLSX table columns. Generated virtual
-  fields are designator, comment, layer, footprint, center_x, center_y,
-  rotation, units, and description. You may also include canonical fields such
-  as value, manufacturer, manufacturer_part_number, and jlcpcb_part_number,
-  table aliases such as mfg and mpn, or exact raw KiCad parameter names.
-
-- units may be "mm" or "mils"; JLC CPL output requires "mm".
-
-- position_mode defaults to "component-center", the only KiCad mode currently
-  documented and accepted. It uses the footprint placement point stored in the
-  board file; KiCad's own ASCII position exporter uses the same point rather
-  than a separate geometric centroid. Coordinates are exported relative to the
-  aux axis / drill-place file origin for JLC.
-
-- exclude_no_bom omits placement-eligible parts carrying NO_BOM-style fields.
-
-- layer_order and prefix_order control deterministic placement sorting.
-
-output:
-
-- dir_template is relative to the selected output root.
-
-- name_template omits the file extension; each output kind adds its own.
-
-- Available template tokens include project text variables plus Command,
-  OutputKind, SourceName, SourceStem, and VariantName.
-*/
-"""
-    return (
-        header
-        + json.dumps((config or BomPnpConfig()).to_json_obj(), indent=2)
-        + "\n"
+    return render_commented_jsonc(
+        (config or BomPnpConfig()).to_json_obj(),
+        comments_by_path=_BOM_PNP_CONFIG_COMMENTS,
+        header_lines=_BOM_PNP_CONFIG_HEADER,
     )
 
 
