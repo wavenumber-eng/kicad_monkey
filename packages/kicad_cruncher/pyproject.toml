@@ -1,6 +1,6 @@
 [project]
 name = "kicad-cruncher"
-version = "2026.6.11"
+version = "2026.6.13"
 description = "Cross-platform KiCad CLI workflows built on public kicad-monkey"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -11,7 +11,7 @@ authors = [
 dependencies = [
     "colorama>=0.4.6",
     "fastapi>=0.115.0",
-    "kicad-monkey==2026.6.10",
+    "kicad-monkey==2026.6.13",
     "openpyxl>=3.1.0",
     "uvicorn>=0.30.0",
     "wn-geometer==2026.6.10",

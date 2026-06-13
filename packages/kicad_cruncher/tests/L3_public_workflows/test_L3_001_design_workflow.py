@@ -100,7 +100,7 @@ _CORPUS_PROJECT_CASES = (
         / "input"
         / "11-10080__yoshi-mainboard__A.kicad_pro",
         "11-10080__yoshi-mainboard__A_design.json",
-        38,
+        35,
         58,
         1,
         6,
@@ -113,11 +113,24 @@ _CORPUS_PROJECT_CASES = (
         / "input"
         / "11-10084__speedy_processing_module__B.kicad_pro",
         "11-10084__speedy_processing_module__B_design.json",
-        534,
+        526,
         500,
         17,
         10,
         id="speedy_processing_module",
+    ),
+    pytest.param(
+        _CORPUS_ROOT
+        / "projects"
+        / "4-ch-backplane"
+        / "input"
+        / "4-ch-backplane.kicad_pro",
+        "4-ch-backplane_design.json",
+        806,
+        874,
+        44,
+        4,
+        id="4-ch-backplane",
     ),
 )
 

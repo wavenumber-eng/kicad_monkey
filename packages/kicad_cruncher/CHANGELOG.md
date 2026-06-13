@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026.6.13
+
+- Update the controlled `kicad-monkey` dependency to `2026.6.13` so
+  `design`/`design-review` use KiCad-parity hierarchical netlist generation.
+- Add the sanitized 4-channel backplane fixture to the regular public workflow
+  corpus for design JSON, schematic SVG, and PCB SVG coverage.
+- Refresh copied-corpus design JSON count assertions where KiCad-parity
+  component materialization now omits duplicate/non-materialized rows.
+- Keep `wn-geometer==2026.6.10`.
+
 ## 2026.6.11
 
 - Move all generated command configs to documented JSONC emitted from
