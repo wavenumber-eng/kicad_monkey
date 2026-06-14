@@ -28,6 +28,7 @@ objectives = [
 # Module: kicad_monkey.kicad_symbol_splitter - Split multi-symbol files
 # Module: kicad_monkey.kicad_footprint_extractor - Extract footprints from PCB files
 # Module: kicad_monkey.kicad_step_extractor - Extract embedded STEP models
+# Module: kicad_monkey.kicad_library_extraction - Extract project-local library assets
 # Module: kicad_monkey.kicad_name_index - Footprint and symbol name indexing
 
 # =============================================================================
@@ -79,3 +80,18 @@ module = "kicad_monkey.kicad_name_index"
 
 [subtests.objectives]
 primary = "Components indexed and looked up correctly"
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+file = "test_L2_007_library_extraction.py"
+name = "Library Extraction"
+description = "Extract project-local symbols, footprints, metadata, and embedded STEP models"
+test_cases = "${WN_TEST_CORPUS}/kicad/projects/4-ch-backplane"
+test_case_type = "real_world"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_library_extraction"
+
+[subtests.objectives]
+primary = "Project-local KiCad library assets extract into valid inspectable files"
