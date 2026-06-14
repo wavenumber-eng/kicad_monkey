@@ -37,8 +37,9 @@
       diagnostics.
     </p>
     <p>
-      <code>kicad_cruncher</code> is responsible for the workflow command that
-      assembles those operations into a megamaid bundle.
+      <code>kicad_cruncher</code> is responsible for workflow commands that
+      assemble those operations into cleaned <code>megamaid</code> ingestion
+      bundles and metadata-preserving <code>project-lib</code> bundles.
       Downstream library tooling is responsible for part-record creation and
       update behavior.
     </p>
@@ -59,6 +60,7 @@
       <li><code>strip_footprint_metadata(footprint, policy)</code></li>
       <li><code>rehydrate_embedded_model_payloads(board, footprint)</code></li>
       <li><code>extract_3d_models(project_path)</code></li>
+      <li><code>extract_3d_models_from_footprint_records(records, output_dir)</code></li>
       <li><code>write_symbol_folder_library(...)</code></li>
       <li><code>write_pretty_library(...)</code></li>
     </ul>
@@ -178,7 +180,7 @@
     <ul>
       <li>Fast lane: focused parser/unit tests with small synthetic fixtures.</li>
       <li>Full lane: 4-ch backplane scan and extraction tests.</li>
-      <li>Strict lane: KiCad CLI validation and complete megamaid bundle checks.</li>
+      <li>Strict lane: KiCad CLI validation and complete megamaid/project-lib bundle checks.</li>
     </ul>
   </section>
 

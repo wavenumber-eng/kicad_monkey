@@ -23,6 +23,7 @@ from kicad_monkey.kicad_library_extraction import (
     KiCadModelReferenceKind,
     embed_external_model_payloads,
     extract_3d_models,
+    extract_3d_models_from_footprint_records,
     extract_footprints,
     extract_symbols,
     resolve_kicad_cli,
@@ -125,6 +126,23 @@ def test_extract_4ch_backplane_embedded_step_models(tmp_path: Path) -> None:
     written = extract_3d_models(_four_ch_backplane_project(), tmp_path / "models")
 
     assert len(written) >= 20
+    assert len(written) == len(list((tmp_path / "models").iterdir()))
+    assert all(path.suffix.lower() in {".step", ".stp"} for path in written)
+    assert any(
+        "ISO-10303-21" in path.read_text(encoding="utf-8", errors="ignore")
+        for path in written
+    )
+
+
+@pytest.mark.slow
+def test_extract_3d_models_from_footprint_records_reuses_extracted_payloads(tmp_path: Path) -> None:
+    """The fast workflow path writes model payloads from extracted footprints."""
+    pytest.importorskip("zstandard")
+
+    footprint_records = extract_footprints(_four_ch_backplane_project())
+    written = extract_3d_models_from_footprint_records(footprint_records, tmp_path / "models")
+
+    assert written
     assert len(written) == len(list((tmp_path / "models").iterdir()))
     assert all(path.suffix.lower() in {".step", ".stp"} for path in written)
     assert any(

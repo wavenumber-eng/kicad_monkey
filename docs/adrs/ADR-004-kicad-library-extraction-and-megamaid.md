@@ -33,8 +33,10 @@ Altium `megamaid` workflow.
 symbol extraction, footprint extraction, metadata stripping, embedded model
 inspection, and 3D model payload repair.
 
-`kicad_cruncher` owns the user-facing workflow command, expected to be named
-`megamaid`, which composes those primitives into an inspectable output bundle.
+`kicad_cruncher` owns the user-facing workflow commands. `megamaid` composes
+the primitives into a cleaned downstream library-ingestion bundle;
+`project-lib` composes the same primitives into a metadata-preserving
+project-local review bundle.
 
 Downstream library tooling remains the owner of part-record creation and update
 semantics. `kicad_cruncher` emits JSON contracts with raw and canonicalized
@@ -68,7 +70,8 @@ failures are precise and do not depend solely on KiCad CLI availability.
 ## Consequences
 
 `kicad_monkey` will need stable scan/extract/strip/model-repair APIs before
-`kicad_cruncher megamaid` can become a released workflow.
+`kicad_cruncher megamaid` and `kicad_cruncher project-lib` can become released
+workflows.
 
 The 4-ch backplane corpus fixture is the first real-world regression target for
 this work because it contains hierarchy, design blocks, off-board sheet

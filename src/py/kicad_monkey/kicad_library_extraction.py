@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .kicad_footprint import KiCadFootprint
+from .kicad_lib_symbol import LibSymbol
 from .kicad_model import EmbeddedFile, Model
 from .kicad_pcb import KiCadPcb
 from .kicad_pcb_footprint import Footprint
@@ -29,7 +30,7 @@ from .kicad_pcb_other import NetRef
 from .kicad_environment import KiCadEnvironment
 from .kicad_project import find_adjacent_kicad_project_path
 from .kicad_sch_enums import PropertyId, StandardPropertyKey
-from .kicad_schematic import KiCadSchematic
+from .kicad_sexpr import parse_sexp
 from .kicad_symbol_lib import KiCadSymbolLib
 
 try:
@@ -271,6 +272,95 @@ def _embedded_name(path: str) -> str:
 
 def _embedded_file_map(files: Iterable[EmbeddedFile]) -> dict[str, EmbeddedFile]:
     return {file.name: file for file in files if getattr(file, "name", "")}
+
+
+def _find_matching_paren(text: str, start: int) -> int:
+    depth = 0
+    in_string = False
+    escaped = False
+    for index in range(start, len(text)):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return index
+    raise ValueError("unbalanced S-expression while scanning embedded file")
+
+
+def _read_kicad_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return path.read_text(encoding="utf-8-sig")
+
+
+def _iter_embedded_files_from_text(text: str) -> Iterable[EmbeddedFile]:
+    for match in re.finditer(r"\(\s*file(?=\s|\))", text):
+        start = match.start()
+        try:
+            end = _find_matching_paren(text, start)
+            sexp = parse_sexp(text[start : end + 1])
+            if isinstance(sexp, list) and sexp and sexp[0] == "file":
+                yield EmbeddedFile.from_sexp(sexp)
+        except Exception:
+            continue
+
+
+def _iter_embedded_files_from_file(path: Path) -> Iterable[EmbeddedFile]:
+    yield from _iter_embedded_files_from_text(_read_kicad_text(path))
+
+
+_FOOTPRINT_START_RE = re.compile(
+    r'\(\s*footprint\s+(?:"(?P<quoted>(?:\\.|[^"])*)"|(?P<atom>[^\s)]+))'
+)
+
+
+def _footprint_library_link_from_match(match: re.Match[str]) -> str:
+    return (match.group("quoted") or match.group("atom") or "").replace('\\"', '"')
+
+
+def _iter_board_footprints_from_file(
+    path: Path,
+    *,
+    unique_library_links: set[str] | None = None,
+) -> Iterable[Footprint]:
+    text = _read_kicad_text(path)
+    for match in _FOOTPRINT_START_RE.finditer(text):
+        library_link = _footprint_library_link_from_match(match)
+        if unique_library_links is not None and library_link in unique_library_links:
+            continue
+        start = match.start()
+        try:
+            end = _find_matching_paren(text, start)
+            sexp = parse_sexp(text[start : end + 1])
+            if isinstance(sexp, list) and sexp and sexp[0] == "footprint":
+                if unique_library_links is not None:
+                    unique_library_links.add(library_link)
+                yield Footprint.from_sexp(sexp)
+        except Exception:
+            continue
+
+
+def _iter_schematic_lib_symbols_from_file(path: Path) -> Iterable[LibSymbol]:
+    sexp = parse_sexp(_read_kicad_text(path))
+    for item in sexp:
+        if not isinstance(item, list) or not item or item[0] != "lib_symbols":
+            continue
+        for child in item[1:]:
+            if isinstance(child, list) and child and child[0] == "symbol":
+                yield LibSymbol.from_sexp(child)
 
 
 def _is_step_model_name(name: str) -> bool:
@@ -661,9 +751,17 @@ def rehydrate_embedded_model_payloads(
     footprint: KiCadFootprint,
 ) -> KiCadFootprint:
     """Copy board-level embedded model payloads into a standalone footprint."""
+    return rehydrate_embedded_model_payloads_from_files(board.embedded_files, footprint)
+
+
+def rehydrate_embedded_model_payloads_from_files(
+    embedded_files: Iterable[EmbeddedFile],
+    footprint: KiCadFootprint,
+) -> KiCadFootprint:
+    """Copy board-level embedded model payloads into a standalone footprint."""
     out = copy.deepcopy(footprint)
     local = _embedded_file_map(out.embedded_files)
-    board_files = _embedded_file_map(board.embedded_files)
+    board_files = _embedded_file_map(embedded_files)
     for model in out.models:
         if not model.path.startswith("kicad-embed://"):
             continue
@@ -686,8 +784,7 @@ def extract_symbols(
     records: list[KiCadSymbolExtractionRecord] = []
     seen: set[str] = set()
     for schematic_path in _iter_project_files(project_path, ".kicad_sch"):
-        schematic = KiCadSchematic.from_file(schematic_path)
-        for symbol in schematic.lib_symbols:
+        for symbol in _iter_schematic_lib_symbols_from_file(schematic_path):
             raw_fields = _symbol_fields(symbol)
             key = _symbol_record_key(
                 symbol=symbol,
@@ -745,17 +842,28 @@ def extract_footprints(
     seen: set[str] = set()
 
     for pcb_path in _iter_project_files(resolved_project, ".kicad_pcb"):
-        board = KiCadPcb.from_file(pcb_path)
-        for source_fp in board.footprints:
+        board_embedded_files = tuple(_iter_embedded_files_from_file(pcb_path))
+        unique_links = seen if (
+            policy == KiCadExtractionMode.INTERNAL
+            and dedupe == KiCadExtractionDedupePolicy.NAME
+        ) else None
+        for source_fp in _iter_board_footprints_from_file(
+            pcb_path,
+            unique_library_links=unique_links,
+        ):
             standalone = _board_footprint_to_standalone(source_fp)
             if embed_models:
-                standalone = rehydrate_embedded_model_payloads(board, standalone)
+                standalone = rehydrate_embedded_model_payloads_from_files(
+                    board_embedded_files,
+                    standalone,
+                )
             if embed_models and embed_external_models:
                 standalone = embed_external_model_payloads(standalone, project_root=root, env=env)
             key = _footprint_record_key(source_fp, standalone, policy, dedupe)
-            if policy == KiCadExtractionMode.INTERNAL and key in seen:
-                continue
-            seen.add(key)
+            if unique_links is None:
+                if policy == KiCadExtractionMode.INTERNAL and key in seen:
+                    continue
+                seen.add(key)
             stripped = strip_footprint_metadata(standalone, policy)
             raw_fields = _footprint_fields(source_fp)
             model_refs = _scan_models_for_owner(
@@ -765,7 +873,7 @@ def extract_footprints(
                 models=stripped.models,
                 embedded_files=stripped.embedded_files,
                 project_root=root,
-                board_embedded_files=board.embedded_files,
+                board_embedded_files=board_embedded_files,
                 env=env,
             )
             records.append(KiCadFootprintExtractionRecord(
@@ -879,12 +987,6 @@ def write_extraction_metadata_bundle(
     return path
 
 
-def _iter_board_embedded_files(board: KiCadPcb) -> Iterable[EmbeddedFile]:
-    yield from board.embedded_files
-    for footprint in board.footprints:
-        yield from footprint.embedded_files
-
-
 def _write_embedded_model_payload(
     file: EmbeddedFile,
     output_dir: Path,
@@ -914,18 +1016,25 @@ def extract_3d_models(
 
     resolved_project = _resolve_project_path(project_path)
     for pcb_path in _iter_project_files(resolved_project, ".kicad_pcb"):
-        try:
-            board = KiCadPcb.from_file(pcb_path)
-        except Exception:
-            continue
-        for file in _iter_board_embedded_files(board):
+        for file in _iter_embedded_files_from_file(pcb_path):
             _write_embedded_model_payload(file, out_dir, written_by_hash, used_names)
     for fp_path in _iter_project_files(resolved_project, ".kicad_mod"):
-        try:
-            footprint = KiCadFootprint.from_file(fp_path)
-        except Exception:
-            continue
-        for file in footprint.embedded_files:
+        for file in _iter_embedded_files_from_file(fp_path):
+            _write_embedded_model_payload(file, out_dir, written_by_hash, used_names)
+    return tuple(written_by_hash.values())
+
+
+def extract_3d_models_from_footprint_records(
+    records: Iterable[KiCadFootprintExtractionRecord],
+    output_dir: Path | str,
+) -> tuple[Path, ...]:
+    """Extract embedded STEP model payloads from already-extracted footprints."""
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written_by_hash: dict[str, Path] = {}
+    used_names: set[str] = set()
+    for record in records:
+        for file in record.footprint.embedded_files:
             _write_embedded_model_payload(file, out_dir, written_by_hash, used_names)
     return tuple(written_by_hash.values())
 
@@ -1058,9 +1167,11 @@ __all__ = [
     "build_extraction_metadata_bundle",
     "embed_external_model_payloads",
     "extract_3d_models",
+    "extract_3d_models_from_footprint_records",
     "extract_footprints",
     "extract_symbols",
     "rehydrate_embedded_model_payloads",
+    "rehydrate_embedded_model_payloads_from_files",
     "resolve_kicad_cli",
     "scan_3d_models",
     "scan_project_assets",
