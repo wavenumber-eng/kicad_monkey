@@ -1620,30 +1620,450 @@ class KiCadTextRenderer:
 
         return geometry
 
+    def _styled_scaler_for_style(self, style: _TextStyle, scaler: int) -> int:
+        if style.subscript or style.superscript:
+            return self._subscript_scaler(scaler)
+        return scaler
+
+    def _measure_plain_run_width_for_face(
+        self,
+        face: Any,
+        hb_font: Any,
+        text: str,
+        style: _TextStyle,
+        *,
+        scaler: int,
+        scale_x: float,
+    ) -> float:
+        if not text:
+            return 0.0
+        run_scaler = self._styled_scaler_for_style(style, scaler)
+        face.set_char_size(0, run_scaler, GLYPH_RESOLUTION, 0)
+        shaped = self._shape_text_for_face(
+            face,
+            hb_font,
+            text,
+            fallback_scaler=run_scaler,
+        )
+        cursor_x = 0.0
+        for pos in shaped.positions:
+            cursor_x = self._advance_cursor(
+                cursor_x,
+                float(pos.x_advance) * shaped.position_scale,
+                shaped.integer_cursor,
+            )
+        return cursor_x * scale_x
+
+    def _advance_plain_width_for_face(
+        self,
+        face: Any,
+        hb_font: Any,
+        text: str,
+        style: _TextStyle,
+        *,
+        params: TextParams,
+        scaler: int,
+        scale_x: float,
+        position_x: float,
+    ) -> float:
+        runs = text.split("\t")
+        for index, run in enumerate(runs):
+            position_x += self._measure_plain_run_width_for_face(
+                face,
+                hb_font,
+                run,
+                style,
+                scaler=scaler,
+                scale_x=scale_x,
+            )
+            if index < len(runs) - 1:
+                tab_width = params.size_x * 4.0 * 0.6
+                if tab_width > 0:
+                    position_x += tab_width - position_x % tab_width
+        return position_x
+
+    def _measure_markup_parts_for_face(
+        self,
+        face: Any,
+        hb_font: Any,
+        parts: List[_MarkupPart],
+        style: _TextStyle,
+        *,
+        params: TextParams,
+        scaler: int,
+        scale_x: float,
+        position_x: float,
+    ) -> float:
+        for part in parts:
+            if part.marker:
+                position_x = self._measure_markup_parts_for_face(
+                    face,
+                    hb_font,
+                    part.children,
+                    self._child_text_style(style, part.marker),
+                    params=params,
+                    scaler=scaler,
+                    scale_x=scale_x,
+                    position_x=position_x,
+                )
+            else:
+                position_x = self._advance_plain_width_for_face(
+                    face,
+                    hb_font,
+                    part.text,
+                    style,
+                    params=params,
+                    scaler=scaler,
+                    scale_x=scale_x,
+                    position_x=position_x,
+                )
+        return position_x
+
+    def _measure_line_width_for_face(
+        self,
+        face: Any,
+        hb_font: Any,
+        line: str,
+        *,
+        params: TextParams,
+        scaler: int,
+        scale_x: float,
+    ) -> float:
+        return self._measure_markup_parts_for_face(
+            face,
+            hb_font,
+            self._parse_markup(line),
+            _TextStyle(),
+            params=params,
+            scaler=scaler,
+            scale_x=scale_x,
+            position_x=0.0,
+        )
+
+    @staticmethod
+    def _transform_rendered_text_point(
+        params: TextParams,
+        *,
+        cos_a: float,
+        sin_a: float,
+        x: float,
+        y: float,
+    ) -> Point:
+        origin_x = params.position_x
+        origin_y = params.position_y
+        if params.mirrored:
+            x = origin_x - (x - origin_x)
+
+        if params.angle != 0.0:
+            dx = x - origin_x
+            dy = y - origin_y
+            x = origin_x + dx * cos_a + dy * sin_a
+            y = origin_y + dy * cos_a - dx * sin_a
+
+        return (x, y)
+
+    def _render_text_run_contours(
+        self,
+        face: Any,
+        hb_font: Any,
+        text: str,
+        run_x: float,
+        run_y: float,
+        style: _TextStyle,
+        *,
+        params: TextParams,
+        scaler: int,
+        scale_x: float,
+        scale_y: float,
+        fake_bold: bool,
+        fake_italic: bool,
+        cos_a: float,
+        sin_a: float,
+    ) -> Tuple[List[List[Point]], float]:
+        if not text:
+            return [], run_x
+
+        run_scaler = self._styled_scaler_for_style(style, scaler)
+        face.set_char_size(0, run_scaler, GLYPH_RESOLUTION, 0)
+        shaped = self._shape_text_for_face(
+            face,
+            hb_font,
+            text,
+            fallback_scaler=run_scaler,
+        )
+        contours_out: List[List[Point]] = []
+        cursor_x = 0.0
+        cursor_y = 0.0
+        vertical_offset = self._vertical_style_offset(style, run_scaler)
+
+        for index, info in enumerate(shaped.infos):
+            pos: Any = shaped.positions[index]
+            self._set_fake_italic_transform(face, fake_italic)
+            face.load_glyph(info.codepoint, getattr(freetype, "FT_LOAD_NO_BITMAP"))
+            if fake_bold:
+                freetype.FT_Outline_Embolden(face.glyph.outline._FT_Outline, 1 << 6)
+
+            if face.glyph.outline.n_points > 0:
+                self._append_glyph_contours(
+                    contours_out,
+                    face.glyph.outline,
+                    cursor_x=cursor_x,
+                    cursor_y=cursor_y,
+                    position=pos,
+                    shaped=shaped,
+                    vertical_offset=vertical_offset,
+                    run_x=run_x,
+                    run_y=run_y,
+                    params=params,
+                    scale_x=scale_x,
+                    scale_y=scale_y,
+                    cos_a=cos_a,
+                    sin_a=sin_a,
+                )
+
+            cursor_x = self._advance_cursor(
+                cursor_x,
+                float(pos.x_advance) * shaped.position_scale,
+                shaped.integer_cursor,
+            )
+            cursor_y = self._advance_cursor(
+                cursor_y,
+                float(pos.y_advance) * shaped.position_scale,
+                shaped.integer_cursor,
+            )
+
+        return contours_out, run_x + cursor_x * scale_x
+
+    def _append_glyph_contours(
+        self,
+        contours_out: List[List[Point]],
+        outline: Any,
+        *,
+        cursor_x: float,
+        cursor_y: float,
+        position: Any,
+        shaped: Any,
+        vertical_offset: float,
+        run_x: float,
+        run_y: float,
+        params: TextParams,
+        scale_x: float,
+        scale_y: float,
+        cos_a: float,
+        sin_a: float,
+    ) -> None:
+        hb_x_offset = 0.0
+        hb_y_offset = 0.0
+        if shaped.apply_offsets:
+            hb_x_offset = float(position.x_offset) * shaped.position_scale
+            hb_y_offset = float(position.y_offset) * shaped.position_scale
+
+        for contour in self._outline_to_contours(outline):
+            transformed: List[Point] = []
+            for pt in contour:
+                gx = pt[0] + cursor_x + hb_x_offset
+                gy = pt[1] + cursor_y + hb_y_offset + vertical_offset
+                vx = run_x + gx * scale_x
+                vy = run_y - gy * scale_y
+                transformed.append(
+                    self._transform_rendered_text_point(
+                        params,
+                        cos_a=cos_a,
+                        sin_a=sin_a,
+                        x=vx,
+                        y=vy,
+                    )
+                )
+            if transformed:
+                contours_out.append(transformed)
+
+    def _render_plain_text_contours(
+        self,
+        face: Any,
+        hb_font: Any,
+        text: str,
+        run_x: float,
+        run_y: float,
+        style: _TextStyle,
+        *,
+        params: TextParams,
+        scaler: int,
+        scale_x: float,
+        scale_y: float,
+        fake_bold: bool,
+        fake_italic: bool,
+        cos_a: float,
+        sin_a: float,
+    ) -> Tuple[List[List[Point]], float]:
+        contours_out: List[List[Point]] = []
+        runs = text.split("\t")
+        for run_index, run in enumerate(runs):
+            run_contours, run_x = self._render_text_run_contours(
+                face,
+                hb_font,
+                run,
+                run_x,
+                run_y,
+                style,
+                params=params,
+                scaler=scaler,
+                scale_x=scale_x,
+                scale_y=scale_y,
+                fake_bold=fake_bold,
+                fake_italic=fake_italic,
+                cos_a=cos_a,
+                sin_a=sin_a,
+            )
+            contours_out.extend(run_contours)
+
+            if run_index < len(runs) - 1:
+                tab_width = params.size_x * 4.0 * 0.6
+                if tab_width > 0:
+                    current_intrusion = (run_x - params.position_x) % tab_width
+                    run_x += tab_width - current_intrusion
+
+        return contours_out, run_x
+
+    def _render_markup_part_contours(
+        self,
+        face: Any,
+        hb_font: Any,
+        parts: List[_MarkupPart],
+        run_x: float,
+        run_y: float,
+        style: _TextStyle,
+        *,
+        params: TextParams,
+        scaler: int,
+        scale_x: float,
+        scale_y: float,
+        fake_bold: bool,
+        fake_italic: bool,
+        cos_a: float,
+        sin_a: float,
+    ) -> Tuple[List[List[Point]], float]:
+        contours_out: List[List[Point]] = []
+        for part in parts:
+            if part.marker:
+                marker_start_x = run_x
+                child_contours, run_x = self._render_markup_part_contours(
+                    face,
+                    hb_font,
+                    part.children,
+                    run_x,
+                    run_y,
+                    self._child_text_style(style, part.marker),
+                    params=params,
+                    scaler=scaler,
+                    scale_x=scale_x,
+                    scale_y=scale_y,
+                    fake_bold=fake_bold,
+                    fake_italic=fake_italic,
+                    cos_a=cos_a,
+                    sin_a=sin_a,
+                )
+                contours_out.extend(child_contours)
+                self._append_overbar_contour(
+                    contours_out,
+                    part.marker,
+                    marker_start_x,
+                    run_x,
+                    run_y,
+                    params,
+                    cos_a=cos_a,
+                    sin_a=sin_a,
+                )
+            else:
+                text_contours, run_x = self._render_plain_text_contours(
+                    face,
+                    hb_font,
+                    part.text,
+                    run_x,
+                    run_y,
+                    style,
+                    params=params,
+                    scaler=scaler,
+                    scale_x=scale_x,
+                    scale_y=scale_y,
+                    fake_bold=fake_bold,
+                    fake_italic=fake_italic,
+                    cos_a=cos_a,
+                    sin_a=sin_a,
+                )
+                contours_out.extend(text_contours)
+
+        return contours_out, run_x
+
+    def _append_overbar_contour(
+        self,
+        contours_out: List[List[Point]],
+        marker: str | None,
+        marker_start_x: float,
+        run_x: float,
+        run_y: float,
+        params: TextParams,
+        *,
+        cos_a: float,
+        sin_a: float,
+    ) -> None:
+        if marker != "~":
+            return
+        bar_trim = params.size_x * 0.1
+        bar_offset = params.size_y * OVERBAR_HEIGHT_RATIO
+        bar_start = self._transform_rendered_text_point(
+            params,
+            cos_a=cos_a,
+            sin_a=sin_a,
+            x=marker_start_x + bar_trim,
+            y=run_y - bar_offset,
+        )
+        bar_end = self._transform_rendered_text_point(
+            params,
+            cos_a=cos_a,
+            sin_a=sin_a,
+            x=run_x - bar_trim,
+            y=run_y - bar_offset,
+        )
+        bar_contour = self._stroke_segment_to_polygon(
+            bar_start,
+            bar_end,
+            params.stroke_width,
+        )
+        if bar_contour:
+            contours_out.append(bar_contour)
+
+    @staticmethod
+    def _vertical_line_offset(params: TextParams, *, line_count: int, interline: float) -> float:
+        height = params.size_y * HEIGHT_FUDGE_FACTOR
+        if line_count > 1:
+            height += interline * float(line_count - 1)
+
+        if params.v_align == VAlign.TOP:
+            return params.size_y
+        if params.v_align == VAlign.CENTER:
+            return params.size_y - height / 2.0
+        return params.size_y - height
+
+    @staticmethod
+    def _horizontal_line_offset(params: TextParams, line_width: float) -> float:
+        if params.h_align == HAlign.CENTER:
+            return -line_width / 2.0
+        if params.h_align == HAlign.RIGHT:
+            return -line_width
+        return 0.0
+
     def _render_contours(self, params: TextParams) -> List[List[Point]]:
         """Internal method to render text to contour lists."""
-        face: Any | None = self._get_font(
-            params.font_name, params.bold, params.italic
-        )
+        face: Any | None = self._get_font(params.font_name, params.bold, params.italic)
         if face is None:
             return []
 
-        font_path: Optional[str] = self._find_font_file(
-            params.font_name, params.bold, params.italic
-        )
+        font_path: Optional[str] = self._find_font_file(params.font_name, params.bold, params.italic)
         if font_path is None:
             return []
 
-        # Set up FreeType with KiCad's parameters
-        base_face_size: int = 16
-        scaler: int = self._compute_face_size(base_face_size)
+        scaler: int = self._compute_face_size(16)
         face.set_char_size(0, scaler, GLYPH_RESOLUTION, 0)
-
-        # KiCad's OUTLINE_DECOMPOSER converts FreeType 26.6 glyph points with
-        # GLYPH_SIZE_SCALER, then OUTLINE_FONT scales by glyphSize / faceSize()
-        # with the outline-font compensation applied.  faceSize() is an int in
-        # KiCad, so the 1433.6 nominal size is truncated to 1433 before this
-        # final scale is computed.
         upem: int = face.units_per_EM if face.units_per_EM is not None else 2048
         hb_font: Any = self._get_hb_font(font_path, upem)
         scale_x: float = params.size_x / float(scaler) * OUTLINE_FONT_SIZE_COMPENSATION
@@ -1651,240 +2071,46 @@ class KiCadTextRenderer:
         fake_bold: bool = params.bold and not self._face_has_bold(face)
         fake_italic: bool = params.italic and not self._face_has_italic(face)
 
-        def styled_scaler(style: _TextStyle) -> int:
-            if style.subscript or style.superscript:
-                return self._subscript_scaler(scaler)
-            return scaler
-
-        def measure_plain_run_width(text: str, style: _TextStyle) -> float:
-            if not text:
-                return 0.0
-            run_scaler = styled_scaler(style)
-            face.set_char_size(0, run_scaler, GLYPH_RESOLUTION, 0)
-            shaped = self._shape_text_for_face(
-                face,
-                hb_font,
-                text,
-                fallback_scaler=run_scaler,
-            )
-            cursor_x = 0.0
-            for pos in shaped.positions:
-                cursor_x = self._advance_cursor(
-                    cursor_x,
-                    float(pos.x_advance) * shaped.position_scale,
-                    shaped.integer_cursor,
-                )
-            return cursor_x * scale_x
-
-        def advance_plain_width(text: str, style: _TextStyle, position_x: float) -> float:
-            runs = text.split("\t")
-            for index, run in enumerate(runs):
-                position_x += measure_plain_run_width(run, style)
-                if index < len(runs) - 1:
-                    tab_width = params.size_x * 4.0 * 0.6
-                    if tab_width > 0:
-                        current_intrusion = position_x % tab_width
-                        position_x += tab_width - current_intrusion
-            return position_x
-
-        def measure_markup_parts(
-            parts: List[_MarkupPart],
-            style: _TextStyle,
-            position_x: float,
-        ) -> float:
-            for part in parts:
-                if part.marker:
-                    position_x = measure_markup_parts(
-                        part.children,
-                        self._child_text_style(style, part.marker),
-                        position_x,
-                    )
-                else:
-                    position_x = advance_plain_width(part.text, style, position_x)
-            return position_x
-
-        def measure_line_width(line: str) -> float:
-            position_x = 0.0
-            return measure_markup_parts(self._parse_markup(line), _TextStyle(), position_x)
-
         rad: float = math.radians(params.angle)
         cos_a: float = math.cos(rad)
         sin_a: float = math.sin(rad)
-        origin_x: float = params.position_x
-        origin_y: float = params.position_y
-
-        def transform_point(x: float, y: float) -> Point:
-            if params.mirrored:
-                x = origin_x - (x - origin_x)
-
-            if params.angle != 0.0:
-                dx = x - origin_x
-                dy = y - origin_y
-                x = origin_x + dx * cos_a + dy * sin_a
-                y = origin_y + dy * cos_a - dx * sin_a
-
-            return (x, y)
-
-        def render_run(
-            text: str,
-            run_x: float,
-            run_y: float,
-            style: _TextStyle,
-        ) -> Tuple[List[List[Point]], float]:
-            if not text:
-                return [], run_x
-
-            run_scaler = styled_scaler(style)
-            face.set_char_size(0, run_scaler, GLYPH_RESOLUTION, 0)
-            shaped = self._shape_text_for_face(
-                face,
-                hb_font,
-                text,
-                fallback_scaler=run_scaler,
-            )
-            contours_out: List[List[Point]] = []
-            cursor_x = 0.0
-            cursor_y = 0.0
-            vertical_offset = self._vertical_style_offset(style, run_scaler)
-
-            for i in range(len(shaped.infos)):
-                info: Any = shaped.infos[i]
-                pos: Any = shaped.positions[i]
-                glyph_id: int = info.codepoint
-
-                self._set_fake_italic_transform(face, fake_italic)
-                face.load_glyph(glyph_id, getattr(freetype, "FT_LOAD_NO_BITMAP"))
-                if fake_bold:
-                    freetype.FT_Outline_Embolden(face.glyph.outline._FT_Outline, 1 << 6)
-                outline: Any = face.glyph.outline
-
-                if outline.n_points > 0:
-                    contours = self._outline_to_contours(outline)
-                    hb_x_offset = 0.0
-                    hb_y_offset = 0.0
-                    if shaped.apply_offsets:
-                        hb_x_offset = float(pos.x_offset) * shaped.position_scale
-                        hb_y_offset = float(pos.y_offset) * shaped.position_scale
-
-                    for contour in contours:
-                        transformed: List[Point] = []
-                        for pt in contour:
-                            gx: float = pt[0] + cursor_x + hb_x_offset
-                            gy: float = pt[1] + cursor_y + hb_y_offset + vertical_offset
-                            vx: float = run_x + gx * scale_x
-                            vy: float = run_y - gy * scale_y
-                            transformed.append(transform_point(vx, vy))
-
-                        if transformed:
-                            contours_out.append(transformed)
-
-                cursor_x = self._advance_cursor(
-                    cursor_x,
-                    float(pos.x_advance) * shaped.position_scale,
-                    shaped.integer_cursor,
-                )
-                cursor_y = self._advance_cursor(
-                    cursor_y,
-                    float(pos.y_advance) * shaped.position_scale,
-                    shaped.integer_cursor,
-                )
-
-            return contours_out, run_x + cursor_x * scale_x
-
-        def render_plain_text(
-            text: str,
-            run_x: float,
-            run_y: float,
-            style: _TextStyle,
-        ) -> Tuple[List[List[Point]], float]:
-            contours_out: List[List[Point]] = []
-            runs = text.split("\t")
-            for run_index, run in enumerate(runs):
-                run_contours, run_x = render_run(run, run_x, run_y, style)
-                contours_out.extend(run_contours)
-
-                if run_index < len(runs) - 1:
-                    tab_width = params.size_x * 4.0 * 0.6
-                    if tab_width > 0:
-                        current_intrusion = (run_x - params.position_x) % tab_width
-                        run_x += tab_width - current_intrusion
-
-            return contours_out, run_x
-
-        def render_markup_parts(
-            parts: List[_MarkupPart],
-            run_x: float,
-            run_y: float,
-            style: _TextStyle,
-        ) -> Tuple[List[List[Point]], float]:
-            contours_out: List[List[Point]] = []
-
-            for part in parts:
-                if part.marker:
-                    marker_start_x = run_x
-                    child_contours, run_x = render_markup_parts(
-                        part.children,
-                        run_x,
-                        run_y,
-                        self._child_text_style(style, part.marker),
-                    )
-                    contours_out.extend(child_contours)
-                    if part.marker == "~":
-                        bar_trim = params.size_x * 0.1
-                        bar_offset = params.size_y * OVERBAR_HEIGHT_RATIO
-                        bar_start = transform_point(
-                            marker_start_x + bar_trim,
-                            run_y - bar_offset,
-                        )
-                        bar_end = transform_point(
-                            run_x - bar_trim,
-                            run_y - bar_offset,
-                        )
-                        bar_contour = self._stroke_segment_to_polygon(
-                            bar_start,
-                            bar_end,
-                            params.stroke_width,
-                        )
-                        if bar_contour:
-                            contours_out.append(bar_contour)
-                else:
-                    text_contours, run_x = render_plain_text(part.text, run_x, run_y, style)
-                    contours_out.extend(text_contours)
-
-            return contours_out, run_x
 
         lines = params.text.split("\n")
-        line_widths = [measure_line_width(line) for line in lines]
+        line_widths = [
+            self._measure_line_width_for_face(
+                face,
+                hb_font,
+                line,
+                params=params,
+                scaler=scaler,
+                scale_x=scale_x,
+            )
+            for line in lines
+        ]
         line_spacing = float(getattr(params, "line_spacing", 1.0))
         interline = params.size_y * 1.68 * line_spacing
-        height: float = params.size_y * HEIGHT_FUDGE_FACTOR
-        if len(lines) > 1:
-            height += interline * float(len(lines) - 1)
-
-        v_offset: float = 0.0
-        if params.v_align == VAlign.TOP:
-            v_offset = params.size_y
-        elif params.v_align == VAlign.CENTER:
-            v_offset = params.size_y - height / 2.0
-        else:  # BOTTOM
-            v_offset = params.size_y - height
+        v_offset = self._vertical_line_offset(params, line_count=len(lines), interline=interline)
 
         final_contours: List[List[Point]] = []
         for line_index, line in enumerate(lines):
-            line_width = line_widths[line_index]
-            h_offset = 0.0
-            if params.h_align == HAlign.CENTER:
-                h_offset = -line_width / 2.0
-            elif params.h_align == HAlign.RIGHT:
-                h_offset = -line_width
-
+            h_offset = self._horizontal_line_offset(params, line_widths[line_index])
             run_x = params.position_x + h_offset
             run_y = params.position_y + v_offset + float(line_index) * interline
-            run_contours, _run_x = render_markup_parts(
+            run_contours, _run_x = self._render_markup_part_contours(
+                face,
+                hb_font,
                 self._parse_markup(line),
                 run_x,
                 run_y,
                 _TextStyle(),
+                params=params,
+                scaler=scaler,
+                scale_x=scale_x,
+                scale_y=scale_y,
+                fake_bold=fake_bold,
+                fake_italic=fake_italic,
+                cos_a=cos_a,
+                sin_a=sin_a,
             )
             final_contours.extend(run_contours)
 

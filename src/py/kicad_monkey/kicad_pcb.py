@@ -234,6 +234,210 @@ _PCB_OBJECT_LIST_BY_CLASS_NAME: dict[str, str] = {
     "UnknownElement": "unknown_elements",
 }
 
+_PCB_KNOWN_ELEMENTS = {
+    'kicad_pcb', 'version', 'generator', 'generator_version',
+    'general', 'paper', 'title_block', 'layers', 'setup', 'net',
+    'property', 'variants',  # Board-level custom metadata / variant registry
+    'gr_text', 'gr_line', 'gr_rect', 'gr_arc', 'gr_circle', 'gr_poly',
+    'gr_curve', 'gr_text_box', 'barcode', 'image', 'table',
+    'footprint', 'module', 'zone', 'dimension', 'segment', 'via', 'arc',
+    'group', 'generated', 'embedded_fonts', 'embedded_files',
+}
+
+_PCB_COLLECTION_PARSERS: tuple[tuple[str, str, Any], ...] = (
+    ('net', 'nets', Net),
+    ('property', 'properties', BoardProperty),
+    ('gr_text', 'gr_texts', GrText),
+    ('gr_line', 'gr_lines', GrLine),
+    ('gr_rect', 'gr_rects', GrRect),
+    ('gr_arc', 'gr_arcs', GrArc),
+    ('gr_circle', 'gr_circles', GrCircle),
+    ('gr_poly', 'gr_polys', GrPoly),
+    ('gr_curve', 'gr_curves', GrCurve),
+    ('gr_text_box', 'gr_text_boxes', GrTextBox),
+    ('barcode', 'barcodes', Barcode),
+    ('image', 'images', Image),
+    ('table', 'tables', Table),
+    ('footprint', 'footprints', Footprint),
+    ('module', 'footprints', Footprint),
+    ('dimension', 'dimensions', Dimension),
+    ('group', 'groups', Group),
+    ('generated', 'generated_items', GeneratedObject),
+)
+
+
+def _append_parsed_elements(target: list, sexp: list, element_name: str, factory: Any) -> None:
+    for elem in find_all_elements(sexp, element_name):
+        target.append(factory.from_sexp(elem))
+
+
+def _parse_pcb_header_and_setup(pcb: "KiCadPcb", sexp: list) -> None:
+    pcb.version = int(get_value(sexp, 'version', KICAD_PCB_FILE_VERSION))
+    pcb.generator = unquote_string(get_value(sexp, 'generator', KICAD_PCB_GENERATOR))
+    pcb.generator_version = unquote_string(get_value(sexp, 'generator_version', KICAD_GENERATOR_VERSION))
+
+    general = find_element(sexp, 'general')
+    if general:
+        pcb.thickness = float(get_value(general, 'thickness', KICAD_DEFAULT_BOARD_THICKNESS_MM))
+        pcb.legacy_teardrops = get_value(general, 'legacy_teardrops') == 'yes'
+
+    pcb.paper = unquote_string(get_value(sexp, 'paper', KICAD_DEFAULT_PAPER))
+
+    title_block_elem = find_element(sexp, 'title_block')
+    if title_block_elem:
+        pcb.title_block = TitleBlock.from_sexp(title_block_elem)
+
+    pcb.setup_sexp = find_element(sexp, 'setup')
+    if pcb.setup_sexp:
+        _parse_pcb_setup_settings(pcb)
+
+
+def _parse_pcb_setup_settings(pcb: "KiCadPcb") -> None:
+    setup_sexp = pcb.setup_sexp
+    if setup_sexp is None:
+        return
+    stackup_elem = find_element(setup_sexp, 'stackup')
+    if stackup_elem:
+        pcb.stackup = Stackup.from_sexp(stackup_elem)
+
+    for element_name, attr_name in (
+        ('pad_to_mask_clearance', 'pad_to_mask_clearance'),
+        ('pad_to_paste_clearance', 'pad_to_paste_clearance'),
+        ('pad_to_paste_clearance_ratio', 'pad_to_paste_clearance_ratio'),
+    ):
+        value = get_value(setup_sexp, element_name, None)
+        if value is not None:
+            setattr(pcb, attr_name, float(value))
+
+
+def _parse_pcb_layers(pcb: "KiCadPcb", sexp: list) -> None:
+    layers_elem = find_element(sexp, 'layers')
+    if not layers_elem:
+        return
+    for layer_def in layers_elem[1:]:
+        if isinstance(layer_def, list):
+            pcb.layers.append(Layer.from_sexp(layer_def))
+
+
+def _parse_pcb_variants(pcb: "KiCadPcb", sexp: list) -> None:
+    variants_elem = find_element(sexp, 'variants')
+    if variants_elem:
+        _append_parsed_elements(pcb.variants, variants_elem, 'variant', BoardVariant)
+
+
+def _parse_pcb_collections(pcb: "KiCadPcb", sexp: list) -> None:
+    _parse_pcb_layers(pcb, sexp)
+    _parse_pcb_variants(pcb, sexp)
+    for element_name, attr_name, factory in _PCB_COLLECTION_PARSERS:
+        _append_parsed_elements(getattr(pcb, attr_name), sexp, element_name, factory)
+
+
+def _resolve_pcb_net_ref(pcb: "KiCadPcb", net_ref: NetRef) -> NetRef:
+    net_name_by_id = {net.ordinal: net.name for net in pcb.nets}
+    net_id_by_name = {net.name: net.ordinal for net in pcb.nets}
+    return net_ref.resolve_name(net_name_by_id).resolve_ordinal(net_id_by_name)
+
+
+def _resolve_pcb_object_net(pcb: "KiCadPcb", obj: Any) -> None:
+    net_ref = getattr(obj, 'net', NetRef())
+    if isinstance(net_ref, NetRef):
+        obj.net = _resolve_pcb_net_ref(pcb, net_ref)
+
+
+def _resolve_pcb_net_bound_items(pcb: "KiCadPcb", sexp: list) -> None:
+    for footprint in pcb.footprints:
+        for pad in getattr(footprint, 'pads', []) or []:
+            _resolve_pcb_object_net(pcb, pad)
+
+    for elem in find_all_elements(sexp, 'zone'):
+        zone = Zone.from_sexp(elem)
+        zone.net = _resolve_pcb_net_ref(pcb, zone.net)
+        pcb.zones.append(zone)
+
+    for element_name, attr_name, factory in (
+        ('segment', 'segments', Segment),
+        ('via', 'vias', Via),
+        ('arc', 'arcs', Arc),
+    ):
+        for elem in find_all_elements(sexp, element_name):
+            item = factory.from_sexp(elem)
+            _resolve_pcb_object_net(pcb, item)
+            getattr(pcb, attr_name).append(item)
+
+
+def _parse_pcb_embedded_files(pcb: "KiCadPcb", sexp: list) -> None:
+    pcb.embedded_fonts = get_value(sexp, 'embedded_fonts') == 'yes'
+    embedded_files_elem = find_element(sexp, 'embedded_files')
+    if embedded_files_elem:
+        _append_parsed_elements(pcb.embedded_files, embedded_files_elem, 'file', EmbeddedFile)
+
+
+def _preserve_unknown_pcb_elements(pcb: "KiCadPcb", sexp: list) -> None:
+    for elem in sexp[1:]:
+        if isinstance(elem, list) and len(elem) > 0 and elem[0] not in _PCB_KNOWN_ELEMENTS:
+            pcb.unknown_elements.append(UnknownElement(name=elem[0], raw_sexp=elem))
+
+
+_PCB_GRAPHIC_SEXP_ATTRS: tuple[str, ...] = (
+    'gr_rects',
+    'gr_lines',
+    'gr_arcs',
+    'gr_circles',
+    'gr_polys',
+    'gr_curves',
+    'gr_text_boxes',
+    'gr_texts',
+)
+
+_PCB_TRACK_SEXP_ATTRS: tuple[str, ...] = ('segments', 'vias', 'arcs')
+
+
+def _append_serialized_items(result: list, items: Any) -> None:
+    for item in items:
+        result.append(item.to_sexp())
+
+
+def _append_pcb_header(result: list, pcb: "KiCadPcb") -> None:
+    result.append([
+        'general',
+        ['thickness', pcb.thickness],
+        ['legacy_teardrops', 'yes' if pcb.legacy_teardrops else 'no'],
+    ])
+    result.append(['paper', QuotedString(pcb.paper)])
+    if pcb.title_block:
+        result.append(pcb.title_block.to_sexp())
+
+
+def _append_pcb_layers(result: list, layers: list[Layer]) -> None:
+    layers_elem: list = ['layers']
+    _append_serialized_items(layers_elem, layers)
+    result.append(layers_elem)
+
+
+def _append_pcb_variants(result: list, variants: list[BoardVariant]) -> None:
+    if not variants:
+        return
+    variants_elem = ['variants']
+    _append_serialized_items(variants_elem, variants)
+    result.append(variants_elem)
+
+
+def _append_pcb_attr_collections(
+    result: list,
+    pcb: "KiCadPcb",
+    attr_names: tuple[str, ...],
+) -> None:
+    for attr_name in attr_names:
+        _append_serialized_items(result, getattr(pcb, attr_name))
+
+
+def _append_pcb_embedded_files(result: list, pcb: "KiCadPcb") -> None:
+    result.append(['embedded_fonts', 'yes' if pcb.embedded_fonts else 'no'])
+    if pcb.embedded_files:
+        ef_elem = ['embedded_files']
+        _append_serialized_items(ef_elem, pcb.embedded_files)
+        result.append(ef_elem)
+
 
 @public_api
 class KiCadPcb:
@@ -271,8 +475,8 @@ class KiCadPcb:
         self.layers: List[Layer] = []
 
         # Setup
-        self.setup_sexp = None
-        self.stackup = None
+        self.setup_sexp: list | None = None
+        self.stackup: Stackup | None = None
         self.pad_to_mask_clearance: float = 0.0
         self.pad_to_paste_clearance: float = 0.0
         self.pad_to_paste_clearance_ratio: float = 0.0
@@ -283,7 +487,7 @@ class KiCadPcb:
         # Board-level properties
         self.properties: list = []
         self.variants: list = []
-        self.title_block = None
+        self.title_block: TitleBlock | None = None
 
         # Graphics
         self.gr_texts: list = []
@@ -372,174 +576,11 @@ class KiCadPcb:
         pcb = cls()
         pcb._raw_sexp = sexp
 
-        # Header
-        pcb.version = int(get_value(sexp, 'version', KICAD_PCB_FILE_VERSION))
-        pcb.generator = unquote_string(get_value(sexp, 'generator', KICAD_PCB_GENERATOR))
-        pcb.generator_version = unquote_string(get_value(sexp, 'generator_version', KICAD_GENERATOR_VERSION))
-
-        # General
-        general = find_element(sexp, 'general')
-        if general:
-            pcb.thickness = float(get_value(general, 'thickness', KICAD_DEFAULT_BOARD_THICKNESS_MM))
-            pcb.legacy_teardrops = get_value(general, 'legacy_teardrops') == 'yes'
-
-        # Paper
-        pcb.paper = unquote_string(get_value(sexp, 'paper', KICAD_DEFAULT_PAPER))
-
-        # Title block
-        title_block_elem = find_element(sexp, 'title_block')
-        if title_block_elem:
-            pcb.title_block = TitleBlock.from_sexp(title_block_elem)
-
-        # Layers
-        layers_elem = find_element(sexp, 'layers')
-        if layers_elem:
-            for layer_def in layers_elem[1:]:
-                if isinstance(layer_def, list):
-                    pcb.layers.append(Layer.from_sexp(layer_def))
-
-        # Setup
-        pcb.setup_sexp = find_element(sexp, 'setup')
-
-        # Parse stackup and design settings from setup section
-        if pcb.setup_sexp:
-            stackup_elem = find_element(pcb.setup_sexp, 'stackup')
-            if stackup_elem:
-                pcb.stackup = Stackup.from_sexp(stackup_elem)
-
-            # Parse solder mask clearance (pad expansion for mask layers)
-            pad_to_mask_val = get_value(pcb.setup_sexp, 'pad_to_mask_clearance', None)
-            if pad_to_mask_val is not None:
-                pcb.pad_to_mask_clearance = float(pad_to_mask_val)
-
-            pad_to_paste_val = get_value(pcb.setup_sexp, "pad_to_paste_clearance", None)
-            if pad_to_paste_val is not None:
-                pcb.pad_to_paste_clearance = float(pad_to_paste_val)
-
-            pad_to_paste_ratio_val = get_value(pcb.setup_sexp, "pad_to_paste_clearance_ratio", None)
-            if pad_to_paste_ratio_val is not None:
-                pcb.pad_to_paste_clearance_ratio = float(pad_to_paste_ratio_val)
-
-        # Nets
-        for net_elem in find_all_elements(sexp, 'net'):
-            pcb.nets.append(Net.from_sexp(net_elem))
-
-        # Board-level properties (custom metadata)
-        for prop_elem in find_all_elements(sexp, 'property'):
-            pcb.properties.append(BoardProperty.from_sexp(prop_elem))
-
-        variants_elem = find_element(sexp, 'variants')
-        if variants_elem:
-            for variant_elem in find_all_elements(variants_elem, 'variant'):
-                pcb.variants.append(BoardVariant.from_sexp(variant_elem))
-
-        # Graphics
-        for elem in find_all_elements(sexp, 'gr_text'):
-            pcb.gr_texts.append(GrText.from_sexp(elem))
-        for elem in find_all_elements(sexp, 'gr_line'):
-            pcb.gr_lines.append(GrLine.from_sexp(elem))
-        for elem in find_all_elements(sexp, 'gr_rect'):
-            pcb.gr_rects.append(GrRect.from_sexp(elem))
-        for elem in find_all_elements(sexp, 'gr_arc'):
-            pcb.gr_arcs.append(GrArc.from_sexp(elem))
-        for elem in find_all_elements(sexp, 'gr_circle'):
-            pcb.gr_circles.append(GrCircle.from_sexp(elem))
-        for elem in find_all_elements(sexp, 'gr_poly'):
-            pcb.gr_polys.append(GrPoly.from_sexp(elem))
-        for elem in find_all_elements(sexp, 'gr_curve'):
-            pcb.gr_curves.append(GrCurve.from_sexp(elem))
-        for elem in find_all_elements(sexp, 'gr_text_box'):
-            pcb.gr_text_boxes.append(GrTextBox.from_sexp(elem))
-
-        # Barcodes
-        for elem in find_all_elements(sexp, 'barcode'):
-            pcb.barcodes.append(Barcode.from_sexp(elem))
-
-        # Images
-        for elem in find_all_elements(sexp, 'image'):
-            pcb.images.append(Image.from_sexp(elem))
-
-        # Tables
-        for elem in find_all_elements(sexp, 'table'):
-            pcb.tables.append(Table.from_sexp(elem))
-
-        # Footprints (newer format uses 'footprint', older format uses 'module')
-        for elem in find_all_elements(sexp, 'footprint'):
-            pcb.footprints.append(Footprint.from_sexp(elem))
-        for elem in find_all_elements(sexp, 'module'):
-            pcb.footprints.append(Footprint.from_sexp(elem))
-
-        net_name_by_id = {net.ordinal: net.name for net in pcb.nets}
-        net_id_by_name = {net.name: net.ordinal for net in pcb.nets}
-
-        def _resolve_net_ref(net_ref: NetRef) -> NetRef:
-            return net_ref.resolve_name(net_name_by_id).resolve_ordinal(net_id_by_name)
-
-        def _resolve_named_net(obj: Any) -> None:
-            net_ref = getattr(obj, 'net', NetRef())
-            if not isinstance(net_ref, NetRef):
-                return
-            obj.net = _resolve_net_ref(net_ref)
-
-        for footprint in pcb.footprints:
-            for pad in getattr(footprint, 'pads', []) or []:
-                if isinstance(getattr(pad, 'net', None), NetRef):
-                    pad.net = _resolve_net_ref(pad.net)
-
-        # Zones
-        for elem in find_all_elements(sexp, 'zone'):
-            zone = Zone.from_sexp(elem)
-            zone.net = _resolve_net_ref(zone.net)
-            pcb.zones.append(zone)
-
-        # Dimensions
-        for elem in find_all_elements(sexp, 'dimension'):
-            pcb.dimensions.append(Dimension.from_sexp(elem))
-
-        # Tracks
-        for elem in find_all_elements(sexp, 'segment'):
-            segment = Segment.from_sexp(elem)
-            _resolve_named_net(segment)
-            pcb.segments.append(segment)
-        for elem in find_all_elements(sexp, 'via'):
-            via = Via.from_sexp(elem)
-            _resolve_named_net(via)
-            pcb.vias.append(via)
-        for elem in find_all_elements(sexp, 'arc'):
-            arc = Arc.from_sexp(elem)
-            _resolve_named_net(arc)
-            pcb.arcs.append(arc)
-
-        # Groups
-        for elem in find_all_elements(sexp, 'group'):
-            pcb.groups.append(Group.from_sexp(elem))
-
-        for elem in find_all_elements(sexp, 'generated'):
-            pcb.generated_items.append(GeneratedObject.from_sexp(elem))
-
-        # Embedded files
-        pcb.embedded_fonts = get_value(sexp, 'embedded_fonts') == 'yes'
-
-        embedded_files_elem = find_element(sexp, 'embedded_files')
-        if embedded_files_elem:
-            for file_elem in find_all_elements(embedded_files_elem, 'file'):
-                pcb.embedded_files.append(EmbeddedFile.from_sexp(file_elem))
-
-        # Unknown elements - store raw for round-trip compatibility
-        known_elements = {
-            'kicad_pcb', 'version', 'generator', 'generator_version',
-            'general', 'paper', 'title_block', 'layers', 'setup', 'net',
-            'property', 'variants',  # Board-level custom metadata / variant registry
-            'gr_text', 'gr_line', 'gr_rect', 'gr_arc', 'gr_circle', 'gr_poly',
-            'gr_curve', 'gr_text_box', 'barcode', 'image', 'table',
-            'footprint', 'module', 'zone', 'dimension', 'segment', 'via', 'arc',
-            'group', 'generated', 'embedded_fonts', 'embedded_files'
-        }
-        for elem in sexp[1:]:
-            if isinstance(elem, list) and len(elem) > 0:
-                elem_name = elem[0]
-                if elem_name not in known_elements:
-                    pcb.unknown_elements.append(UnknownElement(name=elem_name, raw_sexp=elem))
+        _parse_pcb_header_and_setup(pcb, sexp)
+        _parse_pcb_collections(pcb, sexp)
+        _resolve_pcb_net_bound_items(pcb, sexp)
+        _parse_pcb_embedded_files(pcb, sexp)
+        _preserve_unknown_pcb_elements(pcb, sexp)
 
         return pcb
 
@@ -550,112 +591,55 @@ class KiCadPcb:
                         ['generator', QuotedString(self.generator)],
                         ['generator_version', QuotedString(self.generator_version)]]
 
-        # General
-        general = ['general',
-                   ['thickness', self.thickness],
-                   ['legacy_teardrops', 'yes' if self.legacy_teardrops else 'no']]
-        result.append(general)
-
-        # Paper
-        result.append(['paper', QuotedString(self.paper)])
-
-        # Title block
-        if self.title_block:
-            result.append(self.title_block.to_sexp())
-
-        # Layers
-        layers_elem: list = ['layers']
-        for layer in self.layers:
-            layers_elem.append(layer.to_sexp())
-        result.append(layers_elem)
+        _append_pcb_header(result, self)
+        _append_pcb_layers(result, self.layers)
 
         # Setup
         if self.setup_sexp:
             result.append(self.setup_sexp)
 
         # Nets
-        for net in self.nets:
-            result.append(net.to_sexp())
+        _append_serialized_items(result, self.nets)
 
         # Board-level properties
-        for prop in self.properties:
-            result.append(prop.to_sexp())
+        _append_serialized_items(result, self.properties)
 
-        if self.variants:
-            variants_elem = ['variants']
-            for variant in self.variants:
-                variants_elem.append(variant.to_sexp())
-            result.append(variants_elem)
+        _append_pcb_variants(result, self.variants)
 
         # Footprints
-        for fp in self.footprints:
-            result.append(fp.to_sexp())
+        _append_serialized_items(result, self.footprints)
 
         # Graphics
-        for gr in self.gr_rects:
-            result.append(gr.to_sexp())
-        for gr in self.gr_lines:
-            result.append(gr.to_sexp())
-        for gr in self.gr_arcs:
-            result.append(gr.to_sexp())
-        for gr in self.gr_circles:
-            result.append(gr.to_sexp())
-        for gr in self.gr_polys:
-            result.append(gr.to_sexp())
-        for gr in self.gr_curves:
-            result.append(gr.to_sexp())
-        for gr in self.gr_text_boxes:
-            result.append(gr.to_sexp())
-        for gr in self.gr_texts:
-            result.append(gr.to_sexp())
+        _append_pcb_attr_collections(result, self, _PCB_GRAPHIC_SEXP_ATTRS)
 
         # Barcodes
-        for barcode in self.barcodes:
-            result.append(barcode.to_sexp())
+        _append_serialized_items(result, self.barcodes)
 
         # Images
-        for img in self.images:
-            result.append(img.to_sexp())
+        _append_serialized_items(result, self.images)
 
         # Tables
-        for tbl in self.tables:
-            result.append(tbl.to_sexp())
+        _append_serialized_items(result, self.tables)
 
         # Zones
-        for zone in self.zones:
-            result.append(zone.to_sexp())
+        _append_serialized_items(result, self.zones)
 
         # Dimensions
-        for dim in self.dimensions:
-            result.append(dim.to_sexp())
+        _append_serialized_items(result, self.dimensions)
 
         # Tracks
-        for seg in self.segments:
-            result.append(seg.to_sexp())
-        for via in self.vias:
-            result.append(via.to_sexp())
-        for arc in self.arcs:
-            result.append(arc.to_sexp())
+        _append_pcb_attr_collections(result, self, _PCB_TRACK_SEXP_ATTRS)
 
         # Groups
-        for group in self.groups:
-            result.append(group.to_sexp())
+        _append_serialized_items(result, self.groups)
 
-        for generated_item in self.generated_items:
-            result.append(generated_item.to_sexp())
+        _append_serialized_items(result, self.generated_items)
 
         # Embedded files
-        result.append(['embedded_fonts', 'yes' if self.embedded_fonts else 'no'])
-
-        if self.embedded_files:
-            ef_elem = ['embedded_files']
-            for ef in self.embedded_files:
-                ef_elem.append(ef.to_sexp())
-            result.append(ef_elem)
+        _append_pcb_embedded_files(result, self)
 
         # Unknown elements (preserved for round-trip compatibility)
-        for unknown in self.unknown_elements:
-            result.append(unknown.to_sexp())
+        _append_serialized_items(result, self.unknown_elements)
 
         return result
 

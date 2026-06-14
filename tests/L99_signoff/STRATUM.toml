@@ -10,7 +10,7 @@ objectives = [
     "Public contribution, issue, CI, and release support files exist",
     "Developer-only plan and research docs are excluded from release artifacts",
     "Promoted package-root API exports resolve cleanly",
-    "Source-wide ruff and package-wide pyright gates cover the current public-signoff baseline",
+    "Source-wide ruff, complexity ratchet, and package-wide pyright gates cover the current public-signoff baseline",
     "Promoted public classes and major interfaces have design docs and Rack test ownership",
     "Design documentation entry points and contract docs exist",
 ]
@@ -41,12 +41,13 @@ pytest = "Inspect package metadata and run the public API contract helper"
 id = "L99_002"
 file = "test_L99_002_quality_tools.py"
 name = "Quality Tool Signoff"
-description = "Run the current package source ruff and pyright public-signoff baseline"
+description = "Run the current package source ruff, complexity, and pyright public-signoff baseline"
 concerns = ["release", "signoff"]
 test_case_type = "audit_meta"
 
 [subtests.objectives]
 ruff = "Ruff passes on package source and public-signoff files"
+complexity = "Ruff C901 complexity stays within the current ratcheted baseline"
 pyright = "Pyright passes across the package source tree"
 status_doc = "Quality status documentation records the current zero-diagnostic ratchet state"
 

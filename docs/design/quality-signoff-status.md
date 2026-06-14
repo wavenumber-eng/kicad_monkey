@@ -1,7 +1,7 @@
 # Quality Signoff Status
 
 Status: public-release bootstrap audit
-Last updated: 2026-06-02
+Last updated: 2026-06-14
 
 ## Passing Gates
 
@@ -11,6 +11,9 @@ Last updated: 2026-06-02
   promoted public class design sections, and Rack test ownership links.
 - `L99_signoff` runs `ruff check` across `src/py/kicad_monkey`, L99 signoff
   tests, the promoted API contract test, and the corpus packaging script.
+- `L99_signoff` runs a Ruff C901 complexity ratchet across
+  `src/py/kicad_monkey`; existing hotspots are baselined and regressions fail
+  signoff.
 - `L99_signoff` runs package-wide pyright against `src/py/kicad_monkey` through
   `pyrightconfig.json`.
 - `tests/corpus/kicad.zip` is the public test-corpus transport. The loose
@@ -22,9 +25,19 @@ Last updated: 2026-06-02
 
 ## Active Quality Ratchet
 
-Ruff and pyright are installed in the test extra and remain release-signoff
-tools. The source package is now ruff-clean and pyright-clean, and both are
-hard-gated by L99.
+Ruff, the Ruff C901 complexity ratchet, and pyright are installed in the test
+extra and remain release-signoff tools. The source package is now ruff-clean
+and pyright-clean, and both are hard-gated by L99.
+
+Current complexity baseline:
+
+```text
+max C901 complexity: 27
+functions over 10: 129
+functions over 20: 18
+functions over 30: 0
+functions over 50: 0
+```
 
 Known remaining package-wide ruff work is in older non-L99 tests and any future
 developer-only scripts. Package pyright is at zero diagnostics under
@@ -41,9 +54,12 @@ uv run --extra test pyright
 Ongoing release expectations:
 
 1. Keep `src/py/kicad_monkey` package-wide ruff and pyright clean.
-2. Keep package pyright at zero while downstream consumers move to the public
+2. Keep new or modified functions at C901 complexity 10 or lower unless the
+   complexity ratchet is intentionally reviewed.
+3. Reduce the existing complexity baseline opportunistically during refactors.
+4. Keep package pyright at zero while downstream consumers move to the public
    API surface.
-3. Add conformance contracts under `docs/contracts/` for any stable JSON,
+5. Add conformance contracts under `docs/contracts/` for any stable JSON,
    corpus manifest, or cruncher-facing output that leaves the package.
-4. Use the first `kicad-cruncher` integration pass to decide which provisional
+6. Use the first `kicad-cruncher` integration pass to decide which provisional
    `__all__` exports graduate into the promoted public contract.

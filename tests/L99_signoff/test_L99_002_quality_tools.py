@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -23,6 +25,20 @@ RUFF_BASELINE_PATHS = (
     "scripts/package_kicad_corpus.py",
 )
 QUALITY_STATUS_DOC = PACKAGE_ROOT / "docs" / "design" / "quality-signoff-status.md"
+COMPLEXITY_BASELINE_PATH = "src/py/kicad_monkey"
+COMPLEXITY_MAX_BASELINE = 27
+COMPLEXITY_COUNT_BASELINES = {
+    10: 129,
+    20: 18,
+    30: 0,
+    50: 0,
+}
+COMPLEXITY_EXCESS_BASELINES = {
+    10: 614,
+    20: 75,
+    30: 0,
+}
+COMPLEXITY_MESSAGE_RE = re.compile(r"\((?P<complexity>\d+) > 10\)")
 
 
 def _run_module(module: str, *args: str) -> subprocess.CompletedProcess[str]:
@@ -41,6 +57,71 @@ def test_package_source_ruff_check_passes() -> None:
     completed = _run_module("ruff", "check", *RUFF_BASELINE_PATHS)
 
     assert completed.returncode == 0, completed.stderr + completed.stdout
+
+
+def test_package_source_complexity_ratchet_does_not_regress() -> None:
+    """Verify source complexity stays within the current public-signoff ratchet."""
+    completed = _run_module(
+        "ruff",
+        "check",
+        "--select",
+        "C901",
+        "--config",
+        "lint.mccabe.max-complexity=10",
+        "--output-format",
+        "json",
+        COMPLEXITY_BASELINE_PATH,
+    )
+
+    try:
+        diagnostics = json.loads(completed.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        raise AssertionError(completed.stderr + completed.stdout) from exc
+
+    complexities: list[tuple[int, str, int, str]] = []
+    for diagnostic in diagnostics:
+        if diagnostic.get("code") != "C901":
+            continue
+        match = COMPLEXITY_MESSAGE_RE.search(str(diagnostic.get("message", "")))
+        if match is None:
+            raise AssertionError(f"Could not parse complexity diagnostic: {diagnostic!r}")
+        filename = Path(str(diagnostic["filename"])).relative_to(PACKAGE_ROOT)
+        row = int(diagnostic["location"]["row"])
+        complexities.append(
+            (
+                int(match.group("complexity")),
+                filename.as_posix(),
+                row,
+                str(diagnostic["message"]),
+            )
+        )
+
+    observed_max = max((value for value, _, _, _ in complexities), default=0)
+    failures: list[str] = []
+    if observed_max > COMPLEXITY_MAX_BASELINE:
+        failures.append(
+            f"max complexity {observed_max} exceeds baseline {COMPLEXITY_MAX_BASELINE}"
+        )
+
+    for threshold, baseline in COMPLEXITY_COUNT_BASELINES.items():
+        observed = sum(1 for value, _, _, _ in complexities if value > threshold)
+        if observed > baseline:
+            failures.append(
+                f"{observed} functions exceed complexity {threshold}; baseline is {baseline}"
+            )
+
+    for threshold, baseline in COMPLEXITY_EXCESS_BASELINES.items():
+        observed = sum(max(0, value - threshold) for value, _, _, _ in complexities)
+        if observed > baseline:
+            failures.append(
+                f"excess complexity over {threshold} is {observed}; baseline is {baseline}"
+            )
+
+    top = "\n".join(
+        f"  {path}:{row}: {message}"
+        for _, path, row, message in sorted(complexities, reverse=True)[:10]
+    )
+    assert failures == [], "Complexity ratchet regression:\n" + "\n".join(failures) + "\n" + top
 
 
 def test_package_pyright_check_passes() -> None:

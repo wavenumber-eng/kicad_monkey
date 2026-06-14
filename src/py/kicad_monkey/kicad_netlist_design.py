@@ -1,21 +1,21 @@
-"""
+﻿"""
 Multi-sheet KiCad netlist compiler.
 
 Walks a hierarchical :class:`~kicad_monkey.KiCadSchematic` design,
 compiles each sheet via :func:`compile_sheet_subgraphs`, then performs
 cross-sheet union-find based on:
 
-1. ``sheet_pin`` (parent) ↔ ``hierarchical_label`` (child) pairing by
-   pin / label name — the standard KiCad way to bridge a parent
+1. ``sheet_pin`` (parent) â†” ``hierarchical_label`` (child) pairing by
+   pin / label name â€” the standard KiCad way to bridge a parent
    subgraph into the matching child subgraph.
-2. Cross-sheet ``global_label`` text-equality merge — all subgraphs
+2. Cross-sheet ``global_label`` text-equality merge â€” all subgraphs
    driven by the same global-label text collapse to one net.
-3. Cross-sheet ``global_power_pin`` value-equality merge — all
+3. Cross-sheet ``global_power_pin`` value-equality merge â€” all
    subgraphs driven by a power symbol with the same value collapse to
    one net.
 
 After merging, the highest-priority driver across the merged group
-names the net (KiCad's ``compareDrivers`` rules — same as the
+names the net (KiCad's ``compareDrivers`` rules â€” same as the
 single-sheet path). Sequential net codes are assigned in stable
 discovery order.
 
@@ -84,19 +84,19 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 @dataclass
 class CompiledSheet:
-    """One sheet instance in the design — its compiled subgraphs + paths.
+    """One sheet instance in the design â€” its compiled subgraphs + paths.
 
-    * ``sheet_path`` — canonical UUID-form path (e.g. ``"/<uuid>/<uuid>/"``).
+    * ``sheet_path`` â€” canonical UUID-form path (e.g. ``"/<uuid>/<uuid>/"``).
       Used for net naming when the chosen driver is a local label /
       hier label / sheet pin.
-    * ``sheet_path_human`` — human-readable path built from each
+    * ``sheet_path_human`` â€” human-readable path built from each
       sheet's ``Sheetname`` (e.g. ``"/sub_a/inner/"``).
-    * ``schematic`` — the :class:`KiCadSchematic` this sheet refers to.
-    * ``subgraphs`` — output of :func:`compile_sheet_subgraphs`.
-    * ``parent_sheet`` — the :class:`SchSheet` placement that brought
+    * ``schematic`` â€” the :class:`KiCadSchematic` this sheet refers to.
+    * ``subgraphs`` â€” output of :func:`compile_sheet_subgraphs`.
+    * ``parent_sheet`` â€” the :class:`SchSheet` placement that brought
       this sheet into the design (``None`` for the root).
-    * ``parent`` — the parent :class:`CompiledSheet` (``None`` for root).
-    * ``coord_to_sg`` — derived index from each subgraph coord to its
+    * ``parent`` â€” the parent :class:`CompiledSheet` (``None`` for root).
+    * ``coord_to_sg`` â€” derived index from each subgraph coord to its
       subgraph index inside ``subgraphs`` (used by the merge step).
     """
 
@@ -108,12 +108,12 @@ class CompiledSheet:
     parent: Optional["CompiledSheet"] = None
     coord_to_sg: Dict[CoordKey, int] = field(default_factory=dict)
     bus_subgraphs: List[BusSubgraph] = field(default_factory=list)
-    # Per bus-subgraph index → mapping {member_name: wire_sg_idx}.
+    # Per bus-subgraph index â†’ mapping {member_name: wire_sg_idx}.
     # Built alongside ``bus_subgraphs`` so the cross-sheet bus member
     # merge can look up "which wire subgraph carries member ``X`` of
     # bus ``i``?" without re-walking taps.
     bus_member_wire_sg: List[Dict[str, int]] = field(default_factory=list)
-    # Design-wide bus alias map — only the root sheet carries this;
+    # Design-wide bus alias map â€” only the root sheet carries this;
     # populated by ``compile_design_subgraphs``. Empty on non-root.
     bus_aliases_design: Dict[str, List[str]] = field(default_factory=dict)
 
@@ -130,7 +130,7 @@ def _merge_graphical_ids(
 
 
 # ---------------------------------------------------------------------------
-# Design walk — yields CompiledSheet shells (subgraphs not yet filled)
+# Design walk â€” yields CompiledSheet shells (subgraphs not yet filled)
 # ---------------------------------------------------------------------------
 
 
@@ -138,10 +138,10 @@ def _walk_design_sheets(top: "KiCadSchematic") -> Iterator[CompiledSheet]:
     """Yield ``CompiledSheet`` records for every sheet in the hierarchy.
 
     Order: parent before child. The root's ``sheet_path`` is always
-    ``"/"`` — kicad-cli uses the same convention; the top schematic's
+    ``"/"`` â€” kicad-cli uses the same convention; the top schematic's
     own UUID never appears in the path (instance-path UUIDs come from
     the parent's ``SchSheet`` placeholders, not the child's own
-    ``(uuid …)``). Each child level appends ``"<sheet_placeholder_uuid>/"``.
+    ``(uuid â€¦)``). Each child level appends ``"<sheet_placeholder_uuid>/"``.
     """
     root = CompiledSheet(
         sheet_path="/",
@@ -217,7 +217,7 @@ def _build_legacy_unit_lookup(
 ) -> Dict[str, int]:
     """Same as :func:`_build_legacy_instance_lookup` but for ``unit``.
 
-    Legacy ``(symbol_instances …)`` records carry both ``reference``
+    Legacy ``(symbol_instances â€¦)`` records carry both ``reference``
     and ``unit``. The unit lookup is the only authoritative source of
     per-sheet-path unit for placements whose schematic body lacks a
     ``(unit N)`` token (which is the norm for pre-20210126 fixtures).
@@ -240,8 +240,8 @@ def _build_legacy_unit_lookup(
 def _canonical_instance_path(top: "KiCadSchematic", sheet_path: str) -> str:
     """Build the modern canonical instance path for *sheet_path*.
 
-    KiCad's modern ``(instances …)`` block uses paths like
-    ``/<top_sch_uuid>/<child_sheet_uuid>/…`` — i.e. the path always
+    KiCad's modern ``(instances â€¦)`` block uses paths like
+    ``/<top_sch_uuid>/<child_sheet_uuid>/â€¦`` â€” i.e. the path always
     *starts* with the top schematic's own UUID. Our :class:`CompiledSheet`
     convention strips that leading segment (root = ``"/"``), so to match
     a sym's modern instance entry we have to prepend ``top.uuid`` back.
@@ -252,7 +252,7 @@ def _canonical_instance_path(top: "KiCadSchematic", sheet_path: str) -> str:
     top_uuid = (getattr(top, "uuid", "") or "").strip()
     if not top_uuid:
         return sheet_path.rstrip("/")
-    # sheet_path always starts with "/" — concat directly (e.g. "/abc/").
+    # sheet_path always starts with "/" â€” concat directly (e.g. "/abc/").
     return f"/{top_uuid}{sheet_path}".rstrip("/")
 
 
@@ -266,13 +266,13 @@ def compile_design_subgraphs(
 
     Returns a list of :class:`CompiledSheet` instances (root first) with
     their ``subgraphs`` and ``coord_to_sg`` populated. Cross-sheet
-    merging is *not* applied — call :func:`merge_design_nets` for that.
+    merging is *not* applied â€” call :func:`merge_design_nets` for that.
     """
     out: List[CompiledSheet] = list(_walk_design_sheets(top))
     legacy_lookup = _build_legacy_instance_lookup(out)
     legacy_unit_lookup = _build_legacy_unit_lookup(out)
     # KiCad treats bus aliases as design-wide: any sheet's
-    # ``(bus_alias …)`` declaration is visible to every other sheet
+    # ``(bus_alias â€¦)`` declaration is visible to every other sheet
     # in the hierarchy when resolving bus labels. Collect them across
     # all compiled sheets up front; later sheets override earlier ones
     # on name collision (mirrors KiCad's last-loaded-wins behaviour).
@@ -297,7 +297,7 @@ def compile_design_subgraphs(
         for i, sg in enumerate(cs.subgraphs):
             for c in sg.coords:
                 cs.coord_to_sg[c] = i
-        # Bus subgraphs — built post-compile so the cross-sheet merge
+        # Bus subgraphs â€” built post-compile so the cross-sheet merge
         # can pair bus-form sheet_pins / hier_labels by chosen_name and
         # promote per-member nets to the parent bus's chosen-name. We
         # rebuild rather than thread state out of compile_sheet_subgraphs
@@ -324,11 +324,11 @@ def _map_bus_members_to_wire_sgs(cs: CompiledSheet) -> List[Dict[str, int]]:
        carries.
     2. **Name-only joins**: any wire subgraph on the same sheet with a
        LOCAL_LABEL or HIER_LABEL whose text equals a bus member name
-       — even without a physical bus_entry — is treated as carrying
+       â€” even without a physical bus_entry â€” is treated as carrying
        that bus member. This is how a sheet that only declares the
-       bus through a ``(hierarchical_label "FOO[0..N]" …)`` interface
+       bus through a ``(hierarchical_label "FOO[0..N]" â€¦)`` interface
        (no actual bus drawn inside) still gets its local labels
-       ``FOO0…FOON`` merged into the bus's cross-sheet member net.
+       ``FOO0â€¦FOON`` merged into the bus's cross-sheet member net.
     """
     out: List[Dict[str, int]] = []
     # Pre-index every wire subgraph on this sheet by its label text so
@@ -377,7 +377,7 @@ def _map_bus_members_to_wire_sgs(cs: CompiledSheet) -> List[Dict[str, int]]:
 
 
 # ---------------------------------------------------------------------------
-# Cross-sheet merge — union-find over (sheet_index, sg_index) pairs
+# Cross-sheet merge â€” union-find over (sheet_index, sg_index) pairs
 # ---------------------------------------------------------------------------
 
 
@@ -428,11 +428,11 @@ def merge_design_nets(compiled: List[CompiledSheet]) -> List[KiCadNet]:
 
     1. Each ``SchSheet`` pin on a parent's compiled subgraph pairs
        with the child schematic's ``hierarchical_label`` of the same
-       text → union those subgraphs.
-    2. All subgraphs driven by a ``GLOBAL_LABEL`` with the same text →
+       text â†’ union those subgraphs.
+    2. All subgraphs driven by a ``GLOBAL_LABEL`` with the same text â†’
        union.
     3. All subgraphs driven by a global ``power_pin`` with the same
-       value → union.
+       value â†’ union.
 
     After merging, each merged group's nets are named via
     :func:`name_net` using the highest-priority driver across the
@@ -443,7 +443,7 @@ def merge_design_nets(compiled: List[CompiledSheet]) -> List[KiCadNet]:
     n = len(flat_keys)
     parent, rank = _make_union_find(n)
 
-    # ---- 1. sheet_pin ↔ hier_label pairing --------------------------------
+    # ---- 1. sheet_pin â†” hier_label pairing --------------------------------
     # For each parent CompiledSheet, walk its SchSheet placements; for
     # each pin on those placements, find:
     #   (a) the parent subgraph that contains the pin's coord
@@ -458,7 +458,7 @@ def merge_design_nets(compiled: List[CompiledSheet]) -> List[KiCadNet]:
             if sheet is None:
                 continue
             child_idx = sheet_to_index[id(child_cs)]
-            # Build a name → child-subgraph index lookup once.
+            # Build a name â†’ child-subgraph index lookup once.
             hier_by_name: Dict[str, int] = {}
             for g_i, sg in enumerate(child_cs.subgraphs):
                 for ld in sg.label_drivers:
@@ -530,7 +530,7 @@ class _BusMemberOverride:
     ``text`` is the winning bus's chosen-name expanded at this member
     position (e.g. ``"top.x"``). The ``priority`` / ``kind`` come from
     the winning bus driver (typically the parent's LOCAL_LABEL bus
-    label, the parent's SHEET_PIN, or the child's HIER_LABEL — whichever
+    label, the parent's SHEET_PIN, or the child's HIER_LABEL â€” whichever
     wins :func:`compareDrivers`). ``depth`` is the path-depth of the
     sheet that owns the winning driver (used as the candidate tiebreak
     in :func:`_materialise_nets`). ``sheet_path_uuid`` is the canonical
@@ -545,63 +545,39 @@ class _BusMemberOverride:
     sheet_path: str  # human-readable sheet path used by name_net
 
 
-def _merge_buses_cross_sheet(
+_BusMemberKey = Tuple[int, int, int]
+_BusMemberCandidate = Tuple[
+    int, int, str, str, int,
+    KiCadDriverKind, KiCadDriverPriority, str,
+    BusSubgraph, int,
+]
+
+
+def _flatten_bus_members(
     compiled: List[CompiledSheet],
-    sheet_to_index: Dict[int, int],
-    parent: List[int],
-    rank: List[int],
-    key_to_idx: Dict[Tuple[int, int], int],
-    overrides_by_flat: Dict[int, List[_BusMemberOverride]],
-) -> None:
-    """Cross-sheet + within-sheet bus member-level union-find.
-
-    Operates over ``(sheet_idx, bus_sg_idx, member_pos)`` tuples — each
-    represents one bus member instance in the design. Two unions:
-
-    * **Cross-sheet**: a parent bus subgraph (containing a bus-form
-      sheet_pin) unions with the matching child bus subgraph (containing
-      a hier_label of identical text) **by position** for every shared
-      position index.
-    * **Within-sheet**: two bus subgraphs on the same sheet whose
-      expanded member sets share a name union the corresponding member
-      positions by name. This is how prefix-bus-alias chains like
-      ``test{a_xyz}`` ↔ ``test{b_x}`` propagate ``test.x`` between
-      physically-separate buses on the same sheet.
-
-    Each member-UF group then resolves a winning bus driver
-    (``compareDrivers``: priority → depth → name) and:
-
-    * unions the wire subgraphs tapped at the matching member position
-      across the group (in the main wire UF), and
-    * stamps an override on each tap so :func:`_materialise_nets` names
-      the merged net using the winning driver's expanded member at the
-      winning sheet's path.
-    """
-    from .kicad_schematic_connectivity import snap_mm_to_iu
-
-    # Flatten member positions: (sheet_idx, bus_sg_idx, member_pos).
-    member_flat: List[Tuple[int, int, int]] = []
-    member_idx: Dict[Tuple[int, int, int], int] = {}
+) -> tuple[List[_BusMemberKey], Dict[_BusMemberKey, int]]:
+    member_flat: List[_BusMemberKey] = []
+    member_idx: Dict[_BusMemberKey, int] = {}
     for s_i, cs in enumerate(compiled):
         for b_i, bsg in enumerate(cs.bus_subgraphs):
             for pos in range(len(bsg.members)):
                 member_idx[(s_i, b_i, pos)] = len(member_flat)
                 member_flat.append((s_i, b_i, pos))
-    if not member_flat:
-        return
+    return member_flat, member_idx
 
-    m_parent, m_rank = _make_union_find(len(member_flat))
 
-    # --- 4a. Within-sheet member-name overlap -------------------------
-    # KiCad treats two bus subgraphs on the same sheet whose member
-    # names overlap as referring to the same logical net at every
-    # shared name (e.g. ``test{a_xyz}.test.x`` ≡ ``test{b_x}.test.x``).
+def _union_within_sheet_bus_members(
+    compiled: List[CompiledSheet],
+    member_idx: Dict[_BusMemberKey, int],
+    m_parent: List[int],
+    m_rank: List[int],
+) -> None:
     for s_i, cs in enumerate(compiled):
         name_to_pairs: Dict[str, List[Tuple[int, int]]] = {}
         for b_i, bsg in enumerate(cs.bus_subgraphs):
-            for pos, m in enumerate(bsg.members):
+            for pos, member_name in enumerate(bsg.members):
                 name_to_pairs.setdefault(
-                    canonical_bus_member_name(m),
+                    canonical_bus_member_name(member_name),
                     [],
                 ).append((b_i, pos))
         for pairs in name_to_pairs.values():
@@ -611,165 +587,229 @@ def _merge_buses_cross_sheet(
             for b_i, pos in pairs[1:]:
                 _uf_union(m_parent, m_rank, base, member_idx[(s_i, b_i, pos)])
 
-    # --- 4b. Cross-sheet sheet_pin ↔ hier_label (pair by member NAME) ---
-    # KiCad pairs members across a sheet boundary by *name* (matching
-    # ``SCH_CONNECTION::IsSubsetOf`` semantics): a parent's ``{SCL SDA}``
-    # paired with a child's ``{SDA SCL}`` connects SCL↔SCL and SDA↔SDA
-    # regardless of position. Members that exist on only one side stay
-    # un-paired.
+
+def _hier_bus_by_name(child_cs: CompiledSheet) -> Dict[str, int]:
+    hier_bus_by_name: Dict[str, int] = {}
+    for b_i, bsg in enumerate(child_cs.bus_subgraphs):
+        for driver in bsg.drivers:
+            if driver.kind == KiCadDriverKind.HIER_LABEL and is_bus_label(driver.text):
+                hier_bus_by_name.setdefault(driver.text, b_i)
+    return hier_bus_by_name
+
+
+def _parent_bus_index_for_pin(parent_cs: CompiledSheet, pin_coord: CoordKey) -> Optional[int]:
+    for b_i, bsg in enumerate(parent_cs.bus_subgraphs):
+        if pin_coord in bsg.coords:
+            return b_i
+    return None
+
+
+def _union_bus_member_pairing(
+    parent_bsg: BusSubgraph,
+    child_bsg: BusSubgraph,
+    parent_key: tuple[int, int],
+    child_key: tuple[int, int],
+    member_idx: Dict[_BusMemberKey, int],
+    m_parent: List[int],
+    m_rank: List[int],
+) -> None:
+    child_pos_by_name: Dict[str, int] = {}
+    for c_pos, c_name in enumerate(child_bsg.members):
+        child_pos_by_name.setdefault(canonical_bus_member_name(c_name), c_pos)
+
+    matched_parent: set[int] = set()
+    matched_child: set[int] = set()
+    for p_pos, p_name in enumerate(parent_bsg.members):
+        c_pos = child_pos_by_name.get(canonical_bus_member_name(p_name))
+        if c_pos is None or c_pos in matched_child:
+            continue
+        _uf_union(
+            m_parent,
+            m_rank,
+            member_idx[(*parent_key, p_pos)],
+            member_idx[(*child_key, c_pos)],
+        )
+        matched_parent.add(p_pos)
+        matched_child.add(c_pos)
+
+    unmatched_parent = [
+        p_pos for p_pos in range(len(parent_bsg.members))
+        if p_pos not in matched_parent
+    ]
+    unmatched_child = [
+        c_pos for c_pos in range(len(child_bsg.members))
+        if c_pos not in matched_child
+    ]
+    for p_pos, c_pos in zip(unmatched_parent, unmatched_child):
+        _uf_union(
+            m_parent,
+            m_rank,
+            member_idx[(*parent_key, p_pos)],
+            member_idx[(*child_key, c_pos)],
+        )
+
+
+def _union_cross_sheet_bus_members(
+    compiled: List[CompiledSheet],
+    sheet_to_index: Dict[int, int],
+    member_idx: Dict[_BusMemberKey, int],
+    m_parent: List[int],
+    m_rank: List[int],
+) -> None:
+    from .kicad_schematic_connectivity import snap_mm_to_iu
+
     for s_i, parent_cs in enumerate(compiled):
         for child_cs in compiled:
-            if child_cs.parent is not parent_cs:
-                continue
-            sheet = child_cs.parent_sheet
-            if sheet is None:
+            if child_cs.parent is not parent_cs or child_cs.parent_sheet is None:
                 continue
             child_idx = sheet_to_index[id(child_cs)]
-            # Index child bus subgraphs by HIER_LABEL bus driver text.
-            hier_bus_by_name: Dict[str, int] = {}
-            for b_i, bsg in enumerate(child_cs.bus_subgraphs):
-                for bd in bsg.drivers:
-                    if bd.kind != KiCadDriverKind.HIER_LABEL:
-                        continue
-                    if is_bus_label(bd.text):
-                        hier_bus_by_name.setdefault(bd.text, b_i)
-            for pin in sheet.pins:
+            hier_bus_by_name = _hier_bus_by_name(child_cs)
+            for pin in child_cs.parent_sheet.pins:
                 pin_name = pin.name or ""
                 if not is_bus_label(pin_name):
                     continue
-                pin_coord = snap_mm_to_iu(pin.at_x, pin.at_y)
-                parent_b: Optional[int] = None
-                for b_i, bsg in enumerate(parent_cs.bus_subgraphs):
-                    if pin_coord in bsg.coords:
-                        parent_b = b_i
-                        break
-                if parent_b is None:
-                    continue
+                parent_b = _parent_bus_index_for_pin(
+                    parent_cs,
+                    snap_mm_to_iu(pin.at_x, pin.at_y),
+                )
                 child_b = hier_bus_by_name.get(pin_name)
-                if child_b is None:
+                if parent_b is None or child_b is None:
                     continue
-                parent_bsg = parent_cs.bus_subgraphs[parent_b]
-                child_bsg = child_cs.bus_subgraphs[child_b]
-                # Hybrid pairing:
-                #   1. Pair members that share a name (handles
-                #      ``{SCL SDA}`` ↔ ``{SDA SCL}`` order-reversed
-                #      groups in group_bus_matching).
-                #   2. Then positionally pair the remaining unmatched
-                #      members on each side (handles cases like
-                #      ``top{a_xyz}`` ↔ ``{a_xyz}`` where alias members
-                #      differ only by the parent's prefix; KiCad joins
-                #      by alias index when no names overlap).
-                child_pos_by_name: Dict[str, int] = {}
-                for c_pos, c_name in enumerate(child_bsg.members):
-                    child_pos_by_name.setdefault(
-                        canonical_bus_member_name(c_name),
-                        c_pos,
-                    )
-                matched_parent: set[int] = set()
-                matched_child: set[int] = set()
-                for p_pos, p_name in enumerate(parent_bsg.members):
-                    c_pos = child_pos_by_name.get(
-                        canonical_bus_member_name(p_name)
-                    )
-                    if c_pos is None or c_pos in matched_child:
-                        continue
-                    a = member_idx[(s_i, parent_b, p_pos)]
-                    b = member_idx[(child_idx, child_b, c_pos)]
-                    _uf_union(m_parent, m_rank, a, b)
-                    matched_parent.add(p_pos)
-                    matched_child.add(c_pos)
-                # Positional fallback over un-matched leftovers.
-                unmatched_parent = [
-                    p_pos for p_pos in range(len(parent_bsg.members))
-                    if p_pos not in matched_parent
-                ]
-                unmatched_child = [
-                    c_pos for c_pos in range(len(child_bsg.members))
-                    if c_pos not in matched_child
-                ]
-                for p_pos, c_pos in zip(unmatched_parent, unmatched_child):
-                    a = member_idx[(s_i, parent_b, p_pos)]
-                    b = member_idx[(child_idx, child_b, c_pos)]
-                    _uf_union(m_parent, m_rank, a, b)
+                _union_bus_member_pairing(
+                    parent_cs.bus_subgraphs[parent_b],
+                    child_cs.bus_subgraphs[child_b],
+                    (s_i, parent_b),
+                    (child_idx, child_b),
+                    member_idx,
+                    m_parent,
+                    m_rank,
+                )
 
-    # --- 4c. Resolve winner + promote per member-UF group ------------
-    m_groups: Dict[int, List[int]] = {}
-    for k in range(len(member_flat)):
-        r = _uf_find(m_parent, k)
-        m_groups.setdefault(r, []).append(k)
 
-    for group in m_groups.values():
-        # compareDrivers across all bus drivers attached to bus subgraphs
-        # touching this group's member positions. Each candidate carries
-        # the (bus subgraph, member position) it represents so we can
-        # recover the winning member's NAME via ``bsg.members[pos]``.
-        candidates: List[Tuple[
-            int, int, str, str, int,
-            KiCadDriverKind, KiCadDriverPriority, str,
-            BusSubgraph, int,
-        ]] = []
-        for k in group:
-            s_i, b_i, pos = member_flat[k]
-            cs = compiled[s_i]
-            bsg = cs.bus_subgraphs[b_i]
-            depth = cs.sheet_path_human.count("/")
-            for idx, bd in enumerate(bsg.drivers):
-                if not is_bus_label(bd.text):
-                    continue
-                candidates.append((
-                    -int(bd.priority), depth,
-                    cs.sheet_path_human, bd.text, idx,
-                    bd.kind, bd.priority, cs.sheet_path_human,
-                    bsg, pos,
-                ))
-        if not candidates:
-            continue
-        # Tie-break order: priority (desc) → depth (asc) → sheet_path
-        # (asc) → driver name (asc) → drivers insertion order. The
-        # sheet_path tiebreaker matches KiCad's de-facto behaviour
-        # where the first-processed sibling subgraph (sheet ordering)
-        # provides the canonical bus-member name — see prefix_bus_alias
-        # where Subsheet 1 (with HIER_LABEL ``Foo{Bus1}``) wins over
-        # Subsheet2 (``Bar{Bus1}``) despite "Bar" < "Foo" alphabetically.
-        candidates.sort(key=lambda t: (t[0], t[1], t[2], t[3], t[4]))
-        best = candidates[0]
-        win_kind = best[5]
-        win_prio = best[6]
-        win_sp_human = best[7]
-        win_bsg = best[8]
-        win_pos = best[9]
-        win_depth = best[1]
-        if win_pos >= len(win_bsg.members):
-            continue
-        member_name = win_bsg.members[win_pos]
+def _bus_member_groups(member_flat: List[_BusMemberKey], m_parent: List[int]) -> Dict[int, List[int]]:
+    groups: Dict[int, List[int]] = {}
+    for index in range(len(member_flat)):
+        groups.setdefault(_uf_find(m_parent, index), []).append(index)
+    return groups
 
-        # Collect tap wire subgraphs and union in the main wire UF.
-        wire_flat_keys: List[int] = []
-        for k in group:
-            s_i, b_i, pos = member_flat[k]
-            cs = compiled[s_i]
-            bsg = cs.bus_subgraphs[b_i]
-            if pos >= len(bsg.members):
+
+def _bus_member_candidates(
+    group: List[int],
+    member_flat: List[_BusMemberKey],
+    compiled: List[CompiledSheet],
+) -> List[_BusMemberCandidate]:
+    candidates: List[_BusMemberCandidate] = []
+    for index in group:
+        s_i, b_i, pos = member_flat[index]
+        cs = compiled[s_i]
+        bsg = cs.bus_subgraphs[b_i]
+        depth = cs.sheet_path_human.count("/")
+        for driver_idx, driver in enumerate(bsg.drivers):
+            if not is_bus_label(driver.text):
                 continue
-            own_member = bsg.members[pos]
-            wire_sg_idx = cs.bus_member_wire_sg[b_i].get(own_member)
-            if wire_sg_idx is None:
-                continue
+            candidates.append((
+                -int(driver.priority), depth,
+                cs.sheet_path_human, driver.text, driver_idx,
+                driver.kind, driver.priority, cs.sheet_path_human,
+                bsg, pos,
+            ))
+    return candidates
+
+
+def _wire_flat_keys_for_bus_group(
+    group: List[int],
+    member_flat: List[_BusMemberKey],
+    compiled: List[CompiledSheet],
+    key_to_idx: Dict[Tuple[int, int], int],
+) -> List[int]:
+    wire_flat_keys: List[int] = []
+    for index in group:
+        s_i, b_i, pos = member_flat[index]
+        cs = compiled[s_i]
+        bsg = cs.bus_subgraphs[b_i]
+        if pos >= len(bsg.members):
+            continue
+        wire_sg_idx = cs.bus_member_wire_sg[b_i].get(bsg.members[pos])
+        if wire_sg_idx is not None:
             wire_flat_keys.append(key_to_idx[(s_i, wire_sg_idx)])
-        if not wire_flat_keys:
-            continue
-        base_key = wire_flat_keys[0]
-        for k in wire_flat_keys[1:]:
-            _uf_union(parent, rank, base_key, k)
-        override = _BusMemberOverride(
-            text=member_name,
-            priority=win_prio,
-            kind=win_kind,
-            depth=win_depth,
-            sheet_path=win_sp_human,
+    return wire_flat_keys
+
+
+def _promote_bus_member_group(
+    group: List[int],
+    member_flat: List[_BusMemberKey],
+    compiled: List[CompiledSheet],
+    key_to_idx: Dict[Tuple[int, int], int],
+    parent: List[int],
+    rank: List[int],
+    overrides_by_flat: Dict[int, List[_BusMemberOverride]],
+) -> None:
+    candidates = _bus_member_candidates(group, member_flat, compiled)
+    if not candidates:
+        return
+    candidates.sort(key=lambda t: (t[0], t[1], t[2], t[3], t[4]))
+    best = candidates[0]
+    win_bsg = best[8]
+    win_pos = best[9]
+    if win_pos >= len(win_bsg.members):
+        return
+
+    wire_flat_keys = _wire_flat_keys_for_bus_group(
+        group,
+        member_flat,
+        compiled,
+        key_to_idx,
+    )
+    if not wire_flat_keys:
+        return
+    base_key = wire_flat_keys[0]
+    for flat_key in wire_flat_keys[1:]:
+        _uf_union(parent, rank, base_key, flat_key)
+
+    override = _BusMemberOverride(
+        text=win_bsg.members[win_pos],
+        priority=best[6],
+        kind=best[5],
+        depth=best[1],
+        sheet_path=best[7],
+    )
+    for flat_key in wire_flat_keys:
+        overrides_by_flat.setdefault(flat_key, []).append(override)
+
+
+def _merge_buses_cross_sheet(
+    compiled: List[CompiledSheet],
+    sheet_to_index: Dict[int, int],
+    parent: List[int],
+    rank: List[int],
+    key_to_idx: Dict[Tuple[int, int], int],
+    overrides_by_flat: Dict[int, List[_BusMemberOverride]],
+) -> None:
+    """Cross-sheet + within-sheet bus member-level union-find."""
+    member_flat, member_idx = _flatten_bus_members(compiled)
+    if not member_flat:
+        return
+
+    m_parent, m_rank = _make_union_find(len(member_flat))
+    _union_within_sheet_bus_members(compiled, member_idx, m_parent, m_rank)
+    _union_cross_sheet_bus_members(
+        compiled,
+        sheet_to_index,
+        member_idx,
+        m_parent,
+        m_rank,
+    )
+
+    for group in _bus_member_groups(member_flat, m_parent).values():
+        _promote_bus_member_group(
+            group,
+            member_flat,
+            compiled,
+            key_to_idx,
+            parent,
+            rank,
+            overrides_by_flat,
         )
-        for k in wire_flat_keys:
-            overrides_by_flat.setdefault(k, []).append(override)
 
 
 def _sheet_pin_suffix_indices(compiled: List[CompiledSheet]) -> Dict[int, int]:
@@ -843,6 +883,41 @@ def _offboard_sheet_pin_target_path(cs: CompiledSheet, ld) -> str:
     return ""
 
 
+def _ordered_union_groups(
+    flat_keys: List[Tuple[int, int]],
+    uf_parent: List[int],
+) -> tuple[Dict[int, List[int]], List[int]]:
+    groups: Dict[int, List[int]] = {}
+    first_seen: Dict[int, int] = {}
+    for k in range(len(flat_keys)):
+        root = _uf_find(uf_parent, k)
+        groups.setdefault(root, []).append(k)
+        first_seen.setdefault(root, k)
+    return groups, sorted(groups.keys(), key=lambda r: first_seen[r])
+
+
+def _merge_materialized_group(
+    compiled: List[CompiledSheet],
+    flat_keys: List[Tuple[int, int]],
+    group: List[int],
+) -> tuple[Subgraph, Dict[str, List[str]], List[str]]:
+    merged = Subgraph()
+    merged_graphical = _empty_graphical_map()
+    member_sheet_paths: List[str] = []
+    for k in group:
+        s_i, g_i = flat_keys[k]
+        cs = compiled[s_i]
+        sg = cs.subgraphs[g_i]
+        merged.coords |= sg.coords
+        merged.label_drivers.extend(sg.label_drivers)
+        merged.pin_drivers.extend(sg.pin_drivers)
+        _merge_graphical_ids(merged_graphical, sg.graphical)
+        if sg.no_connect:
+            merged.no_connect = True
+        member_sheet_paths.append(cs.sheet_path_human)
+    return merged, merged_graphical, member_sheet_paths
+
+
 def _materialise_nets(
     compiled: List[CompiledSheet],
     flat_keys: List[Tuple[int, int]],
@@ -852,15 +927,7 @@ def _materialise_nets(
     """Walk merged groups, pick driver, emit terminals, assign codes."""
     # Group by union-find root, preserving discovery order of the
     # smallest member of each group.
-    groups: Dict[int, List[int]] = {}
-    first_seen: Dict[int, int] = {}
-    for k in range(len(flat_keys)):
-        r = _uf_find(uf_parent, k)
-        groups.setdefault(r, []).append(k)
-        first_seen.setdefault(r, k)
-
-    # Sort groups by the order their first member appears.
-    ordered_roots = sorted(groups.keys(), key=lambda r: first_seen[r])
+    groups, ordered_roots = _ordered_union_groups(flat_keys, uf_parent)
 
     nets: List[KiCadNet] = []
     code = 1
@@ -872,65 +939,56 @@ def _materialise_nets(
         # subgraph's sheet_path_human alongside its drivers so we can
         # later pick the sheet_path of the subgraph that contributed
         # the chosen driver (matches kicad-cli's ``Connection::Sheet()``
-        # of the resolved driver — the child sheet for HIER_LABEL, the
+        # of the resolved driver â€” the child sheet for HIER_LABEL, the
         # parent for SHEET_PIN, etc.).
-        merged = Subgraph()
-        merged_graphical = _empty_graphical_map()
-        member_sheet_paths: List[str] = []
-        for k in group:
-            s_i, g_i = flat_keys[k]
-            cs = compiled[s_i]
-            sg = cs.subgraphs[g_i]
-            merged.coords |= sg.coords
-            merged.label_drivers.extend(sg.label_drivers)
-            merged.pin_drivers.extend(sg.pin_drivers)
-            _merge_graphical_ids(merged_graphical, sg.graphical)
-            if sg.no_connect:
-                merged.no_connect = True
-            member_sheet_paths.append(cs.sheet_path_human)
+        merged, merged_graphical, member_sheet_paths = _merge_materialized_group(
+            compiled,
+            flat_keys,
+            group,
+        )
 
         # Skip groups that have no drivers AND no pins (truly empty).
         if not merged.pin_drivers and not merged.label_drivers:
             continue
 
-        # Sheet-aware driver resolution — mirrors kicad-cli's
+        # Sheet-aware driver resolution â€” mirrors kicad-cli's
         # ``CONNECTION_GRAPH::compareDrivers`` (connection_graph.cpp):
-        # priority (high wins) → sheet-path depth (shallower wins,
+        # priority (high wins) â†’ sheet-path depth (shallower wins,
         # since SHEET_PIN/HIER_LABEL bridges act as renames climbing
-        # toward the root) → alphabetical name → insertion order.
+        # toward the root) â†’ alphabetical name â†’ insertion order.
         # Replaces the single-sheet ``_resolve_driver`` here so the
         # cross-sheet merge naming matches kicad-cli even when the
         # group spans multiple hierarchy levels (e.g. SUB_OUTPUT
         # bridging through SUBSUB_OUTPUT).
         # Candidate sort key:
         #   0 -priority   (higher priority wins)
-        #   1 depth       (shallower wins — mirrors KiCad's
+        #   1 depth       (shallower wins â€” mirrors KiCad's
         #                  ``shorterPath`` rule at
         #                  ``connection_graph.cpp:3188``)
-        #   2 shape_rank  (SHEET_PIN-vs-SHEET_PIN: L_OUTPUT shape wins —
+        #   2 shape_rank  (SHEET_PIN-vs-SHEET_PIN: L_OUTPUT shape wins â€”
         #                  mirrors compareDrivers rule 4 at
         #                  ``connection_graph.cpp:193-206``. Non-sheet-pin
         #                  candidates always get rank 1 so the dimension
         #                  is a no-op outside priority == SHEET_PIN.)
         #   3 implicit    (explicit power symbols beat implicit hidden
         #                  power pins when both carry GLOBAL_POWER_PIN)
-        #   4 full_name   (alphabetical on sheet_path + label_text — this
+        #   4 full_name   (alphabetical on sheet_path + label_text â€” this
         #                  is KiCad's post-propagation rule (e) at
         #                  ``connection_graph.cpp:3196-3203``: among
         #                  same-strength, same-priority candidates with
         #                  equal-or-shorter paths, the alphabetically
         #                  lower CONNECTION NAME wins. CONNECTION NAME
         #                  bakes in the sheet path, so we must compare
-        #                  the concatenated string — not the label text
+        #                  the concatenated string â€” not the label text
         #                  alone. Fixes the LED daisy-chain where
         #                  HIER_LABELs ``DO`` at ``/LED_Controller2/``
         #                  and ``DIN`` at ``/LED_Controller3/`` tie on
         #                  priority+depth; full-name compare picks
         #                  ``/LED_Controller2/DO`` because
         #                  ``"/LED_Controller2/DO" < "/LED_Controller3/DIN"``.)
-        #   5 sheet_path  (legacy secondary tiebreak — now redundant
+        #   5 sheet_path  (legacy secondary tiebreak â€” now redundant
         #                  with full_name but kept for stability)
-        #   6 idx         (insertion order — final stable tiebreak)
+        #   6 idx         (insertion order â€” final stable tiebreak)
         candidates: List[Tuple[
             int, int, int, int, str, str, int, KiCadDriverKind, str, str,
             Optional[int],
@@ -997,7 +1055,7 @@ def _materialise_nets(
         # only GLOBAL_POWER_PIN / GLOBAL labels on the wire defeat the
         # bus promotion. Encode this by giving the override an effective
         # sort priority of ``max(bus_driver_priority, LOCAL_POWER_PIN)``
-        # — beats LOCAL_LABEL (priority 4) but loses to GLOBAL_POWER_PIN
+        # â€” beats LOCAL_LABEL (priority 4) but loses to GLOBAL_POWER_PIN
         # (priority 6) and GLOBAL (priority 7). The override's
         # ``sheet_path`` is the winning bus driver's human-readable
         # path, kept in slot 6 alongside other candidates.
@@ -1064,7 +1122,7 @@ def _materialise_nets(
             auto_named=auto_named,
             graphical=merged_graphical,
         )
-        # Terminals — sorted by (designator, pin_number).
+        # Terminals â€” sorted by (designator, pin_number).
         ordered_pins = sorted(
             merged.pin_drivers,
             key=lambda p: (p.designator, p.pin_number),
@@ -1077,7 +1135,7 @@ def _materialise_nets(
             # ``netlist_exporter_xml.cpp::writeListOfNets`` (line 1247):
             # ``if refText[0] == '#' continue;``. This drops both
             # ``power:`` symbols (``#PWR0101``) and ``PWR_FLAG``
-            # placements (``#FLG01``) from the net node list — they
+            # placements (``#FLG01``) from the net node list â€” they
             # influence net naming but are virtual connectors, not real
             # terminals.
             if pd.designator.startswith("#"):
@@ -1145,7 +1203,7 @@ def _materialise_nets(
 #   library symbol's subsymbols (KiCad emits one pin per number per
 #   libpart, regardless of unit).
 # * Power symbols (``LibSymbol.power == True`` or ``lib_id`` starting with
-#   ``"power:"``) are still emitted in both blocks — kicad-cli does the
+#   ``"power:"``) are still emitted in both blocks â€” kicad-cli does the
 #   same; the libpart row carries the power-symbol metadata so downstream
 #   tools (BOM, schematic preview) can identify them.
 
@@ -1192,7 +1250,7 @@ def _expand_property_vars(
 ) -> str:
     """Resolve ``${VAR}`` tokens in ``text`` using symbol properties + project vars.
 
-    ``skip_key`` is the property name currently being expanded — passed
+    ``skip_key`` is the property name currently being expanded â€” passed
     in so the recursive expansion doesn't loop on a ``Value =
     ${VALUE}`` self-reference. Lookup is case-insensitive against
     ``sym.properties`` first, then ``project_vars``. Unknown tokens are
@@ -1522,7 +1580,7 @@ def collect_design_components(
 
     Exact duplicate symbol UUIDs are suppressed first. Then candidates are
     grouped by resolved ``(sheet_path, reference)`` so a
-    single :class:`SchSymbol` object lands once per CompiledSheet —
+    single :class:`SchSymbol` object lands once per CompiledSheet â€”
     multi-unit symbol emits one row with all unit UUIDs preserved in
     ``instance_uuids`` for the emitted ``(tstamps ...)`` list.
     """
@@ -1547,20 +1605,20 @@ def collect_design_components(
             else:
                 lib_sym = None
             # kicad-cli's netlist export omits power symbols from the
-            # components block — their refs are auto-generated bookkeeping
+            # components block â€” their refs are auto-generated bookkeeping
             # ("#PWR0123") that downstream BOM / placement tooling never
             # consumes. Match that behaviour so the kicadsexpr emit is
             # byte-stable against the golden.
             #
             # PWR_FLAG is intentionally *not* a "power symbol" for net
-            # naming (see ``_is_power_symbol`` — letting it drive would
+            # naming (see ``_is_power_symbol`` â€” letting it drive would
             # outrank +5V/GND alphabetically and collapse unrelated nets),
             # but it shares the same components-block omission rule with
             # real power symbols (kicad-cli drops it too).
             if _is_power_symbol(sym, lib_sym) or sym.lib_id == "power:PWR_FLAG":
                 continue
             # kicad-cli drops ``(on_board no)`` symbols from the
-            # components block. ``dnp`` alone is not enough — symbols
+            # components block. ``dnp`` alone is not enough â€” symbols
             # with ``dnp yes`` but ``on_board yes`` (e.g. dual-population
             # placements) still appear in the netlist. Pin collection
             # applies the same gate so the emitted net node list does
@@ -1659,7 +1717,7 @@ def collect_design_components(
             if reference.startswith("#"):
                 continue
             # Top-level ``value`` is the only comp-row field where
-            # kicad-cli applies ``${VAR}`` expansion — resolve against
+            # kicad-cli applies ``${VAR}`` expansion â€” resolve against
             # the symbol's own properties first, then the project's
             # ``text_variables``. Footprint / datasheet stay literal
             # (kicad-cli emits them verbatim even when they contain
@@ -1733,7 +1791,7 @@ def collect_design_libparts(
     number with KiCad's natural-numeric ordering. Standard fields
     (Reference, Value, Footprint, Datasheet) are surfaced into
     ``KiCadLibPart.fields``; everything else is dropped (kicad-cli does
-    the same — non-standard properties don't roundtrip through the
+    the same â€” non-standard properties don't roundtrip through the
     libpart block).
     """
     seen: set = set()
@@ -1746,7 +1804,7 @@ def collect_design_libparts(
         lib_symbols = getattr(sch, "lib_symbols", None) or ()
         # ``lib_symbols`` is a flat list of :class:`LibSymbol`; the
         # symbol's ``name`` field carries the full ``"Lib:Part"`` form
-        # (or sometimes a bare ``"Part"`` for legacy fixtures — handled
+        # (or sometimes a bare ``"Part"`` for legacy fixtures â€” handled
         # by :func:`_split_lib_id`).
         for lib_sym in lib_symbols:
             lib_id = getattr(lib_sym, "name", "") or ""
@@ -1758,7 +1816,7 @@ def collect_design_libparts(
                 continue
             seen.add(key)
 
-            # Standard fields — only emit when set.
+            # Standard fields â€” only emit when set.
             fields: Dict[str, str] = {}
             for fname in _STANDARD_COMPONENT_FIELDS:
                 v = ""
@@ -1767,7 +1825,7 @@ def collect_design_libparts(
                 if v:
                     fields[fname] = v
 
-            # Pins — combine across subsymbols, dedupe by number.
+            # Pins â€” combine across subsymbols, dedupe by number.
             pin_seen: set = set()
             pins: List[KiCadLibPartPin] = []
             for sub in getattr(lib_sym, "subsymbols", ()):
@@ -1846,16 +1904,16 @@ def compile_design_netlist(
     subpart_first_id: int = ord("A"),
     subpart_id_separator: int = 0,
 ) -> KiCadNetlist:
-    """Full design pipeline — compile + merge + materialise to KiCadNetlist.
+    """Full design pipeline â€” compile + merge + materialise to KiCadNetlist.
 
     Populates all four output blocks:
 
-    * ``nets`` — driver-resolved subgraphs after cross-sheet merge
-    * ``components`` — one record per placed symbol
-    * ``libparts`` — one record per unique ``(lib, part)``
-    * ``design_metadata.sheets`` — sheet table for the ``(design ...)`` block
+    * ``nets`` â€” driver-resolved subgraphs after cross-sheet merge
+    * ``components`` â€” one record per placed symbol
+    * ``libparts`` â€” one record per unique ``(lib, part)``
+    * ``design_metadata.sheets`` â€” sheet table for the ``(design ...)`` block
 
-    ``design_metadata.source`` / ``date`` / ``tool`` stay empty here —
+    ``design_metadata.source`` / ``date`` / ``tool`` stay empty here â€”
     they're filled by the emit target (the kicadsexpr emitter takes them
     as keyword arguments so caller controls the timestamp / tool string).
     """

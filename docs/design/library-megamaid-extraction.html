@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Library Megamaid Extraction Design</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Library Megamaid Extraction Design</h1>
+
+  <section>
+    <h2>Purpose</h2>
+    <p>
+      Library megamaid extraction turns a KiCad project into inspectable local
+      libraries, extracted 3D models, and JSON metadata for downstream library
+      import.
+    </p>
+    <p>
+      This design exists because project-local KiCad assets and HTTP library
+      placement metadata are useful during design, but canonical library
+      promotion needs a cleaner split: bare reusable symbols and footprints,
+      metadata preserved in JSON, model payloads that do not depend on external
+      KiCad install paths, and stable linkage between placed instances, symbols,
+      footprints, and part-record candidate metadata.
+    </p>
+  </section>
+
+  <section>
+    <h2>Boundary</h2>
+    <p>
+      <code>kicad_monkey</code> is responsible for low-level KiCad file
+      operations: scanning project assets, classifying symbol and footprint
+      sources, classifying model references, extracting symbols and footprints,
+      stripping metadata by policy, repairing standalone footprint embedded
+      model payloads, writing folder-based symbol libraries and
+      <code>.pretty</code> libraries, and emitting scan and extraction
+      diagnostics.
+    </p>
+    <p>
+      <code>kicad_cruncher</code> is responsible for the workflow command that
+      assembles those operations into a megamaid bundle.
+      Downstream library tooling is responsible for part-record creation and
+      update behavior.
+    </p>
+  </section>
+
+  <section>
+    <h2>Public API Candidates</h2>
+    <p>
+      The first <code>kicad_monkey</code> implementation should promote small,
+      testable helpers before exposing a large workflow object:
+    </p>
+    <ul>
+      <li><code>scan_project_assets(project_path)</code></li>
+      <li><code>scan_3d_models(project_path)</code></li>
+      <li><code>extract_symbols(project_path, mode)</code></li>
+      <li><code>strip_symbol_metadata(symbol, policy)</code></li>
+      <li><code>extract_footprints(project_path, mode, embed_models=True)</code></li>
+      <li><code>strip_footprint_metadata(footprint, policy)</code></li>
+      <li><code>rehydrate_embedded_model_payloads(board, footprint)</code></li>
+      <li><code>extract_3d_models(project_path)</code></li>
+      <li><code>write_symbol_folder_library(...)</code></li>
+      <li><code>write_pretty_library(...)</code></li>
+    </ul>
+    <p>
+      These APIs should return structured diagnostics rather than only writing
+      files.
+    </p>
+  </section>
+
+  <section>
+    <h2>Extraction Modes</h2>
+    <h3>Internal Mode</h3>
+    <ul>
+      <li>Dedupe symbols by KiCad library symbol name.</li>
+      <li>Strip symbol metadata to KiCad-required/default fields.</li>
+      <li>Strip footprint metadata and placement/net-specific board data.</li>
+      <li>Preserve geometry, pins, pads, models, and embedded model payloads.</li>
+      <li>Emit metadata associations in JSON rather than symbol or footprint fields.</li>
+    </ul>
+
+    <h3>Project-Local Mode</h3>
+    <ul>
+      <li>Preserve metadata.</li>
+      <li>Create inspectable project-local symbols and footprints.</li>
+      <li>
+        Support per-part assets even when multiple canonical parts share one
+        generic symbol or footprint.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Model Handling</h2>
+    <p>The model scanner must classify:</p>
+    <ul>
+      <li><code>kicad-embed://...</code> references;</li>
+      <li>project-relative references;</li>
+      <li>absolute references;</li>
+      <li><code>${KICAD*_3DMODEL_DIR}</code> references;</li>
+      <li>unresolved or missing references.</li>
+    </ul>
+    <p>
+      When an extracted standalone footprint references
+      <code>kicad-embed://name.step</code>, the matching embedded payload must
+      be present inside the <code>.kicad_mod</code>. If the payload only exists
+      at board level, extraction must rehydrate the footprint from the board
+      embedded-file map.
+    </p>
+    <p>Extracted STEP/STP files should be deduped by content hash.</p>
+  </section>
+
+  <section>
+    <h2>JSON Output</h2>
+    <p>
+      The workflow JSON should preserve enough data for
+      downstream library import:
+    </p>
+    <ul>
+      <li>reference designator, value, sheet path, and sheet UUID path;</li>
+      <li>source symbol and footprint identities;</li>
+      <li>raw fields and canonical fields;</li>
+      <li>MPN, manufacturer, and <code>cad-reference</code> candidates;</li>
+      <li>selected MPN and selected <code>cad-reference</code> when obvious;</li>
+      <li>DNP, excluded-from-board, and on-board flags;</li>
+      <li>model references, extracted payload records, and diagnostics.</li>
+    </ul>
+    <p><code>kicad_cruncher</code> should not create part records directly.</p>
+  </section>
+
+  <section>
+    <h2>Fixture</h2>
+    <p>The primary real-world fixture is:</p>
+    <pre><code>tests/corpus/.unpacked/kicad/projects/4-ch-backplane</code></pre>
+    <p>The preferred project file is:</p>
+    <pre><code>input/4-ch-backplane.kicad_pro</code></pre>
+    <p>The fixture should cover:</p>
+    <ul>
+      <li>local <code>Libs/speedy.pretty</code>;</li>
+      <li>local and vendor symbol libraries;</li>
+      <li>vendor footprint libraries;</li>
+      <li><code>kicad-embed://...</code> model references;</li>
+      <li>
+        external <code>${KICAD10_3DMODEL_DIR}</code> and
+        <code>${KICAD9_3DMODEL_DIR}</code> references;
+      </li>
+      <li>board-level embedded files;</li>
+      <li>footprint-level embedded files;</li>
+      <li>missing or non-rehydrated embedded payload diagnostics;</li>
+      <li>hierarchy and sheet <code>on_board</code> behavior already covered by the netlist corpus.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Test Requirements</h2>
+    <h3>Parser-Level Tests</h3>
+    <ul>
+      <li>Verify model-reference classification.</li>
+      <li>Verify symbol and footprint extraction counts for the fixture.</li>
+      <li>Verify metadata stripping rules.</li>
+      <li>Verify project-local metadata preservation.</li>
+      <li>
+        Verify every extracted <code>kicad-embed://...</code> footprint model
+        has a matching embedded payload.
+      </li>
+      <li>Verify generated JSON contains raw and canonical metadata fields.</li>
+    </ul>
+
+    <h3>KiCad CLI Validation Tests</h3>
+    <ul>
+      <li>Run only when <code>kicad-cli</code> is available.</li>
+      <li>Verify generated symbol and footprint libraries are loadable by KiCad.</li>
+      <li>Skip with a clear reason when KiCad CLI is unavailable.</li>
+      <li>Do not replace parser-level assertions.</li>
+    </ul>
+
+    <h3>Rack Ownership</h3>
+    <ul>
+      <li>Fast lane: focused parser/unit tests with small synthetic fixtures.</li>
+      <li>Full lane: 4-ch backplane scan and extraction tests.</li>
+      <li>Strict lane: KiCad CLI validation and complete megamaid bundle checks.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Future Work</h2>
+    <ul>
+      <li><code>sym-lib-table</code> and <code>fp-lib-table</code> management;</li>
+      <li>schematic symbol relinking;</li>
+      <li>PCB footprint relinking;</li>
+      <li>parameter coalescing and cleanup;</li>
+      <li>native KiCad netlist/export comparison;</li>
+      <li>downstream import tests for part-record creation.</li>
+    </ul>
+  </section>
+</body>
+</html>

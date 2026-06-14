@@ -195,86 +195,220 @@ def fp_filter__clean_fab(unfiltered_s_expression: Any) -> Any:
     return fp_filter__clean_layers(unfiltered_s_expression)
 
 
+def _orthogonal_convex_quadrants(points: Any) -> list[list[Any]]:
+    center = np.mean(points, axis=0)
+    center_x, center_y = center
+    quadrants: list[list[Any]] = [[], [], [], []]
+    for point in points:
+        x, y = point
+        if x >= center_x and y >= center_y:
+            quadrants[0].append(point)
+        elif x < center_x and y >= center_y:
+            quadrants[1].append(point)
+        elif x < center_x and y < center_y:
+            quadrants[2].append(point)
+        else:
+            quadrants[3].append(point)
+    return quadrants
+
+
+def _filter_orthogonal_convex_quadrants(
+    quadrants: list[list[Any]],
+    points: Any,
+) -> list[Any]:
+    q1, q2, q3, q4 = quadrants
+    q1 = [
+        p for p in q1
+        if not any(p_check[0] > p[0] and p_check[1] > p[1] for p_check in points)
+    ]
+    q2 = [
+        p for p in q2
+        if not any(p_check[0] < p[0] and p_check[1] > p[1] for p_check in points)
+    ]
+    q3 = [
+        p for p in q3
+        if not any(p_check[0] < p[0] and p_check[1] < p[1] for p_check in points)
+    ]
+    q4 = [
+        p for p in q4
+        if not any(p_check[0] > p[0] and p_check[1] < p[1] for p_check in points)
+    ]
+    return q1 + q2 + q3 + q4
+
+
+def _orthogonal_midpoint(start: Any, end: Any, center: Any) -> Any:
+    intersection_p1 = [end[1], start[0]]
+    intersection_p2 = [start[1], end[0]]
+    distance_p1 = math.sqrt(
+        (intersection_p1[0] - start[0]) ** 2
+        + (intersection_p1[1] - start[1]) ** 2
+    )
+    distance_p2 = math.sqrt(
+        (intersection_p2[0] - end[0]) ** 2
+        + (intersection_p2[1] - end[1]) ** 2
+    )
+    diagonal_center_match = (
+        abs(start[0]) < abs(start[1])
+        and (
+            (start[0] > center[0] and start[1] > center[1])
+            or (start[0] < center[0] and start[1] < center[1])
+        )
+    )
+    if diagonal_center_match:
+        horizontal_first = False
+    elif sign(start[0]) == sign(start[1]):
+        horizontal_first = distance_p1 >= distance_p2
+    else:
+        horizontal_first = distance_p1 > distance_p2
+    return np.array([end[0], start[1]]) if horizontal_first else np.array([start[0], end[1]])
+
+
+def _orthogonal_convex_hull(points: Any) -> Any:
+    hull_points = np.array(_filter_orthogonal_convex_quadrants(
+        _orthogonal_convex_quadrants(points),
+        points,
+    ))
+    center = np.mean(hull_points, axis=0)
+    sorted_hull = np.array(
+        sorted(
+            hull_points,
+            key=lambda p: np.arctan2(p[1] - center[1], p[0] - center[0]),
+            reverse=True,
+        )
+    )
+    ortho_path = []
+    for i, start in enumerate(sorted_hull):
+        end = sorted_hull[(i + 1) % len(sorted_hull)]
+        mid = _orthogonal_midpoint(start, end, center)
+        ortho_path.append(start)
+        if not np.array_equal(mid, start):
+            ortho_path.append(mid)
+        if not np.array_equal(end, mid):
+            ortho_path.append(end)
+    return np.array(ortho_path)
+
+
+def _sexpr_float_pair(item: list[Any], *, start_index: int = 1) -> list[float]:
+    return [float(item[start_index]), float(item[start_index + 1])]
+
+
+def _rotate_fab_bbox_point(
+    point: list[float],
+    *,
+    center: list[float],
+    rotation_deg: float,
+) -> list[float]:
+    rotation_rad = np.radians(rotation_deg + 90)
+    cos_theta = np.cos(rotation_rad)
+    sin_theta = np.sin(rotation_rad)
+    x, y = point
+    x_new = cos_theta * (x - center[0]) - sin_theta * (y - center[1]) + center[0]
+    y_new = sin_theta * (x - center[0]) + cos_theta * (y - center[1]) + center[1]
+    return [float(f"{x_new:.4f}"), float(f"{y_new:.4f}")]
+
+
+def _pad_outline_points_for_fab_bbox(pad: Any, bb_line_width: float) -> list[list[float]]:
+    if not isinstance(pad, list) or len(pad) == 0 or pad[0] != 'pad':
+        return []
+    pad_size: list[float] | None = None
+    pad_center: list[float] | None = None
+    pad_rotation = 0.0
+    for item in pad:
+        if isinstance(item, list) and len(item) >= 3 and item[0] == 'size':
+            pad_size = _sexpr_float_pair(item)
+        if isinstance(item, list) and len(item) >= 3 and item[0] == 'at':
+            pad_center = _sexpr_float_pair(item)
+            if len(item) > 3 and isinstance(item[3], (int, float)):
+                pad_rotation = float(item[3])
+    if pad_size is None or pad_center is None:
+        return []
+
+    new_size = [pad_size[1] + (3 * bb_line_width), pad_size[0] + (3 * bb_line_width)]
+    left = float(f"{(pad_center[0] - (new_size[0]) / 2):.4f}")
+    right = float(f"{(pad_center[0] + (new_size[0]) / 2):.4f}")
+    top = float(f"{(pad_center[1] - (new_size[1]) / 2):.4f}")
+    bottom = float(f"{(pad_center[1] + (new_size[1]) / 2):.4f}")
+    corners = [[left, top], [right, top], [right, bottom], [left, bottom]]
+    if pad_rotation == 0:
+        return corners
+    return [
+        _rotate_fab_bbox_point(corner, center=pad_center, rotation_deg=pad_rotation)
+        for corner in corners
+    ]
+
+
+def _silkscreen_line_points_for_fab_bbox(item: Any) -> list[list[float]]:
+    if not isinstance(item, list) or len(item) == 0 or item[0] != 'fp_line':
+        return []
+    if not any(
+        isinstance(sub_item, list)
+        and len(sub_item) >= 2
+        and sub_item[0] == 'layer'
+        and sub_item[1] == 'F.SilkS'
+        for sub_item in item
+    ):
+        return []
+
+    start_point = None
+    end_point = None
+    scaler = 1.1
+    for sub_item in item:
+        if not isinstance(sub_item, list) or len(sub_item) < 3:
+            continue
+        if sub_item[0] == 'start':
+            start_point = [float(sub_item[1]) * scaler, float(sub_item[2]) * scaler]
+        elif sub_item[0] == 'end':
+            end_point = [float(sub_item[1]) * scaler, float(sub_item[2]) * scaler]
+    if start_point is None or end_point is None:
+        return []
+    return [start_point, end_point]
+
+
+def _collect_fab_bbox_points(
+    unfiltered_s_expression: Any,
+    *,
+    bb_line_width: float,
+) -> list[list[float]]:
+    points: list[list[float]] = []
+    for item in unfiltered_s_expression:
+        points.extend(_pad_outline_points_for_fab_bbox(item, bb_line_width))
+        points.extend(_silkscreen_line_points_for_fab_bbox(item))
+    return points
+
+
+def _append_fab_bbox_lines(
+    unfiltered_s_expression: Any,
+    *,
+    hull_points: Any,
+    fab_layer: str,
+    bb_line_width: float,
+) -> None:
+    for index, start_point in enumerate(hull_points):
+        end_point = hull_points[(index + 1) % len(hull_points)]
+        unfiltered_s_expression.append([
+            'fp_line',
+            ['start', start_point[0], start_point[1]],
+            ['end', end_point[0], end_point[1]],
+            ['stroke', ['width', bb_line_width], ['type', 'solid'], ['color', 0, 0, 0, 1]],
+            ['layer', QuotedString(fab_layer)],
+            ['uuid', QuotedString('')],
+        ])
+
+
+def _fab_bbox_center_and_shortest_side(hull_points: Any) -> tuple[list[float], float]:
+    center_x = np.mean(hull_points[:, 0])
+    center_y = np.mean(hull_points[:, 1])
+    hull_height = np.max(hull_points[:, 1]) - np.min(hull_points[:, 1])
+    hull_width = np.max(hull_points[:, 0]) - np.min(hull_points[:, 0])
+    return [center_x, center_y], min(hull_height, hull_width)
+
+
 def fp_filter__add_fab_bounding_orthogonal_convex(unfiltered_s_expression: Any) -> Any:
     """
     - Auto generates a new convex hull bounding box that is 75% larger than the pads on the fab layer.
     - Adds a "REF**" string to the center of the part on the fab layer.
     - Auto-detects if footprint is on front or back side and uses appropriate fab layer (F.Fab or B.Fab).
     """
-    def orthogonal_convex_hull(points):
-        # Step 1: Calculate center
-        center = np.mean(points, axis=0)
-        center_x, center_y = center
-
-        # Step 2: Assign to quadrants
-        q1, q2, q3, q4 = [], [], [], []
-        for p in points:
-            x, y = p
-            if x >= center_x and y >= center_y:
-                q1.append(p)
-            elif x < center_x and y >= center_y:
-                q2.append(p)
-            elif x < center_x and y < center_y:
-                q3.append(p)
-            else:
-                q4.append(p)
-
-        # Step 3: Filter maximal points in each quadrant
-        q1 = [p for p in q1 if not any(p_check[0] > p[0] and p_check[1] > p[1] for p_check in points)]
-        q2 = [p for p in q2 if not any(p_check[0] < p[0] and p_check[1] > p[1] for p_check in points)]
-        q3 = [p for p in q3 if not any(p_check[0] < p[0] and p_check[1] < p[1] for p_check in points)]
-        q4 = [p for p in q4 if not any(p_check[0] > p[0] and p_check[1] < p[1] for p_check in points)]
-
-        # Step 4: Merge hull candidates
-        hull_points = np.array(q1 + q2 + q3 + q4)
-
-        # Step 5: Sort points in true clockwise order around the center
-        center = np.mean(hull_points, axis=0)
-        def angle_from_center(p):
-            return np.arctan2(p[1] - center[1], p[0] - center[0])
-        # Sort by angle, largest to smallest for clockwise
-        sorted_hull = np.array(sorted(hull_points, key=angle_from_center, reverse=True))
-
-        # Step 6: Add inward-bend orthogonal segments
-        ortho_path = []
-        n = len(sorted_hull)
-
-        for i in range(n):
-            start = sorted_hull[i]
-            end = sorted_hull[(i + 1) % n]
-
-            intersection_p1 = [end[1], start[0]]  # Orthogonal intersection point
-            intersection_p2 = [start[1], end[0]]  # Orthogonal intersection point
-
-            distance_p1 = math.sqrt((intersection_p1[0] - start[0])**2 + (intersection_p1[1] - start[1])**2)
-            distance_p2 = math.sqrt((intersection_p2[0] - end[0])**2 + (intersection_p2[1] - end[1])**2)
-
-            if (abs(start[0]) < abs(start[1]) and start[0] > center[0] and start[1] > center[1]) or (abs(start[0]) < abs(start[1]) and start[0] < center[0] and start[1] < center[1]):
-                horizontal_first = False
-            else:
-                if sign(start[0]) == sign(start[1]):
-                    if distance_p1 < distance_p2:
-                        horizontal_first = False
-                    else:
-                        horizontal_first = True
-                else:
-                    if distance_p1 > distance_p2:
-                        horizontal_first = True
-                    else:
-                        horizontal_first = False
-
-            if horizontal_first:
-                mid = np.array([end[0], start[1]])
-            else:
-                mid = np.array([start[0], end[1]])
-
-            ortho_path.append(start)
-            if not np.array_equal(mid, start):
-                ortho_path.append(mid)
-            if not np.array_equal(end, mid):
-                ortho_path.append(end)
-
-        return np.array(ortho_path)
 
     log.info("\nRunning fp_filter__add_fab_bounding_orthogonal_convex()...\n")
 
@@ -285,113 +419,24 @@ def fp_filter__add_fab_bounding_orthogonal_convex(unfiltered_s_expression: Any) 
 
     bb_line_width = .127
 
-    # This will auto generate a new bounding box that is 1 line width larger than the pad extends
-
-    point_collection = []
-    for p in unfiltered_s_expression:
-        # Check if this is a pad object
-        if isinstance(p, list) and len(p) > 0 and p[0] == 'pad':
-            # Find the pad size and center
-            pad_size: list[float] | None = None
-            pad_center: list[float] | None = None
-            pad_rotation = 0.0
-            for item in p:
-                if isinstance(item, list) and len(item) >= 3 and item[0] == 'size':
-                    pad_size = [float(item[1]), float(item[2])]
-                if isinstance(item, list) and len(item) >= 3 and item[0] == 'at':
-                    pad_center = [float(item[1]), float(item[2])]
-                    pad_rotation = float(item[3]) if len(item) > 3 and isinstance(item[3], (int, float)) else 0.0
-            if pad_size is not None and pad_center is not None:
-                center = pad_center
-                # Calculate the new size, which is increased by 2x the bounding box line width
-                new_size = [pad_size[1] + (3*bb_line_width), pad_size[0] + (3*bb_line_width)]
-
-                UL_corner = [float(f"{(center[0] - (new_size[0])/2):.4f}"),
-                             float(f"{(center[1] - (new_size[1])/2):.4f}")]
-                UR_corner = [float(f"{(center[0] + (new_size[0])/2):.4f}"),
-                             float(f"{(center[1] - (new_size[1])/2):.4f}")]
-                LL_corner = [float(f"{(center[0] - (new_size[0])/2):.4f}"),
-                             float(f"{(center[1] + (new_size[1])/2):.4f}")]
-                LR_corner = [float(f"{(center[0] + (new_size[0])/2):.4f}"),
-                             float(f"{(center[1] + (new_size[1])/2):.4f}")]
-
-                # Based on the pad rotation, we can rotate the corners
-                if pad_rotation != 0:
-                    # Convert rotation to radians
-                    rotation_rad = np.radians(pad_rotation + 90)
-                    cos_theta = np.cos(rotation_rad)
-                    sin_theta = np.sin(rotation_rad)
-
-                    # Rotate the corners around the pad center
-                    def rotate_point(point):
-                        x, y = point
-                        x_new = cos_theta * (x - center[0]) - sin_theta * (y - center[1]) + center[0]
-                        y_new = sin_theta * (x - center[0]) + cos_theta * (y - center[1]) + center[1]
-                        return [float(f"{x_new:.4f}"), float(f"{y_new:.4f}")]
-
-                    UL_corner = rotate_point(UL_corner)
-                    UR_corner = rotate_point(UR_corner)
-                    LL_corner = rotate_point(LL_corner)
-                    LR_corner = rotate_point(LR_corner)
-
-                pad_points = [UL_corner, UR_corner, LR_corner, LL_corner]
-                point_collection.extend(pad_points)
-
-        # Now add the points from all F.SilkS layer fp_line objects.
-        if isinstance(p, list) and len(p) > 0 and p[0] == 'fp_line':
-            for item in p:
-                if isinstance(item, list) and len(item) >= 2 and item[0] == 'layer':
-                    if item[1] == 'F.SilkS':
-                        # Find the start and end points of the line
-                        start_point = None
-                        end_point = None
-                        scaler = 1.1  # Exaggeration factor
-                        for sub_item in p:
-                            if isinstance(sub_item, list) and len(sub_item) >= 3:
-                                if sub_item[0] == 'start':
-                                    start_point = [float(sub_item[1])*scaler, float(sub_item[2])*scaler]
-                                elif sub_item[0] == 'end':
-                                    end_point = [float(sub_item[1])*scaler, float(sub_item[2])*scaler]
-                        if start_point is not None and end_point is not None:
-                            # Exaggerate the points by 20% in both directions
-                            point_collection.append(start_point)
-                            point_collection.append(end_point)
+    point_collection = _collect_fab_bbox_points(
+        unfiltered_s_expression,
+        bb_line_width=bb_line_width,
+    )
 
     # Using the convex hull to create a bounding box around all pads
     if len(point_collection) > 1:
         points_array = np.array(point_collection)
-        hull_points = orthogonal_convex_hull(points_array)
-
-        # Grab the agerage of all the points to find the center of the bounding box
-        center_x = np.mean(hull_points[:, 0])
-        center_y = np.mean(hull_points[:, 1])
-        bounding_box_center = [center_x, center_y]
-
-        # Grab the height and width of the convex hull
-        hull_height = np.max(hull_points[:, 1]) - np.min(hull_points[:, 1])
-        hull_width = np.max(hull_points[:, 0]) - np.min(hull_points[:, 0])
-        hull_shortest_side = min(hull_height, hull_width)
-
-        # Create the bounding box lines
-        for p in range(len(hull_points)):
-            start_point = hull_points[p]
-            end_point = hull_points[(p + 1) % len(hull_points)]
-
-            # Add a bunch of fp_line objects to create a bounding box
-
-            type = 'solid'
-            color = [0, 0, 0, 1] # RGBA format, black color
-
-            # Create a line object for the bounding box
-            bounding_box_line = [
-                'fp_line',
-                ['start', start_point[0], start_point[1]],
-                ['end', end_point[0], end_point[1]],
-                ['stroke', ['width', bb_line_width], ['type', type], ['color'] + color],
-                ['layer', QuotedString(fab_layer)],
-                ['uuid', QuotedString('')]
-            ]
-            unfiltered_s_expression.append(bounding_box_line)
+        hull_points = _orthogonal_convex_hull(points_array)
+        bounding_box_center, hull_shortest_side = _fab_bbox_center_and_shortest_side(
+            hull_points
+        )
+        _append_fab_bbox_lines(
+            unfiltered_s_expression,
+            hull_points=hull_points,
+            fab_layer=fab_layer,
+            bb_line_width=bb_line_width,
+        )
     else:
         # There are too few points so defaults will be defined.
         hull_shortest_side = 5
@@ -538,6 +583,195 @@ def fp_filter__fix_fp_text_font_to_arial(unfiltered_s_expression: Any) -> Any:
     return unfiltered_s_expression
 
 
+def _model_transform_from_sexp(s_expr: list) -> np.ndarray:
+    """Extract KiCad 3D model transform as a 4x4 matrix."""
+    for item in s_expr:
+        if not (isinstance(item, list) and item and item[0] == 'model'):
+            continue
+
+        offset = [0, 0, 0]
+        scale = [1, 1, 1]
+        rotate = [0, 0, 0]
+        for sub in item[1:]:
+            if not (isinstance(sub, list) and sub):
+                continue
+            for xyz in sub[1:]:
+                if isinstance(xyz, list) and xyz[0] == 'xyz':
+                    if sub[0] == 'offset':
+                        offset = [float(x) for x in xyz[1:]]
+                    elif sub[0] == 'scale':
+                        scale = [float(x) for x in xyz[1:]]
+                    elif sub[0] == 'rotate':
+                        rotate = [float(x) for x in xyz[1:]]
+
+        m_scale = tf.scale_matrix(scale[0], [0, 0, 0])
+        m_scale[1, 1] = scale[1]
+        m_scale[2, 2] = scale[2]
+        m_rot_x = tf.rotation_matrix(np.deg2rad(-rotate[0]), [1, 0, 0])
+        m_rot_y = tf.rotation_matrix(np.deg2rad(-rotate[1]), [0, 1, 0])
+        m_rot_z = tf.rotation_matrix(np.deg2rad(-rotate[2]), [0, 0, 1])
+        m_trans = tf.translation_matrix([offset[0], offset[1], offset[2]])
+        log.info(f"[........   ] Created transformation matrix (offset={offset}, rotate={rotate}).")
+        return tf.concatenate_matrices(m_trans, m_rot_z, m_rot_y, m_rot_x, m_scale)
+
+    log.error("[.......x   ] Error: Could not create transformation matrix.")
+    return np.eye(4)
+
+
+def _polygon_to_fp_lines(polygon, layer="Eco1.User", width=0.12):
+    """Convert a shapely Polygon or MultiPolygon to KiCad fp_line records."""
+    fp_lines = []
+
+    def add_ring(ring):
+        coords = list(ring.coords)
+        for i in range(len(coords) - 1):
+            start = coords[i]
+            end = coords[i + 1]
+            fp_lines.append([
+                'fp_line',
+                ['start', float(start[0]), float(start[1])],
+                ['end', float(end[0]), float(end[1])],
+                ['stroke', ['width', width], ['type', 'default']],
+                ['layer', QuotedString(layer)]
+            ])
+
+    if isinstance(polygon, Polygon):
+        add_ring(polygon.exterior)
+        for interior in polygon.interiors:
+            add_ring(interior)
+    elif isinstance(polygon, MultiPolygon):
+        for poly in polygon.geoms:
+            add_ring(poly.exterior)
+            for interior in poly.interiors:
+                add_ring(interior)
+    log.info("[...........] Generated KiCad S-Expression fp_lines from projected polygon.")
+    return fp_lines
+
+
+def _embedded_step_data_from_sexp(sexp, step_exts=(".stp", ".step")):
+    """Find embedded STEP/STP base64 payload data in a footprint s-expression."""
+    if not isinstance(sexp, list):
+        return None
+    if sexp and sexp[0] == 'embedded_files':
+        for file_node in sexp[1:]:
+            if not (isinstance(file_node, list) and file_node and file_node[0] == 'file'):
+                continue
+            name = next((item[1] for item in file_node[1:] if isinstance(item, list) and item and item[0] == 'name'), None)
+            data_items = [
+                item
+                for item in file_node[1:]
+                if isinstance(item, list) and item and item[0] == 'data'
+            ]
+            data = ''.join(data_items[0][1:]).replace('\n', '').replace('\r', '').strip('|') if data_items else None
+            if name and any(str(name).lower().endswith(ext) for ext in step_exts) and data:
+                log.info(f"[..         ] Success: Found step data for {str(name)}")
+                return data
+    for child in sexp:
+        result = _embedded_step_data_from_sexp(child, step_exts)
+        if result:
+            return result
+    return None
+
+
+def _embedded_model_name_from_sexp(s_expr: list) -> str | None:
+    """Return the kicad-embed model filename from the footprint model record."""
+    for item in s_expr:
+        if isinstance(item, list) and item and item[0] == 'model':
+            if len(item) > 1 and isinstance(item[1], str) and item[1].startswith("kicad-embed://"):
+                return item[1][len("kicad-embed://"):]
+    return None
+
+
+def _load_step_mesh_dict(step_data: bytes, file_name: str | None):
+    """Load STEP data through trimesh's cascade importer."""
+    step_io = io.BytesIO(step_data)
+    try:
+        return cast(Any, trimesh).exchange.cascade.load_step(
+            step_io, file_type="step", merge_primitives=False
+        )
+    except Exception as e:
+        log.warning(f"STEP loading failed for {file_name}: {e}")
+        log.warning("Falling back to convex hull from pads...")
+        return None
+
+
+def _step_node_map(mesh_dict: dict[str, Any]) -> dict[str, np.ndarray]:
+    """Build geometry-name to full transform map from a trimesh STEP graph."""
+    frame_transforms = {}
+    geometry_frames = {}
+    for node in mesh_dict['graph']:
+        frame_to = node.get('frame_to')
+        frame_from = node.get('frame_from')
+        matrix = node.get('matrix', np.eye(4))
+        if frame_to:
+            frame_transforms[frame_to] = (frame_from, np.array(matrix).reshape(4, 4))
+        if 'geometry' in node and frame_to:
+            geometry_frames[node['geometry']] = frame_to
+
+    def get_full_transform(frame):
+        if frame == 'world' or frame not in frame_transforms:
+            return np.eye(4)
+        parent_frame, local_matrix = frame_transforms[frame]
+        return get_full_transform(parent_frame) @ local_matrix
+
+    node_map = {geom_name: get_full_transform(frame) for geom_name, frame in geometry_frames.items()}
+    for node in mesh_dict['graph']:
+        if 'geometry' in node and node['geometry'] not in node_map:
+            node_map[node['geometry']] = get_full_transform(node.get('frame_to', 'world'))
+    return node_map
+
+
+def _meshes_from_step_geometry(mesh_dict: dict[str, Any]) -> list:
+    """Construct transformed trimesh meshes from STEP geometry payloads."""
+    node_map = _step_node_map(mesh_dict)
+    meshes = []
+    for name, part in mesh_dict['geometry'].items():
+        if 'faces' not in part:
+            continue
+        verts = part['vertices']
+        if verts.shape[1] == 2:
+            verts = np.hstack([verts, np.zeros((verts.shape[0], 1))])
+        elif verts.shape[1] != 3:
+            log.warning(f"Skipping geometry '{name}' with unexpected vertex shape: {verts.shape}")
+            continue
+        verts_hom = np.hstack([verts, np.ones((verts.shape[0], 1))])
+        verts_trans = (node_map.get(name, np.eye(4)) @ verts_hom.T).T[:, :3]
+        meshes.append(trimesh.Trimesh(vertices=verts_trans, faces=part['faces']))
+    return meshes
+
+
+def _project_mesh_shadow(mesh) -> Any:
+    """Project a mesh along Z into a shapely 2D shadow polygon."""
+    polys = []
+    for face in mesh.faces:
+        pts_2d = mesh.vertices[face][:, :2]
+        pts_2d[:, 1] *= -1
+        poly = Polygon(pts_2d)
+        if poly.is_valid and poly.area > 1e-12:
+            polys.append(poly)
+    return unary_union(polys)
+
+
+def _insert_fp_lines_after_drawings(s_expr: list, fp_lines: list) -> None:
+    """Insert generated fab lines after existing drawing or embedded records."""
+    draw_primitives = {'fp_line', 'fp_arc', 'fp_circle', 'fp_poly', 'fp_text', 'fp_rect'}
+    last_draw_idx = -1
+    last_embedded_idx = -1
+    for idx, item in enumerate(s_expr):
+        if isinstance(item, list) and item:
+            if item[0] in draw_primitives:
+                last_draw_idx = idx
+            elif item[0] in ('embedded_files', 'model'):
+                last_embedded_idx = idx
+
+    insert_idx = last_draw_idx + 1 if last_draw_idx != -1 else last_embedded_idx + 1
+    if insert_idx == 0 and last_embedded_idx == -1:
+        insert_idx = len(s_expr)
+    for fp_line in fp_lines:
+        s_expr.insert(insert_idx, fp_line)
+        insert_idx += 1
+
+
 def fp_filter__orthographic_projection_outline(unfiltered_s_expression: Any) -> Any:
     """
     This is a filter for an s-expression file that does the following:
@@ -551,111 +785,6 @@ def fp_filter__orthographic_projection_outline(unfiltered_s_expression: Any) -> 
     - If no embedded STEP model is found, falls back to fp_filter__add_fab_bounding_orthogonal_convex.
     """
 
-    def get_model_transform(s_expr):
-        """
-        Extracts (offset), (scale), (rotate) from the (model ...) section of the s-expression.
-        Returns a 4x4 transformation matrix.
-        """
-        for item in s_expr:
-            if isinstance(item, list) and item and item[0] == 'model':
-                offset = [0, 0, 0]
-                scale = [1, 1, 1]
-                rotate = [0, 0, 0]
-                for sub in item[1:]:
-                    if isinstance(sub, list) and sub and sub[0] == 'offset':
-                        for xyz in sub[1:]:
-                            if isinstance(xyz, list) and xyz[0] == 'xyz':
-                                offset = [float(x) for x in xyz[1:]]
-                    if isinstance(sub, list) and sub and sub[0] == 'scale':
-                        for xyz in sub[1:]:
-                            if isinstance(xyz, list) and xyz[0] == 'xyz':
-                                scale = [float(x) for x in xyz[1:]]
-                    if isinstance(sub, list) and sub and sub[0] == 'rotate':
-                        for xyz in sub[1:]:
-                            if isinstance(xyz, list) and xyz[0] == 'xyz':
-                                rotate = [float(x) for x in xyz[1:]]
-                # KiCad transform order (from create_scene.cpp lines 1306-1322):
-                # modelMatrix = translate(modelMatrix, offset)
-                # modelMatrix = rotate(modelMatrix, -rot_z, Z)
-                # modelMatrix = rotate(modelMatrix, -rot_y, Y)
-                # modelMatrix = rotate(modelMatrix, -rot_x, X)
-                # modelMatrix = scale(modelMatrix, scale)
-                #
-                # This builds: T * Rz * Ry * Rx * S
-                # Applied to point p: Scale -> RotX -> RotY -> RotZ -> Translate
-                m_scale = tf.scale_matrix(scale[0], [0, 0, 0])
-                m_scale[1, 1] = scale[1]
-                m_scale[2, 2] = scale[2]
-                m_rot_x = tf.rotation_matrix(np.deg2rad(-rotate[0]), [1, 0, 0])
-                m_rot_y = tf.rotation_matrix(np.deg2rad(-rotate[1]), [0, 1, 0])
-                m_rot_z = tf.rotation_matrix(np.deg2rad(-rotate[2]), [0, 0, 1])
-                m_trans = tf.translation_matrix([offset[0], offset[1], offset[2]])
-                # Match KiCad order: T * Rz * Ry * Rx * S
-                m = tf.concatenate_matrices(m_trans, m_rot_z, m_rot_y, m_rot_x, m_scale)
-                log.info(f"[........   ] Created transformation matrix (offset={offset}, rotate={rotate}).")
-                return m
-        log.error("[.......x   ] Error: Could not create transformation matrix.")
-        return np.eye(4)
-
-    def polygon_to_fp_lines(polygon, layer="Eco1.User", width=0.12):
-        """
-        Converts a shapely Polygon or MultiPolygon to a list of fp_line s-expr lists.
-        """
-        fp_lines = []
-        def add_ring(ring):
-            coords = list(ring.coords)
-            for i in range(len(coords) - 1):
-                start = coords[i]
-                end = coords[i + 1]
-                fp_lines.append([
-                    'fp_line',
-                    ['start', float(start[0]), float(start[1])],
-                    ['end', float(end[0]), float(end[1])],
-                    ['stroke', ['width', width], ['type', 'default']],
-                    ['layer', QuotedString(layer)]
-                ])
-        if isinstance(polygon, Polygon):
-            add_ring(polygon.exterior)
-            for interior in polygon.interiors:
-                add_ring(interior)
-        elif isinstance(polygon, MultiPolygon):
-            for poly in polygon.geoms:
-                add_ring(poly.exterior)
-                for interior in poly.interiors:
-                    add_ring(interior)
-        log.info("[...........] Generated KiCad S-Expression fp_lines from projected polygon.")
-        return fp_lines
-
-    def find_embedded_step_data(sexp, step_exts=(".stp", ".step")):
-        """
-        Traverses the parsed s-expression to find the embedded STEP data.
-        Returns the base64 string if found, else None.
-        """
-        def walk(node):
-            if isinstance(node, list):
-                # Look for embedded_files
-                if node and node[0] == 'embedded_files':
-                    for file_node in node[1:]:
-                        if isinstance(file_node, list) and file_node and file_node[0] == 'file':
-                            name = None
-                            data = None
-                            for item in file_node[1:]:
-                                if isinstance(item, list) and item and item[0] == 'name':
-                                    name = item[1]
-                                if isinstance(item, list) and item and item[0] == 'data':
-                                    # Join all data parts, remove newlines, strip KiCad's |...| wrapper
-                                    data = ''.join(item[1:]).replace('\n', '').replace('\r', '').strip('|')
-                            if name and any(str(name).lower().endswith(ext) for ext in step_exts) and data:
-                                log.info(f"[..         ] Success: Found step data for {str(name)}")
-                                return data
-                # Recurse into children
-                for child in node:
-                    result = walk(child)
-                    if result:
-                        return result
-            return None
-        return walk(sexp)
-
     log.info("\nRunning fp_filter__orthographic_projection_outline()...\n")
 
     # Detect footprint side and determine appropriate fab layer
@@ -665,15 +794,8 @@ def fp_filter__orthographic_projection_outline(unfiltered_s_expression: Any) -> 
 
     unfiltered_s_expr_list = unfiltered_s_expression
 
-    file_name = None
-    for item in unfiltered_s_expr_list:
-        if isinstance(item, list) and item and item[0] == 'model':
-            if len(item) > 1 and isinstance(item[1], str):
-                model_str = item[1]
-                if model_str.startswith("kicad-embed://"):
-                   file_name = model_str[len("kicad-embed://"):]
-
-    b64_data = find_embedded_step_data(unfiltered_s_expr_list)
+    file_name = _embedded_model_name_from_sexp(unfiltered_s_expr_list)
+    b64_data = _embedded_step_data_from_sexp(unfiltered_s_expr_list)
     if not b64_data:
         log.warning(f"Warning: No embedded STEP data found in {file_name}.")
         log.info("Falling back to fp_filter__add_fab_bounding_orthogonal_convex()...")
@@ -689,81 +811,12 @@ def fp_filter__orthographic_projection_outline(unfiltered_s_expression: Any) -> 
         log.error(f"[...x       ] Error: ZSTD decompression failed: {e}")
         return fp_filter__add_fab_bounding_orthogonal_convex(unfiltered_s_expr_list)
 
-    step_io = io.BytesIO(data)
-
-    try:
-        # merge_primitives=False is required because some STEP files have primitives
-        # without materials, which causes trimesh's merge logic to fail with KeyError: 'visual'
-        # This is a trimesh bug where it assumes all primitives have a 'visual' key when merging.
-        mesh_dict = cast(Any, trimesh).exchange.cascade.load_step(
-            step_io, file_type="step", merge_primitives=False
-        )
-    except Exception as e:
-        log.warning(f"STEP loading failed for {file_name}: {e}")
-        log.warning("Falling back to convex hull from pads...")
+    mesh_dict = _load_step_mesh_dict(data, file_name)
+    if mesh_dict is None:
         return fp_filter__add_fab_bounding_orthogonal_convex(unfiltered_s_expr_list)
 
     log.info("[.....      ] STEP model data set up for Trimesh.")
-
-    # Grab all the geometry from the file.
-    geometry = mesh_dict['geometry']
-    # Grab all the nodes from graph in the file to assemble the parts.
-    # The graph is a scene hierarchy - we need to compute full transforms by walking the tree
-    nodes = mesh_dict['graph']
-
-    # Build frame transform lookup: frame_to -> (frame_from, matrix)
-    frame_transforms = {}
-    geometry_frames = {}  # geometry_name -> frame_to
-    for node in nodes:
-        frame_to = node.get('frame_to')
-        frame_from = node.get('frame_from')
-        matrix = node.get('matrix', np.eye(4))
-        if frame_to:
-            frame_transforms[frame_to] = (frame_from, np.array(matrix).reshape(4, 4))
-        if 'geometry' in node and frame_to:
-            geometry_frames[node['geometry']] = frame_to
-
-    def get_full_transform(frame):
-        """Walk up the frame hierarchy to compute full world transform."""
-        if frame == 'world' or frame not in frame_transforms:
-            return np.eye(4)
-        parent_frame, local_matrix = frame_transforms[frame]
-        parent_transform = get_full_transform(parent_frame)
-        return parent_transform @ local_matrix
-
-    # Compute full transform for each geometry
-    node_map = {}
-    for geom_name, frame in geometry_frames.items():
-        node_map[geom_name] = get_full_transform(frame)
-
-    # Also check for geometries not in geometry_frames (direct mapping)
-    for node in nodes:
-        if 'geometry' in node and node['geometry'] not in node_map:
-            frame_to = node.get('frame_to', 'world')
-            node_map[node['geometry']] = get_full_transform(frame_to)
-
-    meshes = []
-    for name, part in geometry.items():
-        # Skip geometries without faces (e.g., COMPOUND entities with only 'entities' key)
-        if 'faces' not in part:
-            continue
-
-        transform = node_map.get(name, np.eye(4))
-
-        verts = part['vertices']
-        # Only process if verts are 2D or 3D points
-        if verts.shape[1] == 2:
-            verts = np.hstack([verts, np.zeros((verts.shape[0], 1))])
-        elif verts.shape[1] == 3:
-            pass  # OK
-        else:
-            log.warning(f"Skipping geometry '{name}' with unexpected vertex shape: {verts.shape}")
-            continue
-
-        verts_hom = np.hstack([verts, np.ones((verts.shape[0], 1))])  # (N, 4)
-        verts_trans = (transform @ verts_hom.T).T[:, :3]
-
-        meshes.append(trimesh.Trimesh(vertices=verts_trans, faces=part['faces']))
+    meshes = _meshes_from_step_geometry(mesh_dict)
     log.info("[......     ] Constructed STEP model from node map.")
 
     for _i, part in enumerate(meshes):
@@ -777,25 +830,14 @@ def fp_filter__orthographic_projection_outline(unfiltered_s_expression: Any) -> 
     mesh.apply_scale(1000)
 
     # Get and apply KiCad model transform (offset, scale, rotate)
-    model_transform = get_model_transform(unfiltered_s_expr_list)
+    model_transform = _model_transform_from_sexp(unfiltered_s_expr_list)
     mesh.apply_transform(model_transform)
     log.info("[.........  ] Applied KiCad model transformations.")
 
-    polys = []
-    for face in mesh.faces:
-        pts_3d = mesh.vertices[face]
-        pts_2d = pts_3d[:, :2] # Drop Z
-        #pts_2d[:, 0] *= -1  # Invert X
-        pts_2d[:, 1] *= -1  # Invert Y
-        #pts_2d = pts_3d[:, [0, 2]]  # Drop Y, keep X and Z
-        poly = Polygon(pts_2d)
-        if poly.is_valid and poly.area > 1e-12:
-            polys.append(poly)
-
-    shadow_2d = unary_union(polys)
+    shadow_2d = _project_mesh_shadow(mesh)
     log.info("[.......... ] Created 2D projection.")
 
-    fab_fp_lines = polygon_to_fp_lines(shadow_2d, layer=fab_layer, width=0.12)
+    fab_fp_lines = _polygon_to_fp_lines(shadow_2d, layer=fab_layer, width=0.12)
     filtered_s_expr = copy.deepcopy(unfiltered_s_expr_list)
 
     # Calculate bounding box dimensions and center from the 2D projection
@@ -805,27 +847,7 @@ def fp_filter__orthographic_projection_outline(unfiltered_s_expression: Any) -> 
     projection_center = [(bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2]
     hull_shortest_side = min(projection_width, projection_height)
 
-    DRAW_PRIMITIVES = {'fp_line', 'fp_arc', 'fp_circle', 'fp_poly', 'fp_text', 'fp_rect'}
-
-    last_draw_idx = -1
-    last_embedded_idx = -1
-    for idx, item in enumerate(filtered_s_expr):
-        if isinstance(item, list) and item:
-            if item[0] in DRAW_PRIMITIVES:
-                last_draw_idx = idx
-            elif item[0] in ('embedded_files', 'model'):
-                last_embedded_idx = idx
-
-    if last_draw_idx != -1:
-        insert_idx = last_draw_idx + 1
-    elif last_embedded_idx != -1:
-        insert_idx = last_embedded_idx + 1
-    else:
-        insert_idx = len(filtered_s_expr)  # Insert at end if nothing else
-
-    for fp_line in fab_fp_lines:
-        filtered_s_expr.insert(insert_idx, fp_line)
-        insert_idx += 1
+    _insert_fp_lines_after_drawings(filtered_s_expr, fab_fp_lines)
 
     # Add reference text to the appropriate fab layer at the center of the projection
     log.info(f"[........... ] Adding reference text to {fab_layer} layer.")

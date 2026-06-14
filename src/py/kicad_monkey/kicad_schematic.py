@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, Iterator, List, Optional, TYPE_CHECKING, cast
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, TYPE_CHECKING, cast
 
 from ._api_markers import public_api
 from .kicad_defaults import (
@@ -146,6 +146,30 @@ _SCHEMATIC_OBJECT_LIST_BY_CLASS_NAME: dict[str, str] = {
     "SchRuleArea": "rule_areas",
     "SchSheet": "sheets",
 }
+
+
+def _append_serialized_items(result: list, items: Iterable[Any]) -> None:
+    for item in items:
+        result.append(item.to_sexp())
+
+
+def _append_serialized_group_if_present(
+    result: list,
+    group_name: str,
+    items: Iterable[Any],
+) -> None:
+    item_list = list(items)
+    if not item_list:
+        return
+    group = [group_name]
+    _append_serialized_items(group, item_list)
+    result.append(group)
+
+
+def _append_schematic_lib_symbols(result: list, lib_symbols: Iterable[Any]) -> None:
+    lib_syms = ['lib_symbols']
+    _append_serialized_items(lib_syms, lib_symbols)
+    result.append(lib_syms)
 
 
 @public_api
@@ -534,104 +558,66 @@ class KiCadSchematic:
         # lib_symbols — KiCad always emits this block, even when empty.
         # See ``CADSTAR_SCH_ARCHIVE_LOADER`` / ``SCH_IO_KICAD_SEXPR_PARSER``: the
         # block is mandatory on round-trip; dropping it is data-loss.
-        lib_syms = ['lib_symbols']
-        for sym in self.lib_symbols:
-            lib_syms.append(sym.to_sexp())
-        result.append(lib_syms)
+        _append_schematic_lib_symbols(result, self.lib_symbols)
 
         # Bus aliases
-        for alias in self.bus_aliases:
-            result.append(alias.to_sexp())
+        _append_serialized_items(result, self.bus_aliases)
 
         # Junctions (placed before wires in KiCad output)
-        for junction in self.junctions:
-            result.append(junction.to_sexp())
+        _append_serialized_items(result, self.junctions)
 
         # No connects
-        for nc in self.no_connects:
-            result.append(nc.to_sexp())
+        _append_serialized_items(result, self.no_connects)
 
         # Wires
-        for wire in self.wires:
-            result.append(wire.to_sexp())
+        _append_serialized_items(result, self.wires)
 
         # Buses
-        for bus in self.buses:
-            result.append(bus.to_sexp())
+        _append_serialized_items(result, self.buses)
 
         # Bus entries
-        for entry in self.bus_entries:
-            result.append(entry.to_sexp())
+        _append_serialized_items(result, self.bus_entries)
 
         # Labels
-        for label in self.labels:
-            result.append(label.to_sexp())
-
-        for glabel in self.global_labels:
-            result.append(glabel.to_sexp())
-
-        for hlabel in self.hierarchical_labels:
-            result.append(hlabel.to_sexp())
-
-        for ncflag in self.netclass_flags:
-            result.append(ncflag.to_sexp())
+        _append_serialized_items(result, self.labels)
+        _append_serialized_items(result, self.global_labels)
+        _append_serialized_items(result, self.hierarchical_labels)
+        _append_serialized_items(result, self.netclass_flags)
 
         # Rule areas (saveRuleArea, sch_io_kicad_sexpr.cpp:1373)
-        for ra in self.rule_areas:
-            result.append(ra.to_sexp())
+        _append_serialized_items(result, self.rule_areas)
 
         # Graphics
-        for text in self.texts:
-            result.append(text.to_sexp())
-
-        for tbox in self.text_boxes:
-            result.append(tbox.to_sexp())
-
-        for poly in self.polylines:
-            result.append(poly.to_sexp())
-
-        for arc in self.arcs:
-            result.append(arc.to_sexp())
-
-        for circle in self.circles:
-            result.append(circle.to_sexp())
-
-        for rect in self.rectangles:
-            result.append(rect.to_sexp())
-
-        for bezier in self.beziers:
-            result.append(bezier.to_sexp())
-
-        for img in self.images:
-            result.append(img.to_sexp())
-
-        for table in self.tables:
-            result.append(table.to_sexp())
+        _append_serialized_items(result, self.texts)
+        _append_serialized_items(result, self.text_boxes)
+        _append_serialized_items(result, self.polylines)
+        _append_serialized_items(result, self.arcs)
+        _append_serialized_items(result, self.circles)
+        _append_serialized_items(result, self.rectangles)
+        _append_serialized_items(result, self.beziers)
+        _append_serialized_items(result, self.images)
+        _append_serialized_items(result, self.tables)
 
         # Groups (saveGroup, sch_io_kicad_sexpr.cpp:1656)
-        for grp in self.groups:
-            result.append(grp.to_sexp())
+        _append_serialized_items(result, self.groups)
 
         # Sheets
-        for sheet in self.sheets:
-            result.append(sheet.to_sexp())
+        _append_serialized_items(result, self.sheets)
 
         # Symbols (placed after sheets in KiCad output)
-        for symbol in self.symbols:
-            result.append(symbol.to_sexp())
+        _append_serialized_items(result, self.symbols)
 
         # Instance sections
-        if self.sheet_instances:
-            si = ['sheet_instances']
-            for inst in self.sheet_instances:
-                si.append(inst.to_sexp())
-            result.append(si)
-
-        if self.symbol_instances:
-            symi = ['symbol_instances']
-            for inst in self.symbol_instances:
-                symi.append(inst.to_sexp())
-            result.append(symi)
+        _append_serialized_group_if_present(
+            result,
+            'sheet_instances',
+            self.sheet_instances,
+        )
+        _append_serialized_group_if_present(
+            result,
+            'symbol_instances',
+            self.symbol_instances,
+        )
 
         # Embedded fonts
         result.append(['embedded_fonts', 'yes' if self.embedded_fonts else 'no'])

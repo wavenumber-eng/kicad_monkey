@@ -7,7 +7,7 @@ One class per file.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from .kicad_sexpr import QuotedString, SexpList
 from typing import TYPE_CHECKING
@@ -191,6 +191,211 @@ class TeardropParameters:
         return result
 
 
+def _optional_float_value(sexp: list, key: str, *, tolerant: bool = False) -> Optional[float]:
+    elem = find_element(sexp, key)
+    if not elem or len(elem) <= 1:
+        return None
+    try:
+        return float(elem[1])
+    except (TypeError, ValueError):
+        if tolerant:
+            return None
+        raise
+
+
+def _optional_int_value(sexp: list, key: str) -> Optional[int]:
+    elem = find_element(sexp, key)
+    return int(elem[1]) if elem and len(elem) > 1 else None
+
+
+def _optional_presence_bool(sexp: list, key: str) -> Optional[bool]:
+    elem = find_element(sexp, key)
+    if elem is None:
+        return None
+    if len(elem) <= 1:
+        return True
+    return str(elem[1]).lower() in ("yes", "true", "1")
+
+
+def _parse_pad_size(sexp: list) -> tuple[float, float]:
+    size = find_element(sexp, 'size')
+    return (
+        float(size[1]) if size else 0.0,
+        float(size[2]) if size else 0.0,
+    )
+
+
+def _parse_pad_drill_fields(sexp: list) -> dict[str, Any]:
+    fields: dict[str, Any] = {
+        "drill": None,
+        "drill_oval": False,
+        "drill_width": None,
+        "drill_height": None,
+        "drill_offset_x": None,
+        "drill_offset_y": None,
+    }
+    drill_elem = find_element(sexp, 'drill')
+    if not drill_elem or len(drill_elem) <= 1:
+        return fields
+
+    if drill_elem[1] == 'oval':
+        numeric_values: list[float] = []
+        for item in drill_elem[2:]:
+            if isinstance(item, list):
+                if len(item) >= 3 and item[0] == "offset":
+                    fields["drill_offset_x"] = float(item[1])
+                    fields["drill_offset_y"] = float(item[2])
+                continue
+            numeric_values.append(float(item))
+        fields["drill_oval"] = True
+        fields["drill_width"] = numeric_values[0] if numeric_values else None
+        fields["drill_height"] = numeric_values[1] if len(numeric_values) > 1 else None
+        fields["drill"] = fields["drill_width"]
+        return fields
+
+    try:
+        fields["drill"] = float(drill_elem[1])
+    except (ValueError, TypeError):
+        pass
+    for item in drill_elem[2:]:
+        if isinstance(item, list) and len(item) >= 3 and item[0] == "offset":
+            fields["drill_offset_x"] = float(item[1])
+            fields["drill_offset_y"] = float(item[2])
+    return fields
+
+
+def _parse_pad_geometry_fields(sexp: list) -> dict[str, Any]:
+    rect_delta_elem = find_element(sexp, "rect_delta")
+    chamfer_elem = find_element(sexp, "chamfer")
+    return {
+        "die_length": _optional_float_value(sexp, "die_length"),
+        "rect_delta_x": float(rect_delta_elem[1]) if rect_delta_elem and len(rect_delta_elem) > 2 else None,
+        "rect_delta_y": float(rect_delta_elem[2]) if rect_delta_elem and len(rect_delta_elem) > 2 else None,
+        "roundrect_rratio": _optional_float_value(sexp, "roundrect_rratio"),
+        "chamfer_ratio": _optional_float_value(sexp, "chamfer_ratio"),
+        "chamfer_corners": [unquote_string(corner) for corner in chamfer_elem[1:]]
+        if chamfer_elem and len(chamfer_elem) > 1
+        else [],
+    }
+
+
+def _parse_pad_clearance_fields(sexp: list) -> dict[str, Optional[float]]:
+    return {
+        "solder_mask_margin": _optional_float_value(sexp, "solder_mask_margin"),
+        "solder_paste_margin": _optional_float_value(sexp, "solder_paste_margin"),
+        "solder_paste_margin_ratio": _optional_float_value(sexp, "solder_paste_margin_ratio"),
+        "clearance": _optional_float_value(sexp, "clearance", tolerant=True),
+        "thermal_bridge_width": _optional_float_value(sexp, "thermal_bridge_width"),
+        "thermal_bridge_angle": _optional_float_value(sexp, "thermal_bridge_angle"),
+        "thermal_gap": _optional_float_value(sexp, "thermal_gap"),
+    }
+
+
+def _parse_pad_connection_fields(sexp: list) -> dict[str, Any]:
+    return {
+        "zone_connect": _optional_int_value(sexp, "zone_connect"),
+        "remove_unused_layers": _optional_presence_bool(sexp, "remove_unused_layers"),
+        "keep_end_layers": _optional_presence_bool(sexp, "keep_end_layers"),
+    }
+
+
+def _parse_pad_postprocessing_fields(sexp: list) -> dict[str, Any]:
+    return {
+        "backdrill": DrillProps.from_sexp(find_element(sexp, "backdrill")) or None,
+        "tertiary_drill": DrillProps.from_sexp(find_element(sexp, "tertiary_drill")) or None,
+        "front_post_machining": PostMachiningProps.from_sexp(
+            find_element(sexp, "front_post_machining")
+        ) or None,
+        "back_post_machining": PostMachiningProps.from_sexp(
+            find_element(sexp, "back_post_machining")
+        ) or None,
+    }
+
+
+def _parse_pad_custom_fields(sexp: list) -> dict[str, Any]:
+    custom_primitives: List[PadCustomPrimitive] = []
+    primitives_elem = find_element(sexp, "primitives")
+    if primitives_elem:
+        for primitive_elem in primitives_elem[1:]:
+            if isinstance(primitive_elem, list) and len(primitive_elem) > 0:
+                custom_primitives.append(PadCustomPrimitive.from_sexp(primitive_elem))
+
+    options_elem = find_element(sexp, "options")
+    zone_layer_connections_elem = find_element(sexp, "zone_layer_connections")
+    return {
+        "zone_layer_connections": ZoneLayerConnections.from_sexp(zone_layer_connections_elem)
+        if zone_layer_connections_elem is not None
+        else None,
+        "custom_options": PadCustomOptions.from_sexp(options_elem) if options_elem else None,
+        "custom_primitives": custom_primitives,
+    }
+
+
+def _pad_drill_to_sexp(pad: "Pad") -> list | None:
+    if pad.drill_oval and pad.drill_width is not None:
+        drill_elem = ['drill', 'oval', pad.drill_width]
+        if pad.drill_height is not None:
+            drill_elem.append(pad.drill_height)
+        if pad.drill_offset_x is not None and pad.drill_offset_y is not None:
+            drill_elem.append(['offset', pad.drill_offset_x, pad.drill_offset_y])
+        return drill_elem
+
+    if pad.drill is None:
+        return None
+    drill_elem = ['drill', pad.drill]
+    if pad.drill_offset_x is not None and pad.drill_offset_y is not None:
+        drill_elem.append(['offset', pad.drill_offset_x, pad.drill_offset_y])
+    return drill_elem
+
+
+def _append_pad_optional_fields(result: list, pad: "Pad") -> None:
+    for key, value in (
+        ("pinfunction", QuotedString(pad.pinfunction) if pad.pinfunction else None),
+        ("pintype", QuotedString(pad.pintype) if pad.pintype else None),
+        ("die_length", pad.die_length),
+        ("solder_mask_margin", pad.solder_mask_margin),
+        ("solder_paste_margin", pad.solder_paste_margin),
+        ("solder_paste_margin_ratio", pad.solder_paste_margin_ratio),
+        ("clearance", pad.clearance),
+        ("zone_connect", pad.zone_connect),
+        ("thermal_bridge_width", pad.thermal_bridge_width),
+        ("thermal_bridge_angle", pad.thermal_bridge_angle),
+        ("thermal_gap", pad.thermal_gap),
+    ):
+        if value is not None:
+            result.append([key, value])
+
+
+def _append_pad_presence_bool(result: list, key: str, value: Optional[bool]) -> None:
+    if value is None:
+        return
+    result.append([key] if value else [key, "no"])
+
+
+def _append_pad_postprocessing(result: list, pad: "Pad") -> None:
+    for obj, element_name in (
+        (pad.backdrill, "backdrill"),
+        (pad.tertiary_drill, "tertiary_drill"),
+        (pad.front_post_machining, "front_post_machining"),
+        (pad.back_post_machining, "back_post_machining"),
+    ):
+        if obj:
+            result.append(obj.to_sexp(element_name))
+    if pad.zone_layer_connections is not None:
+        result.append(pad.zone_layer_connections.to_sexp())
+
+
+def _append_pad_custom_shape(result: list, pad: "Pad") -> None:
+    if pad.custom_options:
+        result.append(pad.custom_options.to_sexp())
+
+    if pad.custom_primitives:
+        primitives_elem: SexpList = ["primitives"]
+        for primitive in pad.custom_primitives:
+            primitives_elem.append(primitive.to_sexp())
+        result.append(primitives_elem)
+
+
 @dataclass
 class Pad:
     """Footprint pad."""
@@ -245,42 +450,7 @@ class Pad:
         pad_type = PadType(sexp[2])
         shape = PadShape(sexp[3])
         x, y, angle = get_at(sexp)
-
-        size = find_element(sexp, 'size')
-        size_x = float(size[1]) if size else 0.0
-        size_y = float(size[2]) if size else 0.0
-
-        # Parse drill - can be (drill SIZE) or (drill oval WIDTH HEIGHT)
-        drill_elem = find_element(sexp, 'drill')
-        drill = None
-        drill_oval = False
-        drill_width = None
-        drill_height = None
-        drill_offset_x = None
-        drill_offset_y = None
-        if drill_elem and len(drill_elem) > 1:
-            if drill_elem[1] == 'oval':
-                drill_oval = True
-                numeric_values: list[float] = []
-                for item in drill_elem[2:]:
-                    if isinstance(item, list):
-                        if len(item) >= 3 and item[0] == "offset":
-                            drill_offset_x = float(item[1])
-                            drill_offset_y = float(item[2])
-                        continue
-                    numeric_values.append(float(item))
-                drill_width = numeric_values[0] if numeric_values else None
-                drill_height = numeric_values[1] if len(numeric_values) > 1 else None
-                drill = drill_width  # Use width as primary drill size
-            else:
-                try:
-                    drill = float(drill_elem[1])
-                except (ValueError, TypeError):
-                    pass  # Could be other drill options
-                for item in drill_elem[2:]:
-                    if isinstance(item, list) and len(item) >= 3 and item[0] == "offset":
-                        drill_offset_x = float(item[1])
-                        drill_offset_y = float(item[2])
+        size_x, size_y = _parse_pad_size(sexp)
 
         layers_elem = find_element(sexp, 'layers')
         layers = [unquote_string(layer) for layer in layers_elem[1:]] if layers_elem else []
@@ -292,170 +462,22 @@ class Pad:
         pinfunction = unquote_string(get_value(sexp, "pinfunction"))
         pintype = unquote_string(get_value(sexp, "pintype"))
 
-        die_length = None
-        die_length_elem = find_element(sexp, "die_length")
-        if die_length_elem and len(die_length_elem) > 1:
-            die_length = float(die_length_elem[1])
-
-        rect_delta_x = None
-        rect_delta_y = None
-        rect_delta_elem = find_element(sexp, "rect_delta")
-        if rect_delta_elem and len(rect_delta_elem) > 2:
-            rect_delta_x = float(rect_delta_elem[1])
-            rect_delta_y = float(rect_delta_elem[2])
-
-        # Parse roundrect_rratio for roundrect pads
-        roundrect_rratio = None
-        rratio_elem = find_element(sexp, 'roundrect_rratio')
-        if rratio_elem and len(rratio_elem) > 1:
-            roundrect_rratio = float(rratio_elem[1])
-
-        chamfer_ratio = None
-        chamfer_ratio_elem = find_element(sexp, "chamfer_ratio")
-        if chamfer_ratio_elem and len(chamfer_ratio_elem) > 1:
-            chamfer_ratio = float(chamfer_ratio_elem[1])
-
-        chamfer_corners: List[str] = []
-        chamfer_elem = find_element(sexp, "chamfer")
-        if chamfer_elem and len(chamfer_elem) > 1:
-            chamfer_corners = [unquote_string(corner) for corner in chamfer_elem[1:]]
-
-        solder_mask_margin = None
-        solder_mask_margin_elem = find_element(sexp, "solder_mask_margin")
-        if solder_mask_margin_elem and len(solder_mask_margin_elem) > 1:
-            solder_mask_margin = float(solder_mask_margin_elem[1])
-
-        solder_paste_margin = None
-        solder_paste_margin_elem = find_element(sexp, "solder_paste_margin")
-        if solder_paste_margin_elem and len(solder_paste_margin_elem) > 1:
-            solder_paste_margin = float(solder_paste_margin_elem[1])
-
-        solder_paste_margin_ratio = None
-        solder_paste_margin_ratio_elem = find_element(sexp, "solder_paste_margin_ratio")
-        if solder_paste_margin_ratio_elem and len(solder_paste_margin_ratio_elem) > 1:
-            solder_paste_margin_ratio = float(solder_paste_margin_ratio_elem[1])
-
-        clearance = None
-        clearance_elem = find_element(sexp, "clearance")
-        if clearance_elem and len(clearance_elem) > 1:
-            try:
-                clearance = float(clearance_elem[1])
-            except (ValueError, TypeError):
-                clearance = None  # PadCustomOptions handles "convexhull"/"outline" tokens.
-
-        thermal_bridge_width = None
-        thermal_bridge_width_elem = find_element(sexp, "thermal_bridge_width")
-        if thermal_bridge_width_elem and len(thermal_bridge_width_elem) > 1:
-            thermal_bridge_width = float(thermal_bridge_width_elem[1])
-
-        thermal_bridge_angle = None
-        thermal_bridge_angle_elem = find_element(sexp, "thermal_bridge_angle")
-        if thermal_bridge_angle_elem and len(thermal_bridge_angle_elem) > 1:
-            thermal_bridge_angle = float(thermal_bridge_angle_elem[1])
-
-        thermal_gap = None
-        thermal_gap_elem = find_element(sexp, "thermal_gap")
-        if thermal_gap_elem and len(thermal_gap_elem) > 1:
-            thermal_gap = float(thermal_gap_elem[1])
-
         teardrops = TeardropParameters.from_sexp(find_element(sexp, "teardrops"))
-
-        zone_connect = None
-        zone_connect_elem = find_element(sexp, "zone_connect")
-        if zone_connect_elem and len(zone_connect_elem) > 1:
-            zone_connect = int(zone_connect_elem[1])
-
-        remove_unused_layers = None
-        remove_unused_layers_elem = find_element(sexp, "remove_unused_layers")
-        if remove_unused_layers_elem is not None:
-            if len(remove_unused_layers_elem) > 1:
-                remove_unused_layers = str(remove_unused_layers_elem[1]).lower() in ("yes", "true", "1")
-            else:
-                remove_unused_layers = True
-
-        keep_end_layers = None
-        keep_end_layers_elem = find_element(sexp, "keep_end_layers")
-        if keep_end_layers_elem is not None:
-            if len(keep_end_layers_elem) > 1:
-                keep_end_layers = str(keep_end_layers_elem[1]).lower() in ("yes", "true", "1")
-            else:
-                keep_end_layers = True
-
-        backdrill = None
-        parsed_backdrill = DrillProps.from_sexp(find_element(sexp, "backdrill"))
-        if parsed_backdrill:
-            backdrill = parsed_backdrill
-
-        tertiary_drill = None
-        parsed_tertiary_drill = DrillProps.from_sexp(find_element(sexp, "tertiary_drill"))
-        if parsed_tertiary_drill:
-            tertiary_drill = parsed_tertiary_drill
-
-        front_post_machining = None
-        parsed_front_post_machining = PostMachiningProps.from_sexp(
-            find_element(sexp, "front_post_machining")
-        )
-        if parsed_front_post_machining:
-            front_post_machining = parsed_front_post_machining
-
-        back_post_machining = None
-        parsed_back_post_machining = PostMachiningProps.from_sexp(
-            find_element(sexp, "back_post_machining")
-        )
-        if parsed_back_post_machining:
-            back_post_machining = parsed_back_post_machining
-
-        zone_layer_connections = None
-        zone_layer_connections_elem = find_element(sexp, "zone_layer_connections")
-        if zone_layer_connections_elem is not None:
-            zone_layer_connections = ZoneLayerConnections.from_sexp(zone_layer_connections_elem)
-
-        custom_options = None
-        options_elem = find_element(sexp, "options")
-        if options_elem:
-            custom_options = PadCustomOptions.from_sexp(options_elem)
-
-        custom_primitives: List[PadCustomPrimitive] = []
-        primitives_elem = find_element(sexp, "primitives")
-        if primitives_elem:
-            for primitive_elem in primitives_elem[1:]:
-                if isinstance(primitive_elem, list) and len(primitive_elem) > 0:
-                    custom_primitives.append(PadCustomPrimitive.from_sexp(primitive_elem))
 
         return cls(
             number=number, pad_type=pad_type, shape=shape,
             at_x=x, at_y=y, at_angle=angle,
             size_x=size_x, size_y=size_y,
-            drill=drill, drill_oval=drill_oval,
-            drill_width=drill_width, drill_height=drill_height,
-            drill_offset_x=drill_offset_x, drill_offset_y=drill_offset_y,
+            **_parse_pad_drill_fields(sexp),
             layers=layers, net=net, uuid=uuid,
             pinfunction=pinfunction,
             pintype=pintype,
-            die_length=die_length,
-            rect_delta_x=rect_delta_x,
-            rect_delta_y=rect_delta_y,
-            roundrect_rratio=roundrect_rratio,
-            chamfer_ratio=chamfer_ratio,
-            chamfer_corners=chamfer_corners,
-            solder_mask_margin=solder_mask_margin,
-            solder_paste_margin=solder_paste_margin,
-            solder_paste_margin_ratio=solder_paste_margin_ratio,
-            clearance=clearance,
-            thermal_bridge_width=thermal_bridge_width,
-            thermal_bridge_angle=thermal_bridge_angle,
-            thermal_gap=thermal_gap,
+            **_parse_pad_geometry_fields(sexp),
+            **_parse_pad_clearance_fields(sexp),
             teardrops=teardrops,
-            zone_connect=zone_connect,
-            remove_unused_layers=remove_unused_layers,
-            keep_end_layers=keep_end_layers,
-            backdrill=backdrill,
-            tertiary_drill=tertiary_drill,
-            front_post_machining=front_post_machining,
-            back_post_machining=back_post_machining,
-            zone_layer_connections=zone_layer_connections,
-            custom_options=custom_options,
-            custom_primitives=custom_primitives,
+            **_parse_pad_connection_fields(sexp),
+            **_parse_pad_postprocessing_fields(sexp),
+            **_parse_pad_custom_fields(sexp),
             _raw_sexp=sexp
         )
 
@@ -852,17 +874,8 @@ class Pad:
         if self.chamfer_corners:
             result.append(["chamfer"] + self.chamfer_corners)
 
-        if self.drill_oval and self.drill_width is not None:
-            drill_elem = ['drill', 'oval', self.drill_width]
-            if self.drill_height is not None:
-                drill_elem.append(self.drill_height)
-            if self.drill_offset_x is not None and self.drill_offset_y is not None:
-                drill_elem.append(['offset', self.drill_offset_x, self.drill_offset_y])
-            result.append(drill_elem)
-        elif self.drill is not None:
-            drill_elem = ['drill', self.drill]
-            if self.drill_offset_x is not None and self.drill_offset_y is not None:
-                drill_elem.append(['offset', self.drill_offset_x, self.drill_offset_y])
+        drill_elem = _pad_drill_to_sexp(self)
+        if drill_elem is not None:
             result.append(drill_elem)
 
         result.append(['layers'] + [QuotedString(layer) for layer in self.layers])
@@ -871,59 +884,13 @@ class Pad:
         if net_elem:
             result.append(net_elem)
 
-        if self.pinfunction:
-            result.append(["pinfunction", QuotedString(self.pinfunction)])
-        if self.pintype:
-            result.append(["pintype", QuotedString(self.pintype)])
-        if self.die_length is not None:
-            result.append(["die_length", self.die_length])
-        if self.solder_mask_margin is not None:
-            result.append(["solder_mask_margin", self.solder_mask_margin])
-        if self.solder_paste_margin is not None:
-            result.append(["solder_paste_margin", self.solder_paste_margin])
-        if self.solder_paste_margin_ratio is not None:
-            result.append(["solder_paste_margin_ratio", self.solder_paste_margin_ratio])
         # Order matches pcb_io_kicad_sexpr.cpp:1936-1973: clearance, zone_connect,
         # thermal_bridge_width, thermal_bridge_angle, thermal_gap.
-        if self.clearance is not None:
-            result.append(["clearance", self.clearance])
-        if self.zone_connect is not None:
-            result.append(["zone_connect", self.zone_connect])
-        if self.thermal_bridge_width is not None:
-            result.append(["thermal_bridge_width", self.thermal_bridge_width])
-        if self.thermal_bridge_angle is not None:
-            result.append(["thermal_bridge_angle", self.thermal_bridge_angle])
-        if self.thermal_gap is not None:
-            result.append(["thermal_gap", self.thermal_gap])
-        if self.remove_unused_layers is not None:
-            if self.remove_unused_layers:
-                result.append(["remove_unused_layers"])
-            else:
-                result.append(["remove_unused_layers", "no"])
-        if self.keep_end_layers is not None:
-            if self.keep_end_layers:
-                result.append(["keep_end_layers"])
-            else:
-                result.append(["keep_end_layers", "no"])
-        if self.backdrill:
-            result.append(self.backdrill.to_sexp("backdrill"))
-        if self.tertiary_drill:
-            result.append(self.tertiary_drill.to_sexp("tertiary_drill"))
-        if self.front_post_machining:
-            result.append(self.front_post_machining.to_sexp("front_post_machining"))
-        if self.back_post_machining:
-            result.append(self.back_post_machining.to_sexp("back_post_machining"))
-        if self.zone_layer_connections is not None:
-            result.append(self.zone_layer_connections.to_sexp())
-
-        if self.custom_options:
-            result.append(self.custom_options.to_sexp())
-
-        if self.custom_primitives:
-            primitives_elem: SexpList = ["primitives"]
-            for primitive in self.custom_primitives:
-                primitives_elem.append(primitive.to_sexp())
-            result.append(primitives_elem)
+        _append_pad_optional_fields(result, self)
+        _append_pad_presence_bool(result, "remove_unused_layers", self.remove_unused_layers)
+        _append_pad_presence_bool(result, "keep_end_layers", self.keep_end_layers)
+        _append_pad_postprocessing(result, self)
+        _append_pad_custom_shape(result, self)
 
         # Per pcb_io_kicad_sexpr.cpp:2104, (teardrops ...) is emitted after the
         # custom-shape primitives block (only when non-default).

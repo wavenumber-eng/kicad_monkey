@@ -113,6 +113,100 @@ _PCB_FOOTPRINT_OBJECT_LIST_BY_CLASS_NAME: dict[str, str] = {
     "UnknownElement": "unknown_elements",
 }
 
+_FOOTPRINT_TO_SEXP_COLLECTIONS: tuple[str, ...] = (
+    "fp_texts",
+    "fp_text_boxes",
+    "images",
+    "tables",
+    "barcodes",
+    "dimensions",
+    "fp_lines",
+    "fp_arcs",
+    "fp_circles",
+    "fp_rects",
+    "fp_polys",
+    "zones",
+    "groups",
+    "variants",
+    "pads",
+    "models",
+)
+
+
+def _append_object_sexps(result: list, objects: list) -> None:
+    for obj in objects:
+        result.append(obj.to_sexp())
+
+
+def _append_footprint_identity(result: list, footprint: "Footprint") -> None:
+    if footprint.uuid:
+        result.append(['uuid', QuotedString(footprint.uuid)])
+
+    # KiCad's reader requires the angle slot even when zero (drift inventory #1).
+    result.append(['at', footprint.at_x, footprint.at_y, footprint.at_angle])
+
+    if footprint.locked:
+        result.append(['locked', 'yes'])
+    if footprint.descr:
+        result.append(['descr', QuotedString(footprint.descr)])
+    if footprint.tags:
+        result.append(['tags', QuotedString(footprint.tags)])
+
+
+def _append_footprint_properties(result: list, footprint: "Footprint") -> None:
+    for prop in footprint.placement.to_sexp_elements():
+        result.append(prop)
+    _append_object_sexps(result, footprint.properties)
+
+    if footprint.component_classes:
+        result.append(
+            ["component_classes"]
+            + [component_class.to_sexp() for component_class in footprint.component_classes]
+        )
+    if footprint.attr:
+        result.append(['attr'] + footprint.attr)
+
+
+def _append_footprint_pad_groups(result: list, footprint: "Footprint") -> None:
+    if footprint.net_tie_pad_groups:
+        result.append(
+            ["net_tie_pad_groups"]
+            + [group.to_net_tie_token() for group in footprint.net_tie_pad_groups]
+        )
+    if footprint.duplicate_pad_numbers_are_jumpers is not None:
+        result.append(
+            [
+                "duplicate_pad_numbers_are_jumpers",
+                "yes" if footprint.duplicate_pad_numbers_are_jumpers else "no",
+            ]
+        )
+    if footprint.jumper_pad_groups:
+        result.append(
+            ["jumper_pad_groups"]
+            + [group.to_jumper_group_sexp() for group in footprint.jumper_pad_groups]
+        )
+
+
+def _append_footprint_optional_settings(result: list, footprint: "Footprint") -> None:
+    for key, value in (
+        ("solder_mask_margin", footprint.solder_mask_margin),
+        ("solder_paste_margin", footprint.solder_paste_margin),
+        ("solder_paste_margin_ratio", footprint.solder_paste_margin_ratio),
+        ("clearance", footprint.clearance),
+        ("zone_connect", footprint.zone_connect),
+    ):
+        if value is not None:
+            result.append([key, value])
+
+
+def _append_footprint_embedded_files(result: list, footprint: "Footprint") -> None:
+    result.append(['embedded_fonts', 'yes' if footprint.embedded_fonts else 'no'])
+
+    if footprint.embedded_files:
+        ef_elem: list = ['embedded_files']
+        _append_object_sexps(ef_elem, footprint.embedded_files)
+        result.append(ef_elem)
+
 
 @public_api
 @dataclass
@@ -300,119 +394,16 @@ class Footprint:
     def to_sexp(self) -> list:
         result: list = ['footprint', QuotedString(self.library_link)]
         result.append(['layer', QuotedString(self.layer)])
+        _append_footprint_identity(result, self)
+        _append_footprint_properties(result, self)
+        _append_footprint_pad_groups(result, self)
+        _append_footprint_optional_settings(result, self)
 
-        if self.uuid:
-            result.append(['uuid', QuotedString(self.uuid)])
+        for attr_name in _FOOTPRINT_TO_SEXP_COLLECTIONS:
+            _append_object_sexps(result, getattr(self, attr_name))
 
-        # KiCad's reader requires the angle slot even when zero (drift inventory #1).
-        result.append(['at', self.at_x, self.at_y, self.at_angle])
-
-        if self.locked:
-            result.append(['locked', 'yes'])
-
-        if self.descr:
-            result.append(['descr', QuotedString(self.descr)])
-
-        if self.tags:
-            result.append(['tags', QuotedString(self.tags)])
-
-        for prop in self.placement.to_sexp_elements():
-            result.append(prop)
-
-        for prop in self.properties:
-            result.append(prop.to_sexp())
-
-        if self.component_classes:
-            result.append(["component_classes"] + [component_class.to_sexp() for component_class in self.component_classes])
-
-        if self.attr:
-            result.append(['attr'] + self.attr)
-
-        if self.net_tie_pad_groups:
-            result.append(
-                ["net_tie_pad_groups"] + [group.to_net_tie_token() for group in self.net_tie_pad_groups]
-            )
-        if self.duplicate_pad_numbers_are_jumpers is not None:
-            result.append(
-                [
-                    "duplicate_pad_numbers_are_jumpers",
-                    "yes" if self.duplicate_pad_numbers_are_jumpers else "no",
-                ]
-            )
-        if self.jumper_pad_groups:
-            result.append(
-                ["jumper_pad_groups"] + [group.to_jumper_group_sexp() for group in self.jumper_pad_groups]
-            )
-
-        if self.solder_mask_margin is not None:
-            result.append(["solder_mask_margin", self.solder_mask_margin])
-        if self.solder_paste_margin is not None:
-            result.append(["solder_paste_margin", self.solder_paste_margin])
-        if self.solder_paste_margin_ratio is not None:
-            result.append(["solder_paste_margin_ratio", self.solder_paste_margin_ratio])
-        if self.clearance is not None:
-            result.append(["clearance", self.clearance])
-        if self.zone_connect is not None:
-            result.append(["zone_connect", self.zone_connect])
-
-        for fp_text in self.fp_texts:
-            result.append(fp_text.to_sexp())
-
-        for fp_text_box in self.fp_text_boxes:
-            result.append(fp_text_box.to_sexp())
-
-        for image in self.images:
-            result.append(image.to_sexp())
-
-        for table in self.tables:
-            result.append(table.to_sexp())
-
-        for barcode in self.barcodes:
-            result.append(barcode.to_sexp())
-
-        for dimension in self.dimensions:
-            result.append(dimension.to_sexp())
-
-        for fp_line in self.fp_lines:
-            result.append(fp_line.to_sexp())
-
-        for fp_arc in self.fp_arcs:
-            result.append(fp_arc.to_sexp())
-
-        for fp_circle in self.fp_circles:
-            result.append(fp_circle.to_sexp())
-
-        for fp_rect in self.fp_rects:
-            result.append(fp_rect.to_sexp())
-
-        for fp_poly in self.fp_polys:
-            result.append(fp_poly.to_sexp())
-
-        for zone in self.zones:
-            result.append(zone.to_sexp())
-
-        for group in self.groups:
-            result.append(group.to_sexp())
-
-        for variant in self.variants:
-            result.append(variant.to_sexp())
-
-        for pad in self.pads:
-            result.append(pad.to_sexp())
-
-        for model in self.models:
-            result.append(model.to_sexp())
-
-        result.append(['embedded_fonts', 'yes' if self.embedded_fonts else 'no'])
-
-        if self.embedded_files:
-            ef_elem: list = ['embedded_files']
-            for ef in self.embedded_files:
-                ef_elem.append(ef.to_sexp())
-            result.append(ef_elem)
-
-        for unknown in self.unknown_elements:
-            result.append(unknown.to_sexp())
+        _append_footprint_embedded_files(result, self)
+        _append_object_sexps(result, self.unknown_elements)
 
         return result
 

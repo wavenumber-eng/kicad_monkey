@@ -117,6 +117,26 @@ def test_design_doc_entrypoints_exist() -> None:
     assert missing == []
 
 
+def test_design_html_docs_declare_status() -> None:
+    """Verify HTML design docs declare a standards-compatible status."""
+    status_pattern = re.compile(r"\bdata-doc-status=\"(?P<status>[^\"]+)\"")
+    allowed = {"draft", "proposal", "accepted", "superseded"}
+    failures: list[str] = []
+
+    for doc_path in sorted(DESIGN_ROOT.rglob("*.html")):
+        text = doc_path.read_text(encoding="utf-8")
+        match = status_pattern.search(text)
+        relpath = doc_path.relative_to(PACKAGE_ROOT)
+        if match is None:
+            failures.append(f"{relpath}: missing data-doc-status")
+            continue
+        status = match.group("status")
+        if status not in allowed:
+            failures.append(f"{relpath}: invalid data-doc-status {status!r}")
+
+    assert failures == [], "Design doc status gaps:\n" + "\n".join(failures)
+
+
 def test_manifest_covers_promoted_public_facade_roots() -> None:
     """Verify every marker-promoted facade root is documented by the manifest."""
     required = set(PUBLIC_API_MARKER_ROOT_NAMES)

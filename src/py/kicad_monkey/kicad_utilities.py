@@ -503,6 +503,165 @@ def backup_kicad_preferences(
     return backup_paths
 
 
+def _load_json_config(path: Path) -> dict:
+    if path.exists():
+        with open(path) as f:
+            return json.load(f)
+    return {}
+
+
+def _write_json_config(path: Path, config: dict) -> None:
+    with open(path, 'w') as f:
+        json.dump(config, f, indent=2)
+
+
+def _copy_kicad_colors(preferences_source: Path, kicad_config_loc: Path) -> None:
+    log.info("  Copying colors folder (wavenumber theme)...")
+    colors_src = preferences_source / "colors"
+    colors_dst = kicad_config_loc / "colors"
+    try:
+        if colors_src.exists():
+            shutil.copytree(colors_src, colors_dst, dirs_exist_ok=True)
+            log.info("    Colors folder copied successfully")
+        else:
+            log.warning(f"    Colors folder not found at {colors_src}")
+    except Exception as e:
+        log.error(f"    Error copying colors: {e}")
+
+
+def _preferred_text_editor() -> str:
+    notepad_pp = find_notepad_plus_plus()
+    if notepad_pp:
+        log.info(f"    Set text editor to Notepad++: {notepad_pp}")
+        return notepad_pp
+    log.info("    Set text editor to Windows Notepad")
+    return "notepad.exe"
+
+
+def _update_text_editor_preference(user_config: dict) -> None:
+    user_config.setdefault("system", {})
+    current_editor = user_config.get("system", {}).get("text_editor", "")
+    if current_editor:
+        editor_path = Path(current_editor.split()[0])
+        if editor_path.exists():
+            log.info(f"    Keeping existing text editor: {current_editor}")
+            return
+    user_config["system"]["text_editor"] = _preferred_text_editor()
+
+
+def _update_kicad_common_preferences(
+    *,
+    preferences_source: Path,
+    kicad_config_loc: Path,
+) -> None:
+    log.info("  Updating kicad_common.json...")
+    user_path = kicad_config_loc / "kicad_common.json"
+    template_path = preferences_source / "kicad_common.json"
+    try:
+        user_config = _load_json_config(user_path)
+        if not template_path.exists():
+            log.warning(f"    Template file not found: {template_path}")
+            return
+        template_config = _load_json_config(template_path)
+        _update_text_editor_preference(user_config)
+        if "input" in template_config:
+            user_config.setdefault("input", {})
+            for key in [
+                "zoom_speed",
+                "zoom_speed_auto",
+                "zoom_acceleration",
+                "center_on_zoom",
+            ]:
+                if key in template_config["input"]:
+                    user_config["input"][key] = template_config["input"][key]
+            log.info("    Updated input settings (zoom_speed, zoom_speed_auto, zoom_acceleration, center_on_zoom)")
+        if "graphics" in template_config:
+            user_config["graphics"] = template_config["graphics"]
+            log.info("    Updated graphics settings (antialiasing)")
+        _write_json_config(user_path, user_config)
+        log.info("    kicad_common.json updated successfully")
+    except Exception as e:
+        log.error(f"    Error updating kicad_common.json: {e}")
+
+
+def _update_eeschema_preferences(
+    *,
+    preferences_source: Path,
+    kicad_config_loc: Path,
+) -> None:
+    log.info("  Updating eeschema.json...")
+    user_path = kicad_config_loc / "eeschema.json"
+    template_path = preferences_source / "eeschema.json"
+    try:
+        user_config = _load_json_config(user_path)
+        if not template_path.exists():
+            log.warning(f"    Template file not found: {template_path}")
+            return
+        template_config = _load_json_config(template_path)
+        if "appearance" in template_config:
+            user_config.setdefault("appearance", {})
+            for key in ["color_theme", "default_font"]:
+                if key in template_config["appearance"]:
+                    user_config["appearance"][key] = template_config["appearance"][key]
+            log.info("    Updated appearance settings (color_theme=wavenumber, default_font=Arial)")
+        _write_json_config(user_path, user_config)
+        log.info("    eeschema.json updated successfully")
+    except Exception as e:
+        log.error(f"    Error updating eeschema.json: {e}")
+
+
+def _update_pcbnew_preferences(kicad_config_loc: Path) -> None:
+    log.info("  Updating pcbnew.json...")
+    user_path = kicad_config_loc / "pcbnew.json"
+    try:
+        user_config = _load_json_config(user_path)
+        user_config.setdefault("pcb_display", {})
+        user_config["pcb_display"]["origin_invert_x_axis"] = False
+        user_config["pcb_display"]["origin_invert_y_axis"] = True
+        user_config["pcb_display"]["origin_mode"] = 1
+        _write_json_config(user_path, user_config)
+        log.info("    Updated pcb_display settings (origin_invert_x_axis=False, origin_invert_y_axis=True, origin_mode=1)")
+        log.info("    pcbnew.json updated successfully")
+    except Exception as e:
+        log.error(f"    Error updating pcbnew.json: {e}")
+
+
+def _setup_kicad_config_preferences(
+    *,
+    preferences_source: Path,
+    kicad_config_loc: Path,
+) -> None:
+    log.info("Setting up KiCad configuration at " + str(kicad_config_loc))
+    _copy_kicad_colors(preferences_source, kicad_config_loc)
+    _update_kicad_common_preferences(
+        preferences_source=preferences_source,
+        kicad_config_loc=kicad_config_loc,
+    )
+    _update_eeschema_preferences(
+        preferences_source=preferences_source,
+        kicad_config_loc=kicad_config_loc,
+    )
+    _update_pcbnew_preferences(kicad_config_loc)
+    log.info(f"  KiCad preferences updated at {kicad_config_loc}")
+
+
+def _backup_preferences_when_requested(
+    *,
+    enabled: bool,
+    config_paths: list[Path],
+) -> list[Path]:
+    if not enabled:
+        return []
+    log.info("="*80)
+    log.info("Backing up existing KiCad preferences...")
+    log.info("="*80)
+    backup_paths = backup_kicad_preferences(config_paths=config_paths) or []
+    if backup_paths:
+        log.info(f"Created {len(backup_paths)} backup(s)")
+    log.info("")
+    return backup_paths
+
+
 def setup_kicad_preferences(
     with_backup: bool = True,
     user_preferences: Any | None = None,
@@ -533,182 +692,16 @@ def setup_kicad_preferences(
         log.error("Make sure to run KiCad Once before running this script.")
         return False, []
 
-    # Backup existing preferences
-    backup_paths = []
-    if with_backup:
-        log.info("="*80)
-        log.info("Backing up existing KiCad preferences...")
-        log.info("="*80)
-        backup_paths = backup_kicad_preferences(config_paths=config_paths)
-        if backup_paths is None:
-            backup_paths = []
-        if backup_paths:
-            log.info(f"Created {len(backup_paths)} backup(s)")
-        log.info("")
+    backup_paths = _backup_preferences_when_requested(
+        enabled=with_backup,
+        config_paths=config_paths,
+    )
 
     for kicad_config_loc in config_paths:
-        log.info("Setting up KiCad configuration at " + str(kicad_config_loc))
-
-        # 1. Copy colors folder (contains wavenumber theme)
-        log.info("  Copying colors folder (wavenumber theme)...")
-        colors_src = preferences_source / "colors"
-        colors_dst = kicad_config_loc / "colors"
-        try:
-            if colors_src.exists():
-                shutil.copytree(colors_src, colors_dst, dirs_exist_ok=True)
-                log.info("    Colors folder copied successfully")
-            else:
-                log.warning(f"    Colors folder not found at {colors_src}")
-        except Exception as e:
-            log.error(f"    Error copying colors: {e}")
-
-        # 2. Update kicad_common.json
-        log.info("  Updating kicad_common.json...")
-        kicad_common_user = kicad_config_loc / "kicad_common.json"
-        kicad_common_template = preferences_source / "kicad_common.json"
-
-        try:
-            # Load user's existing config (or create empty if doesn't exist)
-            if kicad_common_user.exists():
-                with open(kicad_common_user) as f:
-                    user_config = json.load(f)
-            else:
-                user_config = {}
-
-            # Load template config
-            if kicad_common_template.exists():
-                with open(kicad_common_template) as f:
-                    template_config = json.load(f)
-
-                # Handle text editor setting
-                if "system" not in user_config:
-                    user_config["system"] = {}
-
-                # Check user's current text editor
-                current_editor = user_config.get("system", {}).get("text_editor", "")
-
-                # If current editor exists and its exe is valid, keep it
-                if current_editor:
-                    editor_path = Path(current_editor.split()[0])  # Get just the exe path
-                    if editor_path.exists():
-                        log.info(f"    Keeping existing text editor: {current_editor}")
-                    else:
-                        # Current editor doesn't exist, try to set notepad++
-                        notepad_pp = find_notepad_plus_plus()
-                        if notepad_pp:
-                            user_config["system"]["text_editor"] = notepad_pp
-                            log.info(f"    Set text editor to Notepad++: {notepad_pp}")
-                        else:
-                            user_config["system"]["text_editor"] = "notepad.exe"
-                            log.info("    Set text editor to Windows Notepad")
-                else:
-                    # No editor configured, try notepad++
-                    notepad_pp = find_notepad_plus_plus()
-                    if notepad_pp:
-                        user_config["system"]["text_editor"] = notepad_pp
-                        log.info(f"    Set text editor to Notepad++: {notepad_pp}")
-                    else:
-                        user_config["system"]["text_editor"] = "notepad.exe"
-                        log.info("    Set text editor to Windows Notepad")
-
-                # Update input settings (zoom speed, zoom_speed_auto, zoom_acceleration, center_on_zoom)
-                if "input" in template_config:
-                    if "input" not in user_config:
-                        user_config["input"] = {}
-
-                    # Only update specific input settings
-                    important_input_keys = ["zoom_speed", "zoom_speed_auto", "zoom_acceleration", "center_on_zoom"]
-                    for key in important_input_keys:
-                        if key in template_config["input"]:
-                            user_config["input"][key] = template_config["input"][key]
-                    log.info("    Updated input settings (zoom_speed, zoom_speed_auto, zoom_acceleration, center_on_zoom)")
-
-                # Update graphics settings (antialiasing)
-                if "graphics" in template_config:
-                    user_config["graphics"] = template_config["graphics"]
-                    log.info("    Updated graphics settings (antialiasing)")
-
-                # Write back the updated config
-                with open(kicad_common_user, 'w') as f:
-                    json.dump(user_config, f, indent=2)
-                log.info("    kicad_common.json updated successfully")
-            else:
-                log.warning(f"    Template file not found: {kicad_common_template}")
-
-        except Exception as e:
-            log.error(f"    Error updating kicad_common.json: {e}")
-
-        # 3. Update eeschema.json
-        log.info("  Updating eeschema.json...")
-        eeschema_user = kicad_config_loc / "eeschema.json"
-        eeschema_template = preferences_source / "eeschema.json"
-
-        try:
-            # Load user's existing config (or create empty if doesn't exist)
-            if eeschema_user.exists():
-                with open(eeschema_user) as f:
-                    user_config = json.load(f)
-            else:
-                user_config = {}
-
-            # Load template config
-            if eeschema_template.exists():
-                with open(eeschema_template) as f:
-                    template_config = json.load(f)
-
-                # Update appearance settings (color_theme, default_font)
-                if "appearance" in template_config:
-                    if "appearance" not in user_config:
-                        user_config["appearance"] = {}
-
-                    # Only update specific appearance settings
-                    important_appearance_keys = ["color_theme", "default_font"]
-                    for key in important_appearance_keys:
-                        if key in template_config["appearance"]:
-                            user_config["appearance"][key] = template_config["appearance"][key]
-                    log.info("    Updated appearance settings (color_theme=wavenumber, default_font=Arial)")
-
-                # Write back the updated config
-                with open(eeschema_user, 'w') as f:
-                    json.dump(user_config, f, indent=2)
-                log.info("    eeschema.json updated successfully")
-            else:
-                log.warning(f"    Template file not found: {eeschema_template}")
-
-        except Exception as e:
-            log.error(f"    Error updating eeschema.json: {e}")
-
-        # 4. Update pcbnew.json (pcb_display origin settings)
-        log.info("  Updating pcbnew.json...")
-        pcbnew_user = kicad_config_loc / "pcbnew.json"
-
-        try:
-            # Load user's existing config (or create empty if doesn't exist)
-            if pcbnew_user.exists():
-                with open(pcbnew_user) as f:
-                    user_config = json.load(f)
-            else:
-                user_config = {}
-
-            # Ensure pcb_display section exists
-            if "pcb_display" not in user_config:
-                user_config["pcb_display"] = {}
-
-            # Set origin display settings
-            user_config["pcb_display"]["origin_invert_x_axis"] = False
-            user_config["pcb_display"]["origin_invert_y_axis"] = True
-            user_config["pcb_display"]["origin_mode"] = 1
-
-            # Write back the updated config
-            with open(pcbnew_user, 'w') as f:
-                json.dump(user_config, f, indent=2)
-            log.info("    Updated pcb_display settings (origin_invert_x_axis=False, origin_invert_y_axis=True, origin_mode=1)")
-            log.info("    pcbnew.json updated successfully")
-
-        except Exception as e:
-            log.error(f"    Error updating pcbnew.json: {e}")
-
-        log.info(f"  KiCad preferences updated at {kicad_config_loc}")
+        _setup_kicad_config_preferences(
+            preferences_source=preferences_source,
+            kicad_config_loc=kicad_config_loc,
+        )
 
     log.info("")
     log.info("="*80)

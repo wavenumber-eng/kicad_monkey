@@ -706,6 +706,208 @@ def _expand_for_pin_text(bbox: BoundingBox, pin, text_len: float, is_name: bool)
 # - Translated coordinates (viewBox at 0,0)
 # - Stroke font text
 
+
+def _subsymbol_stroke_style(elem, ctx: SymbolSvgContext) -> str:
+    """Per-element stroke style: honor (stroke (width ...)) when set."""
+    theme = ctx.theme
+    width = getattr(getattr(elem, 'stroke', None), 'width', 0.0) or 0.0
+    if width <= 0:
+        width = theme.body_stroke_width
+    return (f'fill:none; \n'
+            f'stroke:{theme.get_body_outline()}; stroke-width:{width:.4f}; stroke-opacity:1; \n'
+            f'stroke-linecap:round; stroke-linejoin:round;fill:none')
+
+
+def _subsymbol_fill_color(elem, ctx: SymbolSvgContext) -> Optional[str]:
+    """SVG fill color for the element, or None when not filled."""
+    fill = getattr(elem, 'fill', None)
+    if fill is None:
+        return None
+    stroke_color = ctx.theme.get_body_outline()
+    if fill.type == SymFillType.BACKGROUND:
+        color = ctx.theme.get_body_fill()
+        return None if color == 'none' else color
+    if fill.type == SymFillType.OUTLINE:
+        return stroke_color
+    if fill.type == SymFillType.COLOR and fill.color:
+        r, g, b = fill.color[0], fill.color[1], fill.color[2]
+        return f'#{r:02X}{g:02X}{b:02X}'
+    return None
+
+
+def _append_subsymbol_fill(lines: list[str], shape_svg: str, color: str) -> None:
+    # kicad-cli emits background fills as a stroke-free group drawn beneath the outline pass.
+    lines.append(f'<g style="fill:{color}; fill-opacity:1.0000; stroke:none;">')
+    lines.append(shape_svg)
+    lines.append('</g>')
+
+
+def _append_subsymbol_fill_path(
+    lines: list[str],
+    points: list[tuple[float, float]],
+    color: str,
+    ctx: SymbolSvgContext,
+) -> None:
+    # kicad-cli emits polygonal fills as one self-styled closed path.
+    pts = list(points)
+    if len(pts) >= 2 and pts[0] == pts[-1]:
+        pts = pts[:-1]
+    if len(pts) < 3:
+        return
+    lines.append(
+        f'<path style="fill:{color}; fill-opacity:1.0000; '
+        f'stroke:none;fill-rule:evenodd;"'
+    )
+    lines.append(f'd="M {ctx.fmt(ctx.tx(pts[0][0]))},{ctx.fmt(ctx.ty(pts[0][1]))}')
+    for x, y in pts[1:]:
+        lines.append(f'{ctx.fmt(ctx.tx(x))},{ctx.fmt(ctx.ty(y))}')
+    lines.append('Z" /> ')
+
+
+def _append_subsymbol_fill_graphics(
+    lines: list[str],
+    subsym: 'LibSubSymbol',
+    ctx: SymbolSvgContext,
+) -> None:
+    for rect in subsym.rectangles:
+        color = _subsymbol_fill_color(rect, ctx)
+        if color:
+            x1, y1 = ctx.tx(rect.start_x), ctx.ty(rect.start_y)
+            x2, y2 = ctx.tx(rect.end_x), ctx.ty(rect.end_y)
+            _append_subsymbol_fill(
+                lines,
+                f'<rect x="{ctx.fmt(min(x1, x2))}" y="{ctx.fmt(min(y1, y2))}" '
+                f'width="{ctx.fmt(abs(x2 - x1))}" height="{ctx.fmt(abs(y2 - y1))}" '
+                f'rx="0.0000" />',
+                color,
+            )
+    for circle in subsym.circles:
+        color = _subsymbol_fill_color(circle, ctx)
+        if color:
+            _append_subsymbol_fill(
+                lines,
+                f'<circle cx="{ctx.fmt(ctx.tx(circle.center_x))}" '
+                f'cy="{ctx.fmt(ctx.ty(circle.center_y))}" '
+                f'r="{ctx.fmt(circle.radius)}" />',
+                color,
+            )
+    for poly in subsym.polylines:
+        color = _subsymbol_fill_color(poly, ctx)
+        if color and len(poly.points) >= 3:
+            _append_subsymbol_fill_path(lines, list(poly.points), color, ctx)
+    for arc in subsym.arcs:
+        color = _subsymbol_fill_color(arc, ctx)
+        if color:
+            arc_points = _arc_to_points(
+                arc.start_x,
+                arc.start_y,
+                arc.mid_x,
+                arc.mid_y,
+                arc.end_x,
+                arc.end_y,
+                segments=16,
+            )
+            _append_subsymbol_fill_path(lines, arc_points, color, ctx)
+
+
+def _subsymbol_path_d(
+    points: list[tuple[float, float]],
+    ctx: SymbolSvgContext,
+    *,
+    translate: bool = True,
+) -> str:
+    if translate:
+        path_d = f"M {ctx.fmt(ctx.tx(points[0][0]))},{ctx.fmt(ctx.ty(points[0][1]))}"
+        for x, y in points[1:]:
+            path_d += f"\n{ctx.fmt(ctx.tx(x))},{ctx.fmt(ctx.ty(y))}"
+        return path_d
+    path_d = f"M {ctx.fmt(points[0][0])},{ctx.fmt(points[0][1])}"
+    for x, y in points[1:]:
+        path_d += f"\n{ctx.fmt(x)},{ctx.fmt(y)}"
+    return path_d
+
+
+def _append_subsymbol_path(lines: list[str], *, style: str, path_d: str) -> None:
+    lines.append(f'<path style="{style}"')
+    lines.append(f'd="{path_d}')
+    lines.append('" /> ')
+
+
+def _append_subsymbol_stroke_graphics(
+    lines: list[str],
+    subsym: 'LibSubSymbol',
+    ctx: SymbolSvgContext,
+) -> None:
+    for poly in subsym.polylines:
+        if len(poly.points) >= 2:
+            _append_subsymbol_path(
+                lines,
+                style=_subsymbol_stroke_style(poly, ctx),
+                path_d=_subsymbol_path_d(list(poly.points), ctx),
+            )
+    for rect in subsym.rectangles:
+        _append_subsymbol_rectangle_strokes(lines, rect, ctx)
+    for circle in subsym.circles:
+        _append_subsymbol_circle_stroke(lines, circle, ctx)
+    for arc in subsym.arcs:
+        _append_subsymbol_arc_stroke(lines, arc, ctx)
+
+
+def _append_subsymbol_rectangle_strokes(lines: list[str], rect, ctx: SymbolSvgContext) -> None:
+    style = _subsymbol_stroke_style(rect, ctx)
+    x1, y1 = ctx.tx(rect.start_x), ctx.ty(rect.start_y)
+    x2, y2 = ctx.tx(rect.end_x), ctx.ty(rect.end_y)
+    for (ex1, ey1), (ex2, ey2) in (
+        ((x1, y1), (x2, y1)),
+        ((x2, y1), (x2, y2)),
+        ((x2, y2), (x1, y2)),
+        ((x1, y2), (x1, y1)),
+    ):
+        lines.append(f'<path style="{style}"')
+        lines.append(f'd="M {ctx.fmt(ex1)},{ctx.fmt(ey1)}')
+        lines.append(f'{ctx.fmt(ex2)},{ctx.fmt(ey2)}" /> ')
+
+
+def _append_subsymbol_circle_stroke(lines: list[str], circle, ctx: SymbolSvgContext) -> None:
+    cx = ctx.tx(circle.center_x)
+    cy = ctx.ty(circle.center_y)
+    points = [
+        (
+            cx + circle.radius * math.cos(2 * math.pi * i / 16),
+            cy + circle.radius * math.sin(2 * math.pi * i / 16),
+        )
+        for i in range(17)
+    ]
+    if points:
+        _append_subsymbol_path(
+            lines,
+            style=_subsymbol_stroke_style(circle, ctx),
+            path_d=_subsymbol_path_d(points, ctx, translate=False),
+        )
+
+
+def _append_subsymbol_arc_stroke(lines: list[str], arc, ctx: SymbolSvgContext) -> None:
+    arc_points = _arc_to_points(
+        arc.start_x,
+        arc.start_y,
+        arc.mid_x,
+        arc.mid_y,
+        arc.end_x,
+        arc.end_y,
+        segments=16,
+    )
+    if arc_points:
+        _append_subsymbol_path(
+            lines,
+            style=_subsymbol_stroke_style(arc, ctx),
+            path_d=_subsymbol_path_d(
+                [(ctx.tx(x), ctx.ty(y)) for x, y in arc_points],
+                ctx,
+                translate=False,
+            ),
+        )
+
+
 def _render_subsymbol_graphics(
     subsym: 'LibSubSymbol',
     ctx: SymbolSvgContext,
@@ -714,175 +916,11 @@ def _render_subsymbol_graphics(
 
     Uses KiCad CLI format with inline styles and translated coordinates.
     """
-    lines = []
-    theme = ctx.theme
-    stroke_color = theme.get_body_outline()
-    default_width = theme.body_stroke_width
-
-    def _stroke_style(elem) -> str:
-        """Per-element stroke style: honor (stroke (width ...)) when set."""
-        width = getattr(getattr(elem, 'stroke', None), 'width', 0.0) or 0.0
-        if width <= 0:
-            width = default_width
-        return (f'fill:none; \n'
-                f'stroke:{stroke_color}; stroke-width:{width:.4f}; stroke-opacity:1; \n'
-                f'stroke-linecap:round; stroke-linejoin:round;fill:none')
-
-    def _fill_color(elem) -> Optional[str]:
-        """SVG fill color for the element, or None when not filled.
-
-        Default theme follows the kicad-cli oracle (#FFFFC2 device
-        background); custom themes override via ``theme.body_fill``.
-        """
-        fill = getattr(elem, 'fill', None)
-        if fill is None:
-            return None
-        if fill.type == SymFillType.BACKGROUND:
-            color = theme.get_body_fill()
-            return None if color == 'none' else color
-        if fill.type == SymFillType.OUTLINE:
-            return stroke_color
-        if fill.type == SymFillType.COLOR and fill.color:
-            r, g, b = fill.color[0], fill.color[1], fill.color[2]
-            return f'#{r:02X}{g:02X}{b:02X}'
-        return None
-
-    def _append_fill(shape_svg: str, color: str) -> None:
-        # kicad-cli emits background fills as a stroke-free group drawn
-        # beneath the outline pass.
-        fill_lines.append(
-            f'<g style="fill:{color}; fill-opacity:1.0000; stroke:none;">'
-        )
-        fill_lines.append(shape_svg)
-        fill_lines.append('</g>')
-
-    def _append_fill_path(points: list[tuple[float, float]], color: str) -> None:
-        # kicad-cli emits polygonal fills as a single self-styled closed
-        # path (M ... Z) without repeating the closing point.
-        pts = list(points)
-        if len(pts) >= 2 and pts[0] == pts[-1]:
-            pts = pts[:-1]
-        if len(pts) < 3:
-            return
-        fill_lines.append(
-            f'<path style="fill:{color}; fill-opacity:1.0000; '
-            f'stroke:none;fill-rule:evenodd;"'
-        )
-        fill_lines.append(
-            f'd="M {ctx.fmt(ctx.tx(pts[0][0]))},{ctx.fmt(ctx.ty(pts[0][1]))}'
-        )
-        for x, y in pts[1:]:
-            fill_lines.append(f'{ctx.fmt(ctx.tx(x))},{ctx.fmt(ctx.ty(y))}')
-        fill_lines.append('Z" /> ')
-
+    lines: list[str] = []
     fill_lines: list[str] = []
-
-    # ---- Fill pass (drawn first, beneath all outlines) ----
-    for rect in subsym.rectangles:
-        color = _fill_color(rect)
-        if color:
-            x1, y1 = ctx.tx(rect.start_x), ctx.ty(rect.start_y)
-            x2, y2 = ctx.tx(rect.end_x), ctx.ty(rect.end_y)
-            x, y = min(x1, x2), min(y1, y2)
-            w, h = abs(x2 - x1), abs(y2 - y1)
-            _append_fill(
-                f'<rect x="{ctx.fmt(x)}" y="{ctx.fmt(y)}" '
-                f'width="{ctx.fmt(w)}" height="{ctx.fmt(h)}" rx="0.0000" />',
-                color,
-            )
-
-    for circle in subsym.circles:
-        color = _fill_color(circle)
-        if color:
-            cx, cy = ctx.tx(circle.center_x), ctx.ty(circle.center_y)
-            _append_fill(
-                f'<circle cx="{ctx.fmt(cx)}" cy="{ctx.fmt(cy)}" '
-                f'r="{ctx.fmt(circle.radius)}" />',
-                color,
-            )
-
-    for poly in subsym.polylines:
-        color = _fill_color(poly)
-        if color and len(poly.points) >= 3:
-            _append_fill_path(list(poly.points), color)
-
-    for arc in subsym.arcs:
-        color = _fill_color(arc)
-        if color:
-            arc_points = _arc_to_points(arc.start_x, arc.start_y, arc.mid_x,
-                                        arc.mid_y, arc.end_x, arc.end_y,
-                                        segments=16)
-            _append_fill_path(arc_points, color)
-
+    _append_subsymbol_fill_graphics(fill_lines, subsym, ctx)
     lines.extend(fill_lines)
-
-    # ---- Stroke pass ----
-    # Render polylines as path elements
-    for poly in subsym.polylines:
-        if len(poly.points) < 2:
-            continue
-        style = _stroke_style(poly)
-        # Build path data with translated coordinates
-        path_d = f"M {ctx.fmt(ctx.tx(poly.points[0][0]))},{ctx.fmt(ctx.ty(poly.points[0][1]))}"
-        for x, y in poly.points[1:]:
-            path_d += f"\n{ctx.fmt(ctx.tx(x))},{ctx.fmt(ctx.ty(y))}"
-        lines.append(f'<path style="{style}"')
-        lines.append(f'd="{path_d}')
-        lines.append('" /> ')
-
-    # Render rectangles as polylines (4 edges)
-    for rect in subsym.rectangles:
-        style = _stroke_style(rect)
-        x1, y1 = ctx.tx(rect.start_x), ctx.ty(rect.start_y)
-        x2, y2 = ctx.tx(rect.end_x), ctx.ty(rect.end_y)
-        # Each edge as a separate path
-        edges = [
-            ((x1, y1), (x2, y1)),  # top
-            ((x2, y1), (x2, y2)),  # right
-            ((x2, y2), (x1, y2)),  # bottom
-            ((x1, y2), (x1, y1)),  # left
-        ]
-        for (ex1, ey1), (ex2, ey2) in edges:
-            lines.append(f'<path style="{style}"')
-            lines.append(f'd="M {ctx.fmt(ex1)},{ctx.fmt(ey1)}')
-            lines.append(f'{ctx.fmt(ex2)},{ctx.fmt(ey2)}" /> ')
-
-    # Render circles
-    for circle in subsym.circles:
-        style = _stroke_style(circle)
-        cx = ctx.tx(circle.center_x)
-        cy = ctx.ty(circle.center_y)
-        r = circle.radius
-        # Approximate as polyline
-        points = []
-        for i in range(17):
-            angle = 2 * math.pi * i / 16
-            x = cx + r * math.cos(angle)
-            y = cy + r * math.sin(angle)
-            points.append((x, y))
-        if points:
-            path_d = f"M {ctx.fmt(points[0][0])},{ctx.fmt(points[0][1])}"
-            for x, y in points[1:]:
-                path_d += f"\n{ctx.fmt(x)},{ctx.fmt(y)}"
-            lines.append(f'<path style="{style}"')
-            lines.append(f'd="{path_d}')
-            lines.append('" /> ')
-
-    # Render arcs
-    for arc in subsym.arcs:
-        style = _stroke_style(arc)
-        arc_points = _arc_to_points(arc.start_x, arc.start_y, arc.mid_x, arc.mid_y,
-                                    arc.end_x, arc.end_y, segments=16)
-        if arc_points:
-            # Translate points
-            translated = [(ctx.tx(x), ctx.ty(y)) for x, y in arc_points]
-            path_d = f"M {ctx.fmt(translated[0][0])},{ctx.fmt(translated[0][1])}"
-            for x, y in translated[1:]:
-                path_d += f"\n{ctx.fmt(x)},{ctx.fmt(y)}"
-            lines.append(f'<path style="{style}"')
-            lines.append(f'd="{path_d}')
-            lines.append('" /> ')
-
+    _append_subsymbol_stroke_graphics(lines, subsym, ctx)
     return lines
 
 

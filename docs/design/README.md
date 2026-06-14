@@ -21,6 +21,8 @@ Current design notes:
 
 - `quality-signoff-status.md` - current release-gate status and quality-tool
   ratchet plan.
+- `library-megamaid-extraction.html` - KiCad project library extraction,
+  metadata, model repair, and test ownership design.
 - `api/` - public API class and major-interface design docs.
 
 Design-doc and test-ownership signoff is defined in

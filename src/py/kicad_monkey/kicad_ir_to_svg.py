@@ -1092,160 +1092,190 @@ def _render_flash_pad_trapez_op(p: dict, *, ctx: KiCadSvgRenderContext) -> str:
     )
 
 
-def _render_flash_pad_custom_op(p: dict, *, ctx: KiCadSvgRenderContext) -> str:
-    def _custom_polygons(payload: dict, *, expand_for_mask: bool = False) -> list[list[tuple[float, float]]]:
-        polygons = payload.get("polygons", []) or []
-        rings = [
-            [(float(pt[0]), float(pt[1])) for pt in ring]
-            for ring in polygons
-            if ring
-        ]
-        margin = _mask_margin_nm(payload) if expand_for_mask else 0
-        if margin <= 0:
-            return rings
+def _custom_pad_rings(
+    payload: dict,
+    *,
+    expand_for_mask: bool = False,
+) -> list[list[tuple[float, float]]]:
+    polygons = payload.get("polygons", []) or []
+    rings = [
+        [(float(pt[0]), float(pt[1])) for pt in ring]
+        for ring in polygons
+        if ring
+    ]
+    margin = _mask_margin_nm(payload) if expand_for_mask else 0
+    if margin <= 0:
+        return rings
 
+    try:
+        from shapely.geometry import MultiPolygon, Polygon
+    except Exception:
+        return rings
+
+    out: list[list[tuple[float, float]]] = []
+    for ring in rings:
+        if len(ring) < 3:
+            continue
         try:
-            from shapely.geometry import MultiPolygon, Polygon
-        except Exception:
-            return rings
-
-        out: list[list[tuple[float, float]]] = []
-        for ring in rings:
-            if len(ring) < 3:
+            geom = Polygon(ring)
+            if geom.is_empty or not geom.is_valid:
                 continue
-            try:
-                geom = Polygon(ring)
-                if geom.is_empty or not geom.is_valid:
-                    continue
-                buffered = geom.buffer(float(margin), quad_segs=1, join_style="round")
-            except Exception:
-                continue
-            if isinstance(buffered, MultiPolygon):
-                geoms = buffered.geoms
-            elif isinstance(buffered, Polygon):
-                geoms = [buffered]
-            else:
-                geoms = []
-            for item in geoms:
-                if item.is_empty:
-                    continue
-                coords = list(item.exterior.coords)
-                if len(coords) > 1 and coords[0] == coords[-1]:
-                    coords = coords[:-1]
-                if len(coords) >= 3:
-                    out.append([(float(x), float(y)) for x, y in coords])
-        return out or rings
-
-    def _custom_polygon_widths(payload: dict) -> list[float]:
-        widths = payload.get("polygon_widths_nm", []) or []
-        return [float(width or 0.0) for width in widths]
-
-    def _custom_anchor_geometry(payload: dict):
-        anchor_shape = str(payload.get("anchor_shape", "") or "").lower()
-        if not anchor_shape:
-            return None
-        size_x = float(payload.get("size_x_nm", 0) or 0)
-        size_y = float(payload.get("size_y_nm", 0) or 0)
-        if size_x <= 0.0 or size_y <= 0.0:
-            return None
-        try:
-            from shapely.affinity import scale
-            from shapely.geometry import Point, box
+            buffered = geom.buffer(float(margin), quad_segs=1, join_style="round")
         except Exception:
-            return None
-        if anchor_shape == "rect":
-            return box(-size_x / 2.0, -size_y / 2.0, size_x / 2.0, size_y / 2.0)
-        if anchor_shape == "circle":
-            return scale(
-                Point(0.0, 0.0).buffer(0.5, quad_segs=16),
-                xfact=size_x,
-                yfact=size_y,
-                origin=(0.0, 0.0),
+            continue
+        out.extend(
+            _polygon_like_exterior_rings(
+                buffered,
+                multi_polygon_type=MultiPolygon,
+                polygon_type=Polygon,
             )
-        return None
-
-    def _custom_cli_polygons(payload: dict, *, expand_for_mask: bool = False) -> list[list[tuple[float, float]]]:
-        rings = _custom_polygons(payload, expand_for_mask=False)
-        try:
-            from shapely.geometry import MultiPolygon, Polygon
-            from shapely.ops import unary_union
-        except Exception:
-            return _custom_polygons(payload, expand_for_mask=expand_for_mask)
-
-        geoms = []
-        widths = _custom_polygon_widths(payload)
-        for index, ring in enumerate(rings):
-            if len(ring) < 3:
-                continue
-            try:
-                geom = Polygon(ring)
-                if geom.is_empty or not geom.is_valid:
-                    continue
-                width = widths[index] if index < len(widths) else 0.0
-                if width > 0.0:
-                    geom = geom.buffer(width / 2.0, quad_segs=1, join_style="round")
-                geoms.append(geom)
-            except Exception:
-                continue
-
-        anchor_geom = _custom_anchor_geometry(payload)
-        if anchor_geom is not None and not anchor_geom.is_empty:
-            geoms.append(anchor_geom)
-        if not geoms:
-            return rings
-
-        try:
-            geom = unary_union(geoms)
-            margin = _mask_margin_nm(payload) if expand_for_mask else 0
-            if margin > 0:
-                geom = geom.buffer(float(margin), quad_segs=1, join_style="round")
-        except Exception:
-            return _custom_polygons(payload, expand_for_mask=expand_for_mask)
-
-        out: list[list[tuple[float, float]]] = []
-        if isinstance(geom, MultiPolygon):
-            geoms_iter = geom.geoms
-        elif isinstance(geom, Polygon):
-            geoms_iter = [geom]
-        else:
-            geoms_iter = []
-        for item in geoms_iter:
-            if item.is_empty:
-                continue
-            coords = list(item.exterior.coords)
-            if len(coords) > 1 and coords[0] == coords[-1]:
-                coords = coords[:-1]
-            if len(coords) >= 3:
-                out.append([(float(x), float(y)) for x, y in coords])
-        return out or rings
-
-    def _render(payload: dict, *, expand_for_mask: bool = False) -> str:
-        cx = int(payload.get("x", 0))
-        cy = int(payload.get("y", 0))
-        orient_deg = float(payload.get("orient_deg", 0.0))
-        fragments: list[str] = []
-        polygon_source = (
-            _custom_cli_polygons
-            if _profile_is_oracle(ctx.options)
-            else _custom_polygons
         )
-        for locals_ in polygon_source(payload, expand_for_mask=expand_for_mask):
-            pts = _absolutize(locals_, cx=cx, cy=cy, orient_deg=orient_deg)
-            fragments.append(
-                _render_filled_polygon_like_cli(
-                    pts,
-                    ctx=ctx,
-                    fill=KiCadFillType.FILLED_SHAPE.value,
-                    width_nm=0,
-                )
-            )
-        return "\n".join(fragments)
+    return out or rings
 
+
+def _custom_pad_polygon_widths(payload: dict) -> list[float]:
+    widths = payload.get("polygon_widths_nm", []) or []
+    return [float(width or 0.0) for width in widths]
+
+
+def _custom_pad_anchor_geometry(payload: dict):
+    anchor_shape = str(payload.get("anchor_shape", "") or "").lower()
+    if not anchor_shape:
+        return None
+    size_x = float(payload.get("size_x_nm", 0) or 0)
+    size_y = float(payload.get("size_y_nm", 0) or 0)
+    if size_x <= 0.0 or size_y <= 0.0:
+        return None
+    try:
+        from shapely.affinity import scale
+        from shapely.geometry import Point, box
+    except Exception:
+        return None
+    if anchor_shape == "rect":
+        return box(-size_x / 2.0, -size_y / 2.0, size_x / 2.0, size_y / 2.0)
+    if anchor_shape == "circle":
+        return scale(
+            Point(0.0, 0.0).buffer(0.5, quad_segs=16),
+            xfact=size_x,
+            yfact=size_y,
+            origin=(0.0, 0.0),
+        )
+    return None
+
+
+def _polygon_like_exterior_rings(
+    geom,
+    *,
+    multi_polygon_type,
+    polygon_type,
+) -> list[list[tuple[float, float]]]:
+    if isinstance(geom, multi_polygon_type):
+        geoms_iter = geom.geoms
+    elif isinstance(geom, polygon_type):
+        geoms_iter = [geom]
+    else:
+        geoms_iter = []
+
+    out: list[list[tuple[float, float]]] = []
+    for item in geoms_iter:
+        if item.is_empty:
+            continue
+        coords = list(item.exterior.coords)
+        if len(coords) > 1 and coords[0] == coords[-1]:
+            coords = coords[:-1]
+        if len(coords) >= 3:
+            out.append([(float(x), float(y)) for x, y in coords])
+    return out
+
+
+def _custom_pad_cli_rings(
+    payload: dict,
+    *,
+    expand_for_mask: bool = False,
+) -> list[list[tuple[float, float]]]:
+    rings = _custom_pad_rings(payload, expand_for_mask=False)
+    try:
+        from shapely.geometry import MultiPolygon, Polygon
+        from shapely.ops import unary_union
+    except Exception:
+        return _custom_pad_rings(payload, expand_for_mask=expand_for_mask)
+
+    geoms = []
+    widths = _custom_pad_polygon_widths(payload)
+    for index, ring in enumerate(rings):
+        if len(ring) < 3:
+            continue
+        try:
+            geom = Polygon(ring)
+            if geom.is_empty or not geom.is_valid:
+                continue
+            width = widths[index] if index < len(widths) else 0.0
+            if width > 0.0:
+                geom = geom.buffer(width / 2.0, quad_segs=1, join_style="round")
+            geoms.append(geom)
+        except Exception:
+            continue
+
+    anchor_geom = _custom_pad_anchor_geometry(payload)
+    if anchor_geom is not None and not anchor_geom.is_empty:
+        geoms.append(anchor_geom)
+    if not geoms:
+        return rings
+
+    try:
+        geom = unary_union(geoms)
+        margin = _mask_margin_nm(payload) if expand_for_mask else 0
+        if margin > 0:
+            geom = geom.buffer(float(margin), quad_segs=1, join_style="round")
+    except Exception:
+        return _custom_pad_rings(payload, expand_for_mask=expand_for_mask)
+
+    return _polygon_like_exterior_rings(
+        geom,
+        multi_polygon_type=MultiPolygon,
+        polygon_type=Polygon,
+    ) or rings
+
+
+def _render_custom_pad_payload(
+    payload: dict,
+    *,
+    ctx: KiCadSvgRenderContext,
+    expand_for_mask: bool = False,
+) -> str:
+    cx = int(payload.get("x", 0))
+    cy = int(payload.get("y", 0))
+    orient_deg = float(payload.get("orient_deg", 0.0))
+    polygon_source = (
+        _custom_pad_cli_rings if _profile_is_oracle(ctx.options) else _custom_pad_rings
+    )
+    fragments: list[str] = []
+    for locals_ in polygon_source(payload, expand_for_mask=expand_for_mask):
+        fragments.append(
+            _render_filled_polygon_like_cli(
+                _absolutize(locals_, cx=cx, cy=cy, orient_deg=orient_deg),
+                ctx=ctx,
+                fill=KiCadFillType.FILLED_SHAPE.value,
+                width_nm=0,
+            )
+        )
+    return "\n".join(fragments)
+
+
+def _render_flash_pad_custom_op(p: dict, *, ctx: KiCadSvgRenderContext) -> str:
     return _render_pad_with_mask_variant(
         p,
         ctx=ctx,
-        render_nominal=lambda payload: _render(payload, expand_for_mask=False),
-        render_expanded=lambda payload: _render(payload, expand_for_mask=True),
+        render_nominal=lambda payload: _render_custom_pad_payload(
+            payload,
+            ctx=ctx,
+            expand_for_mask=False,
+        ),
+        render_expanded=lambda payload: _render_custom_pad_payload(
+            payload,
+            ctx=ctx,
+            expand_for_mask=True,
+        ),
     )
 
 

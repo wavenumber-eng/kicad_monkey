@@ -4687,31 +4687,15 @@ def _infer_sheet_count(schematic: "KiCadSchematic") -> int:
 # ---------------------------------------------------------------------------
 
 
-def schematic_to_ir(
+def _schematic_ir_context(
     schematic: "KiCadSchematic",
     *,
-    source_path: Optional[str] = None,
-    document_id: Optional[str] = None,
-    sheet_index: int = 1,
-    sheet_count: int = 1,
-    sheet_path: str = "/",
-    sheet_instance_path: Optional[str] = None,
-    sheet_name: str = "",
-    project_vars: Optional[dict] = None,
-) -> KiCadPlotterDocument:
-    """
-    Convert a :class:`KiCadSchematic` to a :class:`KiCadPlotterDocument`.
-
-    Emits one ``sheet_header`` record (paper + title block) followed
-    by per-element records in KiCad's natural emit order:
-      wires → buses → bus_entries → junctions → no_connects →
-      labels (local / global / hierarchical) → texts →
-      symbol instances → hierarchical sheets.
-
-    Coordinates are KiCad internal-unit nm; the Y axis is "down" (no
-    flip — schematic file coords are already screen-Y).
-    """
-    _register_embedded_fonts_for_schematic(schematic, source_path)
+    source_path: Optional[str],
+    sheet_index: int,
+    sheet_count: int,
+    sheet_instance_path: Optional[str],
+    project_vars: Optional[dict],
+) -> tuple[float, int, int, Optional[str], dict[str, str]]:
     drawing_settings = _schematic_project_drawing_settings(schematic, source_path)
     text_offset_ratio = _drawing_setting_float(
         drawing_settings,
@@ -4742,16 +4726,21 @@ def schematic_to_ir(
     # Built-in sheet/title variables are resolved by KiCad before falling
     # back to project text variables, so names such as VARIANT/TITLE win here.
     effective_project_vars.update(builtin_project_vars)
-    records: List[KiCadPlotterRecord] = [_sheet_header_record(
-        schematic,
-        source_path=source_path,
-        sheet_index=sheet_index,
-        sheet_count=sheet_count,
-        sheet_path=sheet_path,
-        sheet_name=sheet_name,
-        project_vars=effective_project_vars,
-    )]
+    return (
+        text_offset_ratio,
+        default_line_width_nm,
+        sheet_count,
+        sheet_instance_path,
+        effective_project_vars,
+    )
 
+
+def _append_schematic_connectivity_records(
+    records: List[KiCadPlotterRecord],
+    schematic: "KiCadSchematic",
+    *,
+    default_line_width_nm: int,
+) -> None:
     for w in schematic.wires:
         rec = _wire_record(w)
         if rec is not None:
@@ -4766,12 +4755,17 @@ def schematic_to_ir(
         records.append(_junction_record(j))
     for nc in schematic.no_connects:
         records.append(
-            _no_connect_record(
-                nc,
-                default_line_width_nm=default_line_width_nm,
-            )
+            _no_connect_record(nc, default_line_width_nm=default_line_width_nm)
         )
 
+
+def _append_schematic_label_records(
+    records: List[KiCadPlotterRecord],
+    schematic: "KiCadSchematic",
+    *,
+    default_line_width_nm: int,
+    text_offset_ratio: float,
+) -> None:
     for lbl in schematic.labels:
         records.append(
             _label_record(
@@ -4811,26 +4805,36 @@ def schematic_to_ir(
             )
         )
 
+
+def _append_schematic_text_records(
+    records: List[KiCadPlotterRecord],
+    schematic: "KiCadSchematic",
+    *,
+    default_line_width_nm: int,
+    project_vars: dict[str, str],
+) -> None:
     for flag in getattr(schematic, "netclass_flags", ()) or ():
         records.append(
-            _netclass_flag_record(
-                flag,
-                default_line_width_nm=default_line_width_nm,
-            )
+            _netclass_flag_record(flag, default_line_width_nm=default_line_width_nm)
         )
-
     for t in schematic.texts:
         records.append(
             _text_record(
                 t,
                 default_line_width_nm=default_line_width_nm,
-                project_vars=effective_project_vars,
+                project_vars=project_vars,
             )
         )
-
     for tb in getattr(schematic, "text_boxes", ()) or ():
-        records.append(_text_box_record(tb, project_vars=effective_project_vars))
+        records.append(_text_box_record(tb, project_vars=project_vars))
 
+
+def _append_schematic_graphics_records(
+    records: List[KiCadPlotterRecord],
+    schematic: "KiCadSchematic",
+    *,
+    project_vars: dict[str, str],
+) -> None:
     for poly in getattr(schematic, "polylines", ()) or ():
         rec = _graphic_polyline_record(poly)
         if rec is not None:
@@ -4853,13 +4857,19 @@ def schematic_to_ir(
             records.append(rec)
     for img in getattr(schematic, "images", ()) or ():
         records.append(_image_record(img))
-
     for table in getattr(schematic, "tables", ()) or ():
-        records.append(_table_record(table, project_vars=effective_project_vars))
+        records.append(_table_record(table, project_vars=project_vars))
 
-    symbol_default_stroke_width_nm = _symbol_body_stroke_width_for_schematic(
-        schematic
-    )
+
+def _append_schematic_symbol_records(
+    records: List[KiCadPlotterRecord],
+    schematic: "KiCadSchematic",
+    *,
+    default_line_width_nm: int,
+    sheet_instance_path: Optional[str],
+    project_vars: dict[str, str],
+) -> None:
+    symbol_default_stroke_width_nm = _symbol_body_stroke_width_for_schematic(schematic)
     symbol_default_polyline_stroke_width_nm = (
         _symbol_polyline_stroke_width_for_schematic(schematic)
     )
@@ -4873,12 +4883,10 @@ def schematic_to_ir(
             sym,
             lib_sym,
             default_stroke_width_nm=symbol_default_stroke_width_nm,
-            default_polyline_stroke_width_nm=(
-                symbol_default_polyline_stroke_width_nm
-            ),
+            default_polyline_stroke_width_nm=symbol_default_polyline_stroke_width_nm,
             default_line_width_nm=default_line_width_nm,
             sheet_instance_path=sheet_instance_path,
-            project_vars=effective_project_vars,
+            project_vars=project_vars,
         )
         symbol_entries.append((sym, lib_sym, record))
         records.append(record)
@@ -4893,11 +4901,19 @@ def schematic_to_ir(
             default_polyline_stroke_width_nm=symbol_default_polyline_stroke_width_nm,
             default_line_width_nm=default_line_width_nm,
             sheet_instance_path=sheet_instance_path,
-            project_vars=effective_project_vars,
+            project_vars=project_vars,
         )
         if overplot is not None:
             records.append(overplot)
 
+
+def _append_schematic_sheet_records(
+    records: List[KiCadPlotterRecord],
+    schematic: "KiCadSchematic",
+    *,
+    default_line_width_nm: int,
+    text_offset_ratio: float,
+) -> None:
     for sh in schematic.sheets:
         records.append(
             _sheet_record(
@@ -4906,6 +4922,92 @@ def schematic_to_ir(
                 text_offset_ratio=text_offset_ratio,
             )
         )
+
+
+def schematic_to_ir(
+    schematic: "KiCadSchematic",
+    *,
+    source_path: Optional[str] = None,
+    document_id: Optional[str] = None,
+    sheet_index: int = 1,
+    sheet_count: int = 1,
+    sheet_path: str = "/",
+    sheet_instance_path: Optional[str] = None,
+    sheet_name: str = "",
+    project_vars: Optional[dict] = None,
+) -> KiCadPlotterDocument:
+    """
+    Convert a :class:`KiCadSchematic` to a :class:`KiCadPlotterDocument`.
+
+    Emits one ``sheet_header`` record (paper + title block) followed
+    by per-element records in KiCad's natural emit order:
+      wires → buses → bus_entries → junctions → no_connects →
+      labels (local / global / hierarchical) → texts →
+      symbol instances → hierarchical sheets.
+
+    Coordinates are KiCad internal-unit nm; the Y axis is "down" (no
+    flip — schematic file coords are already screen-Y).
+    """
+    _register_embedded_fonts_for_schematic(schematic, source_path)
+    (
+        text_offset_ratio,
+        default_line_width_nm,
+        sheet_count,
+        sheet_instance_path,
+        effective_project_vars,
+    ) = _schematic_ir_context(
+        schematic,
+        source_path=source_path,
+        sheet_index=sheet_index,
+        sheet_count=sheet_count,
+        sheet_instance_path=sheet_instance_path,
+        project_vars=project_vars,
+    )
+    records: List[KiCadPlotterRecord] = [_sheet_header_record(
+        schematic,
+        source_path=source_path,
+        sheet_index=sheet_index,
+        sheet_count=sheet_count,
+        sheet_path=sheet_path,
+        sheet_name=sheet_name,
+        project_vars=effective_project_vars,
+    )]
+
+    _append_schematic_connectivity_records(
+        records,
+        schematic,
+        default_line_width_nm=default_line_width_nm,
+    )
+    _append_schematic_label_records(
+        records,
+        schematic,
+        default_line_width_nm=default_line_width_nm,
+        text_offset_ratio=text_offset_ratio,
+    )
+    _append_schematic_text_records(
+        records,
+        schematic,
+        default_line_width_nm=default_line_width_nm,
+        project_vars=effective_project_vars,
+    )
+    _append_schematic_graphics_records(
+        records,
+        schematic,
+        project_vars=effective_project_vars,
+    )
+    _append_schematic_symbol_records(
+        records,
+        schematic,
+        default_line_width_nm=default_line_width_nm,
+        sheet_instance_path=sheet_instance_path,
+        project_vars=effective_project_vars,
+    )
+    _append_schematic_sheet_records(
+        records,
+        schematic,
+        default_line_width_nm=default_line_width_nm,
+        text_offset_ratio=text_offset_ratio,
+    )
 
     width_nm, height_nm = paper_size_to_nm(schematic.paper)
 

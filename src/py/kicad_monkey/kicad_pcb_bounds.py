@@ -342,84 +342,86 @@ def compute_footprint_svg_bounding_box_on_layers(
     return bbox
 
 
-def compute_pcb_svg_bounding_box(
-    pcb: "KiCadPcb",
-    layers: list[str] | None = None,
-) -> BoundingBox:
-    bbox = BoundingBox()
+def _layer_visible(layer: str, layers: list[str] | None) -> bool:
+    return layers is None or layer in layers
 
-    for fp in pcb.footprints:
-        bbox.merge(compute_footprint_svg_bounding_box_on_layers(fp, layers))
 
+def _expand_routing_bbox(bbox: BoundingBox, pcb: "KiCadPcb", layers: list[str] | None) -> None:
     for seg in pcb.segments:
-        if layers is None or seg.layer in layers:
+        if _layer_visible(seg.layer, layers):
             bbox.expand((seg.start_x, seg.start_y))
             bbox.expand((seg.end_x, seg.end_y))
 
     for arc in pcb.arcs:
-        if layers is None or arc.layer in layers:
+        if _layer_visible(arc.layer, layers):
             bbox.expand((arc.start_x, arc.start_y))
             bbox.expand((arc.mid_x, arc.mid_y))
             bbox.expand((arc.end_x, arc.end_y))
 
     copper_layers = layers is None or any(_is_copper_layer(layer_name) for layer_name in layers)
-    if copper_layers:
-        for via in pcb.vias:
-            if layers is None or any(layer_name in via.layers for layer_name in layers):
-                r = via.size / 2
-                bbox.expand((via.at_x - r, via.at_y - r))
-                bbox.expand((via.at_x + r, via.at_y + r))
+    if not copper_layers:
+        return
+    for via in pcb.vias:
+        if layers is None or any(layer_name in via.layers for layer_name in layers):
+            r = via.size / 2
+            bbox.expand((via.at_x - r, via.at_y - r))
+            bbox.expand((via.at_x + r, via.at_y + r))
 
+
+def _expand_zone_bbox(bbox: BoundingBox, pcb: "KiCadPcb", layers: list[str] | None) -> None:
     standard_copper_layers = {"F.Cu", "B.Cu", "In1.Cu"}
     for zone in pcb.zones:
         if zone.filled_polygons and zone.layer in standard_copper_layers:
             for poly in zone.polygons:
-                if layers is None or zone.layer in layers:
+                if _layer_visible(zone.layer, layers):
                     for x, y in poly.points:
                         bbox.expand((x, y))
 
         for filled in zone.filled_polygons:
-            if layers is not None and filled.layer not in layers:
+            if not _layer_visible(filled.layer, layers):
                 continue
             for x, y in filled.points:
                 bbox.expand((x, y))
 
+
+def _expand_board_graphics_bbox(bbox: BoundingBox, pcb: "KiCadPcb", layers: list[str] | None) -> None:
     for line in pcb.gr_lines:
-        if layers is None or line.layer in layers:
+        if _layer_visible(line.layer, layers):
             bbox.expand((line.start_x, line.start_y))
             bbox.expand((line.end_x, line.end_y))
 
     for rect in pcb.gr_rects:
-        if layers is None or rect.layer in layers:
+        if _layer_visible(rect.layer, layers):
             bbox.expand((min(rect.start_x, rect.end_x), min(rect.start_y, rect.end_y)))
             bbox.expand((max(rect.start_x, rect.end_x), max(rect.start_y, rect.end_y)))
 
     for circle in pcb.gr_circles:
-        if layers is None or circle.layer in layers:
+        if _layer_visible(circle.layer, layers):
             radius = math.hypot(circle.end_x - circle.center_x, circle.end_y - circle.center_y)
             bbox.expand((circle.center_x - radius, circle.center_y - radius))
             bbox.expand((circle.center_x + radius, circle.center_y + radius))
 
     for arc in pcb.gr_arcs:
-        if layers is None or arc.layer in layers:
+        if _layer_visible(arc.layer, layers):
             for x, y in [(arc.start_x, arc.start_y), (arc.mid_x, arc.mid_y), (arc.end_x, arc.end_y)]:
                 bbox.expand((x, y))
 
     for poly in pcb.gr_polys:
-        if layers is None or poly.layer in layers:
+        if _layer_visible(poly.layer, layers):
             for x, y in poly.points:
                 bbox.expand((x, y))
 
     for curve in getattr(pcb, "gr_curves", []):
-        if layers is None or curve.layer in layers:
-            if len(curve.points) >= 4:
-                p0, p1, p2, p3 = curve.points[:4]
-                min_x, min_y, max_x, max_y = compute_cubic_bezier_bounds(p0, p1, p2, p3)
-                bbox.expand((min_x, min_y))
-                bbox.expand((max_x, max_y))
+        if _layer_visible(curve.layer, layers) and len(curve.points) >= 4:
+            p0, p1, p2, p3 = curve.points[:4]
+            min_x, min_y, max_x, max_y = compute_cubic_bezier_bounds(p0, p1, p2, p3)
+            bbox.expand((min_x, min_y))
+            bbox.expand((max_x, max_y))
 
+
+def _expand_board_text_box_bbox(bbox: BoundingBox, pcb: "KiCadPcb", layers: list[str] | None) -> None:
     for text_box in getattr(pcb, "gr_text_boxes", []):
-        if layers is None or text_box.layer in layers:
+        if _layer_visible(text_box.layer, layers):
             bbox.expand((min(text_box.start_x, text_box.end_x), min(text_box.start_y, text_box.end_y)))
             bbox.expand((max(text_box.start_x, text_box.end_x), max(text_box.start_y, text_box.end_y)))
 
@@ -430,17 +432,26 @@ def compute_pcb_svg_bounding_box(
             bbox.expand((min(cell.start_x, cell.end_x), min(cell.start_y, cell.end_y)))
             bbox.expand((max(cell.start_x, cell.end_x), max(cell.start_y, cell.end_y)))
 
-    for text in getattr(pcb, "gr_texts", []):
-        if layers is None or text.layer in layers:
-            if hasattr(text, "_to_poly"):
-                try:
-                    poly_set = text._to_poly()
-                    for outline in poly_set.outlines:
-                        for x, y in outline:
-                            bbox.expand((x, y))
-                except Exception:
-                    pass
 
+def _expand_text_outline_bbox(bbox: BoundingBox, text_object) -> None:
+    if not hasattr(text_object, "_to_poly"):
+        return
+    try:
+        poly_set = text_object._to_poly()
+    except Exception:
+        return
+    for outline in poly_set.outlines:
+        for x, y in outline:
+            bbox.expand((x, y))
+
+
+def _expand_board_text_bbox(bbox: BoundingBox, pcb: "KiCadPcb", layers: list[str] | None) -> None:
+    for text in getattr(pcb, "gr_texts", []):
+        if _layer_visible(text.layer, layers):
+            _expand_text_outline_bbox(bbox, text)
+
+
+def _expand_dimension_text_bbox(bbox: BoundingBox, pcb: "KiCadPcb", layers: list[str] | None) -> None:
     for dimension_index, dimension in enumerate(getattr(pcb, "dimensions", [])):
         text_object = (
             dimension.resolved_gr_text()
@@ -450,7 +461,7 @@ def compute_pcb_svg_bounding_box(
         if text_object is None or not text_object.text:
             continue
         text_layer = text_object.layer or dimension.layer
-        if layers is not None and text_layer not in layers:
+        if not _layer_visible(text_layer, layers):
             continue
 
         font = text_object.effects.font if text_object.effects else None
@@ -465,17 +476,11 @@ def compute_pcb_svg_bounding_box(
             outline_polygons = _render_cache_polygons_for_request(request)
         if outline_polygons:
             _expand_bbox_with_polygons(bbox, outline_polygons)
-            continue
+        else:
+            _expand_text_outline_bbox(bbox, text_object)
 
-        if hasattr(text_object, "_to_poly"):
-            try:
-                poly_set = text_object._to_poly()
-                for outline in poly_set.outlines:
-                    for x, y in outline:
-                        bbox.expand((x, y))
-            except Exception:
-                pass
 
+def _expand_drill_bbox(bbox: BoundingBox, pcb: "KiCadPcb") -> None:
     for fp in pcb.footprints:
         fp_x = fp.at_x
         fp_y = fp.at_y
@@ -503,15 +508,37 @@ def compute_pcb_svg_bounding_box(
             bbox.expand((via.at_x - r, via.at_y - r))
             bbox.expand((via.at_x + r, via.at_y + r))
 
+
+def _expand_image_bbox(bbox: BoundingBox, pcb: "KiCadPcb", layers: list[str] | None) -> None:
     for img in getattr(pcb, "images", []):
-        if layers is None or img.layer in layers:
-            img_width_px, img_height_px = _get_image_dimensions(img.data)
-            if img_width_px and img_height_px:
-                scale = img.scale if hasattr(img, "scale") and img.scale else 1.0
-                img_width_mm = img_width_px * 0.1 * scale
-                img_height_mm = img_height_px * 0.1 * scale
-                bbox.expand((img.at_x - img_width_mm / 2, img.at_y - img_height_mm / 2))
-                bbox.expand((img.at_x + img_width_mm / 2, img.at_y + img_height_mm / 2))
+        if not _layer_visible(img.layer, layers):
+            continue
+        img_width_px, img_height_px = _get_image_dimensions(img.data)
+        if img_width_px and img_height_px:
+            scale = img.scale if hasattr(img, "scale") and img.scale else 1.0
+            img_width_mm = img_width_px * 0.1 * scale
+            img_height_mm = img_height_px * 0.1 * scale
+            bbox.expand((img.at_x - img_width_mm / 2, img.at_y - img_height_mm / 2))
+            bbox.expand((img.at_x + img_width_mm / 2, img.at_y + img_height_mm / 2))
+
+
+def compute_pcb_svg_bounding_box(
+    pcb: "KiCadPcb",
+    layers: list[str] | None = None,
+) -> BoundingBox:
+    bbox = BoundingBox()
+
+    for fp in pcb.footprints:
+        bbox.merge(compute_footprint_svg_bounding_box_on_layers(fp, layers))
+
+    _expand_routing_bbox(bbox, pcb, layers)
+    _expand_zone_bbox(bbox, pcb, layers)
+    _expand_board_graphics_bbox(bbox, pcb, layers)
+    _expand_board_text_box_bbox(bbox, pcb, layers)
+    _expand_board_text_bbox(bbox, pcb, layers)
+    _expand_dimension_text_bbox(bbox, pcb, layers)
+    _expand_drill_bbox(bbox, pcb)
+    _expand_image_bbox(bbox, pcb, layers)
 
     return bbox
 
