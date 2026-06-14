@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>megamaid command design</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body data-doc-status="accepted"
+  data-doc-kind="cli-design"
+  data-command="megamaid"
+  data-config-contract="none"
+  data-output-contract="kicad_cruncher.megamaid_manifest.v0">
+<main>
+<nav class="nav"><a href="../index.html">Design Index</a><a href="index.html">CLI</a></nav>
+<header>
+  <p class="status">Public command</p>
+  <h1>megamaid</h1>
+  <p class="lede">Extract KiCad project library artifacts into an inspectable bundle for project-local review and internal library ingestion.</p>
+</header>
+
+<section id="usage">
+  <h2>Usage</h2>
+  <pre><code>kicad-cruncher megamaid project.kicad_pro -o output/megamaid
+kicad-cruncher library-extract project.kicad_pro --mode project_local
+kicad-cruncher lib-extract project.kicad_pro --dedupe fingerprint
+kicad-cruncher megamaid project.kicad_pro --validate-kicad-cli</code></pre>
+</section>
+
+<section id="arguments">
+  <h2>Arguments</h2>
+  <p><code>file</code> accepts a <code>.kicad_pro</code> project. If omitted, the command auto-detects exactly one <code>.kicad_pro</code> in the current directory. Schematic-only and PCB-only inputs are intentionally not accepted in this first public workflow because the extraction bundle needs the project root, local libraries, board file, and schematic files together.</p>
+  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/megamaid/</code>. <code>library-extract</code> and <code>lib-extract</code> are aliases for the same command.</p>
+  <p><code>--mode internal</code> strips symbols and footprints down to reusable bare library assets while preserving raw metadata in JSON. <code>--mode project_local</code> preserves editable per-part metadata and per-instance footprint details so a project-local library can be inspected before future relinking work.</p>
+  <p><code>--dedupe name</code> collapses repeated internal assets by library name. <code>--dedupe fingerprint</code> collapses by stripped serialized content. <code>--no-embed-models</code> disables board-embedded model payload rehydration. <code>--no-embed-external-models</code> disables resolving external STEP/STP model paths into extracted footprints. <code>--no-asset-scan</code> omits the expensive full model-reference scan from the metadata JSON. <code>--validate-kicad-cli</code> asks KiCad CLI to parse/upgrade the generated libraries, and <code>--kicad-cli</code> selects the executable.</p>
+</section>
+
+<section id="ownership">
+  <h2>Ownership</h2>
+  <p>The KiCad parsing, metadata stripping, model path classification, external STEP/STP embedding, metadata bundle construction, and KiCad CLI validation helpers are owned by <code>kicad-monkey</code>. <code>kicad-cruncher</code> owns command-line ergonomics, output directory layout, manifest writing, README writing, logging, and exit status.</p>
+  <p>The command is non-destructive. It does not edit the source project, update <code>sym-lib-table</code> or <code>fp-lib-table</code>, relink schematic symbols, relink PCB footprints, or rewrite project text variables. Those mutations are separate future workflows with explicit review and tests.</p>
+</section>
+
+<section id="output">
+  <h2>Output</h2>
+  <p>The selected output directory contains a self-contained extraction bundle:</p>
+  <ul>
+    <li><code>symbols/*.kicad_sym</code>: one single-symbol KiCad symbol library file per extracted symbol record.</li>
+    <li><code>footprints.pretty/*.kicad_mod</code>: one standalone KiCad footprint per extracted footprint record.</li>
+    <li><code>models/*.{step,stp}</code>: decoded embedded STEP/STP model payloads found in the project board and local footprint libraries.</li>
+    <li><code>library_extraction.json</code>: <code>kicad_monkey.library_extraction_bundle.v1</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan.</li>
+    <li><code>megamaid_manifest.json</code>: <code>kicad_cruncher.megamaid_manifest.v0</code> artifact index with counts, relative output paths, mode, source project, and optional KiCad CLI validation results.</li>
+    <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
+  </ul>
+  <p>The internal mode is intended for later <code>lib_cruncher</code> ingestion where the JSON metadata creates the part association and the symbol/footprint files are clean reusable CAD assets. Project-local mode is intended for inspection and future local-library relinking workflows.</p>
+</section>
+
+<section id="tests">
+  <h2>Tests</h2>
+  <p>L0 public CLI tests verify the command appears in root help, command help starts, and the manifest/design-doc inventory stays synchronized. L3 public workflow tests run <code>megamaid</code> against the sanitized 4-ch backplane corpus fixture, verify the manifest schema, output directories, metadata schema, symbol/footprint/model counts, internal stripping mode, project-local preservation mode, and command aliases. The optional KiCad CLI validation path is covered by <code>kicad-monkey</code> L2 tests and can be exercised through <code>--validate-kicad-cli</code> when a local KiCad install is available.</p>
+</section>
+</main>
+</body>
+</html>

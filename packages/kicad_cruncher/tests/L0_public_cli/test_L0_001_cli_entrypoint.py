@@ -111,6 +111,18 @@ def test_design_help_describes_design_json_contents() -> None:
     assert "nets" in result.stdout
 
 
+def test_megamaid_help_describes_library_extraction_modes() -> None:
+    """Verify megamaid help exposes library extraction controls."""
+    result = _run_cli("megamaid", "--help")
+
+    assert result.returncode == 0, result.stderr
+    assert "symbols, footprints, metadata, and embedded STEP models" in result.stdout
+    assert "--mode" in result.stdout
+    assert "project_local" in result.stdout
+    assert "--dedupe" in result.stdout
+    assert "--validate-kicad-cli" in result.stdout
+
+
 @pytest.mark.parametrize("alias", ("design-review", "dr"))
 def test_design_alias_help_starts(alias: str) -> None:
     """Verify the public design review aliases start and print help."""
