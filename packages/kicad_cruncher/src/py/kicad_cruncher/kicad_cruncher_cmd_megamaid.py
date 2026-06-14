@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import time
 from pathlib import Path
 
 from kicad_cruncher.kicad_cruncher_common import find_kicad_project_in_cwd, resolve_output_dir
@@ -24,7 +25,7 @@ def _resolve_input_project(file_arg: str | None) -> Path | None:
             log.error("Input project does not exist: %s", path)
             return None
         if path.suffix != ".kicad_pro":
-            log.error("megamaid currently requires a .kicad_pro input: %s", path)
+            log.error("library extraction requires a .kicad_pro input: %s", path)
             return None
         return path
 
@@ -37,6 +38,7 @@ def _resolve_input_project(file_arg: str | None) -> Path | None:
 
 def _manifest_payload(
     *,
+    schema: str,
     project_path: Path,
     output_dir: Path,
     mode: str,
@@ -47,7 +49,7 @@ def _manifest_payload(
     validation: dict[str, object] | None,
 ) -> dict[str, object]:
     return {
-        "schema": "kicad_cruncher.megamaid_manifest.v0",
+        "schema": schema,
         "project": str(project_path),
         "mode": mode,
         "symbols": {
@@ -86,7 +88,7 @@ def _readme_text(manifest: dict[str, object]) -> str:
         f"- Footprints: `{footprints['directory']}` ({footprints['count']})\n"
         f"- STEP models: `{models['directory']}` ({models['count']})\n"
         f"- Metadata: `{manifest['metadata']}`\n"
-        "- Manifest: `megamaid_manifest.json`\n\n"
+        f"- Manifest: `{manifest['manifest_filename']}`\n\n"
         "This command is non-destructive. It does not edit the project, relink "
         "schematic symbols, relink PCB footprints, or update lib tables.\n"
     )
@@ -120,12 +122,26 @@ def _validate_outputs(
     }
 
 
-def cmd_megamaid(args: argparse.Namespace) -> int:
-    """Extract project-local library artifacts from a KiCad project."""
+def _log_stage_done(message: str, started_at: float) -> None:
+    log.info("%s in %.2fs", message, time.perf_counter() - started_at)
+
+
+def _run_library_extraction(
+    args: argparse.Namespace,
+    *,
+    command_label: str,
+    output_default: str,
+    mode_value: str,
+    dedupe_value: str,
+    manifest_schema: str,
+    manifest_filename: str,
+) -> int:
+    """Extract KiCad library artifacts from a project."""
     from kicad_monkey.kicad_library_extraction import (
         KiCadExtractionDedupePolicy,
         KiCadExtractionMode,
         extract_3d_models,
+        extract_3d_models_from_footprint_records,
         extract_footprints,
         extract_symbols,
         write_extraction_metadata_bundle,
@@ -137,14 +153,19 @@ def cmd_megamaid(args: argparse.Namespace) -> int:
     if project_path is None:
         return 1
 
-    output_dir = resolve_output_dir(args.output, "megamaid")
-    mode = KiCadExtractionMode(str(args.mode))
-    dedupe_policy = KiCadExtractionDedupePolicy(str(args.dedupe))
+    output_dir = resolve_output_dir(args.output, output_default)
+    mode = KiCadExtractionMode(mode_value)
+    dedupe_policy = KiCadExtractionDedupePolicy(dedupe_value)
     embed_models = not bool(args.no_embed_models)
     embed_external_models = not bool(args.no_embed_external_models)
 
     try:
+        log.info("%s: extracting from %s", command_label, project_path)
+        started = time.perf_counter()
         symbol_records = extract_symbols(project_path, mode=mode, dedupe_policy=dedupe_policy)
+        _log_stage_done(f"{command_label}: extracted {len(symbol_records)} symbols", started)
+
+        started = time.perf_counter()
         footprint_records = extract_footprints(
             project_path,
             mode=mode,
@@ -152,9 +173,31 @@ def cmd_megamaid(args: argparse.Namespace) -> int:
             embed_external_models=embed_external_models,
             dedupe_policy=dedupe_policy,
         )
+        _log_stage_done(f"{command_label}: extracted {len(footprint_records)} footprints", started)
+
+        started = time.perf_counter()
         symbol_files = write_symbol_folder_library(symbol_records, output_dir / "symbols")
         footprint_files = write_pretty_library(footprint_records, output_dir / "footprints.pretty")
-        model_files = extract_3d_models(project_path, output_dir / "models")
+        asset_count_message = (
+            f"{command_label}: wrote {len(symbol_files)} symbol files "
+            f"and {len(footprint_files)} footprint files"
+        )
+        _log_stage_done(
+            asset_count_message,
+            started,
+        )
+
+        started = time.perf_counter()
+        if embed_models and not bool(args.all_embedded_models):
+            model_files = extract_3d_models_from_footprint_records(
+                footprint_records,
+                output_dir / "models",
+            )
+        else:
+            model_files = extract_3d_models(project_path, output_dir / "models")
+        _log_stage_done(f"{command_label}: wrote {len(model_files)} STEP models", started)
+
+        started = time.perf_counter()
         metadata_path = write_extraction_metadata_bundle(
             project_path,
             output_dir / "library_extraction.json",
@@ -163,12 +206,18 @@ def cmd_megamaid(args: argparse.Namespace) -> int:
             footprint_records=footprint_records,
             include_asset_scan=not bool(args.no_asset_scan),
         )
+        _log_stage_done(f"{command_label}: wrote metadata", started)
+
+        started = time.perf_counter()
         validation = (
             _validate_outputs(output_dir=output_dir, kicad_cli=args.kicad_cli)
             if bool(args.validate_kicad_cli)
             else None
         )
+        if validation is not None:
+            _log_stage_done(f"{command_label}: completed KiCad CLI validation", started)
         manifest = _manifest_payload(
+            schema=manifest_schema,
             project_path=project_path,
             output_dir=output_dir,
             mode=mode.value,
@@ -178,7 +227,8 @@ def cmd_megamaid(args: argparse.Namespace) -> int:
             metadata_path=metadata_path,
             validation=validation,
         )
-        manifest_path = output_dir / "megamaid_manifest.json"
+        manifest["manifest_filename"] = manifest_filename
+        manifest_path = output_dir / manifest_filename
         _write_json(manifest_path, manifest)
         (output_dir / "README.md").write_text(_readme_text(manifest), encoding="utf-8")
     except Exception as exc:
@@ -190,7 +240,8 @@ def cmd_megamaid(args: argparse.Namespace) -> int:
         return 1
 
     log.info(
-        "Megamaid extraction: %d symbols, %d footprints, %d STEP models -> %s",
+        "%s: %d symbols, %d footprints, %d STEP models -> %s",
+        command_label,
         len(symbol_files),
         len(footprint_files),
         len(model_files),
@@ -199,19 +250,20 @@ def cmd_megamaid(args: argparse.Namespace) -> int:
     return 0
 
 
-def register_parser(
-    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
-) -> argparse.ArgumentParser:
-    """Register the megamaid command parser."""
-    parser = subparsers.add_parser(
-        "megamaid",
-        aliases=["library-extract", "lib-extract"],
-        help="extract KiCad project-local library artifacts",
-        description=(
-            "Extract symbols, footprints, metadata, and embedded STEP models from a "
-            "KiCad project into an inspectable non-destructive library bundle."
-        ),
+def cmd_megamaid(args: argparse.Namespace) -> int:
+    """Extract a cleaned library-ingestion bundle for lib_cruncher."""
+    return _run_library_extraction(
+        args,
+        command_label="Megamaid",
+        output_default="megamaid",
+        mode_value="internal",
+        dedupe_value=str(args.dedupe),
+        manifest_schema="kicad_cruncher.megamaid_manifest.v0",
+        manifest_filename="megamaid_manifest.json",
     )
+
+
+def _add_common_library_args(parser: argparse.ArgumentParser, *, output_default: str) -> None:
     parser.add_argument(
         "file",
         nargs="?",
@@ -221,20 +273,11 @@ def register_parser(
         "-o",
         "--output",
         type=Path,
-        help="output directory (default: ./output/megamaid)",
+        help=f"output directory (default: ./output/{output_default})",
     )
-    parser.add_argument(
-        "--mode",
-        choices=("internal", "project_local"),
-        default="internal",
-        help="internal strips metadata; project_local preserves editable per-part metadata",
-    )
-    parser.add_argument(
-        "--dedupe",
-        choices=("name", "fingerprint"),
-        default="name",
-        help="dedupe policy for internal extraction",
-    )
+
+
+def _add_model_validation_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--no-embed-models",
         action="store_true",
@@ -244,6 +287,11 @@ def register_parser(
         "--no-embed-external-models",
         action="store_true",
         help="do not embed resolvable external STEP/STP model references into extracted footprints",
+    )
+    parser.add_argument(
+        "--all-embedded-models",
+        action="store_true",
+        help="scan the full project and write every embedded STEP/STP payload to models/",
     )
     parser.add_argument(
         "--no-asset-scan",
@@ -260,5 +308,28 @@ def register_parser(
         type=Path,
         help="explicit kicad-cli executable for --validate-kicad-cli",
     )
+
+
+def register_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> argparse.ArgumentParser:
+    """Register the megamaid library-ingestion command parser."""
+    parser = subparsers.add_parser(
+        "megamaid",
+        aliases=["library-extract", "lib-extract"],
+        help="extract cleaned KiCad library artifacts for lib_cruncher",
+        description=(
+            "Extract cleaned symbols, footprints, metadata, and embedded STEP models "
+            "from a KiCad project into a non-destructive lib_cruncher ingestion bundle."
+        ),
+    )
+    _add_common_library_args(parser, output_default="megamaid")
+    parser.add_argument(
+        "--dedupe",
+        choices=("name", "fingerprint"),
+        default="name",
+        help="dedupe policy for internal extraction",
+    )
+    _add_model_validation_args(parser)
     parser.set_defaults(handler=cmd_megamaid)
     return parser

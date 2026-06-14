@@ -111,15 +111,26 @@ def test_design_help_describes_design_json_contents() -> None:
     assert "nets" in result.stdout
 
 
-def test_megamaid_help_describes_library_extraction_modes() -> None:
-    """Verify megamaid help exposes library extraction controls."""
+def test_megamaid_help_describes_lib_cruncher_extraction() -> None:
+    """Verify megamaid help exposes cleaned library ingestion controls."""
     result = _run_cli("megamaid", "--help")
 
     assert result.returncode == 0, result.stderr
-    assert "symbols, footprints, metadata, and embedded STEP models" in result.stdout
-    assert "--mode" in result.stdout
-    assert "project_local" in result.stdout
+    assert "lib_cruncher ingestion bundle" in result.stdout
+    assert "--mode" not in result.stdout
+    assert "project_local" not in result.stdout
     assert "--dedupe" in result.stdout
+    assert "--validate-kicad-cli" in result.stdout
+
+
+def test_project_lib_help_describes_project_local_extraction() -> None:
+    """Verify project-lib help exposes metadata-preserving extraction controls."""
+    result = _run_cli("project-lib", "--help")
+
+    assert result.returncode == 0, result.stderr
+    assert "metadata-preserving project-local" in result.stdout
+    assert "--mode" not in result.stdout
+    assert "--dedupe" not in result.stdout
     assert "--validate-kicad-cli" in result.stdout
 
 
