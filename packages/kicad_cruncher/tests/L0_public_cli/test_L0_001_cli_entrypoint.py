@@ -120,7 +120,18 @@ def test_megamaid_help_describes_lib_cruncher_extraction() -> None:
     assert "--mode" not in result.stdout
     assert "project_local" not in result.stdout
     assert "--dedupe" in result.stdout
+    assert "--include-asset-scan" in result.stdout
+    assert "--no-asset-scan" not in result.stdout
     assert "--validate-kicad-cli" in result.stdout
+
+
+def test_project_health_help_describes_asset_diagnostics() -> None:
+    """Verify project-health help exposes asset diagnostic controls."""
+    result = _run_cli("project-health", "--help")
+
+    assert result.returncode == 0, result.stderr
+    assert "model references" in result.stdout
+    assert "--fail-on-issues" in result.stdout
 
 
 def test_project_lib_help_describes_project_local_extraction() -> None:
@@ -131,6 +142,8 @@ def test_project_lib_help_describes_project_local_extraction() -> None:
     assert "metadata-preserving project-local" in result.stdout
     assert "--mode" not in result.stdout
     assert "--dedupe" not in result.stdout
+    assert "--include-asset-scan" in result.stdout
+    assert "--no-asset-scan" not in result.stdout
     assert "--validate-kicad-cli" in result.stdout
 
 

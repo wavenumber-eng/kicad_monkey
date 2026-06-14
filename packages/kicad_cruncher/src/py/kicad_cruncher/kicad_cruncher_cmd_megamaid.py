@@ -204,7 +204,7 @@ def _run_library_extraction(
             mode=mode,
             symbol_records=symbol_records,
             footprint_records=footprint_records,
-            include_asset_scan=not bool(args.no_asset_scan),
+            include_asset_scan=bool(args.include_asset_scan),
         )
         _log_stage_done(f"{command_label}: wrote metadata", started)
 
@@ -294,9 +294,14 @@ def _add_model_validation_args(parser: argparse.ArgumentParser) -> None:
         help="scan the full project and write every embedded STEP/STP payload to models/",
     )
     parser.add_argument(
+        "--include-asset-scan",
+        action="store_true",
+        help="include full project asset/model scan in library_extraction.json",
+    )
+    parser.add_argument(
         "--no-asset-scan",
         action="store_true",
-        help="omit full project asset/model scan from library_extraction.json",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--validate-kicad-cli",

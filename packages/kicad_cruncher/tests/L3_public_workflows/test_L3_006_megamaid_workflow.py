@@ -38,7 +38,6 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
         str(_FOUR_CH_PROJECT),
         "--output",
         str(output_dir),
-        "--no-asset-scan",
     )
 
     assert result.returncode == 0, result.stderr
@@ -89,7 +88,6 @@ def test_project_lib_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
         str(_FOUR_CH_PROJECT),
         "--output",
         str(output_dir),
-        "--no-asset-scan",
     )
 
     assert result.returncode == 0, result.stderr
@@ -118,6 +116,35 @@ def test_project_lib_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     assert len(metadata["footprints"]) == manifest["footprints"]["count"]
 
 
+def test_project_health_scans_4ch_backplane_assets(tmp_path: Path) -> None:
+    """Verify project-health writes an asset diagnostic report."""
+    output_dir = tmp_path / "project-health"
+    result = _run_cli(
+        "project-health",
+        str(_FOUR_CH_PROJECT),
+        "--output",
+        str(output_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    report_path = output_dir / "project_health.json"
+    readme_path = output_dir / "README.md"
+
+    assert report_path.is_file()
+    assert readme_path.is_file()
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+
+    assert report["schema"] == "kicad_cruncher.project_health.v0"
+    assert "ok" in report
+    assert report["summary"]["schematics"] >= 1
+    assert report["summary"]["pcbs"] >= 1
+    assert report["summary"]["model_references"] >= 1
+    assert report["assets"]["model_references"]
+    assert "project_health.json" in readme_path.read_text(encoding="utf-8")
+
+
 def test_megamaid_alias_help_starts() -> None:
     """Verify the public aliases are wired to the same command surface."""
     for alias in ("library-extract", "lib-extract"):
@@ -134,3 +161,12 @@ def test_project_lib_alias_help_starts() -> None:
 
         assert result.returncode == 0, result.stderr
         assert "metadata-preserving project-local" in result.stdout
+
+
+def test_project_health_alias_help_starts() -> None:
+    """Verify the project health aliases are wired to the same command surface."""
+    for alias in ("project-check", "asset-check"):
+        result = _run_cli(alias, "--help")
+
+        assert result.returncode == 0, result.stderr
+        assert "model references" in result.stdout

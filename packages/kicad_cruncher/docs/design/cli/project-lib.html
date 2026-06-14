@@ -22,7 +22,7 @@
 <section id="usage">
   <h2>Usage</h2>
   <pre><code>kicad-cruncher project-lib project.kicad_pro -o output/project-lib
-kicad-cruncher project-library project.kicad_pro --no-asset-scan
+kicad-cruncher project-library project.kicad_pro --include-asset-scan
 kicad-cruncher project-local-lib project.kicad_pro --validate-kicad-cli</code></pre>
 </section>
 
@@ -31,7 +31,7 @@ kicad-cruncher project-local-lib project.kicad_pro --validate-kicad-cli</code></
   <p><code>file</code> accepts a <code>.kicad_pro</code> project. If omitted, the command auto-detects exactly one <code>.kicad_pro</code> in the current directory.</p>
   <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/project-lib/</code>. <code>project-library</code>, <code>project-local-lib</code>, and <code>local-library</code> are aliases for the same command.</p>
   <p>The command always uses project-local extraction mode: metadata and per-instance footprint details are preserved so engineers can inspect local library candidates before future library-table or schematic/PCB relinking work.</p>
-  <p><code>--no-embed-models</code> disables board-embedded model payload rehydration. <code>--no-embed-external-models</code> disables resolving external STEP/STP model paths into extracted footprints. <code>--all-embedded-models</code> scans the whole project and writes every embedded STEP/STP payload. <code>--no-asset-scan</code> omits the expensive full model-reference scan from the metadata JSON. <code>--validate-kicad-cli</code> asks KiCad CLI to parse/upgrade the generated libraries, and <code>--kicad-cli</code> selects the executable.</p>
+  <p><code>--no-embed-models</code> disables board-embedded model payload rehydration. <code>--no-embed-external-models</code> disables resolving external STEP/STP model paths into extracted footprints. <code>--all-embedded-models</code> scans the whole project and writes every embedded STEP/STP payload. <code>--include-asset-scan</code> includes the full model-reference scan in the metadata JSON. <code>--validate-kicad-cli</code> asks KiCad CLI to parse/upgrade the generated libraries, and <code>--kicad-cli</code> selects the executable.</p>
 </section>
 
 <section id="ownership">
@@ -47,11 +47,11 @@ kicad-cruncher project-local-lib project.kicad_pro --validate-kicad-cli</code></
     <li><code>symbols/*.kicad_sym</code>: metadata-preserving single-symbol KiCad symbol library files.</li>
     <li><code>footprints.pretty/*.kicad_mod</code>: metadata-preserving standalone KiCad footprints.</li>
     <li><code>models/*.{step,stp}</code>: decoded embedded STEP/STP model payloads required by the extracted footprint records, or every embedded payload when <code>--all-embedded-models</code> is used.</li>
-    <li><code>library_extraction.json</code>: <code>kicad_monkey.library_extraction_bundle.v1</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan.</li>
+    <li><code>library_extraction.json</code>: <code>kicad_monkey.library_extraction_bundle.v1</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan when <code>--include-asset-scan</code> is used.</li>
     <li><code>project_lib_manifest.json</code>: <code>kicad_cruncher.project_lib_manifest.v0</code> artifact index with counts, relative output paths, mode, source project, and optional KiCad CLI validation results.</li>
     <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
   </ul>
-  <p><code>megamaid</code> handles cleaned <code>lib_cruncher</code> ingestion assets. <code>project-lib</code> handles metadata-preserving project-local assets.</p>
+  <p><code>megamaid</code> handles cleaned <code>lib_cruncher</code> ingestion assets. <code>project-lib</code> handles metadata-preserving project-local assets. <code>project-health</code> handles broader asset diagnostics without extracting libraries.</p>
 </section>
 
 <section id="tests">

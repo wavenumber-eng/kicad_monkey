@@ -12,6 +12,7 @@
     {"name": "pcb-svg", "status": "public", "requires_extra": null},
     {"name": "plugin", "status": "public", "requires_extra": null},
     {"name": "pnp", "status": "public", "requires_extra": null},
+    {"name": "project-health", "status": "public", "requires_extra": null},
     {"name": "project-lib", "status": "public", "requires_extra": null},
     {"name": "schematic", "status": "public", "requires_extra": null},
     {"name": "version", "status": "public", "requires_extra": null}

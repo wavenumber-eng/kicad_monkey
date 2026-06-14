@@ -31,7 +31,7 @@ kicad-cruncher megamaid project.kicad_pro --validate-kicad-cli</code></pre>
   <p><code>file</code> accepts a <code>.kicad_pro</code> project. If omitted, the command auto-detects exactly one <code>.kicad_pro</code> in the current directory. Schematic-only and PCB-only inputs are intentionally not accepted in this first public workflow because the extraction bundle needs the project root, local libraries, board file, and schematic files together.</p>
   <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/megamaid/</code>. <code>library-extract</code> and <code>lib-extract</code> are aliases for the same command.</p>
   <p>The command always uses internal extraction mode: symbols and footprints are stripped down to reusable KiCad library assets while raw metadata is preserved in JSON for downstream part association.</p>
-  <p><code>--dedupe name</code> collapses repeated assets by library name. <code>--dedupe fingerprint</code> collapses by stripped serialized content. <code>--no-embed-models</code> disables board-embedded model payload rehydration. <code>--no-embed-external-models</code> disables resolving external STEP/STP model paths into extracted footprints. <code>--all-embedded-models</code> scans the whole project and writes every embedded STEP/STP payload. <code>--no-asset-scan</code> omits the expensive full model-reference scan from the metadata JSON. <code>--validate-kicad-cli</code> asks KiCad CLI to parse/upgrade the generated libraries, and <code>--kicad-cli</code> selects the executable.</p>
+  <p><code>--dedupe name</code> collapses repeated assets by library name. <code>--dedupe fingerprint</code> collapses by stripped serialized content. <code>--no-embed-models</code> disables board-embedded model payload rehydration. <code>--no-embed-external-models</code> disables resolving external STEP/STP model paths into extracted footprints. <code>--all-embedded-models</code> scans the whole project and writes every embedded STEP/STP payload. <code>--include-asset-scan</code> includes the full model-reference scan in the metadata JSON. <code>--validate-kicad-cli</code> asks KiCad CLI to parse/upgrade the generated libraries, and <code>--kicad-cli</code> selects the executable.</p>
 </section>
 
 <section id="ownership">
@@ -47,11 +47,11 @@ kicad-cruncher megamaid project.kicad_pro --validate-kicad-cli</code></pre>
     <li><code>symbols/*.kicad_sym</code>: one single-symbol KiCad symbol library file per extracted symbol record.</li>
     <li><code>footprints.pretty/*.kicad_mod</code>: one standalone KiCad footprint per extracted footprint record.</li>
     <li><code>models/*.{step,stp}</code>: decoded embedded STEP/STP model payloads required by the extracted footprint records, or every embedded payload when <code>--all-embedded-models</code> is used.</li>
-    <li><code>library_extraction.json</code>: <code>kicad_monkey.library_extraction_bundle.v1</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan.</li>
+    <li><code>library_extraction.json</code>: <code>kicad_monkey.library_extraction_bundle.v1</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan when <code>--include-asset-scan</code> is used.</li>
     <li><code>megamaid_manifest.json</code>: <code>kicad_cruncher.megamaid_manifest.v0</code> artifact index with counts, relative output paths, mode, source project, and optional KiCad CLI validation results.</li>
     <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
   </ul>
-  <p>This command is intended for later <code>lib_cruncher</code> ingestion where the JSON metadata creates the part association and the symbol/footprint files are clean reusable CAD assets. Metadata-preserving project-local extraction is handled by <code>project-lib</code>.</p>
+  <p>This command is intended for later <code>lib_cruncher</code> ingestion where the JSON metadata creates the part association and the symbol/footprint files are clean reusable CAD assets. Metadata-preserving project-local extraction is handled by <code>project-lib</code>; broader asset diagnostics are handled by <code>project-health</code>.</p>
 </section>
 
 <section id="tests">
