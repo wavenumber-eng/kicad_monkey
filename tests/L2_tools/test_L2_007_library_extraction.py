@@ -118,6 +118,22 @@ def test_scan_project_assets_classifies_4ch_backplane_models() -> None:
 
 
 @pytest.mark.slow
+def test_extract_4ch_backplane_embedded_step_models(tmp_path: Path) -> None:
+    """The real-world fixture includes zstd frames without content-size headers."""
+    pytest.importorskip("zstandard")
+
+    written = extract_3d_models(_four_ch_backplane_project(), tmp_path / "models")
+
+    assert len(written) >= 20
+    assert len(written) == len(list((tmp_path / "models").iterdir()))
+    assert all(path.suffix.lower() in {".step", ".stp"} for path in written)
+    assert any(
+        "ISO-10303-21" in path.read_text(encoding="utf-8", errors="ignore")
+        for path in written
+    )
+
+
+@pytest.mark.slow
 def test_extract_4ch_backplane_libraries_writes_valid_stripped_assets(tmp_path: Path) -> None:
     """Internal extraction dedupes library assets and strips instance metadata."""
     project_path = _four_ch_backplane_project()

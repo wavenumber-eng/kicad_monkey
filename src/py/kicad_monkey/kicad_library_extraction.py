@@ -287,7 +287,13 @@ def _embedded_file_payload_bytes(file: EmbeddedFile) -> bytes:
     try:
         return _zstandard.ZstdDecompressor().decompress(compressed)
     except Exception as exc:
-        raise ValueError(f"failed to decompress embedded file {file.name}: {exc}") from exc
+        try:
+            with _zstandard.ZstdDecompressor().stream_reader(compressed) as reader:
+                return reader.read()
+        except Exception as stream_exc:
+            raise ValueError(
+                f"failed to decompress embedded file {file.name}: {stream_exc}"
+            ) from exc
 
 
 def _compress_embedded_file_payload(data: bytes) -> str:
@@ -883,6 +889,7 @@ def _write_embedded_model_payload(
     file: EmbeddedFile,
     output_dir: Path,
     written_by_hash: dict[str, Path],
+    used_names: set[str],
 ) -> None:
     if not _is_step_model_name(file.name):
         return
@@ -890,7 +897,7 @@ def _write_embedded_model_payload(
     digest = hashlib.sha256(data).hexdigest()
     if digest in written_by_hash:
         return
-    path = output_dir / _safe_asset_filename(file.name)
+    path = output_dir / _unique_file_name(_safe_asset_filename(file.name), used_names)
     path.write_bytes(data)
     written_by_hash[digest] = path
 
@@ -903,6 +910,7 @@ def extract_3d_models(
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     written_by_hash: dict[str, Path] = {}
+    used_names: set[str] = set()
 
     resolved_project = _resolve_project_path(project_path)
     for pcb_path in _iter_project_files(resolved_project, ".kicad_pcb"):
@@ -911,14 +919,14 @@ def extract_3d_models(
         except Exception:
             continue
         for file in _iter_board_embedded_files(board):
-            _write_embedded_model_payload(file, out_dir, written_by_hash)
+            _write_embedded_model_payload(file, out_dir, written_by_hash, used_names)
     for fp_path in _iter_project_files(resolved_project, ".kicad_mod"):
         try:
             footprint = KiCadFootprint.from_file(fp_path)
         except Exception:
             continue
         for file in footprint.embedded_files:
-            _write_embedded_model_payload(file, out_dir, written_by_hash)
+            _write_embedded_model_payload(file, out_dir, written_by_hash, used_names)
     return tuple(written_by_hash.values())
 
 
@@ -1021,6 +1029,19 @@ def _unique_stem(stem: str, used: set[str]) -> str:
     while candidate.lower() in used:
         index += 1
         candidate = f"{stem}_{index}"
+    used.add(candidate.lower())
+    return candidate
+
+
+def _unique_file_name(filename: str, used: set[str]) -> str:
+    path = Path(filename)
+    stem = path.stem or "unnamed"
+    suffix = path.suffix
+    candidate = f"{stem}{suffix}"
+    index = 1
+    while candidate.lower() in used:
+        index += 1
+        candidate = f"{stem}_{index}{suffix}"
     used.add(candidate.lower())
     return candidate
 
