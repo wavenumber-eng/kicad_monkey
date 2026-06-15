@@ -13,9 +13,9 @@ from kicad_monkey import KiCadPcb
 from kicad_cruncher.config_json import load_json_config, render_commented_jsonc
 
 PCB_CLEAN_CONFIG_FILENAME = "pcb.clean.config"
-PCB_CLEAN_CONFIG_SCHEMA = "kicad_cruncher.pcb.clean.config.v0"
-PCB_CLEAN_PLAN_SCHEMA = "kicad_cruncher.pcb.clean.plan.v0"
-PCB_CLEAN_MUTATION_REQUEST_SCHEMA = "kicad_cruncher.pcb.clean.mutation_request.v0"
+PCB_CLEAN_CONFIG_SCHEMA = "kicad_cruncher.pcb.clean.config.a0"
+PCB_CLEAN_PLAN_SCHEMA = "kicad_cruncher.pcb.clean.plan.a0"
+PCB_CLEAN_MUTATION_REQUEST_SCHEMA = "kicad_cruncher.pcb.clean.mutation_request.a0"
 
 _DEFAULT_INCLUDE_LAYERS = ("*.User", "User.*", "*.Fab", "*.CrtYd")
 _DEFAULT_EXCLUDE_LAYERS = ("F.Cu", "B.Cu", "Edge.Cuts")
@@ -153,7 +153,7 @@ def default_pcb_clean_config() -> dict[str, object]:
         },
         "metadata": {
             "field_name": "ALX_HLR_META",
-            "schema": "wavenumber.kicad_cruncher.pcb_clean.metadata.v0",
+            "schema": "kicad_cruncher.pcb_clean.metadata.a0",
         },
     }
 

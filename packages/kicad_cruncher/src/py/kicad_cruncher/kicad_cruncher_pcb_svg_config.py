@@ -9,7 +9,7 @@ from pathlib import Path
 from kicad_cruncher.config_json import enum_help, render_commented_jsonc
 
 PCB_SVG_CONFIG_FILENAME = "pcb.svg.config"
-PCB_SVG_CONFIG_SCHEMA = "pcb.svg.config.a0"
+PCB_SVG_CONFIG_SCHEMA = "kicad_cruncher.pcb_svg.config.a0"
 PCB_DEFAULT_SVG_SCALE = 10.0
 PCB_SVG_CANVAS_BOUNDS_MODES = frozenset({"board_outline", "all_geometry"})
 PCB_SVG_COMPONENT_PROJECTION_MODES = frozenset(

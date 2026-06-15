@@ -52,7 +52,7 @@ def test_pcb_clean_dry_run_reports_fixture_cleanup_candidates() -> None:
     by_layer = _json_object(footprint_graphics["by_layer"])
     protected_value_reason = _json_object(value_fields["protected_by_reason"])
 
-    assert payload["schema"] == "kicad_cruncher.pcb.clean.plan.v0"
+    assert payload["schema"] == "kicad_cruncher.pcb.clean.plan.a0"
     assert board_report["status"] == "loaded"
     assert inventory["layers"] == 24
     assert inventory["footprints"] == 1
@@ -94,7 +94,7 @@ def test_pcb_clean_config_can_disable_cleanup_target_classes(tmp_path: Path) -> 
     config_path.write_text(
         json.dumps(
             {
-                "schema": "kicad_cruncher.pcb.clean.config.v0",
+                "schema": "kicad_cruncher.pcb.clean.config.a0",
                 "targets": {
                     "user_layers": False,
                     "generated_graphics": False,

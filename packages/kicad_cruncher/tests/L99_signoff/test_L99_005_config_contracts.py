@@ -14,7 +14,7 @@ from kicad_cruncher.kicad_cruncher_pcb_clean import (
 )
 from kicad_cruncher.kicad_cruncher_pcb_layer_step import PcbLayerStepConfig
 from kicad_cruncher.kicad_cruncher_pcb_layer_step_config import (
-    PCB_LAYER_STEP_CONFIG_SCHEMA_V2,
+    PCB_LAYER_STEP_CONFIG_SCHEMA_A0,
     pcb_layer_step_default_config_text,
 )
 from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
@@ -35,7 +35,7 @@ PACKAGE_ROOT = _project_root()
 CONTRACTS_ROOT = PACKAGE_ROOT / "docs" / "contracts"
 DESIGN_ROOT = PACKAGE_ROOT / "docs" / "design"
 CLI_DESIGN_ROOT = DESIGN_ROOT / "cli"
-COMMAND_MANIFEST = CONTRACTS_ROOT / "command_manifest.v0.json"
+COMMAND_MANIFEST = CONTRACTS_ROOT / "command_manifest.a0.json"
 
 
 class _DataAttrParser(HTMLParser):
@@ -57,7 +57,7 @@ class _DataAttrParser(HTMLParser):
 
 def _manifest_commands() -> list[str]:
     payload = json.loads(COMMAND_MANIFEST.read_text(encoding="utf-8"))
-    assert payload["schema"] == "kicad_cruncher.command_manifest.v0"
+    assert payload["schema"] == "kicad_cruncher.command_manifest.a0"
     commands = payload["commands"]
     assert isinstance(commands, list)
     return [str(command["name"]) for command in commands]
@@ -150,16 +150,16 @@ def test_pcb_layer_step_default_jsonc_documents_enum_options(tmp_path: Path) -> 
     config_path = tmp_path / "pcb-layer-step.jsonc"
     config_path.write_text(text, encoding="utf-8")
     payload = load_json_config(config_path)
-    assert payload["schema"] == PCB_LAYER_STEP_CONFIG_SCHEMA_V2
+    assert payload["schema"] == PCB_LAYER_STEP_CONFIG_SCHEMA_A0
     config = PcbLayerStepConfig.from_dict(payload)
     assert config.outputs
     assert config.outputs[0].include_designators == ("TP*", "M*")
     assert config.outputs[0].pad_color_rules[0].step_body_name == "test_points"
 
 
-def test_pcb_layer_step_v2_contract_removed_old_color_body_fields() -> None:
-    """The v2 contract must not advertise removed colors/body config fields."""
-    schema_text = (CONTRACTS_ROOT / "pcb_layer_step_config.v2.schema.json").read_text(
+def test_pcb_layer_step_a0_contract_removed_old_color_body_fields() -> None:
+    """The A0 contract must not advertise removed colors/body config fields."""
+    schema_text = (CONTRACTS_ROOT / "pcb_layer_step_config.a0.schema.json").read_text(
         encoding="utf-8"
     )
     assert '"colors"' not in schema_text
@@ -199,7 +199,7 @@ def test_all_default_configs_are_generated_documented_jsonc(tmp_path: Path) -> N
         ),
         "pcb-layer-step.jsonc": (
             pcb_layer_step_default_config_text(),
-            PCB_LAYER_STEP_CONFIG_SCHEMA_V2,
+            PCB_LAYER_STEP_CONFIG_SCHEMA_A0,
             [
                 "Component pad mode. Options: none, all, matching_designators.",
                 "Global drill mode. Options: auto, cut, overlay, none.",

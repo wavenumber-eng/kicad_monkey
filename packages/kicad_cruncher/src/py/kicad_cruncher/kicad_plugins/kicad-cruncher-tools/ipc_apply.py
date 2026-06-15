@@ -5,7 +5,7 @@ from contextlib import suppress
 from importlib import import_module
 from typing import Protocol, cast
 
-PCB_CLEAN_MUTATION_REQUEST_SCHEMA = "kicad_cruncher.pcb.clean.mutation_request.v0"
+PCB_CLEAN_MUTATION_REQUEST_SCHEMA = "kicad_cruncher.pcb.clean.mutation_request.a0"
 
 
 class _LayerUserNameSetter(Protocol):
@@ -67,7 +67,7 @@ def apply_pcb_clean_mutation_request(
         raise
 
     return {
-        "schema": "kicad_cruncher.pcb.clean.ipc_apply_result.v0",
+        "schema": "kicad_cruncher.pcb.clean.ipc_apply_result.a0",
         "status": status,
         "commit_label": commit_label,
         "updated_items": len(updated_items) if status == "applied" else 0,

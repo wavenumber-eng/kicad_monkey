@@ -10,7 +10,7 @@
   data-doc-kind="cli-design"
   data-command="project-lib"
   data-config-contract="none"
-  data-output-contract="kicad_cruncher.project_lib_manifest.v0">
+  data-output-contract="kicad_cruncher.project_lib_manifest.a0">
 <main>
 <nav class="nav"><a href="../index.html">Design Index</a><a href="index.html">CLI</a></nav>
 <header>
@@ -47,11 +47,11 @@ kicad-cruncher project-local-lib project.kicad_pro --validate-kicad-cli</code></
     <li><code>symbols/*.kicad_sym</code>: metadata-preserving single-symbol KiCad symbol library files.</li>
     <li><code>footprints.pretty/*.kicad_mod</code>: metadata-preserving standalone KiCad footprints.</li>
     <li><code>models/*.{step,stp}</code>: decoded embedded STEP/STP model payloads required by the extracted footprint records, or every embedded payload when <code>--all-embedded-models</code> is used.</li>
-    <li><code>library_extraction.json</code>: <code>kicad_monkey.library_extraction_bundle.v1</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan when <code>--include-asset-scan</code> is used.</li>
-    <li><code>project_lib_manifest.json</code>: <code>kicad_cruncher.project_lib_manifest.v0</code> artifact index with counts, relative output paths, mode, source project, and optional KiCad CLI validation results.</li>
+    <li><code>library_extraction.json</code>: <code>kicad_cruncher.library_extraction_bundle.a0</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan when <code>--include-asset-scan</code> is used.</li>
+    <li><code>project_lib_manifest.json</code>: <code>kicad_cruncher.project_lib_manifest.a0</code> artifact index with counts, relative output paths, mode, source project, and optional KiCad CLI validation results.</li>
     <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
   </ul>
-  <p><code>megamaid</code> handles cleaned <code>lib_cruncher</code> ingestion assets. <code>project-lib</code> handles metadata-preserving project-local assets. <code>project-health</code> handles broader asset diagnostics without extracting libraries.</p>
+  <p><code>megamaid</code> handles cleaned <code>lib_cruncher</code> ingestion assets. <code>project-lib</code> handles metadata-preserving project-local assets. <code>health</code> handles broader asset diagnostics without extracting libraries.</p>
 </section>
 
 <section id="tests">

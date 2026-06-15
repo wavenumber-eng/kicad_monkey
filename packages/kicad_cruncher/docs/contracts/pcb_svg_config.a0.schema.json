@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "pcb_svg_config.a0.schema.json",
-  "title": "pcb.svg.config.a0",
+  "title": "kicad_cruncher.pcb_svg.config.a0",
   "type": "object",
   "required": ["schema", "global", "layer_outputs", "views"],
   "additionalProperties": false,
   "properties": {
     "schema": {
-      "const": "pcb.svg.config.a0"
+      "const": "kicad_cruncher.pcb_svg.config.a0"
     },
     "global": {
       "type": "object",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/wavenumber-eng/kicad_cruncher/docs/contracts/bom_pnp_config.v1.schema.json",
+  "$id": "https://github.com/wavenumber-eng/kicad_cruncher/docs/contracts/bom_pnp_config.a0.schema.json",
   "title": "KiCad Cruncher BOM/PnP Config",
   "description": "JSONC configuration shared by the bom, pnp, and jlc commands. Generated templates include per-field comments and explicit enum option comments; effective config snapshots are plain JSON.",
   "type": "object",
@@ -8,7 +8,7 @@
   "properties": {
     "schema": {
       "description": "Version marker for the BOM/PnP/JLC config contract.",
-      "const": "kicad_cruncher.bom.config.v1"
+      "const": "kicad_cruncher.bom.config.a0"
     },
     "field_aliases": {
       "description": "Canonical manufacturing field aliases. Parameter aliases are matched case-insensitively and fall back to intrinsic fields such as value, footprint, and description.",

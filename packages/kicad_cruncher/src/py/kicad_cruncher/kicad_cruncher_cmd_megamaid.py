@@ -205,6 +205,7 @@ def _run_library_extraction(
             symbol_records=symbol_records,
             footprint_records=footprint_records,
             include_asset_scan=bool(args.include_asset_scan),
+            schema="kicad_cruncher.library_extraction_bundle.a0",
         )
         _log_stage_done(f"{command_label}: wrote metadata", started)
 
@@ -258,7 +259,7 @@ def cmd_megamaid(args: argparse.Namespace) -> int:
         output_default="megamaid",
         mode_value="internal",
         dedupe_value=str(args.dedupe),
-        manifest_schema="kicad_cruncher.megamaid_manifest.v0",
+        manifest_schema="kicad_cruncher.megamaid_manifest.a0",
         manifest_filename="megamaid_manifest.json",
     )
 

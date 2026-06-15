@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.6.15
+
+- Update the controlled `kicad-monkey` dependency to `2026.6.15` for KiCad
+  library extraction and project asset scanning helpers.
+- Add `project-lib` for metadata-preserving project-local library extraction.
+- Add `lib-extract`/`library-extract` aliases for cleaned library-ingestion
+  bundles while keeping `megamaid` as the compatibility command name.
+- Add `health` for non-destructive project asset and 3D model
+  diagnostics, with interactive and `--fail-on-issues` modes.
+- Improve health README output with issue-kind counts and representative
+  examples.
+- Keep `wn-geometer==2026.6.10`.
+
 ## 2026.6.13
 
 - Update the controlled `kicad-monkey` dependency to `2026.6.13` so

@@ -75,7 +75,7 @@ def test_default_bom_pnp_config_template_documents_and_loads(tmp_path: Path) -> 
     assert "aux axis / drill-place file origin" in text
 
     parsed_json = load_json_config(config_path)
-    assert parsed_json["schema"] == "kicad_cruncher.bom.config.v1"
+    assert parsed_json["schema"] == "kicad_cruncher.bom.config.a0"
     pnp_json = parsed_json["pnp"]
     assert isinstance(pnp_json, dict)
     pnp_config = cast(dict[str, object], pnp_json)
@@ -88,7 +88,7 @@ def test_default_bom_pnp_config_template_documents_and_loads(tmp_path: Path) -> 
     assert loaded.output_dir_template == "{Command}"
 
     legacy_config_path = tmp_path / "old-schema-bom.config"
-    parsed_json["schema"] = "wn.kicad_cruncher.bom.config.v1"
+    parsed_json["schema"] = "kicad_cruncher.bom.config.unsupported"
     legacy_config_path.write_text(json.dumps(parsed_json), encoding="utf-8")
     with pytest.raises(ValueError, match="Unsupported BOM/PnP config schema"):
         load_bom_pnp_config(legacy_config_path)
@@ -194,7 +194,7 @@ def test_bom_pnp_and_jlc_commands_emit_yoshi_variant_outputs(tmp_path: Path) -> 
     assert pnp_result.returncode == 0, pnp_result.stderr
     pnp_path = pnp_dir / "11-10080__yoshi-mainboard__A_ADXL355_pnp.json"
     pnp_payload = json.loads(pnp_path.read_text(encoding="utf-8"))
-    assert pnp_payload["schema"] == "wn.kicad_cruncher.pnp.v1"
+    assert pnp_payload["schema"] == "kicad_cruncher.pnp.a0"
     pnp_refs = _placement_refs(pnp_payload)
     assert "U2" in pnp_refs
     assert "U3" not in pnp_refs

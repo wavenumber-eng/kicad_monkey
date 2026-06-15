@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "kicad_cruncher.pcb.clean.config.v0",
+  "$id": "kicad_cruncher.pcb.clean.config.a0",
   "title": "KiCad Cruncher PCB Clean Config",
   "description": "JSONC configuration for pcb clean. Generated templates include per-field comments; runtime plan and snapshot outputs are plain JSON.",
   "type": "object",
   "required": ["schema", "targets", "safety", "layers"],
   "properties": {
     "schema": {
-      "const": "kicad_cruncher.pcb.clean.config.v0"
+      "const": "kicad_cruncher.pcb.clean.config.a0"
     },
     "targets": {
       "type": "object",

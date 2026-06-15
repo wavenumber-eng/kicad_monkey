@@ -19,7 +19,7 @@ def _project_root() -> Path:
 
 PACKAGE_ROOT = _project_root()
 DESIGN_ROOT = PACKAGE_ROOT / "docs" / "design"
-COMMAND_MANIFEST = PACKAGE_ROOT / "docs" / "contracts" / "command_manifest.v0.json"
+COMMAND_MANIFEST = PACKAGE_ROOT / "docs" / "contracts" / "command_manifest.a0.json"
 DOC_STATUS_VALUES = {"draft", "proposal", "accepted", "superseded"}
 REPORTABLE_DOC_STATUSES = {"draft", "proposal"}
 
@@ -27,7 +27,7 @@ REPORTABLE_DOC_STATUSES = {"draft", "proposal"}
 def _manifest_commands() -> list[str]:
     """Return registered public command names from the command manifest."""
     payload = json.loads(COMMAND_MANIFEST.read_text(encoding="utf-8"))
-    assert payload["schema"] == "kicad_cruncher.command_manifest.v0"
+    assert payload["schema"] == "kicad_cruncher.command_manifest.a0"
     commands = payload["commands"]
     assert isinstance(commands, list)
     return [str(command["name"]) for command in commands]

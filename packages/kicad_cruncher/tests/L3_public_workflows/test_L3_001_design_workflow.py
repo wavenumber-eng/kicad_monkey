@@ -256,7 +256,7 @@ def _write_synthetic_cutout_pcb(root: Path) -> Path:
 
 
 def _write_pcb_svg_config(root: Path, *, include_hlr: bool) -> Path:
-    """Write a focused pcb.svg.config.a0 test config."""
+    """Write a focused kicad_cruncher.pcb_svg.config.a0 test config."""
     config_path = root / "pcb.svg.config"
     views = [
         {
@@ -283,7 +283,7 @@ def _write_pcb_svg_config(root: Path, *, include_hlr: bool) -> Path:
     config_path.write_text(
         json.dumps(
             {
-                "schema": "pcb.svg.config.a0",
+                "schema": "kicad_cruncher.pcb_svg.config.a0",
                 "global": {"include_metadata": True, "show_empty_layers": False},
                 "layer_outputs": {
                     "enabled": not include_hlr,
@@ -305,7 +305,7 @@ def _write_pcb_svg_virtual_config(root: Path) -> Path:
     config_path.write_text(
         json.dumps(
             {
-                "schema": "pcb.svg.config.a0",
+                "schema": "kicad_cruncher.pcb_svg.config.a0",
                 "global": {"include_metadata": True, "show_empty_layers": True},
                 "layer_outputs": {"enabled": False},
                 "views": [
@@ -844,7 +844,7 @@ def test_pcb_svg_default_config_documents_virtual_layers_and_overrides(tmp_path:
     config_path = tmp_path / "pcb.svg.config"
     config_path.write_text(text, encoding="utf-8")
     payload = load_json_config(config_path)
-    assert payload["schema"] == "pcb.svg.config.a0"
+    assert payload["schema"] == "kicad_cruncher.pcb_svg.config.a0"
 
     assert "Per-view style overrides merged over global styles." in text
     assert "Global pin-1 marker selection policy." in text

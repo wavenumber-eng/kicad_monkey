@@ -35,7 +35,7 @@ accepting old spelling or probing old default file names.
 The default config output becomes part of the public interface. Signoff tests
 must parse generated JSONC defaults and verify option comments are present for
 all config producers. Schemas and CLI design docs must use the same vocabulary
-as the generated config. For pcb-layer-step v2, color and body policy lives
+as the generated config. For pcb-layer-step, color and body policy lives
 under `features.*`, pad highlighting lives under
 `features.component_pads.highlight_rules`, and STEP body ids use
 `step_body_name`.

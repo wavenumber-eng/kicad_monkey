@@ -135,7 +135,7 @@ def test_daemon_command_inventory_exposes_pcb_clean() -> None:
 
     assert "/api/v1/commands" in paths
     assert "/api/v1/pcb/layer-cleanup" in paths
-    assert payload["schema"] == "kicad_cruncher.daemon.commands.v0"
+    assert payload["schema"] == "kicad_cruncher.daemon.commands.a0"
     assert pcb_clean["endpoint"] == "/api/v1/pcb/layer-cleanup"
     assert "daemon:kicad-ipc-plan" in _json_list(pcb_clean["adapters"])
 
@@ -150,7 +150,7 @@ def test_daemon_tool_center_exposes_pcb_clean_controls() -> None:
     assert 'id="apply-button"' in html
     assert 'id="raw-json"' in html
     assert "/api/v1/pcb/layer-cleanup" in html
-    assert "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0" in html
+    assert "kicad_cruncher.daemon.pcb.layer_cleanup.request.a0" in html
 
 
 def test_daemon_startup_writes_state_and_invokes_runner(tmp_path: Path, monkeypatch) -> None:
@@ -253,7 +253,7 @@ def test_plugin_main_posts_cleanup_request_and_opens_daemon(monkeypatch) -> None
     assert opened_urls == ["http://127.0.0.1:9999"]
     assert posted_payloads == [
         {
-            "schema": "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0",
+            "schema": "kicad_cruncher.daemon.pcb.layer_cleanup.request.a0",
             "mode": "kicad-ipc",
             "apply": False,
             "session": {"connected": False, "source": "test"},
@@ -346,7 +346,7 @@ def test_daemon_pcb_clean_kicad_ipc_mode_returns_mutation_request() -> None:
     """Verify plugin-mode requests get IPC operations instead of file mutation."""
     payload = daemon_pcb_layer_cleanup(
         {
-            "schema": "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0",
+            "schema": "kicad_cruncher.daemon.pcb.layer_cleanup.request.a0",
             "mode": "kicad-ipc",
             "board_path": str(_HLR_TEST_PCB),
         }
@@ -359,10 +359,10 @@ def test_daemon_pcb_clean_kicad_ipc_mode_returns_mutation_request() -> None:
         next(item for item in operations if _json_object(item)["op"] == "remove_footprint_item")
     )
 
-    assert payload["schema"] == "kicad_cruncher.daemon.pcb.layer_cleanup.response.v0"
+    assert payload["schema"] == "kicad_cruncher.daemon.pcb.layer_cleanup.response.a0"
     assert payload["mode"] == "kicad-ipc"
     assert payload["applied"] is False
-    assert result["schema"] == "kicad_cruncher.pcb.clean.mutation_request.v0"
+    assert result["schema"] == "kicad_cruncher.pcb.clean.mutation_request.a0"
     assert result["operation_target"] == "kicad-ipc"
     assert result["plugin_apply_required"] is True
     assert operation_counts == {
@@ -386,7 +386,7 @@ def test_daemon_pcb_clean_file_mode_apply_mutates_copy(tmp_path: Path) -> None:
 
     payload = daemon_pcb_layer_cleanup(
         {
-            "schema": "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0",
+            "schema": "kicad_cruncher.daemon.pcb.layer_cleanup.request.a0",
             "mode": "file",
             "apply": True,
             "board_path": str(board_copy),

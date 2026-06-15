@@ -120,7 +120,7 @@ def _item_id_value(item: object) -> str | None:
 
 def _mutation_request() -> dict[str, object]:
     return {
-        "schema": "kicad_cruncher.pcb.clean.mutation_request.v0",
+        "schema": "kicad_cruncher.pcb.clean.mutation_request.a0",
         "commit_label": "KiCad Cruncher PCB clean",
         "operations": [
             {
@@ -181,7 +181,7 @@ def test_ipc_apply_drops_commit_when_no_changes() -> None:
     result = ipc_apply.apply_pcb_clean_mutation_request(
         board,
         {
-            "schema": "kicad_cruncher.pcb.clean.mutation_request.v0",
+            "schema": "kicad_cruncher.pcb.clean.mutation_request.a0",
             "operations": [{"op": "remove_footprint_item", "footprint_uuid": "missing"}],
         },
     )

@@ -22,7 +22,7 @@ from kicad_cruncher.kicad_cruncher_cmd_daemon import (
 from kicad_cruncher.kicad_cruncher_common import resolve_output_dir
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_MANIFEST_PATH = _PROJECT_ROOT / "docs" / "contracts" / "command_manifest.v0.json"
+_MANIFEST_PATH = _PROJECT_ROOT / "docs" / "contracts" / "command_manifest.a0.json"
 
 
 def _run_cli(*args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -125,9 +125,9 @@ def test_megamaid_help_describes_lib_cruncher_extraction() -> None:
     assert "--validate-kicad-cli" in result.stdout
 
 
-def test_project_health_help_describes_asset_diagnostics() -> None:
-    """Verify project-health help exposes asset diagnostic controls."""
-    result = _run_cli("project-health", "--help")
+def test_health_help_describes_asset_diagnostics() -> None:
+    """Verify health help exposes asset diagnostic controls."""
+    result = _run_cli("health", "--help")
 
     assert result.returncode == 0, result.stderr
     assert "model references" in result.stdout
@@ -193,7 +193,7 @@ def test_daemon_health_outputs_json() -> None:
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
-    assert payload["schema"] == "kicad_cruncher.daemon.health.v0"
+    assert payload["schema"] == "kicad_cruncher.daemon.health.a0"
     assert payload["ok"] is True
     assert payload["service"] == "kicad-cruncher"
 
@@ -223,12 +223,12 @@ def test_pcb_clean_writes_config_and_dry_run_plan(tmp_path: Path) -> None:
 
     assert write_result.returncode == 0, write_result.stderr
     assert config_path.is_file()
-    assert "kicad_cruncher.pcb.clean.config.v0" in config_path.read_text(encoding="utf-8")
+    assert "kicad_cruncher.pcb.clean.config.a0" in config_path.read_text(encoding="utf-8")
 
     dry_run = _run_cli("pcb", "clean", "board.kicad_pcb", "--config", str(config_path), "--dry-run")
     assert dry_run.returncode == 0, dry_run.stderr
     payload = json.loads(dry_run.stdout)
-    assert payload["schema"] == "kicad_cruncher.pcb.clean.plan.v0"
+    assert payload["schema"] == "kicad_cruncher.pcb.clean.plan.a0"
     assert payload["dry_run"] is True
     assert payload["mutation_supported"] is True
     assert payload["apply_policy"]["silkscreen"] == (
@@ -331,7 +331,7 @@ def test_kicad_installs_reports_env_install_with_nightly_json(tmp_path: Path) ->
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
-    assert payload["schema"] == "kicad_cruncher.kicad.installs.v0"
+    assert payload["schema"] == "kicad_cruncher.kicad.installs.a0"
     assert payload["installs"][0]["version"] == "10.99"
     assert payload["installs"][0]["nightly"] is True
     assert payload["installs"][0]["executables"]["pcbnew"] == str(bin_dir / "pcbnew")
@@ -361,7 +361,7 @@ def test_kicad_prefs_reports_env_config_documents_and_api(tmp_path: Path) -> Non
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     record = payload["preferences"][0]
-    assert payload["schema"] == "kicad_cruncher.kicad.prefs.v0"
+    assert payload["schema"] == "kicad_cruncher.kicad.prefs.a0"
     assert record["version"] == "10.99"
     assert record["nightly"] is True
     assert record["config_path"] == str(config_path)
@@ -399,7 +399,7 @@ def test_kicad_launch_dry_run_uses_requested_version_app_and_project(tmp_path: P
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
-    assert payload["schema"] == "kicad_cruncher.kicad.launch.v0"
+    assert payload["schema"] == "kicad_cruncher.kicad.launch.a0"
     assert payload["dry_run"] is True
     assert payload["pid"] is None
     assert payload["command"] == [str(bin_dir / "pcbnew"), str(project)]

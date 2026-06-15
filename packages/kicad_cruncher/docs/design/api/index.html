@@ -29,7 +29,7 @@
   data-test-target="test_pcb_layer_step_default_fixture_alignment_outputs_for_public_boards">
   <h2>PcbLayerStepConfig</h2>
   <h3>Rationale</h3>
-  <p>The layer STEP command needs a durable config object that preserves the v2 fixture-alignment shape while resolving KiCad layer selectors and per-output overrides.</p>
+  <p>The layer STEP command needs a durable config object that preserves the fixture-alignment shape while resolving KiCad layer selectors and per-output overrides.</p>
   <h3>Purpose</h3>
   <p><code>PcbLayerStepConfig</code> carries one parsed root config or one parsed output config, including board selection, layer selection, feature switches, feature colors, <code>step_body_name</code> values, pad highlight rules, thickness-bias policy, scoped drill policy, fusion policy, and nested output definitions.</p>
   <h3>Test Requirements</h3>
@@ -129,7 +129,7 @@
   <h3>Purpose</h3>
   <p><code>BomPnpConfig</code> carries variant selection, BOM source and output kinds, grouping fields, DNP policy, PnP output fields, KiCad component-center placement mode, JLC CPL policy, and output path templates. The generated editable template is JSONC with one top block-comment documentation header, while used-config snapshots remain plain JSON.</p>
   <h3>Test Requirements</h3>
-  <p>L3 verifies command execution through the public CLI, while L99 verifies the linked <code>bom_pnp_config.v1.schema.json</code> config contract for the public commands.</p>
+  <p>L3 verifies command execution through the public CLI, while L99 verifies the linked <code>bom_pnp_config.a0.schema.json</code> config contract for the public commands.</p>
   <h3>Working Definition</h3>
   <p>The interface is working when the same parsed config can drive BOM-only, PnP-only, and paired JLC outputs for a KiCad project with variants.</p>
 </section>

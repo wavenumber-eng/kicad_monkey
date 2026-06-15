@@ -7,10 +7,10 @@ from copy import deepcopy
 
 from kicad_cruncher.config_json import JsoncCommentMap, enum_help, render_commented_jsonc
 
-PCB_LAYER_STEP_CONFIG_SCHEMA_V2 = "wn.kicad_cruncher.pcb_layer_step.config.v2"
+PCB_LAYER_STEP_CONFIG_SCHEMA_A0 = "kicad_cruncher.pcb_layer_step.config.a0"
 
 _PCB_LAYER_STEP_DEFAULT_CONFIG_PAYLOAD: dict[str, object] = {
-    "schema": PCB_LAYER_STEP_CONFIG_SCHEMA_V2,
+    "schema": PCB_LAYER_STEP_CONFIG_SCHEMA_A0,
     "defaults": {
         "pcbdoc": None,
         "layer": "bottom",

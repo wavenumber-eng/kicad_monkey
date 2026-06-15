@@ -12,11 +12,11 @@ from kicad_cruncher.kicad_cruncher_pcb_clean import (
     plan_pcb_clean,
 )
 
-DAEMON_API_SCHEMA = "kicad_cruncher.daemon.health.v0"
-DAEMON_COMMANDS_SCHEMA = "kicad_cruncher.daemon.commands.v0"
-DAEMON_KICAD_SESSION_SCHEMA = "kicad_cruncher.daemon.kicad_session.v0"
-DAEMON_PCB_LAYER_CLEANUP_REQUEST_SCHEMA = "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0"
-DAEMON_PCB_LAYER_CLEANUP_RESPONSE_SCHEMA = "kicad_cruncher.daemon.pcb.layer_cleanup.response.v0"
+DAEMON_API_SCHEMA = "kicad_cruncher.daemon.health.a0"
+DAEMON_COMMANDS_SCHEMA = "kicad_cruncher.daemon.commands.a0"
+DAEMON_KICAD_SESSION_SCHEMA = "kicad_cruncher.daemon.kicad_session.a0"
+DAEMON_PCB_LAYER_CLEANUP_REQUEST_SCHEMA = "kicad_cruncher.daemon.pcb.layer_cleanup.request.a0"
+DAEMON_PCB_LAYER_CLEANUP_RESPONSE_SCHEMA = "kicad_cruncher.daemon.pcb.layer_cleanup.response.a0"
 DEFAULT_DAEMON_HOST = "127.0.0.1"
 DEFAULT_DAEMON_PORT = 8765
 
@@ -48,7 +48,7 @@ def daemon_command_inventory_payload() -> dict[str, object]:
                 "status": "available",
                 "adapters": ["cli:file", "daemon:file", "daemon:kicad-ipc-plan"],
                 "endpoint": "/api/v1/pcb/layer-cleanup",
-                "config_schema": "kicad_cruncher.pcb.clean.config.v0",
+                "config_schema": "kicad_cruncher.pcb.clean.config.a0",
                 "description": (
                     "Plan or apply safe documentation-layer cleanup for KiCad PCB files. "
                     "KiCad IPC plugins request mutation operations and apply them under "
@@ -525,7 +525,7 @@ def _tool_center_html() -> str:
 
     function payload(mode, apply) {
       const body = {
-        schema: "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0",
+        schema: "kicad_cruncher.daemon.pcb.layer_cleanup.request.a0",
         mode,
         apply
       };

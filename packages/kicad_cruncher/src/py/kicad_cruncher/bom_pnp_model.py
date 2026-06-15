@@ -16,10 +16,10 @@ from kicad_cruncher.output_path_templates import (
 )
 
 BOM_PNP_DEFAULT_CONFIG_NAME = "bom.config"
-BOM_PNP_CONFIG_SCHEMA = "kicad_cruncher.bom.config.v1"
-BOM_RAW_SCHEMA = "wn.kicad_cruncher.bom.raw.v1"
-BOM_GROUPED_SCHEMA = "wn.kicad_cruncher.bom.grouped.v1"
-PNP_SCHEMA = "wn.kicad_cruncher.pnp.v1"
+BOM_PNP_CONFIG_SCHEMA = "kicad_cruncher.bom.config.a0"
+BOM_RAW_SCHEMA = "kicad_cruncher.bom.raw.a0"
+BOM_GROUPED_SCHEMA = "kicad_cruncher.bom.grouped.a0"
+PNP_SCHEMA = "kicad_cruncher.pnp.a0"
 PNP_POSITION_MODE_COMPONENT_CENTER = "component-center"
 PNP_POSITION_MODES: tuple[str, ...] = (
     PNP_POSITION_MODE_COMPONENT_CENTER,

@@ -19,7 +19,7 @@ from kicad_monkey.kicad_pcb_polygon_ops import PolygonSet
 
 from kicad_cruncher.config_json import load_json_config
 from kicad_cruncher.kicad_cruncher_pcb_layer_step_config import (
-    PCB_LAYER_STEP_CONFIG_SCHEMA_V2,
+    PCB_LAYER_STEP_CONFIG_SCHEMA_A0,
     pcb_layer_step_default_config_text,
     resolve_pcb_layer_selector,
 )
@@ -576,7 +576,7 @@ def _drill_non_plated_color_source(
 class PcbLayerStepConfig:
     """JSON config for one-layer PCB STEP export."""
 
-    schema: str = PCB_LAYER_STEP_CONFIG_SCHEMA_V2
+    schema: str = PCB_LAYER_STEP_CONFIG_SCHEMA_A0
     name: str | None = None
     output_step: str | None = None
     pcbdoc: str | None = None
@@ -652,10 +652,10 @@ class PcbLayerStepConfig:
     def from_dict(cls, data: object) -> PcbLayerStepConfig:
         if not isinstance(data, Mapping):
             raise ValueError("pcb-layer-step config root must be a JSON object")
-        if data.get("schema") != PCB_LAYER_STEP_CONFIG_SCHEMA_V2:
+        if data.get("schema") != PCB_LAYER_STEP_CONFIG_SCHEMA_A0:
             raise ValueError(
                 "pcb-layer-step config schema must be "
-                f"{PCB_LAYER_STEP_CONFIG_SCHEMA_V2!r}; got {data.get('schema')!r}"
+                f"{PCB_LAYER_STEP_CONFIG_SCHEMA_A0!r}; got {data.get('schema')!r}"
             )
         if "outputs" in data:
             return cls._from_outputs_dict(data)
@@ -1278,7 +1278,7 @@ def _build_manifest(
     coordinate_origin: dict[str, object],
 ) -> dict[str, object]:
     return {
-        "schema": "wn.kicad_cruncher.pcb_layer_step.v1",
+        "schema": "kicad_cruncher.pcb_layer_step.a0",
         "backend": "geometer.planar_step",
         "board": board_name,
         "source_input": source_input,

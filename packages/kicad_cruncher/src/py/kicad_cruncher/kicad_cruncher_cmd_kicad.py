@@ -72,7 +72,7 @@ def cmd_kicad(args: argparse.Namespace) -> int:
 
 def _cmd_installs(args: argparse.Namespace) -> int:
     records = install_records(version=getattr(args, "version", None))
-    payload = {"schema": "kicad_cruncher.kicad.installs.v0", "installs": records}
+    payload = {"schema": "kicad_cruncher.kicad.installs.a0", "installs": records}
     if bool(getattr(args, "json", False)):
         print(json.dumps(payload, indent=2))
         return 0
@@ -91,7 +91,7 @@ def _cmd_running(args: argparse.Namespace) -> int:
         app=getattr(args, "app", None),
     )
     payload = {
-        "schema": "kicad_cruncher.kicad.running.v0",
+        "schema": "kicad_cruncher.kicad.running.a0",
         "processes": [process.to_json() for process in processes],
     }
     if bool(getattr(args, "json", False)):
@@ -137,7 +137,7 @@ def _cmd_launch(args: argparse.Namespace) -> int:
         pid = process.pid
 
     payload = {
-        "schema": "kicad_cruncher.kicad.launch.v0",
+        "schema": "kicad_cruncher.kicad.launch.a0",
         "dry_run": dry_run,
         "command": command,
         "pid": pid,
@@ -166,7 +166,7 @@ def _cmd_stop(args: argparse.Namespace) -> int:
             stopped.append({"pid": process.pid, "name": process.name, "status": "dry-run"})
 
     payload = {
-        "schema": "kicad_cruncher.kicad.stop.v0",
+        "schema": "kicad_cruncher.kicad.stop.a0",
         "dry_run": not confirmed,
         "processes": [process.to_json() for process in processes],
         "results": stopped,
@@ -199,7 +199,7 @@ def _cmd_prefs(args: argparse.Namespace) -> int:
         opened = None
 
     payload: dict[str, object] = {
-        "schema": "kicad_cruncher.kicad.prefs.v0",
+        "schema": "kicad_cruncher.kicad.prefs.a0",
         "preferences": records,
     }
     if opened is not None:

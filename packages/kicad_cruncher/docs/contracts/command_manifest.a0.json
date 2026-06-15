@@ -1,5 +1,5 @@
 {
-  "schema": "kicad_cruncher.command_manifest.v0",
+  "schema": "kicad_cruncher.command_manifest.a0",
   "commands": [
     {"name": "bom", "status": "public", "requires_extra": null},
     {"name": "daemon", "status": "public", "requires_extra": null},
@@ -12,7 +12,7 @@
     {"name": "pcb-svg", "status": "public", "requires_extra": null},
     {"name": "plugin", "status": "public", "requires_extra": null},
     {"name": "pnp", "status": "public", "requires_extra": null},
-    {"name": "project-health", "status": "public", "requires_extra": null},
+    {"name": "health", "status": "public", "requires_extra": null},
     {"name": "project-lib", "status": "public", "requires_extra": null},
     {"name": "schematic", "status": "public", "requires_extra": null},
     {"name": "version", "status": "public", "requires_extra": null}

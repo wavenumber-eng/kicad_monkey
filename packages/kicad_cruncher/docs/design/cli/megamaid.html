@@ -10,7 +10,7 @@
   data-doc-kind="cli-design"
   data-command="megamaid"
   data-config-contract="none"
-  data-output-contract="kicad_cruncher.megamaid_manifest.v0">
+  data-output-contract="kicad_cruncher.megamaid_manifest.a0">
 <main>
 <nav class="nav"><a href="../index.html">Design Index</a><a href="index.html">CLI</a></nav>
 <header>
@@ -47,11 +47,11 @@ kicad-cruncher megamaid project.kicad_pro --validate-kicad-cli</code></pre>
     <li><code>symbols/*.kicad_sym</code>: one single-symbol KiCad symbol library file per extracted symbol record.</li>
     <li><code>footprints.pretty/*.kicad_mod</code>: one standalone KiCad footprint per extracted footprint record.</li>
     <li><code>models/*.{step,stp}</code>: decoded embedded STEP/STP model payloads required by the extracted footprint records, or every embedded payload when <code>--all-embedded-models</code> is used.</li>
-    <li><code>library_extraction.json</code>: <code>kicad_monkey.library_extraction_bundle.v1</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan when <code>--include-asset-scan</code> is used.</li>
-    <li><code>megamaid_manifest.json</code>: <code>kicad_cruncher.megamaid_manifest.v0</code> artifact index with counts, relative output paths, mode, source project, and optional KiCad CLI validation results.</li>
+    <li><code>library_extraction.json</code>: <code>kicad_cruncher.library_extraction_bundle.a0</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan when <code>--include-asset-scan</code> is used.</li>
+    <li><code>megamaid_manifest.json</code>: <code>kicad_cruncher.megamaid_manifest.a0</code> artifact index with counts, relative output paths, mode, source project, and optional KiCad CLI validation results.</li>
     <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
   </ul>
-  <p>This command is intended for later <code>lib_cruncher</code> ingestion where the JSON metadata creates the part association and the symbol/footprint files are clean reusable CAD assets. Metadata-preserving project-local extraction is handled by <code>project-lib</code>; broader asset diagnostics are handled by <code>project-health</code>.</p>
+  <p>This command is intended for later <code>lib_cruncher</code> ingestion where the JSON metadata creates the part association and the symbol/footprint files are clean reusable CAD assets. Metadata-preserving project-local extraction is handled by <code>project-lib</code>; broader asset diagnostics are handled by <code>health</code>.</p>
 </section>
 
 <section id="tests">

@@ -19,7 +19,7 @@ def cmd_project_lib(args: argparse.Namespace) -> int:
         output_default="project-lib",
         mode_value="project_local",
         dedupe_value="name",
-        manifest_schema="kicad_cruncher.project_lib_manifest.v0",
+        manifest_schema="kicad_cruncher.project_lib_manifest.a0",
         manifest_filename="project_lib_manifest.json",
     )
 

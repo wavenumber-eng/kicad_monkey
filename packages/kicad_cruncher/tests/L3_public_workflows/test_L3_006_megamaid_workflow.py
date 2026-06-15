@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from kicad_cruncher.kicad_cruncher_cmd_health import _health_payload
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _FOUR_CH_PROJECT = (
     _PROJECT_ROOT
@@ -59,13 +61,13 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
 
-    assert manifest["schema"] == "kicad_cruncher.megamaid_manifest.v0"
+    assert manifest["schema"] == "kicad_cruncher.megamaid_manifest.a0"
     assert manifest["mode"] == "internal"
     assert manifest["symbols"]["count"] >= 70
     assert manifest["footprints"]["count"] >= 40
     assert manifest["models"]["count"] >= 1
     assert manifest["metadata"] == "library_extraction.json"
-    assert metadata["schema"] == "kicad_monkey.library_extraction_bundle.v1"
+    assert metadata["schema"] == "kicad_cruncher.library_extraction_bundle.a0"
     assert metadata["mode"] == "internal"
     assert "assets" not in metadata
     assert len(metadata["symbols"]) == manifest["symbols"]["count"]
@@ -105,22 +107,22 @@ def test_project_lib_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
 
-    assert manifest["schema"] == "kicad_cruncher.project_lib_manifest.v0"
+    assert manifest["schema"] == "kicad_cruncher.project_lib_manifest.a0"
     assert manifest["mode"] == "project_local"
     assert manifest["symbols"]["count"] >= 70
     assert manifest["footprints"]["count"] > 100
-    assert metadata["schema"] == "kicad_monkey.library_extraction_bundle.v1"
+    assert metadata["schema"] == "kicad_cruncher.library_extraction_bundle.a0"
     assert metadata["mode"] == "project_local"
     assert "assets" not in metadata
     assert len(metadata["symbols"]) == manifest["symbols"]["count"]
     assert len(metadata["footprints"]) == manifest["footprints"]["count"]
 
 
-def test_project_health_scans_4ch_backplane_assets(tmp_path: Path) -> None:
-    """Verify project-health writes an asset diagnostic report."""
-    output_dir = tmp_path / "project-health"
+def test_health_scans_4ch_backplane_assets(tmp_path: Path) -> None:
+    """Verify health writes an asset diagnostic report."""
+    output_dir = tmp_path / "health"
     result = _run_cli(
-        "project-health",
+        "health",
         str(_FOUR_CH_PROJECT),
         "--output",
         str(output_dir),
@@ -133,16 +135,52 @@ def test_project_health_scans_4ch_backplane_assets(tmp_path: Path) -> None:
 
     assert report_path.is_file()
     assert readme_path.is_file()
+    assert "KiCad project health:" in result.stdout
+    assert "JSON:" in result.stdout
 
     report = json.loads(report_path.read_text(encoding="utf-8"))
 
-    assert report["schema"] == "kicad_cruncher.project_health.v0"
+    assert report["schema"] == "kicad_cruncher.project_health.a0"
     assert "ok" in report
     assert report["summary"]["schematics"] >= 1
     assert report["summary"]["pcbs"] >= 1
     assert report["summary"]["model_references"] >= 1
     assert report["assets"]["model_references"]
-    assert "project_health.json" in readme_path.read_text(encoding="utf-8")
+    readme = readme_path.read_text(encoding="utf-8")
+    assert "project_health.json" in readme
+    if report["summary"]["issues"]:
+        assert "Issue kinds:" in readme
+
+
+def test_health_payload_counts_footprints_without_models() -> None:
+    """Verify placed footprints without model records are reported as health issues."""
+    report = _health_payload(
+        Path("project.kicad_pro"),
+        {
+            "schematics": [],
+            "pcbs": ["board.kicad_pcb"],
+            "symbol_libraries": [],
+            "pretty_libraries": [],
+            "footprint_files": [],
+            "model_references": [],
+            "footprints_without_models": [
+                {
+                    "footprint": "Device:R_0603",
+                    "source_path": "board.kicad_pcb",
+                    "designators": ["R1", "R2"],
+                    "instance_count": 2,
+                }
+            ],
+            "diagnostics": [],
+        },
+    )
+
+    assert report["ok"] is False
+    assert report["summary"]["issues"] == 1
+    assert report["summary"]["footprints_without_models"] == 1
+    assert report["summary"]["footprint_instances_without_models"] == 2
+    assert report["summary"]["issue_kinds"] == {"footprint_without_model": 1}
+    assert report["issues"]["footprints_without_models"][0]["designators"] == ["R1", "R2"]
 
 
 def test_megamaid_alias_help_starts() -> None:
@@ -163,10 +201,9 @@ def test_project_lib_alias_help_starts() -> None:
         assert "metadata-preserving project-local" in result.stdout
 
 
-def test_project_health_alias_help_starts() -> None:
-    """Verify the project health aliases are wired to the same command surface."""
-    for alias in ("project-check", "asset-check"):
-        result = _run_cli(alias, "--help")
+def test_project_health_old_name_is_not_registered() -> None:
+    """Verify the pre-release health command rename has no compatibility alias."""
+    result = _run_cli("project-health", "--help")
 
-        assert result.returncode == 0, result.stderr
-        assert "model references" in result.stdout
+    assert result.returncode != 0
+    assert "invalid choice" in result.stderr

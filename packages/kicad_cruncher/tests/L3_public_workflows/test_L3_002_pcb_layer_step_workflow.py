@@ -138,7 +138,7 @@ def test_pcb_layer_step_default_fixture_alignment_outputs_for_public_boards(
     assert step_path.exists()
     assert manifest_path.exists()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest["schema"] == "wn.kicad_cruncher.pcb_layer_step.v1"
+    assert manifest["schema"] == "kicad_cruncher.pcb_layer_step.a0"
     assert manifest["backend"] == "geometer.planar_step"
     assert manifest["board"] == board_key
     assert manifest["layer"]["json_name"] == "B.Cu"
@@ -159,7 +159,7 @@ def test_pcb_layer_step_taillight_omits_placement_rule_zones_from_copper(
     config_path.write_text(
         json.dumps(
             {
-                "schema": "wn.kicad_cruncher.pcb_layer_step.config.v2",
+                "schema": "kicad_cruncher.pcb_layer_step.config.a0",
                 "defaults": {
                     "layer": "bottom",
                     "include_board_outline": True,
@@ -218,7 +218,7 @@ def test_pcb_layer_step_yoshi_usb_slot_holes_preserve_orientation(
     config_path.write_text(
         json.dumps(
             {
-                "schema": "wn.kicad_cruncher.pcb_layer_step.config.v2",
+                "schema": "kicad_cruncher.pcb_layer_step.config.a0",
                 "defaults": {
                     "layer": "bottom",
                     "include_copper": False,
@@ -297,7 +297,7 @@ def test_pcb_layer_step_all_copper_fuses_and_clips_trace_body(
     config_path.write_text(
         json.dumps(
             {
-                "schema": "wn.kicad_cruncher.pcb_layer_step.config.v2",
+                "schema": "kicad_cruncher.pcb_layer_step.config.a0",
                 "defaults": {
                     "layer": "bottom",
                     "include_board_outline": False,

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from kicad_cruncher._version import __version__
 
-DAEMON_STATE_SCHEMA = "kicad_cruncher.daemon.state.v0"
+DAEMON_STATE_SCHEMA = "kicad_cruncher.daemon.state.a0"
 DAEMON_STATE_ENV = "KICAD_CRUNCHER_DAEMON_STATE"
 
 

@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 DAEMON_STATE_ENV = "KICAD_CRUNCHER_DAEMON_STATE"
 DAEMON_URL_ENV = "KICAD_CRUNCHER_DAEMON_URL"
 DEFAULT_DAEMON_URL = "http://127.0.0.1:8765"
-LAYER_CLEANUP_REQUEST_SCHEMA = "kicad_cruncher.daemon.pcb.layer_cleanup.request.v0"
+LAYER_CLEANUP_REQUEST_SCHEMA = "kicad_cruncher.daemon.pcb.layer_cleanup.request.a0"
 PCB_CLEAN_APPLY_ENV = "KICAD_CRUNCHER_PCB_CLEAN_APPLY"
 
 
