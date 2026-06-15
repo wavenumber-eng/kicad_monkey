@@ -19,7 +19,7 @@ import tempfile
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from .kicad_footprint import KiCadFootprint
 from .kicad_lib_symbol import LibSymbol
@@ -85,6 +85,19 @@ class KiCadModelReferenceScan:
 
 
 @dataclass(frozen=True)
+class KiCadFootprintModelCoverage:
+    """Placed PCB footprint group that has no 3D model records."""
+
+    footprint: str
+    source_path: str
+    designators: tuple[str, ...]
+    instance_count: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class KiCadProjectAssetScan:
     """Summary of project-local KiCad assets."""
 
@@ -96,11 +109,15 @@ class KiCadProjectAssetScan:
     pretty_libraries: tuple[str, ...]
     footprint_files: tuple[str, ...]
     model_references: tuple[KiCadModelReferenceScan, ...]
+    footprints_without_models: tuple[KiCadFootprintModelCoverage, ...] = ()
     diagnostics: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["model_references"] = [ref.to_dict() for ref in self.model_references]
+        data["footprints_without_models"] = [
+            ref.to_dict() for ref in self.footprints_without_models
+        ]
         return data
 
 
@@ -178,6 +195,24 @@ class KiCadFootprintExtractionRecord:
 
 
 _MODEL_VAR_RE = re.compile(r"\$\{([^}]+)\}|%([^%]+)%|\$([A-Za-z_][A-Za-z0-9_]*)")
+_ProgressCallback = Callable[[str], None]
+
+
+def _emit_progress(progress: _ProgressCallback | None, message: str) -> None:
+    if progress is not None:
+        progress(message)
+
+
+def _file_size_label(path: Path) -> str:
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return "unknown size"
+    if size >= 1_000_000:
+        return f"{size / 1_000_000:.1f} MB"
+    if size >= 1_000:
+        return f"{size / 1_000:.1f} kB"
+    return f"{size} B"
 
 
 def _resolve_project_path(path: Path | str) -> Path:
@@ -416,7 +451,7 @@ def _expand_model_path(model_path: str, *, project_root: Path, env: dict[str, st
     def replace_var(match: re.Match[str]) -> str:
         nonlocal unresolved
         name = next(group for group in match.groups() if group is not None)
-        value = env.get(name)
+        value = str(project_root) if name == "KIPRJMOD" else env.get(name)
         if value is None:
             unresolved = True
             return match.group(0)
@@ -558,31 +593,72 @@ def _scan_models_for_owner(
 
 def _scan_3d_models_with_diagnostics(
     project_path: Path | str,
-) -> tuple[tuple[KiCadModelReferenceScan, ...], tuple[str, ...]]:
+    *,
+    progress: _ProgressCallback | None = None,
+) -> tuple[
+    tuple[KiCadModelReferenceScan, ...],
+    tuple[KiCadFootprintModelCoverage, ...],
+    tuple[str, ...],
+]:
     resolved_project = _resolve_project_path(project_path)
     root = resolved_project.parent
     records: list[KiCadModelReferenceScan] = []
+    footprints_without_models: dict[tuple[str, str], list[str]] = {}
     diagnostics: list[str] = []
 
-    for pcb_path in _iter_project_files(resolved_project, ".kicad_pcb"):
+    pcb_paths = _iter_project_files(resolved_project, ".kicad_pcb")
+    for pcb_index, pcb_path in enumerate(pcb_paths, start=1):
+        _emit_progress(
+            progress,
+            "parsing PCB "
+            f"{pcb_index}/{len(pcb_paths)}: "
+            f"{_stable_relative(pcb_path, root)} ({_file_size_label(pcb_path)})",
+        )
         try:
             pcb = KiCadPcb.from_file(pcb_path)
         except Exception as exc:
             diagnostics.append(f"failed to parse PCB {pcb_path}: {exc}")
             continue
+        _emit_progress(
+            progress,
+            "scanning PCB footprints: "
+            f"{len(pcb.footprints)} placed footprints, "
+            f"{len(getattr(pcb, 'embedded_files', ()) or ())} board embedded files",
+        )
         for footprint in pcb.footprints:
             owner = getattr(footprint, "library_link", "") or getattr(footprint, "reference", "")
+            models = getattr(footprint, "models", ()) or ()
+            if not models:
+                reference = footprint.get_property_value("Reference", "") or getattr(
+                    footprint,
+                    "uuid",
+                    "",
+                )
+                footprints_without_models.setdefault(
+                    (str(pcb_path), owner or "<unknown footprint>"),
+                    [],
+                ).append(reference or "<unnamed>")
+                continue
             records.extend(_scan_models_for_owner(
                 source_kind="pcb_footprint",
                 source_path=pcb_path,
                 owner=owner,
-                models=getattr(footprint, "models", ()) or (),
+                models=models,
                 embedded_files=getattr(footprint, "embedded_files", ()) or (),
                 project_root=root,
                 board_embedded_files=getattr(pcb, "embedded_files", ()) or (),
             ))
 
-    for fp_path in _iter_project_files(resolved_project, ".kicad_mod"):
+    fp_paths = _iter_project_files(resolved_project, ".kicad_mod")
+    if fp_paths:
+        _emit_progress(progress, f"scanning footprint library files: {len(fp_paths)} files")
+    for fp_index, fp_path in enumerate(fp_paths, start=1):
+        _emit_progress(
+            progress,
+            "parsing footprint "
+            f"{fp_index}/{len(fp_paths)}: "
+            f"{_stable_relative(fp_path, root)} ({_file_size_label(fp_path)})",
+        )
         try:
             footprint = KiCadFootprint.from_file(fp_path)
         except Exception as exc:
@@ -596,25 +672,55 @@ def _scan_3d_models_with_diagnostics(
             embedded_files=footprint.embedded_files,
             project_root=root,
         ))
-    return tuple(records), tuple(diagnostics)
+    no_model_records = [
+        KiCadFootprintModelCoverage(
+            footprint=footprint,
+            source_path=source_path,
+            designators=tuple(sorted(designators)),
+            instance_count=len(designators),
+        )
+        for (source_path, footprint), designators in sorted(footprints_without_models.items())
+    ]
+    return tuple(records), tuple(no_model_records), tuple(diagnostics)
 
 
 def scan_3d_models(project_path: Path | str) -> tuple[KiCadModelReferenceScan, ...]:
     """Scan PCB and local footprint-library model references."""
-    records, _diagnostics = _scan_3d_models_with_diagnostics(project_path)
+    records, _footprints_without_models, _diagnostics = _scan_3d_models_with_diagnostics(project_path)
     return records
 
 
-def scan_project_assets(project_path: Path | str) -> KiCadProjectAssetScan:
+def scan_project_assets(
+    project_path: Path | str,
+    *,
+    progress: _ProgressCallback | None = None,
+) -> KiCadProjectAssetScan:
     """Return a structured inventory of a KiCad project's local assets."""
     resolved_project = _resolve_project_path(project_path)
     root = resolved_project.parent
+    _emit_progress(progress, f"inventorying project files under {root}")
     schematics = tuple(str(path) for path in _iter_project_files(resolved_project, ".kicad_sch"))
     pcbs = tuple(str(path) for path in _iter_project_files(resolved_project, ".kicad_pcb"))
     symbol_libraries = tuple(str(path) for path in _iter_project_files(resolved_project, ".kicad_sym"))
     pretty_libraries = tuple(str(path) for path in sorted(root.rglob("*.pretty")) if path.is_dir())
     footprint_files = tuple(str(path) for path in _iter_project_files(resolved_project, ".kicad_mod"))
-    model_references, diagnostics = _scan_3d_models_with_diagnostics(resolved_project)
+    _emit_progress(
+        progress,
+        "inventory complete: "
+        f"{len(schematics)} schematics, {len(pcbs)} PCBs, "
+        f"{len(symbol_libraries)} symbol libs, {len(pretty_libraries)} pretty libs, "
+        f"{len(footprint_files)} footprint files",
+    )
+    model_references, footprints_without_models, diagnostics = _scan_3d_models_with_diagnostics(
+        resolved_project,
+        progress=progress,
+    )
+    _emit_progress(
+        progress,
+        "asset scan complete: "
+        f"{len(model_references)} model refs, "
+        f"{len(footprints_without_models)} footprint groups without models",
+    )
     return KiCadProjectAssetScan(
         project_path=str(resolved_project),
         project_root=str(root),
@@ -624,6 +730,7 @@ def scan_project_assets(project_path: Path | str) -> KiCadProjectAssetScan:
         pretty_libraries=pretty_libraries,
         footprint_files=footprint_files,
         model_references=model_references,
+        footprints_without_models=footprints_without_models,
         diagnostics=diagnostics,
     )
 
@@ -942,6 +1049,7 @@ def build_extraction_metadata_bundle(
     symbol_records: Iterable[KiCadSymbolExtractionRecord] | None = None,
     footprint_records: Iterable[KiCadFootprintExtractionRecord] | None = None,
     include_asset_scan: bool = True,
+    schema: str = "kicad_monkey.library_extraction_bundle.v1",
 ) -> dict[str, Any]:
     """Build stable JSON metadata for an extracted KiCad library bundle."""
     resolved_project = _resolve_project_path(project_path)
@@ -952,7 +1060,7 @@ def build_extraction_metadata_bundle(
         else extract_footprints(resolved_project, mode)
     )
     data: dict[str, Any] = {
-        "schema": "kicad_monkey.library_extraction_bundle.v1",
+        "schema": schema,
         "project_path": str(resolved_project),
         "project_root": str(resolved_project.parent),
         "mode": KiCadExtractionMode(mode).value,
@@ -972,6 +1080,7 @@ def write_extraction_metadata_bundle(
     symbol_records: Iterable[KiCadSymbolExtractionRecord] | None = None,
     footprint_records: Iterable[KiCadFootprintExtractionRecord] | None = None,
     include_asset_scan: bool = True,
+    schema: str = "kicad_monkey.library_extraction_bundle.v1",
 ) -> Path:
     """Write stable JSON metadata for an extracted KiCad library bundle."""
     path = Path(output_path)
@@ -982,6 +1091,7 @@ def write_extraction_metadata_bundle(
         symbol_records=symbol_records,
         footprint_records=footprint_records,
         include_asset_scan=include_asset_scan,
+        schema=schema,
     )
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path

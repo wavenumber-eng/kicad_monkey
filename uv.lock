@@ -277,7 +277,7 @@ wheels = [
 
 [[package]]
 name = "kicad-monkey"
-version = "2026.6.13"
+version = "2026.6.15"
 source = { editable = "." }
 dependencies = [
     { name = "colorama" },

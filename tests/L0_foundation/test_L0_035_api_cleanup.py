@@ -19,6 +19,7 @@ from kicad_monkey import (
     SymProperty,
 )
 from kicad_monkey._api_markers import public_api
+from kicad_monkey.kicad_base import get_at
 from kicad_monkey.kicad_sch_sheet import SchSheetProperty
 
 
@@ -44,6 +45,11 @@ def test_property_ids_are_named_int_enum_values():
     assert issubclass(PropertyId, IntEnum)
     assert PropertyId.REFERENCE == 0
     assert int(PropertyId.USER_START) == 5
+
+
+def test_get_at_accepts_kicad_unlocked_flag_after_coordinates():
+    assert get_at(["fp_text", ["at", "0", "0", "unlocked"]]) == (0.0, 0.0, 0.0)
+    assert get_at(["fp_text", ["at", "1.5", "-2.5", "90", "unlocked"]]) == (1.5, -2.5, 90.0)
 
 
 def test_symbol_library_constructor_and_ir_alias():

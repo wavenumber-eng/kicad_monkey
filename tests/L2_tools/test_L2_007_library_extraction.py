@@ -35,6 +35,8 @@ from kicad_monkey.kicad_library_extraction import (
     write_symbol_folder_library,
 )
 from kicad_monkey.kicad_model import Model
+from kicad_monkey.kicad_pcb import KiCadPcb
+from kicad_monkey.kicad_pcb_footprint import Footprint
 from kicad_monkey.kicad_symbol_lib import KiCadSymbolLib
 from kicad_monkey.testing.corpus import get_kicad_corpus_case, resolve_kicad_manifest_path
 
@@ -96,6 +98,56 @@ def test_embed_external_model_payloads_rewrites_resolvable_step_refs(tmp_path: P
     written = extract_3d_models(project_path, tmp_path / "extracted")
     assert len(written) == 1
     assert "ISO-10303-21" in written[0].read_text(encoding="utf-8", errors="ignore")
+
+
+def test_scan_project_assets_resolves_kiprjmod_model_refs(tmp_path: Path) -> None:
+    """KiCad resolves ${KIPRJMOD} model refs relative to the project file."""
+    project_path = tmp_path / "kiprjmod-model.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    step_file = model_dir / "local.step"
+    step_file.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+
+    footprint = KiCadFootprint()
+    footprint.name = "LocalModel"
+    footprint.models = [Model("${KIPRJMOD}/models/local.step")]
+    footprint.save(tmp_path / "LocalModel.kicad_mod")
+
+    scan = scan_project_assets(project_path)
+
+    assert not scan.diagnostics
+    assert len(scan.model_references) == 1
+    ref = scan.model_references[0]
+    assert ref.reference_kind == KiCadModelReferenceKind.ENV_VAR.value
+    assert ref.exists
+    assert Path(ref.resolved_path) == step_file
+
+
+def test_scan_project_assets_groups_placed_footprints_without_models(tmp_path: Path) -> None:
+    """Placed PCB footprints with no model records are grouped by footprint link."""
+    project_path = tmp_path / "missing-models.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+
+    pcb = KiCadPcb()
+    for reference in ("R1", "R2"):
+        footprint = Footprint("Device:R_0603")
+        footprint.upsert_property("Reference", reference)
+        pcb.footprints.append(footprint)
+    modeled = Footprint("Device:C_0603")
+    modeled.upsert_property("Reference", "C1")
+    modeled.models = [Model("${KIPRJMOD}/models/cap.step")]
+    pcb.footprints.append(modeled)
+    pcb.save(tmp_path / "missing-models.kicad_pcb")
+
+    scan = scan_project_assets(project_path)
+
+    assert len(scan.footprints_without_models) == 1
+    missing = scan.footprints_without_models[0]
+    assert missing.footprint == "Device:R_0603"
+    assert missing.designators == ("R1", "R2")
+    assert missing.instance_count == 2
+    assert scan.to_dict()["footprints_without_models"][0]["designators"] == ("R1", "R2")
 
 
 @pytest.mark.slow

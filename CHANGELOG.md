@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.6.15
+
+- Add KiCad project library extraction primitives for metadata-preserving
+  project-local libraries and cleaned library-ingestion bundles.
+- Add project asset and 3D model scanning helpers used by higher-level
+  `kicad-cruncher` health diagnostics.
+- Optimize extraction paths for large KiCad projects by scanning narrow
+  S-expression blocks before constructing full model objects.
+- Keep KiCad CLI validation helpers available for generated symbol and
+  footprint libraries.
+
 ## 2026.6.13
 
 - Fix KiCad netlist parity for hierarchical designs with sheet-level board

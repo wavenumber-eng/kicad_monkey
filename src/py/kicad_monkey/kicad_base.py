@@ -371,7 +371,12 @@ def get_at(sexp: list) -> Tuple[float, float, float]:
     if at_elem:
         x = float(at_elem[1]) if len(at_elem) > 1 else 0.0
         y = float(at_elem[2]) if len(at_elem) > 2 else 0.0
-        angle = float(at_elem[3]) if len(at_elem) > 3 else 0.0
+        angle = 0.0
+        if len(at_elem) > 3:
+            try:
+                angle = float(at_elem[3])
+            except (TypeError, ValueError):
+                angle = 0.0
         return (x, y, angle)
     return (0.0, 0.0, 0.0)
 

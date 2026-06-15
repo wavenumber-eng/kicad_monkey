@@ -21,8 +21,8 @@ def _project_root() -> Path:
 
 
 PACKAGE_ROOT = _project_root()
-EXPECTED_VERSION = "2026.6.13"
-EXPECTED_RELEASE_DATE = date(2026, 6, 13)
+EXPECTED_VERSION = "2026.6.15"
+EXPECTED_RELEASE_DATE = date(2026, 6, 15)
 PUBLIC_TEXT_PATHS = (
     "README.md",
     "AGENTS.md",
@@ -85,7 +85,7 @@ def test_version_contract_matches_date_based_release() -> None:
     assert (parsed.major, parsed.minor, parsed.patch, parsed.build) == (
         2026,
         6,
-        13,
+        15,
         None,
     )
     assert parsed.release_date == EXPECTED_RELEASE_DATE
