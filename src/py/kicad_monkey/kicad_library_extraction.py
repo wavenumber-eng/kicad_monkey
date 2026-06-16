@@ -313,7 +313,18 @@ def _embedded_name(path: str) -> str:
 
 
 def _embedded_file_map(files: Iterable[EmbeddedFile]) -> dict[str, EmbeddedFile]:
-    return {file.name: file for file in files if getattr(file, "name", "")}
+    out: dict[str, EmbeddedFile] = {}
+    for file in files:
+        if not getattr(file, "name", ""):
+            continue
+        existing = out.get(file.name)
+        if existing is None or (not existing.data and file.data):
+            out[file.name] = file
+    return out
+
+
+def _embedded_file_has_payload(file: EmbeddedFile | None) -> bool:
+    return bool(file is not None and file.data)
 
 
 def _find_matching_paren(text: str, start: int) -> int:
@@ -504,7 +515,8 @@ def _classify_model_path(
     diagnostics: list[str] = []
     if model_path.startswith("kicad-embed://"):
         name = _embedded_name(model_path)
-        if name in embedded_files:
+        local_file = embedded_files.get(name)
+        if _embedded_file_has_payload(local_file):
             return (
                 KiCadModelReferenceKind.EMBEDDED,
                 "",
@@ -514,7 +526,8 @@ def _classify_model_path(
                 "footprint",
                 (),
             )
-        if board_embedded_files and name in board_embedded_files:
+        board_file = board_embedded_files.get(name) if board_embedded_files else None
+        if _embedded_file_has_payload(board_file):
             return (
                 KiCadModelReferenceKind.EMBEDDED,
                 "",
@@ -890,9 +903,20 @@ def rehydrate_embedded_model_payloads_from_files(
         if not model.path.startswith("kicad-embed://"):
             continue
         name = _embedded_name(model.path)
-        if name not in local and name in board_files:
-            out.embedded_files.append(copy.deepcopy(board_files[name]))
-            local[name] = out.embedded_files[-1]
+        board_file = board_files.get(name)
+        if not _embedded_file_has_payload(board_file):
+            continue
+        if _embedded_file_has_payload(local.get(name)):
+            continue
+        replacement = copy.deepcopy(board_file)
+        for index, file in enumerate(out.embedded_files):
+            if file.name == name:
+                out.embedded_files[index] = replacement
+                local[name] = replacement
+                break
+        else:
+            out.embedded_files.append(replacement)
+            local[name] = replacement
     return out
 
 

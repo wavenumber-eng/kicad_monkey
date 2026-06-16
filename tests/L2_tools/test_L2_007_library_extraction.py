@@ -30,6 +30,7 @@ from kicad_monkey.kicad_library_extraction import (
     extract_3d_models_from_footprint_records,
     extract_footprints,
     extract_symbols,
+    rehydrate_embedded_model_payloads_from_files,
     resolve_kicad_cli,
     scan_project_assets,
     validate_pretty_library_with_kicad_cli,
@@ -260,6 +261,33 @@ def test_project_local_library_link_dedupe_skips_duplicate_conversion(
 
     assert len(link_footprints) == 1
     assert conversion_count == 1
+
+
+def test_rehydrate_embedded_model_replaces_footprint_stub() -> None:
+    """Board-level embedded payloads should replace footprint-local checksum stubs."""
+    footprint = KiCadFootprint()
+    footprint.name = "stubbed-footprint"
+    footprint.models.append(Model("kicad-embed://demo.step"))
+    footprint.embedded_files.append(
+        EmbeddedFile(
+            name="demo.step",
+            file_type="model",
+            data="",
+            checksum="abc",
+        )
+    )
+    board_file = EmbeddedFile(
+        name="demo.step",
+        file_type="model",
+        data="payload",
+        checksum="abc",
+    )
+
+    out = rehydrate_embedded_model_payloads_from_files([board_file], footprint)
+
+    assert len(out.embedded_files) == 1
+    assert out.embedded_files[0].name == "demo.step"
+    assert out.embedded_files[0].data == "payload"
 
 
 def test_kicad_project_uri_uses_kiprjmod_for_project_local_paths(tmp_path: Path) -> None:
