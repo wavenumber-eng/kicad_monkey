@@ -40,6 +40,11 @@ except ImportError:
     _zstandard = None
 
 
+_FOOTPRINT_START_RE = re.compile(
+    r'(?m)^[ \t]*(\(\s*(?:footprint|module)\s+(?:"((?:\\.|[^"\\])*)"|([^\s()]+)))'
+)
+
+
 class KiCadExtractionMode(StrEnum):
     """Asset extraction policy."""
 
@@ -359,18 +364,42 @@ def _iter_embedded_files_from_file(path: Path) -> Iterable[EmbeddedFile]:
     yield from _iter_embedded_files_from_text(_read_kicad_text(path))
 
 
+def _unescape_footprint_link(value: str) -> str:
+    return (
+        value
+        .replace(r"\\", "\\")
+        .replace(r"\"", '"')
+        .replace(r"\n", "\n")
+        .replace(r"\r", "\r")
+        .replace(r"\t", "\t")
+    )
+
+
+def _footprint_library_link_from_match(match: re.Match[str]) -> str:
+    quoted = match.group(2)
+    bare = match.group(3)
+    return _unescape_footprint_link(quoted) if quoted is not None else str(bare or "")
+
+
 def _iter_board_footprints_from_file(
     path: Path,
     *,
     unique_library_links: set[str] | None = None,
 ) -> Iterable[Footprint]:
-    projection = KiCadPcbProjection.from_file(path)
-    for footprint in projection.footprints():
-        library_link = footprint.library_link
-        if unique_library_links is not None and library_link in unique_library_links:
+    text = _read_kicad_text(path)
+    for match in _FOOTPRINT_START_RE.finditer(text):
+        library_link = _footprint_library_link_from_match(match)
+        if (
+            unique_library_links is not None
+            and library_link
+            and library_link in unique_library_links
+        ):
             continue
-        if unique_library_links is not None:
+        if unique_library_links is not None and library_link:
             unique_library_links.add(library_link)
+        start = match.start(1)
+        end = _find_matching_paren(text, start)
+        footprint = Footprint.from_sexp(parse_sexp(text[start:end + 1], source_path=path))
         yield footprint
 
 
@@ -949,8 +978,11 @@ def extract_footprints(
     for pcb_path in _iter_project_files(resolved_project, ".kicad_pcb"):
         board_embedded_files = tuple(_iter_embedded_files_from_file(pcb_path))
         unique_links = seen if (
-            policy == KiCadExtractionMode.INTERNAL
-            and dedupe == KiCadExtractionDedupePolicy.NAME
+            (
+                policy == KiCadExtractionMode.INTERNAL
+                and dedupe == KiCadExtractionDedupePolicy.NAME
+            )
+            or dedupe == KiCadExtractionDedupePolicy.LIBRARY_LINK
         ) else None
         for source_fp in _iter_board_footprints_from_file(
             pcb_path,

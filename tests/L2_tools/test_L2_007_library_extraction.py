@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from conftest import STEP_MODEL_EXTRACT_DIR
+import kicad_monkey.kicad_library_extraction as library_extraction
 from kicad_monkey.kicad_footprint import KiCadFootprint
 from kicad_monkey.kicad_library_extraction import (
     KiCadExtractionDedupePolicy,
@@ -219,6 +220,46 @@ def test_project_local_footprint_fingerprint_dedupe_collapses_instances(tmp_path
     assert len(per_instance) == 2
     assert len(common_footprints) == 1
     assert len(link_footprints) == 1
+
+
+def test_project_local_library_link_dedupe_skips_duplicate_conversion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Library-link dedupe should skip duplicate placed footprints before conversion."""
+    project_path = tmp_path / "footprint-dedupe.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+
+    pcb = KiCadPcb()
+    for reference in ("R1", "R2", "R3"):
+        footprint = Footprint("Device:R_0805")
+        footprint.upsert_property("Reference", reference)
+        footprint.upsert_property("Value", "10k")
+        pcb.footprints.append(footprint)
+    pcb.save(tmp_path / "footprint-dedupe.kicad_pcb")
+
+    conversion_count = 0
+    original = library_extraction._board_footprint_to_standalone
+
+    def counted_conversion(footprint: Footprint) -> KiCadFootprint:
+        nonlocal conversion_count
+        conversion_count += 1
+        return original(footprint)
+
+    monkeypatch.setattr(
+        library_extraction,
+        "_board_footprint_to_standalone",
+        counted_conversion,
+    )
+
+    link_footprints = library_extraction.extract_footprints(
+        project_path,
+        KiCadExtractionMode.PROJECT_LOCAL,
+        dedupe_policy=KiCadExtractionDedupePolicy.LIBRARY_LINK,
+    )
+
+    assert len(link_footprints) == 1
+    assert conversion_count == 1
 
 
 def test_kicad_project_uri_uses_kiprjmod_for_project_local_paths(tmp_path: Path) -> None:
