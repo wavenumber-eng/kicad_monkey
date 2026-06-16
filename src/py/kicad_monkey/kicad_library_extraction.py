@@ -27,6 +27,7 @@ from .kicad_model import EmbeddedFile, Model
 from .kicad_pcb import KiCadPcb
 from .kicad_pcb_footprint import Footprint
 from .kicad_pcb_other import NetRef
+from .kicad_pcb_projection import KiCadPcbProjection
 from .kicad_environment import KiCadEnvironment
 from .kicad_project import find_adjacent_kicad_project_path
 from .kicad_sch_enums import PropertyId, StandardPropertyKey
@@ -358,35 +359,19 @@ def _iter_embedded_files_from_file(path: Path) -> Iterable[EmbeddedFile]:
     yield from _iter_embedded_files_from_text(_read_kicad_text(path))
 
 
-_FOOTPRINT_START_RE = re.compile(
-    r'\(\s*footprint\s+(?:"(?P<quoted>(?:\\.|[^"])*)"|(?P<atom>[^\s)]+))'
-)
-
-
-def _footprint_library_link_from_match(match: re.Match[str]) -> str:
-    return (match.group("quoted") or match.group("atom") or "").replace('\\"', '"')
-
-
 def _iter_board_footprints_from_file(
     path: Path,
     *,
     unique_library_links: set[str] | None = None,
 ) -> Iterable[Footprint]:
-    text = _read_kicad_text(path)
-    for match in _FOOTPRINT_START_RE.finditer(text):
-        library_link = _footprint_library_link_from_match(match)
+    projection = KiCadPcbProjection.from_file(path)
+    for footprint in projection.footprints():
+        library_link = footprint.library_link
         if unique_library_links is not None and library_link in unique_library_links:
             continue
-        start = match.start()
-        try:
-            end = _find_matching_paren(text, start)
-            sexp = parse_sexp(text[start : end + 1])
-            if isinstance(sexp, list) and sexp and sexp[0] == "footprint":
-                if unique_library_links is not None:
-                    unique_library_links.add(library_link)
-                yield Footprint.from_sexp(sexp)
-        except Exception:
-            continue
+        if unique_library_links is not None:
+            unique_library_links.add(library_link)
+        yield footprint
 
 
 def _iter_schematic_lib_symbols_from_file(path: Path) -> Iterable[LibSymbol]:
@@ -616,17 +601,19 @@ def _scan_3d_models_with_diagnostics(
             f"{_stable_relative(pcb_path, root)} ({_file_size_label(pcb_path)})",
         )
         try:
-            pcb = KiCadPcb.from_file(pcb_path)
+            projection = KiCadPcbProjection.from_file(pcb_path)
+            footprints = projection.footprints()
+            board_embedded_files = tuple(projection.embedded_files())
         except Exception as exc:
             diagnostics.append(f"failed to parse PCB {pcb_path}: {exc}")
             continue
         _emit_progress(
             progress,
             "scanning PCB footprints: "
-            f"{len(pcb.footprints)} placed footprints, "
-            f"{len(getattr(pcb, 'embedded_files', ()) or ())} board embedded files",
+            f"{len(footprints)} placed footprints, "
+            f"{len(board_embedded_files)} board embedded files",
         )
-        for footprint in pcb.footprints:
+        for footprint in footprints:
             owner = getattr(footprint, "library_link", "") or getattr(footprint, "reference", "")
             models = getattr(footprint, "models", ()) or ()
             if not models:
@@ -647,7 +634,7 @@ def _scan_3d_models_with_diagnostics(
                 models=models,
                 embedded_files=getattr(footprint, "embedded_files", ()) or (),
                 project_root=root,
-                board_embedded_files=getattr(pcb, "embedded_files", ()) or (),
+                board_embedded_files=board_embedded_files,
             ))
 
     fp_paths = _iter_project_files(resolved_project, ".kicad_mod")
@@ -1150,7 +1137,7 @@ def extract_3d_models(
 
     resolved_project = _resolve_project_path(project_path)
     for pcb_path in _iter_project_files(resolved_project, ".kicad_pcb"):
-        for file in _iter_embedded_files_from_file(pcb_path):
+        for file in KiCadPcbProjection.from_file(pcb_path).embedded_files():
             _write_embedded_model_payload(
                 file,
                 out_dir,
