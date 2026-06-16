@@ -23,32 +23,35 @@
   <h2>Usage</h2>
   <pre><code>kicad-cruncher project-lib project.kicad_pro -o output/project-lib
 kicad-cruncher project-library project.kicad_pro --include-asset-scan
-kicad-cruncher project-local-lib project.kicad_pro --validate-kicad-cli</code></pre>
+kicad-cruncher project-local-lib project.kicad_pro --validate-kicad-cli
+kicad-cruncher project-lib project.kicad_pro --symbol-library-dir local-symbols --footprint-library-dir local-footprints
+kicad-cruncher project-lib project.kicad_pro --include-models
+kicad-cruncher project-lib project.kicad_pro --no-update-library-tables</code></pre>
 </section>
 
 <section id="arguments">
   <h2>Arguments</h2>
   <p><code>file</code> accepts a <code>.kicad_pro</code> project. If omitted, the command auto-detects exactly one <code>.kicad_pro</code> in the current directory.</p>
-  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/project-lib/</code>. <code>project-library</code>, <code>project-local-lib</code>, and <code>local-library</code> are aliases for the same command.</p>
-  <p>The command always uses project-local extraction mode: metadata and per-instance footprint details are preserved so engineers can inspect local library candidates before future library-table or schematic/PCB relinking work.</p>
-  <p><code>--no-embed-models</code> disables board-embedded model payload rehydration. <code>--no-embed-external-models</code> disables resolving external STEP/STP model paths into extracted footprints. <code>--all-embedded-models</code> scans the whole project and writes every embedded STEP/STP payload. <code>--include-asset-scan</code> includes the full model-reference scan in the metadata JSON. <code>--validate-kicad-cli</code> asks KiCad CLI to parse/upgrade the generated libraries, and <code>--kicad-cli</code> selects the executable.</p>
+  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/project-lib/</code>. <code>project-library</code>, <code>project-local-lib</code>, and <code>local-library</code> are aliases for the same command. The default symbol folder is the <code>.kicad_pro</code> stem, and the default footprint folder is <code>&lt;.kicad_pro stem&gt;.pretty</code>. <code>--symbol-library-dir</code> and <code>--footprint-library-dir</code> override those folder names. <code>--symbol-library-name</code> and <code>--footprint-library-name</code> override the project table nicknames; when omitted, the nicknames come from the generated library folder names. <code>--no-update-library-tables</code> extracts artifacts without editing <code>sym-lib-table</code> or <code>fp-lib-table</code>.</p>
+  <p>The command always uses project-local extraction mode: schematic symbols preserve metadata and project-specific variants, while PCB footprints are deduplicated by footprint library link down to the reusable common footprint set.</p>
+  <p><code>--no-embed-models</code> disables board-embedded model payload rehydration in extracted footprints. <code>--no-embed-external-models</code> disables resolving external STEP/STP model paths into extracted footprints. <code>--include-models</code> additionally writes decoded embedded STEP/STP model files under <code>models/</code>, preserving model filenames instead of de-duplicating solely by payload hash. <code>--include-asset-scan</code> includes the full model-reference scan in the metadata JSON. <code>--validate-kicad-cli</code> asks KiCad CLI to parse/upgrade the generated libraries, and <code>--kicad-cli</code> selects the executable.</p>
 </section>
 
 <section id="ownership">
   <h2>Ownership</h2>
-  <p>The KiCad parsing, metadata preservation, model path classification, external STEP/STP embedding, metadata bundle construction, and KiCad CLI validation helpers are owned by <code>kicad-monkey</code>. <code>kicad-cruncher</code> owns command-line ergonomics, output directory layout, manifest writing, README writing, logging, and exit status.</p>
-  <p>The command is non-destructive. It does not edit the source project, update <code>sym-lib-table</code> or <code>fp-lib-table</code>, relink schematic symbols, relink PCB footprints, or rewrite project text variables.</p>
+  <p>The KiCad parsing, metadata preservation, model path classification, external STEP/STP embedding, metadata bundle construction, project library table editing, and KiCad CLI validation helpers are owned by <code>kicad-monkey</code>. <code>kicad-cruncher</code> owns command-line ergonomics, output directory layout, manifest writing, README writing, logging, and exit status.</p>
+  <p>By default the command ensures project-local <code>sym-lib-table</code> and <code>fp-lib-table</code> entries exist for the generated symbol folder and footprint <code>.pretty</code> library. Existing nicknames are left unchanged. The command does not relink schematic symbols, relink PCB footprints, or rewrite project text variables.</p>
 </section>
 
 <section id="output">
   <h2>Output</h2>
   <p>The selected output directory contains a self-contained project-local library bundle:</p>
   <ul>
-    <li><code>symbols/*.kicad_sym</code>: metadata-preserving single-symbol KiCad symbol library files.</li>
-    <li><code>footprints.pretty/*.kicad_mod</code>: metadata-preserving standalone KiCad footprints.</li>
-    <li><code>models/*.{step,stp}</code>: decoded embedded STEP/STP model payloads required by the extracted footprint records, or every embedded payload when <code>--all-embedded-models</code> is used.</li>
+    <li><code>&lt;project-stem&gt;/*.kicad_sym</code>: metadata-preserving single-symbol KiCad symbol library files unless <code>--symbol-library-dir</code> selects another folder.</li>
+    <li><code>&lt;project-stem&gt;.pretty/*.kicad_mod</code>: reusable standalone KiCad footprints, deduplicated by footprint library link across repeated placed instances unless <code>--footprint-library-dir</code> selects another folder.</li>
+    <li><code>models/*.{step,stp}</code>: optional decoded embedded STEP/STP model payloads from the full project when <code>--include-models</code> or <code>--all-embedded-models</code> is used.</li>
     <li><code>library_extraction.json</code>: <code>kicad_cruncher.library_extraction_bundle.a0</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan when <code>--include-asset-scan</code> is used.</li>
-    <li><code>project_lib_manifest.json</code>: <code>kicad_cruncher.project_lib_manifest.a0</code> artifact index with counts, relative output paths, mode, source project, and optional KiCad CLI validation results.</li>
+    <li><code>project_lib_manifest.json</code>: <code>kicad_cruncher.project_lib_manifest.a0</code> artifact index with counts, relative output paths, mode, source project, project library table actions, and optional KiCad CLI validation results.</li>
     <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
   </ul>
   <p><code>megamaid</code> handles cleaned <code>lib_cruncher</code> ingestion assets. <code>project-lib</code> handles metadata-preserving project-local assets. <code>health</code> handles broader asset diagnostics without extracting libraries.</p>
@@ -56,7 +59,7 @@ kicad-cruncher project-local-lib project.kicad_pro --validate-kicad-cli</code></
 
 <section id="tests">
   <h2>Tests</h2>
-  <p>L0 public CLI tests verify the command appears in root help, command help starts, and the manifest/design-doc inventory stays synchronized. L3 public workflow tests run <code>project-lib</code> against the sanitized 4-ch backplane corpus fixture and verify manifest schema, output directories, metadata schema, project-local preservation mode, and aliases.</p>
+  <p>L0 public CLI tests verify the command appears in root help, command help starts, and the manifest/design-doc inventory stays synchronized. L3 public workflow tests run <code>project-lib</code> against a temporary copy of the sanitized 4-ch backplane corpus fixture and verify manifest schema, project-stem output directories, CLI output-directory overrides, metadata schema, project-local preservation mode, footprint library-link dedupe, local table updates, idempotency, and aliases.</p>
 </section>
 </main>
 </body>

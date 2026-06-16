@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -84,10 +85,13 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
 
 def test_project_lib_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     """Verify project-lib writes metadata-preserving project-local artifacts."""
+    project_copy = tmp_path / "4-ch-backplane"
+    shutil.copytree(_FOUR_CH_PROJECT.parent, project_copy)
+    project_path = project_copy / _FOUR_CH_PROJECT.name
     output_dir = tmp_path / "project-lib"
     result = _run_cli(
         "project-lib",
-        str(_FOUR_CH_PROJECT),
+        str(project_path),
         "--output",
         str(output_dir),
     )
@@ -96,26 +100,80 @@ def test_project_lib_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
 
     manifest_path = output_dir / "project_lib_manifest.json"
     metadata_path = output_dir / "library_extraction.json"
-    symbols_dir = output_dir / "symbols"
-    footprints_dir = output_dir / "footprints.pretty"
+    symbols_dir = output_dir / "4-ch-backplane"
+    footprints_dir = output_dir / "4-ch-backplane.pretty"
+    models_dir = output_dir / "models"
 
     assert manifest_path.is_file()
     assert metadata_path.is_file()
     assert symbols_dir.is_dir()
     assert footprints_dir.is_dir()
+    assert not models_dir.exists()
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
 
     assert manifest["schema"] == "kicad_cruncher.project_lib_manifest.a0"
     assert manifest["mode"] == "project_local"
+    assert manifest["symbols"]["directory"] == "4-ch-backplane"
+    assert manifest["footprints"]["directory"] == "4-ch-backplane.pretty"
     assert manifest["symbols"]["count"] >= 70
-    assert manifest["footprints"]["count"] > 100
+    assert 40 <= manifest["footprints"]["count"] < 832
+    assert manifest["models"]["count"] == 0
     assert metadata["schema"] == "kicad_cruncher.library_extraction_bundle.a0"
     assert metadata["mode"] == "project_local"
     assert "assets" not in metadata
     assert len(metadata["symbols"]) == manifest["symbols"]["count"]
     assert len(metadata["footprints"]) == manifest["footprints"]["count"]
+    assert manifest["library_tables"]["changed"] is True
+    assert manifest["library_tables"]["symbol"]["action"] == "added"
+    assert manifest["library_tables"]["footprint"]["action"] == "added"
+    assert "4-ch-backplane" in (project_copy / "sym-lib-table").read_text(
+        encoding="utf-8"
+    )
+    assert "4-ch-backplane" in (project_copy / "fp-lib-table").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_project_lib_table_update_is_idempotent(tmp_path: Path) -> None:
+    """Verify repeated project-lib runs do not duplicate local table entries."""
+    project_copy = tmp_path / "4-ch-backplane"
+    shutil.copytree(_FOUR_CH_PROJECT.parent, project_copy)
+    project_path = project_copy / _FOUR_CH_PROJECT.name
+    output_dir = tmp_path / "project-lib"
+    command = (
+        "project-lib",
+        str(project_path),
+        "--output",
+        str(output_dir),
+        "--symbol-library-dir",
+        "local-symbols",
+        "--footprint-library-dir",
+        "local-footprints",
+        "--symbol-library-name",
+        "local-symbols-nick",
+        "--footprint-library-name",
+        "local-footprints-nick",
+    )
+
+    first = _run_cli(*command)
+    assert first.returncode == 0, first.stderr
+    second = _run_cli(*command)
+    assert second.returncode == 0, second.stderr
+
+    manifest = json.loads((output_dir / "project_lib_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["symbols"]["directory"] == "local-symbols"
+    assert manifest["footprints"]["directory"] == "local-footprints.pretty"
+    assert manifest["library_tables"]["changed"] is False
+    assert manifest["library_tables"]["symbol"]["action"] == "already_exists"
+    assert manifest["library_tables"]["footprint"]["action"] == "already_exists"
+    assert (project_copy / "sym-lib-table").read_text(encoding="utf-8").count(
+        '(name "local-symbols-nick")'
+    ) == 1
+    assert (project_copy / "fp-lib-table").read_text(encoding="utf-8").count(
+        '(name "local-footprints-nick")'
+    ) == 1
 
 
 def test_health_scans_4ch_backplane_assets(tmp_path: Path) -> None:
@@ -175,12 +233,21 @@ def test_health_payload_counts_footprints_without_models() -> None:
         },
     )
 
+    summary = report["summary"]
+    issues = report["issues"]
+    assert isinstance(summary, dict)
+    assert isinstance(issues, dict)
+    footprints_without_models = issues["footprints_without_models"]
+    assert isinstance(footprints_without_models, list)
+    first_footprint_issue = footprints_without_models[0]
+    assert isinstance(first_footprint_issue, dict)
+
     assert report["ok"] is False
-    assert report["summary"]["issues"] == 1
-    assert report["summary"]["footprints_without_models"] == 1
-    assert report["summary"]["footprint_instances_without_models"] == 2
-    assert report["summary"]["issue_kinds"] == {"footprint_without_model": 1}
-    assert report["issues"]["footprints_without_models"][0]["designators"] == ["R1", "R2"]
+    assert summary["issues"] == 1
+    assert summary["footprints_without_models"] == 1
+    assert summary["footprint_instances_without_models"] == 2
+    assert summary["issue_kinds"] == {"footprint_without_model": 1}
+    assert first_footprint_issue["designators"] == ["R1", "R2"]
 
 
 def test_megamaid_alias_help_starts() -> None:

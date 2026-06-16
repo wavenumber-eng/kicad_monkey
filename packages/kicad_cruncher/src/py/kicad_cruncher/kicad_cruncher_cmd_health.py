@@ -9,7 +9,7 @@ import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 from kicad_cruncher.kicad_cruncher_common import find_kicad_project_in_cwd, resolve_output_dir
 
@@ -23,7 +23,7 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _scan_assets_with_progress(project_path: Path) -> dict[str, Any]:
+def _scan_assets_with_progress(project_path: Path) -> dict[str, object]:
     from kicad_monkey.kicad_library_extraction import scan_project_assets
 
     started = time.perf_counter()
@@ -38,7 +38,10 @@ def _scan_assets_with_progress(project_path: Path) -> dict[str, Any]:
         future = executor.submit(scan_project_assets, project_path, progress=progress)
         while True:
             try:
-                return future.result(timeout=_SCAN_PROGRESS_INTERVAL_S).to_dict()
+                return cast(
+                    dict[str, object],
+                    future.result(timeout=_SCAN_PROGRESS_INTERVAL_S).to_dict(),
+                )
             except TimeoutError:
                 elapsed_s = time.perf_counter() - started
                 log.info(
@@ -89,6 +92,19 @@ def _sequence_len(value: object) -> int:
     return 0
 
 
+def _object_int(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
+
+
 def _model_reference_issue(ref: dict[str, object]) -> str | None:
     kind = str(ref.get("reference_kind", ""))
     if kind == "embedded":
@@ -122,7 +138,7 @@ def _health_payload(project_path: Path, asset_scan: dict[str, object]) -> dict[s
         issue_counts["diagnostic"] = len(diagnostics)
     issue_count = len(issue_refs) + len(footprints_without_models) + len(diagnostics)
     footprint_instances_without_models = sum(
-        int(ref.get("instance_count", 0) or 0) for ref in footprints_without_models
+        _object_int(ref.get("instance_count", 0)) for ref in footprints_without_models
     )
     return {
         "schema": "kicad_cruncher.project_health.a0",

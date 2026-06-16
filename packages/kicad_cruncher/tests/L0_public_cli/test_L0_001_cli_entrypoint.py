@@ -144,6 +144,12 @@ def test_project_lib_help_describes_project_local_extraction() -> None:
     assert "--dedupe" not in result.stdout
     assert "--include-asset-scan" in result.stdout
     assert "--no-asset-scan" not in result.stdout
+    assert "--no-update-library-tables" in result.stdout
+    assert "--symbol-library-dir" in result.stdout
+    assert "--footprint-library-dir" in result.stdout
+    assert "--symbol-library-name" in result.stdout
+    assert "--footprint-library-name" in result.stdout
+    assert "--include-models" in result.stdout
     assert "--validate-kicad-cli" in result.stdout
 
 

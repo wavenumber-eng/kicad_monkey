@@ -37,7 +37,7 @@ kicad-cruncher megamaid project.kicad_pro --validate-kicad-cli</code></pre>
 <section id="ownership">
   <h2>Ownership</h2>
   <p>The KiCad parsing, metadata stripping, model path classification, external STEP/STP embedding, metadata bundle construction, and KiCad CLI validation helpers are owned by <code>kicad-monkey</code>. <code>kicad-cruncher</code> owns command-line ergonomics, output directory layout, manifest writing, README writing, logging, and exit status.</p>
-  <p>The command is non-destructive. It does not edit the source project, update <code>sym-lib-table</code> or <code>fp-lib-table</code>, relink schematic symbols, relink PCB footprints, or rewrite project text variables. Those mutations are separate future workflows with explicit review and tests.</p>
+  <p>The command is non-destructive. It does not edit the source project, update <code>sym-lib-table</code> or <code>fp-lib-table</code>, relink schematic symbols, relink PCB footprints, or rewrite project text variables. Project-local table editing belongs to <code>project-lib</code>.</p>
 </section>
 
 <section id="output">
