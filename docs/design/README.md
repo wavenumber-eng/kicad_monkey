@@ -23,6 +23,8 @@ Current design notes:
   ratchet plan.
 - `library-megamaid-extraction.html` - KiCad project library extraction,
   metadata, model repair, and test ownership design.
+- `sexpr-projection-parser.html` - generic S-expression form-span selection
+  design for fast project scans and lightweight projections.
 - `api/` - public API class and major-interface design docs.
 
 Design-doc and test-ownership signoff is defined in

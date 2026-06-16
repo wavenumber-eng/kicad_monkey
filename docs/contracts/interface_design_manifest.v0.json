@@ -2,6 +2,14 @@
   "schema": "kicad_monkey.interface_design_manifest.v0",
   "major_interfaces": [
     {
+      "name": "SexpSelector",
+      "group": "foundation"
+    },
+    {
+      "name": "SexpFormSpan",
+      "group": "foundation"
+    },
+    {
       "name": "KiCadObjectCollection",
       "group": "foundation"
     },

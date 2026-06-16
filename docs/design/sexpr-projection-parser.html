@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>S-Expression Projection Parser Design</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>S-Expression Projection Parser Design</h1>
+
+  <section>
+    <h2>Purpose</h2>
+    <p>
+      The S-expression projection parser lets callers select complete KiCad
+      source forms without first allocating a full token stream, nested list
+      tree, or typed document model.
+    </p>
+    <p>
+      The parser is intended for narrow read-only scans such as BOM extraction,
+      project health checks, asset inventories, schematic metadata inspection,
+      and preflight counts. The existing full parser remains the path for
+      editing, round-trip, rendering, geometry, and netlist behavior.
+    </p>
+  </section>
+
+  <section>
+    <h2>Layering</h2>
+    <ul>
+      <li><code>kicad_sexpr</code> owns generic source span selection.</li>
+      <li>Projection modules own lightweight KiCad file summaries.</li>
+      <li>Typed OOP modules own complete document behavior.</li>
+      <li>Applications choose the smallest layer that satisfies the workflow.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Selector Semantics</h2>
+    <p>
+      A selector can match by form head, exact source path, and depth bounds.
+      Paths are tuples of form heads from the document root to the selected
+      form. For example, a top-level PCB footprint has the path
+      <code>("kicad_pcb", "footprint")</code>.
+    </p>
+    <p>
+      Selectors may also prune matching form heads. Pruning skips the children
+      of a matched form while still allowing the form itself to be emitted if it
+      otherwise matches. This is useful when a caller wants board-level forms
+      but does not want to scan deeply through embedded model payloads.
+    </p>
+  </section>
+
+  <section>
+    <h2>Source Ownership</h2>
+    <p>
+      <code>SexpFormSpan</code> records offsets, source location, head, path,
+      and a reference to the source text. This keeps selected forms cheap to
+      pass around and allows callers to parse only forms that they actually
+      need.
+    </p>
+    <p>
+      Callers that retain many spans should retain the original source text
+      once, not duplicate selected substrings. File-based helpers read the file
+      once and attach the same source text to yielded spans.
+    </p>
+  </section>
+
+  <section>
+    <h2>Error Handling</h2>
+    <p>
+      Projection scanning validates parenthesis balance and quoted strings well
+      enough to trust source offsets. It raises the same family of
+      S-expression errors as the full parser where practical, with source path
+      and location data attached.
+    </p>
+    <p>
+      The scanner does not validate typed KiCad semantics. A selected form is
+      still parsed or materialized by the existing parser or typed factories
+      when the caller needs structured content.
+    </p>
+  </section>
+
+  <section>
+    <h2>Consumer Pattern</h2>
+    <pre><code>selector = SexpSelector(paths={("kicad_pcb", "footprint")})
+for span in iter_sexp_file_form_spans(board_path, selector):
+    footprint_sexp = span.parse()
+    # Build only the summary or typed object needed by this workflow.</code></pre>
+</section>
+</body>
+</html>

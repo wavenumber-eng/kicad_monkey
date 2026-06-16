@@ -8,6 +8,64 @@
   <h1>Foundation API</h1>
 
   <section
+    data-interface="SexpSelector"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_041_sexpr_projection.py"
+    data-test-target="test_selector_filters_by_exact_path_and_depth"
+  >
+    <h2>SexpSelector</h2>
+    <h3>Rationale</h3>
+    <p>
+      Large KiCad files often need narrow source scans before full tree or OOP
+      parsing would be justified.
+    </p>
+    <h3>Purpose</h3>
+    <p>
+      Describe generic S-expression form selection by head, exact path, depth,
+      and pruned subtrees.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must prove head, path, depth, and prune filters select the intended
+      forms without materializing unrelated forms.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      A selector is public when PCB, schematic, and library scanners can reuse
+      it without file-type-specific regex logic.
+    </p>
+  </section>
+
+  <section
+    data-interface="SexpFormSpan"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_041_sexpr_projection.py"
+    data-test-target="test_form_span_text_and_parse_round_trip_selected_form"
+  >
+    <h2>SexpFormSpan</h2>
+    <h3>Rationale</h3>
+    <p>
+      Projection callers need stable source ranges that can be inspected,
+      reparsed, or mapped to diagnostics without keeping a full parse tree.
+    </p>
+    <h3>Purpose</h3>
+    <p>
+      Represent one complete selected S-expression form with head, path, depth,
+      offsets, source location, and helpers for text and parse access.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must prove selected span text is exact, offsets are stable, and
+      reparsing the span produces the selected form.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      A span is public when downstream scan tools can safely defer full parsing
+      until a selected form is actually needed.
+    </p>
+  </section>
+
+  <section
     data-interface="KiCadObjectCollection"
     data-rack-stratum="L0_foundation"
     data-test-file="tests/L0_foundation/test_L0_035_api_cleanup.py"

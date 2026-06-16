@@ -2,11 +2,31 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Iterable, Iterator
+from dataclasses import dataclass, field
+from pathlib import Path
 import re
 from typing import Any
 
+from ._api_markers import public_api
+
 SexpList = list[Any]
+
+
+def _freeze_optional_strings(value: Iterable[str] | str | None) -> frozenset[str] | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return frozenset({value})
+    return frozenset(str(item) for item in value)
+
+
+def _freeze_paths(
+    paths: Iterable[Iterable[str]] | None,
+) -> frozenset[tuple[str, ...]] | None:
+    if paths is None:
+        return None
+    return frozenset(tuple(str(part) for part in path) for path in paths)
 
 
 def _unescape_kicad_string(s: str) -> str:
@@ -275,6 +295,364 @@ class SexpToken:
     line: int
     column: int
     separator: str = ""
+
+
+@public_api
+@dataclass(frozen=True)
+class SexpSelector:
+    """Read-only selector for projection scanning S-expression forms."""
+
+    heads: frozenset[str] | Iterable[str] | str | None = None
+    paths: frozenset[tuple[str, ...]] | Iterable[Iterable[str]] | None = None
+    min_depth: int | None = None
+    max_depth: int | None = None
+    prune_heads: frozenset[str] | Iterable[str] | str = frozenset()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "heads", _freeze_optional_strings(self.heads))
+        object.__setattr__(self, "paths", _freeze_paths(self.paths))
+        object.__setattr__(
+            self,
+            "prune_heads",
+            _freeze_optional_strings(self.prune_heads) or frozenset(),
+        )
+        if self.min_depth is not None and self.min_depth < 0:
+            raise ValueError("SexpSelector.min_depth must be non-negative")
+        if self.max_depth is not None and self.max_depth < 0:
+            raise ValueError("SexpSelector.max_depth must be non-negative")
+        if (
+            self.min_depth is not None
+            and self.max_depth is not None
+            and self.min_depth > self.max_depth
+        ):
+            raise ValueError("SexpSelector.min_depth cannot exceed max_depth")
+
+    def matches(self, span: "SexpFormSpan") -> bool:
+        """Return whether ``span`` matches this selector."""
+        if self.heads is not None and span.head not in self.heads:
+            return False
+        if self.paths is not None and span.path not in self.paths:
+            return False
+        if self.min_depth is not None and span.depth < self.min_depth:
+            return False
+        if self.max_depth is not None and span.depth > self.max_depth:
+            return False
+        return True
+
+    def should_scan_children(
+        self,
+        *,
+        head: str | None,
+        path: tuple[str, ...],
+        depth: int,
+    ) -> bool:
+        """Return whether nested forms below this form can match."""
+        if head is not None and head in self.prune_heads:
+            return False
+        if self.paths is not None and not self._can_any_path_match_child(path):
+            return False
+        return self.max_depth is None or depth < self.max_depth
+
+    def _can_any_path_match_child(self, path: tuple[str, ...]) -> bool:
+        """Return whether a descendant of ``path`` can match an exact path."""
+        assert self.paths is not None
+        next_len = len(path) + 1
+        for target in self.paths:
+            if len(target) < next_len:
+                continue
+            if target[:len(path)] == path:
+                return True
+        return False
+
+
+@public_api
+@dataclass(frozen=True)
+class SexpFormSpan:
+    """Source span for one complete selected S-expression form."""
+
+    head: str | None
+    path: tuple[str, ...]
+    depth: int
+    start_offset: int
+    end_offset: int
+    line: int
+    column: int
+    end_line: int
+    end_column: int
+    source_text: str | None = field(default=None, repr=False, compare=False)
+    source_path: str | None = None
+
+    def text(self) -> str:
+        """Return the exact source text for this form."""
+        if self.source_text is None:
+            raise ValueError("SexpFormSpan has no source_text")
+        return self.source_text[self.start_offset:self.end_offset]
+
+    def parse(self) -> Any:
+        """Parse this selected form into the normal nested-list representation."""
+        return parse_sexp(self.text(), source_path=self.source_path)
+
+
+class _SexpProjectionScanner:
+    """Character-level scanner for complete S-expression form spans."""
+
+    def __init__(
+        self,
+        text: str,
+        selector: SexpSelector,
+        *,
+        source_path: Any = None,
+    ) -> None:
+        self.text = text
+        self.selector = selector
+        self.source_path = str(source_path) if source_path is not None else None
+        self.pos = 0
+        self.line = 1
+        self.column = 1
+        self.line_start = 0
+
+    def scan(self) -> list[SexpFormSpan]:
+        """Return selected spans in source order."""
+        spans: list[SexpFormSpan] = []
+        while True:
+            self._skip_space_and_comments()
+            if self.pos >= len(self.text):
+                return spans
+            if self.text[self.pos] == ")":
+                raise SexprTreeError(
+                    "Unbalanced closing parenthesis",
+                    offset=self.pos,
+                    line=self.line,
+                    column=self.column,
+                    source_path=self.source_path,
+                )
+            if self.text[self.pos] != "(":
+                raise SexprTreeError(
+                    "Missing initial opening parenthesis",
+                    offset=self.pos,
+                    line=self.line,
+                    column=self.column,
+                    source_path=self.source_path,
+                    token_text=self.text[self.pos:self.pos + 1],
+                )
+            spans.extend(self._scan_form(parent_path=(), depth=0))
+
+    def _scan_form(
+        self,
+        *,
+        parent_path: tuple[str, ...],
+        depth: int,
+    ) -> list[SexpFormSpan]:
+        start_offset = self.pos
+        start_line = self.line
+        start_column = self.column
+        self._consume_expected("(")
+        head = self._read_form_head()
+        path = (*parent_path, head) if head is not None else parent_path
+        children = self._scan_form_body(head=head, path=path, depth=depth)
+        end_offset = self.pos
+        span = SexpFormSpan(
+            head=head,
+            path=path,
+            depth=depth,
+            start_offset=start_offset,
+            end_offset=end_offset,
+            line=start_line,
+            column=start_column,
+            end_line=self.line,
+            end_column=self.column,
+            source_text=self.text,
+            source_path=self.source_path,
+        )
+        if self.selector.matches(span):
+            return [span, *children]
+        return children
+
+    def _scan_form_body(
+        self,
+        *,
+        head: str | None,
+        path: tuple[str, ...],
+        depth: int,
+    ) -> list[SexpFormSpan]:
+        children: list[SexpFormSpan] = []
+        scan_children = self.selector.should_scan_children(
+            head=head,
+            path=path,
+            depth=depth,
+        )
+        while True:
+            self._skip_space_and_comments()
+            if self.pos >= len(self.text):
+                raise SexprTreeError(
+                    "Unbalanced opening parenthesis",
+                    offset=self.pos,
+                    line=self.line,
+                    column=self.column,
+                    source_path=self.source_path,
+                )
+            ch = self.text[self.pos]
+            if ch == ")":
+                self._consume_char()
+                return children
+            if ch == "(":
+                if scan_children:
+                    children.extend(self._scan_form(parent_path=path, depth=depth + 1))
+                else:
+                    self._skip_balanced_form()
+                continue
+            self._skip_scalar()
+
+    def _read_form_head(self) -> str | None:
+        self._skip_space_and_comments()
+        if self.pos >= len(self.text) or self.text[self.pos] in "()":
+            return None
+        if self.text[self.pos] == '"':
+            return self._read_quoted_string()
+        return self._read_atom()
+
+    def _skip_balanced_form(self) -> None:
+        if self.pos >= len(self.text) or self.text[self.pos] != "(":
+            return
+        depth = 0
+        while self.pos < len(self.text):
+            self._skip_space_and_comments()
+            if self.pos >= len(self.text):
+                break
+            ch = self.text[self.pos]
+            if ch == '"':
+                self._read_quoted_string()
+                continue
+            if ch == "(":
+                depth += 1
+                self._consume_char()
+                continue
+            if ch == ")":
+                depth -= 1
+                self._consume_char()
+                if depth == 0:
+                    return
+                continue
+            self._skip_atom()
+        raise SexprTreeError(
+            "Unbalanced opening parenthesis",
+            offset=self.pos,
+            line=self.line,
+            column=self.column,
+            source_path=self.source_path,
+        )
+
+    def _skip_scalar(self) -> None:
+        if self.text[self.pos] == '"':
+            self._read_quoted_string()
+        else:
+            self._skip_atom()
+
+    def _read_atom(self) -> str:
+        start_offset = self.pos
+        chars: list[str] = []
+        while self.pos < len(self.text):
+            ch = self.text[self.pos]
+            if ch.isspace() or ch in "()":
+                break
+            chars.append(self._consume_char())
+        if not chars:
+            raise SexprLexError(
+                "Unexpected token",
+                offset=start_offset,
+                line=self.line,
+                column=self.column,
+                source_path=self.source_path,
+            )
+        return "".join(chars)
+
+    def _skip_atom(self) -> None:
+        start_offset = self.pos
+        while self.pos < len(self.text):
+            ch = self.text[self.pos]
+            if ch.isspace() or ch in "()":
+                break
+            self.pos += 1
+            self.column += 1
+        if self.pos == start_offset:
+            raise SexprLexError(
+                "Unexpected token",
+                offset=start_offset,
+                line=self.line,
+                column=self.column,
+                source_path=self.source_path,
+            )
+
+    def _read_quoted_string(self) -> str:
+        start_offset = self.pos
+        start_line = self.line
+        start_column = self.column
+        raw: list[str] = []
+        self._consume_expected('"')
+        while self.pos < len(self.text):
+            ch = self._consume_char()
+            if ch == '"':
+                return _unescape_kicad_string("".join(raw))
+            if ch == "\\":
+                raw.append(ch)
+                if self.pos >= len(self.text):
+                    break
+                raw.append(self._consume_char())
+                continue
+            raw.append(ch)
+        raise SexprLexError(
+            "Unterminated delimited string",
+            offset=start_offset,
+            line=start_line,
+            column=start_column,
+            source_path=self.source_path,
+        )
+
+    def _skip_space_and_comments(self) -> None:
+        while True:
+            start_pos = self.pos
+            while self.pos < len(self.text) and self.text[self.pos].isspace():
+                self._consume_char()
+            if (
+                self.pos < len(self.text)
+                and self.text[self.pos] == "#"
+                and self.text[self.line_start:self.pos].strip() == ""
+            ):
+                while self.pos < len(self.text) and self.text[self.pos] not in "\r\n":
+                    self._consume_char()
+                continue
+            if self.pos == start_pos:
+                return
+
+    def _consume_expected(self, expected: str) -> None:
+        if self.pos >= len(self.text) or self.text[self.pos] != expected:
+            raise SexprLexError(
+                f"Expected {expected!r}",
+                offset=self.pos,
+                line=self.line,
+                column=self.column,
+                source_path=self.source_path,
+            )
+        self._consume_char()
+
+    def _consume_char(self) -> str:
+        ch = self.text[self.pos]
+        if ch == "\r":
+            self.pos += 1
+            if self.pos < len(self.text) and self.text[self.pos] == "\n":
+                self.pos += 1
+            self.line += 1
+            self.column = 1
+            self.line_start = self.pos
+            return "\n"
+        self.pos += 1
+        if ch == "\n":
+            self.line += 1
+            self.column = 1
+            self.line_start = self.pos
+        else:
+            self.column += 1
+        return ch
 
 
 class KicadSexprLexer:
@@ -853,6 +1231,39 @@ def parse_sexp(sexp: str, *, source_path: Any = None) -> Any:
         if source_path is None or exc.source_path is not None:
             raise
         raise exc.with_source_path(source_path) from exc
+
+
+def iter_sexp_form_spans(
+    sexp: str,
+    selector: SexpSelector | None = None,
+    *,
+    source_path: Any = None,
+) -> Iterator[SexpFormSpan]:
+    """Yield selected S-expression form spans without building a full tree."""
+    active_selector = selector if selector is not None else SexpSelector()
+    yield from _SexpProjectionScanner(
+        sexp,
+        active_selector,
+        source_path=source_path,
+    ).scan()
+
+
+def iter_sexp_file_form_spans(
+    path: Path | str,
+    selector: SexpSelector | None = None,
+) -> Iterator[SexpFormSpan]:
+    """Yield selected form spans from an S-expression file."""
+    source_path = Path(path)
+    try:
+        text = source_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        text = source_path.read_text(encoding="utf-8-sig")
+    yield from iter_sexp_form_spans(text, selector, source_path=source_path)
+
+
+def parse_sexp_span(span: SexpFormSpan) -> Any:
+    """Parse a selected form span into the normal nested-list representation."""
+    return span.parse()
 
 
 @dataclass(frozen=True)
