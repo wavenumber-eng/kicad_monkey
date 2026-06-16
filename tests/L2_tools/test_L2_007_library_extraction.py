@@ -9,6 +9,7 @@ models from KiCad projects.
 
 from __future__ import annotations
 
+import base64
 from collections import Counter
 import json
 import shutil
@@ -19,7 +20,9 @@ import pytest
 from conftest import STEP_MODEL_EXTRACT_DIR
 from kicad_monkey.kicad_footprint import KiCadFootprint
 from kicad_monkey.kicad_library_extraction import (
+    KiCadExtractionDedupePolicy,
     KiCadExtractionMode,
+    KiCadFootprintExtractionRecord,
     KiCadModelReferenceKind,
     embed_external_model_payloads,
     extract_3d_models,
@@ -34,9 +37,15 @@ from kicad_monkey.kicad_library_extraction import (
     write_pretty_library,
     write_symbol_folder_library,
 )
-from kicad_monkey.kicad_model import Model
+from kicad_monkey.kicad_model import EmbeddedFile, Model
 from kicad_monkey.kicad_pcb import KiCadPcb
 from kicad_monkey.kicad_pcb_footprint import Footprint
+from kicad_monkey.kicad_project_libraries import (
+    KiCadLibraryTable,
+    KiCadLibraryTableKind,
+    ensure_project_library_table_entries,
+    kicad_project_uri,
+)
 from kicad_monkey.kicad_symbol_lib import KiCadSymbolLib
 from kicad_monkey.testing.corpus import get_kicad_corpus_case, resolve_kicad_manifest_path
 
@@ -100,6 +109,38 @@ def test_embed_external_model_payloads_rewrites_resolvable_step_refs(tmp_path: P
     assert "ISO-10303-21" in written[0].read_text(encoding="utf-8", errors="ignore")
 
 
+def test_extract_3d_models_can_preserve_duplicate_payload_aliases(tmp_path: Path) -> None:
+    """Project-local model export should preserve model filenames, not only payload hashes."""
+    zstandard = pytest.importorskip("zstandard")
+    payload = b"ISO-10303-21;\nEND-ISO-10303-21;\n"
+    encoded = base64.b64encode(zstandard.ZstdCompressor().compress(payload)).decode("ascii")
+    footprint = KiCadFootprint()
+    footprint.name = "AliasedModels"
+    footprint.embedded_files = [
+        EmbeddedFile("alias-a.step", "model", encoded),
+        EmbeddedFile("alias-b.step", "model", encoded),
+        EmbeddedFile("alias-a.step", "model", encoded),
+    ]
+    record = KiCadFootprintExtractionRecord(
+        name="AliasedModels",
+        library_link="demo:AliasedModels",
+        source_path="board.kicad_pcb",
+        source_reference="U1",
+        mode=KiCadExtractionMode.PROJECT_LOCAL.value,
+        footprint=footprint,
+    )
+
+    deduped = extract_3d_models_from_footprint_records([record], tmp_path / "deduped")
+    preserved = extract_3d_models_from_footprint_records(
+        [record],
+        tmp_path / "preserved",
+        dedupe_payloads=False,
+    )
+
+    assert [path.name for path in deduped] == ["alias-a.step"]
+    assert sorted(path.name for path in preserved) == ["alias-a.step", "alias-b.step"]
+
+
 def test_scan_project_assets_resolves_kiprjmod_model_refs(tmp_path: Path) -> None:
     """KiCad resolves ${KIPRJMOD} model refs relative to the project file."""
     project_path = tmp_path / "kiprjmod-model.kicad_pro"
@@ -148,6 +189,120 @@ def test_scan_project_assets_groups_placed_footprints_without_models(tmp_path: P
     assert missing.designators == ("R1", "R2")
     assert missing.instance_count == 2
     assert scan.to_dict()["footprints_without_models"][0]["designators"] == ("R1", "R2")
+
+
+def test_project_local_footprint_fingerprint_dedupe_collapses_instances(tmp_path: Path) -> None:
+    """Project-local callers can keep symbols per variant while collapsing footprints."""
+    project_path = tmp_path / "footprint-dedupe.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+
+    pcb = KiCadPcb()
+    for reference in ("R1", "R2"):
+        footprint = Footprint("Device:R_0805")
+        footprint.upsert_property("Reference", reference)
+        footprint.upsert_property("Value", "10k")
+        pcb.footprints.append(footprint)
+    pcb.save(tmp_path / "footprint-dedupe.kicad_pcb")
+
+    per_instance = extract_footprints(project_path, KiCadExtractionMode.PROJECT_LOCAL)
+    common_footprints = extract_footprints(
+        project_path,
+        KiCadExtractionMode.PROJECT_LOCAL,
+        dedupe_policy=KiCadExtractionDedupePolicy.FINGERPRINT,
+    )
+    link_footprints = extract_footprints(
+        project_path,
+        KiCadExtractionMode.PROJECT_LOCAL,
+        dedupe_policy=KiCadExtractionDedupePolicy.LIBRARY_LINK,
+    )
+
+    assert len(per_instance) == 2
+    assert len(common_footprints) == 1
+    assert len(link_footprints) == 1
+
+
+def test_kicad_project_uri_uses_kiprjmod_for_project_local_paths(tmp_path: Path) -> None:
+    """Project-local library table URIs should be portable across checkouts."""
+    project_path = tmp_path / "demo.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+
+    assert (
+        kicad_project_uri(project_path, tmp_path / "output" / "project-lib" / "symbols")
+        == "${KIPRJMOD}/output/project-lib/symbols"
+    )
+
+
+def test_ensure_project_library_table_entries_creates_project_tables(tmp_path: Path) -> None:
+    """Project-local library helpers should create sym/fp tables when missing."""
+    project_path = tmp_path / "demo.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+    symbols_dir = tmp_path / "output" / "project-lib" / "symbols"
+    footprints_dir = tmp_path / "output" / "project-lib" / "footprints.pretty"
+    symbols_dir.mkdir(parents=True)
+    footprints_dir.mkdir(parents=True)
+
+    result = ensure_project_library_table_entries(
+        project_path,
+        symbol_library_path=symbols_dir,
+        footprint_library_path=footprints_dir,
+        symbol_nickname="demo-symbols",
+        footprint_nickname="demo-footprints",
+    )
+
+    assert result.changed is True
+    assert result.symbol.action == "added"
+    assert result.footprint.action == "added"
+
+    sym_table = KiCadLibraryTable.from_file(
+        tmp_path / "sym-lib-table",
+        KiCadLibraryTableKind.SYMBOL,
+    )
+    fp_table = KiCadLibraryTable.from_file(
+        tmp_path / "fp-lib-table",
+        KiCadLibraryTableKind.FOOTPRINT,
+    )
+
+    assert sym_table.entries[0].name == "demo-symbols"
+    assert sym_table.entries[0].uri == "${KIPRJMOD}/output/project-lib/symbols"
+    assert fp_table.entries[0].name == "demo-footprints"
+    assert fp_table.entries[0].uri == "${KIPRJMOD}/output/project-lib/footprints.pretty"
+
+    second = ensure_project_library_table_entries(
+        project_path,
+        symbol_library_path=symbols_dir,
+        footprint_library_path=footprints_dir,
+        symbol_nickname="demo-symbols",
+        footprint_nickname="demo-footprints",
+    )
+
+    assert second.changed is False
+    assert second.symbol.action == "already_exists"
+    assert second.footprint.action == "already_exists"
+    assert len(KiCadLibraryTable.from_file(tmp_path / "sym-lib-table", KiCadLibraryTableKind.SYMBOL).entries) == 1
+
+
+def test_project_library_table_preserves_existing_flags(tmp_path: Path) -> None:
+    """Existing KiCad table flags should round-trip through the project table model."""
+    (tmp_path / "sym-lib-table").write_text(
+        """(sym_lib_table
+  (version 7)
+  (lib (name "disabled-lib") (type "KiCad") (uri "${KIPRJMOD}/Libs/disabled.kicad_sym") (options "") (descr "") (disabled) (hidden))
+)
+""",
+        encoding="utf-8",
+    )
+
+    table = KiCadLibraryTable.from_file(tmp_path / "sym-lib-table", KiCadLibraryTableKind.SYMBOL)
+    assert table.entries[0].disabled is True
+    assert table.entries[0].hidden is True
+
+    table.write(tmp_path / "sym-lib-table")
+    reparsed = KiCadLibraryTable.from_file(
+        tmp_path / "sym-lib-table",
+        KiCadLibraryTableKind.SYMBOL,
+    )
+    assert reparsed.entries[0].disabled is True
+    assert reparsed.entries[0].hidden is True
 
 
 @pytest.mark.slow

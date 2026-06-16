@@ -62,6 +62,7 @@ class KiCadExtractionDedupePolicy(StrEnum):
 
     NAME = "name"
     FINGERPRINT = "fingerprint"
+    LIBRARY_LINK = "library_link"
 
 
 @dataclass(frozen=True)
@@ -917,17 +918,27 @@ def _footprint_fingerprint(footprint: KiCadFootprint) -> str:
     return hashlib.sha256(footprint.to_string().encode("utf-8")).hexdigest()
 
 
+def _common_footprint_body_for_dedupe(footprint: KiCadFootprint) -> KiCadFootprint:
+    common = strip_footprint_metadata(footprint, KiCadExtractionMode.INTERNAL)
+    common.locked = False
+    common.layer = "F.Cu"
+    common.properties = []
+    return common
+
+
 def _footprint_record_key(
     footprint: Footprint,
     standalone: KiCadFootprint,
     policy: KiCadExtractionMode,
     dedupe_policy: KiCadExtractionDedupePolicy,
 ) -> str:
+    if dedupe_policy == KiCadExtractionDedupePolicy.LIBRARY_LINK:
+        return footprint.library_link
+    if dedupe_policy == KiCadExtractionDedupePolicy.FINGERPRINT:
+        return _footprint_fingerprint(_common_footprint_body_for_dedupe(standalone))
     if policy == KiCadExtractionMode.PROJECT_LOCAL:
         reference = footprint.get_property_value("Reference")
         return f"{reference}:{footprint.library_link}:{footprint.uuid}"
-    if dedupe_policy == KiCadExtractionDedupePolicy.FINGERPRINT:
-        return _footprint_fingerprint(strip_footprint_metadata(standalone, policy))
     return footprint.library_link
 
 
@@ -968,7 +979,14 @@ def extract_footprints(
                 standalone = embed_external_model_payloads(standalone, project_root=root, env=env)
             key = _footprint_record_key(source_fp, standalone, policy, dedupe)
             if unique_links is None:
-                if policy == KiCadExtractionMode.INTERNAL and key in seen:
+                if (
+                    policy == KiCadExtractionMode.INTERNAL
+                    or dedupe
+                    in {
+                        KiCadExtractionDedupePolicy.FINGERPRINT,
+                        KiCadExtractionDedupePolicy.LIBRARY_LINK,
+                    }
+                ) and key in seen:
                     continue
                 seen.add(key)
             stripped = strip_footprint_metadata(standalone, policy)
@@ -1100,53 +1118,79 @@ def write_extraction_metadata_bundle(
 def _write_embedded_model_payload(
     file: EmbeddedFile,
     output_dir: Path,
-    written_by_hash: dict[str, Path],
+    written: dict[str, Path],
     used_names: set[str],
+    *,
+    dedupe_payloads: bool = True,
 ) -> None:
     if not _is_step_model_name(file.name):
         return
     data = _embedded_file_payload_bytes(file)
     digest = hashlib.sha256(data).hexdigest()
-    if digest in written_by_hash:
+    safe_name = _safe_asset_filename(file.name)
+    key = f"sha256:{digest}" if dedupe_payloads else f"name:{safe_name.lower()}:{digest}"
+    if key in written:
         return
-    path = output_dir / _unique_file_name(_safe_asset_filename(file.name), used_names)
+    path = output_dir / _unique_file_name(safe_name, used_names)
     path.write_bytes(data)
-    written_by_hash[digest] = path
+    written[key] = path
 
 
 def extract_3d_models(
     project_path: Path | str,
     output_dir: Path | str,
+    *,
+    dedupe_payloads: bool = True,
 ) -> tuple[Path, ...]:
     """Extract embedded model payloads from project boards and footprints."""
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    written_by_hash: dict[str, Path] = {}
+    written: dict[str, Path] = {}
     used_names: set[str] = set()
 
     resolved_project = _resolve_project_path(project_path)
     for pcb_path in _iter_project_files(resolved_project, ".kicad_pcb"):
         for file in _iter_embedded_files_from_file(pcb_path):
-            _write_embedded_model_payload(file, out_dir, written_by_hash, used_names)
+            _write_embedded_model_payload(
+                file,
+                out_dir,
+                written,
+                used_names,
+                dedupe_payloads=dedupe_payloads,
+            )
     for fp_path in _iter_project_files(resolved_project, ".kicad_mod"):
         for file in _iter_embedded_files_from_file(fp_path):
-            _write_embedded_model_payload(file, out_dir, written_by_hash, used_names)
-    return tuple(written_by_hash.values())
+            _write_embedded_model_payload(
+                file,
+                out_dir,
+                written,
+                used_names,
+                dedupe_payloads=dedupe_payloads,
+            )
+    return tuple(written.values())
 
 
 def extract_3d_models_from_footprint_records(
     records: Iterable[KiCadFootprintExtractionRecord],
     output_dir: Path | str,
+    *,
+    dedupe_payloads: bool = True,
 ) -> tuple[Path, ...]:
     """Extract embedded STEP model payloads from already-extracted footprints."""
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    written_by_hash: dict[str, Path] = {}
+    written: dict[str, Path] = {}
     used_names: set[str] = set()
     for record in records:
         for file in record.footprint.embedded_files:
-            _write_embedded_model_payload(file, out_dir, written_by_hash, used_names)
-    return tuple(written_by_hash.values())
+            _write_embedded_model_payload(
+                file,
+                out_dir,
+                written,
+                used_names,
+                dedupe_payloads=dedupe_payloads,
+            )
+    return tuple(written.values())
 
 
 def resolve_kicad_cli(kicad_cli: Path | str | None = None) -> Path | None:
