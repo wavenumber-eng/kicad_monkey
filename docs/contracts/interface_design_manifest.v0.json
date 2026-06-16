@@ -38,6 +38,18 @@
       "group": "pcb"
     },
     {
+      "name": "KiCadPcbProjection",
+      "group": "pcb"
+    },
+    {
+      "name": "ProjectedSource",
+      "group": "pcb"
+    },
+    {
+      "name": "PcbModelReference",
+      "group": "pcb"
+    },
+    {
       "name": "KiCadFootprint",
       "group": "pcb"
     },

@@ -37,6 +37,95 @@
   </section>
 
   <section
+    data-interface="KiCadPcbProjection"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_042_pcb_projection.py"
+    data-test-target="test_pcb_projection_hydrates_same_domain_object_types"
+  >
+    <h2>KiCadPcbProjection</h2>
+    <h3>Rationale</h3>
+    <p>
+      Large boards need fast source-aware access to selected PCB sub-objects
+      without paying the cost of a complete board parse for every workflow.
+    </p>
+    <h3>Purpose</h3>
+    <p>
+      Project selected board forms into the same domain object classes returned
+      by `KiCadPcb`, while preserving exact source spans for diagnostics and
+      repair tooling.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must prove projected footprints, vias, tracks, graphics, layers,
+      pads, and model references hydrate as normal domain objects and match full
+      parser counts on real corpus boards.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      A PCB projection facade is public when callers can use projected objects
+      like full-parser objects and can recover source spans for those objects.
+    </p>
+  </section>
+
+  <section
+    data-interface="ProjectedSource"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_042_pcb_projection.py"
+    data-test-target="test_pcb_projection_preserves_source_metadata"
+  >
+    <h2>ProjectedSource</h2>
+    <h3>Rationale</h3>
+    <p>
+      Projection callers need exact source ownership for object diagnostics,
+      comparisons, and targeted rewrite tools.
+    </p>
+    <h3>Purpose</h3>
+    <p>
+      Carry the exact selected form span and optional parent span associated
+      with one projected domain object.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must prove source metadata can return exact object text and parse
+      back to the selected KiCad S-expression form.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      Source metadata is public when projected objects can be mapped back to
+      their file text without requiring a full board parse.
+    </p>
+  </section>
+
+  <section
+    data-interface="PcbModelReference"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_042_pcb_projection.py"
+    data-test-target="test_pcb_projection_reports_nested_model_references"
+  >
+    <h2>PcbModelReference</h2>
+    <h3>Rationale</h3>
+    <p>
+      3D model health checks need parent footprint context and source spans for
+      nested model forms.
+    </p>
+    <h3>Purpose</h3>
+    <p>
+      Represent one footprint-owned model reference with the hydrated model
+      object, parent footprint, and source span context.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must prove model references expose parent reference/value data,
+      model path data, and nested model source spans.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      A model reference inventory record is public when project health and
+      library extraction tools can inspect model usage without custom scanners.
+    </p>
+  </section>
+
+  <section
     data-interface="KiCadFootprint"
     data-rack-stratum="L0_foundation"
     data-test-file="tests/L0_foundation/test_L0_036_pcb_footprint_api_cleanup.py"

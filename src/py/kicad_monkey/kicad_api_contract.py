@@ -83,6 +83,9 @@ PUBLIC_API_EXPORTS: tuple[PublicApiExport, ...] = (
     PublicApiExport("LabelShape", PublicApiStratum.SCHEMATIC),
     # PCB and footprint OOP facades.
     PublicApiExport("KiCadPcb", PublicApiStratum.PCB, requires_marker=True),
+    PublicApiExport("KiCadPcbProjection", PublicApiStratum.PCB, requires_marker=True),
+    PublicApiExport("ProjectedSource", PublicApiStratum.PCB, requires_marker=True),
+    PublicApiExport("PcbModelReference", PublicApiStratum.PCB, requires_marker=True),
     PublicApiExport("KiCadFootprint", PublicApiStratum.PCB, requires_marker=True),
     PublicApiExport("Footprint", PublicApiStratum.PCB, requires_marker=True),
     PublicApiExport("Pad", PublicApiStratum.PCB),
