@@ -45,6 +45,7 @@ from kicad_monkey.kicad_model import EmbeddedFile, Model
 from kicad_monkey.kicad_pad import Pad
 from kicad_monkey.kicad_pcb import KiCadPcb
 from kicad_monkey.kicad_pcb_footprint import Footprint
+from kicad_monkey.kicad_pcb_other import NetRef
 from kicad_monkey.kicad_project_libraries import (
     KiCadLibraryTable,
     KiCadLibraryTableKind,
@@ -267,12 +268,14 @@ def test_project_local_library_link_dedupe_skips_duplicate_conversion(
 
 
 def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> None:
-    """Standalone extraction should remove the board instance rotation from pads."""
+    """Standalone extraction should remove board-instance pad state."""
     project_path = tmp_path / "rotated-footprint.kicad_pro"
     project_path.write_text("{}", encoding="utf-8")
 
     footprint = Footprint("local:USB-C")
+    footprint.uuid = "11111111-1111-1111-1111-111111111111"
     footprint.at_angle = -90.0
+    footprint.upsert_property("Reference", "USB1")
     footprint.pads.append(
         Pad(
             "A5",
@@ -284,6 +287,8 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
             size_x=0.3,
             size_y=1.3,
             layers=["F.Cu", "F.Mask", "F.Paste"],
+            net=NetRef(name="Net-(USB1-CC1)"),
+            uuid="22222222-2222-2222-2222-222222222222",
         )
     )
     pcb = KiCadPcb()
@@ -293,7 +298,16 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
     records = extract_footprints(project_path, KiCadExtractionMode.PROJECT_LOCAL)
 
     assert len(records) == 1
-    assert records[0].footprint.pads[0].at_angle == 0.0
+    exported = records[0].footprint
+    assert exported.get_property_value("Reference") == "REF**"
+    assert exported.uuid != footprint.uuid
+    assert exported.pads[0].at_angle == 0.0
+    assert not exported.pads[0].net
+    assert exported.pads[0].uuid != "22222222-2222-2222-2222-222222222222"
+
+    second_records = extract_footprints(project_path, KiCadExtractionMode.PROJECT_LOCAL)
+    assert second_records[0].footprint.uuid == exported.uuid
+    assert second_records[0].footprint.pads[0].uuid == exported.pads[0].uuid
 
 
 def test_rehydrate_embedded_model_replaces_footprint_stub() -> None:
@@ -512,7 +526,7 @@ def test_extract_4ch_backplane_libraries_writes_valid_stripped_assets(tmp_path: 
 
 @pytest.mark.slow
 def test_project_local_extraction_preserves_instance_metadata() -> None:
-    """Project-local mode keeps editable part variants instead of stripping to bare assets."""
+    """Project-local mode keeps variants while exporting reusable footprint bodies."""
     project_path = _four_ch_backplane_project()
 
     internal_symbols = extract_symbols(project_path)
@@ -532,7 +546,7 @@ def test_project_local_extraction_preserves_instance_metadata() -> None:
     assert len(project_footprints) > len(internal_footprints)
 
     sample = next(record.footprint for record in project_footprints if record.footprint.pads)
-    assert any(pad.net for pad in sample.pads)
+    assert not any(pad.net for pad in sample.pads)
     assert any(pad.uuid is not None for pad in sample.pads)
 
 
