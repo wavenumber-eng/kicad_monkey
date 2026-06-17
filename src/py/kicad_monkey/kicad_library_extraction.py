@@ -16,7 +16,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-import uuid
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -44,9 +43,6 @@ except ImportError:
 _FOOTPRINT_START_RE = re.compile(
     r'(?m)^[ \t]*(\(\s*(?:footprint|module)\s+(?:"((?:\\.|[^"\\])*)"|([^\s()]+)))'
 )
-_FOOTPRINT_EXPORT_UUID_NAMESPACE = uuid.UUID("3eb34393-2853-4376-b473-a5eae453f3ca")
-
-
 class KiCadExtractionMode(StrEnum):
     """Asset extraction policy."""
 
@@ -1001,14 +997,8 @@ def _normalise_standalone_footprint_orientations(
         text_box.angle = _normalise_angle_degrees(text_box.angle - footprint_angle)
 
 
-def _export_uuid(*parts: object) -> str:
-    key = "|".join(str(part or "") for part in parts)
-    return str(uuid.uuid5(_FOOTPRINT_EXPORT_UUID_NAMESPACE, key))
-
-
-def _assign_library_export_uuids(standalone: KiCadFootprint, source: Footprint) -> None:
-    source_key = source.uuid or source.library_link
-    standalone.uuid = _export_uuid("footprint", source.library_link, source_key)
+def _clear_library_export_uuids(standalone: KiCadFootprint) -> None:
+    standalone.uuid = None
     for collection_name in (
         "properties",
         "fp_texts",
@@ -1021,15 +1011,9 @@ def _assign_library_export_uuids(standalone: KiCadFootprint, source: Footprint) 
         "pads",
         "zones",
     ):
-        for index, item in enumerate(getattr(standalone, collection_name, ())):
+        for item in getattr(standalone, collection_name, ()):
             if hasattr(item, "uuid"):
-                item.uuid = _export_uuid(
-                    collection_name,
-                    source.library_link,
-                    source_key,
-                    index,
-                    getattr(item, "uuid", ""),
-                )
+                item.uuid = None
 
 
 def _normalise_standalone_footprint_for_library_export(
@@ -1039,7 +1023,7 @@ def _normalise_standalone_footprint_for_library_export(
     standalone.placed = False
     standalone.set_property_value("Reference", "REF**", create=True)
     _strip_pad_instance_metadata(standalone, reset_uuid=False)
-    _assign_library_export_uuids(standalone, source)
+    _clear_library_export_uuids(standalone)
     _normalise_standalone_footprint_orientations(standalone, source)
 
 

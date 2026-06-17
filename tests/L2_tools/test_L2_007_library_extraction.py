@@ -269,6 +269,14 @@ def test_project_local_library_link_dedupe_skips_duplicate_conversion(
 
 def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> None:
     """Standalone extraction should remove board-instance pad state."""
+
+    def has_token(sexp: object, token: str) -> bool:
+        return isinstance(sexp, list) and any(
+            (isinstance(item, list) and bool(item) and item[0] == token)
+            or has_token(item, token)
+            for item in sexp
+        )
+
     project_path = tmp_path / "rotated-footprint.kicad_pro"
     project_path.write_text("{}", encoding="utf-8")
 
@@ -302,7 +310,7 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
     assert len(records) == 1
     exported = records[0].footprint
     assert exported.get_property_value("Reference") == "REF**"
-    assert exported.uuid != footprint.uuid
+    assert exported.uuid is None
     assert exported.pads[0].at_angle == 0.0
     assert exported.pads[0].to_sexp()[4] == ["at", -1.25, -2.46]
     assert not exported.pads[0].net
@@ -312,11 +320,8 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
     assert not any(isinstance(item, list) and item[0] == "net" for item in pad_sexp)
     assert not any(isinstance(item, list) and item[0] == "pinfunction" for item in pad_sexp)
     assert not any(isinstance(item, list) and item[0] == "pintype" for item in pad_sexp)
-    assert exported.pads[0].uuid != "22222222-2222-2222-2222-222222222222"
-
-    second_records = extract_footprints(project_path, KiCadExtractionMode.PROJECT_LOCAL)
-    assert second_records[0].footprint.uuid == exported.uuid
-    assert second_records[0].footprint.pads[0].uuid == exported.pads[0].uuid
+    assert exported.pads[0].uuid is None
+    assert not has_token(exported.to_sexp(), "uuid")
 
 
 def test_rehydrate_embedded_model_replaces_footprint_stub() -> None:
