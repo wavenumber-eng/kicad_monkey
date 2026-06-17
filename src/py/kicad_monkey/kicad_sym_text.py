@@ -65,13 +65,13 @@ class SymText:
         # KiCad's reader requires the angle slot even when zero (drift inventory #1).
         result.append(['at', self.at_x, self.at_y, int(round(self.at_angle * 10.0))])
 
-        if self.hide:
-            result.append(['hide', 'yes'])
-
         if self.effects:
-            # Effects.hide is the legacy nested form; suppress it when
-            # emitting the KiCad 10 text-level (hide yes).
-            if self.effects.hide:
+            # KiCad's symbol-library parser only accepts `(at ...)` and
+            # `(effects ...)` under static symbol text.  Hidden library text
+            # is no longer supported by KiCad and is converted to a hidden
+            # field on load, so do not emit either legacy or text-level hide
+            # flags here.
+            if self.effects.hide or self.hide:
                 effects_emit = Effects(
                     font=self.effects.font,
                     justify=self.effects.justify,

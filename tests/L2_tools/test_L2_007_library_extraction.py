@@ -755,3 +755,63 @@ def test_real_world_project_footprint_exports_upgrade_with_kicad_cli(tmp_path: P
         + ":\n"
         + "\n\n".join(failures)
     )
+
+
+@pytest.mark.slow
+def test_real_world_project_symbol_exports_upgrade_with_kicad_cli(tmp_path: Path) -> None:
+    """Every real-world project-lib symbol folder export should load in KiCad CLI."""
+    cli = resolve_kicad_cli()
+    if cli is None:
+        pytest.skip("kicad-cli not found")
+
+    projects = _real_world_corpus_projects()
+    if not projects:
+        pytest.skip("real-world KiCad corpus projects not found")
+
+    failures: list[str] = []
+    validated: list[str] = []
+    empty: list[str] = []
+    for case_id, project_path in projects:
+        case_dir = _case_output_dir(tmp_path, case_id)
+        symbol_dir = case_dir / project_path.stem
+        try:
+            symbol_records = extract_symbols(
+                project_path,
+                KiCadExtractionMode.PROJECT_LOCAL,
+            )
+            if not symbol_records:
+                empty.append(case_id)
+                continue
+            written_symbols = write_symbol_folder_library(symbol_records, symbol_dir)
+            if len(written_symbols) != len(symbol_records):
+                failures.append(
+                    f"{case_id}: wrote {len(written_symbols)} of "
+                    f"{len(symbol_records)} symbols"
+                )
+                continue
+            result = validate_symbol_library_with_kicad_cli(
+                symbol_dir,
+                kicad_cli=cli,
+                timeout=180,
+            )
+        except Exception as exc:  # pragma: no cover - failure report path
+            failures.append(f"{case_id}: extraction raised {type(exc).__name__}: {exc}")
+            continue
+        if result.ok:
+            validated.append(case_id)
+            continue
+        failures.append(
+            f"{case_id}: kicad-cli sym upgrade failed with {result.returncode}\n"
+            f"command: {' '.join(result.command)}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+
+    assert validated, "no real-world symbol folders were validated"
+    assert "real_world/4-ch-backplane" in validated
+    assert not failures, (
+        "real-world project-lib symbol export failures"
+        + (f" ({len(empty)} projects had no symbols)" if empty else "")
+        + ":\n"
+        + "\n\n".join(failures)
+    )

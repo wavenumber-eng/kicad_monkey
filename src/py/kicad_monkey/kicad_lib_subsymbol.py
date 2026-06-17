@@ -120,9 +120,11 @@ class LibSubSymbol:
     def to_sexp(self) -> list:
         """Serialize to S-expression list.
 
-        Note: Sub-symbol names are NOT quoted (only top-level symbols are).
+        KiCad quotes sub-symbol names and appends the unit/style suffix inside
+        the quoted token.  This matters for base names containing characters
+        such as ``+`` or ``%``.
         """
-        result: SexpList = ['symbol', self.name]
+        result: SexpList = ['symbol', QuotedString(self.name)]
 
         if self.unit_name is not None:
             result.append(['unit_name', QuotedString(self.unit_name)])

@@ -26,7 +26,7 @@ from .kicad_defaults import (
     KICAD_SYMBOL_LIB_FILE_VERSION,
     KICAD_SYMBOL_LIB_GENERATOR,
 )
-from .kicad_sexpr import parse_sexp, build_sexp, format_sexp, QuotedString
+from .kicad_sexpr import parse_sexp, QuotedString, SexpWriter
 from .kicad_base import find_all_elements, get_value, unquote_string
 
 log = logging.getLogger(__name__)
@@ -339,9 +339,7 @@ class KiCadSymbolLib:
         Returns:
             Formatted S-expression string
         """
-        sexp = self.to_sexp()
-        raw = build_sexp(sexp)
-        return format_sexp(raw, indentation_size=2, max_nesting=2)
+        return SexpWriter().write(self.to_sexp())
 
     def to_sexp(self) -> list:
         """Serialize to S-expression list.

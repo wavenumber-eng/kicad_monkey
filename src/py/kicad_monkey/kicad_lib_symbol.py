@@ -225,13 +225,13 @@ class LibSymbol:
 
         # Pin settings
         if self.pin_numbers_hide:
-            result.append(['pin_numbers', 'hide'])
+            result.append(['pin_numbers', ['hide', 'yes']])
 
         pin_names: list = ['pin_names']
         if self.pin_names_offset != KICAD_DEFAULT_PIN_NAME_OFFSET_MM:
             pin_names.append(['offset', self.pin_names_offset])
         if self.pin_names_hide:
-            pin_names.append('hide')
+            pin_names.append(['hide', 'yes'])
         if len(pin_names) > 1:
             result.append(pin_names)
 

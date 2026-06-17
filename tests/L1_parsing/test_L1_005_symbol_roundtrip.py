@@ -15,6 +15,8 @@ from pathlib import Path
 import pytest
 
 from kicad_monkey import KiCadSymbolLib, parse_sexp
+from kicad_monkey.kicad_lib_subsymbol import LibSubSymbol
+from kicad_monkey.kicad_lib_symbol import LibSymbol
 from kicad_monkey.kicad_primitives import Effects
 from kicad_monkey.kicad_sym_text import SymText
 
@@ -34,6 +36,30 @@ def test_symbol_text_angle_parses_kicad_tenths_of_degree_order():
 
     assert text.at_angle == pytest.approx(90.0)
     assert text.to_sexp()[2] == ["at", 1.27, 3.175, 900]
+
+
+def test_symbol_library_writer_uses_kicad_style_formatting_and_quotes_subsymbols():
+    symbol = LibSymbol(
+        "A-B+%",
+        pin_numbers_hide=True,
+        pin_names_hide=True,
+        subsymbols=[LibSubSymbol("A-B+%_0_1", texts=[SymText("G", hide=True)])],
+    )
+
+    text = KiCadSymbolLib(symbols=[symbol]).to_text()
+    parsed = parse_sexp(text)
+    exported_symbol = next(item for item in parsed if isinstance(item, list) and item[0] == "symbol")
+    pin_numbers = next(item for item in exported_symbol if isinstance(item, list) and item[0] == "pin_numbers")
+    pin_names = next(item for item in exported_symbol if isinstance(item, list) and item[0] == "pin_names")
+    exported_subsymbol = next(item for item in exported_symbol if isinstance(item, list) and item[0] == "symbol")
+    exported_text = next(item for item in exported_subsymbol if isinstance(item, list) and item[0] == "text")
+
+    assert "\n\t(version " in text
+    assert "\n  (version " not in text
+    assert pin_numbers == ["pin_numbers", ["hide", "yes"]]
+    assert pin_names == ["pin_names", ["hide", "yes"]]
+    assert exported_subsymbol[1] == "A-B+%_0_1"
+    assert not any(isinstance(item, list) and item[0] == "hide" for item in exported_text)
 
 
 class TestSymbolParsing:
