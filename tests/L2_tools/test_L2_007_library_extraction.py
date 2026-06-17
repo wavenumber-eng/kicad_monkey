@@ -53,7 +53,11 @@ from kicad_monkey.kicad_project_libraries import (
     kicad_project_uri,
 )
 from kicad_monkey.kicad_symbol_lib import KiCadSymbolLib
-from kicad_monkey.testing.corpus import get_kicad_corpus_case, resolve_kicad_manifest_path
+from kicad_monkey.testing.corpus import (
+    get_kicad_corpus_case,
+    iter_kicad_corpus_cases,
+    resolve_kicad_manifest_path,
+)
 
 
 def _four_ch_backplane_project() -> Path:
@@ -62,6 +66,24 @@ def _four_ch_backplane_project() -> Path:
     project_path = resolve_kicad_manifest_path(case, "project_file")
     assert project_path is not None
     return project_path
+
+
+def _real_world_corpus_projects() -> tuple[tuple[str, Path], ...]:
+    projects: list[tuple[str, Path]] = []
+    for case in iter_kicad_corpus_cases(
+        origin="real_world",
+        status="active",
+        required=False,
+    ):
+        project_path = resolve_kicad_manifest_path(case, "project_file")
+        if project_path is None or not project_path.is_file():
+            continue
+        projects.append((str(case.get("id") or project_path.stem), project_path))
+    return tuple(sorted(projects))
+
+
+def _case_output_dir(tmp_path: Path, case_id: str) -> Path:
+    return tmp_path / case_id.replace("/", "__").replace("\\", "__").replace(":", "_")
 
 
 def test_extract_3d_models_decodes_embedded_step_payloads(tmp_path: Path) -> None:
@@ -672,3 +694,64 @@ def test_kicad_cli_validates_extracted_library_smoke(tmp_path: Path) -> None:
 
     assert symbol_result.ok, symbol_result.stderr
     assert footprint_result.ok, footprint_result.stderr
+
+
+@pytest.mark.slow
+def test_real_world_project_footprint_exports_upgrade_with_kicad_cli(tmp_path: Path) -> None:
+    """Every real-world project-lib footprint export should load in KiCad CLI."""
+    cli = resolve_kicad_cli()
+    if cli is None:
+        pytest.skip("kicad-cli not found")
+
+    projects = _real_world_corpus_projects()
+    if not projects:
+        pytest.skip("real-world KiCad corpus projects not found")
+
+    failures: list[str] = []
+    validated: list[str] = []
+    empty: list[str] = []
+    for case_id, project_path in projects:
+        case_dir = _case_output_dir(tmp_path, case_id)
+        pretty_dir = case_dir / f"{project_path.stem}.pretty"
+        try:
+            footprint_records = extract_footprints(
+                project_path,
+                KiCadExtractionMode.PROJECT_LOCAL,
+                dedupe_policy=KiCadExtractionDedupePolicy.LIBRARY_LINK,
+            )
+            if not footprint_records:
+                empty.append(case_id)
+                continue
+            written_footprints = write_pretty_library(footprint_records, pretty_dir)
+            if len(written_footprints) != len(footprint_records):
+                failures.append(
+                    f"{case_id}: wrote {len(written_footprints)} of "
+                    f"{len(footprint_records)} footprints"
+                )
+                continue
+            result = validate_pretty_library_with_kicad_cli(
+                pretty_dir,
+                kicad_cli=cli,
+                timeout=180,
+            )
+        except Exception as exc:  # pragma: no cover - failure report path
+            failures.append(f"{case_id}: extraction raised {type(exc).__name__}: {exc}")
+            continue
+        if result.ok:
+            validated.append(case_id)
+            continue
+        failures.append(
+            f"{case_id}: kicad-cli fp upgrade failed with {result.returncode}\n"
+            f"command: {' '.join(result.command)}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+
+    assert validated, "no real-world footprint libraries were validated"
+    assert "real_world/4-ch-backplane" in validated
+    assert not failures, (
+        "real-world project-lib footprint export failures"
+        + (f" ({len(empty)} projects had no footprints)" if empty else "")
+        + ":\n"
+        + "\n\n".join(failures)
+    )
