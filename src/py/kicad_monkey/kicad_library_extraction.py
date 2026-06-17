@@ -1050,6 +1050,8 @@ def _strip_pad_instance_metadata(
 ) -> None:
     for pad in footprint.pads:
         pad.net = NetRef()
+        pad.pinfunction = None
+        pad.pintype = None
         if reset_uuid:
             pad.uuid = None
 

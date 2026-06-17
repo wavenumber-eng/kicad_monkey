@@ -288,6 +288,8 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
             size_y=1.3,
             layers=["F.Cu", "F.Mask", "F.Paste"],
             net=NetRef(name="Net-(USB1-CC1)"),
+            pinfunction="CC1_A5",
+            pintype="bidirectional",
             uuid="22222222-2222-2222-2222-222222222222",
         )
     )
@@ -304,6 +306,12 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
     assert exported.pads[0].at_angle == 0.0
     assert exported.pads[0].to_sexp()[4] == ["at", -1.25, -2.46]
     assert not exported.pads[0].net
+    assert exported.pads[0].pinfunction is None
+    assert exported.pads[0].pintype is None
+    pad_sexp = exported.pads[0].to_sexp()
+    assert not any(isinstance(item, list) and item[0] == "net" for item in pad_sexp)
+    assert not any(isinstance(item, list) and item[0] == "pinfunction" for item in pad_sexp)
+    assert not any(isinstance(item, list) and item[0] == "pintype" for item in pad_sexp)
     assert exported.pads[0].uuid != "22222222-2222-2222-2222-222222222222"
 
     second_records = extract_footprints(project_path, KiCadExtractionMode.PROJECT_LOCAL)
