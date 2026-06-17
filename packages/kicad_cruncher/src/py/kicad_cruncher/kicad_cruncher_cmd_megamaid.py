@@ -333,6 +333,7 @@ def _run_library_extraction(
     from kicad_monkey.kicad_library_extraction import (
         KiCadExtractionDedupePolicy,
         KiCadExtractionMode,
+        build_footprint_library_link_map,
         extract_footprints,
         extract_symbols,
         write_extraction_metadata_bundle,
@@ -381,7 +382,17 @@ def _run_library_extraction(
         _log_stage_done(f"{command_label}: extracted {len(footprint_records)} footprints", started)
 
         started = time.perf_counter()
-        symbol_files = write_symbol_folder_library(symbol_records, layout.symbols_dir)
+        symbol_write_kwargs = {}
+        if mode == KiCadExtractionMode.PROJECT_LOCAL:
+            symbol_write_kwargs = {
+                "footprint_library_nickname": layout.footprint_nickname,
+                "footprint_name_map": build_footprint_library_link_map(footprint_records),
+            }
+        symbol_files = write_symbol_folder_library(
+            symbol_records,
+            layout.symbols_dir,
+            **symbol_write_kwargs,
+        )
         footprint_files = write_pretty_library(footprint_records, layout.footprints_dir)
         asset_count_message = (
             f"{command_label}: wrote {len(symbol_files)} symbol files "

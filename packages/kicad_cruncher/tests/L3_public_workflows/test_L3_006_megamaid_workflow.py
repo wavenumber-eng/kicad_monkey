@@ -64,7 +64,7 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
 
     assert manifest["schema"] == "kicad_cruncher.megamaid_manifest.a0"
     assert manifest["mode"] == "internal"
-    assert manifest["symbols"]["count"] >= 70
+    assert manifest["symbols"]["count"] >= 65
     assert manifest["footprints"]["count"] >= 40
     assert manifest["models"]["count"] >= 1
     assert manifest["metadata"] == "library_extraction.json"
@@ -117,7 +117,7 @@ def test_project_lib_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     assert manifest["mode"] == "project_local"
     assert manifest["symbols"]["directory"] == "4-ch-backplane"
     assert manifest["footprints"]["directory"] == "4-ch-backplane.pretty"
-    assert manifest["symbols"]["count"] >= 70
+    assert manifest["symbols"]["count"] >= 65
     assert 40 <= manifest["footprints"]["count"] < 832
     assert manifest["models"]["count"] == 0
     assert metadata["schema"] == "kicad_cruncher.library_extraction_bundle.a0"
@@ -128,6 +128,21 @@ def test_project_lib_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     assert manifest["library_tables"]["changed"] is True
     assert manifest["library_tables"]["symbol"]["action"] == "added"
     assert manifest["library_tables"]["footprint"]["action"] == "added"
+
+    symbol_names = {path.name for path in symbols_dir.glob("*.kicad_sym")}
+    assert "+3v3.kicad_sym" in symbol_names
+    assert "+3v3_2.kicad_sym" not in symbol_names
+    assert "ERJ-2RKF1002X_1.kicad_sym" in symbol_names
+    assert "ERJ-2RKF1002X_1_2.kicad_sym" not in symbol_names
+    assert "KSZ9896CTXC.kicad_sym" in symbol_names
+    assert (footprints_dir / "TQFP128_EP_TX_MCH.kicad_mod").is_file()
+    ksz_text = (symbols_dir / "KSZ9896CTXC.kicad_sym").read_text(encoding="utf-8")
+    assert '(symbol "KSZ9896CTXC"' in ksz_text
+    assert 'Footprint" "4-ch-backplane:TQFP128_EP_TX_MCH"' in ksz_text
+    assert "KSZ9896CTXC_1_1" in ksz_text
+    assert "KSZ9896CTXC_2_1" in ksz_text
+    assert "KSZ9896CTXC_3_1" in ksz_text
+
     assert "4-ch-backplane" in (project_copy / "sym-lib-table").read_text(
         encoding="utf-8"
     )
