@@ -267,6 +267,10 @@ def _library_member_name(name: str) -> str:
     return str(name).split(":", 1)[1] if ":" in str(name) else str(name)
 
 
+def _symbol_member_name(symbol: Any) -> str:
+    return _library_member_name(str(getattr(symbol, "name", "")))
+
+
 def _safe_asset_filename(name: str) -> str:
     clean = _library_member_name(name)
     for char in r'<>:"/\|?*':
@@ -837,10 +841,119 @@ def _symbol_record_key(
     dedupe_policy: KiCadExtractionDedupePolicy,
 ) -> str:
     if policy == KiCadExtractionMode.PROJECT_LOCAL:
-        return f"{source_path}:{getattr(symbol, 'name', '')}"
+        return _symbol_member_name(symbol)
     if dedupe_policy == KiCadExtractionDedupePolicy.FINGERPRINT:
         return _symbol_fingerprint(strip_symbol_metadata(symbol, policy))
     return str(getattr(symbol, "name", ""))
+
+
+_GENERATED_ALIAS_MEMBER_RE = re.compile(r"^(?P<base>.+)_\d+$")
+
+
+def _generated_symbol_alias_base_member(symbol: Any, known_members: set[str]) -> str | None:
+    """Return the base member for generated duplicate symbol aliases.
+
+    KiCad schematic ``lib_symbols`` can contain generated aliases such as
+    ``KSZ9896CTXC_1`` next to a base ``KSZ9896CTXC`` symbol.  Those are not
+    separate reusable library items for project-local folder libraries.
+    """
+    member = _symbol_member_name(symbol)
+    match = _GENERATED_ALIAS_MEMBER_RE.match(member)
+    if match is None:
+        return None
+    base = match.group("base")
+    if base not in known_members:
+        return None
+    get_value = getattr(symbol, "get_property_value", None)
+    value = (
+        str(get_value(StandardPropertyKey.VALUE, ""))
+        if callable(get_value)
+        else str(getattr(symbol, "value", ""))
+    )
+    return base if value == base else None
+
+
+def _rename_symbol_for_folder_library(symbol: Any, member_name: str) -> Any:
+    renamed = copy.deepcopy(symbol)
+    old_names = {
+        str(getattr(renamed, "name", "")),
+        _library_member_name(str(getattr(renamed, "name", ""))),
+    }
+    renamed.name = member_name
+    for subsymbol in getattr(renamed, "subsymbols", ()) or ():
+        current = str(getattr(subsymbol, "name", ""))
+        for old_name in sorted(old_names, key=len, reverse=True):
+            if not old_name:
+                continue
+            if current == old_name:
+                subsymbol.name = member_name
+                break
+            if current.startswith(f"{old_name}_"):
+                subsymbol.name = f"{member_name}{current[len(old_name):]}"
+                break
+    return renamed
+
+
+def build_footprint_library_link_map(
+    records: Iterable[KiCadFootprintExtractionRecord],
+) -> dict[str, str]:
+    """Return lookup keys that map original footprint refs to output members."""
+    out: dict[str, str] = {}
+    for record in records:
+        member = _library_member_name(record.name)
+        keys = {
+            record.name,
+            member,
+            record.library_link,
+            _library_member_name(record.library_link),
+            getattr(record.footprint, "name", ""),
+            _library_member_name(str(getattr(record.footprint, "name", ""))),
+        }
+        for key in keys:
+            key_text = str(key or "")
+            if key_text:
+                out.setdefault(key_text, member)
+    return out
+
+
+def _local_footprint_link(
+    value: str,
+    *,
+    footprint_library_nickname: str,
+    footprint_name_map: dict[str, str],
+) -> str:
+    if not value:
+        return value
+    if value.startswith(f"{footprint_library_nickname}:"):
+        return value
+    member = footprint_name_map.get(value) or footprint_name_map.get(_library_member_name(value))
+    if member is None:
+        return value
+    return f"{footprint_library_nickname}:{member}"
+
+
+def _relink_symbol_footprint_property(
+    symbol: Any,
+    *,
+    footprint_library_nickname: str | None,
+    footprint_name_map: dict[str, str] | None,
+) -> Any:
+    if not footprint_library_nickname or not footprint_name_map:
+        return symbol
+    relinked = copy.deepcopy(symbol)
+    get_value = getattr(relinked, "get_property_value", None)
+    set_value = getattr(relinked, "set_property_value", None)
+    if not callable(get_value) or not callable(set_value):
+        return relinked
+    old_value = str(get_value(StandardPropertyKey.FOOTPRINT, ""))
+    new_value = _local_footprint_link(
+        old_value,
+        footprint_library_nickname=footprint_library_nickname,
+        footprint_name_map=footprint_name_map,
+    )
+    if new_value != old_value:
+        set_value(StandardPropertyKey.FOOTPRINT, new_value)
+    return relinked
 
 
 def _normalise_standalone_footprint_name(footprint: KiCadFootprint, name: str) -> None:
@@ -929,28 +1042,35 @@ def extract_symbols(
     """Extract embedded schematic library symbols as structured records."""
     policy = KiCadExtractionMode(mode)
     dedupe = KiCadExtractionDedupePolicy(dedupe_policy)
+    symbol_items = [
+        (schematic_path, symbol)
+        for schematic_path in _iter_project_files(project_path, ".kicad_sch")
+        for symbol in _iter_schematic_lib_symbols_from_file(schematic_path)
+    ]
+    known_members = {_symbol_member_name(symbol) for _schematic_path, symbol in symbol_items}
     records: list[KiCadSymbolExtractionRecord] = []
     seen: set[str] = set()
-    for schematic_path in _iter_project_files(project_path, ".kicad_sch"):
-        for symbol in _iter_schematic_lib_symbols_from_file(schematic_path):
-            raw_fields = _symbol_fields(symbol)
-            key = _symbol_record_key(
-                symbol=symbol,
-                source_path=schematic_path,
-                policy=policy,
-                dedupe_policy=dedupe,
-            )
-            if policy == KiCadExtractionMode.INTERNAL and key in seen:
-                continue
-            seen.add(key)
-            records.append(KiCadSymbolExtractionRecord(
-                name=symbol.name,
-                source_path=str(schematic_path),
-                mode=policy.value,
-                symbol=strip_symbol_metadata(symbol, policy),
-                raw_fields=raw_fields,
-                canonical_fields=_canonical_identity_fields(raw_fields),
-            ))
+    for schematic_path, symbol in symbol_items:
+        if _generated_symbol_alias_base_member(symbol, known_members) is not None:
+            continue
+        raw_fields = _symbol_fields(symbol)
+        key = _symbol_record_key(
+            symbol=symbol,
+            source_path=schematic_path,
+            policy=policy,
+            dedupe_policy=dedupe,
+        )
+        if (policy in {KiCadExtractionMode.INTERNAL, KiCadExtractionMode.PROJECT_LOCAL}) and key in seen:
+            continue
+        seen.add(key)
+        records.append(KiCadSymbolExtractionRecord(
+            name=symbol.name,
+            source_path=str(schematic_path),
+            mode=policy.value,
+            symbol=strip_symbol_metadata(symbol, policy),
+            raw_fields=raw_fields,
+            canonical_fields=_canonical_identity_fields(raw_fields),
+        ))
     return tuple(records)
 
 
@@ -1063,6 +1183,8 @@ def write_symbol_folder_library(
     output_dir: Path | str,
     *,
     overwrite: bool = True,
+    footprint_library_nickname: str | None = None,
+    footprint_name_map: dict[str, str] | None = None,
 ) -> tuple[Path, ...]:
     """Write one single-symbol ``.kicad_sym`` file per extraction record."""
     out_dir = Path(output_dir)
@@ -1074,7 +1196,13 @@ def write_symbol_folder_library(
         path = out_dir / f"{stem}.kicad_sym"
         if path.exists() and not overwrite:
             continue
-        lib = KiCadSymbolLib(symbols=[copy.deepcopy(record.symbol)])
+        symbol = _rename_symbol_for_folder_library(record.symbol, stem)
+        symbol = _relink_symbol_footprint_property(
+            symbol,
+            footprint_library_nickname=footprint_library_nickname,
+            footprint_name_map=footprint_name_map,
+        )
+        lib = KiCadSymbolLib(symbols=[symbol])
         lib.save(path)
         written.append(path)
     return tuple(written)
@@ -1362,6 +1490,7 @@ __all__ = [
     "KiCadProjectAssetScan",
     "KiCadSymbolExtractionRecord",
     "build_extraction_metadata_bundle",
+    "build_footprint_library_link_map",
     "embed_external_model_payloads",
     "extract_3d_models",
     "extract_3d_models_from_footprint_records",

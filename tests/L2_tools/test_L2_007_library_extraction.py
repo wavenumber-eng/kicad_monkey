@@ -25,6 +25,7 @@ from kicad_monkey.kicad_library_extraction import (
     KiCadExtractionMode,
     KiCadFootprintExtractionRecord,
     KiCadModelReferenceKind,
+    build_footprint_library_link_map,
     embed_external_model_payloads,
     extract_3d_models,
     extract_3d_models_from_footprint_records,
@@ -435,7 +436,7 @@ def test_extract_4ch_backplane_libraries_writes_valid_stripped_assets(tmp_path: 
     symbol_records = extract_symbols(project_path)
     footprint_records = extract_footprints(project_path)
 
-    assert len(symbol_records) >= 70
+    assert len(symbol_records) >= 65
     assert len(footprint_records) >= 40
     assert any(record.raw_fields for record in symbol_records)
     assert any(record.raw_fields for record in footprint_records)
@@ -486,6 +487,13 @@ def test_project_local_extraction_preserves_instance_metadata() -> None:
     project_symbols = extract_symbols(project_path, KiCadExtractionMode.PROJECT_LOCAL)
     assert len(project_symbols) >= len(internal_symbols)
     assert any(len(record.symbol.properties) > 2 for record in project_symbols)
+    member_names = [record.name.split(":", 1)[-1] for record in project_symbols]
+    assert len(member_names) == len(set(member_names))
+    assert member_names.count("+3v3") == 1
+    assert member_names.count("ERJ-2RKF1002X_1") == 1
+
+    ksz = next(record for record in project_symbols if record.name.endswith("KSZ9896CTXC"))
+    assert ksz.symbol.unit_count == 3
 
     internal_footprints = extract_footprints(project_path)
     project_footprints = extract_footprints(project_path, KiCadExtractionMode.PROJECT_LOCAL)
@@ -494,6 +502,41 @@ def test_project_local_extraction_preserves_instance_metadata() -> None:
     sample = next(record.footprint for record in project_footprints if record.footprint.pads)
     assert any(pad.net for pad in sample.pads)
     assert any(pad.uuid is not None for pad in sample.pads)
+
+
+@pytest.mark.slow
+def test_project_local_symbol_writer_relinks_to_local_footprints(tmp_path: Path) -> None:
+    """Project-local folder symbols should point at the generated .pretty library."""
+    project_path = _four_ch_backplane_project()
+    symbol_records = extract_symbols(project_path, KiCadExtractionMode.PROJECT_LOCAL)
+    footprint_records = extract_footprints(
+        project_path,
+        KiCadExtractionMode.PROJECT_LOCAL,
+        dedupe_policy=KiCadExtractionDedupePolicy.LIBRARY_LINK,
+        embed_models=False,
+    )
+
+    written = write_symbol_folder_library(
+        symbol_records,
+        tmp_path / "symbols",
+        footprint_library_nickname="local-footprints",
+        footprint_name_map=build_footprint_library_link_map(footprint_records),
+    )
+
+    names = {path.name for path in written}
+    assert "+3v3.kicad_sym" in names
+    assert "+3v3_2.kicad_sym" not in names
+    assert "ERJ-2RKF1002X_1.kicad_sym" in names
+    assert "ERJ-2RKF1002X_1_2.kicad_sym" not in names
+
+    ksz_file = tmp_path / "symbols" / "KSZ9896CTXC.kicad_sym"
+    assert ksz_file.is_file()
+    text = ksz_file.read_text(encoding="utf-8")
+    assert '(symbol "KSZ9896CTXC"' in text
+    assert 'Footprint" "local-footprints:TQFP128_EP_TX_MCH"' in text
+    parsed = KiCadSymbolLib.from_file(ksz_file).symbols[0]
+    assert parsed.name == "KSZ9896CTXC"
+    assert parsed.unit_count == 3
 
 
 def test_kicad_cli_validates_extracted_library_smoke(tmp_path: Path) -> None:
