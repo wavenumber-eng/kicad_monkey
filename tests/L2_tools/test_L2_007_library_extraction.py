@@ -369,6 +369,21 @@ def test_rehydrate_embedded_model_replaces_footprint_stub() -> None:
     assert out.embedded_files[0].data == "payload"
 
 
+def test_embedded_model_data_serializes_as_kicad_data_block() -> None:
+    """Embedded model payloads should not be double-wrapped into invalid data blocks."""
+    payload = "A" * 76 + "B" * 76 + "C" * 12
+    footprint = KiCadFootprint()
+    footprint.name = "embedded-model"
+    footprint.embedded_files.append(EmbeddedFile("demo.step", "model", payload, "checksum"))
+
+    text = footprint.to_string()
+
+    assert "(data |" + ("A" * 76) in text
+    assert "\n\t\t\t\t" + ("B" * 76) in text
+    assert "\n\t\t\t\t" + ("C" * 12) + "|" in text
+    assert "\n\t\t\t\t\n" not in text
+
+
 def test_kicad_project_uri_uses_kiprjmod_for_project_local_paths(tmp_path: Path) -> None:
     """Project-local library table URIs should be portable across checkouts."""
     project_path = tmp_path / "demo.kicad_pro"

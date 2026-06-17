@@ -1679,9 +1679,18 @@ class SexpWriter:
         for item in elem[1:]:
             if isinstance(item, list):
                 return True
-            if isinstance(item, FormattedDataBlock) and '\n' in str(item):
-                return True
+            if isinstance(item, FormattedDataBlock):
+                payload = self._data_block_payload(item)
+                if '\n' in str(item) or len(payload) > MIME_BASE64_LENGTH:
+                    return True
         return False
+
+    @staticmethod
+    def _data_block_payload(value: FormattedDataBlock) -> str:
+        return ''.join(
+            ch for ch in str(value)
+            if ch != '|' and not ch.isspace()
+        )
 
     def _format_value(self, value: Any, add_indent_after_newlines: bool = False) -> str:
         """Format a single value for output.
@@ -1692,22 +1701,20 @@ class SexpWriter:
                 add current indentation after each newline in the output
         """
         if isinstance(value, FormattedDataBlock):
-            # Output FormattedDataBlock with proper indentation after newlines
-            s = str(value)
-            if add_indent_after_newlines and '\n' in s:
-                # Add indentation after each newline (except the last one if it ends with newline)
-                indent = self._indent()
-                lines = s.split('\n')
-                # First line has no leading indent (it follows the tag)
-                # Subsequent lines get indentation
-                result_parts = [lines[0]]
-                for line in lines[1:]:
-                    if line:  # Non-empty line
-                        result_parts.append('\n' + indent + line)
-                    else:  # Empty line (likely the trailing newline)
-                        result_parts.append('\n')
-                return ''.join(result_parts)
-            return s
+            payload = self._data_block_payload(value)
+            lines = [
+                payload[i:i + MIME_BASE64_LENGTH]
+                for i in range(0, len(payload), MIME_BASE64_LENGTH)
+            ] or [""]
+            if len(lines) == 1:
+                return f"|{lines[0]}|"
+            indent = self._indent() if add_indent_after_newlines else ""
+            return ''.join(
+                ("|" if index == 0 else "\n" + indent)
+                + line
+                + ("|" if index == len(lines) - 1 else "")
+                for index, line in enumerate(lines)
+            )
         elif isinstance(value, QuotedString):
             return f'"{_escape_kicad_string(str(value))}"'
         elif isinstance(value, str):

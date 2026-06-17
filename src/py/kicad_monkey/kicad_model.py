@@ -12,7 +12,6 @@ from typing import Optional, Tuple
 
 from .kicad_sexpr import QuotedString, FormattedDataBlock
 from .kicad_base import (
-    MIME_BASE64_LENGTH,
     find_element,
     get_value,
     unquote_string,
@@ -96,35 +95,7 @@ class EmbeddedFile:
                   ['name', QuotedString(self.name)],
                   ['type', self.file_type]]
 
-        # Format base64 with proper KiCad line wrapping
-        # KiCad format:
-        #   (data |BASE64_LINE1
-        #       BASE64_LINE2
-        #       ...
-        #       BASE64_LAST|
-        #   )
-        # First line starts with |, last line ends with |
-        # Subsequent lines get indentation added by SexpWriter
-        lines = [self.data[i:i+MIME_BASE64_LENGTH] for i in range(0, len(self.data), MIME_BASE64_LENGTH)]
-
-        formatted_parts = []
-        for i, line in enumerate(lines):
-            if i == 0:
-                # First line: |BASE64 (no leading newline, directly after "data ")
-                if len(lines) == 1:
-                    # Single line: |BASE64|
-                    formatted_parts.append(f'|{line}|')
-                else:
-                    formatted_parts.append(f'|{line}')
-            elif i == len(lines) - 1:
-                # Last line: BASE64| (has leading newline, SexpWriter adds indent)
-                formatted_parts.append(f'\n{line}|')
-            else:
-                # Middle lines: BASE64 (has leading newline, SexpWriter adds indent)
-                formatted_parts.append(f'\n{line}')
-        # Note: Don't add trailing newline - SexpWriter handles the newline before closing paren
-
-        data_block = FormattedDataBlock(''.join(formatted_parts))
+        data_block = FormattedDataBlock(self.data)
         result.append(['data', data_block])
 
         if self.checksum:
