@@ -997,23 +997,8 @@ def _normalise_standalone_footprint_orientations(
         text_box.angle = _normalise_angle_degrees(text_box.angle - footprint_angle)
 
 
-def _clear_library_export_uuids(standalone: KiCadFootprint) -> None:
+def _omit_library_export_footprint_uuid(standalone: KiCadFootprint) -> None:
     standalone.uuid = None
-    for collection_name in (
-        "properties",
-        "fp_texts",
-        "fp_text_boxes",
-        "fp_lines",
-        "fp_arcs",
-        "fp_circles",
-        "fp_rects",
-        "fp_polys",
-        "pads",
-        "zones",
-    ):
-        for item in getattr(standalone, collection_name, ()):
-            if hasattr(item, "uuid"):
-                item.uuid = None
 
 
 def _normalise_standalone_footprint_for_library_export(
@@ -1023,7 +1008,7 @@ def _normalise_standalone_footprint_for_library_export(
     standalone.placed = False
     standalone.set_property_value("Reference", "REF**", create=True)
     _strip_pad_instance_metadata(standalone, reset_uuid=False)
-    _clear_library_export_uuids(standalone)
+    _omit_library_export_footprint_uuid(standalone)
     _normalise_standalone_footprint_orientations(standalone, source)
 
 
@@ -1040,13 +1025,20 @@ def _strip_pad_instance_metadata(
             pad.uuid = None
 
 
+def _filter_footprint_library_metadata(footprint: KiCadFootprint) -> KiCadFootprint:
+    from .kicad_filter_footprint_metadata import fp_filter__remove_schematic_inherited_metadata
+
+    sexp = fp_filter__remove_schematic_inherited_metadata(footprint.to_sexp())
+    return KiCadFootprint.from_sexp(sexp)
+
+
 def strip_footprint_metadata(
     footprint: KiCadFootprint,
     policy: KiCadExtractionMode | str = KiCadExtractionMode.INTERNAL,
 ) -> KiCadFootprint:
     """Return a copy of ``footprint`` stripped according to the extraction policy."""
     mode = KiCadExtractionMode(policy)
-    stripped = copy.deepcopy(footprint)
+    stripped = _filter_footprint_library_metadata(copy.deepcopy(footprint))
     if mode == KiCadExtractionMode.PROJECT_LOCAL:
         return stripped
 

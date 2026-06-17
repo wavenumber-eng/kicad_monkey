@@ -28,6 +28,7 @@ from .kicad_filter_footprint import (
     fp_filter__normalized_embedded_model_naming,
     fp_filter__orthographic_projection_outline,
 )
+from .kicad_filter_footprint_metadata import fp_filter__remove_schematic_inherited_metadata
 from .kicad_filter_pcb import (
     pcb_filter__process_embedded_footprints,
     pcb_filter__reset_layer_user_names,
@@ -57,6 +58,7 @@ __all__ = [
     'fp_filter__fix_zero_sized_pads',
     'fp_filter__normalized_embedded_model_naming',
     'fp_filter__orthographic_projection_outline',
+    'fp_filter__remove_schematic_inherited_metadata',
 
     # Individual PCB filters
     'pcb_filter__process_embedded_footprints',
@@ -165,6 +167,7 @@ class KiCadFilterPipeline:
             fp_filter__clean_fab,
             fp_filter__fix_zero_sized_pads,
             fp_filter__fix_fp_text_font_to_arial,
+            fp_filter__remove_schematic_inherited_metadata,
             fp_filter__normalized_embedded_model_naming,
             fp_filter__orthographic_projection_outline,
         ])

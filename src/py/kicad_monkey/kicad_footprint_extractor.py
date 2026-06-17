@@ -16,6 +16,11 @@ Usage:
 import logging
 from pathlib import Path
 
+from .kicad_defaults import (
+    KICAD_FOOTPRINT_FILE_VERSION,
+    KICAD_FOOTPRINT_GENERATOR,
+    KICAD_GENERATOR_VERSION,
+)
 from .kicad_sexpr import QuotedString, build_sexp, format_sexp, parse_sexp
 
 log = logging.getLogger(__name__)
@@ -103,13 +108,13 @@ def extract_footprints_from_text(pcb_text: str) -> list[tuple[str, str]]:
                 for _i, child in enumerate(item):
                     if isinstance(child, list) and len(child) > 0:
                         if child[0] == 'version':
-                            child[1] = 20241229  # KiCad 9.0 version
+                            child[1] = KICAD_FOOTPRINT_FILE_VERSION
                             has_version = True
                         elif child[0] == 'generator':
-                            child[1] = QuotedString('pcbnew')
+                            child[1] = QuotedString(KICAD_FOOTPRINT_GENERATOR)
                             has_generator = True
                         elif child[0] == 'generator_version':
-                            child[1] = QuotedString('9.0')
+                            child[1] = QuotedString(KICAD_GENERATOR_VERSION)
                             has_generator_version = True
 
                 # Second pass: add missing fields in correct order (after footprint name)
@@ -117,13 +122,13 @@ def extract_footprints_from_text(pcb_text: str) -> list[tuple[str, str]]:
 
                 # Add in reverse order since we're inserting at the same index
                 if not has_generator_version:
-                    item.insert(insert_idx, ['generator_version', QuotedString('9.0')])
+                    item.insert(insert_idx, ['generator_version', QuotedString(KICAD_GENERATOR_VERSION)])
 
                 if not has_generator:
-                    item.insert(insert_idx, ['generator', QuotedString('pcbnew')])
+                    item.insert(insert_idx, ['generator', QuotedString(KICAD_FOOTPRINT_GENERATOR)])
 
                 if not has_version:
-                    item.insert(insert_idx, ['version', 20241229])
+                    item.insert(insert_idx, ['version', KICAD_FOOTPRINT_FILE_VERSION])
 
                 # Convert the footprint back to S-expression string
                 footprint_sexp = build_sexp(item)

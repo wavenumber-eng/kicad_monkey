@@ -284,6 +284,11 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
     footprint.uuid = "11111111-1111-1111-1111-111111111111"
     footprint.at_angle = -90.0
     footprint.upsert_property("Reference", "USB1")
+    footprint.upsert_property("Value", "USB-C Connector")
+    footprint.upsert_property("Manufacturer", "ACME")
+    footprint.upsert_property("cad-reference", "USB-C-123")
+    footprint.upsert_property("ki_fp_filters", "local:USB-C")
+    footprint.attr = ["smd", "exclude_from_bom", "dnp"]
     footprint.pads.append(
         Pad(
             "A5",
@@ -310,18 +315,21 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
     assert len(records) == 1
     exported = records[0].footprint
     assert exported.get_property_value("Reference") == "REF**"
-    assert exported.uuid is None
+    assert [prop.name for prop in exported.properties] == ["Reference", "Value"]
+    assert exported.attr == ["smd"]
+    assert not exported.uuid
     assert exported.pads[0].at_angle == 0.0
     assert exported.pads[0].to_sexp()[4] == ["at", -1.25, -2.46]
     assert not exported.pads[0].net
-    assert exported.pads[0].pinfunction is None
-    assert exported.pads[0].pintype is None
+    assert not exported.pads[0].pinfunction
+    assert not exported.pads[0].pintype
     pad_sexp = exported.pads[0].to_sexp()
     assert not any(isinstance(item, list) and item[0] == "net" for item in pad_sexp)
     assert not any(isinstance(item, list) and item[0] == "pinfunction" for item in pad_sexp)
     assert not any(isinstance(item, list) and item[0] == "pintype" for item in pad_sexp)
-    assert exported.pads[0].uuid is None
-    assert not has_token(exported.to_sexp(), "uuid")
+    assert exported.pads[0].uuid == "22222222-2222-2222-2222-222222222222"
+    assert not any(isinstance(item, list) and item[0] == "uuid" for item in exported.to_sexp())
+    assert has_token(exported.to_sexp(), "uuid")
 
 
 def test_rehydrate_embedded_model_replaces_footprint_stub() -> None:

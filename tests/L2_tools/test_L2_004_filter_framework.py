@@ -74,6 +74,7 @@ def test_module_imports():
     assert callable(km.fp_filter__fix_fp_text_font_to_arial)
     assert callable(km.fp_filter__normalized_embedded_model_naming)
     assert callable(km.fp_filter__orthographic_projection_outline)
+    assert callable(km.fp_filter__remove_schematic_inherited_metadata)
     assert callable(km.pcb_filter__reset_layer_user_names)
     assert callable(km.pcb_filter__process_embedded_footprints)
     assert callable(km.sch_filter__remove_altium_value_property)
@@ -212,6 +213,48 @@ class TestSymFilterStandardizeFonts:
             elif name == 'Datasheet':
                 # Should be untouched
                 assert size == ['size', 1.27, 1.27]
+
+
+# ============================================================================
+# Footprint metadata filters
+# ============================================================================
+
+class TestFpFilterRemoveSchematicInheritedMetadata:
+    """Footprint cleanup removes symbol/board-instance metadata only."""
+
+    def test_removes_inherited_properties_and_instance_attrs(self):
+        from kicad_monkey import fp_filter__remove_schematic_inherited_metadata
+
+        sexp = parse_sexp(dedent("""
+            (footprint "Header"
+                (version 20260206)
+                (generator "pcbnew")
+                (generator_version "10.0")
+                (layer "F.Cu")
+                (property "Reference" "REF**")
+                (property "Value" "1x6 Header")
+                (property "Datasheet" "")
+                (property "Description" "Generic header")
+                (property "Manufacturer" "ACME")
+                (property "cad-reference" "100_1_6")
+                (property ki_fp_filters "wavenumber:100_1_6")
+                (attr smd exclude_from_bom dnp exclude_from_pos_files)
+                (pad "1" thru_hole rect
+                    (at -6.35 0)
+                    (size 1.5748 1.5748)
+                    (drill 0.9652)
+                    (layers "*.Cu" "*.Mask")
+                    (remove_unused_layers no)
+                )
+            )
+        """))
+
+        out = fp_filter__remove_schematic_inherited_metadata(sexp)
+
+        assert _property_names(out) == ["Reference", "Value"]
+        assert find_element(out, "attr") == ["attr", "smd"]
+        pad = find_element(out, "pad")
+        assert find_element(pad, "remove_unused_layers") == ["remove_unused_layers", "no"]
 
 
 # ============================================================================
