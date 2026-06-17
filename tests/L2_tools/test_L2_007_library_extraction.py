@@ -610,6 +610,11 @@ def test_project_local_extraction_preserves_instance_metadata() -> None:
     ksz = next(record for record in project_symbols if record.name.endswith("KSZ9896CTXC"))
     assert ksz.symbol.unit_count == 3
 
+    level_shifter = next(
+        record for record in project_symbols if record.name.endswith("74LVC1T45GW,125")
+    )
+    assert level_shifter.symbol.get_property_value("Footprint") == "SOT:SOT-23-6"
+
     internal_footprints = extract_footprints(project_path)
     project_footprints = extract_footprints(project_path, KiCadExtractionMode.PROJECT_LOCAL)
     assert len(project_footprints) > len(internal_footprints)
@@ -652,6 +657,13 @@ def test_project_local_symbol_writer_relinks_to_local_footprints(tmp_path: Path)
     parsed = KiCadSymbolLib.from_file(ksz_file).symbols[0]
     assert parsed.name == "KSZ9896CTXC"
     assert parsed.unit_count == 3
+
+    level_shifter_file = tmp_path / "symbols" / "74LVC1T45GW,125.kicad_sym"
+    assert level_shifter_file.is_file()
+    assert (
+        'Footprint" "local-footprints:SOT-23-6"'
+        in level_shifter_file.read_text(encoding="utf-8")
+    )
 
 
 @pytest.mark.slow

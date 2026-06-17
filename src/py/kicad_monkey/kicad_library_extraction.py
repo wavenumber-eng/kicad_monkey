@@ -21,6 +21,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from .kicad_base import find_element
 from .kicad_footprint import KiCadFootprint
 from .kicad_lib_symbol import LibSymbol
 from .kicad_model import EmbeddedFile, Model
@@ -31,6 +32,7 @@ from .kicad_pcb_projection import KiCadPcbProjection
 from .kicad_environment import KiCadEnvironment
 from .kicad_project import find_adjacent_kicad_project_path
 from .kicad_sch_enums import PropertyId, StandardPropertyKey
+from .kicad_sch_symbol import SchSymbol
 from .kicad_sexpr import parse_sexp
 from .kicad_symbol_lib import KiCadSymbolLib
 
@@ -424,6 +426,37 @@ def _iter_schematic_lib_symbols_from_file(path: Path) -> Iterable[LibSymbol]:
         for child in item[1:]:
             if isinstance(child, list) and child and child[0] == "symbol":
                 yield LibSymbol.from_sexp(child)
+
+
+def _iter_schematic_placed_symbols_from_file(path: Path) -> Iterable[SchSymbol]:
+    sexp = parse_sexp(_read_kicad_text(path))
+    for item in sexp:
+        if not isinstance(item, list) or not item or item[0] != "symbol":
+            continue
+        if find_element(item, "lib_id") is None:
+            continue
+        yield SchSymbol.from_sexp(item)
+
+
+def _project_symbol_footprint_overrides(project_path: Path | str) -> dict[str, str]:
+    """Return consistent placed-symbol footprint overrides keyed by lib id/member."""
+    candidates: dict[str, set[str]] = {}
+    for schematic_path in _iter_project_files(project_path, ".kicad_sch"):
+        for symbol in _iter_schematic_placed_symbols_from_file(schematic_path):
+            lib_id = str(getattr(symbol, "lib_id", "") or "")
+            footprint = symbol.get_property_value(StandardPropertyKey.FOOTPRINT, "")
+            if not lib_id or not footprint:
+                continue
+            candidates.setdefault(lib_id, set()).add(footprint)
+
+    out: dict[str, str] = {}
+    for lib_id, footprints in candidates.items():
+        if len(footprints) != 1:
+            continue
+        footprint = next(iter(footprints))
+        out[lib_id] = footprint
+        out.setdefault(_library_member_name(lib_id), footprint)
+    return out
 
 
 def _is_step_model_name(name: str) -> bool:
@@ -1114,15 +1147,31 @@ def extract_symbols(
         for schematic_path in _iter_project_files(project_path, ".kicad_sch")
         for symbol in _iter_schematic_lib_symbols_from_file(schematic_path)
     ]
+    footprint_overrides = (
+        _project_symbol_footprint_overrides(project_path)
+        if policy == KiCadExtractionMode.PROJECT_LOCAL
+        else {}
+    )
     known_members = {_symbol_member_name(symbol) for _schematic_path, symbol in symbol_items}
     records: list[KiCadSymbolExtractionRecord] = []
     seen: set[str] = set()
     for schematic_path, symbol in symbol_items:
         if _generated_symbol_alias_base_member(symbol, known_members) is not None:
             continue
-        raw_fields = _symbol_fields(symbol)
+        working_symbol = copy.deepcopy(symbol)
+        footprint_override = (
+            footprint_overrides.get(str(getattr(working_symbol, "name", "") or ""))
+            or footprint_overrides.get(_symbol_member_name(working_symbol))
+        )
+        if footprint_override:
+            working_symbol.set_property_value(
+                StandardPropertyKey.FOOTPRINT,
+                footprint_override,
+                create=True,
+            )
+        raw_fields = _symbol_fields(working_symbol)
         key = _symbol_record_key(
-            symbol=symbol,
+            symbol=working_symbol,
             source_path=schematic_path,
             policy=policy,
             dedupe_policy=dedupe,
@@ -1131,10 +1180,10 @@ def extract_symbols(
             continue
         seen.add(key)
         records.append(KiCadSymbolExtractionRecord(
-            name=symbol.name,
+            name=working_symbol.name,
             source_path=str(schematic_path),
             mode=policy.value,
-            symbol=strip_symbol_metadata(symbol, policy),
+            symbol=strip_symbol_metadata(working_symbol, policy),
             raw_fields=raw_fields,
             canonical_fields=_canonical_identity_fields(raw_fields),
         ))
