@@ -40,7 +40,9 @@ from kicad_monkey.kicad_library_extraction import (
     write_pretty_library,
     write_symbol_folder_library,
 )
+from kicad_monkey.kicad_base import PadShape, PadType
 from kicad_monkey.kicad_model import EmbeddedFile, Model
+from kicad_monkey.kicad_pad import Pad
 from kicad_monkey.kicad_pcb import KiCadPcb
 from kicad_monkey.kicad_pcb_footprint import Footprint
 from kicad_monkey.kicad_project_libraries import (
@@ -262,6 +264,36 @@ def test_project_local_library_link_dedupe_skips_duplicate_conversion(
 
     assert len(link_footprints) == 1
     assert conversion_count == 1
+
+
+def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> None:
+    """Standalone extraction should remove the board instance rotation from pads."""
+    project_path = tmp_path / "rotated-footprint.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+
+    footprint = Footprint("local:USB-C")
+    footprint.at_angle = -90.0
+    footprint.pads.append(
+        Pad(
+            "A5",
+            PadType.SMD,
+            PadShape.RECT,
+            at_x=-1.25,
+            at_y=-2.46,
+            at_angle=270.0,
+            size_x=0.3,
+            size_y=1.3,
+            layers=["F.Cu", "F.Mask", "F.Paste"],
+        )
+    )
+    pcb = KiCadPcb()
+    pcb.footprints.append(footprint)
+    pcb.save(tmp_path / "rotated-footprint.kicad_pcb")
+
+    records = extract_footprints(project_path, KiCadExtractionMode.PROJECT_LOCAL)
+
+    assert len(records) == 1
+    assert records[0].footprint.pads[0].at_angle == 0.0
 
 
 def test_rehydrate_embedded_model_replaces_footprint_stub() -> None:
@@ -537,6 +569,30 @@ def test_project_local_symbol_writer_relinks_to_local_footprints(tmp_path: Path)
     parsed = KiCadSymbolLib.from_file(ksz_file).symbols[0]
     assert parsed.name == "KSZ9896CTXC"
     assert parsed.unit_count == 3
+
+
+@pytest.mark.slow
+def test_four_ch_usb_footprint_export_normalises_board_rotation() -> None:
+    """The real USB-C footprint should not leak placed-board rotation into pads."""
+    footprint_records = extract_footprints(
+        _four_ch_backplane_project(),
+        KiCadExtractionMode.PROJECT_LOCAL,
+        dedupe_policy=KiCadExtractionDedupePolicy.LIBRARY_LINK,
+        embed_models=False,
+    )
+
+    usb = next(
+        record.footprint
+        for record in footprint_records
+        if record.library_link.endswith("USB-3.1-SMD_U262-161N-4BVC11")
+    )
+
+    angles = {
+        pad.number: pad.at_angle
+        for pad in usb.pads
+        if pad.number in {"13", "A1B12", "A5", "B8"}
+    }
+    assert angles == {"13": 0.0, "A1B12": 0.0, "A5": 0.0, "B8": 0.0}
 
 
 def test_kicad_cli_validates_extracted_library_smoke(tmp_path: Path) -> None:

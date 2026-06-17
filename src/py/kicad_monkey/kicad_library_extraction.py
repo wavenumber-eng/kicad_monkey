@@ -960,6 +960,45 @@ def _normalise_standalone_footprint_name(footprint: KiCadFootprint, name: str) -
     footprint.name = _library_member_name(name)
 
 
+def _normalise_angle_degrees(angle: float) -> float:
+    normalised = float(angle) % 360.0
+    if abs(normalised) < 1e-9 or abs(normalised - 360.0) < 1e-9:
+        return 0.0
+    rounded = round(normalised)
+    if abs(normalised - rounded) < 1e-9:
+        return float(rounded)
+    return normalised
+
+
+def _normalise_standalone_footprint_orientations(
+    standalone: KiCadFootprint,
+    source: Footprint,
+) -> None:
+    """Convert board-instance child orientations to footprint-library orientations.
+
+    KiCad's footprint library export clones the board footprint and calls
+    ``FOOTPRINT::SetOrientation( ANGLE_0 )`` before writing it.  Pads store board
+    absolute orientation while their position is footprint-relative, so a rotated
+    placed footprint must have the parent angle removed before the standalone
+    footprint is written.
+    """
+
+    footprint_angle = float(source.at_angle or 0.0)
+    if _normalise_angle_degrees(footprint_angle) == 0.0:
+        return
+
+    for item in (
+        *standalone.pads,
+        *standalone.properties,
+        *standalone.fp_texts,
+    ):
+        if hasattr(item, "at_angle"):
+            item.at_angle = _normalise_angle_degrees(item.at_angle - footprint_angle)
+
+    for text_box in standalone.fp_text_boxes:
+        text_box.angle = _normalise_angle_degrees(text_box.angle - footprint_angle)
+
+
 def _strip_pad_instance_metadata(footprint: KiCadFootprint) -> None:
     for pad in footprint.pads:
         pad.net = NetRef()
@@ -993,6 +1032,7 @@ def strip_footprint_metadata(
 def _board_footprint_to_standalone(footprint: Footprint) -> KiCadFootprint:
     standalone = KiCadFootprint.from_sexp(footprint.to_sexp())
     _normalise_standalone_footprint_name(standalone, footprint.library_link)
+    _normalise_standalone_footprint_orientations(standalone, footprint)
     return standalone
 
 
