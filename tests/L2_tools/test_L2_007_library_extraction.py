@@ -302,6 +302,7 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
     assert exported.get_property_value("Reference") == "REF**"
     assert exported.uuid != footprint.uuid
     assert exported.pads[0].at_angle == 0.0
+    assert exported.pads[0].to_sexp()[4] == ["at", -1.25, -2.46]
     assert not exported.pads[0].net
     assert exported.pads[0].uuid != "22222222-2222-2222-2222-222222222222"
 

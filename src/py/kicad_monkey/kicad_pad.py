@@ -860,8 +860,10 @@ class Pad:
     def to_sexp(self) -> list:
         result = ['pad', QuotedString(self.number), self.pad_type.value, self.shape.value]
 
-        # KiCad's reader requires the angle slot even when zero (drift inventory #1).
-        result.append(['at', self.at_x, self.at_y, self.at_angle])
+        at = ['at', self.at_x, self.at_y]
+        if abs(float(self.at_angle or 0.0)) > 1e-9:
+            at.append(self.at_angle)
+        result.append(at)
 
         result.append(['size', self.size_x, self.size_y])
 
