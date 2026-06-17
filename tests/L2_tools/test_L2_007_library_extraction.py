@@ -45,7 +45,7 @@ from kicad_monkey.kicad_model import EmbeddedFile, Model
 from kicad_monkey.kicad_pad import Pad
 from kicad_monkey.kicad_pcb import KiCadPcb
 from kicad_monkey.kicad_pcb_footprint import Footprint
-from kicad_monkey.kicad_pcb_other import NetRef
+from kicad_monkey.kicad_pcb_other import NetRef, PadNameGroup
 from kicad_monkey.kicad_project_libraries import (
     KiCadLibraryTable,
     KiCadLibraryTableKind,
@@ -283,12 +283,16 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
     footprint = Footprint("local:USB-C")
     footprint.uuid = "11111111-1111-1111-1111-111111111111"
     footprint.at_angle = -90.0
+    footprint.locked = True
     footprint.upsert_property("Reference", "USB1")
     footprint.upsert_property("Value", "USB-C Connector")
     footprint.upsert_property("Manufacturer", "ACME")
     footprint.upsert_property("cad-reference", "USB-C-123")
     footprint.upsert_property("ki_fp_filters", "local:USB-C")
     footprint.attr = ["smd", "exclude_from_bom", "dnp"]
+    footprint.net_tie_pad_groups = [PadNameGroup.from_net_tie_token("A5, B5")]
+    footprint.duplicate_pad_numbers_are_jumpers = False
+    footprint.jumper_pad_groups = [PadNameGroup(("A6", "B6"))]
     footprint.pads.append(
         Pad(
             "A5",
@@ -317,6 +321,10 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
     assert exported.get_property_value("Reference") == "REF**"
     assert [prop.name for prop in exported.properties] == ["Reference", "Value"]
     assert exported.attr == ["smd"]
+    assert exported.net_tie_pad_groups == [PadNameGroup(("A5", "B5"), raw_token="A5, B5")]
+    assert exported.duplicate_pad_numbers_are_jumpers is False
+    assert exported.jumper_pad_groups == [PadNameGroup(("A6", "B6"))]
+    assert exported.locked is True
     assert not exported.uuid
     assert exported.pads[0].at_angle == 0.0
     assert exported.pads[0].to_sexp()[4] == ["at", -1.25, -2.46]
@@ -328,8 +336,10 @@ def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> No
     assert not any(isinstance(item, list) and item[0] == "pinfunction" for item in pad_sexp)
     assert not any(isinstance(item, list) and item[0] == "pintype" for item in pad_sexp)
     assert exported.pads[0].uuid == "22222222-2222-2222-2222-222222222222"
+    assert ["locked", "yes"] in exported.to_sexp()
     assert not any(isinstance(item, list) and item[0] == "uuid" for item in exported.to_sexp())
     assert has_token(exported.to_sexp(), "uuid")
+    assert has_token(exported.to_sexp(), "duplicate_pad_numbers_are_jumpers")
 
 
 def test_rehydrate_embedded_model_replaces_footprint_stub() -> None:

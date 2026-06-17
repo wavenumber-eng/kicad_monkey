@@ -74,6 +74,7 @@ from .kicad_pcb_footprint import (
 )
 
 from .kicad_pcb_zone import Zone
+from .kicad_pcb_other import PadNameGroup
 
 
 _FOOTPRINT_OBJECT_LIST_NAMES: tuple[str, ...] = (
@@ -87,6 +88,8 @@ _FOOTPRINT_OBJECT_LIST_NAMES: tuple[str, ...] = (
     "fp_polys",
     "pads",
     "zones",
+    "net_tie_pad_groups",
+    "jumper_pad_groups",
     "models",
     "embedded_files",
 )
@@ -102,6 +105,7 @@ _FOOTPRINT_OBJECT_LIST_BY_CLASS_NAME: dict[str, str] = {
     "FpPoly": "fp_polys",
     "Pad": "pads",
     "Zone": "zones",
+    "PadNameGroup": "net_tie_pad_groups",
     "Model": "models",
     "EmbeddedFile": "embedded_files",
 }
@@ -164,6 +168,11 @@ class KiCadFootprint:
 
         # Zones
         self.zones: list = []
+
+        # Pad group metadata
+        self.net_tie_pad_groups: list = []
+        self.duplicate_pad_numbers_are_jumpers: Optional[bool] = None
+        self.jumper_pad_groups: list = []
 
         # 3D models
         self.models: list = []
@@ -247,6 +256,30 @@ class KiCadFootprint:
         # Zones
         fp.zones = [Zone.from_sexp(z) for z in find_all_elements(sexp, 'zone')]
 
+        net_tie_elem = find_element(sexp, "net_tie_pad_groups")
+        if net_tie_elem:
+            for token in net_tie_elem[1:]:
+                group = PadNameGroup.from_net_tie_token(token)
+                if group:
+                    fp.net_tie_pad_groups.append(group)
+
+        duplicate_jumpers_elem = find_element(sexp, "duplicate_pad_numbers_are_jumpers")
+        if duplicate_jumpers_elem is not None:
+            if len(duplicate_jumpers_elem) > 1:
+                fp.duplicate_pad_numbers_are_jumpers = (
+                    unquote_string(duplicate_jumpers_elem[1]).lower() in ("yes", "true", "1")
+                )
+            else:
+                fp.duplicate_pad_numbers_are_jumpers = True
+
+        jumper_groups_elem = find_element(sexp, "jumper_pad_groups")
+        if jumper_groups_elem:
+            for group_elem in jumper_groups_elem[1:]:
+                if isinstance(group_elem, list):
+                    group = PadNameGroup.from_jumper_group_sexp(group_elem)
+                    if group:
+                        fp.jumper_pad_groups.append(group)
+
         # 3D Models
         fp.models = [Model.from_sexp(m) for m in find_all_elements(sexp, 'model')]
 
@@ -274,7 +307,7 @@ class KiCadFootprint:
 
         Element order matches KiCad source (pcb_io_kicad_sexpr.cpp:1130-1448):
         1. version, generator, generator_version
-        2. locked/placed flags (bare tokens)
+        2. locked/placed flags
         3. layer
         4. uuid
         5. descr, tags
@@ -296,11 +329,11 @@ class KiCadFootprint:
         result.append(['generator', QuotedString(self.generator)])
         result.append(['generator_version', QuotedString(self.generator_version)])
 
-        # 2. Flags (bare tokens, not ['locked', 'yes'])
+        # 2. Flags
         if self.locked:
-            result.append('locked')
+            result.append(['locked', 'yes'])
         if self.placed:
-            result.append('placed')
+            result.append(['placed', 'yes'])
 
         # 3. Layer
         result.append(['layer', QuotedString(self.layer)])
@@ -331,6 +364,24 @@ class KiCadFootprint:
         # 7. Attributes
         if self.attr:
             result.append(['attr'] + list(self.attr))
+
+        if self.net_tie_pad_groups:
+            result.append(
+                ["net_tie_pad_groups"]
+                + [group.to_net_tie_token() for group in self.net_tie_pad_groups]
+            )
+        if self.duplicate_pad_numbers_are_jumpers is not None:
+            result.append(
+                [
+                    "duplicate_pad_numbers_are_jumpers",
+                    "yes" if self.duplicate_pad_numbers_are_jumpers else "no",
+                ]
+            )
+        if self.jumper_pad_groups:
+            result.append(
+                ["jumper_pad_groups"]
+                + [group.to_jumper_group_sexp() for group in self.jumper_pad_groups]
+            )
 
         # 8. Design rule overrides
         if self.solder_mask_margin is not None:
