@@ -61,9 +61,6 @@ strict = true
 [tool.uv]
 package = true
 
-[tool.uv.sources]
-kicad-monkey = { path = "../kicad_monkey", editable = true }
-
 [tool.hatch.build.targets.sdist]
 include = [
     "AGENTS.md",
