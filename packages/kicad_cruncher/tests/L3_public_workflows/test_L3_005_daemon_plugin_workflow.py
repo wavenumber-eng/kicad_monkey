@@ -46,16 +46,11 @@ class _PluginMainModule(Protocol):
     def _resolve_daemon_url(self) -> str: ...
 
 
-class _UrllibModule(Protocol):
-    request: object
-
-
 class _WebbrowserModule(Protocol):
     def open(self, url: str) -> bool: ...
 
 
 class _PluginRuntimeModule(_PluginMainModule, Protocol):
-    urllib: _UrllibModule
     webbrowser: _WebbrowserModule
 
 
@@ -104,21 +99,6 @@ class _RecordingServerRunner:
                 "reload": reload,
             }
         )
-
-
-class _FakeHttpResponse:
-    def __init__(self, *, status: int = 200, body: str = "{}") -> None:
-        self.status = status
-        self._body = body.encode("utf-8")
-
-    def __enter__(self) -> _FakeHttpResponse:
-        return self
-
-    def __exit__(self, _exc_type: object, _exc: object, _tb: object) -> None:
-        return None
-
-    def read(self) -> bytes:
-        return self._body
 
 
 def test_daemon_command_inventory_exposes_pcb_clean() -> None:
@@ -201,64 +181,47 @@ def test_daemon_startup_rejects_remote_host_before_runner(tmp_path: Path, monkey
     assert not state_path.exists()
 
 
-def test_plugin_main_reports_unreachable_daemon(monkeypatch) -> None:
-    """Verify plugin entrypoint fails clearly when the daemon is unavailable."""
+def test_plugin_main_reports_daemon_start_failure(monkeypatch) -> None:
+    """Verify plugin entrypoint fails clearly when the daemon cannot start."""
     module = _load_plugin_main_module()
-    plugin_main = cast(_PluginRuntimeModule, module)
-
-    def fail_urlopen(_request: object, timeout: object = None) -> _FakeHttpResponse:
-        raise OSError(f"daemon unavailable after timeout {timeout}")
+    plugin_main = cast(_PluginMainModule, module)
 
     monkeypatch.setattr(module, "_resolve_daemon_url", lambda: "http://127.0.0.1:9999")
-    monkeypatch.setattr(plugin_main.urllib.request, "urlopen", fail_urlopen)
+    monkeypatch.setattr(module, "_daemon_is_healthy", lambda _url, timeout=2.0: False)
+    monkeypatch.setattr(module, "_start_daemon_for_url", lambda _url: (False, "no command"))
 
     assert plugin_main.main() == 1
 
 
-def test_plugin_main_posts_cleanup_request_and_opens_daemon(monkeypatch) -> None:
-    """Verify plugin entrypoint health-checks, posts cleanup plan, and opens UI."""
+def test_plugin_main_starts_daemon_and_opens_tool_center(monkeypatch) -> None:
+    """Verify plugin entrypoint starts the daemon and opens the tool center."""
     module = _load_plugin_main_module()
     plugin_main = cast(_PluginRuntimeModule, module)
-    posted_payloads: list[dict[str, object]] = []
     opened_urls: list[str] = []
+    started_urls: list[str] = []
+    health_results = [False, True]
 
-    def fake_urlopen(request: object, timeout: object = None) -> _FakeHttpResponse:
-        url = str(getattr(request, "full_url", request))
-        if url.endswith("/health"):
-            return _FakeHttpResponse(status=200)
+    def fake_daemon_is_healthy(url: str, *, timeout: float = 2.0) -> bool:
+        assert url == "http://127.0.0.1:9999"
+        assert timeout in {1, 2.0}
+        return health_results.pop(0)
 
-        data = getattr(request, "data", b"{}")
-        if not isinstance(data, bytes):
-            data = b"{}"
-        posted_payloads.append(json.loads(data.decode("utf-8")))
-        return _FakeHttpResponse(
-            status=200,
-            body=json.dumps({"ok": True, "result": {"schema": "mutation"}}),
-        )
+    def fake_start_daemon_for_url(url: str) -> tuple[bool, str]:
+        started_urls.append(url)
+        return True, "started"
 
     def fake_open(url: str) -> bool:
         opened_urls.append(url)
         return True
 
     monkeypatch.setattr(module, "_resolve_daemon_url", lambda: "http://127.0.0.1:9999")
-    monkeypatch.setattr(
-        module,
-        "_discover_kicad_session",
-        lambda: (None, {"connected": False, "source": "test"}),
-    )
-    monkeypatch.setattr(plugin_main.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(module, "_daemon_is_healthy", fake_daemon_is_healthy)
+    monkeypatch.setattr(module, "_start_daemon_for_url", fake_start_daemon_for_url)
     monkeypatch.setattr(plugin_main.webbrowser, "open", fake_open)
 
     assert plugin_main.main() == 0
+    assert started_urls == ["http://127.0.0.1:9999"]
     assert opened_urls == ["http://127.0.0.1:9999"]
-    assert posted_payloads == [
-        {
-            "schema": "kicad_cruncher.daemon.pcb.layer_cleanup.request.a0",
-            "mode": "kicad-ipc",
-            "apply": False,
-            "session": {"connected": False, "source": "test"},
-        }
-    ]
 
 
 def test_plugin_install_copies_apply_adapter(tmp_path: Path) -> None:

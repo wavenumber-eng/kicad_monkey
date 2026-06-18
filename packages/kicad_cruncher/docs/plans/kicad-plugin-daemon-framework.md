@@ -1,9 +1,9 @@
 # KiCad Plugin Daemon Framework Plan
 
-Status: active
-Last updated: 2026-06-08
+Status: active post-release validation
+Last updated: 2026-06-18
 Owner: kicad_cruncher
-Branch: pcb-clean-daemon-ui
+Branch: main; released in `kicad-cruncher==2026.6.18`
 
 ## Goal
 
@@ -34,7 +34,7 @@ daemon and plugin UI must share that command logic instead of reimplementing it.
 
 ## Current State
 
-`appz/kicad_plugins/footprint_hlr` is the working prototype. It proves that a
+`appz/kicad_plugins/footprint_hlr` was the working prototype. It proved that a
 KiCad IPC action plugin can:
 
 - install into discovered user KiCad plugin folders;
@@ -47,22 +47,26 @@ KiCad IPC action plugin can:
 - clean selected footprint-local target-layer geometry; and
 - stamp hidden `ALX_HLR_META` metadata through undoable KiCad commits.
 
-The appz prototype does not yet have a persistent daemon, Rack coverage, or a
-wired HLR projection backend. Its browser server is one-shot and plugin-local.
+The durable plugin and daemon implementation has moved to `kicad_cruncher`.
+As of `kicad-cruncher==2026.6.18`, `main` contains the public daemon command,
+plugin installer, bundled KiCad IPC action package, PCB Clean CLI command,
+daemon PCB Clean endpoint, no-build daemon tool-center UI, daemon discovery
+state, and mocked KiCad IPC apply coverage. The old `pcb-clean-daemon-ui`
+branch was merged into `main` and deleted after release.
 
-`kicad_cruncher` currently owns the public higher-level KiCad workflow package.
-It already publishes through PyPI, has Rack signoff, and has public commands for
-design review, manufacturing outputs, PCB SVG, and PCB layer STEP. This makes it
-the right public home for plugin and daemon workflows.
+`kicad_cruncher` owns the public higher-level KiCad workflow package. It
+publishes through PyPI, has Rack signoff, and has public commands for design
+review, manufacturing outputs, PCB SVG, PCB layer STEP, plugin installation,
+daemon startup, and PCB cleanup.
 
 `kicad_monkey` remains the low-level parser/model/rendering package. It should
 not own plugin lifecycle, daemon UX, Wavenumber workflow commands, or browser
 application orchestration.
 
-## Handoff State: PCB Clean Daemon UI
+## Released State: PCB Clean Daemon UI
 
-Branch `pcb-clean-daemon-ui` contains the first functional no-build browser UI
-for PCB Clean. The daemon root page now lets a user:
+`main` contains the first functional no-build browser UI for PCB Clean. The
+daemon root page lets a user:
 
 - enter a `.kicad_pcb` board path;
 - optionally enter a `pcb.clean.config` JSONC config path;
@@ -78,30 +82,45 @@ reported `planned`, `file` mode, 6 layer-name resets, 310 footprint graphics,
 0 board graphics, and 0 value fields. Use a copied board file for any manual
 apply test.
 
-The live KiCad editor path is intentionally not complete from the browser UI.
-The daemon can return KiCad IPC mutation requests, and the plugin-side adapter
-has mocked coverage, but live editor application remains gated behind
-`KICAD_CRUNCHER_PCB_CLEAN_APPLY` and should be finished as a separate KiCad
-manual-validation slice.
+The KiCad toolbar action is intentionally small: it starts or discovers the
+local daemon and opens the browser tool center. Cleanup planning and apply are
+driven from the daemon UI. The daemon can return KiCad IPC mutation requests,
+and the plugin-side adapter has mocked coverage, but live editor application
+remains gated until manual KiCad validation is complete.
 
-Known-good verification for this branch:
+Known-good release verification:
 
 ```powershell
-uv run pyright
-uv run ruff check src tests
-uv run pytest -q
-uv run pytest tests\L99_signoff -q
-git diff --check
+uv run --extra test rack run --all
+uv run --extra test python -m build
+uv run --extra test twine check dist/*
+uv run --extra test python tests\support_scripts\install_test.py
 ```
+
+The `2026.6.18` release also passed GitHub CI on Windows, macOS, and Linux and
+the GitHub Publish workflow pushed the package to PyPI. A fresh Python 3.12
+install verified `kicad-cruncher 2026.6.18`, `kicad-monkey 2026.6.18`, and
+`wn-geometer 2026.6.10`.
 
 Manual local try flow:
 
 ```powershell
-uv tool install --force .
+uv tool install --force kicad-cruncher==2026.6.18
 kcr daemon --host 127.0.0.1 --port 8766
 ```
 
 Then open `http://127.0.0.1:8766/`.
+
+Manual plugin smoke test on 2026-06-18:
+
+- installed the bundled `kicad-cruncher-tools` package into KiCad 10.0
+  (`10.0.3`) with IPC API enabled;
+- launched PCB Editor against the 4-channel backplane board;
+- verified the PCB toolbar action appears as the Wavenumber `h` icon; and
+- clicked the action and verified it starts/discovers the daemon and serves the
+  tool center at `http://127.0.0.1:8766/`. Port 8765 was already occupied by a
+  non-daemon local HTTP server on this workstation, so this validated daemon
+  state-file discovery for the alternate local port.
 
 ## Ownership Decision
 
@@ -330,6 +349,9 @@ tool-oriented layout.
 ### 0. Branch And Prerequisites
 
 - [x] Create local branch `plugin-daemon-framework-plan`.
+- [x] Merge `pcb-clean-daemon-ui` into `main` for the `2026.6.18` release.
+- [x] Delete the redundant local and remote `pcb-clean-daemon-ui` branch after
+      release.
 - [x] Sync appz to `origin/dev`.
 - [x] Update `kicad_cruncher` to depend on `wn-geometer==2026.6.4`.
 - [x] Refresh `uv.lock`.
@@ -368,9 +390,14 @@ tool-oriented layout.
 - [x] Package the first KiCad IPC action as `kicad_cruncher` package data.
 - [x] Keep the action shim small: discover board/session, call daemon, report
       failure clearly.
+- [x] Change the toolbar action to start/discover the local daemon and open the
+      tool center without posting PCB cleanup requests as a click side effect.
 - [x] Add mocked KiCad IPC apply-adapter tests for commit/undo behavior.
 - [x] Add mocked shim tests for daemon available/unavailable cases.
 - [x] Preserve the useful appz installer diagnostics.
+- [x] Manually install the current bundled `kicad-cruncher-tools` package into KiCad
+      and verify the action appears in KiCad's PCB action plugin list and PCB
+      editor toolbar after restart.
 
 ### 5. PCB Layer Cleanup
 
@@ -390,11 +417,12 @@ tool-oriented layout.
 - [x] Replace the daemon placeholder page with the first usable no-build PCB
       Clean web UI for plan and direct file-mode apply.
 - [ ] Manually validate the web UI direct-file apply path on a copied real
-      board before release.
+      board before promoting it as a trusted real-project workflow.
 - [ ] Finish and manually validate live KiCad editor apply from the installed
       plugin using the daemon mutation request path.
-- [ ] Decide whether the plugin should auto-start the daemon or keep requiring
-      users to start `kcr daemon` explicitly.
+- [x] Decide whether the plugin should auto-start the daemon or keep requiring
+      users to start `kcr daemon` explicitly: the plugin should auto-start a
+      loopback daemon and then open the tool center.
 - [ ] Factor shared no-build UI primitives only after the second tool tab needs
       them; do not prematurely abstract this first PCB Clean page.
 - [ ] Start with existing PCB user/generated layers before expanding into HLR
@@ -438,14 +466,25 @@ tool-oriented layout.
 
 ## Completion Criteria
 
-The framework is ready for public release when:
+The baseline public framework was released in `2026.6.18` when:
 
 - install, daemon, and first plugin behavior are documented in durable design
   docs and ADRs;
 - Rack signoff checks plugin docs, command manifests, installer tests, daemon
   tests, and package-data hygiene;
 - appz delegates to public `kicad-cruncher` commands;
-- a fresh public install can install the plugin, start the daemon, and execute a
-  cleanup operation from KiCad; and
 - the release package contains no prototype build outputs, generated archives,
   private workspace paths, or appz-only assumptions.
+
+The remaining completion criteria before calling the live KiCad workflow
+production-ready are:
+
+- a fresh public install can install the plugin, start or discover the daemon
+  from the toolbar action, and execute a cleanup operation from KiCad on a
+  copied validation board;
+- live KiCad editor apply has been manually validated under KiCad's commit/undo
+  model;
+- direct-file apply from the daemon UI has been manually validated on copied
+  real boards; and
+- the daemon auto-start path works with the packaged command on a normal user
+  workstation install.
