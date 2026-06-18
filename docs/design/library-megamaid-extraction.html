@@ -110,6 +110,14 @@
       embedded-file map.
     </p>
     <p>Extracted STEP/STP files should be deduped by content hash.</p>
+    <p>
+      Project health scans use the active project board/schematic pair plus
+      local symbol and footprint libraries listed in the project library
+      tables. They intentionally ignore unrelated recursive KiCad files under
+      the project directory that are not part of those local library tables.
+      Standalone footprint-library health checks use a model-only
+      S-expression projection path instead of hydrating full footprint objects.
+    </p>
   </section>
 
   <section>

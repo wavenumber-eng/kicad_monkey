@@ -7,13 +7,19 @@ from pathlib import Path
 import pytest
 
 from kicad_monkey import (
+    Footprint,
+    LibSymbol,
+    SchSymbol,
     SexpSelector,
     SexprLexError,
     SexprTreeError,
+    iter_kicad_objects_from_file,
+    iter_kicad_objects_from_text,
     iter_sexp_file_form_spans,
     iter_sexp_form_spans,
     parse_sexp_span,
 )
+from kicad_monkey.kicad_model import EmbeddedFile, Model
 
 
 PCB_TEXT = """(kicad_pcb
@@ -29,6 +35,27 @@ PCB_TEXT = """(kicad_pcb
   (footprint "Demo:C_0805"
     (property "Reference" "C1")
     (model "models/name(with-parens).step")
+  )
+)
+"""
+
+SCHEMATIC_TEXT = """(kicad_sch
+  (version 20250114)
+  (generator "kicad_monkey_test")
+  (lib_symbols
+    (symbol "demo:R"
+      (property "Reference" "R" (id 0) (at 0 0 0))
+      (symbol "demo:R_1_0"
+        (rectangle (start 0 0) (end 2.54 2.54))
+      )
+    )
+  )
+  (symbol
+    (lib_id "demo:R")
+    (at 10 20 0)
+    (unit 1)
+    (property "Reference" "R1" (id 0) (at 10 20 0))
+    (uuid "11111111-1111-1111-1111-111111111111")
   )
 )
 """
@@ -77,6 +104,55 @@ def test_file_form_spans_attach_source_path(tmp_path: Path) -> None:
 
     assert span.source_path == str(path)
     assert span.text() == "(aux_axis_origin 1.0 2.0)"
+
+
+def test_typed_reader_yields_board_footprint_objects() -> None:
+    footprints = list(iter_kicad_objects_from_text(PCB_TEXT, Footprint))
+    models = list(iter_kicad_objects_from_text(PCB_TEXT, Model))
+
+    assert [footprint.library_link for footprint in footprints] == [
+        "Demo:R_0805",
+        "Demo:C_0805",
+    ]
+    assert [model.path for model in models] == ["models/name(with-parens).step"]
+
+
+def test_typed_reader_distinguishes_library_and_placed_symbols() -> None:
+    lib_symbols = list(iter_kicad_objects_from_text(SCHEMATIC_TEXT, LibSymbol))
+    placed_symbols = list(iter_kicad_objects_from_text(SCHEMATIC_TEXT, SchSymbol))
+
+    assert [symbol.name for symbol in lib_symbols] == ["demo:R"]
+    assert [symbol.lib_id for symbol in placed_symbols] == ["demo:R"]
+
+
+def test_typed_file_reader_uses_default_selector(tmp_path: Path) -> None:
+    path = tmp_path / "board.kicad_pcb"
+    path.write_text(PCB_TEXT, encoding="utf-8")
+
+    footprints = list(iter_kicad_objects_from_file(path, Footprint))
+
+    assert [footprint.get_property_value("Reference") for footprint in footprints] == [
+        "R1",
+        "C1",
+    ]
+
+
+def test_typed_reader_filters_embedded_file_forms() -> None:
+    text = """(kicad_pcb
+      (file "not-an-embedded-file-reference")
+      (embedded_files
+        (file
+          (name "asset.step")
+          (type model)
+          (data "QUJD")
+        )
+      )
+    )
+    """
+
+    files = list(iter_kicad_objects_from_text(text, EmbeddedFile))
+
+    assert files == [EmbeddedFile(name="asset.step", file_type="model", data="QUJD")]
 
 
 def test_selector_prunes_nested_forms() -> None:

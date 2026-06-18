@@ -30,7 +30,11 @@ def test_module_imports():
         extract_symbols_from_text,
     )
     from kicad_monkey.kicad_symbol_splitter import split_symbol_library
-    assert True
+
+    assert callable(sanitize_filename)
+    assert callable(extract_symbols_from_schematic)
+    assert callable(extract_symbols_from_text)
+    assert callable(split_symbol_library)
 
 
 # ============================================================================
@@ -110,10 +114,11 @@ class TestSymbolExtractor:
         symbols = extract_symbols_from_text(sample_schematic)
 
         assert len(symbols) == 1
-        name, sexp = symbols[0]
+        symbol = symbols[0]
+        sexp = str(symbol.to_sexp())
 
         # Name should not have library prefix
-        assert name == "TestSymbol"
+        assert symbol.name == "TestSymbol"
         assert "test_lib:" not in sexp
 
         # Sub-symbol should also not have library prefix

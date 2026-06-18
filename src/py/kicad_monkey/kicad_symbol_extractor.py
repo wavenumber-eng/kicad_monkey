@@ -16,7 +16,9 @@ Usage:
 import logging
 from pathlib import Path
 
+from .kicad_lib_symbol import LibSymbol
 from .kicad_sexpr import build_sexp, format_sexp, parse_sexp
+from .kicad_targeted_reader import iter_kicad_objects_from_text
 
 log = logging.getLogger(__name__)
 
@@ -51,115 +53,92 @@ def sanitize_filename(name: str) -> str:
     return name
 
 
-def extract_symbols_from_text(schematic_text: str) -> list[tuple[str, str]]:
+def _clean_library_symbol_name(symbol_name: str) -> str:
+    if ":" in symbol_name:
+        return symbol_name.split(":", 1)[1]
+    return symbol_name
+
+
+def _update_subsymbol_names(node: object, clean_symbol_name: str) -> None:
+    """Recursively update sub-symbol names to use the cleaned parent name."""
+    if not isinstance(node, list):
+        return
+
+    for child in node:
+        if isinstance(child, list) and len(child) > 1 and child[0] == "symbol":
+            child_name = str(child[1])
+            if "_" in child_name:
+                parts = child_name.split("_")
+                if len(parts) >= 3:
+                    try:
+                        int(parts[-2])
+                        int(parts[-1])
+                    except ValueError:
+                        pass
+                    else:
+                        suffix = "_" + "_".join(parts[-2:])
+                        child[1] = clean_symbol_name + suffix
+        _update_subsymbol_names(child, clean_symbol_name)
+
+
+def _standalone_symbol(symbol: LibSymbol) -> LibSymbol:
+    sexp = symbol.to_sexp()
+    clean_symbol_name = _clean_library_symbol_name(str(symbol.name))
+    sexp[1] = clean_symbol_name
+    _update_subsymbol_names(sexp, clean_symbol_name)
+    return LibSymbol.from_sexp(sexp)
+
+
+def extract_symbols_from_text(schematic_text: str) -> list[LibSymbol]:
     """
-    Extract symbol definitions from schematic file text using sexpr parser.
+    Extract library symbol objects from schematic file text.
 
     Args:
         schematic_text: Contents of a .kicad_sch file
 
     Returns:
-        List of (symbol_name, symbol_sexp) tuples
+        List of LibSymbol objects ready to write into .kicad_sym files
     """
-    symbols = []
-
     try:
-        # Parse the entire schematic using sexpr parser
-        parsed = parse_sexp(schematic_text)
+        return [
+            _standalone_symbol(symbol)
+            for symbol in iter_kicad_objects_from_text(schematic_text, LibSymbol)
+        ]
     except Exception as e:
         log.error(f"Failed to parse schematic file: {e}")
-        return symbols
-
-    # The parsed structure is a list: ['kicad_sch', (version ...), (lib_symbols ...), ...]
-    # Find the lib_symbols section
-    lib_symbols = None
-    for item in parsed:
-        if isinstance(item, list) and len(item) > 0 and item[0] == 'lib_symbols':
-            lib_symbols = item
-            break
-
-    if not lib_symbols:
-        return symbols
-
-    # Extract all symbol definitions from lib_symbols
-    # lib_symbols structure: ['lib_symbols', [symbol ...], [symbol ...], ...]
-    for item in lib_symbols[1:]:  # Skip the 'lib_symbols' keyword
-        if isinstance(item, list) and len(item) > 1 and item[0] == 'symbol':
-            # item[1] is the symbol name (could be QuotedString or str)
-            symbol_name = str(item[1])
-
-            # Remove library prefix if present (e.g., "library:symbol" -> "symbol")
-            clean_symbol_name = symbol_name
-            if ':' in symbol_name:
-                clean_symbol_name = symbol_name.split(':', 1)[1]
-
-            # Update the symbol name in the parsed structure to remove library prefix
-            item[1] = clean_symbol_name
-
-            # Also update any sub-symbol references that have the full prefixed name
-            # Sub-symbols follow the pattern: "original_symbol_name_1_0", "original_symbol_name_2_0", etc.
-            # We need to update them to: "clean_symbol_name_1_0", "clean_symbol_name_2_0", etc.
-            def update_subsymbol_names(node):
-                """Recursively update sub-symbol names to use clean symbol name"""
-                if isinstance(node, list):
-                    for _i, child in enumerate(node):
-                        # Check if this is a symbol definition with a name
-                        if isinstance(child, list) and len(child) > 1 and child[0] == 'symbol':
-                            child_name = str(child[1])
-                            # Check if this is a sub-symbol (ends with _N_N pattern)
-                            # Original might be "library:symbol_1_0" or just "symbol_1_0"
-                            # We need it to be "clean_symbol_1_0"
-                            if '_' in child_name:
-                                # Extract the suffix (like "_1_0")
-                                parts = child_name.split('_')
-                                # Check if last two parts are numbers (unit and style indices)
-                                if len(parts) >= 3:
-                                    try:
-                                        int(parts[-2])  # unit number
-                                        int(parts[-1])  # style number
-                                        # This is a sub-symbol, reconstruct with clean name
-                                        suffix = '_' + '_'.join(parts[-2:])
-                                        child[1] = clean_symbol_name + suffix
-                                    except ValueError:
-                                        # Not a standard sub-symbol pattern, leave it
-                                        pass
-                        # Recurse into children
-                        update_subsymbol_names(child)
-
-            # Update sub-symbol names throughout the symbol tree
-            update_subsymbol_names(item)
-
-            # Convert the symbol back to S-expression string
-            symbol_sexp = build_sexp(item)
-            symbols.append((clean_symbol_name, symbol_sexp))
-
-    return symbols
+        return []
 
 
-def create_symbol_file_content(symbol_name: str, symbol_sexp: str) -> str:
+def create_symbol_file_content(
+    symbol: LibSymbol | str,
+    symbol_sexp: str | None = None,
+) -> str:
     """
     Create a complete .kicad_sym file content from a symbol S-expression.
 
     Args:
-        symbol_name: Name of the symbol
-        symbol_sexp: The symbol S-expression from the schematic
+        symbol: LibSymbol object, or the legacy symbol name string
+        symbol_sexp: Optional legacy symbol S-expression string
 
     Returns:
         Complete .kicad_sym file content with header and footer
     """
-    # Parse the symbol to get it as a list structure
-    try:
-        symbol_parsed = parse_sexp(symbol_sexp)
-    except Exception:
-        # If parsing fails, use string concatenation fallback
-        content = f"""(kicad_symbol_lib
+    if isinstance(symbol, LibSymbol):
+        symbol_parsed = symbol.to_sexp()
+    else:
+        if symbol_sexp is None:
+            raise TypeError("symbol_sexp is required when symbol is a name string")
+        try:
+            symbol_parsed = parse_sexp(symbol_sexp)
+        except Exception:
+            content = f"""(kicad_symbol_lib
 \t(version 20241209)
 \t(generator "kicad_symbol_editor")
 \t(generator_version "9.0")
 \t{symbol_sexp}
 )
 """
-        return content
+            return content
 
     # Build the library structure with proper formatting
     library_structure = [
@@ -224,27 +203,27 @@ def extract_symbols_from_schematic(
 
     # Save each symbol to its own file
     extracted_count = 0
-    for symbol_name, symbol_sexp in symbols:
+    for symbol in symbols:
         # Sanitize the filename
-        safe_name = sanitize_filename(symbol_name)
+        safe_name = sanitize_filename(symbol.name)
         output_file = output_dir / f"{safe_name}.kicad_sym"
 
         # Check if file exists
         if output_file.exists() and not overwrite:
-            log.info(f"  Skipping '{symbol_name}' (file exists): {output_file.name}")
+            log.info(f"  Skipping '{symbol.name}' (file exists): {output_file.name}")
             continue
 
         # Create the complete symbol file content
-        file_content = create_symbol_file_content(symbol_name, symbol_sexp)
+        file_content = create_symbol_file_content(symbol)
 
         # Write to file
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(file_content)
-            log.info(f"  Extracted '{symbol_name}' -> {output_file.name}")
+            log.info(f"  Extracted '{symbol.name}' -> {output_file.name}")
             extracted_count += 1
         except Exception as e:
-            log.error(f"  Failed to write symbol '{symbol_name}': {e}")
+            log.error(f"  Failed to write symbol '{symbol.name}': {e}")
 
     return extracted_count
 

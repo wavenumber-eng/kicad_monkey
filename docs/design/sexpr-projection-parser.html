@@ -86,5 +86,39 @@ for span in iter_sexp_file_form_spans(board_path, selector):
     footprint_sexp = span.parse()
     # Build only the summary or typed object needed by this workflow.</code></pre>
 </section>
+
+  <section
+    data-interface="iter_kicad_objects_from_file"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_041_sexpr_projection.py"
+    data-test-target="test_iter_kicad_objects_from_file_yields_typed_objects"
+  >
+    <h2>Typed Object Iterator</h2>
+    <h3>Rationale</h3>
+    <p>
+      Library extraction, project-health scans, and future targeted rewrite
+      tools need a generic way to hydrate selected KiCad objects without each
+      workflow maintaining its own scanner.
+    </p>
+    <h3>Purpose</h3>
+    <p>
+      <code>iter_kicad_objects_from_text</code> and
+      <code>iter_kicad_objects_from_file</code> map a requested KiCad domain
+      type to the projection selector that finds matching forms, then hydrate
+      those forms through the same typed factories used by the full parser.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must prove board footprints, schematic placed symbols,
+      symbol-library symbols, file-backed reads, and embedded-file filtering
+      yield the expected typed objects without a complete document parse.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      A typed object iterator is public when callers can request a supported
+      KiCad object type and receive normal domain objects while still relying
+      on projection parsing for source selection.
+    </p>
+  </section>
 </body>
 </html>

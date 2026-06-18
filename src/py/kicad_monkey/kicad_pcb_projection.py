@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Iterable, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Iterable, TypeVar, cast
 
 from ._api_markers import public_api
 from .kicad_base import unquote_string
@@ -406,9 +406,9 @@ class KiCadPcbProjection:
         postprocess: Callable[[T], None] | None = None,
     ) -> list[T]:
         if self._board is not None:
-            return self._board_objects(cache_key, cache_key, heads=heads)
+            return cast(list[T], self._board_objects(cache_key, cache_key, heads=heads))
         if cache_key in self._object_cache:
-            return self._object_cache[cache_key]
+            return cast(list[T], self._object_cache[cache_key])
         objects: list[T] = []
         spans = self._top_level_spans(heads)
         for span in spans:
@@ -431,9 +431,17 @@ class KiCadPcbProjection:
         child_head: str | None = None,
     ) -> list[T]:
         if self._board is not None:
-            return self._board_objects(cache_key, cache_key, container_head=container_head, child_head=child_head)
+            return cast(
+                list[T],
+                self._board_objects(
+                    cache_key,
+                    cache_key,
+                    container_head=container_head,
+                    child_head=child_head,
+                ),
+            )
         if cache_key in self._object_cache:
-            return self._object_cache[cache_key]
+            return cast(list[T], self._object_cache[cache_key])
         objects: list[T] = []
         container_span = self._first_top_level_span(container_head)
         if container_span is not None:
@@ -452,13 +460,13 @@ class KiCadPcbProjection:
         heads: tuple[str, ...] | None = None,
         container_head: str | None = None,
         child_head: str | None = None,
-    ) -> list[T]:
+    ) -> list[Any]:
         if cache_key in self._object_cache:
             return self._object_cache[cache_key]
         if self._board is None:
             return []
         objects = list(getattr(self._board, board_attr, ()))
-        spans: list[SexpFormSpan | None] = []
+        spans: list[SexpFormSpan] = []
         parent_span: SexpFormSpan | None = None
         if self._source_text is not None:
             if heads is not None:
@@ -509,7 +517,7 @@ class KiCadPcbProjection:
     def _resolve_object_net(self, obj: object) -> None:
         net_ref = getattr(obj, "net", None)
         if isinstance(net_ref, NetRef):
-            obj.net = self._resolve_net_ref(net_ref)
+            setattr(obj, "net", self._resolve_net_ref(net_ref))
 
     def _resolve_net_ref(self, net_ref: NetRef) -> NetRef:
         nets = self.nets()
@@ -615,7 +623,7 @@ class KiCadPcbProjection:
             end_line=end_line,
             end_column=end_column,
             source_text=self._source_text,
-            source_path=self.source_path,
+            source_path=str(self.source_path) if self.source_path is not None else None,
         )
 
 

@@ -12,6 +12,7 @@ from kicad_monkey.kicad_project import KiCadProject
 
 PROJECT_CASES_ROOT = TEST_CORPUS_ROOT / "kicad" / "projects"
 PROJECT_CASE_NAMES = (
+    "4-ch-backplane",
     "canbob",
     "celebration_led_assembly",
     "cern_wren_eda_04903",
@@ -26,6 +27,7 @@ PROJECT_CASE_NAMES = (
     "led_component",
     "nrf9151_feather",
     "speedy_processing_module",
+    "synthetic-netlist-hierarchy",
     "taillight",
     "taillight_assembly",
     "yoshi_mainboard",
@@ -47,7 +49,7 @@ def _project_files() -> list[Path]:
 def test_real_world_project_review_set_inventory() -> None:
     """Verify all copied project cases are present under the test tree."""
     assert [path.name for path in _project_dirs()] == list(PROJECT_CASE_NAMES)
-    assert len(_project_files()) == 19
+    assert len(_project_files()) == 21
 
 
 def test_real_world_project_review_set_excludes_generated_and_local_metadata() -> None:

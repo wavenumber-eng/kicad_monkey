@@ -43,6 +43,8 @@ PUBLIC_API_EXPORTS: tuple[PublicApiExport, ...] = (
     PublicApiExport("iter_sexp_form_spans", PublicApiStratum.FOUNDATION),
     PublicApiExport("iter_sexp_file_form_spans", PublicApiStratum.FOUNDATION),
     PublicApiExport("parse_sexp_span", PublicApiStratum.FOUNDATION),
+    PublicApiExport("iter_kicad_objects_from_text", PublicApiStratum.FOUNDATION),
+    PublicApiExport("iter_kicad_objects_from_file", PublicApiStratum.FOUNDATION),
     PublicApiExport("find_element", PublicApiStratum.FOUNDATION),
     PublicApiExport("find_all_elements", PublicApiStratum.FOUNDATION),
     PublicApiExport("get_value", PublicApiStratum.FOUNDATION),

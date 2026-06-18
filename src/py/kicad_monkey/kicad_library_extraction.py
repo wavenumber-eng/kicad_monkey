@@ -21,20 +21,24 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-from .kicad_base import find_element
+from .kicad_base import find_all_elements, find_element
 from .kicad_footprint import KiCadFootprint
 from .kicad_lib_symbol import LibSymbol
 from .kicad_model import EmbeddedFile, Model
+from .kicad_parameter_aliases import canonicalize_part_parameters
 from .kicad_pcb import KiCadPcb
 from .kicad_pcb_footprint import Footprint
-from .kicad_pcb_other import NetRef
+from .kicad_pcb_other import Image, NetRef
 from .kicad_pcb_projection import KiCadPcbProjection
 from .kicad_environment import KiCadEnvironment
 from .kicad_project import find_adjacent_kicad_project_path
+from .kicad_project_libraries import KiCadLibraryTable, KiCadLibraryTableKind
+from .kicad_sch_image import SchImage
 from .kicad_sch_enums import PropertyId, StandardPropertyKey
 from .kicad_sch_symbol import SchSymbol
-from .kicad_sexpr import parse_sexp
+from .kicad_sexpr import SexpSelector, iter_sexp_form_spans, parse_sexp
 from .kicad_symbol_lib import KiCadSymbolLib
+from .kicad_worksheet import KiCadWorksheet
 
 try:
     import zstandard as _zstandard
@@ -126,6 +130,37 @@ class KiCadProjectAssetScan:
             ref.to_dict() for ref in self.footprints_without_models
         ]
         return data
+
+
+@dataclass(frozen=True)
+class _ProjectAssetScope:
+    schematics: tuple[Path, ...]
+    pcbs: tuple[Path, ...]
+    symbol_libraries: tuple[Path, ...]
+    pretty_libraries: tuple[Path, ...]
+    footprint_files: tuple[Path, ...]
+    diagnostics: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class KiCadEmbeddedAssetRecord:
+    """One decoded embedded project payload written to disk."""
+
+    kind: str
+    source_kind: str
+    source_path: str
+    owner: str
+    source_name: str
+    output_file: str
+    sha256: str
+    byte_size: int
+    mime_type: str = ""
+    file_type: str = ""
+    deduplicated: bool = False
+    diagnostics: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass(frozen=True)
@@ -263,6 +298,124 @@ def _iter_project_files(project_path: Path | str, suffix: str) -> list[Path]:
     )
 
 
+def _dedupe_paths(paths: Iterable[Path]) -> tuple[Path, ...]:
+    out: list[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        key = str(path.resolve() if path.exists() else path)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(path)
+    return tuple(sorted(out))
+
+
+def _project_stem_files(project_path: Path | str, suffix: str) -> tuple[Path, ...]:
+    resolved_project = _resolve_project_path(project_path)
+    root = resolved_project.parent
+    candidate = root / f"{resolved_project.stem}{suffix}"
+    if candidate.is_file():
+        return (candidate,)
+    return tuple(sorted(path for path in root.glob(f"*{suffix}") if path.is_file()))
+
+
+def _resolve_project_local_table_uri(project_path: Path | str, uri: str) -> Path | None:
+    root = _project_root(project_path).resolve()
+    text = str(uri or "").strip()
+    if not text:
+        return None
+    text = text.replace("\\", "/")
+    if text.startswith("${KIPRJMOD}"):
+        text = str(root) + text[len("${KIPRJMOD}"):]
+    elif text.startswith("$KIPRJMOD"):
+        text = str(root) + text[len("$KIPRJMOD"):]
+    elif "${" in text or "$(" in text:
+        return None
+    path = Path(text)
+    if not path.is_absolute():
+        path = root / path
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        return None
+    return resolved
+
+
+def _project_local_symbol_libraries(
+    project_path: Path | str,
+    diagnostics: list[str],
+) -> tuple[Path, ...]:
+    root = _project_root(project_path)
+    table_path = root / KiCadLibraryTableKind.SYMBOL.file_name
+    try:
+        table = KiCadLibraryTable.from_file(table_path, KiCadLibraryTableKind.SYMBOL)
+    except Exception as exc:
+        diagnostics.append(f"failed to parse symbol library table {table_path}: {exc}")
+        return ()
+
+    paths: list[Path] = []
+    for entry in table.entries:
+        if entry.disabled:
+            continue
+        resolved = _resolve_project_local_table_uri(project_path, entry.uri)
+        if resolved is None:
+            continue
+        if resolved.is_file() and resolved.suffix == ".kicad_sym":
+            paths.append(resolved)
+        elif resolved.is_dir():
+            paths.extend(path for path in resolved.glob("*.kicad_sym") if path.is_file())
+        elif not resolved.exists():
+            diagnostics.append(f"local symbol library does not exist: {resolved}")
+    return _dedupe_paths(paths)
+
+
+def _project_local_footprint_libraries(
+    project_path: Path | str,
+    diagnostics: list[str],
+) -> tuple[tuple[Path, ...], tuple[Path, ...]]:
+    root = _project_root(project_path)
+    table_path = root / KiCadLibraryTableKind.FOOTPRINT.file_name
+    try:
+        table = KiCadLibraryTable.from_file(table_path, KiCadLibraryTableKind.FOOTPRINT)
+    except Exception as exc:
+        diagnostics.append(f"failed to parse footprint library table {table_path}: {exc}")
+        return (), ()
+
+    pretty_dirs: list[Path] = []
+    footprint_files: list[Path] = []
+    for entry in table.entries:
+        if entry.disabled:
+            continue
+        resolved = _resolve_project_local_table_uri(project_path, entry.uri)
+        if resolved is None:
+            continue
+        if resolved.is_dir() and resolved.suffix == ".pretty":
+            pretty_dirs.append(resolved)
+            footprint_files.extend(path for path in resolved.glob("*.kicad_mod") if path.is_file())
+        elif resolved.is_file() and resolved.suffix == ".kicad_mod":
+            footprint_files.append(resolved)
+        elif not resolved.exists():
+            diagnostics.append(f"local footprint library does not exist: {resolved}")
+    return _dedupe_paths(pretty_dirs), _dedupe_paths(footprint_files)
+
+
+def _project_asset_scope(project_path: Path | str) -> _ProjectAssetScope:
+    diagnostics: list[str] = []
+    pretty_libraries, footprint_files = _project_local_footprint_libraries(
+        project_path,
+        diagnostics,
+    )
+    return _ProjectAssetScope(
+        schematics=_project_stem_files(project_path, ".kicad_sch"),
+        pcbs=_project_stem_files(project_path, ".kicad_pcb"),
+        symbol_libraries=_project_local_symbol_libraries(project_path, diagnostics),
+        pretty_libraries=pretty_libraries,
+        footprint_files=footprint_files,
+        diagnostics=tuple(diagnostics),
+    )
+
+
 def _library_member_name(name: str) -> str:
     return str(name).split(":", 1)[1] if ":" in str(name) else str(name)
 
@@ -280,12 +433,124 @@ def _safe_asset_filename(name: str) -> str:
     return clean or "unnamed"
 
 
+def _mime_type_for_suffix(suffix: str) -> str:
+    normalized = suffix.lower()
+    return {
+        ".bmp": "image/bmp",
+        ".gif": "image/gif",
+        ".jpeg": "image/jpeg",
+        ".jpg": "image/jpeg",
+        ".otf": "font/otf",
+        ".png": "image/png",
+        ".step": "model/step",
+        ".stp": "model/step",
+        ".svg": "image/svg+xml",
+        ".ttf": "font/ttf",
+        ".wrl": "model/vrml",
+    }.get(normalized, "application/octet-stream")
+
+
+def _payload_suffix_and_mime(data: bytes, fallback_suffix: str = "") -> tuple[str, str]:
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png", "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return ".jpg", "image/jpeg"
+    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return ".gif", "image/gif"
+    if data.startswith(b"BM"):
+        return ".bmp", "image/bmp"
+    stripped = data[:256].lstrip().lower()
+    if stripped.startswith(b"<svg") or stripped.startswith(b"<?xml"):
+        return ".svg", "image/svg+xml"
+    if b"iso-10303-21" in data[:512].lower():
+        return ".step", "model/step"
+    suffix = fallback_suffix.lower()
+    if suffix:
+        return suffix, _mime_type_for_suffix(suffix)
+    return ".bin", "application/octet-stream"
+
+
+def _decode_plain_base64_payload(value: str, *, label: str) -> bytes:
+    try:
+        return base64.b64decode(value)
+    except Exception as exc:
+        raise ValueError(f"failed to decode embedded asset {label}: {exc}") from exc
+
+
+def _asset_filename_with_detected_suffix(source_name: str, data: bytes, fallback_stem: str) -> tuple[str, str]:
+    source_path = Path(source_name)
+    suffix, mime_type = _payload_suffix_and_mime(data, source_path.suffix)
+    if source_path.suffix:
+        filename = _safe_asset_filename(source_name)
+    else:
+        filename = f"{_safe_asset_filename(source_name or fallback_stem)}{suffix}"
+    return filename, mime_type
+
+
+def _asset_output_path(
+    output_dir: Path,
+    filename: str,
+    used_names_by_dir: dict[Path, set[str]],
+) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    used_names = used_names_by_dir.setdefault(output_dir, set())
+    return output_dir / _unique_file_name(filename, used_names)
+
+
+def _write_embedded_asset_payload(
+    *,
+    data: bytes,
+    output_dir: Path,
+    subdir: str,
+    fallback_stem: str,
+    kind: str,
+    source_kind: str,
+    source_path: Path,
+    owner: str,
+    source_name: str,
+    file_type: str = "",
+    dedupe_payloads: bool,
+    written: dict[str, Path],
+    used_names_by_dir: dict[Path, set[str]],
+) -> KiCadEmbeddedAssetRecord:
+    digest = hashlib.sha256(data).hexdigest()
+    filename, mime_type = _asset_filename_with_detected_suffix(source_name, data, fallback_stem)
+    key = f"sha256:{digest}" if dedupe_payloads else f"{source_kind}:{owner}:{source_name}:{digest}"
+    deduplicated = key in written
+    if deduplicated:
+        path = written[key]
+    else:
+        path = _asset_output_path(output_dir / subdir, filename, used_names_by_dir)
+        path.write_bytes(data)
+        written[key] = path
+    return KiCadEmbeddedAssetRecord(
+        kind=kind,
+        source_kind=source_kind,
+        source_path=str(source_path),
+        owner=owner,
+        source_name=source_name,
+        output_file=str(path),
+        sha256=digest,
+        byte_size=len(data),
+        mime_type=mime_type,
+        file_type=file_type,
+        deduplicated=deduplicated,
+    )
+
+
 def _symbol_fields(symbol: Any) -> dict[str, str]:
     return {
         str(getattr(prop, "key", "")): str(getattr(prop, "value", ""))
         for prop in getattr(symbol, "properties", ()) or ()
         if getattr(prop, "key", "")
     }
+
+
+def _is_power_symbol(symbol: Any, fields: dict[str, str] | None = None) -> bool:
+    if bool(getattr(symbol, "power", False)):
+        return True
+    symbol_fields = fields if fields is not None else _symbol_fields(symbol)
+    return symbol_fields.get("Reference") == "#PWR"
 
 
 def _footprint_fields(footprint: Any) -> dict[str, str]:
@@ -297,19 +562,7 @@ def _footprint_fields(footprint: Any) -> dict[str, str]:
 
 
 def _canonical_identity_fields(fields: dict[str, str]) -> dict[str, str]:
-    candidates = {
-        "mpn": ("mpn", "MPN", "manf_pn", "manufacturer part number", "Manufacturer Part Number"),
-        "cad-reference": ("cad-reference", "cad_reference", "CAD Reference"),
-    }
-    out: dict[str, str] = {}
-    lower_map = {key.lower(): value for key, value in fields.items()}
-    for canonical, aliases in candidates.items():
-        for alias in aliases:
-            value = lower_map.get(alias.lower())
-            if value:
-                out[canonical] = value
-                break
-    return out
+    return canonicalize_part_parameters(fields)
 
 
 def _embedded_name(path: str) -> str:
@@ -654,10 +907,52 @@ def _scan_models_for_owner(
     return records
 
 
+def _footprint_file_owner_from_text(path: Path, text: str) -> str:
+    match = _FOOTPRINT_START_RE.search(text)
+    if match is None:
+        return path.stem
+    return _library_member_name(_footprint_library_link_from_match(match)) or path.stem
+
+
+def _scan_footprint_file_models(
+    path: Path,
+    *,
+    project_root: Path,
+) -> list[KiCadModelReferenceScan]:
+    text = _read_kicad_text(path)
+    owner = _footprint_file_owner_from_text(path, text)
+    models: list[Model] = []
+    embedded_files: list[EmbeddedFile] = []
+    selector = SexpSelector(
+        heads={"embedded_files", "model"},
+        min_depth=1,
+        max_depth=1,
+    )
+    for span in iter_sexp_form_spans(text, selector, source_path=path):
+        sexp = span.parse()
+        if not isinstance(sexp, list) or not sexp:
+            continue
+        if sexp[0] == "model":
+            models.append(Model.from_sexp(sexp))
+        elif sexp[0] == "embedded_files":
+            for child in sexp[1:]:
+                if isinstance(child, list) and child and child[0] == "file":
+                    embedded_files.append(EmbeddedFile.from_sexp(child))
+    return _scan_models_for_owner(
+        source_kind="footprint_library",
+        source_path=path,
+        owner=owner,
+        models=models,
+        embedded_files=embedded_files,
+        project_root=project_root,
+    )
+
+
 def _scan_3d_models_with_diagnostics(
     project_path: Path | str,
     *,
     progress: _ProgressCallback | None = None,
+    scope: _ProjectAssetScope | None = None,
 ) -> tuple[
     tuple[KiCadModelReferenceScan, ...],
     tuple[KiCadFootprintModelCoverage, ...],
@@ -665,11 +960,12 @@ def _scan_3d_models_with_diagnostics(
 ]:
     resolved_project = _resolve_project_path(project_path)
     root = resolved_project.parent
+    active_scope = scope if scope is not None else _project_asset_scope(resolved_project)
     records: list[KiCadModelReferenceScan] = []
     footprints_without_models: dict[tuple[str, str], list[str]] = {}
-    diagnostics: list[str] = []
+    diagnostics: list[str] = list(active_scope.diagnostics)
 
-    pcb_paths = _iter_project_files(resolved_project, ".kicad_pcb")
+    pcb_paths = list(active_scope.pcbs)
     for pcb_index, pcb_path in enumerate(pcb_paths, start=1):
         _emit_progress(
             progress,
@@ -714,9 +1010,12 @@ def _scan_3d_models_with_diagnostics(
                 board_embedded_files=board_embedded_files,
             ))
 
-    fp_paths = _iter_project_files(resolved_project, ".kicad_mod")
+    fp_paths = list(active_scope.footprint_files)
     if fp_paths:
-        _emit_progress(progress, f"scanning footprint library files: {len(fp_paths)} files")
+        _emit_progress(
+            progress,
+            f"scanning table-listed footprint library files: {len(fp_paths)} files",
+        )
     for fp_index, fp_path in enumerate(fp_paths, start=1):
         _emit_progress(
             progress,
@@ -725,18 +1024,10 @@ def _scan_3d_models_with_diagnostics(
             f"{_stable_relative(fp_path, root)} ({_file_size_label(fp_path)})",
         )
         try:
-            footprint = KiCadFootprint.from_file(fp_path)
+            records.extend(_scan_footprint_file_models(fp_path, project_root=root))
         except Exception as exc:
             diagnostics.append(f"failed to parse footprint {fp_path}: {exc}")
             continue
-        records.extend(_scan_models_for_owner(
-            source_kind="footprint_library",
-            source_path=fp_path,
-            owner=footprint.name,
-            models=footprint.models,
-            embedded_files=footprint.embedded_files,
-            project_root=root,
-        ))
     no_model_records = [
         KiCadFootprintModelCoverage(
             footprint=footprint,
@@ -763,12 +1054,13 @@ def scan_project_assets(
     """Return a structured inventory of a KiCad project's local assets."""
     resolved_project = _resolve_project_path(project_path)
     root = resolved_project.parent
-    _emit_progress(progress, f"inventorying project files under {root}")
-    schematics = tuple(str(path) for path in _iter_project_files(resolved_project, ".kicad_sch"))
-    pcbs = tuple(str(path) for path in _iter_project_files(resolved_project, ".kicad_pcb"))
-    symbol_libraries = tuple(str(path) for path in _iter_project_files(resolved_project, ".kicad_sym"))
-    pretty_libraries = tuple(str(path) for path in sorted(root.rglob("*.pretty")) if path.is_dir())
-    footprint_files = tuple(str(path) for path in _iter_project_files(resolved_project, ".kicad_mod"))
+    _emit_progress(progress, f"inventorying project files and local library tables under {root}")
+    scope = _project_asset_scope(resolved_project)
+    schematics = tuple(str(path) for path in scope.schematics)
+    pcbs = tuple(str(path) for path in scope.pcbs)
+    symbol_libraries = tuple(str(path) for path in scope.symbol_libraries)
+    pretty_libraries = tuple(str(path) for path in scope.pretty_libraries)
+    footprint_files = tuple(str(path) for path in scope.footprint_files)
     _emit_progress(
         progress,
         "inventory complete: "
@@ -779,6 +1071,7 @@ def scan_project_assets(
     model_references, footprints_without_models, diagnostics = _scan_3d_models_with_diagnostics(
         resolved_project,
         progress=progress,
+        scope=scope,
     )
     _emit_progress(
         progress,
@@ -1117,7 +1410,7 @@ def rehydrate_embedded_model_payloads_from_files(
             continue
         name = _embedded_name(model.path)
         board_file = board_files.get(name)
-        if not _embedded_file_has_payload(board_file):
+        if board_file is None or not _embedded_file_has_payload(board_file):
             continue
         if _embedded_file_has_payload(local.get(name)):
             continue
@@ -1138,6 +1431,7 @@ def extract_symbols(
     mode: KiCadExtractionMode | str = KiCadExtractionMode.INTERNAL,
     *,
     dedupe_policy: KiCadExtractionDedupePolicy | str = KiCadExtractionDedupePolicy.NAME,
+    skip_power_symbols: bool = False,
 ) -> tuple[KiCadSymbolExtractionRecord, ...]:
     """Extract embedded schematic library symbols as structured records."""
     policy = KiCadExtractionMode(mode)
@@ -1170,6 +1464,8 @@ def extract_symbols(
                 create=True,
             )
         raw_fields = _symbol_fields(working_symbol)
+        if skip_power_symbols and _is_power_symbol(working_symbol, raw_fields):
+            continue
         key = _symbol_record_key(
             symbol=working_symbol,
             source_path=schematic_path,
@@ -1354,11 +1650,16 @@ def build_extraction_metadata_bundle(
     symbol_records: Iterable[KiCadSymbolExtractionRecord] | None = None,
     footprint_records: Iterable[KiCadFootprintExtractionRecord] | None = None,
     include_asset_scan: bool = True,
+    skip_power_symbols: bool = False,
     schema: str = "kicad_monkey.library_extraction_bundle.v1",
 ) -> dict[str, Any]:
     """Build stable JSON metadata for an extracted KiCad library bundle."""
     resolved_project = _resolve_project_path(project_path)
-    symbols = tuple(symbol_records) if symbol_records is not None else extract_symbols(resolved_project, mode)
+    symbols = (
+        tuple(symbol_records)
+        if symbol_records is not None
+        else extract_symbols(resolved_project, mode, skip_power_symbols=skip_power_symbols)
+    )
     footprints = (
         tuple(footprint_records)
         if footprint_records is not None
@@ -1385,6 +1686,7 @@ def write_extraction_metadata_bundle(
     symbol_records: Iterable[KiCadSymbolExtractionRecord] | None = None,
     footprint_records: Iterable[KiCadFootprintExtractionRecord] | None = None,
     include_asset_scan: bool = True,
+    skip_power_symbols: bool = False,
     schema: str = "kicad_monkey.library_extraction_bundle.v1",
 ) -> Path:
     """Write stable JSON metadata for an extracted KiCad library bundle."""
@@ -1396,10 +1698,440 @@ def write_extraction_metadata_bundle(
         symbol_records=symbol_records,
         footprint_records=footprint_records,
         include_asset_scan=include_asset_scan,
+        skip_power_symbols=skip_power_symbols,
         schema=schema,
     )
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
+
+
+def _append_embedded_file_asset(
+    records: list[KiCadEmbeddedAssetRecord],
+    file: EmbeddedFile,
+    *,
+    output_dir: Path,
+    source_kind: str,
+    source_path: Path,
+    owner: str,
+    index: int,
+    dedupe_payloads: bool,
+    written: dict[str, Path],
+    used_names_by_dir: dict[Path, set[str]],
+) -> None:
+    if not file.data:
+        return
+    data = _embedded_file_payload_bytes(file)
+    source_name = file.name or f"{source_kind}_{index}.bin"
+    records.append(_write_embedded_asset_payload(
+        data=data,
+        output_dir=output_dir,
+        subdir="embedded_files",
+        fallback_stem=f"{source_kind}_{index}",
+        kind="embedded_file",
+        source_kind=source_kind,
+        source_path=source_path,
+        owner=owner,
+        source_name=source_name,
+        file_type=str(file.file_type or ""),
+        dedupe_payloads=dedupe_payloads,
+        written=written,
+        used_names_by_dir=used_names_by_dir,
+    ))
+
+
+def _append_plain_base64_asset(
+    records: list[KiCadEmbeddedAssetRecord],
+    payload: str,
+    *,
+    output_dir: Path,
+    subdir: str,
+    kind: str,
+    source_kind: str,
+    source_path: Path,
+    owner: str,
+    source_name: str,
+    fallback_stem: str,
+    dedupe_payloads: bool,
+    written: dict[str, Path],
+    used_names_by_dir: dict[Path, set[str]],
+) -> None:
+    if not payload:
+        return
+    data = _decode_plain_base64_payload(payload, label=f"{source_path}:{source_name}")
+    records.append(_write_embedded_asset_payload(
+        data=data,
+        output_dir=output_dir,
+        subdir=subdir,
+        fallback_stem=fallback_stem,
+        kind=kind,
+        source_kind=source_kind,
+        source_path=source_path,
+        owner=owner,
+        source_name=source_name,
+        dedupe_payloads=dedupe_payloads,
+        written=written,
+        used_names_by_dir=used_names_by_dir,
+    ))
+
+
+def _append_image_assets(
+    records: list[KiCadEmbeddedAssetRecord],
+    images: Iterable[Any],
+    *,
+    output_dir: Path,
+    subdir: str,
+    kind: str,
+    source_kind: str,
+    source_path: Path,
+    owner: str,
+    fallback_prefix: str,
+    dedupe_payloads: bool,
+    written: dict[str, Path],
+    used_names_by_dir: dict[Path, set[str]],
+) -> None:
+    for index, image in enumerate(images, start=1):
+        raw_data = getattr(image, "data", "")
+        payload = "".join(raw_data) if isinstance(raw_data, list) else str(raw_data or "")
+        source_name = str(getattr(image, "uuid", "") or f"{fallback_prefix}_{index}")
+        _append_plain_base64_asset(
+            records,
+            payload,
+            output_dir=output_dir,
+            subdir=subdir,
+            kind=kind,
+            source_kind=source_kind,
+            source_path=source_path,
+            owner=owner,
+            source_name=source_name,
+            fallback_stem=f"{fallback_prefix}_{index}",
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+
+
+def _append_embedded_files_from_file(
+    records: list[KiCadEmbeddedAssetRecord],
+    path: Path,
+    *,
+    output_dir: Path,
+    source_kind: str,
+    owner: str,
+    dedupe_payloads: bool,
+    written: dict[str, Path],
+    used_names_by_dir: dict[Path, set[str]],
+) -> None:
+    for index, file in enumerate(_iter_embedded_files_from_file(path), start=1):
+        _append_embedded_file_asset(
+            records,
+            file,
+            output_dir=output_dir,
+            source_kind=source_kind,
+            source_path=path,
+            owner=owner,
+            index=index,
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+
+
+def _append_schematic_image_assets(
+    records: list[KiCadEmbeddedAssetRecord],
+    schematic_path: Path,
+    *,
+    output_dir: Path,
+    dedupe_payloads: bool,
+    written: dict[str, Path],
+    used_names_by_dir: dict[Path, set[str]],
+) -> None:
+    sexp = parse_sexp(_read_kicad_text(schematic_path), source_path=schematic_path)
+    images = [SchImage.from_sexp(elem) for elem in find_all_elements(sexp, "image")]
+    _append_image_assets(
+        records,
+        images,
+        output_dir=output_dir,
+        subdir="schematic_images",
+        kind="schematic_image",
+        source_kind="schematic",
+        source_path=schematic_path,
+        owner=schematic_path.stem,
+        fallback_prefix=f"{schematic_path.stem}_image",
+        dedupe_payloads=dedupe_payloads,
+        written=written,
+        used_names_by_dir=used_names_by_dir,
+    )
+
+
+def _append_pcb_image_assets(
+    records: list[KiCadEmbeddedAssetRecord],
+    images: Iterable[Image],
+    *,
+    output_dir: Path,
+    source_kind: str,
+    source_path: Path,
+    owner: str,
+    fallback_prefix: str,
+    dedupe_payloads: bool,
+    written: dict[str, Path],
+    used_names_by_dir: dict[Path, set[str]],
+) -> None:
+    _append_image_assets(
+        records,
+        images,
+        output_dir=output_dir,
+        subdir="pcb_images",
+        kind="pcb_image",
+        source_kind=source_kind,
+        source_path=source_path,
+        owner=owner,
+        fallback_prefix=fallback_prefix,
+        dedupe_payloads=dedupe_payloads,
+        written=written,
+        used_names_by_dir=used_names_by_dir,
+    )
+
+
+def _append_pcb_assets(
+    records: list[KiCadEmbeddedAssetRecord],
+    pcb_path: Path,
+    *,
+    output_dir: Path,
+    dedupe_payloads: bool,
+    written: dict[str, Path],
+    used_names_by_dir: dict[Path, set[str]],
+) -> None:
+    projection = KiCadPcbProjection.from_file(pcb_path)
+    for index, file in enumerate(projection.embedded_files(), start=1):
+        _append_embedded_file_asset(
+            records,
+            file,
+            output_dir=output_dir,
+            source_kind="pcb",
+            source_path=pcb_path,
+            owner="board",
+            index=index,
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+    _append_pcb_image_assets(
+        records,
+        projection.images(),
+        output_dir=output_dir,
+        source_kind="pcb",
+        source_path=pcb_path,
+        owner="board",
+        fallback_prefix=f"{pcb_path.stem}_image",
+        dedupe_payloads=dedupe_payloads,
+        written=written,
+        used_names_by_dir=used_names_by_dir,
+    )
+    for footprint_index, footprint in enumerate(projection.footprints(), start=1):
+        owner = (
+            str(getattr(footprint, "library_link", "") or "")
+            or str(footprint.get_property_value("Reference", "") or "")
+            or str(getattr(footprint, "uuid", "") or "")
+            or f"footprint_{footprint_index}"
+        )
+        for file_index, file in enumerate(getattr(footprint, "embedded_files", ()) or (), start=1):
+            _append_embedded_file_asset(
+                records,
+                file,
+                output_dir=output_dir,
+                source_kind="pcb_footprint",
+                source_path=pcb_path,
+                owner=owner,
+                index=file_index,
+                dedupe_payloads=dedupe_payloads,
+                written=written,
+                used_names_by_dir=used_names_by_dir,
+            )
+        _append_pcb_image_assets(
+            records,
+            getattr(footprint, "images", ()) or (),
+            output_dir=output_dir,
+            source_kind="pcb_footprint",
+            source_path=pcb_path,
+            owner=owner,
+            fallback_prefix=f"{_safe_asset_filename(owner)}_image",
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+
+
+def _append_footprint_library_image_assets(
+    records: list[KiCadEmbeddedAssetRecord],
+    footprint_path: Path,
+    *,
+    output_dir: Path,
+    dedupe_payloads: bool,
+    written: dict[str, Path],
+    used_names_by_dir: dict[Path, set[str]],
+) -> None:
+    sexp = parse_sexp(_read_kicad_text(footprint_path), source_path=footprint_path)
+    images = [Image.from_sexp(elem) for elem in find_all_elements(sexp, "image")]
+    _append_pcb_image_assets(
+        records,
+        images,
+        output_dir=output_dir,
+        source_kind="footprint_library",
+        source_path=footprint_path,
+        owner=footprint_path.stem,
+        fallback_prefix=f"{footprint_path.stem}_image",
+        dedupe_payloads=dedupe_payloads,
+        written=written,
+        used_names_by_dir=used_names_by_dir,
+    )
+
+
+def _append_worksheet_assets(
+    records: list[KiCadEmbeddedAssetRecord],
+    worksheet_path: Path,
+    *,
+    output_dir: Path,
+    dedupe_payloads: bool,
+    written: dict[str, Path],
+    used_names_by_dir: dict[Path, set[str]],
+) -> None:
+    worksheet = KiCadWorksheet.from_file(worksheet_path)
+    for index, bitmap in enumerate(worksheet.bitmaps, start=1):
+        source_name = bitmap.name or f"{worksheet_path.stem}_bitmap_{index}"
+        _append_plain_base64_asset(
+            records,
+            bitmap.pngdata,
+            output_dir=output_dir,
+            subdir="worksheet_bitmaps",
+            kind="worksheet_bitmap",
+            source_kind="worksheet",
+            source_path=worksheet_path,
+            owner=worksheet_path.stem,
+            source_name=source_name,
+            fallback_stem=f"{worksheet_path.stem}_bitmap_{index}",
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+
+
+def extract_embedded_assets(
+    project_path: Path | str,
+    output_dir: Path | str,
+    *,
+    dedupe_payloads: bool = True,
+    progress: _ProgressCallback | None = None,
+) -> tuple[KiCadEmbeddedAssetRecord, ...]:
+    """Extract embedded files and bitmap payloads from the full KiCad project."""
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: dict[str, Path] = {}
+    used_names_by_dir: dict[Path, set[str]] = {}
+    records: list[KiCadEmbeddedAssetRecord] = []
+
+    resolved_project = _resolve_project_path(project_path)
+    pcb_paths = tuple(_iter_project_files(resolved_project, ".kicad_pcb"))
+    schematic_paths = tuple(_iter_project_files(resolved_project, ".kicad_sch"))
+    footprint_paths = tuple(_iter_project_files(resolved_project, ".kicad_mod"))
+    symbol_library_paths = tuple(_iter_project_files(resolved_project, ".kicad_sym"))
+    worksheet_paths = tuple(_iter_project_files(resolved_project, ".kicad_wks"))
+    _emit_progress(
+        progress,
+        "inventory found "
+        f"{len(pcb_paths)} PCB, {len(schematic_paths)} schematic, "
+        f"{len(footprint_paths)} footprint, {len(symbol_library_paths)} symbol library, "
+        f"and {len(worksheet_paths)} worksheet file(s)",
+    )
+    for index, pcb_path in enumerate(pcb_paths, start=1):
+        _emit_progress(
+            progress,
+            f"scanning PCB assets {index}/{len(pcb_paths)}: {pcb_path.name}",
+        )
+        _append_pcb_assets(
+            records,
+            pcb_path,
+            output_dir=out_dir,
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+    for index, schematic_path in enumerate(schematic_paths, start=1):
+        _emit_progress(
+            progress,
+            f"scanning schematic assets {index}/{len(schematic_paths)}: {schematic_path.name}",
+        )
+        _append_schematic_image_assets(
+            records,
+            schematic_path,
+            output_dir=out_dir,
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+        _append_embedded_files_from_file(
+            records,
+            schematic_path,
+            output_dir=out_dir,
+            source_kind="schematic",
+            owner=schematic_path.stem,
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+    for index, footprint_path in enumerate(footprint_paths, start=1):
+        _emit_progress(
+            progress,
+            f"scanning footprint-library assets {index}/{len(footprint_paths)}: "
+            f"{footprint_path.name}",
+        )
+        _append_embedded_files_from_file(
+            records,
+            footprint_path,
+            output_dir=out_dir,
+            source_kind="footprint_library",
+            owner=footprint_path.stem,
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+        _append_footprint_library_image_assets(
+            records,
+            footprint_path,
+            output_dir=out_dir,
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+    for index, symbol_library_path in enumerate(symbol_library_paths, start=1):
+        _emit_progress(
+            progress,
+            f"scanning symbol-library assets {index}/{len(symbol_library_paths)}: "
+            f"{symbol_library_path.name}",
+        )
+        _append_embedded_files_from_file(
+            records,
+            symbol_library_path,
+            output_dir=out_dir,
+            source_kind="symbol_library",
+            owner=symbol_library_path.stem,
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+    for index, worksheet_path in enumerate(worksheet_paths, start=1):
+        _emit_progress(
+            progress,
+            f"scanning worksheet assets {index}/{len(worksheet_paths)}: {worksheet_path.name}",
+        )
+        _append_worksheet_assets(
+            records,
+            worksheet_path,
+            output_dir=out_dir,
+            dedupe_payloads=dedupe_payloads,
+            written=written,
+            used_names_by_dir=used_names_by_dir,
+        )
+    return tuple(records)
 
 
 def _write_embedded_model_payload(
@@ -1598,6 +2330,7 @@ def _unique_file_name(filename: str, used: set[str]) -> str:
 
 __all__ = [
     "KiCadCliValidationResult",
+    "KiCadEmbeddedAssetRecord",
     "KiCadExtractionDedupePolicy",
     "KiCadExtractionMode",
     "KiCadFootprintExtractionRecord",
@@ -1610,6 +2343,7 @@ __all__ = [
     "embed_external_model_payloads",
     "extract_3d_models",
     "extract_3d_models_from_footprint_records",
+    "extract_embedded_assets",
     "extract_footprints",
     "extract_symbols",
     "rehydrate_embedded_model_payloads",

@@ -60,6 +60,8 @@ def test_symbol_library_writer_uses_kicad_style_formatting_and_quotes_subsymbols
     assert pin_names == ["pin_names", ["hide", "yes"]]
     assert exported_subsymbol[1] == "A-B+%_0_1"
     assert not any(isinstance(item, list) and item[0] == "hide" for item in exported_text)
+    effects = next(item for item in exported_text if isinstance(item, list) and item[0] == "effects")
+    assert "hide" in effects or ["hide", "yes"] in effects
 
 
 class TestSymbolParsing:

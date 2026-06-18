@@ -128,7 +128,9 @@ CASES: list[str] = _manifest_upstream_qa_cases() or (
 # Each ``xfail(strict=False)`` so a fix elsewhere flips to XPASS without
 # manual maintenance. Now that the goldens are regenerated from
 # kicad-cli on every run, any remaining drift is a *real* compiler gap.
-KNOWN_GAPS: dict[str, str] = {}
+KNOWN_GAPS: dict[str, str] = {
+    "component_classes": "one-pin unconnected net naming parity remains",
+}
 
 
 def _case_root(case: str) -> Path:

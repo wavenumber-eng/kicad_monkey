@@ -69,14 +69,15 @@ class TestFootprintExtractor:
         footprints = extract_footprints_from_text(sample_pcb)
 
         assert len(footprints) == 1
-        name, sexp = footprints[0]
+        footprint = footprints[0]
+        sexp = str(footprint.to_sexp())
 
         # Name should not have library prefix
-        assert name == "TestFootprint"
+        assert footprint.name == "TestFootprint"
         assert "test_lib:" not in sexp
 
         # Should have generator fields
-        assert 'generator' in sexp.lower()
+        assert footprint.generator
 
 
 # ============================================================================
@@ -93,7 +94,10 @@ class TestStepExtractor:
             extract_step_from_footprint,
             extract_step_from_text,
         )
-        assert True
+
+        assert callable(extract_step_from_directory)
+        assert callable(extract_step_from_footprint)
+        assert callable(extract_step_from_text)
 
     def test_extract_step_from_directory(self):
         """Test extracting STEP models from all .kicad_mod files in test directory."""

@@ -138,6 +138,8 @@ __all__ = [
     "iter_sexp_file_form_spans",
     "parse_sexp_span",
     "debug_dump_tokens",
+    "iter_kicad_objects_from_text",
+    "iter_kicad_objects_from_file",
     # S-expression read helpers (kicad_base — lazy loaded)
     "find_element",
     "find_all_elements",
@@ -675,6 +677,8 @@ _LAZY_EXPORT_MODULES: dict[str, str] = {
     'extract_footprints_from_project': 'kicad_footprint_extractor',
     'extract_symbols_from_text': 'kicad_symbol_extractor',
     'create_symbol_file_content': 'kicad_symbol_extractor',
+    'iter_kicad_objects_from_text': 'kicad_targeted_reader',
+    'iter_kicad_objects_from_file': 'kicad_targeted_reader',
     'list_symbols_in_schematic': 'kicad_sch_extractor',
     'find_embedded_step_data': 'kicad_step_extractor',
     'extract_step_from_text': 'kicad_step_extractor',

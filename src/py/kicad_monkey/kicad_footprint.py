@@ -111,6 +111,106 @@ _FOOTPRINT_OBJECT_LIST_BY_CLASS_NAME: dict[str, str] = {
 }
 
 
+def _append_serialized_objects(result: list, objects: list) -> None:
+    for obj in objects:
+        result.append(obj.to_sexp())
+
+
+def _append_footprint_file_header(result: list, footprint: "KiCadFootprint") -> None:
+    result.append(['version', footprint.version])
+    result.append(['generator', QuotedString(footprint.generator)])
+    result.append(['generator_version', QuotedString(footprint.generator_version)])
+
+    if footprint.locked:
+        result.append(['locked', 'yes'])
+    if footprint.placed:
+        result.append(['placed', 'yes'])
+
+    result.append(['layer', QuotedString(footprint.layer)])
+
+
+def _append_footprint_file_identity(result: list, footprint: "KiCadFootprint") -> None:
+    if footprint.uuid:
+        result.append(['uuid', QuotedString(footprint.uuid)])
+    if footprint.descr:
+        result.append(['descr', QuotedString(footprint.descr)])
+    if footprint.tags:
+        result.append(['tags', QuotedString(footprint.tags)])
+
+
+def _append_footprint_file_properties(result: list, footprint: "KiCadFootprint") -> None:
+    ref_prop = next((p for p in footprint.properties if p.name == 'Reference'), None)
+    val_prop = next((p for p in footprint.properties if p.name == 'Value'), None)
+    other_props = [p for p in footprint.properties if p.name not in ('Reference', 'Value')]
+
+    if ref_prop:
+        result.append(ref_prop.to_sexp())
+    if val_prop:
+        result.append(val_prop.to_sexp())
+    _append_serialized_objects(result, other_props)
+
+    if footprint.attr:
+        result.append(['attr'] + list(footprint.attr))
+
+
+def _append_footprint_file_pad_groups(result: list, footprint: "KiCadFootprint") -> None:
+    if footprint.net_tie_pad_groups:
+        result.append(
+            ["net_tie_pad_groups"]
+            + [group.to_net_tie_token() for group in footprint.net_tie_pad_groups]
+        )
+    if footprint.duplicate_pad_numbers_are_jumpers is not None:
+        result.append(
+            [
+                "duplicate_pad_numbers_are_jumpers",
+                "yes" if footprint.duplicate_pad_numbers_are_jumpers else "no",
+            ]
+        )
+    if footprint.jumper_pad_groups:
+        result.append(
+            ["jumper_pad_groups"]
+            + [group.to_jumper_group_sexp() for group in footprint.jumper_pad_groups]
+        )
+
+
+def _append_footprint_file_rule_overrides(result: list, footprint: "KiCadFootprint") -> None:
+    for key, value in (
+        ('solder_mask_margin', footprint.solder_mask_margin),
+        ('solder_paste_margin', footprint.solder_paste_margin),
+        ('solder_paste_margin_ratio', footprint.solder_paste_margin_ratio),
+        ('clearance', footprint.clearance),
+        ('zone_connect', footprint.zone_connect),
+    ):
+        if value is not None:
+            result.append([key, value])
+
+
+def _append_footprint_file_body(result: list, footprint: "KiCadFootprint") -> None:
+    for attr_name in (
+        "fp_texts",
+        "fp_text_boxes",
+        "fp_lines",
+        "fp_arcs",
+        "fp_circles",
+        "fp_rects",
+        "fp_polys",
+        "pads",
+        "zones",
+    ):
+        _append_serialized_objects(result, getattr(footprint, attr_name))
+
+
+def _append_footprint_file_embedded_data(result: list, footprint: "KiCadFootprint") -> None:
+    result.append(['embedded_fonts', 'yes' if footprint.embedded_fonts else 'no'])
+
+    if footprint.embedded_files:
+        ef_elem = ['embedded_files']
+        _append_serialized_objects(ef_elem, footprint.embedded_files)
+        result.append(ef_elem)
+
+    _append_serialized_objects(result, footprint.models)
+
+
 @public_api
 class KiCadFootprint:
     """
@@ -323,123 +423,13 @@ class KiCadFootprint:
         15. model elements
         """
         result = ['footprint', QuotedString(self.name)]
-
-        # 1. Header metadata
-        result.append(['version', self.version])
-        result.append(['generator', QuotedString(self.generator)])
-        result.append(['generator_version', QuotedString(self.generator_version)])
-
-        # 2. Flags
-        if self.locked:
-            result.append(['locked', 'yes'])
-        if self.placed:
-            result.append(['placed', 'yes'])
-
-        # 3. Layer
-        result.append(['layer', QuotedString(self.layer)])
-
-        # 4. UUID
-        if self.uuid:
-            result.append(['uuid', QuotedString(self.uuid)])
-
-        # 5. Description and tags
-        if self.descr:
-            result.append(['descr', QuotedString(self.descr)])
-
-        if self.tags:
-            result.append(['tags', QuotedString(self.tags)])
-
-        # 6. Properties (Reference and Value first, then others)
-        ref_prop = next((p for p in self.properties if p.name == 'Reference'), None)
-        val_prop = next((p for p in self.properties if p.name == 'Value'), None)
-        other_props = [p for p in self.properties if p.name not in ('Reference', 'Value')]
-
-        if ref_prop:
-            result.append(ref_prop.to_sexp())
-        if val_prop:
-            result.append(val_prop.to_sexp())
-        for prop in other_props:
-            result.append(prop.to_sexp())
-
-        # 7. Attributes
-        if self.attr:
-            result.append(['attr'] + list(self.attr))
-
-        if self.net_tie_pad_groups:
-            result.append(
-                ["net_tie_pad_groups"]
-                + [group.to_net_tie_token() for group in self.net_tie_pad_groups]
-            )
-        if self.duplicate_pad_numbers_are_jumpers is not None:
-            result.append(
-                [
-                    "duplicate_pad_numbers_are_jumpers",
-                    "yes" if self.duplicate_pad_numbers_are_jumpers else "no",
-                ]
-            )
-        if self.jumper_pad_groups:
-            result.append(
-                ["jumper_pad_groups"]
-                + [group.to_jumper_group_sexp() for group in self.jumper_pad_groups]
-            )
-
-        # 8. Design rule overrides
-        if self.solder_mask_margin is not None:
-            result.append(['solder_mask_margin', self.solder_mask_margin])
-        if self.solder_paste_margin is not None:
-            result.append(['solder_paste_margin', self.solder_paste_margin])
-        if self.solder_paste_margin_ratio is not None:
-            result.append(['solder_paste_margin_ratio', self.solder_paste_margin_ratio])
-        if self.clearance is not None:
-            result.append(['clearance', self.clearance])
-        if self.zone_connect is not None:
-            result.append(['zone_connect', self.zone_connect])
-
-        # 9. fp_text user elements
-        for fp_text in self.fp_texts:
-            result.append(fp_text.to_sexp())
-
-        for fp_text_box in self.fp_text_boxes:
-            result.append(fp_text_box.to_sexp())
-
-        # 10. Graphics - drawing primitives
-        for fp_line in self.fp_lines:
-            result.append(fp_line.to_sexp())
-
-        for fp_arc in self.fp_arcs:
-            result.append(fp_arc.to_sexp())
-
-        for fp_circle in self.fp_circles:
-            result.append(fp_circle.to_sexp())
-
-        for fp_rect in self.fp_rects:
-            result.append(fp_rect.to_sexp())
-
-        for fp_poly in self.fp_polys:
-            result.append(fp_poly.to_sexp())
-
-        # 11. Pads
-        for pad in self.pads:
-            result.append(pad.to_sexp())
-
-        # 12. Zones
-        for zone in self.zones:
-            result.append(zone.to_sexp())
-
-        # 13. Embedded fonts
-        result.append(['embedded_fonts', 'yes' if self.embedded_fonts else 'no'])
-
-        # 14. Embedded files
-        if self.embedded_files:
-            ef_elem = ['embedded_files']
-            for ef in self.embedded_files:
-                ef_elem.append(ef.to_sexp())
-            result.append(ef_elem)
-
-        # 15. 3D Models (at the end per KiCad source)
-        for model in self.models:
-            result.append(model.to_sexp())
-
+        _append_footprint_file_header(result, self)
+        _append_footprint_file_identity(result, self)
+        _append_footprint_file_properties(result, self)
+        _append_footprint_file_pad_groups(result, self)
+        _append_footprint_file_rule_overrides(result, self)
+        _append_footprint_file_body(result, self)
+        _append_footprint_file_embedded_data(result, self)
         return result
 
     def to_string(self) -> str:

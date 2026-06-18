@@ -10,8 +10,6 @@ emission.
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from kicad_monkey import (
@@ -19,7 +17,6 @@ from kicad_monkey import (
     KiCadHorizAlign,
     KiCadLineStyle,
     KiCadPlotterDocument,
-    KiCadPlotterOp,
     KiCadPlotterOpKind,
     KiCadPlotterRecord,
     KiCadSymbolLib,
@@ -304,7 +301,10 @@ def test_text_to_op_returns_none_for_hidden_symbol_text():
     assert sibling.hide is True
     assert text_to_op(nested) is None
     assert text_to_op(sibling) is None
-    assert ["hide", "yes"] in sibling.to_sexp()
+    emitted = sibling.to_sexp()
+    assert ["hide", "yes"] not in emitted
+    effects = next(item for item in emitted if isinstance(item, list) and item[0] == "effects")
+    assert "hide" in effects or ["hide", "yes"] in effects
 
 
 def test_pin_to_ops_emits_wire_segment():

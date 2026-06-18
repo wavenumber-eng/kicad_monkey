@@ -41,8 +41,9 @@ class SymText:
 
         effects_elem = find_element(sexp, 'effects')
         effects = Effects.from_sexp(sexp) if effects_elem else None
-        # KiCad 10 emits (hide yes) at the text level while older files may
-        # carry a nested hide flag inside effects.
+        # KiCad files can carry text hide as either a sibling or nested inside
+        # effects.  KiCad 10 rejects sibling hide for graphical symbol text in
+        # standalone symbol libraries, so emit the nested form below.
         hide = (
             has_flag(sexp, 'hide')
             or get_value(sexp, 'hide') == 'yes'
@@ -65,22 +66,17 @@ class SymText:
         # KiCad's reader requires the angle slot even when zero (drift inventory #1).
         result.append(['at', self.at_x, self.at_y, int(round(self.at_angle * 10.0))])
 
+        hidden = self.hide or (self.effects is not None and self.effects.hide)
         if self.effects:
-            # KiCad's symbol-library parser only accepts `(at ...)` and
-            # `(effects ...)` under static symbol text.  Hidden library text
-            # is no longer supported by KiCad and is converted to a hidden
-            # field on load, so do not emit either legacy or text-level hide
-            # flags here.
-            if self.effects.hide or self.hide:
-                effects_emit = Effects(
-                    font=self.effects.font,
-                    justify=self.effects.justify,
-                    hide=False,
-                    href=self.effects.href,
-                ).to_sexp()
-            else:
-                effects_emit = self.effects.to_sexp()
+            effects_emit = Effects(
+                font=self.effects.font,
+                justify=self.effects.justify,
+                hide=hidden,
+                href=self.effects.href,
+            ).to_sexp()
             result.append(effects_emit)
+        elif hidden:
+            result.append(Effects(hide=True).to_sexp())
 
         if self.uuid:
             result.append(['uuid', self.uuid])

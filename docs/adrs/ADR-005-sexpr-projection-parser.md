@@ -57,8 +57,8 @@ The parser stack becomes explicitly layered:
 3. Existing full S-expression tree parser.
 4. Existing typed OOP document models.
 
-`kicad_cruncher`, `bom_cruncher`, `pcb_cruncher`, and future visualization
-preflight code should prefer projection parsing for narrow scans.
+Downstream command-line, BOM, PCB, and visualization preflight tools should
+prefer projection parsing for narrow scans.
 
 Projection parsing must be covered by parser-only tests for KiCad syntax edge
 cases: nested forms, quoted strings, escaped quotes, comments, source offsets,

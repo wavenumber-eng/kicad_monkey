@@ -16,12 +16,10 @@ Usage:
 import logging
 from pathlib import Path
 
-from .kicad_defaults import (
-    KICAD_FOOTPRINT_FILE_VERSION,
-    KICAD_FOOTPRINT_GENERATOR,
-    KICAD_GENERATOR_VERSION,
-)
-from .kicad_sexpr import QuotedString, build_sexp, format_sexp, parse_sexp
+from .kicad_footprint import KiCadFootprint
+from .kicad_pcb_footprint import Footprint
+from .kicad_sexpr import build_sexp, format_sexp
+from .kicad_targeted_reader import iter_kicad_objects_from_text
 
 log = logging.getLogger(__name__)
 
@@ -56,88 +54,42 @@ def sanitize_filename(name: str) -> str:
     return name
 
 
-def extract_footprints_from_text(pcb_text: str) -> list[tuple[str, str]]:
+def _standalone_footprint_from_board_footprint(footprint: Footprint) -> KiCadFootprint:
+    """Convert a PCB-placed footprint into a standalone library footprint."""
+    sexp = footprint.to_sexp()
+    footprint_name = str(footprint.library_link)
+    if ":" in footprint_name:
+        footprint_name = footprint_name.split(":", 1)[1]
+    sexp[1] = footprint_name
+
+    instance_fields = {"at", "uuid", "path", "sheetname", "sheetfile", "tstamp"}
+    sexp[:] = [
+        child
+        for child in sexp
+        if not (isinstance(child, list) and child and child[0] in instance_fields)
+    ]
+
+    return KiCadFootprint.from_sexp(sexp)
+
+
+def extract_footprints_from_text(pcb_text: str) -> list[KiCadFootprint]:
     """
-    Extract footprint definitions from PCB file text using sexpr parser.
+    Extract standalone footprint objects from PCB file text.
 
     Args:
         pcb_text: Contents of a .kicad_pcb file
 
     Returns:
-        List of (footprint_name, footprint_sexp) tuples
+        List of KiCadFootprint objects ready to write as .kicad_mod files
     """
-    footprints = []
-
     try:
-        # Parse the entire PCB file using sexpr parser
-        parsed = parse_sexp(pcb_text)
+        return [
+            _standalone_footprint_from_board_footprint(footprint)
+            for footprint in iter_kicad_objects_from_text(pcb_text, Footprint)
+        ]
     except Exception as e:
         log.error(f"Failed to parse PCB file: {e}")
-        return footprints
-
-    # The parsed structure is a list: ['kicad_pcb', (version ...), (footprint ...), ...]
-    # Footprints are at the top level
-    def extract_footprints_recursive(items: list) -> None:
-        """Recursively find all footprint elements"""
-        for item in items:
-            if isinstance(item, list) and len(item) > 1 and item[0] == 'footprint':
-                # item[1] is the footprint name (could be QuotedString or str)
-                footprint_name = str(item[1])
-
-                # Remove library prefix if present (e.g., "library:footprint" -> "footprint")
-                clean_footprint_name = footprint_name
-                if ':' in footprint_name:
-                    clean_footprint_name = footprint_name.split(':', 1)[1]
-
-                # Update the footprint name in the parsed structure to match the filename
-                # This ensures the .kicad_mod file has the correct footprint name
-                item[1] = clean_footprint_name
-
-                # Remove instance-specific fields that shouldn't be in library footprints
-                # These fields are specific to footprint placement on PCB
-                instance_fields = {'at', 'uuid', 'path', 'sheetname', 'sheetfile', 'tstamp'}
-                item[:] = [child for child in item if not (isinstance(child, list) and len(child) > 0 and child[0] in instance_fields)]
-
-                # Add or update metadata fields for proper KiCad library footprint format
-                # Order should be: footprint name, version, generator, generator_version, layer, ...
-                has_version = False
-                has_generator = False
-                has_generator_version = False
-
-                # First pass: check if fields exist and update them
-                for _i, child in enumerate(item):
-                    if isinstance(child, list) and len(child) > 0:
-                        if child[0] == 'version':
-                            child[1] = KICAD_FOOTPRINT_FILE_VERSION
-                            has_version = True
-                        elif child[0] == 'generator':
-                            child[1] = QuotedString(KICAD_FOOTPRINT_GENERATOR)
-                            has_generator = True
-                        elif child[0] == 'generator_version':
-                            child[1] = QuotedString(KICAD_GENERATOR_VERSION)
-                            has_generator_version = True
-
-                # Second pass: add missing fields in correct order (after footprint name)
-                insert_idx = 2  # After footprint name
-
-                # Add in reverse order since we're inserting at the same index
-                if not has_generator_version:
-                    item.insert(insert_idx, ['generator_version', QuotedString(KICAD_GENERATOR_VERSION)])
-
-                if not has_generator:
-                    item.insert(insert_idx, ['generator', QuotedString(KICAD_FOOTPRINT_GENERATOR)])
-
-                if not has_version:
-                    item.insert(insert_idx, ['version', KICAD_FOOTPRINT_FILE_VERSION])
-
-                # Convert the footprint back to S-expression string
-                footprint_sexp = build_sexp(item)
-                footprints.append((clean_footprint_name, footprint_sexp))
-
-    # Extract footprints from the parsed PCB structure
-    extract_footprints_recursive(parsed)
-
-    return footprints
+        return []
 
 
 def extract_footprints_from_pcb(
@@ -189,10 +141,10 @@ def extract_footprints_from_pcb(
     if unique_only:
         seen_names = set()
         unique_footprints = []
-        for name, sexp in footprints:
-            if name not in seen_names:
-                seen_names.add(name)
-                unique_footprints.append((name, sexp))
+        for footprint in footprints:
+            if footprint.name not in seen_names:
+                seen_names.add(footprint.name)
+                unique_footprints.append(footprint)
         footprints = unique_footprints
         log.info(f"  Unique footprints: {len(footprints)}")
 
@@ -201,36 +153,34 @@ def extract_footprints_from_pcb(
 
     # Save each footprint to its own file
     extracted_count = 0
-    for footprint_name, footprint_sexp in footprints:
+    for footprint in footprints:
         # Sanitize the filename
-        safe_name = sanitize_filename(footprint_name)
+        safe_name = sanitize_filename(footprint.name)
         output_file = output_dir / f"{safe_name}.kicad_mod"
 
         # Check if file exists
         if output_file.exists() and not overwrite:
-            log.info(f"  Skipping '{footprint_name}' (file exists): {output_file.name}")
+            log.info(f"  Skipping '{footprint.name}' (file exists): {output_file.name}")
             continue
 
         # The footprint S-expression is a complete .kicad_mod file
         # Format it nicely before writing
         try:
-            # Parse and re-format for consistent output
-            try:
-                parsed_footprint = parse_sexp(footprint_sexp)
-                formatted_sexp = format_sexp(build_sexp(parsed_footprint), indentation_size=2, max_nesting=2)
-            except Exception:
-                # If parsing/formatting fails, use the original
-                formatted_sexp = footprint_sexp
+            formatted_sexp = format_sexp(
+                build_sexp(footprint.to_sexp()),
+                indentation_size=2,
+                max_nesting=2,
+            )
 
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(formatted_sexp)
                 # Ensure file ends with newline
                 if not formatted_sexp.endswith('\n'):
                     f.write('\n')
-            log.info(f"  Extracted '{footprint_name}' -> {output_file.name}")
+            log.info(f"  Extracted '{footprint.name}' -> {output_file.name}")
             extracted_count += 1
         except Exception as e:
-            log.error(f"  Failed to write footprint '{footprint_name}': {e}")
+            log.error(f"  Failed to write footprint '{footprint.name}': {e}")
 
     return extracted_count
 

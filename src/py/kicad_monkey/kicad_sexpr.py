@@ -6,7 +6,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, cast
 
 from ._api_markers import public_api
 
@@ -329,9 +329,11 @@ class SexpSelector:
 
     def matches(self, span: "SexpFormSpan") -> bool:
         """Return whether ``span`` matches this selector."""
-        if self.heads is not None and span.head not in self.heads:
+        heads = cast(frozenset[str] | None, self.heads)
+        paths = cast(frozenset[tuple[str, ...]] | None, self.paths)
+        if heads is not None and span.head not in heads:
             return False
-        if self.paths is not None and span.path not in self.paths:
+        if paths is not None and span.path not in paths:
             return False
         if self.min_depth is not None and span.depth < self.min_depth:
             return False
@@ -347,7 +349,8 @@ class SexpSelector:
         depth: int,
     ) -> bool:
         """Return whether nested forms below this form can match."""
-        if head is not None and head in self.prune_heads:
+        prune_heads = cast(frozenset[str], self.prune_heads)
+        if head is not None and head in prune_heads:
             return False
         if self.paths is not None and not self._can_any_path_match_child(path):
             return False
@@ -357,7 +360,8 @@ class SexpSelector:
         """Return whether a descendant of ``path`` can match an exact path."""
         assert self.paths is not None
         next_len = len(path) + 1
-        for target in self.paths:
+        paths = cast(frozenset[tuple[str, ...]], self.paths)
+        for target in paths:
             if len(target) < next_len:
                 continue
             if target[:len(path)] == path:

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026.6.18
+
+- Add a generic targeted KiCad object reader for extracting typed schematic,
+  symbol, board, footprint, model, and embedded-file objects without first
+  materializing a full file model.
+- Promote symbol and footprint text extractors onto the targeted reader API
+  while preserving object-level return types for local library generation.
+- Add reusable parameter alias normalization for canonical MPN, manufacturer,
+  value, and description fields in library extraction metadata.
+- Fix hidden graphical symbol text serialization so generated symbol libraries
+  validate with current `kicad-cli`.
+- Extend real-world corpus coverage for library extraction, schematic
+  hierarchy, board review, and SVG/IR promotion gates.
+
 ## 2026.6.15
 
 - Add KiCad project library extraction primitives for metadata-preserving

@@ -29,6 +29,7 @@ from kicad_monkey.kicad_library_extraction import (
     embed_external_model_payloads,
     extract_3d_models,
     extract_3d_models_from_footprint_records,
+    extract_embedded_assets,
     extract_footprints,
     extract_symbols,
     rehydrate_embedded_model_payloads_from_files,
@@ -43,6 +44,11 @@ from kicad_monkey.kicad_library_extraction import (
 from kicad_monkey.kicad_base import PadShape, PadType
 from kicad_monkey.kicad_model import EmbeddedFile, Model
 from kicad_monkey.kicad_pad import Pad
+from kicad_monkey.kicad_parameter_aliases import (
+    ParameterAliasConfig,
+    canonicalize_part_parameters,
+    resolve_parameter_aliases,
+)
 from kicad_monkey.kicad_pcb import KiCadPcb
 from kicad_monkey.kicad_pcb_footprint import Footprint
 from kicad_monkey.kicad_pcb_other import NetRef, PadNameGroup
@@ -84,6 +90,98 @@ def _real_world_corpus_projects() -> tuple[tuple[str, Path], ...]:
 
 def _case_output_dir(tmp_path: Path, case_id: str) -> Path:
     return tmp_path / case_id.replace("/", "__").replace("\\", "__").replace(":", "_")
+
+
+def test_part_parameter_aliases_are_case_insensitive() -> None:
+    """The generic alias resolver should not need explicit case variants."""
+    resolution = resolve_parameter_aliases(
+        {
+            "MANF_PN": "ERJ-3EKF4701V",
+            "MFR": "Panasonic",
+            "VALUE": "4.7k",
+            "Desc": "RES 4.7K OHM 1/10W 1% 0603 SMD",
+            "CAD_REFERENCE": "WN-123",
+        },
+        ParameterAliasConfig.from_mapping(
+            {
+                "mpn": ("manf_pn",),
+                "mfg": ("mfr",),
+                "value": ("value",),
+                "description": "desc",
+                "cad-reference": ("cad_reference",),
+            }
+        ),
+    )
+
+    assert resolution.canonical_fields == {
+        "cad-reference": "WN-123",
+        "description": "RES 4.7K OHM 1/10W 1% 0603 SMD",
+        "mfg": "Panasonic",
+        "mpn": "ERJ-3EKF4701V",
+        "value": "4.7k",
+    }
+    assert resolution.field_sources["mpn"] == "MANF_PN"
+
+
+def test_default_part_parameter_aliases_cover_library_fields() -> None:
+    """Library extraction defaults should emit the part identity contract."""
+    canonical = canonicalize_part_parameters(
+        {
+            "Manufacturer Part Number": "ERJ-3EKF4701V",
+            "Manufacturer": "Panasonic Electronic Components",
+            "Value": "4.7k",
+            "Description": "RES 4.7K OHM 1/10W 1% 0603 SMD",
+            "cad-reference": "ERJ-3EKF4701V",
+        }
+    )
+
+    assert canonical == {
+        "cad-reference": "ERJ-3EKF4701V",
+        "description": "RES 4.7K OHM 1/10W 1% 0603 SMD",
+        "mfg": "Panasonic Electronic Components",
+        "mpn": "ERJ-3EKF4701V",
+        "value": "4.7k",
+    }
+
+
+def test_extract_symbols_can_skip_power_symbols(tmp_path: Path) -> None:
+    """lib-extract can drop power/global symbols while regular parts remain."""
+    project_path = tmp_path / "power-filter.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+    (tmp_path / "power-filter.kicad_sch").write_text(
+        """(kicad_sch
+  (version 20250114)
+  (generator "kicad_monkey_test")
+  (lib_symbols
+    (symbol "power:+3V3"
+      (power global)
+      (property "Reference" "#PWR" (id 0) (at 0 0 0))
+      (property "Value" "+3V3" (id 1) (at 0 2.54 0))
+    )
+    (symbol "Device:R"
+      (property "Reference" "R" (id 0) (at 0 0 0))
+      (property "Value" "10k" (id 1) (at 0 2.54 0))
+    )
+  )
+)
+""",
+        encoding="utf-8",
+    )
+
+    all_records = extract_symbols(project_path)
+    part_records = extract_symbols(project_path, skip_power_symbols=True)
+    metadata_path = write_extraction_metadata_bundle(
+        project_path,
+        tmp_path / "library_extraction.json",
+        skip_power_symbols=True,
+        include_asset_scan=False,
+    )
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+
+    assert [record.name for record in all_records] == ["power:+3V3", "Device:R"]
+    assert [record.name for record in part_records] == ["Device:R"]
+    assert [record["name"] for record in metadata["symbols"]] == ["Device:R"]
+    assert metadata["symbols"][0]["canonical_fields"] == {"value": "10k"}
 
 
 def test_extract_3d_models_decodes_embedded_step_payloads(tmp_path: Path) -> None:
@@ -169,28 +267,168 @@ def test_extract_3d_models_can_preserve_duplicate_payload_aliases(tmp_path: Path
     assert sorted(path.name for path in preserved) == ["alias-a.step", "alias-b.step"]
 
 
+def test_extract_embedded_assets_decodes_project_payloads(tmp_path: Path) -> None:
+    """Megamaid asset extraction should decode embedded files and image payloads."""
+    zstandard = pytest.importorskip("zstandard")
+    png_payload = base64.b64encode(b"\x89PNG\r\n\x1a\nembedded-image").decode("ascii")
+    step_payload = b"ISO-10303-21;\nEND-ISO-10303-21;\n"
+    text_payload = b"embedded note\n"
+    encoded_step = base64.b64encode(zstandard.ZstdCompressor().compress(step_payload)).decode(
+        "ascii"
+    )
+    encoded_text = base64.b64encode(zstandard.ZstdCompressor().compress(text_payload)).decode(
+        "ascii"
+    )
+
+    project_path = tmp_path / "embedded-assets.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+    (tmp_path / "embedded-assets.kicad_pcb").write_text(
+        f"""(kicad_pcb
+  (version 20241229)
+  (generator "pcbnew")
+  (image (at 0 0) (layer "F.SilkS") (data "{png_payload}") (uuid "pcb-image"))
+  (footprint "local:Logo"
+    (layer "F.Cu")
+    (at 0 0)
+    (uuid "11111111-1111-1111-1111-111111111111")
+    (image (at 1 1) (layer "F.SilkS") (data "{png_payload}") (uuid "footprint-image"))
+    (embedded_files
+      (file (name "footprint-note.txt") (type other) (data |{encoded_text}|))
+    )
+  )
+  (embedded_files
+    (file (name "board.step") (type model) (data |{encoded_step}|))
+  )
+)""",
+        encoding="utf-8",
+    )
+    (tmp_path / "embedded-assets.kicad_sch").write_text(
+        f"""(kicad_sch
+  (version 20230121)
+  (generator "eeschema")
+  (uuid "22222222-2222-2222-2222-222222222222")
+  (paper "A4")
+  (image (at 2 3) (uuid "schematic-image") (data "{png_payload}"))
+  (embedded_files
+    (file (name "schematic-note.txt") (type other) (data |{encoded_text}|))
+  )
+)""",
+        encoding="utf-8",
+    )
+    (tmp_path / "Standalone.kicad_mod").write_text(
+        f"""(footprint "Standalone"
+  (version 20241229)
+  (generator "pcbnew")
+  (layer "F.Cu")
+  (image (at 0 0) (layer "F.SilkS") (data "{png_payload}") (uuid "library-image"))
+  (embedded_files
+    (file (name "library-note.txt") (type other) (data |{encoded_text}|))
+  )
+)""",
+        encoding="utf-8",
+    )
+    (tmp_path / "worksheet.kicad_wks").write_text(
+        f"""(kicad_wks
+  (version 20231118)
+  (generator "worksheet")
+  (bitmap (name "logo:Bitmap") (pos 0 0) (scale 1) (data "{png_payload}"))
+)""",
+        encoding="utf-8",
+    )
+    (tmp_path / "Symbols.kicad_sym").write_text(
+        f"""(kicad_symbol_lib
+  (version 20241229)
+  (generator "kicad_symbol_editor")
+  (embedded_files
+    (file (name "symbol-note.txt") (type other) (data |{encoded_text}|))
+  )
+)""",
+        encoding="utf-8",
+    )
+
+    records = extract_embedded_assets(project_path, tmp_path / "embedded_assets")
+
+    kinds = {record.kind for record in records}
+    assert {"embedded_file", "pcb_image", "schematic_image", "worksheet_bitmap"} <= kinds
+    assert (tmp_path / "embedded_assets" / "embedded_files" / "board.step").read_bytes() == step_payload
+    assert any(record.deduplicated for record in records)
+    assert any(record.mime_type == "image/png" for record in records)
+    assert any(record.source_kind == "symbol_library" for record in records)
+
+
 def test_scan_project_assets_resolves_kiprjmod_model_refs(tmp_path: Path) -> None:
     """KiCad resolves ${KIPRJMOD} model refs relative to the project file."""
     project_path = tmp_path / "kiprjmod-model.kicad_pro"
     project_path.write_text("{}", encoding="utf-8")
+    (tmp_path / "fp-lib-table").write_text(
+        """(fp_lib_table
+  (version 7)
+  (lib (name "local") (type "KiCad") (uri "${KIPRJMOD}/local.pretty") (options "") (descr ""))
+)
+""",
+        encoding="utf-8",
+    )
     model_dir = tmp_path / "models"
     model_dir.mkdir()
     step_file = model_dir / "local.step"
     step_file.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+    pretty_dir = tmp_path / "local.pretty"
+    pretty_dir.mkdir()
 
     footprint = KiCadFootprint()
     footprint.name = "LocalModel"
     footprint.models = [Model("${KIPRJMOD}/models/local.step")]
-    footprint.save(tmp_path / "LocalModel.kicad_mod")
+    footprint.save(pretty_dir / "LocalModel.kicad_mod")
 
     scan = scan_project_assets(project_path)
 
     assert not scan.diagnostics
+    assert scan.pretty_libraries == (str(pretty_dir.resolve()),)
+    assert scan.footprint_files == (str((pretty_dir / "LocalModel.kicad_mod").resolve()),)
     assert len(scan.model_references) == 1
     ref = scan.model_references[0]
     assert ref.reference_kind == KiCadModelReferenceKind.ENV_VAR.value
     assert ref.exists
     assert Path(ref.resolved_path) == step_file
+
+
+def test_scan_project_assets_ignores_unlisted_recursive_libraries(tmp_path: Path) -> None:
+    """Health scans local libraries from project tables, not arbitrary recursive files."""
+    project_path = tmp_path / "scoped-health.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+    (tmp_path / "fp-lib-table").write_text(
+        """(fp_lib_table
+  (version 7)
+  (lib (name "listed") (type "KiCad") (uri "${KIPRJMOD}/listed.pretty") (options "") (descr ""))
+)
+""",
+        encoding="utf-8",
+    )
+    listed_model = tmp_path / "listed.step"
+    listed_model.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+    ignored_model = tmp_path / "ignored.step"
+    ignored_model.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+    listed_dir = tmp_path / "listed.pretty"
+    ignored_dir = tmp_path / "nested" / "ignored.pretty"
+    listed_dir.mkdir()
+    ignored_dir.mkdir(parents=True)
+
+    listed = KiCadFootprint()
+    listed.name = "Listed"
+    listed.models = [Model("${KIPRJMOD}/listed.step")]
+    listed.save(listed_dir / "Listed.kicad_mod")
+
+    ignored = KiCadFootprint()
+    ignored.name = "Ignored"
+    ignored.models = [Model("${KIPRJMOD}/ignored.step")]
+    ignored.save(ignored_dir / "Ignored.kicad_mod")
+
+    scan = scan_project_assets(project_path)
+
+    assert scan.pretty_libraries == (str(listed_dir.resolve()),)
+    assert scan.footprint_files == (str((listed_dir / "Listed.kicad_mod").resolve()),)
+    assert [ref.owner for ref in scan.model_references] == ["Listed"]
+    assert all("ignored" not in ref.model_path for ref in scan.model_references)
 
 
 def test_scan_project_assets_groups_placed_footprints_without_models(tmp_path: Path) -> None:
@@ -497,8 +735,8 @@ def test_scan_project_assets_classifies_4ch_backplane_models() -> None:
 
     assert Path(scan.project_path).name == "4-ch-backplane.kicad_pro"
     assert len(scan.pcbs) == 1
-    assert len(scan.schematics) >= 18
-    assert len(scan.symbol_libraries) >= 9
+    assert len(scan.schematics) >= 1
+    assert len(scan.symbol_libraries) >= 1
     assert len(scan.pretty_libraries) >= 2
     assert len(scan.footprint_files) >= 40
 
