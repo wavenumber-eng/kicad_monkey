@@ -20,6 +20,7 @@ def _project_root() -> Path:
 PACKAGE_ROOT = _project_root()
 DESIGN_ROOT = PACKAGE_ROOT / "docs" / "design"
 COMMAND_MANIFEST = PACKAGE_ROOT / "docs" / "contracts" / "command_manifest.a0.json"
+README = PACKAGE_ROOT / "README.md"
 DOC_STATUS_VALUES = {"draft", "proposal", "accepted", "superseded"}
 REPORTABLE_DOC_STATUSES = {"draft", "proposal"}
 
@@ -80,6 +81,25 @@ def _cli_design_doc_commands() -> dict[str, Path]:
         if match is not None:
             docs[match.group(1)] = design_doc
     return docs
+
+
+def _readme_command_table_commands() -> list[str]:
+    """Return public command names listed in README.md's command table."""
+    text = README.read_text(encoding="utf-8")
+    match = re.search(r"## Commands\s+(?P<body>.*?)(?:\n## |\Z)", text, re.DOTALL)
+    assert match is not None, "README.md is missing a Commands section"
+
+    commands: list[str] = []
+    for line in match.group("body").splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if not cells or cells[0] in {"Command", "---"}:
+            continue
+        command_match = re.fullmatch(r"`([^`]+)`", cells[0])
+        if command_match is not None:
+            commands.append(command_match.group(1))
+    return commands
 
 
 def _doc_status(text: str) -> str:
@@ -160,6 +180,27 @@ def test_cli_command_inventory_matches_parser_manifest_and_design_docs() -> None
             )
 
     assert failures == [], "CLI command inventory drift:\n" + "\n".join(failures)
+
+
+def test_readme_command_table_matches_manifest() -> None:
+    """Verify README command inventory stays synchronized with the manifest."""
+    manifest_commands = _manifest_commands()
+    readme_commands = _readme_command_table_commands()
+    failures: list[str] = []
+
+    failures.extend(
+        _set_diff_message(
+            "README command table",
+            set(readme_commands),
+            set(manifest_commands),
+        )
+    )
+    if len(readme_commands) != len(set(readme_commands)):
+        failures.append("README command table: duplicate command declaration")
+    if readme_commands != sorted(readme_commands):
+        failures.append("README command table: command rows are not sorted")
+
+    assert failures == [], "README command inventory drift:\n" + "\n".join(failures)
 
 
 def test_cli_commands_have_matching_design_docs() -> None:

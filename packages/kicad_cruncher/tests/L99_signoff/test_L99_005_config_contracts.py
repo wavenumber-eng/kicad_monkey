@@ -167,6 +167,33 @@ def test_pcb_layer_step_a0_contract_removed_old_color_body_fields() -> None:
     assert '"step_body_name"' in schema_text
 
 
+def test_library_extraction_bundle_contract_documents_parameter_maps() -> None:
+    """The library extraction metadata contract must define raw/canonical fields."""
+    schema = json.loads(
+        (CONTRACTS_ROOT / "library_extraction_bundle.a0.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert schema["$id"] == "kicad_cruncher.library_extraction_bundle.a0"
+    assert schema["properties"]["schema"]["const"] == "kicad_cruncher.library_extraction_bundle.a0"
+    field_map = schema["$defs"]["field_map"]
+    canonical_map = schema["$defs"]["canonical_field_map"]
+    symbol_record = schema["$defs"]["symbol_record"]
+    footprint_record = schema["$defs"]["footprint_record"]
+
+    assert "parameter map" in field_map["description"]
+    assert "mpn" in canonical_map["description"]
+    assert "mfg" in canonical_map["description"]
+    assert "value" in canonical_map["description"]
+    assert "description" in canonical_map["description"]
+    assert "cad-reference" in canonical_map["description"]
+    assert "raw_fields" in symbol_record["required"]
+    assert "canonical_fields" in symbol_record["required"]
+    assert "raw_fields" in footprint_record["required"]
+    assert "canonical_fields" in footprint_record["required"]
+
+
 def test_all_default_configs_are_generated_documented_jsonc(tmp_path: Path) -> None:
     """Every generated command config must parse and carry structured field comments."""
     configs = {

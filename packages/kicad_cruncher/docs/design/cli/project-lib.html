@@ -21,7 +21,8 @@
 
 <section id="usage">
   <h2>Usage</h2>
-  <pre><code>kicad-cruncher project-lib project.kicad_pro -o output/project-lib
+  <pre><code>kicad-cruncher project-lib project.kicad_pro
+kicad-cruncher project-lib project.kicad_pro -o local-library
 kicad-cruncher project-library project.kicad_pro --include-asset-scan
 kicad-cruncher project-local-lib project.kicad_pro --validate-kicad-cli
 kicad-cruncher project-lib project.kicad_pro --symbol-library-dir local-symbols --footprint-library-dir local-footprints
@@ -32,7 +33,7 @@ kicad-cruncher project-lib project.kicad_pro --no-update-library-tables</code></
 <section id="arguments">
   <h2>Arguments</h2>
   <p><code>file</code> accepts a <code>.kicad_pro</code> project. If omitted, the command auto-detects exactly one <code>.kicad_pro</code> in the current directory.</p>
-  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/project-lib/</code>. <code>project-library</code>, <code>project-local-lib</code>, and <code>local-library</code> are aliases for the same command. The default symbol folder is the <code>.kicad_pro</code> stem, and the default footprint folder is <code>&lt;.kicad_pro stem&gt;.pretty</code>. <code>--symbol-library-dir</code> and <code>--footprint-library-dir</code> override those folder names. <code>--symbol-library-name</code> and <code>--footprint-library-name</code> override the project table nicknames; when omitted, the nicknames come from the generated library folder names. <code>--no-update-library-tables</code> extracts artifacts without editing <code>sym-lib-table</code> or <code>fp-lib-table</code>.</p>
+  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./local-library/</code>. <code>project-library</code>, <code>project-local-lib</code>, and <code>local-library</code> are aliases for the same command. The default symbol folder is the <code>.kicad_pro</code> stem, and the default footprint folder is <code>&lt;.kicad_pro stem&gt;.pretty</code>. <code>--symbol-library-dir</code> and <code>--footprint-library-dir</code> override those folder names. <code>--symbol-library-name</code> and <code>--footprint-library-name</code> override the project table nicknames; when omitted, the nicknames come from the generated library folder names. <code>--no-update-library-tables</code> extracts artifacts without editing <code>sym-lib-table</code> or <code>fp-lib-table</code>.</p>
   <p>The command always uses project-local extraction mode: schematic symbols preserve metadata and project-specific variants, while PCB footprints are deduplicated by footprint library link down to the reusable common footprint set. Repeated embedded copies of the same schematic library symbol are collapsed by symbol member name so copied sheets do not create <code>_2</code>, <code>_3</code>, ... symbol files. KiCad-generated multipart alias members such as <code>PART_1</code> are also collapsed when a base <code>PART</code> symbol exists.</p>
   <p><code>--no-embed-models</code> disables board-embedded model payload rehydration in extracted footprints. <code>--no-embed-external-models</code> disables resolving external STEP/STP model paths into extracted footprints. <code>--include-models</code> additionally writes decoded embedded STEP/STP model files under <code>models/</code>, preserving model filenames instead of de-duplicating solely by payload hash. <code>--include-asset-scan</code> includes the full model-reference scan in the metadata JSON. <code>--validate-kicad-cli</code> asks KiCad CLI to parse/upgrade the generated libraries, and <code>--kicad-cli</code> selects the executable.</p>
 </section>
@@ -54,6 +55,7 @@ kicad-cruncher project-lib project.kicad_pro --no-update-library-tables</code></
     <li><code>project_lib_manifest.json</code>: <code>kicad_cruncher.project_lib_manifest.a0</code> artifact index with counts, relative output paths, mode, source project, project library table actions, and optional KiCad CLI validation results.</li>
     <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
   </ul>
+  <p>The <code>library_extraction.json</code> metadata follows <code>docs/contracts/library_extraction_bundle.a0.schema.json</code>. <code>raw_fields</code> is the raw KiCad parameter/property map with source key spelling preserved; <code>canonical_fields</code> is derived from those fields using case-insensitive alias matching for part fields such as <code>mpn</code>, <code>mfg</code>, <code>value</code>, <code>description</code>, and <code>cad-reference</code>.</p>
   <p><code>megamaid</code> handles cleaned <code>lib_cruncher</code> ingestion assets. <code>project-lib</code> handles metadata-preserving project-local assets. <code>health</code> handles broader asset diagnostics without extracting libraries.</p>
 </section>
 

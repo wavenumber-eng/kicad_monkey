@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.6.18
+
+- Update the controlled `kicad-monkey` dependency to `2026.6.18` for targeted
+  KiCad object extraction, cleaned library metadata normalization, and current
+  symbol-library validation behavior.
+- Promote the project-local library, cleaned library extraction, project
+  health, and Megamaid workflows through the public CLI release gates.
+- Add documented `library_extraction.json` contract coverage for raw and
+  canonical parameter maps.
+- Improve Megamaid and PCB SVG status logging for long-running project
+  dissection and rendering workflows.
+
 ## 2026.6.15
 
 - Update the controlled `kicad-monkey` dependency to `2026.6.15` for KiCad

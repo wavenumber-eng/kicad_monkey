@@ -46,27 +46,35 @@ def kicad_model_pose(
     in KiCad's negative Z, negative Y, negative X order after the model offset.
     """
 
+    local_pose = kicad_model_local_pose(pcb, footprint, model)
+    matrix = _matrix_multiply(_footprint_model_placement_matrix(footprint), local_pose.matrix)
+    return KiCadModelPose(
+        matrix=matrix,
+        side=local_pose.side,
+        board_thickness_mm=local_pose.board_thickness_mm,
+    )
+
+
+def kicad_model_local_pose(
+    pcb: KiCadPcb,
+    footprint: Footprint,
+    model: Model,
+) -> KiCadModelPose:
+    """Return the model transform before footprint XY placement and Z rotation.
+
+    This pose is stable for repeated instances of the same model on the same
+    board side, so expensive STEP projection can be cached once and transformed
+    onto each footprint afterward.
+    """
     side = "bottom" if str(getattr(footprint, "layer", "") or "").startswith("B.") else "top"
     board_thickness = _board_thickness_mm(pcb)
     offset = _vec3(getattr(model, "offset", (0.0, 0.0, 0.0)), default=0.0)
     scale = _vec3(getattr(model, "scale", (1.0, 1.0, 1.0)), default=1.0)
     rotation = _vec3(getattr(model, "rotate", (0.0, 0.0, 0.0)), default=0.0)
 
-    offset_z = offset[2] + _BOARD_MODEL_Z_OFFSET_MM
-    if side == "bottom":
-        offset_z += board_thickness / 2.0
-    else:
-        offset_z += board_thickness / 2.0
+    offset_z = offset[2] + _BOARD_MODEL_Z_OFFSET_MM + board_thickness / 2.0
 
-    matrix = _translation_matrix(
-        float(getattr(footprint, "at_x", 0.0) or 0.0),
-        -float(getattr(footprint, "at_y", 0.0) or 0.0),
-        0.0,
-    )
-    matrix = _matrix_multiply(
-        matrix,
-        _rotation_z_matrix(math.radians(float(getattr(footprint, "at_angle", 0.0) or 0.0))),
-    )
+    matrix = _identity_matrix()
     if side == "bottom":
         matrix = _matrix_multiply(matrix, _rotation_x_matrix(math.pi))
     matrix = _matrix_multiply(matrix, _translation_matrix(offset[0], offset[1], offset_z))
@@ -79,6 +87,21 @@ def kicad_model_pose(
         matrix=matrix,
         side=side,
         board_thickness_mm=board_thickness,
+    )
+
+
+def transform_model_local_world_to_board_world(
+    footprint: Footprint,
+    point: tuple[float, float],
+) -> tuple[float, float]:
+    """Transform local projected model XY into KiCad 3D board-world XY."""
+    angle = math.radians(float(getattr(footprint, "at_angle", 0.0) or 0.0))
+    cosine = math.cos(angle)
+    sine = math.sin(angle)
+    local_x, local_y = float(point[0]), float(point[1])
+    return (
+        float(getattr(footprint, "at_x", 0.0) or 0.0) + local_x * cosine - local_y * sine,
+        -float(getattr(footprint, "at_y", 0.0) or 0.0) + local_x * sine + local_y * cosine,
     )
 
 
@@ -112,6 +135,38 @@ def model_bounds_to_svg_rect(
         board_world_to_svg((max_values[0], min_values[1]), bbox=bbox),
         board_world_to_svg((max_values[0], max_values[1]), bbox=bbox),
         board_world_to_svg((min_values[0], max_values[1]), bbox=bbox),
+    ]
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+    min_x = min(xs)
+    min_y = min(ys)
+    return min_x, min_y, max(xs) - min_x, max(ys) - min_y
+
+
+def model_local_bounds_to_svg_rect(
+    bounds: object,
+    footprint: Footprint,
+    *,
+    bbox: _BoundsLike,
+) -> tuple[float, float, float, float] | None:
+    """Project cached local model bounds onto one footprint's PCB SVG canvas."""
+    min_values = _bounds_vec3(bounds, "min")
+    max_values = _bounds_vec3(bounds, "max")
+    if min_values is None or max_values is None:
+        return None
+
+    local_points = [
+        (min_values[0], min_values[1]),
+        (max_values[0], min_values[1]),
+        (max_values[0], max_values[1]),
+        (min_values[0], max_values[1]),
+    ]
+    points = [
+        board_world_to_svg(
+            transform_model_local_world_to_board_world(footprint, point),
+            bbox=bbox,
+        )
+        for point in local_points
     ]
     xs = [point[0] for point in points]
     ys = [point[1] for point in points]
@@ -164,6 +219,27 @@ def _vec3(raw: object, *, default: float) -> tuple[float, float, float]:
         values[0] if len(values) > 0 else default,
         values[1] if len(values) > 1 else default,
         values[2] if len(values) > 2 else default,
+    )
+
+
+def _identity_matrix() -> Matrix4:
+    return [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+
+
+def _footprint_model_placement_matrix(footprint: Footprint) -> Matrix4:
+    matrix = _translation_matrix(
+        float(getattr(footprint, "at_x", 0.0) or 0.0),
+        -float(getattr(footprint, "at_y", 0.0) or 0.0),
+        0.0,
+    )
+    return _matrix_multiply(
+        matrix,
+        _rotation_z_matrix(math.radians(float(getattr(footprint, "at_angle", 0.0) or 0.0))),
     )
 
 
@@ -243,6 +319,9 @@ __all__ = [
     "Matrix4",
     "board_world_to_svg",
     "kicad_model_pose",
+    "kicad_model_local_pose",
+    "model_local_bounds_to_svg_rect",
     "model_bounds_to_svg_rect",
     "transform_footprint_local_to_board",
+    "transform_model_local_world_to_board_world",
 ]

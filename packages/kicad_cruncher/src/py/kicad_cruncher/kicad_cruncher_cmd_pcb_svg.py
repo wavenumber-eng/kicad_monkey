@@ -11,7 +11,8 @@ import logging
 import math
 import os
 import re
-from collections.abc import Mapping
+import time
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
@@ -20,12 +21,14 @@ from kicad_cruncher.kicad_cruncher_common import resolve_output_dir
 from kicad_cruncher.kicad_cruncher_pcb_model_pose import (
     Matrix4,
     board_world_to_svg,
-    kicad_model_pose,
-    model_bounds_to_svg_rect,
+    kicad_model_local_pose,
+    model_local_bounds_to_svg_rect,
     transform_footprint_local_to_board,
+    transform_model_local_world_to_board_world,
 )
 from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import (
     PcbSvgComposition,
+    PcbSvgCompositionRenderCache,
     render_pcb_svg_composition,
 )
 from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
@@ -47,6 +50,7 @@ from kicad_cruncher.kicad_cruncher_pcb_svg_projection import (
     _AssemblyProjectionOptions,
     _get_assembly_projection_cache,
 )
+from kicad_cruncher.logging_utils import stage_done_text, stage_progress_text, stage_start_text
 
 log = logging.getLogger(__name__)
 
@@ -121,6 +125,7 @@ _PCB_SVG_ASSEMBLY_HLR_BOTTOM_LAYER_ID = 9005
 _PCB_SVG_ASSEMBLY_DESIGNATORS_TOP_LAYER_ID = 9006
 _PCB_SVG_ASSEMBLY_DESIGNATORS_BOTTOM_LAYER_ID = 9007
 _MODEL_BOUNDS_CACHE: dict[tuple[str, tuple[float, ...]], dict[str, object]] = {}
+_STEP_BYTES_CACHE: dict[tuple[str, str], bytes] = {}
 
 
 def _safe_svg_id(value: str) -> str:
@@ -393,10 +398,144 @@ def _layer_output_tokens(config: _PcbSvgConfig, pcb: KiCadPcb) -> list[str]:
     configured = config.layer_outputs.get("layers", "auto")
     if configured == "auto":
         layers = [_pcb_layer_name(layer) for layer in getattr(pcb, "layers", [])]
-        return [layer for layer in layers if layer]
+        tokens = [layer for layer in layers if layer]
+        if bool(config.global_options.show_empty_layers):
+            return tokens
+        active_layers = _active_pcb_layers(pcb)
+        return [layer for layer in tokens if layer in active_layers]
     if not isinstance(configured, list):
         return []
     return [normalize_layer_token(str(token)) for token in configured]
+
+
+def _active_pcb_layers(pcb: KiCadPcb) -> set[str]:
+    """Return physical layers with direct board geometry for auto layer outputs."""
+    active: set[str] = set()
+    known_layers = _known_pcb_layers(pcb)
+    _add_board_geometry_layers(active, pcb, known_layers=known_layers)
+    _add_via_layers(active, pcb, known_layers=known_layers)
+    _add_zone_layers(active, getattr(pcb, "zones", []) or [], known_layers=known_layers)
+    _add_footprint_geometry_layers(active, pcb, known_layers=known_layers)
+    return active
+
+
+def _known_pcb_layers(pcb: KiCadPcb) -> set[str]:
+    return {
+        name
+        for layer in getattr(pcb, "layers", []) or []
+        if (name := _pcb_layer_name(layer))
+    }
+
+
+def _add_board_geometry_layers(
+    active: set[str],
+    pcb: KiCadPcb,
+    *,
+    known_layers: set[str],
+) -> None:
+    for attr in (
+        "gr_lines",
+        "gr_arcs",
+        "gr_rects",
+        "gr_circles",
+        "gr_polys",
+        "gr_curves",
+        "segments",
+        "arcs",
+        "track_arcs",
+    ):
+        for item in getattr(pcb, attr, []) or []:
+            _add_layer_name(active, getattr(item, "layer", None), known_layers=known_layers)
+
+
+def _add_via_layers(
+    active: set[str],
+    pcb: KiCadPcb,
+    *,
+    known_layers: set[str],
+) -> None:
+    copper_layers = {layer for layer in known_layers if layer.endswith(".Cu")}
+    if getattr(pcb, "vias", []) or []:
+        active.update(copper_layers)
+    for via in getattr(pcb, "vias", []) or []:
+        _add_layer_names(active, getattr(via, "layers", None), known_layers=known_layers)
+
+
+def _add_zone_layers(
+    active: set[str],
+    zones: Iterable[object],
+    *,
+    known_layers: set[str],
+) -> None:
+    for zone in zones:
+        _add_layer_names(active, getattr(zone, "layers", None), known_layers=known_layers)
+        _add_layer_name(active, getattr(zone, "layer", None), known_layers=known_layers)
+
+
+def _add_footprint_geometry_layers(
+    active: set[str],
+    pcb: KiCadPcb,
+    *,
+    known_layers: set[str],
+) -> None:
+    for footprint in getattr(pcb, "footprints", []) or []:
+        for pad in getattr(footprint, "pads", []) or []:
+            _add_layer_names(active, getattr(pad, "layers", None), known_layers=known_layers)
+        _add_zone_layers(active, getattr(footprint, "zones", []) or [], known_layers=known_layers)
+        for attr in (
+            "fp_lines",
+            "fp_arcs",
+            "fp_circles",
+            "fp_rects",
+            "fp_polys",
+            "fp_texts",
+            "fp_text_boxes",
+            "images",
+            "dimensions",
+        ):
+            for item in getattr(footprint, attr, []) or []:
+                _add_layer_name(active, getattr(item, "layer", None), known_layers=known_layers)
+                _add_layer_names(active, getattr(item, "layers", None), known_layers=known_layers)
+
+
+def _add_layer_name(
+    layers: set[str],
+    raw: object,
+    *,
+    known_layers: set[str] | None = None,
+) -> None:
+    if raw is None:
+        return
+    text = str(raw).strip()
+    if not text:
+        return
+    if "*" not in text:
+        layers.add(text)
+        return
+    if known_layers is None or not text.startswith("*."):
+        return
+    suffix = text[1:]
+    layers.update(layer for layer in known_layers if layer.endswith(suffix))
+
+
+def _add_layer_names(
+    layers: set[str],
+    raw: object,
+    *,
+    known_layers: set[str] | None = None,
+) -> None:
+    if raw is None:
+        return
+    if isinstance(raw, str):
+        _add_layer_name(layers, raw, known_layers=known_layers)
+        return
+    try:
+        values = list(raw)  # type: ignore[arg-type]
+    except TypeError:
+        _add_layer_name(layers, raw, known_layers=known_layers)
+        return
+    for value in values:
+        _add_layer_name(layers, value, known_layers=known_layers)
 
 
 def _pcb_layer_name(layer: object) -> str:
@@ -465,14 +604,29 @@ def _render_a0_layer_outputs(
     output_dir: Path,
     board_name: str,
     layer_manifest: dict[str, object],
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> int:
     if not bool(config.layer_outputs.get("enabled", True)):
         return 0
     layer_dir = output_dir / str(config.layer_outputs.get("output_dir") or "layers")
     physical_tokens, virtual_tokens = _layer_output_token_groups(config, pcb)
 
+    started_at = time.perf_counter()
+    log.info(
+        "%s",
+        stage_start_text(
+            "PCB SVG: writing "
+            f"{len(physical_tokens)} physical and {len(virtual_tokens)} virtual layer outputs"
+        ),
+    )
     written = 0
-    for layer_token in physical_tokens:
+    for index, layer_token in enumerate(physical_tokens, start=1):
+        log.info(
+            "%s",
+            stage_progress_text(
+                f"PCB SVG: physical layer {index}/{len(physical_tokens)} {layer_token}"
+            ),
+        )
         written += _write_physical_layer_output(
             pcb,
             config=config,
@@ -481,8 +635,15 @@ def _render_a0_layer_outputs(
             output_dir=output_dir,
             board_name=board_name,
             layer_manifest=layer_manifest,
+            render_cache=render_cache,
         )
-    for layer_token in virtual_tokens:
+    for index, layer_token in enumerate(virtual_tokens, start=1):
+        log.info(
+            "%s",
+            stage_progress_text(
+                f"PCB SVG: virtual layer {index}/{len(virtual_tokens)} {layer_token}"
+            ),
+        )
         written += _write_virtual_layer_output(
             pcb,
             pcb_path,
@@ -492,7 +653,15 @@ def _render_a0_layer_outputs(
             output_dir=output_dir,
             board_name=board_name,
             layer_manifest=layer_manifest,
+            render_cache=render_cache,
         )
+    log.info(
+        "%s",
+        stage_done_text(
+            f"PCB SVG: wrote {written} layer output file(s) in "
+            f"{time.perf_counter() - started_at:.2f}s"
+        ),
+    )
     return written
 
 
@@ -520,6 +689,7 @@ def _write_physical_layer_output(
     output_dir: Path,
     board_name: str,
     layer_manifest: dict[str, object],
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> int:
     group_id = f"pcb-svg-layer-{_safe_svg_id(layer_token.lower())}"
     view_layers = [layer_token, *_physical_layer_context_tokens(config, layer_token)]
@@ -529,6 +699,7 @@ def _write_physical_layer_output(
         styles=config.global_options.styles,
         group_id=group_id,
         config=config,
+        render_cache=render_cache,
     )
     if not composition.physical_layers and not bool(config.global_options.show_empty_layers):
         return 0
@@ -555,6 +726,7 @@ def _write_virtual_layer_output(
     output_dir: Path,
     board_name: str,
     layer_manifest: dict[str, object],
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> int:
     group_id = f"pcb-svg-layer-virtual-{_safe_svg_id(layer_token.lower())}"
     view_layers = [layer_token]
@@ -564,6 +736,7 @@ def _write_virtual_layer_output(
         layer_token,
         group_id=group_id,
         config=config,
+        render_cache=render_cache,
     )
     layer_path = layer_dir / f"{board_name}__virtual__{_safe_svg_id(layer_token.lower())}.svg"
     layer_path.parent.mkdir(parents=True, exist_ok=True)
@@ -585,6 +758,7 @@ def _render_virtual_layer_composition(
     *,
     group_id: str,
     config: _PcbSvgConfig,
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> PcbSvgComposition:
     token = normalize_layer_token(layer_token)
     if token in _DESIGNATOR_TOKENS:
@@ -595,6 +769,7 @@ def _render_virtual_layer_composition(
             group_id=group_id,
             styles=config.global_options.styles,
             config=config,
+            render_cache=render_cache,
         )
     if _is_assembly_virtual_layer_token(token):
         return _render_assembly_virtual_layer_output(
@@ -604,6 +779,7 @@ def _render_virtual_layer_composition(
             group_id=group_id,
             styles=config.global_options.styles,
             config=config,
+            render_cache=render_cache,
         )
     return render_pcb_svg_composition(
         pcb,
@@ -611,6 +787,7 @@ def _render_virtual_layer_composition(
         styles=config.global_options.styles,
         group_id=group_id,
         config=config,
+        render_cache=render_cache,
     )
 
 
@@ -626,6 +803,7 @@ def _render_assembly_virtual_layer_output(
     group_id: str,
     styles: dict[str, dict[str, object]],
     config: _PcbSvgConfig,
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> PcbSvgComposition:
     token = normalize_layer_token(layer_token)
     _, mode = _assembly_token_projection(token, config.assembly.default_projection)
@@ -635,6 +813,7 @@ def _render_assembly_virtual_layer_output(
         styles=styles,
         group_id=group_id,
         config=config,
+        render_cache=render_cache,
     )
     view = _PcbSvgViewConfig(
         name=f"virtual_{token.lower()}",
@@ -662,6 +841,7 @@ def _render_assembly_designator_virtual_layer_output(
     group_id: str,
     styles: dict[str, dict[str, object]],
     config: _PcbSvgConfig,
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> PcbSvgComposition:
     token = normalize_layer_token(layer_token)
     composition = render_pcb_svg_composition(
@@ -670,6 +850,7 @@ def _render_assembly_designator_virtual_layer_output(
         styles=styles,
         group_id=group_id,
         config=config,
+        render_cache=render_cache,
     )
     view = _PcbSvgViewConfig(
         name=f"virtual_{token.lower()}",
@@ -696,9 +877,19 @@ def _render_a0_configured_views(
     output_dir: Path,
     board_name: str,
     view_manifest: dict[str, object],
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> int:
     written = 0
-    for view in config.enabled_views():
+    enabled_views = config.enabled_views()
+    started_at = time.perf_counter()
+    log.info("%s", stage_start_text(f"PCB SVG: writing {len(enabled_views)} configured views"))
+    for index, view in enumerate(enabled_views, start=1):
+        log.info(
+            "%s",
+            stage_progress_text(
+                f"PCB SVG: configured view {index}/{len(enabled_views)} {view.name}"
+            ),
+        )
         styles = config.resolved_styles_for_view(view)
         mirror = _view_mirror(config, view)
         group_id = view.resolved_group_id()
@@ -710,6 +901,7 @@ def _render_a0_configured_views(
             mirror=mirror,
             styles=styles,
             config=config,
+            render_cache=render_cache,
         )
         view_path = resolve_config_output_path(
             output_dir,
@@ -727,6 +919,13 @@ def _render_a0_configured_views(
             "assembly_hlr_mode": view.assembly_hlr_mode,
         }
         written += 1
+    log.info(
+        "%s",
+        stage_done_text(
+            f"PCB SVG: wrote {written} configured view file(s) in "
+            f"{time.perf_counter() - started_at:.2f}s"
+        ),
+    )
     return written
 
 
@@ -739,6 +938,7 @@ def _render_view_svg(
     mirror: bool,
     styles: dict[str, dict[str, object]],
     config: _PcbSvgConfig,
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> str:
     composition = render_pcb_svg_composition(
         pcb,
@@ -747,6 +947,7 @@ def _render_view_svg(
         group_id=group_id,
         config=config,
         pin1_config=config.resolved_pin1_for_view(view),
+        render_cache=render_cache,
     )
     svg_text = composition.svg_text
     overlays = [
@@ -875,7 +1076,7 @@ def _render_assembly_designator_token_group(
         if not _style_enabled(component_styles, "assembly_designators"):
             continue
         projection = _component_projection_mode(
-            view.assembly_hlr_mode,
+            config.assembly.default_projection,
             config=config,
             designator=designator,
         )
@@ -1483,7 +1684,7 @@ def _render_footprint_geometer_hlr(
     if step_bytes is None:
         return []
     model_hash = hashlib.sha256(step_bytes).hexdigest()
-    pose = kicad_model_pose(pcb, footprint, model)
+    pose = kicad_model_local_pose(pcb, footprint, model)
     options = _assembly_projection_options(side=side, styles=styles)
     try:
         _, projected = _get_assembly_projection_cache().project(
@@ -1497,7 +1698,11 @@ def _render_footprint_geometer_hlr(
     except Exception as exc:
         log.warning("Geometer HLR failed for %s: %s", _footprint_designator(footprint), exc)
         return []
-    return _projected_geometry_to_svg(projected, mode=mode, bbox=bbox)
+    return _projected_geometry_to_svg(
+        _projected_geometry_to_footprint_board_world(projected, footprint),
+        mode=mode,
+        bbox=bbox,
+    )
 
 
 def _assembly_projection_options(
@@ -1566,15 +1771,43 @@ def _resolve_model_step_bytes(
 ) -> bytes | None:
     raw_path = str(getattr(model, "path", "") or "")
     if raw_path.startswith("kicad-embed://"):
-        embedded_name = raw_path[len("kicad-embed://") :]
-        embedded = _find_embedded_file(pcb, footprint, embedded_name)
-        if embedded is None:
-            return None
-        return _decode_embedded_file_data(str(getattr(embedded, "data", "") or ""))
-    model_path = _resolve_external_model_path(raw_path, pcb_path.parent)
+        return _resolve_embedded_model_step_bytes(pcb, footprint, raw_path)
+    return _resolve_external_model_step_bytes(raw_path, pcb_path.parent)
+
+
+def _resolve_embedded_model_step_bytes(
+    pcb: KiCadPcb,
+    footprint: Footprint,
+    raw_path: str,
+) -> bytes | None:
+    embedded_name = raw_path[len("kicad-embed://") :]
+    embedded = _find_embedded_file(pcb, footprint, embedded_name)
+    if embedded is None:
+        return None
+    data = str(getattr(embedded, "data", "") or "")
+    if not data:
+        return None
+    cache_key = ("embedded", hashlib.sha256(data.encode("ascii", errors="ignore")).hexdigest())
+    cached = _STEP_BYTES_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    decoded = _decode_embedded_file_data(data)
+    if decoded is not None:
+        _STEP_BYTES_CACHE[cache_key] = decoded
+    return decoded
+
+
+def _resolve_external_model_step_bytes(raw_path: str, base_dir: Path) -> bytes | None:
+    model_path = _resolve_external_model_path(raw_path, base_dir)
     if model_path is None or not model_path.exists():
         return None
-    return model_path.read_bytes()
+    cache_key = ("file", str(model_path.resolve()))
+    cached = _STEP_BYTES_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    data = model_path.read_bytes()
+    _STEP_BYTES_CACHE[cache_key] = data
+    return data
 
 
 def _find_embedded_file(pcb: KiCadPcb, footprint: Footprint, name: str) -> EmbeddedFile | None:
@@ -1657,6 +1890,40 @@ def _projected_arc_to_svg(
     )
 
 
+def _projected_geometry_to_footprint_board_world(
+    projected: _AssemblyProjectedGeometry,
+    footprint: Footprint,
+) -> _AssemblyProjectedGeometry:
+    """Apply footprint placement to cached model-local projected geometry."""
+
+    def point(value: tuple[float, float]) -> tuple[float, float]:
+        return transform_model_local_world_to_board_world(footprint, value)
+
+    def segment(
+        value: tuple[tuple[float, float], tuple[float, float]],
+    ) -> tuple[tuple[float, float], tuple[float, float]]:
+        start, end = value
+        return point(start), point(end)
+
+    def arc(value: _AssemblyProjectedArc) -> _AssemblyProjectedArc:
+        return _AssemblyProjectedArc(
+            start=point(value.start),
+            end=point(value.end),
+            center=point(value.center),
+            radius=value.radius,
+            extent_rad=value.extent_rad,
+            ccw=value.ccw,
+            full_circle=value.full_circle,
+        )
+
+    return _AssemblyProjectedGeometry(
+        outline_line_segments=tuple(segment(item) for item in projected.outline_line_segments),
+        outline_arcs=tuple(arc(item) for item in projected.outline_arcs),
+        detail_line_segments=tuple(segment(item) for item in projected.detail_line_segments),
+        detail_arcs=tuple(arc(item) for item in projected.detail_arcs),
+    )
+
+
 def _render_footprint_model_bounds_rect(
     pcb: KiCadPcb,
     pcb_path: Path,
@@ -1692,7 +1959,7 @@ def _footprint_model_bounds_rect_values(
     step_bytes = _resolve_model_step_bytes(pcb, footprint, model, pcb_path)
     if step_bytes is None:
         return None
-    pose = kicad_model_pose(pcb, footprint, model)
+    pose = kicad_model_local_pose(pcb, footprint, model)
     model_hash = hashlib.sha256(step_bytes).hexdigest()
     try:
         bounds = _geometer_model_bounds(
@@ -1709,7 +1976,7 @@ def _footprint_model_bounds_rect_values(
             exc,
         )
         return None
-    return model_bounds_to_svg_rect(bounds, bbox=bbox)
+    return model_local_bounds_to_svg_rect(bounds, footprint, bbox=bbox)
 
 
 def _geometer_model_bounds(
@@ -1904,7 +2171,16 @@ def _render_a0_board_outputs(
     *,
     output_dir: Path,
 ) -> int:
+    load_started_at = time.perf_counter()
+    log.info("%s", stage_start_text(f"PCB SVG: loading {input_file.name}"))
     pcb, pcb_path = _load_kicad_pcb(input_file, config)
+    log.info(
+        "%s",
+        stage_done_text(
+            f"PCB SVG: loaded {pcb_path.name} in {time.perf_counter() - load_started_at:.2f}s"
+        ),
+    )
+    render_cache = PcbSvgCompositionRenderCache(pcb)
     board_name = pcb_path.stem
     layer_manifest: dict[str, object] = {}
     view_manifest: dict[str, object] = {}
@@ -1923,6 +2199,7 @@ def _render_a0_board_outputs(
         output_dir=output_dir,
         board_name=board_name,
         layer_manifest=layer_manifest,
+        render_cache=render_cache,
     )
     written += _render_a0_configured_views(
         config,
@@ -1931,6 +2208,7 @@ def _render_a0_board_outputs(
         output_dir=output_dir,
         board_name=board_name,
         view_manifest=view_manifest,
+        render_cache=render_cache,
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = output_dir / f"{board_name}__views.json"
@@ -2014,7 +2292,7 @@ def add_pcb_svg_option_arguments(parser: argparse.ArgumentParser) -> None:
         "--pcb-layers",
         dest="pcb_layers",
         type=str,
-        help="comma-separated physical PCB layers for layer outputs",
+        help="comma-separated physical PCB layers when layer outputs are enabled",
     )
     parser.add_argument(
         "--scale",
@@ -2046,9 +2324,9 @@ def register_parser(
     """Register the pcb-svg command parser."""
     parser = subparsers.add_parser(
         "pcb-svg",
-        help="generate PCB SVG layer outputs and configured design views",
+        help="generate PCB SVG design views and optional layer outputs",
         description=(
-            "Generate KiCad PCB SVG layer outputs and configured A0 design views "
+            "Generate configured A0 KiCad PCB SVG design views and optional layer outputs "
             "from .kicad_pcb or .kicad_pro files. The command uses pcb.svg.config "
             "JSON/JSONC configs and supports geometer-backed assembly HLR overlays."
         ),

@@ -17,7 +17,7 @@ packages, and justified by command behavior.
 
 The first runtime dependency set is intentionally narrow:
 
-- `kicad-monkey==2026.6.15`
+- `kicad-monkey==2026.6.18`
 - `wn-geometer==2026.6.10`
 - `openpyxl>=3.1.0`
 - `colorama>=0.4.6`
@@ -30,8 +30,9 @@ The top-level CLI stays an orchestrator. Command behavior lives in
 command-specific modules named `kicad_cruncher_cmd_<command>.py`.
 
 Output-producing commands accept `-o/--output` as an output directory. When the
-option is omitted, commands write under `./output/<command>/`. Passing
-`-o/--output` replaces the whole command output directory.
+option is omitted, commands write under `./output/<command>/`, except
+`project-lib`, which writes under `./local-library/`. Passing `-o/--output`
+replaces the whole command output directory.
 
 ## Consequences
 

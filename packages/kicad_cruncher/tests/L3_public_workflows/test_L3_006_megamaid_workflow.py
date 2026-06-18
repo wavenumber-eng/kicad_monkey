@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from kicad_cruncher.kicad_cruncher_cmd_health import _health_payload
+from kicad_monkey.kicad_library_extraction import resolve_kicad_cli
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _FOUR_CH_PROJECT = (
@@ -33,6 +36,25 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _fake_kicad_cli(tmp_path: Path) -> tuple[Path, Path]:
+    log_path = tmp_path / "fake-kicad-cli.log"
+    if os.name == "nt":
+        cli_path = tmp_path / "kicad-cli.cmd"
+        cli_path.write_text(
+            f'@echo off\r\necho %*>>"{log_path}"\r\nexit /b 0\r\n',
+            encoding="utf-8",
+        )
+        return cli_path, log_path
+
+    cli_path = tmp_path / "kicad-cli"
+    cli_path.write_text(
+        f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{log_path}'\nexit 0\n",
+        encoding="utf-8",
+    )
+    cli_path.chmod(0o755)
+    return cli_path, log_path
+
+
 def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     """Verify megamaid writes a usable extraction bundle for the real-world fixture."""
     output_dir = tmp_path / "megamaid"
@@ -44,6 +66,13 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, result.stderr
+    assert "Megamaid: extracting schematic symbols" in result.stdout
+    assert "Megamaid: extracting embedded files, images, and bitmaps" in result.stdout
+    assert "Megamaid: embedded assets: inventory found" in result.stdout
+    assert "Megamaid: starting design review bundle" in result.stdout
+    assert "Megamaid: design review: rendering schematic SVG" in result.stdout
+    assert "Megamaid: design review: rendering PCB review SVG" in result.stdout
+    assert "Megamaid: wrote design review bundle" in result.stdout
 
     manifest_path = output_dir / "megamaid_manifest.json"
     metadata_path = output_dir / "library_extraction.json"
@@ -51,6 +80,8 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     symbols_dir = output_dir / "symbols"
     footprints_dir = output_dir / "footprints.pretty"
     models_dir = output_dir / "models"
+    embedded_assets_dir = output_dir / "embedded_assets"
+    design_review_dir = output_dir / "design_review"
 
     assert manifest_path.is_file()
     assert metadata_path.is_file()
@@ -58,6 +89,8 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     assert symbols_dir.is_dir()
     assert footprints_dir.is_dir()
     assert models_dir.is_dir()
+    assert embedded_assets_dir.is_dir()
+    assert design_review_dir.is_dir()
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -68,6 +101,28 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     assert manifest["footprints"]["count"] >= 40
     assert manifest["models"]["count"] >= 1
     assert manifest["metadata"] == "library_extraction.json"
+    assert manifest["embedded_assets"]["directory"] == "embedded_assets"
+    assert manifest["embedded_assets"]["record_count"] >= 1
+    assert manifest["embedded_assets"]["file_count"] >= 1
+    assert manifest["embedded_assets"]["records"]
+    assert manifest["design_review"]["directory"] == "design_review"
+    assert manifest["design_review"]["manifest"] == "design_review/design_review_manifest.json"
+    assert manifest["design_review"]["design_json"].endswith("_design.json")
+    assert manifest["design_review"]["netlist_json"].endswith("_netlist.json")
+    assert manifest["design_review"]["netlist_kicad_sexpr"].endswith("_netlist.net")
+    assert manifest["design_review"]["component_count"] >= 1
+    assert manifest["design_review"]["net_count"] >= 1
+    assert manifest["design_review"]["schematic_svg_count"] >= 1
+    assert manifest["design_review"]["pcb_svg_count"] >= 1
+    assert (output_dir / manifest["design_review"]["manifest"]).is_file()
+    assert (output_dir / manifest["design_review"]["design_json"]).is_file()
+    assert (output_dir / manifest["design_review"]["netlist_json"]).is_file()
+    assert (output_dir / manifest["design_review"]["netlist_kicad_sexpr"]).is_file()
+    assert all(
+        (output_dir / path).is_file()
+        for path in manifest["design_review"]["schematic_svgs"]
+    )
+    assert all((output_dir / path).is_file() for path in manifest["design_review"]["pcb_svgs"])
     assert metadata["schema"] == "kicad_cruncher.library_extraction_bundle.a0"
     assert metadata["mode"] == "internal"
     assert "assets" not in metadata
@@ -80,7 +135,78 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
         1 for path in models_dir.iterdir() if path.suffix.lower() in {".step", ".stp"}
     )
     assert model_count == manifest["models"]["count"]
-    assert "non-destructive" in readme_path.read_text(encoding="utf-8")
+    readme_text = readme_path.read_text(encoding="utf-8")
+    assert "Embedded assets" in readme_text
+    assert "Design review" in readme_text
+    assert "non-destructive" in readme_text
+
+
+def test_lib_extract_validate_kicad_cli_runs_stripped_symbols(tmp_path: Path) -> None:
+    """Verify lib-extract validates generated stripped symbols through kicad-cli."""
+    output_dir = tmp_path / "lib-extract"
+    fake_cli, fake_cli_log = _fake_kicad_cli(tmp_path)
+    result = _run_cli(
+        "lib-extract",
+        str(_FOUR_CH_PROJECT),
+        "--output",
+        str(output_dir),
+        "--validate-kicad-cli",
+        "--kicad-cli",
+        str(fake_cli),
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    manifest = json.loads((output_dir / "lib_extract_manifest.json").read_text(encoding="utf-8"))
+    metadata = json.loads((output_dir / "library_extraction.json").read_text(encoding="utf-8"))
+    validation = manifest["validation"]
+    assert validation["ok"] is True
+    assert len(validation["symbol_results"]) == manifest["symbols"]["count"]
+    assert all(item["ok"] for item in validation["symbol_results"])
+    assert validation["footprint_result"]["ok"] is True
+    assert len(metadata["symbols"]) == manifest["symbols"]["count"]
+    assert all(
+        symbol["raw_fields"].get("Reference") != "#PWR"
+        for symbol in metadata["symbols"]
+    )
+    assert not any(
+        symbol["name"].startswith("power:")
+        for symbol in metadata["symbols"]
+    )
+    assert any(
+        {"description", "mfg", "mpn", "value"} <= set(symbol["canonical_fields"])
+        for symbol in metadata["symbols"]
+    )
+
+    cli_calls = fake_cli_log.read_text(encoding="utf-8").splitlines()
+    assert any(call.startswith("sym upgrade ") and ".kicad_sym" in call for call in cli_calls)
+    assert any(call.startswith("fp upgrade ") and "footprints.pretty" in call for call in cli_calls)
+
+
+def test_lib_extract_live_kicad_cli_accepts_stripped_symbols(tmp_path: Path) -> None:
+    """Optionally verify generated stripped libraries with a real local kicad-cli."""
+    kicad_cli = resolve_kicad_cli()
+    if kicad_cli is None:
+        pytest.skip("kicad-cli not found; install KiCad to run live library validation")
+
+    output_dir = tmp_path / "lib-extract-live"
+    result = _run_cli(
+        "lib-extract",
+        str(_FOUR_CH_PROJECT),
+        "--output",
+        str(output_dir),
+        "--validate-kicad-cli",
+        "--kicad-cli",
+        str(kicad_cli),
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    manifest = json.loads((output_dir / "lib_extract_manifest.json").read_text(encoding="utf-8"))
+    validation = manifest["validation"]
+    assert validation["ok"] is True
+    assert len(validation["symbol_results"]) == manifest["symbols"]["count"]
+    assert validation["footprint_result"]["ok"] is True
 
 
 def test_project_lib_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
@@ -265,9 +391,9 @@ def test_health_payload_counts_footprints_without_models() -> None:
     assert first_footprint_issue["designators"] == ["R1", "R2"]
 
 
-def test_megamaid_alias_help_starts() -> None:
-    """Verify the public aliases are wired to the same command surface."""
-    for alias in ("library-extract", "lib-extract"):
+def test_library_extract_alias_help_starts() -> None:
+    """Verify the library extraction alias starts."""
+    for alias in ("library-extract",):
         result = _run_cli(alias, "--help")
 
         assert result.returncode == 0, result.stderr

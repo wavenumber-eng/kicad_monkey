@@ -3,6 +3,7 @@
 Output policy:
     - Output-producing commands accept ``-o/--output`` as an output directory.
     - If omitted, artifacts are written under ``./output/<command>/``.
+      ``project-lib`` defaults to ``./local-library/``.
     - Command modules own artifact filenames inside that command directory.
 """
 
@@ -36,6 +37,9 @@ from kicad_cruncher.kicad_cruncher_cmd_jlc import (
 )
 from kicad_cruncher.kicad_cruncher_cmd_kicad import (
     register_parser as register_kicad_parser,
+)
+from kicad_cruncher.kicad_cruncher_cmd_lib_extract import (
+    register_parser as register_lib_extract_parser,
 )
 from kicad_cruncher.kicad_cruncher_cmd_megamaid import (
     register_parser as register_megamaid_parser,
@@ -221,6 +225,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     register_health_parser(command_subparsers)
     register_jlc_parser(command_subparsers)
     register_kicad_parser(command_subparsers)
+    register_lib_extract_parser(command_subparsers)
     register_megamaid_parser(command_subparsers)
     register_pcb_parser(command_subparsers)
     register_pcb_layer_step_parser(command_subparsers)

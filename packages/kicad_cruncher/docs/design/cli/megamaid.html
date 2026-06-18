@@ -16,21 +16,21 @@
 <header>
   <p class="status">Public command</p>
   <h1>megamaid</h1>
-  <p class="lede">Extract cleaned KiCad library artifacts into an inspectable bundle for downstream <code>lib_cruncher</code> ingestion.</p>
+  <p class="lede">Aggressively dissect a KiCad project into cleaned libraries, metadata, model payloads, decoded embedded project assets, and design-review artifacts.</p>
 </header>
 
 <section id="usage">
   <h2>Usage</h2>
   <pre><code>kicad-cruncher megamaid project.kicad_pro -o output/megamaid
-kicad-cruncher lib-extract project.kicad_pro --dedupe fingerprint
+kicad-cruncher megamaid project.kicad_pro --dedupe fingerprint
 kicad-cruncher megamaid project.kicad_pro --validate-kicad-cli</code></pre>
 </section>
 
 <section id="arguments">
   <h2>Arguments</h2>
   <p><code>file</code> accepts a <code>.kicad_pro</code> project. If omitted, the command auto-detects exactly one <code>.kicad_pro</code> in the current directory. Schematic-only and PCB-only inputs are intentionally not accepted in this first public workflow because the extraction bundle needs the project root, local libraries, board file, and schematic files together.</p>
-  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/megamaid/</code>. <code>library-extract</code> and <code>lib-extract</code> are aliases for the same command.</p>
-  <p>The command always uses internal extraction mode: symbols and footprints are stripped down to reusable KiCad library assets while raw metadata is preserved in JSON for downstream part association.</p>
+  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/megamaid/</code>. <code>lib-extract</code> is the separate cleaned library ingestion command.</p>
+  <p>The command reuses internal library extraction mode for symbols and footprints, then adds a broader embedded-asset pass that decodes board, footprint, schematic, symbol-library, and worksheet payloads. It also writes the same design-review bundle as <code>design</code> under <code>design_review/</code>.</p>
   <p><code>--dedupe name</code> collapses repeated assets by library name. <code>--dedupe fingerprint</code> collapses by stripped serialized content. <code>--no-embed-models</code> disables board-embedded model payload rehydration. <code>--no-embed-external-models</code> disables resolving external STEP/STP model paths into extracted footprints. <code>--all-embedded-models</code> scans the whole project and writes every embedded STEP/STP payload. <code>--include-asset-scan</code> includes the full model-reference scan in the metadata JSON. <code>--validate-kicad-cli</code> asks KiCad CLI to parse/upgrade the generated libraries, and <code>--kicad-cli</code> selects the executable.</p>
 </section>
 
@@ -47,16 +47,26 @@ kicad-cruncher megamaid project.kicad_pro --validate-kicad-cli</code></pre>
     <li><code>symbols/*.kicad_sym</code>: one single-symbol KiCad symbol library file per extracted symbol record.</li>
     <li><code>footprints.pretty/*.kicad_mod</code>: one standalone KiCad footprint per extracted footprint record.</li>
     <li><code>models/*.{step,stp}</code>: decoded embedded STEP/STP model payloads required by the extracted footprint records, or every embedded payload when <code>--all-embedded-models</code> is used.</li>
+    <li><code>embedded_assets/embedded_files/*</code>: decoded compressed KiCad <code>(embedded_files ...)</code> payloads from boards, placed footprints, schematics, footprint libraries, and symbol libraries.</li>
+    <li><code>embedded_assets/schematic_images/*</code>, <code>embedded_assets/pcb_images/*</code>, and <code>embedded_assets/worksheet_bitmaps/*</code>: decoded bitmap payloads from schematic, PCB, footprint, and worksheet image containers.</li>
+    <li><code>design_review/&lt;project-stem&gt;_design.json</code>: <code>kicad_monkey.design.a0</code> design JSON.</li>
+    <li><code>design_review/&lt;project-stem&gt;_netlist.json</code>: <code>kicad_monkey.netlist.a0</code> netlist JSON.</li>
+    <li><code>design_review/&lt;project-stem&gt;_netlist.net</code>: kicad-cli-style S-expression netlist.</li>
+    <li><code>design_review/design_review_manifest.json</code>: nested <code>kicad_cruncher.design_review_manifest.a0</code> artifact index.</li>
+    <li><code>design_review/schematics/*.svg</code>: one enriched schematic SVG per concrete hierarchy instance.</li>
+    <li><code>design_review/pcb/copper_layers/*__review.svg</code>: one enriched PCB review SVG per copper layer when a board is present.</li>
     <li><code>library_extraction.json</code>: <code>kicad_cruncher.library_extraction_bundle.a0</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan when <code>--include-asset-scan</code> is used.</li>
-    <li><code>megamaid_manifest.json</code>: <code>kicad_cruncher.megamaid_manifest.a0</code> artifact index with counts, relative output paths, mode, source project, and optional KiCad CLI validation results.</li>
+    <li><code>megamaid_manifest.json</code>: <code>kicad_cruncher.megamaid_manifest.a0</code> artifact index with counts, relative output paths, embedded asset records, nested design-review artifact records, mode, source project, and optional KiCad CLI validation results.</li>
     <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
   </ul>
-  <p>This command is intended for later <code>lib_cruncher</code> ingestion where the JSON metadata creates the part association and the symbol/footprint files are clean reusable CAD assets. Metadata-preserving project-local extraction is handled by <code>project-lib</code>; broader asset diagnostics are handled by <code>health</code>.</p>
+  <p>The <code>library_extraction.json</code> metadata follows <code>docs/contracts/library_extraction_bundle.a0.schema.json</code>. <code>raw_fields</code> is the raw KiCad parameter/property map with source key spelling preserved; <code>canonical_fields</code> is derived from those fields using case-insensitive alias matching for part fields such as <code>mpn</code>, <code>mfg</code>, <code>value</code>, <code>description</code>, and <code>cad-reference</code>.</p>
+  <p>The top-level manifest records the <code>design_review</code> directory, nested manifest, README, design JSON, netlist JSON, S-expression netlist, component count, net count, schematic SVG count, PCB SVG count, and relative SVG paths.</p>
+  <p>This command is intended for full project dissection and archival review. Clean reusable CAD ingestion is handled by <code>lib-extract</code>; metadata-preserving project-local extraction is handled by <code>project-lib</code>; broader asset diagnostics are handled by <code>health</code>.</p>
 </section>
 
 <section id="tests">
   <h2>Tests</h2>
-  <p>L0 public CLI tests verify the command appears in root help, command help starts, and the manifest/design-doc inventory stays synchronized. L3 public workflow tests run <code>megamaid</code> against the sanitized 4-ch backplane corpus fixture, verify the manifest schema, output directories, metadata schema, symbol/footprint/model counts, internal stripping mode, and command aliases. The optional KiCad CLI validation path is covered by <code>kicad-monkey</code> L2 tests and can be exercised through <code>--validate-kicad-cli</code> when a local KiCad install is available.</p>
+  <p>L0 public CLI tests verify the command appears in root help, command help starts, and the manifest/design-doc inventory stays synchronized. L3 public workflow tests run <code>megamaid</code> against the sanitized 4-ch backplane corpus fixture and verify the manifest schema, output directories, metadata schema, symbol/footprint/model counts, internal stripping mode, embedded asset records, design JSON, netlist artifacts, schematic SVGs, and PCB review SVGs. The optional KiCad CLI validation path is covered by <code>kicad-monkey</code> L2 tests and can be exercised through <code>--validate-kicad-cli</code> when a local KiCad install is available.</p>
 </section>
 </main>
 </body>

@@ -10,6 +10,9 @@ Current contracts:
   contract used by `bom`, `pnp`, and `jlc`.
 - `interface_design_manifest.a0.json` lists major interfaces that require
   durable design documentation.
+- `library_extraction_bundle.a0.schema.json` defines the metadata emitted in
+  `library_extraction.json`, including raw parameter/property maps and
+  canonical part fields.
 - `pcb_clean_config.a0.schema.json` defines the first PCB cleanup config
   contract used by `pcb clean`.
 - `pcb_layer_step_config.a0.schema.json` defines the A0 `pcb-layer-step`

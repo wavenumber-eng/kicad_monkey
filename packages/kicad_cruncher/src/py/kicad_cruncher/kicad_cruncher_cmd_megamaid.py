@@ -12,9 +12,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from kicad_cruncher.kicad_cruncher_common import find_kicad_project_in_cwd, resolve_output_dir
+from kicad_cruncher.logging_utils import stage_done_text, stage_progress_text, stage_start_text
 
 if TYPE_CHECKING:
-    from kicad_monkey.kicad_library_extraction import KiCadFootprintExtractionRecord
+    from kicad_monkey.kicad_library_extraction import (
+        KiCadEmbeddedAssetRecord,
+        KiCadFootprintExtractionRecord,
+    )
+
+    from kicad_cruncher.kicad_cruncher_cmd_design import DesignReviewBundle
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +31,8 @@ class _LibraryOutputLayout:
     symbols_dir: Path
     footprints_dir: Path
     models_dir: Path
+    embedded_assets_dir: Path
+    design_review_dir: Path
     symbol_nickname: str
     footprint_nickname: str
 
@@ -54,9 +62,9 @@ def _resolve_input_project(file_arg: str | None) -> Path | None:
 
 def _manifest_relative(path: Path, output_dir: Path) -> str:
     try:
-        return str(path.relative_to(output_dir))
+        return str(path.relative_to(output_dir)).replace("\\", "/")
     except ValueError:
-        return str(path)
+        return str(path).replace("\\", "/")
 
 
 def _resolve_library_output_dir(
@@ -104,6 +112,8 @@ def _resolve_library_layout(
         symbols_dir=symbols_dir,
         footprints_dir=footprints_dir,
         models_dir=output_dir / "models",
+        embedded_assets_dir=output_dir / "embedded_assets",
+        design_review_dir=output_dir / "design_review",
         symbol_nickname=_default_library_nickname(symbol_library_name, symbols_dir),
         footprint_nickname=_default_library_nickname(
             footprint_library_name,
@@ -121,14 +131,23 @@ def _manifest_payload(
     symbols_dir: Path,
     footprints_dir: Path,
     models_dir: Path,
+    embedded_assets_dir: Path,
     mode: str,
     symbol_files: tuple[Path, ...],
     footprint_files: tuple[Path, ...],
     model_files: tuple[Path, ...],
+    embedded_asset_records: tuple[KiCadEmbeddedAssetRecord, ...],
+    design_review_bundle: DesignReviewBundle | None,
     metadata_path: Path,
     validation: dict[str, object] | None,
     library_tables: dict[str, object] | None,
 ) -> dict[str, object]:
+    embedded_asset_files = tuple(
+        sorted(
+            {Path(record.output_file) for record in embedded_asset_records if record.output_file},
+            key=lambda path: str(path),
+        )
+    )
     payload: dict[str, object] = {
         "schema": schema,
         "project": str(project_path),
@@ -151,6 +170,44 @@ def _manifest_payload(
         "metadata": _manifest_relative(metadata_path, output_dir),
         "validation": validation,
     }
+    if embedded_asset_records:
+        payload["embedded_assets"] = {
+            "directory": _manifest_relative(embedded_assets_dir, output_dir),
+            "record_count": len(embedded_asset_records),
+            "file_count": len(embedded_asset_files),
+            "files": [_manifest_relative(path, output_dir) for path in embedded_asset_files],
+            "records": [
+                {
+                    **record.to_dict(),
+                    "output_file": _manifest_relative(Path(record.output_file), output_dir),
+                }
+                for record in embedded_asset_records
+            ],
+        }
+    if design_review_bundle is not None:
+        payload["design_review"] = {
+            "directory": _manifest_relative(design_review_bundle.output_dir, output_dir),
+            "manifest": _manifest_relative(design_review_bundle.manifest_path, output_dir),
+            "readme": _manifest_relative(design_review_bundle.readme_path, output_dir),
+            "design_json": _manifest_relative(design_review_bundle.design_json_path, output_dir),
+            "netlist_json": _manifest_relative(design_review_bundle.netlist_json_path, output_dir),
+            "netlist_kicad_sexpr": _manifest_relative(
+                design_review_bundle.netlist_kicad_sexpr_path,
+                output_dir,
+            ),
+            "component_count": design_review_bundle.component_count,
+            "net_count": design_review_bundle.net_count,
+            "schematic_svg_count": len(design_review_bundle.schematic_svgs),
+            "pcb_svg_count": len(design_review_bundle.pcb_svgs),
+            "schematic_svgs": [
+                _manifest_relative(design_review_bundle.output_dir / str(item["file"]), output_dir)
+                for item in design_review_bundle.schematic_svgs
+            ],
+            "pcb_svgs": [
+                _manifest_relative(design_review_bundle.output_dir / str(item["file"]), output_dir)
+                for item in design_review_bundle.pcb_svgs
+            ],
+        }
     if library_tables is not None:
         payload["library_tables"] = library_tables
     return payload
@@ -163,6 +220,25 @@ def _readme_text(manifest: dict[str, object], *, title: str) -> str:
     assert isinstance(symbols, dict)
     assert isinstance(footprints, dict)
     assert isinstance(models, dict)
+    embedded_assets = manifest.get("embedded_assets")
+    embedded_assets_text = ""
+    if isinstance(embedded_assets, dict):
+        embedded_assets_text = (
+            "- Embedded assets: "
+            f"`{embedded_assets['directory']}` "
+            f"({embedded_assets['file_count']} files, "
+            f"{embedded_assets['record_count']} records)\n"
+        )
+    design_review = manifest.get("design_review")
+    design_review_text = ""
+    if isinstance(design_review, dict):
+        design_review_text = (
+            "- Design review: "
+            f"`{design_review['directory']}` "
+            f"({design_review['schematic_svg_count']} schematic SVGs, "
+            f"{design_review['pcb_svg_count']} PCB SVGs, "
+            f"{design_review['net_count']} nets)\n"
+        )
     library_tables = manifest.get("library_tables")
     table_text = ""
     mutation_text = (
@@ -185,6 +261,8 @@ def _readme_text(manifest: dict[str, object], *, title: str) -> str:
         f"- Symbols: `{symbols['directory']}` ({symbols['count']})\n"
         f"- Footprints: `{footprints['directory']}` ({footprints['count']})\n"
         f"- STEP models: `{models['directory']}` ({models['count']})\n"
+        f"{embedded_assets_text}"
+        f"{design_review_text}"
         f"- Metadata: `{manifest['metadata']}`\n"
         f"{table_text}"
         f"- Manifest: `{manifest['manifest_filename']}`\n\n"
@@ -229,6 +307,7 @@ def _validate_outputs_if_requested(
         return None
 
     started = time.perf_counter()
+    _log_stage_start(f"{command_label}: validating generated libraries with KiCad CLI")
     validation = _validate_outputs(
         symbols_dir=layout.symbols_dir,
         footprints_dir=layout.footprints_dir,
@@ -239,7 +318,15 @@ def _validate_outputs_if_requested(
 
 
 def _log_stage_done(message: str, started_at: float) -> None:
-    log.info("%s in %.2fs", message, time.perf_counter() - started_at)
+    log.info("%s", stage_done_text(f"{message} in {time.perf_counter() - started_at:.2f}s"))
+
+
+def _log_stage_start(message: str) -> None:
+    log.info("%s", stage_start_text(message))
+
+
+def _log_stage_progress(message: str) -> None:
+    log.info("%s", stage_progress_text(message))
 
 
 def _extract_model_files(
@@ -265,6 +352,10 @@ def _extract_model_files(
 
     started = time.perf_counter()
     full_model_scan = extract_all_embedded_models or bool(args.all_embedded_models)
+    if full_model_scan:
+        _log_stage_start(f"{command_label}: scanning project for STEP/STP model payloads")
+    else:
+        _log_stage_start(f"{command_label}: writing STEP/STP models from extracted footprints")
     if embed_models and not full_model_scan:
         model_files = extract_3d_models_from_footprint_records(
             footprint_records,
@@ -281,6 +372,65 @@ def _extract_model_files(
     return model_files
 
 
+def _extract_embedded_asset_records(
+    *,
+    project_path: Path,
+    layout: _LibraryOutputLayout,
+    command_label: str,
+    write_embedded_assets: bool,
+) -> tuple[KiCadEmbeddedAssetRecord, ...]:
+    from kicad_monkey.kicad_library_extraction import extract_embedded_assets
+
+    if not write_embedded_assets:
+        return ()
+
+    started = time.perf_counter()
+    _log_stage_start(f"{command_label}: extracting embedded files, images, and bitmaps")
+    asset_records = extract_embedded_assets(
+        project_path,
+        layout.embedded_assets_dir,
+        progress=lambda message: _log_stage_progress(
+            f"{command_label}: embedded assets: {message}"
+        ),
+    )
+    _log_stage_done(
+        f"{command_label}: wrote {len({record.output_file for record in asset_records})} "
+        f"embedded asset files",
+        started,
+    )
+    return asset_records
+
+
+def _write_design_review_bundle_if_requested(
+    *,
+    project_path: Path,
+    layout: _LibraryOutputLayout,
+    command_label: str,
+    write_design_review: bool,
+) -> DesignReviewBundle | None:
+    from kicad_cruncher.kicad_cruncher_cmd_design import write_design_review_bundle
+
+    if not write_design_review:
+        return None
+
+    started = time.perf_counter()
+    _log_stage_start(f"{command_label}: starting design review bundle")
+    bundle = write_design_review_bundle(
+        project_path,
+        layout.design_review_dir,
+        include_indexes=True,
+        progress=lambda message: _log_stage_progress(
+            f"{command_label}: design review: {message}"
+        ),
+    )
+    _log_stage_done(
+        f"{command_label}: wrote design review bundle "
+        f"({len(bundle.schematic_svgs)} schematic SVGs, {len(bundle.pcb_svgs)} PCB SVGs)",
+        started,
+    )
+    return bundle
+
+
 def _ensure_project_tables_if_requested(
     *,
     project_path: Path,
@@ -294,6 +444,7 @@ def _ensure_project_tables_if_requested(
         return None
 
     started = time.perf_counter()
+    _log_stage_start(f"{command_label}: checking project-local library tables")
     table_result = ensure_project_library_table_entries(
         project_path,
         symbol_library_path=layout.symbols_dir,
@@ -318,6 +469,7 @@ def _run_library_extraction(
     manifest_schema: str,
     manifest_filename: str,
     readme_title: str,
+    default_output_dir: str | Path | None = None,
     update_project_library_tables: bool = False,
     project_stem_library_dirs: bool = False,
     symbol_library_dir: str | Path | None = None,
@@ -328,6 +480,9 @@ def _run_library_extraction(
     write_models: bool = True,
     extract_all_embedded_models: bool = False,
     preserve_model_filenames: bool = False,
+    write_embedded_assets: bool = False,
+    skip_power_symbols: bool = False,
+    write_design_review: bool = False,
 ) -> int:
     """Extract KiCad library artifacts from a project."""
     from kicad_monkey.kicad_library_extraction import (
@@ -345,7 +500,11 @@ def _run_library_extraction(
     if project_path is None:
         return 1
 
-    output_dir = resolve_output_dir(args.output, output_default)
+    output_dir = resolve_output_dir(
+        args.output,
+        output_default,
+        default_dir=default_output_dir,
+    )
     layout = _resolve_library_layout(
         project_path=project_path,
         output_dir=output_dir,
@@ -362,15 +521,18 @@ def _run_library_extraction(
     embed_external_models = not bool(args.no_embed_external_models)
 
     try:
-        log.info("%s: extracting from %s", command_label, project_path)
+        _log_stage_start(f"{command_label}: extracting from {project_path}")
+        _log_stage_start(f"{command_label}: extracting schematic symbols")
         started = time.perf_counter()
         symbol_records = extract_symbols(
             project_path,
             mode=mode,
             dedupe_policy=symbol_dedupe_policy,
+            skip_power_symbols=skip_power_symbols,
         )
         _log_stage_done(f"{command_label}: extracted {len(symbol_records)} symbols", started)
 
+        _log_stage_start(f"{command_label}: extracting PCB footprints")
         started = time.perf_counter()
         footprint_records = extract_footprints(
             project_path,
@@ -381,6 +543,7 @@ def _run_library_extraction(
         )
         _log_stage_done(f"{command_label}: extracted {len(footprint_records)} footprints", started)
 
+        _log_stage_start(f"{command_label}: writing symbol and footprint libraries")
         started = time.perf_counter()
         symbol_write_kwargs = {}
         if mode == KiCadExtractionMode.PROJECT_LOCAL:
@@ -414,7 +577,20 @@ def _run_library_extraction(
             extract_all_embedded_models=extract_all_embedded_models,
             preserve_model_filenames=preserve_model_filenames,
         )
+        embedded_asset_records = _extract_embedded_asset_records(
+            project_path=project_path,
+            layout=layout,
+            command_label=command_label,
+            write_embedded_assets=write_embedded_assets,
+        )
+        design_review_bundle = _write_design_review_bundle_if_requested(
+            project_path=project_path,
+            layout=layout,
+            command_label=command_label,
+            write_design_review=write_design_review,
+        )
 
+        _log_stage_start(f"{command_label}: writing library extraction metadata")
         started = time.perf_counter()
         metadata_path = write_extraction_metadata_bundle(
             project_path,
@@ -438,6 +614,8 @@ def _run_library_extraction(
             layout=layout,
             command_label=command_label,
         )
+        _log_stage_start(f"{command_label}: writing manifest and README")
+        started = time.perf_counter()
         manifest = _manifest_payload(
             schema=manifest_schema,
             project_path=project_path,
@@ -445,10 +623,13 @@ def _run_library_extraction(
             symbols_dir=layout.symbols_dir,
             footprints_dir=layout.footprints_dir,
             models_dir=layout.models_dir,
+            embedded_assets_dir=layout.embedded_assets_dir,
             mode=mode.value,
             symbol_files=symbol_files,
             footprint_files=footprint_files,
             model_files=model_files,
+            embedded_asset_records=embedded_asset_records,
+            design_review_bundle=design_review_bundle,
             metadata_path=metadata_path,
             validation=validation,
             library_tables=library_tables,
@@ -460,6 +641,7 @@ def _run_library_extraction(
             _readme_text(manifest, title=readme_title),
             encoding="utf-8",
         )
+        _log_stage_done(f"{command_label}: wrote manifest and README", started)
     except Exception as exc:
         log.error("%s failed: %s", command_label, exc)
         return 1
@@ -469,18 +651,17 @@ def _run_library_extraction(
         return 1
 
     log.info(
-        "%s: %d symbols, %d footprints, %d STEP models -> %s",
-        command_label,
-        len(symbol_files),
-        len(footprint_files),
-        len(model_files),
-        layout.output_dir,
+        "%s",
+        stage_done_text(
+            f"{command_label}: {len(symbol_files)} symbols, {len(footprint_files)} footprints, "
+            f"{len(model_files)} STEP models -> {layout.output_dir}"
+        ),
     )
     return 0
 
 
 def cmd_megamaid(args: argparse.Namespace) -> int:
-    """Extract a cleaned library-ingestion bundle for lib_cruncher."""
+    """Aggressively dissect a KiCad project into reviewable artifacts."""
     return _run_library_extraction(
         args,
         command_label="Megamaid",
@@ -489,11 +670,34 @@ def cmd_megamaid(args: argparse.Namespace) -> int:
         dedupe_value=str(args.dedupe),
         manifest_schema="kicad_cruncher.megamaid_manifest.a0",
         manifest_filename="megamaid_manifest.json",
-        readme_title="KiCad Megamaid Library Extraction",
+        readme_title="KiCad Megamaid Project Dissection",
+        write_embedded_assets=True,
+        write_design_review=True,
     )
 
 
-def _add_common_library_args(parser: argparse.ArgumentParser, *, output_default: str) -> None:
+def cmd_lib_extract(args: argparse.Namespace) -> int:
+    """Extract a cleaned library-ingestion bundle for lib_cruncher."""
+    return _run_library_extraction(
+        args,
+        command_label="Lib extract",
+        output_default="lib-extract",
+        mode_value="internal",
+        dedupe_value=str(args.dedupe),
+        manifest_schema="kicad_cruncher.lib_extract_manifest.a0",
+        manifest_filename="lib_extract_manifest.json",
+        readme_title="KiCad Lib Extract Library Extraction",
+        skip_power_symbols=True,
+    )
+
+
+def _add_common_library_args(
+    parser: argparse.ArgumentParser,
+    *,
+    output_default: str,
+    default_output_dir: str | Path | None = None,
+) -> None:
+    default_help = f"./{default_output_dir}" if default_output_dir else f"./output/{output_default}"
     parser.add_argument(
         "file",
         nargs="?",
@@ -503,7 +707,7 @@ def _add_common_library_args(parser: argparse.ArgumentParser, *, output_default:
         "-o",
         "--output",
         type=Path,
-        help=f"output directory (default: ./output/{output_default})",
+        help=f"output directory (default: {default_help})",
     )
 
 
@@ -545,26 +749,30 @@ def _add_model_validation_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def register_parser(
-    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
-) -> argparse.ArgumentParser:
-    """Register the megamaid library-ingestion command parser."""
-    parser = subparsers.add_parser(
-        "megamaid",
-        aliases=["library-extract", "lib-extract"],
-        help="extract cleaned KiCad library artifacts for lib_cruncher",
-        description=(
-            "Extract cleaned symbols, footprints, metadata, and embedded STEP models "
-            "from a KiCad project into a non-destructive lib_cruncher ingestion bundle."
-        ),
-    )
-    _add_common_library_args(parser, output_default="megamaid")
+def _add_dedupe_arg(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--dedupe",
         choices=("name", "fingerprint"),
         default="name",
         help="dedupe policy for internal extraction",
     )
+
+
+def register_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> argparse.ArgumentParser:
+    """Register the megamaid command parser."""
+    parser = subparsers.add_parser(
+        "megamaid",
+        help="aggressively dissect a KiCad project into library, embedded, and review assets",
+        description=(
+            "Extract cleaned symbols, footprints, metadata, embedded STEP models, "
+            "all decoded embedded project assets, design JSON, netlists, schematic SVGs, "
+            "and PCB review SVGs into a non-destructive megamaid project dissection bundle."
+        ),
+    )
+    _add_common_library_args(parser, output_default="megamaid")
+    _add_dedupe_arg(parser)
     _add_model_validation_args(parser)
     parser.set_defaults(handler=cmd_megamaid)
     return parser

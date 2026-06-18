@@ -4,9 +4,10 @@
 workflows. It consumes the public `kicad-monkey` package and keeps higher-level
 CLI behavior outside the core parser package.
 
-The public commands generate KiCad-native design review bundles, PCB SVG/STEP
-review artifacts, and initial BOM/PnP/JLC manufacturing outputs from public
-`kicad-monkey` parsers/renderers.
+The public commands generate KiCad-native design review bundles, project-local
+library bundles, cleaned library-ingestion bundles, project health reports, PCB
+SVG/STEP review artifacts, plugin tooling, and BOM/PnP/JLC manufacturing
+outputs from public `kicad-monkey` parsers/renderers.
 
 ## Install
 
@@ -45,11 +46,20 @@ Run `kicad-cruncher <command> --help` for command-specific options.
 | Command | Purpose | Status |
 | --- | --- | --- |
 | `bom` | Generate KiCad BOM outputs with shared field alias coalescing, variant-aware DNP handling, grouped JSON/CSV/XLSX review tables, and JLC BOM rows. | Public |
-| `design` / `design-review` / `dr` | Generate a design review bundle with KiCad-native design JSON, schematic SVGs, PCB copper-layer SVGs, a manifest, and a README for agents. | Public |
+| `daemon` | Run the local plugin daemon and browser tool center used by KiCad IPC plugin workflows. | Public |
+| `design` | Generate a design review bundle with KiCad-native design JSON, schematic SVGs, PCB copper-layer SVGs, a manifest, and a README for agents. Aliases: `design-review`, `dr`. | Public |
+| `health` | Scan active project assets, model references, and project-listed local libraries without recursively importing unrelated library folders. | Public |
 | `jlc` | Generate paired JLCPCB BOM XLSX and CPL XLSX upload workbooks from the shared BOM/PnP normalization layer. | Public |
+| `kicad` | Inspect local KiCad installs, running KiCad-family processes, preferences, launch commands, and opt-in stop plans. | Public |
+| `lib-extract` | Generate a cleaned lib_cruncher/Alexandria ingestion bundle with stripped symbols, footprints, optional models, and separated metadata JSON. Alias: `library-extract`. | Public |
+| `megamaid` | Aggressively dissect a KiCad project into library artifacts, embedded assets, models, design review artifacts, netlists, SVGs, manifests, and README output. | Public |
+| `pcb` | Run PCB utility commands, including config-driven PCB cleanup planning and explicit direct-file apply. | Public |
 | `pcb-layer-step` | Generate compact colored STEP models for fixture-alignment checks on one KiCad PCB layer. | Public |
 | `pcb-svg` | Generate PCB layer SVG artifacts and configured design views, including geometer-backed assembly HLR overlays. | Public |
+| `plugin` | Install, inspect, and remove bundled KiCad IPC plugin packages. | Public |
 | `pnp` | Generate KiCad pick-and-place JSON, CSV, XLSX, and JLC CPL outputs using component-center coordinates relative to the aux axis/drill-place file origin. | Public |
+| `project-lib` | Extract metadata-preserving project-local symbol and footprint libraries, defaulting to `./local-library/` and updating project library tables by default. Aliases: `project-library`, `project-local-lib`, `local-library`. | Public |
+| `schematic` | Run schematic utility commands, currently exposing the deferred schematic cleanup planning stub. | Public |
 | `version` | Print `kicad-cruncher` and controlled dependency versions. | Public |
 
 The `design` command writes to `./output/design/` by default. Its aliases
@@ -79,7 +89,7 @@ the `kicad-monkey` plating metadata.
 
 The `pcb-svg` command writes to `./output/pcb-svg/` by default and uses
 `pcb.svg.config` JSON/JSONC configs compatible with the A0 PCB SVG view
-contract. This remains a preview feature in the `2026.6.11` release: SVG structure,
+contract. This remains a preview feature: SVG structure,
 virtual-layer metadata, default views, and config controls may change as more
 real-world boards are tested.
 

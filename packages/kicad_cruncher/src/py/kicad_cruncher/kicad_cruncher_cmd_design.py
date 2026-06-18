@@ -6,15 +6,19 @@ import argparse
 import json
 import logging
 import re
+import time
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from kicad_cruncher.kicad_cruncher_common import (
     find_kicad_project_in_cwd,
     resolve_output_dir,
     supported_design_input_suffixes,
 )
+from kicad_cruncher.logging_utils import stage_done_text, stage_progress_text, stage_start_text
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +27,20 @@ if TYPE_CHECKING:
 
 JsonObject = dict[str, object]
 Artifact = dict[str, object]
+ProgressCallback = Callable[[str], None]
+
+
+class _SchematicInstanceLike(Protocol):
+    """Typed subset of KiCad schematic instance fields used by this command."""
+
+    sheet_name: str
+    source_path: Path | None
+    sheet_path: str
+    sheet_number: int
+    sheet_count: int
+    instance_index: int
+    sheet_path_uuids: list[str]
+    sheet_instance_path: str
 
 _SVG_NS = "http://www.w3.org/2000/svg"
 _XLINK_NS = "http://www.w3.org/1999/xlink"
@@ -39,6 +57,23 @@ _SCHEMATIC_REVIEW_THEME = "kicad_cruncher.design_review.schematic_svg.a0"
 
 ET.register_namespace("", _SVG_NS)
 ET.register_namespace("xlink", _XLINK_NS)
+
+
+@dataclass(frozen=True, slots=True)
+class DesignReviewBundle:
+    """Files and counts emitted for one design-review bundle."""
+
+    output_dir: Path
+    design_json_path: Path
+    netlist_json_path: Path
+    netlist_kicad_sexpr_path: Path
+    manifest_path: Path
+    readme_path: Path
+    manifest: JsonObject
+    component_count: int
+    net_count: int
+    schematic_svgs: list[Artifact]
+    pcb_svgs: list[Artifact]
 
 
 def _resolve_input_file(raw_file: str | None) -> Path | None:
@@ -85,11 +120,61 @@ def _write_json(path: Path, payload: JsonObject) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def _emit_progress(progress: ProgressCallback | None, message: str) -> None:
+    if progress is not None:
+        progress(message)
+
+
+def _schematic_instance_names(instance: _SchematicInstanceLike) -> tuple[str, Path | None, str]:
+    """Return display names derived from a concrete schematic instance."""
+    sheet_name = str(instance.sheet_name or "")
+    source_path = instance.source_path
+    if not sheet_name and source_path is not None:
+        sheet_name = Path(str(source_path)).stem
+    sheet_label = str(instance.sheet_path or "") or sheet_name or str(source_path or "sheet")
+    return sheet_name, source_path, sheet_label
+
+
+def _schematic_instance_filename(
+    instance: _SchematicInstanceLike,
+    sheet_name: str,
+    used_names: set[str],
+) -> str:
+    """Return a stable schematic SVG filename for one instance."""
+    safe_sheet_name = _safe_filename(sheet_name, fallback="sheet")
+    base_name = f"{int(instance.sheet_number):02d}_{safe_sheet_name}"
+    filename = f"{base_name}.svg"
+    if filename in used_names:
+        filename = f"{base_name}_{int(instance.instance_index):02d}.svg"
+    used_names.add(filename)
+    return filename
+
+
+def _schematic_svg_artifact(
+    instance: _SchematicInstanceLike,
+    svg_path: Path,
+    output_dir: Path,
+) -> Artifact:
+    """Return the manifest entry for one schematic SVG."""
+    source_path = instance.source_path
+    return {
+        "file": _relpath(svg_path, output_dir),
+        "sheet_number": int(instance.sheet_number),
+        "sheet_count": int(instance.sheet_count),
+        "sheet_name": instance.sheet_name,
+        "sheet_path": instance.sheet_path,
+        "sheet_path_uuids": instance.sheet_path_uuids,
+        "sheet_instance_path": instance.sheet_instance_path,
+        "source": str(source_path) if source_path is not None else "",
+    }
+
+
 def _render_schematic_svgs(
     design: KiCadDesign,
     output_dir: Path,
     *,
     design_payload: JsonObject,
+    progress: ProgressCallback | None = None,
 ) -> list[Artifact]:
     """Write one enriched black-and-white SVG per concrete schematic instance."""
     from kicad_monkey import (
@@ -113,18 +198,15 @@ def _render_schematic_svgs(
     profile_obj = options.profile
     profile_value = str(getattr(profile_obj, "value", profile_obj))
 
-    for instance in design.schematic_instances():
-        sheet_name = str(getattr(instance, "sheet_name", "") or "")
-        source_path = getattr(instance, "source_path", None)
-        if not sheet_name and source_path is not None:
-            sheet_name = Path(source_path).stem
-        safe_sheet_name = _safe_filename(sheet_name, fallback="sheet")
-        base_name = f"{int(instance.sheet_number):02d}_{safe_sheet_name}"
-        filename = f"{base_name}.svg"
-        if filename in used_names:
-            filename = f"{base_name}_{int(instance.instance_index):02d}.svg"
-        used_names.add(filename)
-
+    instances = list(design.schematic_instances())
+    _emit_progress(progress, f"rendering {len(instances)} schematic SVG(s)")
+    for index, instance in enumerate(instances, start=1):
+        sheet_name, source_path, sheet_label = _schematic_instance_names(instance)
+        _emit_progress(
+            progress,
+            f"rendering schematic SVG {index}/{len(instances)}: {sheet_label}",
+        )
+        filename = _schematic_instance_filename(instance, sheet_name, used_names)
         svg_path = schematic_dir / filename
         ir = design.to_schematic_instance_ir(instance)
         metadata_payload = schematic_svg_enrichment_payload(
@@ -150,19 +232,12 @@ def _render_schematic_svgs(
         )
         svg_path.parent.mkdir(parents=True, exist_ok=True)
         svg_path.write_text(svg_text, encoding="utf-8")
-
-        artifacts.append(
-            {
-                "file": _relpath(svg_path, output_dir),
-                "sheet_number": int(instance.sheet_number),
-                "sheet_count": int(instance.sheet_count),
-                "sheet_name": instance.sheet_name,
-                "sheet_path": instance.sheet_path,
-                "sheet_path_uuids": instance.sheet_path_uuids,
-                "sheet_instance_path": instance.sheet_instance_path,
-                "source": str(instance.source_path) if instance.source_path is not None else "",
-            }
+        _emit_progress(
+            progress,
+            f"wrote schematic SVG {index}/{len(instances)}: {_relpath(svg_path, output_dir)}",
         )
+
+        artifacts.append(_schematic_svg_artifact(instance, svg_path, output_dir))
     return artifacts
 
 
@@ -349,10 +424,16 @@ def _style_pcb_review_svg(svg_text: str, layer: str) -> tuple[str, int]:
     ), drill_slot_record_count
 
 
-def _render_pcb_review_svgs(design: KiCadDesign, output_dir: Path) -> list[Artifact]:
+def _render_pcb_review_svgs(
+    design: KiCadDesign,
+    output_dir: Path,
+    *,
+    progress: ProgressCallback | None = None,
+) -> list[Artifact]:
     """Write one review SVG per copper layer, including edge cuts and hole records."""
     pcb = design.pcb
     if pcb is None:
+        _emit_progress(progress, "skipping PCB review SVGs: no board is attached")
         return []
 
     pcb_dir = output_dir / "pcb" / "copper_layers"
@@ -360,7 +441,13 @@ def _render_pcb_review_svgs(design: KiCadDesign, output_dir: Path) -> list[Artif
         Path(str(design.pcb_path)).stem if getattr(design, "pcb_path", None) else "board"
     )
     artifacts: list[Artifact] = []
-    for copper_layer in _pcb_copper_layers(pcb):
+    copper_layers = _pcb_copper_layers(pcb)
+    _emit_progress(progress, f"rendering {len(copper_layers)} PCB copper-layer review SVG(s)")
+    for index, copper_layer in enumerate(copper_layers, start=1):
+        _emit_progress(
+            progress,
+            f"rendering PCB review SVG {index}/{len(copper_layers)}: {copper_layer}",
+        )
         svg_text = pcb.to_svg(
             layers=[copper_layer, "Edge.Cuts"],
             fill=_PCB_TRACE_COLOR,
@@ -372,6 +459,11 @@ def _render_pcb_review_svgs(design: KiCadDesign, output_dir: Path) -> list[Artif
         layer_file = pcb_dir / f"{board_name}__{_safe_filename(copper_layer)}__review.svg"
         layer_file.parent.mkdir(parents=True, exist_ok=True)
         layer_file.write_text(styled_svg, encoding="utf-8")
+        _emit_progress(
+            progress,
+            f"wrote PCB review SVG {index}/{len(copper_layers)}: "
+            f"{_relpath(layer_file, output_dir)}",
+        )
         artifacts.append(
             {
                 "file": _relpath(layer_file, output_dir),
@@ -387,6 +479,8 @@ def _readme_text(
     *,
     input_file: Path,
     design_json: str,
+    netlist_json: str,
+    netlist_kicad_sexpr: str,
     schematic_svgs: list[Artifact],
     pcb_svgs: list[Artifact],
     manifest_file: str,
@@ -412,6 +506,8 @@ model plus visual context.
 ## Files
 
 - `{design_json}`: KiCad-native design JSON from `kicad-monkey`.
+- `{netlist_json}`: KiCad-native netlist JSON from `kicad-monkey`.
+- `{netlist_kicad_sexpr}`: kicad-cli-style S-expression netlist.
 - `{manifest_file}`: artifact index for this review bundle.
 - `schematics/`: enriched black-and-white schematic SVGs, one file per
   concrete hierarchy instance.
@@ -474,6 +570,8 @@ def _write_review_readme(
     *,
     input_file: Path,
     design_json_path: Path,
+    netlist_json_path: Path,
+    netlist_kicad_sexpr_path: Path,
     schematic_svgs: list[Artifact],
     pcb_svgs: list[Artifact],
     manifest_path: Path,
@@ -483,6 +581,8 @@ def _write_review_readme(
         _readme_text(
             input_file=input_file,
             design_json=_relpath(design_json_path, output_dir),
+            netlist_json=_relpath(netlist_json_path, output_dir),
+            netlist_kicad_sexpr=_relpath(netlist_kicad_sexpr_path, output_dir),
             schematic_svgs=schematic_svgs,
             pcb_svgs=pcb_svgs,
             manifest_file=_relpath(manifest_path, output_dir),
@@ -492,10 +592,84 @@ def _write_review_readme(
     return readme_path
 
 
-def cmd_design(args: argparse.Namespace) -> int:
-    """Generate a KiCad design review bundle from a project or schematic."""
+def write_design_review_bundle(
+    input_file: Path,
+    output_dir: Path,
+    *,
+    include_indexes: bool = True,
+    progress: ProgressCallback | None = None,
+) -> DesignReviewBundle:
+    """Write the shared design-review bundle used by design and megamaid."""
     from kicad_monkey import KiCadDesign
 
+    output_dir.mkdir(parents=True, exist_ok=True)
+    _emit_progress(progress, f"loading design from {input_file}")
+    design = KiCadDesign.from_file(input_file)
+    _emit_progress(progress, "building design JSON")
+    design_payload = design.to_json(include_indexes=include_indexes)
+
+    design_json_path = output_dir / f"{input_file.stem}_design.json"
+    netlist_json_path = output_dir / f"{input_file.stem}_netlist.json"
+    netlist_kicad_sexpr_path = output_dir / f"{input_file.stem}_netlist.net"
+    _emit_progress(progress, f"writing design JSON: {_relpath(design_json_path, output_dir)}")
+    _write_json(design_json_path, design_payload)
+    _emit_progress(progress, "building netlist JSON")
+    netlist_payload = design.to_netlist_json()
+    _emit_progress(progress, f"writing netlist JSON: {_relpath(netlist_json_path, output_dir)}")
+    _write_json(netlist_json_path, netlist_payload)
+    _emit_progress(progress, "building KiCad S-expression netlist")
+    netlist_kicad_sexpr_path.write_text(
+        design.to_kicad_netlist_sexpr(tool="kicad_cruncher", date=""),
+        encoding="utf-8",
+    )
+
+    schematic_svgs = _render_schematic_svgs(
+        design,
+        output_dir,
+        design_payload=design_payload,
+        progress=progress,
+    )
+    pcb_svgs = _render_pcb_review_svgs(design, output_dir, progress=progress)
+    manifest_path = output_dir / "design_review_manifest.json"
+    manifest: JsonObject = {
+        "schema": "kicad_cruncher.design_review_manifest.a0",
+        "input": str(input_file),
+        "design_json": _relpath(design_json_path, output_dir),
+        "netlist_json": _relpath(netlist_json_path, output_dir),
+        "netlist_kicad_sexpr": _relpath(netlist_kicad_sexpr_path, output_dir),
+        "schematic_svgs": schematic_svgs,
+        "pcb_svgs": pcb_svgs,
+        "readme": "README.md",
+    }
+    _emit_progress(progress, "writing design-review manifest and README")
+    _write_json(manifest_path, manifest)
+    readme_path = _write_review_readme(
+        output_dir,
+        input_file=input_file,
+        design_json_path=design_json_path,
+        netlist_json_path=netlist_json_path,
+        netlist_kicad_sexpr_path=netlist_kicad_sexpr_path,
+        schematic_svgs=schematic_svgs,
+        pcb_svgs=pcb_svgs,
+        manifest_path=manifest_path,
+    )
+    return DesignReviewBundle(
+        output_dir=output_dir,
+        design_json_path=design_json_path,
+        netlist_json_path=netlist_json_path,
+        netlist_kicad_sexpr_path=netlist_kicad_sexpr_path,
+        manifest_path=manifest_path,
+        readme_path=readme_path,
+        manifest=manifest,
+        component_count=len(design_payload.get("components", [])),
+        net_count=len(design_payload.get("nets", [])),
+        schematic_svgs=schematic_svgs,
+        pcb_svgs=pcb_svgs,
+    )
+
+
+def cmd_design(args: argparse.Namespace) -> int:
+    """Generate a KiCad design review bundle from a project or schematic."""
     input_file = _resolve_input_file(str(args.file) if args.file else None)
     if input_file is None:
         return 1
@@ -503,48 +677,32 @@ def cmd_design(args: argparse.Namespace) -> int:
         return 1
 
     output_dir = resolve_output_dir(args.output, "design")
-    output_file = output_dir / f"{input_file.stem}_design.json"
     include_indexes = not bool(args.no_indexes)
+    started = time.perf_counter()
+
+    def progress(message: str) -> None:
+        log.info("%s", stage_progress_text(f"Design review: {message}"))
 
     try:
-        design = KiCadDesign.from_file(input_file)
-        payload = design.to_json(include_indexes=include_indexes)
-        _write_json(output_file, payload)
-        schematic_svgs = _render_schematic_svgs(
-            design,
+        log.info("%s", stage_start_text(f"Design review: starting bundle for {input_file}"))
+        bundle = write_design_review_bundle(
+            input_file,
             output_dir,
-            design_payload=payload,
-        )
-        pcb_svgs = _render_pcb_review_svgs(design, output_dir)
-        manifest_path = output_dir / "design_review_manifest.json"
-        manifest = {
-            "schema": "kicad_cruncher.design_review_manifest.a0",
-            "input": str(input_file),
-            "design_json": _relpath(output_file, output_dir),
-            "schematic_svgs": schematic_svgs,
-            "pcb_svgs": pcb_svgs,
-            "readme": "README.md",
-        }
-        _write_json(manifest_path, manifest)
-        readme_path = _write_review_readme(
-            output_dir,
-            input_file=input_file,
-            design_json_path=output_file,
-            schematic_svgs=schematic_svgs,
-            pcb_svgs=pcb_svgs,
-            manifest_path=manifest_path,
+            include_indexes=include_indexes,
+            progress=progress,
         )
     except Exception as exc:
         log.error("Design review generation failed: %s", exc)
         return 1
 
     log.info(
-        "Design review: %d components, %d nets, %d schematic SVGs, %d PCB SVGs -> %s",
-        len(payload.get("components", [])),
-        len(payload.get("nets", [])),
-        len(schematic_svgs),
-        len(pcb_svgs),
-        readme_path,
+        "%s",
+        stage_done_text(
+            "Design review: "
+            f"{bundle.component_count} components, {bundle.net_count} nets, "
+            f"{len(bundle.schematic_svgs)} schematic SVGs, {len(bundle.pcb_svgs)} PCB SVGs "
+            f"-> {bundle.readme_path} in {time.perf_counter() - started:.2f}s"
+        ),
     )
     return 0
 
@@ -560,8 +718,8 @@ def register_parser(
         description=(
             "Generate a KiCad design review bundle from .kicad_pro or .kicad_sch files. "
             "The output includes KiCad-native design JSON, enriched black-and-white "
-            "schematic SVGs, enriched PCB copper-layer SVGs, a manifest, and a README "
-            "for review agents. "
+            "schematic SVGs, enriched PCB copper-layer SVGs, KiCad-native netlist JSON, "
+            "a KiCad S-expression netlist, a manifest, and a README for review agents. "
             "The design JSON includes project metadata, schematic hierarchy, components, "
             "nets, variants, and optional lookup indexes."
         ),

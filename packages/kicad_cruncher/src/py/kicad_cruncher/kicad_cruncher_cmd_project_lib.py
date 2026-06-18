@@ -17,6 +17,7 @@ def cmd_project_lib(args: argparse.Namespace) -> int:
         args,
         command_label="Project library extraction",
         output_default="project-lib",
+        default_output_dir="local-library",
         mode_value="project_local",
         dedupe_value="name",
         manifest_schema="kicad_cruncher.project_lib_manifest.a0",
@@ -48,7 +49,11 @@ def register_parser(
             "KiCad project into metadata-preserving project-local library artifacts."
         ),
     )
-    _add_common_library_args(parser, output_default="project-lib")
+    _add_common_library_args(
+        parser,
+        output_default="project-lib",
+        default_output_dir="local-library",
+    )
     parser.add_argument(
         "--symbol-library-dir",
         help="symbol library folder under the output directory (default: .kicad_pro stem)",

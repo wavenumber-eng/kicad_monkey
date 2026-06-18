@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 
 from colorama import Fore, Style
@@ -63,3 +64,32 @@ def setup_cli_logging(level: int = logging.INFO, *, force_flush: bool = False) -
     root.handlers.clear()
     root.addHandler(handler)
 
+
+def _stage_color_enabled(stream: object | None = None) -> bool:
+    """Return whether stage/progress messages should include terminal color."""
+    if os.environ.get("NO_COLOR") is not None or os.environ.get("TERM") == "dumb":
+        return False
+    output_stream = sys.stdout if stream is None else stream
+    isatty = getattr(output_stream, "isatty", None)
+    return bool(callable(isatty) and isatty())
+
+
+def _color_stage_text(text: str, color: str) -> str:
+    if not _stage_color_enabled():
+        return text
+    return f"{color}{text}{Style.RESET_ALL}"
+
+
+def stage_start_text(text: str) -> str:
+    """Return a high-visibility stage-start message for CLI logs."""
+    return _color_stage_text(text, f"{Style.BRIGHT}{Fore.CYAN}")
+
+
+def stage_progress_text(text: str) -> str:
+    """Return a lower-emphasis progress message for CLI logs."""
+    return _color_stage_text(text, Fore.CYAN)
+
+
+def stage_done_text(text: str) -> str:
+    """Return a completion message for CLI logs."""
+    return _color_stage_text(text, Fore.GREEN)

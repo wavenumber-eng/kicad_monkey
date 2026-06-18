@@ -5,14 +5,22 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def resolve_output_dir(output: Path | None, command_name: str) -> Path:
+def resolve_output_dir(
+    output: Path | None,
+    command_name: str,
+    *,
+    default_dir: Path | str | None = None,
+) -> Path:
     """Resolve and create a command output directory.
 
-    All output-producing commands default to ``./output/<command>/``. An
-    explicit ``-o/--output`` value replaces the whole output directory rather
-    than being nested under the command name.
+    Output-producing commands default to ``./output/<command>/`` unless a
+    command-specific ``default_dir`` is provided. An explicit ``-o/--output``
+    value replaces the whole output directory rather than being nested under
+    the command name.
     """
-    output_dir = output if output is not None else Path("output") / command_name
+    output_dir = (
+        output if output is not None else Path(default_dir or Path("output") / command_name)
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 

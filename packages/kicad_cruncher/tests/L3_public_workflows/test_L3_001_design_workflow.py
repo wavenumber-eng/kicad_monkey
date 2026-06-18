@@ -8,15 +8,19 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from collections import Counter
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 import pytest
+from kicad_cruncher import kicad_cruncher_cmd_pcb_svg as pcb_svg_cmd
 from kicad_cruncher.config_json import load_json_config
 from kicad_cruncher.kicad_cruncher_cmd_pcb_svg import (
+    _active_pcb_layers,
     _apply_pcb_view_selection,
     _assembly_designator_rotation,
     _default_pcb_svg_config_text,
+    _layer_output_token_groups,
     _render_footprint_hlr,
     _svg_assembly_designator_text,
 )
@@ -40,6 +44,7 @@ from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
 from kicad_cruncher.kicad_cruncher_pcb_svg_projection import (
     _AssemblyProjectedArc,
     _AssemblyProjectedGeometry,
+    _get_assembly_projection_cache,
     _normalize_projected_geometry,
 )
 from kicad_monkey import KiCadPcb
@@ -50,6 +55,9 @@ _CORPUS_ROOT = _PROJECT_ROOT / "tests" / "corpus" / "kicad"
 _SVG_COLOR_RE = re.compile(r"#[0-9A-Fa-f]{6}")
 _CORPUS_HLR_TEST_PCB = _CORPUS_ROOT / "projects" / "hlr_test" / "hlr_test.kicad_pcb"
 _CORPUS_HLR_TEST_PROJECT = _CORPUS_ROOT / "projects" / "hlr_test" / "hlr_test.kicad_pro"
+_CORPUS_FOUR_CH_PCB = (
+    _CORPUS_ROOT / "projects" / "4-ch-backplane" / "input" / "4-ch-backplane.kicad_pcb"
+)
 _CORPUS_CUTOUT_TEST_PCB = _CORPUS_ROOT / "projects" / "cutout_test" / "cutout_test.kicad_pcb"
 _CORPUS_CHARGE_INDICATOR_PCB = (
     _CORPUS_ROOT
@@ -356,12 +364,21 @@ def _assert_design_review_bundle(
     manifest = _read_json(manifest_path)
     assert manifest["schema"] == "kicad_cruncher.design_review_manifest.a0"
     assert manifest["design_json"] == design_json_name
+    assert manifest["netlist_json"] == design_json_name.replace("_design.json", "_netlist.json")
+    assert manifest["netlist_kicad_sexpr"] == design_json_name.replace(
+        "_design.json",
+        "_netlist.net",
+    )
     assert manifest["readme"] == "README.md"
     assert (output_dir / design_json_name).exists()
+    assert (output_dir / str(manifest["netlist_json"])).exists()
+    assert (output_dir / str(manifest["netlist_kicad_sexpr"])).exists()
 
     readme_text = readme_path.read_text(encoding="utf-8")
     assert "KiCad Design Review Bundle" in readme_text
     assert "Design JSON Relationships" in readme_text
+    assert "netlist JSON" in readme_text
+    assert "S-expression netlist" in readme_text
     assert "Schematic SVGs" in readme_text
     assert "PCB Review SVGs" in readme_text
     assert "kicad_monkey.design.a0" in readme_text
@@ -477,6 +494,9 @@ def test_design_command_generates_project_json(tmp_path: Path) -> None:
     result = _run_cli("design", str(project_path), "-o", str(output_dir))
 
     assert result.returncode == 0, result.stderr + result.stdout
+    assert "Design review: starting bundle" in result.stdout
+    assert "Design review: loading design" in result.stdout
+    assert "Design review: rendering schematic SVG" in result.stdout
     output_file = output_dir / "demo_design.json"
     assert output_file.exists()
     payload = json.loads(output_file.read_text(encoding="utf-8"))
@@ -647,7 +667,7 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     assert manifest["schema"] == "pcb.svg.manifest.a0"
     assert manifest["board"] == "hlr_test"
     assert "F.Cu" in manifest["layer_outputs"]
-    assert "B.Cu" in manifest["layer_outputs"]
+    assert "B.Cu" not in manifest["layer_outputs"]
     assert manifest["layer_outputs"]["F.Cu"]["layers"] == [
         "F.Cu",
         "Edge.Cuts",
@@ -664,7 +684,7 @@ def test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config(tmp_path: Pa
     assert manifest["layer_outputs"]["BOARD_OUTLINE"]["virtual"] is True
     assert manifest["layer_outputs"]["BOARD_OUTLINE"]["layers"] == ["BOARD_OUTLINE"]
     assert (output_dir / "layers" / "hlr_test__F.Cu.svg").exists()
-    assert (output_dir / "layers" / "hlr_test__B.Cu.svg").exists()
+    assert not (output_dir / "layers" / "hlr_test__B.Cu.svg").exists()
     assert (output_dir / "layers" / "hlr_test__Edge.Cuts.svg").exists()
     assert (output_dir / "layers" / "hlr_test__virtual__board_outline.svg").exists()
     front_layer_svg = (output_dir / "layers" / "hlr_test__F.Cu.svg").read_text(encoding="utf-8")
@@ -714,11 +734,63 @@ def test_pcb_svg_layer_context_and_virtual_outputs_can_be_disabled(
     assert 'data-layer-token="SLOTS"' not in front_layer_svg
 
 
+def test_pcb_svg_default_config_writes_views_only(tmp_path: Path) -> None:
+    """Verify generated defaults do not emit standalone layer SVG files."""
+    config_path = tmp_path / "pcb.svg.config"
+    config_path.write_text(_default_pcb_svg_config_text(), encoding="utf-8")
+    output_dir = tmp_path / "pcb-svg"
+
+    result = _run_cli(
+        "pcb-svg",
+        str(_CORPUS_HLR_TEST_PCB),
+        "--config",
+        str(config_path),
+        "-o",
+        str(output_dir),
+    )
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    manifest = _read_json(output_dir / "hlr_test__views.json")
+    assert manifest["layer_outputs"] == {}
+    assert set(manifest["views"]) == {"assembly_top_view", "assembly_bottom_view"}
+    assert (output_dir / "views" / "hlr_test__assembly_top_view.svg").exists()
+    assert (output_dir / "views" / "hlr_test__assembly_bottom_view.svg").exists()
+    assert not (output_dir / "layers").exists()
+
+
+def test_pcb_svg_auto_layer_outputs_skip_table_only_physical_layers() -> None:
+    """Verify auto layer outputs do not render table-only physical layers by default."""
+    pcb = KiCadPcb.from_file(_CORPUS_FOUR_CH_PCB)
+    table_layers = {
+        str(getattr(layer, "canonical_name", None) or getattr(layer, "name", None) or "")
+        for layer in getattr(pcb, "layers", [])
+    }
+    config = _PcbSvgConfig.default()
+
+    physical, virtual = _layer_output_token_groups(config, pcb)
+    active = _active_pcb_layers(pcb)
+    inactive = table_layers - active
+
+    assert inactive
+    assert set(physical) <= active
+    assert "F.Cu" in physical
+    assert "B.Cu" in physical
+    assert "Edge.Cuts" in physical
+    assert not inactive.intersection(physical)
+    assert "BOARD_OUTLINE" in virtual
+    assert "ASSEMBLY_DESIGNATORS_TOP" in virtual
+
+    config.global_options.show_empty_layers = True
+    physical_with_empty, _virtual_with_empty = _layer_output_token_groups(config, pcb)
+    assert inactive.intersection(physical_with_empty)
+
+
 def test_pcb_svg_default_config_exposes_review_virtual_views() -> None:
     """Verify the default A0 config includes the expected virtual layer views."""
     config = _PcbSvgConfig.default()
     views = {view.name: view for view in config.views}
 
+    assert config.layer_outputs["enabled"] is False
     assert config.layer_outputs["layers"] == "auto"
     assert config.layer_outputs["add_edge_cuts_to_physical_layers"] is True
     assert config.layer_outputs["add_drills_to_physical_layers"] is True
@@ -835,6 +907,11 @@ def test_pcb_svg_default_config_documents_virtual_layers_and_overrides(tmp_path:
     assert "Default component projection mode Options: detail, outline, bounding_box" in text
     assert "View projection mode for ASSEMBLY_HLR_TOP/BOTTOM tokens" in text
     assert "Canvas bounds mode Options: board_outline, all_geometry." in text
+    assert "The generated default writes only configured views." in text
+    assert "Default is disabled so the command writes configured views only." in text
+    assert "To enable standalone layer outputs, set enabled to true. Example:" in text
+    assert '/*   "enabled": true, */' in text
+    assert '"enabled": false' in text
     assert "ASSEMBLY_HLR_TOP_SIMPLE" not in text
     assert '"simple"' not in text
 
@@ -871,6 +948,118 @@ def test_pcb_svg_hlr_test_model_pose_matches_kicad_step_order() -> None:
     assert pose.matrix[2][1] == pytest.approx(1.0)
     assert pose.matrix[0][2] == pytest.approx(-1.0)
     assert origin_svg == pytest.approx((25.5208, 12.15))
+
+
+def test_pcb_svg_reuses_hlr_projection_for_repeated_model_instances(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify repeated model instances share one cached Geometer projection."""
+    pcb = KiCadPcb.from_file(_CORPUS_HLR_TEST_PCB)
+    footprint_a = pcb.footprints[0]
+    footprint_b = deepcopy(footprint_a)
+    footprint_b.at_x = float(footprint_a.at_x) + 25.0
+    bbox = compute_pcb_svg_bounding_box(pcb, None)
+    styles = _PcbSvgConfig.default().global_options.styles
+    cache = _get_assembly_projection_cache()
+    cache._projection_by_key.clear()
+    pcb_svg_cmd._STEP_BYTES_CACHE.clear()
+
+    decode_calls = 0
+    project_calls = 0
+
+    def fake_decode(_data: str) -> bytes:
+        nonlocal decode_calls
+        decode_calls += 1
+        return b"same-step"
+
+    def fake_project_with_geometer(**_kwargs: object) -> _AssemblyProjectedGeometry:
+        nonlocal project_calls
+        project_calls += 1
+        return _AssemblyProjectedGeometry(
+            outline_line_segments=(((0.0, 0.0), (1.0, 0.0)),),
+            outline_arcs=(),
+            detail_line_segments=(((0.0, 0.0), (0.0, 1.0)),),
+            detail_arcs=(),
+        )
+
+    monkeypatch.setattr(pcb_svg_cmd, "_decode_embedded_file_data", fake_decode)
+    monkeypatch.setattr(cache, "_project_with_geometer", fake_project_with_geometer)
+
+    rendered_a = pcb_svg_cmd._render_footprint_geometer_hlr(
+        pcb,
+        _CORPUS_HLR_TEST_PCB,
+        footprint_a,
+        side="top",
+        mode="outline",
+        styles=styles,
+        bbox=bbox,
+    )
+    rendered_b = pcb_svg_cmd._render_footprint_geometer_hlr(
+        pcb,
+        _CORPUS_HLR_TEST_PCB,
+        footprint_b,
+        side="top",
+        mode="outline",
+        styles=styles,
+        bbox=bbox,
+    )
+
+    assert decode_calls == 1
+    assert project_calls == 1
+    assert rendered_a != rendered_b
+
+
+def test_pcb_svg_reuses_model_bounds_for_repeated_model_instances(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify repeated model instances share one cached Geometer bounds result."""
+    pcb = KiCadPcb.from_file(_CORPUS_HLR_TEST_PCB)
+    footprint_a = pcb.footprints[0]
+    footprint_b = deepcopy(footprint_a)
+    footprint_b.at_x = float(footprint_a.at_x) + 25.0
+    bbox = compute_pcb_svg_bounding_box(pcb, None)
+    pcb_svg_cmd._STEP_BYTES_CACHE.clear()
+    pcb_svg_cmd._MODEL_BOUNDS_CACHE.clear()
+
+    decode_calls = 0
+    bounds_calls = 0
+
+    def fake_decode(_data: str) -> bytes:
+        nonlocal decode_calls
+        decode_calls += 1
+        return b"same-step"
+
+    class _FakeBoundsResult:
+        bounds = {"min": [0.0, 0.0, 0.0], "max": [1.0, 2.0, 3.0]}
+
+    class _FakeGeometer:
+        @staticmethod
+        def model_bounds(*_args: object, **_kwargs: object) -> _FakeBoundsResult:
+            nonlocal bounds_calls
+            bounds_calls += 1
+            return _FakeBoundsResult()
+
+    monkeypatch.setattr(pcb_svg_cmd, "_decode_embedded_file_data", fake_decode)
+    monkeypatch.setitem(sys.modules, "geometer", _FakeGeometer)
+
+    rect_a = pcb_svg_cmd._footprint_model_bounds_rect_values(
+        pcb,
+        _CORPUS_HLR_TEST_PCB,
+        footprint_a,
+        bbox=bbox,
+    )
+    rect_b = pcb_svg_cmd._footprint_model_bounds_rect_values(
+        pcb,
+        _CORPUS_HLR_TEST_PCB,
+        footprint_b,
+        bbox=bbox,
+    )
+
+    assert decode_calls == 1
+    assert bounds_calls == 1
+    assert rect_a is not None
+    assert rect_b is not None
+    assert rect_a != rect_b
 
 
 def test_pcb_svg_bottom_projection_normalizes_camera_x_to_board_x() -> None:
@@ -1342,7 +1531,7 @@ def test_pcb_svg_default_assembly_view_draws_outline_designators_and_opacity(
 
     assert 'data-assembly-symbol="outline"' in svg
     assert 'data-projection="outline"' in svg
-    assert 'data-bounds-kind="model"' in svg
+    assert 'data-bounds-kind="pads"' in svg
     assert 'opacity="0.75"' in svg
     assert 'data-layer-token="ASSEMBLY_DESIGNATORS_TOP"' in svg
     assert 'data-primitive="assembly-designator"' in svg
@@ -1358,6 +1547,7 @@ def test_pcb_svg_default_assembly_view_draws_outline_designators_and_opacity(
     assert "monospace" in u1_designator
     assert 'font-weight="700"' in u1_designator
     assert 'opacity="0.6"' in u1_designator
+    assert 'data-projection="pad_bounds"' in u1_designator
     assert "textLength=" not in svg
     assert "lengthAdjust=" not in svg
     assert svg.index('data-projection="outline"') < svg.index(

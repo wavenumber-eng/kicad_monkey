@@ -22,6 +22,22 @@
   <p>The interface is working when <code>kicad_cruncher.version()</code> parses the installed distribution version or source fallback into a valid date-version object.</p>
 </section>
 <section
+  id="design-review-bundle"
+  data-interface="DesignReviewBundle"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_001_design_workflow.py"
+  data-test-target="test_design_command_generates_project_json">
+  <h2>DesignReviewBundle</h2>
+  <h3>Rationale</h3>
+  <p>Design-review generation is reused by the standalone <code>design</code> command and by Megamaid, so callers need one typed bundle describing every written artifact and count.</p>
+  <h3>Purpose</h3>
+  <p><code>DesignReviewBundle</code> carries the output directory, design JSON, netlist JSON, KiCad S-expression netlist, manifest, README, manifest payload, component/net counts, schematic SVG records, and PCB SVG records for one review bundle.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 exercises the public design command and verifies emitted JSON, netlists, manifest fields, README, schematic SVGs, PCB SVGs, component counts, and net counts. Megamaid L3 tests also verify nested design-review bundle creation.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when all generated design-review paths and counts can be passed to downstream commands without reopening or rediscovering the output directory.</p>
+</section>
+<section
   id="pcb-layer-step-config"
   data-interface="PcbLayerStepConfig"
   data-rack-stratum="L3_public_workflows"
@@ -100,6 +116,22 @@
   <p>L3 exercises explicit config rendering, layer outputs, virtual outputs, manifests, configured views, and enriched metadata that depends on the composition contract.</p>
   <h3>Working Definition</h3>
   <p>The interface is working when layer and view outputs render from the same compositor path and their manifests accurately report the physical layers behind each SVG artifact.</p>
+</section>
+<section
+  id="pcb-svg-composition-render-cache"
+  data-interface="PcbSvgCompositionRenderCache"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_001_design_workflow.py"
+  data-test-target="test_pcb_svg_default_config_writes_views_only">
+  <h2>PcbSvgCompositionRenderCache</h2>
+  <h3>Rationale</h3>
+  <p>PCB SVG generation can render several configured views from the same board, so repeated root SVG, board-origin, hole-fragment, physical-fragment, and board-region work must be cached within one command run.</p>
+  <h3>Purpose</h3>
+  <p><code>PcbSvgCompositionRenderCache</code> owns command-scoped compositor caches for one <code>KiCadPcb</code>, including the parsed board IR, root SVG text by layer set, physical fragments, hole fragments, classified board regions, and root origin.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 exercises default view rendering through the public <code>pcb-svg</code> command and verifies that multiple view outputs are emitted from the same configured command path. Repeated model projection tests cover the companion HLR/bounds reuse path.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when one PCB SVG command run can render multiple physical and virtual outputs while reusing cached board-derived SVG fragments without changing artifact content.</p>
 </section>
 <section
   id="field-alias-config"

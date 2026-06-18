@@ -30,6 +30,7 @@ kicad-cruncher health project.kicad_pro --fail-on-issues</code></pre>
   <p><code>file</code> accepts a <code>.kicad_pro</code> project. If omitted, the command auto-detects exactly one <code>.kicad_pro</code> in the current directory.</p>
   <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/health/</code>.</p>
   <p><code>--fail-on-issues</code> returns a nonzero exit code when missing model payloads, unresolved external models, or scan diagnostics are found. Without this flag the command writes the report and returns success so engineers can inspect diagnostics interactively.</p>
+  <p>The scan scope is the active project board/schematic pair plus local symbol and footprint libraries listed in the project <code>sym-lib-table</code> and <code>fp-lib-table</code>. It intentionally ignores unrelated recursive <code>.pretty</code>, <code>.kicad_mod</code>, and <code>.kicad_sym</code> files that are not listed in those tables.</p>
 </section>
 
 <section id="ownership">
@@ -45,7 +46,7 @@ kicad-cruncher health project.kicad_pro --fail-on-issues</code></pre>
     <li><code>project_health.json</code>: <code>kicad_cruncher.project_health.a0</code> report with asset inventory, model-reference classification, issue summary, and raw diagnostics.</li>
     <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
   </ul>
-  <p>Issues currently cover missing embedded model payloads, missing or unresolved external model files, and parser/scanner diagnostics from the asset scan. Library extraction commands intentionally skip this scan by default.</p>
+  <p>Issues currently cover missing embedded model payloads, missing or unresolved external model files, placed PCB footprints with no model records, and parser/scanner diagnostics from the asset scan. Library extraction commands intentionally skip this scan by default.</p>
 </section>
 
 <section id="tests">

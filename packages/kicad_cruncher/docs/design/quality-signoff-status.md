@@ -21,5 +21,6 @@ producers. Config producers now emit JSONC from structured defaults and comment
 metadata; legacy config aliases and old default file probes are intentionally
 rejected. The initial `bom`, `pnp`, and `jlc` manufacturing commands
 exercise variant-aware Yoshi outputs through the shared BOM/PnP config contract.
-Output-producing commands default to `./output/<command>/`, with explicit
-`-o/--output` values replacing the command directory.
+Output-producing commands default to `./output/<command>/`, except
+`project-lib`, which defaults to `./local-library/`. Explicit `-o/--output`
+values replace the command directory.

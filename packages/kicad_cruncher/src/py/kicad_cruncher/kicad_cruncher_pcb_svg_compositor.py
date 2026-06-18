@@ -7,8 +7,9 @@ import html
 import math
 import re
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
     PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS,
@@ -19,7 +20,13 @@ from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
 )
 
 if TYPE_CHECKING:
+    from kicad_monkey.kicad_geometry import BoundingBox
     from kicad_monkey.kicad_pcb import KiCadPcb
+    from kicad_monkey.kicad_plotter_ir import KiCadPlotterDocument
+    from kicad_monkey.kicad_sch_svg_renderer import (
+        KiCadSvgRenderContext,
+        KiCadSvgRenderOptions,
+    )
 
 _SVG_NS = "http://www.w3.org/2000/svg"
 _XLINK_NS = "http://www.w3.org/1999/xlink"
@@ -55,6 +62,289 @@ class PcbSvgComposition:
 
     svg_text: str
     physical_layers: list[str]
+
+
+@dataclass(slots=True)
+class PcbSvgCompositionRenderCache:
+    """Command-scoped caches for repeated PCB SVG composition work."""
+
+    pcb: KiCadPcb
+    _bbox: object | None = None
+    _base_doc: object | None = None
+    _root_svg_text_by_layers: dict[tuple[str, ...], str] = field(default_factory=dict)
+    _physical_fragments_by_key: dict[
+        tuple[str, bool, tuple[object, ...]],
+        tuple[ET.Element, ...],
+    ] = field(default_factory=dict)
+    _hole_fragments_by_key: dict[
+        tuple[tuple[str, ...], str, tuple[object, ...]],
+        tuple[ET.Element, ...],
+    ] = field(default_factory=dict)
+    _board_regions_by_key: dict[tuple[object, ...], list[_BoardRegion]] = field(
+        default_factory=dict
+    )
+    _origin: tuple[float, float] | None = None
+
+    def root_svg(self, pcb: KiCadPcb, layers: list[str] | None) -> ET.Element:
+        """Return a fresh SVG root rendered from a cached board IR."""
+        if pcb is not self.pcb:
+            return _render_root_svg_uncached(pcb, layers)
+        key = _layers_cache_key(layers)
+        svg_text = self._root_svg_text_by_layers.get(key)
+        if svg_text is None:
+            svg_text = self._render_root_svg_text(layers)
+            self._root_svg_text_by_layers[key] = svg_text
+        return ET.fromstring(svg_text)
+
+    def root_origin(self, pcb: KiCadPcb) -> tuple[float, float]:
+        if pcb is not self.pcb:
+            return _root_origin_from_bbox_uncached(pcb)
+        if self._origin is None:
+            bbox = self._computed_bbox()
+            is_valid = getattr(bbox, "is_valid", None)
+            if callable(is_valid) and is_valid():
+                self._origin = (float(bbox.min_x), float(bbox.min_y))
+            else:
+                self._origin = (0.0, 0.0)
+        return self._origin
+
+    def board_regions(
+        self,
+        pcb: KiCadPcb,
+        *,
+        styles: dict[str, dict[str, object]],
+    ) -> list[_BoardRegion]:
+        if pcb is not self.pcb:
+            return _classify_edge_cut_regions(pcb, styles=styles)
+        key = _styles_cache_key(styles)
+        regions = self._board_regions_by_key.get(key)
+        if regions is None:
+            regions = _classify_edge_cut_regions(pcb, styles=styles)
+            self._board_regions_by_key[key] = regions
+        return regions
+
+    def physical_layer_fragments(
+        self,
+        source_children: list[ET.Element],
+        layer: str,
+        *,
+        prune_holes: bool,
+        styles: dict[str, dict[str, object]],
+    ) -> list[ET.Element]:
+        key = (layer, prune_holes, _styles_cache_key(styles))
+        cached = self._physical_fragments_by_key.get(key)
+        if cached is None:
+            fragments: list[ET.Element] = []
+            for child in source_children:
+                if _svg_local_name(child.tag) in {"metadata", "defs"}:
+                    continue
+                candidate = copy.deepcopy(child)
+                if _prune_for_layers(candidate, {layer}, prune_holes=prune_holes):
+                    _apply_a0_theme(candidate, styles, set())
+                    fragments.append(candidate)
+            cached = tuple(fragments)
+            self._physical_fragments_by_key[key] = cached
+        return [copy.deepcopy(fragment) for fragment in cached]
+
+    def hole_fragments(
+        self,
+        root_layers: list[str],
+        source_children: list[ET.Element],
+        token: str,
+        *,
+        styles: dict[str, dict[str, object]],
+    ) -> list[ET.Element]:
+        wanted_kind = "slot" if token == "SLOTS" else "round"
+        key = (tuple(root_layers), wanted_kind, _styles_cache_key(styles))
+        cached = self._hole_fragments_by_key.get(key)
+        if cached is None:
+            fragments: list[ET.Element] = []
+            for child in source_children:
+                if _svg_local_name(child.tag) in {"metadata", "defs"}:
+                    continue
+                candidate = copy.deepcopy(child)
+                if _prune_for_holes(candidate, wanted_kind):
+                    _apply_a0_theme(candidate, styles, {token})
+                    fragments.append(candidate)
+            cached = tuple(fragments)
+            self._hole_fragments_by_key[key] = cached
+        return [copy.deepcopy(fragment) for fragment in cached]
+
+    def _computed_bbox(self) -> BoundingBox:
+        if self._bbox is None:
+            from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
+
+            self._bbox = compute_pcb_svg_bounding_box(self.pcb, None)
+        return cast("BoundingBox", self._bbox)
+
+    def _computed_base_doc(self) -> KiCadPlotterDocument:
+        if self._base_doc is None:
+            from kicad_monkey.kicad_pcb_to_ir import pcb_to_ir
+
+            source_path = getattr(self.pcb, "source_path", None)
+            self._base_doc = pcb_to_ir(
+                self.pcb,
+                source_path=str(source_path) if source_path else None,
+            )
+        return cast("KiCadPlotterDocument", self._base_doc)
+
+    def _render_root_svg_text(self, layers: list[str] | None) -> str:
+        from kicad_monkey.kicad_ir_to_svg import render_ir_to_svg
+        from kicad_monkey.kicad_pcb_bounds import empty_pcb_svg
+
+        bbox = self._computed_bbox()
+        if getattr(bbox, "is_empty", False):
+            return str(empty_pcb_svg())
+
+        base_opts, opts = _pcb_root_svg_options(layers)
+        ctx = _pcb_root_svg_context(bbox, opts)
+        doc = _filtered_pcb_root_doc(self.pcb, self._computed_base_doc(), layers)
+        root_attrs, metadata_elements = _pcb_root_svg_metadata(
+            self.pcb,
+            bbox=bbox,
+            layers=layers,
+            profile=base_opts.profile,
+        )
+        return str(
+            render_ir_to_svg(
+                doc,
+                ctx=ctx,
+                root_extra_attrs=root_attrs,
+                metadata_elements=metadata_elements,
+            )
+        )
+
+
+def _pcb_root_svg_options(
+    layers: list[str] | None,
+) -> tuple[KiCadSvgRenderOptions, KiCadSvgRenderOptions]:
+    from dataclasses import replace
+
+    from kicad_monkey.kicad_sch_svg_renderer import KiCadSvgRenderOptions
+
+    base_opts = KiCadSvgRenderOptions.enriched_default()
+    opts = replace(
+        base_opts,
+        black_and_white=False,
+        default_fill_color="#000000",
+        default_stroke_color="#000000",
+        visible_layers=tuple(layers) if layers is not None else None,
+        profile=base_opts.profile,
+    )
+    return base_opts, opts
+
+
+def _pcb_root_svg_context(
+    bbox: BoundingBox,
+    opts: KiCadSvgRenderOptions,
+) -> KiCadSvgRenderContext:
+    from kicad_monkey.kicad_lib_symbol_to_ir import mm_to_nm
+    from kicad_monkey.kicad_sch_svg_renderer import KiCadSvgRenderContext
+
+    return KiCadSvgRenderContext(
+        sheet_width_nm=mm_to_nm(float(bbox.width)),
+        sheet_height_nm=mm_to_nm(float(bbox.height)),
+        offset_x_nm=-mm_to_nm(float(bbox.min_x)),
+        offset_y_nm=-mm_to_nm(float(bbox.min_y)),
+        options=opts,
+    )
+
+
+def _filtered_pcb_root_doc(
+    pcb: KiCadPcb,
+    doc: KiCadPlotterDocument,
+    layers: list[str] | None,
+) -> KiCadPlotterDocument:
+    from dataclasses import replace
+
+    from kicad_monkey.kicad_pcb_ir_svg import (
+        _filter_records_by_layer,
+        _is_copper_layer,
+        _is_mask_layer,
+        _synthesize_pad_drill_outlines_for_layer,
+    )
+
+    if layers is None:
+        return doc
+    records = list(doc.records)
+    drill_layer = _first_drill_outline_layer(layers, _is_copper_layer, _is_mask_layer)
+    if drill_layer is not None:
+        records.extend(_synthesize_pad_drill_outlines_for_layer(pcb, drill_layer))
+    return replace(doc, records=_filter_records_by_layer(records, layers))
+
+
+def _first_drill_outline_layer(
+    layers: list[str],
+    is_copper_layer: Callable[[str], bool],
+    is_mask_layer: Callable[[str], bool],
+) -> str | None:
+    if any(layer and (is_copper_layer(layer) or is_mask_layer(layer)) for layer in layers):
+        return None
+    return next(
+        (
+            layer
+            for layer in layers
+            if layer and not is_copper_layer(layer) and not is_mask_layer(layer)
+        ),
+        None,
+    )
+
+
+def _pcb_root_svg_metadata(
+    pcb: KiCadPcb,
+    *,
+    bbox: BoundingBox,
+    layers: list[str] | None,
+    profile: object,
+) -> tuple[dict[str, object] | None, list[str] | None]:
+    from kicad_monkey.kicad_pcb_svg_enrichment import (
+        pcb_root_svg_attrs,
+        pcb_svg_enrichment_metadata_element,
+        pcb_svg_enrichment_payload,
+    )
+    from kicad_monkey.kicad_sch_svg_renderer import KiCadSvgRenderProfile
+
+    profile_value = _svg_profile_value(profile)
+    if profile_value == KiCadSvgRenderProfile.ORACLE.value:
+        return None, None
+    payload = pcb_svg_enrichment_payload(
+        pcb,
+        layers=layers,
+        bbox=bbox,
+        profile=profile_value,
+    )
+    root_attrs = pcb_root_svg_attrs(pcb, layers=layers, profile=profile_value)
+    metadata_elements = [pcb_svg_enrichment_metadata_element(payload)]
+    return root_attrs, metadata_elements
+
+
+def _svg_profile_value(profile: object) -> str:
+    value = getattr(profile, "value", None)
+    return str(value if value is not None else profile)
+
+
+def _layers_cache_key(layers: list[str] | None) -> tuple[str, ...]:
+    return ("<all>",) if layers is None else tuple(layers)
+
+
+def _styles_cache_key(value: object) -> tuple[object, ...]:
+    normalized = _cache_key_value(value)
+    return normalized if isinstance(normalized, tuple) else (normalized,)
+
+
+def _cache_key_value(value: object) -> object:
+    if isinstance(value, dict):
+        return tuple(
+            (str(key), _cache_key_value(item))
+            for key, item in sorted(value.items(), key=lambda entry: str(entry[0]))
+        )
+    if isinstance(value, list | tuple):
+        return tuple(_cache_key_value(item) for item in value)
+    if isinstance(value, set | frozenset):
+        return tuple(sorted((_cache_key_value(item) for item in value), key=repr))
+    if isinstance(value, str | int | float | bool | type(None)):
+        return value
+    return repr(value)
 
 
 @dataclass(slots=True)
@@ -122,12 +412,13 @@ def render_pcb_svg_composition(
     group_id: str,
     config: _PcbSvgConfig,
     pin1_config: _PcbSvgPin1Config | None = None,
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> PcbSvgComposition:
     """Render an A0 composed SVG using KiCad Monkey plus virtual layer renderers."""
     tokens = [normalize_layer_token(token) for token in layer_tokens]
     root_layers = _root_render_layers(tokens, pcb)
-    root = _render_root_svg(pcb, root_layers)
-    origin = _root_origin_from_bbox(pcb, root_layers)
+    root = _render_root_svg(pcb, root_layers, render_cache=render_cache)
+    origin = _root_origin_from_bbox(pcb, root_layers, render_cache=render_cache)
     root.set("id", group_id)
     root.set("data-compositor-schema", "kicad_cruncher.pcb_svg.compositor.a0")
     root.set("data-layer-tokens", ",".join(tokens))
@@ -141,7 +432,11 @@ def render_pcb_svg_composition(
 
     physical_layers = _physical_layers_for_tokens(tokens)
     copied_physical = False
-    board_regions = _classify_edge_cut_regions(pcb, styles=styles)
+    board_regions = (
+        render_cache.board_regions(pcb, styles=styles)
+        if render_cache is not None
+        else _classify_edge_cut_regions(pcb, styles=styles)
+    )
 
     for token in tokens:
         copied_physical = _append_composition_token(
@@ -156,6 +451,8 @@ def render_pcb_svg_composition(
             config=config,
             pin1_config=pin1_config or config.pin1,
             copied_physical=copied_physical,
+            root_layers=root_layers,
+            render_cache=render_cache,
         )
 
     if not copied_physical and not any(token in _VIRTUAL_TOKENS for token in tokens):
@@ -165,6 +462,7 @@ def render_pcb_svg_composition(
             _EDGE_CUTS_LAYER,
             tokens=tokens,
             styles=styles,
+            render_cache=render_cache,
         )
 
     _reorder_top_level_groups(root)
@@ -187,6 +485,8 @@ def _append_composition_token(
     config: _PcbSvgConfig,
     pin1_config: _PcbSvgPin1Config,
     copied_physical: bool,
+    root_layers: list[str],
+    render_cache: PcbSvgCompositionRenderCache | None,
 ) -> bool:
     if token in _HLR_TOKENS:
         return copied_physical
@@ -197,7 +497,14 @@ def _append_composition_token(
         _append_board_cutouts(root, board_regions, origin=origin, styles=styles)
         return copied_physical
     if token in _HOLE_TOKENS:
-        _append_holes(root, source_children, token, styles=styles)
+        _append_holes(
+            root,
+            source_children,
+            token,
+            styles=styles,
+            root_layers=root_layers,
+            render_cache=render_cache,
+        )
         return True
     if token in _PIN1_TOKENS:
         _append_pin1_markers(
@@ -213,7 +520,14 @@ def _append_composition_token(
     physical = physical_layer_from_token(token)
     if physical is None:
         return copied_physical
-    _append_physical_layer(root, source_children, physical, tokens=tokens, styles=styles)
+    _append_physical_layer(
+        root,
+        source_children,
+        physical,
+        tokens=tokens,
+        styles=styles,
+        render_cache=render_cache,
+    )
     return True
 
 
@@ -247,12 +561,23 @@ def _pcb_copper_layers(pcb: KiCadPcb) -> list[str]:
     return [layer for layer in layers if layer.endswith(".Cu")]
 
 
-def _render_root_svg(pcb: KiCadPcb, layers: list[str]) -> ET.Element:
+def _render_root_svg(
+    pcb: KiCadPcb,
+    layers: list[str],
+    *,
+    render_cache: PcbSvgCompositionRenderCache | None = None,
+) -> ET.Element:
+    if render_cache is not None:
+        return render_cache.root_svg(pcb, layers or None)
+    return _render_root_svg_uncached(pcb, layers or None)
+
+
+def _render_root_svg_uncached(pcb: KiCadPcb, layers: list[str] | None) -> ET.Element:
     from kicad_monkey import KiCadSvgRenderOptions
 
     svg_text = str(
         pcb.to_svg(
-            layers=layers or None,
+            layers=layers,
             black_and_white=False,
             options=KiCadSvgRenderOptions.enriched_default(),
         )
@@ -263,10 +588,18 @@ def _render_root_svg(pcb: KiCadPcb, layers: list[str]) -> ET.Element:
 def _root_origin_from_bbox(
     pcb: KiCadPcb,
     layers: list[str],
+    *,
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> tuple[float, float]:
+    del layers
+    if render_cache is not None:
+        return render_cache.root_origin(pcb)
+    return _root_origin_from_bbox_uncached(pcb)
+
+
+def _root_origin_from_bbox_uncached(pcb: KiCadPcb) -> tuple[float, float]:
     from kicad_monkey.kicad_pcb_bounds import compute_pcb_svg_bounding_box
 
-    del layers
     bbox = compute_pcb_svg_bounding_box(pcb, None)
     if not bbox.is_valid():
         return (0.0, 0.0)
@@ -280,8 +613,18 @@ def _append_physical_layer(
     *,
     tokens: list[str],
     styles: dict[str, dict[str, object]],
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> None:
     prune_holes = bool(_HOLE_TOKENS & set(tokens))
+    if render_cache is not None:
+        for fragment in render_cache.physical_layer_fragments(
+            source_children,
+            layer,
+            prune_holes=prune_holes,
+            styles=styles,
+        ):
+            root.append(fragment)
+        return
     for child in source_children:
         if _svg_local_name(child.tag) in {"metadata", "defs"}:
             continue
@@ -297,6 +640,8 @@ def _append_holes(
     token: str,
     *,
     styles: dict[str, dict[str, object]],
+    root_layers: list[str] | None = None,
+    render_cache: PcbSvgCompositionRenderCache | None = None,
 ) -> None:
     wanted_kind = "slot" if token == "SLOTS" else "round"
     group = ET.Element(
@@ -307,6 +652,17 @@ def _append_holes(
             "data-ref": "hole-overlay",
         },
     )
+    if render_cache is not None and root_layers is not None:
+        for fragment in render_cache.hole_fragments(
+            root_layers,
+            source_children,
+            token,
+            styles=styles,
+        ):
+            group.append(fragment)
+        if len(group):
+            root.append(group)
+        return
     for child in source_children:
         if _svg_local_name(child.tag) in {"metadata", "defs"}:
             continue

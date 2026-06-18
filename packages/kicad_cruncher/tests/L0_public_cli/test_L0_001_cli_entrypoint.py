@@ -105,18 +105,39 @@ def test_design_help_describes_design_json_contents() -> None:
     assert "design review bundle" in result.stdout
     assert "enriched black-and-white schematic SVGs" in result.stdout
     assert "enriched PCB copper-layer SVGs" in result.stdout
+    assert "KiCad-native netlist JSON" in result.stdout
+    assert "KiCad S-expression netlist" in result.stdout
     assert "project metadata" in result.stdout
     assert "schematic hierarchy" in result.stdout
     assert "components" in result.stdout
     assert "nets" in result.stdout
 
 
-def test_megamaid_help_describes_lib_cruncher_extraction() -> None:
-    """Verify megamaid help exposes cleaned library ingestion controls."""
-    result = _run_cli("megamaid", "--help")
+def test_lib_extract_help_describes_lib_cruncher_extraction() -> None:
+    """Verify lib-extract help exposes cleaned library ingestion controls."""
+    result = _run_cli("lib-extract", "--help")
 
     assert result.returncode == 0, result.stderr
     assert "lib_cruncher ingestion bundle" in result.stdout
+    assert "--mode" not in result.stdout
+    assert "project_local" not in result.stdout
+    assert "--dedupe" in result.stdout
+    assert "--include-asset-scan" in result.stdout
+    assert "--no-asset-scan" not in result.stdout
+    assert "--validate-kicad-cli" in result.stdout
+
+
+def test_megamaid_help_describes_project_dissection() -> None:
+    """Verify megamaid help exposes aggressive project dissection controls."""
+    result = _run_cli("megamaid", "--help")
+
+    assert result.returncode == 0, result.stderr
+    assert "decoded embedded project assets" in result.stdout
+    assert "design JSON" in result.stdout
+    assert "netlists" in result.stdout
+    assert "schematic SVGs" in result.stdout
+    assert "PCB review SVGs" in result.stdout
+    assert "dissection bundle" in result.stdout
     assert "--mode" not in result.stdout
     assert "project_local" not in result.stdout
     assert "--dedupe" in result.stdout
@@ -151,6 +172,7 @@ def test_project_lib_help_describes_project_local_extraction() -> None:
     assert "--footprint-library-name" in result.stdout
     assert "--include-models" in result.stdout
     assert "--validate-kicad-cli" in result.stdout
+    assert "default: ./local-library" in result.stdout
 
 
 @pytest.mark.parametrize("alias", ("design-review", "dr"))
@@ -563,7 +585,7 @@ def test_cli_help_colorizes_root_command_names_with_kicad_amber() -> None:
             "    design (design-review, dr)",
             "                        generate KiCad design review artifacts",
             "    pcb-layer-step      generate a colored STEP model",
-            "    pcb-svg             generate PCB SVG layer outputs",
+            "    pcb-svg             generate PCB SVG design views",
             "    version             Print version information",
         ]
     )
@@ -611,7 +633,7 @@ def test_cli_command_help_starts_for_manifest_commands() -> None:
 def test_resolve_output_dir_defaults_to_command_subfolder(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Verify shared output policy defaults to ./output/<command>/."""
+    """Verify shared output policy supports common and command-specific defaults."""
     monkeypatch.chdir(tmp_path)
 
     output_dir = resolve_output_dir(None, "design")
@@ -622,3 +644,11 @@ def test_resolve_output_dir_defaults_to_command_subfolder(
     resolved = resolve_output_dir(explicit_dir, "design")
     assert resolved == explicit_dir
     assert explicit_dir.is_dir()
+
+    local_library_dir = resolve_output_dir(
+        None,
+        "project-lib",
+        default_dir="local-library",
+    )
+    assert local_library_dir == Path("local-library")
+    assert (tmp_path / "local-library").is_dir()

@@ -57,6 +57,7 @@ _PCB_SVG_CONFIG_HEADER = (
     "",
     "This file is JSONC. Comments and trailing commas are accepted.",
     "Configured views render physical and virtual layers in the listed draw order.",
+    "The generated default writes only configured views.",
     "The generated default emits assembly_top_view and assembly_bottom_view.",
     "Default assembly views include cutouts, drills, slots, pin-1 markers,",
     "Geometer outline HLR, and bold monospace assembly designators.",
@@ -240,8 +241,21 @@ _PCB_SVG_CONFIG_COMMENTS = {
         "components",
         "show_designator",
     ): "Force assembly designator rendering on or off for this component.",
-    ("layer_outputs",): "Standalone per-layer and virtual-layer SVG output settings.",
-    ("layer_outputs", "layers"): "Physical layers to write, or auto for all detected board layers.",
+    ("layer_outputs",): (
+        "Standalone per-layer and virtual-layer SVG output settings.",
+        "Default is disabled so the command writes configured views only.",
+        "To enable standalone layer outputs, set enabled to true. Example:",
+        '"layer_outputs": {',
+        '  "enabled": true,',
+        '  "layers": "auto",',
+        '  "include_special_layers": ["BOARD_OUTLINE", "DRILLS", "SLOTS"],',
+        '  "output_dir": "layers"',
+        "}",
+    ),
+    ("layer_outputs", "layers"): (
+        "Physical layers to write, or auto for active board layers.",
+        "Set global.show_empty_layers to true to also write table-only physical layers.",
+    ),
     ("layer_outputs", "include_special_layers"): enum_help(
         "Virtual layers to write when write_virtual_layers is true",
         _PCB_SVG_SYNTHETIC_LAYER_OPTIONS,
@@ -1207,7 +1221,7 @@ class _PcbSvgConfig:
     def default(cls) -> _PcbSvgConfig:
         return cls(
             layer_outputs={
-                "enabled": True,
+                "enabled": False,
                 "layers": "auto",
                 "add_edge_cuts_to_physical_layers": True,
                 "add_drills_to_physical_layers": True,
