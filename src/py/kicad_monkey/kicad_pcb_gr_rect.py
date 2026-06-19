@@ -8,7 +8,7 @@ Can be filled or unfilled (stroke only).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from .kicad_base import (
     EDGE_CUTS_LAYER,
@@ -27,6 +27,9 @@ from .kicad_pcb_polygon_ops import (
     oval_to_polygon,
     DEFAULT_ERROR_MM,
 )
+
+if TYPE_CHECKING:
+    from .kicad_geometry import BoundingBox
 
 
 @dataclass
@@ -125,6 +128,12 @@ class GrRect(ToPolyMixin):
         x1, y1 = min(self.start_x, self.end_x), min(self.start_y, self.end_y)
         x2, y2 = max(self.start_x, self.end_x), max(self.start_y, self.end_y)
         return [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
+
+    def get_bounds(self) -> "BoundingBox":
+        """Return KiCad-style source geometry bounds."""
+        from .kicad_pcb_shape_bounds import rect_bounds
+
+        return rect_bounds(self.start, self.end, self.stroke.width)
 
     def _to_poly(self, error: float = DEFAULT_ERROR_MM) -> PolygonSet:
         """

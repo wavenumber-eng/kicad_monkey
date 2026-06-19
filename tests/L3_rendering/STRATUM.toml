@@ -186,3 +186,23 @@ secondary = [
     "Common corpus projects become regression coverage",
     "Known drift cases stay visible until fixed"
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+file = "test_L3_017_pcb_bounds_oracle.py"
+name = "PCB Bounds Oracle"
+description = "PCB graphical shape bounds match KiCad GetBoundingBox output"
+test_cases = "${WN_TEST_CORPUS}/kicad/pcb_foundation/"
+test_case_type = "oracle"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_pcb_shape_bounds"
+
+[subtests.objectives]
+primary = "Board graphical get_bounds() matches KiCad numeric bbox oracle"
+secondary = [
+    "Synthetic gr_line, gr_rect, gr_arc, gr_circle, gr_poly, gr_curve coverage",
+    "Real-world board smoke coverage",
+    "Comparison in pcb internal units"
+]

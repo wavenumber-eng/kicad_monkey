@@ -7,7 +7,7 @@ Represents a cubic Bezier curve defined by 4 control points.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from .kicad_base import (
     FRONT_SILKSCREEN_LAYER,
@@ -26,6 +26,9 @@ from .kicad_pcb_polygon_ops import (
     oval_to_polygon,
     DEFAULT_ERROR_MM,
 )
+
+if TYPE_CHECKING:
+    from .kicad_geometry import BoundingBox
 
 
 @dataclass
@@ -112,6 +115,12 @@ class GrCurve(ToPolyMixin):
     def p3(self) -> Optional[Tuple[float, float]]:
         """Get end point."""
         return self.points[3] if len(self.points) > 3 else None
+
+    def get_bounds(self) -> "BoundingBox":
+        """Return KiCad-style source geometry bounds."""
+        from .kicad_pcb_shape_bounds import bezier_bounds
+
+        return bezier_bounds(self.points, self.stroke.width)
 
     def _to_poly(self, error: float = DEFAULT_ERROR_MM) -> PolygonSet:
         """

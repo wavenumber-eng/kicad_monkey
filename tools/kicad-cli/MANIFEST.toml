@@ -48,3 +48,27 @@ win-builder builds also compute SVG page origin with half-stroke
 inflation, producing a constant 0.025 mm draw-item shift vs the
 reference output used by L3_016.
 """
+
+[[versions]]
+short_hash     = "b70f2b514aa2-irbbox"
+kicad_commit   = "b70f2b514aa2c83c0726590a8df5c080fbc614c0"
+kicad_version  = "10.99.0"
+build_type     = "RelWithDebInfo"
+platform       = "win32-x64"
+staged_on      = "2026-06-19"
+sch_format_max = 20260410
+pcb_format_max = 20260410
+recorder       = true
+bbox_oracle    = true
+source_dirty   = true
+r2_bucket      = "wn-build-deps"
+r2_prefix      = "deps/v1/kicad-monkey/kicad-cli/10.99.0-b70f2b514aa2-irbbox/native/windows-x64/kicad-cli-10.99.0-b70f2b514aa2-irbbox-native-windows-x64-relwithdebinfo-recipe-64a838113c327636/"
+r2_archive     = "kicad-cli-bundle.zip"
+r2_sha256      = "4e469a92deeb140e3b172689b868d1fa0b29498e627d3d1489e443f510e9c95a"
+notes = """
+Bbox oracle build from the local ir_recorder branch at upstream commit
+b70f2b514aa2 with Wavenumber local patches. Provides
+`kicad-cli pcb export bbox` emitting `kicad.pcb_bbox.v1`. Appended after
+the active PCB SVG oracle so existing pcb_svg resolver behavior continues
+to prefer 76f8839fd232.
+"""

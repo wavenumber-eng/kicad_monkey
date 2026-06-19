@@ -7,7 +7,7 @@ Represents an arc defined by start, mid, and end points with stroke width.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .kicad_base import (
     EDGE_CUTS_LAYER,
@@ -20,6 +20,9 @@ from .kicad_base import (
     unquote_string,
 )
 from .kicad_pcb_polygon_ops import PolygonSet, arc_to_polygon, DEFAULT_ERROR_MM
+
+if TYPE_CHECKING:
+    from .kicad_geometry import BoundingBox
 
 
 @dataclass
@@ -102,6 +105,12 @@ class GrArc(ToPolyMixin):
 
         contour = arc_to_polygon(start, mid, end, width, error)
         return PolygonSet(outlines=[contour])
+
+    def get_bounds(self) -> "BoundingBox":
+        """Return KiCad-style source geometry bounds."""
+        from .kicad_pcb_shape_bounds import arc_bounds
+
+        return arc_bounds(self.start, self.mid, self.end, self.stroke.width)
 
     @property
     def start(self) -> tuple[float, float]:

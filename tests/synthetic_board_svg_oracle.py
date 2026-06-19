@@ -5,11 +5,11 @@ from __future__ import annotations
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Tuple
+from typing import Dict, Iterable, Tuple, cast
 
 from kicad_monkey.testing.corpus import get_kicad_pcb_foundation_dir
 
-from kicad_cli_resolver import resolve_kicad_cli
+from kicad_cli_resolver import kicad_cli_subprocess_env, resolve_kicad_cli
 from svg.canonical_svg import semantic_metrics as canonical_semantic_metrics
 
 
@@ -362,6 +362,7 @@ def export_svg_with_kicad_cli(
         ],
         capture_output=True,
         text=True,
+        env=kicad_cli_subprocess_env(kicad_cli),
         timeout=timeout_s,
     )
     if result.returncode != 0:
@@ -403,6 +404,8 @@ def compare_semantic_metrics(
             if not isinstance(ours_vb, tuple) or not isinstance(ref_vb, tuple):
                 issues.append("viewbox metric malformed")
                 continue
+            ours_vb = cast(tuple[float | int | str, ...], ours_vb)
+            ref_vb = cast(tuple[float | int | str, ...], ref_vb)
             deltas = [abs(float(a) - float(b)) for a, b in zip(ours_vb, ref_vb)]
             if any(delta > viewbox_tol_mm for delta in deltas):
                 issues.append(
@@ -411,8 +414,8 @@ def compare_semantic_metrics(
             continue
 
         if metric == "filled_black_ink_area":
-            ours_area = float(ours.get(metric, 0.0))
-            ref_area = float(reference.get(metric, 0.0))
+            ours_area = float(cast(float | int | str, ours.get(metric, 0.0)))
+            ref_area = float(cast(float | int | str, reference.get(metric, 0.0)))
             tolerance = max(0.005, abs(ref_area) * 0.02)
             delta = abs(ours_area - ref_area)
             if delta > tolerance:

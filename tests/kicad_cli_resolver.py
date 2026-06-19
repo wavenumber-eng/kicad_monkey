@@ -50,7 +50,57 @@ def _manifest_short_hashes() -> list[str]:
     return hashes
 
 
-KiCadCliCapability = Literal["any", "pcb_svg"]
+KiCadCliCapability = Literal["any", "pcb_svg", "pcb_bbox"]
+
+
+def _build_tree_dir(candidate: Path) -> Path | None:
+    """Return the KiCad build directory for a build-tree ``kicad-cli``."""
+    build_dir = candidate.parent.parent
+    if candidate.parent.name != "kicad":
+        return None
+    if not (build_dir / "pcbnew" / "_pcbnew.dll").exists():
+        return None
+    return build_dir
+
+
+def kicad_cli_subprocess_env(candidate: Path) -> dict[str, str] | None:
+    """Return subprocess env overrides needed by a build-tree KiCad CLI.
+
+    Staged corpus and installed KiCad CLIs are self-contained enough for the
+    default environment. A local debug build, however, needs the build DLL
+    directories and vcpkg Python runtime on ``PATH``.
+    """
+    build_dir = _build_tree_dir(candidate)
+    if build_dir is None:
+        return None
+
+    vcpkg = build_dir / "vcpkg_installed" / "x64-windows"
+    python_home = vcpkg / "tools" / "python3"
+    if not python_home.exists():
+        return None
+
+    path_entries = [
+        build_dir / "kicad",
+        build_dir / "pcbnew",
+        build_dir / "eeschema",
+        build_dir / "common",
+        build_dir / "common" / "gal",
+        build_dir / "libs" / "kimath",
+        build_dir / "libs" / "core",
+        build_dir / "libs" / "kiplatform",
+        build_dir / "3d-viewer",
+        vcpkg / "debug" / "bin",
+        vcpkg / "bin",
+        python_home,
+        python_home / "DLLs",
+    ]
+
+    env = os.environ.copy()
+    env["KICAD_RUN_FROM_BUILD_DIR"] = "1"
+    env["KICAD_USE_EXTERNAL_PYTHONHOME"] = "1"
+    env["PYTHONHOME"] = str(python_home)
+    env["PATH"] = os.pathsep.join(str(path) for path in path_entries) + os.pathsep + env.get("PATH", "")
+    return env
 
 
 def _iter_kicad_cli_candidates() -> list[Path]:
@@ -96,24 +146,47 @@ def _iter_kicad_cli_candidates() -> list[Path]:
     return candidates
 
 
-def _supports_pcb_svg(candidate: Path) -> bool:
-    """Probe whether a kicad-cli executable can load the PCB SVG exporter."""
+def _has_pcb_runtime(candidate: Path) -> bool:
+    """Return whether a Windows candidate has access to pcbnew runtime DLLs."""
+    if os.name != "nt":
+        return True
+    return (candidate.parent / "_pcbnew.dll").exists() or _build_tree_dir(candidate) is not None
+
+
+def _supports_pcb_export_command(candidate: Path, export_command: str) -> bool:
+    """Probe whether a kicad-cli executable can load a PCB export command."""
     if not candidate.exists():
         return False
-    if os.name == "nt" and not (candidate.parent / "_pcbnew.dll").exists():
+    if not _has_pcb_runtime(candidate):
         return False
 
     try:
         result = subprocess.run(
-            [str(candidate), "pcb", "export", "svg", "--help"],
+            [str(candidate), "pcb", "export", export_command, "--help"],
             capture_output=True,
             text=True,
+            env=kicad_cli_subprocess_env(candidate),
             timeout=15,
         )
     except (OSError, subprocess.TimeoutExpired):
         return False
 
-    return result.returncode == 0
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    return (
+        result.returncode == 0
+        and "Failed to parse" not in combined_output
+        and f"export {export_command}" in combined_output
+    )
+
+
+def _supports_pcb_svg(candidate: Path) -> bool:
+    """Probe whether a kicad-cli executable can load the PCB SVG exporter."""
+    return _supports_pcb_export_command(candidate, "svg")
+
+
+def _supports_pcb_bbox(candidate: Path) -> bool:
+    """Probe whether a kicad-cli executable can load the PCB bbox exporter."""
+    return _supports_pcb_export_command(candidate, "bbox")
 
 
 def resolve_kicad_cli(
@@ -131,10 +204,14 @@ def resolve_kicad_cli(
     for candidate in _iter_kicad_cli_candidates():
         if not candidate.exists():
             continue
-        if required_capability == "pcb_svg" and not _supports_pcb_svg(candidate):
-            continue
         if required_capability == "any":
             return candidate
         if required_capability == "pcb_svg":
-            return candidate
+            if _supports_pcb_svg(candidate):
+                return candidate
+            continue
+        if required_capability == "pcb_bbox":
+            if _supports_pcb_bbox(candidate):
+                return candidate
+            continue
     return None

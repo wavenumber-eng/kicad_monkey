@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.6.19
+
+- Fix `KiCadPcb.get_bounds()` for split PCB graphical shapes by adding
+  KiCad-style source-geometry bounds for lines, rectangles, circles, arcs,
+  polygons, and Bezier curves.
+- Add analytic and KiCad-backed oracle tests for graphical PCB bounds,
+  including package-local corpus coverage for the 4-channel backplane fixture.
+- Add a patched `kicad-cli pcb export bbox` oracle path, manifest wiring, and
+  R2-backed restore tooling for the bbox-capable KiCad CLI bundle.
+- Keep PCB SVG output canonical through the plotter IR renderer and remove the
+  old direct `KiCadPcb.to_svg_elements()` surface.
+
 ## 2026.6.18
 
 - Add a generic targeted KiCad object reader for extracting typed schematic,

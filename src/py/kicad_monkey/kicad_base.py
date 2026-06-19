@@ -38,6 +38,7 @@ from .kicad_sexpr import (
 )
 
 if TYPE_CHECKING:
+    from .kicad_geometry import BoundingBox
     from .kicad_pcb_polygon_ops import PolygonSet
 
 
@@ -212,6 +213,23 @@ class ToPolyMixin(ABC):
             PolygonSet containing the element's polygon representation
         """
         pass
+
+    def get_bounds(self) -> "BoundingBox":
+        """Return bounds for polygon-backed geometry."""
+        from .kicad_geometry import BoundingBox
+
+        bounds = BoundingBox()
+        poly = self._to_poly(_get_default_error())
+
+        for contour in poly.outlines:
+            for point in contour:
+                bounds.expand(point)
+
+        for contour in poly.holes:
+            for point in contour:
+                bounds.expand(point)
+
+        return bounds
 
     def to_svg(self, *args: Any, **kwargs: Any) -> Any:
         """

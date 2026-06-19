@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .kicad_base import (
     EDGE_CUTS_LAYER,
@@ -28,6 +28,9 @@ from .kicad_pcb_polygon_ops import (
     ring_to_polygon,
     DEFAULT_ERROR_MM,
 )
+
+if TYPE_CHECKING:
+    from .kicad_geometry import BoundingBox
 
 
 @dataclass
@@ -134,6 +137,12 @@ class GrCircle(ToPolyMixin):
     def is_filled(self) -> bool:
         """Check if circle is filled."""
         return self.fill in (FillType.SOLID, FillType.YES)
+
+    def get_bounds(self) -> "BoundingBox":
+        """Return KiCad-style source geometry bounds."""
+        from .kicad_pcb_shape_bounds import circle_bounds
+
+        return circle_bounds(self.center, (self.end_x, self.end_y), self.stroke.width)
 
     def _to_poly(self, error: float = DEFAULT_ERROR_MM) -> PolygonSet:
         """

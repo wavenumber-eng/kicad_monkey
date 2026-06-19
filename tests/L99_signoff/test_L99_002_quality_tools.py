@@ -23,6 +23,7 @@ RUFF_BASELINE_PATHS = (
     "tests/L99_signoff",
     "tests/L0_foundation/test_L0_038_public_api_contract.py",
     "scripts/package_kicad_corpus.py",
+    "scripts/restore_kicad_cli_cache.py",
 )
 QUALITY_STATUS_DOC = PACKAGE_ROOT / "docs" / "design" / "quality-signoff-status.md"
 COMPLEXITY_BASELINE_PATH = "src/py/kicad_monkey"

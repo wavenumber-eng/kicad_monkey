@@ -8,7 +8,7 @@ Can be filled or unfilled (stroke only).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from .kicad_base import (
     EDGE_CUTS_LAYER,
@@ -22,6 +22,9 @@ from .kicad_base import (
     unquote_string,
 )
 from .kicad_pcb_polygon_ops import PolygonSet, oval_to_polygon, DEFAULT_ERROR_MM
+
+if TYPE_CHECKING:
+    from .kicad_geometry import BoundingBox
 
 
 @dataclass
@@ -125,6 +128,12 @@ class GrPoly(ToPolyMixin):
     def is_filled(self) -> bool:
         """Check if polygon is filled."""
         return self.fill in (FillType.SOLID, FillType.YES)
+
+    def get_bounds(self) -> "BoundingBox":
+        """Return KiCad-style source geometry bounds."""
+        from .kicad_pcb_shape_bounds import poly_bounds
+
+        return poly_bounds(self.points, self.stroke.width)
 
     def _to_poly(self, error: float = DEFAULT_ERROR_MM) -> PolygonSet:
         """

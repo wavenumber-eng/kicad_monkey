@@ -44,6 +44,18 @@ Lane model:
 - `full` is the broader routine-validation lane
 - `strict` is the heavier or stricter validation lane
 
+KiCad CLI oracle tools are test dependencies, not source fixtures. Local
+resolvers may use a checked-out corpus tool directory, an explicit executable
+environment variable, a build-tree executable, or a restored immutable binary
+cache entry. Cache metadata lives in `tools/kicad-cli/MANIFEST.toml`, and
+restored bundles must be verified by SHA-256 before use.
+
+Generated binary dependency caches use a stable object layout under
+`deps/v1/<project>/<dependency>/...`. The `kicad-monkey` KiCad CLI cache stores
+patched CLI bundles under `deps/v1/kicad-monkey/kicad-cli/...`, with sidecar
+manifest and checksum objects so CI and developer machines can restore the same
+oracle tool without rebuilding KiCad.
+
 ## Consequences
 
 - Moving the shared KiCad corpus should require changing only `WN_TEST_CORPUS`.
@@ -51,3 +63,6 @@ Lane model:
 - Focused feature boards should not pollute the broad common board corpus when that would widen unrelated parser-equivalency sweeps.
 - Future strata should record durable corpus ownership in package-local
   manifests or design docs before release.
+- KiCad CLI oracle tests should skip cleanly when the required patched CLI is
+  unavailable, but release verification should run them from a verified staged
+  or restored tool bundle when the oracle proves numerical behavior.

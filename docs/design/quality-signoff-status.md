@@ -1,7 +1,7 @@
 # Quality Signoff Status
 
 Status: public-release bootstrap audit
-Last updated: 2026-06-18
+Last updated: 2026-06-19
 
 ## Passing Gates
 
@@ -20,6 +20,9 @@ Last updated: 2026-06-18
   corpus mirror is ignored locally and extracted on demand by test helpers.
 - CI prepares the corpus archive, runs Rack L0 and L99, builds the package,
   runs `twine check`, and verifies installed-package imports.
+- The 2026-06-19 release adds KiCad-parity PCB graphical bounds, direct bbox
+  oracle coverage, R2-backed KiCad CLI restore tooling, and keeps PCB SVG output
+  canonical through the plotter IR renderer.
 - The 2026-06-18 release adds targeted KiCad object readers, cleaned library
   extraction metadata normalization, and current KiCad CLI validation for
   generated symbol libraries.

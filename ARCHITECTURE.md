@@ -13,7 +13,11 @@ architecture decisions live in `docs/adrs/`:
 
 - `ADR-001`: source layout and API conventions;
 - `ADR-002`: test corpus layout and Rack lane model;
-- `ADR-003`: design documentation and test-ownership signoff.
+- `ADR-003`: design documentation and test-ownership signoff;
+- `ADR-004`: KiCad project library extraction;
+- `ADR-005`: S-expression projection parsing;
+- `ADR-006`: PCB projection domain objects;
+- `ADR-007`: PCB graphical bounds and bbox oracle policy.
 
 Detailed interface intent lives in `docs/design/api/`. Stable machine-readable
 contracts live in `docs/contracts/`.

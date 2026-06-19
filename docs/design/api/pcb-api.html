@@ -24,10 +24,20 @@
       Own the PCB OOP model and provide common object, property, and IR methods
       without exposing parser internals.
     </p>
+    <p>
+      `KiCadPcb.get_bounds()` is a source-model contract. Board graphical
+      shapes use KiCad-style geometry bounds, including stroke-width expansion,
+      and are tested separately from renderer viewBox behavior. PCB SVG output
+      remains canonical through the plotter IR renderer; `KiCadPcb.to_svg()`
+      delegates to that path rather than maintaining a second direct renderer.
+    </p>
     <h3>Test Requirements</h3>
     <p>
       Tests must cover board property mutation, object add/remove, read-only
-      object queries, and the public board IR entrypoint.
+      object queries, the public board IR entrypoint, graphical source-model
+      bounds, layer-filtered board bounds, and IR-backed SVG wrapper behavior.
+      Numerical bounds parity should be proven with analytic cases and a direct
+      KiCad bbox oracle when the patched CLI is available.
     </p>
     <h3>Working Definition</h3>
     <p>

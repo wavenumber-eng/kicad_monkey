@@ -8,7 +8,7 @@ silkscreen graphics, and other layer-based graphics.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .kicad_base import (
     EDGE_CUTS_LAYER,
@@ -21,6 +21,9 @@ from .kicad_base import (
     unquote_string,
 )
 from .kicad_pcb_polygon_ops import PolygonSet, oval_to_polygon, DEFAULT_ERROR_MM
+
+if TYPE_CHECKING:
+    from .kicad_geometry import BoundingBox
 
 
 @dataclass
@@ -110,6 +113,12 @@ class GrLine(ToPolyMixin):
 
         contour = oval_to_polygon(start, end, width, error)
         return PolygonSet(outlines=[contour])
+
+    def get_bounds(self) -> "BoundingBox":
+        """Return KiCad-style source geometry bounds."""
+        from .kicad_pcb_shape_bounds import segment_bounds
+
+        return segment_bounds(self.start, self.end, self.stroke.width)
 
     @property
     def start(self) -> tuple[float, float]:

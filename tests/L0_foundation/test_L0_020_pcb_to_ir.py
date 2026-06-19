@@ -19,7 +19,10 @@ Distinct from F-7 (`test_L0_017_footprint_to_ir.py`):
 
 from __future__ import annotations
 
+import math
 from collections import Counter
+
+import pytest
 
 from kicad_monkey import (
     KiCadFillType,
@@ -51,7 +54,7 @@ from kicad_monkey import (
     zone_filled_polygon_to_op,
     zone_to_record,
 )
-from kicad_monkey.kicad_base import FillType, PadShape
+from kicad_monkey.kicad_base import FillType, PadShape, Stroke as BaseStroke
 from kicad_monkey.kicad_fp_line import FpLine
 from kicad_monkey.kicad_fp_text import FpText
 from kicad_monkey.kicad_fp_text_box import FpTextBox
@@ -77,6 +80,153 @@ from kicad_monkey.kicad_property import Property
 # Board-level graphics: gr_line / gr_arc / gr_circle / gr_rect / gr_poly /
 # gr_curve / gr_text
 # ---------------------------------------------------------------------------
+
+
+def _assert_bounds_tuple(bounds, expected: tuple[float, float, float, float]) -> None:
+    assert bounds.is_valid()
+    assert bounds.min_x == pytest.approx(expected[0], abs=1e-9)
+    assert bounds.min_y == pytest.approx(expected[1], abs=1e-9)
+    assert bounds.max_x == pytest.approx(expected[2], abs=1e-9)
+    assert bounds.max_y == pytest.approx(expected[3], abs=1e-9)
+
+
+@pytest.mark.parametrize(
+    ("graphic", "expected"),
+    [
+        (
+            GrLine(
+                start_x=1.0,
+                start_y=2.0,
+                end_x=5.0,
+                end_y=4.0,
+                stroke=BaseStroke(width=0.2),
+            ),
+            (0.9, 1.9, 5.1, 4.1),
+        ),
+        (
+            GrRect(
+                start_x=5.0,
+                start_y=1.0,
+                end_x=2.0,
+                end_y=4.0,
+                stroke=BaseStroke(width=0.2),
+            ),
+            (1.9, 0.9, 5.1, 4.1),
+        ),
+        (
+            GrCircle(
+                center_x=10.0,
+                center_y=-2.0,
+                end_x=13.0,
+                end_y=-2.0,
+                stroke=BaseStroke(width=0.2),
+            ),
+            (6.9, -5.1, 13.1, 1.1),
+        ),
+        (
+            GrArc(
+                start_x=1.0,
+                start_y=0.0,
+                mid_x=math.sqrt(0.5),
+                mid_y=math.sqrt(0.5),
+                end_x=0.0,
+                end_y=1.0,
+                stroke=BaseStroke(width=0.2),
+            ),
+            (-0.1, -0.1, 1.1, 1.1),
+        ),
+        (
+            GrPoly(
+                points=[(0.0, 0.0), (2.0, 0.0), (1.0, 3.0)],
+                stroke=BaseStroke(width=0.2),
+            ),
+            (-0.1, -0.1, 2.1, 3.1),
+        ),
+        (
+            GrCurve(
+                points=[(0.0, 0.0), (0.0, 4.0), (4.0, 4.0), (4.0, 0.0)],
+                stroke=BaseStroke(width=0.2),
+            ),
+            (-0.1, -0.1, 4.1, 3.1),
+        ),
+    ],
+)
+def test_polygon_backed_board_graphics_get_bounds_match_kicad_shape_contract(
+    graphic,
+    expected,
+):
+    _assert_bounds_tuple(graphic.get_bounds(), expected)
+
+
+@pytest.mark.parametrize(
+    ("graphic", "expected"),
+    [
+        (
+            GrLine(start_x=1.0, start_y=2.0, end_x=5.0, end_y=4.0),
+            (1.0, 2.0, 5.0, 4.0),
+        ),
+        (
+            GrArc(
+                start_x=1.0,
+                start_y=0.0,
+                mid_x=math.sqrt(0.5),
+                mid_y=math.sqrt(0.5),
+                end_x=0.0,
+                end_y=1.0,
+            ),
+            (0.0, 0.0, 1.0, 1.0),
+        ),
+        (
+            GrCurve(points=[(0.0, 0.0), (0.0, 4.0), (4.0, 4.0), (4.0, 0.0)]),
+            (0.0, 0.0, 4.0, 3.0),
+        ),
+    ],
+)
+def test_polygon_backed_zero_width_graphics_keep_source_geometry_bounds(
+    graphic,
+    expected,
+):
+    _assert_bounds_tuple(graphic.get_bounds(), expected)
+
+
+def test_pcb_get_bounds_accepts_polygon_backed_board_graphics():
+    pcb = KiCadPcb()
+    pcb.gr_lines.append(
+        GrLine(
+            start_x=1.0, start_y=2.0, end_x=5.0, end_y=4.0,
+            layer="F.SilkS", stroke=BaseStroke(width=0.2),
+        )
+    )
+    pcb.gr_rects.append(
+        GrRect(
+            start_x=10.0, start_y=10.0, end_x=12.0, end_y=11.0,
+            layer="B.SilkS", stroke=BaseStroke(width=0.2),
+        )
+    )
+
+    bounds = pcb.get_bounds()
+
+    _assert_bounds_tuple(bounds, (0.9, 1.9, 12.1, 11.1))
+
+
+def test_pcb_get_bounds_layer_filter_accepts_polygon_backed_board_graphics():
+    pcb = KiCadPcb()
+    pcb.gr_lines.append(
+        GrLine(
+            start_x=1.0, start_y=2.0, end_x=5.0, end_y=4.0,
+            layer="F.SilkS", stroke=BaseStroke(width=0.2),
+        )
+    )
+    pcb.gr_rects.append(
+        GrRect(
+            start_x=10.0, start_y=10.0, end_x=12.0, end_y=11.0,
+            layer="B.SilkS", stroke=BaseStroke(width=0.2),
+        )
+    )
+
+    bounds = pcb.get_bounds(layers=["F.SilkS"])
+
+    _assert_bounds_tuple(bounds, (0.9, 1.9, 5.1, 4.1))
 
 
 def test_gr_line_to_op_no_y_flip():
