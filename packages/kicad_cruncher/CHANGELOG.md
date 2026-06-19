@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026.6.19
+
+- Update the controlled `kicad-monkey` dependency to `2026.6.19` for the PCB
+  graphical bounds fix, KiCad bbox oracle coverage, and canonical IR-backed
+  PCB SVG wrapper behavior.
+- Keep `kicad-cruncher` PCB SVG canvas bounds on the `kicad-monkey`
+  `compute_pcb_svg_bounding_box()` path and avoid the removed direct PCB SVG
+  renderer surface.
+- Keep `wn-geometer==2026.6.10`.
+
 ## 2026.6.18
 
 - Update the controlled `kicad-monkey` dependency to `2026.6.18` for targeted
