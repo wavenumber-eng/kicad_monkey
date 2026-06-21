@@ -645,11 +645,11 @@
   >
     <h2>KiCadEnvironment</h2>
     <h3>Rationale</h3>
-    <p>Applications need KiCad installation and configuration discovery without relying on legacy prefixed utility functions.</p>
+    <p>Applications need KiCad installation and configuration discovery without relying on legacy prefixed utility functions. Resolving 3D model references also requires the implicit <code>KICAD&lt;major&gt;_3DMODEL_DIR</code> path variables and user-configured path overrides that KiCad only exposes inside its own process.</p>
     <h3>Purpose</h3>
-    <p>Provide one object that owns KiCad executable discovery, beta-version selection, and user configuration path lookup.</p>
+    <p>Provide one object that owns KiCad executable discovery, beta-version selection, user configuration path lookup, per-installation 3D model directory variables, and the user path-variable overrides from <code>kicad_common.json</code>.</p>
     <h3>Test Requirements</h3>
-    <p>Tests must cover deterministic installation ranking, beta filtering, and versioned configuration directory discovery.</p>
+    <p>Tests must cover deterministic installation ranking, beta filtering, versioned configuration directory discovery, per-major <code>KICAD&lt;major&gt;_3DMODEL_DIR</code> mapping across installations, and reading (including null and override cases) of <code>environment.vars</code> and <code>system.extra_3d_search_dirs</code> from <code>kicad_common.json</code>.</p>
     <h3>Working Definition</h3>
     <p>The class is public when downstream tools can find the active KiCad CLI and config roots through object methods.</p>
   </section>

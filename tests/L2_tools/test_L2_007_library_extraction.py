@@ -19,6 +19,7 @@ import pytest
 
 from conftest import STEP_MODEL_EXTRACT_DIR
 import kicad_monkey.kicad_library_extraction as library_extraction
+from kicad_monkey.kicad_environment import KiCadEnvironment
 from kicad_monkey.kicad_footprint import KiCadFootprint
 from kicad_monkey.kicad_library_extraction import (
     KiCadExtractionDedupePolicy,
@@ -34,6 +35,7 @@ from kicad_monkey.kicad_library_extraction import (
     extract_symbols,
     rehydrate_embedded_model_payloads_from_files,
     resolve_kicad_cli,
+    scan_3d_models,
     scan_project_assets,
     validate_pretty_library_with_kicad_cli,
     validate_symbol_library_with_kicad_cli,
@@ -233,6 +235,247 @@ def test_embed_external_model_payloads_rewrites_resolvable_step_refs(tmp_path: P
     written = extract_3d_models(project_path, tmp_path / "extracted")
     assert len(written) == 1
     assert "ISO-10303-21" in written[0].read_text(encoding="utf-8", errors="ignore")
+
+
+def test_embed_external_model_resolves_unset_kicad_env_var_via_search_dir(tmp_path: Path) -> None:
+    """A ${KICAD*_3DMODEL_DIR} ref embeds via an explicit search dir when the var is unset."""
+    pytest.importorskip("zstandard")
+
+    model_root = tmp_path / "search"
+    package_dir = model_root / "Package_Custom.3dshapes"
+    package_dir.mkdir(parents=True)
+    (package_dir / "custom.step").write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+
+    footprint = KiCadFootprint()
+    footprint.name = "External"
+    footprint.models = [Model("${KICAD10_3DMODEL_DIR}/Package_Custom.3dshapes/custom.step")]
+
+    embedded = embed_external_model_payloads(
+        footprint,
+        project_root=tmp_path,
+        model_search_dirs=[model_root],
+        use_installed_kicad=False,
+    )
+
+    assert embedded.models[0].path == "kicad-embed://custom.step"
+    assert len(embedded.embedded_files) == 1
+    assert embedded.embedded_files[0].file_type == "model"
+
+
+def test_embed_external_model_resolves_wrl_to_sibling_step(tmp_path: Path) -> None:
+    """A .wrl model reference embeds its sibling .step when the .wrl is absent."""
+    pytest.importorskip("zstandard")
+
+    model_root = tmp_path / "search"
+    package_dir = model_root / "Pkg"
+    package_dir.mkdir(parents=True)
+    # Only the sibling .step is present; the referenced .wrl is not.
+    (package_dir / "part.step").write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+
+    footprint = KiCadFootprint()
+    footprint.name = "WrlRef"
+    footprint.models = [Model("${KICAD10_3DMODEL_DIR}/Pkg/part.wrl")]
+
+    embedded = embed_external_model_payloads(
+        footprint,
+        project_root=tmp_path,
+        model_search_dirs=[model_root],
+        use_installed_kicad=False,
+    )
+
+    assert embedded.models[0].path == "kicad-embed://part.step"
+    assert [file.name for file in embedded.embedded_files] == ["part.step"]
+
+
+def test_embed_external_model_prefers_step_sibling_when_wrl_also_present(tmp_path: Path) -> None:
+    """A .wrl ref embeds the sibling .step even when the .wrl file itself exists."""
+    pytest.importorskip("zstandard")
+
+    model_root = tmp_path / "search"
+    package_dir = model_root / "Pkg"
+    package_dir.mkdir(parents=True)
+    (package_dir / "part.wrl").write_text("VRML stub\n", encoding="utf-8")
+    (package_dir / "part.step").write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+
+    footprint = KiCadFootprint()
+    footprint.name = "WrlAndStep"
+    footprint.models = [Model("${KICAD10_3DMODEL_DIR}/Pkg/part.wrl")]
+
+    embedded = embed_external_model_payloads(
+        footprint,
+        project_root=tmp_path,
+        model_search_dirs=[model_root],
+        use_installed_kicad=False,
+    )
+
+    assert embedded.models[0].path == "kicad-embed://part.step"
+    assert [file.name for file in embedded.embedded_files] == ["part.step"]
+
+
+def test_embed_model_ladder_prefers_matching_version_then_fallback(tmp_path: Path) -> None:
+    """Each KICAD<major> ref resolves against its matching install, else the fallback dir."""
+    pytest.importorskip("zstandard")
+
+    kicad9 = tmp_path / "k9"
+    kicad10 = tmp_path / "k10"
+    (kicad9 / "Pkg").mkdir(parents=True)
+    (kicad10 / "Pkg").mkdir(parents=True)
+    # a.step exists in BOTH; the matching KICAD9 install must win over the fallback.
+    (kicad9 / "Pkg" / "a.step").write_text("ISO-10303-21;K9;END-ISO-10303-21;", encoding="utf-8")
+    (kicad10 / "Pkg" / "a.step").write_text("ISO-10303-21;K10;END-ISO-10303-21;", encoding="utf-8")
+    # b.step exists only under the fallback (KICAD8 is not "installed").
+    (kicad10 / "Pkg" / "b.step").write_text("ISO-10303-21;B;END-ISO-10303-21;", encoding="utf-8")
+
+    search = library_extraction._ModelSearch(
+        variables={"KICAD9_3DMODEL_DIR": str(kicad9)},
+        fallback_model_dir=kicad10,
+    )
+    footprint = KiCadFootprint()
+    footprint.name = "Ladder"
+    footprint.models = [
+        Model("${KICAD9_3DMODEL_DIR}/Pkg/a.step"),
+        Model("${KICAD8_3DMODEL_DIR}/Pkg/b.step"),
+    ]
+
+    embedded = embed_external_model_payloads(footprint, project_root=tmp_path, search=search)
+
+    assert [model.path for model in embedded.models] == [
+        "kicad-embed://a.step",
+        "kicad-embed://b.step",
+    ]
+    payloads = {
+        file.name: library_extraction._embedded_file_payload_bytes(file)
+        for file in embedded.embedded_files
+    }
+    assert b"K9" in payloads["a.step"]  # matching install beats the fallback
+    assert b"B" in payloads["b.step"]  # KICAD8 (not installed) fell back to highest install
+
+
+def test_build_model_search_uses_configured_extra_3d_dirs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KiCad's configured system.extra_3d_search_dirs are honored during resolution."""
+    pytest.importorskip("zstandard")
+
+    extra = tmp_path / "extra"
+    (extra / "Pkg").mkdir(parents=True)
+    (extra / "Pkg" / "x.step").write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+
+    class _FakeEnv:
+        def path_variable_map(self) -> dict[str, str]:
+            return {}
+
+        def extra_3d_model_search_dirs(self) -> tuple[Path, ...]:
+            return (extra,)
+
+        def highest_installation(self) -> None:
+            return None
+
+    monkeypatch.setattr(library_extraction, "KiCadEnvironment", lambda: _FakeEnv())
+
+    search = library_extraction._build_model_search(None, use_installed_kicad=True)
+    assert extra in search.search_dirs
+
+    footprint = KiCadFootprint()
+    footprint.name = "ExtraDir"
+    footprint.models = [Model("${CUSTOM_MODEL_DIR}/Pkg/x.step")]
+    embedded = library_extraction.embed_external_model_payloads(
+        footprint, project_root=tmp_path, search=search
+    )
+
+    assert embedded.models[0].path == "kicad-embed://x.step"
+    assert [file.name for file in embedded.embedded_files] == ["x.step"]
+
+
+def test_embed_resolves_custom_var_from_kicad_common_json(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A custom path variable defined only in kicad_common.json resolves and embeds.
+
+    Mirrors a shared/network model dir behind a user-defined Configure Paths
+    variable, present in KiCad's config but not in the process environment.
+    """
+    pytest.importorskip("zstandard")
+
+    model_root = tmp_path / "corp_models"
+    (model_root / "Custom.3dshapes").mkdir(parents=True)
+    (model_root / "Custom.3dshapes" / "widget.step").write_text(
+        "ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8"
+    )
+
+    appdata = tmp_path / "appdata"
+    config_dir = appdata / "kicad" / "10.0"
+    config_dir.mkdir(parents=True)
+    (config_dir / "kicad_common.json").write_text(
+        json.dumps({"environment": {"vars": {"CORP_3DMODELS": str(model_root)}}}),
+        encoding="utf-8",
+    )
+
+    # Force the resolver to read our temp config (platform fixed so APPDATA is the
+    # config root on any host) without an installation on PATH.
+    monkeypatch.delenv("CORP_3DMODELS", raising=False)
+    monkeypatch.setattr(
+        library_extraction,
+        "KiCadEnvironment",
+        lambda: KiCadEnvironment(env={"APPDATA": str(appdata)}, platform="win32"),
+    )
+
+    footprint = KiCadFootprint()
+    footprint.name = "Widget"
+    footprint.models = [Model("${CORP_3DMODELS}/Custom.3dshapes/widget.step")]
+
+    embedded = embed_external_model_payloads(footprint, project_root=tmp_path)
+
+    assert embedded.models[0].path == "kicad-embed://widget.step"
+    assert [file.name for file in embedded.embedded_files] == ["widget.step"]
+
+
+def test_embed_external_model_leaves_unrecoverable_ref_external(tmp_path: Path) -> None:
+    """A genuinely-missing model is left external rather than embedded."""
+    footprint = KiCadFootprint()
+    footprint.name = "Missing"
+    footprint.models = [Model("${KICAD10_3DMODEL_DIR}/Pkg/missing.step")]
+
+    embedded = embed_external_model_payloads(
+        footprint,
+        project_root=tmp_path,
+        model_search_dirs=[tmp_path / "empty"],
+        use_installed_kicad=False,
+    )
+
+    assert embedded.models[0].path == "${KICAD10_3DMODEL_DIR}/Pkg/missing.step"
+    assert embedded.embedded_files == []
+
+
+def test_scan_3d_models_resolves_external_ref_via_search_dir(tmp_path: Path) -> None:
+    """Health scanning shares resolution: an external ref resolves with a search dir."""
+    project_dir = tmp_path / "proj"
+    project_dir.mkdir()
+    (project_dir / "proj.kicad_pro").write_text("{}", encoding="utf-8")
+
+    model_root = tmp_path / "search"
+    (model_root / "Pkg").mkdir(parents=True)
+    (model_root / "Pkg" / "m.step").write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="utf-8")
+
+    pcb = KiCadPcb()
+    footprint = Footprint("local:U")
+    footprint.upsert_property("Reference", "U1")
+    footprint.models = [Model("${KICAD10_3DMODEL_DIR}/Pkg/m.step")]
+    pcb.footprints.append(footprint)
+    pcb.save(project_dir / "proj.kicad_pcb")
+
+    unresolved = scan_3d_models(project_dir, use_installed_kicad=False)
+    assert [ref.exists for ref in unresolved] == [False]
+
+    resolved = scan_3d_models(
+        project_dir,
+        model_search_dirs=[model_root],
+        use_installed_kicad=False,
+    )
+    assert [ref.exists for ref in resolved] == [True]
+    assert resolved[0].reference_kind == KiCadModelReferenceKind.KICAD_ENV.value
 
 
 def test_extract_3d_models_can_preserve_duplicate_payload_aliases(tmp_path: Path) -> None:

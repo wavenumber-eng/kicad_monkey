@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 __all__ = ["KiCadEnvironment", "KiCadInstallation"]
 
@@ -67,6 +69,8 @@ class KiCadInstallation:
 
 class KiCadEnvironment:
     """Discover local KiCad installations and user configuration directories."""
+
+    _MODEL_DIR_PARTS = ("share", "kicad", "3dmodels")
 
     def __init__(
         self,
@@ -137,6 +141,90 @@ class KiCadEnvironment:
             version_paths.append(item)
 
         return sorted(version_paths, key=lambda path: _parse_version_pair(path.name) or (0, 0))
+
+    def model_directory_variables(self) -> dict[str, str]:
+        """Return KiCad's implicit ``KICAD<major>_3DMODEL_DIR`` path variables.
+
+        KiCad defines ``KICAD<major>_3DMODEL_DIR`` for its own version, pointing at
+        ``<install>/share/kicad/3dmodels``.  KiCad only defines the variable for the
+        running major, so a project authored under a different KiCad version names a
+        variable that is never set when tooling runs outside KiCad.  This returns the
+        mapping for every detected installation that ships a 3D model directory, so
+        callers can resolve references that name another KiCad major version.
+        """
+        variables: dict[str, tuple[tuple[int, int], str]] = {}
+        for installation in self.find_installations():
+            version = installation.version
+            if version is None:
+                continue
+            model_dir = installation.root.joinpath(*self._MODEL_DIR_PARTS)
+            if not model_dir.exists():
+                continue
+            name = f"KICAD{version[0]}_3DMODEL_DIR"
+            existing = variables.get(name)
+            if existing is None or version > existing[0]:
+                variables[name] = (version, str(model_dir))
+        return {name: value for name, (_version, value) in variables.items()}
+
+    def config_path_variables(self, *, version: tuple[int, int] | None = None) -> dict[str, str]:
+        """Return user ``environment.vars`` overrides from ``kicad_common.json``.
+
+        These are the custom path variables a user defines under
+        Preferences > Configure Paths (for example ``${ANT3DMDL}``).  Returns an
+        empty mapping when the file, section, or value is absent or null.
+        """
+        data = self._read_kicad_common(version)
+        environment = data.get("environment") if isinstance(data, dict) else None
+        raw = environment.get("vars") if isinstance(environment, dict) else None
+        if not isinstance(raw, dict):
+            return {}
+        return {str(key): str(value) for key, value in raw.items() if value is not None}
+
+    def extra_3d_model_search_dirs(self, *, version: tuple[int, int] | None = None) -> tuple[Path, ...]:
+        """Return ``system.extra_3d_search_dirs`` from ``kicad_common.json``."""
+        data = self._read_kicad_common(version)
+        system = data.get("system") if isinstance(data, dict) else None
+        raw = system.get("extra_3d_search_dirs") if isinstance(system, dict) else None
+        if not isinstance(raw, list):
+            return ()
+        return tuple(Path(str(item)) for item in raw if item)
+
+    def path_variable_map(self, *, version: tuple[int, int] | None = None) -> dict[str, str]:
+        """Return install model-dir variables overlaid with user config overrides.
+
+        Installation defaults provide every ``KICAD<major>_3DMODEL_DIR``; user
+        ``environment.vars`` overrides win on conflict, mirroring KiCad's own
+        precedence where a configured path variable overrides the built-in default.
+        """
+        variables = self.model_directory_variables()
+        variables.update(self.config_path_variables(version=version))
+        return variables
+
+    def _read_kicad_common(self, version: tuple[int, int] | None) -> dict[str, Any] | None:
+        config_path = self._config_path_for(version)
+        if config_path is None:
+            return None
+        common = config_path / "kicad_common.json"
+        if not common.is_file():
+            return None
+        try:
+            data = json.loads(common.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return data if isinstance(data, dict) else None
+
+    def _config_path_for(self, version: tuple[int, int] | None) -> Path | None:
+        paths = self.find_config_paths()
+        if not paths:
+            return None
+        if version is not None:
+            for path in paths:
+                if _parse_version_pair(path.name) == version:
+                    return path
+            return None
+        non_beta = [path for path in paths if (_parse_version_pair(path.name) or (0, 99))[1] != 99]
+        candidates = non_beta or paths
+        return max(candidates, key=lambda path: _parse_version_pair(path.name) or (0, 0))
 
     def _env_value(self, name: str) -> str | None:
         return self._env.get(name) or self._env_casefold.get(name.casefold())
