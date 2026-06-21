@@ -19,7 +19,7 @@ import tempfile
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Sequence
 
 from .kicad_base import find_all_elements, find_element
 from .kicad_footprint import KiCadFootprint
@@ -752,11 +752,76 @@ def _embedded_file_from_path(path: Path, *, name: str | None = None) -> Embedded
     )
 
 
-def _effective_env(env: dict[str, str] | None = None) -> dict[str, str]:
-    effective = dict(os.environ)
+@dataclass(frozen=True)
+class _ModelSearch:
+    """Resolution inputs for KiCad 3D model references.
+
+    ``variables`` maps path-variable names to directories.  ``fallback_model_dir``
+    is the highest installed KiCad ``3dmodels`` directory, used when a
+    ``KICAD<major>_3DMODEL_DIR`` reference names a version that is not installed.
+    ``search_dirs`` are explicit override roots tried (by the path tail) for any
+    leading-variable reference.  ``resolve_wrl_siblings`` lets a ``.wrl`` reference
+    fall back to its sibling ``.step``/``.stp`` model.
+    """
+
+    variables: dict[str, str] = field(default_factory=dict)
+    fallback_model_dir: Path | None = None
+    search_dirs: tuple[Path, ...] = ()
+    resolve_wrl_siblings: bool = True
+
+
+@dataclass(frozen=True)
+class _ModelFileResolution:
+    """Outcome of resolving one model reference to a concrete file."""
+
+    path: Path | None
+    exists: bool
+    via_sibling: bool = False
+    var_unresolved: bool = False
+
+
+def _build_model_search(
+    env: dict[str, str] | None = None,
+    *,
+    model_search_dirs: Sequence[Path] | None = None,
+    use_installed_kicad: bool = True,
+    resolve_wrl_siblings: bool = True,
+) -> _ModelSearch:
+    """Build a model resolver from installed KiCad plus explicit caller input.
+
+    Variable precedence (low to high): installed-KiCad model-dir defaults,
+    ``kicad_common.json`` overrides, the process environment, then ``env``.  This
+    lets project-lib and health resolve ``${KICAD<major>_3DMODEL_DIR}`` references
+    even when KiCad is not the running process, while still honouring any variable
+    the caller or user has set explicitly.  Search dirs are tried in order:
+    explicit ``model_search_dirs`` first, then KiCad's configured
+    ``system.extra_3d_search_dirs``.
+    """
+    variables: dict[str, str] = {}
+    fallback_model_dir: Path | None = None
+    config_search_dirs: list[Path] = []
+    if use_installed_kicad:
+        try:
+            kicad_env = KiCadEnvironment()
+            variables.update(kicad_env.path_variable_map())
+            config_search_dirs.extend(kicad_env.extra_3d_model_search_dirs())
+            highest = kicad_env.highest_installation()
+            if highest is not None:
+                model_dir = highest.root / "share" / "kicad" / "3dmodels"
+                if model_dir.exists():
+                    fallback_model_dir = model_dir
+        except Exception:
+            pass
+    variables.update(os.environ)
     if env:
-        effective.update(env)
-    return effective
+        variables.update(env)
+    explicit_search_dirs = [Path(path) for path in (model_search_dirs or ())]
+    return _ModelSearch(
+        variables=variables,
+        fallback_model_dir=fallback_model_dir,
+        search_dirs=tuple(explicit_search_dirs + config_search_dirs),
+        resolve_wrl_siblings=resolve_wrl_siblings,
+    )
 
 
 def _expand_model_path(model_path: str, *, project_root: Path, env: dict[str, str]) -> tuple[Path | None, bool]:
@@ -780,6 +845,80 @@ def _expand_model_path(model_path: str, *, project_root: Path, env: dict[str, st
     return path, False
 
 
+_LEADING_VAR_RE = re.compile(r"^\$\{[^}]+\}[\\/]?(.*)$")
+_KICAD_ENV_PREFIX_RE = re.compile(r"^\$\{KICAD\d+_3DMODEL_DIR\}")
+
+
+def _is_kicad_env_model(model_path: str) -> bool:
+    return bool(_KICAD_ENV_PREFIX_RE.match(model_path))
+
+
+def _leading_var_tail(model_path: str) -> str | None:
+    match = _LEADING_VAR_RE.match(model_path)
+    return match.group(1) if match else None
+
+
+def _existing_model_file(path: Path, *, resolve_wrl_siblings: bool) -> tuple[Path | None, bool]:
+    """Return (path, via_sibling) for an existing model file, else (None, False).
+
+    For a ``.wrl`` reference the sibling ``.step``/``.stp`` is preferred when present
+    (the tool embeds STEP), falling back to the literal ``.wrl`` only when no STEP
+    sibling exists.
+    """
+    if resolve_wrl_siblings and path.suffix.lower() == ".wrl":
+        for sibling_suffix in (".step", ".stp"):
+            sibling = path.with_suffix(sibling_suffix)
+            if sibling.exists():
+                return sibling, True
+    if path.exists():
+        return path, False
+    return None, False
+
+
+def _resolve_model_file(
+    model_path: str,
+    *,
+    project_root: Path,
+    search: _ModelSearch,
+) -> _ModelFileResolution:
+    """Resolve a model reference to a concrete file using the search ladder.
+
+    Order: the primary variable expansion (matching install for KICAD env refs),
+    then the highest-install fallback directory for ``KICAD<major>_3DMODEL_DIR``
+    references, then any explicit override ``search_dirs`` (by path tail).  An
+    embeddable STEP hit (including a ``.wrl`` reference's sibling ``.step``/``.stp``)
+    is preferred over a non-STEP hit across all candidate directories; otherwise the
+    first existing file wins.
+    """
+    primary, unresolved = _expand_model_path(
+        model_path, project_root=project_root, env=search.variables
+    )
+    candidates: list[Path] = []
+    if primary is not None:
+        candidates.append(primary)
+    tail = _leading_var_tail(model_path)
+    if tail:
+        if _is_kicad_env_model(model_path) and search.fallback_model_dir is not None:
+            candidates.append(search.fallback_model_dir / tail)
+        candidates.extend(extra / tail for extra in search.search_dirs)
+    non_step_hit: tuple[Path, bool] | None = None
+    for candidate in candidates:
+        found, via_sibling = _existing_model_file(
+            candidate, resolve_wrl_siblings=search.resolve_wrl_siblings
+        )
+        if found is None:
+            continue
+        if found.suffix.lower() in {".step", ".stp"}:
+            return _ModelFileResolution(path=found, exists=True, via_sibling=via_sibling)
+        if non_step_hit is None:
+            non_step_hit = (found, via_sibling)
+    if non_step_hit is not None:
+        return _ModelFileResolution(path=non_step_hit[0], exists=True, via_sibling=non_step_hit[1])
+    if candidates:
+        return _ModelFileResolution(path=candidates[0], exists=False)
+    return _ModelFileResolution(path=None, exists=False, var_unresolved=unresolved)
+
+
 def _unique_embedded_name(source_name: str, existing: set[str]) -> str:
     stem = _safe_asset_filename(Path(source_name).stem)
     suffix = Path(source_name).suffix or ".step"
@@ -798,7 +937,7 @@ def _classify_model_path(
     project_root: Path,
     embedded_files: dict[str, EmbeddedFile],
     board_embedded_files: dict[str, EmbeddedFile] | None = None,
-    env: dict[str, str] | None = None,
+    search: _ModelSearch,
 ) -> tuple[KiCadModelReferenceKind, str, bool, str, bool, str, tuple[str, ...]]:
     diagnostics: list[str] = []
     if model_path.startswith("kicad-embed://"):
@@ -847,18 +986,15 @@ def _classify_model_path(
     else:
         kind = KiCadModelReferenceKind.OTHER
 
-    resolved, unresolved = _expand_model_path(
-        model_path,
-        project_root=project_root,
-        env=_effective_env(env),
-    )
-    if unresolved or resolved is None:
+    resolution = _resolve_model_file(model_path, project_root=project_root, search=search)
+    if resolution.path is None:
         diagnostics.append("unresolved environment variable")
         return kind, model_path, False, "", False, "", tuple(diagnostics)
-    exists = resolved.exists()
-    if not exists:
+    if not resolution.exists:
         diagnostics.append("model path does not exist")
-    return kind, str(resolved), exists, "", False, "", tuple(diagnostics)
+    elif resolution.via_sibling:
+        diagnostics.append("resolved via sibling model file")
+    return kind, str(resolution.path), resolution.exists, "", False, "", tuple(diagnostics)
 
 
 def _scan_models_for_owner(
@@ -870,7 +1006,7 @@ def _scan_models_for_owner(
     embedded_files: Iterable[EmbeddedFile],
     project_root: Path,
     board_embedded_files: Iterable[EmbeddedFile] = (),
-    env: dict[str, str] | None = None,
+    search: _ModelSearch,
 ) -> list[KiCadModelReferenceScan]:
     embedded_map = _embedded_file_map(embedded_files)
     board_embedded_map = _embedded_file_map(board_embedded_files)
@@ -889,7 +1025,7 @@ def _scan_models_for_owner(
             project_root=project_root,
             embedded_files=embedded_map,
             board_embedded_files=board_embedded_map,
-            env=env,
+            search=search,
         )
         records.append(KiCadModelReferenceScan(
             source_kind=source_kind,
@@ -918,6 +1054,7 @@ def _scan_footprint_file_models(
     path: Path,
     *,
     project_root: Path,
+    search: _ModelSearch,
 ) -> list[KiCadModelReferenceScan]:
     text = _read_kicad_text(path)
     owner = _footprint_file_owner_from_text(path, text)
@@ -945,6 +1082,7 @@ def _scan_footprint_file_models(
         models=models,
         embedded_files=embedded_files,
         project_root=project_root,
+        search=search,
     )
 
 
@@ -953,6 +1091,7 @@ def _scan_3d_models_with_diagnostics(
     *,
     progress: _ProgressCallback | None = None,
     scope: _ProjectAssetScope | None = None,
+    search: _ModelSearch | None = None,
 ) -> tuple[
     tuple[KiCadModelReferenceScan, ...],
     tuple[KiCadFootprintModelCoverage, ...],
@@ -960,6 +1099,8 @@ def _scan_3d_models_with_diagnostics(
 ]:
     resolved_project = _resolve_project_path(project_path)
     root = resolved_project.parent
+    if search is None:
+        search = _build_model_search()
     active_scope = scope if scope is not None else _project_asset_scope(resolved_project)
     records: list[KiCadModelReferenceScan] = []
     footprints_without_models: dict[tuple[str, str], list[str]] = {}
@@ -1008,6 +1149,7 @@ def _scan_3d_models_with_diagnostics(
                 embedded_files=getattr(footprint, "embedded_files", ()) or (),
                 project_root=root,
                 board_embedded_files=board_embedded_files,
+                search=search,
             ))
 
     fp_paths = list(active_scope.footprint_files)
@@ -1024,7 +1166,7 @@ def _scan_3d_models_with_diagnostics(
             f"{_stable_relative(fp_path, root)} ({_file_size_label(fp_path)})",
         )
         try:
-            records.extend(_scan_footprint_file_models(fp_path, project_root=root))
+            records.extend(_scan_footprint_file_models(fp_path, project_root=root, search=search))
         except Exception as exc:
             diagnostics.append(f"failed to parse footprint {fp_path}: {exc}")
             continue
@@ -1040,9 +1182,29 @@ def _scan_3d_models_with_diagnostics(
     return tuple(records), tuple(no_model_records), tuple(diagnostics)
 
 
-def scan_3d_models(project_path: Path | str) -> tuple[KiCadModelReferenceScan, ...]:
-    """Scan PCB and local footprint-library model references."""
-    records, _footprints_without_models, _diagnostics = _scan_3d_models_with_diagnostics(project_path)
+def scan_3d_models(
+    project_path: Path | str,
+    *,
+    env: dict[str, str] | None = None,
+    model_search_dirs: Sequence[Path] | None = None,
+    use_installed_kicad: bool = True,
+) -> tuple[KiCadModelReferenceScan, ...]:
+    """Scan PCB and local footprint-library model references.
+
+    Resolution of external ``${KICAD<major>_3DMODEL_DIR}`` and custom path-variable
+    references uses installed KiCad defaults (see :func:`_build_model_search`).
+    Pass ``model_search_dirs`` to add explicit model roots, or
+    ``use_installed_kicad=False`` to skip installation auto-detection.
+    """
+    search = _build_model_search(
+        env,
+        model_search_dirs=model_search_dirs,
+        use_installed_kicad=use_installed_kicad,
+    )
+    records, _footprints_without_models, _diagnostics = _scan_3d_models_with_diagnostics(
+        project_path,
+        search=search,
+    )
     return records
 
 
@@ -1050,10 +1212,23 @@ def scan_project_assets(
     project_path: Path | str,
     *,
     progress: _ProgressCallback | None = None,
+    env: dict[str, str] | None = None,
+    model_search_dirs: Sequence[Path] | None = None,
+    use_installed_kicad: bool = True,
 ) -> KiCadProjectAssetScan:
-    """Return a structured inventory of a KiCad project's local assets."""
+    """Return a structured inventory of a KiCad project's local assets.
+
+    External model references are resolved against installed KiCad defaults plus
+    any explicit ``model_search_dirs``; ``use_installed_kicad=False`` disables
+    installation auto-detection for deterministic, KiCad-free runs.
+    """
     resolved_project = _resolve_project_path(project_path)
     root = resolved_project.parent
+    search = _build_model_search(
+        env,
+        model_search_dirs=model_search_dirs,
+        use_installed_kicad=use_installed_kicad,
+    )
     _emit_progress(progress, f"inventorying project files and local library tables under {root}")
     scope = _project_asset_scope(resolved_project)
     schematics = tuple(str(path) for path in scope.schematics)
@@ -1072,6 +1247,7 @@ def scan_project_assets(
         resolved_project,
         progress=progress,
         scope=scope,
+        search=search,
     )
     _emit_progress(
         progress,
@@ -1098,27 +1274,42 @@ def embed_external_model_payloads(
     *,
     project_root: Path | str,
     env: dict[str, str] | None = None,
+    model_search_dirs: Sequence[Path] | None = None,
+    use_installed_kicad: bool = True,
+    search: _ModelSearch | None = None,
 ) -> KiCadFootprint:
     """Return a footprint with resolvable external STEP/STP models embedded.
 
     Existing ``kicad-embed://`` model references are preserved. Resolvable
     external STEP/STP paths are copied into the footprint's ``embedded_files``
     block and their model paths are rewritten to ``kicad-embed://...``.
+
+    References are resolved through the installed-KiCad search ladder, so
+    ``${KICAD<major>_3DMODEL_DIR}`` models embed even when the variable is not set
+    in the environment. A ``.wrl`` reference embeds its sibling ``.step``/``.stp``
+    model when present. Pass ``model_search_dirs`` to add explicit roots or
+    ``use_installed_kicad=False`` to skip installation auto-detection.
     """
+    if search is None:
+        search = _build_model_search(
+            env,
+            model_search_dirs=model_search_dirs,
+            use_installed_kicad=use_installed_kicad,
+        )
     out = copy.deepcopy(footprint)
     local = _embedded_file_map(out.embedded_files)
     existing_names = set(local)
-    effective_env = _effective_env(env)
     root = Path(project_root)
 
     for model in out.models:
         if model.path.startswith("kicad-embed://"):
             continue
-        path, unresolved = _expand_model_path(model.path, project_root=root, env=effective_env)
-        if unresolved or path is None or not path.exists() or not _is_step_model_name(path.name):
+        resolution = _resolve_model_file(model.path, project_root=root, search=search)
+        found = resolution.path if resolution.exists else None
+        if found is None or not _is_step_model_name(found.name):
             continue
-        embedded_name = _unique_embedded_name(path.name, existing_names)
-        out.embedded_files.append(_embedded_file_from_path(path, name=embedded_name))
+        embedded_name = _unique_embedded_name(found.name, existing_names)
+        out.embedded_files.append(_embedded_file_from_path(found, name=embedded_name))
         model.path = f"kicad-embed://{embedded_name}"
     return out
 
@@ -1521,13 +1712,26 @@ def extract_footprints(
     embed_models: bool = True,
     embed_external_models: bool = True,
     env: dict[str, str] | None = None,
+    model_search_dirs: Sequence[Path] | None = None,
+    use_installed_kicad: bool = True,
     dedupe_policy: KiCadExtractionDedupePolicy | str = KiCadExtractionDedupePolicy.NAME,
 ) -> tuple[KiCadFootprintExtractionRecord, ...]:
-    """Extract PCB footprints as standalone footprint records."""
+    """Extract PCB footprints as standalone footprint records.
+
+    External 3D models are resolved through the installed-KiCad search ladder so
+    ``${KICAD<major>_3DMODEL_DIR}`` references embed even when the variable is not
+    set. Pass ``model_search_dirs`` to add explicit roots or
+    ``use_installed_kicad=False`` to skip installation auto-detection.
+    """
     policy = KiCadExtractionMode(mode)
     dedupe = KiCadExtractionDedupePolicy(dedupe_policy)
     resolved_project = _resolve_project_path(project_path)
     root = resolved_project.parent
+    search = _build_model_search(
+        env,
+        model_search_dirs=model_search_dirs,
+        use_installed_kicad=use_installed_kicad,
+    )
     records: list[KiCadFootprintExtractionRecord] = []
     seen: set[str] = set()
 
@@ -1551,7 +1755,9 @@ def extract_footprints(
                     standalone,
                 )
             if embed_models and embed_external_models:
-                standalone = embed_external_model_payloads(standalone, project_root=root, env=env)
+                standalone = embed_external_model_payloads(
+                    standalone, project_root=root, search=search
+                )
             key = _footprint_record_key(source_fp, standalone, policy, dedupe)
             if unique_links is None:
                 if (
@@ -1574,7 +1780,7 @@ def extract_footprints(
                 embedded_files=stripped.embedded_files,
                 project_root=root,
                 board_embedded_files=board_embedded_files,
-                env=env,
+                search=search,
             )
             records.append(KiCadFootprintExtractionRecord(
                 name=stripped.name,
