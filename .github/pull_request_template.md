@@ -2,7 +2,7 @@
 
 Describe the change and the public behavior it affects.
 
-Linked issue or discussion:
+Linked issue:
 
 Design agreement summary:
 
@@ -40,6 +40,7 @@ Design agreement summary:
 ## Signoff
 
 - [ ] Commit messages are concise, factual, and contain no emoji
+- [ ] PR title and commit subjects use Conventional Commit form
 - [ ] PR summary is to the point and limited to facts
 - [ ] Human signoff names the responsible person or GitHub user ID
 - [ ] AI assistance is noted as implementation context only, if applicable
