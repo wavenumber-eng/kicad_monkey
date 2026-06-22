@@ -58,6 +58,9 @@ distribution = "pypi"
 languages = ["python"]
 strict = true
 
+[tool.wn_dev_std.pr_hygiene]
+enabled = true
+
 [tool.uv]
 package = true
 
