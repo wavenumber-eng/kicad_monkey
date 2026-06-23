@@ -186,8 +186,7 @@ def create_project(options: KiCadProjectCreateOptions) -> KiCadProjectCreateResu
     if options.create_pcb:
         from .kicad_pcb import KiCadPcb
 
-        pcb = KiCadPcb()
-        pcb.paper = options.page_size
+        pcb = KiCadPcb.new(paper=options.page_size)
         pcb_file = project_dir / f"{name}.kicad_pcb"
         pcb.save(pcb_file)
 

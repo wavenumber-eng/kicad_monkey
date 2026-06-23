@@ -439,6 +439,75 @@ def _append_pcb_embedded_files(result: list, pcb: "KiCadPcb") -> None:
         result.append(ef_elem)
 
 
+# Default 2-layer board scaffold matching KiCad's File -> New Board stack.
+# ``KiCadPcb.new`` consumes only the (layers) and (setup) blocks; the header is
+# taken from the fresh instance so it tracks the package's KiCad version defaults.
+_DEFAULT_PCB_TEMPLATE = """\
+(kicad_pcb
+  (version 20260206)
+  (generator "pcbnew")
+  (generator_version "10.0")
+  (general (thickness 1.6) (legacy_teardrops no))
+  (paper "A4")
+  (layers
+    (0 "F.Cu" signal)
+    (2 "B.Cu" signal)
+    (9 "F.Adhes" user "F.Adhesive")
+    (11 "B.Adhes" user "B.Adhesive")
+    (13 "F.Paste" user)
+    (15 "B.Paste" user)
+    (5 "F.SilkS" user "F.Silkscreen")
+    (7 "B.SilkS" user "B.Silkscreen")
+    (1 "F.Mask" user)
+    (3 "B.Mask" user)
+    (17 "Dwgs.User" user "User.Drawings")
+    (19 "Cmts.User" user "User.Comments")
+    (21 "Eco1.User" user "User.Eco1")
+    (23 "Eco2.User" user "User.Eco2")
+    (25 "Edge.Cuts" user)
+    (27 "Margin" user)
+    (31 "F.CrtYd" user "F.Courtyard")
+    (29 "B.CrtYd" user "B.Courtyard")
+    (35 "F.Fab" user)
+    (33 "B.Fab" user)
+    (39 "User.1" user)
+    (41 "User.2" user)
+    (43 "User.3" user)
+    (45 "User.4" user)
+  )
+  (setup
+    (pad_to_mask_clearance 0)
+    (allow_soldermask_bridges_in_footprints no)
+    (tenting (front yes) (back yes))
+    (covering (front no) (back no))
+    (plugging (front no) (back no))
+    (capping no)
+    (filling no)
+    (pcbplotparams
+      (layerselection 0x00000000_00000000_55555555_5755f5ff)
+      (plot_on_all_layers_selection 0x00000000_00000000_00000000_00000000)
+      (disableapertmacros no)
+      (usegerberextensions no)
+      (usegerberattributes yes)
+      (usegerberadvancedattributes yes)
+      (creategerberjobfile yes)
+      (svgprecision 4)
+      (plotframeref no)
+      (mode 1)
+      (useauxorigin no)
+      (plot_black_and_white yes)
+      (subtractmaskfromsilk no)
+      (outputformat 1)
+      (mirror no)
+      (drillshape 1)
+      (scaleselection 1)
+      (outputdirectory "")
+    )
+  )
+)
+"""
+
+
 @public_api
 class KiCadPcb:
     """
@@ -566,6 +635,22 @@ class KiCadPcb:
         """Parse KiCad PCB content from string."""
         sexp = parse_sexp(content)
         return cls.from_sexp(sexp)
+
+    @classmethod
+    @public_api
+    def new(cls, *, paper: str = KICAD_DEFAULT_PAPER) -> 'KiCadPcb':
+        """Create a blank, openable board with KiCad's default 2-layer stack.
+
+        The bare constructor leaves ``layers`` empty, which KiCad rejects with
+        "0 is not a valid layer count"; this seeds the standard copper stack and
+        a default ``setup`` block so the board opens in KiCad.
+        """
+        template = cls.from_string(_DEFAULT_PCB_TEMPLATE)
+        pcb = cls()
+        pcb.layers = template.layers
+        pcb.setup_sexp = template.setup_sexp
+        pcb.paper = paper
+        return pcb
 
     @classmethod
     def from_sexp(cls, sexp: list) -> 'KiCadPcb':

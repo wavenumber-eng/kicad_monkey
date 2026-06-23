@@ -126,7 +126,12 @@ def test_create_project_lib_tables_and_optional_pcb(tmp_path: Path) -> None:
     assert res.symbol_table.read_text(encoding="utf-8").startswith("(sym_lib_table")
     assert res.footprint_table.read_text(encoding="utf-8").startswith("(fp_lib_table")
     assert res.pcb_file is not None and res.pcb_file.exists()
-    assert KiCadPcb.from_file(res.pcb_file).paper == "D"
+    pcb = KiCadPcb.from_file(res.pcb_file)
+    assert pcb.paper == "D"
+    # A valid board needs a real copper stack — an empty (layers) block makes
+    # KiCad reject it with "0 is not a valid layer count".
+    layer_names = {layer.canonical_name for layer in pcb.layers}
+    assert {"F.Cu", "B.Cu", "Edge.Cuts"} <= layer_names
 
 
 def test_create_project_no_lib_tables_or_pcb_by_request(tmp_path: Path) -> None:
@@ -182,6 +187,31 @@ def test_schematic_preserves_embedded_files_on_roundtrip() -> None:
 def test_create_project_requires_name(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         create_project(KiCadProjectCreateOptions(name="", directory=tmp_path))
+
+
+def test_kicad_pcb_new_has_default_layer_stack() -> None:
+    pcb = KiCadPcb.new(paper="D")
+    assert pcb.paper == "D" and pcb.setup_sexp is not None
+    names = {layer.canonical_name for layer in pcb.layers}
+    assert {"F.Cu", "B.Cu", "Edge.Cuts"} <= names
+
+
+@pytest.mark.slow
+def test_create_project_pcb_accepted_by_kicad_cli(tmp_path: Path) -> None:
+    """The generated board loads cleanly in KiCad's own CLI (no '0 layers')."""
+    cli = resolve_kicad_cli()
+    if cli is None:
+        pytest.skip("kicad-cli not found")
+    res = create_project(KiCadProjectCreateOptions(
+        name="PcbCli", directory=tmp_path, create_pcb=True,
+    ))
+    assert res.pcb_file is not None
+    report = tmp_path / "drc.rpt"
+    completed = subprocess.run(
+        [str(cli), "pcb", "drc", "--output", str(report), str(res.pcb_file)],
+        capture_output=True, text=True, timeout=120, check=False,
+    )
+    assert completed.returncode == 0, completed.stderr or completed.stdout
 
 
 @pytest.mark.slow
