@@ -369,6 +369,14 @@ __all__ = [
     "kicad_project_uri",
     "ProjectVariant",
     "find_adjacent_kicad_project_path",
+    # New-project scaffolding (lazy loaded)
+    "KiCadProjectCreateOptions",
+    "KiCadProjectCreateResult",
+    "create_project",
+    # KiCad page sizes (reference data)
+    "KICAD_PAGE_SIZES",
+    "KICAD_PAGE_DIMENSIONS_MM",
+    "kicad_page_size_label",
     # Variant model (lazy loaded)
     "AssemblyComponent",
     "EffectiveFootprintProperties",
@@ -852,6 +860,12 @@ _LAZY_EXPORT_MODULES: dict[str, str] = {
     'ensure_project_library_table_entries': 'kicad_project_libraries',
     'kicad_project_uri': 'kicad_project_libraries',
     'ProjectVariant': 'kicad_project',
+    'KiCadProjectCreateOptions': 'kicad_project_create',
+    'KiCadProjectCreateResult': 'kicad_project_create',
+    'create_project': 'kicad_project_create',
+    'KICAD_PAGE_SIZES': 'kicad_page_sizes',
+    'KICAD_PAGE_DIMENSIONS_MM': 'kicad_page_sizes',
+    'kicad_page_size_label': 'kicad_page_sizes',
     'find_adjacent_kicad_project_path': 'kicad_project',
     'AssemblyComponent': 'kicad_variants',
     'EffectiveFootprintProperties': 'kicad_variants',

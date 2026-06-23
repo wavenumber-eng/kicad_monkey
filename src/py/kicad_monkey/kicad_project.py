@@ -275,6 +275,26 @@ class KiCadProject:
         return cls._from_raw(raw, project_path=project_path)
 
     @classmethod
+    @public_api
+    def new(
+        cls,
+        *,
+        name: str | None = None,
+        project_path: Path | str | None = None,
+    ) -> "KiCadProject":
+        """Create a blank project matching KiCad 10's default ``kicad.kicad_pro``.
+
+        The seed is byte-faithful with the stock ``share/kicad/template`` project
+        KiCad writes for a new project.  ``name`` sets ``meta.filename`` to
+        ``<name>.kicad_pro``; ``project_path`` (if given) is where :meth:`save`
+        writes by default.
+        """
+        raw = _default_project_raw()
+        if name:
+            raw["meta"]["filename"] = f"{name}.kicad_pro"
+        return cls._from_raw(raw, project_path=project_path)
+
+    @classmethod
     def _from_raw(cls, raw: Any, *, project_path: Path | str | None) -> "KiCadProject":
         if not isinstance(raw, dict):
             raise ValueError(".kicad_pro must be a JSON object")
@@ -503,6 +523,42 @@ class KiCadProject:
 # going forward; ``KiCadProjectSidecar`` continues to work but no
 # longer carries any unique behavior.
 KiCadProjectSidecar = KiCadProject
+
+
+def _default_project_raw() -> dict[str, Any]:
+    """Return a fresh copy of KiCad 10's default ``kicad.kicad_pro`` JSON.
+
+    Key order matches KiCad's own emit so :meth:`KiCadProject.to_text` round-trips
+    byte-equal with the stock template.
+    """
+    return {
+        "board": {
+            "design_settings": {
+                "defaults": {},
+                "diff_pair_dimensions": [],
+                "drc_exclusions": [],
+                "rules": {},
+                "track_widths": [],
+                "via_dimensions": [],
+            }
+        },
+        "boards": [],
+        "libraries": {
+            "pinned_footprint_libs": [],
+            "pinned_symbol_libs": [],
+        },
+        "meta": {
+            "filename": "kicad.kicad_pro",
+            "version": 1,
+        },
+        "net_settings": {
+            "classes": [],
+            "meta": {"version": 0},
+        },
+        "pcbnew": {"page_layout_descr_file": ""},
+        "sheets": [],
+        "text_variables": {},
+    }
 
 
 def find_adjacent_kicad_project_path(pcb_path: Path | str) -> Path | None:
