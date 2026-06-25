@@ -16,10 +16,13 @@ Last updated: 2026-06-19
   signoff.
 - `L99_signoff` runs package-wide pyright against `src/py/kicad_monkey` through
   `pyrightconfig.json`.
-- `tests/corpus/kicad.zip` is the public test-corpus transport. The loose
-  corpus mirror is ignored locally and extracted on demand by test helpers.
-- CI prepares the corpus archive, runs Rack L0 and L99, builds the package,
-  runs `twine check`, and verifies installed-package imports.
+- `tests/corpus/kicad.zip` is the ignored local public test-corpus archive,
+  with expected size and SHA-256 recorded in `tests/corpus/kicad.archive.toml`.
+  The loose corpus mirror is ignored locally and extracted on demand by test
+  helpers.
+- CI restores the corpus archive from the public object URL recorded in
+  `tests/corpus/kicad.archive.toml`, verifies it, runs Rack L0 and L99, builds
+  the package, runs `twine check`, and verifies installed-package imports.
 - The 2026-06-19 release adds KiCad-parity PCB graphical bounds, direct bbox
   oracle coverage, R2-backed KiCad CLI restore tooling, and keeps PCB SVG output
   canonical through the plotter IR renderer.

@@ -11,6 +11,7 @@ dist/
 *.egg-info/
 rack_results/
 tests/**/output/
+tests/corpus/kicad.zip
 tests/corpus/kicad/
 tests/corpus/.unpacked/
 tests/corpus/*.tmp.zip

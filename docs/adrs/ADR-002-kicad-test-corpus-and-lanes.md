@@ -56,9 +56,19 @@ patched CLI bundles under `deps/v1/kicad-monkey/kicad-cli/...`, with sidecar
 manifest and checksum objects so CI and developer machines can restore the same
 oracle tool without rebuilding KiCad.
 
+The package-local corpus archive also has stable object-storage metadata. CI
+must not require Git LFS object downloads during checkout. Instead, it restores
+`tests/corpus/kicad.zip` from the public object URL recorded in
+`tests/corpus/kicad.archive.toml` and verifies the recorded size and SHA-256.
+The restored archive is ignored locally and is not a tracked Git or Git LFS
+object. `KICAD_MONKEY_CORPUS_URL` may override the manifest URL for local
+testing or an emergency reroute.
+
 ## Consequences
 
 - Moving the shared KiCad corpus should require changing only `WN_TEST_CORPUS`.
+- Moving the package-local corpus archive transport should require updating
+  `tests/corpus/kicad.archive.toml`, not workflow logic.
 - New persistent fixtures should not be introduced under repo-local `tests/test_cases/...` unless they are synthetic/local-only by design.
 - Focused feature boards should not pollute the broad common board corpus when that would widen unrelated parser-equivalency sweeps.
 - Future strata should record durable corpus ownership in package-local

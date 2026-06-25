@@ -23,8 +23,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          lfs: true
       - uses: astral-sh/setup-uv@v5
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
@@ -33,6 +31,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y fontconfig fonts-dejavu-core fonts-liberation
+      - name: Validate public corpus archive metadata
+        run: uv run --extra test python scripts/kicad_corpus_archive.py metadata
+      - name: Restore public corpus archive
+        run: uv run --extra test python scripts/kicad_corpus_archive.py restore
       - name: Prepare public corpus archive
         run: |
           uv run --extra test python scripts/package_kicad_corpus.py --check

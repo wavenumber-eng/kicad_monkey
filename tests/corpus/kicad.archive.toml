@@ -1,0 +1,10 @@
+schema = "kicad_monkey.corpus_archive.v1"
+archive = "kicad.zip"
+size = 266555899
+sha256 = "2f0ab3ae70a4b7dfe7a8acb0030687b152c45dbd97d8a443015e06d6c28f9f26"
+url = "https://artifacts.wavenumber.net/corpora/v1/kicad-monkey/kicad/sha256-2f0ab3ae70a4b7dfe7a8acb0030687b152c45dbd97d8a443015e06d6c28f9f26/kicad.zip"
+
+# Keep the R2 key stable and content-addressed. CI uses the public URL above;
+# KICAD_MONKEY_CORPUS_URL may override it for local testing or emergency reroutes.
+r2_bucket = "wn-build-deps"
+r2_key = "corpora/v1/kicad-monkey/kicad/sha256-2f0ab3ae70a4b7dfe7a8acb0030687b152c45dbd97d8a443015e06d6c28f9f26/kicad.zip"

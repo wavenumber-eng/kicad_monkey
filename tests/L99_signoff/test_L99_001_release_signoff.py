@@ -23,6 +23,8 @@ def _project_root() -> Path:
 PACKAGE_ROOT = _project_root()
 EXPECTED_VERSION = "2026.6.19"
 EXPECTED_RELEASE_DATE = date(2026, 6, 19)
+CORPUS_ARCHIVE_PATH = "tests/corpus/kicad.zip"
+CORPUS_ARCHIVE_MANIFEST_PATH = "tests/corpus/kicad.archive.toml"
 PUBLIC_TEXT_PATHS = (
     "README.md",
     "AGENTS.md",
@@ -141,6 +143,23 @@ def test_developer_working_docs_are_excluded_from_release_artifacts() -> None:
     assert "docs/plans/**" in sdist["exclude"]
     assert "docs/research/**" in sdist["exclude"]
     assert "tests/corpus/**" in sdist["exclude"]
+
+
+def test_public_corpus_archive_uses_manifest_not_lfs() -> None:
+    """Verify the public corpus archive is restored from object storage, not LFS."""
+    manifest = tomllib.loads(
+        (PACKAGE_ROOT / CORPUS_ARCHIVE_MANIFEST_PATH).read_text(encoding="utf-8")
+    )
+    attributes = (PACKAGE_ROOT / ".gitattributes").read_text(encoding="utf-8")
+    gitignore_lines = (PACKAGE_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+
+    assert manifest["schema"] == "kicad_monkey.corpus_archive.v1"
+    assert manifest["archive"] == "kicad.zip"
+    assert manifest["url"].startswith("https://artifacts.wavenumber.net/")
+    assert manifest["r2_key"].endswith("/kicad.zip")
+    assert CORPUS_ARCHIVE_PATH in gitignore_lines
+    assert CORPUS_ARCHIVE_PATH not in attributes
+    assert "filter=lfs" not in attributes
 
 
 def test_promoted_public_api_contract_has_no_failures() -> None:

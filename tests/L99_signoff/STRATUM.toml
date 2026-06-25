@@ -33,6 +33,7 @@ changelog = "Release notes mention the package version"
 sdist_boundary = "Developer-only docs are excluded from public artifacts"
 public_api_contract = "Promoted package-root API exports resolve and retain markers"
 repo_support = "Public repository contribution, issue, CI, and release files exist"
+corpus_archive = "Public corpus archive transport is manifest-backed and not Git LFS-backed"
 
 [subtests.approach]
 pytest = "Inspect package metadata and run the public API contract helper"

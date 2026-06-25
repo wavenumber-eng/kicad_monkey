@@ -195,9 +195,13 @@ uv run --extra test python tests/rack.py run L99_signoff
 resolution, API design-doc ownership, Rack test ownership, corpus archive
 hygiene, and the current ruff/pyright ratchet state.
 
-The redistributable KiCad corpus is transported as `tests/corpus/kicad.zip`.
-The loose mirror is ignored locally; test helpers extract it on demand when no
-external corpus is configured.
+The redistributable KiCad corpus is restored locally as
+`tests/corpus/kicad.zip`; the archive itself is ignored and is not tracked with
+Git LFS. CI restores that archive from the public object URL recorded in
+`tests/corpus/kicad.archive.toml` and verifies size and SHA-256 before tests run.
+`KICAD_MONKEY_CORPUS_URL` may override the manifest URL for local testing or an
+emergency reroute. The loose mirror is ignored locally; test helpers extract the
+archive on demand when no external corpus is configured.
 
 ## API Shape
 

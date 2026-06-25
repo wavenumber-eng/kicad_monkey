@@ -1,3 +1,1 @@
 * text=auto eol=lf
-
-tests/corpus/kicad.zip filter=lfs diff=lfs merge=lfs -text
