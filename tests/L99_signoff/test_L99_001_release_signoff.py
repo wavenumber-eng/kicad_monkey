@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import importlib.util
+import io
+import shutil
+import sys
 import tomllib
 from datetime import date
 from pathlib import Path
@@ -18,6 +23,21 @@ def _project_root() -> Path:
         if (parent / "pyproject.toml").exists():
             return parent
     raise RuntimeError("Could not locate repository root")
+
+
+def _load_corpus_archive_module():
+    """Load the corpus archive script as a module for focused script tests."""
+    module_path = PACKAGE_ROOT / "scripts" / "kicad_corpus_archive.py"
+    spec = importlib.util.spec_from_file_location("kicad_corpus_archive_test", module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(spec.name, None)
+    return module
 
 
 PACKAGE_ROOT = _project_root()
@@ -160,6 +180,59 @@ def test_public_corpus_archive_uses_manifest_not_lfs() -> None:
     assert CORPUS_ARCHIVE_PATH in gitignore_lines
     assert CORPUS_ARCHIVE_PATH not in attributes
     assert "filter=lfs" not in attributes
+
+
+def test_public_corpus_restore_uses_target_parent_for_temp_download(monkeypatch, tmp_path) -> None:
+    """Verify archive restore keeps temp downloads on the target filesystem."""
+    corpus_archive = _load_corpus_archive_module()
+    payload = b"small corpus archive placeholder"
+    manifest = corpus_archive.CorpusArchiveManifest(
+        archive="kicad.zip",
+        size=len(payload),
+        sha256=hashlib.sha256(payload).hexdigest(),
+        url="https://example.invalid/kicad.zip",
+    )
+    target = tmp_path / "corpus" / "kicad.zip"
+    captured: dict[str, object] = {}
+
+    class FakeTemporaryDirectory:
+        def __init__(self, *args, **kwargs) -> None:
+            captured["temp_dir_parent"] = kwargs.get("dir")
+            parent = Path(kwargs.get("dir") or tmp_path)
+            self.path = parent / "download-temp"
+
+        def __enter__(self) -> str:
+            self.path.mkdir(parents=True, exist_ok=True)
+            return str(self.path)
+
+        def __exit__(self, exc_type, exc_value, traceback) -> None:
+            shutil.rmtree(self.path, ignore_errors=True)
+
+    class FakeResponse(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback) -> None:
+            self.close()
+
+    def fake_urlopen(request, timeout):
+        captured["download_timeout"] = timeout
+        return FakeResponse(payload)
+
+    monkeypatch.setattr(corpus_archive.tempfile, "TemporaryDirectory", FakeTemporaryDirectory)
+    monkeypatch.setattr(corpus_archive.urllib.request, "urlopen", fake_urlopen)
+
+    restored = corpus_archive.restore_archive(
+        target,
+        manifest,
+        explicit_url=None,
+        check_zip=False,
+    )
+
+    assert restored is True
+    assert target.read_bytes() == payload
+    assert Path(captured["temp_dir_parent"]) == target.parent
+    assert captured["download_timeout"] == corpus_archive.DOWNLOAD_TIMEOUT_SECONDS
 
 
 def test_promoted_public_api_contract_has_no_failures() -> None:

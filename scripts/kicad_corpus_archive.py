@@ -128,7 +128,7 @@ def restore_archive(
         )
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="kicad-corpus-archive-") as temp_name:
+    with tempfile.TemporaryDirectory(prefix="kicad-corpus-archive-", dir=path.parent) as temp_name:
         temp_path = Path(temp_name) / path.name
         print(f"download={url}")
         try:
