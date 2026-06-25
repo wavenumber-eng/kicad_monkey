@@ -10,9 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
-from typing import Any, Iterator
+from typing import TYPE_CHECKING, Any, Iterator
 
 from ._api_markers import public_api
+
+if TYPE_CHECKING:
+    from .kicad_pcb import KiCadPcb
+    from .kicad_project_libraries import KiCadLibraryTable
+    from .kicad_schematic import KiCadSchematic
 
 
 @dataclass
@@ -234,16 +239,41 @@ class ProjectVariant:
         return cls(name=name, description=description)
 
 
+@dataclass
+class KiCadProjectFiles:
+    """Paths written by :meth:`KiCadProject.write_project`."""
+
+    project_dir: Path
+    project_file: Path
+    schematic_file: Path | None = None
+    worksheet_file: Path | None = None
+    pcb_file: Path | None = None
+    symbol_table: Path | None = None
+    footprint_table: Path | None = None
+
+
 @public_api
 @dataclass
 class KiCadProject:
-    """Typed `.kicad_pro` project view.
+    """Typed `.kicad_pro` project view and new-project assembly aggregate.
 
     This is the canonical reader for KiCad project files. The full
     parsed JSON is preserved verbatim in :attr:`raw` so the write/save path
     can round-trip without loss; typed views like :attr:`variants` and
     :attr:`net_settings` are derived from it.
+
+    For scaffolding new projects it doubles as a small builder: :meth:`create`
+    starts a blank project bound to an on-disk directory, :meth:`add_schematic`
+    / :meth:`add_pcb` / :meth:`add_symbol_library` attach the pieces through the
+    object model, and :meth:`write_project` writes the whole folder. Higher
+    layers (application commands) drive these from their own input — this class
+    holds no knowledge of how the inputs are gathered.
     """
+
+    # Aggregate-builder identity comes first so a new project reads naturally:
+    # ``KiCadProject("My Board", "./projects")``.
+    name: str = ""
+    directory: Path | None = None
 
     project_path: Path | None = None
     text_variables: dict[str, str] = field(default_factory=dict)
@@ -251,6 +281,25 @@ class KiCadProject:
     board_design_settings: KiCadProjectBoardDesignSettings | None = None
     variants: list[ProjectVariant] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
+
+    # --- new-project assembly state (aggregate builder) ---
+    schematic: "KiCadSchematic | None" = None
+    pcb: "KiCadPcb | None" = None
+    symbol_library_table: "KiCadLibraryTable | None" = None
+    footprint_library_table: "KiCadLibraryTable | None" = None
+    worksheet_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        if self.directory is not None:
+            self.directory = Path(self.directory)
+        # A bare ``KiCadProject(name, directory)`` should be a writable blank
+        # project: seed the default ``.kicad_pro`` JSON and a default save path
+        # when the caller did not load from an existing file.
+        if self.name and not self.raw:
+            self.raw = _default_project_raw()
+            self.raw["meta"]["filename"] = f"{self.name}.kicad_pro"
+        if self.project_path is None and self.directory is not None and self.name:
+            self.project_path = self.directory / f"{self.name}.kicad_pro"
 
     @classmethod
     @public_api
@@ -433,6 +482,180 @@ class KiCadProject:
             node = node[part]
         node[parts[-1]] = value
 
+    # ------------------------------------------------------------------
+    # New-project assembly (aggregate builder)
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def create(
+        cls,
+        name: str,
+        directory: Path | str,
+        *,
+        project_path: Path | str | None = None,
+    ) -> "KiCadProject":
+        """Start a blank, writable project bound to an on-disk directory.
+
+        Equivalent to ``KiCadProject(name, directory)``; provided as a named
+        constructor alongside :meth:`new` / :meth:`from_file`.
+        """
+        return cls(
+            name=name,
+            directory=Path(directory),
+            project_path=Path(project_path) if project_path is not None else None,
+        )
+
+    def add_schematic(
+        self,
+        *,
+        sheet_name: str | None = None,
+        page_size: str = "A4",
+        revision: str = "",
+        company: str = "",
+        date: str = "",
+        comments: list[str] | None = None,
+    ) -> "KiCadSchematic":
+        """Attach a blank top-level schematic and return it.
+
+        The title block defaults its title to the sheet name, falling back to
+        the project name.
+        """
+        import uuid
+
+        from .kicad_sch_title_block import PaperSize, TitleBlock
+        from .kicad_schematic import KiCadSchematic
+
+        sch = KiCadSchematic()
+        sch.uuid = str(uuid.uuid4())  # blank constructor leaves this empty
+        sch.paper = PaperSize(size=page_size)
+        sch.title_block = TitleBlock(
+            title=sheet_name or self.name,
+            rev=revision,
+            company=company,
+            date=date,
+            comments={i + 1: c for i, c in enumerate(comments or []) if c},
+        )
+        self.schematic = sch
+        return sch
+
+    def set_worksheet(self, path: Path | str, *, embed: bool = True) -> None:
+        """Reference (or embed) a ``.wks`` drawing sheet for the schematic.
+
+        When ``embed`` is true the worksheet is packed into the schematic and
+        referenced from the project as ``kicad-embed://``; otherwise it is
+        referenced by its external path.
+        """
+        wks = Path(path)
+        if embed:
+            if self.schematic is None:
+                raise ValueError("add_schematic() before embedding a worksheet")
+            embedded = self.schematic.embed_worksheet(wks)
+            self.set_path(
+                "schematic.page_layout_descr_file", f"kicad-embed://{embedded.name}"
+            )
+        else:
+            self.set_path("schematic.page_layout_descr_file", str(wks))
+        self.worksheet_path = wks
+
+    def add_pcb(self, *, page_size: str = "A4") -> "KiCadPcb":
+        """Attach a blank board with KiCad's default layer stack and return it."""
+        from .kicad_pcb import KiCadPcb
+
+        self.pcb = KiCadPcb.new(paper=page_size)
+        return self.pcb
+
+    def _ensure_symbol_table(self) -> "KiCadLibraryTable":
+        from .kicad_project_libraries import KiCadLibraryTable, KiCadLibraryTableKind
+
+        if self.symbol_library_table is None:
+            self.symbol_library_table = KiCadLibraryTable(
+                kind=KiCadLibraryTableKind.SYMBOL, entries=[]
+            )
+        return self.symbol_library_table
+
+    def _ensure_footprint_table(self) -> "KiCadLibraryTable":
+        from .kicad_project_libraries import KiCadLibraryTable, KiCadLibraryTableKind
+
+        if self.footprint_library_table is None:
+            self.footprint_library_table = KiCadLibraryTable(
+                kind=KiCadLibraryTableKind.FOOTPRINT, entries=[]
+            )
+        return self.footprint_library_table
+
+    def ensure_library_tables(self) -> None:
+        """Attach empty symbol and footprint library tables if not present."""
+        self._ensure_symbol_table()
+        self._ensure_footprint_table()
+
+    def add_symbol_library(
+        self, nickname: str, uri: str, *, library_type: str = "KiCad"
+    ) -> Any:
+        """Seed the project symbol library table with a referenced library."""
+        from .kicad_project_libraries import KiCadLibraryTableEntry
+
+        entry = KiCadLibraryTableEntry(name=nickname, uri=uri, library_type=library_type)
+        self._ensure_symbol_table().entries.append(entry)
+        return entry
+
+    def add_footprint_library(
+        self, nickname: str, uri: str, *, library_type: str = "KiCad"
+    ) -> Any:
+        """Seed the project footprint library table with a referenced library."""
+        from .kicad_project_libraries import KiCadLibraryTableEntry
+
+        entry = KiCadLibraryTableEntry(name=nickname, uri=uri, library_type=library_type)
+        self._ensure_footprint_table().entries.append(entry)
+        return entry
+
+    def write_project(self, directory: Path | str | None = None) -> KiCadProjectFiles:
+        """Write the whole project folder and return the written paths.
+
+        Writes the ``.kicad_pro``, the attached schematic, any attached library
+        tables, and the optional board. ``directory`` overrides
+        :attr:`directory`.
+        """
+        from .kicad_project_libraries import KiCadLibraryTableKind
+
+        target_dir = Path(directory) if directory is not None else self.directory
+        if target_dir is None:
+            raise ValueError("no directory supplied and KiCadProject.directory is unset")
+        if not self.name:
+            raise ValueError("KiCadProject.name must be set to write a project")
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        project_file = target_dir / f"{self.name}.kicad_pro"
+        self.save(project_file)
+
+        schematic_file: Path | None = None
+        if self.schematic is not None:
+            schematic_file = target_dir / f"{self.name}.kicad_sch"
+            self.schematic.save(schematic_file)
+
+        symbol_table: Path | None = None
+        if self.symbol_library_table is not None:
+            symbol_table = target_dir / KiCadLibraryTableKind.SYMBOL.file_name
+            self.symbol_library_table.write(symbol_table)
+
+        footprint_table: Path | None = None
+        if self.footprint_library_table is not None:
+            footprint_table = target_dir / KiCadLibraryTableKind.FOOTPRINT.file_name
+            self.footprint_library_table.write(footprint_table)
+
+        pcb_file: Path | None = None
+        if self.pcb is not None:
+            pcb_file = target_dir / f"{self.name}.kicad_pcb"
+            self.pcb.save(pcb_file)
+
+        return KiCadProjectFiles(
+            project_dir=target_dir,
+            project_file=project_file,
+            schematic_file=schematic_file,
+            worksheet_file=self.worksheet_path,
+            pcb_file=pcb_file,
+            symbol_table=symbol_table,
+            footprint_table=footprint_table,
+        )
+
     # ---- Variant catalog mutators -------------------------------------
 
     def _variants_list(self, *, create: bool = False) -> list[dict[str, Any]]:
@@ -582,6 +805,7 @@ def find_adjacent_kicad_project_path(pcb_path: Path | str) -> Path | None:
 
 __all__ = [
     "KiCadProject",
+    "KiCadProjectFiles",
     "KiCadProjectBoardDesignSettings",
     "KiCadProjectDiffPairDimensions",
     "KiCadProjectNetClass",

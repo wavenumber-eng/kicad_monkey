@@ -1,9 +1,9 @@
 """Standard KiCad schematic page sizes and their nominal dimensions.
 
 The single source of truth for the page-size *choice list* and the dimension
-readout that front-ends show (e.g. ``kcr project create``).  Dimensions here are
-nominal landscape millimetres for display; the precise, plotter-rounded values
-used when rendering live in :mod:`kicad_schematic_to_ir`.
+readout that callers can show.  Dimensions here are nominal landscape
+millimetres for display; the precise, plotter-rounded values used when
+rendering live in :mod:`kicad_schematic_to_ir`.
 """
 
 from __future__ import annotations

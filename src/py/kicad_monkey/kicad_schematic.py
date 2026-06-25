@@ -516,6 +516,19 @@ class KiCadSchematic:
         sch._raw_sexp = sexp
         return sch
 
+    def embed_worksheet(self, path: Path | str) -> EmbeddedFile:
+        """Embed a ``.wks`` drawing sheet into this schematic.
+
+        Packs the worksheet via :meth:`EmbeddedFile.from_worksheet`, appends it
+        to :attr:`embedded_files`, and flips :attr:`embedded_fonts` on (KiCad
+        sets the flag once any file is embedded). Returns the embedded entry so
+        callers can wire its ``kicad-embed://`` reference into the project.
+        """
+        embedded = EmbeddedFile.from_worksheet(path)
+        self.embedded_files.append(embedded)
+        self.embedded_fonts = True
+        return embedded
+
     @public_api
     def save(self, path: Path | str) -> None:
         """Save schematic to file. Canonical save method per ADR-0043."""

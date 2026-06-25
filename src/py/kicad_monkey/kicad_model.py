@@ -8,6 +8,7 @@ Note: Model and EmbeddedFile are kept together as they're closely related.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional, Tuple
 
 from .kicad_sexpr import QuotedString, FormattedDataBlock
@@ -69,6 +70,29 @@ class EmbeddedFile:
     file_type: str
     data: str  # Base64 encoded data
     checksum: str = ""
+
+    @classmethod
+    def from_worksheet(cls, path: Path | str) -> 'EmbeddedFile':
+        """Pack a ``.wks`` drawing sheet into a KiCad embedded-file payload.
+
+        Uses the same scheme KiCad reads: zstd-compressed, base64-encoded data
+        with a SHA-256 checksum of the raw bytes. The KiCad format primitive
+        lives here so higher layers never re-implement compression/hashing.
+        """
+        import base64
+        import hashlib
+
+        import zstandard
+
+        wks_path = Path(path)
+        payload = wks_path.read_bytes()
+        compressed = zstandard.ZstdCompressor().compress(payload)
+        return cls(
+            name=wks_path.name,
+            file_type="worksheet",
+            data=base64.b64encode(compressed).decode("ascii"),
+            checksum=hashlib.sha256(payload).hexdigest(),
+        )
 
     @classmethod
     def from_sexp(cls, sexp: list) -> 'EmbeddedFile':
