@@ -80,6 +80,7 @@ exclude = [
     "docs/plans/**",
     "docs/research/**",
     "rack_results/**",
+    "tests/corpus/**",
     "tests/**/output/**",
     "**/__pycache__/**",
 ]
