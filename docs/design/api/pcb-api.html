@@ -31,13 +31,23 @@
       remains canonical through the plotter IR renderer; `KiCadPcb.to_svg()`
       delegates to that path rather than maintaining a second direct renderer.
     </p>
+    <h3>Construction Model</h3>
+    <p>
+      Existing code may use <code>KiCadPcb(path)</code> to parse a file or
+      <code>KiCadPcb()</code> as an empty parser/model container.
+      <code>from_file</code> is the named loader. <code>KiCadPcb.new()</code>
+      is reserved for a blank KiCad-openable board with default document state,
+      including the standard layer stack and setup block.
+    </p>
     <h3>Test Requirements</h3>
     <p>
       Tests must cover board property mutation, object add/remove, read-only
       object queries, the public board IR entrypoint, graphical source-model
       bounds, layer-filtered board bounds, and IR-backed SVG wrapper behavior.
       Numerical bounds parity should be proven with analytic cases and a direct
-      KiCad bbox oracle when the patched CLI is available.
+      KiCad bbox oracle when the patched CLI is available. Blank-board creation
+      tests must prove <code>KiCadPcb.new()</code> emits a valid default layer
+      stack rather than the lower-level empty container.
     </p>
     <h3>Working Definition</h3>
     <p>

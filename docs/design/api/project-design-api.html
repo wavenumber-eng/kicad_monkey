@@ -18,21 +18,36 @@
     <p>
       Project-level tools need stable access to `.kicad_pro` text variables,
       variants, and JSON persistence without depending on raw dictionaries.
+      Project creation tools also need a named aggregate API for assembling a
+      new project folder without overloading the public constructor.
     </p>
     <h3>Purpose</h3>
     <p>
       Wrap project JSON with typed helpers for text variables, variant lookup,
-      serialization, and future project metadata.
+      serialization, and future project metadata. For new project folders,
+      <code>KiCadProject.create(name, directory)</code> starts the writable
+      aggregate that can attach schematics, boards, library tables, worksheet
+      references, and then write the resulting folder.
+    </p>
+    <h3>Construction Model</h3>
+    <p>
+      <code>from_file</code>, <code>from_text</code>, and
+      <code>from_json_dict</code> load existing project JSON. The dataclass
+      constructor keeps its existing project-facade field order for
+      compatibility. New multi-file project assembly uses
+      <code>KiCadProject.create</code>, not positional constructor overloads.
     </p>
     <h3>Test Requirements</h3>
     <p>
       Tests must cover JSON construction, text-variable get/set/remove behavior,
-      variant iteration, file writing, and reload.
+      variant iteration, file writing, reload, constructor compatibility, and
+      <code>KiCadProject.create</code> folder assembly.
     </p>
     <h3>Working Definition</h3>
     <p>
       A project facade is public when callers can handle common project metadata
-      without direct raw-JSON mutation.
+      without direct raw-JSON mutation, and can create new project folders
+      through a named aggregate operation.
     </p>
   </section>
 

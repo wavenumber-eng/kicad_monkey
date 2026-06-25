@@ -24,10 +24,20 @@
       Own the schematic-level OOP model, expose object/property query views,
       and provide stable add, remove, lookup, serialization, and IR entrypoints.
     </p>
+    <h3>Construction Model</h3>
+    <p>
+      Existing code may use <code>KiCadSchematic(path)</code> to parse a file
+      or <code>KiCadSchematic()</code> as an empty schematic model.
+      <code>from_file</code> and <code>from_text</code> are the named loaders.
+      A separate <code>new</code> constructor is not part of the public
+      schematic API unless a future change needs a distinct KiCad-default blank
+      document state.
+    </p>
     <h3>Test Requirements</h3>
     <p>
       Tests must cover object mutation, property aggregation, read-only query
-      views, symbol lookup behavior, and the public IR entrypoint.
+      views, symbol lookup behavior, constructor/load behavior, and the public
+      IR entrypoint.
     </p>
     <h3>Working Definition</h3>
     <p>

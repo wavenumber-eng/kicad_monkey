@@ -1,6 +1,6 @@
 [project]
 name = "kicad-monkey"
-version = "2026.6.19"
+version = "2026.6.25"
 description = "Core KiCad parser, round-trip, and 2D rendering tooling"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"

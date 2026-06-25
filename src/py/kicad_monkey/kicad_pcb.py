@@ -60,7 +60,15 @@ from .kicad_sexpr import parse_sexp, QuotedString
 
 # Import from modular files
 from .kicad_base import (
+    BACK_COPPER_LAYER,
+    BACK_MASK_LAYER,
+    BACK_PASTE_LAYER,
+    BACK_SILKSCREEN_LAYER,
     EDGE_CUTS_LAYER,
+    FRONT_COPPER_LAYER,
+    FRONT_MASK_LAYER,
+    FRONT_PASTE_LAYER,
+    FRONT_SILKSCREEN_LAYER,
     # Constants
     INDENT_CHAR,
     INDENT_SIZE,
@@ -439,6 +447,85 @@ def _append_pcb_embedded_files(result: list, pcb: "KiCadPcb") -> None:
         result.append(ef_elem)
 
 
+# Default board scaffold matching KiCad's File -> New Board stack, expressed
+# through the object model rather than a hard-coded s-expression template.
+# ``(ordinal, canonical_name, type, user_name)`` per KiCad's standard layer set.
+_DEFAULT_LAYER_STACK: tuple[tuple[int, str, LayerType, str | None], ...] = (
+    (0, FRONT_COPPER_LAYER, LayerType.SIGNAL, None),
+    (2, BACK_COPPER_LAYER, LayerType.SIGNAL, None),
+    (9, "F.Adhes", LayerType.USER, "F.Adhesive"),
+    (11, "B.Adhes", LayerType.USER, "B.Adhesive"),
+    (13, FRONT_PASTE_LAYER, LayerType.USER, None),
+    (15, BACK_PASTE_LAYER, LayerType.USER, None),
+    (5, FRONT_SILKSCREEN_LAYER, LayerType.USER, "F.Silkscreen"),
+    (7, BACK_SILKSCREEN_LAYER, LayerType.USER, "B.Silkscreen"),
+    (1, FRONT_MASK_LAYER, LayerType.USER, None),
+    (3, BACK_MASK_LAYER, LayerType.USER, None),
+    (17, "Dwgs.User", LayerType.USER, "User.Drawings"),
+    (19, "Cmts.User", LayerType.USER, "User.Comments"),
+    (21, "Eco1.User", LayerType.USER, "User.Eco1"),
+    (23, "Eco2.User", LayerType.USER, "User.Eco2"),
+    (25, EDGE_CUTS_LAYER, LayerType.USER, None),
+    (27, "Margin", LayerType.USER, None),
+    (31, "F.CrtYd", LayerType.USER, "F.Courtyard"),
+    (29, "B.CrtYd", LayerType.USER, "B.Courtyard"),
+    (35, "F.Fab", LayerType.USER, None),
+    (33, "B.Fab", LayerType.USER, None),
+    (39, "User.1", LayerType.USER, None),
+    (41, "User.2", LayerType.USER, None),
+    (43, "User.3", LayerType.USER, None),
+    (45, "User.4", LayerType.USER, None),
+)
+
+
+def _default_layer_stack() -> List[Layer]:
+    """Build KiCad's default board layer set as ``Layer`` objects."""
+    return [
+        Layer(ordinal=ordinal, canonical_name=name, layer_type=layer_type, user_name=user_name)
+        for ordinal, name, layer_type, user_name in _DEFAULT_LAYER_STACK
+    ]
+
+
+def _default_setup_sexp() -> list:
+    """Build KiCad's default board ``(setup)`` block as an s-expression list.
+
+    The setup block is modeled as raw s-expression on :class:`KiCadPcb`
+    (``setup_sexp``); this composes the default plotting/soldermask settings a
+    fresh KiCad board carries so a blank board opens with sensible defaults.
+    """
+    return [
+        "setup",
+        ["pad_to_mask_clearance", 0],
+        ["allow_soldermask_bridges_in_footprints", "no"],
+        ["tenting", ["front", "yes"], ["back", "yes"]],
+        ["covering", ["front", "no"], ["back", "no"]],
+        ["plugging", ["front", "no"], ["back", "no"]],
+        ["capping", "no"],
+        ["filling", "no"],
+        [
+            "pcbplotparams",
+            ["layerselection", "0x00000000_00000000_55555555_5755f5ff"],
+            ["plot_on_all_layers_selection", "0x00000000_00000000_00000000_00000000"],
+            ["disableapertmacros", "no"],
+            ["usegerberextensions", "no"],
+            ["usegerberattributes", "yes"],
+            ["usegerberadvancedattributes", "yes"],
+            ["creategerberjobfile", "yes"],
+            ["svgprecision", 4],
+            ["plotframeref", "no"],
+            ["mode", 1],
+            ["useauxorigin", "no"],
+            ["plot_black_and_white", "yes"],
+            ["subtractmaskfromsilk", "no"],
+            ["outputformat", 1],
+            ["mirror", "no"],
+            ["drillshape", 1],
+            ["scaleselection", 1],
+            ["outputdirectory", QuotedString("")],
+        ],
+    ]
+
+
 @public_api
 class KiCadPcb:
     """
@@ -566,6 +653,22 @@ class KiCadPcb:
         """Parse KiCad PCB content from string."""
         sexp = parse_sexp(content)
         return cls.from_sexp(sexp)
+
+    @classmethod
+    @public_api
+    def new(cls, *, paper: str = KICAD_DEFAULT_PAPER) -> 'KiCadPcb':
+        """Create a blank, openable board with KiCad's default 2-layer stack.
+
+        The bare constructor leaves ``layers`` empty, which KiCad rejects with
+        "0 is not a valid layer count"; this seeds the standard copper stack and
+        a default ``setup`` block — both built through the object model — so the
+        board opens in KiCad.
+        """
+        pcb = cls()
+        pcb.layers = _default_layer_stack()
+        pcb.setup_sexp = _default_setup_sexp()
+        pcb.paper = paper
+        return pcb
 
     @classmethod
     def from_sexp(cls, sexp: list) -> 'KiCadPcb':

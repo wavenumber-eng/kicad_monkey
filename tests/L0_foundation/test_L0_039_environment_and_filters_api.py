@@ -125,16 +125,18 @@ def test_kicad_environment_handles_null_environment_vars(tmp_path) -> None:
 def test_kicad_environment_path_variable_map_overlays_config(tmp_path) -> None:
     local_app_data = tmp_path / "local-app-data"
     install_100 = _fake_install(local_app_data, "10.0", with_models=True)
-    app_data = tmp_path / "roaming"
+    home = tmp_path / "home"
     _write_kicad_common(
-        app_data,
+        home / ".config",
         "10.0",
         {"environment": {"vars": {"KICAD10_3DMODEL_DIR": "C:/custom/models", "ANT3DMDL": "C:/ant"}}},
     )
 
+    # Use linux config discovery to isolate this overlay test from real Windows
+    # KiCad installs under the hardcoded Program Files roots.
     environment = KiCadEnvironment(
-        env={"LOCALAPPDATA": str(local_app_data), "APPDATA": str(app_data)},
-        platform="win32",
+        env={"LOCALAPPDATA": str(local_app_data), "HOME": str(home)},
+        platform="linux",
     )
 
     install_dir = str(install_100 / "share" / "kicad" / "3dmodels")

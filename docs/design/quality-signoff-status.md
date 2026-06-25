@@ -1,7 +1,7 @@
 # Quality Signoff Status
 
 Status: public-release bootstrap audit
-Last updated: 2026-06-19
+Last updated: 2026-06-25
 
 ## Passing Gates
 
@@ -23,6 +23,9 @@ Last updated: 2026-06-19
 - CI restores the corpus archive from the public object URL recorded in
   `tests/corpus/kicad.archive.toml`, verifies it, runs Rack L0 and L99, builds
   the package, runs `twine check`, and verifies installed-package imports.
+- The 2026-06-25 release adds the new-project aggregate API, documents the
+  public constructor convention in ADR-008, and keeps the public corpus archive
+  restored from object storage instead of Git LFS.
 - The 2026-06-19 release adds KiCad-parity PCB graphical bounds, direct bbox
   oracle coverage, R2-backed KiCad CLI restore tooling, and keeps PCB SVG output
   canonical through the plotter IR renderer.

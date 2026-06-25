@@ -18,6 +18,7 @@ from .kicad_defaults import (
 )
 from .kicad_sexpr import parse_sexp, build_sexp, format_sexp, QuotedString
 from .kicad_base import find_element, find_all_elements, get_value, unquote_string
+from .kicad_model import EmbeddedFile
 
 if TYPE_CHECKING:
     from .kicad_lib_symbol import LibSymbol
@@ -203,7 +204,7 @@ class KiCadSchematic:
             >>> sch = KiCadSchematic("design.kicad_sch")  # parse file
             >>> sch = KiCadSchematic()                      # empty
         """
-        from .kicad_sch_title_block import PaperSize
+        from .kicad_sch_title_block import PaperSize, TitleBlock
 
         self.version: int = KICAD_SCHEMATIC_FILE_VERSION
         self.generator: str = KICAD_SCHEMATIC_GENERATOR
@@ -212,7 +213,7 @@ class KiCadSchematic:
 
         # Paper and title block
         self.paper: PaperSize = PaperSize()
-        self.title_block = None
+        self.title_block: TitleBlock | None = None
 
         # Local symbol definitions (copies from libraries)
         self.lib_symbols: list = []
@@ -262,6 +263,9 @@ class KiCadSchematic:
 
         # KiCad 9 features
         self.embedded_fonts: bool = False
+        # Embedded files (worksheet/drawing sheet, fonts, models, …), keyed by
+        # ``kicad-embed://<name>`` references elsewhere in the project.
+        self.embedded_files: list[EmbeddedFile] = []
 
         self._raw_sexp = None
 
@@ -467,6 +471,13 @@ class KiCadSchematic:
         embedded_fonts_val = get_value(sexp, 'embedded_fonts', 'no')
         embedded_fonts = embedded_fonts_val == 'yes'
 
+        # Embedded files (worksheet, fonts, models, …)
+        embedded_files: list[EmbeddedFile] = []
+        ef_elem = find_element(sexp, 'embedded_files')
+        if ef_elem:
+            for file_elem in find_all_elements(ef_elem, 'file'):
+                embedded_files.append(EmbeddedFile.from_sexp(file_elem))
+
         sch = cls()
         sch.version = version
         sch.generator = generator
@@ -501,8 +512,22 @@ class KiCadSchematic:
         sch.sheet_instances = sheet_instances
         sch.symbol_instances = symbol_instances
         sch.embedded_fonts = embedded_fonts
+        sch.embedded_files = embedded_files
         sch._raw_sexp = sexp
         return sch
+
+    def embed_worksheet(self, path: Path | str) -> EmbeddedFile:
+        """Embed a ``.wks`` drawing sheet into this schematic.
+
+        Packs the worksheet via :meth:`EmbeddedFile.from_worksheet`, appends it
+        to :attr:`embedded_files`, and flips :attr:`embedded_fonts` on (KiCad
+        sets the flag once any file is embedded). Returns the embedded entry so
+        callers can wire its ``kicad-embed://`` reference into the project.
+        """
+        embedded = EmbeddedFile.from_worksheet(path)
+        self.embedded_files.append(embedded)
+        self.embedded_fonts = True
+        return embedded
 
     @public_api
     def save(self, path: Path | str) -> None:
@@ -621,6 +646,12 @@ class KiCadSchematic:
 
         # Embedded fonts
         result.append(['embedded_fonts', 'yes' if self.embedded_fonts else 'no'])
+
+        # Embedded files (worksheet/fonts/models) — KiCad emits these after fonts.
+        if self.embedded_files:
+            block: list[Any] = ['embedded_files']
+            block.extend(ef.to_sexp() for ef in self.embedded_files)
+            result.append(block)
 
         return result
 

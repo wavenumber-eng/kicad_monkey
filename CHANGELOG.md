@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026.6.25
+
+- Add a new-project assembly surface to `KiCadProject`: start a writable blank
+  project with `KiCadProject.create(name, directory)`, attach pieces through the
+  object model with `add_schematic`, `set_worksheet`, `add_pcb`,
+  `add_symbol_library` / `add_footprint_library` / `ensure_library_tables`, and
+  write the whole folder with `write_project`.
+- Add ADR-008 and update the design docs to make constructor compatibility and
+  the `from_*` / `new` / `create` naming split explicit.
+- Add `EmbeddedFile.from_worksheet` and `KiCadSchematic.embed_worksheet` for
+  packing `.wks` drawing sheets (zstd + SHA-256) as KiCad embedded files.
+- Build `KiCadPcb.new()`'s default board entirely through the object model:
+  the standard layer set is composed from `Layer` objects and the default
+  `setup` block from an s-expression builder, replacing the hard-coded template.
+- Model the schematic `(embedded_files)` block so embedded worksheets, fonts,
+  and models survive a parse/serialize round-trip (previously dropped on emit).
+- Add `KICAD_PAGE_SIZES`, `KICAD_PAGE_DIMENSIONS_MM`, and `kicad_page_size_label`
+  as the single source of truth for standard schematic page sizes.
+
 ## 2026.6.19
 
 - Fix `KiCadPcb.get_bounds()` for split PCB graphical shapes by adding
