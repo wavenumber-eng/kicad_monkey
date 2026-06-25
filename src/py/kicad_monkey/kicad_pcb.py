@@ -60,7 +60,15 @@ from .kicad_sexpr import parse_sexp, QuotedString
 
 # Import from modular files
 from .kicad_base import (
+    BACK_COPPER_LAYER,
+    BACK_MASK_LAYER,
+    BACK_PASTE_LAYER,
+    BACK_SILKSCREEN_LAYER,
     EDGE_CUTS_LAYER,
+    FRONT_COPPER_LAYER,
+    FRONT_MASK_LAYER,
+    FRONT_PASTE_LAYER,
+    FRONT_SILKSCREEN_LAYER,
     # Constants
     INDENT_CHAR,
     INDENT_SIZE,
@@ -443,21 +451,21 @@ def _append_pcb_embedded_files(result: list, pcb: "KiCadPcb") -> None:
 # through the object model rather than a hard-coded s-expression template.
 # ``(ordinal, canonical_name, type, user_name)`` per KiCad's standard layer set.
 _DEFAULT_LAYER_STACK: tuple[tuple[int, str, LayerType, str | None], ...] = (
-    (0, "F.Cu", LayerType.SIGNAL, None),
-    (2, "B.Cu", LayerType.SIGNAL, None),
+    (0, FRONT_COPPER_LAYER, LayerType.SIGNAL, None),
+    (2, BACK_COPPER_LAYER, LayerType.SIGNAL, None),
     (9, "F.Adhes", LayerType.USER, "F.Adhesive"),
     (11, "B.Adhes", LayerType.USER, "B.Adhesive"),
-    (13, "F.Paste", LayerType.USER, None),
-    (15, "B.Paste", LayerType.USER, None),
-    (5, "F.SilkS", LayerType.USER, "F.Silkscreen"),
-    (7, "B.SilkS", LayerType.USER, "B.Silkscreen"),
-    (1, "F.Mask", LayerType.USER, None),
-    (3, "B.Mask", LayerType.USER, None),
+    (13, FRONT_PASTE_LAYER, LayerType.USER, None),
+    (15, BACK_PASTE_LAYER, LayerType.USER, None),
+    (5, FRONT_SILKSCREEN_LAYER, LayerType.USER, "F.Silkscreen"),
+    (7, BACK_SILKSCREEN_LAYER, LayerType.USER, "B.Silkscreen"),
+    (1, FRONT_MASK_LAYER, LayerType.USER, None),
+    (3, BACK_MASK_LAYER, LayerType.USER, None),
     (17, "Dwgs.User", LayerType.USER, "User.Drawings"),
     (19, "Cmts.User", LayerType.USER, "User.Comments"),
     (21, "Eco1.User", LayerType.USER, "User.Eco1"),
     (23, "Eco2.User", LayerType.USER, "User.Eco2"),
-    (25, "Edge.Cuts", LayerType.USER, None),
+    (25, EDGE_CUTS_LAYER, LayerType.USER, None),
     (27, "Margin", LayerType.USER, None),
     (31, "F.CrtYd", LayerType.USER, "F.Courtyard"),
     (29, "B.CrtYd", LayerType.USER, "B.Courtyard"),
