@@ -58,6 +58,7 @@ Run `kicad-cruncher <command> --help` for command-specific options.
 | `pcb-svg` | Generate PCB layer SVG artifacts and configured design views, including geometer-backed assembly HLR overlays. | Public |
 | `plugin` | Install, inspect, and remove bundled KiCad IPC plugin packages. | Public |
 | `pnp` | Generate KiCad pick-and-place JSON, CSV, XLSX, and JLC CPL outputs using component-center coordinates relative to the aux axis/drill-place file origin. | Public |
+| `project` | Scaffold a new KiCad project (`.kicad_pro` + top-level `.kicad_sch`, optional embedded worksheet, library tables, PCB, title-block metadata, and text variables) from flags, a JSONC config, or the interactive `--tui` form. | Public |
 | `project-lib` | Extract metadata-preserving project-local symbol and footprint libraries, defaulting to `./local-library/` and updating project library tables by default. Aliases: `project-library`, `project-local-lib`, `local-library`. | Public |
 | `schematic` | Run schematic utility commands, currently exposing the deferred schematic cleanup planning stub. | Public |
 | `version` | Print `kicad-cruncher` and controlled dependency versions. | Public |

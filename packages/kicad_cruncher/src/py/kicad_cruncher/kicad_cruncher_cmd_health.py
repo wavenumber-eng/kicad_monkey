@@ -116,6 +116,31 @@ def _model_reference_issue(ref: dict[str, object]) -> str | None:
     return None
 
 
+def _model_issue_key(ref: dict[str, object]) -> str:
+    """Return the unique-model-file identity used to de-duplicate model issues.
+
+    The same genuinely-missing model file is referenced from every footprint
+    that uses it, including the copies that ``project-lib`` writes into the
+    generated local library. Counting once per reference inflates the missing
+    count (issue #3), so issues are grouped by the model file itself, preferring
+    the resolved path and falling back to the raw reference string.
+    """
+    for field in ("resolved_path", "model_path", "embedded_name", "path"):
+        value = str(ref.get(field, "") or "")
+        if value:
+            return value
+    return ""
+
+
+def _model_reference_site(ref: dict[str, object]) -> dict[str, object]:
+    """Return the place a model is referenced, for listing under a grouped issue."""
+    return {
+        "source_kind": ref.get("source_kind", ""),
+        "source_path": ref.get("source_path", ""),
+        "owner": ref.get("owner", ""),
+    }
+
+
 def _health_payload(project_path: Path, asset_scan: dict[str, object]) -> dict[str, object]:
     model_refs = _dict_list(asset_scan.get("model_references", []))
     footprints_without_models = _dict_list(asset_scan.get("footprints_without_models", []))
@@ -123,14 +148,24 @@ def _health_payload(project_path: Path, asset_scan: dict[str, object]) -> dict[s
     kind_counts = Counter(str(ref.get("reference_kind", "unknown")) for ref in model_refs)
     issue_refs: list[dict[str, object]] = []
     issue_counts: Counter[str] = Counter()
+    grouped_issues: dict[tuple[str, str], dict[str, object]] = {}
     for ref in model_refs:
         issue = _model_reference_issue(ref)
         if issue is None:
             continue
-        issue_counts[issue] += 1
-        issue_ref = dict(ref)
-        issue_ref["issue"] = issue
-        issue_refs.append(issue_ref)
+        group_key = (issue, _model_issue_key(ref))
+        group = grouped_issues.get(group_key)
+        if group is None:
+            group = dict(ref)
+            group["issue"] = issue
+            group["references"] = []
+            grouped_issues[group_key] = group
+            issue_refs.append(group)
+            issue_counts[issue] += 1
+        references = group["references"]
+        assert isinstance(references, list)
+        references.append(_model_reference_site(ref))
+        group["reference_count"] = len(references)
 
     if footprints_without_models:
         issue_counts["footprint_without_model"] = len(footprints_without_models)

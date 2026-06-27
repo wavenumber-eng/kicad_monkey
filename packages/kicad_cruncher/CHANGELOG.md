@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026.6.25
+
+- Update the controlled `kicad-monkey` dependency to `2026.6.25` for the
+  object-model new-project assembly API (`KiCadProject.create`,
+  `KICAD_PAGE_SIZES`, `kicad_page_size_label`).
+- Add the `project` command with a `create` subcommand that scaffolds a KiCad
+  project from flags, a JSONC `--config`, or an interactive `--tui` form, with
+  all KiCad construction owned by `kicad-monkey` and the cruncher only gathering
+  input.
+- Fix `health` double-counting genuinely-missing 3D models: the same missing
+  model file is now reported once per distinct file with every reference site
+  listed under it, so registering the `project-lib` generated `local-library`
+  no longer inflates `missing_or_unresolved_model`.
+- Keep `wn-geometer==2026.6.10`.
+
 ## 2026.6.19
 
 - Update the controlled `kicad-monkey` dependency to `2026.6.19` for the PCB

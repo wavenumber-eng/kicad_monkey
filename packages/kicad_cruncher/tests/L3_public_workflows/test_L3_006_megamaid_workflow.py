@@ -391,6 +391,73 @@ def test_health_payload_counts_footprints_without_models() -> None:
     assert first_footprint_issue["designators"] == ["R1", "R2"]
 
 
+def test_health_payload_dedups_missing_model_across_libraries() -> None:
+    """Verify one missing model file is counted once even with many references.
+
+    Regression for issue #3: project-lib copies the footprint into the generated
+    local library and leaves the model reference external, so the same missing
+    STEP is scanned from both the base PCB and the library copy. Health must
+    report one distinct missing model with both reference sites listed, not two.
+    """
+    missing_model = "${KICAD9_3DMODEL_DIR}/Diode_SMD.3dshapes/Diodes_UDFN2020-6_Type-F.step"
+    report = _health_payload(
+        Path("project.kicad_pro"),
+        {
+            "schematics": [],
+            "pcbs": ["board.kicad_pcb"],
+            "symbol_libraries": [],
+            "pretty_libraries": [],
+            "footprint_files": [],
+            "model_references": [
+                {
+                    "source_kind": "footprint",
+                    "source_path": "footprints.pretty/Diodes_UDFN2020-6.kicad_mod",
+                    "owner": "Diodes_UDFN2020-6",
+                    "model_path": missing_model,
+                    "reference_kind": "env_var",
+                    "resolved_path": "",
+                    "exists": False,
+                },
+                {
+                    "source_kind": "footprint",
+                    "source_path": "local-library/Diodes_UDFN2020-6.kicad_mod",
+                    "owner": "Diodes_UDFN2020-6",
+                    "model_path": missing_model,
+                    "reference_kind": "env_var",
+                    "resolved_path": "",
+                    "exists": False,
+                },
+            ],
+            "footprints_without_models": [],
+            "diagnostics": [],
+        },
+    )
+
+    summary = report["summary"]
+    issues = report["issues"]
+    assert isinstance(summary, dict)
+    assert isinstance(issues, dict)
+
+    assert report["ok"] is False
+    assert summary["model_references"] == 2
+    assert summary["issues"] == 1
+    assert summary["issue_kinds"] == {"missing_or_unresolved_model": 1}
+
+    model_issues = issues["model_references"]
+    assert isinstance(model_issues, list)
+    assert len(model_issues) == 1
+    grouped = model_issues[0]
+    assert isinstance(grouped, dict)
+    assert grouped["model_path"] == missing_model
+    assert grouped["reference_count"] == 2
+    references = grouped["references"]
+    assert isinstance(references, list)
+    assert {str(site["source_path"]) for site in references} == {
+        "footprints.pretty/Diodes_UDFN2020-6.kicad_mod",
+        "local-library/Diodes_UDFN2020-6.kicad_mod",
+    }
+
+
 def test_library_extract_alias_help_starts() -> None:
     """Verify the library extraction alias starts."""
     for alias in ("library-extract",):

@@ -59,6 +59,9 @@ from kicad_cruncher.kicad_cruncher_cmd_plugin import (
 from kicad_cruncher.kicad_cruncher_cmd_pnp import (
     register_parser as register_pnp_parser,
 )
+from kicad_cruncher.kicad_cruncher_cmd_project import (
+    register_parser as register_project_parser,
+)
 from kicad_cruncher.kicad_cruncher_cmd_project_lib import (
     register_parser as register_project_lib_parser,
 )
@@ -232,6 +235,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     register_pcb_svg_parser(command_subparsers)
     register_plugin_parser(command_subparsers)
     register_pnp_parser(command_subparsers)
+    register_project_parser(command_subparsers)
     register_project_lib_parser(command_subparsers)
     register_schematic_parser(command_subparsers)
     version_parser = command_subparsers.add_parser("version", help="Print version information")
