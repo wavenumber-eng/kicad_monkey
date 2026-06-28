@@ -19,11 +19,12 @@ contains a matching `## YYYY.M.D` entry. The package exposes the version through
 `kicad_cruncher.__version__`, `kicad_cruncher.version()`, `kicad-cruncher
 --version`, and `kicad-cruncher version`.
 
-Publishing uses GitHub Actions with PyPI Trusted Publishing/OIDC. Local Twine
+Pushing a matching version tag, such as `v2026.6.25`, triggers GitHub Actions
+publishing with PyPI Trusted Publishing/OIDC. A GitHub Release may be created
+for release-note presentation, but it is not the publish trigger. Local Twine
 upload is a fallback only.
 
 ## Consequences
 
-CI and release workflows fail when the tag, package metadata, changelog, and
-dated release note disagree.
-
+CI and release workflows fail when the pushed tag, package metadata, changelog,
+and dated release note disagree.

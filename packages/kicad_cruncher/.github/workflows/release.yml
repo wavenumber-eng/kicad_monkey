@@ -1,8 +1,9 @@
 name: Publish
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*.*.*"
 
 permissions:
   contents: read
@@ -18,6 +19,10 @@ jobs:
       - name: Verify tag matches package version
         shell: bash
         run: |
+          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+            echo "PyPI publish must run from a version tag, not ${GITHUB_REF_TYPE}:${GITHUB_REF_NAME}."
+            exit 1
+          fi
           VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
           test "v${VERSION}" = "${GITHUB_REF_NAME}"
       - name: Verify release notes mention package version

@@ -38,9 +38,9 @@ uv run twine check dist/*
 
 ## Release Rules
 
-- `main` should represent the latest released/tagged source.
+- `main` should stay release-ready; version tags identify released source.
 - Public changes should merge through PRs with required CI.
-- Release publication should trigger validation and PyPI publishing.
+- Pushing a matching version tag should trigger validation and PyPI publishing.
 - Date-based versions are standard, for example `2026.6.4`.
 - `CHANGELOG.md` and `docs/releases/<YYYY-MM-DD>.md` must mention the current
   package version.
