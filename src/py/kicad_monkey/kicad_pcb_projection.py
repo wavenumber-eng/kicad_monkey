@@ -161,6 +161,8 @@ class KiCadPcbProjection:
         self._object_cache: dict[str, list[Any]] = {}
         self._single_cache: dict[str, Any] = {}
         self._source_by_id: dict[int, ProjectedSource] = {}
+        self._net_name_by_id: dict[int, str] | None = None
+        self._net_id_by_name: dict[str, int] | None = None
 
     @classmethod
     def from_file(cls, path: str | Path) -> "KiCadPcbProjection":
@@ -520,10 +522,11 @@ class KiCadPcbProjection:
             setattr(obj, "net", self._resolve_net_ref(net_ref))
 
     def _resolve_net_ref(self, net_ref: NetRef) -> NetRef:
-        nets = self.nets()
-        net_name_by_id = {net.ordinal: net.name for net in nets}
-        net_id_by_name = {net.name: net.ordinal for net in nets}
-        return net_ref.resolve_name(net_name_by_id).resolve_ordinal(net_id_by_name)
+        if self._net_name_by_id is None or self._net_id_by_name is None:
+            nets = self.nets()
+            self._net_name_by_id = {net.ordinal: net.name for net in nets}
+            self._net_id_by_name = {net.name: net.ordinal for net in nets}
+        return net_ref.resolve_name(self._net_name_by_id).resolve_ordinal(self._net_id_by_name)
 
     def _register_source(
         self,

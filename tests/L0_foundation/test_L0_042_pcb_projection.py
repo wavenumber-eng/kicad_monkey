@@ -85,6 +85,24 @@ def test_pcb_projection_resolves_net_references_like_full_board(tmp_path: Path) 
     assert projection.pads()[0].net.name == "/A"
 
 
+def test_pcb_projection_builds_net_lookup_once(tmp_path: Path) -> None:
+    projection = KiCadPcbProjection.from_file(_write_board(tmp_path))
+    original_nets = projection.nets
+    calls = 0
+
+    def counted_nets():
+        nonlocal calls
+        calls += 1
+        return original_nets()
+
+    projection.nets = counted_nets  # type: ignore[method-assign]
+
+    assert projection.pads()[0].net.name == "/A"
+    assert projection.segments()[0].net.name == "/A"
+    assert projection.vias()[0].net.name == "/A"
+    assert calls == 1
+
+
 def test_pcb_projection_preserves_source_metadata(tmp_path: Path) -> None:
     board_path = _write_board(tmp_path)
     projection = KiCadPcbProjection.from_file(board_path)
