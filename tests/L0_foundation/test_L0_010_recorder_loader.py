@@ -3,7 +3,7 @@ Test L0_010: Recorder JSON loader (Phase F-6)
 
 Pure-unit coverage for ``kicad_recorder_loader``: translates a
 ``kicad.plotter_recorder.v1`` JSON dump (produced by the KiCad-side
-``RECORDER_PLOTTER`` patch) into a canonical ``kicad.plotter_ir.v1``
+``RECORDER_PLOTTER`` patch) into a canonical ``kicad.plotter_ir.a0``
 :class:`KiCadPlotterDocument`.
 
 Exercises:
@@ -332,20 +332,20 @@ def test_load_recorder_dict_translates_each_op():
     doc = load_recorder_dict(_minimal_recorder_dict())
     ops = doc.records[0].operations
 
-    # Op 1: SetPageSettings — type → page_type
+    # Op 1: SetPageSettings - type -> page_type
     assert ops[0].payload["page_type"] == "A4"
     assert "type" not in ops[0].payload
 
-    # Op 2: StartPlot — page_number → page_name
+    # Op 2: StartPlot - page_number -> page_name
     assert ops[1].payload == {"page_name": "1"}
 
-    # Op 3: PenTo — plume → action
+    # Op 3: PenTo - plume -> action
     assert ops[2].payload == {"x": 0, "y": 0, "action": "U"}
 
-    # Op 4: SetDash — width_nm → line_width_nm
+    # Op 4: SetDash - width_nm -> line_width_nm
     assert ops[3].payload == {"line_width_nm": 1524, "line_style": "SOLID"}
 
-    # Op 5: EndPlot — empty
+    # Op 5: EndPlot - empty
     assert ops[4].payload == {}
 
 
@@ -417,7 +417,7 @@ def test_load_recorder_dict_object_id_from_document_id():
 
 def test_load_recorder_dict_object_id_from_source_path_stem():
     doc = load_recorder_dict(_minimal_recorder_dict(), source_path="/x/y/foo.1.json")
-    # No document_id given — falls back to source path stem
+    # No document_id given - falls back to source path stem
     assert doc.records[0].object_id == "foo.1"
 
 

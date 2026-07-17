@@ -7,6 +7,9 @@ Current contracts:
 
 - `interface_design_manifest.v0.json`: explicitly listed major public
   interfaces that require design-doc sections and Rack test ownership.
+- `kicad_plotter_ir_a0.schema.json`: JSON Schema for the
+  `kicad.plotter_ir.a0` rendering IR emitted by schematic, symbol, footprint,
+  and PCB converters.
 - `pcb_svg_enrichment_a0.schema.json`: document-level metadata embedded in
   enriched PCB SVG output.
 - `schematic_svg_enrichment_a0.schema.json`: document-level metadata embedded

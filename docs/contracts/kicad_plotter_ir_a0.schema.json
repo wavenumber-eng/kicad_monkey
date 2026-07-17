@@ -1,0 +1,1284 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wavenumber-eng.github.io/kicad_monkey/contracts/kicad_plotter_ir_a0.schema.json",
+  "title": "KiCad Plotter IR a0",
+  "description": "JSON contract for kicad.plotter_ir.a0 documents emitted by KiCad Monkey schematic, symbol, footprint, and PCB converters.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "source_kind",
+    "total_operations",
+    "records"
+  ],
+  "properties": {
+    "schema": {
+      "const": "kicad.plotter_ir.a0"
+    },
+    "source_path": {
+      "type": "string"
+    },
+    "source_kind": {
+      "type": "string",
+      "enum": [
+        "SCH",
+        "SYM",
+        "PCB",
+        "MOD",
+        "PCB_FOOTPRINT"
+      ]
+    },
+    "generated_utc": {
+      "type": "string"
+    },
+    "document_id": {
+      "type": "string"
+    },
+    "canvas": {
+      "$ref": "#/$defs/openObject"
+    },
+    "coordinate_space": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "unit": {
+          "const": "nm"
+        },
+        "y_axis": {
+          "const": "down"
+        }
+      }
+    },
+    "background_color": {
+      "$ref": "#/$defs/color"
+    },
+    "render_hints": {
+      "$ref": "#/$defs/openObject"
+    },
+    "context": {
+      "$ref": "#/$defs/context"
+    },
+    "total_operations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    }
+  },
+  "$defs": {
+    "openObject": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "hyperlink": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "href"
+          ],
+          "properties": {
+            "href": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"
+    },
+    "fill": {
+      "type": "string",
+      "enum": [
+        "NO_FILL",
+        "FILLED_SHAPE",
+        "FILLED_WITH_BG_BODYCOLOR",
+        "FILLED_WITH_COLOR",
+        "HATCH",
+        "REVERSE_HATCH",
+        "CROSS_HATCH"
+      ]
+    },
+    "lineStyle": {
+      "type": "string",
+      "enum": [
+        "DEFAULT",
+        "SOLID",
+        "DASH",
+        "DOT",
+        "DASH_DOT",
+        "DASH_DOT_DOT"
+      ]
+    },
+    "hAlign": {
+      "type": "string",
+      "enum": [
+        "GR_TEXT_H_ALIGN_LEFT",
+        "GR_TEXT_H_ALIGN_CENTER",
+        "GR_TEXT_H_ALIGN_RIGHT",
+        "GR_TEXT_H_ALIGN_INDETERMINATE"
+      ]
+    },
+    "vAlign": {
+      "type": "string",
+      "enum": [
+        "GR_TEXT_V_ALIGN_TOP",
+        "GR_TEXT_V_ALIGN_CENTER",
+        "GR_TEXT_V_ALIGN_BOTTOM",
+        "GR_TEXT_V_ALIGN_INDETERMINATE"
+      ]
+    },
+    "penAction": {
+      "type": "string",
+      "enum": [
+        "U",
+        "D",
+        "Z"
+      ]
+    },
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "pointList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/point"
+      }
+    },
+    "bounds": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "left",
+        "top",
+        "right",
+        "bottom"
+      ],
+      "properties": {
+        "left": {
+          "type": "integer"
+        },
+        "top": {
+          "type": "integer"
+        },
+        "right": {
+          "type": "integer"
+        },
+        "bottom": {
+          "type": "integer"
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "uuid",
+        "kind",
+        "object_id",
+        "operation_count",
+        "operations"
+      ],
+      "properties": {
+        "uuid": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "object_id": {
+          "type": "string"
+        },
+        "bounds": {
+          "$ref": "#/$defs/bounds"
+        },
+        "operation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/operation"
+          }
+        }
+      }
+    },
+    "knownOpKind": {
+      "type": "string",
+      "enum": [
+        "PenTo",
+        "Circle",
+        "ArcThreePoint",
+        "ArcCenterAngle",
+        "BezierCurve",
+        "Rect",
+        "PlotPoly",
+        "Text",
+        "PlotImage",
+        "ThickSegment",
+        "ThickArc",
+        "FlashPadCircle",
+        "FlashPadOval",
+        "FlashPadRect",
+        "FlashPadRoundRect",
+        "FlashPadCustom",
+        "FlashPadTrapez",
+        "FlashRegularPolygon",
+        "SetCurrentLineWidth",
+        "SetColor",
+        "SetDash",
+        "SetViewport",
+        "StartPlot",
+        "EndPlot",
+        "SetPageSettings",
+        "StartBlock",
+        "EndBlock"
+      ]
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "stroke_color": {
+          "$ref": "#/$defs/color"
+        },
+        "fill_color": {
+          "$ref": "#/$defs/color"
+        },
+        "line_style": {
+          "$ref": "#/$defs/lineStyle"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "extra_attrs": {
+          "$ref": "#/$defs/openObject"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "PenTo"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x",
+              "y",
+              "action"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "action": {
+                "$ref": "#/$defs/penAction"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "Circle"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "cx",
+              "cy",
+              "diameter_nm",
+              "fill",
+              "width_nm"
+            ],
+            "properties": {
+              "cx": {
+                "type": "integer"
+              },
+              "cy": {
+                "type": "integer"
+              },
+              "diameter_nm": {
+                "type": "integer"
+              },
+              "fill": {
+                "$ref": "#/$defs/fill"
+              },
+              "width_nm": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "ArcThreePoint"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "start_x",
+              "start_y",
+              "mid_x",
+              "mid_y",
+              "end_x",
+              "end_y",
+              "fill",
+              "width_nm"
+            ],
+            "properties": {
+              "start_x": {
+                "type": "number"
+              },
+              "start_y": {
+                "type": "number"
+              },
+              "mid_x": {
+                "type": "number"
+              },
+              "mid_y": {
+                "type": "number"
+              },
+              "end_x": {
+                "type": "number"
+              },
+              "end_y": {
+                "type": "number"
+              },
+              "fill": {
+                "$ref": "#/$defs/fill"
+              },
+              "width_nm": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "ArcCenterAngle"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "cx",
+              "cy",
+              "start_angle_deg",
+              "sweep_deg",
+              "radius_nm",
+              "fill",
+              "width_nm"
+            ],
+            "properties": {
+              "cx": {
+                "type": "number"
+              },
+              "cy": {
+                "type": "number"
+              },
+              "start_angle_deg": {
+                "type": "number"
+              },
+              "sweep_deg": {
+                "type": "number"
+              },
+              "radius_nm": {
+                "type": "number"
+              },
+              "fill": {
+                "$ref": "#/$defs/fill"
+              },
+              "width_nm": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "BezierCurve"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "start_x",
+              "start_y",
+              "ctrl1_x",
+              "ctrl1_y",
+              "ctrl2_x",
+              "ctrl2_y",
+              "end_x",
+              "end_y",
+              "tolerance_nm",
+              "width_nm"
+            ],
+            "properties": {
+              "start_x": {
+                "type": "integer"
+              },
+              "start_y": {
+                "type": "integer"
+              },
+              "ctrl1_x": {
+                "type": "integer"
+              },
+              "ctrl1_y": {
+                "type": "integer"
+              },
+              "ctrl2_x": {
+                "type": "integer"
+              },
+              "ctrl2_y": {
+                "type": "integer"
+              },
+              "end_x": {
+                "type": "integer"
+              },
+              "end_y": {
+                "type": "integer"
+              },
+              "tolerance_nm": {
+                "type": "integer"
+              },
+              "width_nm": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "Rect"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x1",
+              "y1",
+              "x2",
+              "y2",
+              "fill",
+              "width_nm",
+              "corner_radius_nm"
+            ],
+            "properties": {
+              "x1": {
+                "type": "integer"
+              },
+              "y1": {
+                "type": "integer"
+              },
+              "x2": {
+                "type": "integer"
+              },
+              "y2": {
+                "type": "integer"
+              },
+              "fill": {
+                "$ref": "#/$defs/fill"
+              },
+              "width_nm": {
+                "type": "integer"
+              },
+              "corner_radius_nm": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "PlotPoly"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "points",
+              "fill",
+              "width_nm"
+            ],
+            "properties": {
+              "points": {
+                "$ref": "#/$defs/pointList"
+              },
+              "fill": {
+                "$ref": "#/$defs/fill"
+              },
+              "width_nm": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "Text"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x",
+              "y",
+              "text",
+              "color",
+              "orient_deg",
+              "size_x_nm",
+              "size_y_nm",
+              "h_align",
+              "v_align",
+              "pen_width_nm",
+              "italic",
+              "bold",
+              "multiline",
+              "font_face"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "text": {
+                "type": "string"
+              },
+              "color": {
+                "$ref": "#/$defs/color"
+              },
+              "orient_deg": {
+                "type": "number"
+              },
+              "size_x_nm": {
+                "type": "integer"
+              },
+              "size_y_nm": {
+                "type": "integer"
+              },
+              "h_align": {
+                "$ref": "#/$defs/hAlign"
+              },
+              "v_align": {
+                "$ref": "#/$defs/vAlign"
+              },
+              "pen_width_nm": {
+                "type": "integer"
+              },
+              "italic": {
+                "type": "boolean"
+              },
+              "bold": {
+                "type": "boolean"
+              },
+              "multiline": {
+                "type": "boolean"
+              },
+              "font_face": {
+                "type": "string"
+              },
+              "render_cache_polygons": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/pointList"
+                }
+              },
+              "render_cache": {
+                "$ref": "#/$defs/openObject"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "PlotImage"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x",
+              "y",
+              "width_nm",
+              "height_nm",
+              "scale",
+              "image_data_b64",
+              "image_format"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "width_nm": {
+                "type": "integer"
+              },
+              "height_nm": {
+                "type": "integer"
+              },
+              "scale": {
+                "type": "number"
+              },
+              "image_data_b64": {
+                "type": "string"
+              },
+              "image_format": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "ThickSegment"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "start_x",
+              "start_y",
+              "end_x",
+              "end_y",
+              "width_nm"
+            ],
+            "properties": {
+              "start_x": {
+                "type": "integer"
+              },
+              "start_y": {
+                "type": "integer"
+              },
+              "end_x": {
+                "type": "integer"
+              },
+              "end_y": {
+                "type": "integer"
+              },
+              "width_nm": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "ThickArc"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "cx",
+              "cy",
+              "start_angle_deg",
+              "sweep_deg",
+              "radius_nm",
+              "width_nm"
+            ],
+            "properties": {
+              "cx": {
+                "type": "number"
+              },
+              "cy": {
+                "type": "number"
+              },
+              "start_angle_deg": {
+                "type": "number"
+              },
+              "sweep_deg": {
+                "type": "number"
+              },
+              "radius_nm": {
+                "type": "number"
+              },
+              "width_nm": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "FlashPadCircle"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x",
+              "y",
+              "diameter_nm"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "diameter_nm": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "FlashPadOval"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x",
+              "y",
+              "size_x_nm",
+              "size_y_nm",
+              "orient_deg"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "size_x_nm": {
+                "type": "integer"
+              },
+              "size_y_nm": {
+                "type": "integer"
+              },
+              "orient_deg": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "FlashPadRect"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x",
+              "y",
+              "size_x_nm",
+              "size_y_nm",
+              "orient_deg"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "size_x_nm": {
+                "type": "integer"
+              },
+              "size_y_nm": {
+                "type": "integer"
+              },
+              "orient_deg": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "FlashPadRoundRect"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x",
+              "y",
+              "size_x_nm",
+              "size_y_nm",
+              "corner_radius_nm",
+              "orient_deg"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "size_x_nm": {
+                "type": "integer"
+              },
+              "size_y_nm": {
+                "type": "integer"
+              },
+              "corner_radius_nm": {
+                "type": "integer"
+              },
+              "orient_deg": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "FlashPadCustom"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x",
+              "y",
+              "size_x_nm",
+              "size_y_nm",
+              "orient_deg",
+              "polygons"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "size_x_nm": {
+                "type": "integer"
+              },
+              "size_y_nm": {
+                "type": "integer"
+              },
+              "orient_deg": {
+                "type": "number"
+              },
+              "polygons": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/pointList"
+                }
+              },
+              "polygon_widths_nm": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "anchor_shape": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "FlashPadTrapez"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x",
+              "y",
+              "corners",
+              "orient_deg"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "corners": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/point"
+                },
+                "minItems": 4,
+                "maxItems": 4
+              },
+              "orient_deg": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "FlashRegularPolygon"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "x",
+              "y",
+              "diameter_nm",
+              "corner_count",
+              "orient_deg"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "diameter_nm": {
+                "type": "integer"
+              },
+              "corner_count": {
+                "type": "integer"
+              },
+              "orient_deg": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "SetCurrentLineWidth"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "width_nm"
+            ],
+            "properties": {
+              "width_nm": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "SetColor"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "color"
+            ],
+            "properties": {
+              "color": {
+                "$ref": "#/$defs/color"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "SetDash"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "line_width_nm",
+              "line_style"
+            ],
+            "properties": {
+              "line_width_nm": {
+                "type": "integer"
+              },
+              "line_style": {
+                "$ref": "#/$defs/lineStyle"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "SetViewport"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "offset_x_nm",
+              "offset_y_nm",
+              "ius_per_decimil",
+              "scale",
+              "mirror"
+            ],
+            "properties": {
+              "offset_x_nm": {
+                "type": "integer"
+              },
+              "offset_y_nm": {
+                "type": "integer"
+              },
+              "ius_per_decimil": {
+                "type": "number"
+              },
+              "scale": {
+                "type": "number"
+              },
+              "mirror": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "StartPlot"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "page_name"
+            ],
+            "properties": {
+              "page_name": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "SetPageSettings"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "page_type",
+              "width_nm",
+              "height_nm",
+              "portrait"
+            ],
+            "properties": {
+              "page_type": {
+                "type": "string"
+              },
+              "width_nm": {
+                "type": "integer"
+              },
+              "height_nm": {
+                "type": "integer"
+              },
+              "portrait": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "StartBlock"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "label"
+            ],
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "data_uuid": {
+                "type": "string"
+              },
+              "data_ref": {
+                "type": "string"
+              },
+              "object_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

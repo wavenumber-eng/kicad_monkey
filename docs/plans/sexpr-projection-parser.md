@@ -1,3 +1,80 @@
++++
+type = "plan"
+id = "sexpr-projection-parser"
+status = "active"
+title = "KiCad Monkey Projection Parser And Domain API"
+created = "2026-06-16"
+
+[[steps]]
+id = "sexpr-projection-foundation"
+title = "Add generic S-expression projection scanner foundation"
+status = "done"
+
+[[steps]]
+id = "pcb-projection-api"
+title = "Add PCB projection API with same-type domain object hydration"
+status = "done"
+depends_on = ["sexpr-projection-foundation"]
+
+[[steps]]
+id = "projection-corpus-tests"
+title = "Add projection parity and corpus coverage tests"
+status = "done"
+depends_on = ["pcb-projection-api"]
+
+[[steps]]
+id = "projection-docs"
+title = "Move projection parser decisions into ADRs, design docs, and public API docs"
+status = "done"
+depends_on = ["projection-corpus-tests"]
+
+[[steps]]
+id = "design-doc-intent-audit"
+title = "Audit projection design docs, ADRs, requirements, and release notes against implementation"
+status = "pending"
+depends_on = ["projection-docs"]
+
+[[steps]]
+id = "test-runtime-impact-audit"
+title = "Audit projection tests and runtime impact"
+status = "pending"
+depends_on = ["projection-corpus-tests"]
+
+[[steps]]
+id = "external-review"
+title = "Obtain independent external review before projection plan closeout"
+status = "pending"
+depends_on = [
+  "design-doc-intent-audit",
+  "test-runtime-impact-audit",
+]
+
+[[exit_criteria]]
+id = "projection-api"
+title = "Projection APIs return same public domain objects as the full parser"
+status = "met"
+
+[[exit_criteria]]
+id = "projection-corpus-tests"
+title = "Projection parser behavior is covered by focused and corpus tests"
+status = "met"
+
+[[exit_criteria]]
+id = "design-doc-intent-audit"
+title = "Projection design docs, ADRs, requirements, and release notes match implemented behavior"
+status = "pending"
+
+[[exit_criteria]]
+id = "test-runtime-impact-audit"
+title = "Projection test additions and runtime impact are reviewed"
+status = "pending"
+
+[[exit_criteria]]
+id = "external-review"
+title = "Projection plan closeout has independent external review"
+status = "pending"
++++
+
 # KiCad Monkey Projection Parser And Domain API Plan
 
 Status: active implementation

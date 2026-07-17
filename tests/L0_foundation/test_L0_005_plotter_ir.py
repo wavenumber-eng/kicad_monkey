@@ -3,7 +3,7 @@ Test L0_005: Plotter IR contract (Phase F-1)
 
 Pure-unit coverage for the JSON-serializable plotter-call IR that
 mirrors KiCad's PLOTTER virtual-method vocabulary. No parser deps,
-no rendering — exercises only the IR layer (op kinds, dataclasses,
+no rendering - exercises only the IR layer (op kinds, dataclasses,
 JSON I/O, helpers, normalisation).
 """
 
@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator, ValidationError
 
 from kicad_monkey import (
     KICAD_PLOTTER_IR_SCHEMA,
@@ -37,8 +38,16 @@ from kicad_monkey import (
 # ---------------------------------------------------------------------------
 
 
+PLOTTER_IR_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "docs"
+    / "contracts"
+    / "kicad_plotter_ir_a0.schema.json"
+)
+
+
 def test_schema_constant_value():
-    assert KICAD_PLOTTER_IR_SCHEMA == "kicad.plotter_ir.v1"
+    assert KICAD_PLOTTER_IR_SCHEMA == "kicad.plotter_ir.a0"
 
 
 # ---------------------------------------------------------------------------
@@ -78,7 +87,7 @@ def test_op_kinds_match_plotter_virtuals():
 
 
 # ---------------------------------------------------------------------------
-# Op constructors → payload shape
+# Op constructors -> payload shape
 # ---------------------------------------------------------------------------
 
 
@@ -190,7 +199,7 @@ def test_rgba_shorthand_expands():
 
 
 # ---------------------------------------------------------------------------
-# Op round-trip (op → dict → op)
+# Op round-trip (op -> dict -> op)
 # ---------------------------------------------------------------------------
 
 
@@ -441,6 +450,75 @@ def test_normalized_file_round_trip(tmp_path: Path):
 # ---------------------------------------------------------------------------
 # Schema validation
 # ---------------------------------------------------------------------------
+
+
+def _plotter_ir_contract_validator() -> Draft202012Validator:
+    schema = json.loads(PLOTTER_IR_SCHEMA_PATH.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema)
+
+
+def test_plotter_ir_json_schema_validates_sample_document():
+    validator = _plotter_ir_contract_validator()
+    validator.validate(_sample_doc().to_dict())
+
+
+def test_plotter_ir_json_schema_validates_context_extensions():
+    payload = _sample_doc().to_dict()
+    payload["context"] = {"producer": "unit-test", "capabilities": ["scene"]}
+    payload["records"][0]["context"] = {"source": {"uuid": "aaaa-bbbb"}}
+    payload["records"][0]["operations"][0]["context"] = {
+        "hyperlink": {"href": "https://example.test/reference"}
+    }
+
+    validator = _plotter_ir_contract_validator()
+    validator.validate(payload)
+
+    doc = KiCadPlotterDocument.from_dict(payload)
+    assert doc.extras["context"]["producer"] == "unit-test"
+    assert doc.records[0].extras["context"]["source"]["uuid"] == "aaaa-bbbb"
+    assert (
+        doc.records[0].operations[0].payload["context"]["hyperlink"]["href"]
+        == "https://example.test/reference"
+    )
+
+
+def test_plotter_ir_json_schema_rejects_known_op_missing_required_payload():
+    payload = _sample_doc().to_dict()
+    circle = payload["records"][0]["operations"][7]
+    assert circle["kind"] == "Circle"
+    del circle["diameter_nm"]
+
+    validator = _plotter_ir_contract_validator()
+    with pytest.raises(ValidationError, match="diameter_nm"):
+        validator.validate(payload)
+
+
+def test_plotter_ir_schema_known_op_enum_matches_runtime_enum():
+    schema = json.loads(PLOTTER_IR_SCHEMA_PATH.read_text(encoding="utf-8"))
+    schema_kinds = set(schema["$defs"]["knownOpKind"]["enum"])
+    runtime_kinds = {kind.value for kind in KiCadPlotterOpKind}
+    assert schema_kinds == runtime_kinds
+
+
+def test_plotter_ir_schema_source_kind_enum_matches_emitters():
+    schema = json.loads(PLOTTER_IR_SCHEMA_PATH.read_text(encoding="utf-8"))
+    assert set(schema["properties"]["source_kind"]["enum"]) == {
+        "SCH",
+        "SYM",
+        "PCB",
+        "MOD",
+        "PCB_FOOTPRINT",
+    }
+
+
+def test_from_dict_accepts_legacy_v1_schema_but_emits_a0():
+    payload = _sample_doc().to_dict()
+    payload["schema"] = "kicad.plotter_ir.v1"
+
+    doc = KiCadPlotterDocument.from_dict(payload)
+
+    assert doc.to_dict()["schema"] == KICAD_PLOTTER_IR_SCHEMA
 
 
 def test_from_dict_rejects_missing_or_wrong_schema():

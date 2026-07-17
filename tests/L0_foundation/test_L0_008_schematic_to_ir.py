@@ -378,6 +378,23 @@ def test_global_label_to_op_emits_text():
     assert (op.payload["x"], op.payload["y"]) == (476_250, 90_804)
 
 
+def test_label_to_op_preserves_href_context():
+    lbl = SchLabel(
+        text="DOCS",
+        at_x=0.0,
+        at_y=0.0,
+        at_angle=0.0,
+        effects=Effects(
+            font=Font(size_x=1.27, size_y=1.27),
+            href="https://example.test/label",
+        ),
+    )
+
+    op = label_to_op(lbl)
+
+    assert op.payload["context"]["hyperlink"]["href"] == "https://example.test/label"
+
+
 def test_hierarchical_label_to_op_emits_text():
     lbl = _label_with_effects(SchHierarchicalLabel, text="DATA",
                               shape=LabelShape.BIDIRECTIONAL)
@@ -402,6 +419,23 @@ def test_sch_text_to_op_uses_plotted_single_text_anchor():
     assert op.payload["y"] == 1_462_000
     assert op.payload["h_align"] == KiCadHorizAlign.CENTER.value
     assert op.payload["v_align"] == KiCadVertAlign.CENTER.value
+    assert "context" not in op.payload
+
+
+def test_sch_text_to_op_preserves_href_context():
+    txt = SchText(
+        text="linked note",
+        at_x=1.0,
+        at_y=2.0,
+        effects=Effects(
+            font=Font(size_x=1.27, size_y=1.27),
+            href="https://example.test/note",
+        ),
+    )
+
+    op = sch_text_to_op(txt)
+
+    assert op.payload["context"]["hyperlink"]["href"] == "https://example.test/note"
 
 
 def test_sch_text_to_op_rotates_outline_adjust_separately_from_plot_offset():
@@ -688,6 +722,31 @@ def test_text_box_to_ops_expands_project_text_variables():
     text_ops = [op for op in ops if op.kind == KiCadPlotterOpKind.TEXT]
 
     assert [op.payload["text"] for op in text_ops] == ["alpha", "beta"]
+
+
+def test_text_box_to_ops_preserves_href_context_on_text_lines():
+    tb = SchTextBox(
+        text="alpha\nbeta",
+        at_x=0.0,
+        at_y=0.0,
+        size_x=50.0,
+        size_y=20.0,
+        margins=(0.0, 0.0, 0.0, 0.0),
+        effects=Effects(
+            font=Font(size_x=1.0, size_y=1.0),
+            justify=["left"],
+            href="https://example.test/box",
+        ),
+    )
+
+    text_ops = [
+        op for op in text_box_to_ops(tb) if op.kind == KiCadPlotterOpKind.TEXT
+    ]
+
+    assert [op.payload["context"]["hyperlink"]["href"] for op in text_ops] == [
+        "https://example.test/box",
+        "https://example.test/box",
+    ]
 
 
 def test_text_box_to_ops_wraps_long_lines_to_content_width():
@@ -1845,6 +1904,29 @@ def test_symbol_property_to_op_includes_shown_property_name():
     assert op.payload["text"] == "Mounted: Yes"
 
 
+def test_symbol_property_to_op_preserves_href_context():
+    from kicad_monkey import symbol_property_to_op
+    from kicad_monkey.kicad_sym_property import SymProperty
+
+    prop = SymProperty(
+        key="Datasheet",
+        value="open",
+        id=3,
+        at_x=10.0,
+        at_y=20.0,
+        effects=Effects(
+            font=Font(size_x=1.27, size_y=1.27),
+            href="https://example.test/datasheet",
+        ),
+        hide=False,
+    )
+
+    op = symbol_property_to_op(prop)
+
+    assert op is not None
+    assert op.payload["context"]["hyperlink"]["href"] == "https://example.test/datasheet"
+
+
 def test_symbol_property_to_op_centers_left_berkeley_mono_field_like_kicad():
     from kicad_monkey import symbol_property_to_op
     from kicad_monkey.kicad_sym_property import SymProperty
@@ -2326,6 +2408,24 @@ def test_sheet_property_to_op_includes_shown_property_name():
     assert op.payload["v_align"] == KiCadVertAlign.CENTER.value
 
 
+def test_sheet_property_to_op_preserves_href_context():
+    prop = SchSheetProperty(
+        key="Sheetfile",
+        value="child_a.kicad_sch",
+        at_x=10.0,
+        at_y=20.0,
+        effects=Effects(
+            font=Font(size_x=1.27, size_y=1.27),
+            href="https://example.test/sheet",
+        ),
+    )
+
+    op = sheet_property_to_op(prop)
+
+    assert op is not None
+    assert op.payload["context"]["hyperlink"]["href"] == "https://example.test/sheet"
+
+
 def test_sheet_pin_to_op_emits_text_body_from_name():
     pin = SchSheetPin(name="VCC", at_x=10.0, at_y=20.0, at_angle=0.0)
     op = sheet_pin_to_op(pin)
@@ -2355,6 +2455,23 @@ def test_sheet_pin_to_op_uses_effects_size_when_present():
     assert op.payload["x"] == mm_to_nm(2.3)
     assert op.payload["y"] == 0
     assert op.payload["orient_deg"] == 0.0
+
+
+def test_sheet_pin_to_op_preserves_href_context():
+    pin = SchSheetPin(
+        name="GND",
+        at_x=0.0,
+        at_y=0.0,
+        at_angle=180.0,
+        effects=Effects(
+            font=Font(size_x=2.0, size_y=2.0),
+            href="https://example.test/pin",
+        ),
+    )
+
+    op = sheet_pin_to_op(pin)
+
+    assert op.payload["context"]["hyperlink"]["href"] == "https://example.test/pin"
 
 
 def test_sheet_pin_to_op_uses_project_text_offset_ratio():

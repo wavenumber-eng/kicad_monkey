@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from .kicad_plotter_ir import KiCadPlotterOpKind
+from .kicad_plotter_ir import KICAD_PLOTTER_IR_ACCEPTED_SCHEMAS, KiCadPlotterOpKind
 from .kicad_recorder_loader import load_recorder_file
 
 
@@ -140,7 +140,7 @@ def _add_ir_file(
     style_values: dict[str, Counter[str]],
 ) -> bool:
     data = _read_json(path)
-    if not data or data.get("schema") != "kicad.plotter_ir.v1":
+    if not data or data.get("schema") not in KICAD_PLOTTER_IR_ACCEPTED_SCHEMAS:
         return False
 
     for record in data.get("records") or []:

@@ -9,6 +9,7 @@ objectives = [
     "Changelog mentions the current release version",
     "Public contribution, issue, CI, and release support files exist",
     "Developer-only plan and research docs are excluded from release artifacts",
+    "Configured dev-std audit scopes pass as part of release signoff",
     "Promoted package-root API exports resolve cleanly",
     "Source-wide ruff, complexity ratchet, and package-wide pyright gates cover the current public-signoff baseline",
     "Promoted public classes and major interfaces have design docs and Rack test ownership",
@@ -34,6 +35,7 @@ sdist_boundary = "Developer-only docs are excluded from public artifacts"
 public_api_contract = "Promoted package-root API exports resolve and retain markers"
 repo_support = "Public repository contribution, issue, CI, and release files exist"
 corpus_archive = "Public corpus archive transport is manifest-backed and not Git LFS-backed"
+dev_std = "Configured dev-std audit scopes pass"
 
 [subtests.approach]
 pytest = "Inspect package metadata and run the public API contract helper"

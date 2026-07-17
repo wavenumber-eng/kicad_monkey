@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>2026-07-16 Public Issue Requirements</title>
+  <link rel="stylesheet" href="../design/styles.css">
+</head>
+<body>
+  <h1>2026-07-16 Public Issue Requirements</h1>
+
+  <section>
+    <h2>Status</h2>
+    <p>
+      Implemented in the <code>2026.7.16a0</code> alpha release candidate.
+      These requirements are the durable closeout record for the Plotter IR
+      contract and public issues #9, #10, #11, and #12. They replace the
+      transient working plan and review summary after plan closeout.
+    </p>
+  </section>
+
+  <section>
+    <h2>Requirements</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Requirement</th>
+          <th>Acceptance Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>IR-REQ-001</td>
+          <td>Publish a machine-readable Plotter IR contract for downstream consumers.</td>
+          <td><code>docs/contracts/kicad_plotter_ir_a0.schema.json</code> validates runtime IR examples, and <code>docs/design/kicad-plotter-ir.html</code> describes the contract.</td>
+        </tr>
+        <tr>
+          <td>IR-REQ-002</td>
+          <td>Emit <code>schema = "kicad.plotter_ir.a0"</code> for new IR documents while accepting legacy <code>kicad.plotter_ir.v1</code> inputs.</td>
+          <td><code>KiCadPlotterDocument.from_dict()</code> accepts both schema strings and emits a0 on serialization.</td>
+        </tr>
+        <tr>
+          <td>IR-REQ-003</td>
+          <td>Allow non-geometric context metadata without breaking geometry consumers.</td>
+          <td>The schema and design doc allow optional document, record, and operation <code>context</code> objects, and SVG rendering ignores hyperlink context.</td>
+        </tr>
+        <tr>
+          <td>ISSUE-9-REQ-001</td>
+          <td>Preserve KiCad schematic text <code>href</code> metadata through schematic IR.</td>
+          <td>Linked text, labels, text boxes, symbol properties, sheet properties, sheet pins, and project schematic instance traversal preserve <code>context.hyperlink.href</code>.</td>
+        </tr>
+        <tr>
+          <td>ISSUE-10-REQ-001</td>
+          <td>Keep KiCad preference setup profile-neutral in <code>kicad_monkey</code>.</td>
+          <td>Preference setup merges supplied source JSON files, copies source theme files, logs source-derived settings, and no longer hard-codes Wavenumber defaults.</td>
+        </tr>
+        <tr>
+          <td>ISSUE-10-REQ-002</td>
+          <td>Keep profile names and profile payloads outside the shared library.</td>
+          <td>Library helpers use neutral defaults, and callers provide explicit profile names when needed.</td>
+        </tr>
+        <tr>
+          <td>ISSUE-11-REQ-001</td>
+          <td>Remove repeated per-component net-terminal scans from design JSON pin-count generation.</td>
+          <td>Design JSON builds one designator-to-pin-count index, counts unique pins, preserves case-sensitive and empty designator behavior, and returns zero for components without terminal records.</td>
+        </tr>
+        <tr>
+          <td>ISSUE-12-REQ-001</td>
+          <td>Align release signoff with <code>wn-dev-std</code> 2026.7.16.</td>
+          <td>L99 release signoff runs the configured dev-std audit scopes, and <code>uv run dev-std audit . --scope docs.plans --format json</code> passes during closeout.</td>
+        </tr>
+        <tr>
+          <td>REL-REQ-001</td>
+          <td>Keep publishing separate from review approval.</td>
+          <td>The release candidate is versioned as <code>2026.7.16a0</code>; no tag, GitHub release, PyPI upload, or publish workflow is run without explicit user authorization.</td>
+        </tr>
+        <tr>
+          <td>REL-REQ-002</td>
+          <td>Exclude transient planning material from public source distributions.</td>
+          <td><code>docs/plans/**</code> and <code>docs/research/**</code> remain excluded from sdist, and durable content is carried by ADR, requirements, design, contract, tests, changelog, and release notes.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Validation</h2>
+    <ul>
+      <li><code>uv run pytest tests\L99_signoff\test_L99_001_release_signoff.py -q</code></li>
+      <li><code>uv run rack run L0</code></li>
+      <li><code>uv run rack run L99</code></li>
+      <li><code>uv run dev-std audit . --scope docs.plans --format json</code></li>
+      <li>Package build and <code>twine check</code> for the alpha release candidate.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Deferred Work</h2>
+    <p>
+      <code>kicad_cruncher</code> IR export remains deferred until a public
+      <code>kicad_monkey</code> release is published. The cruncher branch may
+      carry dev-std and release-signoff baseline wiring before that dependency
+      update.
+    </p>
+  </section>
+</body>
+</html>

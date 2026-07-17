@@ -807,12 +807,15 @@ def _label_to_op(
         kwargs,
         text_offset_ratio=text_offset_ratio,
     )
-    return KiCadPlotterOp.text(
-        x=x_nm + dx_nm,
-        y=y_nm + dy_nm,
-        text=_plot_display_text(label.text),
-        orient_deg=_label_plot_orient_deg(label),
-        **kwargs,
+    return _with_text_hyperlink_context(
+        KiCadPlotterOp.text(
+            x=x_nm + dx_nm,
+            y=y_nm + dy_nm,
+            text=_plot_display_text(label.text),
+            orient_deg=_label_plot_orient_deg(label),
+            **kwargs,
+        ),
+        getattr(label, "effects", None),
     )
 
 
@@ -1286,6 +1289,26 @@ def _text_kwargs_with_plot_defaults(
             pen_width_nm = min(pen_width_nm, int((text_size * 0.25) + 0.5))
         kwargs["pen_width_nm"] = pen_width_nm
     return kwargs
+
+
+def _with_text_hyperlink_context(
+    op: KiCadPlotterOp,
+    effects,
+) -> KiCadPlotterOp:
+    href = getattr(effects, "href", None) if effects is not None else None
+    href_text = str(href).strip() if href is not None else ""
+    if not href_text:
+        return op
+
+    payload = dict(op.payload)
+    raw_context = payload.get("context")
+    context = dict(raw_context) if isinstance(raw_context, dict) else {}
+    raw_hyperlink = context.get("hyperlink")
+    hyperlink = dict(raw_hyperlink) if isinstance(raw_hyperlink, dict) else {}
+    hyperlink["href"] = href_text
+    context["hyperlink"] = hyperlink
+    payload["context"] = context
+    return KiCadPlotterOp(kind=op.kind, payload=payload)
 
 
 def _sheet_pin_text_kwargs(
@@ -2335,13 +2358,16 @@ def sch_text_to_op(
         font_face=str(kwargs.get("font_face", "") or ""),
     )
     adjust_x, adjust_y = _rotate_xy(0, -outline_adjust_nm, -float(txt.at_angle))
-    return KiCadPlotterOp.text(
-        x=mm_to_nm(txt.at_x) + _ki_round(adjust_x),
-        y=mm_to_nm(txt.at_y) - _SCH_TEXT_PLOT_OFFSET_NM + _ki_round(adjust_y),
-        text=text,
-        orient_deg=float(txt.at_angle),
-        multiline="\n" in text,
-        **kwargs,
+    return _with_text_hyperlink_context(
+        KiCadPlotterOp.text(
+            x=mm_to_nm(txt.at_x) + _ki_round(adjust_x),
+            y=mm_to_nm(txt.at_y) - _SCH_TEXT_PLOT_OFFSET_NM + _ki_round(adjust_y),
+            text=text,
+            orient_deg=float(txt.at_angle),
+            multiline="\n" in text,
+            **kwargs,
+        ),
+        txt.effects,
     )
 
 
@@ -2628,12 +2654,15 @@ def text_box_to_ops(
         if line == "":
             continue
         ops.append(
-            KiCadPlotterOp.text(
-                x=x,
-                y=y,
-                text=line,
-                orient_deg=float(tb.at_angle),
-                **text_kwargs,
+            _with_text_hyperlink_context(
+                KiCadPlotterOp.text(
+                    x=x,
+                    y=y,
+                    text=line,
+                    orient_deg=float(tb.at_angle),
+                    **text_kwargs,
+                ),
+                tb.effects,
             )
         )
     return ops
@@ -3860,12 +3889,15 @@ def symbol_property_to_op(
     else:
         kwargs.setdefault("h_align", KiCadHorizAlign.CENTER)
         kwargs.setdefault("v_align", KiCadVertAlign.CENTER)
-    return KiCadPlotterOp.text(
-        x=x_nm,
-        y=y_nm,
-        text=value,
-        orient_deg=orient_deg,
-        **kwargs,
+    return _with_text_hyperlink_context(
+        KiCadPlotterOp.text(
+            x=x_nm,
+            y=y_nm,
+            text=value,
+            orient_deg=orient_deg,
+            **kwargs,
+        ),
+        getattr(prop, "effects", None),
     )
 
 
@@ -4363,12 +4395,15 @@ def sheet_property_to_op(prop) -> Optional[KiCadPlotterOp]:
         text = f"File: {text}"
     if not text:
         return None
-    return KiCadPlotterOp.text(
-        x=mm_to_nm(prop.at_x),
-        y=mm_to_nm(prop.at_y),
-        text=text,
-        orient_deg=float(prop.at_angle),
-        **kwargs,
+    return _with_text_hyperlink_context(
+        KiCadPlotterOp.text(
+            x=mm_to_nm(prop.at_x),
+            y=mm_to_nm(prop.at_y),
+            text=text,
+            orient_deg=float(prop.at_angle),
+            **kwargs,
+        ),
+        getattr(prop, "effects", None),
     )
 
 
@@ -4409,12 +4444,15 @@ def sheet_pin_to_op(
     else:                  # RIGHT
         x_nm += dist_nm
 
-    return KiCadPlotterOp.text(
-        x=x_nm,
-        y=y_nm,
-        text=_plot_display_text(pin.name),
-        orient_deg=90.0 if spin_idx in (1, 3) else 0.0,
-        **kwargs,
+    return _with_text_hyperlink_context(
+        KiCadPlotterOp.text(
+            x=x_nm,
+            y=y_nm,
+            text=_plot_display_text(pin.name),
+            orient_deg=90.0 if spin_idx in (1, 3) else 0.0,
+            **kwargs,
+        ),
+        getattr(pin, "effects", None),
     )
 
 
