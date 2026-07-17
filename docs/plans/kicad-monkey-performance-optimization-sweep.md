@@ -55,7 +55,7 @@ depends_on = ["optimization-candidate-selection"]
 [[steps]]
 id = "sexpr-lexer-tokenizer-optimization"
 title = "Reimplement the S-expression lexer/tokenizer hot path in pure Python"
-status = "pending"
+status = "done"
 depends_on = ["optimization-candidate-selection"]
 
 [[steps]]

@@ -739,22 +739,50 @@ class KicadSexprLexer:
         return ch
 
     def _skip_space_and_comments(self) -> None:
+        text = self.text
+        text_len = len(text)
+        pos = self.pos
+        line = self.line
+        column = self.column
+        line_start = self.line_start
+        pending_separator = self._pending_separator
+
         while True:
-            start_pos = self.pos
+            start_pos = pos
 
-            while self.pos < len(self.text) and self.text[self.pos].isspace():
-                self._pending_separator += self._consume_char()
+            while pos < text_len and text[pos].isspace():
+                ch = text[pos]
+                if ch == "\r":
+                    pos += 1
+                    if pos < text_len and text[pos] == "\n":
+                        pos += 1
+                    line += 1
+                    column = 1
+                    line_start = pos
+                    pending_separator += "\n"
+                    continue
 
-            if (
-                self.pos < len(self.text)
-                and self.text[self.pos] == "#"
-                and self.text[self.line_start:self.pos].strip() == ""
-            ):
-                while self.pos < len(self.text) and self.text[self.pos] not in "\r\n":
-                    self._consume_char()
+                pos += 1
+                if ch == "\n":
+                    line += 1
+                    column = 1
+                    line_start = pos
+                else:
+                    column += 1
+                pending_separator += ch
+
+            if pos < text_len and text[pos] == "#" and text[line_start:pos].strip() == "":
+                while pos < text_len and text[pos] not in "\r\n":
+                    pos += 1
+                    column += 1
                 continue
 
-            if self.pos == start_pos:
+            if pos == start_pos:
+                self.pos = pos
+                self.line = line
+                self.column = column
+                self.line_start = line_start
+                self._pending_separator = pending_separator
                 return
 
     def _read_quoted_string(
@@ -765,13 +793,38 @@ class KicadSexprLexer:
         separator: str,
     ) -> SexpToken:
         raw: list[str] = []
-        self._consume_char()  # opening quote
+        text = self.text
+        text_len = len(text)
+        pos = self.pos + 1
+        line = self.line
+        column = self.column + 1
+        line_start = self.line_start
 
-        while self.pos < len(self.text):
-            ch = self._consume_char()
+        while pos < text_len:
+            ch = text[pos]
+            if ch == "\r":
+                pos += 1
+                if pos < text_len and text[pos] == "\n":
+                    pos += 1
+                ch = "\n"
+                line += 1
+                column = 1
+                line_start = pos
+            else:
+                pos += 1
+                if ch == "\n":
+                    line += 1
+                    column = 1
+                    line_start = pos
+                else:
+                    column += 1
 
             if ch == '"':
-                source_text = self.text[start_offset:self.pos]
+                self.pos = pos
+                self.line = line
+                self.column = column
+                self.line_start = line_start
+                source_text = text[start_offset:pos]
                 return SexpToken(
                     TOKEN_STRING,
                     source_text,
@@ -784,13 +837,34 @@ class KicadSexprLexer:
 
             if ch == "\\":
                 raw.append(ch)
-                if self.pos >= len(self.text):
+                if pos >= text_len:
                     break
-                raw.append(self._consume_char())
+                escaped = text[pos]
+                if escaped == "\r":
+                    pos += 1
+                    if pos < text_len and text[pos] == "\n":
+                        pos += 1
+                    escaped = "\n"
+                    line += 1
+                    column = 1
+                    line_start = pos
+                else:
+                    pos += 1
+                    if escaped == "\n":
+                        line += 1
+                        column = 1
+                        line_start = pos
+                    else:
+                        column += 1
+                raw.append(escaped)
                 continue
 
             raw.append(ch)
 
+        self.pos = pos
+        self.line = line
+        self.column = column
+        self.line_start = line_start
         raise SexprLexError(
             "Unterminated delimited string",
             offset=start_offset,
@@ -805,13 +879,15 @@ class KicadSexprLexer:
         start_column: int,
         separator: str,
     ) -> SexpToken:
-        chars: list[str] = []
+        text = self.text
+        text_len = len(text)
+        pos = self.pos
 
-        while self.pos < len(self.text) and not self._is_sep(self.text[self.pos]):
-            chars.append(self._consume_char())
+        while pos < text_len and not self._is_sep(text[pos]):
+            pos += 1
 
-        text = "".join(chars)
-        if not text:
+        token_text = text[start_offset:pos]
+        if not token_text:
             raise SexprLexError(
                 "Unexpected token",
                 offset=start_offset,
@@ -819,14 +895,17 @@ class KicadSexprLexer:
                 column=start_column,
             )
 
-        if _NUMBER_TOKEN_RE.match(text):
-            if "." in text or "e" in text.lower():
-                value: Any = float(text)
-            else:
-                value = int(text)
-            return SexpToken(TOKEN_NUMBER, text, value, start_offset, start_line, start_column, separator)
+        self.pos = pos
+        self.column += pos - start_offset
 
-        return SexpToken(TOKEN_ATOM, text, text, start_offset, start_line, start_column, separator)
+        if _NUMBER_TOKEN_RE.match(token_text):
+            if "." in token_text or "e" in token_text.lower():
+                value: Any = float(token_text)
+            else:
+                value = int(token_text)
+            return SexpToken(TOKEN_NUMBER, token_text, value, start_offset, start_line, start_column, separator)
+
+        return SexpToken(TOKEN_ATOM, token_text, token_text, start_offset, start_line, start_column, separator)
 
 
 _TEARDROP_VALUE_TOKENS = {
