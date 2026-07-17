@@ -19,6 +19,9 @@ sections live under `api/`, and all design HTML uses `styles.css`.
 
 Current design notes:
 
+- `../guides/project-workflows.html` - user-facing workflow and read-path
+  guidance for choosing full model, projection, targeted reader, project, IR,
+  and SVG APIs.
 - `quality-signoff-status.md` - current release-gate status and quality-tool
   ratchet plan.
 - `kicad-plotter-ir.html` - canonical JSON rendering IR contract reference

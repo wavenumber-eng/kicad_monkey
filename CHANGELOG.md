@@ -12,7 +12,7 @@
   as research inputs only; implementation is independently rewritten.
 - Document when to use full model APIs, `KiCadPcbProjection`, targeted readers,
   and render APIs; clarify that PCB render `layers=` filters output after full
-  IR construction.
+  IR construction, with a dedicated project workflow guide.
 
 ## 2026.7.16
 

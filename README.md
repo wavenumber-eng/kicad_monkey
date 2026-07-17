@@ -245,8 +245,11 @@ discovery surface while downstream integrations prove which additional symbols
 should become stable public exports.
 
 The public OOP facade groups and supporting public classes are documented under
-[docs/design/api](docs/design/api). L99 fails when a stable public class or
-major interface is missing design documentation or Rack test ownership.
+[docs/design/api](docs/design/api). Use
+[Project Workflows And Read-Path Selection](docs/guides/project-workflows.html)
+for practical guidance on which API to choose for project, render, inventory,
+and large-file workflows. L99 fails when a stable public class or major
+interface is missing design documentation or Rack test ownership.
 
 Typical entrypoints:
 
@@ -286,6 +289,7 @@ Broader fixture families should use this shape:
 
 ## Documentation
 
+- [User Guides](docs/guides)
 - [Architecture Decision Records](docs/adrs)
 - [Design Notes](docs/design)
 - [Changelog](CHANGELOG.md)
