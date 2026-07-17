@@ -109,7 +109,7 @@ depends_on = ["behavior-performance-signoff"]
 [[steps]]
 id = "public-issue-response"
 title = "Prepare and, with explicit authorization, post public guidance on issues #16 and #17"
-status = "pending"
+status = "active"
 depends_on = ["behavior-performance-signoff", "design-doc-intent-audit"]
 
 [[steps]]
@@ -121,7 +121,7 @@ depends_on = ["behavior-performance-signoff"]
 [[steps]]
 id = "external-review"
 title = "Obtain external review before any release preparation"
-status = "active"
+status = "done"
 depends_on = [
   "behavior-performance-signoff",
   "design-doc-intent-audit",
@@ -212,12 +212,12 @@ status = "pending"
 [[exit_criteria]]
 id = "external-review"
 title = "Checker-required alias: external review is complete before release preparation or publish authorization"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-external-review"
 title = "External review is complete before release preparation or publish authorization"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-closeout-docs"
@@ -227,7 +227,9 @@ status = "pending"
 
 # KiCad Monkey Project API Projection And Render Design
 
-Status: active planning and research gate. Implementation is not started.
+Status: active after external review. Documentation implementation is complete;
+public issue response authorization, downstream `kicad_cruncher` handoff, and
+closeout remain pending.
 
 This plan is dependent on the closed
 `kicad-monkey-performance-optimization-sweep` work. That optimization effort
