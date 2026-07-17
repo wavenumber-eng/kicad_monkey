@@ -25,7 +25,7 @@ depends_on = ["primary-performance-research"]
 [[steps]]
 id = "independent-performance-research"
 title = "Have an independent agent redo the performance research before implementation"
-status = "pending"
+status = "done"
 depends_on = [
   "primary-performance-research",
   "baseline-benchmark-harness",
@@ -34,7 +34,7 @@ depends_on = [
 [[steps]]
 id = "optimization-candidate-selection"
 title = "Select implementation candidates from independent research and benchmarks"
-status = "pending"
+status = "done"
 depends_on = [
   "independent-performance-research",
   "baseline-benchmark-harness",
@@ -53,6 +53,18 @@ status = "pending"
 depends_on = ["optimization-candidate-selection"]
 
 [[steps]]
+id = "sexpr-lexer-tokenizer-optimization"
+title = "Reimplement the S-expression lexer/tokenizer hot path in pure Python"
+status = "pending"
+depends_on = ["optimization-candidate-selection"]
+
+[[steps]]
+id = "direct-child-span-cache-optimization"
+title = "Cache direct child spans per parent and filter by head"
+status = "pending"
+depends_on = ["optimization-candidate-selection"]
+
+[[steps]]
 id = "broader-hot-path-sweep"
 title = "Investigate and implement additional parser/projection hot-path optimizations"
 status = "pending"
@@ -65,6 +77,8 @@ status = "pending"
 depends_on = [
   "net-resolution-optimization",
   "projection-span-optimization",
+  "sexpr-lexer-tokenizer-optimization",
+  "direct-child-span-cache-optimization",
   "broader-hot-path-sweep",
 ]
 
@@ -107,7 +121,7 @@ depends_on = [
 
 [[exit_criteria]]
 id = "ec-no-direct-pr-acceptance"
-title = "Contributor PRs are used as research input only; implementation is reviewed code produced on this branch"
+title = "Contributor PRs are used as research input only; implementation is independently rewritten on this branch"
 status = "pending"
 
 [[exit_criteria]]
@@ -169,10 +183,11 @@ deleted at closeout.
 ## Strategy
 
 Issues #16 and #17 and PRs #18 and #19 are treated as external research inputs,
-not implementation to accept directly. The implementation work for this effort
-will be done on `feature/performance-optimization-sweep` after primary research
-is recorded and a fresh independent research pass confirms the hot paths,
-checks for additional optimization opportunities, and validates reproducible
+not implementation to accept directly. Do not merge, cherry-pick, copy, or port
+the public PR code suggestions; accepted optimizations must be independently
+rewritten on `feature/performance-optimization-sweep` after primary research is
+recorded and a fresh independent research pass confirms the hot paths, checks
+for additional optimization opportunities, and validates reproducible
 baselines.
 
 No implementation slice should start until `primary-performance-research`,
@@ -197,6 +212,41 @@ hygiene runs were `action_required`, so there was no remote CI evidence to use
 as acceptance evidence. Both contributor PRs also included attribution text that
 should not be copied into this branch.
 
+## Independent Research Findings
+
+The second-agent research pass is recorded in
+`docs/plans/logs/2026-07-17T081739-0400.md`. Candidate selection should treat
+that log as the controlling research update over the first-pass cProfile
+interpretation.
+
+Corrections from the independent pass:
+
+- Use wall-clock microbenchmarks for candidate selection. cProfile inflates
+  pure-Python scanner/lexer frames more than C-level `str.count` and dict work,
+  so the raw profile text is useful for call paths but not final ranking.
+- KiCad v10 boards can omit the top-level net table and carry name-only
+  `(net "GND")` references. Net-map caching yields little or no benefit on
+  those boards and behavior tests need a v10 name-only fixture.
+- Nested span line/column rebasing is the highest value-per-effort first
+  optimization. On 4-ch, `str.count("\n", 0, offset)` accounts for most of the
+  nested metadata wall time.
+- The S-expression lexer/tokenizer is the largest total-leverage candidate for
+  full parse and broad projection hydration. It should be a first-class slice,
+  not only part of the broader sweep.
+- Direct child-span caching per parent is real, cheap, and second-order.
+- Net-map caching remains safe and useful, but its average corpus impact is
+  smaller than the first-pass issue data implied.
+
+Accepted candidate order after the independent pass:
+
+1. Nested projection source-span rebasing.
+2. Pure-Python S-expression lexer/tokenizer hot-path rewrite.
+3. Direct child-span cache per parent with head filtering.
+4. Net lookup map reuse for v8/v9-style net tables plus the
+   `resolve_net_ref()` double-table-build fix.
+5. Broader hot-path sweep only after the first four slices land or are
+   explicitly rejected.
+
 ## Goals
 
 - Establish reproducible baseline timings for large-board PCB parse and
@@ -214,14 +264,15 @@ should not be copied into this branch.
 
 ## Non-Goals
 
-- Do not merge or cherry-pick contributor PRs #18 or #19 directly.
+- Do not merge, cherry-pick, copy, or port contributor PRs #18 or #19.
 - Do not publish a release from this plan branch.
 - Do not change promoted public API exports as part of a private internal
   optimization unless a separate design/contract update is approved.
 - Do not use proprietary board data as the only evidence for a speedup.
 - Do not introduce native extensions, new runtime dependencies, or format
-  contract changes in this effort unless the independent research gate shows
-  Python-level optimization is insufficient.
+  contract changes in this effort. The lexer work is a pure-Python rewrite
+  first; native implementations are deferred to a future discussion after
+  measured Python results exist.
 
 ## Research Questions
 
@@ -246,6 +297,8 @@ The independent research pass should at least inspect:
 - projection source-span rebasing for nested pads and model references;
 - repeated `find_all_elements()` traversals during full PCB parse;
 - projection top-level span indexing and direct-child span caching;
+- S-expression lexer/tokenizer throughput, especially per-span projection
+  hydration and full-board parse;
 - repeated `span.text()` slicing and `span.parse()` work for nested projection
   families;
 - `NetRef.resolve_name()` / `resolve_ordinal()` call patterns;
@@ -254,6 +307,9 @@ The independent research pass should at least inspect:
 
 ## Implementation Constraints
 
+- Public issue and PR discussion may inform problem statements, measurements,
+  and tests, but implementation code must be derived from local analysis and
+  written in this branch.
 - Optimizations must preserve `NetRef` fallback behavior:
   ordinal-only refs resolve names when present, name-only refs resolve ordinals
   when present, and unresolved refs remain unresolved.
@@ -263,6 +319,10 @@ The independent research pass should at least inspect:
 - Projection remains a read-oriented interface; if caching assumes immutable
   net tables or source text, that assumption must be documented in design notes
   or guarded in code.
+- Behavior tests must include both v8/v9-style top-level net tables and v10
+  name-only object net references.
+- Pad and model source-span tests must assert that index-matched spans
+  correspond to the matched object text, not only that a span exists.
 - Tests must use public corpus fixtures or synthetic inputs.
 - Any durable public contract or behavior change requires matching design,
   contract, and conformance updates in the same slice.
@@ -274,7 +334,12 @@ Research validation:
 - independent agent review of #16, #17, #18, and #19;
 - profiling or timing records for `main` before implementation;
 - before/after synthetic or corpus benchmarks for each accepted optimization;
+  final evidence should use at least three timing rounds;
 - review note identifying additional candidates considered and rejected.
+
+Publicly citable baseline evidence should use synthetic fixtures, WREN, and
+Jumperless. The 4-ch backplane and Speedy boards can remain local/internal
+research references but should not be the only release-facing evidence.
 
 Implementation validation:
 
