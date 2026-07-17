@@ -8,6 +8,7 @@
 <section id="usage"><h2>Usage</h2><pre><code>kicad-cruncher schematic clean</code></pre></section>
 <section id="arguments"><h2>Arguments</h2><p><code>schematic clean</code> currently accepts no behavior arguments. Its future config will cover parameter coalescing, generated-field cleanup, and safe schematic formatting normalization.</p></section>
 <section id="output"><h2>Output</h2><p>The command emits a JSON deferred-status payload until PCB Clean proves the CLI/config/daemon/plugin pattern.</p></section>
+<section id="roadmap"><h2>Roadmap</h2><p>The deferred schematic cleanup contract is tracked by <code>docs/schematic/requirements/schematic-req-001-clean-config-contract.md</code>. Mutation behavior must not become public until a documented <code>schematic.clean.config.a0</code> JSONC contract, generated default config, dry-run/apply semantics, and focused tests exist.</p></section>
 <section id="tests"><h2>Tests</h2><p>L0 verifies command registration and help. Future tests will introduce a schematic cleanup config schema before mutation behavior becomes public.</p></section>
 </main>
 </body>

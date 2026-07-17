@@ -1,22 +1,305 @@
 {
-  "schema": "kicad_cruncher.command_manifest.a0",
+  "schema": "wn_dev_std.command_manifest.a0",
   "commands": [
-    {"name": "bom", "status": "public", "requires_extra": null},
-    {"name": "daemon", "status": "public", "requires_extra": null},
-    {"name": "design", "status": "public", "requires_extra": null},
-    {"name": "jlc", "status": "public", "requires_extra": null},
-    {"name": "kicad", "status": "public", "requires_extra": null},
-    {"name": "lib-extract", "status": "public", "requires_extra": null},
-    {"name": "megamaid", "status": "public", "requires_extra": null},
-    {"name": "pcb", "status": "public", "requires_extra": null},
-    {"name": "pcb-layer-step", "status": "public", "requires_extra": null},
-    {"name": "pcb-svg", "status": "public", "requires_extra": null},
-    {"name": "plugin", "status": "public", "requires_extra": null},
-    {"name": "pnp", "status": "public", "requires_extra": null},
-    {"name": "health", "status": "public", "requires_extra": null},
-    {"name": "project", "status": "public", "requires_extra": null},
-    {"name": "project-lib", "status": "public", "requires_extra": null},
-    {"name": "schematic", "status": "public", "requires_extra": null},
-    {"name": "version", "status": "public", "requires_extra": null}
+    {
+      "name": "bom",
+      "path": ["bom"],
+      "status": "public",
+      "summary": "Generate KiCad BOM outputs with shared field alias coalescing, variant-aware DNP handling, grouped review tables, and JLC BOM rows.",
+      "design_doc": "docs/design/cli/bom.html",
+      "config_contracts": [
+        {
+          "path": "docs/contracts/bom_pnp_config.a0.schema.json",
+          "mode": "input",
+          "rationale": "bom reads the shared BOM/PnP/JLC configuration contract."
+        }
+      ],
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "daemon",
+      "path": ["daemon"],
+      "status": "public",
+      "summary": "Run the local plugin daemon and browser tool center used by KiCad IPC plugin workflows.",
+      "design_doc": "docs/design/cli/daemon.html",
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "design",
+      "path": ["design"],
+      "status": "public",
+      "summary": "Generate a design review bundle with KiCad-native design JSON, schematic SVGs, PCB copper-layer SVGs, a manifest, and a README for agents.",
+      "design_doc": "docs/design/cli/design.html",
+      "aliases": ["design-review", "dr"],
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "health",
+      "path": ["health"],
+      "status": "public",
+      "summary": "Scan active project assets, model references, and project-listed local libraries without recursively importing unrelated library folders.",
+      "design_doc": "docs/design/cli/health.html",
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "jlc",
+      "path": ["jlc"],
+      "status": "public",
+      "summary": "Generate paired JLCPCB BOM XLSX and CPL XLSX upload workbooks from the shared BOM/PnP normalization layer.",
+      "design_doc": "docs/design/cli/jlc.html",
+      "config_contracts": [
+        {
+          "path": "docs/contracts/bom_pnp_config.a0.schema.json",
+          "mode": "input",
+          "rationale": "jlc reads the shared BOM/PnP/JLC configuration contract."
+        }
+      ],
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "kicad",
+      "path": ["kicad"],
+      "status": "public",
+      "summary": "Inspect local KiCad installs, running KiCad-family processes, preferences, launch commands, and opt-in stop plans.",
+      "design_doc": "docs/design/cli/kicad.html",
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "lib-extract",
+      "path": ["lib-extract"],
+      "status": "public",
+      "summary": "Generate a cleaned lib_cruncher/Alexandria ingestion bundle with stripped symbols, footprints, optional models, and separated metadata JSON.",
+      "design_doc": "docs/design/cli/lib-extract.html",
+      "aliases": ["library-extract"],
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "megamaid",
+      "path": ["megamaid"],
+      "status": "public",
+      "summary": "Aggressively dissect a KiCad project into library artifacts, embedded assets, models, design review artifacts, netlists, SVGs, manifests, and README output.",
+      "design_doc": "docs/design/cli/megamaid.html",
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "pcb",
+      "path": ["pcb"],
+      "status": "public",
+      "summary": "Run PCB utility commands, including config-driven PCB cleanup planning and explicit direct-file apply.",
+      "design_doc": "docs/design/cli/pcb.html",
+      "config_contracts": [
+        {
+          "path": "docs/contracts/pcb_clean_config.a0.schema.json",
+          "mode": "input",
+          "rationale": "pcb clean reads the PCB cleanup configuration contract."
+        }
+      ],
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "pcb-layer-step",
+      "path": ["pcb-layer-step"],
+      "status": "public",
+      "summary": "Generate compact colored STEP models for fixture-alignment checks on one KiCad PCB layer.",
+      "design_doc": "docs/design/cli/pcb-layer-step.html",
+      "config_contracts": [
+        {
+          "path": "docs/contracts/pcb_layer_step_config.a0.schema.json",
+          "mode": "input",
+          "rationale": "pcb-layer-step reads the fixture-alignment STEP configuration contract."
+        }
+      ],
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "pcb-svg",
+      "path": ["pcb-svg"],
+      "status": "public",
+      "summary": "Generate PCB layer SVG artifacts and configured design views, including geometer-backed assembly HLR overlays.",
+      "design_doc": "docs/design/cli/pcb-svg.html",
+      "config_contracts": [
+        {
+          "path": "docs/contracts/pcb_svg_config.a0.schema.json",
+          "mode": "input",
+          "rationale": "pcb-svg reads the PCB SVG view and layer-output configuration contract."
+        }
+      ],
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "plugin",
+      "path": ["plugin"],
+      "status": "public",
+      "summary": "Install, inspect, and remove bundled KiCad IPC plugin packages.",
+      "design_doc": "docs/design/cli/plugin.html",
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "pnp",
+      "path": ["pnp"],
+      "status": "public",
+      "summary": "Generate KiCad pick-and-place JSON, CSV, XLSX, and JLC CPL outputs using component-center coordinates relative to the aux axis.",
+      "design_doc": "docs/design/cli/pnp.html",
+      "config_contracts": [
+        {
+          "path": "docs/contracts/bom_pnp_config.a0.schema.json",
+          "mode": "input",
+          "rationale": "pnp reads the shared BOM/PnP/JLC configuration contract."
+        }
+      ],
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "project",
+      "path": ["project"],
+      "status": "public",
+      "summary": "Scaffold a new KiCad project from flags, a JSONC config, or the interactive TUI form.",
+      "design_doc": "docs/design/cli/project.html",
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "project-lib",
+      "path": ["project-lib"],
+      "status": "public",
+      "summary": "Extract metadata-preserving project-local symbol and footprint libraries, defaulting to local-library and updating project library tables by default.",
+      "design_doc": "docs/design/cli/project-lib.html",
+      "aliases": ["project-library", "project-local-lib", "local-library"],
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "schematic",
+      "path": ["schematic"],
+      "status": "public",
+      "summary": "Run schematic utility commands, currently exposing the deferred schematic cleanup planning stub.",
+      "design_doc": "docs/design/cli/schematic.html",
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    },
+    {
+      "name": "version",
+      "path": ["version"],
+      "status": "public",
+      "summary": "Print kicad-cruncher and controlled dependency versions.",
+      "design_doc": "docs/design/cli/version.html",
+      "verification_refs": [
+        {
+          "kind": "local_pytest",
+          "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
+          "coverage_mode": "inventory",
+          "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        }
+      ]
+    }
   ]
 }

@@ -1,0 +1,40 @@
++++
+type = "requirement"
+id = "library-req-001-extraction-hardening"
+domain = "library"
+status = "active"
+title = "Library extraction and project-local relinking hardening remains tracked"
+created = "2026-07-17"
+issue_refs = ["wavenumber-eng/kicad_cruncher#8"]
+verification_status = "unverified"
+design_refs = [
+  "docs/design/cli/project-lib.html",
+  "docs/design/cli/lib-extract.html",
+  "docs/design/cli/megamaid.html",
+  "docs/design/cli/health.html",
+  "docs/contracts/library_extraction_bundle.a0.schema.json",
+]
++++
+
+# Library Extraction Hardening
+
+The current durable design docs keep `project-lib`, `lib-extract`,
+`megamaid`, and `health` as distinct public workflows. The following unfinished
+obligations recovered from the deleted
+`docs/plans/kicad-library-extraction-commands.md` plan remain active:
+
+- Add an explicit dry-run or patch path for opt-in source schematic-symbol and
+  PCB-footprint relinking to generated project-local libraries.
+- Keep source mutation opt-in and test-covered.
+- Continue hardening embedded asset extraction as new KiCad payload containers
+  are found, including board-level `embedded_files`, footprint-level
+  `embedded_files`, schematic images, PCB images, and worksheet bitmaps.
+- Before changing release-facing behavior in this feature area, audit
+  `project-lib`, `lib-extract`/`library-extract`, `megamaid`, `health`, and
+  their aliases for command names, help text, output layout, manifest schemas,
+  model extraction defaults, embedded payload manifest entries, symbol
+  extraction semantics, footprint dedupe semantics, library-table behavior,
+  durable docs, and focused regression coverage.
+
+Completed workflow-boundary decisions and current output contracts remain in
+the command design docs and `library_extraction_bundle.a0` schema.

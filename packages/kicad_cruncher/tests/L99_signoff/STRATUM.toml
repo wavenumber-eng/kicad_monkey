@@ -7,6 +7,7 @@ concerns = ["release", "contracts", "signoff", "docs"]
 objectives = [
     "Package version metadata matches the release date contract",
     "CLI version output matches package metadata",
+    "Configured dev-std audit scopes pass as part of release signoff",
     "Python signoff does not regress against the accepted baseline",
     "CLI parser commands, the command manifest, and CLI design docs stay synchronized",
     "Registered CLI commands have matching HTML design documentation",
@@ -23,7 +24,7 @@ note = "L99 is enabled in this public repo because the initial signoff lane is l
 id = "L99_001"
 file = "test_L99_001_release_signoff.py"
 name = "Release Signoff"
-description = "Validate version contract and run py_signoff"
+description = "Validate version contract, dev-std audit, and py_signoff"
 concerns = ["release", "contracts"]
 test_case_type = "audit_meta"
 
@@ -61,4 +62,3 @@ name = "Config Contract Signoff"
 description = "Validate public CLI config contract declarations"
 concerns = ["release", "contracts", "docs", "signoff"]
 test_case_type = "audit_meta"
-

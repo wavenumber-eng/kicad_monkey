@@ -13,6 +13,10 @@ Before tagging, confirm the release commit on `main` has:
   and release date.
 - `CHANGELOG.md` with a matching `## YYYY.M.D` section.
 - `docs/releases/YYYY-MM-DD.md` with the matching release note.
+- The configured dev-std audit, including CLI, plan, requirement, and release
+  governance scopes, passing in L99 signoff.
+- External review approval for the release candidate.
+- Explicit user authorization to publish.
 - Main CI passing for the release commit.
 
 Recommended local gate:

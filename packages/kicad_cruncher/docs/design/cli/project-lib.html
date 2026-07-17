@@ -59,6 +59,11 @@ kicad-cruncher project-lib project.kicad_pro --no-update-library-tables</code></
   <p><code>megamaid</code> handles cleaned <code>lib_cruncher</code> ingestion assets. <code>project-lib</code> handles metadata-preserving project-local assets. <code>health</code> handles broader asset diagnostics without extracting libraries.</p>
 </section>
 
+<section id="roadmap">
+  <h2>Roadmap</h2>
+  <p>Remaining project-local library hardening is tracked by <code>docs/library/requirements/library-req-001-extraction-hardening.md</code>. The deferred source-mutation path must be explicit, opt-in, dry-run or patch reviewable, and test-covered before source schematic symbols or PCB footprints are relinked to generated project-local libraries.</p>
+</section>
+
 <section id="tests">
   <h2>Tests</h2>
   <p>L0 public CLI tests verify the command appears in root help, command help starts, and the manifest/design-doc inventory stays synchronized. L3 public workflow tests run <code>project-lib</code> against a temporary copy of the sanitized 4-ch backplane corpus fixture and verify manifest schema, project-stem output directories, CLI output-directory overrides, metadata schema, project-local preservation mode, footprint library-link dedupe, local table updates, idempotency, and aliases.</p>

@@ -28,7 +28,7 @@ REPORTABLE_DOC_STATUSES = {"draft", "proposal"}
 def _manifest_commands() -> list[str]:
     """Return registered public command names from the command manifest."""
     payload = json.loads(COMMAND_MANIFEST.read_text(encoding="utf-8"))
-    assert payload["schema"] == "kicad_cruncher.command_manifest.a0"
+    assert payload["schema"] == "wn_dev_std.command_manifest.a0"
     commands = payload["commands"]
     assert isinstance(commands, list)
     return [str(command["name"]) for command in commands]

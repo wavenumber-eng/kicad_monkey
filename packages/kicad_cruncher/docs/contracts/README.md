@@ -5,7 +5,8 @@ schema contracts.
 
 Current contracts:
 
-- `command_manifest.a0.json` lists public CLI commands.
+- `command_manifest.a0.json` lists public CLI commands using the
+  `wn_dev_std.command_manifest.a0` governance contract.
 - `bom_pnp_config.a0.schema.json` defines the shared BOM/PnP/JLC config
   contract used by `bom`, `pnp`, and `jlc`.
 - `interface_design_manifest.a0.json` lists major interfaces that require

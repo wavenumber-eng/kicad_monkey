@@ -11,6 +11,7 @@ from importlib.metadata import version as distribution_version
 from pathlib import Path
 
 import kicad_cruncher
+import pytest
 from kicad_cruncher._version import cli_version_report, cli_version_text
 
 
@@ -26,7 +27,22 @@ PACKAGE_ROOT = _project_root()
 EXPECTED_VERSION = "2026.6.25"
 EXPECTED_RELEASE_DATE = date(2026, 6, 25)
 EXPECTED_RELEASE_NOTE = PACKAGE_ROOT / "docs" / "releases" / "2026-06-25.md"
-CONTROLLED_DEPENDENCIES = {"kicad-monkey": "2026.6.25", "wn-geometer": "2026.6.10"}
+CONTROLLED_DEPENDENCIES = {"kicad-monkey": "2026.7.16", "wn-geometer": "2026.6.10"}
+CONTROLLED_DEPENDENCY_SPECIFIERS = {
+    "kicad-monkey": ">=",
+    "wn-geometer": "==",
+}
+DEV_STD_MINIMUM_VERSION = "2026.7.16"
+DEV_STD_AUDIT_SCOPES = {
+    "repo",
+    "ci",
+    "docs.design",
+    "docs.links",
+    "docs.cli",
+    "docs.plans",
+    "docs.requirements",
+    "docs.release",
+}
 
 
 def test_version_contract_matches_date_based_release() -> None:
@@ -52,12 +68,76 @@ def test_version_contract_matches_date_based_release() -> None:
 
 
 def test_controlled_dependency_pins_match_latest_release_versions() -> None:
-    """Verify controlled dependencies are pinned to audited release versions."""
+    """Verify controlled dependencies use audited release constraints."""
     pyproject = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     dependencies = set(pyproject["project"]["dependencies"])
 
     for distribution_name, expected_version in CONTROLLED_DEPENDENCIES.items():
-        assert f"{distribution_name}=={expected_version}" in dependencies
+        specifier = CONTROLLED_DEPENDENCY_SPECIFIERS[distribution_name]
+        assert f"{distribution_name}{specifier}{expected_version}" in dependencies
+
+    test_dependencies = set(pyproject["project"]["optional-dependencies"]["test"])
+    dev_dependencies = set(pyproject["dependency-groups"]["dev"])
+    dev_std_requirement = (
+        f"wn-dev-std>={DEV_STD_MINIMUM_VERSION}; python_version >= '3.12'"
+    )
+    assert dev_std_requirement in test_dependencies
+    assert dev_std_requirement in dev_dependencies
+
+
+def test_configured_dev_std_audit_scopes_pass() -> None:
+    """Verify the configured dev-std audit scopes are part of release signoff."""
+    if sys.version_info < (3, 12):
+        pytest.skip("wn-dev-std 2026.7.16 requires Python 3.12")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "wn_dev_std",
+            "audit",
+            ".",
+            "--format",
+            "json",
+        ],
+        cwd=PACKAGE_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    payload = json.loads(completed.stdout)
+    assert payload["passed"] is True
+    observed_scopes = {str(check.get("scope")) for check in payload["checks"]}
+    assert DEV_STD_AUDIT_SCOPES.issubset(observed_scopes)
+
+
+def test_dev_std_upstream_version_is_current() -> None:
+    """Verify release signoff notices when the configured standard is stale."""
+    if sys.version_info < (3, 12):
+        pytest.skip("wn-dev-std 2026.7.16 requires Python 3.12")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "wn_dev_std",
+            "audit",
+            ".",
+            "--check-upstream-version",
+            "--format",
+            "json",
+        ],
+        cwd=PACKAGE_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    payload = json.loads(completed.stdout)
+    assert payload["passed"] is True
 
 
 def test_cli_emits_package_version() -> None:
@@ -76,8 +156,14 @@ def test_cli_emits_package_version() -> None:
         assert completed.stdout.splitlines()[0] == cli_version_text()
 
         for distribution_name, expected_version in CONTROLLED_DEPENDENCIES.items():
-            assert f"{distribution_name} {expected_version}" in completed.stdout
-            assert distribution_version(distribution_name) == expected_version
+            installed_version = distribution_version(distribution_name)
+            assert f"{distribution_name} {installed_version}" in completed.stdout
+            parsed_installed = tuple(int(part) for part in installed_version.split("."))
+            parsed_expected = tuple(int(part) for part in expected_version.split("."))
+            if CONTROLLED_DEPENDENCY_SPECIFIERS[distribution_name] == "==":
+                assert parsed_installed == parsed_expected
+            else:
+                assert parsed_installed >= parsed_expected
 
 
 def test_release_notes_mention_package_version() -> None:
