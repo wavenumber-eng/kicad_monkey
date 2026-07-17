@@ -340,26 +340,39 @@ def _parse_pcb_collections(pcb: "KiCadPcb", sexp: list) -> None:
         _append_parsed_elements(getattr(pcb, attr_name), sexp, element_name, factory)
 
 
-def _resolve_pcb_net_ref(pcb: "KiCadPcb", net_ref: NetRef) -> NetRef:
+def _pcb_net_lookup_tables(pcb: "KiCadPcb") -> tuple[dict[int, str], dict[str, int]]:
     net_name_by_id = {net.ordinal: net.name for net in pcb.nets}
-    net_id_by_name = {net.name: net.ordinal for net in pcb.nets}
+    net_id_by_name = {net.name: net.ordinal for net in pcb.nets if net.name}
+    return net_name_by_id, net_id_by_name
+
+
+def _resolve_pcb_net_ref(
+    net_ref: NetRef,
+    net_name_by_id: dict[int, str],
+    net_id_by_name: dict[str, int],
+) -> NetRef:
     return net_ref.resolve_name(net_name_by_id).resolve_ordinal(net_id_by_name)
 
 
-def _resolve_pcb_object_net(pcb: "KiCadPcb", obj: Any) -> None:
+def _resolve_pcb_object_net(
+    obj: Any,
+    net_name_by_id: dict[int, str],
+    net_id_by_name: dict[str, int],
+) -> None:
     net_ref = getattr(obj, 'net', NetRef())
     if isinstance(net_ref, NetRef):
-        obj.net = _resolve_pcb_net_ref(pcb, net_ref)
+        obj.net = _resolve_pcb_net_ref(net_ref, net_name_by_id, net_id_by_name)
 
 
 def _resolve_pcb_net_bound_items(pcb: "KiCadPcb", sexp: list) -> None:
+    net_name_by_id, net_id_by_name = _pcb_net_lookup_tables(pcb)
     for footprint in pcb.footprints:
         for pad in getattr(footprint, 'pads', []) or []:
-            _resolve_pcb_object_net(pcb, pad)
+            _resolve_pcb_object_net(pad, net_name_by_id, net_id_by_name)
 
     for elem in find_all_elements(sexp, 'zone'):
         zone = Zone.from_sexp(elem)
-        zone.net = _resolve_pcb_net_ref(pcb, zone.net)
+        zone.net = _resolve_pcb_net_ref(zone.net, net_name_by_id, net_id_by_name)
         pcb.zones.append(zone)
 
     for element_name, attr_name, factory in (
@@ -369,7 +382,7 @@ def _resolve_pcb_net_bound_items(pcb: "KiCadPcb", sexp: list) -> None:
     ):
         for elem in find_all_elements(sexp, element_name):
             item = factory.from_sexp(elem)
-            _resolve_pcb_object_net(pcb, item)
+            _resolve_pcb_object_net(item, net_name_by_id, net_id_by_name)
             getattr(pcb, attr_name).append(item)
 
 
@@ -894,9 +907,9 @@ class KiCadPcb:
         """Resolve a board-element net reference against the PCB net table when possible."""
         if net_ref is None:
             return NetRef()
-        return net_ref.resolve_name(self.net_name_by_ordinal()).resolve_ordinal(
-            {name: ordinal for ordinal, name in self.net_name_by_ordinal().items() if name}
-        )
+        name_by_ordinal = self.net_name_by_ordinal()
+        ordinal_by_name = {name: ordinal for ordinal, name in name_by_ordinal.items() if name}
+        return net_ref.resolve_name(name_by_ordinal).resolve_ordinal(ordinal_by_name)
 
     def resolve_net_name(self, net_ref: NetRef | None) -> str:
         """Resolve a board-element net name from a NetRef."""

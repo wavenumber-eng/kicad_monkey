@@ -50,9 +50,32 @@ _PCB_TEXT = """(kicad_pcb
 """
 
 
+_PCB_V10_NAME_ONLY_NET_TEXT = """(kicad_pcb
+  (version 20240108)
+  (generator "kicad")
+  (generator_version "10.0.3")
+  (paper "A4")
+  (layers
+    (0 "F.Cu" signal)
+    (31 "B.Cu" signal))
+  (footprint "Device:R" (layer "F.Cu") (at 1 2 0)
+    (property "Reference" "R1" (at 0 0 0) (layer "F.SilkS"))
+    (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net "GND")))
+  (segment (start 0 0) (end 1 0) (width 0.1) (layer "F.Cu") (net "GND") (uuid "seg1"))
+  (via (at 1 1) (size 0.4) (drill 0.2) (layers "F.Cu" "B.Cu") (net "GND") (uuid "via1"))
+)
+"""
+
+
 def _write_board(tmp_path: Path) -> Path:
     path = tmp_path / "projection-demo.kicad_pcb"
     path.write_text(_PCB_TEXT, encoding="utf-8")
+    return path
+
+
+def _write_name_only_net_board(tmp_path: Path) -> Path:
+    path = tmp_path / "projection-v10-name-only.kicad_pcb"
+    path.write_text(_PCB_V10_NAME_ONLY_NET_TEXT, encoding="utf-8")
     return path
 
 
@@ -97,6 +120,26 @@ def test_pcb_projection_resolves_net_references_like_full_board(tmp_path: Path) 
     assert projection.segments()[0].net.name == "/A"
     assert projection.vias()[0].net.name == "/A"
     assert projection.pads()[0].net.name == "/A"
+
+
+def test_pcb_projection_preserves_v10_name_only_net_references(tmp_path: Path) -> None:
+    board_path = _write_name_only_net_board(tmp_path)
+    projection = KiCadPcbProjection.from_file(board_path)
+    board = KiCadPcb.from_file(board_path)
+
+    assert projection.nets() == []
+    assert board.nets == []
+
+    for net_ref in (
+        projection.segments()[0].net,
+        projection.vias()[0].net,
+        projection.pads()[0].net,
+        board.segments[0].net,
+        board.vias[0].net,
+        board.footprints[0].pads[0].net,
+    ):
+        assert net_ref.name == "GND"
+        assert net_ref.ordinal is None
 
 
 def test_pcb_projection_preserves_source_metadata(tmp_path: Path) -> None:

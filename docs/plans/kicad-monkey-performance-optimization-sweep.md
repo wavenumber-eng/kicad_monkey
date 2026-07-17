@@ -43,7 +43,7 @@ depends_on = [
 [[steps]]
 id = "net-resolution-optimization"
 title = "Reimplement net resolution lookup optimization from first principles"
-status = "pending"
+status = "done"
 depends_on = ["optimization-candidate-selection"]
 
 [[steps]]
