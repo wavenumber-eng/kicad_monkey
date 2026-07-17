@@ -11,16 +11,25 @@ title = "Create optimization branch and active dev-std plan"
 status = "done"
 
 [[steps]]
-id = "independent-performance-research"
-title = "Have an independent agent redo the performance research before implementation"
-status = "pending"
+id = "primary-performance-research"
+title = "Prepare primary performance research findings for independent review"
+status = "done"
 depends_on = ["branch-and-plan-bootstrap"]
 
 [[steps]]
 id = "baseline-benchmark-harness"
 title = "Create reproducible public or synthetic performance baselines"
+status = "done"
+depends_on = ["primary-performance-research"]
+
+[[steps]]
+id = "independent-performance-research"
+title = "Have an independent agent redo the performance research before implementation"
 status = "pending"
-depends_on = ["independent-performance-research"]
+depends_on = [
+  "primary-performance-research",
+  "baseline-benchmark-harness",
+]
 
 [[steps]]
 id = "optimization-candidate-selection"
@@ -161,12 +170,14 @@ deleted at closeout.
 
 Issues #16 and #17 and PRs #18 and #19 are treated as external research inputs,
 not implementation to accept directly. The implementation work for this effort
-will be done on `feature/performance-optimization-sweep` after a fresh
-independent research pass confirms the hot paths, checks for additional
-optimization opportunities, and defines reproducible baselines.
+will be done on `feature/performance-optimization-sweep` after primary research
+is recorded and a fresh independent research pass confirms the hot paths,
+checks for additional optimization opportunities, and validates reproducible
+baselines.
 
-No implementation slice should start until `independent-performance-research`
-and `optimization-candidate-selection` are complete. Reviewer approval of
+No implementation slice should start until `primary-performance-research`,
+`baseline-benchmark-harness`, `independent-performance-research`, and
+`optimization-candidate-selection` are complete. Reviewer approval of
 individual implementation PRs is not release authorization; release preparation
 requires the `external-review` gate and explicit publish authorization.
 
