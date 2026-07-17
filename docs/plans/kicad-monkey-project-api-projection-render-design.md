@@ -17,22 +17,28 @@ status = "active"
 depends_on = ["branch-and-plan-bootstrap"]
 
 [[steps]]
+id = "fresh-performance-baseline"
+title = "Capture fresh parser, projection, and full-parse decomposition baselines on this branch"
+status = "pending"
+depends_on = ["current-api-inventory"]
+
+[[steps]]
 id = "documentation-guidance-audit"
 title = "Audit API documentation and user guidance for full-model versus projected reads"
 status = "pending"
-depends_on = ["current-api-inventory"]
+depends_on = ["current-api-inventory", "fresh-performance-baseline"]
 
 [[steps]]
 id = "render-pipeline-architecture-research"
 title = "Research whether file-level IR or SVG APIs can safely use projection or partial materialization"
 status = "pending"
-depends_on = ["current-api-inventory"]
+depends_on = ["current-api-inventory", "fresh-performance-baseline"]
 
 [[steps]]
 id = "native-acceleration-options-research"
-title = "Evaluate C, C++, Cython, and pure-Python parser/tokenizer acceleration options"
+title = "Evaluate pure-Python pull-parser, C, C++, and Cython parser/tokenizer acceleration options"
 status = "pending"
-depends_on = ["current-api-inventory"]
+depends_on = ["current-api-inventory", "fresh-performance-baseline"]
 
 [[steps]]
 id = "independent-research-review"
@@ -101,6 +107,12 @@ status = "pending"
 depends_on = ["behavior-performance-signoff"]
 
 [[steps]]
+id = "public-issue-response"
+title = "Prepare and, with explicit authorization, post public guidance on issues #16 and #17"
+status = "pending"
+depends_on = ["behavior-performance-signoff", "design-doc-intent-audit"]
+
+[[steps]]
 id = "kicad-cruncher-handoff"
 title = "Prepare downstream kicad_cruncher guidance and follow-on plan after Monkey API work lands"
 status = "pending"
@@ -120,7 +132,7 @@ depends_on = [
 id = "closeout-artifacts"
 title = "Close the active plan after review by moving durable decisions out of docs/plans"
 status = "pending"
-depends_on = ["external-review", "kicad-cruncher-handoff"]
+depends_on = ["external-review", "kicad-cruncher-handoff", "public-issue-response"]
 
 [[exit_criteria]]
 id = "ec-dependent-on-performance-closeout"
@@ -129,7 +141,12 @@ status = "met"
 
 [[exit_criteria]]
 id = "ec-api-inventory-complete"
-title = "Full-model, projection, targeted-reader, project, IR, and SVG entry points are inventoried"
+title = "Full-model, projection, targeted-reader, schematic, project, IR, and SVG entry points are inventoried"
+status = "pending"
+
+[[exit_criteria]]
+id = "ec-fresh-baselines-captured"
+title = "Fresh parser/projection baselines and full-parse decomposition are captured on this branch before implementation comparison"
 status = "pending"
 
 [[exit_criteria]]
@@ -144,16 +161,26 @@ status = "pending"
 
 [[exit_criteria]]
 id = "ec-native-options-evaluated"
-title = "C, C++, Cython, and pure-Python parser/tokenizer acceleration options are compared with platform, packaging, ABI, and maintenance tradeoffs"
+title = "Pure-Python pull-parser, C, C++, and Cython parser/tokenizer acceleration options are compared with platform, packaging, ABI, and maintenance tradeoffs"
 status = "pending"
 
 [[exit_criteria]]
 id = "design-doc-intent-audit"
+title = "Checker-required alias: ADRs, design docs, requirements, and release notes match selected API behavior"
+status = "pending"
+
+[[exit_criteria]]
+id = "ec-design-doc-intent-audit"
 title = "ADRs, design docs, requirements, and release notes match selected API behavior"
 status = "pending"
 
 [[exit_criteria]]
 id = "test-runtime-impact-audit"
+title = "Checker-required alias: test additions and runtime impact are reviewed with recorded evidence"
+status = "pending"
+
+[[exit_criteria]]
+id = "ec-test-runtime-impact-audit"
 title = "Test additions and runtime impact are reviewed with recorded evidence"
 status = "pending"
 
@@ -178,7 +205,17 @@ title = "No kicad_cruncher implementation begins until Monkey API decisions land
 status = "pending"
 
 [[exit_criteria]]
+id = "ec-public-issue-response-authorized"
+title = "Any public issue comment on #16 or #17 is prepared from durable docs and posted only after explicit authorization"
+status = "pending"
+
+[[exit_criteria]]
 id = "external-review"
+title = "Checker-required alias: external review is complete before release preparation or publish authorization"
+status = "pending"
+
+[[exit_criteria]]
+id = "ec-external-review"
 title = "External review is complete before release preparation or publish authorization"
 status = "pending"
 
@@ -204,6 +241,19 @@ API-design questions:
   require a mutable full `KiCadPcb`;
 - whether native tokenizer/parser acceleration should be pursued, and through
   which implementation strategy.
+
+The prior closeout intentionally deleted plan logs and benchmark JSON files.
+This plan must re-measure any performance facts it depends on. In particular,
+native acceleration research must recreate the full-parse decomposition that
+motivates the architecture question: raw regex scanning, full token production,
+and `parse_sexp()` generic-tree construction on a large public corpus board
+such as Jumperless. Historical review numbers are useful as a target for
+sanity-checking only; they are not durable evidence for this plan.
+
+This plan keeps both `ec-*` exit criteria and three checker-required unprefixed
+exit criteria (`design-doc-intent-audit`, `test-runtime-impact-audit`, and
+`external-review`). The unprefixed IDs are retained solely because the current
+dev-std plan audit requires them.
 
 Per ADR-003 and `AGENTS.md`, this is a working artifact. Durable outcomes must
 move into ADRs, design docs, requirements, release notes, contracts, or tests
@@ -236,11 +286,14 @@ This plan must keep these terms distinct:
 - Determine whether new file-level IR/SVG APIs can provide meaningful speedups
   without weakening rendering correctness.
 - Implement accepted API/doc changes after independent research review.
-- Evaluate native tokenizer/parser acceleration options across C, C++, Cython,
-  and pure-Python architecture changes, including per-platform packaging and
-  maintenance costs.
+- Evaluate pure-Python pull-parser architecture before native acceleration,
+  then compare C, C++, and Cython options against that zero-packaging-cost
+  baseline.
 - Prepare a downstream `kicad_cruncher` plan only after Monkey API decisions
   have landed.
+- Prepare public issue guidance for #16 and #17 after durable docs land,
+  including citable public/synthetic numbers and the correct projection API
+  guidance, but post it only with explicit authorization.
 
 ## Non-Goals
 
@@ -255,6 +308,10 @@ This plan must keep these terms distinct:
   contracts for performance.
 - Do not accept third-party code by copying, cherry-picking, or porting it
   without a separate reviewed decision.
+- Do not treat a native tokenizer or parser as a fork of the Python behavior.
+  The pure-Python toolkit remains the reference implementation; any native
+  option must be a validated accelerator behind the same contracts and corpus
+  tests.
 
 ## Research Questions
 
@@ -262,8 +319,14 @@ This plan must keep these terms distinct:
 - Which existing projection and targeted-reader APIs are appropriate for
   large-board inventories, diagnostics, source-span lookups, model-reference
   scans, footprint/pad summaries, and route/net scans?
+- Does schematic-side source projection need a public analogue, or should
+  schematic netlisting and IR continue to use the full schematic model until a
+  separate design justifies partial schematic readers?
 - Where do docs or command examples imply that IR/SVG or project APIs are
   partial when they currently are not?
+- What fresh baseline measurements on this branch describe full
+  materialization, source projection, raw regex scanning, token production, and
+  generic tree construction before any implementation comparison?
 - Can a file-level `pcb_file_to_ir(...)`, `render_pcb_file_to_svg(...)`, or
   equivalent facade build a correct layer-filtered document without first
   constructing a complete `KiCadPcb`?
@@ -273,11 +336,13 @@ This plan must keep these terms distinct:
 - Should a partial render path be public API, private acceleration, or rejected
   until a streaming typed parser exists?
 - For native acceleration, which approach has the best cost/risk profile:
-  a C tokenizer, C++ tokenizer/parser aligned with KiCad's eventual parser
-  direction, Cython over current Python structures, or a pure-Python pull
-  parser that avoids token-list materialization?
+  a pure-Python pull parser that avoids token-list materialization, a C
+  tokenizer, C++ tokenizer/parser aligned with a future native core, or Cython
+  over current Python structures?
 - What wheel, ABI, CI, Windows/macOS/Linux, source-distribution, and fallback
   requirements would native acceleration introduce?
+- How does KiCad's direction away from SWIG bindings toward kiapi/protobuf
+  affect any C++ integration or parser-alignment argument?
 
 ## Candidate API Directions
 
@@ -308,6 +373,18 @@ If research concludes that no new IR/SVG partial API is safe yet, the
 implementation slice should be limited to documentation, guidance, API naming,
 and deferred-work records.
 
+Conditional implementation steps still need an explicit terminal record. If
+`api-design-decision` rejects file-level IR/SVG APIs, mark
+`file-level-ir-svg-api-implementation` done only after recording the rejection
+rationale in durable docs or a plan log; a done status in that case means
+"closed by reviewed rejection", not "implemented".
+
+The `native-acceleration-options-research` step must start from fresh
+measurements on this branch. It should compare pure-Python pull parsing first,
+because that attacks the same token-list/materialization floor without wheel or
+ABI cost. Native options must then beat or complement that baseline while
+preserving the Python reference implementation and golden corpus behavior.
+
 ## Validation Plan
 
 Minimum validation for documentation-only changes:
@@ -321,11 +398,23 @@ Minimum validation for accepted API or render changes:
 - focused L0 tests for new public/provisional APIs;
 - corpus tests for projection/full-model parity where applicable;
 - SVG/IR oracle or structural tests for render output stability;
+- fresh baselines on this branch before implementation comparison;
 - performance probe comparing full-materialization and file-level paths on
-  synthetic and public-corpus cases;
+  synthetic and public-corpus cases; do not cite deleted closeout JSON files by
+  path;
 - `uv run --extra test python tests/rack.py run L0_foundation`;
 - `uv run --extra test python tests/rack.py run L99_signoff`;
 - `uv run dev-std audit . --format json`.
+
+## Public Issue Communication
+
+Issues #16 and #17 should receive a public response after durable docs and
+guidance land. The response should summarize the accepted performance results
+using citable public or synthetic numbers, explain that public PRs were used as
+research input rather than accepted directly, and point reporters to the
+correct APIs for large-board scans such as `KiCadPcbProjection` and
+`iter_kicad_objects_from_file`. Posting on GitHub is a shared-state action and
+requires explicit authorization.
 
 ## Downstream Handoff
 
