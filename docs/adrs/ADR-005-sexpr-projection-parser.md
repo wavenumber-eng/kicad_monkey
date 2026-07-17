@@ -77,7 +77,9 @@ workloads now make the performance constraints explicit:
   text, and reparsed S-expression behavior even when internal indexes are used;
 - line-column rebasing, direct-child span discovery, and PCB net lookup tables
   may be cached as private immutable-source accelerators;
-- lexer and projection scanner hot paths remain pure Python for this effort;
+- lexer and projection scanner hot paths remain pure Python for this effort,
+  with the lexer using compiled regex token discovery, lazy quoted-string
+  unescape, and grouped numeric token classification;
 - public GitHub issue and pull-request reports may guide research, but
   implementation code is independently written in this repository.
 

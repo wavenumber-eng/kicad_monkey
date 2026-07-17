@@ -6,7 +6,9 @@ Purpose: Pin lexer/tree-builder behavior that must stay portable to C++/WASM.
 
 import pytest
 
+import kicad_monkey.kicad_sexpr as sexpr_mod
 from kicad_monkey.kicad_sexpr import (
+    KicadSexprLexer,
     PARSER_DIALECT_EXCEPTIONS,
     QuotedString,
     SexpSpan,
@@ -17,6 +19,7 @@ from kicad_monkey.kicad_sexpr import (
     TOKEN_ATOM,
     TOKEN_LEFT,
     TOKEN_NUMBER,
+    TOKEN_STRING,
     build_sexp,
     debug_dump_tokens,
     format_sexp,
@@ -56,6 +59,68 @@ def test_whole_line_comments_are_skipped_but_trailing_hash_is_data() -> None:
         (root #not-a-comment)
         """
     ) == ["root", "#not-a-comment"]
+
+
+def test_regex_lexer_preserves_number_and_atom_boundaries() -> None:
+    tokens = lex_sexp("(root 123 -2. +0.5 .25 1e-3 1e 1abc +. -)")
+
+    payload = [(token.kind, token.value) for token in tokens[2:-1]]
+
+    assert payload == [
+        (TOKEN_NUMBER, 123),
+        (TOKEN_NUMBER, -2.0),
+        (TOKEN_NUMBER, 0.5),
+        (TOKEN_NUMBER, 0.25),
+        (TOKEN_NUMBER, 0.001),
+        (TOKEN_ATOM, "1e"),
+        (TOKEN_ATOM, "1abc"),
+        (TOKEN_ATOM, "+."),
+        (TOKEN_ATOM, "-"),
+    ]
+
+
+def test_regex_lexer_unescapes_quoted_strings_lazily(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fake_unescape(value: str) -> str:
+        calls.append(value)
+        return f"decoded:{value}"
+
+    monkeypatch.setattr(sexpr_mod, "_unescape_kicad_string", fake_unescape)
+
+    tokens = lex_sexp(r'(root "plain text" "escaped\n")')
+    strings = [token.value for token in tokens if token.kind == TOKEN_STRING]
+
+    assert strings == [QuotedString("plain text"), QuotedString(r"decoded:escaped\n")]
+    assert calls == [r"escaped\n"]
+
+
+def test_regex_lexer_tracks_crlf_locations_inside_strings() -> None:
+    tokens = lex_sexp('(root\r\n  "a\r\nb" 2)')
+    strings = [token for token in tokens if token.kind == TOKEN_STRING]
+    numbers = [token for token in tokens if token.kind == TOKEN_NUMBER]
+
+    assert strings[0].line == 2
+    assert strings[0].column == 3
+    assert strings[0].value == QuotedString("a\nb")
+    assert numbers[0].line == 3
+    assert numbers[0].column == 4
+
+
+def test_regex_lexer_keeps_whole_line_hash_comment_rule() -> None:
+    tokens = lex_sexp("  # comment\r\n(root #not-a-comment)")
+
+    assert [token.value for token in tokens] == ["(", "root", "#not-a-comment", ")"]
+    assert tokens[0].line == 2
+    assert tokens[0].column == 1
+
+
+def test_regex_lexer_respects_knows_bar_separator() -> None:
+    tokens = KicadSexprLexer("(data |)", knows_bar=False).tokens()
+    assert [token.value for token in tokens] == ["(", "data", "|", ")"]
+
+    with pytest.raises(SexprLexError, match="Unexpected token"):
+        KicadSexprLexer("(data |)", knows_bar=True).tokens()
 
 
 def test_kicad_string_escapes_match_dsnlexer() -> None:

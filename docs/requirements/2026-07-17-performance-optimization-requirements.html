@@ -43,7 +43,7 @@
         <tr>
           <td>PERF-REQ-003</td>
           <td>Improve S-expression lexer and projection scanner throughput in pure Python.</td>
-          <td><code>kicad_sexpr</code> keeps the public token and span contracts while replacing repeated per-character dispatch with local-loop scanner paths; no new native dependency is introduced.</td>
+          <td><code>kicad_sexpr</code> keeps the public token and span contracts while using a compiled regex tokenizer for whitespace, parentheses, quoted strings, grouped numeric tokens, and atoms; quoted strings unescape lazily and no new native dependency is introduced.</td>
         </tr>
         <tr>
           <td>PERF-REQ-004</td>
@@ -58,7 +58,7 @@
         <tr>
           <td>PERF-REQ-006</td>
           <td>Record before/after performance impact with public or synthetic evidence.</td>
-          <td><code>docs/plans/logs/2026-07-17-performance-signoff-summary.md</code> records synthetic, WREN, Jumperless, and local internal corpus timing comparisons; public/synthetic cases are the citable release evidence.</td>
+          <td><code>docs/plans/logs/2026-07-17-regex-tokenizer-performance-summary.md</code> records synthetic, WREN, Jumperless, and local internal corpus timing comparisons; public/synthetic cases are the citable release evidence.</td>
         </tr>
         <tr>
           <td>PERF-REQ-007</td>
@@ -88,13 +88,16 @@
   <section>
     <h2>Measured Impact</h2>
     <p>
-      Final three-round signoff shows the largest public-corpus gains on WREN:
-      nested projection <code>126.520s -&gt; 22.523s</code> (<code>5.62x</code>)
-      and route projection <code>36.382s -&gt; 20.121s</code>
-      (<code>1.81x</code>). Jumperless nested projection improves
-      <code>33.024s -&gt; 10.293s</code> (<code>3.21x</code>). Synthetic nested
-      projection improves <code>1.880s -&gt; 0.562s</code> (<code>3.35x</code>).
-      Internal 4-ch results are retained as local research evidence only.
+      Post-regex three-round signoff shows the largest public-corpus gains on
+      WREN nested projection:
+      <code>126.520s -&gt; 20.859s</code> (<code>6.07x</code>) and route
+      projection <code>36.382s -&gt; 19.979s</code> (<code>1.82x</code>).
+      Jumperless nested projection improves
+      <code>33.024s -&gt; 8.974s</code> (<code>3.68x</code>). Synthetic nested
+      projection improves <code>1.880s -&gt; 0.549s</code> (<code>3.42x</code>).
+      Full-parse results remain mixed after the regex rewrite and are recorded
+      as a review topic rather than a closed 3-8x claim. Internal 4-ch results
+      are retained as local research evidence only.
     </p>
   </section>
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 from bisect import bisect_left
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import TYPE_CHECKING, Any, Callable, Iterable, TypeVar, cast
 
 from ._api_markers import public_api
@@ -647,7 +648,7 @@ class KiCadPcbProjection:
 
 class _LineColumnIndex:
     def __init__(self, text: str) -> None:
-        self._newline_offsets = [index for index, char in enumerate(text) if char == "\n"]
+        self._newline_offsets = [match.start() for match in re.finditer("\n", text)]
 
     def line_column_for_offset(self, offset: int) -> tuple[int, int]:
         line_index = bisect_left(self._newline_offsets, offset)

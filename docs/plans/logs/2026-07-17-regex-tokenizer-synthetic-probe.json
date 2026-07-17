@@ -1,0 +1,207 @@
+{
+  "cases": [
+    {
+      "kind": "synthetic",
+      "name": "synthetic-net-dense",
+      "operations": {
+        "full_parse": {
+          "best_s": 0.3369787000119686,
+          "max_s": 0.3507040000113193,
+          "median_s": 0.34129750001011416,
+          "result": {
+            "arcs": 0,
+            "footprints": 400,
+            "nets": 600,
+            "pads": 1600,
+            "segments": 1800,
+            "vias": 1800,
+            "zones": 0
+          },
+          "rounds": 3
+        },
+        "projection_common_families": {
+          "best_s": 0.40436770001542754,
+          "max_s": 0.42002989997854456,
+          "median_s": 0.4133150999841746,
+          "result": {
+            "footprints": 400,
+            "gr_lines": 0,
+            "gr_texts": 0,
+            "layers": 2,
+            "nets": 600,
+            "properties": 0,
+            "segments": 1800,
+            "unknown": 0,
+            "vias": 1800,
+            "zones": 0
+          },
+          "rounds": 3
+        },
+        "projection_nested": {
+          "best_s": 0.2694688999908976,
+          "max_s": 0.27332040001056157,
+          "median_s": 0.2706244000000879,
+          "result": {
+            "footprints": 400,
+            "model_spans": 0,
+            "models": 0,
+            "pads": 1600
+          },
+          "rounds": 3
+        },
+        "projection_routes": {
+          "best_s": 0.26156230000196956,
+          "max_s": 0.2643007000151556,
+          "median_s": 0.2632203999964986,
+          "result": {
+            "arcs": 0,
+            "nets": 600,
+            "segments": 1800,
+            "vias": 1800,
+            "zones": 0
+          },
+          "rounds": 3
+        }
+      },
+      "size_bytes": 526573
+    },
+    {
+      "kind": "synthetic",
+      "name": "synthetic-nested-spans",
+      "operations": {
+        "full_parse": {
+          "best_s": 0.3373594000004232,
+          "max_s": 0.34680449997540563,
+          "median_s": 0.34243269998114556,
+          "result": {
+            "arcs": 0,
+            "footprints": 1200,
+            "nets": 2,
+            "pads": 2400,
+            "segments": 0,
+            "vias": 0,
+            "zones": 0
+          },
+          "rounds": 3
+        },
+        "projection_common_families": {
+          "best_s": 0.41478570000617765,
+          "max_s": 0.4201036000158638,
+          "median_s": 0.4157239999913145,
+          "result": {
+            "footprints": 1200,
+            "gr_lines": 0,
+            "gr_texts": 0,
+            "layers": 2,
+            "nets": 2,
+            "properties": 0,
+            "segments": 0,
+            "unknown": 0,
+            "vias": 0,
+            "zones": 0
+          },
+          "rounds": 3
+        },
+        "projection_nested": {
+          "best_s": 0.5498249999945983,
+          "max_s": 0.5632412999984808,
+          "median_s": 0.552914600004442,
+          "result": {
+            "footprints": 1200,
+            "model_spans": 1200,
+            "models": 1200,
+            "pads": 2400
+          },
+          "rounds": 3
+        },
+        "projection_routes": {
+          "best_s": 0.0833029999921564,
+          "max_s": 0.08695389999775216,
+          "median_s": 0.08618690000730567,
+          "result": {
+            "arcs": 0,
+            "nets": 2,
+            "segments": 0,
+            "vias": 0,
+            "zones": 0
+          },
+          "rounds": 3
+        }
+      },
+      "size_bytes": 551617
+    },
+    {
+      "kind": "synthetic",
+      "name": "synthetic-top-level-scan",
+      "operations": {
+        "full_parse": {
+          "best_s": 0.12422110000625253,
+          "max_s": 0.12855670001590624,
+          "median_s": 0.12517589997150935,
+          "result": {
+            "arcs": 0,
+            "footprints": 0,
+            "nets": 400,
+            "pads": 0,
+            "segments": 0,
+            "vias": 0,
+            "zones": 0
+          },
+          "rounds": 3
+        },
+        "projection_common_families": {
+          "best_s": 0.1446255999908317,
+          "max_s": 0.15018910000799224,
+          "median_s": 0.14530970001942478,
+          "result": {
+            "footprints": 0,
+            "gr_lines": 2000,
+            "gr_texts": 500,
+            "layers": 2,
+            "nets": 400,
+            "properties": 0,
+            "segments": 0,
+            "unknown": 0,
+            "vias": 0,
+            "zones": 0
+          },
+          "rounds": 3
+        },
+        "projection_nested": {
+          "best_s": 0.04038670001318678,
+          "max_s": 0.042308000003686175,
+          "median_s": 0.04201519998605363,
+          "result": {
+            "footprints": 0,
+            "model_spans": 0,
+            "models": 0,
+            "pads": 0
+          },
+          "rounds": 3
+        },
+        "projection_routes": {
+          "best_s": 0.0456185000075493,
+          "max_s": 0.04675219999626279,
+          "median_s": 0.045622100005857646,
+          "result": {
+            "arcs": 0,
+            "nets": 400,
+            "segments": 0,
+            "vias": 0,
+            "zones": 0
+          },
+          "rounds": 3
+        }
+      },
+      "size_bytes": 230415
+    }
+  ],
+  "metadata": {
+    "corpus_limit": 0,
+    "kicad_monkey_version": "2026.7.16",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.12 (main, Dec  2 2025, 19:43:54) [MSC v.1944 64 bit (AMD64)]",
+    "rounds": 3,
+    "synthetic_scale": 2
+  }
+}

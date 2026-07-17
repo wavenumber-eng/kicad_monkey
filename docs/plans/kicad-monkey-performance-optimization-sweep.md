@@ -101,20 +101,42 @@ status = "done"
 depends_on = ["performance-signoff"]
 
 [[steps]]
+id = "regex-tokenizer-rewrite"
+title = "Implement the full pure-Python regex tokenizer rewrite with tests"
+status = "done"
+depends_on = ["external-review"]
+
+[[steps]]
+id = "post-regex-behavior-and-performance-signoff"
+title = "Verify behavior and benchmark impact after the regex tokenizer rewrite"
+status = "done"
+depends_on = ["regex-tokenizer-rewrite"]
+
+[[steps]]
 id = "closeout-artifacts"
 title = "Close the active plan after external review and release authorization"
 status = "pending"
 depends_on = [
   "design-doc-intent-audit",
   "test-runtime-impact-audit",
-  "external-review",
+  "post-regex-external-review",
 ]
 
 [[steps]]
 id = "external-review"
 title = "Obtain external review before release preparation"
+status = "done"
+depends_on = [
+  "design-doc-intent-audit",
+  "test-runtime-impact-audit",
+]
+
+[[steps]]
+id = "post-regex-external-review"
+title = "Obtain external review of the regex tokenizer rewrite before closeout"
 status = "active"
 depends_on = [
+  "post-regex-behavior-and-performance-signoff",
   "design-doc-intent-audit",
   "test-runtime-impact-audit",
 ]
@@ -145,6 +167,16 @@ title = "Measured before/after performance impact is recorded for each accepted 
 status = "met"
 
 [[exit_criteria]]
+id = "ec-line-index-build-fast"
+title = "Line-column index construction avoids a per-character Python loop"
+status = "met"
+
+[[exit_criteria]]
+id = "ec-regex-tokenizer-rewrite"
+title = "The lexer uses a pure-Python regex tokenizer with lazy unescape and grouped number classification"
+status = "met"
+
+[[exit_criteria]]
 id = "design-doc-intent-audit"
 title = "ADRs, design docs, requirements, and release notes match accepted optimized behavior"
 status = "met"
@@ -166,7 +198,7 @@ status = "pending"
 
 [[exit_criteria]]
 id = "external-review"
-title = "External review is complete before any release preparation or publish authorization"
+title = "External review is complete after the regex tokenizer rewrite before any release preparation or publish authorization"
 status = "pending"
 +++
 
@@ -246,6 +278,20 @@ Accepted candidate order after the independent pass:
    `resolve_net_ref()` double-table-build fix.
 5. Broader hot-path sweep only after the first four slices land or are
    explicitly rejected.
+
+## External Review Rework
+
+The first external review approved the line/column rebasing, net lookup reuse,
+and direct-child span cache, but required two follow-up actions before closeout:
+
+- build `_LineColumnIndex` newline offsets with a regex-based newline scan
+  instead of a per-character Python loop;
+- complete the accepted lexer/tokenizer candidate with a regex tokenizer,
+  delimiter-driven token discovery, lazy quoted-string unescape, and grouped
+  number classification, with tests and refreshed performance evidence.
+
+This plan remains active while those follow-ups are implemented. A second
+external review is required after the regex-tokenizer signoff.
 
 ## Goals
 

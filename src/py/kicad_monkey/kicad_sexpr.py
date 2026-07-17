@@ -279,8 +279,27 @@ TOKEN_ATOM = "atom"
 TOKEN_STRING = "string"
 TOKEN_NUMBER = "number"
 
-_NUMBER_TOKEN_RE = re.compile(
-    r"^[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?$"
+_NUMBER_TOKEN_PATTERN = (
+    r"[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?)|(?:\.[0-9]+))(?:[eE][+-]?[0-9]+)?"
+)
+_NEWLINE_RE = re.compile(r"\r\n|\r|\n")
+_SEXPR_TOKEN_RE = re.compile(
+    rf"(?P<space>\s+)"
+    rf"|(?P<left>\()"
+    rf"|(?P<right>\))"
+    rf"|(?P<string>\"(?:\\(?:\r\n|[\s\S])|[^\"\\])*\")"
+    rf"|(?P<unterminated_string>\"(?:\\(?:\r\n|[\s\S])|[^\"\\])*)"
+    rf"|(?P<number>{_NUMBER_TOKEN_PATTERN})(?=$|[\s()])"
+    rf"|(?P<atom>[^\s()]+)"
+)
+_SEXPR_TOKEN_RE_KNOWS_BAR = re.compile(
+    rf"(?P<space>\s+)"
+    rf"|(?P<left>\()"
+    rf"|(?P<right>\))"
+    rf"|(?P<string>\"(?:\\(?:\r\n|[\s\S])|[^\"\\])*\")"
+    rf"|(?P<unterminated_string>\"(?:\\(?:\r\n|[\s\S])|[^\"\\])*)"
+    rf"|(?P<number>{_NUMBER_TOKEN_PATTERN})(?=$|[\s()|])"
+    rf"|(?P<atom>[^\s()|]+)"
 )
 
 
@@ -763,234 +782,169 @@ class KicadSexprLexer:
 
     def tokens(self) -> list[SexpToken]:
         result: list[SexpToken] = []
+        token_re = _SEXPR_TOKEN_RE_KNOWS_BAR if self.knows_bar else _SEXPR_TOKEN_RE
+        text = self.text
+        text_len = len(text)
 
-        while True:
-            self._skip_space_and_comments()
+        while self.pos < text_len:
+            if text[self.pos] == "#" and text[self.line_start:self.pos].strip() == "":
+                self._skip_comment()
+                continue
 
-            if self.pos >= len(self.text):
-                return result
+            match = token_re.match(text, self.pos)
+            if match is None:
+                raise SexprLexError(
+                    "Unexpected token",
+                    offset=self.pos,
+                    line=self.line,
+                    column=self.column,
+                )
+
+            kind = match.lastgroup
+            token_text = match.group()
+            if kind == "space":
+                self._pending_separator += self._separator_text(token_text)
+                self._advance_position(token_text)
+                continue
+
+            if kind == "unterminated_string":
+                raise SexprLexError(
+                    "Unterminated delimited string",
+                    offset=self.pos,
+                    line=self.line,
+                    column=self.column,
+                )
 
             start_offset = self.pos
             start_line = self.line
             start_column = self.column
             separator = self._pending_separator
             self._pending_separator = ""
-            ch = self.text[self.pos]
+            self._advance_position(token_text)
 
-            if ch == "(":
-                self._consume_char()
+            if kind == "left":
                 result.append(
-                    SexpToken(TOKEN_LEFT, ch, ch, start_offset, start_line, start_column, separator)
+                    SexpToken(
+                        TOKEN_LEFT,
+                        token_text,
+                        token_text,
+                        start_offset,
+                        start_line,
+                        start_column,
+                        separator,
+                    )
                 )
                 continue
 
-            if ch == ")":
-                self._consume_char()
+            if kind == "right":
                 result.append(
-                    SexpToken(TOKEN_RIGHT, ch, ch, start_offset, start_line, start_column, separator)
+                    SexpToken(
+                        TOKEN_RIGHT,
+                        token_text,
+                        token_text,
+                        start_offset,
+                        start_line,
+                        start_column,
+                        separator,
+                    )
                 )
                 continue
 
-            if ch == '"':
-                result.append(self._read_quoted_string(start_offset, start_line, start_column, separator))
-                continue
-
-            result.append(self._read_atom(start_offset, start_line, start_column, separator))
-
-    def _is_sep(self, ch: str) -> bool:
-        return ch.isspace() or ch in "()" or (self.knows_bar and ch == "|")
-
-    def _consume_char(self) -> str:
-        ch = self.text[self.pos]
-
-        if ch == "\r":
-            self.pos += 1
-            if self.pos < len(self.text) and self.text[self.pos] == "\n":
-                self.pos += 1
-            self.line += 1
-            self.column = 1
-            self.line_start = self.pos
-            return "\n"
-
-        self.pos += 1
-
-        if ch == "\n":
-            self.line += 1
-            self.column = 1
-            self.line_start = self.pos
-        else:
-            self.column += 1
-
-        return ch
-
-    def _skip_space_and_comments(self) -> None:
-        text = self.text
-        text_len = len(text)
-        pos = self.pos
-        line = self.line
-        column = self.column
-        line_start = self.line_start
-        pending_separator = self._pending_separator
-
-        while True:
-            start_pos = pos
-
-            while pos < text_len and text[pos].isspace():
-                ch = text[pos]
-                if ch == "\r":
-                    pos += 1
-                    if pos < text_len and text[pos] == "\n":
-                        pos += 1
-                    line += 1
-                    column = 1
-                    line_start = pos
-                    pending_separator += "\n"
-                    continue
-
-                pos += 1
-                if ch == "\n":
-                    line += 1
-                    column = 1
-                    line_start = pos
-                else:
-                    column += 1
-                pending_separator += ch
-
-            if pos < text_len and text[pos] == "#" and text[line_start:pos].strip() == "":
-                while pos < text_len and text[pos] not in "\r\n":
-                    pos += 1
-                    column += 1
-                continue
-
-            if pos == start_pos:
-                self.pos = pos
-                self.line = line
-                self.column = column
-                self.line_start = line_start
-                self._pending_separator = pending_separator
-                return
-
-    def _read_quoted_string(
-        self,
-        start_offset: int,
-        start_line: int,
-        start_column: int,
-        separator: str,
-    ) -> SexpToken:
-        raw: list[str] = []
-        text = self.text
-        text_len = len(text)
-        pos = self.pos + 1
-        line = self.line
-        column = self.column + 1
-        line_start = self.line_start
-
-        while pos < text_len:
-            ch = text[pos]
-            if ch == "\r":
-                pos += 1
-                if pos < text_len and text[pos] == "\n":
-                    pos += 1
-                ch = "\n"
-                line += 1
-                column = 1
-                line_start = pos
-            else:
-                pos += 1
-                if ch == "\n":
-                    line += 1
-                    column = 1
-                    line_start = pos
-                else:
-                    column += 1
-
-            if ch == '"':
-                self.pos = pos
-                self.line = line
-                self.column = column
-                self.line_start = line_start
-                source_text = text[start_offset:pos]
-                return SexpToken(
-                    TOKEN_STRING,
-                    source_text,
-                    QuotedString(_unescape_kicad_string("".join(raw))),
-                    start_offset,
-                    start_line,
-                    start_column,
-                    separator,
+            if kind == "string":
+                result.append(
+                    SexpToken(
+                        TOKEN_STRING,
+                        token_text,
+                        self._quoted_value(token_text),
+                        start_offset,
+                        start_line,
+                        start_column,
+                        separator,
+                    )
                 )
-
-            if ch == "\\":
-                raw.append(ch)
-                if pos >= text_len:
-                    break
-                escaped = text[pos]
-                if escaped == "\r":
-                    pos += 1
-                    if pos < text_len and text[pos] == "\n":
-                        pos += 1
-                    escaped = "\n"
-                    line += 1
-                    column = 1
-                    line_start = pos
-                else:
-                    pos += 1
-                    if escaped == "\n":
-                        line += 1
-                        column = 1
-                        line_start = pos
-                    else:
-                        column += 1
-                raw.append(escaped)
                 continue
 
-            raw.append(ch)
+            if kind == "number":
+                result.append(
+                    SexpToken(
+                        TOKEN_NUMBER,
+                        token_text,
+                        self._number_value(token_text),
+                        start_offset,
+                        start_line,
+                        start_column,
+                        separator,
+                    )
+                )
+                continue
 
-        self.pos = pos
-        self.line = line
-        self.column = column
-        self.line_start = line_start
-        raise SexprLexError(
-            "Unterminated delimited string",
-            offset=start_offset,
-            line=start_line,
-            column=start_column,
-        )
+            if kind == "atom":
+                result.append(
+                    SexpToken(
+                        TOKEN_ATOM,
+                        token_text,
+                        token_text,
+                        start_offset,
+                        start_line,
+                        start_column,
+                        separator,
+                    )
+                )
+                continue
 
-    def _read_atom(
-        self,
-        start_offset: int,
-        start_line: int,
-        start_column: int,
-        separator: str,
-    ) -> SexpToken:
-        text = self.text
-        text_len = len(text)
-        pos = self.pos
+            raise AssertionError(f"unhandled token kind {kind!r}")
 
-        while pos < text_len and not self._is_sep(text[pos]):
-            pos += 1
+        return result
 
-        token_text = text[start_offset:pos]
-        if not token_text:
-            raise SexprLexError(
-                "Unexpected token",
-                offset=start_offset,
-                line=start_line,
-                column=start_column,
-            )
+    def _skip_comment(self) -> None:
+        newline = _NEWLINE_RE.search(self.text, self.pos)
+        if newline is None:
+            skipped = len(self.text) - self.pos
+            self.pos = len(self.text)
+            self.column += skipped
+            return
+        end = newline.start()
+        self.column += end - self.pos
+        self.pos = end
 
-        self.pos = pos
-        self.column += pos - start_offset
+    def _advance_position(self, token_text: str) -> None:
+        token_len = len(token_text)
+        self.pos += token_len
+        if "\n" not in token_text and "\r" not in token_text:
+            self.column += token_len
+            return
 
-        if _NUMBER_TOKEN_RE.match(token_text):
-            if "." in token_text or "e" in token_text.lower():
-                value: Any = float(token_text)
-            else:
-                value = int(token_text)
-            return SexpToken(TOKEN_NUMBER, token_text, value, start_offset, start_line, start_column, separator)
+        start_offset = self.pos
+        last_newline_end = 0
+        newline_count = 0
+        for newline in _NEWLINE_RE.finditer(token_text):
+            newline_count += 1
+            last_newline_end = newline.end()
 
-        return SexpToken(TOKEN_ATOM, token_text, token_text, start_offset, start_line, start_column, separator)
+        self.line += newline_count
+        self.column = token_len - last_newline_end + 1
+        self.line_start = start_offset - token_len + last_newline_end
+
+    @staticmethod
+    def _separator_text(token_text: str) -> str:
+        if "\r" not in token_text:
+            return token_text
+        return _NEWLINE_RE.sub("\n", token_text)
+
+    @staticmethod
+    def _quoted_value(token_text: str) -> QuotedString:
+        body = token_text[1:-1]
+        if "\\" not in body:
+            if "\r" in body:
+                body = _NEWLINE_RE.sub("\n", body)
+            return QuotedString(body)
+        return QuotedString(_unescape_kicad_string(_NEWLINE_RE.sub("\n", body)))
+
+    @staticmethod
+    def _number_value(token_text: str) -> int | float:
+        if "." in token_text or "e" in token_text.lower():
+            return float(token_text)
+        return int(token_text)
 
 
 _TEARDROP_VALUE_TOKENS = {
