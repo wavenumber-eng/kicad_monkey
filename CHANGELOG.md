@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026.7.16a0
+## 2026.7.16
 
 - Add the `kicad.plotter_ir.a0` JSON Schema and canonical HTML reference for
   the KiCad Plotter IR used by SVG rendering and downstream scene conversion.

@@ -23,7 +23,7 @@ Last updated: 2026-07-16
 - CI restores the corpus archive from the public object URL recorded in
   `tests/corpus/kicad.archive.toml`, verifies it, runs Rack L0 and L99, builds
   the package, runs `twine check`, and verifies installed-package imports.
-- The 2026-07-16 alpha release candidate adds the Plotter IR a0 contract,
+- The 2026-07-16 release adds the Plotter IR a0 contract,
   hyperlink context preservation, source-driven KiCad preference setup,
   one-pass design JSON pin-count generation, and configured dev-std audit
   coverage.

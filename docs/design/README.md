@@ -24,8 +24,7 @@ Current design notes:
 - `kicad-plotter-ir.html` - canonical JSON rendering IR contract reference
   for scene conversion, SVG rendering, and validation.
 - `../requirements/2026-07-16-public-issue-requirements.html` - public-issue
-  requirements and acceptance evidence for the `2026.7.16a0` release
-  candidate.
+  requirements and acceptance evidence for the `2026.7.16` release.
 - `library-megamaid-extraction.html` - KiCad project library extraction,
   metadata, model repair, and test ownership design.
 - `sexpr-projection-parser.html` - generic S-expression form-span selection
