@@ -85,6 +85,12 @@ _HIER_CHILD_SCH_TEXT = """(kicad_sch (version 20250114) (generator "eeschema")
   (generator_version "9.0")
   (uuid "dddddddd-dddd-dddd-dddd-dddddddddddd")
   (paper "A4")
+  (text "linked child note"
+    (exclude_from_sim no)
+    (at 1 2 0)
+    (effects (font (size 1.27 1.27)) (href "https://example.test/child"))
+    (uuid "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+  )
 )
 """
 
@@ -266,3 +272,13 @@ def test_design_schematic_instance_navigation(tmp_path):
     assert doc.document_id == "power-b"
     assert doc.source_kind == "SCH"
     assert doc.records[0].kind == "sheet_header"
+    text_op = next(
+        op
+        for record in doc.records
+        for op in record.operations
+        if op.payload.get("text") == "linked child note"
+    )
+    assert (
+        text_op.payload["context"]["hyperlink"]["href"]
+        == "https://example.test/child"
+    )

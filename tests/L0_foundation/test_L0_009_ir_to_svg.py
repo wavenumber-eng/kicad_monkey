@@ -587,6 +587,42 @@ def test_render_ir_to_svg_is_parseable_xml() -> None:
     assert len(list(root)) >= 2
 
 
+def test_render_ir_to_svg_ignores_text_hyperlink_context() -> None:
+    base = KiCadPlotterOp.text(
+        x=1_000_000,
+        y=2_000_000,
+        text="linked text",
+        size_x_nm=1_000_000,
+        size_y_nm=1_000_000,
+        color="#000000",
+    )
+    op = KiCadPlotterOp(
+        kind=base.kind,
+        payload={
+            **base.payload,
+            "context": {
+                "hyperlink": {"href": "https://example.test/not-rendered"}
+            },
+        },
+    )
+    rec = KiCadPlotterRecord(
+        uuid="linked-text",
+        kind="text",
+        object_id="linked-text",
+        operations=[op],
+    )
+    doc = KiCadPlotterDocument(
+        records=[rec],
+        canvas={"width_nm": 100_000_000, "height_nm": 100_000_000},
+        source_kind="SCH",
+    )
+
+    svg = render_ir_to_svg(doc)
+
+    assert "linked text" in svg
+    assert "https://example.test/not-rendered" not in svg
+
+
 def test_render_ir_to_svg_options_black_and_white_native_theme() -> None:
     op = KiCadPlotterOp.text(
         x=0, y=0, text="hi", size_x_nm=1_000_000, size_y_nm=1_000_000,

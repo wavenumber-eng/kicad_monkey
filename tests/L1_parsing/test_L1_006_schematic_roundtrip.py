@@ -35,6 +35,32 @@ from conftest import get_schematic_files, get_schematic_test_ids
 SCHEMATIC_FILES = get_schematic_files()
 
 
+def test_schematic_text_href_round_trips_through_effects() -> None:
+    text = """(kicad_sch (version 20250114) (generator "eeschema")
+  (generator_version "9.0")
+  (uuid "11111111-2222-3333-4444-555555555555")
+  (paper "A4")
+  (text "linked note"
+    (exclude_from_sim no)
+    (at 1 2 0)
+    (effects (font (size 1.27 1.27)) (href "https://example.test/note"))
+    (uuid "22222222-3333-4444-5555-666666666666")
+  )
+)
+"""
+
+    sch = KiCadSchematic.from_text(text)
+
+    assert sch.texts[0].effects is not None
+    assert sch.texts[0].effects.href == "https://example.test/note"
+
+    emitted = sch.to_text()
+    assert '(href "https://example.test/note")' in emitted
+    reparsed = KiCadSchematic.from_text(emitted)
+    assert reparsed.texts[0].effects is not None
+    assert reparsed.texts[0].effects.href == "https://example.test/note"
+
+
 # ============================================================================
 # Test: Basic Parsing
 # ============================================================================
