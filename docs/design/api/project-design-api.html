@@ -76,16 +76,9 @@
       <code>KiCadDesign.from_project_file</code> loads the project JSON and top
       schematic up front. The adjacent PCB file is parsed lazily when
       <code>design.pcb</code>, PCB IR, PCB SVG, or design JSON output needs
-      board data.
-    </p>
-    <p>
-      Design-level PCB rendering is still a full-board path once the PCB is
-      touched. It delegates through the board model and plotter IR renderer, so
-      a PCB <code>layers=</code> selection filters output after full board parse
-      and IR construction. For large-board inventories that do not need
-      rendering, mutation, netlisting, or design-wide context, use
-      <code>KiCadPcbProjection</code> or the generic targeted reader directly
-      on the source file.
+      board data. User-facing workflow selection is canonical in
+      <a href="../../guides/project-workflows.html">Project Workflows And
+      Read-Path Selection</a>.
     </p>
     <h3>Schematic SVG Linkage</h3>
     <p>

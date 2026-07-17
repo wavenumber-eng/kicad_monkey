@@ -35,9 +35,14 @@
       </thead>
       <tbody>
         <tr>
-          <td>Compile a project netlist or design JSON.</td>
+          <td>Compile a project netlist.</td>
           <td><code>KiCadDesign.from_project_file(...)</code></td>
-          <td>Loads project JSON and schematic hierarchy; touches PCB when the requested output needs board data.</td>
+          <td>Loads project JSON and schematic hierarchy; does not parse the PCB for schematic-only netlist compilation.</td>
+        </tr>
+        <tr>
+          <td>Write design JSON for review or downstream tools.</td>
+          <td><code>KiCadDesign.from_project_file(...)</code></td>
+          <td>Loads project JSON and schematic hierarchy; parses the PCB when board-backed design JSON fields are needed.</td>
         </tr>
         <tr>
           <td>Edit, write, render, or inspect full PCB geometry.</td>
@@ -50,9 +55,14 @@
           <td>Full board parse plus full IR construction; <code>layers=</code> filters output after IR construction.</td>
         </tr>
         <tr>
-          <td>Count large-board footprints, pads, route objects, zones, nets, or model references.</td>
+          <td>Scan one or two large-board PCB families such as routes, zones, or model references.</td>
           <td><code>KiCadPcbProjection.from_file(...)</code></td>
-          <td>Reads and scans the source file, then hydrates only requested PCB families.</td>
+          <td>Reads and scans the source file, then hydrates only requested PCB families; best for narrow scans and source spans.</td>
+        </tr>
+        <tr>
+          <td>Count several common or nested PCB families such as footprints and pads.</td>
+          <td>Measure both <code>KiCadPcb</code> and <code>KiCadPcbProjection</code> for the workload.</td>
+          <td>Projection can cost as much as or more than a full parse when many families are requested.</td>
         </tr>
         <tr>
           <td>Scan one object family from PCB, schematic, symbol, footprint, model, or embedded-file sources.</td>
@@ -71,6 +81,16 @@
         </tr>
       </tbody>
     </table>
+    <p>
+      Indicative current measurements on this branch: a 59.6 MB WREN board
+      full parse was about <code>26.7s</code>, projection route scan about
+      <code>20.0s</code>, and projection common-family inventory about
+      <code>32.0s</code>. Treat these as order-of-magnitude anchors for API
+      choice, not release gates. The pattern matters more than the exact
+      number: narrow scans can win; broad or nested inventories can match or
+      exceed full-parse time. PCB render <code>layers=</code> selection does
+      not reduce parse or IR-build cost.
+    </p>
   </section>
 
   <section>
@@ -82,9 +102,12 @@
       project, schematic, and board files.
     </p>
     <pre><code>from kicad_monkey import KiCadDesign
+from pathlib import Path
 
 design = KiCadDesign.from_project_file("hardware/demo.kicad_pro")
 netlist = design.to_netlist()
+
+Path("build").mkdir(parents=True, exist_ok=True)
 design.save_json("build/design.json")
 
 for sheet in design.schematic_instances():
@@ -139,9 +162,18 @@ print("route objects", route_count)
 for model_ref in projection.model_references():
     print(model_ref.reference, model_ref.path)</code></pre>
     <p>
-      Projection reads and scans source text, so it is not free. It saves time
-      and memory by avoiding full typed board materialization when only selected
-      families are needed.
+      Projection reads and scans source text, so it is not free. It can reduce
+      wall-clock time and memory for narrow family scans by avoiding full typed
+      board materialization. When a workflow requests several common or nested
+      families, projection can cost as much as or more than a full parse; use
+      the full model when that is simpler or when complete board context is
+      needed.
+    </p>
+    <p>
+      Net inventory needs format awareness. KiCad v10 boards can omit the
+      top-level net table and store name-only net references on objects, so
+      <code>projection.nets()</code> can legitimately be empty even when routed
+      objects reference nets.
     </p>
   </section>
 
@@ -182,7 +214,6 @@ for symbol in iter_kicad_objects_from_file("hardware/demo.kicad_sch", SchSymbol)
       <li>Use targeted readers for one object family from one source file.</li>
       <li>Use <code>KiCadDesign</code> when cross-document project context matters.</li>
       <li>Do not treat <code>to_ir()</code>, <code>to_svg()</code>, or render <code>layers=</code> as partial-read APIs.</li>
-      <li>Defer native parser acceleration decisions until a pure-Python pull-parser baseline exists.</li>
     </ul>
   </section>
 

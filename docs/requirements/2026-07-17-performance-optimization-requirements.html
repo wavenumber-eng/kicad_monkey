@@ -129,11 +129,13 @@
       Native acceleration, pull-token parser architecture, direct streaming
       typed parse paths, file-level IR/SVG APIs that avoid a full
       <code>KiCadPcb</code> materialization step, and acceptance of third-party
-      PR implementation code are outside this optimization candidate. Project
-      API guidance is recorded separately as durable documentation. A follow-on
-      plan should evaluate pure-Python pull parsing before C, C++, or Cython
-      tokenizer/parser acceleration, and any native implementation must remain
-      a validated accelerator behind the Python reference contracts.
+      PR implementation code are outside this optimization candidate.
+      User-facing project API guidance is canonical in
+      <code>docs/guides/project-workflows.html</code>. Native acceleration is
+      internal roadmap work: a follow-on plan should evaluate pure-Python pull
+      parsing before C, C++, or Cython tokenizer/parser acceleration, and any
+      native implementation must remain a validated accelerator behind the
+      Python reference contracts.
     </p>
   </section>
 </body>
