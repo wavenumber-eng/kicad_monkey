@@ -15,7 +15,11 @@ Distinct from F-3 (`test_L0_007_lib_symbol_to_ir.py`):
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
+from jsonschema import Draft202012Validator
 
 from kicad_monkey import (
     KiCadFillType,
@@ -47,6 +51,20 @@ from kicad_monkey.kicad_fp_text_box import FpTextBox
 from kicad_monkey.kicad_pad import Pad, PadCustomOptions, PadCustomPrimitive
 from kicad_monkey.kicad_primitives import Effects, Font, Stroke
 from kicad_monkey.kicad_property import Property
+
+
+PLOTTER_IR_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "docs"
+    / "contracts"
+    / "kicad_plotter_ir_a0.schema.json"
+)
+
+
+def _plotter_ir_contract_validator() -> Draft202012Validator:
+    schema = json.loads(PLOTTER_IR_SCHEMA_PATH.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema)
 
 
 # ---------------------------------------------------------------------------
@@ -735,6 +753,7 @@ def test_footprint_to_ir_document_shape():
     assert doc.extras["version"] == fp.version
     assert doc.extras["generator"] == fp.generator
     assert doc.extras["generator_version"] == fp.generator_version
+    _plotter_ir_contract_validator().validate(doc.to_dict())
 
 
 def test_footprint_to_ir_default_document_id_is_name():

@@ -37,7 +37,7 @@ def test_build_ir_coverage_report_counts_ir_and_recorder_outputs(tmp_path):
     (ir_dir / "demo.json").write_text(
         json.dumps(
             {
-                "schema": "kicad.plotter_ir.v1",
+                "schema": "kicad.plotter_ir.a0",
                 "records": [
                     {
                         "uuid": "sheet",

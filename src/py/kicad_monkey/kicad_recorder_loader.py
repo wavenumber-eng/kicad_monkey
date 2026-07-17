@@ -5,7 +5,7 @@ The KiCad-side ``RECORDER_PLOTTER`` instrumentation emits a JSON document
 with schema id ``kicad.plotter_recorder.v1`` containing every
 ``PLOTTER`` virtual call captured during a ``kicad-cli sch export svg``
 run. This module loads that dump and translates it into the canonical
-``kicad.plotter_ir.v1`` document type
+``kicad.plotter_ir.a0`` document type
 (:class:`~kicad_monkey.kicad_plotter_ir.KiCadPlotterDocument`) that the
 rest of the kicad_monkey toolkit consumes.
 
@@ -16,12 +16,12 @@ names. The translation table is intentionally small and lives here
 (rather than mutating either schema) so both representations stay
 faithful to their source-of-truth:
 
-    SetDash:         width_nm        → line_width_nm
-    PenTo:           plume           → action
-    StartPlot:       page_number     → page_name
-    SetPageSettings: type            → page_type
-    LINE_STYLE:      DASHDOT         → DASH_DOT
-    LINE_STYLE:      DASHDOTDOT      → DASH_DOT_DOT
+    SetDash:         width_nm        -> line_width_nm
+    PenTo:           plume           -> action
+    StartPlot:       page_number     -> page_name
+    SetPageSettings: type            -> page_type
+    LINE_STYLE:      DASHDOT         -> DASH_DOT
+    LINE_STYLE:      DASHDOTDOT      -> DASH_DOT_DOT
 
 All other ops (Circle, ArcThreePoint, BezierCurve, Rect, PlotPoly,
 Text, PlotImage, Flash*Pad family, ThickSegment, ThickArc, SetColor,
@@ -237,7 +237,7 @@ def translate_recorder_op(raw_op: dict[str, Any]) -> KiCadPlotterOp:
     """
     Translate one recorder op dict (``{"kind": ..., "payload": {...}}``)
     into a canonical :class:`KiCadPlotterOp` whose payload uses the
-    ``kicad.plotter_ir.v1`` field names.
+    ``kicad.plotter_ir.a0`` field names.
 
     Unknown op kinds round-trip with their raw kind string preserved
     (matching :class:`KiCadPlotterOp` forward-compat behaviour).

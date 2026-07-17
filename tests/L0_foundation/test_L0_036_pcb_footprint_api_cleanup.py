@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
+from jsonschema import Draft202012Validator
 
 from kicad_monkey import KiCadFootprint, KiCadObjectCollection, KiCadPcb
 from kicad_monkey.kicad_fp_line import FpLine
@@ -10,6 +14,20 @@ from kicad_monkey.kicad_pcb_footprint import Footprint
 from kicad_monkey.kicad_pcb_gr_line import GrLine
 from kicad_monkey.kicad_pcb_other import BoardProperty
 from kicad_monkey.kicad_property import Property
+
+
+PLOTTER_IR_SCHEMA_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "docs"
+    / "contracts"
+    / "kicad_plotter_ir_a0.schema.json"
+)
+
+
+def _plotter_ir_contract_validator() -> Draft202012Validator:
+    schema = json.loads(PLOTTER_IR_SCHEMA_PATH.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema)
 
 
 def test_pcb_object_query_properties_and_ir_entrypoint():
@@ -77,6 +95,7 @@ def test_embedded_footprint_object_query_properties_and_ir_entrypoint():
     assert doc.source_kind == "PCB_FOOTPRINT"
     assert doc.document_id == "R1"
     assert doc.records[0].object_id == "Device:R"
+    _plotter_ir_contract_validator().validate(doc.to_dict())
 
     assert footprint.remove_object(line) is True
     assert footprint.remove_property("Reference") is True

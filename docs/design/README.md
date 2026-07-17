@@ -21,6 +21,8 @@ Current design notes:
 
 - `quality-signoff-status.md` - current release-gate status and quality-tool
   ratchet plan.
+- `kicad-plotter-ir.html` - canonical JSON rendering IR contract reference
+  for scene conversion, SVG rendering, and validation.
 - `library-megamaid-extraction.html` - KiCad project library extraction,
   metadata, model repair, and test ownership design.
 - `sexpr-projection-parser.html` - generic S-expression form-span selection

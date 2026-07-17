@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>KiCad Plotter IR Contract</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>KiCad Plotter IR Contract</h1>
+
+  <section>
+    <h2>Purpose</h2>
+    <p>
+      The KiCad Plotter IR is the canonical JSON rendering exchange format for
+      KiCad Monkey. It records drawing operations with names aligned to KiCad
+      plotter calls, while keeping the payload independent from Python object
+      identity and renderer implementation details.
+    </p>
+    <p>
+      Consumers can use the IR to render SVG, compare drawing output, inspect
+      schematic or board geometry, or translate KiCad drawing primitives into a
+      separate scene model. A consumer should be able to implement that
+      translation from this document and the JSON Schema without reading the
+      Python implementation first.
+    </p>
+  </section>
+
+  <section>
+    <h2>Contract File</h2>
+    <p>
+      The machine-readable contract is
+      <a href="../contracts/kicad_plotter_ir_a0.schema.json"><code>docs/contracts/kicad_plotter_ir_a0.schema.json</code></a>.
+      It uses JSON Schema draft 2020-12 and validates documents whose root
+      <code>schema</code> value is <code>kicad.plotter_ir.a0</code>.
+    </p>
+    <p>
+      The schema is intentionally forward-compatible. Known operation kinds
+      have required field checks, records and documents allow additional
+      properties, and unknown operation kinds remain valid when they at least
+      carry a string <code>kind</code>. Consumers should ignore fields they do
+      not understand unless their own workflow requires them.
+    </p>
+  </section>
+
+  <section>
+    <h2>Document Envelope</h2>
+    <p>
+      A document is an object with <code>schema</code>,
+      <code>source_kind</code>, <code>total_operations</code>, and
+      <code>records</code>. Optional metadata includes
+      <code>source_path</code>, <code>generated_utc</code>,
+      <code>document_id</code>, <code>canvas</code>,
+      <code>coordinate_space</code>, <code>background_color</code>,
+      <code>render_hints</code>, and <code>context</code>.
+    </p>
+    <p>
+      <code>source_kind</code> identifies the source family:
+      <code>SCH</code>, <code>SYM</code>, <code>PCB</code>,
+      <code>MOD</code>, or <code>PCB_FOOTPRINT</code>. <code>MOD</code>
+      represents a standalone <code>.kicad_mod</code> footprint, while
+      <code>PCB_FOOTPRINT</code> represents a footprint extracted from a
+      board. <code>canvas</code> normally carries page or board extents in
+      nanometres. <code>coordinate_space</code> should use
+      <code>{"unit":"nm","y_axis":"down"}</code>. Coordinates are integers
+      unless a KiCad plotter call naturally uses an angle, radius, or control
+      point represented as a number.
+    </p>
+    <pre><code>{
+  "schema": "kicad.plotter_ir.a0",
+  "source_kind": "SCH",
+  "total_operations": 0,
+  "canvas": {"width_nm": 297000000, "height_nm": 210000000},
+  "coordinate_space": {"unit": "nm", "y_axis": "down"},
+  "records": []
+}</code></pre>
+  </section>
+
+  <section>
+    <h2>Records</h2>
+    <p>
+      A record groups all operations emitted for one KiCad source item or one
+      synthetic document item. Required fields are <code>uuid</code>,
+      <code>kind</code>, <code>object_id</code>,
+      <code>operation_count</code>, and <code>operations</code>.
+      Optional <code>bounds</code> is an axis-aligned box with
+      <code>left</code>, <code>top</code>, <code>right</code>, and
+      <code>bottom</code> in nanometres.
+    </p>
+    <p>
+      Record <code>kind</code> is a source-facing name such as
+      <code>wire</code>, <code>symbol_instance</code>, <code>gr_line</code>,
+      <code>segment</code>, <code>via</code>, <code>zone_fill</code>, or
+      <code>footprint</code>. Additional record fields may carry source
+      metadata such as layer names, net identifiers, page paths, or variant
+      state. Consumers should use those fields as hints and should not require
+      them for basic geometry rendering.
+    </p>
+  </section>
+
+  <section>
+    <h2>Operations</h2>
+    <p>
+      An operation is a flat object whose required <code>kind</code> is the
+      plotter call name. Serialized records also include zero-based
+      <code>index</code>. All other fields belong to that operation's payload
+      or to optional metadata such as <code>context</code>. Known operation
+      kinds are:
+    </p>
+    <ul>
+      <li><code>PenTo</code>: <code>x</code>, <code>y</code>, <code>action</code> where action is <code>U</code>, <code>D</code>, or <code>Z</code>.</li>
+      <li><code>Circle</code>: <code>cx</code>, <code>cy</code>, <code>diameter_nm</code>, <code>fill</code>, <code>width_nm</code>.</li>
+      <li><code>ArcThreePoint</code>: <code>start_x</code>, <code>start_y</code>, <code>mid_x</code>, <code>mid_y</code>, <code>end_x</code>, <code>end_y</code>, <code>fill</code>, <code>width_nm</code>.</li>
+      <li><code>ArcCenterAngle</code> and <code>ThickArc</code>: <code>cx</code>, <code>cy</code>, <code>start_angle_deg</code>, <code>sweep_deg</code>, <code>radius_nm</code>, plus fill and width for <code>ArcCenterAngle</code>.</li>
+      <li><code>BezierCurve</code>: start point, two control points, end point, <code>tolerance_nm</code>, and <code>width_nm</code>.</li>
+      <li><code>Rect</code>: two corners, <code>fill</code>, <code>width_nm</code>, and <code>corner_radius_nm</code>.</li>
+      <li><code>PlotPoly</code>: <code>points</code>, <code>fill</code>, and <code>width_nm</code>.</li>
+      <li><code>Text</code>: position, text string, color, orientation, size, alignment, pen width, style flags, font face, and optional render cache fields.</li>
+      <li><code>PlotImage</code>: position, dimensions, scale, base64 payload, and image format.</li>
+      <li><code>ThickSegment</code>: start point, end point, and <code>width_nm</code>.</li>
+      <li><code>FlashPadCircle</code>, <code>FlashPadOval</code>, <code>FlashPadRect</code>, <code>FlashPadRoundRect</code>, <code>FlashPadCustom</code>, <code>FlashPadTrapez</code>, and <code>FlashRegularPolygon</code>: PCB pad flash geometry.</li>
+      <li><code>SetCurrentLineWidth</code>, <code>SetColor</code>, <code>SetDash</code>, <code>SetViewport</code>, <code>StartPlot</code>, <code>EndPlot</code>, and <code>SetPageSettings</code>: plotter state and lifecycle operations.</li>
+      <li><code>StartBlock</code> and <code>EndBlock</code>: semantic grouping operations used for nested SVG groups and object linkage.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Units And Geometry</h2>
+    <p>
+      Linear coordinates and dimensions are nanometres in KiCad drawing space.
+      The Y axis points down. Angles are degrees. Text orientation follows the
+      plotted orientation, not necessarily the raw source orientation. Point
+      arrays are two-item integer arrays, for example
+      <code>[[0,0],[1000000,0]]</code>.
+    </p>
+    <p>
+      Fill values are KiCad fill names:
+      <code>NO_FILL</code>, <code>FILLED_SHAPE</code>,
+      <code>FILLED_WITH_BG_BODYCOLOR</code>,
+      <code>FILLED_WITH_COLOR</code>, <code>HATCH</code>,
+      <code>REVERSE_HATCH</code>, and <code>CROSS_HATCH</code>.
+      Colors are uppercase or lowercase hex strings in
+      <code>#RRGGBB</code> or <code>#RRGGBBAA</code> form.
+    </p>
+  </section>
+
+  <section>
+    <h2>Text And Images</h2>
+    <p>
+      <code>Text</code> operations carry the resolved display string in
+      <code>text</code>. Multiline text uses embedded newline characters and
+      sets <code>multiline</code> to <code>true</code>. Font face is an empty
+      string for KiCad stroke text and a face name for outline text. Render
+      cache fields are optional acceleration data; consumers that cannot use
+      them should fall back to the normal text fields.
+    </p>
+    <p>
+      <code>PlotImage</code> stores the bitmap as base64 in
+      <code>image_data_b64</code> with an <code>image_format</code> string.
+      Consumers should treat the image rectangle as the authoritative placement
+      and should not infer document scale from embedded pixel dimensions.
+    </p>
+  </section>
+
+  <section>
+    <h2>Context Extensions</h2>
+    <p>
+      <code>context</code> is an optional object allowed on the document,
+      records, and operations. Version a0 standardizes the extension container
+      and the <code>context.hyperlink.href</code> key for linked text.
+      Unknown keys must not break consumers. Producers should use stable,
+      namespaced keys when metadata is intended for more than one tool.
+    </p>
+    <p>
+      Geometry rendering must not require <code>context</code>. The field is
+      for source annotations, semantic links, provenance, and future
+      non-geometric metadata. Text hyperlink metadata lives in the
+      <code>context</code> of the affected <code>Text</code> operation:
+      <code>{"hyperlink":{"href":"https://example.test"}}</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Normalization</h2>
+    <p>
+      Normalized IR removes nondeterministic fields such as
+      <code>generated_utc</code> and may normalize <code>source_path</code>
+      separators. Operation order and record order remain significant.
+      <code>operation_count</code> and <code>total_operations</code> are
+      derived counts and should match the serialized arrays.
+    </p>
+  </section>
+
+  <section>
+    <h2>Consumer Guidance</h2>
+    <p>
+      Scene converters should walk records in order, then operations in index
+      order. Use record identity and grouping operations to preserve source
+      traceability. Treat state operations as optional renderer hints unless
+      the operation payload already contains the effective stroke or fill
+      fields needed by the consumer.
+    </p>
+    <p>
+      A consumer that targets another drawing model should preserve source
+      linkage separately from geometry. The IR can describe a rectangle,
+      polygon, text, or pad flash without explaining why the source object
+      exists. Record metadata and context provide the place to keep those
+      semantics without changing primitive geometry.
+    </p>
+  </section>
+
+  <section>
+    <h2>Validation</h2>
+    <p>
+      Contract tests validate runtime IR examples against the schema and check
+      that known operation kinds in the schema match the public
+      <code>KiCadPlotterOpKind</code> enum. A producer should run the schema
+      validator on exported IR before publishing a new contract-bearing output.
+    </p>
+  </section>
+</body>
+</html>

@@ -34,7 +34,13 @@ from typing import Any
 # Schema constant
 # =============================================================================
 
-KICAD_PLOTTER_IR_SCHEMA = "kicad.plotter_ir.v1"
+KICAD_PLOTTER_IR_SCHEMA = "kicad.plotter_ir.a0"
+KICAD_PLOTTER_IR_ACCEPTED_SCHEMAS = frozenset(
+    {
+        KICAD_PLOTTER_IR_SCHEMA,
+        "kicad.plotter_ir.v1",
+    }
+)
 
 
 # =============================================================================
@@ -981,7 +987,7 @@ class KiCadPlotterDocument:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> KiCadPlotterDocument:
         schema = str(data.get("schema", "")).strip()
-        if schema != KICAD_PLOTTER_IR_SCHEMA:
+        if schema not in KICAD_PLOTTER_IR_ACCEPTED_SCHEMAS:
             raise ValueError(
                 f"Unexpected plotter IR schema: {schema!r} "
                 f"(expected {KICAD_PLOTTER_IR_SCHEMA!r})"
@@ -1109,6 +1115,7 @@ class KiCadPlotterDocument:
 
 
 __all__ = [
+    "KICAD_PLOTTER_IR_ACCEPTED_SCHEMAS",
     "KICAD_PLOTTER_IR_SCHEMA",
     "KiCadFillType",
     "KiCadHorizAlign",
