@@ -603,7 +603,7 @@ class KiCadTextRenderer:
         if base_name in self._embedded_fonts:
             return self._embedded_fonts[base_name][1]  # Return virtual path
 
-        # Also check with -regular suffix stripped (e.g., "wavenumber-regular" -> "wavenumber")
+        # Also check with -regular suffix stripped (e.g., "brand-regular" -> "brand")
         if '-' in base_name:
             stripped = base_name.split('-')[0]
             if stripped in self._embedded_fonts:

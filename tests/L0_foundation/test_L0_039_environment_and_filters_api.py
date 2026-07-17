@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
-from kicad_monkey import KiCadEnvironment, KiCadFilterPipeline
+from kicad_monkey import KiCadEnvironment, KiCadFilterPipeline, setup_kicad_preferences
+from kicad_monkey.kicad_setup import setup_kicad
+from kicad_monkey.kicad_utilities import make_kicad_dblib, make_kicad_httplib
 
 
 def _fake_install(root: Path, version: str, *, with_models: bool = False) -> Path:
@@ -22,6 +25,15 @@ def _write_kicad_common(app_data: Path, version: str, payload: dict) -> Path:
     common = config_dir / "kicad_common.json"
     common.write_text(json.dumps(payload), encoding="utf-8")
     return common
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _read_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def test_kicad_environment_finds_highest_non_beta_installation(tmp_path) -> None:
@@ -154,3 +166,197 @@ def test_filter_pipeline_exposes_file_level_operations() -> None:
     assert callable(pipeline.filter_symbol)
     assert callable(pipeline.filter_schematic)
     assert callable(pipeline.filter_pcb)
+
+
+def test_library_generators_use_profile_neutral_defaults(tmp_path) -> None:
+    httplib_path = make_kicad_httplib(
+        output_dir=tmp_path,
+        library_nickname="parts_api",
+    )
+    httplib = _read_json(httplib_path)
+
+    assert httplib["name"] == "parts_api HTTP Library"
+    assert httplib["description"] == "parts_api HTTP Library"
+
+    dblib_path = make_kicad_dblib(
+        "parts",
+        ["resistors"],
+        output_dir=tmp_path,
+        primary_key="part_number",
+    )
+    dblib = _read_json(dblib_path)
+
+    assert "DSN=parts;" in dblib["source"]["connection_string"]
+    assert "wavenumber" not in json.dumps({"httplib": httplib, "dblib": dblib}).lower()
+    assert "wn__" not in dblib["source"]["connection_string"]
+
+
+def test_setup_kicad_has_no_default_profile_name() -> None:
+    assert setup_kicad.__kwdefaults__["dblib_name"] is None
+
+
+def test_setup_kicad_preferences_merges_source_preference_files(tmp_path, caplog) -> None:
+    preferences_source = tmp_path / "prefs-source"
+    config_dir = tmp_path / "config" / "10.0"
+    existing_editor = tmp_path / "editor.exe"
+    existing_editor.write_text("", encoding="utf-8")
+
+    _write_json(preferences_source / "colors" / "alpha.json", {"name": "alpha"})
+    _write_json(
+        preferences_source / "kicad_common.json",
+        {
+            "input": {"zoom_speed": 4, "center_on_zoom": True},
+            "graphics": {"antialiasing": True},
+            "new_section": {"enabled": True},
+        },
+    )
+    _write_json(
+        preferences_source / "eeschema.json",
+        {"appearance": {"color_theme": "alpha", "default_font": "Inter"}},
+    )
+    _write_json(
+        preferences_source / "pcbnew.json",
+        {
+            "appearance": {"color_theme": "alpha"},
+            "pcb_display": {
+                "origin_invert_x_axis": True,
+                "origin_invert_y_axis": False,
+                "origin_mode": 2,
+            },
+        },
+    )
+    for filename in ("fpedit.json", "pl_editor.json", "gerbview.json"):
+        _write_json(
+            preferences_source / filename,
+            {"appearance": {"color_theme": "alpha"}},
+        )
+
+    _write_json(
+        config_dir / "kicad_common.json",
+        {
+            "input": {"keep_existing": True},
+            "system": {"text_editor": str(existing_editor)},
+        },
+    )
+    _write_json(
+        config_dir / "eeschema.json",
+        {"appearance": {"custom_grid": True}, "preserve": "root"},
+    )
+    _write_json(
+        config_dir / "pcbnew.json",
+        {"pcb_display": {"keep_origin_setting": "yes"}},
+    )
+
+    caplog.set_level(logging.INFO)
+
+    success, backups = setup_kicad_preferences(
+        with_backup=False,
+        preferences_source=preferences_source,
+        config_paths=[config_dir],
+    )
+
+    assert success is True
+    assert backups == []
+    assert _read_json(config_dir / "colors" / "alpha.json") == {"name": "alpha"}
+
+    common = _read_json(config_dir / "kicad_common.json")
+    assert common["input"]["zoom_speed"] == 4
+    assert common["input"]["center_on_zoom"] is True
+    assert common["input"]["keep_existing"] is True
+    assert common["graphics"] == {"antialiasing": True}
+    assert common["new_section"] == {"enabled": True}
+    assert common["system"]["text_editor"] == str(existing_editor)
+
+    eeschema = _read_json(config_dir / "eeschema.json")
+    assert eeschema["appearance"]["color_theme"] == "alpha"
+    assert eeschema["appearance"]["default_font"] == "Inter"
+    assert eeschema["appearance"]["custom_grid"] is True
+    assert eeschema["preserve"] == "root"
+
+    pcbnew = _read_json(config_dir / "pcbnew.json")
+    assert pcbnew["appearance"]["color_theme"] == "alpha"
+    assert pcbnew["pcb_display"]["origin_invert_x_axis"] is True
+    assert pcbnew["pcb_display"]["origin_invert_y_axis"] is False
+    assert pcbnew["pcb_display"]["origin_mode"] == 2
+    assert pcbnew["pcb_display"]["keep_origin_setting"] == "yes"
+
+    for filename in ("fpedit.json", "pl_editor.json", "gerbview.json"):
+        assert _read_json(config_dir / filename)["appearance"]["color_theme"] == "alpha"
+
+    assert "themes: alpha" in caplog.text
+    assert "color_theme=alpha" in caplog.text
+    assert "origin_mode=2" in caplog.text
+    assert "wavenumber" not in caplog.text.lower()
+
+
+def test_setup_kicad_preferences_skips_missing_optional_preference_files(tmp_path) -> None:
+    preferences_source = tmp_path / "prefs-source"
+    config_dir = tmp_path / "config" / "10.0"
+    _write_json(
+        preferences_source / "eeschema.json",
+        {"appearance": {"color_theme": "beta"}},
+    )
+    _write_json(
+        config_dir / "pcbnew.json",
+        {"pcb_display": {"origin_mode": 7}},
+    )
+
+    success, backups = setup_kicad_preferences(
+        with_backup=False,
+        preferences_source=preferences_source,
+        config_paths=[config_dir],
+    )
+
+    assert success is True
+    assert backups == []
+    assert _read_json(config_dir / "eeschema.json")["appearance"]["color_theme"] == "beta"
+    assert _read_json(config_dir / "pcbnew.json")["pcb_display"]["origin_mode"] == 7
+    assert not (config_dir / "gerbview.json").exists()
+
+
+def test_setup_kicad_preferences_preserves_command_style_editor_when_source_omits_it(tmp_path) -> None:
+    preferences_source = tmp_path / "prefs-source"
+    config_dir = tmp_path / "config" / "10.0"
+    _write_json(
+        preferences_source / "kicad_common.json",
+        {"input": {"zoom_speed": 8}},
+    )
+    _write_json(
+        config_dir / "kicad_common.json",
+        {"system": {"text_editor": "code --reuse-window"}},
+    )
+
+    success, backups = setup_kicad_preferences(
+        with_backup=False,
+        preferences_source=preferences_source,
+        config_paths=[config_dir],
+    )
+
+    assert success is True
+    assert backups == []
+    common = _read_json(config_dir / "kicad_common.json")
+    assert common["input"]["zoom_speed"] == 8
+    assert common["system"]["text_editor"] == "code --reuse-window"
+
+
+def test_setup_kicad_preferences_uses_source_text_editor_when_present(tmp_path) -> None:
+    preferences_source = tmp_path / "prefs-source"
+    config_dir = tmp_path / "config" / "10.0"
+    _write_json(
+        preferences_source / "kicad_common.json",
+        {"system": {"text_editor": "source-editor --wait"}},
+    )
+    _write_json(
+        config_dir / "kicad_common.json",
+        {"system": {"text_editor": "code --reuse-window"}},
+    )
+
+    success, backups = setup_kicad_preferences(
+        with_backup=False,
+        preferences_source=preferences_source,
+        config_paths=[config_dir],
+    )
+
+    assert success is True
+    assert backups == []
+    assert _read_json(config_dir / "kicad_common.json")["system"]["text_editor"] == "source-editor --wait"

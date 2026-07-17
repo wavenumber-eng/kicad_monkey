@@ -84,12 +84,8 @@ def load_kicad_svg_preference_theme(
     eeschema = _read_json(pref_dir / "eeschema.json")
     appearance_raw = eeschema.get("appearance")
     appearance: dict[str, Any] = appearance_raw if isinstance(appearance_raw, dict) else {}
-    selected_name = (
-        theme_name
-        or str(appearance.get("color_theme") or "").strip()
-        or "wavenumber"
-    )
-    theme_raw = _read_json(pref_dir / "colors" / f"{selected_name}.json")
+    selected_name = theme_name or str(appearance.get("color_theme") or "").strip()
+    theme_raw = _read_json(pref_dir / "colors" / f"{selected_name}.json") if selected_name else {}
     schematic_raw_value = theme_raw.get("schematic")
     board_raw_value = theme_raw.get("board")
     schematic_raw: dict[str, Any] = schematic_raw_value if isinstance(schematic_raw_value, dict) else {}

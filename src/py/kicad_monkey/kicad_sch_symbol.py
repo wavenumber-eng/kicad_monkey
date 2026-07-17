@@ -207,7 +207,7 @@ class SchSymbol:
             )
         )
     """
-    lib_id: str = ""  # e.g., "Device:R" or "wn__wavenumber:ERJ-2RKF1002X"
+    lib_id: str = ""  # e.g., "Device:R" or "vendor_parts:ERJ-2RKF1002X"
     lib_name: str = ""  # Explicit library name (optional, KiCad 9)
 
     at_x: float = 0.0

@@ -106,7 +106,7 @@ def setup_kicad(
     http_library_nickname: str,
     symbol_library_nickname: str,
     footprint_library_nickname: str,
-    dblib_name: str = "wavenumber",
+    dblib_name: str | None = None,
     min_major: int = 10,
 ) -> None:
     """
@@ -257,7 +257,9 @@ def setup_kicad(
 
         for name, entry in existing_entries.items():
             entry_lower = entry.lower()
-            is_old_amalgam_entry = f"{dblib_name}.kicad_sym" in entry_lower
+            is_old_amalgam_entry = bool(
+                dblib_name and f"{dblib_name}.kicad_sym" in entry_lower
+            )
             is_old_individual_entry = (
                 ".kicad_sym" in entry_lower
                 and ("dblib/symbols/" in entry_lower or "dblib\\symbols\\" in entry_lower)

@@ -29,6 +29,7 @@ from kicad_monkey import (
     SCHEMATIC_SVG_BLACK_AND_WHITE_ROLE_COLORS,
     SCHEMATIC_SVG_COLOR_ROLES,
     fmt_user_number,
+    load_kicad_svg_preference_theme,
     schematic_svg_options_from_preferences,
     schematic_svg_role_color,
     svg_arc,
@@ -251,6 +252,15 @@ def test_schematic_svg_options_from_preferences_uses_semantic_roles(tmp_path: Pa
         "wire": "#222222",
     }
     assert opts.font_face_override == "Arial"
+
+
+def test_svg_preference_theme_without_configured_theme_is_profile_neutral(tmp_path: Path):
+    pref = load_kicad_svg_preference_theme(tmp_path)
+
+    assert pref.name == ""
+    assert pref.default_font is None
+    assert pref.schematic == {}
+    assert pref.board == {}
 
 
 def test_ctx_push_offset_does_not_mutate_self():

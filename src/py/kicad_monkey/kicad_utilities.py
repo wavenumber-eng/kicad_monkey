@@ -72,6 +72,7 @@ def make_kicad_dblib(
     *,
     output_dir: Path,
     primary_key: str,
+    dsn: str | None = None,
 ) -> Path:
     dblib = {}
     dblib["meta"] = {}
@@ -85,7 +86,10 @@ def make_kicad_dblib(
     source["username"] = ""
     source["password"] = ""
     source["timeout_seconds"] = 10
-    source["connection_string"] = f"DSN=wn__{name};Extended Properties='text;HDR=Yes;FMT=Delimited;CharacterSet=65001'"
+    source["connection_string"] = (
+        f"DSN={dsn or name};"
+        "Extended Properties='text;HDR=Yes;FMT=Delimited;CharacterSet=65001'"
+    )
 
     dblib["source"] = source
 
@@ -156,8 +160,8 @@ def make_kicad_httplib(
     output_dir: Path,
     library_nickname: str,
     root_url: str = "http://127.0.0.1:8761/",
-    name: str = "Wavenumber HTTP Library",
-    description: str = "Wavenumber HTTP Library",
+    name: str | None = None,
+    description: str | None = None,
     cleanup_existing: bool = True,
 ) -> Path:
     root_url = root_url.strip() or "http://127.0.0.1:8761/"
@@ -177,10 +181,11 @@ def make_kicad_httplib(
     # filename rather than the sym-lib-table nickname. Keep the filename aligned with the
     # actual HTTP library nickname so chooser preview reloads target the HTTP library.
     kicad_http_lib_path = output_dir / Path(f"{library_nickname}.kicad_httplib")
+    display_name = name or f"{library_nickname} HTTP Library"
     httplib_payload = {
         "meta": {"version": 1.0},
-        "name": name,
-        "description": description,
+        "name": display_name,
+        "description": description or display_name,
         "source": {
             "type": "REST_API",
             "api_version": "v1",
@@ -415,7 +420,7 @@ def is_fuzzy_match(search_term: str, target: str) -> bool:
 # ============================================================================
 
 # KiCad preferences template version - increment when template changes
-KICAD_PREFS_VERSION = 2  # Updated to include pcbnew.json pcb_display origin settings
+KICAD_PREFS_VERSION = 3  # Updated to support source-driven preference files
 
 
 def should_update_kicad_prefs(user_prefs_version: int, dont_ask: bool) -> bool:
@@ -455,7 +460,7 @@ def deep_merge_json(target: dict, source: dict, keys_to_merge: list | None = Non
     """
     Selectively merge source dict into target dict.
     If keys_to_merge is provided, only those top-level keys will be updated.
-    For nested dicts, entire sub-dict is replaced.
+    Nested dicts are merged recursively.
 
     Args:
         target: The dict to update (user's existing config)
@@ -466,7 +471,12 @@ def deep_merge_json(target: dict, source: dict, keys_to_merge: list | None = Non
 
     for key in keys:
         if key in source:
-            target[key] = source[key]
+            source_value = source[key]
+            target_value = target.get(key)
+            if isinstance(target_value, dict) and isinstance(source_value, dict):
+                deep_merge_json(target_value, source_value)
+            else:
+                target[key] = source_value
 
 
 def backup_kicad_preferences(
@@ -515,12 +525,25 @@ def _write_json_config(path: Path, config: dict) -> None:
         json.dump(config, f, indent=2)
 
 
+def _preference_file_names() -> tuple[str, ...]:
+    return (
+        "kicad_common.json",
+        "eeschema.json",
+        "pcbnew.json",
+        "fpedit.json",
+        "pl_editor.json",
+        "gerbview.json",
+    )
+
+
 def _copy_kicad_colors(preferences_source: Path, kicad_config_loc: Path) -> None:
-    log.info("  Copying colors folder (wavenumber theme)...")
     colors_src = preferences_source / "colors"
     colors_dst = kicad_config_loc / "colors"
     try:
         if colors_src.exists():
+            theme_names = sorted(path.stem for path in colors_src.glob("*.json"))
+            theme_summary = ", ".join(theme_names) if theme_names else "no JSON themes"
+            log.info(f"  Copying colors folder (themes: {theme_summary})...")
             shutil.copytree(colors_src, colors_dst, dirs_exist_ok=True)
             log.info("    Colors folder copied successfully")
         else:
@@ -529,101 +552,48 @@ def _copy_kicad_colors(preferences_source: Path, kicad_config_loc: Path) -> None
         log.error(f"    Error copying colors: {e}")
 
 
-def _preferred_text_editor() -> str:
-    notepad_pp = find_notepad_plus_plus()
-    if notepad_pp:
-        log.info(f"    Set text editor to Notepad++: {notepad_pp}")
-        return notepad_pp
-    log.info("    Set text editor to Windows Notepad")
-    return "notepad.exe"
+def _summarize_preference_settings(config: dict) -> str:
+    details: list[str] = []
+    appearance = config.get("appearance")
+    if isinstance(appearance, dict):
+        for key in ("color_theme", "default_font"):
+            if key in appearance:
+                details.append(f"{key}={appearance[key]}")
+    pcb_display = config.get("pcb_display")
+    if isinstance(pcb_display, dict):
+        for key in (
+            "origin_invert_x_axis",
+            "origin_invert_y_axis",
+            "origin_mode",
+        ):
+            if key in pcb_display:
+                details.append(f"{key}={pcb_display[key]}")
+    return ", ".join(details)
 
 
-def _update_text_editor_preference(user_config: dict) -> None:
-    user_config.setdefault("system", {})
-    current_editor = user_config.get("system", {}).get("text_editor", "")
-    if current_editor:
-        editor_path = Path(current_editor.split()[0])
-        if editor_path.exists():
-            log.info(f"    Keeping existing text editor: {current_editor}")
-            return
-    user_config["system"]["text_editor"] = _preferred_text_editor()
-
-
-def _update_kicad_common_preferences(
+def _update_preference_json(
     *,
+    filename: str,
     preferences_source: Path,
     kicad_config_loc: Path,
 ) -> None:
-    log.info("  Updating kicad_common.json...")
-    user_path = kicad_config_loc / "kicad_common.json"
-    template_path = preferences_source / "kicad_common.json"
+    log.info(f"  Updating {filename}...")
+    user_path = kicad_config_loc / filename
+    template_path = preferences_source / filename
     try:
-        user_config = _load_json_config(user_path)
         if not template_path.exists():
-            log.warning(f"    Template file not found: {template_path}")
+            log.info(f"    Source file not found: {template_path}")
             return
-        template_config = _load_json_config(template_path)
-        _update_text_editor_preference(user_config)
-        if "input" in template_config:
-            user_config.setdefault("input", {})
-            for key in [
-                "zoom_speed",
-                "zoom_speed_auto",
-                "zoom_acceleration",
-                "center_on_zoom",
-            ]:
-                if key in template_config["input"]:
-                    user_config["input"][key] = template_config["input"][key]
-            log.info("    Updated input settings (zoom_speed, zoom_speed_auto, zoom_acceleration, center_on_zoom)")
-        if "graphics" in template_config:
-            user_config["graphics"] = template_config["graphics"]
-            log.info("    Updated graphics settings (antialiasing)")
-        _write_json_config(user_path, user_config)
-        log.info("    kicad_common.json updated successfully")
-    except Exception as e:
-        log.error(f"    Error updating kicad_common.json: {e}")
-
-
-def _update_eeschema_preferences(
-    *,
-    preferences_source: Path,
-    kicad_config_loc: Path,
-) -> None:
-    log.info("  Updating eeschema.json...")
-    user_path = kicad_config_loc / "eeschema.json"
-    template_path = preferences_source / "eeschema.json"
-    try:
         user_config = _load_json_config(user_path)
-        if not template_path.exists():
-            log.warning(f"    Template file not found: {template_path}")
-            return
         template_config = _load_json_config(template_path)
-        if "appearance" in template_config:
-            user_config.setdefault("appearance", {})
-            for key in ["color_theme", "default_font"]:
-                if key in template_config["appearance"]:
-                    user_config["appearance"][key] = template_config["appearance"][key]
-            log.info("    Updated appearance settings (color_theme=wavenumber, default_font=Arial)")
+        deep_merge_json(user_config, template_config)
         _write_json_config(user_path, user_config)
-        log.info("    eeschema.json updated successfully")
+        setting_summary = _summarize_preference_settings(template_config)
+        if setting_summary:
+            log.info(f"    Applied source settings ({setting_summary})")
+        log.info(f"    {filename} updated successfully")
     except Exception as e:
-        log.error(f"    Error updating eeschema.json: {e}")
-
-
-def _update_pcbnew_preferences(kicad_config_loc: Path) -> None:
-    log.info("  Updating pcbnew.json...")
-    user_path = kicad_config_loc / "pcbnew.json"
-    try:
-        user_config = _load_json_config(user_path)
-        user_config.setdefault("pcb_display", {})
-        user_config["pcb_display"]["origin_invert_x_axis"] = False
-        user_config["pcb_display"]["origin_invert_y_axis"] = True
-        user_config["pcb_display"]["origin_mode"] = 1
-        _write_json_config(user_path, user_config)
-        log.info("    Updated pcb_display settings (origin_invert_x_axis=False, origin_invert_y_axis=True, origin_mode=1)")
-        log.info("    pcbnew.json updated successfully")
-    except Exception as e:
-        log.error(f"    Error updating pcbnew.json: {e}")
+        log.error(f"    Error updating {filename}: {e}")
 
 
 def _setup_kicad_config_preferences(
@@ -633,15 +603,12 @@ def _setup_kicad_config_preferences(
 ) -> None:
     log.info("Setting up KiCad configuration at " + str(kicad_config_loc))
     _copy_kicad_colors(preferences_source, kicad_config_loc)
-    _update_kicad_common_preferences(
-        preferences_source=preferences_source,
-        kicad_config_loc=kicad_config_loc,
-    )
-    _update_eeschema_preferences(
-        preferences_source=preferences_source,
-        kicad_config_loc=kicad_config_loc,
-    )
-    _update_pcbnew_preferences(kicad_config_loc)
+    for filename in _preference_file_names():
+        _update_preference_json(
+            filename=filename,
+            preferences_source=preferences_source,
+            kicad_config_loc=kicad_config_loc,
+        )
     log.info(f"  KiCad preferences updated at {kicad_config_loc}")
 
 
@@ -672,10 +639,8 @@ def setup_kicad_preferences(
     """
     Selectively update KiCad preferences instead of blanket copying.
     - Backups existing preferences (if with_backup=True)
-    - Copies colors folder (wavenumber theme)
-    - Updates specific settings in kicad_common.json (text editor, input, graphics)
-    - Updates specific settings in eeschema.json (color_theme, default_font)
-    - Updates specific settings in pcbnew.json (pcb_display origin settings)
+    - Copies color themes from the supplied preferences source
+    - Merges supported KiCad preference JSON files from the supplied source
 
     Args:
         with_backup: If True, creates backup before making changes

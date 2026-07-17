@@ -232,7 +232,7 @@ class KiCadSymbolLib:
         Example:
             >>> lib = KiCadSymbolLib.from_directory('symbols/', recursive=True)
             >>> print(f"Merged {len(lib)} symbols")
-            >>> lib.to_file('wavenumber.kicad_sym')
+            >>> lib.to_file('project_symbols.kicad_sym')
         """
         directory = Path(directory)
 
@@ -270,7 +270,7 @@ class KiCadSymbolLib:
             Number of symbols extracted
 
         Example:
-            >>> lib = KiCadSymbolLib.from_file('wavenumber.kicad_sym')
+            >>> lib = KiCadSymbolLib.from_file('project_symbols.kicad_sym')
             >>> count = lib.split_to_directory('symbols/', overwrite=True)
             >>> print(f"Extracted {count} symbols")
         """
