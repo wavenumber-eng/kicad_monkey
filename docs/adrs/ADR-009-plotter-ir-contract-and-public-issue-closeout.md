@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-The 2026-07-16 alpha release candidate adds public behavior for the Plotter IR
+The 2026-07-16 release adds public behavior for the Plotter IR
 contract and public issues #9, #10, #11, and #12. The implementation was planned
 and reviewed in a developer working plan, but ADR-003 treats active plans and
 research notes as transient material. Durable release records belong in ADRs,
