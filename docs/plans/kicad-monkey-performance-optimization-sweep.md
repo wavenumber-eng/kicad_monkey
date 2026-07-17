@@ -73,7 +73,7 @@ depends_on = ["optimization-candidate-selection"]
 [[steps]]
 id = "behavior-and-contract-signoff"
 title = "Verify behavior, contracts, and public API stability after optimizations"
-status = "pending"
+status = "done"
 depends_on = [
   "net-resolution-optimization",
   "projection-span-optimization",
