@@ -91,73 +91,73 @@ depends_on = ["behavior-and-contract-signoff"]
 [[steps]]
 id = "design-doc-intent-audit"
 title = "Audit ADRs, design docs, requirements, and release notes against accepted optimizations"
-status = "pending"
+status = "done"
 depends_on = ["performance-signoff"]
 
 [[steps]]
 id = "test-runtime-impact-audit"
 title = "Audit test coverage and runtime impact for the optimization effort"
-status = "pending"
+status = "done"
 depends_on = ["performance-signoff"]
 
 [[steps]]
 id = "closeout-artifacts"
-title = "Move durable decisions and results into ADRs, design docs, requirements, and release notes"
+title = "Close the active plan after external review and release authorization"
 status = "pending"
 depends_on = [
   "design-doc-intent-audit",
   "test-runtime-impact-audit",
+  "external-review",
 ]
 
 [[steps]]
 id = "external-review"
 title = "Obtain external review before release preparation"
-status = "pending"
+status = "active"
 depends_on = [
   "design-doc-intent-audit",
   "test-runtime-impact-audit",
-  "closeout-artifacts",
 ]
 
 [[exit_criteria]]
 id = "ec-no-direct-pr-acceptance"
 title = "Contributor PRs are used as research input only; implementation is independently rewritten on this branch"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-independent-research-complete"
 title = "A separate agent independently reproduces the research and checks for additional optimization targets"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-public-baselines"
 title = "Performance baselines are reproducible with public corpus data or synthetic fixtures"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-behavior-preserved"
 title = "Optimized paths preserve parser, projection, source-span, and net-resolution behavior"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-performance-impact-recorded"
 title = "Measured before/after performance impact is recorded for each accepted optimization"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "design-doc-intent-audit"
 title = "ADRs, design docs, requirements, and release notes match accepted optimized behavior"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "test-runtime-impact-audit"
 title = "Test additions and runtime impact are reviewed with recorded evidence"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-signoff-green"
 title = "L0/L99/dev-std signoff and relevant corpus or benchmark checks pass"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-closeout-docs"
@@ -354,6 +354,9 @@ Implementation validation:
 - broader Rack/corpus checks if shared parser behavior changes.
 
 ## Closeout Expectations
+
+This plan remains active for the external-review handoff and must not be
+deleted before that review is complete.
 
 Before release preparation, close this plan by:
 

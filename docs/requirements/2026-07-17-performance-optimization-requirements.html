@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>2026-07-17 Performance Optimization Requirements</title>
+  <link rel="stylesheet" href="../design/styles.css">
+</head>
+<body>
+  <h1>2026-07-17 Performance Optimization Requirements</h1>
+
+  <section>
+    <h2>Status</h2>
+    <p>
+      Implementation candidate pending external review. These requirements are
+      the durable release-facing record for the parser and PCB projection
+      optimization sweep associated with GitHub issues #16 and #17. Public PRs
+      #18 and #19 are research inputs only; their code is not accepted,
+      merged, cherry-picked, copied, or ported into this implementation.
+    </p>
+  </section>
+
+  <section>
+    <h2>Requirements</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Requirement</th>
+          <th>Acceptance Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>PERF-REQ-001</td>
+          <td>Use public issue and PR reports as research signals only.</td>
+          <td>The active plan, ADR-005 update, changelog draft, and this requirement record state that implementation is independently rewritten on the feature branch.</td>
+        </tr>
+        <tr>
+          <td>PERF-REQ-002</td>
+          <td>Reduce nested projection source-span rebasing cost without changing source metadata semantics.</td>
+          <td><code>KiCadPcbProjection</code> uses an internal line-column index, and L0 tests assert exact offsets, line/column values, source text, and reparsed S-expression content.</td>
+        </tr>
+        <tr>
+          <td>PERF-REQ-003</td>
+          <td>Improve S-expression lexer and projection scanner throughput in pure Python.</td>
+          <td><code>kicad_sexpr</code> keeps the public token and span contracts while replacing repeated per-character dispatch with local-loop scanner paths; no new native dependency is introduced.</td>
+        </tr>
+        <tr>
+          <td>PERF-REQ-004</td>
+          <td>Reuse direct child-span scans during PCB projection hydration.</td>
+          <td>Projection caches direct child spans per parent and filters by requested head while preserving object-to-source span attachment tests.</td>
+        </tr>
+        <tr>
+          <td>PERF-REQ-005</td>
+          <td>Reuse PCB net lookup tables while preserving KiCad v8/v9 and v10 fallback behavior.</td>
+          <td>Full parse and projection paths reuse net lookup maps, and L0 tests cover KiCad v10 name-only net references with no top-level net table.</td>
+        </tr>
+        <tr>
+          <td>PERF-REQ-006</td>
+          <td>Record before/after performance impact with public or synthetic evidence.</td>
+          <td><code>docs/plans/logs/2026-07-17-performance-signoff-summary.md</code> records synthetic, WREN, Jumperless, and local internal corpus timing comparisons; public/synthetic cases are the citable release evidence.</td>
+        </tr>
+        <tr>
+          <td>PERF-REQ-007</td>
+          <td>Keep performance benchmarks advisory rather than adding slow release gates.</td>
+          <td>Focused L0, L1 corpus, L99, and dev-std audit checks gate behavior; the multi-minute benchmark remains a review artifact.</td>
+        </tr>
+        <tr>
+          <td>PERF-REQ-008</td>
+          <td>Require external review and explicit release authorization before publishing.</td>
+          <td>The active plan retains an external-review gate, and no tag, release, PyPI upload, or publish workflow is run from this branch without explicit authorization.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Validation</h2>
+    <ul>
+      <li><code>uv run --extra test python -m pytest tests/L0_foundation/test_L0_033_kicad_sexpr_parser.py tests/L0_foundation/test_L0_041_sexpr_projection.py tests/L0_foundation/test_L0_042_pcb_projection.py</code></li>
+      <li><code>uv run --extra test python tests/rack.py run L0_foundation</code></li>
+      <li><code>uv run --extra test python tests/rack.py run L99_signoff</code></li>
+      <li><code>uv run --extra test python -m pytest tests/L1_parsing/test_L1_020_pcb_projection_corpus.py</code></li>
+      <li><code>uv run dev-std audit . --format json</code></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Measured Impact</h2>
+    <p>
+      Final three-round signoff shows the largest public-corpus gains on WREN:
+      nested projection <code>126.520s -&gt; 22.523s</code> (<code>5.62x</code>)
+      and route projection <code>36.382s -&gt; 20.121s</code>
+      (<code>1.81x</code>). Jumperless nested projection improves
+      <code>33.024s -&gt; 10.293s</code> (<code>3.21x</code>). Synthetic nested
+      projection improves <code>1.880s -&gt; 0.562s</code> (<code>3.35x</code>).
+      Internal 4-ch results are retained as local research evidence only.
+    </p>
+  </section>
+
+  <section>
+    <h2>Deferred Work</h2>
+    <p>
+      Native acceleration, pull-token parser architecture, direct streaming
+      typed parse paths, and acceptance of third-party PR implementation code
+      are outside this optimization candidate.
+    </p>
+  </section>
+</body>
+</html>

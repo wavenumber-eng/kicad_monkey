@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Improve large-board PCB parser and projection performance with pure-Python
+  S-expression lexer/scanner hot-path changes, projection source-span
+  line-column indexing, direct child-span caching, and PCB net lookup reuse.
+- Preserve parser, projection, source metadata, and KiCad v10 name-only net
+  reference behavior while adding focused L0 and corpus coverage for the
+  optimized paths.
+- Record public/synthetic benchmark evidence and keep public PRs #18 and #19
+  as research inputs only; implementation is independently rewritten.
+
 ## 2026.7.16
 
 - Add the `kicad.plotter_ir.a0` JSON Schema and canonical HTML reference for

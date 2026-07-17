@@ -65,6 +65,24 @@
   </section>
 
   <section>
+    <h2>Performance Model</h2>
+    <p>
+      Projection scanning is optimized for large KiCad files by advancing
+      through source text with delimiter-oriented local loops and by retaining
+      source spans instead of materializing generic trees up front. The
+      implementation may cache line-column indexes and child-span indexes for a
+      source text, but those caches must remain an internal detail and must not
+      change offset, line, column, selected text, or reparsed S-expression
+      behavior.
+    </p>
+    <p>
+      The reference implementation remains pure Python. Native accelerators,
+      streaming typed parsers, or parser architecture changes require a future
+      ADR or design update after measured Python results are reviewed.
+    </p>
+  </section>
+
+  <section>
     <h2>Error Handling</h2>
     <p>
       Projection scanning validates parenthesis balance and quoted strings well

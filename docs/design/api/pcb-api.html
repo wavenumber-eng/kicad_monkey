@@ -74,11 +74,24 @@
       by `KiCadPcb`, while preserving exact source spans for diagnostics and
       repair tooling.
     </p>
+    <p>
+      Projection may cache immutable source-derived indexes, including
+      line-column lookups, direct child spans, and PCB net lookup tables, to
+      avoid repeated scans on large boards. These caches are private
+      acceleration details; projected objects, source metadata, and unresolved
+      net fallback behavior remain the public contract.
+    </p>
     <h3>Test Requirements</h3>
     <p>
       Tests must prove projected footprints, vias, tracks, graphics, layers,
       pads, and model references hydrate as normal domain objects and match full
       parser counts on real corpus boards.
+    </p>
+    <p>
+      Tests must also prove nested pad/model source spans retain exact offsets,
+      line/column values, source text, and reparsed S-expression content, and
+      that KiCad v10 name-only net references remain unresolved-by-ordinal when
+      no top-level net table exists.
     </p>
     <h3>Working Definition</h3>
     <p>
