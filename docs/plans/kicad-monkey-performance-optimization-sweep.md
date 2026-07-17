@@ -134,7 +134,7 @@ depends_on = [
 [[steps]]
 id = "post-regex-external-review"
 title = "Obtain external review of the regex tokenizer rewrite before closeout"
-status = "active"
+status = "done"
 depends_on = [
   "post-regex-behavior-and-performance-signoff",
   "design-doc-intent-audit",
@@ -199,12 +199,12 @@ status = "pending"
 [[exit_criteria]]
 id = "external-review"
 title = "External review is complete after the regex tokenizer rewrite before any release preparation or publish authorization"
-status = "pending"
+status = "met"
 +++
 
 # KiCad Monkey Performance Optimization Sweep
 
-Status: active planning and research gate
+Status: active; external review complete, closeout authorization pending
 
 This plan tracks a `kicad_monkey` optimization effort focused on PCB parser and
 projection performance. It is a working artifact only. Per ADR-003 and
