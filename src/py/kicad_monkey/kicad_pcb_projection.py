@@ -580,20 +580,21 @@ class KiCadPcbProjection:
     ) -> list[SexpFormSpan]:
         if parent_span is None:
             return []
-        cache_key = ("<children>", str(parent_span.start_offset), str(parent_span.end_offset), str(head))
-        if cache_key in self._span_cache:
-            return self._span_cache[cache_key]
-        selector = SexpSelector(
-            heads={head} if head is not None else None,
-            min_depth=1,
-            max_depth=1,
-        )
-        child_spans = [
-            self._rebase_span(parent_span, child)
-            for child in iter_sexp_form_spans(parent_span.text(), selector, source_path=self.source_path)
-        ]
-        self._span_cache[cache_key] = child_spans
-        return child_spans
+        parent_cache_key = ("<children>", str(parent_span.start_offset), str(parent_span.end_offset))
+        if parent_cache_key not in self._span_cache:
+            selector = SexpSelector(min_depth=1, max_depth=1)
+            self._span_cache[parent_cache_key] = [
+                self._rebase_span(parent_span, child)
+                for child in iter_sexp_form_spans(parent_span.text(), selector, source_path=self.source_path)
+            ]
+        child_spans = self._span_cache[parent_cache_key]
+        if head is None:
+            return child_spans
+
+        head_cache_key = (*parent_cache_key, str(head))
+        if head_cache_key not in self._span_cache:
+            self._span_cache[head_cache_key] = [span for span in child_spans if span.head == head]
+        return self._span_cache[head_cache_key]
 
     def _first_direct_child_span(
         self,

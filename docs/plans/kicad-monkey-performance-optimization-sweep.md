@@ -61,7 +61,7 @@ depends_on = ["optimization-candidate-selection"]
 [[steps]]
 id = "direct-child-span-cache-optimization"
 title = "Cache direct child spans per parent and filter by head"
-status = "pending"
+status = "done"
 depends_on = ["optimization-candidate-selection"]
 
 [[steps]]
