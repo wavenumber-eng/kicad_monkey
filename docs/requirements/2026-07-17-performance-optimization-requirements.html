@@ -11,11 +11,12 @@
   <section>
     <h2>Status</h2>
     <p>
-      Implementation candidate pending external review. These requirements are
-      the durable release-facing record for the parser and PCB projection
-      optimization sweep associated with GitHub issues #16 and #17. Public PRs
-      #18 and #19 are research inputs only; their code is not accepted,
-      merged, cherry-picked, copied, or ported into this implementation.
+      Implementation candidate externally reviewed and ready for release
+      authorization. These requirements are the durable release-facing record
+      for the parser and PCB projection optimization sweep associated with
+      GitHub issues #16 and #17. Public PRs #18 and #19 are research inputs
+      only; their code is not accepted, merged, cherry-picked, copied, or
+      ported into this implementation.
     </p>
   </section>
 
@@ -33,7 +34,7 @@
         <tr>
           <td>PERF-REQ-001</td>
           <td>Use public issue and PR reports as research signals only.</td>
-          <td>The active plan, ADR-005 update, changelog draft, and this requirement record state that implementation is independently rewritten on the feature branch.</td>
+          <td>ADR-005, this requirement record, tests, and the changelog state that implementation is independently rewritten on the feature branch.</td>
         </tr>
         <tr>
           <td>PERF-REQ-002</td>
@@ -58,7 +59,7 @@
         <tr>
           <td>PERF-REQ-006</td>
           <td>Record before/after performance impact with public or synthetic evidence.</td>
-          <td><code>docs/plans/logs/2026-07-17-regex-tokenizer-performance-summary.md</code> records synthetic, WREN, Jumperless, and local internal corpus timing comparisons; public/synthetic cases are the citable release evidence.</td>
+          <td>This requirement record preserves the citable synthetic, WREN, and Jumperless three-round timing summary; local internal corpus timings are treated as non-citable research evidence.</td>
         </tr>
         <tr>
           <td>PERF-REQ-007</td>
@@ -68,7 +69,7 @@
         <tr>
           <td>PERF-REQ-008</td>
           <td>Require external review and explicit release authorization before publishing.</td>
-          <td>The active plan retains an external-review gate, and no tag, release, PyPI upload, or publish workflow is run from this branch without explicit authorization.</td>
+          <td>External review approved the implementation after the regex tokenizer rewrite, and no tag, release, PyPI upload, or publish workflow is run from this branch without explicit authorization.</td>
         </tr>
       </tbody>
     </table>
@@ -95,9 +96,10 @@
       Jumperless nested projection improves
       <code>33.024s -&gt; 8.974s</code> (<code>3.68x</code>). Synthetic nested
       projection improves <code>1.880s -&gt; 0.549s</code> (<code>3.42x</code>).
-      Full-parse results remain mixed after the regex rewrite and are recorded
-      as a review topic rather than a closed 3-8x claim. Internal 4-ch results
-      are retained as local research evidence only.
+      Full-parse results remain mixed after the regex rewrite because token
+      object and generic tree materialization dominate once raw scanning is
+      faster; the earlier 3-8x full-parse expectation is not claimed. Internal
+      4-ch results are retained as local research evidence only.
     </p>
   </section>
 
@@ -105,8 +107,12 @@
     <h2>Deferred Work</h2>
     <p>
       Native acceleration, pull-token parser architecture, direct streaming
-      typed parse paths, and acceptance of third-party PR implementation code
-      are outside this optimization candidate.
+      typed parse paths, file-level IR/SVG APIs that avoid a full
+      <code>KiCadPcb</code> materialization step, project API guidance updates,
+      and acceptance of third-party PR implementation code are outside this
+      optimization candidate. A follow-on plan should evaluate C, C++,
+      Cython, and pure-Python architecture options for tokenizer/parser
+      acceleration before any native implementation is selected.
     </p>
   </section>
 </body>
