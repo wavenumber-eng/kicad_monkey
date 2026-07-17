@@ -7,8 +7,10 @@ return the same domain classes used by the full PCB parser.
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import TYPE_CHECKING, Any, Callable, Iterable, TypeVar, cast
 
 from ._api_markers import public_api
@@ -161,6 +163,8 @@ class KiCadPcbProjection:
         self._object_cache: dict[str, list[Any]] = {}
         self._single_cache: dict[str, Any] = {}
         self._source_by_id: dict[int, ProjectedSource] = {}
+        self._line_column_index: _LineColumnIndex | None = None
+        self._net_lookup_cache: tuple[dict[int, str], dict[str, int]] | None = None
 
     @classmethod
     def from_file(cls, path: str | Path) -> "KiCadPcbProjection":
@@ -520,10 +524,16 @@ class KiCadPcbProjection:
             setattr(obj, "net", self._resolve_net_ref(net_ref))
 
     def _resolve_net_ref(self, net_ref: NetRef) -> NetRef:
-        nets = self.nets()
-        net_name_by_id = {net.ordinal: net.name for net in nets}
-        net_id_by_name = {net.name: net.ordinal for net in nets}
+        net_name_by_id, net_id_by_name = self._net_lookup_tables()
         return net_ref.resolve_name(net_name_by_id).resolve_ordinal(net_id_by_name)
+
+    def _net_lookup_tables(self) -> tuple[dict[int, str], dict[str, int]]:
+        if self._net_lookup_cache is None:
+            nets = self.nets()
+            net_name_by_id = {net.ordinal: net.name for net in nets}
+            net_id_by_name = {net.name: net.ordinal for net in nets if net.name}
+            self._net_lookup_cache = (net_name_by_id, net_id_by_name)
+        return self._net_lookup_cache
 
     def _register_source(
         self,
@@ -578,20 +588,21 @@ class KiCadPcbProjection:
     ) -> list[SexpFormSpan]:
         if parent_span is None:
             return []
-        cache_key = ("<children>", str(parent_span.start_offset), str(parent_span.end_offset), str(head))
-        if cache_key in self._span_cache:
-            return self._span_cache[cache_key]
-        selector = SexpSelector(
-            heads={head} if head is not None else None,
-            min_depth=1,
-            max_depth=1,
-        )
-        child_spans = [
-            self._rebase_span(parent_span, child)
-            for child in iter_sexp_form_spans(parent_span.text(), selector, source_path=self.source_path)
-        ]
-        self._span_cache[cache_key] = child_spans
-        return child_spans
+        parent_cache_key = ("<children>", str(parent_span.start_offset), str(parent_span.end_offset))
+        if parent_cache_key not in self._span_cache:
+            selector = SexpSelector(min_depth=1, max_depth=1)
+            self._span_cache[parent_cache_key] = [
+                self._rebase_span(parent_span, child)
+                for child in iter_sexp_form_spans(parent_span.text(), selector, source_path=self.source_path)
+            ]
+        child_spans = self._span_cache[parent_cache_key]
+        if head is None:
+            return child_spans
+
+        head_cache_key = (*parent_cache_key, str(head))
+        if head_cache_key not in self._span_cache:
+            self._span_cache[head_cache_key] = [span for span in child_spans if span.head == head]
+        return self._span_cache[head_cache_key]
 
     def _first_direct_child_span(
         self,
@@ -610,8 +621,9 @@ class KiCadPcbProjection:
             return child_span
         start = parent_span.start_offset + child_span.start_offset
         end = parent_span.start_offset + child_span.end_offset
-        line, column = _line_column_for_offset(self._source_text, start)
-        end_line, end_column = _line_column_for_offset(self._source_text, end)
+        line_index = self._source_line_column_index()
+        line, column = line_index.line_column_for_offset(start)
+        end_line, end_column = line_index.line_column_for_offset(end)
         return SexpFormSpan(
             head=child_span.head,
             path=parent_span.path + child_span.path[1:],
@@ -626,12 +638,24 @@ class KiCadPcbProjection:
             source_path=str(self.source_path) if self.source_path is not None else None,
         )
 
+    def _source_line_column_index(self) -> "_LineColumnIndex":
+        if self._source_text is None:
+            raise ValueError("projection has no source text")
+        if self._line_column_index is None:
+            self._line_column_index = _LineColumnIndex(self._source_text)
+        return self._line_column_index
 
-def _line_column_for_offset(text: str, offset: int) -> tuple[int, int]:
-    line = text.count("\n", 0, offset) + 1
-    last_newline = text.rfind("\n", 0, offset)
-    column = offset + 1 if last_newline < 0 else offset - last_newline
-    return line, column
+
+class _LineColumnIndex:
+    def __init__(self, text: str) -> None:
+        self._newline_offsets = [match.start() for match in re.finditer("\n", text)]
+
+    def line_column_for_offset(self, offset: int) -> tuple[int, int]:
+        line_index = bisect_left(self._newline_offsets, offset)
+        line = line_index + 1
+        if line_index == 0:
+            return line, offset + 1
+        return line, offset - self._newline_offsets[line_index - 1]
 
 
 __all__ = [

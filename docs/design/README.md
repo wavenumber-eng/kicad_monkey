@@ -19,10 +19,16 @@ sections live under `api/`, and all design HTML uses `styles.css`.
 
 Current design notes:
 
+- `../guides/project-workflows.html` - user-facing workflow and read-path
+  guidance for choosing full model, projection, targeted reader, project, IR,
+  and SVG APIs.
 - `quality-signoff-status.md` - current release-gate status and quality-tool
   ratchet plan.
 - `kicad-plotter-ir.html` - canonical JSON rendering IR contract reference
   for scene conversion, SVG rendering, and validation.
+- `../requirements/2026-07-17-performance-optimization-requirements.html` -
+  parser/projection performance optimization requirements, measured evidence,
+  and release gates for the `2026.7.17` release.
 - `../requirements/2026-07-16-public-issue-requirements.html` - public-issue
   requirements and acceptance evidence for the `2026.7.16` release.
 - `library-megamaid-extraction.html` - KiCad project library extraction,

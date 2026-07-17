@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>KiCad Monkey Project Workflows</title>
+  <link rel="stylesheet" href="../design/styles.css">
+</head>
+<body>
+  <h1>Project Workflows And Read-Path Selection</h1>
+
+  <section>
+    <h2>Purpose</h2>
+    <p>
+      KiCad Monkey has two complementary API families. Full model APIs load
+      typed object graphs for editing, rendering, netlisting, and serialization.
+      Projection and targeted-reader APIs scan source files and hydrate only
+      selected object families for inventories and diagnostics.
+    </p>
+    <p>
+      Choose the smallest API that preserves the behavior your workflow needs.
+      This guide is user-facing; the durable API contracts remain in
+      <a href="../design/api/index.html">the API design docs</a>.
+    </p>
+  </section>
+
+  <section>
+    <h2>Decision Table</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Workflow</th>
+          <th>Use</th>
+          <th>Cost model</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Compile a project netlist.</td>
+          <td><code>KiCadDesign.from_project_file(...)</code></td>
+          <td>Loads project JSON and schematic hierarchy; does not parse the PCB for schematic-only netlist compilation.</td>
+        </tr>
+        <tr>
+          <td>Write design JSON for review or downstream tools.</td>
+          <td><code>KiCadDesign.from_project_file(...)</code></td>
+          <td>Loads project JSON and schematic hierarchy; parses the PCB when board-backed design JSON fields are needed.</td>
+        </tr>
+        <tr>
+          <td>Edit, write, render, or inspect full PCB geometry.</td>
+          <td><code>KiCadPcb.from_file(...)</code></td>
+          <td>Full PCB parse and typed model materialization.</td>
+        </tr>
+        <tr>
+          <td>Render PCB SVG or PCB plotter IR.</td>
+          <td><code>KiCadPcb.to_svg()</code>, <code>KiCadPcb.to_ir()</code>, or <code>KiCadDesign.to_pcb_svg()</code></td>
+          <td>Full board parse plus full IR construction; <code>layers=</code> filters output after IR construction.</td>
+        </tr>
+        <tr>
+          <td>Scan one or two large-board PCB families such as routes, zones, or model references.</td>
+          <td><code>KiCadPcbProjection.from_file(...)</code></td>
+          <td>Reads and scans the source file, then hydrates only requested PCB families; best for narrow scans and source spans.</td>
+        </tr>
+        <tr>
+          <td>Count several common or nested PCB families such as footprints and pads.</td>
+          <td>Measure both <code>KiCadPcb</code> and <code>KiCadPcbProjection</code> for the workload.</td>
+          <td>Projection can cost as much as or more than a full parse when many families are requested.</td>
+        </tr>
+        <tr>
+          <td>Scan one object family from PCB, schematic, symbol, footprint, model, or embedded-file sources.</td>
+          <td><code>iter_kicad_objects_from_file(...)</code></td>
+          <td>Generic targeted source scan plus selected object hydration.</td>
+        </tr>
+        <tr>
+          <td>Mutate schematic symbols, labels, wires, sheets, or properties.</td>
+          <td><code>KiCadSchematic.from_file(...)</code></td>
+          <td>Full schematic parse and typed model materialization.</td>
+        </tr>
+        <tr>
+          <td>Scan schematic symbols or other schematic primitives without full netlisting/rendering.</td>
+          <td><code>iter_kicad_objects_from_file(path, SchSymbol)</code> or another schematic class.</td>
+          <td>Targeted source scan. There is no named <code>KiCadSchematicProjection</code> facade today.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Indicative current measurements on this branch: a 59.6 MB WREN board
+      full parse was about <code>26.7s</code>, projection route scan about
+      <code>20.0s</code>, and projection common-family inventory about
+      <code>32.0s</code>. Treat these as order-of-magnitude anchors for API
+      choice, not release gates. The pattern matters more than the exact
+      number: narrow scans can win; broad or nested inventories can match or
+      exceed full-parse time. PCB render <code>layers=</code> selection does
+      not reduce parse or IR-build cost.
+    </p>
+  </section>
+
+  <section>
+    <h2>Project-Level Workflows</h2>
+    <p>
+      Use <code>KiCadDesign</code> when the workflow needs cross-document
+      context: netlists, design JSON, hierarchical schematic instances,
+      schematic rendering, PCB rendering, or one object that coordinates
+      project, schematic, and board files.
+    </p>
+    <pre><code>from kicad_monkey import KiCadDesign
+from pathlib import Path
+
+design = KiCadDesign.from_project_file("hardware/demo.kicad_pro")
+netlist = design.to_netlist()
+
+Path("build").mkdir(parents=True, exist_ok=True)
+design.save_json("build/design.json")
+
+for sheet in design.schematic_instances():
+    print(sheet.sheet_name, sheet.sheet_path)</code></pre>
+    <p>
+      <code>KiCadDesign.from_project_file</code> loads project JSON and the top
+      schematic immediately. The adjacent PCB is parsed lazily when
+      <code>design.pcb</code>, PCB IR, PCB SVG, or design JSON output needs
+      board data. Once PCB data is touched, PCB rendering is still a full-board
+      render path.
+    </p>
+  </section>
+
+  <section>
+    <h2>PCB Rendering Workflows</h2>
+    <p>
+      Use the full PCB model when a workflow needs render correctness, full
+      geometry, mutation, or write-back. The renderer uses plotter IR as the
+      canonical intermediate representation for PCB SVG output.
+    </p>
+    <pre><code>from kicad_monkey import KiCadPcb
+
+board = KiCadPcb.from_file("hardware/demo.kicad_pcb")
+svg = board.to_svg(layers=["Edge.Cuts", "F.Cu", "F.SilkS"])
+board.save("hardware/demo.edited.kicad_pcb")</code></pre>
+    <p>
+      Layer filtering is an output filter, not a partial parser. The current
+      PCB SVG path computes bounds, builds full plotter IR, and then filters
+      emitted SVG records by layer. Do not use <code>layers=</code> as a
+      performance substitute for projection.
+    </p>
+  </section>
+
+  <section>
+    <h2>Large PCB Inventory Workflows</h2>
+    <p>
+      Use <code>KiCadPcbProjection</code> for narrow large-board inventories
+      and source-span diagnostics when the workflow does not need mutation,
+      rendering, full-board geometry, or serialization.
+    </p>
+    <pre><code>from kicad_monkey import KiCadPcbProjection
+
+projection = KiCadPcbProjection.from_file("hardware/demo.kicad_pcb")
+
+route_count = len(projection.segments()) + len(projection.vias())
+print("route objects", route_count)
+
+for model_ref in projection.model_references():
+    print(model_ref.reference, model_ref.path)</code></pre>
+    <p>
+      Projection reads and scans source text, so it is not free. It can reduce
+      wall-clock time and memory for narrow family scans by avoiding full typed
+      board materialization. When a workflow requests several common or nested
+      families, projection can cost as much as or more than a full parse; use
+      the full model when that is simpler or when complete board context is
+      needed.
+    </p>
+    <p>
+      Net inventory needs format awareness. KiCad v10 boards can omit the
+      top-level net table and store name-only net references on objects, so
+      <code>projection.nets()</code> can legitimately be empty even when routed
+      objects reference nets.
+    </p>
+  </section>
+
+  <section>
+    <h2>Schematic And Generic Targeted Reads</h2>
+    <p>
+      Use the generic targeted reader for narrow object-family scans in
+      schematic, PCB, symbol, footprint, model, and embedded-file sources. The
+      object type must expose a <code>from_sexp</code> factory.
+    </p>
+    <pre><code>from kicad_monkey import SchSymbol, iter_kicad_objects_from_file
+
+for symbol in iter_kicad_objects_from_file("hardware/demo.kicad_sch", SchSymbol):
+    print(symbol.reference, symbol.value)</code></pre>
+    <p>
+      This is the supported schematic narrow-read path today. Use
+      <code>KiCadSchematic</code> instead when the workflow needs edits,
+      full-object queries, schematic IR, SVG rendering, or netlist semantics.
+    </p>
+  </section>
+
+  <section>
+    <h2>Repeated Views And Caching</h2>
+    <p>
+      If a workflow renders several views of the same board, keep one loaded
+      <code>KiCadPcb</code> or <code>KiCadDesign</code> object and render from
+      it repeatedly. KiCad Monkey does not currently expose a public render
+      cache API for cross-caller reuse. A public cache would need explicit
+      invalidation, lifetime, mutation, memory, and serialization contracts.
+    </p>
+  </section>
+
+  <section>
+    <h2>Rules Of Thumb</h2>
+    <ul>
+      <li>Use full models for editing, rendering, netlisting, geometry, and write-back.</li>
+      <li>Use projection for large PCB inventories and source-span diagnostics.</li>
+      <li>Use targeted readers for one object family from one source file.</li>
+      <li>Use <code>KiCadDesign</code> when cross-document project context matters.</li>
+      <li>Do not treat <code>to_ir()</code>, <code>to_svg()</code>, or render <code>layers=</code> as partial-read APIs.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Related Reference</h2>
+    <ul>
+      <li><a href="../design/api/project-design-api.html">Project and design API</a></li>
+      <li><a href="../design/api/pcb-api.html">PCB and footprint API</a></li>
+      <li><a href="../design/api/foundation-api.html">Foundation API and targeted readers</a></li>
+      <li><a href="../requirements/2026-07-17-performance-optimization-requirements.html">2026-07-17 performance optimization requirements</a></li>
+    </ul>
+  </section>
+</body>
+</html>

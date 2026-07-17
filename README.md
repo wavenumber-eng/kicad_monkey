@@ -70,6 +70,9 @@ for net in netlist.nets:
 Save the KiCad-native design JSON used by higher-level review tools:
 
 ```python
+from pathlib import Path
+
+Path("build").mkdir(parents=True, exist_ok=True)
 design.save_json("build/design.json")
 ```
 
@@ -93,7 +96,9 @@ svg = design.to_pcb_svg(
 ```
 
 Use `profile="oracle"` when comparing against KiCad CLI output. Use
-`profile="enriched"` when an app needs metadata on SVG elements.
+`profile="enriched"` when an app needs metadata on SVG elements. PCB SVG
+rendering builds the board render IR before applying `layers=`, so layer
+filters reduce output size but do not avoid full PCB parse or IR-build cost.
 
 ### Render Every Schematic Sheet Instance
 
@@ -182,6 +187,38 @@ connectors = [
 ]
 ```
 
+### Scan Large Files Without Full Model Materialization
+
+Use projection or targeted readers when you only need narrow inventories,
+diagnostics, source spans, or selected object families from a large file.
+
+```python
+from kicad_monkey import KiCadPcbProjection
+
+projection = KiCadPcbProjection.from_file("hardware/demo.kicad_pcb")
+
+for model_ref in projection.model_references():
+    print(model_ref.reference, model_ref.path)
+
+route_count = len(projection.segments()) + len(projection.vias())
+print(f"{route_count} route objects")
+```
+
+For schematic or custom narrow reads, use the generic targeted reader:
+
+```python
+from kicad_monkey import SchSymbol, iter_kicad_objects_from_file
+
+for symbol in iter_kicad_objects_from_file("hardware/demo.kicad_sch", SchSymbol):
+    print(symbol.reference, symbol.value)
+```
+
+Projection still scans the source file, but it hydrates only the requested
+object families. Use `KiCadPcb`, `KiCadSchematic`, or `KiCadDesign` when you
+need mutation, rendering, netlisting, full geometry, or cross-document context.
+For measured tradeoffs, net-table caveats, and render cost details, see
+[Project Workflows And Read-Path Selection](docs/guides/project-workflows.html).
+
 ## Testing
 
 Rack is the primary public gate:
@@ -212,8 +249,11 @@ discovery surface while downstream integrations prove which additional symbols
 should become stable public exports.
 
 The public OOP facade groups and supporting public classes are documented under
-[docs/design/api](docs/design/api). L99 fails when a stable public class or
-major interface is missing design documentation or Rack test ownership.
+[docs/design/api](docs/design/api). Use
+[Project Workflows And Read-Path Selection](docs/guides/project-workflows.html)
+for practical guidance on which API to choose for project, render, inventory,
+and large-file workflows. L99 fails when a stable public class or major
+interface is missing design documentation or Rack test ownership.
 
 Typical entrypoints:
 
@@ -228,6 +268,10 @@ symbols = KiCadSymbolLib.from_file("library.kicad_sym")
 footprint = KiCadFootprint.from_file("package.kicad_mod")
 ```
 
+For workflow-level API choice, use
+[Project Workflows And Read-Path Selection](docs/guides/project-workflows.html)
+as the canonical guide.
+
 ## Fixture Model
 
 Public fixtures should be redistributable and package-local when possible.
@@ -241,6 +285,7 @@ Broader fixture families should use this shape:
 
 ## Documentation
 
+- [User Guides](docs/guides)
 - [Architecture Decision Records](docs/adrs)
 - [Design Notes](docs/design)
 - [Changelog](CHANGELOG.md)

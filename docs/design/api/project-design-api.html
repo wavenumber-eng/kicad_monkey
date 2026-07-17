@@ -71,6 +71,15 @@
       instantiations so repeated schematic files can be rendered, indexed, and
       reviewed as distinct concrete sheet views.
     </p>
+    <h3>Cost Model</h3>
+    <p>
+      <code>KiCadDesign.from_project_file</code> loads the project JSON and top
+      schematic up front. The adjacent PCB file is parsed lazily when
+      <code>design.pcb</code>, PCB IR, PCB SVG, or design JSON output needs
+      board data. User-facing workflow selection is canonical in
+      <a href="../../guides/project-workflows.html">Project Workflows And
+      Read-Path Selection</a>.
+    </p>
     <h3>Schematic SVG Linkage</h3>
     <p>
       Enriched schematic SVG metadata embeds the KiCad design JSON plus

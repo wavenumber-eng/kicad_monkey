@@ -67,3 +67,21 @@ path matching, and selected-form reparsing.
 Future native-code acceleration can be considered if the projection scanner is
 still too slow after Python implementation, but a native rewrite of the typed
 OOP model is not part of this decision.
+
+## 2026-07-17 Performance Update
+
+The projection parser remains the public source-span layer, but large-board
+workloads now make the performance constraints explicit:
+
+- selected spans must preserve exact offsets, line/column metadata, source
+  text, and reparsed S-expression behavior even when internal indexes are used;
+- line-column rebasing, direct-child span discovery, and PCB net lookup tables
+  may be cached as private immutable-source accelerators;
+- lexer and projection scanner hot paths remain pure Python for this effort,
+  with the lexer using compiled regex token discovery, lazy quoted-string
+  unescape, and grouped numeric token classification;
+- public GitHub issue and pull-request reports may guide research, but
+  implementation code is independently written in this repository.
+
+Future native accelerators, pull-parser architecture, or direct typed parsing
+remain separate design decisions and are not part of this accepted update.
