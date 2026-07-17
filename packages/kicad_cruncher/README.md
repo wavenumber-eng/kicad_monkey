@@ -88,6 +88,14 @@ blue, plated slots are cyan, non-plated drills are red, and non-plated slots are
 orange. KiCad Cruncher does not add a second drill/slot overlay or duplicate
 the `kicad-monkey` plating metadata.
 
+For large boards, `design`/`design-review`/`dr` still produce full design JSON
+and netlist artifacts, so they intentionally materialize broad project state.
+The PCB review SVG pass reuses a command-scoped cached board render state while
+writing one SVG per copper layer. On public corpus measurements with
+`kicad-monkey 2026.7.17`, this mainly helps boards with several copper layers;
+the full design JSON artifact can still dominate total runtime on smaller
+layer counts.
+
 The `pcb-svg` command writes to `./output/pcb-svg/` by default and uses
 `pcb.svg.config` JSON/JSONC configs compatible with the A0 PCB SVG view
 contract. This remains a preview feature: SVG structure,

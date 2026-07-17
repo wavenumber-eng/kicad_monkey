@@ -394,7 +394,7 @@ wheels = [
 
 [[package]]
 name = "kicad-cruncher"
-version = "2026.7.16"
+version = "2026.7.17"
 source = { editable = "." }
 dependencies = [
     { name = "colorama" },
@@ -440,7 +440,7 @@ requires-dist = [
     { name = "colorama", specifier = ">=0.4.6" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "jsonschema", marker = "extra == 'test'", specifier = ">=4.22.0" },
-    { name = "kicad-monkey", specifier = ">=2026.7.16" },
+    { name = "kicad-monkey", specifier = ">=2026.7.17" },
     { name = "openpyxl", specifier = ">=3.1.0" },
     { name = "pyright", marker = "extra == 'test'", specifier = ">=1.1.390" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
@@ -470,7 +470,7 @@ dev = [
 
 [[package]]
 name = "kicad-monkey"
-version = "2026.7.16"
+version = "2026.7.17"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama" },
@@ -481,9 +481,9 @@ dependencies = [
     { name = "uharfbuzz" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6b/4a/f34494580fed7a3f7f631897bc2891ab13d728316d12b9bc98e137a9b09c/kicad_monkey-2026.7.16.tar.gz", hash = "sha256:92189a5ef44b5f050c9f1f0c5d3873bc99d30d9e5f37bebd3e7e839cf6913f4a", size = 3022256, upload-time = "2026-07-17T01:27:18.651Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/aa/d6/201549345476a8486fe4f496f9bde001d17ce69fc7c0239c3ec6d4e8310b/kicad_monkey-2026.7.17.tar.gz", hash = "sha256:4c516523b91c512b7f0ae1b2fc6e2dbcd496fc7075802c9669a7e33526c72360", size = 3036603, upload-time = "2026-07-17T19:00:03.273Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/aa/48/99a77e9773794335afa8ad9cdaa6ceaa5bd59d4fd62ce5bdfbd6074717bd/kicad_monkey-2026.7.16-py3-none-any.whl", hash = "sha256:0d236ef0d6b258c3c6aca7fd2e47a32cf12f71d75fa238f2de0ebcf4673ecf77", size = 679396, upload-time = "2026-07-17T01:27:17.1Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/fb/ba4338f3437f5b07785192e0d060fa330df92e40cb31e2f9cf0784a6ac91/kicad_monkey-2026.7.17-py3-none-any.whl", hash = "sha256:fa3897cc0ed47b9090d37036088df16aefde3b2e874f67a02d58636f0cdafda5", size = 681051, upload-time = "2026-07-17T19:00:01.327Z" },
 ]
 
 [[package]]

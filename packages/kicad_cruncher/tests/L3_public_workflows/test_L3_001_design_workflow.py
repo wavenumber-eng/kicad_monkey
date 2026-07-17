@@ -15,6 +15,12 @@ from typing import Any
 import pytest
 from kicad_cruncher import kicad_cruncher_cmd_pcb_svg as pcb_svg_cmd
 from kicad_cruncher.config_json import load_json_config
+from kicad_cruncher.kicad_cruncher_cmd_design import (
+    _PCB_TRACE_COLOR,
+    _cached_pcb_review_svg_text,
+    _pcb_copper_layers,
+    _style_pcb_review_svg,
+)
 from kicad_cruncher.kicad_cruncher_cmd_pcb_svg import (
     _active_pcb_layers,
     _apply_pcb_view_selection,
@@ -29,6 +35,7 @@ from kicad_cruncher.kicad_cruncher_pcb_model_pose import (
     kicad_model_pose,
 )
 from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import (
+    PcbSvgCompositionRenderCache,
     _classify_edge_cut_regions,
     _interior_board_regions,
     _outer_board_region,
@@ -68,6 +75,13 @@ _CORPUS_CHARGE_INDICATOR_PCB = (
 )
 _CORPUS_TAILLIGHT_PCB = (
     _CORPUS_ROOT / "projects" / "taillight" / "input" / "11-10045__taillight__C.kicad_pcb"
+)
+_CORPUS_SPEEDY_PCB = (
+    _CORPUS_ROOT
+    / "projects"
+    / "speedy_processing_module"
+    / "input"
+    / "11-10084__speedy_processing_module__B.kicad_pcb"
 )
 _CORPUS_PROJECT_CASES = (
     pytest.param(
@@ -484,6 +498,44 @@ def _review_svgs_by_source_uuid(
         if source_uuid:
             svg_by_uuid[source_uuid] = ET.tostring(element, encoding="unicode")
     return svg_by_uuid
+
+
+@pytest.mark.parametrize(
+    ("pcb_path", "layers"),
+    (
+        pytest.param(_CORPUS_TAILLIGHT_PCB, ("F.Cu", "B.Cu"), id="taillight-two-layers"),
+        pytest.param(_CORPUS_SPEEDY_PCB, None, id="speedy-all-copper-layers"),
+    ),
+)
+def test_cached_pcb_review_renderer_matches_direct_to_svg_contract(
+    pcb_path: Path,
+    layers: tuple[str, ...] | None,
+) -> None:
+    """Verify cached design-review rendering preserves direct SVG semantics."""
+    pcb = KiCadPcb.from_file(pcb_path)
+    render_cache = PcbSvgCompositionRenderCache(pcb)
+    selected_layers = _pcb_copper_layers(pcb) if layers is None else list(layers)
+
+    for layer in selected_layers:
+        direct_svg = pcb.to_svg(
+            layers=[layer, "Edge.Cuts"],
+            fill=_PCB_TRACE_COLOR,
+            stroke=_PCB_TRACE_COLOR,
+            black_and_white=False,
+            profile="enriched",
+        )
+        direct_styled, direct_drill_count = _style_pcb_review_svg(str(direct_svg), layer)
+        cached_svg = _cached_pcb_review_svg_text(pcb, render_cache, layer)
+        cached_styled, cached_drill_count = _style_pcb_review_svg(cached_svg, layer)
+
+        direct_root = ET.fromstring(direct_styled)
+        cached_root = ET.fromstring(cached_styled)
+
+        assert cached_drill_count == direct_drill_count
+        assert cached_root.attrib["viewBox"] == direct_root.attrib["viewBox"]
+        assert cached_root.attrib["width"] == direct_root.attrib["width"]
+        assert cached_root.attrib["height"] == direct_root.attrib["height"]
+        assert cached_styled == direct_styled
 
 
 def test_design_command_generates_project_json(tmp_path: Path) -> None:

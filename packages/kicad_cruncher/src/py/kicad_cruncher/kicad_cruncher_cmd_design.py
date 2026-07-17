@@ -42,6 +42,12 @@ class _SchematicInstanceLike(Protocol):
     sheet_path_uuids: list[str]
     sheet_instance_path: str
 
+
+class _PcbReviewRenderCacheLike(Protocol):
+    """Typed subset of the PCB SVG render cache used by design review."""
+
+    def root_svg(self, pcb: KiCadPcb, layers: list[str] | None) -> ET.Element: ...
+
 _SVG_NS = "http://www.w3.org/2000/svg"
 _XLINK_NS = "http://www.w3.org/1999/xlink"
 _DRAWABLE_TAGS = {"circle", "ellipse", "line", "path", "polygon", "polyline", "rect"}
@@ -424,6 +430,16 @@ def _style_pcb_review_svg(svg_text: str, layer: str) -> tuple[str, int]:
     ), drill_slot_record_count
 
 
+def _cached_pcb_review_svg_text(
+    pcb: KiCadPcb,
+    render_cache: _PcbReviewRenderCacheLike,
+    layer: str,
+) -> str:
+    """Render one PCB review layer from a command-scoped cached board IR."""
+    root_svg = render_cache.root_svg(pcb, [layer, "Edge.Cuts"])
+    return ET.tostring(root_svg, encoding="unicode", short_empty_elements=True)
+
+
 def _render_pcb_review_svgs(
     design: KiCadDesign,
     output_dir: Path,
@@ -442,19 +458,18 @@ def _render_pcb_review_svgs(
     )
     artifacts: list[Artifact] = []
     copper_layers = _pcb_copper_layers(pcb)
+    from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import (
+        PcbSvgCompositionRenderCache,
+    )
+
+    render_cache = PcbSvgCompositionRenderCache(pcb)
     _emit_progress(progress, f"rendering {len(copper_layers)} PCB copper-layer review SVG(s)")
     for index, copper_layer in enumerate(copper_layers, start=1):
         _emit_progress(
             progress,
             f"rendering PCB review SVG {index}/{len(copper_layers)}: {copper_layer}",
         )
-        svg_text = pcb.to_svg(
-            layers=[copper_layer, "Edge.Cuts"],
-            fill=_PCB_TRACE_COLOR,
-            stroke=_PCB_TRACE_COLOR,
-            black_and_white=False,
-            profile="enriched",
-        )
+        svg_text = _cached_pcb_review_svg_text(pcb, render_cache, copper_layer)
         styled_svg, drill_slot_record_count = _style_pcb_review_svg(svg_text, copper_layer)
         layer_file = pcb_dir / f"{board_name}__{_safe_filename(copper_layer)}__review.svg"
         layer_file.parent.mkdir(parents=True, exist_ok=True)

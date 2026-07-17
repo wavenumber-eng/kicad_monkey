@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026.7.17
+
+- Update the controlled `kicad-monkey` dependency floor to
+  `kicad-monkey>=2026.7.17`, consuming the public KiCad Monkey parser and
+  rendering performance improvements.
+- Cache design-review PCB SVG render state within one command invocation so
+  `design`, `design-review`, and `dr` avoid rebuilding the board IR for every
+  copper layer while preserving enriched SVG output, viewBox framing, and
+  drill/slot counts.
+- Add direct-vs-cached PCB review SVG parity coverage, including a multi-layer
+  public corpus fixture, and keep large-board timing evidence in the profiling
+  helper and durable research notes.
+- Record the deferred `KiCadDesign.to_json()` materialization cost as upstream
+  `kicad-monkey` follow-up work and file the public tracking issue.
+- Keep dev-std audit in L99 release signoff so governance checks are
+  release-blocking.
+
 ## 2026.7.16
 
 - Update the controlled `kicad-monkey` dependency floor to
