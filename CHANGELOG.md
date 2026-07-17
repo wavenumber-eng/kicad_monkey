@@ -12,6 +12,8 @@
 - Optimize design JSON component `classification.pin_count` generation with a
   one-pass terminal index while preserving the existing JSON contract.
 - Align release signoff with the configured dev-std audit scopes.
+- Add durable ADR and requirements closeout artifacts for the public issue work
+  and remove transient plan/research notes from tracked release content.
 
 ## 2026.6.25
 

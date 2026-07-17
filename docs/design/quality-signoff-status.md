@@ -27,6 +27,9 @@ Last updated: 2026-07-16
   hyperlink context preservation, source-driven KiCad preference setup,
   one-pass design JSON pin-count generation, and configured dev-std audit
   coverage.
+- The 2026-07-16 public issue closeout records durable decisions in ADR-009,
+  requirements, design docs, contracts, tests, changelog, and release notes,
+  while keeping active plans and research notes out of release artifacts.
 - The 2026-06-25 release adds the new-project aggregate API, documents the
   public constructor convention in ADR-008, and keeps the public corpus archive
   restored from object storage instead of Git LFS.
