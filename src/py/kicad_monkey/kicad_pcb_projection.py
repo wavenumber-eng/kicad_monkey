@@ -610,8 +610,18 @@ class KiCadPcbProjection:
             return child_span
         start = parent_span.start_offset + child_span.start_offset
         end = parent_span.start_offset + child_span.end_offset
-        line, column = _line_column_for_offset(self._source_text, start)
-        end_line, end_column = _line_column_for_offset(self._source_text, end)
+        line = parent_span.line + child_span.line - 1
+        column = (
+            parent_span.column + child_span.column - 1
+            if child_span.line == 1
+            else child_span.column
+        )
+        end_line = parent_span.line + child_span.end_line - 1
+        end_column = (
+            parent_span.column + child_span.end_column - 1
+            if child_span.end_line == 1
+            else child_span.end_column
+        )
         return SexpFormSpan(
             head=child_span.head,
             path=parent_span.path + child_span.path[1:],
@@ -625,14 +635,6 @@ class KiCadPcbProjection:
             source_text=self._source_text,
             source_path=str(self.source_path) if self.source_path is not None else None,
         )
-
-
-def _line_column_for_offset(text: str, offset: int) -> tuple[int, int]:
-    line = text.count("\n", 0, offset) + 1
-    last_newline = text.rfind("\n", 0, offset)
-    column = offset + 1 if last_newline < 0 else offset - last_newline
-    return line, column
-
 
 __all__ = [
     "KiCadPcbProjection",

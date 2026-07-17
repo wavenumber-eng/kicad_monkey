@@ -39,6 +39,7 @@ _PCB_TEXT = """(kicad_pcb
     (property "Reference" "R1" (at 0 0 0) (layer "F.SilkS"))
     (property "Value" "10k" (at 0 1 0) (layer "F.Fab"))
     (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net 1 "/A"))
+    (pad "2" smd rect (at 1 0) (size 1 1) (layers "F.Cu") (net 1 "/A"))
     (model "${KICAD10_3DMODEL_DIR}/Resistor.3dshapes/R.step"
       (offset (xyz 0 0 0))
       (scale (xyz 1 1 1))
@@ -96,6 +97,16 @@ def test_pcb_projection_preserves_source_metadata(tmp_path: Path) -> None:
     assert projection.source_span(footprint) is source.span
     assert projection.source_text(footprint).lstrip().startswith('(footprint "Device:R"')
     assert projection.source_sexp(footprint)[0] == "footprint"
+
+    second_pad = projection.pads()[1]
+    second_pad_span = projection.source_span(second_pad)
+    assert second_pad_span is not None
+    second_pad_offset = _PCB_TEXT.index('(pad "2"')
+    second_pad_line_start = _PCB_TEXT.rfind("\n", 0, second_pad_offset)
+    assert second_pad_span.start_offset == second_pad_offset
+    assert second_pad_span.line == _PCB_TEXT.count("\n", 0, second_pad_offset) + 1
+    assert second_pad_span.column == second_pad_offset - second_pad_line_start
+    assert projection.source_text(second_pad).lstrip().startswith('(pad "2"')
 
 
 def test_pcb_projection_reports_nested_model_references(tmp_path: Path) -> None:
