@@ -85,7 +85,7 @@ depends_on = [
 [[steps]]
 id = "performance-signoff"
 title = "Record measured performance impact against reproducible baselines"
-status = "pending"
+status = "done"
 depends_on = ["behavior-and-contract-signoff"]
 
 [[steps]]
