@@ -66,6 +66,48 @@
   </section>
 
   <section
+    data-interface="iter_kicad_objects_from_file"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_041_sexpr_projection.py"
+    data-test-target="test_typed_file_reader_uses_default_selector"
+  >
+    <h2>Targeted KiCad Object Reader</h2>
+    <h3>Rationale</h3>
+    <p>
+      Large KiCad files often need selected typed objects without constructing
+      the full file model or a file-type-specific projection facade.
+    </p>
+    <h3>Purpose</h3>
+    <p>
+      <code>iter_kicad_objects_from_file</code> and
+      <code>iter_kicad_objects_from_text</code> select source forms with the
+      generic projection scanner and hydrate only the requested object type
+      through that class's <code>from_sexp</code> factory.
+    </p>
+    <p>
+      The default selectors cover whole-file roots, PCB footprints and routing
+      objects, library symbols, placed schematic symbols, common schematic
+      primitives, models, and embedded files. This is the documented narrow
+      read path for schematic object scans. A named
+      <code>KiCadSchematicProjection</code> facade should remain deferred until
+      a concrete source-span-preserving schematic workload needs one.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must prove the file reader uses the default selector, hydrates
+      selected typed objects, distinguishes library symbols from placed
+      schematic symbols, and filters embedded-file forms without materializing
+      unrelated objects.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      A targeted KiCad object reader is public when callers can scan a known
+      object family from source text or a file using promoted package-root
+      exports and receive normal typed domain objects.
+    </p>
+  </section>
+
+  <section
     data-interface="KiCadObjectCollection"
     data-rack-stratum="L0_foundation"
     data-test-file="tests/L0_foundation/test_L0_035_api_cleanup.py"

@@ -31,6 +31,19 @@
       remains canonical through the plotter IR renderer; `KiCadPcb.to_svg()`
       delegates to that path rather than maintaining a second direct renderer.
     </p>
+    <h3>Cost Model</h3>
+    <p>
+      <code>KiCadPcb.from_file</code>, <code>KiCadPcb(path)</code>,
+      <code>KiCadPcb.to_ir()</code>, and <code>KiCadPcb.to_svg()</code> are
+      full-model paths. They are the correct APIs for mutation, serialization,
+      full-board geometry, rendering, and workflows that need complete board
+      context. They are not partial-read APIs.
+    </p>
+    <p>
+      PCB SVG layer filters reduce emitted SVG records after the board render
+      IR is built. A <code>layers=</code> argument should not be described as a
+      way to avoid full PCB parsing or full IR construction.
+    </p>
     <h3>Construction Model</h3>
     <p>
       Existing code may use <code>KiCadPcb(path)</code> to parse a file or
@@ -80,6 +93,21 @@
       avoid repeated scans on large boards. These caches are private
       acceleration details; projected objects, source metadata, and unresolved
       net fallback behavior remain the public contract.
+    </p>
+    <h3>Cost Model</h3>
+    <p>
+      A projection created from a file reads and scans the source text, then
+      hydrates only the requested object families. Use it for large-board
+      inventories, model-reference health checks, route or zone counts,
+      source-span diagnostics, and selected family scans. Use the full
+      <code>KiCadPcb</code> model when a workflow needs mutation, rendering,
+      whole-board geometry, netlist context, or write-back.
+    </p>
+    <p>
+      The projection facade is the supported file-level inventory API for PCB
+      data. New thin inventory helper names should not be added until a
+      repeated workload shows that this facade is insufficient after the
+      guidance examples are visible.
     </p>
     <h3>Test Requirements</h3>
     <p>

@@ -93,7 +93,9 @@ svg = design.to_pcb_svg(
 ```
 
 Use `profile="oracle"` when comparing against KiCad CLI output. Use
-`profile="enriched"` when an app needs metadata on SVG elements.
+`profile="enriched"` when an app needs metadata on SVG elements. PCB SVG
+rendering builds the board render IR before applying `layers=`, so layer
+filters reduce output size but do not avoid full PCB parse or IR-build cost.
 
 ### Render Every Schematic Sheet Instance
 
@@ -182,6 +184,37 @@ connectors = [
 ]
 ```
 
+### Scan Large Files Without Full Model Materialization
+
+Use projection or targeted readers when you only need inventories,
+diagnostics, source spans, or selected object families from a large file.
+
+```python
+from kicad_monkey import KiCadPcbProjection
+
+projection = KiCadPcbProjection.from_file("hardware/demo.kicad_pcb")
+
+for model_ref in projection.model_references():
+    print(model_ref.reference, model_ref.path)
+
+route_count = sum(1 for _ in projection.segments())
+route_count += sum(1 for _ in projection.vias())
+print(f"{route_count} route objects")
+```
+
+For schematic or custom narrow reads, use the generic targeted reader:
+
+```python
+from kicad_monkey import SchSymbol, iter_kicad_objects_from_file
+
+for symbol in iter_kicad_objects_from_file("hardware/demo.kicad_sch", SchSymbol):
+    print(symbol.reference, symbol.value)
+```
+
+Projection still scans the source file, but it hydrates only the requested
+object families. Use `KiCadPcb`, `KiCadSchematic`, or `KiCadDesign` when you
+need mutation, rendering, netlisting, full geometry, or cross-document context.
+
 ## Testing
 
 Rack is the primary public gate:
@@ -227,6 +260,18 @@ design = KiCadDesign.from_project_file("project.kicad_pro")
 symbols = KiCadSymbolLib.from_file("library.kicad_sym")
 footprint = KiCadFootprint.from_file("package.kicad_mod")
 ```
+
+Choose the smallest API that matches the workflow:
+
+- Use `KiCadPcb`, `KiCadSchematic`, and `KiCadDesign` for editing, rendering,
+  netlisting, full geometry, serialization, or design-wide context.
+- Use `KiCadPcbProjection` for large-board PCB inventories, route scans,
+  source-span diagnostics, model-reference checks, and selected family counts.
+- Use `iter_kicad_objects_from_file` or `iter_kicad_objects_from_text` for
+  narrow PCB, schematic, symbol, footprint, model, or embedded-file scans.
+- Do not expect `to_ir()`, `to_svg()`, or render `layers=` filters to be
+  partial-read APIs; those paths currently operate after full model or full IR
+  materialization.
 
 ## Fixture Model
 

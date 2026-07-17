@@ -104,15 +104,36 @@
   </section>
 
   <section>
+    <h2>External Review Evidence</h2>
+    <p>
+      External review rejected the first optimization candidate until the
+      regex-tokenizer rewrite and line-column index follow-ups were complete.
+      The post-regex review then approved the behavior-preserving
+      implementation. A follow-on fresh decomposition on the public Jumperless
+      board measured <code>8,350,129</code> raw regex matches,
+      <code>5,236,594</code> tokens, best raw scan <code>1.119s</code>, best
+      token production <code>9.541s</code>, and best full
+      <code>parse_sexp</code> <code>11.654s</code>. An independent reviewer
+      reproduced the same match and token counts and confirmed that token
+      object plus generic tree materialization, not raw scanning alone, is the
+      remaining full-parse floor. These review findings support PERF-REQ-008
+      and explain why pull-parser or streaming typed-parser work is deferred
+      to a separate architecture decision rather than claimed in this
+      optimization release.
+    </p>
+  </section>
+
+  <section>
     <h2>Deferred Work</h2>
     <p>
       Native acceleration, pull-token parser architecture, direct streaming
       typed parse paths, file-level IR/SVG APIs that avoid a full
-      <code>KiCadPcb</code> materialization step, project API guidance updates,
-      and acceptance of third-party PR implementation code are outside this
-      optimization candidate. A follow-on plan should evaluate C, C++,
-      Cython, and pure-Python architecture options for tokenizer/parser
-      acceleration before any native implementation is selected.
+      <code>KiCadPcb</code> materialization step, and acceptance of third-party
+      PR implementation code are outside this optimization candidate. Project
+      API guidance is recorded separately as durable documentation. A follow-on
+      plan should evaluate pure-Python pull parsing before C, C++, or Cython
+      tokenizer/parser acceleration, and any native implementation must remain
+      a validated accelerator behind the Python reference contracts.
     </p>
   </section>
 </body>

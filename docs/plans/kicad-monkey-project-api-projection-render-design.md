@@ -59,31 +59,31 @@ depends_on = ["independent-research-review"]
 [[steps]]
 id = "durable-design-doc-updates"
 title = "Update ADRs, design docs, requirements, and release notes for the selected API direction"
-status = "active"
+status = "done"
 depends_on = ["api-design-decision"]
 
 [[steps]]
 id = "api-guidance-implementation"
 title = "Implement accepted documentation, guidance, and public API contract updates"
-status = "pending"
+status = "done"
 depends_on = ["durable-design-doc-updates"]
 
 [[steps]]
 id = "file-level-ir-svg-api-implementation"
 title = "Implement accepted file-level IR or SVG APIs, if the design decision selects them"
-status = "pending"
+status = "done"
 depends_on = ["durable-design-doc-updates"]
 
 [[steps]]
 id = "native-acceleration-followup-decision"
 title = "Record whether native tokenizer or parser acceleration remains research-only or becomes a separate implementation plan"
-status = "pending"
+status = "done"
 depends_on = ["native-acceleration-options-research", "api-design-decision"]
 
 [[steps]]
 id = "design-doc-intent-audit"
 title = "Audit ADRs, design docs, requirements, and release notes against selected API behavior"
-status = "pending"
+status = "done"
 depends_on = [
   "api-guidance-implementation",
   "file-level-ir-svg-api-implementation",
@@ -93,7 +93,7 @@ depends_on = [
 [[steps]]
 id = "behavior-performance-signoff"
 title = "Validate behavior, API contracts, and performance impact for accepted changes"
-status = "pending"
+status = "done"
 depends_on = [
   "api-guidance-implementation",
   "file-level-ir-svg-api-implementation",
@@ -103,7 +103,7 @@ depends_on = [
 [[steps]]
 id = "test-runtime-impact-audit"
 title = "Audit test coverage and runtime impact for accepted API or render changes"
-status = "pending"
+status = "done"
 depends_on = ["behavior-performance-signoff"]
 
 [[steps]]
@@ -121,7 +121,7 @@ depends_on = ["behavior-performance-signoff"]
 [[steps]]
 id = "external-review"
 title = "Obtain external review before any release preparation"
-status = "pending"
+status = "active"
 depends_on = [
   "behavior-performance-signoff",
   "design-doc-intent-audit",
@@ -152,7 +152,7 @@ status = "met"
 [[exit_criteria]]
 id = "ec-guidance-clear"
 title = "Documentation clearly distinguishes full materialization, source projection, SVG/3D projection, and rendering"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-render-design-reviewed"
@@ -167,22 +167,22 @@ status = "met"
 [[exit_criteria]]
 id = "design-doc-intent-audit"
 title = "Checker-required alias: ADRs, design docs, requirements, and release notes match selected API behavior"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-design-doc-intent-audit"
 title = "ADRs, design docs, requirements, and release notes match selected API behavior"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "test-runtime-impact-audit"
 title = "Checker-required alias: test additions and runtime impact are reviewed with recorded evidence"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-test-runtime-impact-audit"
 title = "Test additions and runtime impact are reviewed with recorded evidence"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-independent-review-complete"
@@ -192,17 +192,17 @@ status = "met"
 [[exit_criteria]]
 id = "ec-implementation-behavior-preserved"
 title = "Accepted changes preserve existing parser, projection, IR, SVG, and project API behavior unless a reviewed contract update says otherwise"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-signoff-green"
 title = "Relevant L0/L1/L99, dev-std audit, and targeted performance checks pass"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-cruncher-deferred"
 title = "No kicad_cruncher implementation begins until Monkey API decisions land and a downstream plan is created"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-public-issue-response-authorized"

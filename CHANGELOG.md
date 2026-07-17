@@ -10,6 +10,9 @@
   optimized paths.
 - Record public/synthetic benchmark evidence and keep public PRs #18 and #19
   as research inputs only; implementation is independently rewritten.
+- Document when to use full model APIs, `KiCadPcbProjection`, targeted readers,
+  and render APIs; clarify that PCB render `layers=` filters output after full
+  IR construction.
 
 ## 2026.7.16
 
