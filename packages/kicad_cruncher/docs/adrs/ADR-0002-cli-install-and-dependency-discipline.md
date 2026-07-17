@@ -12,12 +12,12 @@ packages into the public runtime.
 ## Decision
 
 The public install path is `uv tool install kicad-cruncher`. Runtime
-dependencies must stay public, pinned where they are controlled Wavenumber
-packages, and justified by command behavior.
+dependencies must stay public, constrained to reviewed public releases where
+they are controlled Wavenumber packages, and justified by command behavior.
 
 The first runtime dependency set is intentionally narrow:
 
-- `kicad-monkey==2026.6.25`
+- `kicad-monkey>=2026.7.16`
 - `wn-geometer==2026.6.10`
 - `openpyxl>=3.1.0`
 - `colorama>=0.4.6`

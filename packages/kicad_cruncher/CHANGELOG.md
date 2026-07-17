@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026.7.16
+
+- Update the controlled `kicad-monkey` dependency floor to
+  `kicad-monkey>=2026.7.16` while keeping `wn-geometer==2026.6.10`.
+- Migrate the public command manifest to the `wn_dev_std.command_manifest.a0`
+  governance contract and wire `docs.cli`, `docs.plans`, `docs.requirements`,
+  and `docs.release` into release signoff.
+- Add durable release-governance and requirement records for CLI
+  documentation, PyPI release signoff, publish authorization, deferred
+  daemon/plugin validation, future footprint HLR daemon work, schematic cleanup,
+  PCB SVG selector follow-up, and library extraction hardening.
+- Delete closed active plan files from the release artifact path after moving
+  durable obligations into requirements, design docs, release governance, and
+  validation records.
+
 ## 2026.6.25
 
 - Update the controlled `kicad-monkey` dependency to `2026.6.25` for the
