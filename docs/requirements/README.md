@@ -7,7 +7,7 @@ Current requirements:
 
 - `2026-07-17-performance-optimization-requirements.html`: requirements,
   acceptance evidence, and release gates for the parser/projection performance
-  optimization candidate addressing GitHub issues #16 and #17.
+  optimization release addressing GitHub issues #16 and #17.
 - `2026-07-16-public-issue-requirements.html`: requirements and acceptance
   evidence for the Plotter IR contract, hyperlink context, source-driven
   preferences, design JSON pin-count performance, and dev-std release-signoff

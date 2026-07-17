@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2026.7.17
+
 - Improve large-board PCB parser and projection performance with pure-Python
   S-expression regex-tokenizer changes, projection source-span line-column
   indexing, direct child-span caching, and PCB net lookup reuse.

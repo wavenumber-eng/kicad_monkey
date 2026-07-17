@@ -11,12 +11,12 @@
   <section>
     <h2>Status</h2>
     <p>
-      Implementation candidate externally reviewed and ready for release
-      authorization. These requirements are the durable release-facing record
-      for the parser and PCB projection optimization sweep associated with
-      GitHub issues #16 and #17. Public PRs #18 and #19 are research inputs
-      only; their code is not accepted, merged, cherry-picked, copied, or
-      ported into this implementation.
+      These requirements are the durable release-facing record for the
+      parser and PCB projection optimization sweep released as
+      <code>2026.7.17</code> and associated with GitHub issues #16 and #17.
+      Public PRs #18 and #19 are research inputs only; their code is not
+      accepted, merged, cherry-picked, copied, or ported into this
+      implementation.
     </p>
   </section>
 
@@ -106,7 +106,7 @@
   <section>
     <h2>External Review Evidence</h2>
     <p>
-      External review rejected the first optimization candidate until the
+      External review rejected the first optimization draft until the
       regex-tokenizer rewrite and line-column index follow-ups were complete.
       The post-regex review then approved the behavior-preserving
       implementation. A follow-on fresh decomposition on the public Jumperless
@@ -129,7 +129,7 @@
       Native acceleration, pull-token parser architecture, direct streaming
       typed parse paths, file-level IR/SVG APIs that avoid a full
       <code>KiCadPcb</code> materialization step, and acceptance of third-party
-      PR implementation code are outside this optimization candidate.
+      PR implementation code are outside this optimization release.
       User-facing project API guidance is canonical in
       <code>docs/guides/project-workflows.html</code>. Native acceleration is
       internal roadmap work: a follow-on plan should evaluate pure-Python pull

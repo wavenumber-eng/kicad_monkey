@@ -28,7 +28,7 @@ Current design notes:
   for scene conversion, SVG rendering, and validation.
 - `../requirements/2026-07-17-performance-optimization-requirements.html` -
   parser/projection performance optimization requirements, measured evidence,
-  and release gates for the current optimization candidate.
+  and release gates for the `2026.7.17` release.
 - `../requirements/2026-07-16-public-issue-requirements.html` - public-issue
   requirements and acceptance evidence for the `2026.7.16` release.
 - `library-megamaid-extraction.html` - KiCad project library extraction,
