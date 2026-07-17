@@ -10,6 +10,8 @@ Current contracts:
 - `kicad_plotter_ir_a0.schema.json`: JSON Schema for the
   `kicad.plotter_ir.a0` rendering IR emitted by schematic, symbol, footprint,
   and PCB converters.
+- `kicad_copper_geometry_a0.schema.json`: JSON Schema for the projection-first
+  `kicad.copper_geometry.a0` board-space copper polygon and drill document.
 - `pcb_svg_enrichment_a0.schema.json`: document-level metadata embedded in
   enriched PCB SVG output.
 - `schematic_svg_enrichment_a0.schema.json`: document-level metadata embedded
