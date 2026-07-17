@@ -554,13 +554,16 @@ class _SexpProjectionScanner:
 
     def _read_atom(self) -> str:
         start_offset = self.pos
-        chars: list[str] = []
-        while self.pos < len(self.text):
-            ch = self.text[self.pos]
+        text = self.text
+        text_len = len(text)
+        pos = self.pos
+
+        while pos < text_len:
+            ch = text[pos]
             if ch.isspace() or ch in "()":
                 break
-            chars.append(self._consume_char())
-        if not chars:
+            pos += 1
+        if pos == start_offset:
             raise SexprLexError(
                 "Unexpected token",
                 offset=start_offset,
@@ -568,17 +571,22 @@ class _SexpProjectionScanner:
                 column=self.column,
                 source_path=self.source_path,
             )
-        return "".join(chars)
+        self.pos = pos
+        self.column += pos - start_offset
+        return text[start_offset:pos]
 
     def _skip_atom(self) -> None:
         start_offset = self.pos
-        while self.pos < len(self.text):
-            ch = self.text[self.pos]
+        text = self.text
+        text_len = len(text)
+        pos = self.pos
+
+        while pos < text_len:
+            ch = text[pos]
             if ch.isspace() or ch in "()":
                 break
-            self.pos += 1
-            self.column += 1
-        if self.pos == start_offset:
+            pos += 1
+        if pos == start_offset:
             raise SexprLexError(
                 "Unexpected token",
                 offset=start_offset,
@@ -586,24 +594,75 @@ class _SexpProjectionScanner:
                 column=self.column,
                 source_path=self.source_path,
             )
+        self.pos = pos
+        self.column += pos - start_offset
 
     def _read_quoted_string(self) -> str:
         start_offset = self.pos
         start_line = self.line
         start_column = self.column
         raw: list[str] = []
-        self._consume_expected('"')
-        while self.pos < len(self.text):
-            ch = self._consume_char()
+        text = self.text
+        text_len = len(text)
+        pos = self.pos + 1
+        line = self.line
+        column = self.column + 1
+        line_start = self.line_start
+
+        while pos < text_len:
+            ch = text[pos]
+            if ch == "\r":
+                pos += 1
+                if pos < text_len and text[pos] == "\n":
+                    pos += 1
+                ch = "\n"
+                line += 1
+                column = 1
+                line_start = pos
+            else:
+                pos += 1
+                if ch == "\n":
+                    line += 1
+                    column = 1
+                    line_start = pos
+                else:
+                    column += 1
+
             if ch == '"':
+                self.pos = pos
+                self.line = line
+                self.column = column
+                self.line_start = line_start
                 return _unescape_kicad_string("".join(raw))
             if ch == "\\":
                 raw.append(ch)
-                if self.pos >= len(self.text):
+                if pos >= text_len:
                     break
-                raw.append(self._consume_char())
+                escaped = text[pos]
+                if escaped == "\r":
+                    pos += 1
+                    if pos < text_len and text[pos] == "\n":
+                        pos += 1
+                    escaped = "\n"
+                    line += 1
+                    column = 1
+                    line_start = pos
+                else:
+                    pos += 1
+                    if escaped == "\n":
+                        line += 1
+                        column = 1
+                        line_start = pos
+                    else:
+                        column += 1
+                raw.append(escaped)
                 continue
             raw.append(ch)
+
+        self.pos = pos
+        self.line = line
+        self.column = column
+        self.line_start = line_start
         raise SexprLexError(
             "Unterminated delimited string",
             offset=start_offset,
@@ -613,19 +672,45 @@ class _SexpProjectionScanner:
         )
 
     def _skip_space_and_comments(self) -> None:
+        text = self.text
+        text_len = len(text)
+        pos = self.pos
+        line = self.line
+        column = self.column
+        line_start = self.line_start
+
         while True:
-            start_pos = self.pos
-            while self.pos < len(self.text) and self.text[self.pos].isspace():
-                self._consume_char()
-            if (
-                self.pos < len(self.text)
-                and self.text[self.pos] == "#"
-                and self.text[self.line_start:self.pos].strip() == ""
-            ):
-                while self.pos < len(self.text) and self.text[self.pos] not in "\r\n":
-                    self._consume_char()
+            start_pos = pos
+            while pos < text_len and text[pos].isspace():
+                ch = text[pos]
+                if ch == "\r":
+                    pos += 1
+                    if pos < text_len and text[pos] == "\n":
+                        pos += 1
+                    line += 1
+                    column = 1
+                    line_start = pos
+                    continue
+
+                pos += 1
+                if ch == "\n":
+                    line += 1
+                    column = 1
+                    line_start = pos
+                else:
+                    column += 1
+
+            if pos < text_len and text[pos] == "#" and text[line_start:pos].strip() == "":
+                while pos < text_len and text[pos] not in "\r\n":
+                    pos += 1
+                    column += 1
                 continue
-            if self.pos == start_pos:
+
+            if pos == start_pos:
+                self.pos = pos
+                self.line = line
+                self.column = column
+                self.line_start = line_start
                 return
 
     def _consume_expected(self, expected: str) -> None:

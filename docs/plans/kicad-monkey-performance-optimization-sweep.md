@@ -67,7 +67,7 @@ depends_on = ["optimization-candidate-selection"]
 [[steps]]
 id = "broader-hot-path-sweep"
 title = "Investigate and implement additional parser/projection hot-path optimizations"
-status = "pending"
+status = "done"
 depends_on = ["optimization-candidate-selection"]
 
 [[steps]]
