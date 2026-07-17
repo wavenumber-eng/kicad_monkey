@@ -144,17 +144,13 @@ board.save("hardware/demo.edited.kicad_pcb")</code></pre>
   <section>
     <h2>Large PCB Inventory Workflows</h2>
     <p>
-      Use <code>KiCadPcbProjection</code> for large-board inventories and
-      source-span diagnostics when the workflow does not need mutation,
+      Use <code>KiCadPcbProjection</code> for narrow large-board inventories
+      and source-span diagnostics when the workflow does not need mutation,
       rendering, full-board geometry, or serialization.
     </p>
     <pre><code>from kicad_monkey import KiCadPcbProjection
 
 projection = KiCadPcbProjection.from_file("hardware/demo.kicad_pcb")
-
-print("footprints", len(projection.footprints()))
-print("pads", len(projection.pads()))
-print("zones", len(projection.zones()))
 
 route_count = len(projection.segments()) + len(projection.vias())
 print("route objects", route_count)
