@@ -7,6 +7,7 @@ return the same domain classes used by the full PCB parser.
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Iterable, TypeVar, cast
@@ -161,6 +162,7 @@ class KiCadPcbProjection:
         self._object_cache: dict[str, list[Any]] = {}
         self._single_cache: dict[str, Any] = {}
         self._source_by_id: dict[int, ProjectedSource] = {}
+        self._line_column_index: _LineColumnIndex | None = None
 
     @classmethod
     def from_file(cls, path: str | Path) -> "KiCadPcbProjection":
@@ -610,8 +612,9 @@ class KiCadPcbProjection:
             return child_span
         start = parent_span.start_offset + child_span.start_offset
         end = parent_span.start_offset + child_span.end_offset
-        line, column = _line_column_for_offset(self._source_text, start)
-        end_line, end_column = _line_column_for_offset(self._source_text, end)
+        line_index = self._source_line_column_index()
+        line, column = line_index.line_column_for_offset(start)
+        end_line, end_column = line_index.line_column_for_offset(end)
         return SexpFormSpan(
             head=child_span.head,
             path=parent_span.path + child_span.path[1:],
@@ -626,12 +629,24 @@ class KiCadPcbProjection:
             source_path=str(self.source_path) if self.source_path is not None else None,
         )
 
+    def _source_line_column_index(self) -> "_LineColumnIndex":
+        if self._source_text is None:
+            raise ValueError("projection has no source text")
+        if self._line_column_index is None:
+            self._line_column_index = _LineColumnIndex(self._source_text)
+        return self._line_column_index
 
-def _line_column_for_offset(text: str, offset: int) -> tuple[int, int]:
-    line = text.count("\n", 0, offset) + 1
-    last_newline = text.rfind("\n", 0, offset)
-    column = offset + 1 if last_newline < 0 else offset - last_newline
-    return line, column
+
+class _LineColumnIndex:
+    def __init__(self, text: str) -> None:
+        self._newline_offsets = [index for index, char in enumerate(text) if char == "\n"]
+
+    def line_column_for_offset(self, offset: int) -> tuple[int, int]:
+        line_index = bisect_left(self._newline_offsets, offset)
+        line = line_index + 1
+        if line_index == 0:
+            return line, offset + 1
+        return line, offset - self._newline_offsets[line_index - 1]
 
 
 __all__ = [

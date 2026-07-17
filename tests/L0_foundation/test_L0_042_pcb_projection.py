@@ -13,6 +13,7 @@ from kicad_monkey import (
     Pad,
     PcbModelReference,
     ProjectedSource,
+    SexpFormSpan,
     Segment,
     Via,
 )
@@ -53,6 +54,19 @@ def _write_board(tmp_path: Path) -> Path:
     path = tmp_path / "projection-demo.kicad_pcb"
     path.write_text(_PCB_TEXT, encoding="utf-8")
     return path
+
+
+def _line_column_for_offset(text: str, offset: int) -> tuple[int, int]:
+    line = text.count("\n", 0, offset) + 1
+    last_newline = text.rfind("\n", 0, offset)
+    column = offset + 1 if last_newline < 0 else offset - last_newline
+    return line, column
+
+
+def _assert_span_matches_source_text(source_text: str, span: SexpFormSpan) -> None:
+    assert span.text() == source_text[span.start_offset:span.end_offset]
+    assert (span.line, span.column) == _line_column_for_offset(source_text, span.start_offset)
+    assert (span.end_line, span.end_column) == _line_column_for_offset(source_text, span.end_offset)
 
 
 def test_pcb_projection_hydrates_same_domain_object_types(tmp_path: Path) -> None:
@@ -109,6 +123,25 @@ def test_pcb_projection_reports_nested_model_references(tmp_path: Path) -> None:
     assert model_ref.value == "10k"
     assert model_ref.path.endswith("/R.step")
     assert model_ref.model_span is not None
+
+
+def test_pcb_projection_rebased_nested_source_spans_match_source_text(tmp_path: Path) -> None:
+    board_path = _write_board(tmp_path)
+    source_text = board_path.read_text(encoding="utf-8")
+    projection = KiCadPcbProjection.from_file(board_path)
+
+    pad = projection.pads()[0]
+    pad_span = projection.source_span(pad)
+    assert pad_span is not None
+    assert pad_span.text().lstrip().startswith(f'(pad "{pad.number}" ')
+    _assert_span_matches_source_text(source_text, pad_span)
+
+    model_ref = projection.model_references()[0]
+    model_span = model_ref.model_span
+    assert model_span is not None
+    assert projection.source_span(model_ref.model) is model_span
+    assert model_span.text().lstrip().startswith(f'(model "{model_ref.path}"')
+    _assert_span_matches_source_text(source_text, model_span)
 
 
 def test_pcb_projection_from_board_returns_board_owned_instances(tmp_path: Path) -> None:

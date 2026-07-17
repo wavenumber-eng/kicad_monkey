@@ -49,7 +49,7 @@ depends_on = ["optimization-candidate-selection"]
 [[steps]]
 id = "projection-span-optimization"
 title = "Reimplement nested projection span rebasing optimization from first principles"
-status = "pending"
+status = "done"
 depends_on = ["optimization-candidate-selection"]
 
 [[steps]]
