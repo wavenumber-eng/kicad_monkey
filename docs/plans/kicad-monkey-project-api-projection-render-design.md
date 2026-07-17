@@ -13,37 +13,37 @@ status = "done"
 [[steps]]
 id = "current-api-inventory"
 title = "Inventory current project, PCB, projection, IR, and SVG APIs"
-status = "active"
+status = "done"
 depends_on = ["branch-and-plan-bootstrap"]
 
 [[steps]]
 id = "fresh-performance-baseline"
 title = "Capture fresh parser, projection, and full-parse decomposition baselines on this branch"
-status = "pending"
+status = "done"
 depends_on = ["current-api-inventory"]
 
 [[steps]]
 id = "documentation-guidance-audit"
 title = "Audit API documentation and user guidance for full-model versus projected reads"
-status = "pending"
+status = "done"
 depends_on = ["current-api-inventory", "fresh-performance-baseline"]
 
 [[steps]]
 id = "render-pipeline-architecture-research"
 title = "Research whether file-level IR or SVG APIs can safely use projection or partial materialization"
-status = "pending"
+status = "done"
 depends_on = ["current-api-inventory", "fresh-performance-baseline"]
 
 [[steps]]
 id = "native-acceleration-options-research"
 title = "Evaluate pure-Python pull-parser, C, C++, and Cython parser/tokenizer acceleration options"
-status = "pending"
+status = "done"
 depends_on = ["current-api-inventory", "fresh-performance-baseline"]
 
 [[steps]]
 id = "independent-research-review"
 title = "Have an independent agent redo the API, documentation, render, and native-acceleration research before implementation"
-status = "pending"
+status = "active"
 depends_on = [
   "documentation-guidance-audit",
   "render-pipeline-architecture-research",
@@ -142,12 +142,12 @@ status = "met"
 [[exit_criteria]]
 id = "ec-api-inventory-complete"
 title = "Full-model, projection, targeted-reader, schematic, project, IR, and SVG entry points are inventoried"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-fresh-baselines-captured"
 title = "Fresh parser/projection baselines and full-parse decomposition are captured on this branch before implementation comparison"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-guidance-clear"
@@ -162,7 +162,7 @@ status = "pending"
 [[exit_criteria]]
 id = "ec-native-options-evaluated"
 title = "Pure-Python pull-parser, C, C++, and Cython parser/tokenizer acceleration options are compared with platform, packaging, ABI, and maintenance tradeoffs"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "design-doc-intent-audit"

@@ -1,0 +1,30 @@
+{
+  "case": "jumperless_v5r7/JumperlessV5r7.kicad_pcb",
+  "source_path": "tests/corpus/.unpacked/kicad/projects/jumperless_v5r7/input/JumperlessV5r7.kicad_pcb",
+  "size_bytes": 27997411,
+  "size_chars": 27500437,
+  "kicad_monkey_version": "2026.7.16",
+  "python": "3.12.12",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "rounds": 3,
+  "operations": {
+    "raw_regex_scan": {
+      "best_s": 1.1188036000239663,
+      "median_s": 1.1284567000111565,
+      "max_s": 1.1598857999779284,
+      "result": 8350129
+    },
+    "tokens": {
+      "best_s": 9.540752000000793,
+      "median_s": 9.562286200001836,
+      "max_s": 9.611258699995233,
+      "result": 5236594
+    },
+    "parse_sexp": {
+      "best_s": 11.653796099999454,
+      "median_s": 11.910104500013404,
+      "max_s": 15.042218999995384,
+      "result": 18575
+    }
+  }
+}
