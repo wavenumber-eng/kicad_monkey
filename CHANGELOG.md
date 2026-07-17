@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.7.16a0
+
+- Add the `kicad.plotter_ir.a0` JSON Schema and canonical HTML reference for
+  the KiCad Plotter IR used by SVG rendering and downstream scene conversion.
+- Preserve schematic text hyperlinks through IR `context.hyperlink.href` while
+  keeping SVG rendering independent of hyperlink metadata.
+- Make KiCad preference setup source-driven from the supplied preference
+  directory, including color themes and app-specific JSON files, with neutral
+  setup defaults.
+- Optimize design JSON component `classification.pin_count` generation with a
+  one-pass terminal index while preserving the existing JSON contract.
+- Align release signoff with the configured dev-std audit scopes.
+
 ## 2026.6.25
 
 - Add a new-project assembly surface to `KiCadProject`: start a writable blank

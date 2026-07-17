@@ -1,7 +1,7 @@
 # Quality Signoff Status
 
 Status: public-release bootstrap audit
-Last updated: 2026-06-25
+Last updated: 2026-07-16
 
 ## Passing Gates
 
@@ -23,6 +23,10 @@ Last updated: 2026-06-25
 - CI restores the corpus archive from the public object URL recorded in
   `tests/corpus/kicad.archive.toml`, verifies it, runs Rack L0 and L99, builds
   the package, runs `twine check`, and verifies installed-package imports.
+- The 2026-07-16 alpha release candidate adds the Plotter IR a0 contract,
+  hyperlink context preservation, source-driven KiCad preference setup,
+  one-pass design JSON pin-count generation, and configured dev-std audit
+  coverage.
 - The 2026-06-25 release adds the new-project aggregate API, documents the
   public constructor convention in ADR-008, and keeps the public corpus archive
   restored from object storage instead of Git LFS.

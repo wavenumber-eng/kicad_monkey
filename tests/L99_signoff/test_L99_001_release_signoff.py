@@ -5,12 +5,16 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import io
+import json
 import shutil
+import subprocess
 import sys
 import tomllib
 from datetime import date
 from pathlib import Path
 import re
+
+import pytest
 
 import kicad_monkey
 from kicad_monkey import __version__, version
@@ -41,10 +45,11 @@ def _load_corpus_archive_module():
 
 
 PACKAGE_ROOT = _project_root()
-EXPECTED_VERSION = "2026.6.25"
-EXPECTED_RELEASE_DATE = date(2026, 6, 25)
+EXPECTED_VERSION = "2026.7.16a0"
+EXPECTED_RELEASE_DATE = date(2026, 7, 16)
 CORPUS_ARCHIVE_PATH = "tests/corpus/kicad.zip"
 CORPUS_ARCHIVE_MANIFEST_PATH = "tests/corpus/kicad.archive.toml"
+DEV_STD_AUDIT_SCOPES = {"repo", "ci", "docs.design", "docs.links", "docs.plans"}
 PUBLIC_TEXT_PATHS = (
     "README.md",
     "AGENTS.md",
@@ -104,12 +109,14 @@ def test_version_contract_matches_date_based_release() -> None:
     assert __version__ == EXPECTED_VERSION
     assert kicad_monkey.__version__ == EXPECTED_VERSION
     assert parsed.string == EXPECTED_VERSION
-    assert (parsed.major, parsed.minor, parsed.patch, parsed.build) == (
+    assert (parsed.major, parsed.minor, parsed.patch, parsed.build, parsed.alpha) == (
         2026,
-        6,
-        25,
+        7,
+        16,
         None,
+        0,
     )
+    assert parsed.is_prerelease is True
     assert parsed.release_date == EXPECTED_RELEASE_DATE
     assert parsed.release_date <= date.today()
 
@@ -150,6 +157,57 @@ def test_public_repository_support_files_are_declared() -> None:
     missing = [path for path in required_paths if not (PACKAGE_ROOT / path).exists()]
 
     assert missing == []
+
+
+def test_release_workflow_derives_release_date_from_version_helper() -> None:
+    """Verify the publish workflow supports alpha date-version tags."""
+    workflow = (PACKAGE_ROOT / ".github" / "workflows" / "release.yml").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(r'RELEASE_DATE="\$\(uv run python -c \'([^\']+)\'\)"', workflow)
+    assert match is not None
+    command = match.group(1)
+    assert "parse_version" in command
+    assert "map(int" not in command
+
+    completed = subprocess.run(
+        [sys.executable, "-c", command],
+        cwd=PACKAGE_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    assert completed.stdout.strip() == EXPECTED_RELEASE_DATE.isoformat()
+
+
+def test_configured_dev_std_audit_scopes_pass() -> None:
+    """Verify the configured dev-std audit scopes are part of release signoff."""
+    if sys.version_info < (3, 12):
+        pytest.skip("wn-dev-std 2026.7.16 requires Python 3.12")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "wn_dev_std",
+            "audit",
+            ".",
+            "--format",
+            "json",
+        ],
+        cwd=PACKAGE_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    payload = json.loads(completed.stdout)
+    assert payload["passed"] is True
+    observed_scopes = {str(check.get("scope")) for check in payload["checks"]}
+    assert DEV_STD_AUDIT_SCOPES.issubset(observed_scopes)
 
 
 def test_developer_working_docs_are_excluded_from_release_artifacts() -> None:
