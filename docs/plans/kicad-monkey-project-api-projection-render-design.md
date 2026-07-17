@@ -43,7 +43,7 @@ depends_on = ["current-api-inventory", "fresh-performance-baseline"]
 [[steps]]
 id = "independent-research-review"
 title = "Have an independent agent redo the API, documentation, render, and native-acceleration research before implementation"
-status = "active"
+status = "done"
 depends_on = [
   "documentation-guidance-audit",
   "render-pipeline-architecture-research",
@@ -53,13 +53,13 @@ depends_on = [
 [[steps]]
 id = "api-design-decision"
 title = "Select API and documentation changes from reviewed research"
-status = "pending"
+status = "done"
 depends_on = ["independent-research-review"]
 
 [[steps]]
 id = "durable-design-doc-updates"
 title = "Update ADRs, design docs, requirements, and release notes for the selected API direction"
-status = "pending"
+status = "active"
 depends_on = ["api-design-decision"]
 
 [[steps]]
@@ -157,7 +157,7 @@ status = "pending"
 [[exit_criteria]]
 id = "ec-render-design-reviewed"
 title = "Any file-level IR/SVG API proposal is reviewed for correctness, draw order, layer filtering, bounding boxes, enrichment metadata, and test coverage"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-native-options-evaluated"
@@ -187,7 +187,7 @@ status = "pending"
 [[exit_criteria]]
 id = "ec-independent-review-complete"
 title = "A separate agent independently repeats the research and reviews the selected design before implementation"
-status = "pending"
+status = "met"
 
 [[exit_criteria]]
 id = "ec-implementation-behavior-preserved"
@@ -384,6 +384,32 @@ measurements on this branch. It should compare pure-Python pull parsing first,
 because that attacks the same token-list/materialization floor without wheel or
 ABI cost. Native options must then beat or complement that baseline while
 preserving the Python reference implementation and golden corpus behavior.
+
+## Selected Direction
+
+The reviewed decision is recorded in
+`docs/plans/logs/2026-07-17T112000-0400.md`.
+
+- Accept documentation and guidance updates for this plan.
+- Defer new file-level inventory helpers; first make `KiCadPcbProjection` and
+  targeted readers discoverable.
+- Reject file-level IR/SVG helpers for this plan. Current rendering needs full
+  board semantics, and `layers=` filters output after full IR construction.
+- Defer a public render cache API until invalidation, lifetime, memory, and
+  mutation contracts are justified by a concrete cross-caller need.
+- Record pure-Python pull parsing as the first future architecture lever for
+  full-parse materialization cost.
+- Defer native tokenizer/parser acceleration to a later plan after a
+  pull-parser baseline exists.
+
+Durable design-doc updates must also restore the PERF-REQ-008 external-review
+evidence paragraph in
+`docs/requirements/2026-07-17-performance-optimization-requirements.html`,
+using the fresh decomposition JSON and independent review log as citable
+evidence. Guidance updates must include cost intuition for full materialization,
+projection scans, targeted readers, and render layer filtering, and must
+document generic targeted-reader usage for schematic narrow reads while
+deferring a named `KiCadSchematicProjection` facade.
 
 ## Validation Plan
 
