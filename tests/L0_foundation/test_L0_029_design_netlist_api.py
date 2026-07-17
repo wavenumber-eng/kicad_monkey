@@ -278,6 +278,96 @@ def test_to_netlist_json_includes_kicad_net_classes(tmp_path):
     assert by_name["Default"]["nets"] == ["GND"]
 
 
+def test_design_json_pin_count_counts_unique_pins_once(tmp_path):
+    sch = tmp_path / "demo.kicad_sch"
+    _write_min_sch(sch)
+    design = KiCadDesign.from_schematic_file(sch)
+    design._netlist = KiCadNetlist(
+        components=[
+            KiCadNetlistComponent(reference="U1"),
+            KiCadNetlistComponent(reference="U2"),
+        ],
+        nets=[
+            KiCadNet(
+                name="SIG_A",
+                terminals=[
+                    KiCadNetlistTerminal(designator="U1", pin="1"),
+                    KiCadNetlistTerminal(designator="U1", pin="1"),
+                    KiCadNetlistTerminal(designator="U1", pin="2"),
+                ],
+            ),
+            KiCadNet(
+                name="SIG_B",
+                terminals=[
+                    KiCadNetlistTerminal(designator="U1", pin="2"),
+                    KiCadNetlistTerminal(designator="U1", pin=""),
+                    KiCadNetlistTerminal(designator="u1", pin="3"),
+                ],
+            ),
+        ],
+    )
+
+    payload = design.to_json(include_indexes=False)
+    by_ref = {component["designator"]: component for component in payload["components"]}
+
+    assert by_ref["U1"]["classification"]["pin_count"] == 3
+    assert by_ref["U2"]["classification"]["pin_count"] == 0
+
+
+def test_design_json_pin_count_is_case_sensitive(tmp_path):
+    sch = tmp_path / "demo.kicad_sch"
+    _write_min_sch(sch)
+    design = KiCadDesign.from_schematic_file(sch)
+    design._netlist = KiCadNetlist(
+        components=[
+            KiCadNetlistComponent(reference="U1"),
+            KiCadNetlistComponent(reference="u1"),
+        ],
+        nets=[
+            KiCadNet(
+                name="SIG",
+                terminals=[
+                    KiCadNetlistTerminal(designator="U1", pin="1"),
+                    KiCadNetlistTerminal(designator="u1", pin="1"),
+                    KiCadNetlistTerminal(designator="u1", pin="2"),
+                ],
+            ),
+        ],
+    )
+
+    payload = design.to_json(include_indexes=False)
+    by_ref = {component["designator"]: component for component in payload["components"]}
+
+    assert by_ref["U1"]["classification"]["pin_count"] == 1
+    assert by_ref["u1"]["classification"]["pin_count"] == 2
+
+
+def test_design_json_pin_count_preserves_empty_designator_exact_match(tmp_path):
+    sch = tmp_path / "demo.kicad_sch"
+    _write_min_sch(sch)
+    design = KiCadDesign.from_schematic_file(sch)
+    design._netlist = KiCadNetlist(
+        components=[
+            KiCadNetlistComponent(reference=""),
+        ],
+        nets=[
+            KiCadNet(
+                name="SIG",
+                terminals=[
+                    KiCadNetlistTerminal(designator="", pin="1"),
+                    KiCadNetlistTerminal(designator="", pin="1"),
+                    KiCadNetlistTerminal(designator="", pin="2"),
+                ],
+            ),
+        ],
+    )
+
+    payload = design.to_json(include_indexes=False)
+
+    assert payload["components"][0]["designator"] == ""
+    assert payload["components"][0]["classification"]["pin_count"] == 2
+
+
 def test_kicad_netlist_json_pin_endpoints_keep_source_pin_identity():
     netlist = KiCadNetlist(
         components=[

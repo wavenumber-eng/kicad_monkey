@@ -72,8 +72,13 @@ def kicad_design_to_json(design: "KiCadDesign", *, include_indexes: bool = True)
     """Build a KiCad-native design payload."""
     netlist = design.to_netlist()
     component_svg_ids = _component_svg_ids(netlist)
+    component_pin_counts = _component_pin_counts(netlist)
     components = [
-        _component_json(comp, netlist=netlist, svg_id=component_svg_ids.get(comp.reference, ""))
+        _component_json(
+            comp,
+            pin_count=component_pin_counts.get(comp.reference, 0),
+            svg_id=component_svg_ids.get(comp.reference, ""),
+        )
         for comp in netlist.components
     ]
 
@@ -436,7 +441,7 @@ def _component_svg_ids(netlist: KiCadNetlist) -> dict[str, str]:
 def _component_json(
     comp: KiCadNetlistComponent,
     *,
-    netlist: KiCadNetlist,
+    pin_count: int,
     svg_id: str,
 ) -> dict[str, Any]:
     return {
@@ -449,7 +454,7 @@ def _component_json(
         "hierarchy": _component_hierarchy_json(comp),
         "classification": _component_classification_json(
             comp.reference,
-            pin_count=_component_pin_count(comp.reference, netlist),
+            pin_count=pin_count,
         ),
         "parameters": _component_parameters_json(comp),
     }
@@ -512,14 +517,15 @@ def _component_classification_json(designator: str, *, pin_count: int) -> dict[s
     }
 
 
-def _component_pin_count(reference: str, netlist: KiCadNetlist) -> int:
-    pins = {
-        term.pin
-        for net in netlist.nets
-        for term in net.terminals
-        if term.designator == reference
+def _component_pin_counts(netlist: KiCadNetlist) -> dict[str, int]:
+    pins_by_ref: dict[str, set[str]] = {}
+    for net in netlist.nets:
+        for term in net.terminals:
+            pins_by_ref.setdefault(term.designator, set()).add(term.pin)
+    return {
+        reference: len(pins)
+        for reference, pins in pins_by_ref.items()
     }
-    return len(pins)
 
 
 def _nets_json(
