@@ -68,7 +68,12 @@ _GRAPHICAL_ID_KEYS = (
 )
 
 
-def kicad_design_to_json(design: "KiCadDesign", *, include_indexes: bool = True) -> dict:
+def kicad_design_to_json(
+    design: "KiCadDesign",
+    *,
+    include_indexes: bool = True,
+    include_pcb: bool = True,
+) -> dict:
     """Build a KiCad-native design payload."""
     netlist = design.to_netlist()
     component_svg_ids = _component_svg_ids(netlist)
@@ -94,9 +99,10 @@ def kicad_design_to_json(design: "KiCadDesign", *, include_indexes: bool = True)
         "nets": _nets_json(netlist, component_svg_ids=component_svg_ids),
     }
 
-    pnp = _pnp_json(design, netlist)
-    if pnp is not None:
-        result["pnp"] = pnp
+    if include_pcb:
+        pnp = _pnp_json(design, netlist)
+        if pnp is not None:
+            result["pnp"] = pnp
 
     net_classes = _net_classes_json(netlist)
     if net_classes:

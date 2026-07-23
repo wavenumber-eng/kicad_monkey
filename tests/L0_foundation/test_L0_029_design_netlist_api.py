@@ -545,6 +545,25 @@ def test_schematic_json_svg_ids_resolve_to_rendered_svg_groups(tmp_path):
     assert linked_ids <= ids
 
 
+def test_design_json_can_skip_lazy_pcb_materialization(tmp_path, monkeypatch):
+    """Schematic-first consumers must not pay the PCB parser cost."""
+
+    pcb_path = tmp_path / "demo.kicad_pcb"
+    pcb_path.write_text("(kicad_pcb)", encoding="utf-8")
+    design = KiCadDesign(pcb_path=pcb_path)
+    design._netlist = _make_synthetic_netlist()
+
+    def fail_if_loaded(_path):
+        raise AssertionError("PCB was materialized during schematic-only JSON")
+
+    monkeypatch.setattr("kicad_monkey.kicad_pcb.KiCadPcb", fail_if_loaded)
+    payload = design.to_json(include_indexes=True, include_pcb=False)
+
+    assert "pnp" not in payload
+    assert payload["components"]
+    assert payload["nets"]
+
+
 # ---------------------------------------------------------------------------
 # Empty schematic integration smoke test
 # ---------------------------------------------------------------------------

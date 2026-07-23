@@ -696,7 +696,12 @@ class KiCadDesign:
 
         return kicad_netlist_to_json(self.to_netlist())
 
-    def to_json(self, include_indexes: bool = True) -> dict:
+    def to_json(
+        self,
+        include_indexes: bool = True,
+        *,
+        include_pcb: bool = True,
+    ) -> dict:
         """Render a KiCad-native design JSON payload.
 
         The payload uses KiCad-owned schema IDs and includes project, sheet,
@@ -704,7 +709,11 @@ class KiCadDesign:
         """
         from .kicad_design_json import kicad_design_to_json
 
-        return kicad_design_to_json(self, include_indexes=include_indexes)
+        return kicad_design_to_json(
+            self,
+            include_indexes=include_indexes,
+            include_pcb=include_pcb,
+        )
 
     def to_json_text(self, *, include_indexes: bool = True, indent: int = 2) -> str:
         """Render :meth:`to_json` as formatted JSON text."""
