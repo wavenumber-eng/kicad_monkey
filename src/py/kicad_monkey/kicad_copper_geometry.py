@@ -893,8 +893,19 @@ def _collect_raw_geometry(
             if not layer_names:
                 continue
             net_name, net_ordinal = _net_parts(pad)
-            local_rings = _pad_local_rings(pad, curve_tolerance_mm)
-            drill_info = _pad_drill_local_ring(pad, curve_tolerance_mm)
+            # Board-embedded pads store absolute orientation (same convention as
+            # pcb_footprint_to_record). Geometry helpers expect footprint-local
+            # angle, so subtract the footprint placement angle first.
+            absolute_angle = float(getattr(pad, "at_angle", 0.0) or 0.0)
+            footprint_angle = float(getattr(footprint, "at_angle", 0.0) or 0.0)
+            relative_angle = absolute_angle - footprint_angle
+            saved_angle = pad.at_angle
+            pad.at_angle = relative_angle
+            try:
+                local_rings = _pad_local_rings(pad, curve_tolerance_mm)
+                drill_info = _pad_drill_local_ring(pad, curve_tolerance_mm)
+            finally:
+                pad.at_angle = saved_angle
             world_holes_nm: tuple[NmRing, ...] = ()
             if drill_info is not None:
                 drill_ring, drill_center, drill_width, drill_height = drill_info

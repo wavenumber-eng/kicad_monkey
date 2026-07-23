@@ -127,6 +127,42 @@ def test_copper_geometry_schema_and_supported_families(tmp_path: Path) -> None:
     assert len(via["holes_nm"]) == 1
 
 
+def test_board_embedded_pad_angle_is_absolute(tmp_path: Path) -> None:
+    """Board files store pad orientation in absolute/board space.
+
+    A footprint at 90° with pad at_angle 90° and size 4×2 has footprint-local
+    orientation 0°, so after footprint placement the world AABB is 2×4.
+    """
+    path = tmp_path / "absolute-pad-angle.kicad_pcb"
+    path.write_text(
+        """(kicad_pcb
+  (version 20240108)
+  (generator pcbnew)
+  (layers (0 "F.Cu" signal))
+  (footprint "Test:RotatedPad"
+    (layer "F.Cu")
+    (at 15 15 90)
+    (pad "1" smd rect
+      (at 0 0 90)
+      (size 4 2)
+      (layers "F.Cu")
+      (uuid "pad-abs")
+    )
+  )
+)
+""",
+        encoding="utf-8",
+    )
+    document = emit_pcb_copper_geometry(path)
+    pad = next(feature for feature in document.features if feature.source_uid == "pad-abs")
+    xs = [point[0] for point in pad.outer_nm]
+    ys = [point[1] for point in pad.outer_nm]
+    width_mm = (max(xs) - min(xs)) * 1e-6
+    height_mm = (max(ys) - min(ys)) * 1e-6
+    assert round(width_mm, 4) == 2.0
+    assert round(height_mm, 4) == 4.0
+
+
 def test_pad_transforms_multilayer_expansion_and_drills(tmp_path: Path) -> None:
     document = emit_pcb_copper_geometry(_write_board(tmp_path))
 
