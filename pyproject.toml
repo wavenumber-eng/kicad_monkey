@@ -1,6 +1,6 @@
 [project]
 name = "kicad-monkey"
-version = "2026.7.17"
+version = "2026.7.28"
 description = "Core KiCad parser, round-trip, and 2D rendering tooling"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -29,7 +29,7 @@ test = [
     "ruff>=0.8.0",
     "twine>=5.0.0",
     "build>=1.2.0",
-    "wn-dev-std==2026.7.16; python_version >= '3.12'",
+    "wn-dev-std>=2026.7.18; python_version >= '3.12'",
 ]
 
 [dependency-groups]
@@ -43,7 +43,7 @@ dev = [
     "ruff>=0.8.0",
     "twine>=5.0.0",
     "build>=1.2.0",
-    "wn-dev-std==2026.7.16; python_version >= '3.12'",
+    "wn-dev-std>=2026.7.18; python_version >= '3.12'",
 ]
 
 [project.urls]
@@ -56,7 +56,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.wn_dev_std]
-standard_version = "2026.7.16"
+standard_version = "2026.7.18"
 enabled_scopes = ["repo", "ci", "docs.design", "docs.links", "docs.plans"]
 profile = "python-package"
 distribution = "pypi"

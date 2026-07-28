@@ -27,6 +27,7 @@ from kicad_monkey.kicad_library_extraction import (
     KiCadFootprintExtractionRecord,
     KiCadModelReferenceKind,
     build_footprint_library_link_map,
+    build_footprint_output_member_map,
     embed_external_model_payloads,
     extract_3d_models,
     extract_3d_models_from_footprint_records,
@@ -184,6 +185,147 @@ def test_extract_symbols_can_skip_power_symbols(tmp_path: Path) -> None:
     assert [record.name for record in part_records] == ["Device:R"]
     assert [record["name"] for record in metadata["symbols"]] == ["Device:R"]
     assert metadata["symbols"][0]["canonical_fields"] == {"value": "10k"}
+
+
+def test_project_scan_ignores_history_symbols(tmp_path: Path) -> None:
+    """Project-local symbol extraction should not use KiCad history artifacts."""
+    project_path = tmp_path / "history-demo.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+    current_schematic = tmp_path / "history-demo.kicad_sch"
+    current_schematic.write_text(
+        """(kicad_sch
+  (version 20250114)
+  (generator "kicad_monkey_test")
+  (lib_symbols
+    (symbol "Device:R"
+      (property "Reference" "R" (id 0) (at 0 0 0))
+      (property "Value" "current" (id 1) (at 0 2.54 0))
+    )
+  )
+)
+""",
+        encoding="utf-8",
+    )
+    history_dir = tmp_path / ".history"
+    history_dir.mkdir()
+    (history_dir / "history-demo.kicad_sch").write_text(
+        """(kicad_sch
+  (version 20250114)
+  (generator "kicad_monkey_test")
+  (lib_symbols
+    (symbol "Device:R"
+      (property "Reference" "R" (id 0) (at 0 0 0))
+      (property "Value" "stale" (id 1) (at 0 2.54 0))
+    )
+  )
+)
+""",
+        encoding="utf-8",
+    )
+
+    records = extract_symbols(project_path)
+    assets = scan_project_assets(project_path, use_installed_kicad=False)
+
+    assert [record.name for record in records] == ["Device:R"]
+    assert records[0].source_path == str(current_schematic)
+    assert records[0].raw_fields["Value"] == "current"
+    assert assets.schematics == (str(current_schematic),)
+
+
+def test_project_scan_follows_active_schematic_hierarchy(tmp_path: Path) -> None:
+    """Active schematic traversal should include child sheets and skip orphan files."""
+    project_path = tmp_path / "hierarchy-demo.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+    (tmp_path / "hierarchy-demo.kicad_sch").write_text(
+        """(kicad_sch
+  (version 20250114)
+  (generator "kicad_monkey_test")
+  (lib_symbols
+    (symbol "local:RootPart"
+      (property "Reference" "U" (id 0) (at 0 0 0))
+      (property "Value" "root" (id 1) (at 0 2.54 0))
+    )
+  )
+  (sheet
+    (at 0 0)
+    (size 20 20)
+    (property "Sheetname" "child" (at 0 0 0))
+    (property "Sheetfile" "child.kicad_sch" (at 0 2.54 0))
+  )
+)
+""",
+        encoding="utf-8",
+    )
+    child_schematic = tmp_path / "child.kicad_sch"
+    child_schematic.write_text(
+        """(kicad_sch
+  (version 20250114)
+  (generator "kicad_monkey_test")
+  (lib_symbols
+    (symbol "local:ChildPart"
+      (property "Reference" "U" (id 0) (at 0 0 0))
+      (property "Value" "child" (id 1) (at 0 2.54 0))
+    )
+  )
+)
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "orphan.kicad_sch").write_text(
+        """(kicad_sch
+  (version 20250114)
+  (generator "kicad_monkey_test")
+  (lib_symbols
+    (symbol "local:OrphanPart"
+      (property "Reference" "U" (id 0) (at 0 0 0))
+      (property "Value" "orphan" (id 1) (at 0 2.54 0))
+    )
+  )
+)
+""",
+        encoding="utf-8",
+    )
+
+    records = extract_symbols(project_path)
+    assets = scan_project_assets(project_path, use_installed_kicad=False)
+
+    assert [record.name for record in records] == ["local:RootPart", "local:ChildPart"]
+    assert {record.source_path for record in records} == {
+        str(tmp_path / "hierarchy-demo.kicad_sch"),
+        str(child_schematic),
+    }
+    assert assets.schematics == (
+        str(tmp_path / "hierarchy-demo.kicad_sch"),
+        str(child_schematic),
+    )
+
+
+def test_project_scan_uses_active_project_board(tmp_path: Path) -> None:
+    """PCB extraction should use the project board and ignore backup boards."""
+    project_path = tmp_path / "board-demo.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+    pcb = KiCadPcb()
+    active = Footprint("Device:R_0603")
+    active.upsert_property("Reference", "R1")
+    pcb.footprints.append(active)
+    pcb.save(tmp_path / "board-demo.kicad_pcb")
+
+    history_dir = tmp_path / ".history"
+    history_dir.mkdir()
+    backup_pcb = KiCadPcb()
+    stale = Footprint("Device:C_0603")
+    stale.upsert_property("Reference", "C1")
+    backup_pcb.footprints.append(stale)
+    backup_pcb.save(history_dir / "board-demo.kicad_pcb")
+
+    records = extract_footprints(
+        project_path,
+        KiCadExtractionMode.PROJECT_LOCAL,
+        embed_models=False,
+    )
+
+    assert [record.library_link for record in records] == ["Device:R_0603"]
+    assert [record.source_reference for record in records] == ["R1"]
 
 
 def test_extract_3d_models_decodes_embedded_step_payloads(tmp_path: Path) -> None:
@@ -768,6 +910,39 @@ def test_project_local_library_link_dedupe_skips_duplicate_conversion(
 
     assert len(link_footprints) == 1
     assert conversion_count == 1
+
+
+def test_footprint_output_member_map_preserves_duplicate_stems() -> None:
+    """Relink maps must match suffixed files emitted by the pretty writer."""
+    first = KiCadFootprint()
+    first.name = "C0603_0.90MM_MD"
+    second = KiCadFootprint()
+    second.name = "C0603_0.90MM_MD"
+    records = (
+        KiCadFootprintExtractionRecord(
+            name="C0603_0.90MM_MD",
+            library_link="C0603_0.90MM_MD:C0603_0.90MM_MD",
+            source_path="board.kicad_pcb",
+            source_reference="L3",
+            mode=KiCadExtractionMode.PROJECT_LOCAL.value,
+            footprint=first,
+        ),
+        KiCadFootprintExtractionRecord(
+            name="C0603_0.90MM_MD",
+            library_link="capacitor:C0603_0.90MM_MD",
+            source_path="board.kicad_pcb",
+            source_reference="C266",
+            mode=KiCadExtractionMode.PROJECT_LOCAL.value,
+            footprint=second,
+        ),
+    )
+
+    exact_map = build_footprint_output_member_map(records)
+    legacy_map = build_footprint_library_link_map(records)
+
+    assert exact_map["C0603_0.90MM_MD:C0603_0.90MM_MD"] == "C0603_0.90MM_MD"
+    assert exact_map["capacitor:C0603_0.90MM_MD"] == "C0603_0.90MM_MD_2"
+    assert legacy_map["capacitor:C0603_0.90MM_MD"] == "C0603_0.90MM_MD_2"
 
 
 def test_board_footprint_export_normalises_pad_orientation(tmp_path: Path) -> None:
