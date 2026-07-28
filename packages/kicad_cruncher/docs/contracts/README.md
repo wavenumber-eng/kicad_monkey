@@ -20,3 +20,5 @@ Current contracts:
   fixture-alignment STEP config contract used by `pcb-layer-step`.
 - `pcb_svg_config.a0.schema.json` defines the A0 `pcb.svg.config` view and
   layer-output config contract used by `pcb-svg`.
+- `source_relink.a0.schema.json` defines the optional `project-lib`
+  `source_relink.json` dry-run/apply report.

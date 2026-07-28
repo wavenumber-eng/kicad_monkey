@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from kicad_monkey.kicad_library_extraction import (
         KiCadEmbeddedAssetRecord,
         KiCadFootprintExtractionRecord,
+        KiCadSymbolExtractionRecord,
     )
 
     from kicad_cruncher.kicad_cruncher_cmd_design import DesignReviewBundle
@@ -141,6 +142,8 @@ def _manifest_payload(
     metadata_path: Path,
     validation: dict[str, object] | None,
     library_tables: dict[str, object] | None,
+    source_relink: dict[str, object] | None,
+    source_relink_path: Path | None,
 ) -> dict[str, object]:
     embedded_asset_files = tuple(
         sorted(
@@ -210,6 +213,14 @@ def _manifest_payload(
         }
     if library_tables is not None:
         payload["library_tables"] = library_tables
+    if source_relink is not None and source_relink_path is not None:
+        summary = source_relink.get("summary", {})
+        payload["source_relink"] = {
+            "mode": source_relink.get("mode"),
+            "changed": source_relink.get("changed"),
+            "report": _manifest_relative(source_relink_path, output_dir),
+            "summary": summary if isinstance(summary, dict) else {},
+        }
     return payload
 
 
@@ -240,6 +251,7 @@ def _readme_text(manifest: dict[str, object], *, title: str) -> str:
             f"{design_review['net_count']} nets)\n"
         )
     library_tables = manifest.get("library_tables")
+    source_relink = manifest.get("source_relink")
     table_text = ""
     mutation_text = (
         "This command is non-destructive. It does not edit the project, relink "
@@ -252,6 +264,18 @@ def _readme_text(manifest: dict[str, object], *, title: str) -> str:
             "`fp-lib-table` entries when missing. It does not relink schematic "
             "symbols or PCB footprints.\n"
         )
+    if isinstance(source_relink, dict):
+        if source_relink.get("mode") == "apply":
+            mutation_text = (
+                "This command updated project-local library table entries when "
+                "missing and relinked source schematic/PCB library references. "
+                f"Review `{source_relink.get('report')}` for the exact changes.\n"
+            )
+        else:
+            mutation_text = (
+                "This command planned source schematic/PCB library relinks without "
+                f"editing source files. Review `{source_relink.get('report')}`.\n"
+            )
 
     return (
         f"# {title}\n\n"
@@ -459,6 +483,49 @@ def _ensure_project_tables_if_requested(
     return table_result.to_dict()
 
 
+def _relink_project_sources_if_requested(
+    *,
+    project_path: Path,
+    output_dir: Path,
+    layout: _LibraryOutputLayout,
+    command_label: str,
+    source_relink_mode: str,
+    symbol_records: Iterable[KiCadSymbolExtractionRecord],
+    footprint_records: Iterable[KiCadFootprintExtractionRecord],
+) -> tuple[dict[str, object] | None, Path | None]:
+    if source_relink_mode == "none":
+        return None, None
+
+    from kicad_cruncher.kicad_cruncher_project_lib_relink import (
+        build_footprint_relink_map,
+        build_symbol_relink_map,
+        relink_project_sources,
+    )
+
+    action_label = "planning source relinks"
+    if source_relink_mode == "apply":
+        action_label = "relinking source files"
+    started = time.perf_counter()
+    _log_stage_start(f"{command_label}: {action_label}")
+    source_relink = relink_project_sources(
+        project_path=project_path,
+        symbol_library_nickname=layout.symbol_nickname,
+        footprint_library_nickname=layout.footprint_nickname,
+        symbol_member_map=build_symbol_relink_map(symbol_records),
+        footprint_member_map=build_footprint_relink_map(footprint_records),
+        dry_run=source_relink_mode == "dry_run",
+    )
+    source_relink_path = output_dir / "source_relink.json"
+    _write_json(source_relink_path, source_relink)
+    summary = source_relink.get("summary", {})
+    changes = summary.get("changes", 0) if isinstance(summary, dict) else 0
+    _log_stage_done(
+        f"{command_label}: {action_label} ({changes} changes)",
+        started,
+    )
+    return source_relink, source_relink_path
+
+
 def _run_library_extraction(
     args: argparse.Namespace,
     *,
@@ -483,6 +550,7 @@ def _run_library_extraction(
     write_embedded_assets: bool = False,
     skip_power_symbols: bool = False,
     write_design_review: bool = False,
+    source_relink_mode: str = "none",
 ) -> int:
     """Extract KiCad library artifacts from a project."""
     from kicad_monkey.kicad_library_extraction import (
@@ -609,6 +677,15 @@ def _run_library_extraction(
             command_label=command_label,
             update_project_library_tables=update_project_library_tables,
         )
+        source_relink, source_relink_path = _relink_project_sources_if_requested(
+            project_path=project_path,
+            output_dir=output_dir,
+            layout=layout,
+            command_label=command_label,
+            source_relink_mode=source_relink_mode,
+            symbol_records=symbol_records,
+            footprint_records=footprint_records,
+        )
         validation = _validate_outputs_if_requested(
             args=args,
             layout=layout,
@@ -633,6 +710,8 @@ def _run_library_extraction(
             metadata_path=metadata_path,
             validation=validation,
             library_tables=library_tables,
+            source_relink=source_relink,
+            source_relink_path=source_relink_path,
         )
         manifest["manifest_filename"] = manifest_filename
         manifest_path = output_dir / manifest_filename

@@ -171,6 +171,8 @@ def test_project_lib_help_describes_project_local_extraction() -> None:
     assert "--symbol-library-name" in result.stdout
     assert "--footprint-library-name" in result.stdout
     assert "--include-models" in result.stdout
+    assert "--relink-dry-run" in result.stdout
+    assert "--relink-sources" in result.stdout
     assert "--validate-kicad-cli" in result.stdout
     assert "default: ./local-library" in result.stdout
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Update the controlled `kicad-monkey` dependency floor to
+  `kicad-monkey>=2026.7.28` for project-local scan hardening and deterministic
+  relink maps.
+- Add explicit `project-lib` source relink dry-run/apply reporting for local
+  symbol and footprint library migration.
+
 ## 2026.7.17
 
 - Update the controlled `kicad-monkey` dependency floor to

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 
 from kicad_cruncher.kicad_cruncher_cmd_megamaid import (
     _add_common_library_args,
@@ -10,9 +11,18 @@ from kicad_cruncher.kicad_cruncher_cmd_megamaid import (
     _run_library_extraction,
 )
 
+log = logging.getLogger(__name__)
+
 
 def cmd_project_lib(args: argparse.Namespace) -> int:
     """Extract a metadata-preserving project-local library bundle."""
+    if bool(args.relink_sources) and bool(args.no_update_library_tables):
+        log.error(
+            "--relink-sources requires project library table updates; remove "
+            "--no-update-library-tables or use --relink-dry-run"
+        )
+        return 2
+
     return _run_library_extraction(
         args,
         command_label="Project library extraction",
@@ -33,6 +43,13 @@ def cmd_project_lib(args: argparse.Namespace) -> int:
         write_models=bool(args.include_models or args.all_embedded_models),
         extract_all_embedded_models=True,
         preserve_model_filenames=True,
+        source_relink_mode=(
+            "apply"
+            if bool(args.relink_sources)
+            else "dry_run"
+            if bool(args.relink_dry_run)
+            else "none"
+        ),
     )
 
 
@@ -82,6 +99,17 @@ def register_parser(
         "--no-update-library-tables",
         action="store_true",
         help="extract artifacts without editing project sym-lib-table/fp-lib-table",
+    )
+    relink_group = parser.add_mutually_exclusive_group()
+    relink_group.add_argument(
+        "--relink-dry-run",
+        action="store_true",
+        help="write a source_relink.json plan without editing schematic or PCB files",
+    )
+    relink_group.add_argument(
+        "--relink-sources",
+        action="store_true",
+        help="rewrite source schematic and PCB references to the generated local libraries",
     )
     _add_model_validation_args(parser)
     parser.set_defaults(handler=cmd_project_lib)

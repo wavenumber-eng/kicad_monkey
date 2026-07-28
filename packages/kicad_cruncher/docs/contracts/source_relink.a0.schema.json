@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kicad_cruncher.source_relink.a0",
+  "title": "KiCad Cruncher Source Relink Report",
+  "description": "Dry-run or apply report emitted by project-lib when source schematic and PCB references are relinked to generated project-local libraries.",
+  "type": "object",
+  "required": ["schema", "project", "mode", "changed", "summary", "files"],
+  "properties": {
+    "schema": {
+      "const": "kicad_cruncher.source_relink.a0"
+    },
+    "project": {
+      "type": "string",
+      "description": "Resolved source .kicad_pro path."
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["dry_run", "apply"],
+      "description": "Whether the command only planned relinks or edited source files."
+    },
+    "changed": {
+      "type": "boolean"
+    },
+    "summary": {
+      "type": "object",
+      "required": ["files_checked", "files_changed", "changes"],
+      "properties": {
+        "files_checked": {"type": "integer", "minimum": 0},
+        "files_changed": {"type": "integer", "minimum": 0},
+        "changes": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/file_report"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "file_report": {
+      "type": "object",
+      "required": ["path", "changed", "change_count", "changes"],
+      "properties": {
+        "path": {"type": "string"},
+        "changed": {"type": "boolean"},
+        "change_count": {"type": "integer", "minimum": 0},
+        "changes": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/change"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "change": {
+      "type": "object",
+      "required": ["kind", "offset", "old", "new"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "schematic_symbol_lib_id",
+            "schematic_symbol_footprint",
+            "pcb_footprint_library_link"
+          ]
+        },
+        "offset": {"type": "integer", "minimum": 0},
+        "old": {"type": "string"},
+        "new": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -259,15 +259,39 @@
       "name": "project-lib",
       "path": ["project-lib"],
       "status": "public",
-      "summary": "Extract metadata-preserving project-local symbol and footprint libraries, defaulting to local-library and updating project library tables by default.",
+      "summary": "Extract metadata-preserving project-local symbol and footprint libraries, with optional source relink dry-run/apply reports.",
       "design_doc": "docs/design/cli/project-lib.html",
       "aliases": ["project-library", "project-local-lib", "local-library"],
+      "output_contracts": [
+        {
+          "path": "docs/contracts/library_extraction_bundle.a0.schema.json",
+          "mode": "output",
+          "rationale": "project-lib writes library_extraction.json beside generated libraries."
+        },
+        {
+          "path": "docs/contracts/source_relink.a0.schema.json",
+          "mode": "output",
+          "rationale": "project-lib writes source_relink.json when --relink-dry-run or --relink-sources is used."
+        }
+      ],
       "verification_refs": [
         {
           "kind": "local_pytest",
           "target": "tests/L99_signoff/test_L99_002_design_docs.py::test_cli_command_inventory_matches_parser_manifest_and_design_docs",
           "coverage_mode": "inventory",
           "rationale": "L99 verifies parser, manifest, CLI index, and per-command design-doc inventory alignment."
+        },
+        {
+          "kind": "local_pytest",
+          "target": "tests/L0_public_cli/test_L0_001_cli_entrypoint.py::test_project_lib_help_describes_project_local_extraction",
+          "coverage_mode": "cli-help",
+          "rationale": "Project-lib help exposes the relink dry-run/apply controls."
+        },
+        {
+          "kind": "local_pytest",
+          "target": "tests/L0_public_cli/test_L0_003_project_lib_relink.py::test_project_lib_relink_dry_run_writes_report_and_manifest",
+          "coverage_mode": "workflow",
+          "rationale": "The public command writes the source relink report and manifest entry without editing source files in dry-run mode."
         }
       ]
     },
