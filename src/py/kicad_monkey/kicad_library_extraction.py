@@ -21,7 +21,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
-from .kicad_base import find_all_elements, find_element
+from .kicad_base import find_all_elements, find_element, unquote_string
 from .kicad_footprint import KiCadFootprint
 from .kicad_lib_symbol import LibSymbol
 from .kicad_model import EmbeddedFile, Model
@@ -49,6 +49,21 @@ except ImportError:
 _FOOTPRINT_START_RE = re.compile(
     r'(?m)^[ \t]*(\(\s*(?:footprint|module)\s+(?:"((?:\\.|[^"\\])*)"|([^\s()]+)))'
 )
+_PROJECT_SCAN_IGNORED_PART_NAMES = frozenset(
+    {
+        ".history",
+        ".history_trim",
+        "autosave",
+        "backup",
+        "backups",
+        "output",
+        "review",
+        "review_tmp",
+    }
+)
+_SHEET_FILE_PROPERTY_KEYS = frozenset({"Sheetfile", "Sheet file"})
+
+
 class KiCadExtractionMode(StrEnum):
     """Asset extraction policy."""
 
@@ -289,13 +304,116 @@ def _stable_relative(path: Path, root: Path) -> str:
         return str(path)
 
 
+def _is_project_scan_path_ignored(path: Path, root: Path) -> bool:
+    try:
+        parts = path.relative_to(root).parts
+    except ValueError:
+        parts = path.parts
+    for part in parts[:-1]:
+        normalized = part.lower()
+        if normalized in _PROJECT_SCAN_IGNORED_PART_NAMES:
+            return True
+        if normalized.startswith(".history"):
+            return True
+        if normalized.endswith("-backups") or normalized.endswith("_backups"):
+            return True
+    return False
+
+
+def _iter_schematic_sheet_file_refs(path: Path) -> tuple[str, ...]:
+    sexp = parse_sexp(_read_kicad_text(path))
+    refs: list[str] = []
+    for sheet in find_all_elements(sexp, "sheet"):
+        for prop in find_all_elements(sheet, "property"):
+            if len(prop) < 3:
+                continue
+            key = unquote_string(prop[1])
+            if key not in _SHEET_FILE_PROPERTY_KEYS:
+                continue
+            value = unquote_string(prop[2]).strip()
+            if value:
+                refs.append(value)
+    return tuple(refs)
+
+
+def _resolve_sheet_file_ref(schematic_path: Path, ref: str) -> Path | None:
+    text = ref.strip().replace("\\", "/")
+    if not text or "$" in text:
+        return None
+    path = Path(text)
+    if not path.is_absolute():
+        path = schematic_path.parent / path
+    return path
+
+
+def _iter_active_project_schematic_files(project_path: Path | str) -> tuple[Path, ...]:
+    resolved_project = _resolve_project_path(project_path)
+    root = resolved_project.parent
+    candidate = root / f"{resolved_project.stem}.kicad_sch"
+    if candidate.is_file() and not _is_project_scan_path_ignored(candidate, root):
+        start_paths = (candidate,)
+    else:
+        start_paths = tuple(
+            sorted(
+                path
+                for path in root.glob("*.kicad_sch")
+                if path.is_file() and not _is_project_scan_path_ignored(path, root)
+            )
+        )
+
+    out: list[Path] = []
+    seen: set[str] = set()
+    pending = list(start_paths)
+    while pending:
+        schematic_path = pending.pop(0)
+        key = str(schematic_path.resolve() if schematic_path.exists() else schematic_path)
+        if key in seen:
+            continue
+        seen.add(key)
+        if (
+            not schematic_path.is_file()
+            or schematic_path.suffix != ".kicad_sch"
+            or _is_project_scan_path_ignored(schematic_path, root)
+        ):
+            continue
+        out.append(schematic_path)
+        for sheet_ref in sorted(_iter_schematic_sheet_file_refs(schematic_path)):
+            child = _resolve_sheet_file_ref(schematic_path, sheet_ref)
+            if child is None:
+                continue
+            if child.suffix != ".kicad_sch":
+                continue
+            try:
+                child.resolve().relative_to(root.resolve())
+            except ValueError:
+                continue
+            if _is_project_scan_path_ignored(child, root):
+                continue
+            pending.append(child)
+    return tuple(out)
+
+
 def _iter_project_files(project_path: Path | str, suffix: str) -> list[Path]:
     root = _project_root(project_path)
+    if suffix == ".kicad_sch":
+        return list(iter_project_schematic_files(project_path))
+    if suffix == ".kicad_pcb":
+        return list(iter_project_pcb_files(project_path))
     return sorted(
         path
         for path in root.rglob(f"*{suffix}")
-        if not any(part in {"output", "review", "review_tmp"} for part in path.parts)
+        if path.is_file() and not _is_project_scan_path_ignored(path, root)
     )
+
+
+def iter_project_schematic_files(project_path: Path | str) -> tuple[Path, ...]:
+    """Return active schematic files reachable from the project root sheet."""
+    return _iter_active_project_schematic_files(project_path)
+
+
+def iter_project_pcb_files(project_path: Path | str) -> tuple[Path, ...]:
+    """Return active project PCB files, preferring the project-stem board."""
+    return _project_stem_files(project_path, ".kicad_pcb")
 
 
 def _dedupe_paths(paths: Iterable[Path]) -> tuple[Path, ...]:
@@ -314,9 +432,15 @@ def _project_stem_files(project_path: Path | str, suffix: str) -> tuple[Path, ..
     resolved_project = _resolve_project_path(project_path)
     root = resolved_project.parent
     candidate = root / f"{resolved_project.stem}{suffix}"
-    if candidate.is_file():
+    if candidate.is_file() and not _is_project_scan_path_ignored(candidate, root):
         return (candidate,)
-    return tuple(sorted(path for path in root.glob(f"*{suffix}") if path.is_file()))
+    return tuple(
+        sorted(
+            path
+            for path in root.glob(f"*{suffix}")
+            if path.is_file() and not _is_project_scan_path_ignored(path, root)
+        )
+    )
 
 
 def _resolve_project_local_table_uri(project_path: Path | str, uri: str) -> Path | None:
@@ -407,8 +531,8 @@ def _project_asset_scope(project_path: Path | str) -> _ProjectAssetScope:
         diagnostics,
     )
     return _ProjectAssetScope(
-        schematics=_project_stem_files(project_path, ".kicad_sch"),
-        pcbs=_project_stem_files(project_path, ".kicad_pcb"),
+        schematics=iter_project_schematic_files(project_path),
+        pcbs=iter_project_pcb_files(project_path),
         symbol_libraries=_project_local_symbol_libraries(project_path, diagnostics),
         pretty_libraries=pretty_libraries,
         footprint_files=footprint_files,
@@ -1413,13 +1537,43 @@ def build_footprint_library_link_map(
     records: Iterable[KiCadFootprintExtractionRecord],
 ) -> dict[str, str]:
     """Return lookup keys that map original footprint refs to output members."""
+    return build_footprint_output_member_map(records)
+
+
+def build_symbol_output_member_map(
+    records: Iterable[KiCadSymbolExtractionRecord],
+) -> dict[str, str]:
+    """Return lookup keys that map original symbol refs to output members."""
     out: dict[str, str] = {}
+    used: set[str] = set()
     for record in records:
-        member = _library_member_name(record.name)
+        member = _unique_stem(_safe_asset_filename(record.name), used)
         keys = {
             record.name,
-            member,
+            _library_member_name(record.name),
+            getattr(record.symbol, "name", ""),
+            _symbol_member_name(record.symbol),
+        }
+        for key in keys:
+            key_text = str(key or "")
+            if key_text:
+                out.setdefault(key_text, member)
+    return out
+
+
+def build_footprint_output_member_map(
+    records: Iterable[KiCadFootprintExtractionRecord],
+) -> dict[str, str]:
+    """Return lookup keys that map original footprint refs to output members."""
+    out: dict[str, str] = {}
+    used: set[str] = set()
+    for record in records:
+        member = _unique_stem(_safe_asset_filename(record.name), used)
+        keys = {
+            record.name,
             record.library_link,
+            member,
+            _library_member_name(record.name),
             _library_member_name(record.library_link),
             getattr(record.footprint, "name", ""),
             _library_member_name(str(getattr(record.footprint, "name", ""))),
@@ -2546,12 +2700,16 @@ __all__ = [
     "KiCadSymbolExtractionRecord",
     "build_extraction_metadata_bundle",
     "build_footprint_library_link_map",
+    "build_footprint_output_member_map",
+    "build_symbol_output_member_map",
     "embed_external_model_payloads",
     "extract_3d_models",
     "extract_3d_models_from_footprint_records",
     "extract_embedded_assets",
     "extract_footprints",
     "extract_symbols",
+    "iter_project_pcb_files",
+    "iter_project_schematic_files",
     "rehydrate_embedded_model_payloads",
     "rehydrate_embedded_model_payloads_from_files",
     "resolve_kicad_cli",

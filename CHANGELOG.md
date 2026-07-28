@@ -8,6 +8,18 @@
   KiCad ("Failed to load board"). Parsing is unchanged; legacy files carrying
   `(fill no ...)` are repaired on re-emit.
 
+## 2026.7.28
+
+- Harden project-local library extraction so project scans ignore KiCad
+  `.history`, autosave, and backup folders instead of extracting stale
+  schematic or board data.
+- Traverse the active schematic hierarchy from the project root sheet and use
+  the project-stem board for project-local extraction and asset inventory.
+- Add deterministic symbol and footprint output-member maps for downstream
+  tools that relink source schematics and PCB footprints to generated local
+  libraries, including duplicate footprint-name cases.
+- Update the configured dev-std release audit floor to `2026.7.18`.
+
 ## 2026.7.17
 
 - Improve large-board PCB parser and projection performance with pure-Python
