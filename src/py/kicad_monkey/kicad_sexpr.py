@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -303,17 +304,85 @@ _SEXPR_TOKEN_RE_KNOWS_BAR = re.compile(
 )
 
 
-@dataclass(frozen=True)
-class SexpToken:
-    """A KiCad DSN-style lexical token with source location metadata."""
+class _SexpSource:
+    """Shared per-lex source handle that resolves offsets to line/column.
 
-    kind: str
-    text: str
-    value: Any
-    offset: int
-    line: int
-    column: int
-    separator: str = ""
+    A large board lexes into millions of tokens, but line and column are only
+    ever read on an error path or by the opt-in span parser. Building the
+    newline table up front costs one scan of a file we would otherwise never
+    walk again, so it is deferred until something actually asks.
+    """
+
+    __slots__ = ("text", "_line_starts")
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self._line_starts: list[int] | None = None
+
+    def line_column(self, offset: int) -> tuple[int, int]:
+        starts = self._line_starts
+        if starts is None:
+            starts = [0]
+            starts.extend(m.end() for m in _NEWLINE_RE.finditer(self.text))
+            self._line_starts = starts
+        index = bisect_right(starts, offset) - 1
+        return index + 1, offset - starts[index] + 1
+
+
+class SexpToken:
+    """A KiCad DSN-style lexical token with source location metadata.
+
+    ``line`` and ``column`` are derived from ``offset`` on demand rather than
+    carried per token: the lexer used to maintain them eagerly for every
+    token, which is pure cost for the millions that are never inspected.
+    """
+
+    __slots__ = ("kind", "text", "value", "offset", "_source")
+
+    def __init__(
+        self,
+        kind: str,
+        text: str,
+        value: Any,
+        offset: int,
+        source: "_SexpSource | None" = None,
+    ) -> None:
+        self.kind = kind
+        self.text = text
+        self.value = value
+        self.offset = offset
+        self._source = source
+
+    @property
+    def line(self) -> int:
+        if self._source is None:
+            return 1
+        return self._source.line_column(self.offset)[0]
+
+    @property
+    def column(self) -> int:
+        if self._source is None:
+            return self.offset + 1
+        return self._source.line_column(self.offset)[1]
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SexpToken):
+            return NotImplemented
+        return (
+            self.kind == other.kind
+            and self.text == other.text
+            and self.value == other.value
+            and self.offset == other.offset
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.kind, self.text, self.offset))
+
+    def __repr__(self) -> str:
+        return (
+            f"SexpToken(kind={self.kind!r}, text={self.text!r}, "
+            f"value={self.value!r}, offset={self.offset!r})"
+        )
 
 
 @public_api
@@ -775,161 +844,125 @@ class KicadSexprLexer:
         self.text = text
         self.knows_bar = knows_bar
         self.pos = 0
-        self.line = 1
-        self.column = 1
-        self.line_start = 0
-        self._pending_separator = ""
 
     def tokens(self) -> list[SexpToken]:
+        """Lex the whole source in one pass.
+
+        The previous implementation restarted ``token_re.match`` at every
+        token boundary and tracked line/column eagerly per token. Driving a
+        single ``finditer`` keeps the scan loop inside the regex engine and
+        leaves position resolution to ``_SexpSource``, which only pays for
+        the tokens something actually inspects.
+        """
         result: list[SexpToken] = []
+        append = result.append
         token_re = _SEXPR_TOKEN_RE_KNOWS_BAR if self.knows_bar else _SEXPR_TOKEN_RE
         text = self.text
         text_len = len(text)
+        source = _SexpSource(text)
+        quoted_value = self._quoted_value
+        number_value = self._number_value
+        pos = 0
 
-        while self.pos < text_len:
-            if text[self.pos] == "#" and text[self.line_start:self.pos].strip() == "":
-                self._skip_comment()
-                continue
-
-            match = token_re.match(text, self.pos)
-            if match is None:
-                raise SexprLexError(
-                    "Unexpected token",
-                    offset=self.pos,
-                    line=self.line,
-                    column=self.column,
-                )
-
-            kind = match.lastgroup
-            token_text = match.group()
-            if kind == "space":
-                self._pending_separator += self._separator_text(token_text)
-                self._advance_position(token_text)
-                continue
-
-            if kind == "unterminated_string":
-                raise SexprLexError(
-                    "Unterminated delimited string",
-                    offset=self.pos,
-                    line=self.line,
-                    column=self.column,
-                )
-
-            start_offset = self.pos
-            start_line = self.line
-            start_column = self.column
-            separator = self._pending_separator
-            self._pending_separator = ""
-            self._advance_position(token_text)
-
-            if kind == "left":
-                result.append(
-                    SexpToken(
-                        TOKEN_LEFT,
-                        token_text,
-                        token_text,
-                        start_offset,
-                        start_line,
-                        start_column,
-                        separator,
+        while pos < text_len:
+            restart = -1
+            expected = pos
+            for match in token_re.finditer(text, pos):
+                start = match.start()
+                # `finditer` walks past anything the pattern cannot match,
+                # where the old anchored `match` call raised. Under
+                # `knows_bar` a bare `|` is exactly such a character, so a
+                # gap has to be reported rather than skipped.
+                if start != expected:
+                    line, column = source.line_column(expected)
+                    raise SexprLexError(
+                        "Unexpected token",
+                        offset=expected,
+                        line=line,
+                        column=column,
                     )
-                )
-                continue
+                expected = match.end()
 
-            if kind == "right":
-                result.append(
-                    SexpToken(
-                        TOKEN_RIGHT,
-                        token_text,
-                        token_text,
-                        start_offset,
-                        start_line,
-                        start_column,
-                        separator,
+                kind = match.lastgroup
+                if kind == "space":
+                    continue
+
+                token_text = match.group()
+
+                if kind == "atom":
+                    # A comment is only a comment when `#` is the first
+                    # nonblank character on its line; `#PWR01`-style atoms
+                    # in the middle of a form are ordinary tokens.
+                    if token_text[0] == "#":
+                        line_start = text.rfind("\n", 0, start) + 1
+                        if not text[line_start:start].strip():
+                            newline = text.find("\n", start)
+                            restart = text_len if newline < 0 else newline
+                            break
+                    append(SexpToken(TOKEN_ATOM, token_text, token_text, start, source))
+                    continue
+
+                if kind == "left":
+                    append(SexpToken(TOKEN_LEFT, token_text, token_text, start, source))
+                    continue
+
+                if kind == "right":
+                    append(SexpToken(TOKEN_RIGHT, token_text, token_text, start, source))
+                    continue
+
+                if kind == "string":
+                    append(
+                        SexpToken(
+                            TOKEN_STRING,
+                            token_text,
+                            quoted_value(token_text),
+                            start,
+                            source,
+                        )
                     )
-                )
-                continue
+                    continue
 
-            if kind == "string":
-                result.append(
-                    SexpToken(
-                        TOKEN_STRING,
-                        token_text,
-                        self._quoted_value(token_text),
-                        start_offset,
-                        start_line,
-                        start_column,
-                        separator,
+                if kind == "number":
+                    append(
+                        SexpToken(
+                            TOKEN_NUMBER,
+                            token_text,
+                            number_value(token_text),
+                            start,
+                            source,
+                        )
                     )
-                )
-                continue
+                    continue
 
-            if kind == "number":
-                result.append(
-                    SexpToken(
-                        TOKEN_NUMBER,
-                        token_text,
-                        self._number_value(token_text),
-                        start_offset,
-                        start_line,
-                        start_column,
-                        separator,
+                if kind == "unterminated_string":
+                    line, column = source.line_column(start)
+                    raise SexprLexError(
+                        "Unterminated delimited string",
+                        offset=start,
+                        line=line,
+                        column=column,
                     )
-                )
-                continue
 
-            if kind == "atom":
-                result.append(
-                    SexpToken(
-                        TOKEN_ATOM,
-                        token_text,
-                        token_text,
-                        start_offset,
-                        start_line,
-                        start_column,
-                        separator,
+                raise AssertionError(f"unhandled token kind {kind!r}")
+            else:
+                # finditer ran out without hitting a comment. Anything left
+                # over is a trailing run the pattern could not match.
+                if expected < text_len:
+                    line, column = source.line_column(expected)
+                    raise SexprLexError(
+                        "Unexpected token",
+                        offset=expected,
+                        line=line,
+                        column=column,
                     )
-                )
-                continue
+                break
 
-            raise AssertionError(f"unhandled token kind {kind!r}")
+            if restart < 0:
+                break
+            pos = restart
 
+        self.pos = text_len
         return result
-
-    def _skip_comment(self) -> None:
-        newline = _NEWLINE_RE.search(self.text, self.pos)
-        if newline is None:
-            skipped = len(self.text) - self.pos
-            self.pos = len(self.text)
-            self.column += skipped
-            return
-        end = newline.start()
-        self.column += end - self.pos
-        self.pos = end
-
-    def _advance_position(self, token_text: str) -> None:
-        token_len = len(token_text)
-        self.pos += token_len
-        if "\n" not in token_text and "\r" not in token_text:
-            self.column += token_len
-            return
-
-        start_offset = self.pos
-        last_newline_end = 0
-        newline_count = 0
-        for newline in _NEWLINE_RE.finditer(token_text):
-            newline_count += 1
-            last_newline_end = newline.end()
-
-        self.line += newline_count
-        self.column = token_len - last_newline_end + 1
-        self.line_start = start_offset - token_len + last_newline_end
-
-    @staticmethod
-    def _separator_text(token_text: str) -> str:
-        if "\r" not in token_text:
-            return token_text
-        return _NEWLINE_RE.sub("\n", token_text)
 
     @staticmethod
     def _quoted_value(token_text: str) -> QuotedString:
