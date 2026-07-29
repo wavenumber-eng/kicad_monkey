@@ -1022,6 +1022,19 @@ class KicadSexprParser:
                 token_text=token.text,
             )
 
+        # Ordinary KiCad forms are a strictly nested list grammar. Building
+        # that tree iteratively avoids two Python calls per token
+        # (``_parse_item`` and ``_parse_list``), which is material on
+        # multi-megabyte schematics. The only supported dialect exception is
+        # the legacy teardrops production below; keep its specialised parser
+        # rather than making the common path pay for it at every nesting
+        # level.
+        if type(self) is KicadSexprParser and not any(
+            token.kind == TOKEN_ATOM and token.value == "teardrops"
+            for token in self.tokens
+        ):
+            return self._parse_generic_tree()
+
         result = self._parse_list()
 
         if self.pos < len(self.tokens):
@@ -1042,6 +1055,76 @@ class KicadSexprParser:
             )
 
         return result
+
+    def _parse_generic_tree(self) -> Any:
+        """Build a standards-shaped S-expression without recursive descent."""
+        root: list[Any] | None = None
+        stack: list[tuple[list[Any], SexpToken]] = []
+
+        for index, token in enumerate(self.tokens):
+            if token.kind == TOKEN_LEFT:
+                if root is not None and not stack:
+                    raise SexprTreeError(
+                        "Leftover garbage after end of expression",
+                        offset=token.offset,
+                        line=token.line,
+                        column=token.column,
+                        token_text=token.text,
+                    )
+                node: list[Any] = []
+                if stack:
+                    stack[-1][0].append(node)
+                else:
+                    root = node
+                stack.append((node, token))
+                continue
+
+            if token.kind == TOKEN_RIGHT:
+                if not stack:
+                    raise SexprTreeError(
+                        "Unbalanced closing parenthesis",
+                        offset=token.offset,
+                        line=token.line,
+                        column=token.column,
+                    )
+                stack.pop()
+                if not stack and index + 1 < len(self.tokens):
+                    following = self.tokens[index + 1]
+                    if following.kind == TOKEN_RIGHT:
+                        raise SexprTreeError(
+                            "Unbalanced closing parenthesis",
+                            offset=following.offset,
+                            line=following.line,
+                            column=following.column,
+                        )
+                    raise SexprTreeError(
+                        "Leftover garbage after end of expression",
+                        offset=following.offset,
+                        line=following.line,
+                        column=following.column,
+                        token_text=following.text,
+                    )
+                continue
+
+            if not stack:
+                raise SexprTreeError(
+                    "Leftover garbage after end of expression",
+                    offset=token.offset,
+                    line=token.line,
+                    column=token.column,
+                    token_text=token.text,
+                )
+            stack[-1][0].append(token.value)
+
+        if stack:
+            opener = stack[-1][1]
+            raise SexprTreeError(
+                "Unbalanced opening parenthesis",
+                offset=opener.offset,
+                line=opener.line,
+                column=opener.column,
+            )
+        return root
 
     def _peek(self) -> SexpToken:
         return self.tokens[self.pos]
