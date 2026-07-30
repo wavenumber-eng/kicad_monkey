@@ -386,7 +386,7 @@ wheels = [
 
 [[package]]
 name = "kicad-cruncher"
-version = "2026.7.17"
+version = "2026.7.30"
 source = { editable = "." }
 dependencies = [
     { name = "colorama" },

@@ -443,9 +443,7 @@ def _write_design_review_bundle_if_requested(
         project_path,
         layout.design_review_dir,
         include_indexes=True,
-        progress=lambda message: _log_stage_progress(
-            f"{command_label}: design review: {message}"
-        ),
+        progress=lambda message: _log_stage_progress(f"{command_label}: design review: {message}"),
     )
     _log_stage_done(
         f"{command_label}: wrote design review bundle "
@@ -483,6 +481,39 @@ def _ensure_project_tables_if_requested(
     return table_result.to_dict()
 
 
+def _source_relink_validation(source_relink: dict[str, object], key: str) -> dict[str, object]:
+    validation = source_relink.get(key, {})
+    return validation if isinstance(validation, dict) else {}
+
+
+def _source_relink_validation_ok(source_relink: dict[str, object], key: str) -> bool:
+    return bool(_source_relink_validation(source_relink, key).get("ok", True))
+
+
+def _source_relink_remaining_issue_count(source_relink: dict[str, object], key: str) -> object:
+    return _source_relink_validation(source_relink, key).get("remaining_issue_count", 0)
+
+
+def _raise_if_source_relink_blocked(
+    *,
+    source_relink_mode: str,
+    source_relink: dict[str, object],
+    source_relink_path: Path,
+) -> None:
+    if source_relink_mode != "apply":
+        return
+    if _source_relink_validation_ok(source_relink, "cache_link_validation") and (
+        _source_relink_validation_ok(source_relink, "cache_unit_validation")
+    ):
+        return
+    raise RuntimeError(
+        "source relink blocked by unresolved schematic cache issues "
+        f"(links={_source_relink_remaining_issue_count(source_relink, 'cache_link_validation')}, "
+        f"units={_source_relink_remaining_issue_count(source_relink, 'cache_unit_validation')}); "
+        f"review {source_relink_path}"
+    )
+
+
 def _relink_project_sources_if_requested(
     *,
     project_path: Path,
@@ -490,6 +521,7 @@ def _relink_project_sources_if_requested(
     layout: _LibraryOutputLayout,
     command_label: str,
     source_relink_mode: str,
+    source_relink_repair_cache_links: bool,
     symbol_records: Iterable[KiCadSymbolExtractionRecord],
     footprint_records: Iterable[KiCadFootprintExtractionRecord],
 ) -> tuple[dict[str, object] | None, Path | None]:
@@ -514,6 +546,8 @@ def _relink_project_sources_if_requested(
         symbol_member_map=build_symbol_relink_map(symbol_records),
         footprint_member_map=build_footprint_relink_map(footprint_records),
         dry_run=source_relink_mode == "dry_run",
+        repair_cache_links=source_relink_repair_cache_links,
+        fail_on_cache_link_issues=source_relink_mode == "apply",
     )
     source_relink_path = output_dir / "source_relink.json"
     _write_json(source_relink_path, source_relink)
@@ -522,6 +556,11 @@ def _relink_project_sources_if_requested(
     _log_stage_done(
         f"{command_label}: {action_label} ({changes} changes)",
         started,
+    )
+    _raise_if_source_relink_blocked(
+        source_relink_mode=source_relink_mode,
+        source_relink=source_relink,
+        source_relink_path=source_relink_path,
     )
     return source_relink, source_relink_path
 
@@ -551,6 +590,7 @@ def _run_library_extraction(
     skip_power_symbols: bool = False,
     write_design_review: bool = False,
     source_relink_mode: str = "none",
+    source_relink_repair_cache_links: bool = False,
 ) -> int:
     """Extract KiCad library artifacts from a project."""
     from kicad_monkey.kicad_library_extraction import (
@@ -683,6 +723,7 @@ def _run_library_extraction(
             layout=layout,
             command_label=command_label,
             source_relink_mode=source_relink_mode,
+            source_relink_repair_cache_links=source_relink_repair_cache_links,
             symbol_records=symbol_records,
             footprint_records=footprint_records,
         )

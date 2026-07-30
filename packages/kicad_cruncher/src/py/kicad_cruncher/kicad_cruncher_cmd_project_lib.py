@@ -22,6 +22,11 @@ def cmd_project_lib(args: argparse.Namespace) -> int:
             "--no-update-library-tables or use --relink-dry-run"
         )
         return 2
+    if bool(args.repair_cache_links) and not (
+        bool(args.relink_sources) or bool(args.relink_dry_run)
+    ):
+        log.error("--repair-cache-links requires --relink-dry-run or --relink-sources")
+        return 2
 
     return _run_library_extraction(
         args,
@@ -50,6 +55,7 @@ def cmd_project_lib(args: argparse.Namespace) -> int:
             if bool(args.relink_dry_run)
             else "none"
         ),
+        source_relink_repair_cache_links=bool(args.repair_cache_links),
     )
 
 
@@ -110,6 +116,14 @@ def register_parser(
         "--relink-sources",
         action="store_true",
         help="rewrite source schematic and PCB references to the generated local libraries",
+    )
+    parser.add_argument(
+        "--repair-cache-links",
+        action="store_true",
+        help=(
+            "with relink dry-run/apply, repair placed schematic lib_name aliases "
+            "when exactly one embedded cache symbol matches by member name"
+        ),
     )
     _add_model_validation_args(parser)
     parser.set_defaults(handler=cmd_project_lib)

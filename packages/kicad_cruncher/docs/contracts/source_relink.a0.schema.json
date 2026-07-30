@@ -2,9 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "kicad_cruncher.source_relink.a0",
   "title": "KiCad Cruncher Source Relink Report",
-  "description": "Dry-run or apply report emitted by project-lib when source schematic and PCB references are relinked to generated project-local libraries.",
+  "description": "Dry-run or apply report emitted by project-lib when source schematic and PCB references, including required schematic cache links, are relinked to generated project-local libraries.",
   "type": "object",
-  "required": ["schema", "project", "mode", "changed", "summary", "files"],
+  "required": [
+    "schema",
+    "project",
+    "mode",
+    "applied",
+    "blocked",
+    "changed",
+    "summary",
+    "cache_link_validation",
+    "cache_unit_validation",
+    "files"
+  ],
   "properties": {
     "schema": {
       "const": "kicad_cruncher.source_relink.a0"
@@ -18,6 +29,14 @@
       "enum": ["dry_run", "apply"],
       "description": "Whether the command only planned relinks or edited source files."
     },
+    "applied": {
+      "type": "boolean",
+      "description": "Whether planned source edits were applied. Dry-run reports and blocked apply reports are false."
+    },
+    "blocked": {
+      "type": "boolean",
+      "description": "True when apply mode refused to write source edits because schematic cache-link or cache-unit validation still had unresolved issues."
+    },
     "changed": {
       "type": "boolean"
     },
@@ -30,6 +49,12 @@
         "changes": {"type": "integer", "minimum": 0}
       },
       "additionalProperties": false
+    },
+    "cache_link_validation": {
+      "$ref": "#/$defs/cache_link_validation"
+    },
+    "cache_unit_validation": {
+      "$ref": "#/$defs/cache_unit_validation"
     },
     "files": {
       "type": "array",
@@ -60,6 +85,8 @@
           "type": "string",
           "enum": [
             "schematic_symbol_lib_id",
+            "schematic_symbol_lib_name",
+            "schematic_cache_symbol_name",
             "schematic_symbol_footprint",
             "pcb_footprint_library_link"
           ]
@@ -67,6 +94,121 @@
         "offset": {"type": "integer", "minimum": 0},
         "old": {"type": "string"},
         "new": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "cache_link_validation": {
+      "type": "object",
+      "required": [
+        "ok",
+        "initial_issue_count",
+        "remaining_issue_count",
+        "repairable_issue_count",
+        "unrepairable_issue_count",
+        "issues",
+        "remaining_issues"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "description": "True when the current or planned source state has no unresolved placed lib_name to embedded lib_symbols mismatches."
+        },
+        "initial_issue_count": {"type": "integer", "minimum": 0},
+        "remaining_issue_count": {"type": "integer", "minimum": 0},
+        "repairable_issue_count": {"type": "integer", "minimum": 0},
+        "unrepairable_issue_count": {"type": "integer", "minimum": 0},
+        "issues": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/cache_link_issue"}
+        },
+        "remaining_issues": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/cache_link_issue"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "cache_unit_validation": {
+      "type": "object",
+      "required": [
+        "ok",
+        "initial_issue_count",
+        "remaining_issue_count",
+        "issues",
+        "remaining_issues"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "description": "True when embedded schematic cache unit symbol names match KiCad's parent symbol member prefix and numeric unit/body-style suffix format."
+        },
+        "initial_issue_count": {"type": "integer", "minimum": 0},
+        "remaining_issue_count": {"type": "integer", "minimum": 0},
+        "issues": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/cache_unit_issue"}
+        },
+        "remaining_issues": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/cache_unit_issue"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "cache_unit_issue": {
+      "type": "object",
+      "required": [
+        "path",
+        "offset",
+        "parent_symbol",
+        "child_symbol",
+        "expected_prefix",
+        "reason"
+      ],
+      "properties": {
+        "path": {"type": "string"},
+        "offset": {"type": "integer", "minimum": 0},
+        "parent_symbol": {"type": "string"},
+        "child_symbol": {"type": "string"},
+        "expected_prefix": {"type": "string"},
+        "reason": {
+          "type": "string",
+          "enum": ["prefix", "suffix"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "cache_link_issue": {
+      "type": "object",
+      "required": [
+        "path",
+        "offset",
+        "reference",
+        "lib_id",
+        "lib_name",
+        "cache_lookup",
+        "cache_lookup_source",
+        "candidate_cache_names",
+        "repair_candidate"
+      ],
+      "properties": {
+        "path": {"type": "string"},
+        "offset": {"type": "integer", "minimum": 0},
+        "reference": {"type": "string"},
+        "lib_id": {"type": "string"},
+        "lib_name": {"type": "string"},
+        "cache_lookup": {"type": "string"},
+        "cache_lookup_source": {
+          "type": "string",
+          "enum": ["lib_id", "lib_name"]
+        },
+        "candidate_cache_names": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "repair_candidate": {
+          "type": ["string", "null"]
+        }
       },
       "additionalProperties": false
     }

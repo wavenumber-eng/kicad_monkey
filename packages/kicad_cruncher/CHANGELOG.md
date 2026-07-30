@@ -2,11 +2,23 @@
 
 ## Unreleased
 
+## 2026.7.30
+
 - Update the controlled `kicad-monkey` dependency floor to
   `kicad-monkey>=2026.7.28` for project-local scan hardening and deterministic
   relink maps.
 - Add explicit `project-lib` source relink dry-run/apply reporting for local
   symbol and footprint library migration.
+- Harden `project-lib --relink-sources` so placed schematic symbols, embedded
+  schematic cache symbols, direct cache unit names, footprint properties, PCB
+  footprint links, and project library tables stay consistent with KiCad's
+  loader invariants.
+- Add `--repair-cache-links` for guarded placed `lib_name` cache repairs, with
+  apply mode blocking instead of partially writing when unresolved cache-link
+  or cache-unit issues remain.
+- Preserve schematic and PCB source newline style during relink apply and
+  reject `--relink-sources --no-update-library-tables` so generated local
+  nicknames are registered before source files point at them.
 
 ## 2026.7.17
 
