@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026.7.31
+
+- Fix `project-lib --relink-sources --repair-cache-links` for placed schematic
+  symbols whose `lib_id` is not directly mapped but whose `lib_name` matches a
+  generated local embedded-cache member.
+- Add regression coverage for member-only cache aliases so project-local relink
+  output does not leave mixed external symbol links behind.
+
 ## 2026.7.30
 
 - Update the controlled `kicad-monkey` dependency floor to

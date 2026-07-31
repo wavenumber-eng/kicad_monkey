@@ -103,6 +103,35 @@ def _write_cache_alias_project(tmp_path: Path, *, duplicate_candidates: bool = F
     return project_path
 
 
+def _write_member_only_cache_alias_project(tmp_path: Path) -> Path:
+    project_path = tmp_path / "member-only-alias.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+    (tmp_path / "member-only-alias.kicad_sch").write_text(
+        """(kicad_sch
+  (version 20250114)
+  (generator "kicad_cruncher_test")
+  (lib_symbols
+    (symbol "Osc_1"
+      (property "Reference" "U" (id 0) (at 0 0 0))
+      (property "Value" "Osc" (id 1) (at 0 2.54 0))
+      (property "Footprint" "oldfp:Foot" (id 2) (at 0 5.08 0))
+    )
+  )
+  (symbol
+    (lib_name "Osc_1")
+    (lib_id "oldlib:Osc")
+    (at 0 0 0)
+    (property "Reference" "U1" (id 0) (at 0 0 0))
+    (property "Value" "Osc" (id 1) (at 0 2.54 0))
+    (property "Footprint" "oldfp:Foot" (id 2) (at 0 5.08 0))
+  )
+)
+""",
+        encoding="utf-8",
+    )
+    return project_path
+
+
 def _write_existing_local_cache_project(tmp_path: Path) -> Path:
     project_path = tmp_path / "existing-local-cache.kicad_pro"
     project_path.write_text("{}", encoding="utf-8")
@@ -371,6 +400,41 @@ def test_relink_project_sources_repairs_lib_name_after_cache_parent_relink(
     assert '(symbol "local-symbols:Part"' in schematic
     assert '(lib_name "local-symbols:Part")' in schematic
     assert schematic.count('(lib_id "local-symbols:Part")') == 2
+
+
+def test_relink_project_sources_uses_lib_name_member_for_unmapped_lib_id(
+    tmp_path: Path,
+) -> None:
+    """Placed lib_id relink should fall back to a mapped lib_name cache member."""
+    project_path = _write_member_only_cache_alias_project(tmp_path)
+
+    report = relink_project_sources(
+        project_path=project_path,
+        symbol_library_nickname="local-symbols",
+        footprint_library_nickname="local-footprints",
+        symbol_member_map={"Osc_1": "Osc_1"},
+        footprint_member_map={"oldfp:Foot": "Foot"},
+        dry_run=False,
+        repair_cache_links=True,
+        fail_on_cache_link_issues=True,
+    )
+
+    schematic = (tmp_path / "member-only-alias.kicad_sch").read_text(encoding="utf-8")
+    files = _json_object_list(report["files"])
+    changes = _json_object_list(files[0]["changes"])
+    validation = _json_object(report["cache_link_validation"])
+    assert report["blocked"] is False
+    assert report["applied"] is True
+    assert validation["ok"] is True
+    assert report["summary"] == {"files_checked": 1, "files_changed": 1, "changes": 2}
+    assert {change["kind"] for change in changes} == {
+        "schematic_symbol_lib_id",
+        "schematic_symbol_footprint",
+    }
+    assert '(symbol "Osc_1"' in schematic
+    assert '(lib_name "Osc_1")' in schematic
+    assert '(lib_id "local-symbols:Osc_1")' in schematic
+    assert '(lib_id "oldlib:Osc")' not in schematic
 
 
 def test_relink_project_sources_reports_schematic_cache_link_mismatches(

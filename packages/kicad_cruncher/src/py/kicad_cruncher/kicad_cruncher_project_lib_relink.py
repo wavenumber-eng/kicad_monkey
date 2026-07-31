@@ -228,6 +228,19 @@ def _schematic_lib_id_replacement(
         member_map=symbol_member_map,
     )
     if new == old:
+        lib_name = find_element(sexp, "lib_name")
+        lib_name_text = (
+            unquote_string(lib_name[1]) if lib_name is not None and len(lib_name) > 1 else ""
+        )
+        if lib_name_text:
+            lib_name_link = _local_library_link(
+                lib_name_text,
+                library_nickname=symbol_library_nickname,
+                member_map=symbol_member_map,
+            )
+            if lib_name_link != lib_name_text:
+                new = lib_name_link
+    if new == old:
         return None
     match = _SCHEMATIC_LIB_ID_RE.search(span_text)
     if match is None:
