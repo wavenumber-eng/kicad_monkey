@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "kicad_cruncher.source_relink.a0",
   "title": "KiCad Cruncher Source Relink Report",
-  "description": "Dry-run or apply report emitted by project-lib when source schematic and PCB references, including required schematic cache links, are relinked to generated project-local libraries.",
+  "description": "Dry-run or apply report emitted by project-lib when source schematic and PCB references, including required schematic cache links and cache body fields, are relinked to generated project-local libraries.",
   "type": "object",
   "required": [
     "schema",
@@ -14,6 +14,7 @@
     "summary",
     "cache_link_validation",
     "cache_unit_validation",
+    "cache_body_validation",
     "files"
   ],
   "properties": {
@@ -35,7 +36,7 @@
     },
     "blocked": {
       "type": "boolean",
-      "description": "True when apply mode refused to write source edits because schematic cache-link or cache-unit validation still had unresolved issues."
+      "description": "True when apply mode refused to write source edits because schematic cache-link, cache-unit, or cache-body validation still had unresolved issues."
     },
     "changed": {
       "type": "boolean"
@@ -55,6 +56,9 @@
     },
     "cache_unit_validation": {
       "$ref": "#/$defs/cache_unit_validation"
+    },
+    "cache_body_validation": {
+      "$ref": "#/$defs/cache_body_validation"
     },
     "files": {
       "type": "array",
@@ -87,6 +91,7 @@
             "schematic_symbol_lib_id",
             "schematic_symbol_lib_name",
             "schematic_cache_symbol_name",
+            "schematic_cache_symbol_footprint",
             "schematic_symbol_footprint",
             "pcb_footprint_library_link"
           ]
@@ -124,6 +129,37 @@
         "remaining_issues": {
           "type": "array",
           "items": {"$ref": "#/$defs/cache_link_issue"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "cache_body_validation": {
+      "type": "object",
+      "required": [
+        "ok",
+        "initial_issue_count",
+        "remaining_issue_count",
+        "repairable_issue_count",
+        "unrepairable_issue_count",
+        "issues",
+        "remaining_issues"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "description": "True when the current or planned source state has no unresolved embedded cache body fields that differ from KCR-mutated generated local library fields."
+        },
+        "initial_issue_count": {"type": "integer", "minimum": 0},
+        "remaining_issue_count": {"type": "integer", "minimum": 0},
+        "repairable_issue_count": {"type": "integer", "minimum": 0},
+        "unrepairable_issue_count": {"type": "integer", "minimum": 0},
+        "issues": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/cache_body_issue"}
+        },
+        "remaining_issues": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/cache_body_issue"}
         }
       },
       "additionalProperties": false
@@ -175,6 +211,31 @@
           "type": "string",
           "enum": ["prefix", "suffix"]
         }
+      },
+      "additionalProperties": false
+    },
+    "cache_body_issue": {
+      "type": "object",
+      "required": [
+        "path",
+        "offset",
+        "cache_symbol",
+        "property_name",
+        "old",
+        "expected",
+        "repairable"
+      ],
+      "properties": {
+        "path": {"type": "string"},
+        "offset": {"type": "integer", "minimum": 0},
+        "cache_symbol": {"type": "string"},
+        "property_name": {
+          "type": "string",
+          "enum": ["Footprint"]
+        },
+        "old": {"type": "string"},
+        "expected": {"type": "string"},
+        "repairable": {"type": "boolean"}
       },
       "additionalProperties": false
     },

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 2026.7.31.1
+
+- Fix `project-lib --relink-sources --repair-cache-links` so embedded
+  schematic cache `Footprint` defaults match the generated project-local symbol
+  libraries, eliminating KiCad `lib_symbol_mismatch` warnings caused by the
+  localization step.
+- Add cache-body validation to `source_relink.json` and make apply mode block
+  on unresolved cache-link, cache-unit, or cache-body issues.
+- Add a `--validate-kicad-cli` apply-mode ERC hygiene gate that records
+  before/after KiCad schematic ERC JSON, requires zero post-relink
+  library-hygiene findings, and verifies ordinary ERC counts are unchanged.
+- Harden the ERC hygiene gate so failed `kicad-cli` runs cannot pass by parsing
+  stale JSON from a previous run.
+
 ## 2026.7.31
 
 - Fix `project-lib --relink-sources --repair-cache-links` for placed schematic

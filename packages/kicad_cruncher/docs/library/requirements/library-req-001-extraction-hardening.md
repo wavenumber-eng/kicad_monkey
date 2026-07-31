@@ -23,8 +23,10 @@ The current durable design docs keep `project-lib`, `lib-extract`,
 `megamaid`, and `health` as distinct public workflows. `project-lib` now has
 an explicit `--relink-dry-run` and `--relink-sources` path for source schematic
 and PCB library-reference relinking, with schematic cache-link validation,
-embedded cache-unit name validation, guarded cache-link repair, and a
-`source_relink.json` report. The following obligations recovered from the deleted
+embedded cache-unit name validation, embedded cache-body validation, guarded
+cache-link repair, a `source_relink.json` report, and an optional KiCad CLI
+before/after ERC hygiene gate for apply-mode validation. The following
+obligations recovered from the deleted
 `docs/plans/kicad-library-extraction-commands.md` plan remain active:
 
 - Keep source mutation opt-in and test-covered.

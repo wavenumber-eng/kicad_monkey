@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from jsonschema import validate
+from kicad_cruncher.kicad_cruncher_cmd_megamaid import _run_project_erc_hygiene_check
 from kicad_cruncher.kicad_cruncher_project_lib_relink import relink_project_sources
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -31,6 +32,76 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         text=True,
         check=False,
     )
+
+
+def _write_fake_kicad_cli_with_project_erc(tmp_path: Path) -> tuple[Path, Path]:
+    log_path = tmp_path / "fake-kicad-cli.log"
+    script_path = tmp_path / "fake-kicad-cli.py"
+    script_path.write_text(
+        f"""from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+log_path = Path({str(log_path)!r})
+args = sys.argv[1:]
+with log_path.open("a", encoding="utf-8") as log:
+    log.write(" ".join(args) + "\\n")
+
+if len(args) >= 2 and args[0] == "sch" and args[1] == "erc":
+    output = Path(args[args.index("--output") + 1])
+    violations = [
+        {{"type": "pin_not_connected", "description": "Ordinary ERC warning"}},
+    ]
+    if output.name == "project_erc_before.json":
+        violations.insert(
+            0,
+            {{"type": "lib_symbol_mismatch", "description": "Library cache mismatch"}},
+        )
+    output.write_text(
+        json.dumps({{"sheets": [{{"path": "/", "violations": violations}}]}}) + "\\n",
+        encoding="utf-8",
+    )
+
+sys.exit(0)
+""",
+        encoding="utf-8",
+    )
+    if sys.platform == "win32":
+        cli_path = tmp_path / "kicad-cli.cmd"
+        cli_path.write_text(
+            f'@echo off\r\n"{sys.executable}" "{script_path}" %*\r\n',
+            encoding="utf-8",
+        )
+    else:
+        cli_path = tmp_path / "kicad-cli"
+        cli_path.write_text(
+            f'#!/bin/sh\nexec "{sys.executable}" "{script_path}" "$@"\n',
+            encoding="utf-8",
+        )
+        cli_path.chmod(0o755)
+    return cli_path, log_path
+
+
+def _write_fake_failing_kicad_cli(tmp_path: Path) -> Path:
+    script_path = tmp_path / "fake-failing-kicad-cli.py"
+    script_path.write_text("import sys\nsys.exit(7)\n", encoding="utf-8")
+    if sys.platform == "win32":
+        cli_path = tmp_path / "failing-kicad-cli.cmd"
+        cli_path.write_text(
+            f'@echo off\r\n"{sys.executable}" "{script_path}" %*\r\n',
+            encoding="utf-8",
+        )
+        return cli_path
+
+    cli_path = tmp_path / "failing-kicad-cli"
+    cli_path.write_text(
+        f'#!/bin/sh\nexec "{sys.executable}" "{script_path}" "$@"\n',
+        encoding="utf-8",
+    )
+    cli_path.chmod(0o755)
+    return cli_path
 
 
 def _write_relink_project(tmp_path: Path) -> Path:
@@ -124,6 +195,34 @@ def _write_member_only_cache_alias_project(tmp_path: Path) -> Path:
     (property "Reference" "U1" (id 0) (at 0 0 0))
     (property "Value" "Osc" (id 1) (at 0 2.54 0))
     (property "Footprint" "oldfp:Foot" (id 2) (at 0 5.08 0))
+  )
+)
+""",
+        encoding="utf-8",
+    )
+    return project_path
+
+
+def _write_cache_body_override_project(tmp_path: Path) -> Path:
+    project_path = tmp_path / "cache-body-override.kicad_pro"
+    project_path.write_text("{}", encoding="utf-8")
+    (tmp_path / "cache-body-override.kicad_sch").write_text(
+        """(kicad_sch
+  (version 20250114)
+  (generator "kicad_cruncher_test")
+  (lib_symbols
+    (symbol "oldlib:Part"
+      (property "Reference" "U" (id 0) (at 0 0 0))
+      (property "Value" "Part" (id 1) (at 0 2.54 0))
+      (property "Footprint" "" (id 2) (at 0 5.08 0))
+    )
+  )
+  (symbol
+    (lib_id "oldlib:Part")
+    (at 0 0 0)
+    (property "Reference" "U1" (id 0) (at 0 0 0))
+    (property "Value" "Part" (id 1) (at 0 2.54 0))
+    (property "Footprint" "oldfp:PlacedFoot" (id 2) (at 0 5.08 0))
   )
 )
 """,
@@ -245,9 +344,16 @@ def test_relink_project_sources_dry_run_reports_without_editing(tmp_path: Path) 
 
     assert report["mode"] == "dry_run"
     assert report["changed"] is True
-    assert report["summary"] == {"files_checked": 2, "files_changed": 2, "changes": 4}
+    assert report["summary"] == {"files_checked": 2, "files_changed": 2, "changes": 5}
     assert _json_object(report["cache_link_validation"])["ok"] is True
     assert _json_object(report["cache_unit_validation"])["ok"] is True
+    cache_body = _json_object(report["cache_body_validation"])
+    assert cache_body["ok"] is True
+    assert cache_body["initial_issue_count"] == 1
+    assert cache_body["remaining_issue_count"] == 0
+    files = _json_object_list(report["files"])
+    changes = _json_object_list(files[0]["changes"])
+    assert "schematic_cache_symbol_footprint" in {change["kind"] for change in changes}
     assert '"oldlib:Part"' in (tmp_path / "demo.kicad_sch").read_text(encoding="utf-8")
     assert '"oldfp:Foot"' in (tmp_path / "demo.kicad_pcb").read_text(encoding="utf-8")
 
@@ -261,11 +367,47 @@ def test_relink_project_sources_apply_updates_design_links(tmp_path: Path) -> No
     schematic = (tmp_path / "demo.kicad_sch").read_text(encoding="utf-8")
     pcb = (tmp_path / "demo.kicad_pcb").read_text(encoding="utf-8")
     assert report["mode"] == "apply"
-    assert report["summary"] == {"files_checked": 2, "files_changed": 2, "changes": 4}
+    assert report["summary"] == {"files_checked": 2, "files_changed": 2, "changes": 5}
+    assert _json_object(report["cache_body_validation"])["ok"] is True
     assert '(symbol "local-symbols:Part"' in schematic
     assert '(lib_id "local-symbols:Part")' in schematic
-    assert '(property "Footprint" "local-footprints:Foot"' in schematic
+    assert schematic.count('(property "Footprint" "local-footprints:Foot"') == 2
+    assert "oldfp:Foot" not in schematic
     assert '(footprint "local-footprints:Foot"' in pcb
+
+
+def test_relink_project_sources_uses_generated_cache_body_footprint(
+    tmp_path: Path,
+) -> None:
+    """Cache body sync should use generated symbol defaults, not only old values."""
+    project_path = _write_cache_body_override_project(tmp_path)
+
+    report = relink_project_sources(
+        project_path=project_path,
+        symbol_library_nickname="local-symbols",
+        footprint_library_nickname="local-footprints",
+        symbol_member_map={"oldlib:Part": "Part"},
+        footprint_member_map={"oldfp:PlacedFoot": "PlacedFoot"},
+        symbol_footprint_map={
+            "oldlib:Part": "local-footprints:GeneratedFoot",
+            "local-symbols:Part": "local-footprints:GeneratedFoot",
+        },
+        dry_run=False,
+        fail_on_cache_link_issues=True,
+    )
+
+    schematic = (tmp_path / "cache-body-override.kicad_sch").read_text(encoding="utf-8")
+    files = _json_object_list(report["files"])
+    changes = _json_object_list(files[0]["changes"])
+    cache_body = _json_object(report["cache_body_validation"])
+    assert report["blocked"] is False
+    assert report["summary"] == {"files_checked": 1, "files_changed": 1, "changes": 4}
+    assert cache_body["ok"] is True
+    assert cache_body["initial_issue_count"] == 1
+    assert cache_body["remaining_issue_count"] == 0
+    assert "schematic_cache_symbol_footprint" in {change["kind"] for change in changes}
+    assert '(property "Footprint" "local-footprints:GeneratedFoot"' in schematic
+    assert '(property "Footprint" "local-footprints:PlacedFoot"' in schematic
 
 
 def test_relink_project_sources_updates_cache_unit_prefixes(
@@ -287,9 +429,10 @@ def test_relink_project_sources_updates_cache_unit_prefixes(
     schematic = (tmp_path / "cache-unit.kicad_sch").read_text(encoding="utf-8")
     assert report["blocked"] is False
     assert report["applied"] is True
-    assert report["summary"] == {"files_checked": 1, "files_changed": 1, "changes": 4}
+    assert report["summary"] == {"files_checked": 1, "files_changed": 1, "changes": 5}
     assert _json_object(report["cache_link_validation"])["ok"] is True
     assert _json_object(report["cache_unit_validation"])["ok"] is True
+    assert _json_object(report["cache_body_validation"])["ok"] is True
     assert '(symbol "local-symbols:Part_Slash"' in schematic
     assert '(symbol "Part_Slash_1_0"' in schematic
     assert '(lib_id "local-symbols:Part_Slash")' in schematic
@@ -395,8 +538,10 @@ def test_relink_project_sources_repairs_lib_name_after_cache_parent_relink(
     assert report["applied"] is True
     assert validation["ok"] is True
     assert validation["remaining_issue_count"] == 0
-    assert report["summary"] == {"files_checked": 1, "files_changed": 1, "changes": 6}
+    assert report["summary"] == {"files_checked": 1, "files_changed": 1, "changes": 7}
+    assert _json_object(report["cache_body_validation"])["ok"] is True
     assert [change["kind"] for change in changes].count("schematic_symbol_lib_name") == 1
+    assert [change["kind"] for change in changes].count("schematic_cache_symbol_footprint") == 1
     assert '(symbol "local-symbols:Part"' in schematic
     assert '(lib_name "local-symbols:Part")' in schematic
     assert schematic.count('(lib_id "local-symbols:Part")') == 2
@@ -426,8 +571,10 @@ def test_relink_project_sources_uses_lib_name_member_for_unmapped_lib_id(
     assert report["blocked"] is False
     assert report["applied"] is True
     assert validation["ok"] is True
-    assert report["summary"] == {"files_checked": 1, "files_changed": 1, "changes": 2}
+    assert report["summary"] == {"files_checked": 1, "files_changed": 1, "changes": 3}
+    assert _json_object(report["cache_body_validation"])["ok"] is True
     assert {change["kind"] for change in changes} == {
+        "schematic_cache_symbol_footprint",
         "schematic_symbol_lib_id",
         "schematic_symbol_footprint",
     }
@@ -544,6 +691,20 @@ def test_relink_project_sources_apply_preserves_lf_newlines(tmp_path: Path) -> N
     assert b'(lib_id "local-symbols:Part")' in (tmp_path / "demo.kicad_sch").read_bytes()
 
 
+def test_relink_project_sources_cache_body_relink_is_idempotent(tmp_path: Path) -> None:
+    """Rerunning after cache body localization should not create more edits."""
+    project_path = _write_relink_project(tmp_path)
+
+    first = _relink(project_path, dry_run=False)
+    second = _relink(project_path, dry_run=False)
+
+    assert first["summary"] == {"files_checked": 2, "files_changed": 2, "changes": 5}
+    assert second["summary"] == {"files_checked": 2, "files_changed": 0, "changes": 0}
+    assert _json_object(second["cache_link_validation"])["ok"] is True
+    assert _json_object(second["cache_unit_validation"])["ok"] is True
+    assert _json_object(second["cache_body_validation"])["ok"] is True
+
+
 def test_project_lib_relink_dry_run_writes_report_and_manifest(tmp_path: Path) -> None:
     """The public command should expose source relinking as a reviewable dry-run."""
     project_path = _write_relink_project(tmp_path)
@@ -570,9 +731,79 @@ def test_project_lib_relink_dry_run_writes_report_and_manifest(tmp_path: Path) -
     )
     assert manifest["source_relink"]["mode"] == "dry_run"
     assert manifest["source_relink"]["report"] == "source_relink.json"
-    assert relink_report["summary"] == {"files_checked": 2, "files_changed": 2, "changes": 4}
+    assert relink_report["summary"] == {"files_checked": 2, "files_changed": 2, "changes": 5}
+    assert relink_report["cache_body_validation"]["ok"] is True
     validate(relink_report, relink_schema)
     assert '"oldlib:Part"' in (tmp_path / "demo.kicad_sch").read_text(encoding="utf-8")
+
+
+def test_project_lib_relink_sources_validate_kicad_cli_runs_erc_gate(
+    tmp_path: Path,
+) -> None:
+    """Project-lib apply validation should compare ERC hygiene before and after relink."""
+    project_path = _write_relink_project(tmp_path)
+    fake_cli, fake_cli_log = _write_fake_kicad_cli_with_project_erc(tmp_path)
+    output_dir = tmp_path / "local-library"
+
+    result = _run_cli(
+        "project-lib",
+        str(project_path),
+        "--output",
+        str(output_dir),
+        "--no-embed-models",
+        "--no-embed-external-models",
+        "--relink-sources",
+        "--repair-cache-links",
+        "--validate-kicad-cli",
+        "--kicad-cli",
+        str(fake_cli),
+    )
+
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads((output_dir / "project_lib_manifest.json").read_text(encoding="utf-8"))
+    validation = _json_object(manifest["validation"])
+    project_erc = _json_object(validation["project_erc"])
+    before = _json_object(project_erc["before"])
+    after = _json_object(project_erc["after"])
+    before_summary = _json_object(before["summary"])
+    after_summary = _json_object(after["summary"])
+    assert validation["ok"] is True
+    assert project_erc["ok"] is True
+    assert project_erc["ordinary_delta"] == 0
+    assert before_summary["library_hygiene"] == 1
+    assert before_summary["ordinary"] == 1
+    assert after_summary["library_hygiene"] == 0
+    assert after_summary["ordinary"] == 1
+    assert (output_dir / "project_erc_before.json").is_file()
+    assert (output_dir / "project_erc_after.json").is_file()
+    cli_calls = fake_cli_log.read_text(encoding="utf-8").splitlines()
+    assert any("sch erc" in call and "project_erc_before.json" in call for call in cli_calls)
+    assert any("sch erc" in call and "project_erc_after.json" in call for call in cli_calls)
+
+
+def test_project_erc_hygiene_check_rejects_stale_json_when_cli_fails(
+    tmp_path: Path,
+) -> None:
+    """A failed KiCad CLI run must not pass by parsing a stale ERC JSON file."""
+    project_path = _write_relink_project(tmp_path)
+    fake_cli = _write_fake_failing_kicad_cli(tmp_path)
+    output_json = tmp_path / "project_erc_after.json"
+    output_json.write_text(
+        json.dumps({"sheets": [{"path": "/", "violations": []}]}) + "\n",
+        encoding="utf-8",
+    )
+
+    report = _run_project_erc_hygiene_check(
+        project_path=project_path,
+        output_json=output_json,
+        kicad_cli=fake_cli,
+    )
+
+    assert report["ok"] is False
+    assert report["returncode"] == 7
+    assert not output_json.exists()
+    assert "KiCad CLI ERC failed with exit code 7" in str(report["parse_error"])
+    assert "did not write an ERC JSON output file" in str(report["parse_error"])
 
 
 def test_project_lib_relink_sources_rejects_disabled_table_updates(tmp_path: Path) -> None:

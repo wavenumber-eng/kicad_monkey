@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import subprocess
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -24,6 +25,16 @@ if TYPE_CHECKING:
     from kicad_cruncher.kicad_cruncher_cmd_design import DesignReviewBundle
 
 log = logging.getLogger(__name__)
+
+_ERC_LIBRARY_HYGIENE_TYPES = frozenset(
+    {"lib_symbol_issues", "footprint_link_issues", "lib_symbol_mismatch"}
+)
+_ERC_LIBRARY_HYGIENE_TEXT = (
+    "missing symbol",
+    "missing unit",
+    "not found",
+    "invalid symbol unit",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -341,6 +352,233 @@ def _validate_outputs_if_requested(
     return validation
 
 
+def _erc_violations(payload: object) -> list[dict[str, object]]:
+    if not isinstance(payload, dict):
+        return []
+    sheets = payload.get("sheets", [])
+    if not isinstance(sheets, list):
+        return []
+    violations: list[dict[str, object]] = []
+    for sheet in sheets:
+        if not isinstance(sheet, dict):
+            continue
+        sheet_violations = sheet.get("violations", [])
+        if not isinstance(sheet_violations, list):
+            continue
+        violations.extend(
+            violation
+            for violation in sheet_violations
+            if isinstance(violation, dict)
+        )
+    return violations
+
+
+def _erc_violation_text(violation: dict[str, object]) -> str:
+    parts = [str(violation.get("description", ""))]
+    items = violation.get("items", [])
+    if isinstance(items, list):
+        for item in items:
+            if isinstance(item, dict):
+                parts.append(str(item.get("description", "")))
+    return "\n".join(parts)
+
+
+def _is_library_hygiene_erc_violation(violation: dict[str, object]) -> bool:
+    violation_type = str(violation.get("type", ""))
+    if violation_type in _ERC_LIBRARY_HYGIENE_TYPES:
+        return True
+    text = _erc_violation_text(violation).casefold()
+    return any(fragment in text for fragment in _ERC_LIBRARY_HYGIENE_TEXT)
+
+
+def _erc_type_counts(violations: Iterable[dict[str, object]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for violation in violations:
+        violation_type = str(violation.get("type", ""))
+        counts[violation_type] = counts.get(violation_type, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _project_schematic_path(project_path: Path) -> Path:
+    schematic_path = project_path.with_suffix(".kicad_sch")
+    if not schematic_path.is_file():
+        raise FileNotFoundError(f"Project root schematic not found: {schematic_path}")
+    return schematic_path
+
+
+def _resolve_kicad_cli(kicad_cli: Path | None) -> Path:
+    if kicad_cli is not None:
+        return kicad_cli
+    from kicad_monkey.kicad_library_extraction import resolve_kicad_cli
+
+    resolved = resolve_kicad_cli()
+    if resolved is None:
+        raise RuntimeError("kicad-cli executable was not found")
+    return resolved
+
+
+def _run_project_erc_hygiene_check(
+    *,
+    project_path: Path,
+    output_json: Path,
+    kicad_cli: Path | None,
+) -> dict[str, object]:
+    schematic_path = _project_schematic_path(project_path)
+    executable = _resolve_kicad_cli(kicad_cli)
+    output_json.parent.mkdir(parents=True, exist_ok=True)
+    if output_json.exists():
+        output_json.unlink()
+    command = [
+        str(executable),
+        "sch",
+        "erc",
+        "--format",
+        "json",
+        "--severity-all",
+        "--output",
+        str(output_json),
+        str(schematic_path),
+    ]
+    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    parse_error = ""
+    payload: object = {}
+    if completed.returncode != 0:
+        parse_error = f"KiCad CLI ERC failed with exit code {completed.returncode}"
+    if output_json.is_file():
+        try:
+            payload = json.loads(output_json.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            parse_error = f"{parse_error}; {exc}" if parse_error else str(exc)
+    else:
+        message = "KiCad CLI did not write an ERC JSON output file"
+        parse_error = f"{parse_error}; {message}" if parse_error else message
+
+    violations = _erc_violations(payload)
+    hygiene_violations = [
+        violation for violation in violations if _is_library_hygiene_erc_violation(violation)
+    ]
+    summary = {
+        "total": len(violations),
+        "library_hygiene": len(hygiene_violations),
+        "ordinary": len(violations) - len(hygiene_violations),
+        "types": _erc_type_counts(violations),
+        "library_hygiene_types": _erc_type_counts(hygiene_violations),
+    }
+    return {
+        "ok": not parse_error and not hygiene_violations,
+        "command": command,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+        "json": str(output_json),
+        "parse_error": parse_error,
+        "summary": summary,
+        "library_hygiene_examples": [
+            {
+                "type": str(violation.get("type", "")),
+                "description": str(violation.get("description", "")),
+            }
+            for violation in hygiene_violations[:20]
+        ],
+    }
+
+
+def _project_erc_hygiene_validation(
+    *,
+    before: dict[str, object],
+    after: dict[str, object],
+) -> dict[str, object]:
+    before_summary = before.get("summary", {})
+    after_summary = after.get("summary", {})
+    before_ordinary = (
+        int(before_summary.get("ordinary", 0)) if isinstance(before_summary, dict) else 0
+    )
+    after_ordinary = (
+        int(after_summary.get("ordinary", 0)) if isinstance(after_summary, dict) else 0
+    )
+    ordinary_delta = after_ordinary - before_ordinary
+    ok = bool(after.get("ok")) and ordinary_delta == 0
+    return {
+        "ok": ok,
+        "ordinary_delta": ordinary_delta,
+        "before": before,
+        "after": after,
+    }
+
+
+def _validate_project_erc_before_relink_if_requested(
+    *,
+    args: argparse.Namespace,
+    project_path: Path,
+    output_dir: Path,
+    command_label: str,
+    source_relink_mode: str,
+) -> dict[str, object] | None:
+    if not bool(args.validate_kicad_cli) or source_relink_mode != "apply":
+        return None
+
+    started = time.perf_counter()
+    _log_stage_start(f"{command_label}: running KiCad ERC before source relink")
+    report = _run_project_erc_hygiene_check(
+        project_path=project_path,
+        output_json=output_dir / "project_erc_before.json",
+        kicad_cli=args.kicad_cli,
+    )
+    summary = report["summary"]
+    assert isinstance(summary, dict)
+    _log_stage_done(
+        f"{command_label}: KiCad ERC before source relink "
+        f"({summary['library_hygiene']} library hygiene, {summary['ordinary']} ordinary)",
+        started,
+    )
+    return report
+
+
+def _validate_project_erc_after_relink_if_requested(
+    *,
+    args: argparse.Namespace,
+    project_path: Path,
+    output_dir: Path,
+    command_label: str,
+    source_relink_mode: str,
+    before: dict[str, object] | None,
+) -> dict[str, object] | None:
+    if before is None or not bool(args.validate_kicad_cli) or source_relink_mode != "apply":
+        return None
+
+    started = time.perf_counter()
+    _log_stage_start(f"{command_label}: running KiCad ERC after source relink")
+    after = _run_project_erc_hygiene_check(
+        project_path=project_path,
+        output_json=output_dir / "project_erc_after.json",
+        kicad_cli=args.kicad_cli,
+    )
+    validation = _project_erc_hygiene_validation(before=before, after=after)
+    summary = after["summary"]
+    assert isinstance(summary, dict)
+    _log_stage_done(
+        f"{command_label}: KiCad ERC after source relink "
+        f"({summary['library_hygiene']} library hygiene, {summary['ordinary']} ordinary)",
+        started,
+    )
+    return validation
+
+
+def _merge_project_erc_validation(
+    validation: dict[str, object] | None,
+    project_erc: dict[str, object] | None,
+) -> dict[str, object] | None:
+    if project_erc is None:
+        return validation
+    if validation is None:
+        return {"ok": bool(project_erc["ok"]), "project_erc": project_erc}
+    return {
+        **validation,
+        "ok": bool(validation.get("ok")) and bool(project_erc["ok"]),
+        "project_erc": project_erc,
+    }
+
+
 def _log_stage_done(message: str, started_at: float) -> None:
     log.info("%s", stage_done_text(f"{message} in {time.perf_counter() - started_at:.2f}s"))
 
@@ -502,14 +740,17 @@ def _raise_if_source_relink_blocked(
 ) -> None:
     if source_relink_mode != "apply":
         return
-    if _source_relink_validation_ok(source_relink, "cache_link_validation") and (
-        _source_relink_validation_ok(source_relink, "cache_unit_validation")
+    if (
+        _source_relink_validation_ok(source_relink, "cache_link_validation")
+        and _source_relink_validation_ok(source_relink, "cache_unit_validation")
+        and _source_relink_validation_ok(source_relink, "cache_body_validation")
     ):
         return
     raise RuntimeError(
         "source relink blocked by unresolved schematic cache issues "
         f"(links={_source_relink_remaining_issue_count(source_relink, 'cache_link_validation')}, "
-        f"units={_source_relink_remaining_issue_count(source_relink, 'cache_unit_validation')}); "
+        f"units={_source_relink_remaining_issue_count(source_relink, 'cache_unit_validation')}, "
+        f"body={_source_relink_remaining_issue_count(source_relink, 'cache_body_validation')}); "
         f"review {source_relink_path}"
     )
 
@@ -530,6 +771,7 @@ def _relink_project_sources_if_requested(
 
     from kicad_cruncher.kicad_cruncher_project_lib_relink import (
         build_footprint_relink_map,
+        build_symbol_footprint_relink_map,
         build_symbol_relink_map,
         relink_project_sources,
     )
@@ -539,15 +781,24 @@ def _relink_project_sources_if_requested(
         action_label = "relinking source files"
     started = time.perf_counter()
     _log_stage_start(f"{command_label}: {action_label}")
+    symbol_member_map = build_symbol_relink_map(symbol_records)
+    footprint_member_map = build_footprint_relink_map(footprint_records)
     source_relink = relink_project_sources(
         project_path=project_path,
         symbol_library_nickname=layout.symbol_nickname,
         footprint_library_nickname=layout.footprint_nickname,
-        symbol_member_map=build_symbol_relink_map(symbol_records),
-        footprint_member_map=build_footprint_relink_map(footprint_records),
+        symbol_member_map=symbol_member_map,
+        footprint_member_map=footprint_member_map,
         dry_run=source_relink_mode == "dry_run",
         repair_cache_links=source_relink_repair_cache_links,
         fail_on_cache_link_issues=source_relink_mode == "apply",
+        symbol_footprint_map=build_symbol_footprint_relink_map(
+            symbol_records,
+            symbol_library_nickname=layout.symbol_nickname,
+            footprint_library_nickname=layout.footprint_nickname,
+            symbol_member_map=symbol_member_map,
+            footprint_member_map=footprint_member_map,
+        ),
     )
     source_relink_path = output_dir / "source_relink.json"
     _write_json(source_relink_path, source_relink)
@@ -717,6 +968,13 @@ def _run_library_extraction(
             command_label=command_label,
             update_project_library_tables=update_project_library_tables,
         )
+        project_erc_before = _validate_project_erc_before_relink_if_requested(
+            args=args,
+            project_path=project_path,
+            output_dir=output_dir,
+            command_label=command_label,
+            source_relink_mode=source_relink_mode,
+        )
         source_relink, source_relink_path = _relink_project_sources_if_requested(
             project_path=project_path,
             output_dir=output_dir,
@@ -732,6 +990,15 @@ def _run_library_extraction(
             layout=layout,
             command_label=command_label,
         )
+        project_erc = _validate_project_erc_after_relink_if_requested(
+            args=args,
+            project_path=project_path,
+            output_dir=output_dir,
+            command_label=command_label,
+            source_relink_mode=source_relink_mode,
+            before=project_erc_before,
+        )
+        validation = _merge_project_erc_validation(validation, project_erc)
         _log_stage_start(f"{command_label}: writing manifest and README")
         started = time.perf_counter()
         manifest = _manifest_payload(
@@ -860,7 +1127,10 @@ def _add_model_validation_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--validate-kicad-cli",
         action="store_true",
-        help="validate generated symbol and footprint libraries with kicad-cli upgrade",
+        help=(
+            "validate generated libraries with kicad-cli; project-lib apply mode also "
+            "runs a before/after schematic ERC library-hygiene gate"
+        ),
     )
     parser.add_argument(
         "--kicad-cli",
