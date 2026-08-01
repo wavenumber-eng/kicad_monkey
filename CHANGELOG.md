@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fix zone fill emission: unfilled copper zones now emit a bare `(fill ...)`
+  element instead of `(fill no ...)`. KiCad's parser accepts only a bare `yes`
+  token inside `fill`, so boards written with the old form failed to load in
+  KiCad ("Failed to load board"). Parsing is unchanged; legacy files carrying
+  `(fill no ...)` are repaired on re-emit.
+
 ## 2026.7.17
 
 - Improve large-board PCB parser and projection performance with pure-Python

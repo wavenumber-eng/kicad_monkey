@@ -363,12 +363,13 @@ class Zone:
         result.append(['min_thickness', self.min_thickness])
         result.append(['filled_areas_thickness', 'yes' if self.filled_areas_thickness else 'no'])
 
-        # For keepout zones, fill element doesn't include yes/no flag
-        # Regular zones (copper pour) include the fill enabled flag
-        if self.keepout:
-            fill_elem: SexpList = ['fill']
-        else:
-            fill_elem: SexpList = ['fill', 'yes' if self.fill_enabled else 'no']
+        # Per pcb_io_kicad_sexpr.cpp:3247-3251, KiCad prints "(fill" and
+        # appends a bare "yes" token only when the zone is filled. The parser
+        # (pcb_io_kicad_sexpr_parser.cpp, case T_fill) has no "no" case, so
+        # emitting `(fill no ...)` produces a board KiCad refuses to load.
+        fill_elem: SexpList = ['fill']
+        if not self.keepout and self.fill_enabled:
+            fill_elem.append('yes')
         if self.island_removal_mode is not None:
             fill_elem.append(['island_removal_mode', self.island_removal_mode])
         if self.island_area_min is not None:

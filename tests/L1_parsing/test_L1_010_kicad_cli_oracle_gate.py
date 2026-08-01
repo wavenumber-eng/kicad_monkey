@@ -197,3 +197,64 @@ def test_kicad_cli_accepts_emitted(
         f"kicad-cli rejected emitted {case_id} ({src.name}) — root causes: {causes!r}\n"
         f"--- stdout/stderr (first 800 chars) ---\n{output[:800]}"
     )
+
+
+def test_kicad_cli_accepts_unfilled_copper_zone(
+    kicad_cli: Path,
+    tmp_path: Path,
+) -> None:
+    """Root cause #10: unfilled copper zones must emit bare ``(fill ...)``.
+
+    KiCad's parser accepts only a bare ``yes`` token inside ``fill``
+    (pcb_io_kicad_sexpr_parser.cpp, case T_fill); ``(fill no ...)`` fails the
+    whole board load ("Failed to load board", exit 3). No corpus fixture
+    carries an unfilled copper zone, so this case forces one: parse a known
+    zone fixture, disable fill on its copper zones, emit, and require
+    kicad-cli to accept the result.
+    """
+    if not HAVE_PCB:
+        pytest.skip("kicad_monkey.kicad_pcb not importable on this branch")
+    rel = (
+        r"kicad/upstream_qa/pcbnew/plugins/kicad_sexpr/"
+        r"Issue19775_ZoneLayers/LayerWildcard.kicad_pcb"
+    )
+    src = _find_fixture(rel)
+    if src is None:
+        pytest.skip(f"fixture {rel!r} not found in $WN_TEST_CORPUS or package corpus")
+
+    pcb = KiCadPcb.from_file(src)
+    copper_zones = [zone for zone in pcb.zones if zone.keepout is None]
+    assert copper_zones, "fixture must contain at least one copper zone"
+    for zone in copper_zones:
+        zone.fill_enabled = False
+        zone.filled_polygons = []
+        # Graphics shapes legitimately emit `(fill no)`; only zone fill
+        # elements must never carry the `no` token.
+        fill_elems = [
+            elem
+            for elem in zone.to_sexp()
+            if isinstance(elem, list) and elem and elem[0] == "fill"
+        ]
+        assert fill_elems and "no" not in fill_elems[0]
+
+    if hasattr(pcb, "to_text"):
+        text = pcb.to_text()
+    else:
+        from kicad_monkey import build_sexp  # type: ignore
+
+        text = build_sexp(pcb.to_sexp())
+
+    stage = tmp_path / "ours"
+    target = _stage_file_with_siblings(src, stage)
+    target.write_text(text, encoding="utf-8")
+    proc = subprocess.run(
+        [str(kicad_cli), "pcb", "upgrade", "--force", str(target)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    assert proc.returncode == 0, (
+        f"kicad-cli rejected unfilled-copper-zone emit ({src.name})\n"
+        f"--- stdout/stderr (first 800 chars) ---\n{output[:800]}"
+    )
