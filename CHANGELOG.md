@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2026.8.1
 
 - Fix zone fill emission: unfilled copper zones now emit a bare `(fill ...)`
   element instead of `(fill no ...)`. KiCad's parser accepts only a bare `yes`
