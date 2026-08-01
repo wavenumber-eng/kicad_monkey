@@ -45,8 +45,8 @@ def _load_corpus_archive_module():
 
 
 PACKAGE_ROOT = _project_root()
-EXPECTED_VERSION = "2026.7.17"
-EXPECTED_RELEASE_DATE = date(2026, 7, 17)
+EXPECTED_VERSION = "2026.7.28"
+EXPECTED_RELEASE_DATE = date(2026, 7, 28)
 CORPUS_ARCHIVE_PATH = "tests/corpus/kicad.zip"
 CORPUS_ARCHIVE_MANIFEST_PATH = "tests/corpus/kicad.archive.toml"
 DEV_STD_AUDIT_SCOPES = {"repo", "ci", "docs.design", "docs.links", "docs.plans"}
@@ -112,7 +112,7 @@ def test_version_contract_matches_date_based_release() -> None:
     assert (parsed.major, parsed.minor, parsed.patch, parsed.build, parsed.alpha) == (
         2026,
         7,
-        17,
+        28,
         None,
         None,
     )
@@ -185,7 +185,7 @@ def test_release_workflow_derives_release_date_from_version_helper() -> None:
 def test_configured_dev_std_audit_scopes_pass() -> None:
     """Verify the configured dev-std audit scopes are part of release signoff."""
     if sys.version_info < (3, 12):
-        pytest.skip("wn-dev-std 2026.7.16 requires Python 3.12")
+        pytest.skip("wn-dev-std 2026.7.18 requires Python 3.12")
 
     completed = subprocess.run(
         [
