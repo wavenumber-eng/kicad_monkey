@@ -34,11 +34,18 @@ def variants_dir() -> Path:
     return get_kicad_upstream_qa_dir() / "eeschema" / "variants"
 
 
-def _project_copy(source: Path, destination: Path, *, sheet_dnp: bool) -> Path:
-    """Copy the hierarchical fixture, setting the sub-sheet's DNP flag.
+def _project_copy(
+    source: Path,
+    destination: Path,
+    *,
+    sheet_dnp: bool | None = None,
+    sheet_in_bom: bool | None = None,
+    sheet_on_board: bool | None = None,
+) -> Path:
+    """Copy the hierarchical fixture, optionally rewriting sub-sheet flags.
 
-    Only the `(sheet ...)` block is touched. Placed symbols carry a `(dnp ...)`
-    token at the same indent depth, so a blanket replace would flip the whole
+    Only the `(sheet ...)` block is touched. Placed symbols carry matching
+    tokens at the same indent depth, so a blanket replace would flip the whole
     design and quietly turn the control cases green for the wrong reason.
     """
     destination.mkdir(parents=True, exist_ok=True)
@@ -49,10 +56,23 @@ def _project_copy(source: Path, destination: Path, *, sheet_dnp: bool) -> Path:
     text = top.read_text(encoding="utf-8")
 
     sheet_start = text.index("\n\t(sheet\n")
-    flag_start = text.index("(dnp ", sheet_start)
-    flag_end = text.index(")", flag_start) + 1
-    marker = "(dnp yes)" if sheet_dnp else "(dnp no)"
-    top.write_text(text[:flag_start] + marker + text[flag_end:], encoding="utf-8")
+    sheet_end = text.index("\n\t)", sheet_start) + 1
+    sheet_block = text[sheet_start:sheet_end]
+
+    def _rewrite_flag(block: str, name: str, value: bool) -> str:
+        flag_start = block.index(f"({name} ")
+        flag_end = block.index(")", flag_start) + 1
+        marker = f"({name} {'yes' if value else 'no'})"
+        return block[:flag_start] + marker + block[flag_end:]
+
+    if sheet_dnp is not None:
+        sheet_block = _rewrite_flag(sheet_block, "dnp", sheet_dnp)
+    if sheet_in_bom is not None:
+        sheet_block = _rewrite_flag(sheet_block, "in_bom", sheet_in_bom)
+    if sheet_on_board is not None:
+        sheet_block = _rewrite_flag(sheet_block, "on_board", sheet_on_board)
+
+    top.write_text(text[:sheet_start] + sheet_block + text[sheet_end:], encoding="utf-8")
     return top
 
 
@@ -60,7 +80,7 @@ def _placements(schematic: KiCadSchematic) -> dict[str, tuple[str, bool]]:
     """``{reference: (sheet_path, the symbol's own dnp flag)}``."""
     placements: dict[str, tuple[str, bool]] = {}
     for sym, sheet_path, _owner in schematic.walk_symbols(
-        include_off_board_sheets=False
+        include_off_board_sheets=True
     ):
         reference = resolve_symbol(sym, None, sheet_path=sheet_path).reference
         if reference:
@@ -144,3 +164,34 @@ class TestAssemblyInheritsSheetDnp:
 
         assert inside, "the fixture places symbols inside the sub-sheet"
         assert not any(by_ref[reference].effective_dnp for reference in inside)
+
+
+class TestAssemblyInheritsSheetBomAndBoard:
+    def test_in_bom_no_sheet_clears_effective_in_bom(
+        self, variants_dir: Path, tmp_path: Path
+    ) -> None:
+        sch = KiCadSchematic.from_file(
+            _project_copy(variants_dir, tmp_path / "bom", sheet_in_bom=False)
+        )
+        inside = _refs_inside_the_sub_sheet(sch)
+        outside = _refs_on_the_top_sheet(sch)
+        by_ref = {c.reference: c for c in assemble(sch)}
+
+        assert inside and outside
+        assert all(not by_ref[reference].effective_in_bom for reference in inside)
+        assert all(by_ref[reference].effective_in_bom for reference in outside)
+
+    def test_on_board_no_sheet_clears_effective_on_board(
+        self, variants_dir: Path, tmp_path: Path
+    ) -> None:
+        sch = KiCadSchematic.from_file(
+            _project_copy(variants_dir, tmp_path / "board", sheet_on_board=False)
+        )
+        inside = _refs_inside_the_sub_sheet(sch)
+        outside = _refs_on_the_top_sheet(sch)
+        by_ref = {c.reference: c for c in assemble(sch)}
+
+        assert inside and outside
+        assert all(not by_ref[reference].effective_on_board for reference in inside)
+        assert all(by_ref[reference].effective_on_board for reference in outside)
+
