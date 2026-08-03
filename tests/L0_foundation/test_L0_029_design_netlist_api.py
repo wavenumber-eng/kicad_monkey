@@ -563,6 +563,14 @@ def test_design_json_can_skip_lazy_pcb_materialization(tmp_path, monkeypatch):
     assert payload["components"]
     assert payload["nets"]
 
+    text = design.to_json_text(include_indexes=True, include_pcb=False)
+    assert '"pnp"' not in text
+
+    out_path = tmp_path / "schematic-only.json"
+    design.save_json(out_path, include_indexes=True, include_pcb=False)
+    saved = out_path.read_text(encoding="utf-8")
+    assert '"pnp"' not in saved
+
 
 # ---------------------------------------------------------------------------
 # Empty schematic integration smoke test
