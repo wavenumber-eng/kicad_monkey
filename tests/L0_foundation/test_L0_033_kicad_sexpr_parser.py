@@ -61,6 +61,43 @@ def test_whole_line_comments_are_skipped_but_trailing_hash_is_data() -> None:
     ) == ["root", "#not-a-comment"]
 
 
+def test_cr_only_newline_whole_line_comments_are_skipped() -> None:
+    """CR-only line endings must still recognize whole-line ``#`` comments."""
+    assert parse_sexp("# comment after CR\r(root 1)") == ["root", 1]
+    assert parse_sexp("(root 1)\r# trailing comment") == ["root", 1]
+
+    tokens = lex_sexp("(root 1)\r# comment after CR\r(child 2)")
+    assert [t.value for t in tokens if t.kind == TOKEN_ATOM] == ["root", "child"]
+    assert all(
+        not (isinstance(t.value, str) and t.value.startswith("#"))
+        for t in tokens
+    )
+
+
+def test_sexp_token_keeps_frozen_constructor_and_separator() -> None:
+    from dataclasses import FrozenInstanceError
+
+    from kicad_monkey.kicad_sexpr import SexpToken
+
+    token = SexpToken(
+        TOKEN_ATOM,
+        "net",
+        "net",
+        4,
+        line=2,
+        column=3,
+        separator=" ",
+    )
+    assert token.line == 2
+    assert token.column == 3
+    assert token.separator == " "
+    assert hash(token) == hash(
+        SexpToken(TOKEN_ATOM, "net", "net", 4, separator=" ")
+    )
+    with pytest.raises(FrozenInstanceError):
+        token.kind = "string"  # type: ignore[misc]
+
+
 def test_regex_lexer_preserves_number_and_atom_boundaries() -> None:
     tokens = lex_sexp("(root 123 -2. +0.5 .25 1e-3 1e 1abc +. -)")
 

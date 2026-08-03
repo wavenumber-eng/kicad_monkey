@@ -329,15 +329,25 @@ class _SexpSource:
         return index + 1, offset - starts[index] + 1
 
 
+@dataclass(frozen=True)
 class SexpToken:
     """A KiCad DSN-style lexical token with source location metadata.
 
-    ``line`` and ``column`` are derived from ``offset`` on demand rather than
-    carried per token: the lexer used to maintain them eagerly for every
-    token, which is pure cost for the millions that are never inspected.
+    ``line`` and ``column`` may be supplied eagerly (constructor compatibility
+    with the historical frozen dataclass) or derived lazily from ``source`` when
+    the high-volume lexer omits per-token location work. ``separator`` remains a
+    public field for round-trip callers even when the single-pass lexer leaves
+    it empty.
     """
 
-    __slots__ = ("kind", "text", "value", "offset", "_source")
+    kind: str
+    text: str
+    value: Any
+    offset: int
+    separator: str = ""
+    _line: int = field(default=1, repr=False, compare=False)
+    _column: int = field(default=1, repr=False, compare=False)
+    _source: Any = field(default=None, repr=False, compare=False, hash=False)
 
     def __init__(
         self,
@@ -345,43 +355,38 @@ class SexpToken:
         text: str,
         value: Any,
         offset: int,
+        line: int = 1,
+        column: int = 1,
+        separator: str = "",
         source: "_SexpSource | None" = None,
     ) -> None:
-        self.kind = kind
-        self.text = text
-        self.value = value
-        self.offset = offset
-        self._source = source
+        object.__setattr__(self, "kind", kind)
+        object.__setattr__(self, "text", text)
+        object.__setattr__(self, "value", value)
+        object.__setattr__(self, "offset", offset)
+        object.__setattr__(self, "separator", separator)
+        object.__setattr__(self, "_line", line)
+        object.__setattr__(self, "_column", column)
+        object.__setattr__(self, "_source", source)
 
     @property
     def line(self) -> int:
-        if self._source is None:
-            return 1
-        return self._source.line_column(self.offset)[0]
+        if self._source is not None:
+            return self._source.line_column(self.offset)[0]
+        return self._line
 
     @property
     def column(self) -> int:
-        if self._source is None:
-            return self.offset + 1
-        return self._source.line_column(self.offset)[1]
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, SexpToken):
-            return NotImplemented
-        return (
-            self.kind == other.kind
-            and self.text == other.text
-            and self.value == other.value
-            and self.offset == other.offset
-        )
-
-    def __hash__(self) -> int:
-        return hash((self.kind, self.text, self.offset))
+        if self._source is not None:
+            return self._source.line_column(self.offset)[1]
+        return self._column
 
     def __repr__(self) -> str:
         return (
             f"SexpToken(kind={self.kind!r}, text={self.text!r}, "
-            f"value={self.value!r}, offset={self.offset!r})"
+            f"value={self.value!r}, offset={self.offset!r}, "
+            f"line={self.line!r}, column={self.column!r}, "
+            f"separator={self.separator!r})"
         )
 
 
@@ -894,20 +899,51 @@ class KicadSexprLexer:
                     # nonblank character on its line; `#PWR01`-style atoms
                     # in the middle of a form are ordinary tokens.
                     if token_text[0] == "#":
-                        line_start = text.rfind("\n", 0, start) + 1
+                        line_start = max(
+                            text.rfind("\n", 0, start),
+                            text.rfind("\r", 0, start),
+                        ) + 1
                         if not text[line_start:start].strip():
-                            newline = text.find("\n", start)
-                            restart = text_len if newline < 0 else newline
+                            # Leave the newline for the next scan iteration,
+                            # matching CR / LF / CRLF whole-line comments.
+                            end = start
+                            while end < text_len and text[end] not in "\r\n":
+                                end += 1
+                            restart = end
                             break
-                    append(SexpToken(TOKEN_ATOM, token_text, token_text, start, source))
+                    append(
+                        SexpToken(
+                            TOKEN_ATOM,
+                            token_text,
+                            token_text,
+                            start,
+                            source=source,
+                        )
+                    )
                     continue
 
                 if kind == "left":
-                    append(SexpToken(TOKEN_LEFT, token_text, token_text, start, source))
+                    append(
+                        SexpToken(
+                            TOKEN_LEFT,
+                            token_text,
+                            token_text,
+                            start,
+                            source=source,
+                        )
+                    )
                     continue
 
                 if kind == "right":
-                    append(SexpToken(TOKEN_RIGHT, token_text, token_text, start, source))
+                    append(
+                        SexpToken(
+                            TOKEN_RIGHT,
+                            token_text,
+                            token_text,
+                            start,
+                            source=source,
+                        )
+                    )
                     continue
 
                 if kind == "string":
@@ -917,7 +953,7 @@ class KicadSexprLexer:
                             token_text,
                             quoted_value(token_text),
                             start,
-                            source,
+                            source=source,
                         )
                     )
                     continue
@@ -929,7 +965,7 @@ class KicadSexprLexer:
                             token_text,
                             number_value(token_text),
                             start,
-                            source,
+                            source=source,
                         )
                     )
                     continue

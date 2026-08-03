@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Speed up S-expression lexing and ordinary tree construction while preserving
+  frozen ``SexpToken`` constructor/``separator`` compatibility and CR-only
+  whole-line ``#`` comment skipping.
+
 ## 2026.8.1
 
 - Fix zone fill emission: unfilled copper zones now emit a bare `(fill ...)`
