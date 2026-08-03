@@ -328,6 +328,30 @@ def _resolve_net_ref(
     return net_ref.resolve_name(name_by_ordinal).resolve_ordinal(ordinal_by_name)
 
 
+def _parse_slim_footprint_at(
+    child: SexpFormSpan,
+) -> tuple[float, float, float] | None:
+    match = _AT_PATTERN.match(child.text())
+    if match is None:
+        return None
+    angle = float(match.group(3)) if match.group(3) is not None else 0.0
+    return float(match.group(1)), float(match.group(2)), angle
+
+
+def _parse_slim_footprint_uuid(child: SexpFormSpan) -> str | None:
+    match = _UUID_PATTERN.match(child.text())
+    if match is None:
+        return None
+    return match.group(1) or match.group(2)
+
+
+def _parse_slim_footprint_reference(child: SexpFormSpan) -> Property | None:
+    match = _PROPERTY_PATTERN.match(child.text())
+    if match is None or match.group(1) != "Reference":
+        return None
+    return Property(name=match.group(1), value=match.group(2))
+
+
 def _parse_slim_footprint(
     _parent: SexpFormSpan,
     children: Sequence[SexpFormSpan],
@@ -343,22 +367,15 @@ def _parse_slim_footprint(
     pads: list[Pad] = []
     for child in children:
         if child.head == "at":
-            match = _AT_PATTERN.match(child.text())
-            if match is not None:
-                at_x = float(match.group(1))
-                at_y = float(match.group(2))
-                if match.group(3) is not None:
-                    at_angle = float(match.group(3))
+            parsed_at = _parse_slim_footprint_at(child)
+            if parsed_at is not None:
+                at_x, at_y, at_angle = parsed_at
         elif child.head == "uuid":
-            match = _UUID_PATTERN.match(child.text())
-            if match is not None:
-                uuid = match.group(1) or match.group(2)
+            uuid = _parse_slim_footprint_uuid(child) or uuid
         elif child.head == "property":
-            match = _PROPERTY_PATTERN.match(child.text())
-            if match is not None and match.group(1) == "Reference":
-                properties.append(
-                    Property(name=match.group(1), value=match.group(2))
-                )
+            prop = _parse_slim_footprint_reference(child)
+            if prop is not None:
+                properties.append(prop)
         elif child.head == "pad":
             parsed = child.parse()
             if not isinstance(parsed, list) or not parsed:
@@ -646,6 +663,23 @@ def _transform_footprint_point(
     )
 
 
+def _pad_custom_local_rings(pad: Pad, cx: float, cy: float) -> list[list[tuple[float, float]]]:
+    output: list[list[tuple[float, float]]] = []
+    angle = -float(pad.at_angle)
+    for primitive in pad.custom_primitives:
+        if primitive.primitive_type != "gr_poly":
+            continue
+        points = primitive.points
+        if not points:
+            continue
+        ring: list[tuple[float, float]] = []
+        for x, y in points:
+            rx, ry = rotate_point(float(x), float(y), angle)
+            ring.append((rx + cx, ry + cy))
+        output.append(ring)
+    return output
+
+
 def _pad_local_rings(pad: Pad, error: float) -> list[list[tuple[float, float]]]:
     shape = getattr(pad, "shape", None)
     cx = float(getattr(pad, "at_x", 0.0))
@@ -672,20 +706,7 @@ def _pad_local_rings(pad: Pad, error: float) -> list[list[tuple[float, float]]]:
     if shape == PadShape.RECT:
         return [pad._to_rect_polygon(cx, cy)]
     if shape == PadShape.CUSTOM:
-        output: list[list[tuple[float, float]]] = []
-        angle = -float(pad.at_angle)
-        for primitive in pad.custom_primitives:
-            if primitive.primitive_type != "gr_poly":
-                continue
-            points = primitive.points
-            if not points:
-                continue
-            ring: list[tuple[float, float]] = []
-            for x, y in points:
-                rx, ry = rotate_point(float(x), float(y), angle)
-                ring.append((rx + cx, ry + cy))
-            output.append(ring)
-        return output
+        return _pad_custom_local_rings(pad, cx, cy)
     return []
 
 

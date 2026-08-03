@@ -89,3 +89,19 @@ about 100–122 s for the Plotter IR path in the same container.
 - Downstream adapters remain responsible for tiling, boolean clipping,
   triangulation, mesh construction, and rendering.
 - Plotter IR remains the canonical 2D rendering contract.
+
+## Proposed Answers To Open Contract Questions
+
+These answers match the current prototype and keep ADR-010 in **Proposed**
+status until issue #20 is agreed:
+
+1. **Legacy net-table entries:** include unreferenced legacy net-table entries
+   in a0, matching the prototype.
+2. **Filled-zone rings:** keep one feature per KiCad `filled_polygon`; do not
+   group into compound polygons at the contract boundary.
+3. **Oval drill orientation:** defer an explicit orientation field until a
+   later schema revision; current a0 keeps dimensions and centers only.
+4. **Default tolerance:** keep `0.005` mm as the public default
+   `curve_tolerance_mm`.
+5. **Slim extraction:** keep pads-only / filled-polygon slim extraction as an
+   internal projection optimization, not a public mode.
