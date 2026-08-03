@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from types import MappingProxyType
+from typing import Any, Dict, List, Mapping, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .kicad_footprint import KiCadFootprint
@@ -94,20 +95,29 @@ class NetTable:
     a board is mutable, and a cache that silently outlived a net rename would
     trade a speed problem for a correctness one. Build one when about to
     resolve in bulk, and build a fresh one after changing the net table.
+
+    The two mappings are read-only views over private copies so callers cannot
+    make ``name_by_ordinal`` and ``ordinal_by_name`` disagree. ``NetTable`` is a
+    provisional public helper: exported for bulk resolve, not a promoted
+    major-interface contract entry.
     """
 
-    name_by_ordinal: Dict[int, str]
-    ordinal_by_name: Dict[str, int]
+    name_by_ordinal: Mapping[int, str]
+    ordinal_by_name: Mapping[str, int]
 
     @classmethod
-    def from_name_by_ordinal(cls, name_by_ordinal: Dict[int, str]) -> 'NetTable':
+    def from_name_by_ordinal(
+        cls, name_by_ordinal: Mapping[int, str]
+    ) -> 'NetTable':
+        names = dict(name_by_ordinal)
+        ordinals = {
+            name: ordinal
+            for ordinal, name in names.items()
+            if name
+        }
         return cls(
-            name_by_ordinal=name_by_ordinal,
-            ordinal_by_name={
-                name: ordinal
-                for ordinal, name in name_by_ordinal.items()
-                if name
-            },
+            name_by_ordinal=MappingProxyType(names),
+            ordinal_by_name=MappingProxyType(ordinals),
         )
 
     def name_of(self, net_ref: Optional['NetRef']) -> str:
@@ -153,7 +163,7 @@ class NetRef:
     def with_name(self, name: str) -> 'NetRef':
         return NetRef(ordinal=self.ordinal, name=str(name or ""))
 
-    def resolve_ordinal(self, ordinal_by_name: Dict[str, int]) -> 'NetRef':
+    def resolve_ordinal(self, ordinal_by_name: Mapping[str, int]) -> 'NetRef':
         if self.ordinal is not None or not self.name:
             return self
         ordinal = ordinal_by_name.get(self.name)
@@ -161,7 +171,7 @@ class NetRef:
             return self
         return self.with_ordinal(int(ordinal))
 
-    def resolve_name(self, name_by_ordinal: Dict[int, str]) -> 'NetRef':
+    def resolve_name(self, name_by_ordinal: Mapping[int, str]) -> 'NetRef':
         if self.name or self.ordinal is None:
             return self
         name = name_by_ordinal.get(int(self.ordinal), "")

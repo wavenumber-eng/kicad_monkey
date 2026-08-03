@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add a provisional `NetTable` snapshot helper for linear whole-board net
+  resolve. Mappings are read-only so callers cannot desynchronize ordinal and
+  name indexes.
+
 ## 2026.8.1
 
 - Fix zone fill emission: unfilled copper zones now emit a bare `(fill ...)`

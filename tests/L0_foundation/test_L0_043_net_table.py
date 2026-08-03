@@ -95,3 +95,30 @@ class TestNetTableMatchesTheBoard:
         assert stale.name_of(NetRef(ordinal=1)) == "GND"
         assert pcb.resolve_net_name(NetRef(ordinal=1)) == "GROUND"
         assert pcb.net_table().name_of(NetRef(ordinal=1)) == "GROUND"
+
+
+class TestNetTableIsReadOnly:
+    def test_mappings_reject_mutation(self) -> None:
+        table = _table()
+
+        try:
+            table.name_by_ordinal[1] = "MUTATED"  # type: ignore[index]
+            raise AssertionError("name_by_ordinal accepted mutation")
+        except TypeError:
+            pass
+
+        try:
+            table.ordinal_by_name["GND"] = 99  # type: ignore[index]
+            raise AssertionError("ordinal_by_name accepted mutation")
+        except TypeError:
+            pass
+
+        assert table.name_of(NetRef(ordinal=1)) == "GND"
+        assert table.name_of(NetRef(name="GND")) == "GND"
+
+    def test_from_name_by_ordinal_copies_caller_input(self) -> None:
+        source = {0: "", 1: "GND", 2: "VCC"}
+        table = NetTable.from_name_by_ordinal(source)
+        source[1] = "MUTATED"
+
+        assert table.name_of(NetRef(ordinal=1)) == "GND"

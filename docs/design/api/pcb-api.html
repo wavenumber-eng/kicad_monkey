@@ -231,5 +231,43 @@
       through the same facade style as standalone footprint files.
     </p>
   </section>
+
+  <section
+    data-interface="NetTable"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_043_net_table.py"
+    data-test-target="test_the_snapshot_agrees_with_per_call_resolution"
+  >
+    <h2>NetTable</h2>
+    <h3>Rationale</h3>
+    <p>
+      Whole-board net resolve is O(elements x nets) when each element rebuilds
+      the board mapping. Callers that already know they will resolve in bulk
+      need a shared snapshot without hiding a stale cache on the mutable board.
+    </p>
+    <h3>Purpose</h3>
+    <p>
+      Provide a defensive, read-only ordinal/name snapshot for linear bulk net
+      resolve via <code>KiCadPcb.net_table()</code> /
+      <code>NetTable.from_name_by_ordinal()</code>. The mappings are immutable
+      views so callers cannot desynchronize them.
+    </p>
+    <h3>Public Status</h3>
+    <p>
+      Provisional public helper: exported from the package root for performance
+      callers, but not a promoted major-interface contract entry. Prefer
+      <code>KiCadPcb.resolve_net_name</code> for single lookups.
+    </p>
+    <h3>Test Requirements</h3>
+    <p>
+      Tests must cover ordinal/name resolve parity with the board, unknown
+      references, snapshot isolation after rename, and mapping immutability.
+    </p>
+    <h3>Working Definition</h3>
+    <p>
+      The helper is usable when a whole-board pass can resolve nets through one
+      snapshot without mutating the board or the snapshot mappings.
+    </p>
+  </section>
 </body>
 </html>
