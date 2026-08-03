@@ -95,6 +95,14 @@
       state. Consumers should use those fields as hints and should not require
       them for basic geometry rendering.
     </p>
+    <p>
+      Schematic symbol and hierarchical sheet records may set
+      <code>extras.dnp</code> to a truthy value when the source item is marked
+      do-not-populate. That key is an additive IR contract extension: geometry
+      rendering still comes from the record operations (dimmed stroke plus the
+      DNP cross), and consumers that ignore unknown <code>extras</code> keys
+      remain compatible.
+    </p>
   </section>
 
   <section>

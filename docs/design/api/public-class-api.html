@@ -511,7 +511,12 @@
     <h3>Rationale</h3>
     <p>Renderers and design views need per-object grouping around plotter operations.</p>
     <h3>Purpose</h3>
-    <p>Represent one logical plotted object with operation list, object metadata, layers, and bounds.</p>
+    <p>
+      Represent one logical plotted object with operation list, object metadata,
+      layers, and bounds. Schematic DNP symbols and hierarchical sheets may set
+      additive <code>extras["dnp"]</code> so consumers can read do-not-populate
+      state without inspecting marker geometry.
+    </p>
     <h3>Test Requirements</h3>
     <p>Tests must cover record round-trip and preservation of operations and bounds.</p>
     <h3>Working Definition</h3>
