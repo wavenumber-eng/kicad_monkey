@@ -179,7 +179,19 @@ class TestAssemblyInheritsSheetBomAndBoard:
 
         assert inside and outside
         assert all(not by_ref[reference].effective_in_bom for reference in inside)
-        assert all(by_ref[reference].effective_in_bom for reference in outside)
+        # Virtual refs and symbols already marked out of BOM stay False;
+        # only BOM-eligible top-sheet parts must remain True.
+        eligible_outside = {
+            reference
+            for reference in outside
+            if by_ref[reference].symbol is not None
+            and by_ref[reference].symbol.in_bom
+            and not reference.startswith("#")
+        }
+        assert eligible_outside
+        assert all(
+            by_ref[reference].effective_in_bom for reference in eligible_outside
+        )
 
     def test_on_board_no_sheet_clears_effective_on_board(
         self, variants_dir: Path, tmp_path: Path
