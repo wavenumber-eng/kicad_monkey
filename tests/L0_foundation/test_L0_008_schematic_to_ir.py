@@ -2187,6 +2187,56 @@ def test_sheet_record_carries_outline_rect_and_geometry_extras():
     assert rec.extras["size_y_nm"] == mm_to_nm(60.0)
 
 
+def test_sheet_record_dims_and_marks_a_dnp_sheet():
+    """KiCad 9 crosses out a DNP hierarchical sheet, same as a DNP symbol.
+
+    Both come from the same LAYER_DNP_MARKER geometry in SCH_PAINTER, so the
+    marker here has to match the symbol one: two thick segments in the DNP
+    marker colour, over ops that have been dimmed first.
+    """
+    sch = _empty_schematic()
+    sch.sheets = [
+        SchSheet(at_x=100.0, at_y=200.0, size_x=80.0, size_y=60.0, dnp=True)
+    ]
+
+    rec = schematic_to_ir(sch).records[-1]
+    marker_ops = [
+        op for op in rec.operations if op.kind == KiCadPlotterOpKind.THICK_SEGMENT
+    ]
+    outline = rec.operations[0]
+
+    assert rec.extras["dnp"] is True
+    assert len(marker_ops) == 2
+    assert {op.payload["stroke_color"] for op in marker_ops} == {"#DC090DD9"}
+    assert {op.payload["width_nm"] for op in marker_ops} == {457_200}
+    # The cross spans the sheet rectangle corner to corner, overhanging it by
+    # the small margin KiCad derives from the border stroke.
+    xs = sorted(
+        op.payload[key] for op in marker_ops for key in ("start_x", "end_x")
+    )
+    ys = sorted(
+        op.payload[key] for op in marker_ops for key in ("start_y", "end_y")
+    )
+    assert 0 < mm_to_nm(100.0) - xs[0] < mm_to_nm(0.2)
+    assert 0 < xs[-1] - mm_to_nm(180.0) < mm_to_nm(0.2)
+    assert 0 < mm_to_nm(200.0) - ys[0] < mm_to_nm(0.2)
+    assert 0 < ys[-1] - mm_to_nm(260.0) < mm_to_nm(0.2)
+    # The outline is dimmed rather than left at full strength.
+    assert outline.payload["stroke_color"] == "#9C9B99FF"
+
+
+def test_sheet_record_leaves_a_populated_sheet_unmarked():
+    sch = _empty_schematic()
+    sch.sheets = [SchSheet(at_x=100.0, at_y=200.0, size_x=80.0, size_y=60.0)]
+
+    rec = schematic_to_ir(sch).records[-1]
+
+    assert rec.extras["dnp"] is False
+    assert not [
+        op for op in rec.operations if op.kind == KiCadPlotterOpKind.THICK_SEGMENT
+    ]
+
+
 def test_sheet_record_wraps_sheet_pin_ops_in_group():
     sch = _empty_schematic()
     sh = SchSheet(

@@ -4045,11 +4045,35 @@ def _symbol_dnp_marker_ops(
         if _kind_name(op) not in {"Text", "StartBlock", "EndBlock"}
     ]
     pins_bbox = _bbox_union(body_bbox, _bbox_from_ops(pin_graphic_ops))
-    if pins_bbox is None:
-        pins_bbox = body_bbox
 
-    margin_x = max(body_bbox[0] - pins_bbox[0], pins_bbox[2] - body_bbox[2])
-    margin_y = max(body_bbox[1] - pins_bbox[1], pins_bbox[3] - body_bbox[3])
+    return _dnp_marker_ops(body_bbox, pins_bbox)
+
+
+def _dnp_marker_ops(
+    body_bbox: tuple[int, int, int, int] | None,
+    body_and_pins_bbox: tuple[int, int, int, int] | None,
+) -> list[KiCadPlotterOp]:
+    """The two red diagonals KiCad overplots on anything marked DNP.
+
+    Symbols and hierarchical sheets share this geometry verbatim — see the
+    ``LAYER_DNP_MARKER`` blocks in ``SCH_PAINTER::draw( const SCH_SYMBOL* )``
+    and ``SCH_PAINTER::draw( const SCH_SHEET* )``. The margin is taken from how
+    far the pins overhang the body, then squared up; the second assignment
+    reads the margin the first one just wrote, so the order matters.
+    """
+    if body_bbox is None:
+        return []
+    if body_and_pins_bbox is None:
+        body_and_pins_bbox = body_bbox
+
+    margin_x = max(
+        body_bbox[0] - body_and_pins_bbox[0],
+        body_and_pins_bbox[2] - body_bbox[2],
+    )
+    margin_y = max(
+        body_bbox[1] - body_and_pins_bbox[1],
+        body_and_pins_bbox[3] - body_bbox[3],
+    )
     margin_x = max(margin_x * 0.6, margin_y * 0.3)
     margin_y = max(margin_y * 0.6, margin_x * 0.3)
 
@@ -4469,6 +4493,9 @@ def _sheet_record(
     fields (Sheetname / Sheetfile / custom). ``extras`` keeps the
     rectangle metadata so callers can still inspect the sheet box
     without walking the ops.
+
+    A sheet marked ``dnp`` is dimmed and crossed out, exactly as a DNP symbol
+    is — KiCad 9 draws both from the same code.
     """
     extras = {
         "sheet_name": sheet.sheet_name,
@@ -4477,6 +4504,7 @@ def _sheet_record(
         "at_y_nm": mm_to_nm(sheet.at_y),
         "size_x_nm": mm_to_nm(sheet.size_x),
         "size_y_nm": mm_to_nm(sheet.size_y),
+        "dnp": bool(getattr(sheet, "dnp", False)),
     }
 
     operations: List[KiCadPlotterOp] = []
@@ -4538,6 +4566,14 @@ def _sheet_record(
         op = sheet_property_to_op(prop)
         if op is not None:
             operations.append(op)
+
+    if extras["dnp"]:
+        # The sheet's own rectangle is the body; the pins and fields hanging
+        # off it are what the marker takes its margin from.
+        body_bbox = _op_bbox_nm(outline_op)
+        body_and_pins_bbox = _bbox_from_ops(operations)
+        operations = _dnp_dimmed_ops(operations)
+        operations.extend(_dnp_marker_ops(body_bbox, body_and_pins_bbox))
 
     return KiCadPlotterRecord(
         uuid=getattr(sheet, "uuid", "") or "",
