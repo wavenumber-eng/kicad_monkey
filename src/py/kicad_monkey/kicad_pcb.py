@@ -157,6 +157,7 @@ from .kicad_pcb_other import (
     Layer,
     Net,
     NetRef,
+    NetTable,
     OutlineCarrier,
     PadNameGroup,
     PostMachiningProps,
@@ -903,13 +904,22 @@ class KiCadPcb:
             if getattr(net, 'ordinal', None) is not None
         }
 
+    def net_table(self) -> NetTable:
+        """Snapshot the net table for repeated lookups.
+
+        ``resolve_net_ref`` rebuilds this for every reference it is handed,
+        which is the right trade for one lookup and the wrong one for a whole
+        board. Callers walking every pad, track, via and zone should build this
+        once and reuse it; see ``NetTable`` for why it is a snapshot and not a
+        cache kept on the board.
+        """
+        return NetTable.from_name_by_ordinal(self.net_name_by_ordinal())
+
     def resolve_net_ref(self, net_ref: NetRef | None) -> NetRef:
         """Resolve a board-element net reference against the PCB net table when possible."""
         if net_ref is None:
             return NetRef()
-        name_by_ordinal = self.net_name_by_ordinal()
-        ordinal_by_name = {name: ordinal for ordinal, name in name_by_ordinal.items() if name}
-        return net_ref.resolve_name(name_by_ordinal).resolve_ordinal(ordinal_by_name)
+        return net_ref.resolve_against(self.net_table())
 
     def resolve_net_name(self, net_ref: NetRef | None) -> str:
         """Resolve a board-element net name from a NetRef."""

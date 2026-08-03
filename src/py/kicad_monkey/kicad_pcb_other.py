@@ -81,6 +81,43 @@ class Net:
 
 
 @dataclass(frozen=True)
+class NetTable:
+    """A board's net table, arranged for repeated lookup.
+
+    Resolving a single net reference against the board is cheap. Resolving
+    every one of them is not: a board's pads, tracks, arcs, vias and zones all
+    carry a reference, and rebuilding this mapping for each of them turns a
+    whole-board pass into O(elements x nets). On a 1,388-net design that was
+    126 million attribute reads to project 30,000 elements.
+
+    This is a snapshot, deliberately rather than a cache hidden on the board:
+    a board is mutable, and a cache that silently outlived a net rename would
+    trade a speed problem for a correctness one. Build one when about to
+    resolve in bulk, and build a fresh one after changing the net table.
+    """
+
+    name_by_ordinal: Dict[int, str]
+    ordinal_by_name: Dict[str, int]
+
+    @classmethod
+    def from_name_by_ordinal(cls, name_by_ordinal: Dict[int, str]) -> 'NetTable':
+        return cls(
+            name_by_ordinal=name_by_ordinal,
+            ordinal_by_name={
+                name: ordinal
+                for ordinal, name in name_by_ordinal.items()
+                if name
+            },
+        )
+
+    def name_of(self, net_ref: Optional['NetRef']) -> str:
+        """The resolved net name for a reference, or an empty string."""
+        if net_ref is None:
+            return ""
+        return str(net_ref.resolve_against(self).name or "")
+
+
+@dataclass(frozen=True)
 class NetRef:
     """Reference to a net as carried on KiCad board elements."""
 
@@ -140,6 +177,12 @@ class NetRef:
         if self.ordinal is not None:
             return ['net', int(self.ordinal)]
         return ['net', QuotedString(self.name)]
+
+    def resolve_against(self, table: 'NetTable') -> 'NetRef':
+        """Fill in whichever of name/ordinal this reference is missing."""
+        return self.resolve_name(table.name_by_ordinal).resolve_ordinal(
+            table.ordinal_by_name
+        )
 
     def to_inline_net_sexp(self) -> Optional[list]:
         if not self:
