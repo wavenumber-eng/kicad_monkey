@@ -679,3 +679,50 @@ def test_compile_design_netlist_populates_components_and_libparts():
     assert len(nl.libparts) == 1
     assert nl.components[0].reference == "R1"
     assert nl.libparts[0].part == "R"
+
+
+def test_collect_components_inherits_dnp_from_every_ancestor_sheet():
+    """A DNP sheet marks its whole subtree, not just its direct children.
+
+    KiCad resolves DNP across the entire instance path
+    (``SCH_SHEET_PATH::GetDNP``). Checking only the immediate parent left a
+    part two levels down populated, and the parsed ``dnp`` flag disagreed with
+    the ``dnp`` marker property emitted right beside it.
+    """
+    libR = _libsym("Device:R", _pin(0.0, 0.0, number="1"))
+
+    leaf = KiCadSchematic()
+    leaf.uuid = "leaf"
+    leaf.lib_symbols.append(libR)
+    leaf.symbols.append(_placed("Device:R", reference="R3", uuid="r3-uid"))
+
+    mid = KiCadSchematic()
+    mid.uuid = "mid"
+    mid.lib_symbols.append(libR)
+    mid.symbols.append(_placed("Device:R", reference="R2", uuid="r2-uid"))
+    mid.sheets.append(_sheet("leaf.kicad_sch", "leaf", "leafuuid"))
+    mid.sub_schematics["leaf.kicad_sch"] = leaf
+
+    dnp_sheet = _sheet("mid.kicad_sch", "mid", "miduuid")
+    dnp_sheet.dnp = True
+
+    root = KiCadSchematic()
+    root.uuid = "root"
+    root.lib_symbols.append(libR)
+    root.symbols.append(_placed("Device:R", reference="R1", uuid="r1-uid"))
+    root.sheets.append(dnp_sheet)
+    root.sub_schematics["mid.kicad_sch"] = mid
+
+    by_ref = {
+        c.reference: c
+        for c in collect_design_components(compile_design_subgraphs(root))
+    }
+
+    assert by_ref["R1"].dnp is False
+    assert "dnp" not in by_ref["R1"].properties
+    # Directly inside the DNP sheet.
+    assert by_ref["R2"].dnp is True
+    assert "dnp" in by_ref["R2"].properties
+    # Two levels down — the case the immediate-parent check missed.
+    assert by_ref["R3"].dnp is True
+    assert "dnp" in by_ref["R3"].properties

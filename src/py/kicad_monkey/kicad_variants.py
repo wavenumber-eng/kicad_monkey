@@ -559,6 +559,25 @@ def _footprint_dnp(fp: Optional[EffectiveFootprintProperties]) -> bool:
     return bool(fp.dnp) if fp is not None else False
 
 
+def _dnp_sheet_paths(schematic: Optional["KiCadSchematic"]) -> set[str]:
+    """Hierarchical paths whose contents KiCad treats as "do not populate".
+
+    A sheet marked DNP marks everything inside it, all the way down —
+    ``SCH_SHEET_PATH::GetDNP`` walks the entire path, not just the innermost
+    sheet. The walker yields parents before children, so folding the flag
+    forward one entry at a time is enough to reach the leaves.
+    """
+    walk = getattr(schematic, "walk_sheet_paths", None)
+    if not callable(walk):
+        return set()
+
+    dnp: set[str] = set()
+    for sheet_path, sheet, parent_path in walk(include_off_board_sheets=False):
+        if getattr(sheet, "dnp", False) or parent_path in dnp:
+            dnp.add(sheet_path)
+    return dnp
+
+
 def assemble(
     schematic: Optional["KiCadSchematic"],
     pcb: Optional["KiCadPcb"] = None,
@@ -582,6 +601,8 @@ def assemble(
     ``#`` — power symbols, flags) to match KiCad's BOM emit filter.
     """
     sym_by_ref: dict[str, EffectiveSymbolProperties] = {}
+    dnp_sheet_paths = _dnp_sheet_paths(schematic)
+    sheet_dnp_by_ref: dict[str, bool] = {}
     if schematic is not None:
         # Use the hierarchical walker if available — for flat schematics
         # walk_symbols yields the top-level list with prefix == "/<uuid>",
@@ -600,6 +621,7 @@ def assemble(
                 # share a reference; the final unit's resolution is
                 # canonical for assembly purposes).
                 sym_by_ref[eff.reference] = eff
+                sheet_dnp_by_ref[eff.reference] = sheet_path in dnp_sheet_paths
 
     fp_by_ref: dict[str, EffectiveFootprintProperties] = {}
     if pcb is not None:
@@ -614,8 +636,14 @@ def assemble(
     for ref, sym in sym_by_ref.items():
         fp = fp_by_ref.get(ref)
         # KiCad 10 treats either side flagging dnp as authoritative;
-        # likewise for in_bom / on_board (effective AND).
-        eff_dnp = _symbol_dnp(sym) or _footprint_dnp(fp)
+        # likewise for in_bom / on_board (effective AND). A DNP hierarchical
+        # sheet marks everything placed inside it, so the sheet path counts as
+        # a third source.
+        eff_dnp = (
+            _symbol_dnp(sym)
+            or _footprint_dnp(fp)
+            or sheet_dnp_by_ref.get(ref, False)
+        )
         eff_in_bom = (
             bool(sym.in_bom)
             and not _is_virtual_ref(ref)
