@@ -80,6 +80,15 @@
       <a href="../../guides/project-workflows.html">Project Workflows And
       Read-Path Selection</a>.
     </p>
+    <h3>Schematic-Only Design JSON</h3>
+    <p>
+      <code>KiCadDesign.to_json(..., include_pcb=False)</code> omits
+      board-backed sections such as <code>pnp</code> and does not materialize a
+      lazily attached PCB. The same flag is accepted by
+      <code>to_json_text()</code> and <code>save_json()</code>. The default
+      <code>include_pcb=True</code> preserves the historical full-design JSON
+      contract for callers that do not opt in.
+    </p>
     <h3>Schematic SVG Linkage</h3>
     <p>
       Enriched schematic SVG metadata embeds the KiCad design JSON plus

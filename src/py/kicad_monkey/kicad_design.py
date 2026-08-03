@@ -696,20 +696,43 @@ class KiCadDesign:
 
         return kicad_netlist_to_json(self.to_netlist())
 
-    def to_json(self, include_indexes: bool = True) -> dict:
+    def to_json(
+        self,
+        include_indexes: bool = True,
+        *,
+        include_pcb: bool = True,
+    ) -> dict:
         """Render a KiCad-native design JSON payload.
 
         The payload uses KiCad-owned schema IDs and includes project, sheet,
         component, net, variant, and optional index sections.
+
+        When ``include_pcb`` is false, board-backed sections such as ``pnp``
+        are omitted and a lazily attached PCB is not materialized. Default
+        ``True`` preserves the historical full-design JSON contract.
         """
         from .kicad_design_json import kicad_design_to_json
 
-        return kicad_design_to_json(self, include_indexes=include_indexes)
+        return kicad_design_to_json(
+            self,
+            include_indexes=include_indexes,
+            include_pcb=include_pcb,
+        )
 
-    def to_json_text(self, *, include_indexes: bool = True, indent: int = 2) -> str:
-        """Render :meth:`to_json` as formatted JSON text."""
+    def to_json_text(
+        self,
+        *,
+        include_indexes: bool = True,
+        include_pcb: bool = True,
+        indent: int = 2,
+    ) -> str:
+        """Render :meth:`to_json` as formatted JSON text.
+
+        ``include_pcb`` is forwarded to :meth:`to_json` so schematic-only
+        consumers can skip board materialization on the text path as well.
+        """
         return json.dumps(
-            self.to_json(include_indexes=include_indexes),
+            self.to_json(include_indexes=include_indexes, include_pcb=include_pcb),
             indent=indent,
             ensure_ascii=False,
         ) + "\n"
@@ -719,11 +742,20 @@ class KiCadDesign:
         path: Path | str,
         *,
         include_indexes: bool = True,
+        include_pcb: bool = True,
         indent: int = 2,
     ) -> None:
-        """Write :meth:`to_json_text` to disk."""
+        """Write :meth:`to_json_text` to disk.
+
+        ``include_pcb`` is forwarded to :meth:`to_json_text` /
+        :meth:`to_json`.
+        """
         Path(path).write_text(
-            self.to_json_text(include_indexes=include_indexes, indent=indent),
+            self.to_json_text(
+                include_indexes=include_indexes,
+                include_pcb=include_pcb,
+                indent=indent,
+            ),
             encoding="utf-8",
         )
 

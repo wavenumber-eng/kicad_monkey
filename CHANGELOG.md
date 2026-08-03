@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Allow schematic-only design JSON via `KiCadDesign.to_json(..., include_pcb=False)`.
+  The flag is also exposed on `to_json_text()` and `save_json()`. Default
+  `include_pcb=True` keeps the existing full-design JSON contract.
+
 ## 2026.8.1
 
 - Fix zone fill emission: unfilled copper zones now emit a bare `(fill ...)`
