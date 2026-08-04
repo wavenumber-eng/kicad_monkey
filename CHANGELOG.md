@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Dim and cross out DNP hierarchical sheets in schematic Plotter IR, matching
+  KiCad's sheet DNP marker geometry. Records for DNP sheets now also carry an
+  additive `extras["dnp"]` flag so consumers can read the state without walking
+  operations.
+
 ## 2026.8.1
 
 - Fix zone fill emission: unfilled copper zones now emit a bare `(fill ...)`
