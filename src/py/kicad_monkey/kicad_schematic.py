@@ -805,6 +805,36 @@ class KiCadSchematic:
             )
 
     @public_api
+    def walk_sheet_paths(
+        self, _sheet_path: str = "",
+        *,
+        include_off_board_sheets: bool = True,
+    ) -> Iterator[tuple[str, 'SchSheet', str]]:
+        """Yield ``(sheet_path, placement, parent_sheet_path)`` per sheet instance.
+
+        ``sheet_path`` is the prefix every symbol *inside* that sheet gets from
+        :meth:`walk_symbols`, so the two join on it directly. ``placement`` is
+        the :class:`SchSheet` in the parent that brought the sheet in — the
+        thing carrying ``dnp`` / ``in_bom`` / ``on_board``.
+
+        Parents are yielded before their children, so a caller resolving a flag
+        that KiCad inherits down the hierarchy can fold it forward in one pass.
+        """
+        prefix = _sheet_path or ("/" + self.uuid if self.uuid else "")
+        for sheet in self.sheets:
+            if not include_off_board_sheets and not getattr(sheet, "on_board", True):
+                continue
+            child = self.sub_schematics.get(sheet.sheet_file)
+            if child is None:
+                continue
+            child_prefix = prefix + "/" + sheet.uuid if sheet.uuid else prefix
+            yield (child_prefix, sheet, prefix)
+            yield from child.walk_sheet_paths(
+                _sheet_path=child_prefix,
+                include_off_board_sheets=include_off_board_sheets,
+            )
+
+    @public_api
     def walk_sheets(self) -> Iterator[tuple['SchSheet', 'KiCadSchematic']]:
         """Yield ``(sheet, child_schematic)`` for every sheet in the hierarchy.
 

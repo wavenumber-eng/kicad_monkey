@@ -559,6 +559,36 @@ def _footprint_dnp(fp: Optional[EffectiveFootprintProperties]) -> bool:
     return bool(fp.dnp) if fp is not None else False
 
 
+def _sheet_exclusion_paths(
+    schematic: Optional["KiCadSchematic"],
+    attribute: str,
+    *,
+    when: bool,
+) -> set[str]:
+    """Hierarchical paths whose contents inherit a sheet exclusion flag.
+
+    KiCad resolves ``dnp`` / ``in_bom`` / ``on_board`` across the whole instance
+    path (``SCH_SHEET_PATH::GetDNP`` and the matching excluded-from helpers).
+    ``walk_sheet_paths`` yields parents before children, so folding the flag
+    forward one entry at a time reaches the leaves.
+    """
+    if schematic is None:
+        return set()
+
+    excluded: set[str] = set()
+    for sheet_path, sheet, parent_path in schematic.walk_sheet_paths(
+        include_off_board_sheets=True
+    ):
+        if getattr(sheet, attribute, not when) is when or parent_path in excluded:
+            excluded.add(sheet_path)
+    return excluded
+
+
+def _dnp_sheet_paths(schematic: Optional["KiCadSchematic"]) -> set[str]:
+    """Hierarchical paths whose contents KiCad treats as "do not populate"."""
+    return _sheet_exclusion_paths(schematic, "dnp", when=True)
+
+
 def assemble(
     schematic: Optional["KiCadSchematic"],
     pcb: Optional["KiCadPcb"] = None,
@@ -580,14 +610,25 @@ def assemble(
 
     ``effective_in_bom`` excludes virtual refs (anything starting with
     ``#`` — power symbols, flags) to match KiCad's BOM emit filter.
+    Sheet-level ``in_bom`` / ``on_board`` / ``dnp`` exclusions are folded
+    across the whole instance path, matching ``SCH_SHEET_PATH``.
     """
     sym_by_ref: dict[str, EffectiveSymbolProperties] = {}
+    dnp_sheet_paths = _dnp_sheet_paths(schematic)
+    excluded_from_bom_paths = _sheet_exclusion_paths(
+        schematic, "in_bom", when=False
+    )
+    excluded_from_board_paths = _sheet_exclusion_paths(
+        schematic, "on_board", when=False
+    )
+    sheet_dnp_by_ref: dict[str, bool] = {}
+    sheet_exclude_bom_by_ref: dict[str, bool] = {}
+    sheet_exclude_board_by_ref: dict[str, bool] = {}
     if schematic is not None:
-        # Use the hierarchical walker if available — for flat schematics
-        # walk_symbols yields the top-level list with prefix == "/<uuid>",
-        # which resolve_symbol handles correctly.
+        # Walk off-board sheets too so inherited ``on_board`` exclusions can
+        # reach ``effective_on_board`` instead of silently dropping the refs.
         if hasattr(schematic, "walk_symbols"):
-            iterator = schematic.walk_symbols(include_off_board_sheets=False)
+            iterator = schematic.walk_symbols(include_off_board_sheets=True)
         else:
             iterator = (
                 (sym, None, schematic)
@@ -600,6 +641,14 @@ def assemble(
                 # share a reference; the final unit's resolution is
                 # canonical for assembly purposes).
                 sym_by_ref[eff.reference] = eff
+                path = sheet_path or ""
+                sheet_dnp_by_ref[eff.reference] = path in dnp_sheet_paths
+                sheet_exclude_bom_by_ref[eff.reference] = (
+                    path in excluded_from_bom_paths
+                )
+                sheet_exclude_board_by_ref[eff.reference] = (
+                    path in excluded_from_board_paths
+                )
 
     fp_by_ref: dict[str, EffectiveFootprintProperties] = {}
     if pcb is not None:
@@ -614,14 +663,23 @@ def assemble(
     for ref, sym in sym_by_ref.items():
         fp = fp_by_ref.get(ref)
         # KiCad 10 treats either side flagging dnp as authoritative;
-        # likewise for in_bom / on_board (effective AND).
-        eff_dnp = _symbol_dnp(sym) or _footprint_dnp(fp)
+        # likewise for in_bom / on_board (effective AND). Hierarchical sheet
+        # exclusion flags count as an additional source on the whole path.
+        eff_dnp = (
+            _symbol_dnp(sym)
+            or _footprint_dnp(fp)
+            or sheet_dnp_by_ref.get(ref, False)
+        )
         eff_in_bom = (
             bool(sym.in_bom)
+            and not sheet_exclude_bom_by_ref.get(ref, False)
             and not _is_virtual_ref(ref)
             and ((not fp.exclude_from_bom) if fp is not None else True)
         )
-        eff_on_board = bool(sym.on_board)
+        eff_on_board = (
+            bool(sym.on_board)
+            and not sheet_exclude_board_by_ref.get(ref, False)
+        )
         # Pos eligibility: PCB side is authoritative when present
         # (kicad-cli pcb export pos walks the .kicad_pcb only). For
         # symbol-only components there's no pos row anyway, but we

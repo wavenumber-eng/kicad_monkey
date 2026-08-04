@@ -1433,6 +1433,23 @@ def _append_component_property(properties: Dict[str, str], key: str, value: str)
         properties[key] = value or ""
 
 
+def _any_ancestor_sheet(cs: CompiledSheet, attribute: str, *, when: bool) -> bool:
+    """True when any sheet on this instance path has ``attribute == when``.
+
+    KiCad resolves the sheet-level exclusion flags — ``dnp``, ``in_bom``,
+    ``on_board`` — across the whole path, not just the sheet a symbol sits
+    directly inside (``SCH_SHEET_PATH::GetDNP`` and its siblings). A part three
+    levels down inside a DNP sheet is still DNP.
+    """
+    node: Optional[CompiledSheet] = cs
+    while node is not None:
+        sheet = node.parent_sheet
+        if sheet is not None and bool(getattr(sheet, attribute, not when)) == when:
+            return True
+        node = node.parent
+    return False
+
+
 def _component_primary_and_tstamps(
     candidates: List[_ComponentCandidate],
 ) -> Tuple[_ComponentCandidate, List[str]]:
@@ -1634,6 +1651,14 @@ def collect_design_components(
 
             lib, part = _component_libsource(sym)
 
+            # A symbol is DNP if it says so itself or if any sheet it sits
+            # inside does. Both the `dnp` marker property and the comp's own
+            # flag have to agree on that, or downstream consumers see a part
+            # that is DNP in the netlist text but not in the parsed model.
+            symbol_dnp = getattr(sym, "dnp", False) or _any_ancestor_sheet(
+                cs, "dnp", when=True
+            )
+
             description = ""
             if lib_sym is not None:
                 description = getattr(lib_sym, "description", "") or ""
@@ -1661,31 +1686,17 @@ def collect_design_components(
                         Path(str(source_path)).name,
                     )
 
-            if (
-                not getattr(sym, "in_bom", True)
-                or (
-                    cs.parent_sheet is not None
-                    and not getattr(cs.parent_sheet, "in_bom", True)
-                )
+            if not getattr(sym, "in_bom", True) or _any_ancestor_sheet(
+                cs, "in_bom", when=False
             ):
                 _append_component_property(properties, "exclude_from_bom", "")
-            if (
-                not getattr(sym, "on_board", True)
-                or (
-                    cs.parent_sheet is not None
-                    and not getattr(cs.parent_sheet, "on_board", True)
-                )
+            if not getattr(sym, "on_board", True) or _any_ancestor_sheet(
+                cs, "on_board", when=False
             ):
                 _append_component_property(properties, "exclude_from_board", "")
             if not getattr(sym, "in_pos_files", True):
                 _append_component_property(properties, "exclude_from_pos_files", "")
-            if (
-                getattr(sym, "dnp", False)
-                or (
-                    cs.parent_sheet is not None
-                    and getattr(cs.parent_sheet, "dnp", False)
-                )
-            ):
+            if symbol_dnp:
                 _append_component_property(properties, "dnp", "")
 
             if lib_sym is not None:
@@ -1743,7 +1754,7 @@ def collect_design_components(
                 units=_component_units_from_lib_symbol(lib_sym),
                 in_bom=getattr(sym, "in_bom", True),
                 on_board=getattr(sym, "on_board", True),
-                dnp=getattr(sym, "dnp", False),
+                dnp=symbol_dnp,
             )
             unit = _resolve_instance_unit(
                 sym,

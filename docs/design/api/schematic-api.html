@@ -23,6 +23,10 @@
     <p>
       Own the schematic-level OOP model, expose object/property query views,
       and provide stable add, remove, lookup, serialization, and IR entrypoints.
+      Hierarchy helpers include <code>walk_symbols()</code> and
+      <code>walk_sheet_paths()</code>, which yield sheet-path prefixes that join
+      so callers can fold inherited sheet flags such as <code>dnp</code>,
+      <code>in_bom</code>, and <code>on_board</code> across nested instances.
     </p>
     <h3>Construction Model</h3>
     <p>
@@ -36,8 +40,9 @@
     <h3>Test Requirements</h3>
     <p>
       Tests must cover object mutation, property aggregation, read-only query
-      views, symbol lookup behavior, constructor/load behavior, and the public
-      IR entrypoint.
+      views, symbol lookup behavior, constructor/load behavior, the public
+      IR entrypoint, and hierarchical sheet-path walking used for inherited
+      exclusion flags (<code>L1_022</code> / related netlist assembly cases).
     </p>
     <h3>Working Definition</h3>
     <p>

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Resolve hierarchical sheet `dnp`, `in_bom`, and `on_board` exclusions across
+  the whole instance path for netlist properties and
+  `AssemblyComponent.effective_*` flags, matching KiCad's sheet-path walk.
+
 ## 2026.8.1
 
 - Fix zone fill emission: unfilled copper zones now emit a bare `(fill ...)`
