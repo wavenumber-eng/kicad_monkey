@@ -504,8 +504,8 @@
   <section
     data-interface="KiCadPlotterRecord"
     data-rack-stratum="L0_foundation"
-    data-test-file="tests/L0_foundation/test_L0_005_plotter_ir.py"
-    data-test-target="test_record_round_trip_preserves_operations_and_bounds"
+    data-test-file="tests/L0_foundation/test_L0_008_schematic_to_ir.py"
+    data-test-target="test_sheet_record_dims_and_marks_a_dnp_sheet"
   >
     <h2>KiCadPlotterRecord</h2>
     <h3>Rationale</h3>
@@ -518,7 +518,11 @@
       state without inspecting marker geometry.
     </p>
     <h3>Test Requirements</h3>
-    <p>Tests must cover record round-trip and preservation of operations and bounds.</p>
+    <p>
+      Tests must cover record round-trip and preservation of operations and bounds
+      in <code>L0_005</code>, plus schematic DNP sheet dimming/cross geometry and
+      additive <code>extras["dnp"]</code> in <code>L0_008</code>.
+    </p>
     <h3>Working Definition</h3>
     <p>The model is public when object-level SVG groups can be built from IR records.</p>
   </section>
