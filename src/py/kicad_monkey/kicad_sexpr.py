@@ -335,9 +335,9 @@ class SexpToken:
 
     ``line`` and ``column`` may be supplied eagerly (constructor compatibility
     with the historical frozen dataclass) or derived lazily from ``source`` when
-    the high-volume lexer omits per-token location work. ``separator`` remains a
-    public field for round-trip callers even when the single-pass lexer leaves
-    it empty.
+    the high-volume lexer omits per-token location work. ``separator`` still
+    carries the whitespace that preceded the token so callers can reconstruct
+    source spacing without re-scanning the input.
     """
 
     kind: str
@@ -867,6 +867,8 @@ class KicadSexprLexer:
         source = _SexpSource(text)
         quoted_value = self._quoted_value
         number_value = self._number_value
+        separator_text = self._separator_text
+        pending_separator = ""
         pos = 0
 
         while pos < text_len:
@@ -890,9 +892,12 @@ class KicadSexprLexer:
 
                 kind = match.lastgroup
                 if kind == "space":
+                    pending_separator += separator_text(match.group())
                     continue
 
                 token_text = match.group()
+                separator = pending_separator
+                pending_separator = ""
 
                 if kind == "atom":
                     # A comment is only a comment when `#` is the first
@@ -904,6 +909,10 @@ class KicadSexprLexer:
                             text.rfind("\r", 0, start),
                         ) + 1
                         if not text[line_start:start].strip():
+                            # Whole-line comments are skipped, but any
+                            # whitespace already accumulated stays pending so
+                            # the next real token keeps historical spacing.
+                            pending_separator = separator
                             # Leave the newline for the next scan iteration,
                             # matching CR / LF / CRLF whole-line comments.
                             end = start
@@ -917,6 +926,7 @@ class KicadSexprLexer:
                             token_text,
                             token_text,
                             start,
+                            separator=separator,
                             source=source,
                         )
                     )
@@ -929,6 +939,7 @@ class KicadSexprLexer:
                             token_text,
                             token_text,
                             start,
+                            separator=separator,
                             source=source,
                         )
                     )
@@ -941,6 +952,7 @@ class KicadSexprLexer:
                             token_text,
                             token_text,
                             start,
+                            separator=separator,
                             source=source,
                         )
                     )
@@ -953,6 +965,7 @@ class KicadSexprLexer:
                             token_text,
                             quoted_value(token_text),
                             start,
+                            separator=separator,
                             source=source,
                         )
                     )
@@ -965,6 +978,7 @@ class KicadSexprLexer:
                             token_text,
                             number_value(token_text),
                             start,
+                            separator=separator,
                             source=source,
                         )
                     )
@@ -999,6 +1013,12 @@ class KicadSexprLexer:
 
         self.pos = text_len
         return result
+
+    @staticmethod
+    def _separator_text(token_text: str) -> str:
+        if "\r" not in token_text:
+            return token_text
+        return _NEWLINE_RE.sub("\n", token_text)
 
     @staticmethod
     def _quoted_value(token_text: str) -> QuotedString:

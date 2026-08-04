@@ -19,6 +19,7 @@ from kicad_monkey.kicad_sexpr import (
     TOKEN_ATOM,
     TOKEN_LEFT,
     TOKEN_NUMBER,
+    TOKEN_RIGHT,
     TOKEN_STRING,
     build_sexp,
     debug_dump_tokens,
@@ -96,6 +97,36 @@ def test_sexp_token_keeps_frozen_constructor_and_separator() -> None:
     )
     with pytest.raises(FrozenInstanceError):
         token.kind = "string"  # type: ignore[misc]
+
+
+def test_lexer_fills_separators_for_token_round_trip() -> None:
+    """Lexed tokens must keep preceding whitespace for spacing round-trip."""
+    text = "(root  1\n  child)"
+    tokens = lex_sexp(text)
+
+    assert [(t.kind, t.text, t.separator) for t in tokens] == [
+        (TOKEN_LEFT, "(", ""),
+        (TOKEN_ATOM, "root", ""),
+        (TOKEN_NUMBER, "1", "  "),
+        (TOKEN_ATOM, "child", "\n  "),
+        (TOKEN_RIGHT, ")", ""),
+    ]
+    assert "".join(t.separator + t.text for t in tokens) == text
+
+
+def test_lexer_normalizes_crlf_inside_separators() -> None:
+    """CRLF / CR-only runs in whitespace become ``\\n`` in ``separator``."""
+    tokens = lex_sexp("(root\r\n  1\r2)")
+    assert [t.separator for t in tokens] == ["", "", "\n  ", "\n", ""]
+    assert "".join(t.separator + t.text for t in tokens) == "(root\n  1\n2)"
+
+
+def test_lexer_keeps_separators_across_whole_line_comments() -> None:
+    """Skipped whole-line comments must not erase pending whitespace."""
+    tokens = lex_sexp("  # comment\n(root 1)")
+    assert tokens[0].kind == TOKEN_LEFT
+    assert tokens[0].separator == "  \n"
+    assert "".join(t.separator + t.text for t in tokens) == "  \n(root 1)"
 
 
 def test_regex_lexer_preserves_number_and_atom_boundaries() -> None:

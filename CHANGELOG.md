@@ -3,8 +3,9 @@
 ## Unreleased
 
 - Speed up S-expression lexing and ordinary tree construction while preserving
-  frozen ``SexpToken`` constructor/``separator`` compatibility and CR-only
-  whole-line ``#`` comment skipping.
+  frozen ``SexpToken`` constructor compatibility, lexed ``separator`` whitespace
+  for token-level spacing round-trip, and CR-only whole-line ``#`` comment
+  skipping.
 
 ## 2026.8.1
 
