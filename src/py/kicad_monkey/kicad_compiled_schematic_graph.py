@@ -6,14 +6,16 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, cast
 from uuid import UUID
 
 from .kicad_netlist_compiler import (
+    Subgraph,
     _is_power_symbol,
     _resolve_instance_reference,
 )
 from .kicad_netlist_design import (
+    CompiledSheet,
     _build_legacy_instance_lookup,
     _build_legacy_unit_lookup,
     _canonical_instance_path,
@@ -25,12 +27,25 @@ from .kicad_netlist_model import KiCadDriverKind
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .kicad_design import KiCadDesign
+    from .kicad_schematic import KiCadSchematic
 
 
 KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA = "kicad_monkey.compiled_schematic_graph.a0"
 KICAD_COMPILED_SCHEMATIC_GRAPH_TYPE = "sch.compiled_schematic_graph"
 KICAD_COMPILED_SCHEMATIC_GRAPH_IDENTITY_NAMESPACE = "sch.compiled_schematic_graph.a0"
 _IDENTITY_EPOCH_MS = 1_786_060_800_000
+_COLLECTION_NAMES = (
+    "unit_definitions",
+    "page_definitions",
+    "unit_occurrences",
+    "page_occurrences",
+    "hierarchy_occurrences",
+    "component_occurrences",
+    "local_net_occurrences",
+    "terminal_occurrences",
+    "hierarchy_terminal_bindings",
+    "graphical_artifact_links",
+)
 
 
 def _canonical_json(value: object) -> str:
@@ -79,7 +94,9 @@ def _source_path(design: "KiCadDesign", schematic: object) -> str:
     anchor = (
         Path(project_path).resolve().parent
         if project_path is not None
-        else (Path(str(top_source)).resolve().parent if top_source is not None else None)
+        else (
+            Path(str(top_source)).resolve().parent if top_source is not None else None
+        )
     )
     if anchor is not None:
         try:
@@ -104,7 +121,7 @@ def _source_designator(symbol: object) -> str:
     return ""
 
 
-def _local_net_key(page_address: str, subgraph: object) -> str:
+def _local_net_key(page_address: str, subgraph: Subgraph) -> str:
     tokens: list[str] = []
     for driver in getattr(subgraph, "pin_drivers", ()) or ():
         tokens.append(
@@ -127,9 +144,18 @@ def _local_net_key(page_address: str, subgraph: object) -> str:
     return f"{page_address}#local-net:{digest}"
 
 
+def _payload_collection(
+    payload: dict[str, object], name: str
+) -> list[dict[str, object]]:
+    value = payload.get(name)
+    if not isinstance(value, list) or not all(isinstance(row, dict) for row in value):
+        raise ValueError(f"compiled schematic graph {name} must be a list of objects")
+    return cast(list[dict[str, object]], value)
+
+
 @dataclass
 class KiCadCompiledSchematicGraph:
-    """Versioned embedded graph payload with Appz-compatible row cardinalities."""
+    """Versioned embedded graph payload with CAD-neutral row cardinalities."""
 
     unit_definitions: list[dict[str, object]] = field(default_factory=list)
     page_definitions: list[dict[str, object]] = field(default_factory=list)
@@ -147,40 +173,95 @@ class KiCadCompiledSchematicGraph:
             "schema": KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA,
             "type": KICAD_COMPILED_SCHEMATIC_GRAPH_TYPE,
             "identity_namespace": KICAD_COMPILED_SCHEMATIC_GRAPH_IDENTITY_NAMESPACE,
-            **{
-                name: list(getattr(self, name))
-                for name in (
-                    "unit_definitions",
-                    "page_definitions",
-                    "unit_occurrences",
-                    "page_occurrences",
-                    "hierarchy_occurrences",
-                    "component_occurrences",
-                    "local_net_occurrences",
-                    "terminal_occurrences",
-                    "hierarchy_terminal_bindings",
-                    "graphical_artifact_links",
-                )
-            },
+            **{name: list(getattr(self, name)) for name in _COLLECTION_NAMES},
         }
 
     @classmethod
     def from_json(cls, payload: dict[str, object]) -> "KiCadCompiledSchematicGraph":
         validate_compiled_schematic_graph(payload)
-        names = (
-            "unit_definitions",
-            "page_definitions",
-            "unit_occurrences",
-            "page_occurrences",
-            "hierarchy_occurrences",
-            "component_occurrences",
-            "local_net_occurrences",
-            "terminal_occurrences",
-            "hierarchy_terminal_bindings",
-            "graphical_artifact_links",
-        )
         return cls(
-            **{name: [dict(row) for row in payload.get(name, [])] for name in names}
+            **{
+                name: [dict(row) for row in _payload_collection(payload, name)]
+                for name in _COLLECTION_NAMES
+            }
+        )
+
+
+def _append_component_occurrences(
+    *,
+    graph: KiCadCompiledSchematicGraph,
+    compiled_sheet: CompiledSheet,
+    top: "KiCadSchematic",
+    page_occurrence: dict[str, object],
+    source_occurrence_path: str,
+    scope: dict[str, str],
+    legacy_refs: dict[str, str],
+    legacy_units: dict[str, int],
+    component_by_symbol: dict[tuple[str, str], str],
+) -> None:
+    canonical = _canonical_instance_path(top, compiled_sheet.sheet_path)
+    assert compiled_sheet.schematic is not None
+    for symbol in compiled_sheet.schematic.symbols:
+        lib_symbol = compiled_sheet.schematic.get_lib_symbol_for_symbol(symbol)
+        if _is_power_symbol(symbol, lib_symbol):
+            continue
+        physical = _resolve_instance_reference(
+            symbol,
+            compiled_sheet.sheet_path,
+            legacy_refs,
+            canonical,
+        )
+        if not physical or physical.startswith("#"):
+            continue
+        unit_number = _resolve_instance_unit(
+            symbol,
+            compiled_sheet.sheet_path,
+            legacy_unit_lookup=legacy_units,
+            canonical_path=canonical,
+        )
+        symbol_uuid = str(symbol.uuid or "")
+        component_source = _source_identity(
+            **{
+                "sch.source_key.source_uuid": symbol_uuid,
+                "sch.source_key.source_path": source_occurrence_path,
+            }
+        )
+        component = _row(
+            scope,
+            "sch.component_occurrence",
+            {"source": component_source, "unit": unit_number},
+            page_occurrence_ref=page_occurrence["id"],
+            source_designator=_source_designator(symbol),
+            physical_designator=physical,
+            display_designator=physical,
+            unit=max(1, unit_number),
+            body_style=int(symbol.convert or 0),
+            source_identity=component_source,
+        )
+        graph.component_occurrences.append(component)
+        component_by_symbol[(compiled_sheet.sheet_path, symbol_uuid)] = str(
+            component["id"]
+        )
+        if not symbol_uuid:
+            continue
+        graph.graphical_artifact_links.append(
+            _row(
+                scope,
+                "sch.graphical_artifact_link",
+                {
+                    "page": page_occurrence["id"],
+                    "target": component["id"],
+                    "element": symbol_uuid,
+                },
+                page_occurrence_ref=page_occurrence["id"],
+                target_type="sch.component_occurrence",
+                target_ref=component["id"],
+                artifact_key="sch.dwg_scene",
+                element_id=symbol_uuid,
+                source_identity=_source_identity(
+                    **{"sch.source_key.artifact_element": symbol_uuid}
+                ),
+            )
         )
 
 
@@ -287,11 +368,12 @@ def build_compiled_schematic_graph(
         graph.page_occurrences.append(page_occurrence)
         occurrence_rows[id(occurrence)] = (unit_occurrence, page_occurrence)
 
-        if occurrence.parent is not None:
+        sheet_symbol = occurrence.sheet_symbol
+        if occurrence.parent is not None and sheet_symbol is not None:
             parent_unit, parent_page = occurrence_rows[id(occurrence.parent)]
             hierarchy_source = _source_identity(
                 **{
-                    "sch.source_key.source_uuid": occurrence.sheet_symbol.uuid,
+                    "sch.source_key.source_uuid": sheet_symbol.uuid,
                     "sch.source_key.source_path": source_occurrence_path,
                     "sch.source_key.source_record": f"instance-path:{address}",
                 }
@@ -314,83 +396,30 @@ def build_compiled_schematic_graph(
                     {
                         "page": parent_page["id"],
                         "target": hierarchy["id"],
-                        "element": occurrence.sheet_symbol.uuid,
+                        "element": sheet_symbol.uuid,
                     },
                     page_occurrence_ref=parent_page["id"],
                     target_type="sch.hierarchy_occurrence",
                     target_ref=hierarchy["id"],
                     artifact_key="sch.dwg_scene",
-                    element_id=occurrence.sheet_symbol.uuid,
+                    element_id=sheet_symbol.uuid,
                     source_identity=_source_identity(
-                        **{
-                            "sch.source_key.artifact_element": (
-                                occurrence.sheet_symbol.uuid
-                            )
-                        }
+                        **{"sch.source_key.artifact_element": sheet_symbol.uuid}
                     ),
                 )
             )
 
-        canonical = _canonical_instance_path(top, cs.sheet_path)
-        for symbol in getattr(cs.schematic, "symbols", ()) or ():
-            lib_symbol = cs.schematic.get_lib_symbol_for_symbol(symbol)
-            if _is_power_symbol(symbol, lib_symbol):
-                continue
-            physical = _resolve_instance_reference(
-                symbol,
-                cs.sheet_path,
-                legacy_refs,
-                canonical,
-            )
-            if not physical or physical.startswith("#"):
-                continue
-            unit_number = _resolve_instance_unit(
-                symbol,
-                cs.sheet_path,
-                legacy_unit_lookup=legacy_units,
-                canonical_path=canonical,
-            )
-            symbol_uuid = str(getattr(symbol, "uuid", "") or "")
-            component_source = _source_identity(
-                **{
-                    "sch.source_key.source_uuid": symbol_uuid,
-                    "sch.source_key.source_path": source_occurrence_path,
-                }
-            )
-            component = _row(
-                scope,
-                "sch.component_occurrence",
-                {"source": component_source, "unit": unit_number},
-                page_occurrence_ref=page_occurrence["id"],
-                source_designator=_source_designator(symbol),
-                physical_designator=physical,
-                display_designator=physical,
-                unit=max(1, unit_number),
-                body_style=int(getattr(symbol, "convert", 0) or 0),
-                source_identity=component_source,
-            )
-            graph.component_occurrences.append(component)
-            component_by_symbol[(cs.sheet_path, symbol_uuid)] = str(component["id"])
-            if symbol_uuid:
-                graph.graphical_artifact_links.append(
-                    _row(
-                        scope,
-                        "sch.graphical_artifact_link",
-                        {
-                            "page": page_occurrence["id"],
-                            "target": component["id"],
-                            "element": symbol_uuid,
-                        },
-                        page_occurrence_ref=page_occurrence["id"],
-                        target_type="sch.component_occurrence",
-                        target_ref=component["id"],
-                        artifact_key="sch.dwg_scene",
-                        element_id=symbol_uuid,
-                        source_identity=_source_identity(
-                            **{"sch.source_key.artifact_element": symbol_uuid}
-                        ),
-                    )
-                )
+        _append_component_occurrences(
+            graph=graph,
+            compiled_sheet=cs,
+            top=top,
+            page_occurrence=page_occurrence,
+            source_occurrence_path=source_occurrence_path,
+            scope=scope,
+            legacy_refs=legacy_refs,
+            legacy_units=legacy_units,
+            component_by_symbol=component_by_symbol,
+        )
 
         pin_element_counts: dict[str, int] = {}
         for candidate_subgraph in cs.subgraphs:
@@ -601,7 +630,7 @@ def build_compiled_schematic_graph(
 
 def _add_hierarchy_bindings(
     graph: KiCadCompiledSchematicGraph,
-    compiled: Iterable[object],
+    compiled: Iterable[CompiledSheet],
     occurrence_rows: dict[int, tuple[dict[str, object], dict[str, object]]],
     terminal_by_source: dict[tuple[str, str, str], str],
     scope: dict[str, str],
@@ -611,11 +640,13 @@ def _add_hierarchy_bindings(
     }
     for child in compiled:
         occurrence = child.occurrence
-        if occurrence is None or occurrence.parent is None or child.parent is None:
+        parent = child.parent
+        if occurrence is None or occurrence.parent is None or parent is None:
             continue
         child_unit, _child_page = occurrence_rows[id(occurrence)]
         hierarchy = hierarchy_by_child.get(child_unit["id"])
-        if hierarchy is None or occurrence.sheet_symbol is None:
+        sheet_symbol = occurrence.sheet_symbol
+        if hierarchy is None or sheet_symbol is None:
             continue
         child_ports: dict[str, str] = {}
         for subgraph in child.subgraphs:
@@ -630,9 +661,9 @@ def _add_hierarchy_bindings(
                     )
                     if ref:
                         child_ports.setdefault(str(driver.name), ref)
-        for pin in occurrence.sheet_symbol.pins:
+        for pin in sheet_symbol.pins:
             parent_ref = terminal_by_source.get(
-                (child.parent.sheet_path, "sheet_entry", str(pin.uuid or ""))
+                (parent.sheet_path, "sheet_entry", str(pin.uuid or ""))
             )
             child_ref = child_ports.get(str(pin.name))
             if not parent_ref or not child_ref:
@@ -665,12 +696,8 @@ def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
         raise ValueError("unsupported compiled schematic graph schema")
     if payload.get("type") != KICAD_COMPILED_SCHEMATIC_GRAPH_TYPE:
         raise ValueError("invalid compiled schematic graph type")
-    collections = [
-        value
-        for key, value in payload.items()
-        if key.endswith("s") and isinstance(value, list)
-    ]
-    rows = [row for values in collections for row in values if isinstance(row, dict)]
+    collections = [_payload_collection(payload, name) for name in _COLLECTION_NAMES]
+    rows = [row for values in collections for row in values]
     ids = [str(row.get("id", "")) for row in rows]
     if not all(ids) or len(ids) != len(set(ids)):
         raise ValueError(
@@ -695,14 +722,18 @@ def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
                 if missing:
                     raise ValueError(f"unresolved compiled schematic graph refs {key}")
 
-    page_by_id = {str(row["id"]): row for row in payload.get("page_occurrences", [])}
+    page_by_id = {
+        str(row["id"]): row for row in _payload_collection(payload, "page_occurrences")
+    }
     component_by_id = {
-        str(row["id"]): row for row in payload.get("component_occurrences", [])
+        str(row["id"]): row
+        for row in _payload_collection(payload, "component_occurrences")
     }
     local_by_id = {
-        str(row["id"]): row for row in payload.get("local_net_occurrences", [])
+        str(row["id"]): row
+        for row in _payload_collection(payload, "local_net_occurrences")
     }
-    for terminal in payload.get("terminal_occurrences", []):
+    for terminal in _payload_collection(payload, "terminal_occurrences"):
         page_ref = str(terminal.get("page_occurrence_ref", ""))
         if page_ref not in page_by_id:
             raise ValueError("terminal occurrence has invalid page owner")
@@ -718,7 +749,7 @@ def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
                 raise ValueError("terminal and local-net occurrence owners differ")
 
     selectors: dict[tuple[str, str, str], tuple[str, str]] = {}
-    for link in payload.get("graphical_artifact_links", []):
+    for link in _payload_collection(payload, "graphical_artifact_links"):
         selector = (
             str(link.get("page_occurrence_ref", "")),
             str(link.get("artifact_key", "")),

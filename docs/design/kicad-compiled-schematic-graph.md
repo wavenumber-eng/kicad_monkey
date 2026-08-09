@@ -9,8 +9,8 @@ Status: experimental a0 producer contract (2026-08-08).
 - `type`: `sch.compiled_schematic_graph`
 - `identity_namespace`: `sch.compiled_schematic_graph.a0`
 
-The collection names and row `type` tokens intentionally match the Appz
-compiled schematic graph cardinalities: unit and page definitions, unit and
+The collection names and row `type` tokens intentionally match the downstream
+compiled-graph cardinalities: unit and page definitions, unit and
 page occurrences, hierarchy occurrences, component occurrences, local-net
 occurrences, terminal occurrences, scalar hierarchy-terminal bindings, and
 scoped graphical-artifact links.
@@ -31,8 +31,9 @@ identity uses occurrence-scoped source members (pin, label, and drawing source
 IDs), so renaming a displayed net does not change the local connectivity
 identity.
 
-Appz preserves producer graph UUIDs and maps optional Design component, pin, and
-net refs exactly once from `source_identity` selectors. It must not fall back to
+The downstream importer preserves producer graph UUIDs and maps optional Design
+component, pin, and net refs exactly once from `source_identity` selectors. It
+must not fall back to
 designator, displayed net name, bare source UUID, or drawing geometry. A pin
 number may only select a Design pin after its owning component occurrence has
 already resolved by source identity.
@@ -62,5 +63,5 @@ bus and harness member bindings require a later versioned contract.
 Additive fields may be introduced within a0. Removing or reinterpreting fields,
 changing identity inputs, changing collection cardinalities, or adding aggregate
 binding semantics requires a new schema token. Existing `indexes` data remains
-a derived compatibility view during the Appz cutover and is not an independent
+a derived compatibility view during consumer cutover and is not an independent
 connectivity truth.

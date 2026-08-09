@@ -1832,7 +1832,9 @@ def _outline_font_path(
         if fontconfig_path is not None:
             return fontconfig_path
 
-    return _arial_outline_font_path(bool(bold))
+    if allow_substitute:
+        return _arial_outline_font_path(bool(bold))
+    return None
 
 
 @lru_cache(maxsize=64)

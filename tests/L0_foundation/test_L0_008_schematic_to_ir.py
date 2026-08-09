@@ -116,6 +116,28 @@ def _require_outline_font(
     return path
 
 
+def test_outline_font_path_does_not_substitute_when_disabled(monkeypatch):
+    from kicad_monkey import kicad_schematic_to_ir as schematic_ir
+
+    schematic_ir._outline_font_path.cache_clear()
+    monkeypatch.setattr(schematic_ir, "_system_outline_font_paths", lambda: {})
+    monkeypatch.setattr(
+        schematic_ir,
+        "_arial_outline_font_path",
+        lambda _bold: "fallback-arial.ttf",
+    )
+    try:
+        assert (
+            schematic_ir._outline_font_path(
+                "Definitely Missing Exact Face",
+                allow_substitute=False,
+            )
+            is None
+        )
+    finally:
+        schematic_ir._outline_font_path.cache_clear()
+
+
 # ---------------------------------------------------------------------------
 # Paper size
 # ---------------------------------------------------------------------------

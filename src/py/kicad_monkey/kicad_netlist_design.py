@@ -918,6 +918,17 @@ def _merge_materialized_group(
     return merged, merged_graphical, member_sheet_paths
 
 
+def _record_materialized_net_code(
+    compiled: List[CompiledSheet],
+    flat_keys: List[Tuple[int, int]],
+    group: List[int],
+    code: int,
+) -> None:
+    for key in group:
+        sheet_index, subgraph_index = flat_keys[key]
+        compiled[sheet_index].subgraph_net_codes[subgraph_index] = code
+
+
 def _materialise_nets(
     compiled: List[CompiledSheet],
     flat_keys: List[Tuple[int, int]],
@@ -1181,9 +1192,7 @@ def _materialise_nets(
         # power-symbol / PWR_FLAG pins are dropped.
         if not net.terminals:
             continue
-        for k in group:
-            s_i, g_i = flat_keys[k]
-            compiled[s_i].subgraph_net_codes[g_i] = net.code
+        _record_materialized_net_code(compiled, flat_keys, group, net.code)
         nets.append(net)
         code += 1
 
