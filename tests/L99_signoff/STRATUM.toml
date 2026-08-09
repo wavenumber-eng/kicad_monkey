@@ -73,3 +73,18 @@ rack_test_ownership = "Each interface doc references an exercising Rack stratum 
 
 [subtests.approach]
 pytest = "Inspect manifest JSON, design HTML, Rack strata, and test files"
+
+[[subtests]]
+id = "L99_004"
+file = "test_L99_004_webfont_assets.py"
+name = "KiCad Stroke Webfont Asset Signoff"
+description = "Verify the checked-in font package, hashes, metadata, CSS, and demo"
+concerns = ["release", "signoff", "assets.fonts"]
+test_case_type = "audit_meta"
+
+[subtests.objectives]
+bundle = "The authoritative assets/fonts package matches its generator inputs and manifest"
+coverage = "Every published face contains the complete drawable Newstroke cmap"
+
+[subtests.approach]
+pytest = "Run the package checker and inspect the versioned font-package manifest"

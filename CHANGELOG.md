@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Extend the bundled CC0 KiCad Newstroke table through U+2BFF, adding Greek,
+  mathematical, arrow, and technical-symbol coverage without changing the
+  original ASCII glyph strings.
+- Add a deterministic KiCad Stroke webfont package with Light, Regular, Bold,
+  and italic faces in TTF, OTF, WOFF, and WOFF2 formats, plus CSS, a blue
+  phosphor engineering demo, provenance metadata, and package synchronization
+  checks.
+
 ## 2026.8.1
 
 - Fix zone fill emission: unfilled copper zones now emit a bare `(fill ...)`

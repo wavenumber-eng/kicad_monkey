@@ -1,0 +1,47 @@
+@font-face {
+  font-family: 'KiCad Stroke';
+  src: url('kicad-stroke-light.woff2') format('woff2'), url('kicad-stroke-light.woff') format('woff'), url('kicad-stroke-light.ttf') format('truetype'), url('kicad-stroke-light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'KiCad Stroke';
+  src: url('kicad-stroke-light-italic.woff2') format('woff2'), url('kicad-stroke-light-italic.woff') format('woff'), url('kicad-stroke-light-italic.ttf') format('truetype'), url('kicad-stroke-light-italic.otf') format('opentype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'KiCad Stroke';
+  src: url('kicad-stroke.woff2') format('woff2'), url('kicad-stroke.woff') format('woff'), url('kicad-stroke.ttf') format('truetype'), url('kicad-stroke.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'KiCad Stroke';
+  src: url('kicad-stroke-italic.woff2') format('woff2'), url('kicad-stroke-italic.woff') format('woff'), url('kicad-stroke-italic.ttf') format('truetype'), url('kicad-stroke-italic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'KiCad Stroke';
+  src: url('kicad-stroke-bold.woff2') format('woff2'), url('kicad-stroke-bold.woff') format('woff'), url('kicad-stroke-bold.ttf') format('truetype'), url('kicad-stroke-bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'KiCad Stroke';
+  src: url('kicad-stroke-bold-italic.woff2') format('woff2'), url('kicad-stroke-bold-italic.woff') format('woff'), url('kicad-stroke-bold-italic.ttf') format('truetype'), url('kicad-stroke-bold-italic.otf') format('opentype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}

@@ -232,6 +232,25 @@ uv run --extra test python tests/rack.py run L99_signoff
 resolution, API design-doc ownership, Rack test ownership, corpus archive
 hygiene, and the current ruff/pyright ratchet state.
 
+## KiCad Newstroke Webfonts
+
+The authoritative `assets/fonts/` bundle contains the KiCad Stroke family as
+Light, Regular, and Bold faces, each upright and italic, in TTF, OTF, WOFF,
+and WOFF2 formats. The companion CSS and offline demo exercise electronics
+notation, Greek, mathematical symbols, BOM text, and fabrication notes.
+
+Regenerate and verify the complete bundle from the vendored CC0 Newstroke
+table with:
+
+```powershell
+uv run python tools/package_kicad_stroke_webfont_assets.py
+uv run python tools/package_kicad_stroke_webfont_assets.py --check
+```
+
+The checked manifest pins the generator, source table, mark, theme, every font
+file, CSS, and demo. See [KiCad Newstroke Webfont Bundle](docs/design/kicad-stroke-webfont.html)
+for the format and ownership decisions.
+
 The redistributable KiCad corpus is restored locally as
 `tests/corpus/kicad.zip`; the archive itself is ignored and is not tracked with
 Git LFS. CI restores that archive from the public object URL recorded in

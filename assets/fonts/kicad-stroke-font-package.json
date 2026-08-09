@@ -1,0 +1,151 @@
+{
+  "type": "monkey_font_package",
+  "version": 1,
+  "id": "kicad-newstroke",
+  "display_name": "KiCad Newstroke",
+  "family": "KiCad Stroke",
+  "description": "KiCad Newstroke Light, Regular, and Bold faces with upright and KiCad-compatible italic variants.",
+  "source_project": "kicad-monkey",
+  "source_version": "1.0",
+  "license": "CC0-1.0",
+  "provenance": "Generated from the non-CJK CC0 Newstroke range vendored from the KiCad 10.0 branch.",
+  "stylesheet": "kicad-monkey-stroke-fonts.css",
+  "demo": "demo.html",
+  "default_face": "kicad-stroke",
+  "faces": [
+    {
+      "stem": "kicad-stroke-light",
+      "family": "KiCad Stroke",
+      "style": "Light",
+      "weight": 300,
+      "italic": false,
+      "glyph_count": 11191,
+      "formats": [
+        "ttf",
+        "otf",
+        "woff",
+        "woff2"
+      ]
+    },
+    {
+      "stem": "kicad-stroke-light-italic",
+      "family": "KiCad Stroke",
+      "style": "Light Italic",
+      "weight": 300,
+      "italic": true,
+      "glyph_count": 11191,
+      "formats": [
+        "ttf",
+        "otf",
+        "woff",
+        "woff2"
+      ]
+    },
+    {
+      "stem": "kicad-stroke",
+      "family": "KiCad Stroke",
+      "style": "Regular",
+      "weight": 400,
+      "italic": false,
+      "glyph_count": 11191,
+      "formats": [
+        "ttf",
+        "otf",
+        "woff",
+        "woff2"
+      ]
+    },
+    {
+      "stem": "kicad-stroke-italic",
+      "family": "KiCad Stroke",
+      "style": "Italic",
+      "weight": 400,
+      "italic": true,
+      "glyph_count": 11191,
+      "formats": [
+        "ttf",
+        "otf",
+        "woff",
+        "woff2"
+      ]
+    },
+    {
+      "stem": "kicad-stroke-bold",
+      "family": "KiCad Stroke",
+      "style": "Bold",
+      "weight": 700,
+      "italic": false,
+      "glyph_count": 11191,
+      "formats": [
+        "ttf",
+        "otf",
+        "woff",
+        "woff2"
+      ]
+    },
+    {
+      "stem": "kicad-stroke-bold-italic",
+      "family": "KiCad Stroke",
+      "style": "Bold Italic",
+      "weight": 700,
+      "italic": true,
+      "glyph_count": 11191,
+      "formats": [
+        "ttf",
+        "otf",
+        "woff",
+        "woff2"
+      ]
+    }
+  ],
+  "inputs": {
+    "generator": {
+      "path": "tools/generate_kicad_stroke_webfont.py",
+      "sha256": "5e0d6b07ab4de76bdfc077fe4fda6d4be5ed52a3e04f7d46fd7cf82c75181bfa"
+    },
+    "packager": {
+      "path": "tools/package_kicad_stroke_webfont_assets.py",
+      "sha256": "ac89134503d01d8ad56784dbd3ce17e01386cf8706909c223f03ff5553174554"
+    },
+    "newstroke_data": {
+      "path": "src/py/kicad_monkey/kicad_stroke_font_data.json",
+      "sha256": "2b59dc7f63e9fc9e426a37375d8fbceac032622cfcf2e8f107d560e2f4b8fc40"
+    },
+    "monkey_art": {
+      "path": "assets/monkey/kicad-monkey.txt",
+      "sha256": "41a91cde7f6efa7ddc95c2bd3c0349c660bffd11bad82bc5472804dd976dc346"
+    },
+    "theme_css": {
+      "path": "assets/kicad-monkey-theme.css",
+      "sha256": "83f16e39980b1fe44139bc49a7d32390fd784275978b177c0a5a0550fa78017a"
+    }
+  },
+  "files": {
+    "demo.html": "8102e358a6937c38a454e8ea5fe08792cb05766e780fbc85df4ba25b0c003245",
+    "kicad-monkey-stroke-fonts.css": "604b8b9c24b60099bb5c49e65ff732713131247cd15a417800cd9d1e2419f7ac",
+    "kicad-stroke-bold-italic.otf": "5683f2a2e293d028080dd97c6cd1ad6dbb2fda47dbfafe382e065afbacc3fcb4",
+    "kicad-stroke-bold-italic.ttf": "4d2661850b553cf670d4a378c81c1bff2fb7dbd86b87c6753203e0a34b8da718",
+    "kicad-stroke-bold-italic.woff": "ce88b27bc782b42b74d7f8bf1acb97aa966ba2258322efb7bb2d1dfccf505a41",
+    "kicad-stroke-bold-italic.woff2": "5b535b84b24e39e71d95e7f77c84cdd573590964c86f5b5464c55f00630f9e26",
+    "kicad-stroke-bold.otf": "bc94fcb3e9aa194f83cb336a27182088e1b563a3619b521aa40f95cacdce56c3",
+    "kicad-stroke-bold.ttf": "5c9f794a458c4d9fdbe7784e7c333d860ffd7446f40e9a6e460b1b8d0a8bf09b",
+    "kicad-stroke-bold.woff": "78c6dcc48b49c6ea225aaa499a01ff33b56795d48b99436816a45a4cbb307a1b",
+    "kicad-stroke-bold.woff2": "d6503553e6ef0857b401a41830852dfda6def593edb71b4bf701c436f8ef6d07",
+    "kicad-stroke-italic.otf": "1e7afaf9a31535df41a0a6b3a506f4a19a7b1c17198e3a30a946cf02908883c3",
+    "kicad-stroke-italic.ttf": "dac9f88b2f00823cb7ca65182e76daaec9463697798b6fb61b5078c05c6e4439",
+    "kicad-stroke-italic.woff": "5e269bdb863302304bde6744116800213e8f40d6fcb637c0c06965a34811e2b1",
+    "kicad-stroke-italic.woff2": "18b08ab81ff506060ba2e041d805e27270776f84bdb782589fc683cac71f48d5",
+    "kicad-stroke-light-italic.otf": "225ba613046b940b2b5007c789c362184c93cfe8e39d07ecd0bc738e963c3aa3",
+    "kicad-stroke-light-italic.ttf": "8e250be00b066dae575a1edbdc6e00cf62fe44bb9673c3a221d100402b13908d",
+    "kicad-stroke-light-italic.woff": "d836f9ec4386b25ace0a9cbc99cb8f60c0c33322aa34b1e49b856c2d6b001902",
+    "kicad-stroke-light-italic.woff2": "496a6790c45f3f196aedd688525f8799fe8f9229c4851d1bef85d81cd866f99f",
+    "kicad-stroke-light.otf": "4ce3a055bcbe4a8dcea06719fd7a93bf5e10bcfc9d10fbf265581a3f8533cd64",
+    "kicad-stroke-light.ttf": "c864940869f8455b6fc9a48ab801316ed4e8134cbe805f84448c25b6efe3e5e6",
+    "kicad-stroke-light.woff": "d8f11b25ef893be54ad37eed7d47a2831ff5c8bfbee5ad1bbdde16505d867341",
+    "kicad-stroke-light.woff2": "96321e109a666f311c86d46c28a572e3ea793910a656b8e87f2b4f5489219705",
+    "kicad-stroke.otf": "50b34bc22bea0550c5a849269a2513ab7acec9a87cffc4b84da1fb92ad566717",
+    "kicad-stroke.ttf": "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487",
+    "kicad-stroke.woff": "7da46ac5d05d69107dcd150dc536f6e24e9bdca3cf0ba899dfcb2d529f4868b2",
+    "kicad-stroke.woff2": "1bd56e08deddb904f71bf2ed83dc9213661a57970f0f36331fd4f6512e639077"
+  }
+}

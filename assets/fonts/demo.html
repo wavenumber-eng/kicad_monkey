@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="blue">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:,">
+<title>kicad monkey — stroke font demo</title>
+<link rel="stylesheet" href="kicad-monkey-stroke-fonts.css">
+<style>
+:root[data-theme="blue"], [data-theme="blue"] {
+  --mk-accent: #0aadff;
+  --mk-accent-bright: #7bd3ff;
+  --mk-accent-dim: #066494;
+  --mk-bg: #02050a;
+  --mk-border: #04496b;
+  --mk-error: #ff5a65;
+  --mk-glow: 0 0 18px rgb(10 173 255 / 0.32);
+  --mk-grid: #033752;
+  --mk-input: #030810;
+  --mk-panel: #040b13;
+  --mk-panel-raised: #071322;
+  --mk-selection: #d5efff;
+  --mk-success: #70ff86;
+  --mk-text: #c9edff;
+  --mk-text-dim: #72aeca;
+  --mk-warning: #ffc857;
+}
+  body {
+    margin: 0;
+    padding: 2.5em 1.5em 4em;
+    background: var(--mk-bg);
+    color: var(--mk-text);
+    font-family: 'KiCad Stroke', 'Consolas', monospace;
+    font-size: 12pt;
+  }
+  main { max-width: 62em; margin: 0 auto; }
+  header.mark { text-align: center; margin-bottom: 2.5em; }
+  .monkey-art {
+    display: inline-block;
+    margin: 0 auto;
+    font-family: 'Cascadia Mono', 'Consolas', monospace;
+    font-size: 10pt;
+    line-height: 1.05;
+    color: var(--mk-accent);
+    text-shadow: var(--mk-glow);
+    text-align: left;
+    font-style: normal;
+  }
+  h1 {
+    margin: 0.4em 0 0.1em;
+    font-size: 26pt;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--mk-accent);
+    text-shadow: var(--mk-glow);
+  }
+  .tagline { margin: 0; color: var(--mk-text-dim); }
+  h2 {
+    font-size: 14pt;
+    font-weight: 700;
+    color: var(--mk-accent-bright);
+    text-shadow: var(--mk-glow);
+    border-bottom: 1px solid var(--mk-border);
+    padding-bottom: 0.25em;
+    margin: 2em 0 0.8em;
+  }
+  section.panel {
+    background: var(--mk-panel);
+    border: 1px solid var(--mk-border);
+    padding: 0.4em 1.4em 1.2em;
+    margin-bottom: 1.6em;
+    overflow-x: auto;
+  }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { padding: 0.3em 0.9em 0.3em 0; vertical-align: top; }
+  th {
+    text-align: left;
+    color: var(--mk-text-dim);
+    font-weight: 700;
+    border-bottom: 1px solid var(--mk-grid);
+  }
+  .eq-name { color: var(--mk-text-dim); white-space: nowrap; width: 12em; }
+  .eq-formula { color: var(--mk-accent-bright); }
+  .eq-formula .eq-lhs { display: inline-block; min-width: 11em; }
+  .eq-formula .eq-law { color: var(--mk-text-dim); font-weight: 300; }
+  .bom-ref { color: var(--mk-accent); white-space: nowrap; }
+  .bom-mpn { color: var(--mk-accent-bright); white-space: nowrap; }
+  .specimen { margin: 0.35em 0; }
+  .specimen.light { font-weight: 300; }
+  .specimen.bold { font-weight: 700; }
+  .specimen .label {
+    display: inline-block;
+    width: 9em;
+    color: var(--mk-text-dim);
+    font-weight: 400;
+  }
+  table.weights td { white-space: nowrap; }
+  table.weights td.label { display: table-cell; }
+  ol.fab-notes { margin: 0.6em 0 0; padding-left: 2.4em; }
+  ol.fab-notes li { margin: 0.4em 0; }
+  input.style-tab { display: none; }
+  nav.tabs {
+    max-width: 62em;
+    margin: 0 auto 1.6em;
+    display: flex;
+    justify-content: center;
+    gap: 0.6em;
+    font-family: 'Consolas', monospace;
+  }
+  nav.tabs label {
+    padding: 0.35em 1.3em;
+    border: 1px solid var(--mk-border);
+    background: var(--mk-panel);
+    color: var(--mk-text-dim);
+    cursor: pointer;
+  }
+  #tab-regular:checked ~ nav.tabs label[for="tab-regular"],
+  #tab-italic:checked ~ nav.tabs label[for="tab-italic"] {
+    color: var(--mk-accent);
+    border-color: var(--mk-accent);
+    text-shadow: var(--mk-glow);
+  }
+  #tab-italic:checked ~ main { font-style: italic; }
+  .ratio-light::after { content: "size/12"; }
+  .ratio-regular::after { content: "size/8"; }
+  .ratio-bold::after { content: "size/5"; }
+</style>
+</head>
+<body>
+<input type="radio" name="style-tab" id="tab-regular" class="style-tab" checked>
+<input type="radio" name="style-tab" id="tab-italic" class="style-tab">
+<nav class="tabs">
+<label for="tab-regular">Regular</label>
+<label for="tab-italic">Italic</label>
+</nav>
+<main>
+<header class="mark">
+<pre class="monkey-art" role="img" aria-label="kicad monkey logo">          ▓▓▓▓▓▓▓▓▓▓
+        ▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+      ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+    ▓▓▓▓░░░░░░▓▓░░░░░░▓▓▓▓
+░░░░▓▓░░░░░░░░░░░░░░░░░░▓▓░░░░
+░░░░▓▓░░████░░░░░░████░░▓▓░░░░
+  ░░▓▓░░██  ░░░░░░██  ░░▓▓░░
+    ▓▓░░░░░░░░░░░░░░░░░░▓▓
+      ▓▓░░░░░░░░░░░░░░▓▓
+        ▓▓▓▓░░░░░░▓▓▓▓
+   ▒░       ▓▓▓▓▓▓
+  ▓▓      ▓▓▓▓▓▓▓▓▓▓
+  ▓▓▓▓    ▓▓▓▓▓▓▓▓▓▓
+    ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+        ▓▓▓▓░░▓▓░░▓▓▓▓</pre>
+<h1>kicad monkey</h1>
+<p class="tagline">kicad newstroke · modern webfont</p>
+</header>
+<section class="panel">
+<h2>ELECTRONICS REFERENCE</h2>
+<table>
+      <tr><td class="eq-name">Ohm's law</td><td class="eq-formula">V = I×R</td></tr>
+      <tr><td class="eq-name">Power</td><td class="eq-formula">P = V×I = I²R = V²/R</td></tr>
+      <tr><td class="eq-name">Capacitance</td><td class="eq-formula">Q = C×V<br>i = C ∂v/∂t</td></tr>
+      <tr><td class="eq-name">Inductance</td><td class="eq-formula">v = L ∂i/∂t<br>E = LI²/2</td></tr>
+      <tr><td class="eq-name">Reactance</td><td class="eq-formula">XC = 1/(2πfC)<br>XL = 2πfL</td></tr>
+      <tr><td class="eq-name">Resonance</td><td class="eq-formula">f₀ = 1/(2π√(LC))</td></tr>
+      <tr><td class="eq-name">Time constant</td><td class="eq-formula">τ = RC<br>τ = L/R</td></tr>
+      <tr><td class="eq-name">Angular frequency</td><td class="eq-formula">ω = 2πf</td></tr>
+      <tr><td class="eq-name">Wavelength</td><td class="eq-formula">λ = c/f<br>k = 2π/λ</td></tr>
+      <tr><td class="eq-name">Impedance</td><td class="eq-formula">Z² = R² + (XL - XC)²</td></tr>
+      <tr><td class="eq-name">Thermal rise</td><td class="eq-formula">ΔT = P × Rth</td></tr>
+</table>
+</section>
+<section class="panel">
+<h2>FIELD EQUATIONS</h2>
+<table>
+      <tr><td class="eq-name">Acoustic wave</td><td class="eq-formula">∇²p = (1/c²) ∂²p/∂t²</td></tr>
+      <tr><td class="eq-name">Maxwell's equations</td><td class="eq-formula"><span class="eq-lhs">∇·D = ρ</span><span class="eq-law">(Gauss's Law)</span><br><span class="eq-lhs">∇·B = 0</span><span class="eq-law">(Gauss's Law for Magnetism)</span><br><span class="eq-lhs">∇×E = -∂B/∂t</span><span class="eq-law">(Faraday's Law)</span><br><span class="eq-lhs">∇×H = J + ∂D/∂t</span><span class="eq-law">(Ampère-Maxwell Law)</span></td></tr>
+      <tr><td class="eq-name">Telegrapher</td><td class="eq-formula">∂V/∂x = -L ∂I/∂t - R·I<br>∂I/∂x = -C ∂V/∂t - G·V</td></tr>
+      <tr><td class="eq-name">Diffusion</td><td class="eq-formula">∂T/∂t = k∇²T</td></tr>
+      <tr><td class="eq-name">Navier-Stokes</td><td class="eq-formula">ρ(∂v/∂t + v·∇v) = -∇p + µ∇²v</td></tr>
+      <tr><td class="eq-name">Einstein's field equations</td><td class="eq-formula">Gμν + Λgμν = (8πG/c⁴)Tμν</td></tr>
+</table>
+</section>
+<section class="panel">
+<h2>BILL OF MATERIALS</h2>
+<table>
+      <tr><th>Ref</th><th>Part number</th><th>Description</th></tr>
+      <tr><td class="bom-ref">R1</td><td class="bom-mpn">RC0603FR-0710KL</td><td>RES 10.0kΩ ±1% 100mW 0603</td></tr>
+      <tr><td class="bom-ref">R2</td><td class="bom-mpn">ERJ-3EKF4992V</td><td>RES 49.9kΩ ±1% 100mW 0603</td></tr>
+      <tr><td class="bom-ref">R3</td><td class="bom-mpn">WSL2512R0100FEA</td><td>RES SHUNT 10mΩ ±1% 1W 2512</td></tr>
+      <tr><td class="bom-ref">C1</td><td class="bom-mpn">GRM188R71C104KA01D</td><td>CAP CER 0.1µF 16V X7R 0603</td></tr>
+      <tr><td class="bom-ref">C2</td><td class="bom-mpn">C0805C475K8PACTU</td><td>CAP CER 4.7µF 10V X5R 0805</td></tr>
+      <tr><td class="bom-ref">C3</td><td class="bom-mpn">UWT1V101MCL1GB</td><td>CAP ALUM 100µF 35V ±20% SMD</td></tr>
+      <tr><td class="bom-ref">L1</td><td class="bom-mpn">LQW18AN10NJ00D</td><td>IND 10nH ±5% Q=27 @ 250MHz 0603</td></tr>
+      <tr><td class="bom-ref">L2</td><td class="bom-mpn">SRP6540-4R7M</td><td>IND PWR 4.7µH ±20% 8.5A SHIELDED</td></tr>
+      <tr><td class="bom-ref">FB1</td><td class="bom-mpn">BLM18AG601SN1D</td><td>FERRITE 600Ω @ 100MHz 500mA 0603</td></tr>
+      <tr><td class="bom-ref">Y1</td><td class="bom-mpn">ABM8-8.000MHZ-B2-T</td><td>XTAL 8.000MHz ±20ppm 18pF SMD</td></tr>
+      <tr><td class="bom-ref">D1</td><td class="bom-mpn">SS34-E3/57T</td><td>DIODE SCHOTTKY 40V 3A DO-214AB</td></tr>
+      <tr><td class="bom-ref">U1</td><td class="bom-mpn">LMR33630ADDAR</td><td>BUCK REG 3.6-36V 3A 400kHz SO-8</td></tr>
+</table>
+</section>
+<section class="panel">
+<h2>FABRICATION NOTES</h2>
+<ol class="fab-notes">
+      <li>OVERALL PCB DIMENSIONS: 47.0mm × 12.0mm. BOARD OUTLINE DEFINED ON LAYER Edge.Cuts. ALL ROUTED DIMENSIONS ±0.2mm UNLESS NOTED AS CRITICAL.</li>
+      <li>BOARD THICKNESS: 1.6mm ±10%, 4-LAYER STACKUP, SINGLE LAMINATION.</li>
+      <li>LAMINATE: FR-4 PER IPC-4101/126, TG ≥ 170°C, TD ≥ 340°C.</li>
+      <li>COPPER WEIGHT: 1 OZ/FT² (35µm) OUTER LAYERS, 0.5 OZ/FT² (17µm) INNER LAYERS.</li>
+      <li>SURFACE FINISH: ENIG PER IPC-4552, 2-4 µIN (0.05-0.10 µm) AU OVER 120-240 µIN (3-6 µm) NI.</li>
+      <li>MINIMUM DRILL SIZE: 0.25mm (10 MIL). MINIMUM TRACE/SPACE: 0.127mm (5 MIL).</li>
+      <li>CONTROLLED IMPEDANCE: 50Ω ±10% SINGLE-ENDED, 90Ω ±10% DIFFERENTIAL, REFERENCED TO L2.</li>
+      <li>SOLDER MASK: BLACK LPI BOTH SIDES PER IPC-SM-840 CLASS T.</li>
+      <li>SILKSCREEN: WHITE LPI INK, COMPONENT SIDE ONLY.</li>
+      <li>NC DRILL FILE PROVIDED WITH .TXT EXTENSION.</li>
+      <li>MOUSEBITES PERMITTED ON SHORT EDGES ONLY. LONG EDGES SHALL BE FREE OF PROTRUSIONS. FAB MAY USE ROUTING OR V-SCORE.</li>
+      <li>PCB SHALL BE 100% ELECTRICALLY TESTED PER IPC-9252.</li>
+</ol>
+</section>
+<section class="panel">
+<h2>GREEK AND SYMBOLS</h2>
+<div class="specimen"><span class="label">Capitals</span>Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω</div>
+<div class="specimen"><span class="label">Lowercase</span>α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ ς σ τ υ φ χ ψ ω</div>
+<div class="specimen"><span class="label">Symbols</span>° ± ² ³ ⁴ ₀ ₁ ₂ × ÷ · µ Ω ∂ ∆ ∇ √ ∑ ∫ ∞ ≈ ≠ ≤ ≥ ← → ↑ ↓ • Å ⏚</div>
+</section>
+<section class="panel">
+<h2>WEIGHTS</h2>
+<table class="weights">
+      <tr class="specimen light"><td class="label">Light <span class="ratio-light"></span></td><td>R7 4.7kΩ ±1%</td><td>C2 0.1µF 25V</td><td>L1 10µH</td></tr>
+      <tr class="specimen regular"><td class="label">Regular <span class="ratio-regular"></span></td><td>R7 4.7kΩ ±1%</td><td>C2 0.1µF 25V</td><td>L1 10µH</td></tr>
+      <tr class="specimen bold"><td class="label">Bold <span class="ratio-bold"></span></td><td>R7 4.7kΩ ±1%</td><td>C2 0.1µF 25V</td><td>L1 10µH</td></tr>
+</table>
+</section>
+</main>
+</body>
+</html>

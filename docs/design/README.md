@@ -19,6 +19,8 @@ sections live under `api/`, and all design HTML uses `styles.css`.
 
 Current design notes:
 
+- `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
+  contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path
   guidance for choosing full model, projection, targeted reader, project, IR,
   and SVG APIs.

@@ -1,0 +1,24 @@
+{
+  "type": "monkey_theme",
+  "version": 1,
+  "id": "blue",
+  "display_name": "Blue Phosphor",
+  "tokens": {
+    "--mk-bg": "#02050a",
+    "--mk-panel": "#040b13",
+    "--mk-panel-raised": "#071322",
+    "--mk-input": "#030810",
+    "--mk-border": "#04496b",
+    "--mk-accent": "#0aadff",
+    "--mk-accent-bright": "#7bd3ff",
+    "--mk-accent-dim": "#066494",
+    "--mk-text": "#c9edff",
+    "--mk-text-dim": "#72aeca",
+    "--mk-success": "#70ff86",
+    "--mk-warning": "#ffc857",
+    "--mk-error": "#ff5a65",
+    "--mk-grid": "#033752",
+    "--mk-selection": "#d5efff",
+    "--mk-glow": "0 0 18px rgb(10 173 255 / 0.32)"
+  }
+}
