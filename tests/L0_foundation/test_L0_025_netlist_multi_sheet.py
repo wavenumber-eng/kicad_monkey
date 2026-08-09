@@ -41,6 +41,7 @@ from kicad_monkey.kicad_sch_sheet import SchSheet, SchSheetPin, SchSheetProperty
 from kicad_monkey.kicad_sch_symbol import SchSymbol
 from kicad_monkey.kicad_sch_wire import SchBusAlias, SchWire
 from kicad_monkey.kicad_schematic import KiCadSchematic
+from kicad_monkey.kicad_schematic_occurrence import walk_schematic_occurrences
 from kicad_monkey.kicad_sym_pin import SymPin
 from kicad_monkey.kicad_sym_property import SymProperty
 
@@ -546,3 +547,51 @@ def test_merge_design_nets_is_a_pure_function():
     assert any(
         {t.designator for t in n.terminals} >= {"R1", "R2"} for n in nets
     )
+
+
+def test_occurrence_walker_is_parent_first_and_folds_ancestor_policy():
+    leaf = KiCadSchematic()
+    leaf.uuid = "leaf-source"
+
+    mid = KiCadSchematic()
+    mid.uuid = "mid-source"
+    leaf_sheet = _sheet("leaf.kicad_sch", "LEAF", "leaf-placement")
+    leaf_sheet.on_board = False
+    mid.sheets.append(leaf_sheet)
+    mid.sub_schematics["leaf.kicad_sch"] = leaf
+
+    root = KiCadSchematic()
+    root.uuid = "root-source"
+    mid_sheet = _sheet("mid.kicad_sch", "MID", "mid-placement")
+    mid_sheet.dnp = True
+    mid_sheet.in_bom = False
+    mid_sheet.exclude_from_sim = True
+    root.sheets.append(mid_sheet)
+    root.sub_schematics["mid.kicad_sch"] = mid
+
+    occurrences = list(walk_schematic_occurrences(root))
+
+    assert [item.sheet_path for item in occurrences] == ["/", "/MID/", "/MID/LEAF/"]
+    assert occurrences[1].parent is occurrences[0]
+    assert occurrences[2].parent is occurrences[1]
+    assert occurrences[2].occurrence_address == (
+        "/root-source/mid-placement/leaf-placement"
+    )
+    assert occurrences[2].effective_dnp is True
+    assert occurrences[2].effective_in_bom is False
+    assert occurrences[2].effective_on_board is False
+    assert occurrences[2].effective_exclude_from_sim is True
+    assert occurrences[2].raw_dnp is False
+    assert occurrences[2].raw_in_bom is True
+
+
+def test_occurrence_walker_can_filter_effectively_off_board_subtrees():
+    root, child = _two_level_hierarchy_with_sheet_pin()
+    root.sheets[0].on_board = False
+    grandchild = KiCadSchematic()
+    child.sheets.append(_sheet("grand.kicad_sch", "grand", "grand-placement"))
+    child.sub_schematics["grand.kicad_sch"] = grandchild
+
+    assert len(list(walk_schematic_occurrences(root))) == 3
+    assert len(list(walk_schematic_occurrences(root, include_off_board=False))) == 1
+    assert len(compile_design_subgraphs(root)) == 1

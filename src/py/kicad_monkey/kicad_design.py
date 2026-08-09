@@ -30,6 +30,7 @@ from .kicad_project import (
     KiCadProject,
     find_adjacent_kicad_project_path,
 )
+from .kicad_schematic_occurrence import walk_schematic_occurrences
 
 if TYPE_CHECKING:
     from .kicad_netlist_model import KiCadNet, KiCadNetlist, KiCadNetlistComponent
@@ -80,12 +81,6 @@ def _join_sheet_path(parent: str, child: str) -> str:
     parent = _normalize_sheet_path(parent) or "/"
     child = str(child or "").strip("/")
     return parent if not child else f"{parent}{child}/"
-
-
-def _sheet_instance_path(parent: str | None, sheet_uuid: str) -> str | None:
-    if not parent or not sheet_uuid:
-        return None
-    return _join_sheet_path(parent, sheet_uuid).rstrip("/")
 
 
 def _page_number_from_instances(
@@ -321,99 +316,43 @@ class KiCadDesign:
             return []
 
         instances: list[KiCadSchematicInstance] = []
-        top_source = _schematic_source_path(top)
-        top_name = top_source.stem if top_source is not None else "root"
-        top_instance_path = (
-            f"/{top.uuid}" if str(getattr(top, "uuid", "") or "") else None
-        )
-        top_sheet_number = (
-            _page_number_from_instances(
-                getattr(top, "sheet_instances", ()),
-                top_instance_path,
+        for occurrence in walk_schematic_occurrences(top):
+            sheet = occurrence.sheet_symbol
+            page_instances = (
+                getattr(top, "sheet_instances", ())
+                if sheet is None
+                else getattr(sheet, "instances", ())
             )
-            or 1
-        )
-        instances.append(
-            KiCadSchematicInstance(
-                instance_index=1,
-                sheet_number=top_sheet_number,
-                sheet_count=0,
-                schematic=top,
-                source_path=top_source,
-                sheet_name=top_name,
-                sheet_path="/",
-                sheet_path_uuids="/",
-                sheet_instance_path=top_instance_path,
-                sheet_symbol=None,
-                sheet_symbol_uid="",
-                sheet_file="",
-                parent_sheet_path=None,
-                parent_sheet_path_uuids=None,
-                parent_sheet_instance_path=None,
-                is_top_level=True,
-            )
-        )
-
-        def walk(
-            parent: "KiCadSchematic",
-            *,
-            parent_sheet_path: str,
-            parent_sheet_path_uuids: str,
-            parent_instance_path: str | None,
-        ) -> None:
-            for sheet in getattr(parent, "sheets", ()) or ():
-                child = getattr(parent, "sub_schematics", {}).get(sheet.sheet_file)
-                if child is None:
-                    continue
-
-                sheet_name = sheet.sheet_name or Path(sheet.sheet_file).stem
-                child_sheet_path = _join_sheet_path(parent_sheet_path, sheet_name)
-                child_uuid_path = _join_sheet_path(
-                    parent_sheet_path_uuids,
-                    sheet.uuid or sheet.sheet_file,
-                )
-                child_instance_path = _sheet_instance_path(
-                    parent_instance_path,
-                    getattr(sheet, "uuid", "") or "",
-                )
-                instances.append(
-                    KiCadSchematicInstance(
-                        instance_index=len(instances) + 1,
-                        sheet_number=_page_number_from_instances(
-                            getattr(sheet, "instances", ()),
-                            child_instance_path,
-                        )
-                        or len(instances)
-                        + 1,
-                        sheet_count=0,
-                        schematic=child,
-                        source_path=_schematic_source_path(child),
-                        sheet_name=sheet_name,
-                        sheet_path=child_sheet_path,
-                        sheet_path_uuids=child_uuid_path,
-                        sheet_instance_path=child_instance_path,
-                        sheet_symbol=sheet,
-                        sheet_symbol_uid=sheet.uuid or "",
-                        sheet_file=sheet.sheet_file,
-                        parent_sheet_path=parent_sheet_path,
-                        parent_sheet_path_uuids=parent_sheet_path_uuids,
-                        parent_sheet_instance_path=parent_instance_path,
-                        is_top_level=False,
+            parent = occurrence.parent
+            source_path = _schematic_source_path(occurrence.schematic)
+            instances.append(
+                KiCadSchematicInstance(
+                    instance_index=occurrence.index,
+                    sheet_number=_page_number_from_instances(
+                        page_instances,
+                        occurrence.sheet_instance_path,
                     )
+                    or occurrence.index,
+                    sheet_count=0,
+                    schematic=occurrence.schematic,
+                    source_path=source_path,
+                    sheet_name=occurrence.sheet_name,
+                    sheet_path=occurrence.sheet_path,
+                    sheet_path_uuids=occurrence.sheet_path_uuids,
+                    sheet_instance_path=occurrence.sheet_instance_path,
+                    sheet_symbol=sheet,
+                    sheet_symbol_uid=(sheet.uuid or "") if sheet is not None else "",
+                    sheet_file=occurrence.sheet_file,
+                    parent_sheet_path=parent.sheet_path if parent is not None else None,
+                    parent_sheet_path_uuids=(
+                        parent.sheet_path_uuids if parent is not None else None
+                    ),
+                    parent_sheet_instance_path=(
+                        parent.sheet_instance_path if parent is not None else None
+                    ),
+                    is_top_level=sheet is None,
                 )
-                walk(
-                    child,
-                    parent_sheet_path=child_sheet_path,
-                    parent_sheet_path_uuids=child_uuid_path,
-                    parent_instance_path=child_instance_path,
-                )
-
-        walk(
-            top,
-            parent_sheet_path="/",
-            parent_sheet_path_uuids="/",
-            parent_instance_path=top_instance_path,
-        )
+            )
 
         sheet_count = len(instances)
         return [

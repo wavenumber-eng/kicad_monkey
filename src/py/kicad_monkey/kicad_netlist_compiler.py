@@ -168,7 +168,9 @@ def _power_pin_endpoint(
     )
 
 
-def _append_unique_endpoint(net: KiCadNet, endpoint: Optional[KiCadNetEndpoint]) -> None:
+def _append_unique_endpoint(
+    net: KiCadNet, endpoint: Optional[KiCadNetEndpoint]
+) -> None:
     if endpoint is None or not endpoint.endpoint_id:
         return
     key = (endpoint.endpoint_id, endpoint.role, endpoint.source_sheet)
@@ -320,15 +322,23 @@ def _resolve_driver(sg: Subgraph) -> None:
     candidate seen wins. This matches the C++ ``std::stable_sort`` +
     priority compare.
     """
-    candidates: List[Tuple[
-        KiCadDriverPriority, int, str, KiCadDriverKind, str, int, str,
-    ]] = []
+    candidates: List[
+        Tuple[
+            KiCadDriverPriority,
+            int,
+            str,
+            KiCadDriverKind,
+            str,
+            int,
+            str,
+        ]
+    ] = []
 
     # Label-style drivers
     for idx, ld in enumerate(sg.label_drivers):
-        candidates.append((
-            ld.priority, 0, ld.name, ld.kind, ld.name, idx, ld.sheet_path
-        ))
+        candidates.append(
+            (ld.priority, 0, ld.name, ld.kind, ld.name, idx, ld.sheet_path)
+        )
 
     # Pin-style drivers — only contribute if no higher-priority label
     # exists (priority comparison handles this naturally).
@@ -337,10 +347,17 @@ def _resolve_driver(sg: Subgraph) -> None:
         # Power symbols pull their net name from the symbol value, not the pin number.
         display = pd.power_value if pd.is_power and pd.power_value else pd.name
         implicit_rank = 1 if pd.is_implicit_hidden_power else 0
-        candidates.append((
-            pd.priority, implicit_rank, display, _pin_kind(pd.priority),
-            display, pin_offset + idx, "",
-        ))
+        candidates.append(
+            (
+                pd.priority,
+                implicit_rank,
+                display,
+                _pin_kind(pd.priority),
+                display,
+                pin_offset + idx,
+                "",
+            )
+        )
 
     if not candidates:
         sg.chosen_priority = KiCadDriverPriority.NONE
@@ -452,13 +469,10 @@ def name_net(sg: Subgraph, sheet_path: str = "/") -> Tuple[str, bool]:
             single_pin is not None
             and int(getattr(single_pin, "parent_pin_count", 0) or 0) == 1
         )
-        weak_isolated = (
-            is_isolated
-            and (
-                single_pin_type in ("passive", "unspecified")
-                or "no_connect" in single_pin_type
-                or isolated_one_pin_symbol
-            )
+        weak_isolated = is_isolated and (
+            single_pin_type in ("passive", "unspecified")
+            or "no_connect" in single_pin_type
+            or isolated_one_pin_symbol
         )
         # ``sg.no_connect`` flags subgraph-level NC markers. Explicit
         # NC pins, weak isolated pins, and isolated one-pin symbols flip
@@ -514,9 +528,25 @@ def name_net(sg: Subgraph, sheet_path: str = "/") -> Tuple[str, bool]:
             suffix, unconn = _pin_suffix(pd, sg_unconnected)
             bare_pad = suffix.startswith("Pad")
             low_quality = "-Pad" in suffix or bare_pad
-            ref = pd.designator if bare_pad else (pd.designator_with_unit or pd.designator)
+            ref = (
+                pd.designator
+                if bare_pad
+                else (pd.designator_with_unit or pd.designator)
+            )
             full_segment = f"{ref}-{suffix}"
-            candidates.append((low_quality, full_segment, ref, pd.pin_number, idx, pd, suffix, unconn, ref))
+            candidates.append(
+                (
+                    low_quality,
+                    full_segment,
+                    ref,
+                    pd.pin_number,
+                    idx,
+                    pd,
+                    suffix,
+                    unconn,
+                    ref,
+                )
+            )
         candidates.sort(key=lambda t: (t[0], t[1], t[2], t[3], t[4]))
         best = candidates[0]
         suffix = best[6]
@@ -801,6 +831,7 @@ def _collect_pin_drivers(
     subpart_first_id: int = ord("A"),
     subpart_id_separator: int = 0,
     legacy_unit_lookup: Optional[Dict[str, int]] = None,
+    include_off_board_symbols: bool = False,
 ) -> List[_PinDriver]:
     """For every placed symbol, transform each lib pin to world coords
     and emit a :class:`_PinDriver` candidate. Pins are also seeded into
@@ -816,7 +847,7 @@ def _collect_pin_drivers(
     virtual_hidden_nc_seq = 0
 
     for symbol in schematic.symbols:
-        if not getattr(symbol, "on_board", True):
+        if not include_off_board_symbols and not getattr(symbol, "on_board", True):
             continue
         if hasattr(schematic, "get_lib_symbol_for_symbol"):
             lib_symbol = schematic.get_lib_symbol_for_symbol(symbol)
@@ -828,11 +859,16 @@ def _collect_pin_drivers(
             continue
 
         is_power = _is_power_symbol(symbol, lib_symbol)
-        power_priority = _power_symbol_kind(lib_symbol) if is_power else KiCadDriverPriority.PIN
+        power_priority = (
+            _power_symbol_kind(lib_symbol) if is_power else KiCadDriverPriority.PIN
+        )
         power_value = symbol.value if is_power else ""
 
         designator = _resolve_instance_reference(
-            symbol, sheet_path, legacy_lookup, canonical_path,
+            symbol,
+            sheet_path,
+            legacy_lookup,
+            canonical_path,
         )
 
         # Multi-unit suffix: only meaningful for symbols whose lib def
@@ -848,12 +884,18 @@ def _collect_pin_drivers(
         # single sub-sheet placed twice with different units would
         # otherwise read as unit 1 for both placements.
         unit = _resolve_instance_unit(
-            symbol, sheet_path, legacy_unit_lookup, canonical_path,
+            symbol,
+            sheet_path,
+            legacy_unit_lookup,
+            canonical_path,
         )
         unit_count = int(getattr(lib_symbol, "unit_count", 1) or 1)
         if unit_count > 1:
             unit_suffix = _subpart_reference(
-                unit, subpart_first_id, subpart_id_separator, add_separator=True,
+                unit,
+                subpart_first_id,
+                subpart_id_separator,
+                add_separator=True,
             )
             designator_with_unit = f"{designator}{unit_suffix}"
         else:
@@ -881,10 +923,12 @@ def _collect_pin_drivers(
                 # at one dummy coordinate. They still export as separate
                 # unconnected nets, so do not let the shared coordinate
                 # collapse them into one subgraph.
-                coord = cgraph.add_key_node((
-                    base[0] - 1_000_000_000_000 - virtual_hidden_nc_seq,
-                    base[1],
-                ))
+                coord = cgraph.add_key_node(
+                    (
+                        base[0] - 1_000_000_000_000 - virtual_hidden_nc_seq,
+                        base[1],
+                    )
+                )
                 virtual_hidden_nc_seq += 1
             else:
                 coord = cgraph.add_node(wx, wy)
@@ -993,13 +1037,20 @@ def _collect_pin_drivers(
 
             source_pin_uuid = placed_pin_uuid_by_number.get(str(pin_number), "")
             if getattr(lib_pin, "hide", False):
-                pin_svg_uuid = getattr(symbol, "uuid", "") or ""
+                # Hidden pins have no independently rendered drawing element.
+                # Keep that absence explicit so semantic graph consumers do not
+                # mistake the parent symbol group for a pin-level selector.
+                pin_svg_uuid = ""
             else:
-                pin_svg_uuid = schematic_pin_group_id(
-                    symbol_uuid=getattr(symbol, "uuid", "") or "",
-                    pin_number=str(pin_number),
-                    source_pin_uuid=source_pin_uuid,
-                ) or getattr(symbol, "uuid", "") or ""
+                pin_svg_uuid = (
+                    schematic_pin_group_id(
+                        symbol_uuid=getattr(symbol, "uuid", "") or "",
+                        pin_number=str(pin_number),
+                        source_pin_uuid=source_pin_uuid,
+                    )
+                    or getattr(symbol, "uuid", "")
+                    or ""
+                )
             for expanded_num in expanded_numbers:
                 if is_stacked:
                     expanded_pname = (
@@ -1007,23 +1058,25 @@ def _collect_pin_drivers(
                     )
                 else:
                     expanded_pname = lib_pin.name
-                out.append(_PinDriver(
-                    designator=designator,
-                    pin_number=_normalize_netlist_pin_number(expanded_num),
-                    pin_name=expanded_pname,
-                    pin_type=ptype,
-                    coord=coord,
-                    priority=pin_priority,
-                    is_power=pin_is_power,
-                    power_value=pin_power_value,
-                    has_multiple=has_multiple,
-                    designator_with_unit=designator_with_unit,
-                    parent_pin_count=len(symbol_pins),
-                    is_implicit_hidden_power=pin_is_implicit_hidden_power,
-                    source_uuid=source_pin_uuid,
-                    svg_uuid=getattr(symbol, "uuid", "") or "",
-                    pin_svg_uuid=pin_svg_uuid,
-                ))
+                out.append(
+                    _PinDriver(
+                        designator=designator,
+                        pin_number=_normalize_netlist_pin_number(expanded_num),
+                        pin_name=expanded_pname,
+                        pin_type=ptype,
+                        coord=coord,
+                        priority=pin_priority,
+                        is_power=pin_is_power,
+                        power_value=pin_power_value,
+                        has_multiple=has_multiple,
+                        designator_with_unit=designator_with_unit,
+                        parent_pin_count=len(symbol_pins),
+                        is_implicit_hidden_power=pin_is_implicit_hidden_power,
+                        source_uuid=source_pin_uuid,
+                        svg_uuid=getattr(symbol, "uuid", "") or "",
+                        pin_svg_uuid=pin_svg_uuid,
+                    )
+                )
 
     return out
 
@@ -1060,66 +1113,78 @@ def _collect_label_drivers(
 
     for label in getattr(schematic, "labels", ()):
         coord = cgraph.add_node(label.at_x, label.at_y)
-        out.append(_LabelDriver(
-            text=label.text,
-            coord=coord,
-            priority=KiCadDriverPriority.LOCAL_LABEL,
-            kind=KiCadDriverKind.LOCAL_LABEL,
-            source_uuid=getattr(label, "uuid", "") or "",
-            svg_uuid=getattr(label, "uuid", "") or "",
-            source_order=_next_source_order(),
-            sheet_path=sheet_path,
-        ))
+        out.append(
+            _LabelDriver(
+                text=label.text,
+                coord=coord,
+                priority=KiCadDriverPriority.LOCAL_LABEL,
+                kind=KiCadDriverKind.LOCAL_LABEL,
+                source_uuid=getattr(label, "uuid", "") or "",
+                svg_uuid=getattr(label, "uuid", "") or "",
+                source_order=_next_source_order(),
+                sheet_path=sheet_path,
+            )
+        )
 
     for label in getattr(schematic, "global_labels", ()):
         coord = cgraph.add_node(label.at_x, label.at_y)
-        out.append(_LabelDriver(
-            text=label.text,
-            coord=coord,
-            priority=KiCadDriverPriority.GLOBAL,
-            kind=KiCadDriverKind.GLOBAL_LABEL,
-            source_uuid=getattr(label, "uuid", "") or "",
-            svg_uuid=getattr(label, "uuid", "") or "",
-            source_order=_next_source_order(),
-            sheet_path=sheet_path,
-        ))
+        out.append(
+            _LabelDriver(
+                text=label.text,
+                coord=coord,
+                priority=KiCadDriverPriority.GLOBAL,
+                kind=KiCadDriverKind.GLOBAL_LABEL,
+                source_uuid=getattr(label, "uuid", "") or "",
+                svg_uuid=getattr(label, "uuid", "") or "",
+                source_order=_next_source_order(),
+                sheet_path=sheet_path,
+            )
+        )
 
     for label in getattr(schematic, "hierarchical_labels", ()):
         coord = cgraph.add_node(label.at_x, label.at_y)
         shape = getattr(getattr(label, "shape", None), "value", "") or ""
-        out.append(_LabelDriver(
-            text=label.text,
-            coord=coord,
-            priority=KiCadDriverPriority.HIER_LABEL,
-            kind=KiCadDriverKind.HIER_LABEL,
-            shape=str(shape),
-            source_uuid=getattr(label, "uuid", "") or "",
-            svg_uuid=getattr(label, "uuid", "") or "",
-            source_order=_next_source_order(),
-            sheet_path=sheet_path,
-        ))
+        out.append(
+            _LabelDriver(
+                text=label.text,
+                coord=coord,
+                priority=KiCadDriverPriority.HIER_LABEL,
+                kind=KiCadDriverKind.HIER_LABEL,
+                shape=str(shape),
+                source_uuid=getattr(label, "uuid", "") or "",
+                svg_uuid=getattr(label, "uuid", "") or "",
+                source_order=_next_source_order(),
+                sheet_path=sheet_path,
+            )
+        )
 
     # Sheet pins on hierarchical sheet placements.
     for sheet in getattr(schematic, "sheets", ()):
         for pin in getattr(sheet, "pins", ()):
             coord = cgraph.add_node(pin.at_x, pin.at_y)
             shape = getattr(getattr(pin, "shape", None), "value", "") or ""
-            sheet_pin_svg_uuid = schematic_sheet_pin_group_id(
-                sheet_uuid=getattr(sheet, "uuid", "") or "",
-                pin_name=getattr(pin, "name", "") or "",
-                source_pin_uuid=getattr(pin, "uuid", "") or "",
-            ) or getattr(sheet, "uuid", "") or ""
-            out.append(_LabelDriver(
-                text=pin.name,
-                coord=coord,
-                priority=KiCadDriverPriority.SHEET_PIN,
-                kind=KiCadDriverKind.SHEET_PIN,
-                shape=str(shape),
-                source_uuid=getattr(pin, "uuid", "") or "",
-                svg_uuid=sheet_pin_svg_uuid,
-                source_order=_next_source_order(),
-                sheet_path=sheet_path,
-            ))
+            sheet_pin_svg_uuid = (
+                schematic_sheet_pin_group_id(
+                    sheet_uuid=getattr(sheet, "uuid", "") or "",
+                    pin_name=getattr(pin, "name", "") or "",
+                    source_pin_uuid=getattr(pin, "uuid", "") or "",
+                )
+                or getattr(sheet, "uuid", "")
+                or ""
+            )
+            out.append(
+                _LabelDriver(
+                    text=pin.name,
+                    coord=coord,
+                    priority=KiCadDriverPriority.SHEET_PIN,
+                    kind=KiCadDriverKind.SHEET_PIN,
+                    shape=str(shape),
+                    source_uuid=getattr(pin, "uuid", "") or "",
+                    svg_uuid=sheet_pin_svg_uuid,
+                    source_order=_next_source_order(),
+                    sheet_path=sheet_path,
+                )
+            )
 
     return out
 
@@ -1203,6 +1268,7 @@ def compile_sheet_subgraphs(
     subpart_first_id: int = ord("A"),
     subpart_id_separator: int = 0,
     legacy_unit_lookup: Optional[Dict[str, int]] = None,
+    include_off_board_symbols: bool = False,
 ) -> List[Subgraph]:
     """Single-sheet compile — return resolved :class:`Subgraph` list.
 
@@ -1234,10 +1300,15 @@ def compile_sheet_subgraphs(
 
     # Drivers (after coord nodes are seeded so component walk picks them up).
     pin_drivers = _collect_pin_drivers(
-        schematic, cgraph, sheet_path, legacy_lookup, canonical_path,
+        schematic,
+        cgraph,
+        sheet_path,
+        legacy_lookup,
+        canonical_path,
         subpart_first_id=subpart_first_id,
         subpart_id_separator=subpart_id_separator,
         legacy_unit_lookup=legacy_unit_lookup,
+        include_off_board_symbols=include_off_board_symbols,
     )
     label_drivers = _collect_label_drivers(schematic, cgraph, sheet_path=sheet_path)
 
@@ -1261,6 +1332,7 @@ def compile_sheet_subgraphs(
     # hier-label ``DDR3_~{RESET}``, and a same-sheet power symbol of
     # that value all collapse to one subgraph.
     by_label_text: Dict[str, CoordKey] = {}
+
     def _merge_same_sheet_driver(text: str, coord: CoordKey) -> None:
         if not text:
             return
@@ -1308,7 +1380,9 @@ def compile_sheet_subgraphs(
         if not points:
             continue
         root = cgraph.find(snap_mm_to_iu(float(points[0][0]), float(points[0][1])))
-        _add_graphical_id(_graphical_for(root), "wires", getattr(wire, "uuid", "") or "")
+        _add_graphical_id(
+            _graphical_for(root), "wires", getattr(wire, "uuid", "") or ""
+        )
 
     for junction in getattr(schematic, "junctions", ()):
         coord = snap_mm_to_iu(float(junction.at_x), float(junction.at_y))
@@ -1328,15 +1402,21 @@ def compile_sheet_subgraphs(
                 ld.svg_uuid or ld.source_uuid,
             )
         elif ld.kind == KiCadDriverKind.HIER_LABEL:
-            _add_graphical_id(_graphical_for(root), "ports", ld.svg_uuid or ld.source_uuid)
+            _add_graphical_id(
+                _graphical_for(root), "ports", ld.svg_uuid or ld.source_uuid
+            )
         elif ld.kind in (KiCadDriverKind.LOCAL_LABEL, KiCadDriverKind.GLOBAL_LABEL):
-            _add_graphical_id(_graphical_for(root), "labels", ld.svg_uuid or ld.source_uuid)
+            _add_graphical_id(
+                _graphical_for(root), "labels", ld.svg_uuid or ld.source_uuid
+            )
 
     for pd in pin_drivers:
         if not (pd.is_power and pd.designator.startswith("#")):
             continue
         root = cgraph.find(pd.coord)
-        _add_graphical_id(_graphical_for(root), "power_ports", pd.svg_uuid or pd.source_uuid)
+        _add_graphical_id(
+            _graphical_for(root), "power_ports", pd.svg_uuid or pd.source_uuid
+        )
 
     nc_coords = detect_no_connects(schematic)
 
@@ -1419,22 +1499,26 @@ def compile_sheet_netlist(
 
         # Terminals: every pin driver becomes a node on the net (sorted
         # by (designator, pin_number) for determinism).
-        ordered_pins = sorted(sg.pin_drivers, key=lambda p: (p.designator, p.pin_number))
+        ordered_pins = sorted(
+            sg.pin_drivers, key=lambda p: (p.designator, p.pin_number)
+        )
         for pd in ordered_pins:
             if not pd.designator:
                 # Power symbols sometimes have empty references in
                 # incomplete fixtures — we still emit but with the
                 # placeholder. KiCad does the same.
                 continue
-            net.add_terminal(KiCadNetlistTerminal(
-                designator=pd.designator,
-                pin=pd.pin_number,
-                pin_name=pd.pin_name,
-                pin_type=pd.pin_type,
-                sheet_path=sheet_path,
-                source_pin_id=pd.source_uuid,
-                svg_id=pd.pin_svg_uuid or pd.svg_uuid,
-            ))
+            net.add_terminal(
+                KiCadNetlistTerminal(
+                    designator=pd.designator,
+                    pin=pd.pin_number,
+                    pin_name=pd.pin_name,
+                    pin_type=pd.pin_type,
+                    sheet_path=sheet_path,
+                    source_pin_id=pd.source_uuid,
+                    svg_id=pd.pin_svg_uuid or pd.svg_uuid,
+                )
+            )
 
         for ld in sg.label_drivers:
             _append_unique_endpoint(

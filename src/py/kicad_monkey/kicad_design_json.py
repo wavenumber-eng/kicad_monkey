@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
 
+from .kicad_compiled_schematic_graph import build_compiled_schematic_graph
 from .kicad_netlist_model import (
     KiCadNet,
     KiCadNetEndpoint,
@@ -19,6 +20,7 @@ from .kicad_netlist_model import (
     KiCadNetlistTerminal,
 )
 from .kicad_schematic_connectivity import SCH_IU_PER_MM
+from .kicad_schematic_occurrence import walk_schematic_occurrences
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .kicad_design import KiCadDesign
@@ -92,6 +94,7 @@ def kicad_design_to_json(design: "KiCadDesign", *, include_indexes: bool = True)
         "components": components,
         "schematic_hierarchy": _schematic_hierarchy_json(design),
         "nets": _nets_json(netlist, component_svg_ids=component_svg_ids),
+        "compiled_schematic_graph": build_compiled_schematic_graph(design).to_json(),
     }
 
     pnp = _pnp_json(design, netlist)
@@ -307,22 +310,24 @@ def _schematic_hierarchy_json(design: "KiCadDesign") -> dict[str, Any]:
     links: list[dict[str, Any]] = []
     unresolved: list[dict[str, Any]] = []
 
-    def walk(
-        sch: "KiCadSchematic",
-        *,
-        sheet_path: str,
-        sheet_path_uuids: str,
-        is_top_level: bool,
-    ) -> None:
+    occurrences = list(walk_schematic_occurrences(top)) if top is not None else []
+    children = {
+        (id(occurrence.parent), id(occurrence.sheet_symbol)): occurrence
+        for occurrence in occurrences
+        if occurrence.parent is not None and occurrence.sheet_symbol is not None
+    }
+
+    for occurrence in occurrences:
+        sch = occurrence.schematic
         source_path = getattr(sch, "source_path", None)
         documents.append(
             {
                 "sheet_index": len(documents) + 1,
                 "filename": source_path.name if isinstance(source_path, Path) else "",
                 "path": str(source_path) if isinstance(source_path, Path) else "",
-                "is_top_level": bool(is_top_level),
-                "sheet_path": sheet_path,
-                "sheet_path_uuids": sheet_path_uuids,
+                "is_top_level": occurrence.parent is None,
+                "sheet_path": occurrence.sheet_path,
+                "sheet_path_uuids": occurrence.sheet_path_uuids,
                 "metadata": {
                     "uuid": getattr(sch, "uuid", "") or "",
                     "version": int(getattr(sch, "version", 0) or 0),
@@ -332,36 +337,41 @@ def _schematic_hierarchy_json(design: "KiCadDesign") -> dict[str, Any]:
             }
         )
         for sheet in getattr(sch, "sheets", []) or []:
-            child_path = _join_sheet_path(sheet_path, sheet.sheet_name or sheet.sheet_file)
-            child_uuid_path = _join_sheet_path(sheet_path_uuids, sheet.uuid or sheet.sheet_file)
+            child = children.get((id(occurrence), id(sheet)))
+            child_path = (
+                child.sheet_path
+                if child is not None
+                else _join_sheet_path(
+                    occurrence.sheet_path,
+                    sheet.sheet_name or sheet.sheet_file,
+                )
+            )
+            child_uuid_path = (
+                child.sheet_path_uuids
+                if child is not None
+                else _join_sheet_path(
+                    occurrence.sheet_path_uuids,
+                    sheet.uuid or sheet.sheet_file,
+                )
+            )
             row = _sheet_symbol_json(
                 sheet,
-                source_sheet_path=sheet_path,
+                source_sheet_path=occurrence.sheet_path,
                 child_sheet_path=child_path,
                 child_sheet_path_uuids=child_uuid_path,
             )
             sheet_symbols.append(row)
-            child = sch.sub_schematics.get(sheet.sheet_file)
             if child is None:
                 unresolved.append(row)
                 continue
             links.append(
                 {
-                    "parent_sheet_path": sheet_path,
+                    "parent_sheet_path": occurrence.sheet_path,
                     "sheet_symbol_uid": sheet.uuid or "",
                     "child_sheet_path": child_path,
                     "child_filename": sheet.sheet_file,
                 }
             )
-            walk(
-                child,
-                sheet_path=child_path,
-                sheet_path_uuids=child_uuid_path,
-                is_top_level=False,
-            )
-
-    if top is not None:
-        walk(top, sheet_path="/", sheet_path_uuids="/", is_top_level=True)
 
     return {
         "schema": KICAD_SCHEMATIC_HIERARCHY_SCHEMA,
@@ -406,19 +416,11 @@ def _sheet_source_path_by_human_path(
     top: "KiCadSchematic | None",
 ) -> dict[str, Path]:
     out: dict[str, Path] = {}
-
-    def walk(sch: "KiCadSchematic", sheet_path: str) -> None:
-        source_path = getattr(sch, "source_path", None)
-        if isinstance(source_path, Path):
-            out.setdefault(sheet_path, source_path)
-        for sheet in getattr(sch, "sheets", []) or []:
-            child = sch.sub_schematics.get(sheet.sheet_file)
-            if child is None:
-                continue
-            walk(child, _join_sheet_path(sheet_path, sheet.sheet_name or sheet.sheet_file))
-
     if top is not None:
-        walk(top, "/")
+        for occurrence in walk_schematic_occurrences(top):
+            source_path = getattr(occurrence.schematic, "source_path", None)
+            if isinstance(source_path, Path):
+                out.setdefault(occurrence.sheet_path, source_path)
     return out
 
 

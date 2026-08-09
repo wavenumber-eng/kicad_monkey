@@ -139,6 +139,20 @@ def test_collect_components_root_only_simple():
     assert c.sheet_path_names == "/"
 
 
+def test_collect_components_root_properties_use_schematic_file_name():
+    libR = _libsym("Device:R", _pin(0.0, 0.0, number="1"))
+    sch = KiCadSchematic()
+    sch.uuid = "root"
+    sch.source_path = "C:/projects/power-supply.kicad_sch"
+    sch.lib_symbols.append(libR)
+    sch.symbols.append(_placed("Device:R", reference="R1", uuid="uid-r1"))
+
+    [component] = collect_design_components(compile_design_subgraphs(sch))
+
+    assert component.properties["Sheetname"] == "power-supply"
+    assert component.properties["Sheetfile"] == "power-supply.kicad_sch"
+
+
 def test_collect_components_multi_sheet_carries_sheet_path():
     libR = _libsym("Device:R", _pin(0.0, 0.0, number="1"))
     sub = KiCadSchematic()
@@ -201,6 +215,25 @@ def test_collect_components_collapses_multi_unit_reference():
     assert comps[0].footprint == "Package:Unit1"
     assert comps[0].instance_uuid == "u1-unit1"
     assert comps[0].instance_uuids == ["u1-unit2", "u1-unit1"]
+
+
+def test_collect_components_reverses_non_primary_multi_unit_tstamps():
+    libU = _libsym("Device:U", _pin(0.0, 0.0, number="1"))
+    sch = KiCadSchematic()
+    sch.uuid = "root"
+    sch.lib_symbols.append(libU)
+    # The lexical-lowest UUID is KiCad's primary and remains last. Other
+    # unit UUIDs are prepended as encountered, giving unit 2 then unit 1.
+    sch.symbols.extend([
+        _placed("Device:U", reference="U1", uuid="1-unit3", unit=3),
+        _placed("Device:U", reference="U1", uuid="2-unit1", unit=1),
+        _placed("Device:U", reference="U1", uuid="3-unit2", unit=2),
+    ])
+
+    [component] = collect_design_components(compile_design_subgraphs(sch))
+
+    assert component.instance_uuid == "1-unit3"
+    assert component.instance_uuids == ["3-unit2", "2-unit1", "1-unit3"]
 
 
 def test_collect_components_suppresses_later_cross_sheet_multi_unit_rows():
@@ -390,6 +423,35 @@ def test_collect_components_carries_in_bom_dnp_flags():
         ("exclude_from_bom", ""),
         ("dnp", ""),
     ]
+
+
+def test_collect_components_folds_policy_from_every_sheet_ancestor():
+    libR = _libsym("Device:R", _pin(0.0, 0.0, number="1"))
+    leaf = KiCadSchematic()
+    leaf.uuid = "leaf"
+    leaf.lib_symbols.append(libR)
+    leaf.symbols.append(_placed("Device:R", reference="R1", uuid="r1"))
+
+    mid = KiCadSchematic()
+    mid.uuid = "mid"
+    mid.sheets.append(_sheet("leaf.kicad_sch", "Leaf", "leaf-placement"))
+    mid.sub_schematics["leaf.kicad_sch"] = leaf
+
+    root = KiCadSchematic()
+    root.uuid = "root"
+    mid_sheet = _sheet("mid.kicad_sch", "Mid", "mid-placement")
+    mid_sheet.dnp = True
+    mid_sheet.in_bom = False
+    root.sheets.append(mid_sheet)
+    root.sub_schematics["mid.kicad_sch"] = mid
+
+    [component] = collect_design_components(compile_design_subgraphs(root))
+
+    assert component.dnp is True
+    assert component.in_bom is False
+    assert component.on_board is True
+    assert component.properties["dnp"] == ""
+    assert component.properties["exclude_from_bom"] == ""
 
 
 def test_collect_components_expands_value_var_from_symbol_property():

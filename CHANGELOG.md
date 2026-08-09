@@ -9,6 +9,17 @@
   and italic faces in TTF, OTF, WOFF, and WOFF2 formats, plus CSS, a blue
   phosphor engineering demo, provenance metadata, and package synchronization
   checks.
+- Embed a deterministic, occurrence-scoped, variant-neutral compiled schematic
+  graph in `KiCadDesign.to_json()`, including reusable definitions, realized
+  hierarchy, component and terminal occurrences, local nets, scalar hierarchy
+  bindings, and scoped drawing links.
+- Render KiCad schematic directive markers, rule areas, and DNP hierarchical
+  sheets through Plotter IR with source identity and KiCad-compatible styling.
+- Fold DNP, BOM, board, and simulation policy through the complete sheet
+  occurrence path while preserving the unfiltered topology in the compiled
+  graph.
+- Match KiCad CLI root-sheet metadata and multi-unit `tstamps` ordering for the
+  affected netlist oracle cases.
 
 ## 2026.8.1
 

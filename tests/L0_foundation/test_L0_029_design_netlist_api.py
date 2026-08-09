@@ -13,6 +13,7 @@ emit.
 from __future__ import annotations
 
 import re
+from uuid import UUID
 
 import pytest
 
@@ -34,7 +35,21 @@ from kicad_monkey import (
     render_ir_to_svg,
 )
 from kicad_monkey.kicad_design_json import kicad_netlist_to_json
+from kicad_monkey.kicad_compiled_schematic_graph import (
+    KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA,
+    KiCadCompiledSchematicGraph,
+    build_compiled_schematic_graph,
+    validate_compiled_schematic_graph,
+)
+from kicad_monkey.kicad_lib_subsymbol import LibSubSymbol
+from kicad_monkey.kicad_lib_symbol import LibSymbol
 from kicad_monkey.kicad_netlist_model import KiCadNetClass
+from kicad_monkey.kicad_sch_enums import PinElectricalType, PinGraphicStyle
+from kicad_monkey.kicad_sch_sheet import SchSheet, SchSheetProperty
+from kicad_monkey.kicad_sch_symbol import SchSymbol
+from kicad_monkey.kicad_schematic import KiCadSchematic
+from kicad_monkey.kicad_sym_pin import SymPin
+from kicad_monkey.kicad_sym_property import SymProperty
 
 
 _MIN_SCH_TEXT = """(kicad_sch (version 20250114) (generator "eeschema")
@@ -83,7 +98,8 @@ def _make_synthetic_netlist() -> KiCadNetlist:
         ],
         libparts=[
             KiCadLibPart(
-                lib="Device", part="R",
+                lib="Device",
+                part="R",
                 pins=[
                     KiCadLibPartPin(number="1", name="~", pin_type="passive"),
                     KiCadLibPartPin(number="2", name="~", pin_type="passive"),
@@ -91,14 +107,22 @@ def _make_synthetic_netlist() -> KiCadNetlist:
             ),
         ],
         nets=[
-            KiCadNet(name="VCC", code=1, terminals=[
-                KiCadNetlistTerminal(designator="R1", pin="1"),
-                KiCadNetlistTerminal(designator="C1", pin="1"),
-            ]),
-            KiCadNet(name="GND", code=2, terminals=[
-                KiCadNetlistTerminal(designator="R1", pin="2"),
-                KiCadNetlistTerminal(designator="C1", pin="2"),
-            ]),
+            KiCadNet(
+                name="VCC",
+                code=1,
+                terminals=[
+                    KiCadNetlistTerminal(designator="R1", pin="1"),
+                    KiCadNetlistTerminal(designator="C1", pin="1"),
+                ],
+            ),
+            KiCadNet(
+                name="GND",
+                code=2,
+                terminals=[
+                    KiCadNetlistTerminal(designator="R1", pin="2"),
+                    KiCadNetlistTerminal(designator="C1", pin="2"),
+                ],
+            ),
         ],
         design_metadata=KiCadDesignMetadata(
             sheets=[KiCadDesignSheet(number=1, name="/", tstamps="/abc/")],
@@ -267,7 +291,10 @@ def test_to_netlist_json_includes_kicad_net_classes(tmp_path):
     _write_min_sch(sch)
     design = KiCadDesign.from_schematic_file(sch)
     design._netlist = _make_synthetic_netlist()
-    design._netlist.net_classes = [KiCadNetClass(name="Default"), KiCadNetClass(name="Power")]
+    design._netlist.net_classes = [
+        KiCadNetClass(name="Default"),
+        KiCadNetClass(name="Power"),
+    ]
     design._netlist.nets[0].net_class = "Power"
     design._netlist.nets[1].net_class = "Default"
 
@@ -410,7 +437,10 @@ def test_kicad_netlist_json_pin_endpoints_keep_source_pin_identity():
         "pin": "5",
         "svg_id": "pin-uuid",
     }
-    endpoints = {endpoint["endpoint_id"]: endpoint for endpoint in payload["nets"][0]["endpoints"]}
+    endpoints = {
+        endpoint["endpoint_id"]: endpoint
+        for endpoint in payload["nets"][0]["endpoints"]
+    }
     semantic_endpoint = endpoints["port:hier-uuid"]
     assert semantic_endpoint["role"] == "port"
     assert semantic_endpoint["element_id"] == "hier-uuid"
@@ -561,3 +591,133 @@ def test_empty_schematic_produces_empty_netlist(tmp_path):
     assert netlist.nets == []
     assert netlist.components == []
     assert netlist.libparts == []
+
+
+def test_compiled_graph_keeps_reused_off_board_occurrences_and_stable_ids():
+    pin = SymPin(
+        electrical_type=PinElectricalType.PASSIVE,
+        graphic_style=PinGraphicStyle.LINE,
+        at_x=0.0,
+        at_y=0.0,
+        number="1",
+        name="IN",
+    )
+    library = LibSymbol(
+        name="Device:R",
+        subsymbols=[LibSubSymbol(name="Device:R_1_0", unit=1, pins=[pin])],
+    )
+    symbol = SchSymbol(lib_id="Device:R", uuid="symbol-source", on_board=False)
+    symbol.properties = [
+        SymProperty(key="Reference", value="R1"),
+        SymProperty(key="Value", value="10k"),
+    ]
+    child = KiCadSchematic()
+    child.uuid = "child-source"
+    child.source_path = "C:/portable/child.kicad_sch"
+    child.lib_symbols.append(library)
+    child.symbols.append(symbol)
+
+    root = KiCadSchematic()
+    root.uuid = "root-source"
+    root.source_path = "C:/portable/demo.kicad_sch"
+    for name, uuid in (("A", "placement-a"), ("B", "placement-b")):
+        sheet = SchSheet(uuid=uuid, on_board=False)
+        sheet.properties = [
+            SchSheetProperty(key="Sheetname", value=name),
+            SchSheetProperty(key="Sheetfile", value="child.kicad_sch"),
+        ]
+        root.sheets.append(sheet)
+    root.sub_schematics["child.kicad_sch"] = child
+    design = KiCadDesign(schematics=[root])
+
+    first = build_compiled_schematic_graph(design).to_json()
+    second = build_compiled_schematic_graph(design).to_json()
+
+    assert first == second
+    assert first["schema"] == KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA
+    assert len(first["unit_definitions"]) == 2
+    assert len(first["page_occurrences"]) == 3
+    assert len(first["hierarchy_occurrences"]) == 2
+    assert len(first["component_occurrences"]) == 2
+    assert len(first["local_net_occurrences"]) == 2
+    assert {
+        row["source_identity"]["sch.source_key.source_path"]
+        for row in first["unit_definitions"]
+    } == {"demo.kicad_sch", "child.kicad_sch"}
+    component_ids = {row["id"] for row in first["component_occurrences"]}
+    assert len(component_ids) == 2
+    assert all(UUID(row_id).version == 7 for row_id in component_ids)
+    component_links = [
+        row
+        for row in first["graphical_artifact_links"]
+        if row["target_type"] == "sch.component_occurrence"
+    ]
+    terminal_links = [
+        row
+        for row in first["graphical_artifact_links"]
+        if row["target_type"] == "sch.terminal_occurrence"
+    ]
+    assert len(component_links) == 2
+    assert len(terminal_links) == 2
+    assert {row["element_id"] for row in component_links} == {"symbol-source"}
+    assert {row["page_occurrence_ref"] for row in component_links} == {
+        row["page_occurrence_ref"] for row in first["component_occurrences"]
+    }
+    validate_compiled_schematic_graph(first)
+    assert KiCadCompiledSchematicGraph.from_json(first).to_json() == first
+
+
+def test_compiled_graph_omits_hidden_and_ambiguous_stacked_pin_selectors():
+    hidden = SymPin(
+        electrical_type=PinElectricalType.POWER_IN,
+        graphic_style=PinGraphicStyle.LINE,
+        at_x=0.0,
+        at_y=0.0,
+        number="1",
+        name="VCC",
+        hide=True,
+    )
+    stacked = SymPin(
+        electrical_type=PinElectricalType.PASSIVE,
+        graphic_style=PinGraphicStyle.LINE,
+        at_x=2.54,
+        at_y=0.0,
+        number="[2,4]",
+        name="OSC1",
+    )
+    library = LibSymbol(
+        name="Device:Mixed",
+        subsymbols=[
+            LibSubSymbol(name="Device:Mixed_1_0", unit=1, pins=[hidden, stacked])
+        ],
+    )
+    symbol = SchSymbol(lib_id="Device:Mixed", uuid="mixed-symbol")
+    symbol.properties = [
+        SymProperty(key="Reference", value="U1"),
+        SymProperty(key="Value", value="Mixed"),
+    ]
+    schematic = KiCadSchematic()
+    schematic.uuid = "mixed-root"
+    schematic.source_path = "C:/portable/mixed.kicad_sch"
+    schematic.lib_symbols.append(library)
+    schematic.symbols.append(symbol)
+
+    graph = build_compiled_schematic_graph(
+        KiCadDesign(schematics=[schematic])
+    ).to_json()
+
+    assert len(graph["terminal_occurrences"]) == 3
+    assert {
+        (row["name"], row["pin_designator"]) for row in graph["terminal_occurrences"]
+    } == {("VCC", "1"), ("OSC1_2", "2"), ("OSC1_4", "4")}
+    assert [
+        row
+        for row in graph["graphical_artifact_links"]
+        if row["target_type"] == "sch.terminal_occurrence"
+    ] == []
+    assert [
+        row["element_id"]
+        for row in graph["graphical_artifact_links"]
+        if row["target_type"] == "sch.component_occurrence"
+    ] == ["mixed-symbol"]
+    validate_compiled_schematic_graph(graph)

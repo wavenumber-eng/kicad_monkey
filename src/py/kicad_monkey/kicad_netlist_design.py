@@ -71,6 +71,10 @@ from .kicad_netlist_model import (
     KiCadNetlistTerminal,
 )
 from .kicad_schematic_connectivity import CoordKey
+from .kicad_schematic_occurrence import (
+    KiCadSheetOccurrence,
+    walk_schematic_occurrences,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .kicad_sch_sheet import SchSheet
@@ -116,6 +120,9 @@ class CompiledSheet:
     # Design-wide bus alias map â€” only the root sheet carries this;
     # populated by ``compile_design_subgraphs``. Empty on non-root.
     bus_aliases_design: Dict[str, List[str]] = field(default_factory=dict)
+    occurrence: Optional[KiCadSheetOccurrence] = None
+    subgraph_net_names: Dict[int, str] = field(default_factory=dict)
+    subgraph_net_codes: Dict[int, int] = field(default_factory=dict)
 
 
 def _merge_graphical_ids(
@@ -134,7 +141,9 @@ def _merge_graphical_ids(
 # ---------------------------------------------------------------------------
 
 
-def _walk_design_sheets(top: "KiCadSchematic") -> Iterator[CompiledSheet]:
+def _walk_design_sheets(
+    top: "KiCadSchematic", *, include_off_board: bool = False
+) -> Iterator[CompiledSheet]:
     """Yield ``CompiledSheet`` records for every sheet in the hierarchy.
 
     Order: parent before child. The root's ``sheet_path`` is always
@@ -143,38 +152,25 @@ def _walk_design_sheets(top: "KiCadSchematic") -> Iterator[CompiledSheet]:
     the parent's ``SchSheet`` placeholders, not the child's own
     ``(uuid â€¦)``). Each child level appends ``"<sheet_placeholder_uuid>/"``.
     """
-    root = CompiledSheet(
-        sheet_path="/",
-        sheet_path_human="/",
-        schematic=top,
-    )
-    yield root
-    yield from _walk_children(top, root)
-
-
-def _walk_children(
-    parent_sch: "KiCadSchematic",
-    parent_cs: CompiledSheet,
-) -> Iterator[CompiledSheet]:
-    for sheet in getattr(parent_sch, "sheets", ()):
-        if not getattr(sheet, "on_board", True):
-            continue
-        child_sch = parent_sch.sub_schematics.get(sheet.sheet_file)
-        if child_sch is None:
-            continue
-        # UUID-form path: extend with this sheet placeholder's uuid.
-        child_uuid = sheet.uuid or sheet.sheet_file
-        child_path = f"{parent_cs.sheet_path}{child_uuid}/"
-        child_human = f"{parent_cs.sheet_path_human}{sheet.sheet_name or sheet.sheet_file}/"
-        cs = CompiledSheet(
-            sheet_path=child_path,
-            sheet_path_human=child_human,
-            schematic=child_sch,
-            parent_sheet=sheet,
-            parent=parent_cs,
+    compiled_by_occurrence: Dict[int, CompiledSheet] = {}
+    for occurrence in walk_schematic_occurrences(
+        top, include_off_board=include_off_board
+    ):
+        parent = (
+            compiled_by_occurrence.get(id(occurrence.parent))
+            if occurrence.parent is not None
+            else None
         )
-        yield cs
-        yield from _walk_children(child_sch, cs)
+        compiled = CompiledSheet(
+            sheet_path=occurrence.sheet_path_uuids,
+            sheet_path_human=occurrence.sheet_path,
+            schematic=occurrence.schematic,
+            parent_sheet=occurrence.sheet_symbol,
+            parent=parent,
+            occurrence=occurrence,
+        )
+        compiled_by_occurrence[id(occurrence)] = compiled
+        yield compiled
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +257,7 @@ def compile_design_subgraphs(
     *,
     subpart_first_id: int = ord("A"),
     subpart_id_separator: int = 0,
+    include_off_board: bool = False,
 ) -> List[CompiledSheet]:
     """Compile every sheet in the hierarchy.
 
@@ -268,7 +265,9 @@ def compile_design_subgraphs(
     their ``subgraphs`` and ``coord_to_sg`` populated. Cross-sheet
     merging is *not* applied â€” call :func:`merge_design_nets` for that.
     """
-    out: List[CompiledSheet] = list(_walk_design_sheets(top))
+    out: List[CompiledSheet] = list(
+        _walk_design_sheets(top, include_off_board=include_off_board)
+    )
     legacy_lookup = _build_legacy_instance_lookup(out)
     legacy_unit_lookup = _build_legacy_unit_lookup(out)
     # KiCad treats bus aliases as design-wide: any sheet's
@@ -293,6 +292,7 @@ def compile_design_subgraphs(
             subpart_first_id=subpart_first_id,
             subpart_id_separator=subpart_id_separator,
             legacy_unit_lookup=legacy_unit_lookup,
+            include_off_board_symbols=include_off_board,
         )
         for i, sg in enumerate(cs.subgraphs):
             for c in sg.coords:
@@ -1164,6 +1164,7 @@ def _materialise_nets(
             s_i, g_i = flat_keys[k]
             cs = compiled[s_i]
             sg = cs.subgraphs[g_i]
+            cs.subgraph_net_names[g_i] = net.name
             for ld in sg.label_drivers:
                 _append_unique_endpoint(
                     net,
@@ -1180,6 +1181,9 @@ def _materialise_nets(
         # power-symbol / PWR_FLAG pins are dropped.
         if not net.terminals:
             continue
+        for k in group:
+            s_i, g_i = flat_keys[k]
+            compiled[s_i].subgraph_net_codes[g_i] = net.code
         nets.append(net)
         code += 1
 
@@ -1453,10 +1457,17 @@ def _component_primary_and_tstamps(
             extras.append(candidate)
 
     uuids: List[str] = []
-    for candidate in extras + [primary]:
+    # KiCad keeps the primary (lowest UUID) unit last and prepends each
+    # additional unit as it encounters it.  That detail is observable for
+    # symbols with three or more units: the non-primary UUIDs are therefore
+    # emitted in reverse schematic order.
+    for candidate in reversed(extras):
         uid = candidate.component.instance_uuid
         if uid and uid not in uuids:
             uuids.append(uid)
+    primary_uid = primary.component.instance_uuid
+    if primary_uid and primary_uid not in uuids:
+        uuids.append(primary_uid)
     return primary, uuids
 
 
@@ -1654,38 +1665,45 @@ def collect_design_components(
             else:
                 source_path = getattr(cs.schematic, "source_path", None)
                 if source_path is not None:
-                    _append_component_property(properties, "Sheetname", "")
+                    source = Path(str(source_path))
+                    _append_component_property(properties, "Sheetname", source.stem)
                     _append_component_property(
                         properties,
                         "Sheetfile",
-                        Path(str(source_path)).name,
+                        source.name,
                     )
 
-            if (
-                not getattr(sym, "in_bom", True)
-                or (
-                    cs.parent_sheet is not None
-                    and not getattr(cs.parent_sheet, "in_bom", True)
-                )
-            ):
+            occurrence = cs.occurrence
+            ancestor_in_bom = (
+                occurrence.effective_in_bom
+                if occurrence is not None
+                else bool(getattr(cs.parent_sheet, "in_bom", True))
+            )
+            ancestor_on_board = (
+                occurrence.effective_on_board
+                if occurrence is not None
+                else bool(getattr(cs.parent_sheet, "on_board", True))
+            )
+            ancestor_dnp = (
+                occurrence.effective_dnp
+                if occurrence is not None
+                else bool(getattr(cs.parent_sheet, "dnp", False))
+            )
+            effective_in_bom = bool(getattr(sym, "in_bom", True)) and (
+                ancestor_in_bom
+            )
+            effective_on_board = bool(getattr(sym, "on_board", True)) and (
+                ancestor_on_board
+            )
+            effective_dnp = bool(getattr(sym, "dnp", False)) or ancestor_dnp
+
+            if not effective_in_bom:
                 _append_component_property(properties, "exclude_from_bom", "")
-            if (
-                not getattr(sym, "on_board", True)
-                or (
-                    cs.parent_sheet is not None
-                    and not getattr(cs.parent_sheet, "on_board", True)
-                )
-            ):
+            if not effective_on_board:
                 _append_component_property(properties, "exclude_from_board", "")
             if not getattr(sym, "in_pos_files", True):
                 _append_component_property(properties, "exclude_from_pos_files", "")
-            if (
-                getattr(sym, "dnp", False)
-                or (
-                    cs.parent_sheet is not None
-                    and getattr(cs.parent_sheet, "dnp", False)
-                )
-            ):
+            if effective_dnp:
                 _append_component_property(properties, "dnp", "")
 
             if lib_sym is not None:
@@ -1741,9 +1759,9 @@ def collect_design_components(
                 instance_uuid=uid,
                 properties=properties,
                 units=_component_units_from_lib_symbol(lib_sym),
-                in_bom=getattr(sym, "in_bom", True),
-                on_board=getattr(sym, "on_board", True),
-                dnp=getattr(sym, "dnp", False),
+                in_bom=effective_in_bom,
+                on_board=effective_on_board,
+                dnp=effective_dnp,
             )
             unit = _resolve_instance_unit(
                 sym,
