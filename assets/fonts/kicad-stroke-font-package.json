@@ -101,7 +101,7 @@
   "inputs": {
     "generator": {
       "path": "tools/generate_kicad_stroke_webfont.py",
-      "sha256": "5e0d6b07ab4de76bdfc077fe4fda6d4be5ed52a3e04f7d46fd7cf82c75181bfa"
+      "sha256": "8ec053655cdc67db742992dd37e3714ad313b3978e03b62b9c805e508dad4b6f"
     },
     "packager": {
       "path": "tools/package_kicad_stroke_webfont_assets.py",
@@ -122,7 +122,7 @@
   },
   "files": {
     "demo.html": "8102e358a6937c38a454e8ea5fe08792cb05766e780fbc85df4ba25b0c003245",
-    "kicad-monkey-stroke-fonts.css": "604b8b9c24b60099bb5c49e65ff732713131247cd15a417800cd9d1e2419f7ac",
+    "kicad-monkey-stroke-fonts.css": "3f90e3ba4f95b58e88fcbee0a423e2fc66941a7e0224a962ae4168a9c7b93466",
     "kicad-stroke-bold-italic.otf": "5683f2a2e293d028080dd97c6cd1ad6dbb2fda47dbfafe382e065afbacc3fcb4",
     "kicad-stroke-bold-italic.ttf": "4d2661850b553cf670d4a378c81c1bff2fb7dbd86b87c6753203e0a34b8da718",
     "kicad-stroke-bold-italic.woff": "ce88b27bc782b42b74d7f8bf1acb97aa966ba2258322efb7bb2d1dfccf505a41",

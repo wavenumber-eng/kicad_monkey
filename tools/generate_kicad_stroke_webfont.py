@@ -698,7 +698,9 @@ def generate_fonts(
     css_path: Path | None = None
     if write_css:
         css_path = output_dir / CSS_FILE_NAME
-        css_path.write_text(_build_css(generated, output_dir), encoding="utf-8")
+        css_path.write_text(
+            _build_css(generated, output_dir), encoding="utf-8", newline="\n"
+        )
     return GenerationResult(font_files=tuple(generated), css_path=css_path)
 
 
