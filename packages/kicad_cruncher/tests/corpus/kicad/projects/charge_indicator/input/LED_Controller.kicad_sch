@@ -1,0 +1,7399 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "3cd06c6b-2777-47cf-b258-c71128b4c636")
+	(paper "D")
+	(lib_symbols
+		(symbol "wn__wavenumber:Bugsly"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "PCB Bug Marker"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Wavenumber"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "Bugsly"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "Bugsly"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" "GRAPHICAL"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "Bugsly"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:DPBT8105-7"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "Q"
+				(at 4.826 1.27 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+				)
+			)
+			(property "Value" "DPBT8105-7"
+				(at 3.81 -2.794 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "SOT-23:SOT-23"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Bipolar (BJT) Transistor PNP 60 V 1 A 150MHz 600 mW Surface Mount SOT-23-3"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ALTIUM_VALUE" "*"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Diodes Incorporated"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "DPBT8105-7"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "DPBT8105-7"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "BJT-PNP-1B2E3C"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "DPBT8105-7_1_0"
+				(polyline
+					(pts
+						(xy -2.54 2.286) (xy -2.54 -2.286)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 0.762) (xy -1.524 2.286) (xy -0.762 1.27) (xy -2.54 0.762)
+					)
+					(stroke
+						(width -0.0001)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 -0.762) (xy 0 -2.54)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center -1.27 0)
+					(radius 4.481)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy -2.54 0.762)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at -7.62 0 0)
+					(length 5.08)
+					(name "B"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 7.62 270)
+					(length 5.08)
+					(name "E"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -7.62 90)
+					(length 5.08)
+					(name "C"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(symbol "DPBT8105-7_1_1"
+				(text "1"
+					(at -6.858 1.016 0)
+					(effects
+						(font
+							(face "Arial")
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(text "2\n"
+					(at -0.762 5.842 0)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(text "3\n"
+					(at -0.762 -6.096 0)
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:ERJ-3EKF4701V"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+				)
+			)
+			(property "Value" "4.7kΩ"
+				(at 2.54 -3.81 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "R0603_0.55MM_HD:R0603_0.55MM_HD"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "RES 4.7K OHM 1/10W 1% 0603 SMD"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ALTIUM_VALUE" "${VALUE}"
+				(at 5.08 -3.81 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Package Power" "PACKAGE (POWER)"
+				(at 5.08 -6.35 0)
+				(effects
+					(font
+						(size 1.4478 1.4478)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Assembly Notes" ""
+				(at -0.508 3.81 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-3EKF4701V"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "ERJ-3EKF4701V"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "ERJ-3EKF4701V_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:ERJ-3EKF6800V"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+				)
+			)
+			(property "Value" "680Ω"
+				(at 2.54 -3.81 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "R0603_0.55MM_HD:R0603_0.55MM_HD"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "RES 680 OHM 1/10W 1% 0603 SMD"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ALTIUM_VALUE" "${VALUE}"
+				(at 5.08 -3.81 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Package Power" "PACKAGE (POWER)"
+				(at 5.08 -6.35 0)
+				(effects
+					(font
+						(size 1.4478 1.4478)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Assembly Notes" ""
+				(at -0.508 3.81 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-3EKF6800V"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "ERJ-3EKF6800V"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "ERJ-3EKF6800V_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:ERJ-6RQF2R7V"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+				)
+			)
+			(property "Value" "2.7Ω"
+				(at 2.54 -3.81 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "R0805_0.70MM_HD:R0805_0.70MM_HD"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "RES 2.7 OHM 1/8W 1% 0805 SMD"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ALTIUM_VALUE" "${VALUE}"
+				(at 5.08 -3.81 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Package Power" "PACKAGE (POWER)"
+				(at 5.08 -6.35 0)
+				(effects
+					(font
+						(size 1.4478 1.4478)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Assembly Notes" ""
+				(at -0.508 3.81 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-6RQF2R7V"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "ERJ-6RQF2R7V"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "ERJ-6RQF2R7V_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:GCJ188R71C104KA01D"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "C"
+				(at 2.54 2.54 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+				)
+			)
+			(property "Value" "0.1µF"
+				(at 2.54 -5.08 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "C0603_0.90MM_MD:C0603_0.90MM_MD"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "CAP CER 0.1UF 16V X7R 0603"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ALTIUM_VALUE" "${VALUE}"
+				(at 5.08 -3.81 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Temperature Coefficient" "Temperature Coefficient"
+				(at 5.08 -7.62 0)
+				(effects
+					(font
+						(size 1.4478 1.4478)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Murata Electronics"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "GCJ188R71C104KA01D"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "GCJ188R71C104KA01D"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "C_2P_NP"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "GCJ188R71C104KA01D_1_0"
+				(polyline
+					(pts
+						(xy 2.54 0) (xy 3.302 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 1.778) (xy 3.302 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.318 1.778) (xy 4.318 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.334 0) (xy 4.318 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:SMT_TP-50"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "TP"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 2.0066 2.0066)
+					)
+				)
+			)
+			(property "Value" "SMT Testpoint 50mil"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "SMT_TP-50:SMT_TP-50"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "SMT Testpoint 50mil"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Wavenumber"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "SMT_TP-50"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "SMT_TP-50"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" "NO_BOM"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "SMT_TEST"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "SMT_TP-50_1_0"
+				(circle
+					(center 0 0)
+					(radius 1.27)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:WS2811M"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "U"
+				(at 0 2.54 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+				)
+			)
+			(property "Value" "WS2811M"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "MSOP8:MSOP8"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "20V 3 16.5mA 5V~24V MSOP-8 LED Drivers ROHS"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ALTIUM_VALUE" "*"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "World Semi"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "WS2811M"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "WS2811M"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "WS2811M"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "WS2811M_1_0"
+				(rectangle
+					(start 12.7 10.16)
+					(end -10.16 -10.16)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin passive line
+					(at -17.78 5.08 0)
+					(length 7.62)
+					(name "DIN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -17.78 0 0)
+					(length 7.62)
+					(name "DOUT"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -17.78 -5.08 0)
+					(length 7.62)
+					(name "SET"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 17.78 270)
+					(length 7.62)
+					(name "VDD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -17.78 90)
+					(length 7.62)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 20.32 5.08 180)
+					(length 7.62)
+					(name "OUTR"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 20.32 0 180)
+					(length 7.62)
+					(name "OUTG"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 20.32 -5.08 180)
+					(length 7.62)
+					(name "OUTB"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn_power:+3v3"
+			(power)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at -0.508 3.302 0)
+				(do_not_autoplace)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "+3v3"
+				(at -0.508 3.556 0)
+				(do_not_autoplace)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.905 1.905)
+						(thickness 0.254)
+						(bold yes)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+				(at 0.762 9.652 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "+3v3_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 2.54) (xy -1.27 2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "+3v3_1_1"
+				(pin power_in line
+					(at 0 0 90)
+					(length 0)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn_power:GND"
+			(power)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at -0.254 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(do_not_autoplace)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.905 1.905)
+						(thickness 0.254)
+						(bold yes)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0.762 9.652 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "GND_0_1"
+				(polyline
+					(pts
+						(xy -1.27 -2.54) (xy 1.27 -2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GND_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(text "Note:   2.7ohm is 0603 pads with a 0805 P/N  Fix for next revision"
+		(exclude_from_sim no)
+		(at 375.412 241.046 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "8798b324-f0f0-40b9-a81d-4bb7ce637737")
+	)
+	(junction
+		(at 298.45 261.62)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "02cb8633-2162-4ba2-9693-b8c7a04af6e9")
+	)
+	(junction
+		(at 403.86 284.48)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0b14136d-95ca-45ab-8126-104a0a3a2719")
+	)
+	(junction
+		(at 436.88 254)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "180f638d-c50e-4a23-b3cf-b302ea3b1716")
+	)
+	(junction
+		(at 467.36 284.48)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "1b78dff1-26b3-4b6e-a87f-1c09f1e9988b")
+	)
+	(junction
+		(at 342.9 284.48)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "32ece85c-2283-4552-b765-da82a5762573")
+	)
+	(junction
+		(at 375.92 254)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "561493de-e2ac-4d79-a7b4-3fb5d59c0125")
+	)
+	(junction
+		(at 483.87 284.48)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "99e6aeee-3cd6-4a2e-bba5-4c68f9566a7b")
+	)
+	(junction
+		(at 497.84 254)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b3f5a619-6571-4978-9bff-05f782b94afb")
+	)
+	(junction
+		(at 497.84 269.24)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b4a95e38-2d24-4105-8ef2-7842b4981e76")
+	)
+	(junction
+		(at 375.92 269.24)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "cdae8f0d-f845-42ec-9220-9966087e78dd")
+	)
+	(junction
+		(at 436.88 267.97)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "d5d96576-4cd7-4aac-a3bc-76e077c9102d")
+	)
+	(junction
+		(at 359.41 284.48)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "e1fb32ec-ab1a-43ee-9c88-0cbb17a8b2df")
+	)
+	(junction
+		(at 421.64 284.48)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "edff395b-8fca-42b1-9d63-6ab022a627c3")
+	)
+	(wire
+		(pts
+			(xy 359.41 284.48) (xy 359.41 276.86)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "043f9014-f736-4052-9f83-d379b13f1851")
+	)
+	(wire
+		(pts
+			(xy 421.64 284.48) (xy 419.1 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "04de7682-1605-42e5-b732-d7bcafd60c95")
+	)
+	(wire
+		(pts
+			(xy 367.03 269.24) (xy 375.92 269.24)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "07991604-4931-41b9-af6d-696ef2a02371")
+	)
+	(wire
+		(pts
+			(xy 403.86 284.48) (xy 408.94 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "12ea9787-9830-4739-9c49-2d11f228bdd3")
+	)
+	(wire
+		(pts
+			(xy 298.45 251.46) (xy 298.45 261.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1458b36b-b2dc-4182-afa2-715eee4a9dfa")
+	)
+	(wire
+		(pts
+			(xy 393.7 284.48) (xy 403.86 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "14c1a29f-ad3a-4533-ba40-85264d748059")
+	)
+	(wire
+		(pts
+			(xy 265.43 284.48) (xy 280.67 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "161a0803-0d62-4d0f-85f1-2c69efbda2ec")
+	)
+	(wire
+		(pts
+			(xy 421.64 284.48) (xy 429.26 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "16491f2e-d5d7-4319-adc8-f47af5552d3b")
+	)
+	(wire
+		(pts
+			(xy 342.9 309.88) (xy 393.7 309.88)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "1d2af763-a785-496a-a44c-b2e77d767554")
+	)
+	(wire
+		(pts
+			(xy 342.9 251.46) (xy 342.9 260.35)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "21077637-be0d-4b0b-96b3-7fddd53290b3")
+	)
+	(wire
+		(pts
+			(xy 375.92 269.24) (xy 375.92 266.7)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "279c2ee2-5156-4faf-a0dd-7df14f3cbcee")
+	)
+	(wire
+		(pts
+			(xy 483.87 276.86) (xy 483.87 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "2ab385ce-17b6-41e3-a148-f0cedfb239c0")
+	)
+	(wire
+		(pts
+			(xy 337.82 314.96) (xy 454.66 314.96)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "2ee29d1d-200d-4508-bdbb-0d5b674594f0")
+	)
+	(wire
+		(pts
+			(xy 436.88 265.43) (xy 436.88 267.97)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "365efc77-b05b-4b91-aea7-8e5d6544c5f2")
+	)
+	(wire
+		(pts
+			(xy 491.49 269.24) (xy 497.84 269.24)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "389b55ca-1d00-4716-ba8b-e9d4561d78f5")
+	)
+	(wire
+		(pts
+			(xy 467.36 284.48) (xy 468.63 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "3c156888-13f6-47ab-86b3-0999906b8f99")
+	)
+	(wire
+		(pts
+			(xy 337.82 294.64) (xy 337.82 314.96)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "3c921eee-1281-407d-9410-609d8724de83")
+	)
+	(wire
+		(pts
+			(xy 483.87 284.48) (xy 490.22 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "42f5cbad-4d3c-4ad7-989f-db3bc5a10a45")
+	)
+	(wire
+		(pts
+			(xy 497.84 265.43) (xy 497.84 269.24)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "4d062600-edd7-49b9-93e7-b9b378fd6b6b")
+	)
+	(wire
+		(pts
+			(xy 375.92 269.24) (xy 375.92 276.86)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "51a2e70d-fe66-4a8f-8634-ba0ce1cb2a64")
+	)
+	(wire
+		(pts
+			(xy 359.41 284.48) (xy 368.3 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "53dc756a-5c22-4a23-b3ec-9f11dabc9bd5")
+	)
+	(wire
+		(pts
+			(xy 497.84 254) (xy 497.84 255.27)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "5505e693-20ec-4132-9aea-dd14996acf87")
+	)
+	(wire
+		(pts
+			(xy 265.43 289.56) (xy 280.67 289.56)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "57649179-7921-4095-a5ee-f6cc53581a86")
+	)
+	(wire
+		(pts
+			(xy 342.9 284.48) (xy 346.71 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "5adc93ae-bf3c-45db-8ba4-32c13d0dd0c6")
+	)
+	(wire
+		(pts
+			(xy 436.88 251.46) (xy 436.88 254)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "6188e63f-e2fd-4080-896e-cb61fcd945f9")
+	)
+	(wire
+		(pts
+			(xy 393.7 309.88) (xy 393.7 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "64b66ab1-4167-453e-892d-2ca72646ece5")
+	)
+	(wire
+		(pts
+			(xy 515.62 327.66) (xy 436.88 327.66)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "6772d255-d94c-4c6b-b7b5-bebb979d472a")
+	)
+	(wire
+		(pts
+			(xy 436.88 327.66) (xy 436.88 292.1)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "67ad7de8-1acd-40b6-a459-93ae65cd0eec")
+	)
+	(wire
+		(pts
+			(xy 375.92 292.1) (xy 375.92 335.28)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "6be87152-fdbd-4b1d-a7d2-3954796ce29e")
+	)
+	(wire
+		(pts
+			(xy 318.77 294.64) (xy 337.82 294.64)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "6bee0b81-4af6-450e-99f0-984c6148ba3c")
+	)
+	(wire
+		(pts
+			(xy 403.86 251.46) (xy 403.86 260.35)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "6cb023b6-3203-4523-8397-f4cba9623458")
+	)
+	(wire
+		(pts
+			(xy 298.45 261.62) (xy 298.45 271.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6f8aa746-8ee5-47aa-86a8-de3421446bb3")
+	)
+	(wire
+		(pts
+			(xy 359.41 254) (xy 375.92 254)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "72c2fa71-76af-4a96-8c17-0ffbd6561129")
+	)
+	(wire
+		(pts
+			(xy 454.66 284.48) (xy 467.36 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "735aab79-ad18-41ae-8a65-3bd50af97b81")
+	)
+	(wire
+		(pts
+			(xy 436.88 267.97) (xy 436.88 276.86)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "77424d73-e122-4178-868d-b5d72f1a9564")
+	)
+	(wire
+		(pts
+			(xy 318.77 289.56) (xy 342.9 289.56)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "7fd1c81f-fc6b-4788-95a1-6c1993ae3af8")
+	)
+	(wire
+		(pts
+			(xy 478.79 284.48) (xy 483.87 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "8cb2ea98-a3dd-4216-879f-20966e0fbf79")
+	)
+	(wire
+		(pts
+			(xy 421.64 254) (xy 421.64 260.35)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "8e54422d-ddf4-4600-b9fa-f3a97613fd35")
+	)
+	(wire
+		(pts
+			(xy 467.36 251.46) (xy 467.36 264.16)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "8e7c4405-af6b-434f-b6de-24cf11f04e9f")
+	)
+	(wire
+		(pts
+			(xy 359.41 261.62) (xy 359.41 254)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "918cc2ec-0a2e-4882-8fdb-dd676c767e22")
+	)
+	(wire
+		(pts
+			(xy 270.51 294.64) (xy 280.67 294.64)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "92a533dd-9fbc-41f4-9b5b-692659e0b67f")
+	)
+	(wire
+		(pts
+			(xy 403.86 270.51) (xy 403.86 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "98b17970-8410-4c54-9728-43433d30e410")
+	)
+	(wire
+		(pts
+			(xy 421.64 254) (xy 436.88 254)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "9bb98974-e389-46dd-b84a-66611c550598")
+	)
+	(wire
+		(pts
+			(xy 436.88 254) (xy 436.88 255.27)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "9c3c544a-df63-4f5b-aff9-210b56f1727b")
+	)
+	(wire
+		(pts
+			(xy 497.84 251.46) (xy 497.84 254)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "9cbf655f-342d-424d-8876-eab4c4061060")
+	)
+	(wire
+		(pts
+			(xy 497.84 269.24) (xy 497.84 276.86)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "a5dd2df3-e972-4f62-967b-36ec9f6ca320")
+	)
+	(wire
+		(pts
+			(xy 298.45 261.62) (xy 306.07 261.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ba8a132d-8efb-4379-85c0-e174b2f9db00")
+	)
+	(wire
+		(pts
+			(xy 375.92 254) (xy 375.92 256.54)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "bbc6cc24-68bc-4cc2-989a-79c6e16746f4")
+	)
+	(wire
+		(pts
+			(xy 497.84 320.04) (xy 497.84 292.1)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "c0922404-7d17-40e9-9f13-0d231fa39704")
+	)
+	(wire
+		(pts
+			(xy 515.62 320.04) (xy 497.84 320.04)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "c5a20d62-c62f-499a-ad28-5c53eb671947")
+	)
+	(wire
+		(pts
+			(xy 454.66 314.96) (xy 454.66 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "c9ed9ea7-8fc4-443a-a8c3-1332f6def632")
+	)
+	(wire
+		(pts
+			(xy 342.9 270.51) (xy 342.9 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "d065205a-668b-4864-bad7-e8de60b48fd7")
+	)
+	(wire
+		(pts
+			(xy 429.26 267.97) (xy 436.88 267.97)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "d65798f2-b144-49b9-aa3d-0aae978d0aa3")
+	)
+	(wire
+		(pts
+			(xy 318.77 284.48) (xy 342.9 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "df211c9d-6d62-4785-a68a-9d00af5e0934")
+	)
+	(wire
+		(pts
+			(xy 342.9 289.56) (xy 342.9 309.88)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "e2c5b452-c9b8-405f-a06d-a946119295c6")
+	)
+	(wire
+		(pts
+			(xy 483.87 254) (xy 483.87 261.62)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "e2c9eb50-8583-4a99-8499-60def947d11a")
+	)
+	(wire
+		(pts
+			(xy 375.92 251.46) (xy 375.92 254)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "e4ed46b6-c521-4745-9a7f-1c59db96ec6f")
+	)
+	(wire
+		(pts
+			(xy 467.36 274.32) (xy 467.36 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "f12b3088-6056-4414-af69-087128d0d35e")
+	)
+	(wire
+		(pts
+			(xy 483.87 254) (xy 497.84 254)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "f12c16d1-b2e9-48f0-be6d-365fecb1b2be")
+	)
+	(wire
+		(pts
+			(xy 356.87 284.48) (xy 359.41 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "f8949783-0621-4196-bb8c-f7509359f914")
+	)
+	(wire
+		(pts
+			(xy 421.64 275.59) (xy 421.64 284.48)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "fb7c92a4-ad2a-4f5a-8650-a567d9c335f6")
+	)
+	(wire
+		(pts
+			(xy 375.92 335.28) (xy 515.62 335.28)
+		)
+		(stroke
+			(width 0.254)
+			(type default)
+		)
+		(uuid "fcdda8c9-2957-4561-b764-6320a8ff4a72")
+	)
+	(label "OUTG"
+		(at 328.93 289.56 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify right bottom)
+		)
+		(uuid "283dfc3c-1cdb-42ba-8d41-5a06a60341a9")
+	)
+	(label "OUTB"
+		(at 328.93 294.64 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify right bottom)
+		)
+		(uuid "29df8a9d-7b45-436e-9ef1-5a583a971d43")
+	)
+	(label "OUTR"
+		(at 328.93 284.48 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify right bottom)
+		)
+		(uuid "35144dad-db44-4fe6-b07c-227c1fee7fb1")
+	)
+	(label "OUTG"
+		(at 393.7 284.48 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "60646837-6a4d-47b1-9b17-8012ee2100a7")
+	)
+	(label "OUTB"
+		(at 454.66 284.48 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d78daa5f-75f4-4717-beeb-cd8b1470e38a")
+	)
+	(hierarchical_label "DO"
+		(shape output)
+		(at 265.43 289.56 180)
+		(effects
+			(font
+				(size 1.905 1.905)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify right)
+		)
+		(uuid "0b8dbd65-f88b-4984-8da8-c3bd68f33a2a")
+	)
+	(hierarchical_label "RED"
+		(shape output)
+		(at 515.62 335.28 0)
+		(effects
+			(font
+				(size 1.905 1.905)
+				(thickness 0.381)
+				(bold yes)
+			)
+			(justify left)
+		)
+		(uuid "11de2bfa-3636-46a7-9ad0-2f833533b59e")
+	)
+	(hierarchical_label "GREEN"
+		(shape output)
+		(at 515.62 327.66 0)
+		(effects
+			(font
+				(size 1.905 1.905)
+				(thickness 0.381)
+				(bold yes)
+			)
+			(justify left)
+		)
+		(uuid "9f7c3b8d-aa2b-450e-8c4f-85743dfcf990")
+	)
+	(hierarchical_label "BLUE"
+		(shape output)
+		(at 515.62 320.04 0)
+		(effects
+			(font
+				(size 1.905 1.905)
+				(thickness 0.381)
+				(bold yes)
+			)
+			(justify left)
+		)
+		(uuid "a54e0884-28af-4692-955d-8c75e8f69968")
+	)
+	(hierarchical_label "DIN"
+		(shape input)
+		(at 265.43 284.48 180)
+		(effects
+			(font
+				(size 1.905 1.905)
+				(thickness 0.254)
+				(bold yes)
+			)
+			(justify right)
+		)
+		(uuid "e7d64bfb-4ab4-46ba-a725-529a96660849")
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at 306.07 269.24 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "122a6fd9-6452-4b5f-8783-c39b02bf7d88")
+		(property "Reference" "#PWR011"
+			(at 306.07 275.59 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 306.07 273.304 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 306.07 269.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 306.07 269.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 306.832 259.588 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "021559a2-2d00-46f4-ae14-eb9c9ca0c1c3")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "#PWR033")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "#PWR011")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "#PWR022")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "#PWR055")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "#PWR044")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:DPBT8105-7")
+		(at 375.92 284.48 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "1d8186f9-7fa8-4ae8-ac18-0ee30bd44539")
+		(property "Reference" "Q1"
+			(at 382.778 282.702 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "DPBT8105-7"
+			(at 379.984 285.75 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "SOT-23:SOT-23"
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Bipolar (BJT) Transistor PNP 60 V 1 A 150MHz 600 mW Surface Mount SOT-23-3"
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 375.92 279.4 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Diodes Incorporated"
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "DPBT8105-7"
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "DPBT8105-7"
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 375.92 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "6c14212f-e9b7-45f1-a5ad-879ff6c8125f")
+		)
+		(pin "3"
+			(uuid "1ed261dc-b181-42a2-ab71-6452d6caec8b")
+		)
+		(pin "2"
+			(uuid "a9aa7c2b-94f5-4fa0-9b47-e029e9122d1f")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "Q13")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "Q1")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "Q7")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "Q25")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "Q19")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-3EKF6800V")
+		(at 342.9 270.51 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "3388d8e2-d1a8-4abc-b1e8-4db5e4f8650a")
+		(property "Reference" "R2"
+			(at 338.836 263.906 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "680Ω"
+			(at 340.868 265.684 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "R0603_0.55MM_MD:R0603_0.55MM_MD"
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "RES 680 OHM 1/10W 1% 0603 SMD"
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 349.25 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 339.09 271.018 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-3EKF6800V"
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "ERJ-3EKF6800V"
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 342.9 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b2f95c78-7471-405d-baad-22f797b037cd")
+		)
+		(pin "2"
+			(uuid "fc6bd777-5060-4df1-b308-4f2c4de51f6e")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "R22")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "R2")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "R12")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "R42")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "R32")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-6RQF2R7V")
+		(at 497.84 265.43 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "34ccc59a-f504-4bff-80c8-851fb02086fd")
+		(property "Reference" "R10"
+			(at 501.904 258.572 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "2.7Ω"
+			(at 503.682 260.35 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "R0603_0.55MM_MD:R0603_0.55MM_MD"
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "RES 2.7 OHM 1/8W 1% 0805 SMD"
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 501.65 260.35 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 504.19 260.35 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 494.03 265.938 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-6RQF2R7V"
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "ERJ-6RQF2R7V"
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 497.84 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a742021b-003f-476d-8a7a-efed21cd15ce")
+		)
+		(pin "2"
+			(uuid "d0a11ed6-f230-494f-b1e4-85130c856db5")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "R30")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "R10")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "R20")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "R50")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "R40")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:DPBT8105-7")
+		(at 359.41 269.24 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "4017f90e-46c9-4a35-bdc1-863ee9f6e4bf")
+		(property "Reference" "Q2"
+			(at 352.044 267.462 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "DPBT8105-7"
+			(at 354.584 270.764 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "SOT-23:SOT-23"
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Bipolar (BJT) Transistor PNP 60 V 1 A 150MHz 600 mW Surface Mount SOT-23-3"
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 359.41 264.16 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Diodes Incorporated"
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "DPBT8105-7"
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "DPBT8105-7"
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 359.41 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "96817680-a249-4f9c-bf7f-a065e57d2083")
+		)
+		(pin "3"
+			(uuid "f4fa3c45-bdbd-4b37-a676-f28488b912ea")
+		)
+		(pin "2"
+			(uuid "d82c0fa4-c87f-4ed8-a541-d98e191fd9ee")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "Q14")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "Q2")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "Q8")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "Q26")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "Q20")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 375.92 251.46 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "47fc0e00-bd4f-459c-99b4-591c6065ff5a")
+		(property "Reference" "#PWR015"
+			(at 375.92 255.27 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5v0"
+			(at 375.92 247.65 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 375.92 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 375.92 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 376.682 241.808 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "23894301-2e5c-4cd1-a8e2-0462ebe6ba19")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "#PWR037")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "#PWR015")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "#PWR026")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "#PWR059")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "#PWR048")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 298.45 251.46 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "5c48d9ad-c67f-4c2b-a582-f63e28d7a601")
+		(property "Reference" "#PWR012"
+			(at 298.45 255.27 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5v0"
+			(at 298.196 247.904 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 298.45 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 298.45 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 299.212 241.808 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "7f26f3a2-5ecb-44a1-b959-3731f67ffdb5")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "#PWR034")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "#PWR012")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "#PWR023")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "#PWR056")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "#PWR045")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:GCJ188R71C104KA01D")
+		(at 306.07 261.62 270)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "5f7b3afb-0f91-40df-bead-e08360350fb4")
+		(property "Reference" "C1"
+			(at 308.61 264.668 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "0.1µF"
+			(at 309.372 266.954 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "C0603_0.90MM_MD:C0603_0.90MM_MD"
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "CAP CER 0.1UF 16V X7R 0603"
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 302.26 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Temperature Coefficient" "Temperature Coefficient"
+			(at 298.45 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "GCJ188R71C104KA01D"
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "GCJ188R71C104KA01D"
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 306.07 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "c6247f98-41fd-45f6-9440-8077d80fd248")
+		)
+		(pin "1"
+			(uuid "0ede9185-fa22-499d-b561-b1f1f2fec07b")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "C3")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "C1")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "C2")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "C5")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "C4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-3EKF4701V")
+		(at 346.71 284.48 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "68db3adc-a072-4563-9508-8e3d0c360291")
+		(property "Reference" "R3"
+			(at 351.536 280.416 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "4.7kΩ"
+			(at 349.25 283.21 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "R0603_0.55MM_MD:R0603_0.55MM_MD"
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "RES 4.7K OHM 1/10W 1% 0603 SMD"
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 351.79 288.29 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 351.79 290.83 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 346.202 280.67 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-3EKF4701V"
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "ERJ-3EKF4701V"
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 346.71 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "d8441dd1-fc30-49c5-a9a5-dcd6fbe9ae89")
+		)
+		(pin "2"
+			(uuid "bbfe686c-9dbb-4824-8a43-e54bca08e7cb")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "R23")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "R3")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "R13")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "R43")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "R33")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:DPBT8105-7")
+		(at 497.84 284.48 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "7508a53b-5b3e-4390-80bb-298ba92c7ee3")
+		(property "Reference" "Q5"
+			(at 504.444 282.956 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "DPBT8105-7"
+			(at 502.158 286.004 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "SOT-23:SOT-23"
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Bipolar (BJT) Transistor PNP 60 V 1 A 150MHz 600 mW Surface Mount SOT-23-3"
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 497.84 279.4 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Diodes Incorporated"
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "DPBT8105-7"
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "DPBT8105-7"
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 497.84 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "cb33e0c7-1087-4bb4-9657-edd35aa57d6a")
+		)
+		(pin "3"
+			(uuid "bbc9bf47-781c-442a-bc01-075a0bbfde6a")
+		)
+		(pin "2"
+			(uuid "ab4e4de7-8c3d-4fa1-8b44-7ce64c756578")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "Q17")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "Q5")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "Q11")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "Q29")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "Q23")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:WS2811M")
+		(at 298.45 289.56 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "823747d3-3d39-4977-953a-cdd8a6e9bd54")
+		(property "Reference" "U1"
+			(at 288.544 278.13 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "WS2811M"
+			(at 303.276 301.244 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "MSOP8:MSOP8"
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "20V 3 16.5mA 5V~24V MSOP-8 LED Drivers ROHS"
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 298.45 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "World Semi"
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "WS2811M"
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "WS2811M"
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 298.45 289.56 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "fd96e57c-c411-4ffe-9ed0-e439d293893e")
+		)
+		(pin "1"
+			(uuid "c7a460b3-47b1-4f79-9dc9-23a7e21d0908")
+		)
+		(pin "3"
+			(uuid "a95694dd-4ecb-49a2-947a-197afd792710")
+		)
+		(pin "4"
+			(uuid "f04ac378-e435-4977-9001-a7ff4c5992c9")
+		)
+		(pin "6"
+			(uuid "ebb1d68d-026f-47cd-9de1-2a3cea60044a")
+		)
+		(pin "5"
+			(uuid "6e0968f9-ee44-4c2e-b7aa-0da367ef5443")
+		)
+		(pin "7"
+			(uuid "18ce6bdf-9800-44d6-bb68-b784d8311542")
+		)
+		(pin "8"
+			(uuid "24ec9432-28c3-4389-b479-625b8cdde99e")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "U3")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "U1")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "U2")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "U5")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "U4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 403.86 251.46 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "826bac0d-72ec-4306-8512-442a4d08e180")
+		(property "Reference" "#PWR016"
+			(at 403.86 255.27 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5v0"
+			(at 403.86 247.65 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 403.86 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 403.86 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 404.622 241.808 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "1fe152d4-c47a-4d71-a80d-59da7811ea3b")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "#PWR038")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "#PWR016")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "#PWR027")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "#PWR060")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "#PWR049")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-3EKF4701V")
+		(at 468.63 284.48 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "8491d121-961d-4c5c-bb73-5c4b2759240f")
+		(property "Reference" "R9"
+			(at 473.71 280.67 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "4.7kΩ"
+			(at 471.424 283.464 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "R0603_0.55MM_MD:R0603_0.55MM_MD"
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "RES 4.7K OHM 1/10W 1% 0603 SMD"
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 473.71 288.29 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 473.71 290.83 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 468.122 280.67 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-3EKF4701V"
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "ERJ-3EKF4701V"
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 468.63 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "001364d0-577e-40a7-b3d0-bb5dd0dac1b1")
+		)
+		(pin "2"
+			(uuid "258f9abb-1868-48f1-9c9a-f2f16a088195")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "R29")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "R9")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "R19")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "R49")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "R39")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-6RQF2R7V")
+		(at 436.88 265.43 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "87a89bf1-9f6f-4e56-b3d5-4165c0277e24")
+		(property "Reference" "R7"
+			(at 441.452 259.334 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "2.7Ω"
+			(at 442.976 261.112 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "R0603_0.55MM_MD:R0603_0.55MM_MD"
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "RES 2.7 OHM 1/8W 1% 0805 SMD"
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 440.69 260.35 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 443.23 260.35 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 433.07 265.938 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-6RQF2R7V"
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "ERJ-6RQF2R7V"
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 436.88 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "c6680e1e-a75c-4e73-8d5a-a18f14d5c07d")
+		)
+		(pin "2"
+			(uuid "622ee690-5eac-43e9-8034-2e090492eb72")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "R27")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "R7")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "R17")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "R47")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "R37")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-3EKF6800V")
+		(at 467.36 274.32 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "9af65f06-dfad-4fda-a499-2a8289e67b05")
+		(property "Reference" "R8"
+			(at 463.042 268.732 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "680Ω"
+			(at 465.328 270.51 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "R0603_0.55MM_MD:R0603_0.55MM_MD"
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "RES 680 OHM 1/10W 1% 0603 SMD"
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 473.71 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 463.55 274.828 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-3EKF6800V"
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "ERJ-3EKF6800V"
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 467.36 274.32 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4ac2537f-1cf9-47ee-8165-e95d162ebf5b")
+		)
+		(pin "2"
+			(uuid "7f6cbf7f-8241-446c-a318-d34daac043fa")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "R28")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "R8")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "R18")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "R48")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "R38")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 497.84 251.46 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "9d8003a0-09a0-4ba6-a4c1-7b46cfae041d")
+		(property "Reference" "#PWR019"
+			(at 497.84 255.27 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5v0"
+			(at 497.84 247.65 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 497.84 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 497.84 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 498.602 241.808 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "61684b31-09b3-4337-ad12-2f6783471f59")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "#PWR041")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "#PWR019")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "#PWR030")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "#PWR063")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "#PWR052")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:DPBT8105-7")
+		(at 421.64 267.97 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "a6f075a5-09f6-4ac3-aaa3-9ccb1cdc8c12")
+		(property "Reference" "Q4"
+			(at 414.528 266.446 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "DPBT8105-7"
+			(at 416.814 269.494 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "SOT-23:SOT-23"
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Bipolar (BJT) Transistor PNP 60 V 1 A 150MHz 600 mW Surface Mount SOT-23-3"
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 421.64 262.89 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Diodes Incorporated"
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "DPBT8105-7"
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "DPBT8105-7"
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 421.64 267.97 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4bac176e-9681-4821-ae4d-adc5b5bdd7e3")
+		)
+		(pin "3"
+			(uuid "51f669d7-cd57-4e60-83ce-2beb35713c95")
+		)
+		(pin "2"
+			(uuid "c77aa15c-6049-4410-a0b9-fde5bedcece6")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "Q16")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "Q4")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "Q10")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "Q28")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "Q22")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:DPBT8105-7")
+		(at 483.87 269.24 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "a717652d-c83f-42d9-9ae1-8b512cc099d0")
+		(property "Reference" "Q6"
+			(at 477.266 267.716 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "DPBT8105-7"
+			(at 479.806 270.764 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "SOT-23:SOT-23"
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Bipolar (BJT) Transistor PNP 60 V 1 A 150MHz 600 mW Surface Mount SOT-23-3"
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 483.87 264.16 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Diodes Incorporated"
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "DPBT8105-7"
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "DPBT8105-7"
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 483.87 269.24 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "2e456b31-fe95-43c6-a5ef-d6ea81e3e396")
+		)
+		(pin "3"
+			(uuid "fe28543e-82b9-4d58-b005-0d92fe202a57")
+		)
+		(pin "2"
+			(uuid "b501ec23-08e4-486c-b63a-e9e3d2a7cb45")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "Q18")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "Q6")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "Q12")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "Q30")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "Q24")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 467.36 251.46 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "b6129979-db6a-4475-9e31-49622a7cb066")
+		(property "Reference" "#PWR018"
+			(at 467.36 255.27 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5v0"
+			(at 467.36 247.904 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 467.36 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 467.36 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 468.122 241.808 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "95cde2ff-7208-4be7-9f9e-fb2493ebb0d4")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "#PWR040")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "#PWR018")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "#PWR029")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "#PWR062")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "#PWR051")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-3EKF4701V")
+		(at 408.94 284.48 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "b81a07c4-8cec-453c-9076-f2b6b6ea2693")
+		(property "Reference" "R6"
+			(at 413.766 279.908 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "4.7kΩ"
+			(at 411.734 282.956 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "R0603_0.55MM_MD:R0603_0.55MM_MD"
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "RES 4.7K OHM 1/10W 1% 0603 SMD"
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 414.02 288.29 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 414.02 290.83 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 408.432 280.67 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-3EKF4701V"
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "ERJ-3EKF4701V"
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 408.94 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4a19b478-14e5-4b1c-9144-a72c39a509d5")
+		)
+		(pin "2"
+			(uuid "4344aa19-0273-418e-b7d9-ce3203e57ea7")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "R26")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "R6")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "R16")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "R46")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "R36")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-3EKF6800V")
+		(at 403.86 270.51 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "c47cefcc-4a17-45d3-96af-6bb2350ff9fc")
+		(property "Reference" "R5"
+			(at 400.05 264.414 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "680Ω"
+			(at 401.828 266.192 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "R0603_0.55MM_MD:R0603_0.55MM_MD"
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "RES 680 OHM 1/10W 1% 0603 SMD"
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 410.21 265.43 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 400.05 271.018 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-3EKF6800V"
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "ERJ-3EKF6800V"
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 403.86 270.51 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "1b262927-b57c-437f-9258-330ac1035faa")
+		)
+		(pin "2"
+			(uuid "48cb0cf4-7155-45eb-855f-03645f466e4f")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "R25")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "R5")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "R15")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "R45")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "R35")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:Bugsly")
+		(at 374.65 231.14 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "d644f14f-ab88-441e-9c3e-91e6434cb508")
+		(property "Reference" "1"
+			(at 375.92 229.8699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "~"
+			(at 375.92 232.4099 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at 374.65 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 374.65 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "PCB Bug Marker"
+			(at 374.65 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 374.65 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Wavenumber"
+			(at 374.65 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "Bugsly"
+			(at 374.65 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "Bugsly"
+			(at 374.65 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" "GRAPHICAL"
+			(at 374.65 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "1")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "1")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "1")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "11")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "11")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:DPBT8105-7")
+		(at 436.88 284.48 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "d8779a71-2e2f-4730-be9d-fe1a64ffe9d8")
+		(property "Reference" "Q3"
+			(at 443.484 282.448 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "DPBT8105-7"
+			(at 441.198 285.75 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "SOT-23:SOT-23"
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Bipolar (BJT) Transistor PNP 60 V 1 A 150MHz 600 mW Surface Mount SOT-23-3"
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 436.88 279.4 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Diodes Incorporated"
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "DPBT8105-7"
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "DPBT8105-7"
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 436.88 284.48 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "98509a1b-f37b-4c3f-a2cb-1903366b378c")
+		)
+		(pin "3"
+			(uuid "e426f994-5331-47e9-aa02-ee796321ebac")
+		)
+		(pin "2"
+			(uuid "9d3eb396-e378-4423-ab9f-e612ee640bea")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "Q15")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "Q3")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "Q9")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "Q27")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "Q21")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at 298.45 307.34 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "d9f47f1c-ce7c-4b6a-87e2-f1c8466f7854")
+		(property "Reference" "#PWR013"
+			(at 298.45 313.69 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 298.196 311.15 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 298.45 307.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 298.45 307.34 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 299.212 297.688 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "239542b8-ba3f-4607-98fa-2a90865ea287")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "#PWR035")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "#PWR013")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "#PWR024")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "#PWR057")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "#PWR046")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 342.9 251.46 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ddbbd87c-6d4f-408f-b371-f6304c3c499b")
+		(property "Reference" "#PWR014"
+			(at 342.9 255.27 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5v0"
+			(at 342.646 247.396 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 342.9 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 342.9 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 343.662 241.808 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "67bbae36-8491-4172-8459-3d796922b7ed")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "#PWR036")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "#PWR014")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "#PWR025")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "#PWR058")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "#PWR047")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:SMT_TP-50")
+		(at 265.43 294.64 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "e1af9910-6b3d-4d7a-8a73-df57c7ee8d90")
+		(property "Reference" "TP5"
+			(at 260.096 294.894 0)
+			(effects
+				(font
+					(size 2.0066 2.0066)
+				)
+			)
+		)
+		(property "Value" "SMT Testpoint 50mil"
+			(at 270.002 300.482 0)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "SMT_TP-50:SMT_TP-50"
+			(at 265.43 294.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 265.43 294.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "SMT Testpoint 50mil"
+			(at 265.43 294.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 265.43 294.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Wavenumber"
+			(at 265.43 294.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "SMT_TP-50"
+			(at 265.43 294.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "SMT_TP-50"
+			(at 265.43 294.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" "NO_BOM"
+			(at 265.43 294.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f16074fe-5699-430f-afb3-cf9c9f5e4135")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "TP7")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "TP5")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "TP6")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "TP9")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "TP8")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-6RQF2R7V")
+		(at 375.92 266.7 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "e63fcc5e-c5a5-4bb2-ad5a-fd10520d855f")
+		(property "Reference" "R4"
+			(at 379.984 260.35 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "2.7Ω"
+			(at 381.508 262.382 90)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "R0603_0.55MM_MD:R0603_0.55MM_MD"
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "RES 2.7 OHM 1/8W 1% 0805 SMD"
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 379.73 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 382.27 261.62 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 372.11 267.208 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-6RQF2R7V"
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "ERJ-6RQF2R7V"
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" ""
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB PART #" ""
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "JLCPCB Part #" ""
+			(at 375.92 266.7 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "3ab274a3-0a1a-4563-b046-484d1a8bc64b")
+		)
+		(pin "2"
+			(uuid "d209aeba-6ebc-416f-a0a5-d9fa079829fd")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "R24")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "R4")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "R14")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "R44")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "R34")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 436.88 251.46 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ff1ee54a-4b38-4274-99c9-9451400c4c33")
+		(property "Reference" "#PWR017"
+			(at 436.88 255.27 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5v0"
+			(at 436.626 247.65 0)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.27 1.27)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 436.88 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 436.88 251.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 437.642 241.808 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "005e2e0d-ce7d-461e-8646-5d98d69a153e")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/37547075-e9b5-4ddd-b16b-20e2ebfa49cf"
+					(reference "#PWR039")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/734949e2-e993-4a9f-bb08-a50aed043d6a"
+					(reference "#PWR017")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/8eea20ec-c9f0-4bea-ad1c-c7906bff29cd"
+					(reference "#PWR028")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/c9b42f1f-2253-4920-922a-5e9bf0b00430"
+					(reference "#PWR061")
+					(unit 1)
+				)
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a/f07b283e-8a01-4dd6-b825-73e62d3e67f2"
+					(reference "#PWR050")
+					(unit 1)
+				)
+			)
+		)
+	)
+)

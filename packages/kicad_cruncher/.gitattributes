@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+*.kicad_pcb text
+*.kicad_pro text
+*.kicad_sch text
+*.kicad_sym text
+*.kicad_mod text
+*.step binary
+*.STEP binary
+*.wrl binary

@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP AD5697RBRUZ
+D Analog Devices AD5697RBRUZ, 2-channel 12 bit Serial DAC, 16-Pin TSSOP
+K
+F https://componentsearchengine.com/Datasheets/2/AD5697RBRUZ.pdf
+$ENDCMP
+#
+#End Doc Library

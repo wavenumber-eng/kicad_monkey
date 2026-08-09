@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>KiCad Cruncher Architecture</title>
+</head>
+<body data-doc="architecture" data-profile="python-package">
+  <h1>Architecture</h1>
+  <p>
+    KiCad Cruncher owns public KiCad workflow commands and generated artifact
+    layouts. It composes `kicad-monkey` parsing/rendering primitives and
+    `wn-geometer` projection support without taking ownership of either
+    package's lower-level contracts.
+  </p>
+
+  <h2>Boundaries</h2>
+  <ul>
+    <li><code>_cli.py</code> owns top-level CLI registration and dispatch.</li>
+    <li><code>kicad_cruncher_cmd_* </code> modules own individual public commands.</li>
+    <li><code>bom_pnp_* </code> modules own shared BOM, PnP, and JLC normalization.</li>
+    <li><code>kicad_cruncher_pcb_svg_* </code> modules own configured SVG view composition.</li>
+    <li><code>kicad_cruncher_pcb_layer_step*</code> modules own layer STEP generation.</li>
+    <li><code>docs/contracts/</code> owns command and config schemas.</li>
+    <li><code>docs/design/</code> owns durable command and interface design docs.</li>
+  </ul>
+
+  <h2>Release Policy</h2>
+  <p>
+    Every public command must be represented in the command manifest, CLI design
+    docs, contracts when applicable, and Rack-owned signoff tests. Generated
+    outputs remain disposable unless promoted to explicit fixtures or contracts.
+  </p>
+</body>
+</html>

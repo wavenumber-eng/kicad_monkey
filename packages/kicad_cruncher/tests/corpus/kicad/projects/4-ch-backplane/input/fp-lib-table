@@ -1,0 +1,9 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "speedy") (type "KiCad") (uri "${KIPRJMOD}/Libs/speedy.pretty") (options "") (descr ""))
+	(lib (name "SO") (type "KiCad") (uri "${KICAD9_FOOTPRINT_DIR}/Package_SO.pretty") (options "") (descr ""))
+	(lib (name "SOT") (type "KiCad") (uri "${KICAD9_FOOTPRINT_DIR}/Package_TO_SOT_SMD.pretty") (options "") (descr ""))
+	(lib (name "QFN") (type "KiCad") (uri "${KICAD9_FOOTPRINT_DIR}/Package_DFN_QFN.pretty") (options "") (descr ""))
+	(lib (name "footprints") (type "KiCad") (uri "${KIPRJMOD}/Libs/KSZ9896CTXC/footprints.pretty") (options "") (descr ""))
+	(lib (name "AD5697RBRUZ") (type "KiCad") (uri "${KIPRJMOD}/Libs/AD5697RBRUZ") (options "") (descr ""))
+)

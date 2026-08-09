@@ -1,0 +1,19 @@
+{
+  "annotation_missing_offenders": [],
+  "any_count_total": 0,
+  "complexity_offenders": {
+    "tests/support_scripts/py_signoff.py::_annotation_missing": 14,
+    "tests/support_scripts/py_signoff.py::_count_any_in_module": 11,
+    "tests/support_scripts/py_signoff.py::_evaluate": 24,
+    "tests/support_scripts/py_signoff.py::main": 11
+  },
+  "duplicate_groups": [],
+  "file_bytes_offenders": {},
+  "file_lines_offenders": {
+    "src/py/kicad_cruncher/kicad_cruncher_pcb_layer_step.py": 2818
+  },
+  "max_file_bytes": 100000,
+  "max_file_lines": 2500,
+  "max_new_code_complexity": 10,
+  "schema": 1
+}

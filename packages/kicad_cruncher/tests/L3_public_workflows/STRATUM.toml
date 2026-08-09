@@ -1,0 +1,101 @@
+name = "Public Workflows"
+order = 3
+description = "Fixture-backed public CLI workflows using redistributable assets"
+enabled = true
+concerns = ["cli", "contracts", "release"]
+
+objectives = [
+    "Stable public commands run against redistributable KiCad fixtures",
+    "Generated outputs have expected schemas, README guidance, and artifact shapes",
+    "Workflow tests do not require a private corpus",
+    "Copied KiCad Monkey corpus projects exercise real KiCad files",
+    "PCB review records distinguish plated and non-plated drill features",
+    "PCB SVG workflows exercise config-driven layer outputs and geometer HLR",
+    "PCB SVG cutout views detect closed Edge.Cuts circles, rectangles, polygons, lines, arcs, and curves",
+    "PCB SVG virtual overlays use the same full-board canvas origin as KiCad Monkey SVG renders",
+    "PCB SVG Edge.Cuts loop detection tolerates floating-point arc endpoint noise",
+    "PCB SVG layer outputs keep raw physical layers separate from computed virtual layers",
+    "PCB SVG physical layer outputs include configurable Edge.Cuts, drill, and slot context overlays",
+    "PCB SVG standalone virtual layer files can be disabled independently from physical context overlays",
+    "PCB clean dry-run and apply remove configured documentation-layer graphics while preserving copper and hiding Value fields",
+]
+
+[dependencies]
+strata = ["L0_public_cli"]
+note = "A synthetic minimal KiCad project is the first redistributable workflow fixture."
+
+[[subtests]]
+id = "L3_001"
+file = "test_L3_001_design_workflow.py"
+name = "Design And PCB SVG Workflows"
+description = "Run design and pcb-svg commands against public KiCad projects and validate outputs"
+concerns = ["cli", "contracts", "release"]
+test_case_type = "reference"
+test_cases = "tmp_path synthetic KiCad project; tests/corpus/kicad/projects/hlr_test; tests/corpus/kicad/projects/taillight/input; tests/corpus/kicad/projects/charge_indicator/input; tests/corpus/kicad/projects/yoshi_mainboard/input; tests/corpus/kicad/projects/speedy_processing_module/input; tests/corpus/kicad/projects/4-ch-backplane/input; tests/corpus/kicad/projects/cutout_test"
+
+[subtests.code_under_test]
+module = "kicad_cruncher.kicad_cruncher_cmd_design"
+pcb_svg_module = "kicad_cruncher.kicad_cruncher_cmd_pcb_svg"
+
+[subtests.objectives]
+design_output = "design writes a KiCad-native JSON artifact and review manifest"
+design_review_svgs = "design writes schematic SVGs and PCB copper-layer review SVGs"
+design_review_counts = "copied corpus projects have stable component, net, schematic SVG, and PCB SVG counts"
+design_aliases = "design-review and dr aliases generate the same review bundle"
+auto_detect = "design can auto-detect a single .kicad_pro in CWD"
+index_policy = "design honors --no-indexes"
+pcb_svg_outputs = "pcb-svg writes manifests, layer SVGs, and configured views"
+pcb_svg_hlr = "pcb-svg assembly views include geometer-backed HLR overlays"
+review_drill_plating = "design review SVG records keep PTH and NPTH pad drills distinct"
+pcb_svg_cutouts = "pcb-svg BOARD_CUTOUTS detects closed Edge.Cuts regions and ignores open shapes"
+pcb_svg_alignment = "virtual board outline and cutout overlays align with physical layer SVG content"
+pcb_svg_edge_loop_tolerance = "arc/line Edge.Cuts loops survive sampled arc endpoint float noise"
+pcb_svg_layer_outputs = "raw physical layer files are distinct from __virtual__ computed layer files"
+pcb_svg_layer_context = "physical layer files include configurable raw Edge.Cuts and computed drill/slot context overlays"
+pcb_svg_virtual_layer_toggle = "standalone __virtual__ layer output files can be disabled by config"
+
+[subtests.approach]
+subprocess_cli = "Invoke public CLI commands through the current Python environment"
+
+[subtests.test_functions]
+test_design_command_generates_project_json = "Generate design JSON and review artifacts from a project input"
+test_design_aliases_generate_review_bundle = "Generate design review artifacts through public aliases"
+test_design_command_uses_copied_kicad_monkey_corpus_projects = "Generate design review artifacts from copied KiCad Monkey corpus projects"
+test_design_review_pcb_records_distinguish_pth_and_npth_pads = "Verify review PCB records distinguish PTH and NPTH pads"
+test_design_command_can_auto_detect_single_project = "Generate design JSON by auto-detecting one project"
+test_design_command_rejects_pcb_only_input = "Reject PCB-only input for schematic-backed design JSON"
+test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config = "Generate PCB SVG layer outputs and a configured view"
+test_pcb_svg_layer_context_and_virtual_outputs_can_be_disabled = "Verify physical layer context overlays and standalone virtual outputs can be disabled for raw debugging"
+test_pcb_svg_virtual_layers_use_full_board_canvas_origin = "Verify virtual overlays use KiCad Monkey's full-board SVG canvas origin"
+test_pcb_svg_yoshi_board_outline_loop_survives_arc_float_noise = "Verify yoshi's arc/line Edge.Cuts profile is the outer board outline"
+test_pcb_svg_board_cutouts_detect_generic_internal_closed_regions = "Detect generic closed internal Edge.Cuts regions in a synthetic board"
+test_pcb_svg_cutout_project_detects_generalized_edge_cut_regions = "Detect closed cutout primitives in the cutout_test corpus board while ignoring open shapes"
+test_pcb_svg_assembly_view_uses_geometer_hlr = "Generate assembly HLR SVG using an embedded STEP model"
+
+[[subtests]]
+id = "L3_004"
+file = "test_L3_004_pcb_clean_workflow.py"
+name = "PCB Clean Workflow"
+description = "Run pcb clean dry-run and apply against public KiCad fixtures and validate safe cleanup behavior"
+concerns = ["cli", "contracts", "release"]
+test_case_type = "reference"
+test_cases = "tests/corpus/kicad/projects/hlr_test"
+
+[subtests.code_under_test]
+module = "kicad_cruncher.kicad_cruncher_pcb_clean"
+cli_module = "kicad_cruncher.kicad_cruncher_cmd_pcb"
+
+[subtests.objectives]
+fixture_selection = "PCB clean reports deterministic user-layer resets and footprint graphical cleanup candidates"
+project_resolution = "PCB clean resolves .kicad_pro input to the sibling .kicad_pcb file"
+config_switches = "PCB clean JSONC config disables cleanup target classes without mutating the board"
+apply_behavior = "PCB clean apply removes docs-layer graphics, hides Value fields, and preserves copper-owned objects"
+
+[subtests.approach]
+subprocess_cli = "Invoke public CLI commands through the current Python environment"
+
+[subtests.test_functions]
+test_pcb_clean_dry_run_reports_fixture_cleanup_candidates = "Verify dry-run JSON from a real public board"
+test_pcb_clean_resolves_project_input_to_sibling_board = "Verify project input resolves to the sibling board"
+test_pcb_clean_config_can_disable_cleanup_target_classes = "Verify target switches suppress candidate selection"
+test_pcb_clean_apply_mutates_copied_fixture_without_touching_copper = "Verify apply mutates a copied board without removing pads or copper"

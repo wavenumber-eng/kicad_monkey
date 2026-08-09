@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>project command design</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body data-doc-status="accepted"
+  data-doc-kind="cli-design"
+  data-command="project"
+  data-config-contract="none"
+  data-output-contract="none">
+<main>
+<nav class="nav"><a href="../index.html">Design Index</a><a href="index.html">CLI</a></nav>
+<header>
+  <p class="status">Public command</p>
+  <h1>project</h1>
+  <p class="lede">Create and manage KiCad projects. The <code>project create</code> subcommand scaffolds a new project from command flags, a JSONC config, or an interactive terminal form.</p>
+</header>
+
+<section id="usage">
+  <h2>Usage</h2>
+  <pre><code>kicad-cruncher project create --name "My Board" --size D --dir ./projects
+kicad-cruncher project create --name "My Board" --company "Wavenumber" --rev A
+kicad-cruncher project create --name "My Board" --worksheet Magnitude.kicad_wks --with-pcb
+kicad-cruncher project create --name "My Board" --symbol-lib WN=${KIPRJMOD}/WN.kicad_sym
+kicad-cruncher project create --name "My Board" --text-var REV=A --text-var PROJECT="My Board"
+kicad-cruncher project create --emit-config project-create.jsonc
+kicad-cruncher project create --config project-create.jsonc
+kicad-cruncher project create --tui</code></pre>
+</section>
+
+<section id="arguments">
+  <h2>Arguments</h2>
+  <p>Three front-ends converge on a single options object: command flags, a JSONC config file, and the interactive <code>--tui</code> form all populate <code>kicad_monkey.KiCadProjectCreateOptions</code>, which <code>kicad_monkey.create_project</code> consumes.</p>
+  <p><code>--name</code> sets the project name and the <code>.kicad_pro</code> / <code>.kicad_sch</code> file stem. <code>--size</code> selects the schematic page size from KiCad's standard set (<code>A4 A3 A2 A1 A0 | A B C D E | USLetter USLegal USLedger</code>); the choice list and the default come from <code>kicad_monkey</code>. <code>--dir</code> selects the output directory, and <code>--no-subdir</code> writes into it directly instead of a <code>&lt;name&gt;/</code> subfolder. <code>--sheet-name</code> sets the top-level sheet/title-block title (defaults to the project name).</p>
+  <p><code>--worksheet</code> embeds a <code>.wks</code> drawing sheet into the schematic and references it from the project as <code>kicad-embed://</code>; <code>--no-embed-worksheet</code> references it by path instead. <code>--with-pcb</code> also creates a blank <code>.kicad_pcb</code>, and <code>--no-lib-tables</code> skips the empty <code>sym-lib-table</code> / <code>fp-lib-table</code>.</p>
+  <p><code>--company</code>, <code>--rev</code>, <code>--date</code>, and repeatable <code>--comment</code> fill the schematic title block. Repeatable <code>--text-var NAME=VALUE</code> adds project text variables. Repeatable <code>--symbol-lib NICK=URI</code> and <code>--footprint-lib NICK=URI</code> seed the project library tables with references to existing libraries.</p>
+  <p><code>--config FILE.jsonc</code> loads every option from a JSONC file (unknown keys are rejected). <code>--emit-config [FILE]</code> writes a commented template whose keys map one-to-one to the option schema, then exits. <code>--tui</code> opens an interactive terminal form covering the same fields.</p>
+</section>
+
+<section id="ownership">
+  <h2>Ownership</h2>
+  <p>All project construction is owned by <code>kicad-monkey</code>: the blank <code>.kicad_pro</code> seed (<code>KiCadProject.new</code>), the typed option schema and assembly primitive (<code>KiCadProjectCreateOptions</code>, <code>create_project</code>), schematic page size and title-block metadata, worksheet embedding, library-table seeding, the optional blank PCB, text variables, and the standard page-size list and dimensions (<code>KICAD_PAGE_SIZES</code>, <code>kicad_page_size_label</code>).</p>
+  <p><code>kicad-cruncher</code> owns only input gathering and ergonomics: flag parsing, the JSONC config load/emit format, the interactive <code>--tui</code> form, logging, and exit status. It does not define KiCad file formats, defaults, or construction logic itself.</p>
+</section>
+
+<section id="output">
+  <h2>Output</h2>
+  <p>A new project directory (a <code>&lt;name&gt;/</code> subfolder by default) containing:</p>
+  <ul>
+    <li><code>&lt;name&gt;.kicad_pro</code>: the project file, byte-faithful to KiCad's blank template, with any text variables and the worksheet reference.</li>
+    <li><code>&lt;name&gt;.kicad_sch</code>: the top-level schematic at the requested page size, with the title block and any embedded worksheet.</li>
+    <li><code>sym-lib-table</code> / <code>fp-lib-table</code>: empty by default, or seeded with the requested symbol/footprint library references.</li>
+    <li><code>&lt;name&gt;.kicad_pcb</code>: an optional blank board when <code>--with-pcb</code> is used.</li>
+  </ul>
+  <p>The generated schematic is accepted by KiCad's own CLI (<code>kicad-cli sch erc</code>).</p>
+</section>
+
+<section id="tests">
+  <h2>Tests</h2>
+  <p>L0 public CLI tests verify the command appears in root help, command help starts, and the manifest/design-doc inventory stays synchronized. Command-level tests cover flag-to-options mapping, the JSONC config emit/load round-trip, the interactive form submission, and end-to-end project scaffolding through <code>create_project</code>. The underlying KiCad construction (the <code>KiCadProject</code> aggregate, schematic, board, library tables, and worksheet embedding) is owned and covered by <code>kicad-monkey</code>'s own test suite, including KiCad CLI validation of the generated schematic.</p>
+</section>
+
+<section id="interfaces">
+  <h2>Interfaces</h2>
+
+  <section
+    id="kicad-project-create-options"
+    data-interface="KiCadProjectCreateOptions"
+    data-rack-stratum="L0_public_cli"
+    data-test-file="tests/L0_public_cli/test_L0_002_project_create.py"
+    data-test-target="test_options_from_args_maps_all_fields">
+    <h3>KiCadProjectCreateOptions</h3>
+    <h4>Rationale</h4>
+    <p>The command has three front-ends (flags, JSONC config, and the interactive <code>--tui</code> form). A single typed options schema keeps them in lockstep: adding one field gives every front-end the same knob, and the config keys map one-to-one to it.</p>
+    <h4>Purpose</h4>
+    <p><code>KiCadProjectCreateOptions</code> is the application-level options record for a new project — name, directory, page size, sheet/title-block metadata, worksheet embed/reference, optional PCB, library-table seeding, and text variables. It lives in <code>kicad_cruncher</code> because it encodes command ergonomics, not KiCad file structure.</p>
+    <h4>Test Requirements</h4>
+    <p>L0 verifies that flags map onto every field, that the command default page size is applied, that the JSONC config round-trips against the schema, and that the interactive form yields a valid options payload.</p>
+    <h4>Working Definition</h4>
+    <p>The interface is working when each front-end produces an equivalent <code>KiCadProjectCreateOptions</code> that <code>create_project</code> can consume without further interpretation.</p>
+  </section>
+
+  <section
+    id="kicad-project-create-result"
+    data-interface="KiCadProjectCreateResult"
+    data-rack-stratum="L0_public_cli"
+    data-test-file="tests/L0_public_cli/test_L0_002_project_create.py"
+    data-test-target="test_cmd_flags_scaffold_project">
+    <h3>KiCadProjectCreateResult</h3>
+    <h4>Rationale</h4>
+    <p>Callers and the command's own logging need to report exactly which files a scaffold produced without re-deriving paths, so the assembly returns them explicitly.</p>
+    <h4>Purpose</h4>
+    <p><code>KiCadProjectCreateResult</code> records the written paths — project directory, <code>.kicad_pro</code>, top-level <code>.kicad_sch</code>, optional worksheet, optional board, and the symbol/footprint library tables — produced by <code>create_project</code>.</p>
+    <h4>Test Requirements</h4>
+    <p>L0 scaffolds a project from flags (and from a JSONC config) and asserts the expected files exist on disk at the returned paths.</p>
+    <h4>Working Definition</h4>
+    <p>The interface is working when every non-null path on the result refers to a file that <code>create_project</code> actually wrote for the requested options.</p>
+  </section>
+</section>
+</main>
+</body>
+</html>

@@ -1,0 +1,17 @@
+[[channels]]
+id = "pypi"
+kind = "pypi"
+status = "active"
+owner = "Wavenumber LLC"
+process_doc = "docs/release-process.md"
+build_doc = ".github/workflows/release.yml"
+
+[[channels.verification_refs]]
+kind = "local_pytest"
+target = "tests/L99_signoff/test_L99_001_release_signoff.py::test_configured_dev_std_audit_scopes_pass"
+rationale = "Release signoff runs the configured dev-std governance scopes before publish authorization."
+
+[[channels.verification_refs]]
+kind = "local_pytest"
+target = "tests/L99_signoff/test_L99_001_release_signoff.py::test_dev_std_upstream_version_is_current"
+rationale = "Release signoff checks whether the configured dev-std standard is current before release."
