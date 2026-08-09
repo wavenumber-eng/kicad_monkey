@@ -1,6 +1,6 @@
 [project]
 name = "kicad-cruncher"
-version = "2026.7.31.1"
+version = "2026.8.9"
 description = "Cross-platform KiCad CLI workflows built on public kicad-monkey"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -11,7 +11,7 @@ authors = [
 dependencies = [
     "colorama>=0.4.6",
     "fastapi>=0.115.0",
-    "kicad-monkey>=2026.7.28",
+    "kicad-monkey>=2026.8.9",
     "openpyxl>=3.1.0",
     "textual>=0.50.0",
     "uvicorn>=0.30.0",
@@ -45,9 +45,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/wavenumber-eng/kicad_cruncher"
-Repository = "https://github.com/wavenumber-eng/kicad_cruncher"
-Issues = "https://github.com/wavenumber-eng/kicad_cruncher/issues"
+Homepage = "https://github.com/wavenumber-eng/kicad_monkey/tree/main/packages/kicad_cruncher"
+Repository = "https://github.com/wavenumber-eng/kicad_monkey/tree/main/packages/kicad_cruncher"
+Issues = "https://github.com/wavenumber-eng/kicad_monkey/issues"
 
 [project.scripts]
 kicad-cruncher = "kicad_cruncher._cli:main"
@@ -59,17 +59,20 @@ build-backend = "hatchling.build"
 
 [tool.wn_dev_std]
 standard_version = "2026.7.18"
-enabled_scopes = ["repo", "ci", "docs.design", "docs.links", "docs.cli", "docs.plans", "docs.requirements", "docs.release"]
+enabled_scopes = ["repo", "docs.design", "docs.links", "docs.cli", "docs.plans", "docs.requirements"]
 profile = "python-package"
 distribution = "pypi"
 languages = ["python"]
 strict = true
 
 [tool.wn_dev_std.pr_hygiene]
-enabled = true
+enabled = false
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+kicad-monkey = { workspace = true }
 
 [tool.hatch.build.targets.sdist]
 include = [

@@ -9,10 +9,11 @@ build/
 output/
 rack_results/
 *.pyc
+docs/plans/
+docs/research/
 
 # KiCad transient project folders
 *-backups/
 *.kicad_sch-bak
 *.kicad_pcb-bak
 fp-info-cache
-

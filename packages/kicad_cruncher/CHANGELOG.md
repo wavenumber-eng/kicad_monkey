@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026.8.9
+
+- Move active `kicad-cruncher` development into the `kicad_monkey` monorepo
+  while preserving the independent PyPI distribution and CLI commands.
+- Update the controlled `kicad-monkey` dependency floor to
+  `kicad-monkey>=2026.8.9`, consuming the released compiled-schematic-graph,
+  Plotter IR, and inherited sheet-policy baseline.
+
 ## 2026.7.31.1
 
 - Fix `project-lib --relink-sources --repair-cache-links` so embedded

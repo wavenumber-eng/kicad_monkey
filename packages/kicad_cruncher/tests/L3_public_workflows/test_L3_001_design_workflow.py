@@ -148,8 +148,8 @@ _CORPUS_PROJECT_CASES = (
         / "input"
         / "4-ch-backplane.kicad_pro",
         "4-ch-backplane_design.json",
-        806,
-        874,
+        832,
+        911,
         44,
         4,
         id="4-ch-backplane",

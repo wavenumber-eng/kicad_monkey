@@ -24,10 +24,11 @@ def _project_root() -> Path:
 
 
 PACKAGE_ROOT = _project_root()
-EXPECTED_VERSION = "2026.7.31.1"
-EXPECTED_RELEASE_DATE = date(2026, 7, 31)
-EXPECTED_RELEASE_NOTE = PACKAGE_ROOT / "docs" / "releases" / "2026-07-31.md"
-CONTROLLED_DEPENDENCIES = {"kicad-monkey": "2026.7.28", "wn-geometer": "2026.6.10"}
+REPOSITORY_ROOT = PACKAGE_ROOT.parents[1]
+EXPECTED_VERSION = "2026.8.9"
+EXPECTED_RELEASE_DATE = date(2026, 8, 9)
+EXPECTED_RELEASE_NOTE = PACKAGE_ROOT / "docs" / "releases" / "2026-08-09.md"
+CONTROLLED_DEPENDENCIES = {"kicad-monkey": "2026.8.9", "wn-geometer": "2026.6.10"}
 CONTROLLED_DEPENDENCY_SPECIFIERS = {
     "kicad-monkey": ">=",
     "wn-geometer": "==",
@@ -35,13 +36,11 @@ CONTROLLED_DEPENDENCY_SPECIFIERS = {
 DEV_STD_MINIMUM_VERSION = "2026.7.18"
 DEV_STD_AUDIT_SCOPES = {
     "repo",
-    "ci",
     "docs.design",
     "docs.links",
     "docs.cli",
     "docs.plans",
     "docs.requirements",
-    "docs.release",
 }
 
 
@@ -55,9 +54,9 @@ def test_version_contract_matches_date_based_release() -> None:
     assert version.string == EXPECTED_VERSION
     assert (version.major, version.minor, version.patch, version.build) == (
         2026,
-        7,
-        31,
-        1,
+        8,
+        9,
+        None,
     )
     assert version.release_date == EXPECTED_RELEASE_DATE
     assert version.release_date <= date.today()
@@ -138,6 +137,23 @@ def test_dev_std_upstream_version_is_current() -> None:
     assert completed.returncode == 0, completed.stderr + completed.stdout
     payload = json.loads(completed.stdout)
     assert payload["passed"] is True
+
+
+def test_monorepo_root_owns_ci_and_release_workflows() -> None:
+    """Verify repository-level governance replaces inactive nested workflows."""
+
+    ci_workflow = REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml"
+    release_workflow = REPOSITORY_ROOT / ".github" / "workflows" / "release.yml"
+    pr_hygiene = REPOSITORY_ROOT / ".github" / "workflows" / "pr-hygiene.yml"
+    assert ci_workflow.exists()
+    assert release_workflow.exists()
+    assert pr_hygiene.exists()
+
+    ci_text = ci_workflow.read_text(encoding="utf-8")
+    release_text = release_workflow.read_text(encoding="utf-8")
+    assert "Run Cruncher Rack gates against workspace Monkey" in ci_text
+    assert "kicad-cruncher-v" in release_text
+    assert "packages/kicad_cruncher/dist/" in release_text
 
 
 def test_cli_emits_package_version() -> None:

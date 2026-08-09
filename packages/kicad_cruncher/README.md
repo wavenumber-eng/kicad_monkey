@@ -34,9 +34,11 @@ kicad-cruncher --help
 During local development:
 
 ```powershell
-uv sync --extra test
-uv run kicad-cruncher --help
-uv run python -m kicad_cruncher version
+git clone https://github.com/wavenumber-eng/kicad_monkey.git
+cd kicad_monkey
+uv sync --all-packages --all-extras
+uv run --package kicad-cruncher kicad-cruncher --help
+uv run --package kicad-cruncher python -m kicad_cruncher version
 ```
 
 ## Commands

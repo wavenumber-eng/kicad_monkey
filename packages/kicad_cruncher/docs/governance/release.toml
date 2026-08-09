@@ -4,7 +4,7 @@ kind = "pypi"
 status = "active"
 owner = "Wavenumber LLC"
 process_doc = "docs/release-process.md"
-build_doc = ".github/workflows/release.yml"
+build_doc = "../../.github/workflows/release.yml"
 
 [[channels.verification_refs]]
 kind = "local_pytest"

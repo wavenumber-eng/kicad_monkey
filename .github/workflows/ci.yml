@@ -26,6 +26,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
+      - name: Sync monorepo packages
+        run: uv sync --all-packages --all-extras
       - name: Install public font dependencies
         if: runner.os == 'Linux'
         run: |
@@ -43,9 +45,24 @@ jobs:
         run: |
           uv run --extra test python tests/rack.py run L0_foundation
           uv run --extra test python tests/rack.py run L99_signoff
-      - name: Build package
+      - name: Run cross-package source gate
+        run: uv run --all-packages --all-extras python -m pytest tests/cross_package -q
+      - name: Run Cruncher Rack gates against workspace Monkey
+        working-directory: packages/kicad_cruncher
+        run: uv run --package kicad-cruncher --extra test rack run --all
+      - name: Build Monkey package
         run: uv run --extra test python -m build
-      - name: Check package
+      - name: Build Cruncher package
+        working-directory: packages/kicad_cruncher
+        run: uv run --package kicad-cruncher --extra test python -m build
+      - name: Check packages
         run: uv run --extra test twine check dist/*
-      - name: Run installed import test
+      - name: Check Cruncher package
+        run: uv run --extra test twine check packages/kicad_cruncher/dist/*
+      - name: Run installed Monkey import test
         run: uv run --extra test python tests/support_scripts/install_test.py
+      - name: Run installed Cruncher console test
+        working-directory: packages/kicad_cruncher
+        run: uv run --package kicad-cruncher --extra test python tests/support_scripts/install_test.py
+      - name: Run installed two-wheel compatibility test
+        run: uv run --extra test python tests/support_scripts/toolchain_install_test.py

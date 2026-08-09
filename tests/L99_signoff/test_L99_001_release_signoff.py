@@ -180,6 +180,8 @@ def test_release_workflow_derives_release_date_from_version_helper() -> None:
 
     assert completed.returncode == 0, completed.stderr + completed.stdout
     assert completed.stdout.strip() == EXPECTED_RELEASE_DATE.isoformat()
+    assert 'startsWith(github.event.release.tag_name, \'kicad-monkey-v\')' in workflow
+    assert 'test "kicad-monkey-v${VERSION}" = "${GITHUB_REF_NAME}"' in workflow
 
 
 def test_configured_dev_std_audit_scopes_pass() -> None:

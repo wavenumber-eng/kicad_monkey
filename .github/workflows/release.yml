@@ -12,7 +12,8 @@ permissions:
   id-token: write
 
 jobs:
-  publish:
+  publish-monkey:
+    if: startsWith(github.event.release.tag_name, 'kicad-monkey-v')
     runs-on: ubuntu-latest
     environment: pypi
     steps:
@@ -30,7 +31,7 @@ jobs:
         shell: bash
         run: |
           VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
-          test "v${VERSION}" = "${GITHUB_REF_NAME}"
+          test "kicad-monkey-v${VERSION}" = "${GITHUB_REF_NAME}"
       - name: Verify release notes mention package version
         shell: bash
         run: |
@@ -53,3 +54,39 @@ jobs:
         run: uv run --extra test python tests/support_scripts/install_test.py
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-cruncher:
+    if: startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Verify tag matches package version
+        shell: bash
+        run: |
+          VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
+          test "kicad-cruncher-v${VERSION}" = "${GITHUB_REF_NAME}"
+      - name: Verify release notes mention package version
+        shell: bash
+        run: |
+          VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
+          RELEASE_DATE="$(uv run --package kicad-cruncher python -c 'from kicad_cruncher._version import parse_version; import tomllib; v=tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"]; print(parse_version(v).release_date.isoformat())')"
+          grep -F "## ${VERSION}" packages/kicad_cruncher/CHANGELOG.md
+          test -f "packages/kicad_cruncher/docs/releases/${RELEASE_DATE}.md"
+          grep -F "\`${VERSION}\`" "packages/kicad_cruncher/docs/releases/${RELEASE_DATE}.md"
+      - name: Run Cruncher Rack gates against workspace Monkey
+        working-directory: packages/kicad_cruncher
+        run: uv run --package kicad-cruncher --extra test rack run --all
+      - name: Build Cruncher package
+        working-directory: packages/kicad_cruncher
+        run: uv run --package kicad-cruncher --extra test python -m build
+      - name: Check Cruncher package
+        run: uv run --extra test twine check packages/kicad_cruncher/dist/*
+      - name: Run installed Cruncher console test
+        working-directory: packages/kicad_cruncher
+        run: uv run --package kicad-cruncher --extra test python tests/support_scripts/install_test.py
+      - name: Publish Cruncher to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/kicad_cruncher/dist/

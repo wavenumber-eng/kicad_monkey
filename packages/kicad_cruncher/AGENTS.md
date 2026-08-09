@@ -5,6 +5,11 @@ public `kicad-monkey` parser/model/rendering package. Keep higher-level CLI and
 artifact orchestration here; keep low-level KiCad parsing and source-model
 behavior in `kicad-monkey`.
 
+This package lives in the `wavenumber-eng/kicad_monkey` monorepo under
+`packages/kicad_cruncher/`. Development resolves Monkey from the shared `uv`
+workspace. Published artifacts still depend on the public `kicad-monkey`
+distribution and must not contain local path or direct-URL dependencies.
+
 ## Setup
 
 Use `uv` for local development:
@@ -13,7 +18,7 @@ Use `uv` for local development:
 uv sync --extra test
 ```
 
-Commit `uv.lock`. Do not hand-edit it.
+Commit the repository-root `uv.lock`. Do not create a package-local lockfile.
 
 ## Test And Signoff
 
@@ -40,7 +45,8 @@ uv run twine check dist/*
 
 - `main` should stay release-ready; version tags identify released source.
 - Public changes should merge through PRs with required CI.
-- Pushing a matching version tag should trigger validation and PyPI publishing.
+- Publishing uses the package-qualified tag `kicad-cruncher-v<version>` from
+  the repository root and triggers validation and PyPI trusted publishing.
 - Date-based versions are standard, for example `2026.6.4`.
 - `CHANGELOG.md` and `docs/releases/<YYYY-MM-DD>.md` must mention the current
   package version.
