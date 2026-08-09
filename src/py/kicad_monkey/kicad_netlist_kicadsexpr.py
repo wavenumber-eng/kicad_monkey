@@ -91,16 +91,25 @@ def to_kicad_sexpr(
         date = datetime.now().strftime("%a %d %b %Y %I:%M:%S %p")
 
     sexp = ["export", ["version", QuotedString(KICAD_NETLIST_VERSION)]]
-    sexp.append(_design_block(
-        netlist,
-        source_path=source_path,
-        date=date,
-        tool=tool,
-    ))
-    sexp.append(_components_block(netlist.components))
+    sexp.append(
+        _design_block(
+            netlist,
+            source_path=source_path,
+            date=date,
+            tool=tool,
+        )
+    )
+    emitted_components = [comp for comp in netlist.components if comp.on_board]
+    emitted_component_refs = {comp.reference for comp in emitted_components}
+    sexp.append(_components_block(emitted_components))
     sexp.append(_libparts_block(netlist.libparts))
     sexp.append(_libraries_block(netlist.libraries))
-    sexp.append(_nets_block(netlist.nets))
+    sexp.append(
+        _nets_block(
+            netlist.nets,
+            included_component_refs=emitted_component_refs,
+        )
+    )
 
     raw = build_sexp(sexp)
     return format_sexp(raw, indentation_size=2, max_nesting=99)
@@ -155,11 +164,13 @@ def _title_block_block(sheet: KiCadDesignSheet) -> list:
     # We don't track per-sheet filenames yet — emit empty for parity.
     tb.append(["source", QuotedString("")])
     for i in range(1, 10):
-        tb.append([
-            "comment",
-            ["number", QuotedString(str(i))],
-            ["value", QuotedString("")],
-        ])
+        tb.append(
+            [
+                "comment",
+                ["number", QuotedString(str(i))],
+                ["value", QuotedString("")],
+            ]
+        )
     return tb
 
 
@@ -191,24 +202,30 @@ def _comp_block(comp: KiCadNetlistComponent) -> list:
     if comp.description:
         out.append(["description", QuotedString(comp.description)])
     out.append(_component_fields_block(comp.fields))
-    out.append([
-        "libsource",
-        ["lib", QuotedString(comp.libsource_lib)],
-        ["part", QuotedString(comp.libsource_part)],
-        ["description", QuotedString(comp.libsource_description)],
-    ])
+    out.append(
+        [
+            "libsource",
+            ["lib", QuotedString(comp.libsource_lib)],
+            ["part", QuotedString(comp.libsource_part)],
+            ["description", QuotedString(comp.libsource_description)],
+        ]
+    )
     # Non-standard properties — sorted for determinism.
     for k, value in comp.properties.items():
-        out.append([
-            "property",
-            ["name", QuotedString(k)],
-            ["value", QuotedString(value)],
-        ])
-    out.append([
-        "sheetpath",
-        ["names", QuotedString(comp.sheet_path_names or "/")],
-        ["tstamps", QuotedString(comp.sheet_path_uuids or "/")],
-    ])
+        out.append(
+            [
+                "property",
+                ["name", QuotedString(k)],
+                ["value", QuotedString(value)],
+            ]
+        )
+    out.append(
+        [
+            "sheetpath",
+            ["names", QuotedString(comp.sheet_path_names or "/")],
+            ["tstamps", QuotedString(comp.sheet_path_uuids or "/")],
+        ]
+    )
     tstamps = list(comp.instance_uuids or ())
     if not tstamps and comp.instance_uuid:
         tstamps = [comp.instance_uuid]
@@ -263,21 +280,25 @@ def _libpart_block(lp: KiCadLibPart) -> list:
     if lp.fields:
         fields_block: list = ["fields"]
         for fname in sorted(lp.fields.keys()):
-            fields_block.append([
-                "field",
-                ["name", QuotedString(fname)],
-                QuotedString(lp.fields[fname]),
-            ])
+            fields_block.append(
+                [
+                    "field",
+                    ["name", QuotedString(fname)],
+                    QuotedString(lp.fields[fname]),
+                ]
+            )
         out.append(fields_block)
     if lp.pins:
         pins_block: list = ["pins"]
         for pin in lp.pins:
-            pins_block.append([
-                "pin",
-                ["num", QuotedString(pin.number)],
-                ["name", QuotedString(pin.name)],
-                ["type", QuotedString(pin.pin_type)],
-            ])
+            pins_block.append(
+                [
+                    "pin",
+                    ["num", QuotedString(pin.number)],
+                    ["name", QuotedString(pin.name)],
+                    ["type", QuotedString(pin.pin_type)],
+                ]
+            )
         out.append(pins_block)
     return out
 
@@ -289,7 +310,11 @@ def _libraries_block(libraries: Iterable[str]) -> list:
     return block
 
 
-def _nets_block(nets: Iterable[KiCadNet]) -> list:
+def _nets_block(
+    nets: Iterable[KiCadNet],
+    *,
+    included_component_refs: set[str] | None = None,
+) -> list:
     block: list = ["nets"]
     for net in nets:
         n: list = [
@@ -298,6 +323,11 @@ def _nets_block(nets: Iterable[KiCadNet]) -> list:
             ["name", QuotedString(net.name)],
         ]
         for term in net.terminals:
+            if (
+                included_component_refs is not None
+                and term.designator not in included_component_refs
+            ):
+                continue
             node: list = [
                 "node",
                 ["ref", QuotedString(term.designator)],

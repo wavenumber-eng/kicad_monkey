@@ -1,6 +1,6 @@
 # KiCad compiled schematic graph contract
 
-Status: experimental a0 producer contract (2026-08-08).
+Status: accepted a0 producer contract (2026-08-09).
 
 `KiCadDesign.to_json()` embeds a complete, variant-neutral schematic graph at
 `compiled_schematic_graph`. The section has:
@@ -84,3 +84,19 @@ changing identity inputs, changing collection cardinalities, or adding aggregate
 binding semantics requires a new schema token. Existing `indexes` data remains
 a derived compatibility view during consumer cutover and is not an independent
 connectivity truth.
+
+## Validation ownership
+
+Package-local L0 tests own synthetic hierarchy, policy inheritance, identity,
+relationship, and invalid-graph behavior. L3 acceptance builds the graph from
+Yoshi, Taillight, Speedy, and Jumperless to cover single-page, repeated-page,
+multipart, scalar hierarchy, global-label, bus, bus-entry, and scoped drawing
+evidence. Shared invalid-vector tests in the downstream generic model verify
+that both validators reject wrong-type refs, wrong-owner refs, inverse
+membership gaps, and hierarchy cycles at the same boundary.
+
+The source producer and generic projector deliberately keep local copies of the
+transport DTOs and identity allocator so `kicad-monkey` has no consumer-model
+dependency.
+Contract parity is governed by golden identity vectors and live serialized
+graph tests in both repositories.
