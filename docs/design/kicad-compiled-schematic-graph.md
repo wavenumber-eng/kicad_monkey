@@ -23,13 +23,17 @@ UUIDs and paths remain provenance in `source_identity`; they are not canonical
 runtime identity. Display names, designators, net names, sequential net codes,
 list positions, and drawing geometry do not identify semantic rows.
 
-Definition identity uses the portable schematic source path and source UUID.
-Occurrence identity uses KiCad's realized instance path. The public
+Identity allocation is a package-local copy of the governed generic allocator:
+the normalized source selector and canonical owner refs are wrapped exactly as
+they are in `data_models`, without a runtime dependency on Appz. Definition
+identity uses the portable schematic source path and source UUID. Occurrence
+identity uses KiCad's realized instance path. The public
 `sheet_path_uuids` value is the cross-package occurrence selector, while the
 full root-UUID-prefixed instance path remains source provenance. Local-net
-identity uses occurrence-scoped source members (pin, label, and drawing source
-IDs), so renaming a displayed net does not change the local connectivity
-identity.
+identity is topology-derived from sorted canonical terminal refs within the
+page occurrence. Only a terminal-free graphical island falls back to sorted,
+scoped drawing selectors. Consequently, editing a wire UUID cannot replace a
+terminal-bearing local net.
 
 The downstream importer preserves producer graph UUIDs and maps optional Design
 component, pin, and net refs exactly once from `source_identity` selectors. It
@@ -52,11 +56,17 @@ sidecar and are applied by the consumer/viewer.
 `page_occurrence_ref + artifact_key + element_id`. Bare drawing IDs are not
 globally resolvable. Links target component, hierarchy, terminal, or local-net
 occurrences only when the KiCad compiler has authoritative ownership evidence.
+Global labels are page-port terminals. Because aggregate interface rows are
+deferred in a0, buses and bus entries link to their owning page occurrence
+rather than being misrepresented as one scalar local net.
 Hidden pins have no pin-level link. A stacked-pin drawing shared by multiple
 scalar terminals is deliberately left unlinked rather than made ambiguous.
 
 The a0 contract supports scalar sheet-entry to child-port bindings. Aggregate
-bus and harness member bindings require a later versioned contract.
+bus and harness member bindings require a later versioned contract. Missing
+scalar boundary matches fail closed through governed resolution diagnostics;
+the producer validator enforces role, page/unit ownership, direction, and
+binding-or-diagnostic completeness.
 
 ## Compatibility
 

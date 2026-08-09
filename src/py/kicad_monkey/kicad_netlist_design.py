@@ -1,4 +1,4 @@
-﻿"""
+"""
 Multi-sheet KiCad netlist compiler.
 
 Walks a hierarchical :class:`~kicad_monkey.KiCadSchematic` design,
@@ -142,7 +142,7 @@ def _merge_graphical_ids(
 
 
 def _walk_design_sheets(
-    top: "KiCadSchematic", *, include_off_board: bool = False
+    top: "KiCadSchematic", *, include_off_board: bool = True
 ) -> Iterator[CompiledSheet]:
     """Yield ``CompiledSheet`` records for every sheet in the hierarchy.
 
@@ -257,13 +257,15 @@ def compile_design_subgraphs(
     *,
     subpart_first_id: int = ord("A"),
     subpart_id_separator: int = 0,
-    include_off_board: bool = False,
+    include_off_board: bool = True,
 ) -> List[CompiledSheet]:
     """Compile every sheet in the hierarchy.
 
-    Returns a list of :class:`CompiledSheet` instances (root first) with
-    their ``subgraphs`` and ``coord_to_sg`` populated. Cross-sheet
-    merging is *not* applied â€” call :func:`merge_design_nets` for that.
+    Returns every hierarchy occurrence (root first), including effectively
+    off-board subtrees so their components can retain inherited exclusion
+    policy. Callers needing a filtered analysis may explicitly pass
+    ``include_off_board=False``. Cross-sheet merging is *not* applied â€” call
+    :func:`merge_design_nets` for that.
     """
     out: List[CompiledSheet] = list(
         _walk_design_sheets(top, include_off_board=include_off_board)
@@ -285,7 +287,8 @@ def compile_design_subgraphs(
             raise ValueError(f"Compiled sheet {cs.sheet_path!r} has no schematic")
         canonical = _canonical_instance_path(top, cs.sheet_path)
         cs.subgraphs = compile_sheet_subgraphs(
-            cs.schematic, cs.sheet_path,
+            cs.schematic,
+            cs.sheet_path,
             legacy_lookup=legacy_lookup,
             canonical_path=canonical,
             bus_aliases=aliases,
@@ -466,6 +469,7 @@ def merge_design_nets(compiled: List[CompiledSheet]) -> List[KiCadNet]:
                         hier_by_name.setdefault(ld.text, g_i)
             # Walk this sheet placeholder's pins.
             from .kicad_schematic_connectivity import snap_mm_to_iu
+
             for pin in sheet.pins:
                 coord = snap_mm_to_iu(pin.at_x, pin.at_y)
                 parent_g = parent_cs.coord_to_sg.get(coord)
@@ -475,7 +479,8 @@ def merge_design_nets(compiled: List[CompiledSheet]) -> List[KiCadNet]:
                 if child_g is None:
                     continue
                 _uf_union(
-                    parent, rank,
+                    parent,
+                    rank,
                     key_to_idx[(s_i, parent_g)],
                     key_to_idx[(child_idx, child_g)],
                 )
@@ -487,7 +492,8 @@ def merge_design_nets(compiled: List[CompiledSheet]) -> List[KiCadNet]:
             for ld in sg.label_drivers:
                 if ld.kind == KiCadDriverKind.GLOBAL_LABEL:
                     by_global_text.setdefault(ld.text, []).append(
-                        key_to_idx[(s_i, g_i)])
+                        key_to_idx[(s_i, g_i)]
+                    )
     for group in by_global_text.values():
         for k in group[1:]:
             _uf_union(parent, rank, group[0], k)
@@ -499,7 +505,8 @@ def merge_design_nets(compiled: List[CompiledSheet]) -> List[KiCadNet]:
             for pd in sg.pin_drivers:
                 if pd.is_power and pd.priority == KiCadDriverPriority.GLOBAL_POWER_PIN:
                     by_power_value.setdefault(pd.power_value, []).append(
-                        key_to_idx[(s_i, g_i)])
+                        key_to_idx[(s_i, g_i)]
+                    )
     for group in by_power_value.values():
         for k in group[1:]:
             _uf_union(parent, rank, group[0], k)
@@ -515,8 +522,12 @@ def merge_design_nets(compiled: List[CompiledSheet]) -> List[KiCadNet]:
     # member so the net is named e.g. ``/top.x`` instead of ``/a/x``.
     overrides_by_flat: Dict[int, List[_BusMemberOverride]] = {}
     _merge_buses_cross_sheet(
-        compiled, sheet_to_index,
-        parent, rank, key_to_idx, overrides_by_flat,
+        compiled,
+        sheet_to_index,
+        parent,
+        rank,
+        key_to_idx,
+        overrides_by_flat,
     )
 
     # ---- Materialise merged nets ------------------------------------------
@@ -547,9 +558,16 @@ class _BusMemberOverride:
 
 _BusMemberKey = Tuple[int, int, int]
 _BusMemberCandidate = Tuple[
-    int, int, str, str, int,
-    KiCadDriverKind, KiCadDriverPriority, str,
-    BusSubgraph, int,
+    int,
+    int,
+    str,
+    str,
+    int,
+    KiCadDriverKind,
+    KiCadDriverPriority,
+    str,
+    BusSubgraph,
+    int,
 ]
 
 
@@ -597,7 +615,9 @@ def _hier_bus_by_name(child_cs: CompiledSheet) -> Dict[str, int]:
     return hier_bus_by_name
 
 
-def _parent_bus_index_for_pin(parent_cs: CompiledSheet, pin_coord: CoordKey) -> Optional[int]:
+def _parent_bus_index_for_pin(
+    parent_cs: CompiledSheet, pin_coord: CoordKey
+) -> Optional[int]:
     for b_i, bsg in enumerate(parent_cs.bus_subgraphs):
         if pin_coord in bsg.coords:
             return b_i
@@ -633,12 +653,10 @@ def _union_bus_member_pairing(
         matched_child.add(c_pos)
 
     unmatched_parent = [
-        p_pos for p_pos in range(len(parent_bsg.members))
-        if p_pos not in matched_parent
+        p_pos for p_pos in range(len(parent_bsg.members)) if p_pos not in matched_parent
     ]
     unmatched_child = [
-        c_pos for c_pos in range(len(child_bsg.members))
-        if c_pos not in matched_child
+        c_pos for c_pos in range(len(child_bsg.members)) if c_pos not in matched_child
     ]
     for p_pos, c_pos in zip(unmatched_parent, unmatched_child):
         _uf_union(
@@ -686,7 +704,9 @@ def _union_cross_sheet_bus_members(
                 )
 
 
-def _bus_member_groups(member_flat: List[_BusMemberKey], m_parent: List[int]) -> Dict[int, List[int]]:
+def _bus_member_groups(
+    member_flat: List[_BusMemberKey], m_parent: List[int]
+) -> Dict[int, List[int]]:
     groups: Dict[int, List[int]] = {}
     for index in range(len(member_flat)):
         groups.setdefault(_uf_find(m_parent, index), []).append(index)
@@ -707,12 +727,20 @@ def _bus_member_candidates(
         for driver_idx, driver in enumerate(bsg.drivers):
             if not is_bus_label(driver.text):
                 continue
-            candidates.append((
-                -int(driver.priority), depth,
-                cs.sheet_path_human, driver.text, driver_idx,
-                driver.kind, driver.priority, cs.sheet_path_human,
-                bsg, pos,
-            ))
+            candidates.append(
+                (
+                    -int(driver.priority),
+                    depth,
+                    cs.sheet_path_human,
+                    driver.text,
+                    driver_idx,
+                    driver.kind,
+                    driver.priority,
+                    cs.sheet_path_human,
+                    bsg,
+                    pos,
+                )
+            )
     return candidates
 
 
@@ -828,7 +856,9 @@ def _sheet_pin_suffix_indices(compiled: List[CompiledSheet]) -> Dict[int, int]:
             for ld in sg.label_drivers:
                 if ld.kind != KiCadDriverKind.SHEET_PIN:
                     continue
-                sheet_path = _offboard_sheet_pin_target_path(cs, ld) or cs.sheet_path_human
+                sheet_path = (
+                    _offboard_sheet_pin_target_path(cs, ld) or cs.sheet_path_human
+                )
                 fake = Subgraph(
                     chosen_priority=KiCadDriverPriority.SHEET_PIN,
                     chosen_kind=KiCadDriverKind.SHEET_PIN,
@@ -837,11 +867,13 @@ def _sheet_pin_suffix_indices(compiled: List[CompiledSheet]) -> Dict[int, int]:
                 )
                 base_name, _auto = name_net(fake, sheet_path=sheet_path)
                 source_order = int(getattr(ld, "source_order", fallback_order) or 0)
-                grouped.setdefault(base_name, []).append((
-                    source_order,
-                    fallback_order,
-                    id(ld),
-                ))
+                grouped.setdefault(base_name, []).append(
+                    (
+                        source_order,
+                        fallback_order,
+                        id(ld),
+                    )
+                )
                 fallback_order += 1
 
     out: Dict[int, int] = {}
@@ -868,7 +900,9 @@ def _offboard_sheet_pin_target_path(cs: CompiledSheet, ld) -> str:
     for sheet in getattr(cs.schematic, "sheets", ()) or ():
         if getattr(sheet, "on_board", True):
             continue
-        child_name = getattr(sheet, "sheet_name", "") or getattr(sheet, "sheet_file", "")
+        child_name = getattr(sheet, "sheet_name", "") or getattr(
+            sheet, "sheet_file", ""
+        )
         if not child_name:
             continue
         for pin in getattr(sheet, "pins", ()) or ():
@@ -1000,10 +1034,21 @@ def _materialise_nets(
         #   5 sheet_path  (legacy secondary tiebreak â€” now redundant
         #                  with full_name but kept for stability)
         #   6 idx         (insertion order â€” final stable tiebreak)
-        candidates: List[Tuple[
-            int, int, int, int, str, str, int, KiCadDriverKind, str, str,
-            Optional[int],
-        ]] = []
+        candidates: List[
+            Tuple[
+                int,
+                int,
+                int,
+                int,
+                str,
+                str,
+                int,
+                KiCadDriverKind,
+                str,
+                str,
+                Optional[int],
+            ]
+        ] = []
         for k, sp_human in zip(group, member_sheet_paths):
             s_i, g_i = flat_keys[k]
             sg = compiled[s_i].subgraphs[g_i]
@@ -1013,12 +1058,11 @@ def _materialise_nets(
                 candidate_sheet_path = sp_human
                 if ld.kind == KiCadDriverKind.SHEET_PIN:
                     candidate_sheet_path = (
-                        _offboard_sheet_pin_target_path(compiled[s_i], ld)
-                        or sp_human
+                        _offboard_sheet_pin_target_path(compiled[s_i], ld) or sp_human
                     )
                 shape_rank = (
-                    0 if ld.kind == KiCadDriverKind.SHEET_PIN
-                    and ld.shape == "output"
+                    0
+                    if ld.kind == KiCadDriverKind.SHEET_PIN and ld.shape == "output"
                     else 1
                 )
                 # KiCad's CONNECTION_NAME for global labels is the bare
@@ -1030,12 +1074,21 @@ def _materialise_nets(
                     full_name = ld.name
                 else:
                     full_name = candidate_sheet_path + ld.name
-                candidates.append((
-                    -int(ld.priority), depth, shape_rank, 0,
-                    full_name, candidate_sheet_path, idx,
-                    ld.kind, ld.name, candidate_sheet_path,
-                    id(ld) if ld.kind == KiCadDriverKind.SHEET_PIN else None,
-                ))
+                candidates.append(
+                    (
+                        -int(ld.priority),
+                        depth,
+                        shape_rank,
+                        0,
+                        full_name,
+                        candidate_sheet_path,
+                        idx,
+                        ld.kind,
+                        ld.name,
+                        candidate_sheet_path,
+                        id(ld) if ld.kind == KiCadDriverKind.SHEET_PIN else None,
+                    )
+                )
             pin_offset = len(sg.label_drivers)
             for idx, pd in enumerate(sg.pin_drivers):
                 disp = pd.power_value if pd.is_power and pd.power_value else pd.name
@@ -1053,12 +1106,24 @@ def _materialise_nets(
                     full_name = disp
                 else:
                     full_name = sp_human + disp
-                implicit_rank = 1 if getattr(pd, "is_implicit_hidden_power", False) else 0
-                candidates.append((
-                    -int(pd.priority), depth, 1, implicit_rank,
-                    full_name, sp_human, pin_offset + idx,
-                    _pin_kind(pd.priority), disp, sp_human, None,
-                ))
+                implicit_rank = (
+                    1 if getattr(pd, "is_implicit_hidden_power", False) else 0
+                )
+                candidates.append(
+                    (
+                        -int(pd.priority),
+                        depth,
+                        1,
+                        implicit_rank,
+                        full_name,
+                        sp_human,
+                        pin_offset + idx,
+                        _pin_kind(pd.priority),
+                        disp,
+                        sp_human,
+                        None,
+                    )
+                )
         # Inject bus-member override candidates so cross-sheet bus
         # promotion can win name resolution. Per KiCad's
         # ``propagateToNeighbors`` rule, the bus driver's chosen member
@@ -1078,11 +1143,21 @@ def _materialise_nets(
                         int(ov.priority),
                         int(KiCadDriverPriority.LOCAL_POWER_PIN),
                     )
-                    candidates.append((
-                        -effective_prio, ov.depth, 1, 0,
-                        ov.text, ov.sheet_path, inj_idx,
-                        ov.kind, ov.text, ov.sheet_path, None,
-                    ))
+                    candidates.append(
+                        (
+                            -effective_prio,
+                            ov.depth,
+                            1,
+                            0,
+                            ov.text,
+                            ov.sheet_path,
+                            inj_idx,
+                            ov.kind,
+                            ov.text,
+                            ov.sheet_path,
+                            None,
+                        )
+                    )
                     inj_idx += 1
 
         if not candidates:
@@ -1092,9 +1167,7 @@ def _materialise_nets(
             chosen_sheet_path = "/"
             chosen_sheet_pin_id = None
         else:
-            candidates.sort(
-                key=lambda t: (t[0], t[1], t[2], t[3], t[4], t[5], t[6])
-            )
+            candidates.sort(key=lambda t: (t[0], t[1], t[2], t[3], t[4], t[5], t[6]))
             best = candidates[0]
             merged.chosen_priority = KiCadDriverPriority(-best[0])
             merged.chosen_kind = best[7]
@@ -1162,15 +1235,17 @@ def _materialise_nets(
                 if pd in compiled[s_i].subgraphs[g_i].pin_drivers:
                     owning_sheet_path = compiled[s_i].sheet_path
                     break
-            net.add_terminal(KiCadNetlistTerminal(
-                designator=pd.designator,
-                pin=pd.pin_number,
-                pin_name=pd.pin_name,
-                pin_type=pd.pin_type,
-                sheet_path=owning_sheet_path,
-                source_pin_id=pd.source_uuid,
-                svg_id=pd.pin_svg_uuid or pd.svg_uuid,
-            ))
+            net.add_terminal(
+                KiCadNetlistTerminal(
+                    designator=pd.designator,
+                    pin=pd.pin_number,
+                    pin_name=pd.pin_name,
+                    pin_type=pd.pin_type,
+                    sheet_path=owning_sheet_path,
+                    source_pin_id=pd.source_uuid,
+                    svg_id=pd.pin_svg_uuid or pd.svg_uuid,
+                )
+            )
         for k in group:
             s_i, g_i = flat_keys[k]
             cs = compiled[s_i]
@@ -1434,14 +1509,18 @@ def _component_units_from_lib_symbol(lib_sym) -> List[KiCadNetlistComponentUnit]
                     seen_numbers.add(candidate_number)
                     pin_numbers.append(candidate_number)
 
-        units.append(KiCadNetlistComponentUnit(
-            name=_unit_name(unit),
-            pins=pin_numbers,
-        ))
+        units.append(
+            KiCadNetlistComponentUnit(
+                name=_unit_name(unit),
+                pins=pin_numbers,
+            )
+        )
     return units
 
 
-def _append_component_property(properties: Dict[str, str], key: str, value: str) -> None:
+def _append_component_property(
+    properties: Dict[str, str], key: str, value: str
+) -> None:
     if key and key not in properties:
         properties[key] = value or ""
 
@@ -1698,9 +1777,7 @@ def collect_design_components(
                 if occurrence is not None
                 else bool(getattr(cs.parent_sheet, "dnp", False))
             )
-            effective_in_bom = bool(getattr(sym, "in_bom", True)) and (
-                ancestor_in_bom
-            )
+            effective_in_bom = bool(getattr(sym, "in_bom", True)) and (ancestor_in_bom)
             effective_on_board = bool(getattr(sym, "on_board", True)) and (
                 ancestor_on_board
             )
@@ -1731,10 +1808,12 @@ def collect_design_components(
 
             canonical = (
                 _canonical_instance_path(top_sch, cs.sheet_path)
-                if top_sch is not None else None
+                if top_sch is not None
+                else None
             )
             reference = _resolve_instance_reference(
-                sym, cs.sheet_path,
+                sym,
+                cs.sheet_path,
                 legacy_lookup=legacy_lookup,
                 canonical_path=canonical,
             )
@@ -1782,11 +1861,13 @@ def collect_design_components(
             if group_key not in groups:
                 groups[group_key] = []
                 group_order.append(group_key)
-            groups[group_key].append(_ComponentCandidate(
-                unit=unit,
-                order=order,
-                component=comp,
-            ))
+            groups[group_key].append(
+                _ComponentCandidate(
+                    unit=unit,
+                    order=order,
+                    component=comp,
+                )
+            )
             order += 1
 
     out: List[KiCadNetlistComponent] = []
@@ -1857,7 +1938,9 @@ def collect_design_libparts(
             pins: List[KiCadLibPartPin] = []
             for sub in getattr(lib_sym, "subsymbols", ()):
                 for pin in getattr(sub, "pins", ()):
-                    num = _normalize_netlist_pin_number(getattr(pin, "number", "") or "")
+                    num = _normalize_netlist_pin_number(
+                        getattr(pin, "number", "") or ""
+                    )
                     if not num or num in pin_seen:
                         continue
                     pin_seen.add(num)
@@ -1865,25 +1948,29 @@ def collect_design_libparts(
                     pin_type = getattr(elec, "value", None)
                     if pin_type is None:
                         pin_type = str(elec) if elec is not None else ""
-                    pins.append(KiCadLibPartPin(
-                        number=num,
-                        name=getattr(pin, "name", "") or "",
-                        pin_type=str(pin_type),
-                    ))
+                    pins.append(
+                        KiCadLibPartPin(
+                            number=num,
+                            name=getattr(pin, "name", "") or "",
+                            pin_type=str(pin_type),
+                        )
+                    )
             pins.sort(key=lambda p: _natural_pin_key(p.number))
 
             description = getattr(lib_sym, "description", "") or ""
             docs = getattr(lib_sym, "datasheet", "") or ""
 
-            out.append(KiCadLibPart(
-                lib=lib,
-                part=part,
-                description=description,
-                docs=docs,
-                footprints_filter=[],
-                fields=fields,
-                pins=pins,
-            ))
+            out.append(
+                KiCadLibPart(
+                    lib=lib,
+                    part=part,
+                    description=description,
+                    docs=docs,
+                    footprints_filter=[],
+                    fields=fields,
+                    pins=pins,
+                )
+            )
 
     return out
 
@@ -1912,15 +1999,17 @@ def _design_sheet_records(
                 # model exposes the clearer ``revision`` field name.
                 revision = getattr(tb, "rev", "") or ""
                 date = getattr(tb, "date", "") or ""
-        out.append(KiCadDesignSheet(
-            number=i,
-            name=cs.sheet_path_human,
-            tstamps=cs.sheet_path,
-            title=title,
-            company=company,
-            revision=revision,
-            date=date,
-        ))
+        out.append(
+            KiCadDesignSheet(
+                number=i,
+                name=cs.sheet_path_human,
+                tstamps=cs.sheet_path,
+                title=title,
+                company=company,
+                revision=revision,
+                date=date,
+            )
+        )
     return out
 
 

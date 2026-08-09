@@ -51,29 +51,52 @@ from kicad_monkey.kicad_sym_property import SymProperty
 # ---------------------------------------------------------------------------
 
 
-def _pin(at_x: float, at_y: float, *, number: str = "1",
-         electrical: PinElectricalType = PinElectricalType.PASSIVE) -> SymPin:
+def _pin(
+    at_x: float,
+    at_y: float,
+    *,
+    number: str = "1",
+    electrical: PinElectricalType = PinElectricalType.PASSIVE,
+) -> SymPin:
     return SymPin(
         electrical_type=electrical,
         graphic_style=PinGraphicStyle.LINE,
-        at_x=at_x, at_y=at_y, at_angle=180.0, length=0.0,
-        number=number, name="~",
+        at_x=at_x,
+        at_y=at_y,
+        at_angle=180.0,
+        length=0.0,
+        number=number,
+        name="~",
     )
 
 
 def _libsym(
-    name: str, *pins: SymPin,
-    power: bool = False, power_kind: Optional[str] = None,
+    name: str,
+    *pins: SymPin,
+    power: bool = False,
+    power_kind: Optional[str] = None,
 ) -> LibSymbol:
     sub = LibSubSymbol(name=f"{name}_1_0", unit=1, style=0, pins=list(pins))
-    return LibSymbol(name=name, power=power, power_kind=power_kind,
-                     subsymbols=[sub])
+    return LibSymbol(name=name, power=power, power_kind=power_kind, subsymbols=[sub])
 
 
-def _placed(lib_id: str, *, reference: str, value: str = "",
-            at_x: float = 0.0, at_y: float = 0.0) -> SchSymbol:
-    sym = SchSymbol(lib_id=lib_id, at_x=at_x, at_y=at_y, at_angle=0.0,
-                    mirror=None, unit=1, convert=1)
+def _placed(
+    lib_id: str,
+    *,
+    reference: str,
+    value: str = "",
+    at_x: float = 0.0,
+    at_y: float = 0.0,
+) -> SchSymbol:
+    sym = SchSymbol(
+        lib_id=lib_id,
+        at_x=at_x,
+        at_y=at_y,
+        at_angle=0.0,
+        mirror=None,
+        unit=1,
+        convert=1,
+    )
     sym.properties = [
         SymProperty(key="Reference", value=reference, id=0),
         SymProperty(key="Value", value=value or reference, id=1),
@@ -81,8 +104,7 @@ def _placed(lib_id: str, *, reference: str, value: str = "",
     return sym
 
 
-def _sheet(sheet_file: str, sheet_name: str, uuid: str,
-           *pins: SchSheetPin) -> SchSheet:
+def _sheet(sheet_file: str, sheet_name: str, uuid: str, *pins: SchSheetPin) -> SchSheet:
     sh = SchSheet(uuid=uuid)
     sh.properties = [
         SchSheetProperty(key="Sheetname", value=sheet_name),
@@ -93,8 +115,7 @@ def _sheet(sheet_file: str, sheet_name: str, uuid: str,
 
 
 def _spin(name: str, at_x: float, at_y: float) -> SchSheetPin:
-    return SchSheetPin(name=name, shape=LabelShape.INPUT,
-                       at_x=at_x, at_y=at_y)
+    return SchSheetPin(name=name, shape=LabelShape.INPUT, at_x=at_x, at_y=at_y)
 
 
 def _wire(*points) -> SchWire:
@@ -115,8 +136,7 @@ def _two_level_hierarchy_with_sheet_pin():
     sub = KiCadSchematic()
     sub.uuid = "child-uuid"
     sub.lib_symbols.append(libR)
-    sub.symbols.append(_placed("Device:R", reference="R2",
-                               at_x=20.0, at_y=10.0))
+    sub.symbols.append(_placed("Device:R", reference="R2", at_x=20.0, at_y=10.0))
     hier_label = SchHierarchicalLabel(text="SIG", at_x=20.0, at_y=10.0)
     hier_label.uuid = "hier-label-uuid"
     sub.hierarchical_labels.append(hier_label)
@@ -125,8 +145,7 @@ def _two_level_hierarchy_with_sheet_pin():
     root = KiCadSchematic()
     root.uuid = "root-uuid"
     root.lib_symbols.append(libR)
-    root.symbols.append(_placed("Device:R", reference="R1",
-                                at_x=10.0, at_y=10.0))
+    root.symbols.append(_placed("Device:R", reference="R1", at_x=10.0, at_y=10.0))
     root.wires.append(_wire((10.0, 10.0), (40.0, 10.0)))
     sheet_pin = _spin("SIG", 40.0, 10.0)
     sheet_pin.uuid = "sheet-pin-uuid"
@@ -141,18 +160,14 @@ def _two_sheets_with_global_label():
     sub = KiCadSchematic()
     sub.uuid = "child"
     sub.lib_symbols.append(libR)
-    sub.symbols.append(_placed("Device:R", reference="R2",
-                               at_x=20.0, at_y=10.0))
-    sub.global_labels.append(
-        SchGlobalLabel(text="VCC", at_x=20.0, at_y=10.0))
+    sub.symbols.append(_placed("Device:R", reference="R2", at_x=20.0, at_y=10.0))
+    sub.global_labels.append(SchGlobalLabel(text="VCC", at_x=20.0, at_y=10.0))
 
     root = KiCadSchematic()
     root.uuid = "root"
     root.lib_symbols.append(libR)
-    root.symbols.append(_placed("Device:R", reference="R1",
-                                at_x=10.0, at_y=10.0))
-    root.global_labels.append(
-        SchGlobalLabel(text="VCC", at_x=10.0, at_y=10.0))
+    root.symbols.append(_placed("Device:R", reference="R1", at_x=10.0, at_y=10.0))
+    root.global_labels.append(SchGlobalLabel(text="VCC", at_x=10.0, at_y=10.0))
     sheet = _sheet("sub.kicad_sch", "sub", "child-sheet-uuid")
     root.sheets.append(sheet)
     root.sub_schematics["sub.kicad_sch"] = sub
@@ -164,23 +179,24 @@ def _two_sheets_with_global_power():
     libGND = _libsym(
         "power:GND",
         _pin(0.0, 0.0, number="1", electrical=PinElectricalType.POWER_IN),
-        power=True, power_kind="global",
+        power=True,
+        power_kind="global",
     )
     sub = KiCadSchematic()
     sub.uuid = "child"
     sub.lib_symbols.extend([libR, libGND])
-    sub.symbols.append(_placed("Device:R", reference="R2",
-                               at_x=20.0, at_y=10.0))
-    sub.symbols.append(_placed("power:GND", reference="#PWR2", value="GND",
-                               at_x=20.0, at_y=10.0))
+    sub.symbols.append(_placed("Device:R", reference="R2", at_x=20.0, at_y=10.0))
+    sub.symbols.append(
+        _placed("power:GND", reference="#PWR2", value="GND", at_x=20.0, at_y=10.0)
+    )
 
     root = KiCadSchematic()
     root.uuid = "root"
     root.lib_symbols.extend([libR, libGND])
-    root.symbols.append(_placed("Device:R", reference="R1",
-                                at_x=10.0, at_y=10.0))
-    root.symbols.append(_placed("power:GND", reference="#PWR1", value="GND",
-                                at_x=10.0, at_y=10.0))
+    root.symbols.append(_placed("Device:R", reference="R1", at_x=10.0, at_y=10.0))
+    root.symbols.append(
+        _placed("power:GND", reference="#PWR1", value="GND", at_x=10.0, at_y=10.0)
+    )
     sheet = _sheet("sub.kicad_sch", "sub", "child-sheet")
     root.sheets.append(sheet)
     root.sub_schematics["sub.kicad_sch"] = sub
@@ -205,8 +221,8 @@ def test_compile_design_subgraphs_yields_root_then_child():
     assert compiled[1].sheet_path_human == "/sub/"
 
 
-def test_compile_design_netlist_skips_off_board_child_but_keeps_parent_sheet_pin_net():
-    """KiCad excludes off-board child paths but keeps parent sheet-pin nets."""
+def test_compile_design_netlist_keeps_off_board_child_with_inherited_policy():
+    """Off-board descendants remain in the complete graph and carry policy."""
     libR = _libsym("Device:R", _pin(0.0, 0.0, number="1"))
 
     active = KiCadSchematic()
@@ -240,29 +256,31 @@ def test_compile_design_netlist_skips_off_board_child_but_keeps_parent_sheet_pin
     active_sheet = _sheet(
         "active.kicad_sch", "active", "active-sheet", _spin("ON", 20.0, 0.0)
     )
-    off_sheet = _sheet(
-        "off.kicad_sch", "off", "off-sheet", _spin("OFF", 20.0, 20.0)
-    )
+    off_sheet = _sheet("off.kicad_sch", "off", "off-sheet", _spin("OFF", 20.0, 20.0))
     off_sheet.on_board = False
     root.sheets.extend([active_sheet, off_sheet])
     root.sub_schematics["active.kicad_sch"] = active
     root.sub_schematics["off.kicad_sch"] = off_board
 
     compiled = compile_design_subgraphs(root)
-    assert [cs.sheet_path_human for cs in compiled] == ["/", "/active/"]
+    assert [cs.sheet_path_human for cs in compiled] == ["/", "/active/", "/off/"]
 
     nl = compile_design_netlist(root)
     component_refs = {component.reference for component in nl.components}
     terminal_refs = {
         terminal.designator for net in nl.nets for terminal in net.terminals
     }
-    assert {"R_ROOT_ON", "R_ROOT_OFF", "R_ON"} <= component_refs
-    assert "R_OFF" not in component_refs
-    assert {"R_ROOT_ON", "R_ROOT_OFF", "R_ON"} <= terminal_refs
-    assert "R_OFF" not in terminal_refs
+    assert {"R_ROOT_ON", "R_ROOT_OFF", "R_ON", "R_OFF"} <= component_refs
+    assert {"R_ROOT_ON", "R_ROOT_OFF", "R_ON", "R_OFF"} <= terminal_refs
+    off_component = next(item for item in nl.components if item.reference == "R_OFF")
+    assert off_component.on_board is False
+    assert off_component.properties["exclude_from_board"] == ""
     off = nl.get_net("/off/OFF")
     assert off is not None
-    assert {(t.designator, t.pin) for t in off.terminals} == {("R_ROOT_OFF", "1")}
+    assert {(t.designator, t.pin) for t in off.terminals} == {
+        ("R_ROOT_OFF", "1"),
+        ("R_OFF", "1"),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -277,8 +295,7 @@ def test_sheet_pin_to_hier_label_merges_into_one_net():
     nl = compile_design_netlist(root)
     # Find the merged net — it's the one with both R1 and R2 on it.
     candidates = [
-        n for n in nl.nets
-        if {t.designator for t in n.terminals} >= {"R1", "R2"}
+        n for n in nl.nets if {t.designator for t in n.terminals} >= {"R1", "R2"}
     ]
     assert len(candidates) == 1, [n.name for n in nl.nets]
     sig = candidates[0]
@@ -298,8 +315,7 @@ def test_sheet_pin_to_hier_label_net_keeps_semantic_endpoints():
     root, _ = _two_level_hierarchy_with_sheet_pin()
     nl = compile_design_netlist(root)
     sig = next(
-        n for n in nl.nets
-        if {t.designator for t in n.terminals} >= {"R1", "R2"}
+        n for n in nl.nets if {t.designator for t in n.terminals} >= {"R1", "R2"}
     )
 
     by_role = {endpoint.role: endpoint for endpoint in sig.endpoints}
@@ -323,20 +339,18 @@ def test_sheet_pin_with_no_matching_hier_label_does_not_merge():
     sub = KiCadSchematic()
     sub.uuid = "c"
     sub.lib_symbols.append(libR)
-    sub.symbols.append(_placed("Device:R", reference="R2",
-                               at_x=20.0, at_y=10.0))
+    sub.symbols.append(_placed("Device:R", reference="R2", at_x=20.0, at_y=10.0))
     # Child has hier_label "DIFFERENT_NAME" — not "SIG".
     sub.hierarchical_labels.append(
-        SchHierarchicalLabel(text="DIFFERENT_NAME", at_x=20.0, at_y=10.0))
+        SchHierarchicalLabel(text="DIFFERENT_NAME", at_x=20.0, at_y=10.0)
+    )
 
     root = KiCadSchematic()
     root.uuid = "r"
     root.lib_symbols.append(libR)
-    root.symbols.append(_placed("Device:R", reference="R1",
-                                at_x=10.0, at_y=10.0))
+    root.symbols.append(_placed("Device:R", reference="R1", at_x=10.0, at_y=10.0))
     root.wires.append(_wire((10.0, 10.0), (40.0, 10.0)))
-    root.sheets.append(_sheet("sub.kicad_sch", "sub", "s",
-                              _spin("SIG", 40.0, 10.0)))
+    root.sheets.append(_sheet("sub.kicad_sch", "sub", "s", _spin("SIG", 40.0, 10.0)))
     root.sub_schematics["sub.kicad_sch"] = sub
 
     nl = compile_design_netlist(root)
@@ -361,28 +375,33 @@ def test_cross_sheet_bus_members_match_escaped_slash_labels():
 
     root = KiCadSchematic()
     root.uuid = "root"
-    root.bus_aliases.append(
-        SchBusAlias(name="ATMEGA_BREAKOUT", members=["ADC0/GPIO0"])
-    )
+    root.bus_aliases.append(SchBusAlias(name="ATMEGA_BREAKOUT", members=["ADC0/GPIO0"]))
     child_a = child("a", "R1")
     child_b = child("b", "R2")
-    root.sheets.append(_sheet(
-        "a.kicad_sch", "a", "sheet-a",
-        _spin("{ATMEGA_BREAKOUT}", 0.0, 0.0),
-    ))
-    root.sheets.append(_sheet(
-        "b.kicad_sch", "b", "sheet-b",
-        _spin("{ATMEGA_BREAKOUT}", 20.0, 0.0),
-    ))
+    root.sheets.append(
+        _sheet(
+            "a.kicad_sch",
+            "a",
+            "sheet-a",
+            _spin("{ATMEGA_BREAKOUT}", 0.0, 0.0),
+        )
+    )
+    root.sheets.append(
+        _sheet(
+            "b.kicad_sch",
+            "b",
+            "sheet-b",
+            _spin("{ATMEGA_BREAKOUT}", 20.0, 0.0),
+        )
+    )
     root.sub_schematics["a.kicad_sch"] = child_a
     root.sub_schematics["b.kicad_sch"] = child_b
 
     nl = compile_design_netlist(root)
-    merged = [
-        n for n in nl.nets
-        if {t.designator for t in n.terminals} == {"R1", "R2"}
+    merged = [n for n in nl.nets if {t.designator for t in n.terminals} == {"R1", "R2"}]
+    assert len(merged) == 1, [
+        (n.name, [(t.designator, t.pin) for t in n.terminals]) for n in nl.nets
     ]
-    assert len(merged) == 1, [(n.name, [(t.designator, t.pin) for t in n.terminals]) for n in nl.nets]
     assert "ADC0{slash}GPIO0" in merged[0].name
 
 
@@ -394,10 +413,12 @@ def test_design_duplicate_sheet_pin_names_get_stable_suffixes():
     root.lib_symbols.append(libR)
     root.symbols.append(_placed("Device:R", reference="R1", at_x=10.0, at_y=10.0))
     root.symbols.append(_placed("Device:R", reference="R2", at_x=20.0, at_y=10.0))
-    root.sheets.append(_sheet("missing1.kicad_sch", "child1", "s1",
-                              _spin("OUT", 10.0, 10.0)))
-    root.sheets.append(_sheet("missing2.kicad_sch", "child2", "s2",
-                              _spin("OUT", 20.0, 10.0)))
+    root.sheets.append(
+        _sheet("missing1.kicad_sch", "child1", "s1", _spin("OUT", 10.0, 10.0))
+    )
+    root.sheets.append(
+        _sheet("missing2.kicad_sch", "child2", "s2", _spin("OUT", 20.0, 10.0))
+    )
 
     nl = compile_design_netlist(root)
     by_name = {
@@ -426,25 +447,30 @@ def test_design_sheet_pin_suffix_follows_source_order_not_net_order():
     root.uuid = "r"
     root.lib_symbols.append(libR)
     root.symbols.append(_placed("Device:R", reference="R1", at_x=100.0, at_y=0.0))
-    root.sheets.extend([
-        _sheet("missing2.kicad_sch", "controller2", "s2", do(10.0)),
-        _sheet("missing3.kicad_sch", "controller3", "s3", din(20.0), do(30.0)),
-        _sheet("missing6.kicad_sch", "controller6", "s6", din(80.0), do(90.0)),
-        _sheet("missing5.kicad_sch", "controller5", "s5", din(60.0), do(70.0)),
-        _sheet("missing4.kicad_sch", "controller4", "s4", din(40.0), do(50.0)),
-    ])
-    root.wires.extend([
-        _wire((10.0, 0.0), (20.0, 0.0)),
-        _wire((30.0, 0.0), (40.0, 0.0)),
-        _wire((50.0, 0.0), (60.0, 0.0)),
-        _wire((70.0, 0.0), (80.0, 0.0)),
-        _wire((90.0, 0.0), (100.0, 0.0)),
-    ])
+    root.sheets.extend(
+        [
+            _sheet("missing2.kicad_sch", "controller2", "s2", do(10.0)),
+            _sheet("missing3.kicad_sch", "controller3", "s3", din(20.0), do(30.0)),
+            _sheet("missing6.kicad_sch", "controller6", "s6", din(80.0), do(90.0)),
+            _sheet("missing5.kicad_sch", "controller5", "s5", din(60.0), do(70.0)),
+            _sheet("missing4.kicad_sch", "controller4", "s4", din(40.0), do(50.0)),
+        ]
+    )
+    root.wires.extend(
+        [
+            _wire((10.0, 0.0), (20.0, 0.0)),
+            _wire((30.0, 0.0), (40.0, 0.0)),
+            _wire((50.0, 0.0), (60.0, 0.0)),
+            _wire((70.0, 0.0), (80.0, 0.0)),
+            _wire((90.0, 0.0), (100.0, 0.0)),
+        ]
+    )
 
     nl = compile_design_netlist(root)
 
     terminal_net = next(
-        net for net in nl.nets
+        net
+        for net in nl.nets
         if sorted((t.designator, t.pin) for t in net.terminals) == [("R1", "1")]
     )
     assert terminal_net.name == "/DO_2"
@@ -508,8 +534,7 @@ def test_isolated_pin_only_subgraphs_do_not_cross_merge():
         s = KiCadSchematic()
         s.uuid = uuid
         s.lib_symbols.append(libR)
-        s.symbols.append(_placed("Device:R", reference=ref,
-                                 at_x=20.0, at_y=10.0))
+        s.symbols.append(_placed("Device:R", reference=ref, at_x=20.0, at_y=10.0))
         return s
 
     a = _make_sub("a", "RA")
@@ -544,9 +569,7 @@ def test_merge_design_nets_is_a_pure_function():
     root, _ = _two_level_hierarchy_with_sheet_pin()
     compiled = compile_design_subgraphs(root)
     nets = merge_design_nets(compiled)
-    assert any(
-        {t.designator for t in n.terminals} >= {"R1", "R2"} for n in nets
-    )
+    assert any({t.designator for t in n.terminals} >= {"R1", "R2"} for n in nets)
 
 
 def test_occurrence_walker_is_parent_first_and_folds_ancestor_policy():
@@ -594,4 +617,5 @@ def test_occurrence_walker_can_filter_effectively_off_board_subtrees():
 
     assert len(list(walk_schematic_occurrences(root))) == 3
     assert len(list(walk_schematic_occurrences(root, include_off_board=False))) == 1
-    assert len(compile_design_subgraphs(root)) == 1
+    assert len(compile_design_subgraphs(root)) == 3
+    assert len(compile_design_subgraphs(root, include_off_board=False)) == 1
