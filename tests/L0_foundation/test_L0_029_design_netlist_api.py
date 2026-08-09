@@ -41,6 +41,10 @@ from kicad_monkey.kicad_compiled_schematic_graph import (
     build_compiled_schematic_graph,
     validate_compiled_schematic_graph,
 )
+from kicad_monkey.kicad_compiled_schematic_graph_identity import (
+    SchCompiledSchematicGraphIdentityAllocator,
+    compiled_schematic_graph_design_scope,
+)
 from kicad_monkey.kicad_lib_subsymbol import LibSubSymbol
 from kicad_monkey.kicad_lib_symbol import LibSymbol
 from kicad_monkey.kicad_netlist_model import KiCadNetClass
@@ -665,6 +669,100 @@ def test_compiled_graph_keeps_reused_off_board_occurrences_and_stable_ids():
     }
     validate_compiled_schematic_graph(first)
     assert KiCadCompiledSchematicGraph.from_json(first).to_json() == first
+
+
+def test_compiled_graph_disambiguates_nested_hierarchy_inside_reused_parent(
+    tmp_path,
+):
+    leaf = KiCadSchematic()
+    leaf.uuid = "leaf-source"
+    leaf.source_path = tmp_path / "leaf.kicad_sch"
+
+    parent = KiCadSchematic()
+    parent.uuid = "parent-source"
+    parent.source_path = tmp_path / "parent.kicad_sch"
+    nested = SchSheet(uuid="leaf-placement")
+    nested.properties = [
+        SchSheetProperty(key="Sheetname", value="leaf"),
+        SchSheetProperty(key="Sheetfile", value="leaf.kicad_sch"),
+    ]
+    parent.sheets.append(nested)
+    parent.sub_schematics["leaf.kicad_sch"] = leaf
+
+    root = KiCadSchematic()
+    root.uuid = "root-source"
+    root.source_path = tmp_path / "root.kicad_sch"
+    parent_a_placement = SchSheet(uuid="parent-a")
+    parent_a_placement.properties = [
+        SchSheetProperty(key="Sheetname", value="A"),
+        SchSheetProperty(key="Sheetfile", value="parent.kicad_sch"),
+    ]
+    root.sheets.append(parent_a_placement)
+    root.sub_schematics["parent.kicad_sch"] = parent
+
+    design = KiCadDesign(schematics=[root])
+    before = build_compiled_schematic_graph(design).to_json()
+    before_nested = next(
+        row
+        for row in before["unit_occurrences"]
+        if row["source_identity"].get("sch.source_key.source_uuid") == "leaf-placement"
+    )
+
+    parent_b_placement = SchSheet(uuid="parent-b")
+    parent_b_placement.properties = [
+        SchSheetProperty(key="Sheetname", value="B"),
+        SchSheetProperty(key="Sheetfile", value="parent.kicad_sch"),
+    ]
+    root.sheets.append(parent_b_placement)
+
+    graph = build_compiled_schematic_graph(design).to_json()
+    nested_occurrences = [
+        row
+        for row in graph["unit_occurrences"]
+        if row["source_identity"].get("sch.source_key.source_uuid") == "leaf-placement"
+    ]
+
+    assert len(graph["unit_occurrences"]) == 5
+    assert len(nested_occurrences) == 2
+    assert len({row["id"] for row in nested_occurrences}) == 2
+    surviving_nested = next(
+        row
+        for row in nested_occurrences
+        if row["source_identity"]["sch.source_key.source_path"]
+        == before_nested["source_identity"]["sch.source_key.source_path"]
+    )
+    assert surviving_nested["id"] == before_nested["id"]
+
+    # Occurrence paths retain the released a0 unowned address without depending
+    # on how many siblings currently share a placement UUID.
+    parent_a = next(
+        row
+        for row in graph["unit_occurrences"]
+        if row["source_identity"].get("sch.source_key.source_uuid") == "parent-a"
+    )
+    parent_a_page = next(
+        row
+        for row in graph["page_occurrences"]
+        if row["unit_occurrence_ref"] == parent_a["id"]
+    )
+    legacy_allocator = SchCompiledSchematicGraphIdentityAllocator(
+        design_scope=compiled_schematic_graph_design_scope(
+            source_cad="kicad",
+            project={"filename": "root.kicad_sch"},
+        )
+    )
+    legacy_unit_ref = legacy_allocator.allocate_source(
+        object_type="sch.unit_occurrence",
+        source_identity=parent_a["source_identity"],
+    )
+    legacy_page_ref = legacy_allocator.allocate_source(
+        object_type="sch.page_occurrence",
+        source_identity=parent_a_page["source_identity"],
+        owner_refs=(legacy_unit_ref,),
+    )
+    assert parent_a["id"] == legacy_unit_ref
+    assert parent_a_page["id"] == legacy_page_ref
+    validate_compiled_schematic_graph(graph)
 
 
 def test_compiled_graph_omits_hidden_and_ambiguous_stacked_pin_selectors():

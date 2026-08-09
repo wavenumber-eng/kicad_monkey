@@ -61,6 +61,39 @@ _COLLECTION_TYPES.update(
         "graphical_artifact_links": "sch.graphical_artifact_link",
     }
 )
+_REF_TYPES: dict[str, tuple[tuple[str, str], ...]] = {
+    "page_definitions": (("unit_definition_ref", "sch.unit_definition"),),
+    "unit_occurrences": (
+        ("unit_definition_ref", "sch.unit_definition"),
+        ("parent_hierarchy_occurrence_ref", "sch.hierarchy_occurrence"),
+    ),
+    "page_occurrences": (
+        ("page_definition_ref", "sch.page_definition"),
+        ("unit_occurrence_ref", "sch.unit_occurrence"),
+    ),
+    "hierarchy_occurrences": (
+        ("parent_unit_occurrence_ref", "sch.unit_occurrence"),
+        ("parent_page_occurrence_ref", "sch.page_occurrence"),
+        ("child_unit_occurrence_ref", "sch.unit_occurrence"),
+    ),
+    "component_occurrences": (("page_occurrence_ref", "sch.page_occurrence"),),
+    "local_net_occurrences": (("page_occurrence_ref", "sch.page_occurrence"),),
+    "terminal_occurrences": (
+        ("page_occurrence_ref", "sch.page_occurrence"),
+        ("local_net_occurrence_ref", "sch.local_net_occurrence"),
+        ("component_occurrence_ref", "sch.component_occurrence"),
+    ),
+    "hierarchy_terminal_bindings": (
+        ("hierarchy_occurrence_ref", "sch.hierarchy_occurrence"),
+        ("parent_terminal_occurrence_ref", "sch.terminal_occurrence"),
+        ("child_terminal_occurrence_ref", "sch.terminal_occurrence"),
+    ),
+    "graphical_artifact_links": (("page_occurrence_ref", "sch.page_occurrence"),),
+}
+_REF_LIST_TYPES: dict[str, tuple[tuple[str, str], ...]] = {
+    "unit_definitions": (("page_definition_refs", "sch.page_definition"),),
+    "unit_occurrences": (("page_occurrence_refs", "sch.page_occurrence"),),
+}
 _TERMINAL_ROLES = {"component_pin", "sheet_entry", "port", "power_port"}
 _RESOLUTION_DIAGNOSTICS = {
     "logical_pin_unresolved",
@@ -495,7 +528,9 @@ def _append_label_terminals(context: _TerminalBuildContext, subgraph: Subgraph) 
         context.add_terminal(
             role=role,
             source_uuid=str(driver.source_uuid or driver.svg_uuid),
-            source_subobject=str(driver.name),
+            # A label or sheet-pin UUID identifies the authored endpoint. Its
+            # mutable display name participates in matching, never identity.
+            source_subobject="",
             name=str(driver.name),
             pin_designator="",
             element_id=driver.svg_uuid or driver.source_uuid,
@@ -721,12 +756,18 @@ def build_compiled_schematic_graph(
             definition = (str(unit["id"]), str(page["id"]))
             definition_by_key[definition_key] = definition
 
-        address = occurrence.occurrence_address
         source_occurrence_path = occurrence.sheet_path_uuids
+        parent_rows = (
+            occurrence_rows[id(occurrence.parent)]
+            if occurrence.parent is not None
+            else None
+        )
         occurrence_source = _source_identity(
             **{
                 "sch.source_key.source_path": source_occurrence_path,
-                "sch.source_key.source_record": f"instance-path:{address}",
+                "sch.source_key.source_record": (
+                    f"instance-path:{occurrence.occurrence_address}"
+                ),
                 "sch.source_key.source_uuid": (
                     occurrence.sheet_symbol.uuid
                     if occurrence.sheet_symbol is not None
@@ -763,12 +804,15 @@ def build_compiled_schematic_graph(
 
         sheet_symbol = occurrence.sheet_symbol
         if occurrence.parent is not None and sheet_symbol is not None:
-            parent_unit, parent_page = occurrence_rows[id(occurrence.parent)]
+            assert parent_rows is not None
+            parent_unit, parent_page = parent_rows
             hierarchy_source = _source_identity(
                 **{
                     "sch.source_key.source_uuid": sheet_symbol.uuid,
                     "sch.source_key.source_path": source_occurrence_path,
-                    "sch.source_key.source_record": f"instance-path:{address}",
+                    "sch.source_key.source_record": (
+                        f"instance-path:{occurrence.occurrence_address}"
+                    ),
                 }
             )
             hierarchy = _source_row(
@@ -930,6 +974,54 @@ def _validate_payload_header(payload: dict[str, object]) -> None:
         raise ValueError("invalid compiled schematic graph type")
 
 
+def _validate_ref_type(
+    value: object,
+    *,
+    expected_type: str,
+    field: str,
+    row_by_id: dict[str, dict[str, object]],
+) -> None:
+    if value is None or str(value) == "":
+        return
+    target = row_by_id.get(str(value))
+    if target is None:
+        raise ValueError(f"unresolved compiled schematic graph ref {field}={value}")
+    if target.get("type") != expected_type:
+        raise ValueError(
+            f"compiled schematic graph ref {field} must target {expected_type}"
+        )
+
+
+def _validate_typed_refs(
+    collections_by_name: dict[str, list[dict[str, object]]],
+    row_by_id: dict[str, dict[str, object]],
+) -> None:
+    for collection, specs in _REF_TYPES.items():
+        for row in collections_by_name[collection]:
+            for field_name, expected_type in specs:
+                _validate_ref_type(
+                    row.get(field_name),
+                    expected_type=expected_type,
+                    field=field_name,
+                    row_by_id=row_by_id,
+                )
+    for collection, specs in _REF_LIST_TYPES.items():
+        for row in collections_by_name[collection]:
+            for field_name, expected_type in specs:
+                values = row.get(field_name, [])
+                if not isinstance(values, list):
+                    raise ValueError(
+                        f"compiled schematic graph {field_name} must be a list"
+                    )
+                for value in values:
+                    _validate_ref_type(
+                        value,
+                        expected_type=expected_type,
+                        field=field_name,
+                        row_by_id=row_by_id,
+                    )
+
+
 def _validate_graph_rows(
     payload: dict[str, object],
 ) -> dict[str, dict[str, object]]:
@@ -952,24 +1044,83 @@ def _validate_graph_rows(
         )
     known = set(ids)
     row_by_id = {str(row["id"]): row for row in rows}
-    for row in rows:
-        for key, value in row.items():
-            if key.endswith("_ref") and value is not None and str(value) not in known:
-                if key in {
-                    "design_component_ref",
-                    "design_component_pin_ref",
-                    "design_net_ref",
-                }:
-                    continue
-                raise ValueError(
-                    f"unresolved compiled schematic graph ref {key}={value}"
-                )
-            if key.endswith("_refs") and isinstance(value, list):
-                missing = [ref for ref in value if str(ref) not in known]
-                if missing:
-                    raise ValueError(f"unresolved compiled schematic graph refs {key}")
+    assert known == set(row_by_id)
+    _validate_typed_refs(collections_by_name, row_by_id)
 
     return row_by_id
+
+
+def _validate_definition_ownership(payload: dict[str, object]) -> None:
+    unit_by_id = {
+        str(row["id"]): row for row in _payload_collection(payload, "unit_definitions")
+    }
+    for page in _payload_collection(payload, "page_definitions"):
+        page_ref = str(page["id"])
+        unit = unit_by_id[str(page["unit_definition_ref"])]
+        page_refs = unit.get("page_definition_refs", [])
+        if not isinstance(page_refs, list) or page_ref not in map(str, page_refs):
+            raise ValueError("page definition is not listed by its owning unit")
+
+
+def _validate_occurrence_ownership(payload: dict[str, object]) -> None:
+    page_definition_by_id = {
+        str(row["id"]): row for row in _payload_collection(payload, "page_definitions")
+    }
+    unit_occurrence_by_id = {
+        str(row["id"]): row for row in _payload_collection(payload, "unit_occurrences")
+    }
+    for page in _payload_collection(payload, "page_occurrences"):
+        page_ref = str(page["id"])
+        definition = page_definition_by_id[str(page["page_definition_ref"])]
+        unit = unit_occurrence_by_id[str(page["unit_occurrence_ref"])]
+        if definition.get("unit_definition_ref") != unit.get("unit_definition_ref"):
+            raise ValueError("page occurrence definition has the wrong unit owner")
+        page_refs = unit.get("page_occurrence_refs", [])
+        if not isinstance(page_refs, list) or page_ref not in map(str, page_refs):
+            raise ValueError(
+                "page occurrence is not listed by its owning unit occurrence"
+            )
+
+
+def _validate_hierarchy_ownership(payload: dict[str, object]) -> None:
+    page_by_id = {
+        str(row["id"]): row for row in _payload_collection(payload, "page_occurrences")
+    }
+    unit_by_id = {
+        str(row["id"]): row for row in _payload_collection(payload, "unit_occurrences")
+    }
+    incoming_by_child: dict[str, str] = {}
+    for hierarchy in _payload_collection(payload, "hierarchy_occurrences"):
+        hierarchy_ref = str(hierarchy["id"])
+        parent_unit_ref = str(hierarchy["parent_unit_occurrence_ref"])
+        parent_page = page_by_id[str(hierarchy["parent_page_occurrence_ref"])]
+        child_ref = str(hierarchy["child_unit_occurrence_ref"])
+        if str(parent_page.get("unit_occurrence_ref", "")) != parent_unit_ref:
+            raise ValueError("hierarchy parent page has the wrong unit owner")
+        previous = incoming_by_child.setdefault(child_ref, hierarchy_ref)
+        if previous != hierarchy_ref:
+            raise ValueError("unit occurrence has multiple incoming hierarchy owners")
+        child = unit_by_id[child_ref]
+        if str(child.get("parent_hierarchy_occurrence_ref", "")) != hierarchy_ref:
+            raise ValueError("unit occurrence hierarchy inverse is inconsistent")
+
+
+def _validate_hierarchy_is_acyclic(payload: dict[str, object]) -> None:
+    parent_by_child = {
+        str(row["child_unit_occurrence_ref"]): str(row["parent_unit_occurrence_ref"])
+        for row in _payload_collection(payload, "hierarchy_occurrences")
+    }
+    unit_refs = {
+        str(row["id"]) for row in _payload_collection(payload, "unit_occurrences")
+    }
+    for unit_ref in unit_refs:
+        visited: set[str] = set()
+        current_ref = unit_ref
+        while current_ref in parent_by_child:
+            if current_ref in visited:
+                raise ValueError("schematic hierarchy occurrences must be acyclic")
+            visited.add(current_ref)
+            current_ref = parent_by_child[current_ref]
 
 
 def _validate_terminal_rows(payload: dict[str, object]) -> None:
@@ -1144,6 +1295,10 @@ def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
     """Strictly validate embedded row identity, ownership, and references."""
 
     row_by_id = _validate_graph_rows(payload)
+    _validate_definition_ownership(payload)
+    _validate_occurrence_ownership(payload)
+    _validate_hierarchy_ownership(payload)
+    _validate_hierarchy_is_acyclic(payload)
     _validate_terminal_rows(payload)
     _validate_hierarchy_binding_completeness(payload)
     _validate_graphical_links(payload, row_by_id)

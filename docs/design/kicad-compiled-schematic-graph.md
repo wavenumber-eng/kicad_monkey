@@ -26,14 +26,23 @@ list positions, and drawing geometry do not identify semantic rows.
 Identity allocation is a package-local copy of the governed generic allocator.
 The normalized source selector and canonical owner refs use the governed
 address shape while the producer remains independently installable. Definition
-identity uses the portable schematic source path and source UUID. Occurrence
-identity uses KiCad's realized instance path. The public
-`sheet_path_uuids` value is the cross-package occurrence selector, while the
-full root-UUID-prefixed instance path remains source provenance. Local-net
+identity uses the portable schematic source path and source UUID. Unit
+occurrence identity uses the complete realized `sheet_path_uuids` path before
+the reusable placement UUID and retains the released a0 unowned address. The
+same nested placement inside two reused parent occurrences therefore remains
+distinct, and adding or removing a reused sibling cannot replace the surviving
+occurrence. The full root-UUID-prefixed instance path remains source
+provenance. Local-net
 identity is topology-derived from sorted canonical terminal refs within the
 page occurrence. Only a terminal-free graphical island falls back to sorted,
 scoped drawing selectors. Consequently, editing a wire UUID cannot replace a
 terminal-bearing local net.
+
+Component-pin terminal identity uses the placed-pin UUID plus its stable pin
+designator. Label and sheet-entry terminals use their authored object UUID
+without the mutable displayed name; renaming a matched hierarchy boundary
+therefore preserves both endpoint IDs, its topology-derived local-net IDs, and
+the binding ID.
 
 The downstream importer preserves producer graph UUIDs and maps optional Design
 component, pin, and net refs exactly once from `source_identity` selectors. It

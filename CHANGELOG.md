@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2026.8.9
+
 - Extend the bundled CC0 KiCad Newstroke table through U+2BFF, adding Greek,
   mathematical, arrow, and technical-symbol coverage without changing the
   original ASCII glyph strings.

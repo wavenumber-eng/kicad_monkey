@@ -125,6 +125,9 @@ def _stable_source_selector(
     compiled_net = normalized.get("sch.source_key.compiled_net")
     artifact_element = normalized.get("sch.source_key.artifact_element")
 
+    if object_type == "sch.unit_occurrence" and source_path:
+        return {"sch.source_key.source_path": source_path}
+
     if object_type in {"sch.unit_definition", "sch.page_definition"}:
         definition_selector = {
             key: value

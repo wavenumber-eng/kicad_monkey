@@ -284,3 +284,124 @@ def test_unmatched_hierarchy_boundary_is_diagnosed_and_valid() -> None:
     )
     with pytest.raises(ValueError, match="needs a binding or diagnostic"):
         validate_compiled_schematic_graph(invalid)
+
+
+def test_matched_hierarchy_endpoint_rename_preserves_semantic_identities() -> None:
+    design = _design("real_world/speedy_processing_module")
+    assert design.top_schematic is not None
+    occurrence = next(
+        item
+        for item in walk_schematic_occurrences(design.top_schematic)
+        if item.sheet_symbol is not None
+        and any(
+            pin.name == label.text
+            for pin in item.sheet_symbol.pins
+            for label in item.schematic.hierarchical_labels
+        )
+    )
+    pin = next(
+        pin
+        for pin in occurrence.sheet_symbol.pins
+        if any(
+            pin.name == label.text for label in occurrence.schematic.hierarchical_labels
+        )
+    )
+    label = next(
+        label
+        for label in occurrence.schematic.hierarchical_labels
+        if label.text == pin.name
+    )
+
+    before = build_compiled_schematic_graph(design).to_json()
+    before_terminals = {
+        row["source_identity"].get("sch.source_key.source_uuid", ""): row
+        for row in before["terminal_occurrences"]
+    }
+    before_parent = before_terminals[pin.uuid]
+    before_child = before_terminals[label.uuid]
+    before_binding = next(
+        row
+        for row in before["hierarchy_terminal_bindings"]
+        if row["parent_terminal_occurrence_ref"] == before_parent["id"]
+        and row["child_terminal_occurrence_ref"] == before_child["id"]
+    )
+
+    renamed = f"{pin.name}_RENAMED"
+    pin.name = renamed
+    label.text = renamed
+    after = build_compiled_schematic_graph(design).to_json()
+    after_terminals = {
+        row["source_identity"].get("sch.source_key.source_uuid", ""): row
+        for row in after["terminal_occurrences"]
+    }
+    after_parent = after_terminals[pin.uuid]
+    after_child = after_terminals[label.uuid]
+    after_binding = next(
+        row
+        for row in after["hierarchy_terminal_bindings"]
+        if row["parent_terminal_occurrence_ref"] == after_parent["id"]
+        and row["child_terminal_occurrence_ref"] == after_child["id"]
+    )
+
+    assert after_parent["id"] == before_parent["id"]
+    assert after_child["id"] == before_child["id"]
+    assert (
+        after_parent["local_net_occurrence_ref"]
+        == before_parent["local_net_occurrence_ref"]
+    )
+    assert (
+        after_child["local_net_occurrence_ref"]
+        == before_child["local_net_occurrence_ref"]
+    )
+    assert after_binding["id"] == before_binding["id"]
+
+
+def test_validator_rejects_wrong_type_reference_contract_vector() -> None:
+    invalid = copy.deepcopy(_compiled_graph("real_world/yoshi_mainboard"))
+    page_definition = invalid["page_definitions"][0]
+    page_definition["unit_definition_ref"] = page_definition["id"]
+
+    with pytest.raises(ValueError, match="must target sch.unit_definition"):
+        validate_compiled_schematic_graph(invalid)
+
+
+def test_validator_rejects_wrong_owner_reference_contract_vector() -> None:
+    invalid = copy.deepcopy(_compiled_graph("real_world/taillight"))
+    page_definitions = {row["id"]: row for row in invalid["page_definitions"]}
+    page = invalid["page_occurrences"][0]
+    expected_unit_definition_ref = page_definitions[page["page_definition_ref"]][
+        "unit_definition_ref"
+    ]
+    wrong_unit = next(
+        row
+        for row in invalid["unit_occurrences"]
+        if row["unit_definition_ref"] != expected_unit_definition_ref
+    )
+    page["unit_occurrence_ref"] = wrong_unit["id"]
+
+    with pytest.raises(ValueError, match="wrong unit owner"):
+        validate_compiled_schematic_graph(invalid)
+
+
+def test_validator_rejects_missing_inverse_page_membership_contract_vector() -> None:
+    invalid = copy.deepcopy(_compiled_graph("real_world/yoshi_mainboard"))
+    invalid["unit_occurrences"][0]["page_occurrence_refs"] = []
+
+    with pytest.raises(ValueError, match="not listed by its owning unit occurrence"):
+        validate_compiled_schematic_graph(invalid)
+
+
+def test_validator_rejects_hierarchy_cycle_contract_vector() -> None:
+    invalid = copy.deepcopy(_compiled_graph("real_world/taillight"))
+    hierarchy = invalid["hierarchy_occurrences"][0]
+    child_ref = hierarchy["child_unit_occurrence_ref"]
+    child_page = next(
+        row
+        for row in invalid["page_occurrences"]
+        if row["unit_occurrence_ref"] == child_ref
+    )
+    hierarchy["parent_unit_occurrence_ref"] = child_ref
+    hierarchy["parent_page_occurrence_ref"] = child_page["id"]
+
+    with pytest.raises(ValueError, match="must be acyclic"):
+        validate_compiled_schematic_graph(invalid)
