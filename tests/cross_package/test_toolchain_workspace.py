@@ -92,3 +92,18 @@ def test_repository_governance_routes_both_packages() -> None:
     assert "kicad-monkey-v${VERSION}" in release
     assert "kicad-cruncher-v${VERSION}" in release
     assert "packages-dir: packages/kicad_cruncher/dist/" in release
+
+
+def test_history_import_hygiene_exception_is_explicit_and_ancestry_bounded() -> None:
+    """Preserved history needs a maintainer label, full SHA, and merge boundary."""
+
+    hygiene = (
+        REPOSITORY_ROOT / ".github" / "workflows" / "pr-hygiene.yml"
+    ).read_text(encoding="utf-8")
+
+    assert 'label.name === "history-import"' in hygiene
+    assert "Imported history head:" in hygiene
+    assert "([0-9a-f]{40})" in hygiene
+    assert '["show", "-s", "--format=%P", commit.sha]' in hygiene
+    assert '["merge-base", "--is-ancestor", commit.sha, importedHistoryHead]' in hygiene
+    assert "parents.slice(1).includes(importedHistoryHead)" in hygiene

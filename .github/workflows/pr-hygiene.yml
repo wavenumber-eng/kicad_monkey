@@ -14,6 +14,10 @@ jobs:
     name: metadata and commit hygiene
     runs-on: ubuntu-latest
     steps:
+      - name: Check out history for import-boundary validation
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Check PR metadata and commits
         uses: actions/github-script@v9
         with:
@@ -31,6 +35,26 @@ jobs:
             ];
             const emojiPattern = /[\p{Extended_Pictographic}\uFE0F]/u;
             const conventionalSubjectPattern = /^(build|chore|ci|deps|docs|feat|fix|perf|refactor|release|revert|style|test)(\([A-Za-z0-9._-]+\))?!?: .+$/;
+            const historyImportLabel = pr.labels.some(
+              (label) => label.name === "history-import",
+            );
+            const historyImportLine = (pr.body || "")
+              .split(/\r?\n/)
+              .find((line) => /^Imported history head:/i.test(line));
+            const historyImportMatch = historyImportLine
+              ? /^Imported history head:\s*`?([0-9a-f]{40})`?\s*$/i.exec(historyImportLine)
+              : null;
+            let importedHistoryHead = historyImportMatch
+              ? historyImportMatch[1].toLowerCase()
+              : null;
+
+            if (historyImportLine && !historyImportLabel) {
+              failures.push("`Imported history head:` requires the maintainer-applied `history-import` label.");
+              importedHistoryHead = null;
+            }
+            if (historyImportLabel && !importedHistoryHead) {
+              failures.push("The `history-import` label requires `Imported history head:` with a full 40-character commit SHA.");
+            }
 
             function checkConventionalSubject(label, subject) {
               if (!conventionalSubjectPattern.test(subject || "")) {
@@ -99,7 +123,47 @@ jobs:
               pull_number: pr.number,
               per_page: 100,
             });
+            if (importedHistoryHead && historyImportLabel) {
+              const importedHeadIsInPullRequest = commits.some(
+                (commit) => commit.sha.toLowerCase() === importedHistoryHead,
+              );
+              if (!importedHeadIsInPullRequest) {
+                failures.push("`Imported history head:` is not a commit in this pull request.");
+                importedHistoryHead = null;
+              } else {
+                let importedHeadIsMergeParent = false;
+                for (const commit of commits) {
+                  const result = await exec.getExecOutput(
+                    "git",
+                    ["show", "-s", "--format=%P", commit.sha],
+                    { ignoreReturnCode: true, silent: true },
+                  );
+                  const parents = result.stdout.trim().toLowerCase().split(/\s+/);
+                  if (result.exitCode === 0 && parents.slice(1).includes(importedHistoryHead)) {
+                    importedHeadIsMergeParent = true;
+                    break;
+                  }
+                }
+                if (!importedHeadIsMergeParent) {
+                  failures.push("`Imported history head:` must be a non-first parent of a merge commit in this pull request.");
+                  importedHistoryHead = null;
+                }
+              }
+            }
+
+            let exemptedHistoryCommits = 0;
             for (const commit of commits) {
+              if (importedHistoryHead) {
+                const ancestry = await exec.getExecOutput(
+                  "git",
+                  ["merge-base", "--is-ancestor", commit.sha, importedHistoryHead],
+                  { ignoreReturnCode: true, silent: true },
+                );
+                if (ancestry.exitCode === 0) {
+                  exemptedHistoryCommits += 1;
+                  continue;
+                }
+              }
               const message = commit.commit.message || "";
               const subject = message.split(/\r?\n/, 1)[0];
               checkText(`Commit ${commit.sha.slice(0, 7)} message`, message);
@@ -110,6 +174,9 @@ jobs:
               if (/^wip\b/i.test(subject)) {
                 failures.push(`Commit ${commit.sha.slice(0, 7)} subject starts with WIP.`);
               }
+            }
+            if (exemptedHistoryCommits > 0) {
+              core.notice(`Preserved ${exemptedHistoryCommits} imported-history commits; normal hygiene remained active outside that ancestry.`);
             }
 
             if (failures.length > 0) {
