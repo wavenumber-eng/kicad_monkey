@@ -82,6 +82,7 @@ def test_repository_governance_routes_both_packages() -> None:
 
     assert "Run Cruncher Rack gates against workspace Monkey" in ci
     assert "Run installed two-wheel compatibility test" in ci
+    assert "Rehearse Cruncher upgrade and rollback" in ci
     assert "publish-monkey:" in release
     assert "publish-cruncher:" in release
     assert "verify-coordinated-monkey:" in release
