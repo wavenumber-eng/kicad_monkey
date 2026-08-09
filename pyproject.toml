@@ -73,6 +73,9 @@ enabled = true
 [tool.uv]
 package = true
 
+[tool.uv.workspace]
+members = ["packages/kicad_cruncher"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/py/kicad_monkey"]
 
@@ -93,10 +96,12 @@ include = [
     "pyproject.toml",
 ]
 exclude = [
+    "packages/**",
     "docs/plans/**",
     "docs/research/**",
     "rack_results/**",
     "tests/corpus/**",
+    "tests/cross_package/**",
     "tests/**/output/**",
     "**/__pycache__/**",
 ]

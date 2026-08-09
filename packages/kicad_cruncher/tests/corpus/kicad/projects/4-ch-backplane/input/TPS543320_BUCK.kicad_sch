@@ -1,0 +1,7831 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "5be63ec1-de20-44ee-b154-a280e65bb814")
+	(paper "A4")
+	(lib_symbols
+		(symbol "ERJ-2RKF1002X_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "10kΩ"
+				(at 2.54 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "RES 10K OHM 1/10W 1% 0402 SMD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-2RKF1002X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "ERJ-2RKF1002X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "ERJ-2RKF1002X_1_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "ERJ-2RKF1202X_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "12kΩ"
+				(at 2.54 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "RES 12K OHM 1/10W 1% 0402 SMD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-2RKF1202X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "ERJ-2RKF1202X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "ERJ-2RKF1202X_1_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "ERJ-2RKF2492X_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "24.9kΩ"
+				(at 2.54 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "RES 24.9K OHM 1/10W 1% 0402 SMD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-2RKF2492X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "ERJ-2RKF2492X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "ERJ-2RKF2492X_1_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "ERJ-2RKF3741X_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "3.74kΩ"
+				(at 2.54 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "RES 3.74K OHM 1/10W 1% 0402 SMD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-2RKF3741X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "ERJ-2RKF3741X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "ERJ-2RKF3741X_1_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "ERJ-3GEY0R00V_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "0Ω"
+				(at 2.54 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:R0603_0.55MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "RES 0.0 OHM 1/10W JUMP 0603 SMD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-3GEY0R00V"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "ERJ-3GEY0R00V"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:R0603_0.55MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "ERJ-3GEY0R00V_1_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "GCJ21BR71C225KA13L_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "C"
+				(at 2.54 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "2.2µF"
+				(at 2.54 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:C0805_1.45MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "CAP CER 2.2UF 16V X7R 0805"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Murata Electronics"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "GCJ21BR71C225KA13L"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "GCJ21BR71C225KA13L"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "C_2P_NP"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:C0805_1.45MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GCJ21BR71C225KA13L_1_1_0"
+				(polyline
+					(pts
+						(xy 2.54 0) (xy 3.302 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 1.778) (xy 3.302 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.318 1.778) (xy 4.318 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.334 0) (xy 4.318 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "GCJ31CC71E106KA15L_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "C"
+				(at 2.54 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "10µF"
+				(at 2.54 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:C1206_2.00MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "CAP CER 10UF 25V X7S 1206"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Murata Electronics"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "GCJ31CC71E106KA15L"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "GCJ31CC71E106KA15L"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "C_2P_NP"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:C1206_2.00MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GCJ31CC71E106KA15L_1_1_0"
+				(polyline
+					(pts
+						(xy 2.54 0) (xy 3.302 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 1.778) (xy 3.302 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.318 1.778) (xy 4.318 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.334 0) (xy 4.318 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "GCM155R71H104KE02J_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "C"
+				(at 2.54 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "0.1µF"
+				(at 2.54 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:C0402_0.55MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "CAP CER 0.1UF 50V X7R 0402"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Murata Electronics"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "GCM155R71H104KE02J"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "GCM155R71H104KE02J"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "C_2P_NP"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:C0402_0.55MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GCM155R71H104KE02J_1_1_0"
+				(polyline
+					(pts
+						(xy 2.54 0) (xy 3.302 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 1.778) (xy 3.302 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.318 1.778) (xy 4.318 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.334 0) (xy 4.318 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "GRT31CR61A476KE13L_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "C"
+				(at 2.54 2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "47µF"
+				(at 2.54 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:C1206_1.80MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "CAP CER 47UF 10V X5R 1206"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Murata Electronics"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "GRT31CR61A476KE13L"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "GRT31CR61A476KE13L"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "C_2P_NP"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:C1206_1.80MM_MD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GRT31CR61A476KE13L_1_1_0"
+				(polyline
+					(pts
+						(xy 2.54 0) (xy 3.302 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.302 1.778) (xy 3.302 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.318 1.778) (xy 4.318 -1.778)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.334 0) (xy 4.318 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "SMT_TP-35_1"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "TP"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "SMT Testpoint 35mil"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:SMT_TP-35"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "SMT Testpoint 35mil"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Example"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "SMT_TP-35"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "SMT_TP-35"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" "NO_BOM"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "SMT_TEST"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:SMT_TP-35"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "SMT_TP-35_1_1_0"
+				(circle
+					(center 0 0)
+					(radius 0.889)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "speedy:TPS543320RPYR"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "U"
+				(at -12.954 16.002 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "TPS543320RPYR"
+				(at -7.112 14.224 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "speedy:TPS62918QRPYRQ1"
+				(at -0.254 20.828 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Buck Switching Regulator IC Positive Adjustable 0.5V 1 Output 3A 14-PowerVFQFN"
+				(at 4.826 16.764 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Texas Instruments"
+				(at 0 22.098 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "TPS543320RPYR"
+				(at 0.254 32.766 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "Buck Switching Regulator IC Positive Adjustable 0.5V 1 Output 3A 14-PowerVFQFN"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "TPS543320RPYR_1_1"
+				(rectangle
+					(start -13.97 12.7)
+					(end 13.97 -17.78)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin input line
+					(at -16.51 -5.08 0)
+					(length 2.54)
+					(name "SYNC/FSEL"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -16.51 -8.89 0)
+					(length 2.54)
+					(name "MODE"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 16.51 -13.97 180)
+					(length 2.54)
+					(name "PGOOD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 -7.62 180)
+					(length 2.54)
+					(name "FB"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -3.81 -20.32 90)
+					(length 2.54)
+					(name "AGND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at -16.51 -12.7 0)
+					(length 2.54)
+					(name "BP5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -16.51 0 0)
+					(length 2.54)
+					(name "EN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at -16.51 7.62 0)
+					(length 2.54)
+					(name "VIN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 1.27 -20.32 90)
+					(length 2.54)
+					(name "PGND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 16.51 2.54 180)
+					(length 2.54)
+					(name "SW"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -1.27 -20.32 90)
+					(length 2.54)
+					(name "PGND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "11"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at -16.51 5.08 0)
+					(length 2.54)
+					(name "VIN"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin output line
+					(at 16.51 0 180)
+					(length 2.54)
+					(name "SW"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "13"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 7.62 180)
+					(length 2.54)
+					(name "BOOT"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "14"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__example:ERJ-2RKF4022X"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.1844 2.1844)
+						(bold yes)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Value" "40.2kΩ"
+				(at 2.54 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.524 1.524)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "example:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "RES 40.2K OHM 1/10W 1% 0402 SMD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-2RKF4022X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "cad-reference" "ERJ-2RKF4022X"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "example:R0402_0.40MM_HD"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "ERJ-2RKF4022X_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn_power:GND"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at -0.254 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(show_name no)
+				(do_not_autoplace yes)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.905 1.905)
+						(thickness 0.254)
+						(bold yes)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0.762 9.652 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GND_0_1"
+				(polyline
+					(pts
+						(xy -1.27 -2.54) (xy 1.27 -2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GND_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(text "Soft-Start: 4ms\nCurrent Limit: 3A\n"
+		(exclude_from_sim no)
+		(at -200.152 -106.426 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "73d9daf0-698f-4b34-a789-198266433dd8")
+	)
+	(junction
+		(at -44.45 -129.54)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0afbe616-0a5f-457e-97dd-5acbb741117d")
+	)
+	(junction
+		(at -129.54 -129.54)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "11720a59-7424-40f7-b53d-e504d2c1c770")
+	)
+	(junction
+		(at -269.24 -134.62)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "179767fd-2b9f-4f24-8e00-dce1c5b9748b")
+	)
+	(junction
+		(at -228.6 -88.9)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "17dc4751-da1a-485a-bf6a-31d6b146b75f")
+	)
+	(junction
+		(at -120.65 -129.54)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "1b76667f-7aeb-4ab4-8fe6-0e069a588a3e")
+	)
+	(junction
+		(at -228.6 -119.38)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4af899b3-a45c-4ac3-a3e2-bbfe55ff5f5f")
+	)
+	(junction
+		(at -170.18 -134.62)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4cc24010-30e8-4ec0-930e-2512067c8210")
+	)
+	(junction
+		(at -69.85 -129.54)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "5adf2d94-2a4b-45c7-a154-5dfd9da40372")
+	)
+	(junction
+		(at -289.56 -134.62)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6655bc44-c25d-4197-9960-dc29ccbdea48")
+	)
+	(junction
+		(at -82.55 -129.54)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "68d832ec-8460-4ce5-9a0a-5d5e3af69755")
+	)
+	(junction
+		(at -248.92 -134.62)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7140b654-1dd3-4f62-b806-8fe5e10ccbdf")
+	)
+	(junction
+		(at -279.4 -134.62)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "72bfd1a5-6511-4b3a-84e5-c1ffcf977902")
+	)
+	(junction
+		(at -149.86 -106.68)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "8f457acd-fadb-432e-b635-7c1e95f4f080")
+	)
+	(junction
+		(at -57.15 -129.54)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9ab34868-b7ae-4a1c-bfeb-5a00cf6c2e30")
+	)
+	(junction
+		(at -299.72 -134.62)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "9c8584b4-3e89-4ea1-8424-0834740797ac")
+	)
+	(junction
+		(at -33.02 -111.76)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "a387937c-fb94-4daf-8ab3-d65d8cc97a39")
+	)
+	(junction
+		(at -259.08 -134.62)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b50020c3-82ef-43fe-beeb-a081985b3dfc")
+	)
+	(junction
+		(at -228.6 -134.62)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ea3c4af4-fc5f-481e-853e-30f9fee3f703")
+	)
+	(junction
+		(at -33.02 -129.54)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ea6964dd-4339-47d7-ac5e-349a10f46873")
+	)
+	(wire
+		(pts
+			(xy -228.6 -121.92) (xy -228.6 -119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "00f4c11d-1c6a-4959-ad3e-c37d31f0285e")
+	)
+	(wire
+		(pts
+			(xy -215.9 -119.38) (xy -228.6 -119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "093f1419-02ae-4320-b028-2ca67eb6a43b")
+	)
+	(wire
+		(pts
+			(xy -228.6 -134.62) (xy -170.18 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0fccac91-8b94-4474-a9e5-cc337e127c5c")
+	)
+	(wire
+		(pts
+			(xy -279.4 -134.62) (xy -269.24 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1287adf8-0ed9-4ecd-8c20-1a4a9c82b5f9")
+	)
+	(wire
+		(pts
+			(xy -248.92 -118.11) (xy -248.92 -120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1735b6e5-0f23-4315-9ab8-b2ce2cdd5b37")
+	)
+	(wire
+		(pts
+			(xy -269.24 -134.62) (xy -259.08 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "28d6013f-805f-44fa-bfe0-e03a8e61261c")
+	)
+	(wire
+		(pts
+			(xy -132.08 -129.54) (xy -129.54 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2938d6c9-6e58-4371-87c3-206fc05e0023")
+	)
+	(wire
+		(pts
+			(xy -165.1 -121.92) (xy -210.82 -121.92)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "29884b47-718d-453b-9022-d39a9958aa37")
+	)
+	(wire
+		(pts
+			(xy -279.4 -128.27) (xy -279.4 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "329471b6-c781-44c3-9f9a-48a49ffe54e7")
+	)
+	(wire
+		(pts
+			(xy -201.93 -115.57) (xy -201.93 -118.11)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "38d2a342-c424-4b10-99dd-f11983b146cc")
+	)
+	(wire
+		(pts
+			(xy -289.56 -118.11) (xy -289.56 -120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "39b6e015-da5f-45bb-8275-2a1c3af02c71")
+	)
+	(wire
+		(pts
+			(xy -299.72 -118.11) (xy -299.72 -120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3a301d75-098c-4aa2-8e53-af9efde2ae24")
+	)
+	(wire
+		(pts
+			(xy -299.72 -128.27) (xy -299.72 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3ac8a2f2-de1e-46ed-821d-eb4e96acb6c3")
+	)
+	(wire
+		(pts
+			(xy -228.6 -134.62) (xy -228.6 -132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3af456d5-81cb-4da3-8a68-b0ba21f11e75")
+	)
+	(wire
+		(pts
+			(xy -120.65 -134.62) (xy -120.65 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4160408a-f239-42de-9fa6-8bdf9ce0a0f8")
+	)
+	(wire
+		(pts
+			(xy -132.08 -134.62) (xy -128.27 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4442e00a-69e5-4aa6-a67a-c047b10922ce")
+	)
+	(wire
+		(pts
+			(xy -165.1 -132.08) (xy -170.18 -132.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "590c0a95-e143-423c-8af3-7e326f9dd6d2")
+	)
+	(wire
+		(pts
+			(xy -149.86 -106.68) (xy -147.32 -106.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5bf47220-2cbc-48fc-858b-dc74535d9714")
+	)
+	(wire
+		(pts
+			(xy -93.98 -111.76) (xy -33.02 -111.76)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6193ca27-9679-46bd-acb7-28a307e2adce")
+	)
+	(wire
+		(pts
+			(xy -120.65 -129.54) (xy -106.68 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6d0aa095-1cea-4d28-a866-41b00bda1bb1")
+	)
+	(wire
+		(pts
+			(xy -132.08 -119.38) (xy -93.98 -119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6e96d8f4-2979-4513-9b0c-b4ba65696d39")
+	)
+	(wire
+		(pts
+			(xy -95.25 -135.89) (xy -101.6 -135.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6fcb6316-5477-4fd5-8c51-6f04c0495de4")
+	)
+	(wire
+		(pts
+			(xy -269.24 -118.11) (xy -269.24 -120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "70f890ef-2acb-429f-969a-b0b7b85f4f97")
+	)
+	(wire
+		(pts
+			(xy -201.93 -118.11) (xy -165.1 -118.11)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "75b371b3-764e-44ae-82ca-0b99dbe5d350")
+	)
+	(wire
+		(pts
+			(xy -210.82 -88.9) (xy -228.6 -88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7717acd5-b862-47cf-9b6d-074066a74603")
+	)
+	(wire
+		(pts
+			(xy -170.18 -132.08) (xy -170.18 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7da3fa7f-381b-4942-a849-7dd070aa58e0")
+	)
+	(wire
+		(pts
+			(xy -228.6 -119.38) (xy -228.6 -116.84)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "81f8ae21-4b5a-4961-b187-e9e1e105202a")
+	)
+	(wire
+		(pts
+			(xy -106.68 -139.7) (xy -95.25 -139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "862a5700-474c-4761-b4c9-fcc37e3a2174")
+	)
+	(wire
+		(pts
+			(xy -106.68 -129.54) (xy -106.68 -139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8d3e87f4-e303-4413-bcb8-951219c4d1d1")
+	)
+	(wire
+		(pts
+			(xy -69.85 -129.54) (xy -57.15 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "96e16f64-05c9-4388-aed6-5e60f7fde99a")
+	)
+	(wire
+		(pts
+			(xy -233.68 -88.9) (xy -228.6 -88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "989e9092-1cea-4177-b1f3-a6c3601ecdbf")
+	)
+	(wire
+		(pts
+			(xy -279.4 -118.11) (xy -279.4 -120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9dc20341-080f-4b83-b9d6-af802025ea59")
+	)
+	(wire
+		(pts
+			(xy -165.1 -127) (xy -215.9 -127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9f63a1d7-34c4-4b3d-9dd3-f8a66987d56f")
+	)
+	(wire
+		(pts
+			(xy -181.61 -114.3) (xy -165.1 -114.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9f819e65-278b-49c8-b81d-0dfeeebd0597")
+	)
+	(wire
+		(pts
+			(xy -101.6 -129.54) (xy -82.55 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a5331c51-3e54-43c1-87f4-d6420d5a8aab")
+	)
+	(wire
+		(pts
+			(xy -44.45 -129.54) (xy -33.02 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a6b5a6dc-8ccb-4cef-9888-010707c867fd")
+	)
+	(wire
+		(pts
+			(xy -259.08 -128.27) (xy -259.08 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a774f4f8-16ab-463b-97b8-93ec4e71fde1")
+	)
+	(wire
+		(pts
+			(xy -210.82 -121.92) (xy -210.82 -88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a925b11d-2736-4435-b2f7-c213b907e02f")
+	)
+	(wire
+		(pts
+			(xy -259.08 -118.11) (xy -259.08 -120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aa070de7-c30c-4fb2-832f-52c3107c3c81")
+	)
+	(wire
+		(pts
+			(xy -93.98 -119.38) (xy -93.98 -111.76)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ab5fae1a-a116-4e89-8fe0-d2b27bef2c1b")
+	)
+	(wire
+		(pts
+			(xy -152.4 -106.68) (xy -149.86 -106.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "acbdde4a-7c90-4e95-af87-6f3f45cc316d")
+	)
+	(wire
+		(pts
+			(xy -129.54 -129.54) (xy -120.65 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aea852a4-90da-4bdb-8975-1e700d7ea344")
+	)
+	(wire
+		(pts
+			(xy -248.92 -128.27) (xy -248.92 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b234fcec-c42e-4b3b-9e00-4af932d86d2a")
+	)
+	(wire
+		(pts
+			(xy -259.08 -134.62) (xy -248.92 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b25dede9-e135-43a1-9963-51dbd8fc8ad0")
+	)
+	(wire
+		(pts
+			(xy -149.86 -106.68) (xy -149.86 -105.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b6b99bf4-ba75-4f7a-9e31-3cfaeb86f04c")
+	)
+	(wire
+		(pts
+			(xy -82.55 -129.54) (xy -69.85 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b9a4f229-0f90-4758-8f26-7b79f933d54e")
+	)
+	(wire
+		(pts
+			(xy -289.56 -128.27) (xy -289.56 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ba4918aa-fd03-4c6b-b4c1-d6e3812b44ab")
+	)
+	(wire
+		(pts
+			(xy -101.6 -135.89) (xy -101.6 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ba5b8891-fc1a-4270-a79f-1bbf9ebdcd99")
+	)
+	(wire
+		(pts
+			(xy -33.02 -111.76) (xy -33.02 -109.22)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bed0ea6e-6745-44f3-a530-479a271ce08f")
+	)
+	(wire
+		(pts
+			(xy -33.02 -111.76) (xy -25.4 -111.76)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bf7e4716-f3f9-4120-8547-d7514da26648")
+	)
+	(wire
+		(pts
+			(xy -269.24 -128.27) (xy -269.24 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c0ca8ab9-7f7a-4bbf-aa3f-e35a77ef3f7f")
+	)
+	(wire
+		(pts
+			(xy -129.54 -127) (xy -129.54 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c125d9f2-33e9-4d83-9fb2-510610a1fe63")
+	)
+	(wire
+		(pts
+			(xy -132.08 -113.03) (xy -124.46 -113.03)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c1a4fd52-940e-4e16-9bab-2107b04b30a0")
+	)
+	(wire
+		(pts
+			(xy -248.92 -134.62) (xy -228.6 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c37c6497-c363-49a0-9c97-34257027e1eb")
+	)
+	(wire
+		(pts
+			(xy -288.29 -88.9) (xy -243.84 -88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c94a0fcb-6a81-46eb-90ea-f35a02a82cba")
+	)
+	(wire
+		(pts
+			(xy -132.08 -127) (xy -129.54 -127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c9f8a845-4c00-4471-ae4d-9d0577cede28")
+	)
+	(wire
+		(pts
+			(xy -215.9 -127) (xy -215.9 -119.38)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc802731-07e2-4790-96e8-43ae9b42a744")
+	)
+	(wire
+		(pts
+			(xy -57.15 -129.54) (xy -44.45 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d1c1ccec-7040-4e1d-8cac-9321a62b4686")
+	)
+	(wire
+		(pts
+			(xy -181.61 -113.03) (xy -181.61 -114.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d2bda12a-ae85-4428-9c71-db1b16a91355")
+	)
+	(wire
+		(pts
+			(xy -289.56 -134.62) (xy -279.4 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "da7efa58-3f84-4d5e-ab8a-f640f5f7e7f7")
+	)
+	(wire
+		(pts
+			(xy -228.6 -71.12) (xy -228.6 -73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e092f626-c58b-449d-a965-8f5929e2ff61")
+	)
+	(wire
+		(pts
+			(xy -299.72 -134.62) (xy -289.56 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e8c3ff1e-ff7b-4232-8882-b3ec896667df")
+	)
+	(wire
+		(pts
+			(xy -124.46 -102.87) (xy -119.38 -102.87)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e934f3e1-2d69-4998-ad95-a02ff6a90bbd")
+	)
+	(wire
+		(pts
+			(xy -33.02 -129.54) (xy -26.67 -129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f2713288-c5bc-40a8-b968-0d3fb5009f84")
+	)
+	(wire
+		(pts
+			(xy -228.6 -88.9) (xy -228.6 -83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f52d4df6-025b-44de-bc03-73ad3d74b6c2")
+	)
+	(wire
+		(pts
+			(xy -331.47 -134.62) (xy -299.72 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f55d0e78-acd1-4c00-9db9-6d18212712dd")
+	)
+	(wire
+		(pts
+			(xy -170.18 -134.62) (xy -165.1 -134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fdd360d5-4366-4622-a3b5-e0978812ab15")
+	)
+	(label "BP5"
+		(at -181.61 -114.3 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "0b733395-7ab1-4c55-8f2e-cc6d37a2f7ad")
+	)
+	(label "BP5"
+		(at -119.38 -102.87 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "37f450e4-b9b6-4117-8c27-e8687e358d54")
+	)
+	(label "MODE"
+		(at -201.93 -118.11 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "4424499d-0b6d-49c5-8761-07cb39e51049")
+	)
+	(hierarchical_label "VOUT"
+		(shape output)
+		(at -26.67 -129.54 0)
+		(effects
+			(font
+				(size 1.651 1.651)
+			)
+			(justify left)
+		)
+		(uuid "3c57f236-7835-4db4-ab52-dcf60b4be2c7")
+	)
+	(hierarchical_label "FB"
+		(shape input)
+		(at -25.4 -111.76 0)
+		(effects
+			(font
+				(size 1.651 1.651)
+			)
+			(justify left)
+		)
+		(uuid "673a2692-acb5-41e0-8670-92a2e799c031")
+	)
+	(hierarchical_label "VIN"
+		(shape input)
+		(at -331.47 -134.62 180)
+		(effects
+			(font
+				(size 1.651 1.651)
+			)
+			(justify right)
+		)
+		(uuid "7515d53f-5211-4b88-838c-833756b5609e")
+	)
+	(hierarchical_label "L-"
+		(shape passive)
+		(at -95.25 -135.89 0)
+		(effects
+			(font
+				(size 1.651 1.651)
+			)
+			(justify left)
+		)
+		(uuid "8dd02b83-4c9f-4056-9254-e1012a41eabe")
+	)
+	(hierarchical_label "SYNC"
+		(shape input)
+		(at -288.29 -88.9 180)
+		(effects
+			(font
+				(size 1.651 1.651)
+			)
+			(justify right)
+		)
+		(uuid "cc1e40a1-9142-44c9-a07f-0f9199ae4df9")
+	)
+	(hierarchical_label "L+"
+		(shape passive)
+		(at -95.25 -139.7 0)
+		(effects
+			(font
+				(size 1.651 1.651)
+			)
+			(justify left)
+		)
+		(uuid "e50a7545-b2b3-4142-b5bc-53095d34194c")
+	)
+	(symbol
+		(lib_name "ERJ-2RKF2492X_1")
+		(lib_id "wn__example:ERJ-2RKF2492X")
+		(at -228.6 -121.92 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "01bc1b06-121f-4092-b503-b8e413b3d01b")
+		(property "Reference" "R44"
+			(at -226.06 -128.27 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "24.9kΩ"
+			(at -226.06 -125.0951 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:R0402_0.40MM_HD"
+			(at -228.6 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -228.6 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "RES 24.9K OHM 1/10W 1% 0402 SMD"
+			(at -228.6 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at -228.6 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-2RKF2492X"
+			(at -228.6 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "ERJ-2RKF2492X"
+			(at -228.6 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f36bc5ad-3079-4a29-ad40-9676faa28594")
+		)
+		(pin "2"
+			(uuid "39b88fc9-7945-415f-bea6-103902d1102c")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "R44")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "R48")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "R63")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -82.55 -121.92 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "0280a002-a451-44ed-bf49-54d6aa247bfb")
+		(property "Reference" "#PWR0228"
+			(at -82.804 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -83.058 -117.348 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -82.55 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -82.55 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -81.788 -131.572 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9ae3cfc2-0315-4711-87e9-5e389168e1cc")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0228")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0245")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0268")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GCM155R71H104KE02J_1")
+		(lib_id "wn__example:GCM155R71H104KE02J")
+		(at -259.08 -120.65 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "0505dc06-0bed-4207-9adb-66fc69b61f86")
+		(property "Reference" "C114"
+			(at -256.794 -125.73 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "0.1µF"
+			(at -256.794 -122.5551 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C0402_0.55MM_MD"
+			(at -259.08 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -259.08 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0402"
+			(at -259.08 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -259.08 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCM155R71H104KE02J"
+			(at -259.08 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCM155R71H104KE02J"
+			(at -259.08 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "4011d492-93bd-49ff-bfbb-d29751974dc7")
+		)
+		(pin "2"
+			(uuid "dcacdb18-d9ff-4b71-994d-0fbd5752f665")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C114")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C126")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C138")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "speedy:TPS543320RPYR")
+		(at -148.59 -127 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "06592804-dbfa-4112-a14a-39799649601f")
+		(property "Reference" "U2"
+			(at -148.59 -143.51 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "TPS543320RPYR"
+			(at -148.59 -140.97 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "speedy:TPS62918QRPYRQ1"
+			(at -148.844 -147.828 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -148.59 -127 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Buck Switching Regulator IC Positive Adjustable 0.5V 1 Output 3A 14-PowerVFQFN"
+			(at -143.764 -143.764 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Texas Instruments"
+			(at -148.59 -149.098 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "TPS543320RPYR"
+			(at -148.336 -159.766 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "8"
+			(uuid "3cf763cb-1b41-4dfa-b119-99973ddf5286")
+		)
+		(pin "11"
+			(uuid "2884e77a-09da-44de-8677-15979aa1be3c")
+		)
+		(pin "5"
+			(uuid "15a7bf7a-e2e0-4075-89e5-00ab07f2d4cf")
+		)
+		(pin "6"
+			(uuid "06982968-dc33-4cc3-85f8-bde012e07f21")
+		)
+		(pin "3"
+			(uuid "a45a4ae5-976b-459a-b096-30c03959780f")
+		)
+		(pin "4"
+			(uuid "509a5474-ed7c-4ed8-a565-2af64ec565c3")
+		)
+		(pin "2"
+			(uuid "3b1fde8a-3562-496d-8ddb-31db8051faf8")
+		)
+		(pin "7"
+			(uuid "1eab5cda-7c90-4db3-b150-63182c6f6bf3")
+		)
+		(pin "1"
+			(uuid "e0787cb3-9f30-48bd-9df6-f4ce819c99cb")
+		)
+		(pin "10"
+			(uuid "4de3af11-07b6-440c-b7f6-49fcf406e114")
+		)
+		(pin "9"
+			(uuid "39081567-dd4a-456e-a5e0-b91c57951bb0")
+		)
+		(pin "12"
+			(uuid "e3df8913-7c3e-4812-b128-03ff6be1906c")
+		)
+		(pin "13"
+			(uuid "984c81d9-2c04-4be4-b855-c8063edf4e13")
+		)
+		(pin "14"
+			(uuid "0199aa6d-6ba7-4180-8ae6-0b4eb49af8c3")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "U2")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "U3")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "U18")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GRT31CR61A476KE13L_1")
+		(lib_id "wn__example:GRT31CR61A476KE13L")
+		(at -82.55 -121.92 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "0f519677-e484-4065-9073-f4ff8ed91fd8")
+		(property "Reference" "C110"
+			(at -80.264 -127.254 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "47µF"
+			(at -80.264 -124.0791 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C1206_1.80MM_MD"
+			(at -82.55 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -82.55 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 47UF 10V X5R 1206"
+			(at -82.55 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -82.55 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GRT31CR61A476KE13L"
+			(at -82.55 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GRT31CR61A476KE13L"
+			(at -82.55 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "22aeb35c-9c7f-4af8-bb33-9237eaa1ea60")
+		)
+		(pin "1"
+			(uuid "e85e7c09-578b-4ed7-8683-2e686038ef92")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C110")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C111")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C112")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GRT31CR61A476KE13L_1")
+		(lib_id "wn__example:GRT31CR61A476KE13L")
+		(at -44.45 -121.92 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "1c261a37-4d76-4c91-b84c-52c33321cb2d")
+		(property "Reference" "C123"
+			(at -42.164 -127.254 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "47µF"
+			(at -42.164 -124.0791 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C1206_1.80MM_MD"
+			(at -44.45 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -44.45 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 47UF 10V X5R 1206"
+			(at -44.45 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -44.45 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GRT31CR61A476KE13L"
+			(at -44.45 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GRT31CR61A476KE13L"
+			(at -44.45 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "29b2f799-bbe3-42bb-8eec-75f6796e2ee2")
+		)
+		(pin "1"
+			(uuid "b6230084-f220-4a88-8c6d-87d4d6f9dac1")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C123")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C124")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C125")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GRT31CR61A476KE13L_1")
+		(lib_id "wn__example:GRT31CR61A476KE13L")
+		(at -57.15 -121.92 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "1ea322da-02d1-4a34-a915-74aa911457a5")
+		(property "Reference" "C120"
+			(at -54.864 -127.254 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "47µF"
+			(at -54.864 -124.0791 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C1206_1.80MM_MD"
+			(at -57.15 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -57.15 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 47UF 10V X5R 1206"
+			(at -57.15 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -57.15 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GRT31CR61A476KE13L"
+			(at -57.15 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GRT31CR61A476KE13L"
+			(at -57.15 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "b2df97b3-5c23-401a-b45a-4de3c2836f13")
+		)
+		(pin "1"
+			(uuid "2d98e33a-c827-4033-9fc4-5e49cc4fa175")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C120")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C121")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C122")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "ERJ-2RKF3741X_1")
+		(lib_id "wn__example:ERJ-2RKF3741X")
+		(at -228.6 -106.68 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "207c736f-0f3e-4fb7-aaeb-915b3baeb88e")
+		(property "Reference" "R32"
+			(at -226.06 -113.03 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "3.74kΩ"
+			(at -226.06 -109.8551 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:R0402_0.40MM_HD"
+			(at -228.6 -106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -228.6 -106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "RES 3.74K OHM 1/10W 1% 0402 SMD"
+			(at -228.6 -106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at -228.6 -106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-2RKF3741X"
+			(at -228.6 -106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "ERJ-2RKF3741X"
+			(at -228.6 -106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "76dcf408-f4c8-490b-b9e4-0bdacaa4b74d")
+		)
+		(pin "2"
+			(uuid "d469423b-0c75-4e04-aa58-1be2000dd0be")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "R32")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "R33")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "R34")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -69.85 -121.92 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "2c8d31a2-60e4-47ae-a56c-bf296b86ba58")
+		(property "Reference" "#PWR0229"
+			(at -70.104 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -70.358 -117.348 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -69.85 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -69.85 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -69.088 -131.572 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "0e9638d8-fbb7-4208-9c32-7a306f006efe")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0229")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0246")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0269")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -248.92 -118.11 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "334a4216-1b3d-4cad-b5c4-27c203f5991b")
+		(property "Reference" "#PWR0221"
+			(at -249.174 -114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -248.92 -113.792 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -248.92 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -248.92 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -248.158 -127.762 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "62306e7d-83e4-41dc-a1a2-d202e3270679")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0221")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0238")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0262")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -259.08 -118.11 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "339e0587-903b-46fb-a8d2-3ad32efde6e6")
+		(property "Reference" "#PWR0220"
+			(at -259.334 -114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -259.08 -113.792 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -259.08 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -259.08 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -258.318 -127.762 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "10b6cee1-3e20-4caf-9bbd-56bc934a6a85")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0220")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0237")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0261")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -289.56 -118.11 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "37034413-4464-4f08-be67-420b7957cda8")
+		(property "Reference" "#PWR0217"
+			(at -289.814 -114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -289.56 -113.792 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -289.56 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -289.56 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -288.798 -127.762 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "613a1a5f-b801-4da8-b551-fb5dd70c6929")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0217")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0234")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0258")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__example:ERJ-2RKF4022X")
+		(at -201.93 -105.41 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "3821fd7e-22a7-40e9-ab2c-a912032d5e30")
+		(property "Reference" "R5"
+			(at -199.898 -113.6649 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "40.2kΩ"
+			(at -199.898 -110.49 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:R0402_0.40MM_HD"
+			(at -201.93 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -201.93 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "RES 40.2K OHM 1/10W 1% 0402 SMD"
+			(at -201.93 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at -201.93 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-2RKF4022X"
+			(at -201.93 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "ERJ-2RKF4022X"
+			(at -201.93 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "390875cd-a219-4f78-a355-88696c15d417")
+		)
+		(pin "1"
+			(uuid "8064bde4-45f0-4b9d-9661-d035a61667a5")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "R5")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "R105")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "R106")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -149.86 -105.41 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "4e7bfb72-90a2-4124-b0b4-c152c4bdf9bb")
+		(property "Reference" "#PWR0227"
+			(at -150.114 -101.6 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -150.114 -101.092 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -149.86 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -149.86 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -149.098 -115.062 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "f1632868-60a9-4c81-8c63-d5d920b02d56")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0227")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0244")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0267")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "ERJ-2RKF1002X_1")
+		(lib_id "wn__example:ERJ-2RKF1002X")
+		(at -124.46 -102.87 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "4ebb8275-b05b-4444-adc8-a2f567b6a3c3")
+		(property "Reference" "R98"
+			(at -131.064 -109.474 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10kΩ"
+			(at -131.064 -106.2991 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:R0402_0.40MM_HD"
+			(at -124.46 -102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -124.46 -102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "RES 10K OHM 1/10W 1% 0402 SMD"
+			(at -124.46 -102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at -124.46 -102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-2RKF1002X"
+			(at -124.46 -102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "ERJ-2RKF1002X"
+			(at -124.46 -102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "875077ab-3caa-482c-9fd9-952ad6c71666")
+		)
+		(pin "1"
+			(uuid "80fb25d1-83a4-4716-93b3-dc558d5a6bf7")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "R98")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "R99")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "R107")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -228.6 -106.68 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "53315d24-fd83-4eee-8c21-769189a1f431")
+		(property "Reference" "#PWR0222"
+			(at -228.854 -102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -228.6 -102.362 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -228.6 -106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -228.6 -106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -227.838 -116.332 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ed08d5a4-0ece-432c-98e4-08bbcd6d4254")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0222")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0239")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0263")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GCM155R71H104KE02J_1")
+		(lib_id "wn__example:GCM155R71H104KE02J")
+		(at -128.27 -134.62 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "64a3eab6-c266-439b-a461-8d6733f8d938")
+		(property "Reference" "C117"
+			(at -127.508 -140.97 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "0.1µF"
+			(at -127.508 -137.7951 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "example:C0402_0.55MM_MD"
+			(at -128.27 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -128.27 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0402"
+			(at -128.27 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -128.27 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCM155R71H104KE02J"
+			(at -128.27 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCM155R71H104KE02J"
+			(at -128.27 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9b641ccb-aa29-405d-a5ba-1533bfb9373b")
+		)
+		(pin "2"
+			(uuid "7fedf894-3f81-4376-84d3-242f58e7585c")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C117")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C129")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C141")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "SMT_TP-35_1")
+		(lib_id "wn__example:SMT_TP-35")
+		(at -33.02 -134.62 270)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board no)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "6f20c082-7e58-4d7f-beef-47b1785318d9")
+		(property "Reference" "TP12"
+			(at -35.56 -137.16 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "SMT Testpoint 35mil"
+			(at -30.48 -132.7151 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "example:SMT_TP-35"
+			(at -33.02 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -33.02 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "SMT Testpoint 35mil"
+			(at -33.02 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Example"
+			(at -33.02 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "SMT_TP-35"
+			(at -33.02 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "SMT_TP-35"
+			(at -33.02 -134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "0ee94922-7d5b-4615-8f2a-f6ee22c131e7")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "TP12")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "TP13")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "TP14")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GCJ31CC71E106KA15L_1")
+		(lib_id "wn__example:GCJ31CC71E106KA15L")
+		(at -299.72 -120.65 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "6ff7d607-4dc7-4fe9-8ead-f01cfdb81d0e")
+		(property "Reference" "C1"
+			(at -297.688 -125.984 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10µF"
+			(at -297.688 -122.8091 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C1206_2.00MM_MD"
+			(at -299.72 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -299.72 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 10UF 25V X7S 1206"
+			(at -299.72 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -299.72 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCJ31CC71E106KA15L"
+			(at -299.72 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCJ31CC71E106KA15L"
+			(at -299.72 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "1c8ec7ae-c582-4921-b41b-96e51e818af9")
+		)
+		(pin "1"
+			(uuid "5235dbda-0c32-41cf-85fa-655e2fea932d")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C1")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C3")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "ERJ-2RKF1202X_1")
+		(lib_id "wn__example:ERJ-2RKF1202X")
+		(at -228.6 -73.66 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp yes)
+		(fields_autoplaced yes)
+		(uuid "7187aef5-01a3-4f07-9c5a-4f2f1297faca")
+		(property "Reference" "R75"
+			(at -226.06 -80.01 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "12kΩ"
+			(at -226.06 -76.8351 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:R0402_0.40MM_HD"
+			(at -228.6 -73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -228.6 -73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "RES 12K OHM 1/10W 1% 0402 SMD"
+			(at -228.6 -73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at -228.6 -73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-2RKF1202X"
+			(at -228.6 -73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "ERJ-2RKF1202X"
+			(at -228.6 -73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "89ef41e7-6cdc-475a-8d85-5362ed2b63f8")
+		)
+		(pin "1"
+			(uuid "d5514986-76af-4d97-8981-2069c4b3c130")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "R75")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "R87")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "R94")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -201.93 -105.41 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "74500d92-71ff-43bb-a924-88911ddfff27")
+		(property "Reference" "#PWR0224"
+			(at -202.184 -101.6 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -202.184 -101.092 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -201.93 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -201.93 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -201.168 -115.062 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "c6f08b96-36ba-4459-95cb-0e049a1615b5")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0224")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0241")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0265")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GCJ21BR71C225KA13L_1")
+		(lib_id "wn__example:GCJ21BR71C225KA13L")
+		(at -181.61 -105.41 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "802896e0-ccd8-422b-8275-430aa3828748")
+		(property "Reference" "C28"
+			(at -179.578 -110.744 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "2.2µF"
+			(at -179.578 -107.5691 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C0805_1.45MM_MD"
+			(at -181.61 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -181.61 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 2.2UF 16V X7R 0805"
+			(at -181.61 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -181.61 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCJ21BR71C225KA13L"
+			(at -181.61 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCJ21BR71C225KA13L"
+			(at -181.61 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "72947027-8e50-44fe-a253-b40859c24ccb")
+		)
+		(pin "1"
+			(uuid "84444e18-ebe4-4404-8f10-eb5c2cdbf015")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C28")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C29")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C30")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -44.45 -121.92 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "907823ad-17d2-43f9-b95b-7a4cfc408843")
+		(property "Reference" "#PWR0231"
+			(at -44.704 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -44.958 -117.348 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -44.45 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -44.45 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -43.688 -131.572 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ac51e374-fd95-424e-a26e-47659c8e10e6")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0231")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0255")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0271")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "ERJ-2RKF1002X_1")
+		(lib_id "wn__example:ERJ-2RKF1002X")
+		(at -33.02 -99.06 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "966683c6-afce-433a-9332-316d5f49e51e")
+		(property "Reference" "R80"
+			(at -31.75 -105.41 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10kΩ"
+			(at -31.75 -102.2351 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:R0402_0.40MM_HD"
+			(at -33.02 -99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -33.02 -99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "RES 10K OHM 1/10W 1% 0402 SMD"
+			(at -33.02 -99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at -33.02 -99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-2RKF1002X"
+			(at -33.02 -99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "ERJ-2RKF1002X"
+			(at -33.02 -99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "7190ae09-1df0-4ad0-aaba-18c193449b18")
+		)
+		(pin "1"
+			(uuid "9dc071a7-065e-4818-9c05-fa628fac5334")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "R80")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "R91")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "R92")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -57.15 -121.92 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a12c12e9-a355-4ea6-be6d-2b4fca6743c0")
+		(property "Reference" "#PWR0230"
+			(at -57.404 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -57.658 -117.348 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -57.15 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -57.15 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -56.388 -131.572 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a547eb48-a887-4824-ae77-e0576b09d936")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0230")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0247")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0270")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -269.24 -118.11 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a5152008-d311-4728-9bf6-caa7782217bb")
+		(property "Reference" "#PWR0219"
+			(at -269.494 -114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -269.24 -113.792 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -269.24 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -269.24 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -268.478 -127.762 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b3636fbb-63bc-4010-8400-dff34a2b3e39")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0219")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0236")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0260")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -279.4 -118.11 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "af42900e-3cdf-4b55-9c78-54311ecb0bc7")
+		(property "Reference" "#PWR0218"
+			(at -279.654 -114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -279.4 -113.792 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -279.4 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -279.4 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -278.638 -127.762 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "07aba2f4-2077-46d7-b4f3-9ea0292a3e73")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0218")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0235")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0259")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GCJ31CC71E106KA15L_1")
+		(lib_id "wn__example:GCJ31CC71E106KA15L")
+		(at -279.4 -120.65 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "b8e46682-15bc-4246-81e9-6eb68bba736b")
+		(property "Reference" "C22"
+			(at -277.368 -125.984 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10µF"
+			(at -277.368 -122.8091 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C1206_2.00MM_MD"
+			(at -279.4 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -279.4 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 10UF 25V X7S 1206"
+			(at -279.4 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -279.4 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCJ31CC71E106KA15L"
+			(at -279.4 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCJ31CC71E106KA15L"
+			(at -279.4 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "70a1f8cb-fb65-451a-a2c6-0d73314a5606")
+		)
+		(pin "1"
+			(uuid "d7123158-1355-41ea-9a76-dec534f69c47")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C22")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C23")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C24")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GCJ31CC71E106KA15L_1")
+		(lib_id "wn__example:GCJ31CC71E106KA15L")
+		(at -269.24 -120.65 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "bb38d30b-14b0-4676-a950-75619448b984")
+		(property "Reference" "C25"
+			(at -267.208 -125.984 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10µF"
+			(at -267.208 -122.8091 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C1206_2.00MM_MD"
+			(at -269.24 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -269.24 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 10UF 25V X7S 1206"
+			(at -269.24 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -269.24 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCJ31CC71E106KA15L"
+			(at -269.24 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCJ31CC71E106KA15L"
+			(at -269.24 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "ad5e2d91-48cb-4b9a-a3c7-fa86dbb77714")
+		)
+		(pin "1"
+			(uuid "8f151ce1-1ed2-4646-bfb4-5ffc2ac6c3e3")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C25")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C26")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C27")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -33.02 -99.06 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "c4b0da19-5ab3-4e83-a280-e7dac541d520")
+		(property "Reference" "#PWR0232"
+			(at -33.274 -95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -33.02 -94.996 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -33.02 -99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -33.02 -99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -32.258 -108.712 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "606a6030-6afb-4187-9e72-727998f7c7b5")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0232")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0256")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0272")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -181.61 -105.41 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ceb9e92b-8f2e-472e-9b95-075d437587a6")
+		(property "Reference" "#PWR0226"
+			(at -181.864 -101.6 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -181.864 -101.092 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -181.61 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -181.61 -105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -180.848 -115.062 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "bf2236c1-0431-483b-be99-b7f1e991bc55")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0226")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0243")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0266")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -299.72 -118.11 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d2f21069-b605-482f-8e5b-49189f0ee371")
+		(property "Reference" "#PWR0216"
+			(at -299.974 -114.3 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -299.72 -113.792 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -299.72 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -299.72 -118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -298.958 -127.762 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b9d4ceaa-f753-44bb-a8f4-14da63d5aade")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0216")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0233")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0257")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "ERJ-3GEY0R00V_1")
+		(lib_id "wn__example:ERJ-3GEY0R00V")
+		(at -243.84 -88.9 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "dc0f5fb1-ef6f-47ce-ab85-c351ff11254d")
+		(property "Reference" "R104"
+			(at -238.76 -93.98 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "0Ω"
+			(at -238.76 -90.17 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+			)
+		)
+		(property "Footprint" "example:R0603_0.55MM_HD"
+			(at -243.84 -88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -243.84 -88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "RES 0.0 OHM 1/10W JUMP 0603 SMD"
+			(at -243.84 -88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at -243.84 -88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-3GEY0R00V"
+			(at -243.84 -88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "ERJ-3GEY0R00V"
+			(at -243.84 -88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "86a29c79-e63a-473b-9233-8b94e7e9191b")
+		)
+		(pin "2"
+			(uuid "d5da427f-02d1-4b78-b3dd-d9e3b37eae11")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "R104")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "R110")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "R119")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GCJ31CC71E106KA15L_1")
+		(lib_id "wn__example:GCJ31CC71E106KA15L")
+		(at -289.56 -120.65 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "de5c5ce3-5f9b-41ff-80e7-90a34e7416ae")
+		(property "Reference" "C19"
+			(at -287.528 -125.984 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10µF"
+			(at -287.528 -122.8091 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C1206_2.00MM_MD"
+			(at -289.56 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -289.56 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 10UF 25V X7S 1206"
+			(at -289.56 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -289.56 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCJ31CC71E106KA15L"
+			(at -289.56 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCJ31CC71E106KA15L"
+			(at -289.56 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "c28a9653-a3b8-401e-8a36-5c77c4cd2bc6")
+		)
+		(pin "1"
+			(uuid "9ac3bc18-ab3a-4b91-87e4-4e737b94b71a")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C19")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C20")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C21")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at -228.6 -71.12 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e46364dc-62f5-44e0-9db6-e6e43c234719")
+		(property "Reference" "#PWR0223"
+			(at -228.854 -67.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.381)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at -228.854 -66.802 0)
+			(show_name no)
+			(do_not_autoplace yes)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at -228.6 -71.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -228.6 -71.12 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at -227.838 -80.772 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "8a0f80c3-1c9e-44a2-9a42-55750cd84b3b")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "#PWR0223")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "#PWR0240")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "#PWR0264")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GCM155R71H104KE02J_1")
+		(lib_id "wn__example:GCM155R71H104KE02J")
+		(at -248.92 -120.65 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "e7163285-4008-475f-b399-73968e8481dd")
+		(property "Reference" "C84"
+			(at -246.888 -125.73 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "0.1µF"
+			(at -246.888 -122.5551 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C0402_0.55MM_MD"
+			(at -248.92 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -248.92 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 0.1UF 50V X7R 0402"
+			(at -248.92 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -248.92 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GCM155R71H104KE02J"
+			(at -248.92 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GCM155R71H104KE02J"
+			(at -248.92 -120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "e9729a7b-e35a-482b-9971-2cbc95cce0ae")
+		)
+		(pin "2"
+			(uuid "0b64cb32-d2a9-4dd3-9a7e-f591868394dd")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C84")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C85")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C115")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_name "GRT31CR61A476KE13L_1")
+		(lib_id "wn__example:GRT31CR61A476KE13L")
+		(at -69.85 -121.92 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ff92f5f6-3947-4401-8c81-ca3e0ec48901")
+		(property "Reference" "C113"
+			(at -67.564 -127.254 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 2.1844 2.1844)
+					(bold yes)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "47µF"
+			(at -67.564 -124.0791 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(face "Arial")
+					(size 1.524 1.524)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "example:C1206_1.80MM_MD"
+			(at -69.85 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at -69.85 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "CAP CER 47UF 10V X5R 1206"
+			(at -69.85 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "Murata Electronics"
+			(at -69.85 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer Part Number" "GRT31CR61A476KE13L"
+			(at -69.85 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "cad-reference" "GRT31CR61A476KE13L"
+			(at -69.85 -121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "6d286e1a-746c-4bf3-915e-54c88cc10c5f")
+		)
+		(pin "1"
+			(uuid "d5b0f687-183f-4210-9587-76049b2e88bf")
+		)
+		(instances
+			(project "4-ch-backplane"
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/b51b1364-0507-4961-b703-99f598705bf5"
+					(reference "C113")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/c7c190ed-944a-4431-a856-f4a325b7f094"
+					(reference "C118")
+					(unit 1)
+				)
+				(path "/07379ba8-902b-43bb-a06b-a7d21ac5e4c3/bc37e7d7-f0d8-4455-9ef9-da97f25c8d31/c7c0c40d-9d9c-424a-a7e1-abd9bd2b2a0b/d80c27de-e65c-468e-b8ec-d75291aca9cb"
+					(reference "C119")
+					(unit 1)
+				)
+			)
+		)
+	)
+)

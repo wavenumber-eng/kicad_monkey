@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>API design docs</title><link rel="stylesheet" href="../styles.css"></head>
+<body data-doc-status="accepted" data-doc-kind="api-index">
+<main>
+<nav class="nav"><a href="../index.html">Design Index</a><a href="../cli/index.html">CLI</a></nav>
+<header><p class="status">API design docs</p><h1>API</h1><p class="lede">Typed helper interfaces used by the public CLI workflows and release gates.</p></header>
+<section
+  id="version"
+  data-interface="Version"
+  data-rack-stratum="L99_signoff"
+  data-test-file="tests/L99_signoff/test_L99_001_release_signoff.py"
+  data-test-target="test_version_contract_matches_date_based_release">
+  <h2>Version</h2>
+  <h3>Rationale</h3>
+  <p>Date-based releases need a typed view over the package version string so CLI, tests, and release automation can agree on the encoded calendar date.</p>
+  <h3>Purpose</h3>
+  <p><code>Version</code> carries the parsed major, minor, patch, optional build, original string, and derived release date for <code>kicad-cruncher</code>.</p>
+  <h3>Test Requirements</h3>
+  <p>L99 verifies that pyproject metadata, package API, CLI output, changelog, and dated release notes all match the same date-version contract.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when <code>kicad_cruncher.version()</code> parses the installed distribution version or source fallback into a valid date-version object.</p>
+</section>
+<section
+  id="design-review-bundle"
+  data-interface="DesignReviewBundle"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_001_design_workflow.py"
+  data-test-target="test_design_command_generates_project_json">
+  <h2>DesignReviewBundle</h2>
+  <h3>Rationale</h3>
+  <p>Design-review generation is reused by the standalone <code>design</code> command and by Megamaid, so callers need one typed bundle describing every written artifact and count.</p>
+  <h3>Purpose</h3>
+  <p><code>DesignReviewBundle</code> carries the output directory, design JSON, netlist JSON, KiCad S-expression netlist, manifest, README, manifest payload, component/net counts, schematic SVG records, and PCB SVG records for one review bundle.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 exercises the public design command and verifies emitted JSON, netlists, manifest fields, README, schematic SVGs, PCB SVGs, component counts, and net counts. Megamaid L3 tests also verify nested design-review bundle creation.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when all generated design-review paths and counts can be passed to downstream commands without reopening or rediscovering the output directory.</p>
+</section>
+<section
+  id="pcb-layer-step-config"
+  data-interface="PcbLayerStepConfig"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_002_pcb_layer_step_workflow.py"
+  data-test-target="test_pcb_layer_step_default_fixture_alignment_outputs_for_public_boards">
+  <h2>PcbLayerStepConfig</h2>
+  <h3>Rationale</h3>
+  <p>The layer STEP command needs a durable config object that preserves the fixture-alignment shape while resolving KiCad layer selectors and per-output overrides.</p>
+  <h3>Purpose</h3>
+  <p><code>PcbLayerStepConfig</code> carries one parsed root config or one parsed output config, including board selection, layer selection, feature switches, feature colors, <code>step_body_name</code> values, pad highlight rules, thickness-bias policy, scoped drill policy, fusion policy, and nested output definitions.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 loads the generated default JSONC template through the command path and verifies that yoshi and taillight produce the expected test-point body, board outline body, drill behavior, and manifests. L99 verifies generated JSONC comments for enum options.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when defaults merge into each output consistently and command-line overrides can convert the parsed config into a valid <code>PcbLayerStepOptions</code> object for export.</p>
+</section>
+<section
+  id="pcb-layer-step-options"
+  data-interface="PcbLayerStepOptions"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_002_pcb_layer_step_workflow.py"
+  data-test-target="test_pcb_layer_step_default_fixture_alignment_outputs_for_public_boards">
+  <h2>PcbLayerStepOptions</h2>
+  <h3>Rationale</h3>
+  <p>The exporter needs a normalized, per-output option contract so geometry collection, drill strategy, color grouping, and Geometer body creation do not depend on raw JSON shape.</p>
+  <h3>Purpose</h3>
+  <p><code>PcbLayerStepOptions</code> carries the resolved KiCad layer, Z/thickness settings, copper and outline colors, feature switches, scoped drill policy, pad highlight rules, feature-specific <code>step_body_name</code> values, and thickness-bias options used for one STEP output.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 exercises the default options through real yoshi and taillight boards and checks the resulting Geometer request body IDs, colors, drill overlay counts, and selected <code>B.Cu</code> layer manifest data.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when one options instance fully determines a repeatable <code>geometry.planar_step.request.a0</code> request for a selected PCB layer.</p>
+</section>
+<section
+  id="pcb-layer-step-result"
+  data-interface="PcbLayerStepResult"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_002_pcb_layer_step_workflow.py"
+  data-test-target="test_pcb_layer_step_default_fixture_alignment_outputs_for_public_boards">
+  <h2>PcbLayerStepResult</h2>
+  <h3>Rationale</h3>
+  <p>The command needs a compact result summary after Geometer writes the STEP file so logging and tests can verify emitted artifacts without reopening the whole request.</p>
+  <h3>Purpose</h3>
+  <p><code>PcbLayerStepResult</code> carries the STEP path, manifest path, board name, selected layer, body counts, drill count, and source input path for one generated output.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 verifies that the command writes both files, that the manifest records the expected board/layer/counts, and that the Geometer request matches the result-level artifact naming.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when successful exports return paths and counts matching the files and manifest written beside the STEP artifact.</p>
+</section>
+<section
+  id="kicad-model-pose"
+  data-interface="KiCadModelPose"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_001_design_workflow.py"
+  data-test-target="test_pcb_svg_hlr_test_model_pose_matches_kicad_step_order">
+  <h2>KiCadModelPose</h2>
+  <h3>Rationale</h3>
+  <p>Assembly SVG projection needs one KiCad-facing model pose that can be passed unchanged to Geometer HLR and model-bounds calls.</p>
+  <h3>Purpose</h3>
+  <p><code>KiCadModelPose</code> carries the resolved model-to-KiCad-3D-world matrix, footprint side, board thickness, and a rounded cache signature for one footprint model.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 verifies the dedicated HLR fixture against KiCad STEP-exporter transform order, including model offset, rotations, board thickness, and world-to-SVG coordinate conversion.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when the same pose matrix aligns HLR detail, HLR outline, transformed model bounds, and copper fallback bounds for the signoff fixture and broader PCB SVG outputs.</p>
+</section>
+<section
+  id="pcb-svg-composition"
+  data-interface="PcbSvgComposition"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_001_design_workflow.py"
+  data-test-target="test_pcb_svg_command_uses_public_kicad_pcb_with_explicit_config">
+  <h2>PcbSvgComposition</h2>
+  <h3>Rationale</h3>
+  <p>The PCB SVG command composes physical KiCad layers with derived virtual layers, so callers need both rendered SVG text and the physical layer dependencies used to build it.</p>
+  <h3>Purpose</h3>
+  <p><code>PcbSvgComposition</code> is the internal return contract for A0 PCB SVG composition: it carries complete SVG text and the normalized physical layers represented in that output.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 exercises explicit config rendering, layer outputs, virtual outputs, manifests, configured views, and enriched metadata that depends on the composition contract.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when layer and view outputs render from the same compositor path and their manifests accurately report the physical layers behind each SVG artifact.</p>
+</section>
+<section
+  id="pcb-svg-composition-render-cache"
+  data-interface="PcbSvgCompositionRenderCache"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_001_design_workflow.py"
+  data-test-target="test_pcb_svg_default_config_writes_views_only">
+  <h2>PcbSvgCompositionRenderCache</h2>
+  <h3>Rationale</h3>
+  <p>PCB SVG generation can render several configured views from the same board, so repeated root SVG, board-origin, hole-fragment, physical-fragment, and board-region work must be cached within one command run.</p>
+  <h3>Purpose</h3>
+  <p><code>PcbSvgCompositionRenderCache</code> owns command-scoped compositor caches for one <code>KiCadPcb</code>, including the parsed board IR, root SVG text by layer set, physical fragments, hole fragments, classified board regions, and root origin.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 exercises default view rendering through the public <code>pcb-svg</code> command and verifies that multiple view outputs are emitted from the same configured command path. Repeated model projection tests cover the companion HLR/bounds reuse path.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when one PCB SVG command run can render multiple physical and virtual outputs while reusing cached board-derived SVG fragments without changing artifact content.</p>
+</section>
+<section
+  id="field-alias-config"
+  data-interface="FieldAliasConfig"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_003_manufacturing_workflow.py"
+  data-test-target="test_bom_pnp_and_jlc_commands_emit_yoshi_variant_outputs">
+  <h2>FieldAliasConfig</h2>
+  <h3>Rationale</h3>
+  <p>BOM and PnP outputs need one alias table so KiCad fields such as manufacturer, part number, and LCSC code normalize into stable grouped and JLC upload columns.</p>
+  <h3>Purpose</h3>
+  <p><code>FieldAliasConfig</code> carries canonical field aliases for the shared manufacturing model and keeps source field traceability attached to normalized records.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 exercises the alias-aware command path through BOM, PnP, and JLC generation from the Yoshi project and verifies that configured output artifacts are written.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when raw KiCad symbol and footprint fields can be normalized without changing the public BOM/PnP config schema.</p>
+</section>
+<section
+  id="bom-pnp-config"
+  data-interface="BomPnpConfig"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_003_manufacturing_workflow.py"
+  data-test-target="test_bom_pnp_and_jlc_commands_emit_yoshi_variant_outputs">
+  <h2>BomPnpConfig</h2>
+  <h3>Rationale</h3>
+  <p>The KiCad BOM, PnP, and JLC commands share one manufacturing config shape so workspace automation can use one naming, variant, grouping, and output policy.</p>
+  <h3>Purpose</h3>
+  <p><code>BomPnpConfig</code> carries variant selection, BOM source and output kinds, grouping fields, DNP policy, PnP output fields, KiCad component-center placement mode, JLC CPL policy, and output path templates. The generated editable template is JSONC with one top block-comment documentation header, while used-config snapshots remain plain JSON.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 verifies command execution through the public CLI, while L99 verifies the linked <code>bom_pnp_config.a0.schema.json</code> config contract for the public commands.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when the same parsed config can drive BOM-only, PnP-only, and paired JLC outputs for a KiCad project with variants.</p>
+</section>
+<section
+  id="normalized-bom-component"
+  data-interface="NormalizedBomComponent"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_003_manufacturing_workflow.py"
+  data-test-target="test_bom_pnp_and_jlc_commands_emit_yoshi_variant_outputs">
+  <h2>NormalizedBomComponent</h2>
+  <h3>Rationale</h3>
+  <p>Grouped BOM and JLC BOM generation need canonical component records independent of whether the raw source came from schematic fields or PCB placement data.</p>
+  <h3>Purpose</h3>
+  <p><code>NormalizedBomComponent</code> carries designator, value, footprint, description, sheet, DNP state, canonical fields, and field-source provenance for one BOM component.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 generates raw and grouped BOM/JLC artifacts from Yoshi and verifies the ADXL355 variant flips the U2/U3 DNP state before output normalization.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when configured BOM outputs can sort, group, split DNP lines, and emit JLC rows from normalized component records.</p>
+</section>
+<section
+  id="grouped-bom-line"
+  data-interface="GroupedBomLine"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_003_manufacturing_workflow.py"
+  data-test-target="test_bom_pnp_and_jlc_commands_emit_yoshi_variant_outputs">
+  <h2>GroupedBomLine</h2>
+  <h3>Rationale</h3>
+  <p>Review BOMs and JLC BOMs need deterministic grouped line items while preserving the list of designators and whether a line is fitted or DNP.</p>
+  <h3>Purpose</h3>
+  <p><code>GroupedBomLine</code> carries quantity, sorted designators, representative canonical fields, DNP state, and the components that contributed to one grouped line.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 runs JLC generation for the Yoshi ADXL355 variant and verifies a valid JLC BOM workbook is produced from grouped component data.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when grouped CSV/XLSX and JLC BOM outputs can be emitted with stable quantities, designator ordering, and DNP handling.</p>
+</section>
+<section
+  id="normalized-placement"
+  data-interface="NormalizedPlacement"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_003_manufacturing_workflow.py"
+  data-test-target="test_bom_pnp_and_jlc_commands_emit_yoshi_variant_outputs">
+  <h2>NormalizedPlacement</h2>
+  <h3>Rationale</h3>
+  <p>PnP and JLC CPL outputs need canonical placement records with units, layer naming, rotations, and alias-normalized fields independent of raw KiCad footprint objects.</p>
+  <h3>Purpose</h3>
+  <p><code>NormalizedPlacement</code> carries designator, comment, side, footprint, center coordinates, rotation, units, description, parameters, canonical fields, and field-source provenance.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 generates ADXL355 PnP JSON and JLC CPL XLSX outputs and verifies U2 is placed while U3 is omitted for that variant.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when PnP JSON/CSV/XLSX and JLC CPL outputs sort and format the same normalized placement stream consistently.</p>
+</section>
+<section
+  id="kicad-pnp-entry"
+  data-interface="KiCadPnpEntry"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_003_manufacturing_workflow.py"
+  data-test-target="test_yoshi_accelerometer_variants_drive_bom_and_pnp_selection">
+  <h2>KiCadPnpEntry</h2>
+  <h3>Rationale</h3>
+  <p>The KiCad adapter needs a small raw placement carrier that matches the shared manufacturing normalizer without exposing KiCad parser objects to command code.</p>
+  <h3>Purpose</h3>
+  <p><code>KiCadPnpEntry</code> carries one footprint placement, including designator, value/comment, side, footprint, KiCad component-center coordinates relative to the aux axis/drill-place file origin, rotation, description, and merged parameters.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 validates that the Yoshi ADXL355 and IIM42352 variants produce mutually exclusive U2/U3 placement entries through the adapter.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when variant-resolved KiCad assembly components convert into raw placements accepted by the shared PnP normalizer.</p>
+</section>
+<section
+  id="kicad-manufacturing-design"
+  data-interface="KiCadManufacturingDesign"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_003_manufacturing_workflow.py"
+  data-test-target="test_yoshi_accelerometer_variants_drive_bom_and_pnp_selection">
+  <h2>KiCadManufacturingDesign</h2>
+  <h3>Rationale</h3>
+  <p>The public manufacturing commands need a KiCad-specific design adapter that offers the same high-level BOM, PnP, variant, and project-parameter surface used by the shared command logic.</p>
+  <h3>Purpose</h3>
+  <p><code>KiCadManufacturingDesign</code> loads a KiCad project, schematic, or PCB, discovers variants, assembles schematic/PCB effective component state, and emits raw BOM or PnP records. KiCad PnP coordinates use the footprint placement point, matching KiCad's position-file exporter. They also match appz <code>bom_cruncher</code>: X is shifted by the aux axis origin, also called the drill/place file origin, and Y is shifted and inverted into the shared placement frame.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 exercises Yoshi variants directly through the adapter and then through the public BOM, PnP, and JLC CLI commands.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when KiCad variant overrides, DNP state, BOM eligibility, placement eligibility, aux-axis/drill-place-origin-relative placement coordinates, and project text variables reach the manufacturing output layer consistently.</p>
+</section>
+<section
+  id="kicad-process"
+  data-interface="KiCadProcess"
+  data-rack-stratum="L0_public_cli"
+  data-test-file="tests/L0_public_cli/test_L0_001_cli_entrypoint.py"
+  data-test-target="test_kicad_windows_process_parser_infers_version">
+  <h2>KiCadProcess</h2>
+  <h3>Rationale</h3>
+  <p>The KiCad workstation helper command needs one normalized process record so Windows and POSIX process discovery can feed the same CLI, JSON, and stop-planning paths.</p>
+  <h3>Purpose</h3>
+  <p><code>KiCadProcess</code> carries the process ID, executable name, resolved executable path, command line, and inferred KiCad version for one running KiCad-family process.</p>
+  <h3>Test Requirements</h3>
+  <p>L0 verifies Windows process JSON parsing and version inference, and command-level tests verify dry-run stop output uses the normalized process record without terminating anything.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when <code>kicad running</code> and <code>kicad stop</code> can report KiCad, pcbnew, eeschema, and kicad-cli processes with stable JSON fields across supported platforms.</p>
+</section>
+<section id="policy"><h2>Policy</h2><p>When another public dataclass or major interface is added, it must be listed here with machine-readable test ownership before L99 signoff can pass.</p></section>
+</main>
+</body>
+</html>

@@ -1,0 +1,4940 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "1b9a21a0-962f-4524-a210-b3dd719fc86a")
+	(paper "D")
+	(lib_symbols
+		(symbol "wn__wavenumber:ERJ-3EKF33R0V"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "R"
+				(at 2.54 1.27 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+				)
+			)
+			(property "Value" "33Ω"
+				(at 2.54 -3.81 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "R0603_0.55MM_HD:R0603_0.55MM_HD"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "RES 33 OHM 1/10W 1% 0603 SMD"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ALTIUM_VALUE" "${VALUE}"
+				(at 5.08 -3.81 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Package Power" "PACKAGE (POWER)"
+				(at 5.08 -6.35 0)
+				(effects
+					(font
+						(size 1.4478 1.4478)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Assembly Notes" ""
+				(at -0.508 3.81 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Panasonic Electronic Components"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "ERJ-3EKF33R0V"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "ERJ-3EKF33R0V"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "R_2P"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "ERJ-3EKF33R0V_1_0"
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 6.604 0) (xy 6.35 -0.508) (xy 5.842 0.508) (xy 5.334 -0.508) (xy 4.826 0.508)
+						(xy 4.318 -0.508) (xy 3.81 0.508) (xy 3.556 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at 0 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:FD-3RGB45-N6"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "D"
+				(at 0 2.54 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+				)
+			)
+			(property "Value" "FD-3RGB45-N6"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "FD-3RGB45-N6:FD-3RGB45-N6"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "3W RGB LED with Reflow Lense,  45milx45mil Chip,  https://www.fedytech.com/products/high-power-leds/3w-high-power-led/3w-rgb-led-6pins-801.html"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ALTIUM_VALUE" "*"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+					(justify left bottom)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "FEDY"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "FD-3RGB45-N6"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "FD-3RGB45-N6"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "FD-3RGB45-N6"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "FD-3RGB45-N6_1_0"
+				(polyline
+					(pts
+						(xy -5.08 5.08) (xy -2.54 5.08)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -5.08 0) (xy -2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -5.08 -5.08) (xy -2.54 -5.08)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 3.81) (xy 0 5.08) (xy -2.54 6.35) (xy -2.54 3.81)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 -1.27) (xy 0 0) (xy -2.54 1.27) (xy -2.54 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 -6.35) (xy 0 -5.08) (xy -2.54 -3.81) (xy -2.54 -6.35)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 6.35) (xy 0 3.81)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 5.08) (xy 2.54 5.08)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 1.27) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -3.81) (xy 0 -6.35)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 -5.08) (xy 2.54 -5.08)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 4.318) (xy 2.032 3.556) (xy 2.286 4.318) (xy 3.556 3.048) (xy 3.556 3.556)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 204 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 -0.762) (xy 2.032 -1.524) (xy 2.286 -0.762) (xy 3.556 -2.032) (xy 3.556 -1.524)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 106 168 79 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 -5.842) (xy 2.032 -6.604) (xy 2.286 -5.842) (xy 3.556 -7.112) (xy 3.556 -6.604)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 61 133 198 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 2.54 7.62)
+					(end -5.08 -7.62)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 153 153 153 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.556 3.048) (xy 3.048 3.048)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 204 0 0 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.556 -2.032) (xy 3.048 -2.032)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 106 168 79 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 3.556 -7.112) (xy 3.048 -7.112)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 61 133 198 1)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at -7.62 5.08 0)
+					(length 2.54)
+					(name "R+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "R+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -7.62 0 0)
+					(length 2.54)
+					(name "G+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "G+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -7.62 -5.08 0)
+					(length 2.54)
+					(name "B+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "B+"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 5.08 180)
+					(length 2.54)
+					(name "R-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "R-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 2.54)
+					(name "G-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "G-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 -5.08 180)
+					(length 2.54)
+					(name "B-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "B-"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:PESD5V0S1BA-115"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "D"
+				(at -2.286 2.032 0)
+				(effects
+					(font
+						(size 2.0066 2.0066)
+					)
+				)
+			)
+			(property "Value" "PESD5V0S1BA-115"
+				(at -2.54 -5.08 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "D_SOD-323:D_SOD-323_P"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "TVS DIODE 5VWM 14VC SOD323"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Nexperia"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "PESD5V0S1BA-115"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "PESD5V0S1BA-115"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "PESD5V0S1BA-115"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "PESD5V0S1BA-115_1_0"
+				(polyline
+					(pts
+						(xy -4.064 1.524) (xy -4.572 1.524)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -4.064 0) (xy -5.08 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -4.064 -1.524) (xy -4.064 1.524)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.016 1.524) (xy -1.016 -1.524) (xy -4.064 0) (xy -1.016 1.524)
+					)
+					(stroke
+						(width -0.0001)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy -1.016 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 1.016 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.016 1.524) (xy 1.016 -1.524) (xy 4.064 0) (xy 1.016 1.524)
+					)
+					(stroke
+						(width -0.0001)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.064 1.524) (xy 4.064 -1.524)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.064 0) (xy 5.08 0)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 4.572 -1.524) (xy 4.064 -1.524)
+					)
+					(stroke
+						(width 0)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at -7.62 0 0)
+					(length 2.54)
+					(name "C"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "C"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:SMT_TP-75"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "TP"
+				(at 0 3.81 0)
+				(effects
+					(font
+						(face "Arial")
+						(size 2.0066 2.0066)
+						(bold yes)
+					)
+				)
+			)
+			(property "Value" "SMT Testpoint 75mil"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "SMT_TP-75:SMT_TP-75"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "SMT Testpoint 75mil"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Wavenumber"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "SMT_TP-75"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "SMT_TP-75"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" "NO_BOM"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "SMT_TEST"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "SMT_TP-75_1_0"
+				(circle
+					(center 0 0)
+					(radius 0.889)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 5.08)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn__wavenumber:WIREPAD-22AWG-4X-3.5MM"
+			(pin_names
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "J"
+				(at -561.34 -198.12 0)
+				(effects
+					(font
+						(size 2.1844 2.1844)
+					)
+				)
+			)
+			(property "Value" "WIREPAD-22AWG-4X-3.5MM"
+				(at -561.34 -200.66 0)
+				(effects
+					(font
+						(size 1.8288 1.8288)
+					)
+					(justify left bottom)
+				)
+			)
+			(property "Footprint" "WIREPAD-22AWG-4X-3.5MM:WIREPAD-22AWG-4X-3.5MM"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "WIREPAD-22AWG-4X-3.5MM"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Internal Part Number" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "Wavenumber"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer Part Number" "WIREPAD-22AWG-4X-3.5MM"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "cad-reference" "WIREPAD-22AWG-4X-3.5MM"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "flags" "NO_BOM"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "CON-1-4"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "WIREPAD-22AWG-4X-3.5MM_1_0"
+				(rectangle
+					(start 2.54 7.62)
+					(end -2.54 -5.08)
+					(stroke
+						(width 0)
+						(type solid)
+						(color 0 0 0 1)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin passive line
+					(at 10.16 5.08 180)
+					(length 7.62)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 2.54 180)
+					(length 7.62)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 0 180)
+					(length 7.62)
+					(name "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 10.16 -2.54 180)
+					(length 7.62)
+					(name "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn_power:+3v3"
+			(power)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at -0.508 3.302 0)
+				(do_not_autoplace)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "+3v3"
+				(at -0.508 3.556 0)
+				(do_not_autoplace)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.905 1.905)
+						(thickness 0.254)
+						(bold yes)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+				(at 0.762 9.652 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "+3v3_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 1.27 2.54) (xy -1.27 2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "+3v3_1_1"
+				(pin power_in line
+					(at 0 0 90)
+					(length 0)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "wn_power:GND"
+			(power)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at -0.254 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(do_not_autoplace)
+				(effects
+					(font
+						(face "Arial")
+						(size 1.905 1.905)
+						(thickness 0.254)
+						(bold yes)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0.762 9.652 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "GND_0_1"
+				(polyline
+					(pts
+						(xy -1.27 -2.54) (xy 1.27 -2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -2.54)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GND_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(junction
+		(at 485.14 280.67)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "26e50edf-6596-4672-8b55-d98868281196")
+	)
+	(junction
+		(at 449.58 280.67)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "3ced25d1-5da2-442d-aafb-09c91beb277b")
+	)
+	(junction
+		(at 414.02 280.67)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4410cf98-e921-4a66-845e-bfd63998f807")
+	)
+	(junction
+		(at 520.7 280.67)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "5a31dc82-f7a5-48be-881e-959ad2b13c90")
+	)
+	(junction
+		(at 377.19 280.67)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6540cca6-5d47-4bce-9f7a-69209c79004f")
+	)
+	(junction
+		(at 320.04 255.27)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "aea395a5-f687-4f9a-a902-c95996c07c16")
+	)
+	(junction
+		(at 355.6 255.27)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "af0c8851-e8a4-4018-b758-f490e0643aac")
+	)
+	(no_connect
+		(at 306.07 257.81)
+		(uuid "c4b2b14f-1882-4a5d-9411-a36e106a5639")
+	)
+	(wire
+		(pts
+			(xy 306.07 255.27) (xy 320.04 255.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "02ac8d23-a6b1-4ec4-9778-6c2f76a2acba")
+	)
+	(wire
+		(pts
+			(xy 314.96 231.14) (xy 317.5 231.14)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0ad29804-c711-4a53-adce-b9f7acb9d08c")
+	)
+	(wire
+		(pts
+			(xy 317.5 223.52) (xy 317.5 220.98)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "10b64cb4-608d-4878-ac66-423117bb205c")
+	)
+	(wire
+		(pts
+			(xy 341.63 255.27) (xy 355.6 255.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1e3b1084-a929-4a7e-b521-3ced4ede6ea2")
+	)
+	(wire
+		(pts
+			(xy 306.07 260.35) (xy 309.88 260.35)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "21dee5c2-283a-4210-8886-b574f392cfc7")
+	)
+	(wire
+		(pts
+			(xy 419.1 262.89) (xy 419.1 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "228aaae2-a912-4748-9fdd-abf18250031a")
+	)
+	(wire
+		(pts
+			(xy 355.6 227.33) (xy 355.6 255.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "27eb7887-b78e-4c9b-9e24-fd86661a186d")
+	)
+	(wire
+		(pts
+			(xy 515.62 280.67) (xy 520.7 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2b6e980f-6f93-4ece-9d8e-a48bf7a53721")
+	)
+	(wire
+		(pts
+			(xy 382.27 262.89) (xy 382.27 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3149d7dd-58b7-48e4-941b-2a1d08c20c94")
+	)
+	(wire
+		(pts
+			(xy 515.62 262.89) (xy 515.62 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "319c4794-5f46-4587-8f26-d1af5f662ffb")
+	)
+	(wire
+		(pts
+			(xy 520.7 280.67) (xy 520.7 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3fc8d9b4-b169-406a-af18-cc92cb8c8ca2")
+	)
+	(wire
+		(pts
+			(xy 444.5 262.89) (xy 444.5 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "45dd5bfe-09a0-4b89-9367-de23bac74c3d")
+	)
+	(wire
+		(pts
+			(xy 444.5 280.67) (xy 449.58 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "472e37d6-0237-4246-b643-8f7ccae1270c")
+	)
+	(wire
+		(pts
+			(xy 534.67 255.27) (xy 543.56 255.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4df2441a-d963-4db0-b537-7a6f51e04fee")
+	)
+	(wire
+		(pts
+			(xy 377.19 262.89) (xy 377.19 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5027a119-fc44-4148-93c7-256830d88d2a")
+	)
+	(wire
+		(pts
+			(xy 372.11 280.67) (xy 377.19 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "589c56d4-27e3-468b-a223-8b528fb7f390")
+	)
+	(wire
+		(pts
+			(xy 320.04 255.27) (xy 320.04 264.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5f854ec1-f1a9-4cb9-a37e-5fafd6fb3a33")
+	)
+	(wire
+		(pts
+			(xy 449.58 280.67) (xy 454.66 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6175bb82-3cfa-4623-923d-b16e624aa458")
+	)
+	(wire
+		(pts
+			(xy 355.6 255.27) (xy 363.22 255.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "61e085d5-4152-4ff7-855c-3da6912b41a7")
+	)
+	(wire
+		(pts
+			(xy 377.19 280.67) (xy 377.19 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "64bcc40b-796a-48c7-b46c-f58c9295f14d")
+	)
+	(wire
+		(pts
+			(xy 309.88 248.92) (xy 309.88 252.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6781016f-3372-4533-9a78-f7e0ce3ec4c8")
+	)
+	(wire
+		(pts
+			(xy 520.7 262.89) (xy 520.7 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6f8b315c-c4cb-47d2-b789-aa92b56c24d8")
+	)
+	(wire
+		(pts
+			(xy 408.94 280.67) (xy 414.02 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "75d57e89-242d-40d0-837d-8e99d7d5862f")
+	)
+	(wire
+		(pts
+			(xy 463.55 255.27) (xy 471.17 255.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "761f737e-b77d-4b22-abfc-ae6bd12d66c5")
+	)
+	(wire
+		(pts
+			(xy 317.5 231.14) (xy 317.5 233.68)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "818e3d26-a6aa-4242-a132-fa414648c152")
+	)
+	(wire
+		(pts
+			(xy 454.66 262.89) (xy 454.66 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8c6b52ec-2e70-4430-817a-05059c490975")
+	)
+	(wire
+		(pts
+			(xy 377.19 280.67) (xy 382.27 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9a22eae1-06e6-4e6d-b362-c85b6cf85a5e")
+	)
+	(wire
+		(pts
+			(xy 449.58 262.89) (xy 449.58 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9a575044-7f03-445c-837c-1561296565df")
+	)
+	(wire
+		(pts
+			(xy 408.94 262.89) (xy 408.94 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9cb3ae2a-c6a6-48c2-9a74-603286eb305d")
+	)
+	(wire
+		(pts
+			(xy 485.14 280.67) (xy 490.22 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9f83c3b6-3205-46eb-b16f-9909e09eb9a5")
+	)
+	(wire
+		(pts
+			(xy 480.06 280.67) (xy 485.14 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a0ac6dbd-bd25-4972-be3d-fb4a47f156b1")
+	)
+	(wire
+		(pts
+			(xy 314.96 223.52) (xy 317.5 223.52)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a58dfd57-0ae8-4bc2-a0db-128f45c703b3")
+	)
+	(wire
+		(pts
+			(xy 525.78 262.89) (xy 525.78 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ab9f0dea-f1d1-4c2d-aa45-9f40e2533b5b")
+	)
+	(wire
+		(pts
+			(xy 485.14 280.67) (xy 485.14 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b493fb88-d50f-478a-9d1a-b42641d630ee")
+	)
+	(wire
+		(pts
+			(xy 306.07 252.73) (xy 309.88 252.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b85bb9f1-c512-4a95-b336-ee49d766584d")
+	)
+	(wire
+		(pts
+			(xy 499.11 255.27) (xy 506.73 255.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "bfc377a1-f1cd-4f78-82dc-5ab1328bf68f")
+	)
+	(wire
+		(pts
+			(xy 320.04 255.27) (xy 331.47 255.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c21086f6-68a2-4041-a193-f2b67fb456e4")
+	)
+	(wire
+		(pts
+			(xy 427.99 255.27) (xy 435.61 255.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c5149ba1-66e1-494f-8ab2-c60a129d9bc7")
+	)
+	(wire
+		(pts
+			(xy 449.58 280.67) (xy 449.58 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ca0bb9b9-44c2-4215-b1ae-0b36a7e02c2f")
+	)
+	(wire
+		(pts
+			(xy 414.02 280.67) (xy 419.1 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cfd0fd19-335f-4363-89fa-6b0cd0ff39d5")
+	)
+	(wire
+		(pts
+			(xy 485.14 262.89) (xy 485.14 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d1e93511-f113-4b72-bba8-8b4702b39475")
+	)
+	(wire
+		(pts
+			(xy 520.7 280.67) (xy 525.78 280.67)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d66b82c6-c3b3-41c4-97fc-537539311e18")
+	)
+	(wire
+		(pts
+			(xy 490.22 262.89) (xy 490.22 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dc04d992-b7b3-4d21-a008-8bc63ab06b33")
+	)
+	(wire
+		(pts
+			(xy 309.88 260.35) (xy 309.88 262.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e0df0239-88d5-4a8e-ab7f-399b9e05dbcf")
+	)
+	(wire
+		(pts
+			(xy 314.96 227.33) (xy 355.6 227.33)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e64393ad-347d-4b05-8415-d536252e3802")
+	)
+	(wire
+		(pts
+			(xy 391.16 255.27) (xy 400.05 255.27)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e7d284b6-5cf6-4d6a-a176-fd6cd9adc343")
+	)
+	(wire
+		(pts
+			(xy 372.11 262.89) (xy 372.11 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e94626e1-1ddf-425c-b761-41ef90639d16")
+	)
+	(wire
+		(pts
+			(xy 414.02 262.89) (xy 414.02 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f21528ba-fc65-428b-8deb-67099f11af64")
+	)
+	(wire
+		(pts
+			(xy 414.02 280.67) (xy 414.02 283.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f586a57f-aa5b-41b4-9978-692d4270c552")
+	)
+	(wire
+		(pts
+			(xy 480.06 262.89) (xy 480.06 267.97)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fde05cb0-f80e-451d-8046-b4cc46def59e")
+	)
+	(symbol
+		(lib_id "wn__wavenumber:ERJ-3EKF33R0V")
+		(at 331.47 255.27 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "03023679-972a-4cfe-9e98-ff5fe79d8aa4")
+		(property "Reference" "R1"
+			(at 336.55 252.73 0)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+			)
+		)
+		(property "Value" "33Ω"
+			(at 336.804 257.81 0)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+			)
+		)
+		(property "Footprint" "R0603_0.55MM_HD:R0603_0.55MM_MD"
+			(at 331.47 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 331.47 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "RES 33 OHM 1/10W 1% 0603 SMD"
+			(at 331.47 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "${VALUE}"
+			(at 336.55 259.08 0)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Package Power" "PACKAGE (POWER)"
+			(at 336.55 261.62 0)
+			(effects
+				(font
+					(size 1.4478 1.4478)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Assembly Notes" ""
+			(at 330.962 251.46 0)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 331.47 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Panasonic Electronic Components"
+			(at 331.47 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "ERJ-3EKF33R0V"
+			(at 331.47 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "ERJ-3EKF33R0V"
+			(at 331.47 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 331.47 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "23429af0-a7f8-4a7c-80e2-f485f7cca026")
+		)
+		(pin "2"
+			(uuid "aa2005b2-a1d4-4cf6-918d-60e251035747")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at 414.02 283.21 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "06603685-63bc-44e6-85f3-dec9cbd67e3f")
+		(property "Reference" "#PWR05"
+			(at 414.02 289.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 414.02 287.528 0)
+			(effects
+				(font
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 414.02 283.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 414.02 283.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 414.782 273.558 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "d355d3ac-8b44-4dac-9bbd-2cef21335986")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "#PWR05")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:SMT_TP-75")
+		(at 309.88 231.14 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "081ae7ff-18bf-4a8e-9bbf-edd9672c48bc")
+		(property "Reference" "TP3"
+			(at 305.816 231.394 0)
+			(effects
+				(font
+					(size 2.0066 2.0066)
+				)
+			)
+		)
+		(property "Value" "SMT Testpoint 75mil"
+			(at 309.88 231.14 0)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "SMT_TP-75:SMT_TP-75"
+			(at 309.88 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 309.88 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "SMT Testpoint 75mil"
+			(at 309.88 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 309.88 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Wavenumber"
+			(at 309.88 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "SMT_TP-75"
+			(at 309.88 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "SMT_TP-75"
+			(at 309.88 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" "NO_BOM"
+			(at 309.88 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "71be9aca-033c-4a97-8072-fc2460eaad73")
+		)
+		(instances
+			(project "11-10045__taillight__B"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "TP3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:SMT_TP-75")
+		(at 309.88 223.52 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0bb63053-6cba-4c4e-9c6a-af3e0f926dee")
+		(property "Reference" "TP1"
+			(at 305.562 223.774 0)
+			(effects
+				(font
+					(size 2.0066 2.0066)
+				)
+			)
+		)
+		(property "Value" "SMT Testpoint 75mil"
+			(at 309.88 223.52 0)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "SMT_TP-75:SMT_TP-75"
+			(at 309.88 223.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 309.88 223.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "SMT Testpoint 75mil"
+			(at 309.88 223.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 309.88 223.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Wavenumber"
+			(at 309.88 223.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "SMT_TP-75"
+			(at 309.88 223.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "SMT_TP-75"
+			(at 309.88 223.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" "NO_BOM"
+			(at 309.88 223.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "3f5a7874-098c-47c0-a65d-e8e7b72951aa")
+		)
+		(instances
+			(project "11-10045__taillight__B"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "TP1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:FD-3RGB45-N6")
+		(at 449.58 275.59 90)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0edd9080-a464-4ee4-a6bf-fc123c03d094")
+		(property "Reference" "D3"
+			(at 459.994 272.034 90)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+			)
+		)
+		(property "Value" "FD-3RGB45-N6"
+			(at 476.758 278.384 90)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "FD-3RGB45-N6:FD-3RGB45-N6"
+			(at 449.58 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 449.58 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "3W RGB LED with Reflow Lense,  45milx45mil Chip,  https://www.fedytech.com/products/high-power-leds/3w-high-power-led/3w-rgb-led-6pins-801.html"
+			(at 449.58 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 444.5 275.59 0)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "ID" "4086"
+			(at 441.452 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "MANUFACTURER PART NUMBER" "FD-3RGB45-N6"
+			(at 441.452 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "MANUFACTURER" "FEDY"
+			(at 441.452 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "IS_EXTERNAL" "1"
+			(at 441.452 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "JLCPCB PART #" "C9900149223"
+			(at 441.452 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" "LED"
+			(at 441.452 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "FEDY"
+			(at 449.58 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "FD-3RGB45-N6"
+			(at 449.58 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 449.58 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "FD-3RGB45-N6"
+			(at 449.58 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 449.58 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "B-"
+			(uuid "2eea3d4a-e056-4a02-910c-3be07678f898")
+		)
+		(pin "R+"
+			(uuid "9ddf9c99-1ba9-47fa-b7a7-5feb2997a277")
+		)
+		(pin "B+"
+			(uuid "6aa2dab7-88a4-4cb4-9d49-1c8217999779")
+		)
+		(pin "G+"
+			(uuid "6a6f1cc0-da6a-4118-bab6-47ff54a5c7e2")
+		)
+		(pin "G-"
+			(uuid "a39793b3-3033-42a1-99ae-5ef21f3f8a5c")
+		)
+		(pin "R-"
+			(uuid "e0bee2cc-fca7-45de-a133-9ae606b594eb")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "D3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at 309.88 262.89 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0fdc9010-e0f7-48e3-b043-884d2665faf0")
+		(property "Reference" "#PWR065"
+			(at 309.88 269.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 309.88 266.954 0)
+			(effects
+				(font
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 309.88 262.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 309.88 262.89 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 310.642 253.238 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "1b521a20-94d5-4acd-b90a-29e4074001fd")
+		)
+		(instances
+			(project "11-10045__taillight__B"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "#PWR065")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:WIREPAD-22AWG-4X-3.5MM")
+		(at 295.91 257.81 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(dnp no)
+		(uuid "1412fc9a-19f2-4618-82d9-fbb812289f01")
+		(property "Reference" "J1"
+			(at 295.148 248.666 0)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+					(thickness 0.4369)
+					(bold yes)
+				)
+			)
+		)
+		(property "Value" "WIREPAD-22AWG-4X-3.5MM"
+			(at 287.782 266.192 0)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+			)
+		)
+		(property "Footprint" "WIREPAD-22AWG-4X-3.5MM:WIREPAD-22AWG-4X-3.5MM"
+			(at 295.91 257.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 295.91 257.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "WIREPAD-22AWG-4X-3.5MM"
+			(at 295.91 257.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Wavenumber"
+			(at 295.91 257.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "WIREPAD-22AWG-4X-3.5MM"
+			(at 295.91 257.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 295.91 257.81 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "WIREPAD-22AWG-4X-3.5MM"
+			(at 290.322 265.938 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" "NO_BOM"
+			(at 296.164 268.732 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "4"
+			(uuid "3431246e-64e7-43ed-873a-844e60f96cd7")
+		)
+		(pin "2"
+			(uuid "1795bbd1-a8c8-431d-b198-0bd55de2c3f8")
+		)
+		(pin "1"
+			(uuid "3d8dac94-15b2-4059-8eaf-98adf003ddaa")
+		)
+		(pin "3"
+			(uuid "3521241a-ddd0-49dd-82e2-b71ca06c0693")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "J1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at 485.14 283.21 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "1478b184-665c-4c4d-918b-8d486d953f69")
+		(property "Reference" "#PWR07"
+			(at 485.14 289.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 485.14 288.036 0)
+			(effects
+				(font
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 485.14 283.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 485.14 283.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 485.902 273.558 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "ff50698b-28b9-480d-9a42-31699318c94c")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "#PWR07")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at 449.58 283.21 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "3abd64a4-82ce-40ea-b288-97960c52576c")
+		(property "Reference" "#PWR06"
+			(at 449.58 289.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 449.58 287.528 0)
+			(effects
+				(font
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 449.58 283.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 449.58 283.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 450.342 273.558 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "5411f8dd-83bb-4b7e-a895-6a5be532d0c4")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "#PWR06")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:SMT_TP-75")
+		(at 309.88 227.33 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "3ce53775-bd7f-4eb0-9301-7df3b3077f07")
+		(property "Reference" "TP2"
+			(at 305.308 227.584 0)
+			(effects
+				(font
+					(size 2.0066 2.0066)
+				)
+			)
+		)
+		(property "Value" "SMT Testpoint 75mil"
+			(at 309.88 227.33 0)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "SMT_TP-75:SMT_TP-75"
+			(at 309.88 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 309.88 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "SMT Testpoint 75mil"
+			(at 309.88 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 309.88 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Wavenumber"
+			(at 309.88 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "SMT_TP-75"
+			(at 309.88 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "SMT_TP-75"
+			(at 309.88 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" "NO_BOM"
+			(at 309.88 227.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "133fe3ba-fb01-4be3-8b52-983822b68b64")
+		)
+		(instances
+			(project "11-10045__taillight__B"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "TP2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 317.5 220.98 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "4eac8394-ebfa-4cd5-a3a4-52bef4c9dbe2")
+		(property "Reference" "#PWR09"
+			(at 317.5 224.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5v0"
+			(at 317.246 217.17 0)
+			(effects
+				(font
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 317.5 220.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 317.5 220.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 318.262 211.328 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "4ee2d81d-4dcb-4a7d-aa8e-fb104aaa5135")
+		)
+		(instances
+			(project "11-10045__taillight__B"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "#PWR09")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:FD-3RGB45-N6")
+		(at 414.02 275.59 90)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "5995c177-ebb0-4679-8249-25dd8f1cce7f")
+		(property "Reference" "D2"
+			(at 424.18 272.288 90)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+			)
+		)
+		(property "Value" "FD-3RGB45-N6"
+			(at 441.198 276.352 90)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "FD-3RGB45-N6:FD-3RGB45-N6"
+			(at 414.02 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 414.02 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "3W RGB LED with Reflow Lense,  45milx45mil Chip,  https://www.fedytech.com/products/high-power-leds/3w-high-power-led/3w-rgb-led-6pins-801.html"
+			(at 414.02 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 408.94 275.59 0)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "ID" "4086"
+			(at 405.892 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "MANUFACTURER PART NUMBER" "FD-3RGB45-N6"
+			(at 405.892 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "MANUFACTURER" "FEDY"
+			(at 405.892 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "IS_EXTERNAL" "1"
+			(at 405.892 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "JLCPCB PART #" "C9900149223"
+			(at 405.892 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" "LED"
+			(at 405.892 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "FEDY"
+			(at 414.02 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "FD-3RGB45-N6"
+			(at 414.02 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 414.02 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "FD-3RGB45-N6"
+			(at 414.02 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 414.02 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "B-"
+			(uuid "a390b7ab-36f7-4daa-a347-10d64880fba8")
+		)
+		(pin "R+"
+			(uuid "b30069be-6d9d-4229-bd30-71c90552a8e7")
+		)
+		(pin "B+"
+			(uuid "2b3f770f-bff6-4abe-8dd3-9bf79c883cc3")
+		)
+		(pin "G+"
+			(uuid "609981a3-05f9-4403-9503-f820aa44230a")
+		)
+		(pin "G-"
+			(uuid "64b4b1be-9791-4550-a137-e582abe7e8c6")
+		)
+		(pin "R-"
+			(uuid "cfc68c52-8a42-431e-b080-d9a8d7370026")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "D2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at 520.7 283.21 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "5e9f2040-2378-4644-8802-37803787be37")
+		(property "Reference" "#PWR08"
+			(at 520.7 289.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 520.954 287.528 0)
+			(effects
+				(font
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 520.7 283.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 520.7 283.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 521.462 273.558 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "172c9f83-9934-4aff-b9c0-e33efeab0a2f")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "#PWR08")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:FD-3RGB45-N6")
+		(at 485.14 275.59 90)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "71c5d13f-1b1d-417c-bd80-e38dd77f177e")
+		(property "Reference" "D4"
+			(at 495.046 272.288 90)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+			)
+		)
+		(property "Value" "FD-3RGB45-N6"
+			(at 511.302 276.606 90)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "FD-3RGB45-N6:FD-3RGB45-N6"
+			(at 485.14 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 485.14 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "3W RGB LED with Reflow Lense,  45milx45mil Chip,  https://www.fedytech.com/products/high-power-leds/3w-high-power-led/3w-rgb-led-6pins-801.html"
+			(at 485.14 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 480.06 275.59 0)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "ID" "4086"
+			(at 477.012 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "MANUFACTURER PART NUMBER" "FD-3RGB45-N6"
+			(at 477.012 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "MANUFACTURER" "FEDY"
+			(at 477.012 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "IS_EXTERNAL" "1"
+			(at 477.012 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "JLCPCB PART #" "C9900149223"
+			(at 477.012 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" "LED"
+			(at 477.012 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "FEDY"
+			(at 485.14 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "FD-3RGB45-N6"
+			(at 485.14 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 485.14 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "FD-3RGB45-N6"
+			(at 485.14 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 485.14 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "B-"
+			(uuid "03e8447f-5f2c-418a-b9e5-d77bf2ad7cee")
+		)
+		(pin "R+"
+			(uuid "af882e14-66d9-4e1a-b7bc-a03200392c08")
+		)
+		(pin "B+"
+			(uuid "3d22773f-8be2-4b21-bbec-218ac9a069be")
+		)
+		(pin "G+"
+			(uuid "d0f3a874-1aa0-466a-a690-33ea0a302d67")
+		)
+		(pin "G-"
+			(uuid "49007ad0-7679-48d4-adbd-7de8a6eefc83")
+		)
+		(pin "R-"
+			(uuid "8fb6b51f-663b-41c1-8146-2065104e0323")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "D4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at 317.5 233.68 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "a6dd2b1a-2aa7-4e3e-beef-f317d2b01a40")
+		(property "Reference" "#PWR066"
+			(at 317.5 240.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 317.5 237.744 0)
+			(effects
+				(font
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 317.5 233.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 317.5 233.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 318.262 224.028 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "7e1a8ef3-65a1-4abf-8f92-7442f94062a6")
+		)
+		(instances
+			(project "11-10045__taillight__B"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "#PWR066")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at 377.19 283.21 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "aa6fd115-db8a-481b-b354-86fd76d627aa")
+		(property "Reference" "#PWR04"
+			(at 377.19 289.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 377.19 287.528 0)
+			(effects
+				(font
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 377.19 283.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 377.19 283.21 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 377.952 273.558 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b15245a4-84b5-4ee0-8a84-51f3a065d2b6")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "#PWR04")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:GND")
+		(at 320.04 279.4 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ac85616d-45cc-4a82-bb18-4aa140335ce4")
+		(property "Reference" "#PWR01"
+			(at 320.04 285.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 320.04 283.464 0)
+			(effects
+				(font
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 320.04 279.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 320.04 279.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 320.802 269.748 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "2f2cf8fc-05dc-4518-82ea-964300f22013")
+		)
+		(instances
+			(project "11-10045__taillight__C"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "#PWR01")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:FD-3RGB45-N6")
+		(at 377.19 275.59 90)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "b47b212a-0e23-4cff-a4ac-e1589fa82c7d")
+		(property "Reference" "D1"
+			(at 386.842 272.034 90)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+			)
+		)
+		(property "Value" "FD-3RGB45-N6"
+			(at 403.606 275.844 90)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "FD-3RGB45-N6:FD-3RGB45-N6"
+			(at 377.19 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 377.19 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "3W RGB LED with Reflow Lense,  45milx45mil Chip,  https://www.fedytech.com/products/high-power-leds/3w-high-power-led/3w-rgb-led-6pins-801.html"
+			(at 377.19 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 372.11 275.59 0)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "FEDY"
+			(at 377.19 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "FD-3RGB45-N6"
+			(at 377.19 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 377.19 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "FD-3RGB45-N6"
+			(at 389.636 286.258 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 377.19 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "B-"
+			(uuid "ba1a8d33-811f-4601-8e2f-c76075b9f0a3")
+		)
+		(pin "R+"
+			(uuid "63fb11fd-5420-43dd-b0ca-806353b2049b")
+		)
+		(pin "B+"
+			(uuid "0af88062-747f-4a02-b3a1-523c6ec4689c")
+		)
+		(pin "G+"
+			(uuid "27594094-0d51-43d8-936e-4d7b905076fb")
+		)
+		(pin "G-"
+			(uuid "7ee24146-9fc2-46ec-88fb-43b792e253c3")
+		)
+		(pin "R-"
+			(uuid "adc1fd40-b927-4ac4-875e-0c8834e8bcf4")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "D1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:SMT_TP-75")
+		(at 548.64 255.27 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "c78988d5-f304-4025-9eef-9264b20a87ce")
+		(property "Reference" "TP4"
+			(at 551.18 253.365 0)
+			(effects
+				(font
+					(size 2.0066 2.0066)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "SMT Testpoint 75mil"
+			(at 551.18 257.175 0)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "SMT_TP-75:SMT_TP-75"
+			(at 548.64 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 548.64 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "SMT Testpoint 75mil"
+			(at 548.64 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 548.64 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Wavenumber"
+			(at 548.64 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "SMT_TP-75"
+			(at 548.64 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "SMT_TP-75"
+			(at 548.64 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" "NO_BOM"
+			(at 548.64 255.27 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "34cdd352-9ac7-4d23-8abf-940f281065d7")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "TP4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:FD-3RGB45-N6")
+		(at 520.7 275.59 90)
+		(mirror x)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "cdcbd779-6207-45b6-80df-1558bbcbc5d5")
+		(property "Reference" "D5"
+			(at 532.892 271.526 90)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+			)
+		)
+		(property "Value" "FD-3RGB45-N6"
+			(at 548.386 276.098 90)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Footprint" "FD-3RGB45-N6:FD-3RGB45-N6"
+			(at 520.7 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 520.7 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "3W RGB LED with Reflow Lense,  45milx45mil Chip,  https://www.fedytech.com/products/high-power-leds/3w-high-power-led/3w-rgb-led-6pins-801.html"
+			(at 520.7 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "ALTIUM_VALUE" "*"
+			(at 515.62 275.59 0)
+			(effects
+				(font
+					(size 2.1844 2.1844)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "ID" "4086"
+			(at 512.572 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "MANUFACTURER PART NUMBER" "FD-3RGB45-N6"
+			(at 512.572 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "MANUFACTURER" "FEDY"
+			(at 512.572 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "IS_EXTERNAL" "1"
+			(at 512.572 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "JLCPCB PART #" "C9900149223"
+			(at 512.572 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "CATEGORY" "LED"
+			(at 512.572 267.97 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "FEDY"
+			(at 520.7 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "FD-3RGB45-N6"
+			(at 520.7 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 520.7 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "FD-3RGB45-N6"
+			(at 520.7 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 520.7 275.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "B-"
+			(uuid "9a009bf0-01d8-4c2b-8e66-43d40bfa81cc")
+		)
+		(pin "R+"
+			(uuid "018f870a-970d-4b72-be7f-821474a38964")
+		)
+		(pin "B+"
+			(uuid "06525abb-4fa9-40a6-8673-f1deac4bb263")
+		)
+		(pin "G+"
+			(uuid "f9ed1367-3557-4539-8cc4-6ef111853966")
+		)
+		(pin "G-"
+			(uuid "93531abb-2369-4dfb-8e55-cf97e62afd90")
+		)
+		(pin "R-"
+			(uuid "b9b1ebaa-ca5c-4a47-abe4-b63b0cf7fe58")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "D5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn__wavenumber:PESD5V0S1BA-115")
+		(at 320.04 271.78 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "d9003fc1-95ae-4d41-8900-dc0925e505d1")
+		(property "Reference" "D6"
+			(at 322.58 269.875 90)
+			(effects
+				(font
+					(size 2.0066 2.0066)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "PESD5V0S1BA-115"
+			(at 322.58 273.685 90)
+			(effects
+				(font
+					(size 1.8288 1.8288)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "D_SOD-323:D_SOD-323_P"
+			(at 320.04 271.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 320.04 271.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "TVS DIODE 5VWM 14VC SOD323"
+			(at 320.04 271.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Internal Part Number" ""
+			(at 320.04 271.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Nexperia"
+			(at 320.04 271.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer Part Number" "PESD5V0S1BA-115"
+			(at 320.04 271.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "cad-reference" "PESD5V0S1BA-115"
+			(at 320.04 271.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "flags" ""
+			(at 320.04 271.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "44fd4090-3700-4a1f-9453-b678d11ca66a")
+		)
+		(pin "2"
+			(uuid "d5e30f5c-8d3a-46d9-a15b-3dad8a01ab3c")
+		)
+		(instances
+			(project ""
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "D6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "wn_power:+3v3")
+		(at 309.88 248.92 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "e269ac31-9046-4358-943e-41f0b2e77788")
+		(property "Reference" "#PWR03"
+			(at 309.88 252.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+5v0"
+			(at 309.626 245.11 0)
+			(effects
+				(font
+					(size 1.905 1.905)
+					(thickness 0.254)
+					(bold yes)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 309.88 248.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 309.88 248.92 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3v3\" , ground"
+			(at 310.642 239.268 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "9191b663-e03e-4882-9fad-3faa0902002f")
+		)
+		(instances
+			(project "11-10043__charge_indicator__A"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(reference "#PWR03")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(sheet
+		(at 363.22 247.65)
+		(size 27.94 15.24)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.381)
+			(type solid)
+		)
+		(fill
+			(color 255 255 255 1.0000)
+		)
+		(uuid "37547075-e9b5-4ddd-b16b-20e2ebfa49cf")
+		(property "Sheetname" "LED_Controller2"
+			(at 362.966 244.094 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(bold yes)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "LED_Controller.kicad_sch"
+			(at 363.22 245.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(bold yes)
+				)
+				(justify left top)
+			)
+		)
+		(pin "DIN" input
+			(at 363.22 255.27 180)
+			(uuid "52db1980-58ab-4420-a3dd-8aeeebd20eb1")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "DO" output
+			(at 391.16 255.27 0)
+			(uuid "214986b2-69e9-4bc1-a151-05e947eecb03")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "RED" output
+			(at 372.11 262.89 270)
+			(uuid "c3066d2c-b2d5-4150-89ce-1d95eeed2a84")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "GREEN" output
+			(at 377.19 262.89 270)
+			(uuid "c926c9e6-6511-4594-beac-15cd6dd9fbf9")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "BLUE" output
+			(at 382.27 262.89 270)
+			(uuid "a8ae57c6-3463-4e10-bd35-768a13927ba7")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "11-10045__taillight__C"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(page "5")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 400.05 247.65)
+		(size 27.94 15.24)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.381)
+			(type solid)
+		)
+		(fill
+			(color 255 255 255 1.0000)
+		)
+		(uuid "734949e2-e993-4a9f-bb08-a50aed043d6a")
+		(property "Sheetname" "LED_Controller3"
+			(at 399.796 244.094 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(bold yes)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "LED_Controller.kicad_sch"
+			(at 400.05 245.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(bold yes)
+				)
+				(justify left top)
+			)
+		)
+		(pin "DIN" input
+			(at 400.05 255.27 180)
+			(uuid "b509c186-add0-4e23-a78b-ed56de8b400e")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "DO" output
+			(at 427.99 255.27 0)
+			(uuid "f5a103ed-f282-46a7-8748-8a14e06e592c")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "RED" output
+			(at 408.94 262.89 270)
+			(uuid "a9bbe3d9-c00e-4e74-809e-7e7f4f3fbf57")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "GREEN" output
+			(at 414.02 262.89 270)
+			(uuid "30318a07-31e4-4b3b-a8ca-e4ceb9a2a2cb")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "BLUE" output
+			(at 419.1 262.89 270)
+			(uuid "477845e1-a1b4-4f64-b18f-4d57892d2699")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.254)
+					(bold yes)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "11-10045__taillight__C"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 506.73 247.65)
+		(size 27.94 15.24)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.381)
+			(type solid)
+		)
+		(fill
+			(color 255 255 255 1.0000)
+		)
+		(uuid "8eea20ec-c9f0-4bea-ad1c-c7906bff29cd")
+		(property "Sheetname" "LED_Controller6"
+			(at 506.476 244.094 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(bold yes)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "LED_Controller.kicad_sch"
+			(at 506.73 245.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(bold yes)
+				)
+				(justify left top)
+			)
+		)
+		(pin "DIN" input
+			(at 506.73 255.27 180)
+			(uuid "328659d1-78e7-45b9-9236-7e5a5bdde341")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "DO" output
+			(at 534.67 255.27 0)
+			(uuid "a8fbf296-94a9-464e-adaa-b92130a4a6a3")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "RED" output
+			(at 515.62 262.89 270)
+			(uuid "1f954df7-953e-4dfa-89ff-0923cc41aff2")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "GREEN" output
+			(at 520.7 262.89 270)
+			(uuid "d50033b5-da8f-4b6f-b2bb-40f6aa47a0b4")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "BLUE" output
+			(at 525.78 262.89 270)
+			(uuid "fe042d0c-a8a5-4958-8610-7db5070e31d0")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "11-10045__taillight__C"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(page "4")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 471.17 247.65)
+		(size 27.94 15.24)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.381)
+			(type solid)
+		)
+		(fill
+			(color 255 255 255 1.0000)
+		)
+		(uuid "c9b42f1f-2253-4920-922a-5e9bf0b00430")
+		(property "Sheetname" "LED_Controller5"
+			(at 470.916 244.094 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(bold yes)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "LED_Controller.kicad_sch"
+			(at 471.17 245.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(bold yes)
+				)
+				(justify left top)
+			)
+		)
+		(pin "DIN" input
+			(at 471.17 255.27 180)
+			(uuid "bbb23ab8-1d59-4f62-98c6-2c4b294f4c52")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "DO" output
+			(at 499.11 255.27 0)
+			(uuid "beee1ad3-acef-4d84-9013-241af7fc60a7")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "RED" output
+			(at 480.06 262.89 270)
+			(uuid "3e1e4034-f4b7-468e-aa69-5b8d3a0d9e3b")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "GREEN" output
+			(at 485.14 262.89 270)
+			(uuid "fa13cbca-be83-421d-8bef-2d07d090938a")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "BLUE" output
+			(at 490.22 262.89 270)
+			(uuid "13cabe61-d45d-447f-894a-c6053975f0f9")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "11-10045__taillight__C"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(page "8")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 435.61 247.65)
+		(size 27.94 15.24)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(stroke
+			(width 0.381)
+			(type solid)
+		)
+		(fill
+			(color 255 255 255 1.0000)
+		)
+		(uuid "f07b283e-8a01-4dd6-b825-73e62d3e67f2")
+		(property "Sheetname" "LED_Controller4"
+			(at 435.356 244.094 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(bold yes)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "LED_Controller.kicad_sch"
+			(at 435.61 245.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(bold yes)
+				)
+				(justify left top)
+			)
+		)
+		(pin "DIN" input
+			(at 435.61 255.27 180)
+			(uuid "3451ef85-fd33-4a67-be06-b97a8684ec3c")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "DO" output
+			(at 463.55 255.27 0)
+			(uuid "1c3255bf-4511-4cfb-b389-261bb745c205")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "RED" output
+			(at 444.5 262.89 270)
+			(uuid "ecd6eae8-76b7-49df-85a6-cbe38c938e1c")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "GREEN" output
+			(at 449.58 262.89 270)
+			(uuid "b064aff3-574a-4da1-b6f7-ee4ae358354b")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(pin "BLUE" output
+			(at 454.66 262.89 270)
+			(uuid "26e64841-4f53-45c1-8faa-8df1ad84a22d")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(instances
+			(project "11-10045__taillight__C"
+				(path "/1b9a21a0-962f-4524-a210-b3dd719fc86a"
+					(page "6")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts yes)
+)

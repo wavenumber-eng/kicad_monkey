@@ -30,8 +30,10 @@ Use it when you need Python code to inspect or modify KiCad files directly:
 - render schematic, PCB, symbol, and footprint views through plotter IR and SVG;
 - make focused model edits, then write KiCad files back out.
 
-This package is the low-level parser/model/rendering library. Larger workflow
-commands and application orchestration should live in downstream packages.
+This package is the low-level parser/model/rendering library. The same
+repository also contains the separately published `kicad-cruncher` workflow
+CLI under `packages/kicad_cruncher/`. The CLI depends on Monkey; Monkey never
+depends on the CLI.
 
 ## Install
 
@@ -47,6 +49,14 @@ For development:
 git clone https://github.com/wavenumber-eng/kicad_monkey.git
 cd kicad_monkey
 uv sync --extra test
+```
+
+To develop and validate both public distributions from one checkout:
+
+```powershell
+uv sync --all-packages --all-extras
+uv run --package kicad-cruncher kicad-cruncher --help
+uv run --all-packages --all-extras python -m pytest tests/cross_package -q
 ```
 
 ## Quick Examples

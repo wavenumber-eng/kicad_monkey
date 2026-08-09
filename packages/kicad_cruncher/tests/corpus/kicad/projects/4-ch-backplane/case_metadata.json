@@ -1,0 +1,34 @@
+{
+  "domains": [
+    "netlist",
+    "netlist_project_corpus",
+    "schematic_ir",
+    "schematic_svg",
+    "board_svg",
+    "pcb_ir"
+  ],
+  "notes": "Sanitized real-world hierarchical backplane fixture. Includes an off-board USB sheet used to verify KiCad netlist and BOM parity for sheet-level on_board=no.",
+  "oracle_policy": {
+    "board_svg": "smoke",
+    "netlist": "kicad_cli_live",
+    "pcb_ir": "smoke",
+    "schematic_ir": "smoke",
+    "schematic_svg": "smoke"
+  },
+  "origin": "real_world",
+  "preferred_project_file": "4-ch-backplane.kicad_pro",
+  "promotion_reason": "Regression fixture for hierarchical sheet on_board netlist parity.",
+  "provenance": {
+    "license_usage": "test_fixture",
+    "source_kind": "sanitized_internal_project",
+    "source_path": null
+  },
+  "status": "active",
+  "tags": [
+    "real_world",
+    "hierarchical",
+    "design_blocks",
+    "sheet_on_board_no",
+    "netlist_oracle"
+  ]
+}

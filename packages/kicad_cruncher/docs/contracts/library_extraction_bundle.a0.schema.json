@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kicad_cruncher.library_extraction_bundle.a0",
+  "title": "KiCad Cruncher Library Extraction Bundle",
+  "description": "Metadata emitted beside extracted KiCad symbol and footprint libraries by lib-extract, megamaid, and project-lib. The CAD files stay KiCad-native; this JSON carries source parameters/properties and trace metadata for downstream import tools.",
+  "type": "object",
+  "required": ["schema", "project_path", "project_root", "mode", "symbols", "footprints"],
+  "properties": {
+    "schema": {
+      "const": "kicad_cruncher.library_extraction_bundle.a0"
+    },
+    "project_path": {
+      "type": "string",
+      "description": "Resolved source .kicad_pro path."
+    },
+    "project_root": {
+      "type": "string",
+      "description": "Resolved source project directory."
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["internal", "project_local"],
+      "description": "Extraction policy used for CAD assets and metadata records."
+    },
+    "symbols": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/symbol_record"}
+    },
+    "footprints": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/footprint_record"}
+    },
+    "assets": {
+      "$ref": "#/$defs/project_asset_scan",
+      "description": "Optional full project asset/model scan emitted only when --include-asset-scan is used."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "field_map": {
+      "type": "object",
+      "description": "KiCad property/parameter map. Keys preserve source spelling and casing. Values are stringified exactly as parsed from the source CAD object after workflow-specific overrides, such as project-local footprint relinking. Downstream import tools should treat this as the raw parameter bag.",
+      "additionalProperties": {"type": "string"}
+    },
+    "canonical_field_map": {
+      "type": "object",
+      "description": "Best-effort normalized part fields derived from raw_fields with case-insensitive alias matching. Current canonical keys may include mpn, mfg, value, description, and cad-reference; consumers must tolerate unknown future keys.",
+      "additionalProperties": {"type": "string"}
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "symbol_record": {
+      "type": "object",
+      "required": [
+        "name",
+        "source_path",
+        "mode",
+        "raw_fields",
+        "canonical_fields",
+        "diagnostics"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Extracted symbol member name, including source library prefix when present."
+        },
+        "source_path": {
+          "type": "string",
+          "description": "Schematic path that contributed the cached lib_symbol."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["internal", "project_local"]
+        },
+        "raw_fields": {"$ref": "#/$defs/field_map"},
+        "canonical_fields": {"$ref": "#/$defs/canonical_field_map"},
+        "diagnostics": {"$ref": "#/$defs/diagnostics"}
+      },
+      "additionalProperties": false
+    },
+    "footprint_record": {
+      "type": "object",
+      "required": [
+        "name",
+        "library_link",
+        "source_path",
+        "source_reference",
+        "mode",
+        "raw_fields",
+        "canonical_fields",
+        "model_references",
+        "diagnostics"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Extracted standalone footprint name with KiCad library prefix removed."
+        },
+        "library_link": {
+          "type": "string",
+          "description": "Original placed footprint library link, for example Device:R_0603."
+        },
+        "source_path": {
+          "type": "string",
+          "description": "PCB path that contributed the placed footprint."
+        },
+        "source_reference": {
+          "type": "string",
+          "description": "Original placed reference designator when present."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["internal", "project_local"]
+        },
+        "raw_fields": {"$ref": "#/$defs/field_map"},
+        "canonical_fields": {"$ref": "#/$defs/canonical_field_map"},
+        "model_references": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/model_reference"}
+        },
+        "diagnostics": {"$ref": "#/$defs/diagnostics"}
+      },
+      "additionalProperties": false
+    },
+    "model_reference": {
+      "type": "object",
+      "required": [
+        "source_kind",
+        "source_path",
+        "owner",
+        "model_path",
+        "reference_kind",
+        "resolved_path",
+        "exists",
+        "embedded_name",
+        "has_embedded_payload",
+        "payload_scope",
+        "diagnostics"
+      ],
+      "properties": {
+        "source_kind": {"type": "string"},
+        "source_path": {"type": "string"},
+        "owner": {"type": "string"},
+        "model_path": {"type": "string"},
+        "reference_kind": {
+          "type": "string",
+          "enum": [
+            "embedded",
+            "kicad_env",
+            "env_var",
+            "project_relative",
+            "absolute",
+            "other"
+          ]
+        },
+        "resolved_path": {"type": "string"},
+        "exists": {"type": "boolean"},
+        "embedded_name": {"type": "string"},
+        "has_embedded_payload": {"type": "boolean"},
+        "payload_scope": {"type": "string"},
+        "diagnostics": {"$ref": "#/$defs/diagnostics"}
+      },
+      "additionalProperties": false
+    },
+    "project_asset_scan": {
+      "type": "object",
+      "required": [
+        "project_path",
+        "project_root",
+        "schematics",
+        "pcbs",
+        "symbol_libraries",
+        "pretty_libraries",
+        "footprint_files",
+        "model_references",
+        "footprints_without_models",
+        "diagnostics"
+      ],
+      "properties": {
+        "project_path": {"type": "string"},
+        "project_root": {"type": "string"},
+        "schematics": {"type": "array", "items": {"type": "string"}},
+        "pcbs": {"type": "array", "items": {"type": "string"}},
+        "symbol_libraries": {"type": "array", "items": {"type": "string"}},
+        "pretty_libraries": {"type": "array", "items": {"type": "string"}},
+        "footprint_files": {"type": "array", "items": {"type": "string"}},
+        "model_references": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/model_reference"}
+        },
+        "footprints_without_models": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/footprint_without_models"}
+        },
+        "diagnostics": {"$ref": "#/$defs/diagnostics"}
+      },
+      "additionalProperties": false
+    },
+    "footprint_without_models": {
+      "type": "object",
+      "required": ["footprint", "source_path", "designators", "instance_count"],
+      "properties": {
+        "footprint": {"type": "string"},
+        "source_path": {"type": "string"},
+        "designators": {"type": "array", "items": {"type": "string"}},
+        "instance_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  }
+}

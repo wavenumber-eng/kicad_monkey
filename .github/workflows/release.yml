@@ -3,16 +3,33 @@ name: Publish
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      monkey_version:
+        description: Exact kicad-monkey version to publish first
+        required: true
+        type: string
+      cruncher_version:
+        description: Exact kicad-cruncher version to publish second
+        required: true
+        type: string
+      confirm:
+        description: Type publish-both to authorize the coordinated lane
+        required: true
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
-  publish:
+  publish-monkey:
+    if: >-
+      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
     runs-on: ubuntu-latest
     environment: pypi
     steps:
@@ -28,9 +45,18 @@ jobs:
         run: uv run --extra test python scripts/kicad_corpus_archive.py restore
       - name: Verify tag matches package version
         shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.monkey_version }}
         run: |
           VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
-          test "v${VERSION}" = "${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
+            test "kicad-monkey-v${VERSION}" = "${GITHUB_REF_NAME}"
+          else
+            test "${GITHUB_REF}" = "refs/heads/main"
+            test "${REQUESTED_VERSION}" = "${VERSION}"
+            git fetch --force --tags origin
+            test "$(git rev-parse "kicad-monkey-v${VERSION}^{commit}")" = "${GITHUB_SHA}"
+          fi
       - name: Verify release notes mention package version
         shell: bash
         run: |
@@ -53,3 +79,154 @@ jobs:
         run: uv run --extra test python tests/support_scripts/install_test.py
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-cruncher:
+    if: >-
+      github.event_name == 'release' &&
+      startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Verify tag matches package version
+        shell: bash
+        run: |
+          VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
+          test "kicad-cruncher-v${VERSION}" = "${GITHUB_REF_NAME}"
+      - name: Verify release notes mention package version
+        shell: bash
+        run: |
+          VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
+          RELEASE_DATE="$(uv run --package kicad-cruncher python -c 'from kicad_cruncher._version import parse_version; import tomllib; v=tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"]; print(parse_version(v).release_date.isoformat())')"
+          grep -F "## ${VERSION}" packages/kicad_cruncher/CHANGELOG.md
+          test -f "packages/kicad_cruncher/docs/releases/${RELEASE_DATE}.md"
+          grep -F "\`${VERSION}\`" "packages/kicad_cruncher/docs/releases/${RELEASE_DATE}.md"
+      - name: Run Cruncher Rack gates against workspace Monkey
+        working-directory: packages/kicad_cruncher
+        run: uv run --package kicad-cruncher --extra test rack run --all
+      - name: Build Cruncher package
+        working-directory: packages/kicad_cruncher
+        run: uv run --package kicad-cruncher --extra test python -m build
+      - name: Check Cruncher package
+        run: uv run --extra test twine check packages/kicad_cruncher/dist/*
+      - name: Run installed Cruncher console test
+        working-directory: packages/kicad_cruncher
+        run: uv run --package kicad-cruncher --extra test python tests/support_scripts/install_test.py
+      - name: Publish Cruncher to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/kicad_cruncher/dist/
+
+  verify-coordinated-monkey:
+    if: github.event_name == 'workflow_dispatch'
+    needs: publish-monkey
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Wait for and verify the public Monkey artifact
+        shell: bash
+        env:
+          MONKEY_VERSION: ${{ inputs.monkey_version }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+
+          version = os.environ["MONKEY_VERSION"]
+          url = f"https://pypi.org/pypi/kicad-monkey/{version}/json"
+          for attempt in range(20):
+              try:
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      payload = json.load(response)
+                  if payload["info"]["version"] == version:
+                      break
+              except (urllib.error.URLError, KeyError, json.JSONDecodeError):
+                  pass
+              if attempt == 19:
+                  raise SystemExit(f"kicad-monkey {version} did not become available")
+              time.sleep(15)
+          PY
+          uv venv .coordinated-monkey-venv
+          uv pip install --python .coordinated-monkey-venv --no-cache \
+            "kicad-monkey==${MONKEY_VERSION}"
+          .coordinated-monkey-venv/bin/python -I - <<'PY'
+          from importlib.metadata import version
+          import kicad_monkey
+
+          assert version("kicad-monkey") == kicad_monkey.__version__
+          assert hasattr(kicad_monkey, "KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA")
+          PY
+
+  publish-coordinated-cruncher:
+    if: github.event_name == 'workflow_dispatch'
+    needs: verify-coordinated-monkey
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Verify coordinated tags and package versions
+        shell: bash
+        env:
+          MONKEY_VERSION: ${{ inputs.monkey_version }}
+          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
+        run: |
+          test "${GITHUB_REF}" = "refs/heads/main"
+          ACTUAL_MONKEY="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          ACTUAL_CRUNCHER="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
+          test "${MONKEY_VERSION}" = "${ACTUAL_MONKEY}"
+          test "${CRUNCHER_VERSION}" = "${ACTUAL_CRUNCHER}"
+          git fetch --force --tags origin
+          test "$(git rev-parse "kicad-monkey-v${MONKEY_VERSION}^{commit}")" = "${GITHUB_SHA}"
+          test "$(git rev-parse "kicad-cruncher-v${CRUNCHER_VERSION}^{commit}")" = "${GITHUB_SHA}"
+      - name: Run Cruncher Rack gates against workspace Monkey
+        working-directory: packages/kicad_cruncher
+        run: uv run --package kicad-cruncher --extra test rack run --all
+      - name: Build and check Cruncher package
+        working-directory: packages/kicad_cruncher
+        run: |
+          uv run --package kicad-cruncher --extra test python -m build
+          uv run --package kicad-cruncher --extra test twine check dist/*
+      - name: Verify Cruncher against public Monkey
+        shell: bash
+        env:
+          MONKEY_VERSION: ${{ inputs.monkey_version }}
+        run: |
+          uv venv .coordinated-cruncher-venv
+          uv pip install --python .coordinated-cruncher-venv --no-cache \
+            "kicad-monkey==${MONKEY_VERSION}" \
+            packages/kicad_cruncher/dist/kicad_cruncher-*.whl
+          .coordinated-cruncher-venv/bin/kicad-cruncher --version
+          .coordinated-cruncher-venv/bin/kcr --version
+          .coordinated-cruncher-venv/bin/python -I -m kicad_cruncher version
+      - name: Publish Cruncher to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/kicad_cruncher/dist/
+
+  create-coordinated-releases:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [publish-monkey, publish-coordinated-cruncher]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create package-qualified GitHub Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MONKEY_VERSION: ${{ inputs.monkey_version }}
+          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
+        run: |
+          MONKEY_DATE="$(python -c 'import os; p=os.environ["MONKEY_VERSION"].split("."); print(f"{int(p[0]):04d}-{int(p[1]):02d}-{int(p[2]):02d}")')"
+          CRUNCHER_DATE="$(python -c 'import os; p=os.environ["CRUNCHER_VERSION"].split("."); print(f"{int(p[0]):04d}-{int(p[1]):02d}-{int(p[2]):02d}")')"
+          gh release create "kicad-monkey-v${MONKEY_VERSION}" \
+            --title "kicad-monkey ${MONKEY_VERSION}" \
+            --notes-file "docs/releases/${MONKEY_DATE}.md"
+          gh release create "kicad-cruncher-v${CRUNCHER_VERSION}" \
+            --title "kicad-cruncher ${CRUNCHER_VERSION}" \
+            --notes-file "packages/kicad_cruncher/docs/releases/${CRUNCHER_DATE}.md"

@@ -1,0 +1,42 @@
+(version 1)
+
+(rule "100Z_Diff_L1"
+	(layer F.Cu)
+    (condition "A.NetClass == '100Z_DIFF'")
+    (constraint diff_pair_gap (opt 8.00mil))
+	(constraint track_width (opt 8.67mil)) )
+
+(rule "100Z_Diff_L4"
+	(layer B.Cu)
+    (condition "A.NetClass == '100Z_DIFF'")
+    (constraint diff_pair_gap (opt 8.00mil))
+	(constraint track_width (opt 8.67mil)) )
+
+(rule "50Z_SE_L1"
+	(layer F.Cu)
+    (condition  "A.NetClass == '50Z_SE'" )
+	(constraint track_width (opt 0.1565mm)) )
+
+(rule "50Z_SE_L4"
+	(layer B.Cu)
+    (condition  "A.NetClass == '50Z_SE'" )
+	(constraint track_width (opt 0.1565mm)) )
+
+(rule "90Z_Diff_L1"
+	(layer F.Cu)
+    (condition "A.NetClass == '90Z_DIFF'")
+    (constraint diff_pair_gap (opt 0.2mm))
+	(constraint track_width (opt 0.1575mm)) )
+
+(rule "90Z_Diff_L4"
+	(layer B.Cu)
+    (condition "A.NetClass == '90Z_DIFF'")
+    (constraint diff_pair_gap (opt 0.2mm))
+	(constraint track_width (opt 0.1575mm)) )
+
+
+
+
+
+
+

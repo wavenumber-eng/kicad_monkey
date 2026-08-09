@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>lib-extract command design</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body data-doc-status="accepted"
+  data-doc-kind="cli-design"
+  data-command="lib-extract"
+  data-config-contract="none"
+  data-output-contract="kicad_cruncher.lib_extract_manifest.a0">
+<main>
+<nav class="nav"><a href="../index.html">Design Index</a><a href="index.html">CLI</a></nav>
+<header>
+  <p class="status">Public command</p>
+  <h1>lib-extract</h1>
+  <p class="lede">Extract cleaned KiCad symbols, footprints, model payloads, and metadata for downstream <code>lib_cruncher</code> ingestion.</p>
+</header>
+
+<section id="usage">
+  <h2>Usage</h2>
+  <pre><code>kicad-cruncher lib-extract project.kicad_pro -o output/lib-extract
+kicad-cruncher library-extract project.kicad_pro --dedupe fingerprint
+kicad-cruncher lib-extract project.kicad_pro --include-asset-scan</code></pre>
+</section>
+
+<section id="arguments">
+  <h2>Arguments</h2>
+  <p><code>file</code> accepts a <code>.kicad_pro</code> project. If omitted, the command auto-detects exactly one <code>.kicad_pro</code> in the current directory.</p>
+  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/lib-extract/</code>. <code>library-extract</code> is an alias for the same command.</p>
+  <p>The command always uses internal extraction mode: symbols and footprints are stripped down to reusable KiCad library assets while raw metadata is preserved in JSON for downstream part association.</p>
+  <p>Power/global symbols are skipped because they are project wiring primitives, not part-library records. This includes cached library symbols marked with <code>(power ...)</code> and cached symbols whose raw <code>Reference</code> property is <code>#PWR</code>.</p>
+  <p><code>--dedupe name</code> collapses repeated assets by library name. <code>--dedupe fingerprint</code> collapses by stripped serialized content. <code>--no-embed-models</code> disables board-embedded model payload rehydration. <code>--no-embed-external-models</code> disables resolving external STEP/STP model paths into extracted footprints. <code>--all-embedded-models</code> scans the whole project and writes every embedded STEP/STP payload. <code>--include-asset-scan</code> includes the full model-reference scan in the metadata JSON. <code>--validate-kicad-cli</code> asks KiCad CLI to parse/upgrade the generated libraries, and <code>--kicad-cli</code> selects the executable.</p>
+</section>
+
+<section id="ownership">
+  <h2>Ownership</h2>
+  <p>The KiCad parsing, metadata stripping, model path classification, external STEP/STP embedding, metadata bundle construction, and KiCad CLI validation helpers are owned by <code>kicad-monkey</code>. <code>kicad-cruncher</code> owns command-line ergonomics, output directory layout, manifest writing, README writing, logging, and exit status.</p>
+  <p>The command is non-destructive. It does not edit the source project, update <code>sym-lib-table</code> or <code>fp-lib-table</code>, relink schematic symbols, relink PCB footprints, or rewrite project text variables. Project-local table editing belongs to <code>project-lib</code>.</p>
+</section>
+
+<section id="output">
+  <h2>Output</h2>
+  <p>The selected output directory contains a library ingestion bundle:</p>
+  <ul>
+    <li><code>symbols/*.kicad_sym</code>: one single-symbol KiCad symbol library file per extracted symbol record.</li>
+    <li><code>footprints.pretty/*.kicad_mod</code>: one standalone KiCad footprint per extracted footprint record.</li>
+    <li><code>models/*.{step,stp}</code>: decoded embedded STEP/STP model payloads required by the extracted footprint records, or every embedded payload when <code>--all-embedded-models</code> is used.</li>
+    <li><code>library_extraction.json</code>: <code>kicad_cruncher.library_extraction_bundle.a0</code> metadata with raw fields, canonical identity fields, source paths, source references, model-reference diagnostics, and optional project asset scan when <code>--include-asset-scan</code> is used.</li>
+    <li><code>lib_extract_manifest.json</code>: <code>kicad_cruncher.lib_extract_manifest.a0</code> artifact index with counts, relative output paths, mode, source project, and optional KiCad CLI validation results.</li>
+    <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
+  </ul>
+  <p>The metadata contract is <code>docs/contracts/library_extraction_bundle.a0.schema.json</code>. In each symbol or footprint record, <code>raw_fields</code> is the raw KiCad parameter/property map with source key spelling preserved and string values. <code>canonical_fields</code> is derived from <code>raw_fields</code> using case-insensitive alias matching and currently normalizes part fields such as <code>mpn</code>, <code>mfg</code>, <code>value</code>, <code>description</code>, and <code>cad-reference</code>. Import tools should treat unknown canonical keys as forward-compatible additions.</p>
+  <p>This command is intended for later <code>lib_cruncher</code> ingestion where the JSON metadata creates the part association and the symbol/footprint files are clean reusable CAD assets. Metadata-preserving project-local extraction is handled by <code>project-lib</code>; broader project dissection is handled by <code>megamaid</code>.</p>
+</section>
+
+<section id="tests">
+  <h2>Tests</h2>
+  <p>L0 public CLI tests verify the command appears in root help, command help starts, and the manifest/design-doc inventory stays synchronized. L3 public workflow tests verify the <code>library-extract</code> alias starts, run <code>lib-extract --validate-kicad-cli</code> against the sanitized 4-ch backplane corpus fixture with a fake <code>kicad-cli</code>, and assert that generated stripped symbol files are passed through <code>sym upgrade</code> while the generated footprint library is passed through <code>fp upgrade</code>. The underlying library extraction primitives remain covered by shared extraction tests.</p>
+</section>
+</main>
+</body>
+</html>

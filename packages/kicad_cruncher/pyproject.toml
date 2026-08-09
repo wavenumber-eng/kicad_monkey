@@ -1,0 +1,131 @@
+[project]
+name = "kicad-cruncher"
+version = "2026.8.9"
+description = "Cross-platform KiCad CLI workflows built on public kicad-monkey"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "Wavenumber LLC" },
+]
+dependencies = [
+    "colorama>=0.4.6",
+    "fastapi>=0.115.0",
+    "kicad-monkey>=2026.8.9",
+    "openpyxl>=3.1.0",
+    "textual>=0.50.0",
+    "uvicorn>=0.30.0",
+    "wn-geometer==2026.6.10",
+]
+
+[project.optional-dependencies]
+test = [
+    "build>=1.2.0",
+    "jsonschema>=4.22.0",
+    "pyright>=1.1.390",
+    "pytest>=8.0.0",
+    "pytest-json-report>=1.5.0",
+    "ruff>=0.8.0",
+    "twine>=5.0.0",
+    "wn-rack>=1.1.0",
+    "wn-dev-std>=2026.7.18; python_version >= '3.12'",
+]
+
+[dependency-groups]
+dev = [
+    "build>=1.2.0",
+    "jsonschema>=4.22.0",
+    "pyright>=1.1.390",
+    "pytest>=8.0.0",
+    "pytest-json-report>=1.5.0",
+    "ruff>=0.8.0",
+    "twine>=5.0.0",
+    "wn-rack>=1.1.0",
+    "wn-dev-std>=2026.7.18; python_version >= '3.12'",
+]
+
+[project.urls]
+Homepage = "https://github.com/wavenumber-eng/kicad_monkey/tree/main/packages/kicad_cruncher"
+Repository = "https://github.com/wavenumber-eng/kicad_monkey/tree/main/packages/kicad_cruncher"
+Issues = "https://github.com/wavenumber-eng/kicad_monkey/issues"
+
+[project.scripts]
+kicad-cruncher = "kicad_cruncher._cli:main"
+kcr = "kicad_cruncher._cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.wn_dev_std]
+standard_version = "2026.7.18"
+enabled_scopes = ["repo", "docs.design", "docs.links", "docs.cli", "docs.plans", "docs.requirements"]
+profile = "python-package"
+distribution = "pypi"
+languages = ["python"]
+strict = true
+
+[tool.wn_dev_std.pr_hygiene]
+enabled = false
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+kicad-monkey = { workspace = true }
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "docs/**",
+    "pyproject.toml",
+    "src/py/kicad_cruncher/**",
+    "tests/**",
+]
+exclude = [
+    "docs/plans/**",
+    "docs/research/**",
+    "rack_results/**",
+    "tests/corpus/**",
+    "tests/**/output/**",
+    "**/__pycache__/**",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/py/kicad_cruncher"]
+
+[tool.hatch.version]
+path = "src/py/kicad_cruncher/_version.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src/py"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.pyright]
+include = [
+    "src/py/kicad_cruncher",
+    "tests/L0_public_cli",
+    "tests/L3_public_workflows",
+    "tests/L99_signoff",
+    "tests/support_scripts",
+]
+exclude = [
+    "tests/support_scripts/py_signoff.py",
+]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = false
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = []
