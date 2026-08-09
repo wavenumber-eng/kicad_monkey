@@ -67,3 +67,17 @@ test_parse_string = "Parse strings with spaces"
 test_parse_quoted = "Parse quoted strings"
 test_parse_nested = "Parse nested lists"
 test_parse_unicode = "Parse Unicode content"
+
+[[subtests]]
+id = "L0_043"
+file = "test_L0_043_stroke_font_data_coverage.py"
+name = "Newstroke Font Data Coverage"
+description = "Validate the vendored non-CJK CC0 Newstroke table and symbol coverage"
+concerns = ["rendering.text", "assets.fonts"]
+test_case_type = "algorithmic"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_stroke_font"
+
+[subtests.objectives]
+primary = "The complete U+0020 through U+2BFF Newstroke range decodes without changing legacy glyphs"

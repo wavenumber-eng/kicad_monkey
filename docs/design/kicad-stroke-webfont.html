@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KiCad Newstroke Webfont Bundle</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <h1>KiCad Newstroke Webfont Bundle</h1>
+    <p>
+      <code>assets/fonts/</code> is the authoritative generated distribution
+      for the KiCad Stroke family. It is a close-to-format utility built from
+      the same vendored Newstroke data used by the package's SVG text renderer;
+      higher-level document and application workflows remain downstream.
+    </p>
+
+    <h2>Source and licensing boundary</h2>
+    <p>
+      The source table mirrors the KiCad 10.0 <code>newstroke_font[]</code>
+      entries from U+0020 through U+2BFF. This is the original Newstroke work
+      by Vladimir Uryvaev, dedicated under CC0-1.0. Differently licensed CJK
+      sections are deliberately excluded.
+    </p>
+
+    <h2>Faces and metrics</h2>
+    <p>
+      The package contains Light, Regular, and Bold faces using KiCad's
+      size/12, size/8, and size/5 pen-width progression. Each face also has an
+      italic variant using KiCad's 1/8 shear. All faces preserve Newstroke
+      advances and are emitted as TTF, CFF OTF, WOFF, and WOFF2.
+    </p>
+
+    <h2>Reproducibility contract</h2>
+    <pre><code>uv run python tools/package_kicad_stroke_webfont_assets.py
+uv run python tools/package_kicad_stroke_webfont_assets.py --check</code></pre>
+    <p>
+      <code>kicad-stroke-font-package.json</code> records hashes for all bundle
+      files and defining inputs. OpenType timestamps are pinned to the 1904
+      epoch so equivalent inputs produce deterministic output. L2 tests cover
+      outline, metrics, naming, style, CSS, demo, and CLI behavior; L99 checks
+      the published package and manifest.
+    </p>
+
+    <h2>Demo and downstream use</h2>
+    <p>
+      The offline demo is generated beside the fonts and CSS. It uses the
+      approved blue KiCad Monkey mark and theme while exercising electronics
+      equations, field equations, a BOM, fabrication notes, Greek, symbols,
+      weights, and upright/italic selection. Monkey Kit may copy the versioned
+      package as a self-contained downstream asset; it does not regenerate the
+      Newstroke outlines itself.
+    </p>
+  </main>
+</body>
+</html>

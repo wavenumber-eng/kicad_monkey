@@ -17,3 +17,4 @@ tests/corpus/.unpacked/
 tests/corpus/*.tmp.zip
 docs/plans/
 docs/research/
+temp/

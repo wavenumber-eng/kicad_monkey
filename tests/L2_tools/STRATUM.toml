@@ -95,3 +95,17 @@ module = "kicad_monkey.kicad_library_extraction"
 
 [subtests.objectives]
 primary = "Project-local KiCad library assets extract into valid inspectable files"
+
+[[subtests]]
+id = "L2_011"
+file = "test_L2_011_stroke_webfont_generator.py"
+name = "KiCad Stroke Webfont Generator"
+description = "Build and validate Newstroke OpenType/webfont faces, CSS, demo HTML, and CLI behavior"
+concerns = ["tools", "assets.fonts", "rendering.text"]
+test_case_type = "algorithmic"
+
+[subtests.code_under_test]
+module = "tools.generate_kicad_stroke_webfont"
+
+[subtests.objectives]
+primary = "Generated font outlines, metrics, weights, italics, CSS, and demo content remain deterministic"

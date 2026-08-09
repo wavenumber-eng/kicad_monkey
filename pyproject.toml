@@ -20,6 +20,8 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
+    "brotli>=1.1.0",
+    "fonttools>=4.53.0",
     "jsonschema>=4.22.0",
     "pytest>=8.0.0",
     "pytest-json-report",
@@ -34,6 +36,8 @@ test = [
 
 [dependency-groups]
 dev = [
+    "brotli>=1.1.0",
+    "fonttools>=4.53.0",
     "jsonschema>=4.22.0",
     "pytest>=8.0.0",
     "pytest-json-report",
@@ -74,9 +78,13 @@ packages = ["src/py/kicad_monkey"]
 
 [tool.hatch.build.targets.sdist]
 include = [
+    "assets/**",
     "src/py/**",
     "tests/**",
     "docs/**",
+    "scripts/generate_kicad_stroke_font_data.py",
+    "tools/generate_kicad_stroke_webfont.py",
+    "tools/package_kicad_stroke_webfont_assets.py",
     "README.md",
     "CONTRIBUTING.md",
     "CHANGELOG.md",
