@@ -84,6 +84,10 @@ def test_repository_governance_routes_both_packages() -> None:
     assert "Run installed two-wheel compatibility test" in ci
     assert "publish-monkey:" in release
     assert "publish-cruncher:" in release
+    assert "verify-coordinated-monkey:" in release
+    assert "publish-coordinated-cruncher:" in release
+    assert "create-coordinated-releases:" in release
+    assert "inputs.confirm == 'publish-both'" in release
     assert "kicad-monkey-v${VERSION}" in release
     assert "kicad-cruncher-v${VERSION}" in release
     assert "packages-dir: packages/kicad_cruncher/dist/" in release

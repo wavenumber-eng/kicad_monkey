@@ -154,6 +154,8 @@ def test_monorepo_root_owns_ci_and_release_workflows() -> None:
     assert "Run Cruncher Rack gates against workspace Monkey" in ci_text
     assert "kicad-cruncher-v" in release_text
     assert "packages/kicad_cruncher/dist/" in release_text
+    assert "verify-coordinated-monkey:" in release_text
+    assert "publish-coordinated-cruncher:" in release_text
 
 
 def test_cli_emits_package_version() -> None:

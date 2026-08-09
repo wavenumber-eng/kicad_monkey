@@ -66,6 +66,20 @@ Before the first monorepo publish, configure the `kicad-cruncher` PyPI trusted
 publisher for repository `wavenumber-eng/kicad_monkey`, workflow
 `release.yml`, and the authorized `pypi` GitHub environment.
 
+## Coordinated Two-Package Publish
+
+When one reviewed commit changes both distributions, create both annotated
+package-qualified tags at that commit, but do not create the GitHub Releases
+manually. From the Actions page, run the `Publish` workflow on `main` with the
+two exact versions and confirmation text `publish-both`.
+
+The authorized lane validates both tags against the selected `main` commit,
+publishes Monkey first, waits for the exact PyPI version, verifies a no-cache
+install and the compiled-graph API, tests the Cruncher wheel against that
+public Monkey artifact, publishes Cruncher, and creates both GitHub Releases.
+The GitHub environment approval remains the publication boundary. Do not use
+the coordinated lane when only one distribution needs a release.
+
 ## Recovery
 
 If the release workflow fails before PyPI upload, fix the source on `main`,
