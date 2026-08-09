@@ -82,18 +82,22 @@ def _simple_netlist() -> KiCadNetlist:
     ]
     nl.components = [
         KiCadNetlistComponent(
-            reference="R1", value="10k",
+            reference="R1",
+            value="10k",
             footprint="Resistor_SMD:R_0603",
-            libsource_lib="Device", libsource_part="R",
+            libsource_lib="Device",
+            libsource_part="R",
             libsource_description="Resistor",
-            sheet_path_names="/", sheet_path_uuids="/",
+            sheet_path_names="/",
+            sheet_path_uuids="/",
             instance_uuid="r1-uuid",
             properties={"MPN": "ERJ-3EKF1002V"},
         ),
     ]
     nl.libparts = [
         KiCadLibPart(
-            lib="Device", part="R",
+            lib="Device",
+            part="R",
             description="Resistor",
             docs="~",
             footprints_filter=["R_*"],
@@ -107,22 +111,28 @@ def _simple_netlist() -> KiCadNetlist:
     nl.libraries = []
     nl.nets = [
         KiCadNet(
-            name="/VCC", code=1,
+            name="/VCC",
+            code=1,
             terminals=[
                 KiCadNetlistTerminal(
-                    designator="R1", pin="1",
-                    pin_name="~", pin_type="passive",
+                    designator="R1",
+                    pin="1",
+                    pin_name="~",
+                    pin_type="passive",
                     sheet_path="/",
                 ),
             ],
         ),
         KiCadNet(
-            name="Net-(R1-2)", code=2,
+            name="Net-(R1-2)",
+            code=2,
             auto_named=True,
             terminals=[
                 KiCadNetlistTerminal(
-                    designator="R1", pin="2",
-                    pin_name="~", pin_type="passive",
+                    designator="R1",
+                    pin="2",
+                    pin_name="~",
+                    pin_type="passive",
                     sheet_path="/",
                 ),
             ],
@@ -131,10 +141,46 @@ def _simple_netlist() -> KiCadNetlist:
     return nl
 
 
-def _placed(lib_id: str, *, reference: str, value: str = "",
-            uuid: str = "", at_x: float = 0.0, at_y: float = 0.0) -> SchSymbol:
-    sym = SchSymbol(lib_id=lib_id, at_x=at_x, at_y=at_y, at_angle=0.0,
-                    mirror=None, unit=1, convert=1, uuid=uuid)
+def test_kicadsexpr_omits_effectively_off_board_components_and_nodes() -> None:
+    """The internal sidecar retains policy; KiCad's board netlist does not."""
+
+    netlist = _simple_netlist()
+    netlist.components.append(
+        KiCadNetlistComponent(reference="R2", value="DNI", on_board=False)
+    )
+    netlist.nets[0].terminals.append(KiCadNetlistTerminal(designator="R2", pin="1"))
+
+    tree = parse_sexp(to_kicad_sexpr(netlist, date=""))
+    components = _find(tree, "components")
+    nets = _find(tree, "nets")
+    assert components is not None and nets is not None
+    assert [_value(row, "ref") for row in _find_all(components, "comp")] == ["R1"]
+    assert "R2" not in {
+        _value(node, "ref")
+        for net in _find_all(nets, "net")
+        for node in _find_all(net, "node")
+    }
+
+
+def _placed(
+    lib_id: str,
+    *,
+    reference: str,
+    value: str = "",
+    uuid: str = "",
+    at_x: float = 0.0,
+    at_y: float = 0.0,
+) -> SchSymbol:
+    sym = SchSymbol(
+        lib_id=lib_id,
+        at_x=at_x,
+        at_y=at_y,
+        at_angle=0.0,
+        mirror=None,
+        unit=1,
+        convert=1,
+        uuid=uuid,
+    )
     sym.properties = [
         SymProperty(key="Reference", value=reference, id=0),
         SymProperty(key="Value", value=value or reference, id=1),
@@ -143,21 +189,42 @@ def _placed(lib_id: str, *, reference: str, value: str = "",
 
 
 def _libR_full() -> LibSymbol:
-    sub = LibSubSymbol(name="Device:R_1_0", unit=1, style=0, pins=[
-        SymPin(electrical_type=PinElectricalType.PASSIVE,
-               graphic_style=PinGraphicStyle.LINE,
-               at_x=0.0, at_y=0.0, at_angle=180.0, length=0.0,
-               number="1", name="~"),
-        SymPin(electrical_type=PinElectricalType.PASSIVE,
-               graphic_style=PinGraphicStyle.LINE,
-               at_x=0.0, at_y=-2.54, at_angle=0.0, length=0.0,
-               number="2", name="~"),
-    ])
-    return LibSymbol(name="Device:R", subsymbols=[sub], properties=[
-        SymProperty(key="Reference", value="R", id=0),
-        SymProperty(key="Value", value="R", id=1),
-        SymProperty(key="Description", value="Resistor", id=5),
-    ])
+    sub = LibSubSymbol(
+        name="Device:R_1_0",
+        unit=1,
+        style=0,
+        pins=[
+            SymPin(
+                electrical_type=PinElectricalType.PASSIVE,
+                graphic_style=PinGraphicStyle.LINE,
+                at_x=0.0,
+                at_y=0.0,
+                at_angle=180.0,
+                length=0.0,
+                number="1",
+                name="~",
+            ),
+            SymPin(
+                electrical_type=PinElectricalType.PASSIVE,
+                graphic_style=PinGraphicStyle.LINE,
+                at_x=0.0,
+                at_y=-2.54,
+                at_angle=0.0,
+                length=0.0,
+                number="2",
+                name="~",
+            ),
+        ],
+    )
+    return LibSymbol(
+        name="Device:R",
+        subsymbols=[sub],
+        properties=[
+            SymProperty(key="Reference", value="R", id=0),
+            SymProperty(key="Value", value="R", id=1),
+            SymProperty(key="Description", value="Resistor", id=5),
+        ],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -238,9 +305,15 @@ def test_emit_design_sheet_has_title_block_with_9_comments():
 def test_emit_title_block_uses_set_metadata():
     nl = _simple_netlist()
     nl.design_metadata.sheets = [
-        KiCadDesignSheet(number=1, name="/", tstamps="/",
-                         title="Project", company="ACME",
-                         revision="1.0", date="2026-05-10"),
+        KiCadDesignSheet(
+            number=1,
+            name="/",
+            tstamps="/",
+            title="Project",
+            company="ACME",
+            revision="1.0",
+            date="2026-05-10",
+        ),
     ]
     text = to_kicad_sexpr(nl)
     tree = parse_sexp(text)
@@ -308,7 +381,10 @@ def test_emit_components_carry_kicad_metadata_blocks():
     assert _value(comp, "description") == "Resistor row"
 
     fields = _find_all(_find(comp, "fields"), "field")
-    assert [(_value(field, "name"), _strip(field[2]) if len(field) > 2 else "") for field in fields] == [
+    assert [
+        (_value(field, "name"), _strip(field[2]) if len(field) > 2 else "")
+        for field in fields
+    ] == [
         ("MPN", "ERJ-3EKF1002V"),
         ("Footprint", "Resistor_SMD:R_0603"),
         ("Datasheet", "https://example.test/r1.pdf"),
@@ -434,7 +510,7 @@ def test_emit_libraries_emits_one_library_block_per_entry():
     tree = parse_sexp(text)
     libs = _find_all(_find(tree, "libraries"), "library")
     assert len(libs) == 2
-    logicals = [_value(l, "logical") for l in libs]
+    logicals = [_value(library, "logical") for library in libs]
     assert logicals == ["Device", "Connector"]
 
 
@@ -494,8 +570,9 @@ def test_end_to_end_schematic_to_sexpr_round_trip():
     sch.symbols.append(_placed("Device:R", reference="R1", uuid="r1-uid"))
 
     netlist = compile_design_netlist(sch)
-    text = to_kicad_sexpr(netlist, source_path="/tmp/r1.kicad_sch",
-                          date="X", tool="kicad_monkey")
+    text = to_kicad_sexpr(
+        netlist, source_path="/tmp/r1.kicad_sch", date="X", tool="kicad_monkey"
+    )
     tree = parse_sexp(text)
 
     # Components

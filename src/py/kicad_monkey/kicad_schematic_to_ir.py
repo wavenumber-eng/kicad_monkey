@@ -92,6 +92,7 @@ from .kicad_schematic_style import (
     LAYER_HIERLABEL,
     LAYER_JUNCTION,
     LAYER_LOCLABEL,
+    LAYER_NETCLASS_REFS,
     LAYER_NOCONNECT,
     LAYER_NOTES,
     LAYER_PINNAM,
@@ -117,6 +118,7 @@ if TYPE_CHECKING:
         SchNetclassFlag,
     )
     from .kicad_sch_no_connect import SchNoConnect
+    from .kicad_sch_rule_area import SchRuleArea
     from .kicad_sch_sheet import SchSheet
     from .kicad_sch_shapes import (
         SchArc,
@@ -210,6 +212,8 @@ DEFAULT_JUNCTION_DIAMETER_MM = 0.9144
 DEFAULT_NO_CONNECT_HALF_MM = 0.6096
 # SCH_SYMBOL::PlotDNP uses 3x DEFAULT_LINE_WIDTH_MILS.
 DEFAULT_DNP_MARKER_STROKE_WIDTH_NM = mm_to_nm(DEFAULT_WIRE_WIDTH_MM * 3.0)
+# SCH_DIRECTIVE_LABEL's endpoint symbol is 20 mils from its center to edge.
+DEFAULT_DIRECTIVE_SYMBOL_SIZE_NM = mm_to_nm(20.0 * _MIL_TO_MM)
 # Label / text default font size (1.27mm = 50 mils) when the parsed
 # ``Effects`` block is absent or carries 0.
 DEFAULT_TEXT_SIZE_MM = 1.27
@@ -1828,7 +1832,9 @@ def _outline_font_path(
         if fontconfig_path is not None:
             return fontconfig_path
 
-    return _arial_outline_font_path(bool(bold))
+    if allow_substitute:
+        return _arial_outline_font_path(bool(bold))
+    return None
 
 
 @lru_cache(maxsize=64)
@@ -3223,6 +3229,65 @@ def _graphic_bezier_record(bez: "SchBezier") -> Optional[KiCadPlotterRecord]:
     )
 
 
+def _rule_area_record(area: "SchRuleArea") -> Optional[KiCadPlotterRecord]:
+    """Emit the source geometry and policy metadata of a schematic rule area."""
+    from .kicad_sch_shapes import (
+        SchArc,
+        SchBezier,
+        SchCircle,
+        SchPolyline,
+        SchRectangle,
+    )
+
+    shape = getattr(area, "shape", None)
+    if isinstance(shape, list) and shape:
+        parsers = {
+            "polyline": SchPolyline,
+            "rectangle": SchRectangle,
+            "arc": SchArc,
+            "circle": SchCircle,
+            "bezier": SchBezier,
+        }
+        parser = parsers.get(str(shape[0]))
+        shape = parser.from_sexp(shape) if parser is not None else None
+
+    if isinstance(shape, SchPolyline):
+        operations = schematic_polyline_to_ops(shape)
+        for index, op in enumerate(operations):
+            if op.kind != KiCadPlotterOpKind.PLOT_POLY:
+                continue
+            points = list(op.payload.get("points") or [])
+            if points and points[-1] != points[0]:
+                payload = dict(op.payload)
+                payload["points"] = [*points, points[0]]
+                operations[index] = KiCadPlotterOp(kind=op.kind, payload=payload)
+    elif isinstance(shape, SchRectangle):
+        operations = schematic_rectangle_to_ops(shape)
+    elif isinstance(shape, SchArc):
+        operations = schematic_arc_to_ops(shape)
+    elif isinstance(shape, SchCircle):
+        operations = schematic_circle_to_ops(shape)
+    elif isinstance(shape, SchBezier):
+        operations = schematic_bezier_to_ops(shape)
+    else:
+        return None
+
+    shape_uuid = str(getattr(shape, "uuid", "") or "")
+    return _graphic_record(
+        uuid=shape_uuid,
+        kind="rule_area",
+        operations=operations,
+        extras={
+            "shape": type(shape).__name__.removeprefix("Sch").lower(),
+            "locked": bool(getattr(area, "locked", False)),
+            "exclude_from_sim": bool(getattr(area, "exclude_from_sim", False)),
+            "in_bom": bool(getattr(area, "in_bom", True)),
+            "on_board": bool(getattr(area, "on_board", True)),
+            "dnp": bool(getattr(area, "dnp", False)),
+        },
+    )
+
+
 def _image_record(img: "SchImage") -> KiCadPlotterRecord:
     op = schematic_image_to_op(img)
     return KiCadPlotterRecord(
@@ -4048,8 +4113,17 @@ def _symbol_dnp_marker_ops(
     if pins_bbox is None:
         pins_bbox = body_bbox
 
-    margin_x = max(body_bbox[0] - pins_bbox[0], pins_bbox[2] - body_bbox[2])
-    margin_y = max(body_bbox[1] - pins_bbox[1], pins_bbox[3] - body_bbox[3])
+    return _dnp_marker_ops_for_bboxes(body_bbox, pins_bbox)
+
+
+def _dnp_marker_ops_for_bboxes(
+    body_bbox: tuple[int, int, int, int],
+    full_bbox: tuple[int, int, int, int],
+) -> list[KiCadPlotterOp]:
+    """Return KiCad's two diagonal DNP strokes for body/full bounds."""
+
+    margin_x = max(body_bbox[0] - full_bbox[0], full_bbox[2] - body_bbox[2])
+    margin_y = max(body_bbox[1] - full_bbox[1], full_bbox[3] - body_bbox[3])
     margin_x = max(margin_x * 0.6, margin_y * 0.3)
     margin_y = max(margin_y * 0.6, margin_x * 0.3)
 
@@ -4477,6 +4551,7 @@ def _sheet_record(
         "at_y_nm": mm_to_nm(sheet.at_y),
         "size_x_nm": mm_to_nm(sheet.size_x),
         "size_y_nm": mm_to_nm(sheet.size_y),
+        "dnp": bool(getattr(sheet, "dnp", False)),
     }
 
     operations: List[KiCadPlotterOp] = []
@@ -4490,6 +4565,7 @@ def _sheet_record(
         # only the background fill; the border is still emitted in both
         # the background and foreground passes.
         operations.append(outline_op)
+    sheet_body_op_count = len(operations)
     for sp in sheet.pins:
         pin_ops: List[KiCadPlotterOp] = [
             sheet_pin_to_op(
@@ -4539,6 +4615,23 @@ def _sheet_record(
         if op is not None:
             operations.append(op)
 
+    if getattr(sheet, "dnp", False):
+        body_bbox = (
+            mm_to_nm(sheet.at_x),
+            mm_to_nm(sheet.at_y),
+            mm_to_nm(sheet.at_x + sheet.size_x),
+            mm_to_nm(sheet.at_y + sheet.size_y),
+        )
+        full_bbox = (
+            _bbox_union(body_bbox, _bbox_from_ops(operations[sheet_body_op_count:]))
+            or body_bbox
+        )
+        if bg_op is not None:
+            operations = [operations[0], *_dnp_dimmed_ops(operations[1:])]
+        else:
+            operations = _dnp_dimmed_ops(operations)
+        operations.extend(_dnp_marker_ops_for_bboxes(body_bbox, full_bbox))
+
     return KiCadPlotterRecord(
         uuid=getattr(sheet, "uuid", "") or "",
         kind="sheet",
@@ -4549,13 +4642,116 @@ def _sheet_record(
     )
 
 
+def _directive_marker_ops(
+    flag: "SchNetclassFlag",
+    *,
+    default_line_width_nm: int | None = None,
+) -> list[KiCadPlotterOp]:
+    """Plot a KiCad directive lead and its endpoint marker."""
+    anchor_x = mm_to_nm(getattr(flag, "at_x", 0.0))
+    anchor_y = mm_to_nm(getattr(flag, "at_y", 0.0))
+    length_nm = mm_to_nm(getattr(flag, "length", 0.0))
+    shape = str(getattr(flag, "shape", "round") or "round").lower()
+    symbol_size = DEFAULT_DIRECTIVE_SYMBOL_SIZE_NM
+    if shape == "dot":
+        symbol_size = _ki_round(symbol_size * 0.7)
+    elif shape == "rectangle":
+        symbol_size = _ki_round(symbol_size * 0.8)
+
+    spin_idx = _at_angle_to_spin_idx(getattr(flag, "at_angle", 0.0))
+
+    def point(x: int, y: int) -> tuple[int, int]:
+        rx, ry = _rotate_for_spin(x, y, spin_idx)
+        return anchor_x + rx, anchor_y + ry
+
+    kwargs = _text_kwargs_with_plot_defaults(
+        getattr(flag, "effects", None),
+        LAYER_NETCLASS_REFS,
+        default_line_width_nm=default_line_width_nm,
+    )
+    pen_width_nm = int(
+        kwargs.get("pen_width_nm")
+        or default_line_width_nm
+        or mm_to_nm(DEFAULT_WIRE_WIDTH_MM)
+    )
+
+    if shape in {"round", "dot"}:
+        line_end = point(0, length_nm - symbol_size)
+        center = point(0, length_nm)
+        line = styled_plotter_op(
+            KiCadPlotterOp.thick_segment(
+                start_x=anchor_x,
+                start_y=anchor_y,
+                end_x=line_end[0],
+                end_y=line_end[1],
+                width_nm=pen_width_nm,
+            ),
+            stroke_color=LAYER_NETCLASS_REFS,
+        )
+        fill = (
+            KiCadFillType.FILLED_SHAPE
+            if shape == "dot"
+            else KiCadFillType.NO_FILL
+        )
+        circle = styled_plotter_op(
+            KiCadPlotterOp.circle(
+                cx=center[0],
+                cy=center[1],
+                diameter_nm=2 * symbol_size,
+                fill=fill,
+                width_nm=0 if shape == "dot" else pen_width_nm,
+            ),
+            stroke_color=LAYER_NETCLASS_REFS,
+            fill_color=LAYER_NETCLASS_REFS if shape == "dot" else None,
+        )
+        return [line, circle]
+
+    if shape == "diamond":
+        relative = [
+            (0, 0),
+            (0, length_nm - symbol_size),
+            (-2 * symbol_size, length_nm),
+            (0, length_nm + symbol_size),
+            (2 * symbol_size, length_nm),
+            (0, length_nm - symbol_size),
+            (0, 0),
+        ]
+    elif shape == "rectangle":
+        relative = [
+            (0, 0),
+            (0, length_nm - symbol_size),
+            (-2 * symbol_size, length_nm - symbol_size),
+            (-2 * symbol_size, length_nm + symbol_size),
+            (2 * symbol_size, length_nm + symbol_size),
+            (2 * symbol_size, length_nm - symbol_size),
+            (0, length_nm - symbol_size),
+            (0, 0),
+        ]
+    else:
+        return []
+
+    return [
+        styled_plotter_op(
+            KiCadPlotterOp.plot_poly(
+                points=[point(x, y) for x, y in relative],
+                fill=KiCadFillType.NO_FILL,
+                width_nm=pen_width_nm,
+            ),
+            stroke_color=LAYER_NETCLASS_REFS,
+        )
+    ]
+
+
 def _netclass_flag_record(
     flag: "SchNetclassFlag",
     *,
     default_line_width_nm: int | None = None,
 ) -> KiCadPlotterRecord:
     """Composed record for directive/netclass flag property fields."""
-    operations: List[KiCadPlotterOp] = []
+    operations = _directive_marker_ops(
+        flag,
+        default_line_width_nm=default_line_width_nm,
+    )
     for prop in getattr(flag, "properties", ()) or ():
         op = symbol_property_to_op(
             prop,
@@ -4891,6 +5087,10 @@ def _append_schematic_graphics_records(
             records.append(rec)
     for bez in getattr(schematic, "beziers", ()) or ():
         rec = _graphic_bezier_record(bez)
+        if rec is not None:
+            records.append(rec)
+    for area in getattr(schematic, "rule_areas", ()) or ():
+        rec = _rule_area_record(area)
         if rec is not None:
             records.append(rec)
     for img in getattr(schematic, "images", ()) or ():

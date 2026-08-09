@@ -159,6 +159,50 @@ class TestHierarchicalAssembly:
         assembled_refs = {component.reference for component in assemble(root)}
         assert assembled_refs == {"R_ON"}
 
+    def test_assemble_folds_policy_from_every_sheet_ancestor(self) -> None:
+        symbol = SchSymbol(lib_id="Device:R")
+        symbol.properties = [
+            SymProperty(key="Reference", value="R_LEAF"),
+            SymProperty(key="Value", value="10k"),
+        ]
+        leaf = KiCadSchematic()
+        leaf.uuid = "leaf-source"
+        leaf.symbols.append(symbol)
+
+        mid = KiCadSchematic()
+        mid.uuid = "mid-source"
+        leaf_sheet = SchSheet(uuid="leaf-placement")
+        leaf_sheet.properties = [
+            SchSheetProperty(key="Sheetname", value="leaf"),
+            SchSheetProperty(key="Sheetfile", value="leaf.kicad_sch"),
+        ]
+        mid.sheets.append(leaf_sheet)
+        mid.sub_schematics["leaf.kicad_sch"] = leaf
+
+        root = KiCadSchematic()
+        root.uuid = "root-source"
+        mid_sheet = SchSheet(
+            uuid="mid-placement",
+            dnp=True,
+            in_bom=False,
+            exclude_from_sim=True,
+        )
+        mid_sheet.properties = [
+            SchSheetProperty(key="Sheetname", value="mid"),
+            SchSheetProperty(key="Sheetfile", value="mid.kicad_sch"),
+        ]
+        root.sheets.append(mid_sheet)
+        root.sub_schematics["mid.kicad_sch"] = mid
+
+        [component] = assemble(root)
+
+        assert component.reference == "R_LEAF"
+        assert component.effective_dnp is True
+        assert component.effective_in_bom is False
+        assert component.effective_on_board is True
+        assert component.symbol is not None
+        assert component.symbol.exclude_from_sim is True
+
 
 # ---------------------------------------------------------------------------
 # Path-aware variant resolution

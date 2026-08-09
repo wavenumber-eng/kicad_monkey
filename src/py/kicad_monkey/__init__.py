@@ -549,6 +549,13 @@ __all__ = [
     # Design aggregator (lazy loaded)
     "KiCadDesign",
     "KiCadSchematicInstance",
+    # Compiled schematic graph (lazy loaded)
+    "KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA",
+    "KICAD_COMPILED_SCHEMATIC_GRAPH_TYPE",
+    "KICAD_COMPILED_SCHEMATIC_GRAPH_IDENTITY_NAMESPACE",
+    "KiCadCompiledSchematicGraph",
+    "build_compiled_schematic_graph",
+    "validate_compiled_schematic_graph",
     # Footprint → IR converter (lazy loaded)
     "footprint_to_ir",
     "footprint_to_record",
@@ -1020,6 +1027,12 @@ _LAZY_EXPORT_MODULES: dict[str, str] = {
     'load_default_drawing_sheet': 'kicad_drawing_sheet',
     'KiCadDesign': 'kicad_design',
     'KiCadSchematicInstance': 'kicad_design',
+    'KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA': 'kicad_compiled_schematic_graph',
+    'KICAD_COMPILED_SCHEMATIC_GRAPH_TYPE': 'kicad_compiled_schematic_graph',
+    'KICAD_COMPILED_SCHEMATIC_GRAPH_IDENTITY_NAMESPACE': 'kicad_compiled_schematic_graph',
+    'KiCadCompiledSchematicGraph': 'kicad_compiled_schematic_graph',
+    'build_compiled_schematic_graph': 'kicad_compiled_schematic_graph',
+    'validate_compiled_schematic_graph': 'kicad_compiled_schematic_graph',
     'footprint_to_ir': 'kicad_footprint_to_ir',
     'footprint_to_record': 'kicad_footprint_to_ir',
     'fp_arc_to_op': 'kicad_footprint_to_ir',

@@ -23,6 +23,7 @@ from kicad_monkey import (
     DEFAULT_WIRE_WIDTH_MM,
     KiCadFillType,
     KiCadHorizAlign,
+    KiCadLineStyle,
     KiCadPlotterDocument,
     KiCadPlotterOpKind,
     KiCadPlotterRecord,
@@ -77,8 +78,10 @@ from kicad_monkey.kicad_sch_shapes import (
 )
 from kicad_monkey.kicad_schematic_style import (
     LAYER_BUS,
+    LAYER_DNP_MARKER,
     LAYER_GLOBLABEL,
     LAYER_LOCLABEL,
+    LAYER_NETCLASS_REFS,
     LAYER_NOTES,
     LAYER_WIRE,
 )
@@ -111,6 +114,28 @@ def _require_outline_font(
         if not any(expected.casefold() in stem for expected in expected_stems):
             pytest.skip(f"resolved outline font is not this test's calibrated face: {path}")
     return path
+
+
+def test_outline_font_path_does_not_substitute_when_disabled(monkeypatch):
+    from kicad_monkey import kicad_schematic_to_ir as schematic_ir
+
+    schematic_ir._outline_font_path.cache_clear()
+    monkeypatch.setattr(schematic_ir, "_system_outline_font_paths", lambda: {})
+    monkeypatch.setattr(
+        schematic_ir,
+        "_arial_outline_font_path",
+        lambda _bold: "fallback-arial.ttf",
+    )
+    try:
+        assert (
+            schematic_ir._outline_font_path(
+                "Definitely Missing Exact Face",
+                allow_substitute=False,
+            )
+            is None
+        )
+    finally:
+        schematic_ir._outline_font_path.cache_clear()
 
 
 # ---------------------------------------------------------------------------
@@ -2119,6 +2144,40 @@ def test_schematic_to_ir_emits_netclass_flag_property_fields():
     assert op.payload["italic"] is True
 
 
+def test_schematic_to_ir_emits_round_netclass_flag_marker():
+    from kicad_monkey.kicad_sch_label import SchNetclassFlag
+
+    sch = _empty_schematic()
+    sch.netclass_flags = [
+        SchNetclassFlag(
+            at_x=10.0,
+            at_y=20.0,
+            at_angle=0.0,
+            length=2.54,
+            shape="round",
+            uuid="flag-round",
+            effects=Effects(font=Font(size_x=1.27, size_y=1.27)),
+        )
+    ]
+
+    rec = next(r for r in schematic_to_ir(sch).records if r.kind == "netclass_flag")
+    line, circle = rec.operations
+
+    assert line.kind == KiCadPlotterOpKind.THICK_SEGMENT
+    assert line.payload["start_x"] == mm_to_nm(10.0)
+    assert line.payload["start_y"] == mm_to_nm(20.0)
+    assert line.payload["end_x"] == mm_to_nm(10.0)
+    assert line.payload["end_y"] == mm_to_nm(17.968)
+    assert line.payload["width_nm"] == mm_to_nm(DEFAULT_WIRE_WIDTH_MM)
+    assert line.payload["stroke_color"] == LAYER_NETCLASS_REFS
+    assert circle.kind == KiCadPlotterOpKind.CIRCLE
+    assert circle.payload["cx"] == mm_to_nm(10.0)
+    assert circle.payload["cy"] == mm_to_nm(17.46)
+    assert circle.payload["diameter_nm"] == mm_to_nm(1.016)
+    assert circle.payload["fill"] == KiCadFillType.NO_FILL.value
+    assert circle.payload["stroke_color"] == LAYER_NETCLASS_REFS
+
+
 def test_schematic_to_ir_emits_table_cell_text_like_textbox():
     sch = KiCadSchematic.from_text("""
 (kicad_sch (version 20240101) (generator eeschema) (generator_version "10.0")
@@ -2185,6 +2244,89 @@ def test_sheet_record_carries_outline_rect_and_geometry_extras():
     assert rec.extras["at_y_nm"] == mm_to_nm(200.0)
     assert rec.extras["size_x_nm"] == mm_to_nm(80.0)
     assert rec.extras["size_y_nm"] == mm_to_nm(60.0)
+
+
+def test_dnp_sheet_is_dimmed_and_crossed_like_kicad():
+    sch = _empty_schematic()
+    sch.sheets = [
+        SchSheet(
+            at_x=10.0,
+            at_y=20.0,
+            size_x=30.0,
+            size_y=40.0,
+            uuid="dnp-sheet",
+            dnp=True,
+        )
+    ]
+
+    rec = next(r for r in schematic_to_ir(sch).records if r.kind == "sheet")
+    assert rec.extras["dnp"] is True
+    assert len(rec.operations) == 4
+    assert rec.operations[0].payload["stroke_color"] != "#840000FF"
+
+    first, second = rec.operations[-2:]
+    assert first.kind == KiCadPlotterOpKind.THICK_SEGMENT
+    assert first.payload["start_x"] == mm_to_nm(10.0)
+    assert first.payload["start_y"] == mm_to_nm(20.0)
+    assert first.payload["end_x"] == mm_to_nm(40.0)
+    assert first.payload["end_y"] == mm_to_nm(60.0)
+    assert first.payload["stroke_color"] == LAYER_DNP_MARKER
+    assert second.payload["start_x"] == mm_to_nm(40.0)
+    assert second.payload["start_y"] == mm_to_nm(20.0)
+    assert second.payload["end_x"] == mm_to_nm(10.0)
+    assert second.payload["end_y"] == mm_to_nm(60.0)
+    assert second.payload["stroke_color"] == LAYER_DNP_MARKER
+
+
+def test_rule_area_emits_closed_source_styled_geometry_and_policy():
+    from kicad_monkey.kicad_sch_rule_area import SchRuleArea
+
+    sch = _empty_schematic()
+    sch.rule_areas = [
+        SchRuleArea(
+            locked=True,
+            exclude_from_sim=True,
+            in_bom=False,
+            on_board=False,
+            dnp=True,
+            shape=SchPolyline(
+                points=[(1.0, 2.0), (5.0, 2.0), (5.0, 6.0), (1.0, 6.0)],
+                stroke=Stroke(
+                    width=0.0,
+                    type=StrokeType.DASH,
+                    color=(194, 0, 0, 1.0),
+                ),
+                fill=SymFill(type=SymFillType.NONE),
+                uuid="rule-shape",
+            ),
+        )
+    ]
+
+    rec = next(r for r in schematic_to_ir(sch).records if r.kind == "rule_area")
+    assert rec.uuid == "rule-shape"
+    assert rec.object_id == "rule-shape"
+    assert rec.extras == {
+        "shape": "polyline",
+        "locked": True,
+        "exclude_from_sim": True,
+        "in_bom": False,
+        "on_board": False,
+        "dnp": True,
+    }
+    assert len(rec.operations) == 1
+    op = rec.operations[0]
+    assert op.kind == KiCadPlotterOpKind.PLOT_POLY
+    assert op.payload["points"] == [
+        [mm_to_nm(1.0), mm_to_nm(2.0)],
+        [mm_to_nm(5.0), mm_to_nm(2.0)],
+        [mm_to_nm(5.0), mm_to_nm(6.0)],
+        [mm_to_nm(1.0), mm_to_nm(6.0)],
+        [mm_to_nm(1.0), mm_to_nm(2.0)],
+    ]
+    assert op.payload["width_nm"] == mm_to_nm(DEFAULT_WIRE_WIDTH_MM)
+    assert op.payload["line_style"] == KiCadLineStyle.DASH.value
+    assert op.payload["stroke_color"] == "#C20000FF"
+    assert op.payload["fill"] == KiCadFillType.NO_FILL.value
 
 
 def test_sheet_record_wraps_sheet_pin_ops_in_group():

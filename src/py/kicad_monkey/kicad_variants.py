@@ -10,11 +10,12 @@ dataclasses. It does not mutate them; the resolver layer consumes
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional
 import warnings
 
 from .kicad_project import ProjectVariant
+from .kicad_schematic_occurrence import walk_schematic_occurrences
 
 if TYPE_CHECKING:  # pragma: no cover — typing-only
     from .kicad_project import KiCadProject
@@ -583,23 +584,32 @@ def assemble(
     """
     sym_by_ref: dict[str, EffectiveSymbolProperties] = {}
     if schematic is not None:
-        # Use the hierarchical walker if available — for flat schematics
-        # walk_symbols yields the top-level list with prefix == "/<uuid>",
-        # which resolve_symbol handles correctly.
-        if hasattr(schematic, "walk_symbols"):
-            iterator = schematic.walk_symbols(include_off_board_sheets=False)
-        else:
-            iterator = (
-                (sym, None, schematic)
-                for sym in getattr(schematic, "symbols", []) or []
-            )
-        for sym, sheet_path, _owner in iterator:
-            eff = resolve_symbol(sym, variant_name, sheet_path=sheet_path)
-            if eff.reference:
-                # Last writer wins on duplicate refs (multi-unit symbols
-                # share a reference; the final unit's resolution is
-                # canonical for assembly purposes).
-                sym_by_ref[eff.reference] = eff
+        # The shared occurrence walker supplies the exact instance path and
+        # policy inherited through every placed-sheet ancestor.
+        for occurrence in walk_schematic_occurrences(
+            schematic, include_off_board=False
+        ):
+            for sym in getattr(occurrence.schematic, "symbols", []) or []:
+                eff = resolve_symbol(
+                    sym,
+                    variant_name,
+                    sheet_path=occurrence.sheet_instance_path,
+                )
+                eff = replace(
+                    eff,
+                    dnp=eff.dnp or occurrence.effective_dnp,
+                    exclude_from_sim=(
+                        eff.exclude_from_sim
+                        or occurrence.effective_exclude_from_sim
+                    ),
+                    in_bom=eff.in_bom and occurrence.effective_in_bom,
+                    on_board=eff.on_board and occurrence.effective_on_board,
+                )
+                if eff.reference:
+                    # Last writer wins on duplicate refs (multi-unit symbols
+                    # share a reference; the final unit's resolution is
+                    # canonical for assembly purposes).
+                    sym_by_ref[eff.reference] = eff
 
     fp_by_ref: dict[str, EffectiveFootprintProperties] = {}
     if pcb is not None:

@@ -98,6 +98,41 @@
   </section>
 
   <section>
+    <h2>Schematic Directive, Rule-Area, And DNP-Sheet Evidence</h2>
+    <p>
+      A schematic directive or netclass flag is one source-attributed record.
+      Its operations include both the lead/marker geometry and its property
+      text. Marker shapes use existing generic operations such as
+      <code>ThickSegment</code>, <code>Circle</code>, and
+      <code>PlotPoly</code>; consumers do not need a KiCad-specific directive
+      primitive.
+    </p>
+    <p>
+      A schematic <code>rule_area</code> is emitted as a source-attributed
+      record containing a closed <code>PlotPoly</code>. The operation preserves
+      the authored/effective stroke color, line style, no-fill state, and
+      plotted width. Policy flags remain record metadata and do not turn a rule
+      area into a connectivity terminal.
+    </p>
+    <p>
+      A hierarchical sheet whose source DNP flag is set carries
+      <code>extras.dnp = true</code>. Its ordinary operations are dimmed and two
+      red <code>ThickSegment</code> diagonals reproduce KiCad's DNP marker.
+      These are visible drawing facts; inherited DNP/BOM/board/simulation state
+      for descendant components is computed by the schematic occurrence walker
+      and remains outside Plotter IR topology.
+    </p>
+    <p>
+      Recorder evidence showed that the existing KiCad recorder already
+      captured the generic line, circle, and polygon operations required for
+      directives and rule areas. The missing behavior was source-model to IR
+      implementation, so no recorder patch or new operation kind was needed.
+      Source UUID attribution comes from the parsed source record rather than
+      recorder operation order.
+    </p>
+  </section>
+
+  <section>
     <h2>Operations</h2>
     <p>
       An operation is a flat object whose required <code>kind</code> is the
