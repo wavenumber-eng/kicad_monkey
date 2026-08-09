@@ -13,6 +13,7 @@ from .kicad_compiled_schematic_graph_identity import (
 )
 
 from .kicad_netlist_compiler import (
+    Subgraph,
     _is_power_symbol,
     _resolve_instance_reference,
 )
@@ -262,6 +263,396 @@ def _append_component_occurrences(
         )
 
 
+@dataclass
+class _TerminalBuildContext:
+    graph: KiCadCompiledSchematicGraph
+    identity_allocator: SchCompiledSchematicGraphIdentityAllocator
+    compiled_sheet: CompiledSheet
+    page_occurrence: dict[str, object]
+    source_occurrence_path: str
+    component_by_symbol: dict[tuple[str, str], str]
+    terminal_by_source: dict[tuple[str, str, str], str]
+    terminal_by_semantic_source: dict[tuple[str, str, str, str], dict[str, object]]
+    pin_element_counts: dict[str, int]
+    subgraph_terminals: list[dict[str, object]] = field(default_factory=list)
+    terminal_element_ids: set[str] = field(default_factory=set)
+
+    def add_terminal(
+        self,
+        *,
+        role: str,
+        source_uuid: str,
+        source_subobject: str,
+        name: str,
+        pin_designator: str,
+        component_ref: str | None = None,
+        element_id: str = "",
+    ) -> None:
+        semantic_source_key = (
+            role,
+            component_ref or "",
+            source_uuid,
+            source_subobject,
+        )
+        existing = self.terminal_by_semantic_source.get(semantic_source_key)
+        if existing is not None:
+            self._reuse_terminal(
+                existing,
+                role=role,
+                source_uuid=source_uuid,
+                name=name,
+                element_id=element_id,
+            )
+            return
+        terminal_source = _source_identity(
+            **{
+                "sch.source_key.source_uuid": source_uuid,
+                "sch.source_key.source_subobject": source_subobject,
+                "sch.source_key.source_path": self.source_occurrence_path,
+            }
+        )
+        terminal = _source_row(
+            self.identity_allocator,
+            "sch.terminal_occurrence",
+            terminal_source,
+            owner_refs=(str(self.page_occurrence["id"]), str(component_ref or "")),
+            page_occurrence_ref=self.page_occurrence["id"],
+            role=role,
+            component_occurrence_ref=component_ref,
+            name=name,
+            pin_designator=pin_designator,
+            resolution_diagnostics=_terminal_diagnostics(role, component_ref),
+            source_identity=terminal_source,
+        )
+        if component_ref is None:
+            terminal.pop("component_occurrence_ref")
+        self.graph.terminal_occurrences.append(terminal)
+        self.terminal_by_semantic_source[semantic_source_key] = terminal
+        self.subgraph_terminals.append(terminal)
+        terminal_id = str(terminal["id"])
+        self.terminal_by_source[(self.compiled_sheet.sheet_path, role, source_uuid)] = (
+            terminal_id
+        )
+        if element_id:
+            self.terminal_element_ids.add(element_id)
+            self._append_terminal_link(terminal_id, element_id)
+
+    def _reuse_terminal(
+        self,
+        terminal: dict[str, object],
+        *,
+        role: str,
+        source_uuid: str,
+        name: str,
+        element_id: str,
+    ) -> None:
+        if terminal in self.subgraph_terminals:
+            return
+        if terminal.get("local_net_occurrence_ref"):
+            raise ValueError(
+                "one semantic terminal source resolves to multiple local nets"
+            )
+        existing_name = str(terminal.get("name", "") or "")
+        if name and (not existing_name or name < existing_name):
+            terminal["name"] = name
+        self.terminal_by_source[(self.compiled_sheet.sheet_path, role, source_uuid)] = (
+            str(terminal["id"])
+        )
+        self.subgraph_terminals.append(terminal)
+        if element_id:
+            self.terminal_element_ids.add(element_id)
+
+    def _append_terminal_link(self, terminal_id: str, element_id: str) -> None:
+        page_ref = self.page_occurrence["id"]
+        self.graph.graphical_artifact_links.append(
+            _derived_row(
+                self.identity_allocator,
+                "sch.graphical_artifact_link",
+                {
+                    "page_occurrence_ref": page_ref,
+                    "target_type": "sch.terminal_occurrence",
+                    "target_ref": terminal_id,
+                    "artifact_key": "sch.dwg_scene",
+                    "element_id": element_id,
+                },
+                page_occurrence_ref=page_ref,
+                target_type="sch.terminal_occurrence",
+                target_ref=terminal_id,
+                artifact_key="sch.dwg_scene",
+                element_id=element_id,
+                source_identity=_source_identity(
+                    **{"sch.source_key.artifact_element": element_id}
+                ),
+            )
+        )
+
+
+def _terminal_diagnostics(role: str, component_ref: str | None) -> list[str]:
+    diagnostics: list[str] = []
+    if role == "component_pin":
+        if component_ref is None:
+            diagnostics.append("component_occurrence_unresolved")
+        diagnostics.append("logical_pin_unresolved")
+    diagnostics.append("design_net_unresolved")
+    return diagnostics
+
+
+def _append_bus_drawing_links(
+    *,
+    graph: KiCadCompiledSchematicGraph,
+    compiled_sheet: CompiledSheet,
+    page_occurrence: dict[str, object],
+    identity_allocator: SchCompiledSchematicGraphIdentityAllocator,
+) -> None:
+    assert compiled_sheet.schematic is not None
+    page_ref = page_occurrence["id"]
+    for source_objects in (
+        getattr(compiled_sheet.schematic, "buses", ()) or (),
+        getattr(compiled_sheet.schematic, "bus_entries", ()) or (),
+    ):
+        for source_object in source_objects:
+            element_id = str(getattr(source_object, "uuid", "") or "")
+            if not element_id:
+                continue
+            graph.graphical_artifact_links.append(
+                _derived_row(
+                    identity_allocator,
+                    "sch.graphical_artifact_link",
+                    {
+                        "page_occurrence_ref": page_ref,
+                        "target_type": "sch.page_occurrence",
+                        "target_ref": page_ref,
+                        "artifact_key": "sch.dwg_scene",
+                        "element_id": element_id,
+                    },
+                    page_occurrence_ref=page_ref,
+                    target_type="sch.page_occurrence",
+                    target_ref=page_ref,
+                    artifact_key="sch.dwg_scene",
+                    element_id=element_id,
+                    source_identity=_source_identity(
+                        **{"sch.source_key.artifact_element": element_id}
+                    ),
+                )
+            )
+
+
+def _pin_element_counts(compiled_sheet: CompiledSheet) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for subgraph in compiled_sheet.subgraphs:
+        for driver in subgraph.pin_drivers:
+            element_id = str(driver.pin_svg_uuid or "")
+            if element_id:
+                counts[element_id] = counts.get(element_id, 0) + 1
+    return counts
+
+
+def _append_pin_terminals(context: _TerminalBuildContext, subgraph: Subgraph) -> None:
+    for driver in subgraph.pin_drivers:
+        symbol_uuid = str(getattr(driver, "svg_uuid", "") or "")
+        element_id = (
+            driver.pin_svg_uuid
+            if context.pin_element_counts.get(driver.pin_svg_uuid) == 1
+            else ""
+        )
+        if driver.designator.startswith("#"):
+            if driver.is_power:
+                context.add_terminal(
+                    role="power_port",
+                    source_uuid=symbol_uuid,
+                    source_subobject=str(driver.pin_number),
+                    name=driver.power_value or driver.pin_name,
+                    pin_designator=str(driver.pin_number),
+                    element_id=element_id,
+                )
+            continue
+        context.add_terminal(
+            role="component_pin",
+            source_uuid=str(driver.source_uuid or symbol_uuid),
+            source_subobject=str(driver.pin_number),
+            name=str(driver.pin_name or ""),
+            pin_designator=str(driver.pin_number),
+            component_ref=context.component_by_symbol.get(
+                (context.compiled_sheet.sheet_path, symbol_uuid)
+            ),
+            element_id=element_id,
+        )
+
+
+def _label_terminal_role(kind: KiCadDriverKind) -> str:
+    if kind in {KiCadDriverKind.HIER_LABEL, KiCadDriverKind.GLOBAL_LABEL}:
+        return "port"
+    if kind == KiCadDriverKind.SHEET_PIN:
+        return "sheet_entry"
+    return ""
+
+
+def _append_label_terminals(context: _TerminalBuildContext, subgraph: Subgraph) -> None:
+    for driver in subgraph.label_drivers:
+        role = _label_terminal_role(driver.kind)
+        if not role:
+            continue
+        context.add_terminal(
+            role=role,
+            source_uuid=str(driver.source_uuid or driver.svg_uuid),
+            source_subobject=str(driver.name),
+            name=str(driver.name),
+            pin_designator="",
+            element_id=driver.svg_uuid or driver.source_uuid,
+        )
+
+
+def _local_graphical_elements(
+    subgraph: Subgraph, terminal_element_ids: set[str]
+) -> list[str]:
+    return sorted(
+        {
+            str(element_id)
+            for bucket, values in (subgraph.graphical or {}).items()
+            if bucket not in {"power_ports", "ports", "sheet_entries"}
+            for element_id in values
+            if element_id and str(element_id) not in terminal_element_ids
+        }
+    )
+
+
+def _local_topology_evidence(
+    terminals: list[dict[str, object]], graphical_element_ids: list[str]
+) -> dict[str, object]:
+    terminal_refs = sorted({str(terminal["id"]) for terminal in terminals})
+    if terminal_refs:
+        return {"terminal_occurrence_refs": terminal_refs}
+    if graphical_element_ids:
+        return {
+            "graphical_selectors": [
+                f"sch.dwg_scene\x1f{element_id}" for element_id in graphical_element_ids
+            ]
+        }
+    return {}
+
+
+def _append_local_drawing_links(
+    *,
+    context: _TerminalBuildContext,
+    local_ref: object,
+    graphical_element_ids: list[str],
+) -> None:
+    page_ref = context.page_occurrence["id"]
+    for element_id in graphical_element_ids:
+        context.graph.graphical_artifact_links.append(
+            _derived_row(
+                context.identity_allocator,
+                "sch.graphical_artifact_link",
+                {
+                    "page_occurrence_ref": page_ref,
+                    "target_type": "sch.local_net_occurrence",
+                    "target_ref": local_ref,
+                    "artifact_key": "sch.dwg_scene",
+                    "element_id": element_id,
+                },
+                page_occurrence_ref=page_ref,
+                target_type="sch.local_net_occurrence",
+                target_ref=local_ref,
+                artifact_key="sch.dwg_scene",
+                element_id=element_id,
+                source_identity=_source_identity(
+                    **{"sch.source_key.artifact_element": element_id}
+                ),
+            )
+        )
+
+
+def _append_subgraph(
+    *,
+    context: _TerminalBuildContext,
+    subgraph: Subgraph,
+    compiled_net_code: int | None,
+    display_name: str,
+) -> None:
+    _append_pin_terminals(context, subgraph)
+    _append_label_terminals(context, subgraph)
+    graphical_element_ids = _local_graphical_elements(
+        subgraph, context.terminal_element_ids
+    )
+    topology_evidence = _local_topology_evidence(
+        context.subgraph_terminals, graphical_element_ids
+    )
+    if not topology_evidence:
+        return
+    aliases = sorted(
+        {
+            str(driver.name)
+            for driver in subgraph.label_drivers
+            if getattr(driver, "name", "")
+        }
+    )
+    local_source = _source_identity(
+        **{
+            "sch.source_key.source_record": (
+                f"net-uid:{compiled_net_code:012x}"
+                if compiled_net_code is not None
+                else ""
+            ),
+            "sch.source_key.source_path": context.source_occurrence_path,
+        }
+    )
+    local = _derived_row(
+        context.identity_allocator,
+        "sch.local_net_occurrence",
+        {
+            "page_occurrence_ref": context.page_occurrence["id"],
+            **topology_evidence,
+        },
+        page_occurrence_ref=context.page_occurrence["id"],
+        display_name=display_name,
+        qualified_name=display_name,
+        aliases=aliases,
+        source_identity=local_source,
+    )
+    context.graph.local_net_occurrences.append(local)
+    for terminal in context.subgraph_terminals:
+        terminal["local_net_occurrence_ref"] = local["id"]
+    _append_local_drawing_links(
+        context=context,
+        local_ref=local["id"],
+        graphical_element_ids=graphical_element_ids,
+    )
+
+
+def _append_sheet_connectivity(
+    *,
+    graph: KiCadCompiledSchematicGraph,
+    compiled_sheet: CompiledSheet,
+    page_occurrence: dict[str, object],
+    source_occurrence_path: str,
+    identity_allocator: SchCompiledSchematicGraphIdentityAllocator,
+    component_by_symbol: dict[tuple[str, str], str],
+    terminal_by_source: dict[tuple[str, str, str], str],
+) -> None:
+    terminal_by_semantic_source: dict[tuple[str, str, str, str], dict[str, object]] = {}
+    pin_counts = _pin_element_counts(compiled_sheet)
+    for subgraph_index, subgraph in enumerate(compiled_sheet.subgraphs):
+        context = _TerminalBuildContext(
+            graph=graph,
+            identity_allocator=identity_allocator,
+            compiled_sheet=compiled_sheet,
+            page_occurrence=page_occurrence,
+            source_occurrence_path=source_occurrence_path,
+            component_by_symbol=component_by_symbol,
+            terminal_by_source=terminal_by_source,
+            terminal_by_semantic_source=terminal_by_semantic_source,
+            pin_element_counts=pin_counts,
+        )
+        _append_subgraph(
+            context=context,
+            subgraph=subgraph,
+            compiled_net_code=compiled_sheet.subgraph_net_codes.get(subgraph_index),
+            display_name=compiled_sheet.subgraph_net_names.get(
+                subgraph_index, subgraph.chosen_name
+            ),
+        )
+
+
 def build_compiled_schematic_graph(
     design: "KiCadDesign",
 ) -> KiCadCompiledSchematicGraph:
@@ -426,294 +817,21 @@ def build_compiled_schematic_graph(
             component_by_symbol=component_by_symbol,
         )
 
-        # Aggregate bus/member semantics are deliberately deferred in the a0
-        # graph, but their occurrence-scoped drawing evidence must not vanish.
-        # Link authored carriers to their owning page until the dedicated
-        # interface rows are governed; do not misrepresent a bus as one scalar
-        # local net.
-        for source_objects in (
-            getattr(cs.schematic, "buses", ()) or (),
-            getattr(cs.schematic, "bus_entries", ()) or (),
-        ):
-            for source_object in source_objects:
-                element_id = str(getattr(source_object, "uuid", "") or "")
-                if not element_id:
-                    continue
-                graph.graphical_artifact_links.append(
-                    _derived_row(
-                        identity_allocator,
-                        "sch.graphical_artifact_link",
-                        {
-                            "page_occurrence_ref": page_occurrence["id"],
-                            "target_type": "sch.page_occurrence",
-                            "target_ref": page_occurrence["id"],
-                            "artifact_key": "sch.dwg_scene",
-                            "element_id": element_id,
-                        },
-                        page_occurrence_ref=page_occurrence["id"],
-                        target_type="sch.page_occurrence",
-                        target_ref=page_occurrence["id"],
-                        artifact_key="sch.dwg_scene",
-                        element_id=element_id,
-                        source_identity=_source_identity(
-                            **{"sch.source_key.artifact_element": element_id}
-                        ),
-                    )
-                )
-
-        pin_element_counts: dict[str, int] = {}
-        for candidate_subgraph in cs.subgraphs:
-            for candidate_driver in candidate_subgraph.pin_drivers:
-                element_id = str(candidate_driver.pin_svg_uuid or "")
-                if element_id:
-                    pin_element_counts[element_id] = (
-                        pin_element_counts.get(element_id, 0) + 1
-                    )
-        terminal_by_semantic_source: dict[
-            tuple[str, str, str, str], dict[str, object]
-        ] = {}
-
-        for subgraph_index, subgraph in enumerate(cs.subgraphs):
-            compiled_net_code = cs.subgraph_net_codes.get(subgraph_index)
-            display_name = cs.subgraph_net_names.get(
-                subgraph_index, subgraph.chosen_name
-            )
-            aliases = sorted(
-                {
-                    str(driver.name)
-                    for driver in subgraph.label_drivers
-                    if getattr(driver, "name", "")
-                }
-            )
-            local_source = _source_identity(
-                **{
-                    "sch.source_key.source_record": (
-                        f"net-uid:{compiled_net_code:012x}"
-                        if compiled_net_code is not None
-                        else ""
-                    ),
-                    "sch.source_key.source_path": source_occurrence_path,
-                }
-            )
-            subgraph_terminals: list[dict[str, object]] = []
-            terminal_element_ids: set[str] = set()
-
-            def add_terminal(
-                *,
-                role: str,
-                source_uuid: str,
-                source_subobject: str,
-                name: str,
-                pin_designator: str,
-                component_ref: str | None = None,
-                element_id: str = "",
-            ) -> None:
-                semantic_source_key = (
-                    role,
-                    component_ref or "",
-                    source_uuid,
-                    source_subobject,
-                )
-                existing = terminal_by_semantic_source.get(semantic_source_key)
-                if existing is not None:
-                    if existing in subgraph_terminals:
-                        return
-                    if existing.get("local_net_occurrence_ref"):
-                        raise ValueError(
-                            "one semantic terminal source resolves to multiple local nets"
-                        )
-                    existing_name = str(existing.get("name", "") or "")
-                    if name and (not existing_name or name < existing_name):
-                        existing["name"] = name
-                    terminal_by_source[(cs.sheet_path, role, source_uuid)] = str(
-                        existing["id"]
-                    )
-                    subgraph_terminals.append(existing)
-                    if element_id:
-                        terminal_element_ids.add(element_id)
-                    return
-                terminal_source = _source_identity(
-                    **{
-                        "sch.source_key.source_uuid": source_uuid,
-                        "sch.source_key.source_subobject": source_subobject,
-                        "sch.source_key.source_path": source_occurrence_path,
-                    }
-                )
-                terminal = _source_row(
-                    identity_allocator,
-                    "sch.terminal_occurrence",
-                    terminal_source,
-                    owner_refs=(
-                        str(page_occurrence["id"]),
-                        str(component_ref or ""),
-                    ),
-                    page_occurrence_ref=page_occurrence["id"],
-                    role=role,
-                    component_occurrence_ref=component_ref,
-                    name=name,
-                    pin_designator=pin_designator,
-                    resolution_diagnostics=[
-                        *(
-                            [
-                                *(
-                                    ["component_occurrence_unresolved"]
-                                    if component_ref is None
-                                    else []
-                                ),
-                                "logical_pin_unresolved",
-                            ]
-                            if role == "component_pin"
-                            else []
-                        ),
-                        "design_net_unresolved",
-                    ],
-                    source_identity=terminal_source,
-                )
-                if component_ref is None:
-                    terminal.pop("component_occurrence_ref")
-                graph.terminal_occurrences.append(terminal)
-                terminal_by_semantic_source[semantic_source_key] = terminal
-                subgraph_terminals.append(terminal)
-                terminal_id = str(terminal["id"])
-                terminal_by_source[(cs.sheet_path, role, source_uuid)] = terminal_id
-                if element_id:
-                    terminal_element_ids.add(element_id)
-                    graph.graphical_artifact_links.append(
-                        _derived_row(
-                            identity_allocator,
-                            "sch.graphical_artifact_link",
-                            {
-                                "page_occurrence_ref": page_occurrence["id"],
-                                "target_type": "sch.terminal_occurrence",
-                                "target_ref": terminal_id,
-                                "artifact_key": "sch.dwg_scene",
-                                "element_id": element_id,
-                            },
-                            page_occurrence_ref=page_occurrence["id"],
-                            target_type="sch.terminal_occurrence",
-                            target_ref=terminal_id,
-                            artifact_key="sch.dwg_scene",
-                            element_id=element_id,
-                            source_identity=_source_identity(
-                                **{"sch.source_key.artifact_element": element_id}
-                            ),
-                        )
-                    )
-
-            for driver in subgraph.pin_drivers:
-                symbol_uuid = str(getattr(driver, "svg_uuid", "") or "")
-                if driver.designator.startswith("#"):
-                    if driver.is_power:
-                        add_terminal(
-                            role="power_port",
-                            source_uuid=symbol_uuid,
-                            source_subobject=str(driver.pin_number),
-                            name=driver.power_value or driver.pin_name,
-                            pin_designator=str(driver.pin_number),
-                            element_id=(
-                                driver.pin_svg_uuid
-                                if pin_element_counts.get(driver.pin_svg_uuid) == 1
-                                else ""
-                            ),
-                        )
-                    continue
-                component_ref = component_by_symbol.get((cs.sheet_path, symbol_uuid))
-                source_uuid = str(driver.source_uuid or symbol_uuid)
-                add_terminal(
-                    role="component_pin",
-                    source_uuid=source_uuid,
-                    source_subobject=str(driver.pin_number),
-                    name=str(driver.pin_name or ""),
-                    pin_designator=str(driver.pin_number),
-                    component_ref=component_ref,
-                    element_id=(
-                        driver.pin_svg_uuid
-                        if pin_element_counts.get(driver.pin_svg_uuid) == 1
-                        else ""
-                    ),
-                )
-            for driver in subgraph.label_drivers:
-                if driver.kind == KiCadDriverKind.HIER_LABEL:
-                    role = "port"
-                elif driver.kind == KiCadDriverKind.SHEET_PIN:
-                    role = "sheet_entry"
-                elif driver.kind == KiCadDriverKind.GLOBAL_LABEL:
-                    role = "port"
-                else:
-                    continue
-                add_terminal(
-                    role=role,
-                    source_uuid=str(driver.source_uuid or driver.svg_uuid),
-                    source_subobject=str(driver.name),
-                    name=str(driver.name),
-                    pin_designator="",
-                    element_id=driver.svg_uuid or driver.source_uuid,
-                )
-
-            graphical_element_ids = sorted(
-                {
-                    str(element_id)
-                    for bucket, values in (subgraph.graphical or {}).items()
-                    if bucket not in {"power_ports", "ports", "sheet_entries"}
-                    for element_id in values
-                    if element_id and str(element_id) not in terminal_element_ids
-                }
-            )
-            terminal_refs = sorted(
-                {str(terminal["id"]) for terminal in subgraph_terminals}
-            )
-            if terminal_refs:
-                topology_evidence: dict[str, object] = {
-                    "terminal_occurrence_refs": terminal_refs
-                }
-            elif graphical_element_ids:
-                topology_evidence = {
-                    "graphical_selectors": [
-                        f"sch.dwg_scene\x1f{element_id}"
-                        for element_id in graphical_element_ids
-                    ]
-                }
-            else:
-                continue
-            local = _derived_row(
-                identity_allocator,
-                "sch.local_net_occurrence",
-                {
-                    "page_occurrence_ref": page_occurrence["id"],
-                    **topology_evidence,
-                },
-                page_occurrence_ref=page_occurrence["id"],
-                display_name=display_name,
-                qualified_name=display_name,
-                aliases=aliases,
-                source_identity=local_source,
-            )
-            graph.local_net_occurrences.append(local)
-            for terminal in subgraph_terminals:
-                terminal["local_net_occurrence_ref"] = local["id"]
-
-            for element_id in graphical_element_ids:
-                graph.graphical_artifact_links.append(
-                    _derived_row(
-                        identity_allocator,
-                        "sch.graphical_artifact_link",
-                        {
-                            "page_occurrence_ref": page_occurrence["id"],
-                            "target_type": "sch.local_net_occurrence",
-                            "target_ref": local["id"],
-                            "artifact_key": "sch.dwg_scene",
-                            "element_id": element_id,
-                        },
-                        page_occurrence_ref=page_occurrence["id"],
-                        target_type="sch.local_net_occurrence",
-                        target_ref=local["id"],
-                        artifact_key="sch.dwg_scene",
-                        element_id=element_id,
-                        source_identity=_source_identity(
-                            **{"sch.source_key.artifact_element": element_id}
-                        ),
-                    )
-                )
+        _append_bus_drawing_links(
+            graph=graph,
+            compiled_sheet=cs,
+            page_occurrence=page_occurrence,
+            identity_allocator=identity_allocator,
+        )
+        _append_sheet_connectivity(
+            graph=graph,
+            compiled_sheet=cs,
+            page_occurrence=page_occurrence,
+            source_occurrence_path=source_occurrence_path,
+            identity_allocator=identity_allocator,
+            component_by_symbol=component_by_symbol,
+            terminal_by_source=terminal_by_source,
+        )
 
     _add_hierarchy_bindings(
         graph,
@@ -805,12 +923,17 @@ def _add_hierarchy_bindings(
             mark_unresolved(child_ref)
 
 
-def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
-    """Strictly validate embedded row identity, ownership, and references."""
+def _validate_payload_header(payload: dict[str, object]) -> None:
     if payload.get("schema") != KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA:
         raise ValueError("unsupported compiled schematic graph schema")
     if payload.get("type") != KICAD_COMPILED_SCHEMATIC_GRAPH_TYPE:
         raise ValueError("invalid compiled schematic graph type")
+
+
+def _validate_graph_rows(
+    payload: dict[str, object],
+) -> dict[str, dict[str, object]]:
+    _validate_payload_header(payload)
     collections_by_name = {
         name: _payload_collection(payload, name) for name in _COLLECTION_NAMES
     }
@@ -846,6 +969,10 @@ def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
                 if missing:
                     raise ValueError(f"unresolved compiled schematic graph refs {key}")
 
+    return row_by_id
+
+
+def _validate_terminal_rows(payload: dict[str, object]) -> None:
     page_by_id = {
         str(row["id"]): row for row in _payload_collection(payload, "page_occurrences")
     }
@@ -856,14 +983,6 @@ def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
     local_by_id = {
         str(row["id"]): row
         for row in _payload_collection(payload, "local_net_occurrences")
-    }
-    hierarchy_by_id = {
-        str(row["id"]): row
-        for row in _payload_collection(payload, "hierarchy_occurrences")
-    }
-    terminal_by_id = {
-        str(row["id"]): row
-        for row in _payload_collection(payload, "terminal_occurrences")
     }
     for terminal in _payload_collection(payload, "terminal_occurrences"):
         page_ref = str(terminal.get("page_occurrence_ref", ""))
@@ -904,6 +1023,21 @@ def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
                     "component-pin terminal needs logical-pin ownership or a diagnostic"
                 )
 
+
+def _validated_hierarchy_binding_parent_refs(
+    payload: dict[str, object],
+) -> tuple[set[str], dict[str, dict[str, object]], dict[str, dict[str, object]]]:
+    page_by_id = {
+        str(row["id"]): row for row in _payload_collection(payload, "page_occurrences")
+    }
+    hierarchy_by_id = {
+        str(row["id"]): row
+        for row in _payload_collection(payload, "hierarchy_occurrences")
+    }
+    terminal_by_id = {
+        str(row["id"]): row
+        for row in _payload_collection(payload, "terminal_occurrences")
+    }
     page_refs_by_unit: dict[str, set[str]] = {}
     for page_ref, page in page_by_id.items():
         page_refs_by_unit.setdefault(
@@ -934,7 +1068,15 @@ def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
         if len(resolved_nets) > 1:
             raise ValueError("hierarchy binding resolves to different design nets")
         binding_parent_refs.add(str(parent["id"]))
+    return binding_parent_refs, hierarchy_by_id, terminal_by_id
 
+
+def _validate_hierarchy_binding_completeness(payload: dict[str, object]) -> None:
+    (
+        binding_parent_refs,
+        hierarchy_by_id,
+        terminal_by_id,
+    ) = _validated_hierarchy_binding_parent_refs(payload)
     hierarchy_parent_pages = {
         str(row.get("parent_page_occurrence_ref", ""))
         for row in hierarchy_by_id.values()
@@ -967,6 +1109,18 @@ def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
                 "hierarchy sheet-entry terminal needs a binding or diagnostic"
             )
 
+
+def _graphical_target_page(target_type: str, target_row: dict[str, object]) -> object:
+    if target_type == "sch.hierarchy_occurrence":
+        return target_row.get("parent_page_occurrence_ref")
+    if target_type == "sch.page_occurrence":
+        return target_row.get("id")
+    return target_row.get("page_occurrence_ref")
+
+
+def _validate_graphical_links(
+    payload: dict[str, object], row_by_id: dict[str, dict[str, object]]
+) -> None:
     selectors: dict[tuple[str, str, str], tuple[str, str]] = {}
     for link in _payload_collection(payload, "graphical_artifact_links"):
         selector = (
@@ -981,17 +1135,18 @@ def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
         target_row = row_by_id[target[1]]
         if target_row.get("type") != target[0]:
             raise ValueError("graphical artifact target type does not match target row")
-        target_page = (
-            target_row.get("parent_page_occurrence_ref")
-            if target[0] == "sch.hierarchy_occurrence"
-            else (
-                target_row.get("id")
-                if target[0] == "sch.page_occurrence"
-                else target_row.get("page_occurrence_ref")
-            )
-        )
+        target_page = _graphical_target_page(target[0], target_row)
         if str(target_page or "") != selector[0]:
             raise ValueError("graphical artifact target has wrong page owner")
+
+
+def validate_compiled_schematic_graph(payload: dict[str, object]) -> None:
+    """Strictly validate embedded row identity, ownership, and references."""
+
+    row_by_id = _validate_graph_rows(payload)
+    _validate_terminal_rows(payload)
+    _validate_hierarchy_binding_completeness(payload)
+    _validate_graphical_links(payload, row_by_id)
 
 
 __all__ = [

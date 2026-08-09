@@ -23,9 +23,9 @@ UUIDs and paths remain provenance in `source_identity`; they are not canonical
 runtime identity. Display names, designators, net names, sequential net codes,
 list positions, and drawing geometry do not identify semantic rows.
 
-Identity allocation is a package-local copy of the governed generic allocator:
-the normalized source selector and canonical owner refs are wrapped exactly as
-they are in `data_models`, without a runtime dependency on Appz. Definition
+Identity allocation is a package-local copy of the governed generic allocator.
+The normalized source selector and canonical owner refs use the governed
+address shape while the producer remains independently installable. Definition
 identity uses the portable schematic source path and source UUID. Occurrence
 identity uses KiCad's realized instance path. The public
 `sheet_path_uuids` value is the cross-package occurrence selector, while the

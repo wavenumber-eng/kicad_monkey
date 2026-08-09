@@ -1,8 +1,8 @@
 """Stable UUIDv7 identities for the compiled schematic graph.
 
-This is the package-local copy of the governed ``data_models`` allocator.  Keep
-the address shape and normalization semantics byte-for-byte compatible; KiCad
-Monkey must not depend on Appz at runtime merely to produce the transport.
+This is the package-local copy of the governed generic allocator. Keep the
+address shape and normalization semantics byte-for-byte compatible while the
+producer remains independently installable.
 """
 
 from __future__ import annotations
