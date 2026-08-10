@@ -31,7 +31,7 @@ jobs:
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
     runs-on: ubuntu-latest
-    environment: pypi
+    environment: pypi-kicad-monkey
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
