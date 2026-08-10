@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2026.8.10.1
+
+- Link visible KiCad power-symbol groups to their compiled `power_port`
+  terminals so schematic viewers can activate the connected local net by
+  clicking the symbol body.
+
 ## 2026.8.10
 
 - Add an occurrence-scoped compiled-graph view to enriched schematic SVG

@@ -496,7 +496,10 @@ def _append_pin_terminals(context: _TerminalBuildContext, subgraph: Subgraph) ->
                     source_subobject=str(driver.pin_number),
                     name=driver.power_value or driver.pin_name,
                     pin_designator=str(driver.pin_number),
-                    element_id=element_id,
+                    # A KiCad power symbol is presented as the parent symbol
+                    # group. Its pin is commonly hidden, so pin_svg_uuid is
+                    # intentionally empty and cannot serve as click evidence.
+                    element_id=symbol_uuid,
                 )
             continue
         context.add_terminal(
