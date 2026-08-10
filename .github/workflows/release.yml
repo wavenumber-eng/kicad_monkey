@@ -152,8 +152,17 @@ jobs:
               time.sleep(15)
           PY
           uv venv .coordinated-monkey-venv
-          uv pip install --python .coordinated-monkey-venv --no-cache \
-            "kicad-monkey==${MONKEY_VERSION}"
+          for install_attempt in {1..20}; do
+            if uv pip install --python .coordinated-monkey-venv --no-cache \
+              "kicad-monkey==${MONKEY_VERSION}"; then
+              break
+            fi
+            if [[ "${install_attempt}" -eq 20 ]]; then
+              echo "kicad-monkey ${MONKEY_VERSION} did not become installable" >&2
+              exit 1
+            fi
+            sleep 15
+          done
           .coordinated-monkey-venv/bin/python -I - <<'PY'
           from importlib.metadata import version
           import kicad_monkey

@@ -1,6 +1,6 @@
 # 2026-08-09 Schematic SVG Compiled-Graph Linkage
 
-Status: implemented; release pending
+Status: accepted and released in `2026.8.10`
 
 ## Requirement
 
