@@ -821,7 +821,7 @@ def test_compiled_graph_omits_hidden_and_ambiguous_stacked_pin_selectors():
     validate_compiled_schematic_graph(graph)
 
 
-def test_compiled_graph_omits_zero_length_power_pin_without_visible_text():
+def test_compiled_graph_links_zero_length_power_pin_to_visible_symbol_group():
     pin = SymPin(
         electrical_type=PinElectricalType.POWER_IN,
         graphic_style=PinGraphicStyle.LINE,
@@ -836,9 +836,7 @@ def test_compiled_graph_omits_zero_length_power_pin_without_visible_text():
         power=True,
         pin_names_hide=True,
         pin_numbers_hide=True,
-        subsymbols=[
-            LibSubSymbol(name="power:+3V3_1_0", unit=1, pins=[pin])
-        ],
+        subsymbols=[LibSubSymbol(name="power:+3V3_1_0", unit=1, pins=[pin])],
     )
     symbol = SchSymbol(lib_id="power:+3V3", uuid="power-symbol")
     symbol.properties = [
@@ -855,10 +853,10 @@ def test_compiled_graph_omits_zero_length_power_pin_without_visible_text():
         KiCadDesign(schematics=[schematic])
     ).to_json()
 
-    assert len(graph["terminal_occurrences"]) == 1
+    terminal = graph["terminal_occurrences"][0]
     assert [
-        row
+        (row["target_ref"], row["element_id"])
         for row in graph["graphical_artifact_links"]
         if row["target_type"] == "sch.terminal_occurrence"
-    ] == []
+    ] == [(terminal["id"], "power-symbol")]
     validate_compiled_schematic_graph(graph)
