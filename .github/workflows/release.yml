@@ -85,7 +85,7 @@ jobs:
       github.event_name == 'release' &&
       startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
     runs-on: ubuntu-latest
-    environment: pypi
+    environment: pypi-kicad-cruncher
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -166,7 +166,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     needs: verify-coordinated-monkey
     runs-on: ubuntu-latest
-    environment: pypi
+    environment: pypi-kicad-cruncher
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
