@@ -2,21 +2,28 @@
 type = "requirement"
 id = "design-req-001-agent-compiled-graph-linkage"
 domain = "design"
-status = "active"
+status = "implemented"
 title = "Design review exposes occurrence-scoped compiled-graph navigation"
 created = "2026-08-09"
 issue_refs = ["wavenumber-eng/kicad_monkey#49"]
-verification_status = "unverified"
 design_refs = [
   "docs/design/cli/design.html",
   "docs/design/cli/megamaid.html",
   "docs/design/api/index.html",
 ]
+
+[[verification_refs]]
+kind = "local_file"
+target = "tests/L3_public_workflows/test_L3_001_design_workflow.py"
+
+[[verification_refs]]
+kind = "local_file"
+target = "tests/L3_public_workflows/test_L3_006_megamaid_workflow.py"
 +++
 
 # DESIGN-REQ-001: Agent Compiled-Graph Linkage
 
-Status: implemented; release pending
+Status: accepted and released in `2026.8.10`
 
 The `design`, `design-review`, and `dr` commands must write the exact
 `compiled_schematic_graph` object returned in the single Design JSON producer

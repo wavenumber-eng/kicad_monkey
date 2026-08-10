@@ -92,6 +92,8 @@ def test_repository_governance_routes_both_packages() -> None:
     assert "environment: pypi\n" not in release
     assert release.count("environment: pypi-kicad-monkey\n") == 1
     assert release.count("environment: pypi-kicad-cruncher\n") == 2
+    assert "for install_attempt in {1..20}; do" in release
+    assert "did not become installable" in release
     assert "kicad-monkey-v${VERSION}" in release
     assert "kicad-cruncher-v${VERSION}" in release
     assert "packages-dir: packages/kicad_cruncher/dist/" in release
