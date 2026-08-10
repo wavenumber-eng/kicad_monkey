@@ -819,3 +819,46 @@ def test_compiled_graph_omits_hidden_and_ambiguous_stacked_pin_selectors():
         if row["target_type"] == "sch.component_occurrence"
     ] == ["mixed-symbol"]
     validate_compiled_schematic_graph(graph)
+
+
+def test_compiled_graph_omits_zero_length_power_pin_without_visible_text():
+    pin = SymPin(
+        electrical_type=PinElectricalType.POWER_IN,
+        graphic_style=PinGraphicStyle.LINE,
+        at_x=0.0,
+        at_y=0.0,
+        length=0.0,
+        number="1",
+        name="~",
+    )
+    library = LibSymbol(
+        name="power:+3V3",
+        power=True,
+        pin_names_hide=True,
+        pin_numbers_hide=True,
+        subsymbols=[
+            LibSubSymbol(name="power:+3V3_1_0", unit=1, pins=[pin])
+        ],
+    )
+    symbol = SchSymbol(lib_id="power:+3V3", uuid="power-symbol")
+    symbol.properties = [
+        SymProperty(key="Reference", value="#PWR01"),
+        SymProperty(key="Value", value="+3V3"),
+    ]
+    schematic = KiCadSchematic()
+    schematic.uuid = "power-root"
+    schematic.source_path = "C:/portable/power.kicad_sch"
+    schematic.lib_symbols.append(library)
+    schematic.symbols.append(symbol)
+
+    graph = build_compiled_schematic_graph(
+        KiCadDesign(schematics=[schematic])
+    ).to_json()
+
+    assert len(graph["terminal_occurrences"]) == 1
+    assert [
+        row
+        for row in graph["graphical_artifact_links"]
+        if row["target_type"] == "sch.terminal_occurrence"
+    ] == []
+    validate_compiled_schematic_graph(graph)

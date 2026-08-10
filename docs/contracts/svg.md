@@ -203,3 +203,32 @@ themes should use semantic roles.
 
 Downstream tools should not infer schematic connectivity from rendered text or
 group nesting alone.
+
+### Compiled graph page view
+
+When a caller supplies the compiled schematic graph and concrete schematic
+instance, the a0 enrichment payload additively includes
+`compiled_schematic_graph_view` with schema
+`kicad_monkey.schematic.svg.compiled_graph_view.a0`. The view contains:
+
+- the graph schema and identity namespace;
+- a graph artifact path relative to the SVG file;
+- linkage contract
+  `kicad_monkey.schematic.svg.compiled_graph_linkage.a0`;
+- canonical `page_occurrence_ref` and artifact key `sch.dwg_scene`;
+- page-scoped graphical-artifact-link refs;
+- `element_id -> graphical_artifact_link_ref[]` and
+  `target_ref -> element_id[]` indexes;
+- the graph-owned target type for each indexed target ref.
+
+The root SVG mirrors the graph/view schema, page occurrence, artifact key, and
+linkage contract as compact discovery attributes. The authoritative drawing
+join is `page_occurrence_ref + artifact_key + element_id`. Displayed names,
+designators, net names, text, DOM order, and geometry are not join keys.
+Repeated sheet occurrences may share an `element_id`; the page occurrence
+keeps their graph links and semantic targets distinct.
+
+`validate_schematic_svg_compiled_graph_view(...)` fails when a page is unknown,
+the projected view differs from the graph, or a projected selector is missing
+or duplicated in the rendered SVG. Existing enrichment payloads without this
+optional additive view remain valid a0 documents.

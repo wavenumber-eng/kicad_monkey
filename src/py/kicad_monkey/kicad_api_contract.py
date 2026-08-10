@@ -139,6 +139,24 @@ PUBLIC_API_EXPORTS: tuple[PublicApiExport, ...] = (
     PublicApiExport("normalize_schematic_svg_color_role", PublicApiStratum.RENDERING),
     PublicApiExport("schematic_svg_role_color", PublicApiStratum.RENDERING),
     PublicApiExport("schematic_svg_role_color_overrides", PublicApiStratum.RENDERING),
+    PublicApiExport(
+        "KICAD_SCHEMATIC_COMPILED_GRAPH_VIEW_SCHEMA",
+        PublicApiStratum.RENDERING,
+    ),
+    PublicApiExport(
+        "KICAD_SCHEMATIC_GRAPH_LINKAGE_CONTRACT",
+        PublicApiStratum.RENDERING,
+    ),
+    PublicApiExport("KICAD_SCHEMATIC_GRAPH_ARTIFACT_KEY", PublicApiStratum.RENDERING),
+    PublicApiExport("compiled_schematic_graph_page_view", PublicApiStratum.RENDERING),
+    PublicApiExport(
+        "resolve_compiled_schematic_graph_page_occurrence",
+        PublicApiStratum.RENDERING,
+    ),
+    PublicApiExport(
+        "validate_schematic_svg_compiled_graph_view",
+        PublicApiStratum.RENDERING,
+    ),
     # File-level utilities that remain package-level public API.
     PublicApiExport("read_kicad_pro_parameters", PublicApiStratum.UTILITIES),
     PublicApiExport("KiCadEnvironment", PublicApiStratum.UTILITIES),

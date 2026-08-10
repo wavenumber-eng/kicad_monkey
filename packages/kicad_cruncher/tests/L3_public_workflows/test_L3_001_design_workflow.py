@@ -363,6 +363,19 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _schematic_enrichment_payload(svg_text: str) -> dict[str, Any]:
+    root = ET.fromstring(svg_text)
+    metadata = next(
+        element
+        for element in root.iter()
+        if element.tag.rsplit("}", 1)[-1] == "metadata"
+        and element.attrib.get("id") == "schematic-enrichment-a0"
+    )
+    payload = json.loads("".join(metadata.itertext()))
+    assert isinstance(payload, dict)
+    return payload
+
+
 def _assert_design_review_bundle(
     output_dir: Path,
     *,
@@ -378,6 +391,17 @@ def _assert_design_review_bundle(
     manifest = _read_json(manifest_path)
     assert manifest["schema"] == "kicad_cruncher.design_review_manifest.a0"
     assert manifest["design_json"] == design_json_name
+    graph_record = manifest["compiled_schematic_graph"]
+    assert isinstance(graph_record, dict)
+    assert graph_record["file"] == design_json_name.replace(
+        "_design.json", "_compiled_schematic_graph.json"
+    )
+    assert graph_record["schema"] == "kicad_monkey.compiled_schematic_graph.a0"
+    assert graph_record["type"] == "sch.compiled_schematic_graph"
+    assert graph_record["identity_namespace"] == "sch.compiled_schematic_graph.a0"
+    assert graph_record["linkage_contract"] == (
+        "kicad_monkey.schematic.svg.compiled_graph_linkage.a0"
+    )
     assert manifest["netlist_json"] == design_json_name.replace("_design.json", "_netlist.json")
     assert manifest["netlist_kicad_sexpr"] == design_json_name.replace(
         "_design.json",
@@ -385,6 +409,14 @@ def _assert_design_review_bundle(
     )
     assert manifest["readme"] == "README.md"
     assert (output_dir / design_json_name).exists()
+    design_payload = _read_json(output_dir / design_json_name)
+    graph_payload = _read_json(output_dir / str(graph_record["file"]))
+    assert graph_payload == design_payload["compiled_schematic_graph"]
+    assert graph_record["counts"] == {
+        key: len(value)
+        for key, value in sorted(graph_payload.items())
+        if isinstance(value, list)
+    }
     assert (output_dir / str(manifest["netlist_json"])).exists()
     assert (output_dir / str(manifest["netlist_kicad_sexpr"])).exists()
 
@@ -396,6 +428,8 @@ def _assert_design_review_bundle(
     assert "Schematic SVGs" in readme_text
     assert "PCB Review SVGs" in readme_text
     assert "kicad_monkey.design.a0" in readme_text
+    assert "Compiled Schematic Graph Navigation" in readme_text
+    assert str(graph_record["file"]) in readme_text
 
     schematic_svgs = manifest["schematic_svgs"]
     assert isinstance(schematic_svgs, list)
@@ -407,6 +441,21 @@ def _assert_design_review_bundle(
         assert "<svg" in schematic_svg
         assert "kicad_monkey.schematic.svg.enrichment.a0" in schematic_svg
         assert 'data-review-theme="kicad_cruncher.design_review.schematic_svg.a0"' in schematic_svg
+        assert 'data-compiled-graph-artifact-key="sch.dwg_scene"' in schematic_svg
+        enrichment = _schematic_enrichment_payload(schematic_svg)
+        graph_view = enrichment["compiled_schematic_graph_view"]
+        assert graph_view["page_occurrence_ref"] == item["page_occurrence_ref"]
+        assert graph_view["artifact_key"] == item["artifact_key"] == "sch.dwg_scene"
+        assert graph_view["linkage_contract"] == graph_record["linkage_contract"]
+        assert item["graph_link_count"] == len(
+            graph_view["graphical_artifact_link_refs"]
+        )
+        assert item["resolved_svg_identity_count"] == len(
+            graph_view["element_to_graphical_artifact_link_refs"]
+        )
+        assert (
+            svg_path.parent / graph_view["graph_artifact"]
+        ).resolve() == (output_dir / str(graph_record["file"])).resolve()
         colors = {match.upper() for match in _SVG_COLOR_RE.findall(schematic_svg)}
         assert colors <= {"#000000", "#FFFFFF"}
         assert "#000000" in colors
@@ -687,6 +736,78 @@ def test_design_command_can_auto_detect_single_project(tmp_path: Path) -> None:
         design_json_name="demo_design.json",
         expect_pcb_svgs=False,
     )
+
+
+def test_design_review_agent_can_trace_svg_to_connectivity_and_back(tmp_path: Path) -> None:
+    """Consume only bundle files to traverse drawing -> graph -> drawing."""
+    project_path = (
+        _CORPUS_ROOT / "projects" / "taillight" / "input" / "11-10045__taillight__C.kicad_pro"
+    )
+    output_dir = tmp_path / "agent-review"
+
+    result = _run_cli("dr", str(project_path), "-o", str(output_dir))
+
+    assert result.returncode == 0, result.stderr + result.stdout
+    manifest = _read_json(output_dir / "design_review_manifest.json")
+    graph_record = manifest["compiled_schematic_graph"]
+    graph = _read_json(output_dir / graph_record["file"])
+    links_by_id = {row["id"]: row for row in graph["graphical_artifact_links"]}
+    terminals_by_id = {row["id"]: row for row in graph["terminal_occurrences"]}
+    components_by_id = {row["id"]: row for row in graph["component_occurrences"]}
+
+    completed_trace: dict[str, Any] | None = None
+    for svg_record in manifest["schematic_svgs"]:
+        svg_path = output_dir / svg_record["file"]
+        svg_text = svg_path.read_text(encoding="utf-8")
+        svg_root = ET.fromstring(svg_text)
+        svg_ids = {
+            element.attrib["id"]
+            for element in svg_root.iter()
+            if element.attrib.get("id")
+        }
+        view = _schematic_enrichment_payload(svg_text)["compiled_schematic_graph_view"]
+        for element_id, link_refs in view[
+            "element_to_graphical_artifact_link_refs"
+        ].items():
+            assert element_id in svg_ids
+            for link_ref in link_refs:
+                link = links_by_id[link_ref]
+                if link["target_type"] != "sch.terminal_occurrence":
+                    continue
+                terminal = terminals_by_id[link["target_ref"]]
+                local_net_ref = terminal.get("local_net_occurrence_ref")
+                if not local_net_ref:
+                    continue
+                connected_terminals = [
+                    row
+                    for row in graph["terminal_occurrences"]
+                    if row.get("local_net_occurrence_ref") == local_net_ref
+                ]
+                connected_components = [
+                    components_by_id[row["component_occurrence_ref"]]
+                    for row in connected_terminals
+                    if row.get("component_occurrence_ref") in components_by_id
+                ]
+                if len(connected_terminals) < 2 or not connected_components:
+                    continue
+                assert element_id in view["target_to_element_ids"][terminal["id"]]
+                assert link["page_occurrence_ref"] == view["page_occurrence_ref"]
+                assert link["artifact_key"] == view["artifact_key"]
+                completed_trace = {
+                    "terminal": terminal["id"],
+                    "local_net": local_net_ref,
+                    "connected_terminals": [row["id"] for row in connected_terminals],
+                    "connected_components": [row["id"] for row in connected_components],
+                }
+                break
+            if completed_trace is not None:
+                break
+        if completed_trace is not None:
+            break
+
+    assert completed_trace is not None
+    assert completed_trace["terminal"] in completed_trace["connected_terminals"]
+    assert completed_trace["connected_components"]
 
 
 def test_design_command_rejects_pcb_only_input(tmp_path: Path) -> None:

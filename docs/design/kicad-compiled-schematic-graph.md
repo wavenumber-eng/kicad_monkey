@@ -70,6 +70,18 @@ deferred in a0, buses and bus entries link to their owning page occurrence
 rather than being misrepresented as one scalar local net.
 Hidden pins have no pin-level link. A stacked-pin drawing shared by multiple
 scalar terminals is deliberately left unlinked rather than made ambiguous.
+The same rule applies to non-hidden pins whose shaft and text both produce no
+rendered operations, including zero-length power pins with suppressed name and
+number text. Overplot passes use separate suffixed SVG ids, leaving the primary
+source-owned pin id as the unique canonical graph selector without changing
+visual geometry.
+
+Enriched schematic SVGs expose a page-scoped projection of these rows through
+`kicad_monkey.schematic.svg.compiled_graph_view.a0`. Monkey resolves a concrete
+`KiCadSchematicInstance` to exactly one page occurrence and validates that
+every projected `(page_occurrence_ref, artifact_key, element_id)` selector is
+present exactly once in that page SVG. The SVG view is a navigation index; the
+compiled graph remains the semantic authority.
 
 The a0 contract supports scalar sheet-entry to child-port bindings. Aggregate
 bus and harness member bindings require a later versioned contract. Missing

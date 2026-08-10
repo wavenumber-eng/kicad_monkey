@@ -71,6 +71,7 @@ class DesignReviewBundle:
 
     output_dir: Path
     design_json_path: Path
+    compiled_schematic_graph_path: Path
     netlist_json_path: Path
     netlist_kicad_sexpr_path: Path
     manifest_path: Path
@@ -160,6 +161,9 @@ def _schematic_svg_artifact(
     instance: _SchematicInstanceLike,
     svg_path: Path,
     output_dir: Path,
+    *,
+    graph_view: JsonObject,
+    graph_link_counts: dict[str, int],
 ) -> Artifact:
     """Return the manifest entry for one schematic SVG."""
     source_path = instance.source_path
@@ -172,6 +176,12 @@ def _schematic_svg_artifact(
         "sheet_path_uuids": instance.sheet_path_uuids,
         "sheet_instance_path": instance.sheet_instance_path,
         "source": str(source_path) if source_path is not None else "",
+        "page_occurrence_ref": graph_view["page_occurrence_ref"],
+        "artifact_key": graph_view["artifact_key"],
+        "graph_link_count": graph_link_counts["graph_link_count"],
+        "resolved_svg_identity_count": graph_link_counts[
+            "resolved_svg_identity_count"
+        ],
     }
 
 
@@ -180,6 +190,8 @@ def _render_schematic_svgs(
     output_dir: Path,
     *,
     design_payload: JsonObject,
+    compiled_schematic_graph: JsonObject,
+    compiled_schematic_graph_path: Path,
     progress: ProgressCallback | None = None,
 ) -> list[Artifact]:
     """Write one enriched black-and-white SVG per concrete schematic instance."""
@@ -187,6 +199,7 @@ def _render_schematic_svgs(
         SCHEMATIC_SVG_BLACK_AND_WHITE_ROLE_COLORS,
         KiCadSvgRenderOptions,
         render_ir_to_svg,
+        validate_schematic_svg_compiled_graph_view,
     )
     from kicad_monkey.kicad_schematic_svg_enrichment import (
         schematic_root_svg_attrs,
@@ -222,12 +235,20 @@ def _render_schematic_svgs(
             sheet_path=instance.sheet_path,
             sheet_instance_path=instance.sheet_instance_path,
             profile=profile_value,
+            compiled_schematic_graph=compiled_schematic_graph,
+            schematic_instance=instance,
+            compiled_graph_artifact=(
+                "../" + _relpath(compiled_schematic_graph_path, output_dir)
+            ),
         )
+        graph_view = metadata_payload["compiled_schematic_graph_view"]
+        assert isinstance(graph_view, dict)
         root_attrs = schematic_root_svg_attrs(
             source_path=source_path or "",
             sheet_name=instance.sheet_name,
             sheet_path=instance.sheet_path,
             profile=profile_value,
+            compiled_graph_view=graph_view,
         )
         root_attrs["data-review-theme"] = _SCHEMATIC_REVIEW_THEME
         svg_text = render_ir_to_svg(
@@ -236,6 +257,11 @@ def _render_schematic_svgs(
             root_extra_attrs=root_attrs,
             metadata_elements=[schematic_svg_enrichment_metadata_element(metadata_payload)],
         )
+        graph_link_counts = validate_schematic_svg_compiled_graph_view(
+            svg_text,
+            compiled_schematic_graph,
+            graph_view,
+        )
         svg_path.parent.mkdir(parents=True, exist_ok=True)
         svg_path.write_text(svg_text, encoding="utf-8")
         _emit_progress(
@@ -243,7 +269,15 @@ def _render_schematic_svgs(
             f"wrote schematic SVG {index}/{len(instances)}: {_relpath(svg_path, output_dir)}",
         )
 
-        artifacts.append(_schematic_svg_artifact(instance, svg_path, output_dir))
+        artifacts.append(
+            _schematic_svg_artifact(
+                instance,
+                svg_path,
+                output_dir,
+                graph_view=graph_view,
+                graph_link_counts=graph_link_counts,
+            )
+        )
     return artifacts
 
 
@@ -494,6 +528,7 @@ def _readme_text(
     *,
     input_file: Path,
     design_json: str,
+    compiled_schematic_graph: str,
     netlist_json: str,
     netlist_kicad_sexpr: str,
     schematic_svgs: list[Artifact],
@@ -521,6 +556,8 @@ model plus visual context.
 ## Files
 
 - `{design_json}`: KiCad-native design JSON from `kicad-monkey`.
+- `{compiled_schematic_graph}`: exact compiled schematic connectivity graph from
+  the Design JSON, with occurrence-scoped identities and drawing links.
 - `{netlist_json}`: KiCad-native netlist JSON from `kicad-monkey`.
 - `{netlist_kicad_sexpr}`: kicad-cli-style S-expression netlist.
 - `{manifest_file}`: artifact index for this review bundle.
@@ -533,6 +570,17 @@ model plus visual context.
 The design JSON schema is `kicad_monkey.design.a0`. It includes project text
 variables, schematic hierarchy, components, nets, optional PnP data, and lookup
 indexes unless `--no-indexes` was used.
+
+## Compiled Schematic Graph Navigation
+
+The standalone graph uses schema `kicad_monkey.compiled_schematic_graph.a0`.
+Each schematic SVG embeds a `compiled_schematic_graph_view` that identifies its
+canonical page occurrence and maps SVG element ids to graph link ids and graph
+targets back to SVG element ids. The authoritative join is
+`page_occurrence_ref + artifact_key + element_id`; do not infer connectivity
+from displayed names, text, geometry, or DOM order. Follow terminal
+`local_net_occurrence_ref` values to discover electrically related terminals
+and components, and follow hierarchy bindings for parent/child sheet ports.
 
 Component and net entries carry SVG link fields where available. Schematic SVG
 groups use `data-uuid`, `data-ref`, `data-component`, `data-pin-*`, and net
@@ -585,6 +633,7 @@ def _write_review_readme(
     *,
     input_file: Path,
     design_json_path: Path,
+    compiled_schematic_graph_path: Path,
     netlist_json_path: Path,
     netlist_kicad_sexpr_path: Path,
     schematic_svgs: list[Artifact],
@@ -596,6 +645,10 @@ def _write_review_readme(
         _readme_text(
             input_file=input_file,
             design_json=_relpath(design_json_path, output_dir),
+            compiled_schematic_graph=_relpath(
+                compiled_schematic_graph_path,
+                output_dir,
+            ),
             netlist_json=_relpath(netlist_json_path, output_dir),
             netlist_kicad_sexpr=_relpath(netlist_kicad_sexpr_path, output_dir),
             schematic_svgs=schematic_svgs,
@@ -624,10 +677,28 @@ def write_design_review_bundle(
     design_payload = design.to_json(include_indexes=include_indexes)
 
     design_json_path = output_dir / f"{input_file.stem}_design.json"
+    compiled_schematic_graph_path = (
+        output_dir / f"{input_file.stem}_compiled_schematic_graph.json"
+    )
     netlist_json_path = output_dir / f"{input_file.stem}_netlist.json"
     netlist_kicad_sexpr_path = output_dir / f"{input_file.stem}_netlist.net"
     _emit_progress(progress, f"writing design JSON: {_relpath(design_json_path, output_dir)}")
     _write_json(design_json_path, design_payload)
+    compiled_schematic_graph = design_payload.get("compiled_schematic_graph")
+    if not isinstance(compiled_schematic_graph, dict):
+        raise ValueError("Design JSON did not contain a compiled schematic graph object")
+    from kicad_monkey import (
+        KICAD_SCHEMATIC_GRAPH_LINKAGE_CONTRACT,
+        validate_compiled_schematic_graph,
+    )
+
+    validate_compiled_schematic_graph(compiled_schematic_graph)
+    _emit_progress(
+        progress,
+        "writing compiled schematic graph: "
+        f"{_relpath(compiled_schematic_graph_path, output_dir)}",
+    )
+    _write_json(compiled_schematic_graph_path, compiled_schematic_graph)
     _emit_progress(progress, "building netlist JSON")
     netlist_payload = design.to_netlist_json()
     _emit_progress(progress, f"writing netlist JSON: {_relpath(netlist_json_path, output_dir)}")
@@ -642,6 +713,8 @@ def write_design_review_bundle(
         design,
         output_dir,
         design_payload=design_payload,
+        compiled_schematic_graph=compiled_schematic_graph,
+        compiled_schematic_graph_path=compiled_schematic_graph_path,
         progress=progress,
     )
     pcb_svgs = _render_pcb_review_svgs(design, output_dir, progress=progress)
@@ -650,6 +723,18 @@ def write_design_review_bundle(
         "schema": "kicad_cruncher.design_review_manifest.a0",
         "input": str(input_file),
         "design_json": _relpath(design_json_path, output_dir),
+        "compiled_schematic_graph": {
+            "file": _relpath(compiled_schematic_graph_path, output_dir),
+            "schema": compiled_schematic_graph["schema"],
+            "type": compiled_schematic_graph["type"],
+            "identity_namespace": compiled_schematic_graph["identity_namespace"],
+            "counts": {
+                key: len(value)
+                for key, value in sorted(compiled_schematic_graph.items())
+                if isinstance(value, list)
+            },
+            "linkage_contract": KICAD_SCHEMATIC_GRAPH_LINKAGE_CONTRACT,
+        },
         "netlist_json": _relpath(netlist_json_path, output_dir),
         "netlist_kicad_sexpr": _relpath(netlist_kicad_sexpr_path, output_dir),
         "schematic_svgs": schematic_svgs,
@@ -662,6 +747,7 @@ def write_design_review_bundle(
         output_dir,
         input_file=input_file,
         design_json_path=design_json_path,
+        compiled_schematic_graph_path=compiled_schematic_graph_path,
         netlist_json_path=netlist_json_path,
         netlist_kicad_sexpr_path=netlist_kicad_sexpr_path,
         schematic_svgs=schematic_svgs,
@@ -671,6 +757,7 @@ def write_design_review_bundle(
     return DesignReviewBundle(
         output_dir=output_dir,
         design_json_path=design_json_path,
+        compiled_schematic_graph_path=compiled_schematic_graph_path,
         netlist_json_path=netlist_json_path,
         netlist_kicad_sexpr_path=netlist_kicad_sexpr_path,
         manifest_path=manifest_path,
@@ -715,6 +802,7 @@ def cmd_design(args: argparse.Namespace) -> int:
         stage_done_text(
             "Design review: "
             f"{bundle.component_count} components, {bundle.net_count} nets, "
+            f"{len(bundle.manifest['compiled_schematic_graph']['counts'])} graph collections, "
             f"{len(bundle.schematic_svgs)} schematic SVGs, {len(bundle.pcb_svgs)} PCB SVGs "
             f"-> {bundle.readme_path} in {time.perf_counter() - started:.2f}s"
         ),
@@ -733,8 +821,9 @@ def register_parser(
         description=(
             "Generate a KiCad design review bundle from .kicad_pro or .kicad_sch files. "
             "The output includes KiCad-native design JSON, enriched black-and-white "
-            "schematic SVGs, enriched PCB copper-layer SVGs, KiCad-native netlist JSON, "
-            "a KiCad S-expression netlist, a manifest, and a README for review agents. "
+            "schematic SVGs, an occurrence-scoped compiled schematic graph, enriched PCB "
+            "copper-layer SVGs, KiCad-native netlist JSON, a KiCad S-expression netlist, "
+            "a manifest, and a README for review agents. "
             "The design JSON includes project metadata, schematic hierarchy, components, "
             "nets, variants, and optional lookup indexes."
         ),

@@ -55,6 +55,7 @@ from .kicad_schematic_connectivity import (
     snap_mm_to_iu,
 )
 from .kicad_schematic_ids import schematic_pin_group_id, schematic_sheet_pin_group_id
+from .kicad_schematic_to_ir import placed_symbol_pin_has_drawing
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .kicad_lib_symbol import LibSymbol
@@ -1036,8 +1037,9 @@ def _collect_pin_drivers(
                 pin_is_implicit_hidden_power = True
 
             source_pin_uuid = placed_pin_uuid_by_number.get(str(pin_number), "")
-            if getattr(lib_pin, "hide", False):
-                # Hidden pins have no independently rendered drawing element.
+            if not placed_symbol_pin_has_drawing(symbol, lib_symbol, lib_pin):
+                # Hidden pins and pins whose geometry/text both collapse have
+                # no independently rendered drawing element.
                 # Keep that absence explicit so semantic graph consumers do not
                 # mistake the parent symbol group for a pin-level selector.
                 pin_svg_uuid = ""

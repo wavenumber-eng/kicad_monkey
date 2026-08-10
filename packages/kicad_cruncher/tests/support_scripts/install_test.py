@@ -37,6 +37,15 @@ def _latest_wheel(dist_dir: Path) -> Path:
     return wheels[-1]
 
 
+def _latest_monkey_wheel(dist_dir: Path) -> Path | None:
+    """Return the newest locally built Monkey wheel when one is available."""
+    wheels = sorted(
+        dist_dir.glob("kicad_monkey-*.whl"),
+        key=lambda path: path.stat().st_mtime,
+    )
+    return wheels[-1] if wheels else None
+
+
 def _venv_python(venv_dir: Path) -> Path:
     """Return the Python executable path for a venv."""
     script_dir = "Scripts" if os.name == "nt" else "bin"
@@ -60,11 +69,15 @@ def _clean_env(venv_dir: Path) -> dict[str, str]:
     return env
 
 
-def run_install_test(wheel: Path) -> None:
+def run_install_test(wheel: Path, *, monkey_wheel: Path | None = None) -> None:
     """Install a wheel into a temporary venv and verify the console script."""
     wheel = wheel.resolve()
     if not wheel.exists():
         raise SystemExit(f"Wheel does not exist: {wheel}")
+    if monkey_wheel is not None:
+        monkey_wheel = monkey_wheel.resolve()
+        if not monkey_wheel.exists():
+            raise SystemExit(f"Monkey wheel does not exist: {monkey_wheel}")
 
     with tempfile.TemporaryDirectory(prefix="kicad_cruncher_install_test_") as temp:
         temp_dir = Path(temp)
@@ -74,7 +87,14 @@ def run_install_test(wheel: Path) -> None:
 
         python = _venv_python(venv_dir)
         env = _clean_env(venv_dir)
-        _run([str(python), "-m", "pip", "install", str(wheel)], cwd=temp_dir, env=env)
+        install_targets = [str(wheel)]
+        if monkey_wheel is not None:
+            install_targets.insert(0, str(monkey_wheel))
+        _run(
+            [str(python), "-m", "pip", "install", *install_targets],
+            cwd=temp_dir,
+            env=env,
+        )
 
         command = "kicad-cruncher"
         executable = _console_script(venv_dir, command)
@@ -101,11 +121,19 @@ def main() -> None:
         default=None,
         help="Wheel to install. Defaults to the newest kicad_cruncher wheel in dist/.",
     )
+    parser.add_argument(
+        "--monkey-wheel",
+        type=Path,
+        default=None,
+        help="Monkey wheel to install beside Cruncher before its release is public.",
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
     wheel = args.wheel or _latest_wheel(repo_root / "dist")
-    run_install_test(wheel)
+    monorepo_root = repo_root.parents[1]
+    monkey_wheel = args.monkey_wheel or _latest_monkey_wheel(monorepo_root / "dist")
+    run_install_test(wheel, monkey_wheel=monkey_wheel)
 
 
 if __name__ == "__main__":

@@ -75,12 +75,19 @@ kicad-cruncher dr board.kicad_sch --no-indexes
 kicad-cruncher design -o output/design
 ```
 
-The design review output includes `<input-stem>_design.json`,
+The design review output includes `<input-stem>_design.json`, the exact
+`<input-stem>_compiled_schematic_graph.json` embedded in that Design JSON,
 `design_review_manifest.json`, `README.md`, enriched black-and-white schematic
 SVGs under `schematics/`, and one PCB review SVG per copper layer under
 `pcb/copper_layers/` when a board is present. Schematic review SVGs preserve
 the `kicad-monkey` enrichment metadata while applying the
 `kicad_cruncher.design_review.schematic_svg.a0` black-and-white role theme.
+Each schematic SVG identifies its canonical graph page and carries forward and
+reverse indexes between source-owned SVG ids and compiled-graph targets. Agents
+should join with `page_occurrence_ref + artifact_key + element_id`, then follow
+terminal/local-net and hierarchy-binding refs; names, text, geometry, and DOM
+order are not connectivity keys. `--no-indexes` removes only the optional
+legacy Design JSON indexes and retains this graph linkage.
 PCB review SVGs include the copper layer, `Edge.Cuts`, and `kicad-monkey`
 enriched drill/slot records.
 Plated pads and vias, and KiCad `np_thru_hole` mechanical pads, are

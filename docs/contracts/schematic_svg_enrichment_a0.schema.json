@@ -133,6 +133,81 @@
         }
       }
     },
+    "compiled_schematic_graph_view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "graph_schema",
+        "identity_namespace",
+        "graph_artifact",
+        "linkage_contract",
+        "page_occurrence_ref",
+        "artifact_key",
+        "graphical_artifact_link_refs",
+        "element_to_graphical_artifact_link_refs",
+        "target_to_element_ids",
+        "target_type_by_ref"
+      ],
+      "properties": {
+        "schema": {
+          "const": "kicad_monkey.schematic.svg.compiled_graph_view.a0"
+        },
+        "graph_schema": {
+          "const": "kicad_monkey.compiled_schematic_graph.a0"
+        },
+        "identity_namespace": {
+          "type": "string"
+        },
+        "graph_artifact": {
+          "type": "string"
+        },
+        "linkage_contract": {
+          "const": "kicad_monkey.schematic.svg.compiled_graph_linkage.a0"
+        },
+        "page_occurrence_ref": {
+          "type": "string"
+        },
+        "artifact_key": {
+          "const": "sch.dwg_scene"
+        },
+        "graphical_artifact_link_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "element_to_graphical_artifact_link_refs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "target_to_element_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "target_type_by_ref": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "design": {
       "type": "object",
       "additionalProperties": true,

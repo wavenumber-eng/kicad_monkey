@@ -4,16 +4,32 @@ from __future__ import annotations
 
 import argparse
 import email.parser
+import json
 import os
 import subprocess
 import sys
 import tarfile
 import tempfile
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+
+_INSTALLED_SMOKE_SCHEMATIC = """(kicad_sch
+  (version 20250114)
+  (generator "eeschema")
+  (generator_version "9.0")
+  (uuid "11111111-2222-4333-8444-555555555555")
+  (paper "A4")
+  (wire
+    (pts (xy 10 10) (xy 20 10))
+    (stroke (width 0) (type default))
+    (uuid "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee")
+  )
+)
+"""
 
 
 def _latest_wheel(dist_dir: Path, prefix: str) -> Path:
@@ -72,6 +88,52 @@ def _run(command: list[str], *, cwd: Path, env: dict[str, str]) -> None:
             f"Command failed ({completed.returncode}): {' '.join(command)}\n"
             f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
         )
+
+
+def _validate_installed_design_review(
+    executable: Path,
+    *,
+    temp_dir: Path,
+    env: dict[str, str],
+) -> None:
+    """Generate and consume a graph-linked bundle from installed wheels only."""
+    schematic_path = temp_dir / "smoke.kicad_sch"
+    output_dir = temp_dir / "review"
+    schematic_path.write_text(_INSTALLED_SMOKE_SCHEMATIC, encoding="utf-8")
+    _run(
+        [str(executable), "dr", str(schematic_path), "-o", str(output_dir)],
+        cwd=temp_dir,
+        env=env,
+    )
+
+    manifest = json.loads(
+        (output_dir / "design_review_manifest.json").read_text(encoding="utf-8")
+    )
+    design = json.loads((output_dir / manifest["design_json"]).read_text(encoding="utf-8"))
+    graph_record = manifest["compiled_schematic_graph"]
+    graph = json.loads((output_dir / graph_record["file"]).read_text(encoding="utf-8"))
+    if graph != design["compiled_schematic_graph"]:
+        raise SystemExit("Installed design review standalone graph differs from Design JSON")
+
+    svg_record = manifest["schematic_svgs"][0]
+    svg_text = (output_dir / svg_record["file"]).read_text(encoding="utf-8")
+    root = ET.fromstring(svg_text)
+    metadata = next(
+        element
+        for element in root.iter()
+        if element.tag.rsplit("}", 1)[-1] == "metadata"
+        and element.attrib.get("id") == "schematic-enrichment-a0"
+    )
+    view = json.loads("".join(metadata.itertext()))["compiled_schematic_graph_view"]
+    if view["page_occurrence_ref"] != svg_record["page_occurrence_ref"]:
+        raise SystemExit("Installed schematic SVG page occurrence differs from manifest")
+    if not view["element_to_graphical_artifact_link_refs"]:
+        raise SystemExit("Installed schematic SVG graph view has no drawing linkage")
+    svg_ids = {
+        element.attrib["id"] for element in root.iter() if element.attrib.get("id")
+    }
+    if not set(view["element_to_graphical_artifact_link_refs"]).issubset(svg_ids):
+        raise SystemExit("Installed schematic SVG graph selector is missing")
 
 
 def validate_artifacts(
@@ -164,6 +226,11 @@ def validate_artifacts(
         _run([str(_console_script(venv_dir, "kicad-cruncher")), "--version"], cwd=temp_dir, env=env)
         _run([str(_console_script(venv_dir, "kcr")), "--version"], cwd=temp_dir, env=env)
         _run([str(python), "-I", "-m", "kicad_cruncher", "version"], cwd=temp_dir, env=env)
+        _validate_installed_design_review(
+            _console_script(venv_dir, "kcr"),
+            temp_dir=temp_dir,
+            env=env,
+        )
 
     sys.stdout.write(
         "Toolchain artifact test passed: "

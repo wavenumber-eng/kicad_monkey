@@ -11,8 +11,9 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 OLD_CRUNCHER_VERSION = "2026.7.31.1"
-NEW_CRUNCHER_VERSION = "2026.8.9"
-MONKEY_VERSION = "2026.8.9"
+NEW_CRUNCHER_VERSION = "2026.8.10"
+OLD_MONKEY_VERSION = "2026.8.9"
+NEW_MONKEY_VERSION = "2026.8.10"
 
 
 def _latest_wheel(dist_dir: Path, prefix: str) -> Path:
@@ -80,7 +81,7 @@ def main() -> None:
         _assert_versions(
             python,
             cruncher=OLD_CRUNCHER_VERSION,
-            monkey=MONKEY_VERSION,
+            monkey=OLD_MONKEY_VERSION,
             cwd=root,
         )
 
@@ -88,7 +89,7 @@ def main() -> None:
         _assert_versions(
             python,
             cruncher=NEW_CRUNCHER_VERSION,
-            monkey=MONKEY_VERSION,
+            monkey=NEW_MONKEY_VERSION,
             cwd=root,
         )
 
@@ -96,7 +97,7 @@ def main() -> None:
             [
                 *pip,
                 "--force-reinstall",
-                f"kicad-monkey=={MONKEY_VERSION}",
+                f"kicad-monkey=={OLD_MONKEY_VERSION}",
                 f"kicad-cruncher=={OLD_CRUNCHER_VERSION}",
             ],
             cwd=root,
@@ -104,7 +105,7 @@ def main() -> None:
         _assert_versions(
             python,
             cruncher=OLD_CRUNCHER_VERSION,
-            monkey=MONKEY_VERSION,
+            monkey=OLD_MONKEY_VERSION,
             cwd=root,
         )
 

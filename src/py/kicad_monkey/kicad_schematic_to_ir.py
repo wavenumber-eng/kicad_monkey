@@ -3557,6 +3557,39 @@ def _placed_pin_to_ops_kicad_plot(
     return ops
 
 
+def placed_symbol_pin_has_drawing(
+    sym: "SchSymbol",
+    lib_sym: "LibSymbol",
+    pin: object,
+) -> bool:
+    """Return whether one placed library pin emits an SVG-addressable drawing.
+
+    The compiled schematic graph uses pin group IDs as selectors into the
+    schematic SVG.  Keep that evidence contract tied to the same visibility,
+    text, alternate-name, and placement rules as the renderer instead of
+    merely treating every non-hidden library pin as visible.
+    """
+    selected_alternate_by_number = {
+        str(getattr(placed_pin, "number", "") or ""): str(
+            getattr(placed_pin, "alternate", "") or ""
+        )
+        for placed_pin in getattr(sym, "pins", ()) or ()
+        if getattr(placed_pin, "alternate", None)
+    }
+    return bool(
+        _placed_pin_to_ops_kicad_plot(
+            pin,
+            transform=_placement_transform(sym),
+            pin_names_offset=lib_sym.pin_names_offset,
+            pin_names_hide=lib_sym.pin_names_hide,
+            pin_numbers_hide=lib_sym.pin_numbers_hide,
+            alternate_name=selected_alternate_by_number.get(
+                str(getattr(pin, "number", "") or "")
+            ),
+        )
+    )
+
+
 def _placed_symbol_pin_ops(
     sym: "SchSymbol",
     lib_sym: "LibSymbol",
@@ -3626,6 +3659,7 @@ def _compose_symbol_body_and_pin_ops(
     default_polyline_stroke_width_nm: int,
     default_line_width_nm: int | None = None,
     project_vars: Optional[dict] = None,
+    pin_group_id_suffix: str = "",
 ) -> tuple[List[KiCadPlotterOp], List[KiCadPlotterOp]]:
     """
     Compose a placed symbol's body ops by feeding the library symbol
@@ -3652,6 +3686,7 @@ def _compose_symbol_body_and_pin_ops(
         )
         if not group_id:
             return None
+        group_id = f"{group_id}{pin_group_id_suffix}"
         seen_count = seen_group_ids.get(group_id, 0)
         seen_group_ids[group_id] = seen_count + 1
         svg_group_id = (
@@ -4339,6 +4374,7 @@ def _symbol_overplot_record(
         default_polyline_stroke_width_nm=default_polyline_stroke_width_nm,
         default_line_width_nm=default_line_width_nm,
         project_vars=project_vars,
+        pin_group_id_suffix="__overplot",
     )
     operations: List[KiCadPlotterOp] = []
     reference_unit_suffix = (
@@ -5279,6 +5315,7 @@ __all__ = [
     "label_to_op",
     "no_connect_to_ops",
     "paper_size_to_nm",
+    "placed_symbol_pin_has_drawing",
     "sch_text_to_op",
     "schematic_arc_to_ops",
     "schematic_bezier_to_ops",

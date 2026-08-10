@@ -7,15 +7,25 @@ uses them as a DOM lookup surface that lines up with design/netlist JSON.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from collections import Counter
 import html
 import json
 from typing import Any
+import xml.etree.ElementTree as ET
 
+from .kicad_compiled_schematic_graph import validate_compiled_schematic_graph
 from .kicad_plotter_ir import KiCadPlotterOp, KiCadPlotterRecord
 
 
 KICAD_SCHEMATIC_SVG_ENRICHMENT_SCHEMA = "kicad_monkey.schematic.svg.enrichment.a0"
 KICAD_SCHEMATIC_SVG_ENRICHMENT_METADATA_ID = "schematic-enrichment-a0"
+KICAD_SCHEMATIC_COMPILED_GRAPH_VIEW_SCHEMA = (
+    "kicad_monkey.schematic.svg.compiled_graph_view.a0"
+)
+KICAD_SCHEMATIC_GRAPH_LINKAGE_CONTRACT = (
+    "kicad_monkey.schematic.svg.compiled_graph_linkage.a0"
+)
+KICAD_SCHEMATIC_GRAPH_ARTIFACT_KEY = "sch.dwg_scene"
 
 _SCHEMATIC_RECORD_KINDS = {
     "sheet_header",
@@ -317,6 +327,144 @@ def schematic_svg_view_indexes(
     }
 
 
+def resolve_compiled_schematic_graph_page_occurrence(
+    compiled_schematic_graph: dict[str, Any],
+    schematic_instance: object,
+) -> dict[str, Any]:
+    """Resolve exactly one graph page for a concrete schematic occurrence."""
+    validate_compiled_schematic_graph(compiled_schematic_graph)
+    instance_path = _clean_string(
+        getattr(schematic_instance, "sheet_instance_path", "")
+    )
+    if not instance_path:
+        raise ValueError("schematic instance has no sheet_instance_path")
+    source_record = f"instance-path:{instance_path}"
+    matches = [
+        row
+        for row in compiled_schematic_graph["page_occurrences"]
+        if row.get("source_identity", {}).get("sch.source_key.source_record")
+        == source_record
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            "compiled schematic graph page resolution requires exactly one "
+            f"match for {source_record!r}; found {len(matches)}"
+        )
+    return matches[0]
+
+
+def _compiled_schematic_graph_page_view_for_ref(
+    compiled_schematic_graph: dict[str, Any],
+    *,
+    page_occurrence_ref: str,
+    graph_artifact: str,
+    artifact_key: str,
+) -> dict[str, Any]:
+    links = sorted(
+        (
+            row
+            for row in compiled_schematic_graph["graphical_artifact_links"]
+            if row.get("page_occurrence_ref") == page_occurrence_ref
+            and row.get("artifact_key") == artifact_key
+        ),
+        key=lambda row: str(row["id"]),
+    )
+    element_to_links: dict[str, list[str]] = {}
+    target_to_elements: dict[str, list[str]] = {}
+    target_type_by_ref: dict[str, str] = {}
+    for link in links:
+        element_id = str(link["element_id"])
+        link_ref = str(link["id"])
+        target_ref = str(link["target_ref"])
+        element_to_links.setdefault(element_id, []).append(link_ref)
+        target_to_elements.setdefault(target_ref, []).append(element_id)
+        target_type_by_ref[target_ref] = str(link["target_type"])
+
+    return {
+        "schema": KICAD_SCHEMATIC_COMPILED_GRAPH_VIEW_SCHEMA,
+        "graph_schema": str(compiled_schematic_graph["schema"]),
+        "identity_namespace": str(compiled_schematic_graph["identity_namespace"]),
+        "graph_artifact": str(graph_artifact),
+        "linkage_contract": KICAD_SCHEMATIC_GRAPH_LINKAGE_CONTRACT,
+        "page_occurrence_ref": page_occurrence_ref,
+        "artifact_key": artifact_key,
+        "graphical_artifact_link_refs": [str(row["id"]) for row in links],
+        "element_to_graphical_artifact_link_refs": {
+            element_id: sorted(link_refs)
+            for element_id, link_refs in sorted(element_to_links.items())
+        },
+        "target_to_element_ids": {
+            target_ref: sorted(set(element_ids))
+            for target_ref, element_ids in sorted(target_to_elements.items())
+        },
+        "target_type_by_ref": dict(sorted(target_type_by_ref.items())),
+    }
+
+
+def compiled_schematic_graph_page_view(
+    compiled_schematic_graph: dict[str, Any],
+    schematic_instance: object,
+    *,
+    graph_artifact: str,
+    artifact_key: str = KICAD_SCHEMATIC_GRAPH_ARTIFACT_KEY,
+) -> dict[str, Any]:
+    """Project deterministic graph/SVG joins for one schematic occurrence."""
+    page = resolve_compiled_schematic_graph_page_occurrence(
+        compiled_schematic_graph,
+        schematic_instance,
+    )
+    return _compiled_schematic_graph_page_view_for_ref(
+        compiled_schematic_graph,
+        page_occurrence_ref=str(page["id"]),
+        graph_artifact=graph_artifact,
+        artifact_key=artifact_key,
+    )
+
+
+def validate_schematic_svg_compiled_graph_view(
+    svg_text: str,
+    compiled_schematic_graph: dict[str, Any],
+    graph_view: dict[str, Any],
+) -> dict[str, int]:
+    """Validate page ownership and exact SVG identity resolution for a view."""
+    validate_compiled_schematic_graph(compiled_schematic_graph)
+    page_ref = _clean_string(graph_view.get("page_occurrence_ref"))
+    page_refs = {
+        str(row["id"]) for row in compiled_schematic_graph["page_occurrences"]
+    }
+    if page_ref not in page_refs:
+        raise ValueError(f"compiled graph view references unknown page {page_ref!r}")
+    expected = _compiled_schematic_graph_page_view_for_ref(
+        compiled_schematic_graph,
+        page_occurrence_ref=page_ref,
+        graph_artifact=_clean_string(graph_view.get("graph_artifact")),
+        artifact_key=_clean_string(graph_view.get("artifact_key")),
+    )
+    if graph_view != expected:
+        raise ValueError("compiled graph SVG view does not match its owning graph page")
+
+    root = ET.fromstring(svg_text)
+    id_counts = Counter(
+        element.attrib["id"]
+        for element in root.iter()
+        if element.attrib.get("id")
+    )
+    element_ids = list(expected["element_to_graphical_artifact_link_refs"])
+    missing = sorted(element_id for element_id in element_ids if id_counts[element_id] == 0)
+    ambiguous = sorted(
+        element_id for element_id in element_ids if id_counts[element_id] > 1
+    )
+    if missing or ambiguous:
+        raise ValueError(
+            "compiled graph SVG selectors must resolve exactly once; "
+            f"missing={missing!r}, ambiguous={ambiguous!r}"
+        )
+    return {
+        "graph_link_count": len(expected["graphical_artifact_link_refs"]),
+        "resolved_svg_identity_count": len(element_ids),
+    }
+
+
 def schematic_svg_enrichment_payload(
     design_payload: dict[str, Any],
     *,
@@ -325,10 +473,13 @@ def schematic_svg_enrichment_payload(
     sheet_path: object = "",
     sheet_instance_path: object = "",
     profile: object = "enriched",
+    compiled_schematic_graph: dict[str, Any] | None = None,
+    schematic_instance: object | None = None,
+    compiled_graph_artifact: str = "",
 ) -> dict[str, Any]:
     """Return document-level metadata embedded in enriched schematic SVG."""
 
-    return {
+    payload = {
         "schema": KICAD_SCHEMATIC_SVG_ENRICHMENT_SCHEMA,
         "source": {
             "kicad_sch_file": str(source_path or ""),
@@ -347,6 +498,17 @@ def schematic_svg_enrichment_payload(
         ),
         "design": design_payload,
     }
+    if compiled_schematic_graph is not None or schematic_instance is not None:
+        if compiled_schematic_graph is None or schematic_instance is None:
+            raise ValueError(
+                "compiled_schematic_graph and schematic_instance must be provided together"
+            )
+        payload["compiled_schematic_graph_view"] = compiled_schematic_graph_page_view(
+            compiled_schematic_graph,
+            schematic_instance,
+            graph_artifact=compiled_graph_artifact,
+        )
+    return payload
 
 
 def schematic_root_svg_attrs(
@@ -355,10 +517,11 @@ def schematic_root_svg_attrs(
     sheet_name: object = "",
     sheet_path: object = "",
     profile: object = "enriched",
+    compiled_graph_view: dict[str, Any] | None = None,
 ) -> dict[str, object]:
     """Return root SVG attributes for enriched schematic output."""
 
-    return {
+    attrs: dict[str, object] = {
         "data-enrichment-schema": KICAD_SCHEMATIC_SVG_ENRICHMENT_SCHEMA,
         "data-view-kind": "schematic_sheet",
         "data-profile": str(profile),
@@ -366,6 +529,21 @@ def schematic_root_svg_attrs(
         "data-sheet-name": str(sheet_name or ""),
         "data-sheet-path": str(sheet_path or ""),
     }
+    if compiled_graph_view is not None:
+        attrs.update(
+            {
+                "data-compiled-graph-schema": compiled_graph_view["graph_schema"],
+                "data-compiled-graph-view-schema": compiled_graph_view["schema"],
+                "data-compiled-graph-page-occurrence-ref": compiled_graph_view[
+                    "page_occurrence_ref"
+                ],
+                "data-compiled-graph-artifact-key": compiled_graph_view["artifact_key"],
+                "data-compiled-graph-linkage-contract": compiled_graph_view[
+                    "linkage_contract"
+                ],
+            }
+        )
+    return attrs
 
 
 def schematic_svg_enrichment_metadata_element(payload: dict[str, Any]) -> str:

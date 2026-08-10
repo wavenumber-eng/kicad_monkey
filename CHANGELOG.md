@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 2026.8.10
+
+- Add an occurrence-scoped compiled-graph view to enriched schematic SVG
+  metadata, with deterministic forward/reverse drawing indexes and exact
+  final-SVG selector validation.
+- Suppress drawing links for pins that render no geometry or text, and give
+  overplot pin wrappers distinct ids while preserving primary source ids and
+  semantic graph identities.
+
 ## 2026.8.9
 
 - Extend the bundled CC0 KiCad Newstroke table through U+2BFF, adding Greek,
