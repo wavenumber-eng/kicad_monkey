@@ -31,7 +31,7 @@
   <h3>Rationale</h3>
   <p>Design-review generation is reused by the standalone <code>design</code> command and by Megamaid, so callers need one typed bundle describing every written artifact and count.</p>
   <h3>Purpose</h3>
-  <p><code>DesignReviewBundle</code> carries the output directory, design JSON, netlist JSON, KiCad S-expression netlist, manifest, README, manifest payload, component/net counts, schematic SVG records, and PCB SVG records for one review bundle.</p>
+  <p><code>DesignReviewBundle</code> carries the output directory, design JSON, exact compiled schematic graph, netlist JSON, KiCad S-expression netlist, manifest, README, manifest payload, component/net counts, schematic SVG records, and PCB SVG records for one review bundle.</p>
   <h3>Test Requirements</h3>
   <p>L3 exercises the public design command and verifies emitted JSON, netlists, manifest fields, README, schematic SVGs, PCB SVGs, component counts, and net counts. Megamaid L3 tests also verify nested design-review bundle creation.</p>
   <h3>Working Definition</h3>

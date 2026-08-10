@@ -387,7 +387,11 @@ def _pcb_has_renderable_content(pcb) -> bool:
 
 @pytest.mark.parametrize("case", REAL_WORLD_SVG_IR_CASES, ids=lambda case: case["name"])
 def test_promoted_real_world_all_sheets_render_to_ir_and_svg_from_manifest(case):
-    from kicad_monkey import KiCadDesign, render_ir_to_svg
+    from kicad_monkey import (
+        KiCadDesign,
+        render_ir_to_svg,
+        validate_schematic_svg_compiled_graph_view,
+    )
     from kicad_monkey.kicad_sch_svg_renderer import KiCadSvgRenderOptions
     from kicad_monkey.kicad_schematic_svg_enrichment import (
         KICAD_SCHEMATIC_SVG_ENRICHMENT_SCHEMA,
@@ -437,7 +441,11 @@ def test_promoted_real_world_all_sheets_render_to_ir_and_svg_from_manifest(case)
             sheet_path=entry.sheet_path,
             sheet_instance_path=entry.sheet_instance_path,
             profile=profile_value,
+            compiled_schematic_graph=design_payload["compiled_schematic_graph"],
+            schematic_instance=entry,
+            compiled_graph_artifact="../compiled_schematic_graph.json",
         )
+        graph_view = payload["compiled_schematic_graph_view"]
         svg = render_ir_to_svg(
             doc,
             options=render_options,
@@ -446,6 +454,7 @@ def test_promoted_real_world_all_sheets_render_to_ir_and_svg_from_manifest(case)
                 sheet_name=entry.sheet_name,
                 sheet_path=entry.sheet_path,
                 profile=profile_value,
+                compiled_graph_view=graph_view,
             ),
             metadata_elements=[schematic_svg_enrichment_metadata_element(payload)],
         )
@@ -453,6 +462,11 @@ def test_promoted_real_world_all_sheets_render_to_ir_and_svg_from_manifest(case)
         assert "<svg" in svg and "</svg>" in svg
         assert "data-ref=\"sheet_header\"" in svg
         assert f'data-enrichment-schema="{KICAD_SCHEMATIC_SVG_ENRICHMENT_SCHEMA}"' in svg
+        validate_schematic_svg_compiled_graph_view(
+            svg,
+            design_payload["compiled_schematic_graph"],
+            graph_view,
+        )
         svg_payload = _schematic_enrichment_payload(svg)
         assert svg_payload["schema"] == KICAD_SCHEMATIC_SVG_ENRICHMENT_SCHEMA
         assert "components" in svg_payload["design"]

@@ -108,6 +108,15 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     assert manifest["design_review"]["directory"] == "design_review"
     assert manifest["design_review"]["manifest"] == "design_review/design_review_manifest.json"
     assert manifest["design_review"]["design_json"].endswith("_design.json")
+    assert manifest["design_review"]["compiled_schematic_graph"].endswith(
+        "_compiled_schematic_graph.json"
+    )
+    assert manifest["design_review"]["compiled_schematic_graph_schema"] == (
+        "kicad_monkey.compiled_schematic_graph.a0"
+    )
+    assert manifest["design_review"]["compiled_schematic_graph_linkage_contract"] == (
+        "kicad_monkey.schematic.svg.compiled_graph_linkage.a0"
+    )
     assert manifest["design_review"]["netlist_json"].endswith("_netlist.json")
     assert manifest["design_review"]["netlist_kicad_sexpr"].endswith("_netlist.net")
     assert manifest["design_review"]["component_count"] >= 1
@@ -116,6 +125,7 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     assert manifest["design_review"]["pcb_svg_count"] >= 1
     assert (output_dir / manifest["design_review"]["manifest"]).is_file()
     assert (output_dir / manifest["design_review"]["design_json"]).is_file()
+    assert (output_dir / manifest["design_review"]["compiled_schematic_graph"]).is_file()
     assert (output_dir / manifest["design_review"]["netlist_json"]).is_file()
     assert (output_dir / manifest["design_review"]["netlist_kicad_sexpr"]).is_file()
     assert all(
@@ -138,6 +148,7 @@ def test_megamaid_extracts_4ch_backplane_bundle(tmp_path: Path) -> None:
     readme_text = readme_path.read_text(encoding="utf-8")
     assert "Embedded assets" in readme_text
     assert "Design review" in readme_text
+    assert manifest["design_review"]["compiled_schematic_graph"] in readme_text
     assert "non-destructive" in readme_text
 
 

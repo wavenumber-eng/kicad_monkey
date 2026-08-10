@@ -50,6 +50,7 @@ kicad-cruncher megamaid project.kicad_pro --validate-kicad-cli</code></pre>
     <li><code>embedded_assets/embedded_files/*</code>: decoded compressed KiCad <code>(embedded_files ...)</code> payloads from boards, placed footprints, schematics, footprint libraries, and symbol libraries.</li>
     <li><code>embedded_assets/schematic_images/*</code>, <code>embedded_assets/pcb_images/*</code>, and <code>embedded_assets/worksheet_bitmaps/*</code>: decoded bitmap payloads from schematic, PCB, footprint, and worksheet image containers.</li>
     <li><code>design_review/&lt;project-stem&gt;_design.json</code>: <code>kicad_monkey.design.a0</code> design JSON.</li>
+    <li><code>design_review/&lt;project-stem&gt;_compiled_schematic_graph.json</code>: the exact occurrence-scoped schematic graph shared with the nested SVGs.</li>
     <li><code>design_review/&lt;project-stem&gt;_netlist.json</code>: <code>kicad_monkey.netlist.a0</code> netlist JSON.</li>
     <li><code>design_review/&lt;project-stem&gt;_netlist.net</code>: kicad-cli-style S-expression netlist.</li>
     <li><code>design_review/design_review_manifest.json</code>: nested <code>kicad_cruncher.design_review_manifest.a0</code> artifact index.</li>
@@ -60,7 +61,7 @@ kicad-cruncher megamaid project.kicad_pro --validate-kicad-cli</code></pre>
     <li><code>README.md</code>: short human-readable summary for agents and reviewers.</li>
   </ul>
   <p>The <code>library_extraction.json</code> metadata follows <code>docs/contracts/library_extraction_bundle.a0.schema.json</code>. <code>raw_fields</code> is the raw KiCad parameter/property map with source key spelling preserved; <code>canonical_fields</code> is derived from those fields using case-insensitive alias matching for part fields such as <code>mpn</code>, <code>mfg</code>, <code>value</code>, <code>description</code>, and <code>cad-reference</code>.</p>
-  <p>The top-level manifest records the <code>design_review</code> directory, nested manifest, README, design JSON, netlist JSON, S-expression netlist, component count, net count, schematic SVG count, PCB SVG count, and relative SVG paths.</p>
+  <p>The top-level manifest records the <code>design_review</code> directory, nested manifest, README, design JSON, compiled graph path/schema/linkage contract, netlist JSON, S-expression netlist, component count, net count, schematic SVG count, PCB SVG count, and relative SVG paths. The graph exists only in the nested shared design-review bundle; Megamaid does not synthesize or copy a second graph.</p>
   <p>This command is intended for full project dissection and archival review. Clean reusable CAD ingestion is handled by <code>lib-extract</code>; metadata-preserving project-local extraction is handled by <code>project-lib</code>; broader asset diagnostics are handled by <code>health</code>.</p>
 </section>
 

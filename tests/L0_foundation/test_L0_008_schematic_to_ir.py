@@ -1357,6 +1357,81 @@ def test_schematic_to_ir_overplots_dnp_marker_for_overlapping_dnp_symbol():
     assert {op.payload["stroke_color"] for op in marker_ops} == {"#DC090DD9"}
 
 
+def test_schematic_to_ir_overplot_pin_ids_do_not_duplicate_primary_ids():
+    from kicad_monkey.kicad_lib_subsymbol import LibSubSymbol
+    from kicad_monkey.kicad_lib_symbol import LibSymbol
+    from kicad_monkey.kicad_primitives import Stroke
+    from kicad_monkey.kicad_sch_symbol import SchSymbolPin
+    from kicad_monkey.kicad_sym_pin import SymPin
+    from kicad_monkey.kicad_sym_rectangle import SymRectangle
+
+    pin = SymPin(
+        electrical_type=PinElectricalType.PASSIVE,
+        graphic_style=PinGraphicStyle.LINE,
+        at_x=0.0,
+        at_y=0.0,
+        at_angle=0.0,
+        length=2.54,
+        number="1",
+    )
+    body = SymRectangle(
+        start_x=-1.0,
+        start_y=-1.0,
+        end_x=1.0,
+        end_y=1.0,
+        stroke=Stroke(width=0.0, type="default"),
+    )
+    lib_sym = LibSymbol(
+        name="Device:R",
+        subsymbols=[
+            LibSubSymbol(
+                name="Device:R_1_0",
+                unit=1,
+                style=0,
+                pins=[pin],
+                rectangles=[body],
+            )
+        ],
+    )
+    sch = _empty_schematic()
+    sch.lib_symbols = [lib_sym]
+    sch.symbols = [
+        SchSymbol(
+            lib_id="Device:R",
+            at_x=100.0,
+            at_y=200.0,
+            uuid="r1",
+            pins=[SchSymbolPin(number="1", uuid="r1-pin")],
+        ),
+        SchSymbol(
+            lib_id="Device:R",
+            at_x=100.0,
+            at_y=200.0,
+            uuid="r2",
+            pins=[SchSymbolPin(number="1", uuid="r2-pin")],
+        ),
+    ]
+
+    doc = schematic_to_ir(sch)
+    pin_group_ids = [
+        op.payload["data_uuid"]
+        for record in doc.records
+        for op in record.operations
+        if op.kind == KiCadPlotterOpKind.START_BLOCK
+        and op.payload.get("data_ref") == "symbol_pin"
+    ]
+
+    assert pin_group_ids.count("r1-pin") == 1
+    assert pin_group_ids.count("r2-pin") == 1
+    assert set(pin_group_ids) == {
+        "r1-pin",
+        "r2-pin",
+        "r1-pin__overplot",
+        "r2-pin__overplot",
+    }
+    assert len(pin_group_ids) == len(set(pin_group_ids))
+
+
 def test_symbol_overlap_detection_ignores_pin_text_boxes():
     from kicad_monkey import KiCadPlotterOp
     from kicad_monkey.kicad_schematic_to_ir import _overlapping_symbol_indices

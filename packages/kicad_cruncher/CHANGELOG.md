@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026.8.10
+
+- Write the exact compiled schematic graph from Design JSON as a standalone
+  design-review artifact and validate every schematic SVG against its owning
+  graph page.
+- Add occurrence/link inventory to the design-review manifest, agent-facing
+  graph navigation guidance, and nested Megamaid graph discovery.
+
 ## 2026.8.9
 
 - Move active `kicad-cruncher` development into the `kicad_monkey` monorepo

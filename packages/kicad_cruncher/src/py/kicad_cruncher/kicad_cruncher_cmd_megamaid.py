@@ -204,6 +204,16 @@ def _manifest_payload(
             "manifest": _manifest_relative(design_review_bundle.manifest_path, output_dir),
             "readme": _manifest_relative(design_review_bundle.readme_path, output_dir),
             "design_json": _manifest_relative(design_review_bundle.design_json_path, output_dir),
+            "compiled_schematic_graph": _manifest_relative(
+                design_review_bundle.compiled_schematic_graph_path,
+                output_dir,
+            ),
+            "compiled_schematic_graph_schema": design_review_bundle.manifest[
+                "compiled_schematic_graph"
+            ]["schema"],
+            "compiled_schematic_graph_linkage_contract": design_review_bundle.manifest[
+                "compiled_schematic_graph"
+            ]["linkage_contract"],
             "netlist_json": _manifest_relative(design_review_bundle.netlist_json_path, output_dir),
             "netlist_kicad_sexpr": _manifest_relative(
                 design_review_bundle.netlist_kicad_sexpr_path,
@@ -259,7 +269,8 @@ def _readme_text(manifest: dict[str, object], *, title: str) -> str:
             f"`{design_review['directory']}` "
             f"({design_review['schematic_svg_count']} schematic SVGs, "
             f"{design_review['pcb_svg_count']} PCB SVGs, "
-            f"{design_review['net_count']} nets)\n"
+            f"{design_review['net_count']} nets); compiled graph: "
+            f"`{design_review['compiled_schematic_graph']}`\n"
         )
     library_tables = manifest.get("library_tables")
     source_relink = manifest.get("source_relink")

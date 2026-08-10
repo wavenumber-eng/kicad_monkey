@@ -1,5 +1,6 @@
 {
   "schema": "kicad_cruncher.interface_design_manifest.a0",
-  "major_interfaces": []
+  "major_interfaces": [
+    "DesignReviewGraphLinkage"
+  ]
 }
-

@@ -31,7 +31,7 @@ kicad-cruncher design --no-indexes</code></pre>
 <section id="arguments">
   <h2>Arguments</h2>
   <p><code>file</code> accepts <code>.kicad_pro</code> and <code>.kicad_sch</code>. If no file is provided, the command auto-detects exactly one <code>.kicad_pro</code> in the current directory. PCB-only inputs are intentionally rejected because the review bundle is centered on the schematic-backed <code>KiCadDesign</code> aggregate.</p>
-  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/design/</code>. <code>--no-indexes</code> omits optional lookup indexes from the design JSON. <code>design-review</code> and <code>dr</code> are aliases for the same command and output contract.</p>
+  <p><code>-o</code> selects the output directory. Without <code>-o</code>, artifacts are written under <code>./output/design/</code>. <code>--no-indexes</code> omits optional legacy lookup indexes from the design JSON but retains the compiled graph and SVG graph view. <code>design-review</code> and <code>dr</code> are aliases for the same command and output contract.</p>
 </section>
 
 <section id="ownership">
@@ -45,6 +45,7 @@ kicad-cruncher design --no-indexes</code></pre>
   <p>The command writes the following files into the selected output directory:</p>
   <ul>
     <li><code>&lt;input-stem&gt;_design.json</code>: <code>kicad_monkey.design.a0</code> JSON.</li>
+    <li><code>&lt;input-stem&gt;_compiled_schematic_graph.json</code>: the exact <code>compiled_schematic_graph</code> object from the Design JSON.</li>
     <li><code>&lt;input-stem&gt;_netlist.json</code>: <code>kicad_monkey.netlist.a0</code> JSON.</li>
     <li><code>&lt;input-stem&gt;_netlist.net</code>: kicad-cli-style S-expression netlist.</li>
     <li><code>design_review_manifest.json</code>: <code>kicad_cruncher.design_review_manifest.a0</code> artifact index.</li>
@@ -52,6 +53,23 @@ kicad-cruncher design --no-indexes</code></pre>
     <li><code>schematics/*.svg</code>: one enriched schematic SVG per concrete hierarchy instance.</li>
     <li><code>pcb/copper_layers/*__review.svg</code>: one enriched PCB review SVG per copper layer when a board is present.</li>
   </ul>
+</section>
+
+<section
+  id="design-review-graph-linkage"
+  data-interface="DesignReviewGraphLinkage"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_001_design_workflow.py"
+  data-test-target="test_design_review_agent_can_trace_svg_to_connectivity_and_back">
+  <h2>DesignReviewGraphLinkage</h2>
+  <h3>Rationale</h3>
+  <p>Review agents need authoritative connectivity and hierarchy context for rendered schematic objects without joining by mutable labels or reconstructing nets from geometry.</p>
+  <h3>Purpose</h3>
+  <p>The bundle writes the exact Monkey compiled graph once and gives every schematic SVG a page-scoped forward/reverse view over that graph. The authoritative drawing key is <code>page_occurrence_ref + artifact_key + element_id</code>.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 verifies exact graph equality with Design JSON, final SVG selector uniqueness, reused page ownership, <code>--no-indexes</code>, nested Megamaid discovery, and consumer-only SVG-to-net-to-component and graph-to-SVG traversal.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when every advertised graph selector resolves exactly once in its owning SVG and an artifact-only consumer can traverse connectivity and hierarchy without names, text, DOM order, or geometry.</p>
 </section>
 
 <section id="design-json">
@@ -62,7 +80,7 @@ kicad-cruncher design --no-indexes</code></pre>
 
 <section id="schematic-svgs">
   <h2>Schematic SVGs</h2>
-  <p>Schematic SVGs use the enriched <code>kicad-monkey</code> schematic SVG contract. Groups are wrapped around source objects so tools can connect rendered graphics back to symbols, pins, sheets, ports, power symbols, and nets. Filenames use the concrete sheet instance name, not just the reusable schematic source filename, so repeated hierarchical sheets are reviewable as separate pages.</p>
+  <p>Schematic SVGs use the enriched <code>kicad-monkey</code> schematic SVG contract. Groups are wrapped around source objects so tools can connect rendered graphics back to symbols, pins, sheets, ports, power symbols, and nets. Each metadata payload includes <code>compiled_schematic_graph_view</code>, which identifies the canonical page occurrence and indexes graph links by SVG element id and graph target. Filenames use the concrete sheet instance name, not just the reusable schematic source filename, so repeated hierarchical sheets are reviewable as separate pages.</p>
   <p>The design-review command uses the <code>kicad_cruncher.design_review.schematic_svg.a0</code> black-and-white schematic role theme from <code>kicad-monkey</code>. The root enrichment attributes and <code>schematic-enrichment-a0</code> metadata payload are embedded in every schematic SVG, so tools still map graphics back to source objects and nets.</p>
 </section>
 
@@ -77,7 +95,7 @@ kicad-cruncher design --no-indexes</code></pre>
 
 <section id="manifest">
   <h2>Manifest</h2>
-  <p><code>design_review_manifest.json</code> records the design JSON path, netlist JSON path, KiCad S-expression netlist path, README path, schematic SVG list, and PCB SVG list. Each schematic artifact records sheet number, sheet count, sheet name, sheet path, sheet UUID path, sheet instance path, and source schematic path. Each PCB artifact records the SVG path, copper layer, included layers, and the count of enriched drill/slot records present in that SVG.</p>
+  <p><code>design_review_manifest.json</code> records the design JSON path, compiled graph artifact/schema/type/identity namespace/counts/linkage contract, netlist JSON path, KiCad S-expression netlist path, README path, schematic SVG list, and PCB SVG list. Each schematic artifact additionally records canonical page occurrence, artifact key, graph-link count, and resolved SVG-identity count. Each PCB artifact records the SVG path, copper layer, included layers, and the count of enriched drill/slot records present in that SVG.</p>
 </section>
 
 <section id="tests">
