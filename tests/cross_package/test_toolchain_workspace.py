@@ -89,6 +89,8 @@ def test_repository_governance_routes_both_packages() -> None:
     assert "publish-coordinated-cruncher:" in release
     assert "create-coordinated-releases:" in release
     assert "inputs.confirm == 'publish-both'" in release
+    assert release.count("environment: pypi\n") == 1
+    assert release.count("environment: pypi-kicad-cruncher\n") == 2
     assert "kicad-monkey-v${VERSION}" in release
     assert "kicad-cruncher-v${VERSION}" in release
     assert "packages-dir: packages/kicad_cruncher/dist/" in release
