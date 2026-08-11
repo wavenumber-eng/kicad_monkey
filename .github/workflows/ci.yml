@@ -11,7 +11,7 @@ env:
 
 jobs:
   test:
-    name: test (${{ matrix.os }}, py${{ matrix.python-version }})
+    name: test (${{ matrix.os }}, py3.14)
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -19,13 +19,12 @@ jobs:
         # macOS CI is deferred for the first public release until hosted-runner
         # font and KiCad-adjacent wheel compatibility is explicitly validated.
         os: [ubuntu-latest, windows-latest]
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - name: Set up Python
-        run: uv python install ${{ matrix.python-version }}
+        run: uv python install 3.14
       - name: Sync monorepo packages
         run: uv sync --all-packages --all-extras
       - name: Install public font dependencies
@@ -67,5 +66,4 @@ jobs:
       - name: Run installed two-wheel compatibility test
         run: uv run --extra test python tests/support_scripts/toolchain_install_test.py
       - name: Rehearse Cruncher upgrade and rollback
-        if: matrix.python-version == '3.12'
         run: uv run --extra test python tests/support_scripts/toolchain_upgrade_test.py

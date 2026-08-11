@@ -9,7 +9,8 @@
 - Stage outputs on the destination filesystem, apply mandatory footprint pad
   normalization, validate with KiCad CLI, and publish atomically without
   damaging an existing destination on failure.
-- Expand declared and CI-tested Python support through Python 3.14.
+- Validate the universal pure-Python wheel and full suite on Python 3.14 under
+  Windows and Linux CI.
 
 ## 2026.8.10
 
