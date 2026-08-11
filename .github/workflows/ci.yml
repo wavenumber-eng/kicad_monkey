@@ -67,4 +67,5 @@ jobs:
       - name: Run installed two-wheel compatibility test
         run: uv run --extra test python tests/support_scripts/toolchain_install_test.py
       - name: Rehearse Cruncher upgrade and rollback
+        if: matrix.python-version == '3.12'
         run: uv run --extra test python tests/support_scripts/toolchain_upgrade_test.py
