@@ -180,6 +180,36 @@ def test_reuse_rejects_invalid_existing_footprint_without_mutating_it(tmp_path: 
     assert any("requires mandatory normalization" in stage.message for stage in result.errors)
 
 
+def test_publication_failure_preserves_existing_destination(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "Target.kicad_mod"
+    original = b"existing-good-output\n"
+    destination.write_bytes(original)
+
+    def fail_replace(source: Path, target: Path) -> None:
+        raise OSError(f"simulated publish failure for {target}")
+
+    monkeypatch.setattr("kicad_cruncher.altium_asset_conversion.os.replace", fail_replace)
+    request = AltiumAssetConversionRequest(
+        source_library=_source(tmp_path, ".PcbLib"),
+        source_key="Target",
+        destination=destination,
+        kind=AltiumAssetKind.FOOTPRINT,
+        existing_policy=ExistingDestinationPolicy.REPLACE,
+        run_cleanup_filters=False,
+    )
+
+    result = AltiumAssetConversionExecutor(
+        kicad_cli=tmp_path / "kicad-cli.exe",
+        runner=FakeKiCadRunner(),
+    ).convert(request)
+
+    assert result.success is False
+    assert destination.read_bytes() == original
+    assert result.errors[-1].stage is ConversionStage.PUBLISH
+
+
 def test_symbol_conversion_requires_exact_key_and_reports_reusable_result(tmp_path: Path) -> None:
     destination = tmp_path / "symbols" / "source.kicad_sym"
     request = AltiumAssetConversionRequest(
