@@ -1,9 +1,9 @@
 [project]
 name = "kicad-cruncher"
-version = "2026.8.10"
+version = "2026.8.11"
 description = "Cross-platform KiCad CLI workflows built on public kicad-monkey"
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11,<3.15"
 license = { text = "MIT" }
 authors = [
     { name = "Wavenumber LLC" },
@@ -11,7 +11,7 @@ authors = [
 dependencies = [
     "colorama>=0.4.6",
     "fastapi>=0.115.0",
-    "kicad-monkey>=2026.8.10",
+    "kicad-monkey>=2026.8.11",
     "openpyxl>=3.1.0",
     "textual>=0.50.0",
     "uvicorn>=0.30.0",

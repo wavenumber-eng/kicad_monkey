@@ -18,7 +18,8 @@ from numpy import sign
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.ops import unary_union
 
-from .kicad_base import find_all_elements, find_element
+from .kicad_base import find_element
+from .kicad_footprint_normalize import normalize_unsafe_footprint_pad_sizes
 from .kicad_sexpr import QuotedString
 
 log = logging.getLogger(__name__)
@@ -506,30 +507,26 @@ def fp_filter__normalized_embedded_model_naming(unfiltered_s_expression: Any) ->
 
 def fp_filter__fix_zero_sized_pads(unfiltered_s_expression: Any) -> Any:
     """
-    This is a filter for an s-expression file that does the following:
-    - Finds pads with (size 0 0) or (size 0.0 0.0)
-    - Changes the pad size to 1um (0.001mm) to make them valid
-    - Leaves everything else unchanged
+    Compatibility wrapper for KiCad-parity direct pad-size normalization.
+
+    If either direct/default size axis is nonpositive, both axes are pinned to
+    1 um. Nested per-layer padstack size forms are left unchanged.
     """
     log.info("\nRunning fp_filter__fix_zero_sized_pads()...\n")
 
-    pads_fixed = 0
-    for pad in find_all_elements(unfiltered_s_expression, 'pad'):
-        pad_name = pad[1] if len(pad) > 1 else "unknown"
-        for i, item in enumerate(pad):
-            if isinstance(item, list) and len(item) >= 3 and item[0] == 'size':
-                if float(item[1]) == 0.0 and float(item[2]) == 0.0:
-                    log.warning(f"- Fixing zero-sized pad '{pad_name}': setting size to 0.001mm")
-                    pad[i] = ['size', 0.001, 0.001]
-                    pads_fixed += 1
-                break
+    result = normalize_unsafe_footprint_pad_sizes(unfiltered_s_expression)
+    for change in result.changes:
+        log.warning(
+            "- Fixing unsafe pad %r size %s: setting size to 0.001mm",
+            change.pad_name,
+            change.original_size,
+        )
 
-    if pads_fixed > 0:
-        log.info(f"Success: Fixed {pads_fixed} zero-sized pad(s).")
-
+    if result.count > 0:
+        log.info("Success: Fixed %s unsafe pad size(s).", result.count)
 
     log.info("\nDone! S-expression has been filtered...")
-    return unfiltered_s_expression
+    return result.expression
 
 
 def fp_filter__fix_fp_text_font_to_arial(unfiltered_s_expression: Any) -> Any:

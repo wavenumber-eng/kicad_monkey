@@ -32,6 +32,12 @@ not perform BOM policy, project migration orchestration, preference management
 workflows, release packaging for generated artifacts, or neutral-model business
 logic.
 
+In particular, invoking `kicad-cli` to convert foreign CAD libraries, selecting
+assets, staging and publishing output, and applying application overwrite policy
+belong outside `kicad-monkey`. The sibling `kicad-cruncher` distribution owns
+generic KiCad CLI and artifact orchestration; applications own their business
+models and persistence.
+
 ## Core Principles
 
 1. Core KiCad S-expression parsing stays dependency-light and round-trip safe.

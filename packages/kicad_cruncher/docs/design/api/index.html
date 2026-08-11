@@ -261,6 +261,70 @@
   <h3>Working Definition</h3>
   <p>The interface is working when <code>kicad running</code> and <code>kicad stop</code> can report KiCad, pcbnew, eeschema, and kicad-cli processes with stable JSON fields across supported platforms.</p>
 </section>
+<section
+  id="conversion-stage-record"
+  data-interface="ConversionStageRecord"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_007_altium_asset_conversion.py"
+  data-test-target="test_each_post_conversion_failure_preserves_existing_destination">
+  <h2>ConversionStageRecord</h2>
+  <h3>Rationale</h3>
+  <p>Applications need reviewable conversion failures without parsing console text or catching workflow-specific exceptions.</p>
+  <h3>Purpose</h3>
+  <p><code>ConversionStageRecord</code> identifies the stage, status, message, process return code, and bounded process output for one conversion step.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 injects filter and validation failures and verifies that the failed stage is reported while the destination remains unchanged.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when callers can locate and explain every failed conversion stage from typed records alone.</p>
+</section>
+<section
+  id="altium-asset-conversion-request"
+  data-interface="AltiumAssetConversionRequest"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_007_altium_asset_conversion.py"
+  data-test-target="test_footprint_conversion_selects_exact_key_and_always_normalizes">
+  <h2>AltiumAssetConversionRequest</h2>
+  <h3>Rationale</h3>
+  <p>The public workflow must not depend on an application Part model or infer which item in a multi-item Altium library the caller intended.</p>
+  <h3>Purpose</h3>
+  <p><code>AltiumAssetConversionRequest</code> carries an explicit source library, exact native key, destination, asset kind, existing-destination policy, and discretionary cleanup choice.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 verifies exact-key selection, independent destination policy, and mandatory footprint normalization even when cleanup filters are disabled.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when the request fully determines one model-free symbol or footprint conversion attempt.</p>
+</section>
+<section
+  id="altium-asset-conversion-result"
+  data-interface="AltiumAssetConversionResult"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_007_altium_asset_conversion.py"
+  data-test-target="test_symbol_conversion_requires_exact_key_and_reports_reusable_result">
+  <h2>AltiumAssetConversionResult</h2>
+  <h3>Rationale</h3>
+  <p>Downstream applications need emitted identity, compatibility-repair counts, tool version, reuse state, and diagnostics without a legacy field-name dictionary.</p>
+  <h3>Purpose</h3>
+  <p><code>AltiumAssetConversionResult</code> reports the request, success state, destination, exact emitted key, KiCad version, normalization count, reuse state, and ordered stages.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 covers converted and reused symbols, normalized footprints, and typed failure records.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when an application can persist a CAD binding and explain the conversion outcome without inspecting private executor state.</p>
+</section>
+<section
+  id="altium-asset-conversion-executor"
+  data-interface="AltiumAssetConversionExecutor"
+  data-rack-stratum="L3_public_workflows"
+  data-test-file="tests/L3_public_workflows/test_L3_007_altium_asset_conversion.py"
+  data-test-target="test_each_post_conversion_failure_preserves_existing_destination">
+  <h2>AltiumAssetConversionExecutor</h2>
+  <h3>Rationale</h3>
+  <p>KiCad CLI conversion needs one reusable owner for staging, exact item selection, mandatory normalization, validation, and publication.</p>
+  <h3>Purpose</h3>
+  <p><code>AltiumAssetConversionExecutor</code> converts one explicit asset in a destination-local staging directory and atomically publishes only a validated result.</p>
+  <h3>Test Requirements</h3>
+  <p>L3 verifies exact selection, mandatory normalization, reuse validation, and destination preservation for selection, filter, validation, and publication failures.</p>
+  <h3>Working Definition</h3>
+  <p>The interface is working when no failed attempt mutates the destination and every successful output contains exactly the requested native key.</p>
+</section>
 <section id="policy"><h2>Policy</h2><p>When another public dataclass or major interface is added, it must be listed here with machine-readable test ownership before L99 signoff can pass.</p></section>
 </main>
 </body>

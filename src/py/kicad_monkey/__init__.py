@@ -160,6 +160,9 @@ __all__ = [
     "KiCadEnvironment",
     "KiCadFilterPipeline",
     "KiCadNameIndex",
+    "FootprintPadSizeNormalization",
+    "PadSizeNormalizationChange",
+    "normalize_unsafe_footprint_pad_sizes",
     # Filter framework — formatting helpers (lazy loaded)
     "format_kicad_sexp",
     # Filter framework — individual filters (lazy loaded)
@@ -677,6 +680,9 @@ _LAZY_EXPORT_MODULES: dict[str, str] = {
     'KiCadEnvironment': 'kicad_environment',
     'KiCadFilterPipeline': 'kicad_filter_core',
     'KiCadNameIndex': 'kicad_name_index',
+    'FootprintPadSizeNormalization': 'kicad_footprint_normalize',
+    'PadSizeNormalizationChange': 'kicad_footprint_normalize',
+    'normalize_unsafe_footprint_pad_sizes': 'kicad_footprint_normalize',
     'format_kicad_sexp': 'kicad_filter_core',
     'fp_filter__add_fab_bounding_orthogonal_convex': 'kicad_filter_footprint',
     'fp_filter__clean_fab': 'kicad_filter_footprint',

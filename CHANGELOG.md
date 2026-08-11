@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 2026.8.11
+
+- Add a public, dependency-light normalizer for unsafe direct footprint pad
+  sizes that matches KiCad's 0.001 mm compatibility repair while preserving
+  valid nested custom-pad primitive sizes.
+- Retire the application-specific `PartKiCadConverter` surface from
+  the parser package after downstream consumer migration.
+- Expand declared and CI-tested Python support through Python 3.14.
+
 ## 2026.8.10.1
 
 - Link visible KiCad power-symbol groups to their compiled `power_port`
