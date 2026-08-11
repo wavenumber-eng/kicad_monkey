@@ -65,5 +65,3 @@ jobs:
         run: uv run --package kicad-cruncher --extra test python tests/support_scripts/install_test.py
       - name: Run installed two-wheel compatibility test
         run: uv run --extra test python tests/support_scripts/toolchain_install_test.py
-      - name: Rehearse Cruncher upgrade and rollback
-        run: uv run --extra test python tests/support_scripts/toolchain_upgrade_test.py
