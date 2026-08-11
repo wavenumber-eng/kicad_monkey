@@ -99,3 +99,28 @@ test_pcb_clean_dry_run_reports_fixture_cleanup_candidates = "Verify dry-run JSON
 test_pcb_clean_resolves_project_input_to_sibling_board = "Verify project input resolves to the sibling board"
 test_pcb_clean_config_can_disable_cleanup_target_classes = "Verify target switches suppress candidate selection"
 test_pcb_clean_apply_mutates_copied_fixture_without_touching_copper = "Verify apply mutates a copied board without removing pads or copper"
+
+[[subtests]]
+id = "L3_007"
+file = "test_L3_007_altium_asset_conversion.py"
+name = "Transactional Altium Asset Conversion"
+description = "Validate exact selection, mandatory normalization, failure safety, and typed results"
+concerns = ["contracts", "release"]
+test_case_type = "synthetic"
+test_cases = "Temporary synthetic Altium placeholders and fake KiCad CLI outputs"
+
+[subtests.code_under_test]
+module = "kicad_cruncher.altium_asset_conversion"
+
+[subtests.objectives]
+exact_selection = "Multi-entry conversion selects only an exact native key"
+mandatory_normalization = "Direct unsafe footprint pad sizes normalize even when cleanup filters are disabled"
+transaction_safety = "Conversion, filter, selection, and validation failures preserve existing destinations"
+typed_contract = "Requests and results contain no application Part model or field-name dictionary"
+
+[subtests.test_functions]
+test_footprint_conversion_selects_exact_key_and_always_normalizes = "Select and normalize one exact footprint"
+test_missing_exact_footprint_key_preserves_existing_destination = "Reject a missing key without replacing output"
+test_each_post_conversion_failure_preserves_existing_destination = "Inject filter and validation failures"
+test_reuse_rejects_invalid_existing_footprint_without_mutating_it = "Fail closed when reused output needs repair"
+test_symbol_conversion_requires_exact_key_and_reports_reusable_result = "Select and reuse an exact symbol key"

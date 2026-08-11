@@ -9,3 +9,4 @@ Accepted architecture decisions for `kicad-cruncher` live in this directory.
 - [ADR-0005: Plugin Daemon Ownership](ADR-0005-plugin-daemon-ownership.md)
 - [ADR-0006: Generated JSONC Config Comments](ADR-0006-generated-jsonc-config-comments.md)
 - [ADR-0007: Contract Schema Namespace And Versioning](ADR-0007-contract-schema-namespace-and-versioning.md)
+- [ADR-0008: Altium Asset Conversion Ownership](ADR-0008-altium-asset-conversion-ownership.md)

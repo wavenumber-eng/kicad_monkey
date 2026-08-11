@@ -687,5 +687,39 @@
     <h3>Working Definition</h3>
     <p>The class is public when downstream library indexes can discover KiCad symbol and footprint names through object methods.</p>
   </section>
+
+  <section
+    data-interface="PadSizeNormalizationChange"
+    data-rack-stratum="L2_tools"
+    data-test-file="tests/L2_tools/test_L2_004_filter_framework.py"
+    data-test-target="test_matches_kicad_for_either_nonpositive_axis_and_pad_kinds"
+  >
+    <h2>PadSizeNormalizationChange</h2>
+    <h3>Rationale</h3>
+    <p>Conversion workflows need reviewable evidence of every compatibility repair without depending on log parsing.</p>
+    <h3>Purpose</h3>
+    <p>Record the pad identity, original direct size, and KiCad-compatible replacement size for one repair.</p>
+    <h3>Test Requirements</h3>
+    <p>Tests cover all pad kinds, either nonpositive axis, and exact 1 um replacement diagnostics.</p>
+    <h3>Working Definition</h3>
+    <p>The immutable record is public when callers can audit repairs without importing application models.</p>
+  </section>
+
+  <section
+    data-interface="FootprintPadSizeNormalization"
+    data-rack-stratum="L2_tools"
+    data-test-file="tests/L2_tools/test_L2_004_filter_framework.py"
+    data-test-target="test_is_idempotent_and_leaves_nested_padstack_sizes_unchanged"
+  >
+    <h2>FootprintPadSizeNormalization</h2>
+    <h3>Rationale</h3>
+    <p>A format mutation must return both the resulting source form and structured evidence of its changes.</p>
+    <h3>Purpose</h3>
+    <p>Pair the in-place normalized footprint expression with immutable direct-pad repair records and a count.</p>
+    <h3>Test Requirements</h3>
+    <p>Tests prove idempotence, direct-size scope, and preservation of valid nested padstack zero sizes.</p>
+    <h3>Working Definition</h3>
+    <p>The result is public when orchestration layers can consume normalization without relying on filter logs.</p>
+  </section>
 </body>
 </html>

@@ -24,7 +24,6 @@ objectives = [
 #
 # Module: kicad_monkey.kicad_utilities - Project parsing, HTTP library generation
 # Module: kicad_monkey.kicad_setup - KiCad preferences configuration
-# Module: kicad_monkey.kicad_part_converter - Part data model conversion
 
 # =============================================================================
 # Subtest Manifest

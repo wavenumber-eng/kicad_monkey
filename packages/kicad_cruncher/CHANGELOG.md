@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 2026.8.11
+
+- Add typed, model-free Altium symbol and footprint conversion requests and
+  results with exact native-key selection and structured stage diagnostics.
+- Stage outputs on the destination filesystem, apply mandatory footprint pad
+  normalization, validate with KiCad CLI, and publish atomically without
+  damaging an existing destination on failure.
+- Expand declared and CI-tested Python support through Python 3.14.
+
 ## 2026.8.10
 
 - Write the exact compiled schematic graph from Design JSON as a standalone

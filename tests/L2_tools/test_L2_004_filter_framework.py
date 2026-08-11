@@ -410,6 +410,74 @@ class TestFpFilterFixZeroSizedPads:
                 sizes.append((size[1], size[2]))
         assert sizes == [(0.001, 0.001), (0.5, 0.5)]
 
+    def test_matches_kicad_for_either_nonpositive_axis_and_pad_kinds(self):
+        from kicad_monkey import normalize_unsafe_footprint_pad_sizes
+
+        sexp = parse_sexp(dedent("""
+            (footprint "lib:UnsafePads"
+                (pad "S" smd rect (at 0 0) (size 0 0) (layers "F.Cu"))
+                (pad "P" thru_hole circle (at 1 0) (size 0 3.45)
+                    (drill 1.6) (layers "*.Cu" "*.Mask"))
+                (pad "N" np_thru_hole oval (at 2 0) (size 3.45 0)
+                    (drill oval 1.6 3.45) (layers "*.Cu" "*.Mask"))
+                (pad "C" thru_hole custom (at 3 0) (size -1 2)
+                    (drill 1) (layers "*.Cu" "*.Mask")
+                    (options (clearance outline) (anchor circle))
+                    (primitives (gr_circle (center 0 0) (end 1 0) (fill yes))))
+            )
+        """))
+
+        result = normalize_unsafe_footprint_pad_sizes(sexp)
+
+        assert result.count == 4
+        assert [change.pad_name for change in result.changes] == ["S", "P", "N", "C"]
+        assert [change.original_size for change in result.changes] == [
+            (0.0, 0.0),
+            (0.0, 3.45),
+            (3.45, 0.0),
+            (-1.0, 2.0),
+        ]
+        assert [
+            tuple(find_element(pad, "size")[1:3])
+            for pad in find_all_elements(result.expression, "pad")
+        ] == [(0.001, 0.001)] * 4
+
+    def test_is_idempotent_and_leaves_nested_padstack_sizes_unchanged(self):
+        from kicad_monkey import normalize_unsafe_footprint_pad_sizes
+
+        sexp = parse_sexp(dedent("""
+            (footprint "lib:Padstack"
+                (pad "1" thru_hole circle (at 0 0) (size 1 1)
+                    (drill 0.5) (layers "*.Cu" "*.Mask")
+                    (padstack
+                        (layer "F.Cu" (shape circle) (size 0 0))
+                        (layer "B.Cu" (shape circle) (size 0 0))))
+            )
+        """))
+
+        first = normalize_unsafe_footprint_pad_sizes(sexp)
+        second = normalize_unsafe_footprint_pad_sizes(first.expression)
+
+        assert first.count == 0
+        assert second.count == 0
+        pad = find_element(second.expression, "pad")
+        padstack = find_element(pad, "padstack")
+        assert tuple(find_element(pad, "size")[1:3]) == (1, 1)
+        assert [
+            tuple(find_element(layer, "size")[1:3])
+            for layer in find_all_elements(padstack, "layer")
+        ] == [(0, 0), (0, 0)]
+
+    def test_rejects_malformed_direct_size(self):
+        import pytest
+
+        from kicad_monkey import normalize_unsafe_footprint_pad_sizes
+
+        sexp = parse_sexp('(footprint "lib:Bad" (pad "1" smd rect (size 0)))')
+
+        with pytest.raises(ValueError, match="malformed direct size"):
+            normalize_unsafe_footprint_pad_sizes(sexp)
+
 
 class TestFpFilterFixFontToArial:
     def test_replaces_existing_font_face(self):
