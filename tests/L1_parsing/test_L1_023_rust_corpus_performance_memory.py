@@ -13,8 +13,11 @@ import subprocess
 import tomllib
 from typing import Any
 
+import pytest
+
 from kicad_monkey.testing.corpus import get_kicad_corpus_root
 from support_scripts.process_peak_memory import run_with_peak_rss
+from support_scripts.advisory import advisory_benchmarks_enabled
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -156,6 +159,8 @@ def _measure_operation(
 
 def test_named_corpus_release_performance_and_peak_memory() -> None:
     """Measure semantic round trips without ratifying one-machine thresholds."""
+    if not advisory_benchmarks_enabled():
+        pytest.skip("advisory benchmark; run Rack with --lane strict")
     cargo = shutil.which("cargo")
     rustc = shutil.which("rustc")
     assert cargo is not None, "cargo is required for Rust corpus measurements"

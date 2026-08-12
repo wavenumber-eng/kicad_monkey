@@ -246,7 +246,15 @@ and executable WASM signoff, and comparative performance evidence:
 uv run python tests/rack.py run L0_044
 uv run python tests/rack.py run L0_045
 uv run python tests/rack.py run L0_046
-uv run python tests/rack.py run L0_047
+```
+
+Performance cases `L0_047`, `L1_023`, and `L1_024` are advisory and skip in
+ordinary fast/full development runs. Run them explicitly in the strict lane:
+
+```powershell
+uv run python tests/rack.py run L0_047 --lane strict
+uv run python tests/rack.py run L1_023 --lane strict
+uv run python tests/rack.py run L1_024 --lane strict
 ```
 
 Run `npm ci` once to install the pinned TypeSpec toolchain. The executable WASM

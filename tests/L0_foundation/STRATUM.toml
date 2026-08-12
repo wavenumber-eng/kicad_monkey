@@ -135,13 +135,14 @@ secondary = [
 id = "L0_047"
 file = "test_L0_047_rust_sexpr_performance.py"
 name = "Rust S-Expression Performance Evidence"
-description = "Measure release Rust and Python on one frozen synthetic parser workload"
+description = "Advisory strict-lane measurement of release Rust and Python on one frozen synthetic parser workload"
 concerns = ["sexpr", "performance"]
 test_case_type = "benchmark"
 
 [subtests.objectives]
 primary = "Rack emits reproducible scan, parse, and build evidence before threshold ratification"
 secondary = [
+    "The benchmark skips in ordinary fast/full development runs",
     "Python and Rust process byte-identical generated input",
     "Selected form count and deterministic output size agree",
     "Thresholds remain explicitly pending the L0 architecture review",

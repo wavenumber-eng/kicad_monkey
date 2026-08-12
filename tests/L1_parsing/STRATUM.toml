@@ -249,7 +249,7 @@ secondary = [
 id = "L1_023"
 file = "test_L1_023_rust_corpus_performance_memory.py"
 name = "Rust Named-Corpus Performance and Peak Memory"
-description = "Measure release semantic round trips for hashed small, medium, and large corpus files"
+description = "Advisory strict-lane release measurements for hashed small, medium, and large corpus files"
 concerns = ["sexpr", "rust", "performance", "memory"]
 test_cases = "tests/performance/sexpr_corpus_cases.toml"
 test_case_type = "benchmark"
@@ -257,6 +257,7 @@ test_case_type = "benchmark"
 [subtests.objectives]
 primary = "Rack records reproducible stage timing and peak RSS evidence for named content-addressed corpus tiers"
 secondary = [
+    "The benchmark skips in ordinary fast/full development runs",
     "Compilation time is excluded from measurements",
     "Every measured run proves semantic equality and deterministic second output",
     "Host and Rust toolchain identity are recorded",
@@ -269,7 +270,7 @@ secondary = [
 id = "L1_024"
 file = "test_L1_024_rust_selected_span_sort.py"
 name = "Rust Selected-Span Sort Measurement"
-description = "Isolate final source-order sorting from select-all memory and streaming scans"
+description = "Advisory strict-lane isolation of final source-order sorting from select-all scans"
 concerns = ["sexpr", "rust", "performance", "projection"]
 test_cases = "tests/performance/sexpr_corpus_cases.toml"
 test_case_type = "benchmark"
@@ -277,6 +278,7 @@ test_case_type = "benchmark"
 [subtests.objectives]
 primary = "Measure O(n + k log k) selected-span sorting independently on every named corpus tier"
 secondary = [
+    "The benchmark skips in ordinary fast/full development runs",
     "Memory and streaming scanners return the same selected-form count",
     "All raw runs and best/median sort fractions are transient evidence",
     "Representation changes remain profiling-driven",

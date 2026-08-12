@@ -9,12 +9,15 @@ import subprocess
 import time
 from typing import Any, Callable
 
+import pytest
+
 from kicad_monkey.kicad_sexpr import (
     SexpSelector,
     build_sexp,
     iter_sexp_form_spans,
     parse_sexp,
 )
+from support_scripts.advisory import advisory_benchmarks_enabled
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -40,6 +43,8 @@ def _best(operation: Callable[[], Any]) -> float:
 
 
 def test_release_rust_measurement_uses_the_same_frozen_python_workload() -> None:
+    if not advisory_benchmarks_enabled():
+        pytest.skip("advisory benchmark; run Rack with --lane strict")
     cargo = shutil.which("cargo")
     assert cargo is not None, "cargo is required for Rust performance evidence"
     completed = subprocess.run(
