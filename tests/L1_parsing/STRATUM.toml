@@ -283,3 +283,22 @@ secondary = [
     "All raw runs and best/median sort fractions are transient evidence",
     "Representation changes remain profiling-driven",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_025"
+file = "test_L1_025_rust_footprint_typed_slice.py"
+name = "Rust Typed Footprint Reader/Writer Slice"
+description = "Run the source-backed footprint view and focused property writer through Rack"
+concerns = ["sexpr", "rust", "footprint", "writeback"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "A footprint can be read and edited without a generic full-file tree or loss of unknown forms"
+secondary = [
+    "Name, property, and pad facts are read from selected source spans",
+    "Focused property edits preserve untouched bytes and reparse semantically",
+    "A repeated edit is byte stable",
+    "Resource and ambiguity limits fail closed",
+]

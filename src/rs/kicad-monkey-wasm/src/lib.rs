@@ -3,14 +3,21 @@
 #![forbid(unsafe_code)]
 
 use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;
+use kicad_monkey_contracts::generated::footprint_edit_request::FootprintEditRequestA0;
+use kicad_monkey_contracts::generated::footprint_read_request::FootprintReadRequestA0;
+use kicad_monkey_contracts::generated::footprint_read_result::{
+    Diagnostic as FootprintDiagnostic, DiagnosticPhase as FootprintDiagnosticPhase,
+    FootprintProperty as FootprintContractProperty, FootprintReadResultA0,
+    SourcePosition as FootprintSourcePosition,
+};
 use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
 use kicad_monkey_contracts::generated::scan_result::{
     Diagnostic, DiagnosticPhase, FormSpan, SExpressionScanResultA0, SourcePosition,
 };
 use kicad_monkey_contracts::{ValidatedNode, validate_build_request};
 use kicad_monkey_core::{
-    Error, ErrorKind, ErrorPhase, ProjectionLimits, Selector, Sexp, build, build_with_limit,
-    parse_bytes, scan_reader_form_spans,
+    Error, ErrorKind, ErrorPhase, FootprintLimits, FootprintView, ProjectionLimits, Selector, Sexp,
+    build, build_with_limit, parse_bytes, scan_reader_form_spans, utf8_text,
 };
 use std::collections::BTreeSet;
 use std::io::Cursor;
@@ -33,6 +40,125 @@ pub fn scan_sexpr(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, JsValue
 #[wasm_bindgen(js_name = buildSexpr)]
 pub fn build_sexpr(request_json: &[u8]) -> Result<Vec<u8>, JsValue> {
     build_sexpr_impl(request_json).map_err(|message| JsValue::from_str(&message))
+}
+
+/// Read typed standalone-footprint facts from caller-owned KiCad bytes.
+#[wasm_bindgen(js_name = readFootprint)]
+pub fn read_footprint(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, JsValue> {
+    read_footprint_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
+}
+
+/// Apply one source-preserving property edit and return KiCad bytes.
+#[wasm_bindgen(js_name = editFootprintProperty)]
+pub fn edit_footprint_property(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, JsValue> {
+    edit_footprint_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
+}
+
+fn read_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, String> {
+    let request: FootprintReadRequestA0 =
+        serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
+    validate_identity(
+        &request.type_,
+        &request.version,
+        "kicad_monkey.footprint_read.request",
+    )?;
+    let limits = footprint_limits(
+        &request.max_source_bytes,
+        None,
+        request.max_depth,
+        request.max_properties,
+        request.max_pads,
+    )?;
+    let result = match utf8_text(source).and_then(|text| FootprintView::parse(text, limits)) {
+        Ok(view) => {
+            let name = view.name().map_err(|error| error.to_string())?.into_owned();
+            let properties = view
+                .properties()
+                .map(|property| {
+                    property.map(|value| FootprintContractProperty {
+                        name: value.name.into_owned(),
+                        value: value.value.into_owned(),
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| error.to_string())?;
+            FootprintReadResultA0 {
+                diagnostics: Vec::new(),
+                name,
+                pad_count: u32::try_from(view.pad_count()).unwrap_or(u32::MAX),
+                properties,
+                source_bytes: source.len().to_string(),
+                type_: "kicad_monkey.footprint_read.result".to_owned(),
+                version: "a0".to_owned(),
+            }
+        }
+        Err(error) => FootprintReadResultA0 {
+            diagnostics: vec![footprint_diagnostic(error)],
+            name: String::new(),
+            pad_count: 0,
+            properties: Vec::new(),
+            source_bytes: source.len().to_string(),
+            type_: "kicad_monkey.footprint_read.result".to_owned(),
+            version: "a0".to_owned(),
+        },
+    };
+    serde_json::to_vec(&result).map_err(|error| error.to_string())
+}
+
+fn edit_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, String> {
+    let request: FootprintEditRequestA0 =
+        serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
+    validate_identity(
+        &request.type_,
+        &request.version,
+        "kicad_monkey.footprint_edit.request",
+    )?;
+    let limits = footprint_limits(
+        &request.max_source_bytes,
+        Some(&request.max_output_bytes),
+        request.max_depth,
+        request.max_properties,
+        request.max_pads,
+    )?;
+    let text = utf8_text(source).map_err(|error| error.to_string())?;
+    let view = FootprintView::parse(text, limits).map_err(|error| error.to_string())?;
+    view.set_property(
+        &request.property_name,
+        &request.value,
+        limits.max_output_bytes,
+    )
+    .map(|edit| edit.source.into_bytes())
+    .map_err(|error| error.to_string())
+}
+
+fn footprint_limits(
+    max_source_bytes: &str,
+    max_output_bytes: Option<&str>,
+    max_depth: u32,
+    max_properties: u32,
+    max_pads: u32,
+) -> Result<FootprintLimits, String> {
+    let source = max_source_bytes
+        .parse::<usize>()
+        .map_err(|_| "max_source_bytes must be a platform-sized decimal string".to_owned())?;
+    let output = max_output_bytes
+        .unwrap_or(max_source_bytes)
+        .parse::<usize>()
+        .map_err(|_| "max_output_bytes must be a platform-sized decimal string".to_owned())?;
+    Ok(FootprintLimits {
+        max_source_bytes: source,
+        max_output_bytes: output,
+        max_depth: max_depth as usize,
+        max_properties: max_properties as usize,
+        max_pads: max_pads as usize,
+    })
+}
+
+fn validate_identity(type_: &str, version: &str, expected: &str) -> Result<(), String> {
+    if type_ != expected || version != "a0" {
+        return Err(format!("Unsupported contract identity: {type_}:{version}"));
+    }
+    Ok(())
 }
 
 fn build_sexpr_impl(request_json: &[u8]) -> Result<Vec<u8>, String> {
@@ -133,6 +259,24 @@ fn contract_diagnostic(error: Error) -> Diagnostic {
     }
 }
 
+fn footprint_diagnostic(error: Error) -> FootprintDiagnostic {
+    FootprintDiagnostic {
+        code: error_code(error.kind).to_owned(),
+        message: error.message.into_owned(),
+        phase: match error.phase {
+            ErrorPhase::Lex => FootprintDiagnosticPhase::Lex,
+            ErrorPhase::Tree => FootprintDiagnosticPhase::Tree,
+            ErrorPhase::Build => FootprintDiagnosticPhase::Build,
+        },
+        position: error.position.map(|position| FootprintSourcePosition {
+            column: position.column.to_string(),
+            line: position.line.to_string(),
+            offset: position.offset.to_string(),
+        }),
+        token: error.token,
+    }
+}
+
 fn error_code(kind: ErrorKind) -> &'static str {
     match kind {
         ErrorKind::InvalidUtf8 => "invalid_utf8",
@@ -159,7 +303,10 @@ fn js_error(error: Error) -> JsValue {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_sexpr, build_sexpr_impl, canonicalize_sexpr, scan_sexpr, scan_sexpr_impl};
+    use super::{
+        build_sexpr, build_sexpr_impl, canonicalize_sexpr, edit_footprint_property, read_footprint,
+        scan_sexpr, scan_sexpr_impl,
+    };
     use serde_json::Value;
     use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -256,5 +403,24 @@ mod tests {
         assert_eq!(value["forms"], serde_json::json!([]));
         assert_eq!(value["diagnostics"][0]["code"], "resource_limit");
         assert_eq!(value["diagnostics"][0]["phase"], "tree");
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_footprint_read_and_source_preserving_edit_use_byte_boundaries() {
+        let source =
+            br#"(footprint "Demo" (property "Value" "old") (pad "1" smd rect) (future "keep"))"#;
+        let read_request = br#"{"type":"kicad_monkey.footprint_read.request","version":"a0","max_source_bytes":"1024","max_depth":32,"max_properties":8,"max_pads":8}"#;
+        let read = read_footprint(source, read_request).expect("typed footprint read");
+        let value: Value = serde_json::from_slice(&read).expect("result JSON");
+        assert_eq!(value["name"], "Demo");
+        assert_eq!(value["properties"][0]["value"], "old");
+        assert_eq!(value["pad_count"], 1);
+
+        let edit_request = br#"{"type":"kicad_monkey.footprint_edit.request","version":"a0","property_name":"Value","value":"new value","max_source_bytes":"1024","max_output_bytes":"1024","max_depth":32,"max_properties":8,"max_pads":8}"#;
+        let edited = edit_footprint_property(source, edit_request).expect("typed footprint edit");
+        assert_eq!(
+            edited,
+            br#"(footprint "Demo" (property "Value" "new value") (pad "1" smd rect) (future "keep"))"#
+        );
     }
 }

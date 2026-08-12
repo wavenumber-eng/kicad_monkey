@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 2 Typed Footprint Slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 2 Typed Footprint Slice</h1>
+
+  <section>
+    <h2>Decision</h2>
+    <p>
+      The first Phase 2 source-model slice is a standalone footprint summary
+      and focused property edit. It is accepted as the foundation for wider
+      footprint coverage, but remains <code>review_ready</code> in the parity
+      registry until representative Python and corpus comparisons close.
+    </p>
+  </section>
+
+  <section>
+    <h2>Architecture</h2>
+    <ul>
+      <li>
+        <code>FootprintView</code> borrows UTF-8 source and retains only the
+        root, top-level property, and top-level pad spans selected by the Phase
+        1 scanner. It never constructs a generic full-file tree.
+      </li>
+      <li>
+        Names and properties decode lazily from their exact form ranges. The
+        first contract exposes footprint name, properties, and pad count while
+        source bytes remain out of band.
+      </li>
+      <li>
+        A property edit replaces only the existing value token. Unknown forms,
+        comments, whitespace, ordering, and every other source byte survive.
+      </li>
+      <li>
+        Missing or duplicate property names fail explicitly. Source, output,
+        depth, property, and pad limits are caller supplied and fail closed.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Contract And WASM Boundary</h2>
+    <p>
+      TypeSpec owns the read/edit a0 envelopes and generates JSON Schema, Rust,
+      Python <code>msgspec</code>, and TypeScript projections. Actual
+      Node-hosted WASM tests call <code>readFootprint</code> and
+      <code>editFootprintProperty</code> with separate byte buffers. The read
+      operation returns typed JSON; the edit returns KiCad UTF-8 bytes without
+      base64 encoding.
+    </p>
+  </section>
+
+  <section>
+    <h2>Test Ownership</h2>
+    <p>
+      Rack L1_025 owns typed read, source-preserving write, unknown-form
+      survival, semantic reparse, stable second edit, ambiguity, and resource
+      limits. Rack L0_046 owns actual WASM execution and Rust quality. Rack
+      L0_049 owns generated Python and TypeScript projection cleanliness.
+    </p>
+  </section>
+
+  <section>
+    <h2>Retained Work</h2>
+    <p>
+      Add representative legacy and modern <code>.kicad_mod</code> fixtures,
+      compare the first facts to Python, expand typed pad/graphic iteration,
+      and define the footprint plotter-IR contract before the Phase 2 boundary
+      review. Adding new properties is intentionally outside this focused edit
+      operation until insertion formatting and placement rules are specified.
+    </p>
+  </section>
+</body>
+</html>

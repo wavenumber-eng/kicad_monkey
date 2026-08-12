@@ -476,8 +476,13 @@ pub fn parse(source: &str) -> Result<Sexp, Error> {
 
 /// Parse bytes after validating UTF-8.
 pub fn parse_bytes(source: &[u8]) -> Result<Sexp, Error> {
+    utf8_text(source).and_then(parse)
+}
+
+/// Validate bytes and borrow them as UTF-8 without constructing a syntax tree.
+pub fn utf8_text(source: &[u8]) -> Result<&str, Error> {
     match std::str::from_utf8(source) {
-        Ok(text) => parse(text),
+        Ok(text) => Ok(text),
         Err(error) => {
             let offset = error.valid_up_to();
             let position = position_at_valid_prefix(&source[..offset]);

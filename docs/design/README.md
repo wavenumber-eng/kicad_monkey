@@ -29,6 +29,8 @@ Current design notes:
   and peak-memory method, Windows evidence, and retained Linux ratification.
 - `rust-sexpr-phase1-promotion.html` - accepted parser correctness, safety,
   API-boundary, and deferred-performance decision authorizing typed readers.
+- `rust-footprint-phase2-slice.html` - accepted first source-backed footprint
+  reader and unknown-form-preserving focused writer boundary.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

@@ -121,3 +121,13 @@ python_symbols = ["roundtrip_sexp_text", "iter_kicad_sexpr_files"]
 rust_symbols = ["parse_bytes", "build", "sexpr_corpus_gate"]
 rack_cases = ["L1_018", "L1_022"]
 evidence = ["tests/L1_parsing/test_L1_018_corpus_sexpr_passthrough.py", "tests/L1_parsing/test_L1_022_rust_corpus_sexpr_passthrough.py", "src/rs/kicad-monkey-core/examples/sexpr_corpus_gate.rs", "docs/design/rust-sexpr-l1-review.html"]
+
+[[surfaces]]
+id = "footprint.typed_read_write"
+disposition = "required"
+wasm = "required"
+status = "review_ready"
+python_symbols = ["KiCadFootprint", "Footprint"]
+rust_symbols = ["FootprintView", "FootprintProperty", "FootprintEdit", "kicad-monkey-wasm.readFootprint", "kicad-monkey-wasm.editFootprintProperty"]
+rack_cases = ["L0_046", "L0_049", "L1_025"]
+evidence = ["src/tsp/kicad_monkey/footprint-a0.tsp", "src/rs/kicad-monkey-core/src/footprint.rs", "src/rs/kicad-monkey-core/tests/footprint_typed_slice.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_025_rust_footprint_typed_slice.py", "docs/design/rust-footprint-phase2-slice.html"]
