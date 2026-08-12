@@ -1,0 +1,197 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0",
+    "type": "object",
+    "properties": {
+        "schema": {
+            "type": "string",
+            "const": "kicad.plotter_ir.a0"
+        },
+        "source_kind": {
+            "type": "string",
+            "const": "MOD"
+        },
+        "total_operations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "records": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/FootprintPlotRecord"
+            }
+        },
+        "source_path": {
+            "type": "string"
+        },
+        "document_id": {
+            "type": "string"
+        },
+        "coordinate_space": {
+            "$ref": "#/$defs/PlotterCoordinateSpace"
+        },
+        "version": {
+            "type": "integer"
+        },
+        "generator": {
+            "type": "string"
+        },
+        "generator_version": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "schema",
+        "source_kind",
+        "total_operations",
+        "records",
+        "document_id",
+        "coordinate_space",
+        "version",
+        "generator",
+        "generator_version"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Strict subset of kicad.plotter_ir.a0 emitted by the initial footprint slice.",
+    "title": "Footprint plotter IR document slice a0",
+    "$defs": {
+        "FootprintPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "footprint"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/ThickSegmentOperation"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "locked": {
+                    "type": "boolean"
+                },
+                "placed": {
+                    "type": "boolean"
+                },
+                "descr": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "string"
+                },
+                "attr": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "name",
+                "layer",
+                "locked",
+                "placed",
+                "descr",
+                "tags",
+                "attr"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One footprint record in the first typed plotter slice."
+        },
+        "PlotterCoordinateSpace": {
+            "type": "object",
+            "properties": {
+                "unit": {
+                    "type": "string",
+                    "const": "nm"
+                },
+                "y_axis": {
+                    "type": "string",
+                    "const": "down"
+                }
+            },
+            "required": [
+                "unit",
+                "y_axis"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Coordinate convention for the initial footprint plotter slice."
+        },
+        "ThickSegmentOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "ThickSegment"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start_x": {
+                    "type": "integer"
+                },
+                "start_y": {
+                    "type": "integer"
+                },
+                "end_x": {
+                    "type": "integer"
+                },
+                "end_y": {
+                    "type": "integer"
+                },
+                "width_nm": {
+                    "type": "integer"
+                },
+                "layer": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "start_x",
+                "start_y",
+                "end_x",
+                "end_y",
+                "width_nm",
+                "layer"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Solid footprint line operation supported by the first typed plotter slice."
+        }
+    }
+}

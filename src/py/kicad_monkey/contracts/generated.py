@@ -61,6 +61,37 @@ class FootprintProperty(Struct, forbid_unknown_fields=True, frozen=True):
     value: str
 
 
+class FootprintPlotRecord(Struct, forbid_unknown_fields=True, frozen=True):
+    uuid: str
+    kind: Literal["footprint"]
+    object_id: str
+    operation_count: int
+    operations: list[ThickSegmentOperation]
+    name: str
+    layer: str
+    locked: bool
+    placed: bool
+    descr: str
+    tags: str
+    attr: list[str]
+
+
+class PlotterCoordinateSpace(Struct, forbid_unknown_fields=True, frozen=True):
+    unit: Literal["nm"]
+    y_axis: Literal["down"]
+
+
+class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True):
+    kind: Literal["ThickSegment"]
+    index: int
+    start_x: int
+    start_y: int
+    end_x: int
+    end_y: int
+    width_nm: int
+    layer: str
+
+
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.sexpr_build.request"] = field(name="type")
     version: Literal["a0"]
@@ -133,6 +164,38 @@ class FootprintReadResultA0(Struct, forbid_unknown_fields=True, frozen=True):
     diagnostics: list[Diagnostic]
 
 
+class FootprintPlotDocumentA0(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad.plotter_ir.a0"]
+    source_kind: Literal["MOD"]
+    total_operations: int
+    records: list[FootprintPlotRecord]
+    document_id: str
+    coordinate_space: PlotterCoordinateSpace
+    version: int
+    generator: str
+    generator_version: str
+    source_path: str | UnsetType = field(default=UNSET)
+
+
+class FootprintPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.footprint_plot.request"] = field(name="type")
+    version: Literal["a0"]
+    max_source_bytes: str
+    max_output_bytes: str
+    max_depth: int
+    max_operations: int
+    source_path: str | UnsetType = field(default=UNSET)
+    document_id: str | UnsetType = field(default=UNSET)
+
+
+class FootprintPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.footprint_plot.result"] = field(name="type")
+    version: Literal["a0"]
+    output_bytes: str
+    total_operations: int
+    diagnostics: list[Diagnostic]
+
+
 decode_sexpr_build_request_a0 = msgspec.json.Decoder(SExpressionBuildRequestA0).decode
 decode_sexpr_build_result_a0 = msgspec.json.Decoder(SExpressionBuildResultA0).decode
 decode_sexpr_scan_request_a0 = msgspec.json.Decoder(SExpressionScanRequestA0).decode
@@ -141,6 +204,9 @@ decode_footprint_edit_request_a0 = msgspec.json.Decoder(FootprintEditRequestA0).
 decode_footprint_edit_result_a0 = msgspec.json.Decoder(FootprintEditResultA0).decode
 decode_footprint_read_request_a0 = msgspec.json.Decoder(FootprintReadRequestA0).decode
 decode_footprint_read_result_a0 = msgspec.json.Decoder(FootprintReadResultA0).decode
+decode_footprint_plot_document_a0 = msgspec.json.Decoder(FootprintPlotDocumentA0).decode
+decode_footprint_plot_request_a0 = msgspec.json.Decoder(FootprintPlotRequestA0).decode
+decode_footprint_plot_result_a0 = msgspec.json.Decoder(FootprintPlotResultA0).decode
 
 
 __all__ = (
@@ -152,6 +218,9 @@ __all__ = (
     "Selector",
     "FormSpan",
     "FootprintProperty",
+    "FootprintPlotRecord",
+    "PlotterCoordinateSpace",
+    "ThickSegmentOperation",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",
@@ -160,6 +229,9 @@ __all__ = (
     "FootprintEditResultA0",
     "FootprintReadRequestA0",
     "FootprintReadResultA0",
+    "FootprintPlotDocumentA0",
+    "FootprintPlotRequestA0",
+    "FootprintPlotResultA0",
     "decode_sexpr_build_request_a0",
     "decode_sexpr_build_result_a0",
     "decode_sexpr_scan_request_a0",
@@ -168,4 +240,7 @@ __all__ = (
     "decode_footprint_edit_result_a0",
     "decode_footprint_read_request_a0",
     "decode_footprint_read_result_a0",
+    "decode_footprint_plot_document_a0",
+    "decode_footprint_plot_request_a0",
+    "decode_footprint_plot_result_a0",
 )

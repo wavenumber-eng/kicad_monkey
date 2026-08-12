@@ -1,5 +1,7 @@
 import type {
   FootprintEditRequestA0,
+  FootprintPlotterIRDocumentSliceA0,
+  FootprintPlotterIRRequestA0,
   FootprintReadRequestA0,
   SExpressionBuildRequestA0,
   SExpressionScanRequestA0,
@@ -48,3 +50,28 @@ const footprintEdit = {
 
 void footprintRead;
 void footprintEdit;
+
+const footprintPlot = {
+  type: "kicad_monkey.footprint_plot.request",
+  version: "a0",
+  document_id: "Demo",
+  max_source_bytes: "1048576",
+  max_output_bytes: "1048576",
+  max_depth: 64,
+  max_operations: 4096,
+} satisfies FootprintPlotterIRRequestA0;
+
+const footprintPlotDocument = {
+  schema: "kicad.plotter_ir.a0",
+  source_kind: "MOD",
+  total_operations: 0,
+  records: [],
+  document_id: "Demo",
+  coordinate_space: { unit: "nm", y_axis: "down" },
+  version: 20260206,
+  generator: "pcbnew",
+  generator_version: "10.0",
+} satisfies FootprintPlotterIRDocumentSliceA0;
+
+void footprintPlot;
+void footprintPlotDocument;
