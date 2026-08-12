@@ -109,8 +109,8 @@ wasm = "measurement_deferred_to_boundary_review"
 status = "review_ready"
 python_symbols = ["parse_sexp", "build_sexp", "iter_sexp_form_spans"]
 rust_symbols = ["parse", "build", "scan_form_spans"]
-rack_cases = ["L0_047"]
-evidence = ["tests/performance/sexpr_l0.toml", "src/rs/kicad-monkey-core/examples/sexpr_l0_benchmark.rs"]
+rack_cases = ["L0_047", "L1_023"]
+evidence = ["tests/performance/sexpr_l0.toml", "tests/performance/sexpr_corpus_cases.toml", "src/rs/kicad-monkey-core/examples/sexpr_l0_benchmark.rs", "src/rs/kicad-monkey-core/examples/sexpr_corpus_benchmark.rs", "docs/design/rust-sexpr-phase1-measurement.html"]
 
 [[surfaces]]
 id = "sexpr.corpus_roundtrip"

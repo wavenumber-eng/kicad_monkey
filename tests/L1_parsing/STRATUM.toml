@@ -242,3 +242,23 @@ secondary = [
     "Failures are attributed to read, lex, tree, build, reparse, or compare",
     "Rack writes transient corpus throughput and largest-file evidence",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_023"
+file = "test_L1_023_rust_corpus_performance_memory.py"
+name = "Rust Named-Corpus Performance and Peak Memory"
+description = "Measure release semantic round trips for hashed small, medium, and large corpus files"
+concerns = ["sexpr", "rust", "performance", "memory"]
+test_cases = "tests/performance/sexpr_corpus_cases.toml"
+test_case_type = "benchmark"
+
+[subtests.objectives]
+primary = "Rack records reproducible stage timing and peak RSS evidence for named content-addressed corpus tiers"
+secondary = [
+    "Compilation time is excluded from measurements",
+    "Every measured run proves semantic equality and deterministic second output",
+    "Host and Rust toolchain identity are recorded",
+    "Thresholds remain pending independent Windows and Linux ratification",
+]

@@ -25,6 +25,8 @@ Current design notes:
   evidence, corrections, and retained Phase 1 promotion gates.
 - `rust-sexpr-l1-review.html` - accepted parser-only corpus parity review and
   the remaining performance and memory gates before Phase 1 promotion.
+- `rust-sexpr-phase1-measurement.html` - accepted named-corpus release timing
+  and peak-memory method, Windows evidence, and retained Linux ratification.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

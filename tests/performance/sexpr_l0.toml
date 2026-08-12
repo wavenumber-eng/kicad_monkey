@@ -8,6 +8,8 @@ rounds = 5
 
 [promotion]
 threshold_status = "pending_corpus_and_platform_ratification"
+corpus_measurement_status = "windows_complete_linux_pending"
+corpus_manifest = "tests/performance/sexpr_corpus_cases.toml"
 required_metrics = [
     "input_bytes",
     "selected_forms",

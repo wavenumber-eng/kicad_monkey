@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust S-Expression Phase 1 Corpus Measurement</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust S-Expression Phase 1 Corpus Measurement</h1>
+
+  <section>
+    <h2>Decision</h2>
+    <p>
+      The named-corpus performance and peak-memory harness is accepted as the
+      Windows measurement baseline. It closes the implementation and local
+      evidence portion of the Phase 1 corpus-measurement task. Release floors
+      remain unratified until an independent Linux run reproduces the harness
+      and the parser promotion review accepts explicit budgets.
+    </p>
+  </section>
+
+  <section>
+    <h2>Method</h2>
+    <ul>
+      <li>
+        Three promoted inputs are pinned by corpus-relative path, byte length,
+        file SHA-256, and the content-addressed corpus archive SHA-256.
+      </li>
+      <li>
+        Rack builds the test-only runner once in release mode, then invokes the
+        executable directly so Cargo and compilation memory are excluded.
+      </li>
+      <li>
+        Each tier runs three isolated processes for parse-only and full
+        semantic-roundtrip operations. The best time, median time, all raw
+        runs, and maximum sampled peak RSS are retained in transient evidence.
+      </li>
+      <li>
+        Parse-only holds the source and one generic tree. Semantic roundtrip
+        holds source, canonical output, both trees, and second output long
+        enough for the parent sampler to observe their process peak.
+      </li>
+      <li>
+        Every roundtrip proves parse, build, reparse, tree equality, and
+        byte-stable second output. The dependency-free sampler uses native
+        process counters on Windows and <code>/proc</code> high-water marks on
+        Linux.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Windows Evidence</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Tier</th>
+          <th>Input</th>
+          <th>Operation</th>
+          <th>Best time</th>
+          <th>Peak RSS</th>
+          <th>Peak/input</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Small footprint</td><td>7,977 B</td><td>Parse</td><td>0.293 ms</td><td>4.35 MiB</td><td>baseline dominated</td></tr>
+        <tr><td>Small footprint</td><td>7,977 B</td><td>Roundtrip</td><td>0.486 ms</td><td>4.32 MiB</td><td>baseline dominated</td></tr>
+        <tr><td>Medium schematic</td><td>996,306 B</td><td>Parse</td><td>9.885 ms</td><td>12.91 MiB</td><td>13.58x</td></tr>
+        <tr><td>Medium schematic</td><td>996,306 B</td><td>Roundtrip</td><td>34.635 ms</td><td>24.73 MiB</td><td>26.03x</td></tr>
+        <tr><td>Large board</td><td>71,556,836 B</td><td>Parse</td><td>584.927 ms</td><td>506.58 MiB</td><td>7.42x</td></tr>
+        <tr><td>Large board</td><td>71,556,836 B</td><td>Roundtrip</td><td>2,247.323 ms</td><td>1,136.86 MiB</td><td>16.66x</td></tr>
+      </tbody>
+    </table>
+    <p>
+      These values came from Windows 11 on an AMD64 32-logical-CPU host using
+      Rust 1.95.0. They are evidence from one run series, not portable limits.
+    </p>
+  </section>
+
+  <section>
+    <h2>Interpretation</h2>
+    <p>
+      Throughput is already useful, but full generic-tree memory is material.
+      The large parse-only path peaks at about 7.4 times input size, while the
+      two-tree oracle intentionally reaches about 16.7 times input size. This
+      supports the existing architecture decision: the generic tree remains a
+      compatibility and validation path, while promoted converters and typed
+      readers must use selective spans or direct typed views rather than
+      allocating the complete generic tree.
+    </p>
+  </section>
+
+  <section>
+    <h2>Retained Gates</h2>
+    <ul>
+      <li>Run the same hashed cases on Linux before ratifying floors.</li>
+      <li>Set budgets only in the parser architecture/promotion review.</li>
+      <li>Measure selected-span sorting, path ownership, and selector scaling separately.</li>
+      <li>Keep streaming-select, source-patch, and browser/WASM transfer as independent ledger tasks.</li>
+      <li>Do not authorize typed-model expansion until every Phase 1 dependency closes.</li>
+    </ul>
+  </section>
+</body>
+</html>
