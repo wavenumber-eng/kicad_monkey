@@ -31,7 +31,7 @@ pub mod error {
 /// ```json
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.request:a0",
-///  "title": "Footprint plotter IR request a0",
+///  "title": "Footprint plot request a0",
 ///  "description": "Resource-bounded first footprint plotter operation. Source bytes are out of band.",
 ///  "type": "object",
 ///  "required": [
@@ -80,7 +80,7 @@ pub mod error {
 /// </details>
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct FootprintPlotterIrRequestA0 {
+pub struct FootprintPlotRequestA0 {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub document_id: ::std::option::Option<::std::string::String>,
     pub max_depth: u32,

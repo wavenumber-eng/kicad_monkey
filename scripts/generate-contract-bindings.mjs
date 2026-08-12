@@ -20,9 +20,9 @@ const roots = [
   ["FootprintEditResult.json", "FootprintEditResultA0", "footprint-edit-result.ts"],
   ["FootprintReadRequest.json", "FootprintReadRequestA0", "footprint-read-request.ts"],
   ["FootprintReadResult.json", "FootprintReadResultA0", "footprint-read-result.ts"],
-  ["FootprintPlotDocument.json", "FootprintPlotterIRDocumentSliceA0", "footprint-plot-document.ts"],
-  ["FootprintPlotRequest.json", "FootprintPlotterIRRequestA0", "footprint-plot-request.ts"],
-  ["FootprintPlotResult.json", "FootprintPlotterIRResultA0", "footprint-plot-result.ts"],
+  ["FootprintPlotDocument.json", "FootprintPlotDocumentA0", "footprint-plot-document.ts"],
+  ["FootprintPlotRequest.json", "FootprintPlotRequestA0", "footprint-plot-request.ts"],
+  ["FootprintPlotResult.json", "FootprintPlotResultA0", "footprint-plot-result.ts"],
 ];
 const schemas = new Map();
 for (const [file] of roots) {

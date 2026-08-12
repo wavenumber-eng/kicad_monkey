@@ -3,7 +3,7 @@
 /**
  * Resource-bounded first footprint plotter operation. Source bytes are out of band.
  */
-export interface FootprintPlotterIRRequestA0 {
+export interface FootprintPlotRequestA0 {
   type: "kicad_monkey.footprint_plot.request";
   version: "a0";
   source_path?: string;

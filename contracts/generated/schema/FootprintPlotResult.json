@@ -37,7 +37,7 @@
         "not": {}
     },
     "description": "Metadata paired with a separate kicad.plotter_ir.a0 JSON byte buffer.",
-    "title": "Footprint plotter IR result a0",
+    "title": "Footprint plot result a0",
     "$defs": {
         "Diagnostic": {
             "type": "object",

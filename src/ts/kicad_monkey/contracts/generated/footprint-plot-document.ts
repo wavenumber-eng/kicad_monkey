@@ -3,7 +3,7 @@
 /**
  * Strict subset of kicad.plotter_ir.a0 emitted by the initial footprint slice.
  */
-export interface FootprintPlotterIRDocumentSliceA0 {
+export interface FootprintPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
   source_kind: "MOD";
   total_operations: number;

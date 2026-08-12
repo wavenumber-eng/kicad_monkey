@@ -153,7 +153,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DiagnosticPhase {
 /// ```json
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.result:a0",
-///  "title": "Footprint plotter IR result a0",
+///  "title": "Footprint plot result a0",
 ///  "description": "Metadata paired with a separate kicad.plotter_ir.a0 JSON byte buffer.",
 ///  "type": "object",
 ///  "required": [
@@ -193,7 +193,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DiagnosticPhase {
 /// </details>
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct FootprintPlotterIrResultA0 {
+pub struct FootprintPlotResultA0 {
     pub diagnostics: ::std::vec::Vec<Diagnostic>,
     pub output_bytes: ::std::string::String,
     pub total_operations: u32,

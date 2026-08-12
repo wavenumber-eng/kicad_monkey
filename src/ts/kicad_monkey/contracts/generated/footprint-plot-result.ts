@@ -5,7 +5,7 @@ export type DiagnosticPhase = "lex" | "tree" | "build";
 /**
  * Metadata paired with a separate kicad.plotter_ir.a0 JSON byte buffer.
  */
-export interface FootprintPlotterIRResultA0 {
+export interface FootprintPlotResultA0 {
   type: "kicad_monkey.footprint_plot.result";
   version: "a0";
   output_bytes: string;

@@ -46,5 +46,5 @@
         "not": {}
     },
     "description": "Resource-bounded first footprint plotter operation. Source bytes are out of band.",
-    "title": "Footprint plotter IR request a0"
+    "title": "Footprint plot request a0"
 }

@@ -24,6 +24,85 @@ pub mod error {
         }
     }
 }
+///Strict subset of kicad.plotter_ir.a0 emitted by the initial footprint slice.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0",
+///  "title": "Footprint plot document a0",
+///  "description": "Strict subset of kicad.plotter_ir.a0 emitted by the initial footprint slice.",
+///  "type": "object",
+///  "required": [
+///    "coordinate_space",
+///    "document_id",
+///    "generator",
+///    "generator_version",
+///    "records",
+///    "schema",
+///    "source_kind",
+///    "total_operations",
+///    "version"
+///  ],
+///  "properties": {
+///    "coordinate_space": {
+///      "$ref": "#/$defs/PlotterCoordinateSpace"
+///    },
+///    "document_id": {
+///      "type": "string"
+///    },
+///    "generator": {
+///      "type": "string"
+///    },
+///    "generator_version": {
+///      "type": "string"
+///    },
+///    "records": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/FootprintPlotRecord"
+///      }
+///    },
+///    "schema": {
+///      "type": "string",
+///      "const": "kicad.plotter_ir.a0"
+///    },
+///    "source_kind": {
+///      "type": "string",
+///      "const": "MOD"
+///    },
+///    "source_path": {
+///      "type": "string"
+///    },
+///    "total_operations": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "version": {
+///      "type": "integer"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FootprintPlotDocumentA0 {
+    pub coordinate_space: PlotterCoordinateSpace,
+    pub document_id: ::std::string::String,
+    pub generator: ::std::string::String,
+    pub generator_version: ::std::string::String,
+    pub records: ::std::vec::Vec<FootprintPlotRecord>,
+    pub schema: ::std::string::String,
+    pub source_kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub source_path: ::std::option::Option<::std::string::String>,
+    pub total_operations: u32,
+    pub version: i64,
+}
 ///One footprint record in the first typed plotter slice.
 ///
 /// <details><summary>JSON schema</summary>
@@ -112,85 +191,6 @@ pub struct FootprintPlotRecord {
     pub placed: bool,
     pub tags: ::std::string::String,
     pub uuid: ::std::string::String,
-}
-///Strict subset of kicad.plotter_ir.a0 emitted by the initial footprint slice.
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0",
-///  "title": "Footprint plotter IR document slice a0",
-///  "description": "Strict subset of kicad.plotter_ir.a0 emitted by the initial footprint slice.",
-///  "type": "object",
-///  "required": [
-///    "coordinate_space",
-///    "document_id",
-///    "generator",
-///    "generator_version",
-///    "records",
-///    "schema",
-///    "source_kind",
-///    "total_operations",
-///    "version"
-///  ],
-///  "properties": {
-///    "coordinate_space": {
-///      "$ref": "#/$defs/PlotterCoordinateSpace"
-///    },
-///    "document_id": {
-///      "type": "string"
-///    },
-///    "generator": {
-///      "type": "string"
-///    },
-///    "generator_version": {
-///      "type": "string"
-///    },
-///    "records": {
-///      "type": "array",
-///      "items": {
-///        "$ref": "#/$defs/FootprintPlotRecord"
-///      }
-///    },
-///    "schema": {
-///      "type": "string",
-///      "const": "kicad.plotter_ir.a0"
-///    },
-///    "source_kind": {
-///      "type": "string",
-///      "const": "MOD"
-///    },
-///    "source_path": {
-///      "type": "string"
-///    },
-///    "total_operations": {
-///      "type": "integer",
-///      "maximum": 4294967295.0,
-///      "minimum": 0.0
-///    },
-///    "version": {
-///      "type": "integer"
-///    }
-///  },
-///  "additionalProperties": false
-///}
-/// ```
-/// </details>
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct FootprintPlotterIrDocumentSliceA0 {
-    pub coordinate_space: PlotterCoordinateSpace,
-    pub document_id: ::std::string::String,
-    pub generator: ::std::string::String,
-    pub generator_version: ::std::string::String,
-    pub records: ::std::vec::Vec<FootprintPlotRecord>,
-    pub schema: ::std::string::String,
-    pub source_kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub source_path: ::std::option::Option<::std::string::String>,
-    pub total_operations: u32,
-    pub version: i64,
 }
 ///Coordinate convention for the initial footprint plotter slice.
 ///

@@ -9,7 +9,7 @@ namespace Wavenumber.KicadMonkey.Contracts.PlotterIrA0;
 /** Resource-bounded first footprint plotter operation. Source bytes are out of band. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.footprint_plot.request:a0")
-@extension("title", "Footprint plotter IR request a0")
+@extension("title", "Footprint plot request a0")
 model FootprintPlotRequest {
   type: "kicad_monkey.footprint_plot.request";
   version: "a0";
@@ -24,7 +24,7 @@ model FootprintPlotRequest {
 /** Metadata paired with a separate kicad.plotter_ir.a0 JSON byte buffer. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.footprint_plot.result:a0")
-@extension("title", "Footprint plotter IR result a0")
+@extension("title", "Footprint plot result a0")
 model FootprintPlotResult {
   type: "kicad_monkey.footprint_plot.result";
   version: "a0";
@@ -70,7 +70,7 @@ model FootprintPlotRecord {
 /** Strict subset of kicad.plotter_ir.a0 emitted by the initial footprint slice. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0")
-@extension("title", "Footprint plotter IR document slice a0")
+@extension("title", "Footprint plot document a0")
 model FootprintPlotDocument {
   schema: "kicad.plotter_ir.a0";
   source_kind: "MOD";
