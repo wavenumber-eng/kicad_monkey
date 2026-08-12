@@ -1,5 +1,5 @@
 schema = "kicad_monkey.parity_scope.a0"
-milestone = "rust_l0_foundation"
+milestone = "rust_l1_parser_corpus"
 review_state = "ready"
 
 [[surfaces]]
@@ -111,3 +111,13 @@ python_symbols = ["parse_sexp", "build_sexp", "iter_sexp_form_spans"]
 rust_symbols = ["parse", "build", "scan_form_spans"]
 rack_cases = ["L0_047"]
 evidence = ["tests/performance/sexpr_l0.toml", "src/rs/kicad-monkey-core/examples/sexpr_l0_benchmark.rs"]
+
+[[surfaces]]
+id = "sexpr.corpus_roundtrip"
+disposition = "required"
+wasm = "host_independent_core"
+status = "closed"
+python_symbols = ["roundtrip_sexp_text", "iter_kicad_sexpr_files"]
+rust_symbols = ["parse_bytes", "build", "sexpr_corpus_gate"]
+rack_cases = ["L1_018", "L1_022"]
+evidence = ["tests/L1_parsing/test_L1_018_corpus_sexpr_passthrough.py", "tests/L1_parsing/test_L1_022_rust_corpus_sexpr_passthrough.py", "src/rs/kicad-monkey-core/examples/sexpr_corpus_gate.rs", "docs/design/rust-sexpr-l1-review.html"]

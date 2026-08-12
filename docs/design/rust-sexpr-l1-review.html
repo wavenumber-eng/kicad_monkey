@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust S-Expression L1 Corpus Review</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust S-Expression L1 Corpus Review</h1>
+
+  <section>
+    <h2>Decision</h2>
+    <p>
+      The Rust parser-only corpus slice is accepted. It closes the promoted
+      KiCad corpus round-trip gate and authorizes the remaining Phase 1
+      performance and memory measurements. Typed PCB, schematic, rendering,
+      and downstream interchange expansion remain outside this decision.
+    </p>
+  </section>
+
+  <section>
+    <h2>Reviewed Boundary</h2>
+    <ul>
+      <li>
+        Rack and the existing Python corpus helpers retain ownership of archive
+        extraction, <code>WN_TEST_CORPUS</code> override behavior, suffix
+        selection, excluded output trees, and stable path ordering.
+      </li>
+      <li>
+        A test-only Rust example accepts explicit paths on standard input and
+        emits one versioned JSON record per file. It does not add archive, CLI,
+        or serialization dependencies to the production parser library.
+      </li>
+      <li>
+        Every file must complete byte read, parse, deterministic build,
+        reparse, semantic equality, and byte-stable second build.
+      </li>
+      <li>
+        Failure records preserve the read, lex, tree, build, reparse, and
+        compare phases used by the Python oracle family.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Evidence</h2>
+    <ul>
+      <li>
+        The content-addressed corpus contributed 1,774 S-expression files and
+        862,334,442 input bytes: 236 boards, 651 schematics, 123 symbol
+        libraries, 731 footprints, and 33 worksheets.
+      </li>
+      <li>
+        Real-world project paths contributed to both parser-only gates; the
+        corpus did not reduce to synthetic fixtures.
+      </li>
+      <li>
+        Rack <code>L1_022</code> passed all 1,774 Rust records. The largest
+        file was a 71,556,836-byte board and completed successfully.
+      </li>
+      <li>
+        The pre-existing Python <code>L1_018</code> oracle passed the identical
+        resolved path set with both its corpus-wide and real-world assertions.
+      </li>
+      <li>
+        On the review workstation, the release Rust gate completed in about 34
+        seconds and the Python oracle in about 624 seconds. This is useful
+        directional evidence, not a ratified cross-platform performance floor.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Review Findings</h2>
+    <ul>
+      <li>
+        The first Rack metadata entry named the Rust crate as though it were a
+        Python module. Removing that field closed the warning while preserving
+        the explicit Rust runner and function names in the test and review.
+      </li>
+      <li>
+        The runner processes and releases one complete tree at a time; it does
+        not retain the corpus or canonical outputs in aggregate memory.
+      </li>
+      <li>
+        The Rust byte API deliberately rejects invalid UTF-8, while the legacy
+        Python corpus loader requests replacement decoding. All promoted files
+        are valid UTF-8, so this policy difference is not exercised or hidden
+        by the accepted evidence.
+      </li>
+      <li>
+        Corpus evidence proves semantic round trips and deterministic output
+        within each implementation. Exact cross-language canonical text is
+        covered by the shared L0 vectors, not asserted for all 853 MB of built
+        corpus output.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Retained Gates</h2>
+    <ol>
+      <li>
+        Measure peak memory and throughput on named small, medium, and large
+        content-addressed corpus cases before ratifying performance floors.
+      </li>
+      <li>
+        Measure select-everything sorting, deepest-path ownership, and
+        many-path selector scaling before changing the indexed representation.
+      </li>
+      <li>
+        Add streaming-select, source-patch, and browser-WASM transfer evidence
+        required by the L0 review.
+      </li>
+      <li>
+        Keep the build-operation envelope private until its handwritten
+        TypeSpec-union semantic validator is present.
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Next Authorized Slice</h2>
+    <p>
+      Complete the remaining Phase 1 performance and memory evidence using
+      promoted corpus cases. Optimize only where those measurements show a
+      material cost, then perform the Phase 1 promotion review.
+    </p>
+  </section>
+</body>
+</html>

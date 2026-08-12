@@ -222,3 +222,23 @@ secondary = [
     "Common KiCad layer defaults stay centralized in kicad_base",
     "Core OOP modules do not regress into ad hoc parser constants"
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_022"
+file = "test_L1_022_rust_corpus_sexpr_passthrough.py"
+name = "Rust Corpus S-Expression Pass-Through"
+description = "Run the Rust parser/writer over every promoted KiCad S-expression file"
+concerns = ["sexpr", "rust", "performance"]
+test_cases = "${WN_TEST_CORPUS}/kicad"
+test_case_type = "shared_corpus"
+
+[subtests.objectives]
+primary = "Rust parse -> build -> parse preserves every promoted corpus tree with byte-stable second output"
+secondary = [
+    "All promoted KiCad S-expression suffixes are represented",
+    "Real-world projects contribute parser-only evidence",
+    "Failures are attributed to read, lex, tree, build, reparse, or compare",
+    "Rack writes transient corpus throughput and largest-file evidence",
+]

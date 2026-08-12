@@ -23,6 +23,8 @@ Current design notes:
   review policy for the native/WASM port.
 - `rust-sexpr-l0-review.html` - accepted Rust S-expression foundation review,
   evidence, corrections, and retained Phase 1 promotion gates.
+- `rust-sexpr-l1-review.html` - accepted parser-only corpus parity review and
+  the remaining performance and memory gates before Phase 1 promotion.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path
