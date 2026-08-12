@@ -1,6 +1,6 @@
 schema = "kicad_monkey.parity_scope.a0"
-milestone = "rust_l1_parser_corpus"
-review_state = "ready"
+milestone = "rust_phase1_parser_promoted"
+review_state = "accepted"
 
 [[surfaces]]
 id = "sexpr.lex_parse"

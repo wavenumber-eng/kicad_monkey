@@ -40,7 +40,7 @@ def _schema_hashes() -> dict[str, str]:
 def test_l0_parity_registry_has_no_required_implementation_gap() -> None:
     payload = tomllib.loads(SCOPE_PATH.read_text(encoding="utf-8"))
     assert payload["schema"] == "kicad_monkey.parity_scope.a0"
-    assert payload["review_state"] == "ready"
+    assert payload["review_state"] == "accepted"
     surfaces = payload["surfaces"]
     assert len({surface["id"] for surface in surfaces}) == len(surfaces)
     assert all(

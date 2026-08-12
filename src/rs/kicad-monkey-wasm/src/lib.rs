@@ -159,7 +159,7 @@ fn js_error(error: Error) -> JsValue {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_sexpr, build_sexpr_impl, canonicalize_sexpr, scan_sexpr_impl};
+    use super::{build_sexpr, build_sexpr_impl, canonicalize_sexpr, scan_sexpr, scan_sexpr_impl};
     use serde_json::Value;
     use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -245,5 +245,16 @@ mod tests {
             build_sexpr(request).expect("valid build request"),
             b"(root)"
         );
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_typed_scan_reports_resource_limits_in_the_contract_result() {
+        let request = br#"{"type":"kicad_monkey.sexpr_scan.request","version":"a0","selector":{"heads":["footprint"]},"max_source_bytes":"8","max_depth":4,"max_selected_forms":4}"#;
+        let result = scan_sexpr(b"(footprint \"too large\")", request)
+            .expect("resource failures belong in the result envelope");
+        let value: Value = serde_json::from_slice(&result).expect("result should be JSON");
+        assert_eq!(value["forms"], serde_json::json!([]));
+        assert_eq!(value["diagnostics"][0]["code"], "resource_limit");
+        assert_eq!(value["diagnostics"][0]["phase"], "tree");
     }
 }

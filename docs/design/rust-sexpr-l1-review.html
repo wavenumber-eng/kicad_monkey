@@ -12,9 +12,9 @@
     <h2>Decision</h2>
     <p>
       The Rust parser-only corpus slice is accepted. It closes the promoted
-      KiCad corpus round-trip gate and authorizes the remaining Phase 1
-      performance and memory measurements. Typed PCB, schematic, rendering,
-      and downstream interchange expansion remain outside this decision.
+      KiCad corpus round-trip gate. Typed PCB, schematic, rendering, and
+      downstream interchange expansion remained outside this decision until
+      the later Phase 1 promotion review.
     </p>
   </section>
 
@@ -109,8 +109,8 @@
         many-path selector scaling before changing the indexed representation.
       </li>
       <li>
-        Add streaming-select, source-patch, and browser-WASM transfer evidence
-        required by the L0 review.
+        Retain streaming-select, source-patch, and browser-WASM transfer
+        measurements for pre-cutover budgets or a profile-triggered review.
       </li>
     </ol>
   </section>
@@ -128,15 +128,21 @@
       strict TypeScript declarations. Rack rejects stale generated output,
       unknown Python fields, and TypeScript consumer compilation failures.
     </p>
+    <p>
+      The Phase 1 promotion review accepted the parser correctness and
+      architecture boundary. Streaming, patch, and actual WASM resource-limit
+      correctness are covered; additional performance measurements are
+      advisory until a real typed-reader profile or pre-cutover review calls
+      for them.
+    </p>
   </section>
 
   <section>
     <h2>Next Authorized Slice</h2>
     <p>
-      Perform a narrow parser correctness/boundary promotion review and begin
-      the first typed reader/writer vertical slice. Further profiling is
-      advisory until real typed-reader workloads or pre-cutover budgets require
-      it.
+      Begin the TypeSpec-first footprint reader/writer vertical slice. Further
+      profiling is advisory until real typed-reader workloads or pre-cutover
+      budgets require it.
     </p>
   </section>
 </body>

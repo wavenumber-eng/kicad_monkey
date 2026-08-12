@@ -27,6 +27,8 @@ Current design notes:
   the remaining performance and memory gates before Phase 1 promotion.
 - `rust-sexpr-phase1-measurement.html` - accepted named-corpus release timing
   and peak-memory method, Windows evidence, and retained Linux ratification.
+- `rust-sexpr-phase1-promotion.html` - accepted parser correctness, safety,
+  API-boundary, and deferred-performance decision authorizing typed readers.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path
