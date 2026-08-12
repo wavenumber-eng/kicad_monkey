@@ -24,7 +24,7 @@ pub mod error {
         }
     }
 }
-///Resource-bounded first footprint plotter operation. Source bytes are out of band.
+///Resource-bounded footprint plotter operation. Source bytes are out of band.
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -32,7 +32,7 @@ pub mod error {
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.request:a0",
 ///  "title": "Footprint plot request a0",
-///  "description": "Resource-bounded first footprint plotter operation. Source bytes are out of band.",
+///  "description": "Resource-bounded footprint plotter operation. Source bytes are out of band.",
 ///  "type": "object",
 ///  "required": [
 ///    "max_depth",

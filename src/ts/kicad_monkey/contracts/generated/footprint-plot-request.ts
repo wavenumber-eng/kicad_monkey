@@ -1,7 +1,7 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
 /**
- * Resource-bounded first footprint plotter operation. Source bytes are out of band.
+ * Resource-bounded footprint plotter operation. Source bytes are out of band.
  */
 export interface FootprintPlotRequestA0 {
   type: "kicad_monkey.footprint_plot.request";

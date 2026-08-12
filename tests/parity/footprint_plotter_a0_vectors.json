@@ -44,6 +44,51 @@
         "generator": "pcbnew",
         "generator_version": "8.0"
       }
+    },
+    {
+      "id": "promoted-graphics-and-stroke-decomposition",
+      "source": "(footprint \"Graphics\"\n  (version 20250101)\n  (generator pcbnew)\n  (generator_version \"9.0\")\n  (layer \"F.Cu\")\n  (fp_circle (center 2 2) (end 2 3.5) (stroke (width 0.12) (type solid)) (fill yes) (layer \"F.SilkS\"))\n  (fp_line (start 0 0) (end 2 0) (stroke (width 0.1) (type solid)) (layer \"F.SilkS\"))\n  (fp_rect (start -2 -1) (end -1 1) (stroke (width 0.05) (type solid)) (fill no) (layer \"F.CrtYd\"))\n  (fp_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.15) (type solid)) (layer \"F.Fab\"))\n  (fp_poly (pts (xy 0 0) (xy 2 0) (xy 1 1.5)) (stroke (width 0.1) (type solid)) (fill solid) (layer \"F.Cu\"))\n  (fp_line (start 0 1) (end 3 1) (stroke (width 0.1) (type dash)) (layer \"B.SilkS\"))\n  (fp_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.2) (type dot)) (layer \"B.Fab\")))",
+      "source_path": "graphics.kicad_mod",
+      "document_id": "graphics",
+      "expected": {
+        "schema": "kicad.plotter_ir.a0",
+        "source_kind": "MOD",
+        "total_operations": 11,
+        "records": [
+          {
+            "uuid": "",
+            "kind": "footprint",
+            "object_id": "Graphics",
+            "operation_count": 11,
+            "operations": [
+              {"kind": "ThickSegment", "index": 0, "start_x": 0, "start_y": 0, "end_x": 2000000, "end_y": 0, "width_nm": 100000, "layer": "F.SilkS"},
+              {"kind": "ThickSegment", "index": 1, "start_x": 0, "start_y": 1000000, "end_x": 1100000, "end_y": 1000000, "width_nm": 100000, "layer": "B.SilkS"},
+              {"kind": "ThickSegment", "index": 2, "start_x": 1500000, "start_y": 1000000, "end_x": 2600000, "end_y": 1000000, "width_nm": 100000, "layer": "B.SilkS"},
+              {"kind": "ArcThreePoint", "index": 3, "start_x": 1000000, "start_y": 0, "mid_x": 0, "mid_y": 1000000, "end_x": -1000000, "end_y": 0, "fill": "NO_FILL", "width_nm": 150000, "layer": "F.Fab"},
+              {"kind": "ThickSegment", "index": 4, "start_x": 1000000, "start_y": 0, "end_x": 999200, "end_y": 39989, "width_nm": 200000, "layer": "B.Fab"},
+              {"kind": "ThickSegment", "index": 5, "start_x": 667463, "start_y": 744643, "end_x": 637151, "end_y": 770739, "width_nm": 200000, "layer": "B.Fab"},
+              {"kind": "ThickSegment", "index": 6, "start_x": -108987, "start_y": 994043, "end_x": -148651, "end_y": 988890, "width_nm": 200000, "layer": "B.Fab"},
+              {"kind": "ThickSegment", "index": 7, "start_x": -812952, "start_y": 582331, "end_x": -835589, "end_y": 549355, "width_nm": 200000, "layer": "B.Fab"},
+              {"kind": "Circle", "index": 8, "cx": 2000000, "cy": 2000000, "diameter_nm": 3000000, "fill": "FILLED_SHAPE", "width_nm": 120000, "layer": "F.SilkS"},
+              {"kind": "Rect", "index": 9, "x1": -2000000, "y1": -1000000, "x2": -1000000, "y2": 1000000, "fill": "NO_FILL", "width_nm": 84700, "corner_radius_nm": 0, "layer": "F.CrtYd"},
+              {"kind": "PlotPoly", "index": 10, "points": [[0, 0], [2000000, 0], [1000000, 1500000]], "fill": "FILLED_SHAPE", "width_nm": 100000, "layer": "F.Cu"}
+            ],
+            "name": "Graphics",
+            "layer": "F.Cu",
+            "locked": false,
+            "placed": false,
+            "descr": "",
+            "tags": "",
+            "attr": []
+          }
+        ],
+        "source_path": "graphics.kicad_mod",
+        "document_id": "graphics",
+        "coordinate_space": {"unit": "nm", "y_axis": "down"},
+        "version": 20250101,
+        "generator": "pcbnew",
+        "generator_version": "9.0"
+      }
     }
   ]
 }

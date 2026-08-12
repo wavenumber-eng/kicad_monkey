@@ -55,7 +55,7 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict subset of kicad.plotter_ir.a0 emitted by the initial footprint slice.",
+    "description": "Strict non-text footprint subset of kicad.plotter_ir.a0.",
     "title": "Footprint plot document a0",
     "$defs": {
         "FootprintPlotRecord": {
@@ -79,7 +79,7 @@
                 "operations": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/$defs/ThickSegmentOperation"
+                        "$ref": "#/$defs/FootprintGraphicOperation"
                     }
                 },
                 "name": {
@@ -124,7 +124,7 @@
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "One footprint record in the first typed plotter slice."
+            "description": "One footprint record in the promoted non-text graphics slice."
         },
         "PlotterCoordinateSpace": {
             "type": "object",
@@ -145,13 +145,33 @@
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Coordinate convention for the initial footprint plotter slice."
+            "description": "Coordinate convention for the footprint plotter slice."
         },
         "JavaScriptSafeInteger": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991,
             "description": "Integer that remains exact when decoded as a JavaScript number."
+        },
+        "FootprintGraphicOperation": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/ThickSegmentOperation"
+                },
+                {
+                    "$ref": "#/$defs/ArcThreePointOperation"
+                },
+                {
+                    "$ref": "#/$defs/CircleOperation"
+                },
+                {
+                    "$ref": "#/$defs/RectOperation"
+                },
+                {
+                    "$ref": "#/$defs/PlotPolyOperation"
+                }
+            ],
+            "description": "Non-text footprint graphics promoted by the second plotter slice."
         },
         "ThickSegmentOperation": {
             "type": "object",
@@ -197,7 +217,223 @@
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Solid footprint line operation supported by the first typed plotter slice."
+            "description": "Solid or decomposed footprint stroke segment."
+        },
+        "ArcThreePointOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "ArcThreePoint"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "start_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "mid_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "mid_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "start_x",
+                "start_y",
+                "mid_x",
+                "mid_y",
+                "end_x",
+                "end_y",
+                "fill",
+                "width_nm",
+                "layer"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Solid three-point footprint arc."
+        },
+        "CircleOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "Circle"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "cx": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "cy": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "diameter_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "cx",
+                "cy",
+                "diameter_nm",
+                "fill",
+                "width_nm",
+                "layer"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Footprint circle represented by center and diameter."
+        },
+        "RectOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "Rect"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x1": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y1": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "x2": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y2": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "corner_radius_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "fill",
+                "width_nm",
+                "corner_radius_nm",
+                "layer"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Footprint rectangle with square corners."
+        },
+        "PlotPolyOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "PlotPoly"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "points": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterPoint"
+                    }
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "points",
+                "fill",
+                "width_nm",
+                "layer"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Footprint polygon operation."
+        },
+        "PlotterFill": {
+            "type": "string",
+            "enum": [
+                "NO_FILL",
+                "FILLED_SHAPE"
+            ],
+            "description": "Fill values emitted by promoted footprint graphics."
+        },
+        "PlotterPoint": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/JavaScriptSafeInteger"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "Footprint polygon point stream."
         }
     }
 }

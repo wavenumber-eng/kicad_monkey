@@ -74,5 +74,47 @@ const footprintPlotDocument = {
   generator_version: "10.0",
 } satisfies FootprintPlotDocumentA0;
 
+const footprintGraphicDocument = {
+  ...footprintPlotDocument,
+  total_operations: 2,
+  records: [{
+    uuid: "",
+    kind: "footprint",
+    object_id: "Graphics",
+    operation_count: 2,
+    operations: [
+      {
+        kind: "ArcThreePoint",
+        index: 0,
+        start_x: 1_000_000,
+        start_y: 0,
+        mid_x: 0,
+        mid_y: 1_000_000,
+        end_x: -1_000_000,
+        end_y: 0,
+        fill: "NO_FILL",
+        width_nm: 100_000,
+        layer: "F.Fab",
+      },
+      {
+        kind: "PlotPoly",
+        index: 1,
+        points: [[0, 0], [1_000_000, 0], [0, 1_000_000]],
+        fill: "FILLED_SHAPE",
+        width_nm: 100_000,
+        layer: "F.Cu",
+      },
+    ],
+    name: "Graphics",
+    layer: "F.Cu",
+    locked: false,
+    placed: false,
+    descr: "",
+    tags: "",
+    attr: [],
+  }],
+} satisfies FootprintPlotDocumentA0;
+
 void footprintPlot;
 void footprintPlotDocument;
+void footprintGraphicDocument;

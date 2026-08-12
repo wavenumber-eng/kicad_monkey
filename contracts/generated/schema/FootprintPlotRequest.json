@@ -51,6 +51,6 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Resource-bounded first footprint plotter operation. Source bytes are out of band.",
+    "description": "Resource-bounded footprint plotter operation. Source bytes are out of band.",
     "title": "Footprint plot request a0"
 }

@@ -9,7 +9,9 @@ use kicad_monkey_contracts::generated::footprint_edit_result::{
     FootprintEditResultA0, SourcePosition as FootprintEditSourcePosition,
 };
 use kicad_monkey_contracts::generated::footprint_plot_document::{
-    FootprintPlotDocumentA0, FootprintPlotRecord, PlotterCoordinateSpace, ThickSegmentOperation,
+    ArcThreePointOperation, CircleOperation, FootprintGraphicOperation, FootprintPlotDocumentA0,
+    FootprintPlotRecord, PlotPolyOperation, PlotterCoordinateSpace, PlotterFill, PlotterPoint,
+    RectOperation, ThickSegmentOperation,
 };
 use kicad_monkey_contracts::generated::footprint_plot_request::FootprintPlotRequestA0;
 use kicad_monkey_contracts::generated::footprint_plot_result::{
@@ -28,7 +30,8 @@ use kicad_monkey_contracts::generated::scan_result::{
 };
 use kicad_monkey_contracts::{JavaScriptSafeInteger, ValidatedNode, validate_build_request};
 use kicad_monkey_core::{
-    Error, ErrorKind, ErrorPhase, FootprintLimits, FootprintPlotLimits, FootprintView,
+    Error, ErrorKind, ErrorPhase, FootprintGraphicOperation as CoreGraphicOperation,
+    FootprintLimits, FootprintPlotLimits, FootprintView, PlotterFill as CorePlotterFill,
     ProjectionLimits, Selector, Sexp, build, build_with_limit, footprint_plot_document,
     parse_bytes, scan_reader_form_spans, utf8_text,
 };
@@ -264,23 +267,7 @@ fn plot_footprint_ir_impl(
                 .operations
                 .into_iter()
                 .enumerate()
-                .map(|(index, operation)| {
-                    Ok(ThickSegmentOperation {
-                        end_x: JavaScriptSafeInteger::try_from(operation.end_x)
-                            .map_err(|error| error.to_string())?,
-                        end_y: JavaScriptSafeInteger::try_from(operation.end_y)
-                            .map_err(|error| error.to_string())?,
-                        index: u32::try_from(index).unwrap_or(u32::MAX),
-                        kind: "ThickSegment".to_owned(),
-                        layer: operation.layer,
-                        start_x: JavaScriptSafeInteger::try_from(operation.start_x)
-                            .map_err(|error| error.to_string())?,
-                        start_y: JavaScriptSafeInteger::try_from(operation.start_y)
-                            .map_err(|error| error.to_string())?,
-                        width_nm: JavaScriptSafeInteger::try_from(operation.width_nm)
-                            .map_err(|error| error.to_string())?,
-                    })
-                })
+                .map(|(index, operation)| contract_graphic_operation(index, operation))
                 .collect::<Result<Vec<_>, String>>()?;
             let contract_document = FootprintPlotDocumentA0 {
                 coordinate_space: PlotterCoordinateSpace {
@@ -349,6 +336,88 @@ fn plot_footprint_ir_impl(
         result_json: serde_json::to_vec(&result).map_err(|error| error.to_string())?,
         output_bytes,
     })
+}
+
+fn contract_graphic_operation(
+    index: usize,
+    operation: CoreGraphicOperation,
+) -> Result<FootprintGraphicOperation, String> {
+    let index = u32::try_from(index).unwrap_or(u32::MAX);
+    Ok(match operation {
+        CoreGraphicOperation::ThickSegment(operation) => ThickSegmentOperation {
+            end_x: safe_integer(operation.end_x)?,
+            end_y: safe_integer(operation.end_y)?,
+            index,
+            kind: "ThickSegment".to_owned(),
+            layer: operation.layer,
+            start_x: safe_integer(operation.start_x)?,
+            start_y: safe_integer(operation.start_y)?,
+            width_nm: safe_integer(operation.width_nm)?,
+        }
+        .into(),
+        CoreGraphicOperation::ArcThreePoint(operation) => ArcThreePointOperation {
+            end_x: safe_integer(operation.end_x)?,
+            end_y: safe_integer(operation.end_y)?,
+            fill: contract_fill(operation.fill),
+            index,
+            kind: "ArcThreePoint".to_owned(),
+            layer: operation.layer,
+            mid_x: safe_integer(operation.mid_x)?,
+            mid_y: safe_integer(operation.mid_y)?,
+            start_x: safe_integer(operation.start_x)?,
+            start_y: safe_integer(operation.start_y)?,
+            width_nm: safe_integer(operation.width_nm)?,
+        }
+        .into(),
+        CoreGraphicOperation::Circle(operation) => CircleOperation {
+            cx: safe_integer(operation.cx)?,
+            cy: safe_integer(operation.cy)?,
+            diameter_nm: safe_integer(operation.diameter_nm)?,
+            fill: contract_fill(operation.fill),
+            index,
+            kind: "Circle".to_owned(),
+            layer: operation.layer,
+            width_nm: safe_integer(operation.width_nm)?,
+        }
+        .into(),
+        CoreGraphicOperation::Rect(operation) => RectOperation {
+            corner_radius_nm: safe_integer(operation.corner_radius_nm)?,
+            fill: contract_fill(operation.fill),
+            index,
+            kind: "Rect".to_owned(),
+            layer: operation.layer,
+            width_nm: safe_integer(operation.width_nm)?,
+            x1: safe_integer(operation.x1)?,
+            x2: safe_integer(operation.x2)?,
+            y1: safe_integer(operation.y1)?,
+            y2: safe_integer(operation.y2)?,
+        }
+        .into(),
+        CoreGraphicOperation::PlotPoly(operation) => PlotPolyOperation {
+            fill: contract_fill(operation.fill),
+            index,
+            kind: "PlotPoly".to_owned(),
+            layer: operation.layer,
+            points: operation
+                .points
+                .into_iter()
+                .map(|[x, y]| Ok(PlotterPoint::from([safe_integer(x)?, safe_integer(y)?])))
+                .collect::<Result<Vec<_>, String>>()?,
+            width_nm: safe_integer(operation.width_nm)?,
+        }
+        .into(),
+    })
+}
+
+fn contract_fill(fill: CorePlotterFill) -> PlotterFill {
+    match fill {
+        CorePlotterFill::NoFill => PlotterFill::NoFill,
+        CorePlotterFill::FilledShape => PlotterFill::FilledShape,
+    }
+}
+
+fn safe_integer(value: i64) -> Result<JavaScriptSafeInteger, String> {
+    JavaScriptSafeInteger::try_from(value).map_err(|error| error.to_string())
 }
 
 fn decimal_usize(value: &str, field: &str) -> Result<usize, String> {
@@ -700,42 +769,47 @@ mod tests {
             "../../../../tests/parity/footprint_plotter_a0_vectors.json"
         ))
         .expect("shared footprint vectors");
+        for vector in vectors["vectors"].as_array().expect("vectors") {
+            let source = vector["source"].as_str().expect("source").as_bytes();
+            let request = footprint_plot_request(vector, "16384", 1_000);
+            let output = plot_footprint_ir_impl(source, &request).expect("plotter operation");
+            let metadata: Value =
+                serde_json::from_slice(&output.result_json).expect("result metadata JSON");
+            let document: Value =
+                serde_json::from_slice(&output.output_bytes).expect("plotter document JSON");
+            assert_eq!(metadata["diagnostics"], serde_json::json!([]));
+            assert_eq!(
+                metadata["total_operations"],
+                vector["expected"]["total_operations"]
+            );
+            assert_eq!(document, vector["expected"], "{}", vector["id"]);
+        }
+
         let vector = &vectors["vectors"][0];
         let source = vector["source"].as_str().expect("source").as_bytes();
-        let request = serde_json::to_vec(&serde_json::json!({
-            "type": "kicad_monkey.footprint_plot.request",
-            "version": "a0",
-            "source_path": vector["source_path"],
-            "document_id": vector["document_id"],
-            "max_source_bytes": "4096",
-            "max_output_bytes": "4096",
-            "max_depth": 32,
-            "max_metadata_forms": 32,
-            "max_operations": 8
-        }))
-        .expect("request JSON");
-        let output = plot_footprint_ir_impl(source, &request).expect("plotter operation");
-        let metadata: Value =
-            serde_json::from_slice(&output.result_json).expect("result metadata JSON");
-        let document: Value =
-            serde_json::from_slice(&output.output_bytes).expect("plotter document JSON");
-        assert_eq!(metadata["diagnostics"], serde_json::json!([]));
-        assert_eq!(metadata["total_operations"], 1);
-        assert_eq!(document, vector["expected"]);
-
-        let limited_request = std::str::from_utf8(&request)
-            .expect("request UTF-8")
-            .replace(
-                "\"max_output_bytes\":\"4096\"",
-                "\"max_output_bytes\":\"8\"",
-            );
-        let limited = plot_footprint_ir_impl(source, limited_request.as_bytes())
+        let limited_request = footprint_plot_request(vector, "8", 8);
+        let limited = plot_footprint_ir_impl(source, &limited_request)
             .expect("output limit belongs in result metadata");
         let limited_metadata: Value =
             serde_json::from_slice(&limited.result_json).expect("limited result JSON");
         assert_eq!(limited_metadata["diagnostics"][0]["code"], "resource_limit");
         assert_eq!(limited_metadata["diagnostics"][0]["phase"], "build");
         assert!(limited.output_bytes.is_empty());
+    }
+
+    fn footprint_plot_request(vector: &Value, max_output: &str, max_operations: u32) -> Vec<u8> {
+        serde_json::to_vec(&serde_json::json!({
+            "type": "kicad_monkey.footprint_plot.request",
+            "version": "a0",
+            "source_path": vector["source_path"],
+            "document_id": vector["document_id"],
+            "max_source_bytes": "16384",
+            "max_output_bytes": max_output,
+            "max_depth": 32,
+            "max_metadata_forms": 32,
+            "max_operations": max_operations
+        }))
+        .expect("request JSON")
     }
 
     #[wasm_bindgen_test]
@@ -852,16 +926,37 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn wasm_footprint_plotter_returns_paired_ir_bytes() {
-        let source = br#"(footprint "Demo" (fp_line (start 0 0) (end 1 0) (stroke (width 0.1) (type solid)) (layer "F.SilkS")))"#;
+        let source = br#"(footprint "Demo"
+          (fp_circle (center 2 2) (end 2 3) (stroke (width 0.1)) (fill yes))
+          (fp_line (start 0 0) (end 1 0) (stroke (width 0.1) (type solid)))
+          (fp_rect (start 0 0) (end 1 1) (stroke (width 0.1)))
+          (fp_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.1)))
+          (fp_poly (pts (xy 0 0) (xy 1 0) (xy 0 1)) (stroke (width 0.1))))"#;
         let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_operations":8}"#;
         let output = plot_footprint_ir(source, request).expect("WASM plotter operation");
         let metadata: Value =
             serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
         let document: Value =
             serde_json::from_slice(&output.output_bytes()).expect("plotter document JSON");
-        assert_eq!(metadata["total_operations"], 1);
+        assert_eq!(metadata["total_operations"], 5);
         assert_eq!(document["document_id"], "Demo");
         assert_eq!(document["records"][0]["operations"][0]["end_x"], 1_000_000);
+        let kinds = document["records"][0]["operations"]
+            .as_array()
+            .expect("operation array")
+            .iter()
+            .map(|operation| operation["kind"].as_str().expect("operation kind"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            kinds,
+            [
+                "ThickSegment",
+                "ArcThreePoint",
+                "Circle",
+                "Rect",
+                "PlotPoly"
+            ]
+        );
     }
 
     #[wasm_bindgen_test]

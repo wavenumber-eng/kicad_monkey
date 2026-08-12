@@ -11,7 +11,7 @@ namespace Wavenumber.KicadMonkey.Contracts.PlotterIrA0;
 @maxValue(9007199254740991)
 scalar JavaScriptSafeInteger extends safeint;
 
-/** Resource-bounded first footprint plotter operation. Source bytes are out of band. */
+/** Resource-bounded footprint plotter operation. Source bytes are out of band. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.footprint_plot.request:a0")
 @extension("title", "Footprint plot request a0")
@@ -39,13 +39,19 @@ model FootprintPlotResult {
   diagnostics: Diagnostic[];
 }
 
-/** Coordinate convention for the initial footprint plotter slice. */
+/** Coordinate convention for the footprint plotter slice. */
 model PlotterCoordinateSpace {
   unit: "nm";
   y_axis: "down";
 }
 
-/** Solid footprint line operation supported by the first typed plotter slice. */
+/** Fill values emitted by promoted footprint graphics. */
+enum PlotterFill {
+  noFill: "NO_FILL",
+  filledShape: "FILLED_SHAPE",
+}
+
+/** Solid or decomposed footprint stroke segment. */
 model ThickSegmentOperation {
   kind: "ThickSegment";
   index: uint32;
@@ -57,13 +63,78 @@ model ThickSegmentOperation {
   layer: string;
 }
 
-/** One footprint record in the first typed plotter slice. */
+/** Solid three-point footprint arc. */
+model ArcThreePointOperation {
+  kind: "ArcThreePoint";
+  index: uint32;
+  start_x: JavaScriptSafeInteger;
+  start_y: JavaScriptSafeInteger;
+  mid_x: JavaScriptSafeInteger;
+  mid_y: JavaScriptSafeInteger;
+  end_x: JavaScriptSafeInteger;
+  end_y: JavaScriptSafeInteger;
+  fill: PlotterFill;
+  width_nm: JavaScriptSafeInteger;
+  layer: string;
+}
+
+/** Footprint circle represented by center and diameter. */
+model CircleOperation {
+  kind: "Circle";
+  index: uint32;
+  cx: JavaScriptSafeInteger;
+  cy: JavaScriptSafeInteger;
+  diameter_nm: JavaScriptSafeInteger;
+  fill: PlotterFill;
+  width_nm: JavaScriptSafeInteger;
+  layer: string;
+}
+
+/** Footprint rectangle with square corners. */
+model RectOperation {
+  kind: "Rect";
+  index: uint32;
+  x1: JavaScriptSafeInteger;
+  y1: JavaScriptSafeInteger;
+  x2: JavaScriptSafeInteger;
+  y2: JavaScriptSafeInteger;
+  fill: PlotterFill;
+  width_nm: JavaScriptSafeInteger;
+  corner_radius_nm: JavaScriptSafeInteger;
+  layer: string;
+}
+
+/** Footprint polygon point stream. */
+@minItems(2)
+@maxItems(2)
+model PlotterPoint is Array<JavaScriptSafeInteger>;
+
+/** Footprint polygon operation. */
+model PlotPolyOperation {
+  kind: "PlotPoly";
+  index: uint32;
+  points: PlotterPoint[];
+  fill: PlotterFill;
+  width_nm: JavaScriptSafeInteger;
+  layer: string;
+}
+
+/** Non-text footprint graphics promoted by the second plotter slice. */
+union FootprintGraphicOperation {
+  thickSegment: ThickSegmentOperation,
+  arcThreePoint: ArcThreePointOperation,
+  circle: CircleOperation,
+  rect: RectOperation,
+  plotPoly: PlotPolyOperation,
+}
+
+/** One footprint record in the promoted non-text graphics slice. */
 model FootprintPlotRecord {
   uuid: string;
   kind: "footprint";
   object_id: string;
   operation_count: uint32;
-  operations: ThickSegmentOperation[];
+  operations: FootprintGraphicOperation[];
   name: string;
   layer: string;
   locked: boolean;
@@ -73,7 +144,7 @@ model FootprintPlotRecord {
   attr: string[];
 }
 
-/** Strict subset of kicad.plotter_ir.a0 emitted by the initial footprint slice. */
+/** Strict non-text footprint subset of kicad.plotter_ir.a0. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0")
 @extension("title", "Footprint plot document a0")

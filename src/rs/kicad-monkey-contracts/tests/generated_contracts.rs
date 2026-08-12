@@ -123,12 +123,12 @@ fn every_plotter_safe_integer_field_rejects_precision_losing_values() {
     let base = serde_json::json!({
         "schema": "kicad.plotter_ir.a0",
         "source_kind": "MOD",
-        "total_operations": 1,
+        "total_operations": 5,
         "records": [{
             "uuid": "",
             "kind": "footprint",
             "object_id": "Demo",
-            "operation_count": 1,
+            "operation_count": 5,
             "operations": [{
                 "kind": "ThickSegment",
                 "index": 0,
@@ -138,6 +138,45 @@ fn every_plotter_safe_integer_field_rejects_precision_losing_values() {
                 "end_y": 0,
                 "width_nm": 0,
                 "layer": "F.SilkS"
+            }, {
+                "kind": "ArcThreePoint",
+                "index": 1,
+                "start_x": 0,
+                "start_y": 0,
+                "mid_x": 0,
+                "mid_y": 0,
+                "end_x": 0,
+                "end_y": 0,
+                "fill": "NO_FILL",
+                "width_nm": 0,
+                "layer": "F.Fab"
+            }, {
+                "kind": "Circle",
+                "index": 2,
+                "cx": 0,
+                "cy": 0,
+                "diameter_nm": 0,
+                "fill": "FILLED_SHAPE",
+                "width_nm": 0,
+                "layer": "F.SilkS"
+            }, {
+                "kind": "Rect",
+                "index": 3,
+                "x1": 0,
+                "y1": 0,
+                "x2": 0,
+                "y2": 0,
+                "fill": "NO_FILL",
+                "width_nm": 0,
+                "corner_radius_nm": 0,
+                "layer": "F.CrtYd"
+            }, {
+                "kind": "PlotPoly",
+                "index": 4,
+                "points": [[0, 0]],
+                "fill": "FILLED_SHAPE",
+                "width_nm": 0,
+                "layer": "F.Cu"
             }],
             "name": "Demo",
             "layer": "F.Cu",
@@ -160,6 +199,26 @@ fn every_plotter_safe_integer_field_rejects_precision_losing_values() {
         "/records/0/operations/0/end_x",
         "/records/0/operations/0/end_y",
         "/records/0/operations/0/width_nm",
+        "/records/0/operations/1/start_x",
+        "/records/0/operations/1/start_y",
+        "/records/0/operations/1/mid_x",
+        "/records/0/operations/1/mid_y",
+        "/records/0/operations/1/end_x",
+        "/records/0/operations/1/end_y",
+        "/records/0/operations/1/width_nm",
+        "/records/0/operations/2/cx",
+        "/records/0/operations/2/cy",
+        "/records/0/operations/2/diameter_nm",
+        "/records/0/operations/2/width_nm",
+        "/records/0/operations/3/x1",
+        "/records/0/operations/3/y1",
+        "/records/0/operations/3/x2",
+        "/records/0/operations/3/y2",
+        "/records/0/operations/3/width_nm",
+        "/records/0/operations/3/corner_radius_nm",
+        "/records/0/operations/4/points/0/0",
+        "/records/0/operations/4/points/0/1",
+        "/records/0/operations/4/width_nm",
     ];
 
     for path in paths {
@@ -178,4 +237,47 @@ fn every_plotter_safe_integer_field_rejects_precision_losing_values() {
             assert!(serde_json::from_value::<FootprintPlotDocumentA0>(document).is_err());
         }
     }
+}
+
+#[test]
+fn plotter_operation_union_preserves_exact_polygon_points() {
+    let valid = serde_json::json!({
+        "schema": "kicad.plotter_ir.a0",
+        "source_kind": "MOD",
+        "total_operations": 1,
+        "records": [{
+            "uuid": "",
+            "kind": "footprint",
+            "object_id": "Demo",
+            "operation_count": 1,
+            "operations": [{
+                "kind": "PlotPoly",
+                "index": 0,
+                "points": [[0, 1]],
+                "fill": "NO_FILL",
+                "width_nm": 100000,
+                "layer": "F.Cu"
+            }],
+            "name": "Demo",
+            "layer": "F.Cu",
+            "locked": false,
+            "placed": false,
+            "descr": "",
+            "tags": "",
+            "attr": []
+        }],
+        "document_id": "Demo",
+        "coordinate_space": {"unit": "nm", "y_axis": "down"},
+        "version": 20260206,
+        "generator": "pcbnew",
+        "generator_version": "10.0"
+    });
+    serde_json::from_value::<FootprintPlotDocumentA0>(valid.clone())
+        .expect("exact two-value polygon point");
+
+    let mut short_point = valid.clone();
+    *short_point
+        .pointer_mut("/records/0/operations/0/points/0")
+        .expect("point") = serde_json::json!([0]);
+    assert!(serde_json::from_value::<FootprintPlotDocumentA0>(short_point).is_err());
 }

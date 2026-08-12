@@ -78,19 +78,31 @@ function renderPython() {
       }
     }
   }
+  const taggedStructs = new Map();
+  for (const { schema } of definitions.values()) {
+    if (!Array.isArray(schema.anyOf)) continue;
+    for (const variant of schema.anyOf) {
+      const name = variant.$ref?.split("/").at(-1);
+      const target = definitions.get(name)?.schema;
+      const tag = target?.properties?.kind?.const;
+      if (typeof name === "string" && typeof tag === "string") {
+        taggedStructs.set(name, { field: "kind", value: tag });
+      }
+    }
+  }
 
   const lines = [
     '"""Generated strict msgspec transport bindings. Do not edit."""',
     "",
     "from __future__ import annotations",
     "",
-    "from typing import Annotated, Literal",
+    "from typing import Annotated, Literal, Union",
     "",
     "import msgspec",
     "from msgspec import UNSET, Meta, Struct, UnsetType, field",
   ];
   for (const [name, value] of definitions) {
-    lines.push("", "", ...renderPythonDeclaration(name, value.schema));
+    lines.push("", "", ...renderPythonDeclaration(name, value.schema, taggedStructs.get(name)));
   }
   for (const [file, typeName] of roots) {
     lines.push("", "", ...renderPythonDeclaration(typeName, schemas.get(file)));
@@ -109,9 +121,12 @@ function renderPython() {
   return lines.join("\n");
 }
 
-function renderPythonDeclaration(name, schema) {
+function renderPythonDeclaration(name, schema, tag = undefined) {
   if (Array.isArray(schema.enum)) {
     return [`${name} = Literal[${schema.enum.map(pythonLiteral).join(", ")}]`];
+  }
+  if (Array.isArray(schema.anyOf)) {
+    return [`${name} = Union[${schema.anyOf.map(pythonForwardType).join(", ")}]`];
   }
   if (schema.type === "integer") {
     const constraints = [];
@@ -120,14 +135,31 @@ function renderPythonDeclaration(name, schema) {
     assert(constraints.length > 0, `${name}: unconstrained integer alias`);
     return [`${name} = Annotated[int, Meta(${constraints.join(", ")})]`];
   }
+  if (schema.type === "array") {
+    const itemType = pythonType(schema.items);
+    const constraints = [];
+    if (Number.isSafeInteger(schema.minItems)) constraints.push(`min_length=${schema.minItems}`);
+    if (Number.isSafeInteger(schema.maxItems)) constraints.push(`max_length=${schema.maxItems}`);
+    const listType = `list[${itemType}]`;
+    return [
+      constraints.length > 0
+        ? `${name} = Annotated[${listType}, Meta(${constraints.join(", ")})]`
+        : `${name} = ${listType}`,
+    ];
+  }
   assert(schema.type === "object", `${name}: expected object or enum`);
   const required = new Set(schema.required ?? []);
-  const properties = Object.entries(schema.properties ?? {});
+  const properties = Object.entries(schema.properties ?? {}).filter(
+    ([property]) => property !== tag?.field,
+  );
   const ordered = [
     ...properties.filter(([property]) => required.has(property)),
     ...properties.filter(([property]) => !required.has(property)),
   ];
-  const lines = [`class ${name}(Struct, forbid_unknown_fields=True, frozen=True):`];
+  const tagOptions = tag
+    ? `, tag=${pythonLiteral(tag.value)}, tag_field=${pythonLiteral(tag.field)}`
+    : "";
+  const lines = [`class ${name}(Struct, forbid_unknown_fields=True, frozen=True${tagOptions}):`];
   if (ordered.length === 0) return [...lines, "    pass"];
   for (const [property, propertySchema] of ordered) {
     const pythonName = ["type", "float"].includes(property) ? `${property}_` : property;
@@ -153,8 +185,16 @@ function pythonType(schema) {
   if (schema.type === "number") return "float";
   if (schema.type === "integer") return "int";
   if (schema.type === "boolean") return "bool";
+  if (schema.type === "array" && Array.isArray(schema.prefixItems)) {
+    return `tuple[${schema.prefixItems.map(pythonType).join(", ")}]`;
+  }
   if (schema.type === "array") return `list[${pythonType(schema.items)}]`;
   fail(`unsupported Python schema: ${JSON.stringify(schema)}`);
+}
+
+function pythonForwardType(schema) {
+  if (typeof schema.$ref === "string") return pythonLiteral(schema.$ref.split("/").at(-1));
+  return pythonType(schema);
 }
 
 function projectSchema(value) {

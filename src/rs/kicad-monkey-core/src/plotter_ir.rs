@@ -1,4 +1,4 @@
-//! First TypeSpec-backed footprint plotter-IR vertical slice.
+//! TypeSpec-backed footprint graphics to plotter-IR conversion.
 
 use crate::footprint::{FootprintLimits, FootprintView};
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Lexer, Position, Sexp, TokenKind, parse};
@@ -12,6 +12,11 @@ const DEFAULT_STROKE_WIDTH_NM: i64 = 152_400;
 const MIN_PLOT_PEN_WIDTH_NM: i64 = 84_700;
 const JAVASCRIPT_SAFE_INTEGER_MAX: i64 = 9_007_199_254_740_991;
 const JAVASCRIPT_SAFE_INTEGER_MIN: i64 = -JAVASCRIPT_SAFE_INTEGER_MAX;
+const DASH_RATIO: f64 = 11.0;
+const GAP_RATIO: f64 = 4.0;
+const DOT_RATIO: f64 = 0.2;
+const ARC_CHORD_STEP_RADIANS: f64 = std::f64::consts::PI / 360.0;
+const MAX_DECOMPOSITION_STEPS: usize = 10_000;
 
 /// Limits for the first footprint plotter operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -44,6 +49,70 @@ pub struct ThickSegment {
     pub layer: String,
 }
 
+/// Fill values used by the promoted footprint graphic operations.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PlotterFill {
+    NoFill,
+    FilledShape,
+}
+
+/// Solid three-point footprint arc.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ArcThreePoint {
+    pub start_x: i64,
+    pub start_y: i64,
+    pub mid_x: i64,
+    pub mid_y: i64,
+    pub end_x: i64,
+    pub end_y: i64,
+    pub fill: PlotterFill,
+    pub width_nm: i64,
+    pub layer: String,
+}
+
+/// Footprint circle represented by its center and diameter.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PlotterCircle {
+    pub cx: i64,
+    pub cy: i64,
+    pub diameter_nm: i64,
+    pub fill: PlotterFill,
+    pub width_nm: i64,
+    pub layer: String,
+}
+
+/// Footprint rectangle with square corners.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PlotterRect {
+    pub x1: i64,
+    pub y1: i64,
+    pub x2: i64,
+    pub y2: i64,
+    pub fill: PlotterFill,
+    pub width_nm: i64,
+    pub corner_radius_nm: i64,
+    pub layer: String,
+}
+
+/// Footprint polygon point stream.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PlotterPoly {
+    pub points: Vec<[i64; 2]>,
+    pub fill: PlotterFill,
+    pub width_nm: i64,
+    pub layer: String,
+}
+
+/// Promoted non-text footprint graphic operation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum FootprintGraphicOperation {
+    ThickSegment(ThickSegment),
+    ArcThreePoint(ArcThreePoint),
+    Circle(PlotterCircle),
+    Rect(PlotterRect),
+    PlotPoly(PlotterPoly),
+}
+
 /// Typed facts needed to serialize the first footprint plotter document subset.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FootprintPlotDocument {
@@ -58,7 +127,7 @@ pub struct FootprintPlotDocument {
     pub attr: Vec<String>,
     pub locked: bool,
     pub placed: bool,
-    pub operations: Vec<ThickSegment>,
+    pub operations: Vec<FootprintGraphicOperation>,
 }
 
 /// Read supported footprint geometry directly from selected forms.
@@ -88,6 +157,10 @@ pub fn footprint_plot_document(
         "tags",
         "attr",
         "fp_line",
+        "fp_arc",
+        "fp_circle",
+        "fp_rect",
+        "fp_poly",
     ]
     .into_iter()
     .map(|head| vec!["footprint".to_owned(), head.to_owned()])
@@ -117,9 +190,16 @@ pub fn footprint_plot_document(
     let mut tags = None;
     let mut attr = None;
     let mut metadata_forms = 0usize;
-    let mut operations = Vec::new();
+    let mut line_spans = Vec::new();
+    let mut arc_spans = Vec::new();
+    let mut circle_spans = Vec::new();
+    let mut rect_spans = Vec::new();
+    let mut poly_spans = Vec::new();
     for span in spans {
-        if span.head.as_deref() != Some("fp_line") {
+        if !matches!(
+            span.head.as_deref(),
+            Some("fp_line" | "fp_arc" | "fp_circle" | "fp_rect" | "fp_poly")
+        ) {
             metadata_forms = metadata_forms.saturating_add(1);
             if metadata_forms > limits.max_metadata_forms {
                 return Err(metadata_limit_error());
@@ -150,14 +230,45 @@ pub fn footprint_plot_document(
             Some("attr") if attr.is_none() => {
                 attr = Some(form_strings(source, &span, "attr")?);
             }
-            Some("fp_line") => {
-                if operations.len() >= limits.max_operations {
-                    return Err(limit_error());
-                }
-                operations.push(parse_line(source, &span)?);
-            }
+            Some("fp_line") => line_spans.push(span),
+            Some("fp_arc") => arc_spans.push(span),
+            Some("fp_circle") => circle_spans.push(span),
+            Some("fp_rect") => rect_spans.push(span),
+            Some("fp_poly") => poly_spans.push(span),
             _ => {}
         }
+    }
+    let mut operations = Vec::new();
+    for span in line_spans {
+        let remaining = remaining_operations(&operations, limits)?;
+        let additions = parse_line(source, &span, remaining)?;
+        append_operations(&mut operations, additions, limits.max_operations)?;
+    }
+    for span in arc_spans {
+        let remaining = remaining_operations(&operations, limits)?;
+        let additions = parse_arc(source, &span, remaining)?;
+        append_operations(&mut operations, additions, limits.max_operations)?;
+    }
+    for span in circle_spans {
+        append_operations(
+            &mut operations,
+            vec![parse_circle(source, &span)?],
+            limits.max_operations,
+        )?;
+    }
+    for span in rect_spans {
+        append_operations(
+            &mut operations,
+            vec![parse_rect(source, &span)?],
+            limits.max_operations,
+        )?;
+    }
+    for span in poly_spans {
+        append_operations(
+            &mut operations,
+            vec![parse_poly(source, &span)?],
+            limits.max_operations,
+        )?;
     }
     let (locked, placed) = root_flags(source)?;
     let version = version.unwrap_or(DEFAULT_FOOTPRINT_VERSION);
@@ -179,7 +290,11 @@ pub fn footprint_plot_document(
     })
 }
 
-fn parse_line(source: &str, span: &FormSpan) -> Result<ThickSegment, Error> {
+fn parse_line(
+    source: &str,
+    span: &FormSpan,
+    max_operations: usize,
+) -> Result<Vec<FootprintGraphicOperation>, Error> {
     let form = parse_span(source, span)?;
     let start =
         child(&form, "start").ok_or_else(|| model_error("fp_line requires start", span.start))?;
@@ -192,20 +307,229 @@ fn parse_line(source: &str, span: &FormSpan) -> Result<ThickSegment, Error> {
         .and_then(|value| value_at(value, 1))
         .unwrap_or(DEFAULT_LINE_LAYER)
         .to_owned();
-    let stroke = child(&form, "stroke");
-    let stroke_type = stroke
-        .and_then(|value| child(value, "type"))
-        .and_then(|value| value_at(value, 1))
-        .unwrap_or("default");
-    if !matches!(stroke_type, "default" | "solid") {
-        return Err(model_error(
-            "Initial footprint plotter slice supports only solid fp_line strokes",
-            span.start,
-        ));
+    let stroke = parse_stroke(&form, span.start)?;
+    let solid = ThickSegment {
+        start_x,
+        start_y,
+        end_x,
+        end_y,
+        width_nm: stroke.width_nm,
+        layer: layer.clone(),
+    };
+    if matches!(stroke.style, StrokeStyle::Default | StrokeStyle::Solid) {
+        return Ok(vec![FootprintGraphicOperation::ThickSegment(solid)]);
     }
+    let pieces = decompose_segment(
+        start_x,
+        start_y,
+        end_x,
+        end_y,
+        stroke.width_nm,
+        stroke.style,
+        max_operations,
+    )?;
+    if pieces.is_empty() {
+        return Ok(vec![FootprintGraphicOperation::ThickSegment(solid)]);
+    }
+    Ok(pieces
+        .into_iter()
+        .map(|[start_x, start_y, end_x, end_y]| {
+            FootprintGraphicOperation::ThickSegment(ThickSegment {
+                start_x,
+                start_y,
+                end_x,
+                end_y,
+                width_nm: stroke.width_nm,
+                layer: layer.clone(),
+            })
+        })
+        .collect())
+}
+
+fn parse_arc(
+    source: &str,
+    span: &FormSpan,
+    max_operations: usize,
+) -> Result<Vec<FootprintGraphicOperation>, Error> {
+    let form = parse_span(source, span)?;
+    let start =
+        child(&form, "start").ok_or_else(|| model_error("fp_arc requires start", span.start))?;
+    let mid = child(&form, "mid").ok_or_else(|| model_error("fp_arc requires mid", span.start))?;
+    let end = child(&form, "end").ok_or_else(|| model_error("fp_arc requires end", span.start))?;
+    let start_x = mm_to_nm(numeric_at(start, 1, span.start)?)?;
+    let start_y = mm_to_nm(numeric_at(start, 2, span.start)?)?;
+    let mid_x = mm_to_nm(numeric_at(mid, 1, span.start)?)?;
+    let mid_y = mm_to_nm(numeric_at(mid, 2, span.start)?)?;
+    let end_x = mm_to_nm(numeric_at(end, 1, span.start)?)?;
+    let end_y = mm_to_nm(numeric_at(end, 2, span.start)?)?;
+    let layer = graphic_layer(&form);
+    let stroke = parse_stroke(&form, span.start)?;
+    if matches!(stroke.style, StrokeStyle::Default | StrokeStyle::Solid) {
+        return Ok(vec![FootprintGraphicOperation::ArcThreePoint(
+            ArcThreePoint {
+                start_x,
+                start_y,
+                mid_x,
+                mid_y,
+                end_x,
+                end_y,
+                fill: PlotterFill::NoFill,
+                width_nm: stroke.width_nm,
+                layer,
+            },
+        )]);
+    }
+    let pieces = decompose_arc(
+        [start_x, start_y],
+        [mid_x, mid_y],
+        [end_x, end_y],
+        stroke.width_nm,
+        stroke.style,
+        max_operations,
+    )?;
+    if pieces.is_empty() {
+        return Ok(vec![FootprintGraphicOperation::ArcThreePoint(
+            ArcThreePoint {
+                start_x,
+                start_y,
+                mid_x,
+                mid_y,
+                end_x,
+                end_y,
+                fill: PlotterFill::NoFill,
+                width_nm: stroke.width_nm,
+                layer,
+            },
+        )]);
+    }
+    Ok(pieces
+        .into_iter()
+        .map(|[start_x, start_y, end_x, end_y]| {
+            FootprintGraphicOperation::ThickSegment(ThickSegment {
+                start_x,
+                start_y,
+                end_x,
+                end_y,
+                width_nm: stroke.width_nm,
+                layer: layer.clone(),
+            })
+        })
+        .collect())
+}
+
+fn parse_circle(source: &str, span: &FormSpan) -> Result<FootprintGraphicOperation, Error> {
+    let form = parse_span(source, span)?;
+    let center = child(&form, "center")
+        .ok_or_else(|| model_error("fp_circle requires center", span.start))?;
+    let end =
+        child(&form, "end").ok_or_else(|| model_error("fp_circle requires end", span.start))?;
+    let center_x_mm = numeric_at(center, 1, span.start)?;
+    let center_y_mm = numeric_at(center, 2, span.start)?;
+    let end_x_mm = numeric_at(end, 1, span.start)?;
+    let end_y_mm = numeric_at(end, 2, span.start)?;
+    let stroke = parse_stroke(&form, span.start)?;
+    Ok(FootprintGraphicOperation::Circle(PlotterCircle {
+        cx: mm_to_nm(center_x_mm)?,
+        cy: mm_to_nm(center_y_mm)?,
+        diameter_nm: mm_to_nm(2.0 * (end_x_mm - center_x_mm).hypot(end_y_mm - center_y_mm))?,
+        fill: graphic_fill(&form),
+        width_nm: stroke.width_nm,
+        layer: graphic_layer(&form),
+    }))
+}
+
+fn parse_rect(source: &str, span: &FormSpan) -> Result<FootprintGraphicOperation, Error> {
+    let form = parse_span(source, span)?;
+    let start =
+        child(&form, "start").ok_or_else(|| model_error("fp_rect requires start", span.start))?;
+    let end = child(&form, "end").ok_or_else(|| model_error("fp_rect requires end", span.start))?;
+    let stroke = parse_stroke(&form, span.start)?;
+    Ok(FootprintGraphicOperation::Rect(PlotterRect {
+        x1: mm_to_nm(numeric_at(start, 1, span.start)?)?,
+        y1: mm_to_nm(numeric_at(start, 2, span.start)?)?,
+        x2: mm_to_nm(numeric_at(end, 1, span.start)?)?,
+        y2: mm_to_nm(numeric_at(end, 2, span.start)?)?,
+        fill: graphic_fill(&form),
+        width_nm: stroke.width_nm,
+        corner_radius_nm: 0,
+        layer: graphic_layer(&form),
+    }))
+}
+
+fn parse_poly(source: &str, span: &FormSpan) -> Result<FootprintGraphicOperation, Error> {
+    let form = parse_span(source, span)?;
+    let points_form =
+        child(&form, "pts").ok_or_else(|| model_error("fp_poly requires pts", span.start))?;
+    let points = list(points_form)
+        .ok_or_else(|| model_error("fp_poly pts must be a list", span.start))?
+        .iter()
+        .skip(1)
+        .filter(|value| {
+            list(value)
+                .and_then(|items| items.first())
+                .and_then(sexp_text)
+                == Some("xy")
+        })
+        .map(|value| {
+            Ok([
+                mm_to_nm(numeric_at(value, 1, span.start)?)?,
+                mm_to_nm(numeric_at(value, 2, span.start)?)?,
+            ])
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+    let stroke = parse_stroke(&form, span.start)?;
+    Ok(FootprintGraphicOperation::PlotPoly(PlotterPoly {
+        points,
+        fill: graphic_fill(&form),
+        width_nm: stroke.width_nm,
+        layer: graphic_layer(&form),
+    }))
+}
+
+fn append_operations(
+    operations: &mut Vec<FootprintGraphicOperation>,
+    additions: Vec<FootprintGraphicOperation>,
+    max_operations: usize,
+) -> Result<(), Error> {
+    if additions.len() > max_operations.saturating_sub(operations.len()) {
+        return Err(limit_error());
+    }
+    operations.extend(additions);
+    Ok(())
+}
+
+fn remaining_operations(
+    operations: &[FootprintGraphicOperation],
+    limits: FootprintPlotLimits,
+) -> Result<usize, Error> {
+    limits
+        .max_operations
+        .checked_sub(operations.len())
+        .filter(|remaining| *remaining > 0)
+        .ok_or_else(limit_error)
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum StrokeStyle {
+    Default,
+    Solid,
+    Dash,
+    Dot,
+    DashDot,
+    DashDotDot,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct StrokeSpec {
+    width_nm: i64,
+    style: StrokeStyle,
+}
+
+fn parse_stroke(form: &Sexp, position: Position) -> Result<StrokeSpec, Error> {
+    let stroke = child(form, "stroke");
     let width_mm = stroke
         .and_then(|value| child(value, "width"))
-        .map(|value| numeric_at(value, 1, span.start))
+        .map(|value| numeric_at(value, 1, position))
         .transpose()?
         .unwrap_or(0.0);
     let width_nm = if width_mm < 0.0 {
@@ -215,14 +539,263 @@ fn parse_line(source: &str, span: &FormSpan) -> Result<ThickSegment, Error> {
     } else {
         mm_to_nm(width_mm)?.max(MIN_PLOT_PEN_WIDTH_NM)
     };
-    Ok(ThickSegment {
-        start_x,
-        start_y,
-        end_x,
-        end_y,
-        width_nm,
-        layer,
-    })
+    let style = match stroke
+        .and_then(|value| child(value, "type"))
+        .and_then(|value| value_at(value, 1))
+        .unwrap_or("default")
+    {
+        "default" => StrokeStyle::Default,
+        "solid" => StrokeStyle::Solid,
+        "dash" => StrokeStyle::Dash,
+        "dot" => StrokeStyle::Dot,
+        "dash_dot" => StrokeStyle::DashDot,
+        "dash_dot_dot" => StrokeStyle::DashDotDot,
+        _ => return Err(model_error("Unsupported footprint stroke type", position)),
+    };
+    Ok(StrokeSpec { width_nm, style })
+}
+
+fn graphic_layer(form: &Sexp) -> String {
+    child(form, "layer")
+        .and_then(|value| value_at(value, 1))
+        .unwrap_or(DEFAULT_LINE_LAYER)
+        .to_owned()
+}
+
+fn graphic_fill(form: &Sexp) -> PlotterFill {
+    match child(form, "fill").and_then(|value| value_at(value, 1)) {
+        Some("yes" | "solid") => PlotterFill::FilledShape,
+        _ => PlotterFill::NoFill,
+    }
+}
+
+fn stroke_pattern(style: StrokeStyle, width_nm: i64) -> Result<(Vec<f64>, usize), Error> {
+    let width = width_nm as f64;
+    let dash = DASH_RATIO * width;
+    let gap = GAP_RATIO * width;
+    let dot = DOT_RATIO * width;
+    match style {
+        StrokeStyle::Dash => Ok((vec![dash, gap], 2)),
+        StrokeStyle::Dot => Ok((vec![dot, gap], 2)),
+        StrokeStyle::DashDot => Ok((vec![dash, gap, dot, gap], 4)),
+        StrokeStyle::DashDotDot => Ok((vec![dash, gap, dot, gap, dot, gap], 6)),
+        StrokeStyle::Default | StrokeStyle::Solid => Err(model_error(
+            "Solid strokes do not require decomposition",
+            Position::START,
+        )),
+    }
+}
+
+fn decompose_segment(
+    start_x: i64,
+    start_y: i64,
+    end_x: i64,
+    end_y: i64,
+    width_nm: i64,
+    style: StrokeStyle,
+    max_operations: usize,
+) -> Result<Vec<[i64; 4]>, Error> {
+    let (strokes, wrap) = stroke_pattern(style, width_nm)?;
+    let delta_x = (end_x - start_x) as f64;
+    let delta_y = (end_y - start_y) as f64;
+    let total = delta_x.hypot(delta_y);
+    if total <= 0.0 {
+        return Ok(Vec::new());
+    }
+    let unit_x = delta_x / total;
+    let unit_y = delta_y / total;
+    let mut output = Vec::new();
+    let mut current = 0.0;
+    let mut index = 0usize;
+    while current < total && index < MAX_DECOMPOSITION_STEPS {
+        let next = current + strokes[index % wrap];
+        if index.is_multiple_of(2) {
+            let end_along = next.min(total);
+            if end_along > current {
+                push_decomposed_segment(
+                    &mut output,
+                    [
+                        rounded_safe_f64(start_x as f64 + unit_x * current)?,
+                        rounded_safe_f64(start_y as f64 + unit_y * current)?,
+                        rounded_safe_f64(start_x as f64 + unit_x * end_along)?,
+                        rounded_safe_f64(start_y as f64 + unit_y * end_along)?,
+                    ],
+                    max_operations,
+                )?;
+            }
+        }
+        current = next;
+        index += 1;
+    }
+    Ok(output)
+}
+
+fn decompose_arc(
+    start: [i64; 2],
+    mid: [i64; 2],
+    end: [i64; 2],
+    width_nm: i64,
+    style: StrokeStyle,
+    max_operations: usize,
+) -> Result<Vec<[i64; 4]>, Error> {
+    let (strokes, wrap) = stroke_pattern(style, width_nm)?;
+    let Some((center_x, center_y, radius)) = arc_center_radius(start, mid, end) else {
+        return decompose_segment(
+            start[0],
+            start[1],
+            end[0],
+            end[1],
+            width_nm,
+            style,
+            max_operations,
+        );
+    };
+    if radius <= 0.0 {
+        return Ok(Vec::new());
+    }
+    let circumference = std::f64::consts::TAU * radius;
+    let start_angle_raw = (start[1] as f64 - center_y).atan2(start[0] as f64 - center_x);
+    let mid_angle_raw = (mid[1] as f64 - center_y).atan2(mid[0] as f64 - center_x);
+    let end_angle_raw = (end[1] as f64 - center_y).atan2(end[0] as f64 - center_x);
+    let (start_angle, arc_end_angle) =
+        normalize_arc_sweep(start_angle_raw, mid_angle_raw, end_angle_raw);
+    let mut output = Vec::new();
+    let mut index = 0usize;
+    let mut current_angle = start_angle;
+    while current_angle < arc_end_angle && index < MAX_DECOMPOSITION_STEPS {
+        let segment_length = strokes[index % wrap];
+        let theta = std::f64::consts::TAU * segment_length / circumference;
+        let next_angle = (current_angle + theta).min(arc_end_angle);
+        if index.is_multiple_of(2) {
+            let subdivide = style == StrokeStyle::Dash
+                || (matches!(style, StrokeStyle::DashDot | StrokeStyle::DashDotDot)
+                    && index.is_multiple_of(wrap));
+            if subdivide {
+                let mut low = current_angle;
+                while low < next_angle {
+                    let high = (low + ARC_CHORD_STEP_RADIANS).min(next_angle);
+                    push_arc_chord(
+                        &mut output,
+                        center_x,
+                        center_y,
+                        radius,
+                        low,
+                        high,
+                        max_operations,
+                    )?;
+                    low = high;
+                }
+            } else {
+                push_arc_chord(
+                    &mut output,
+                    center_x,
+                    center_y,
+                    radius,
+                    current_angle,
+                    next_angle,
+                    max_operations,
+                )?;
+            }
+        }
+        current_angle = next_angle;
+        index += 1;
+    }
+    Ok(output)
+}
+
+fn arc_center_radius(start: [i64; 2], mid: [i64; 2], end: [i64; 2]) -> Option<(f64, f64, f64)> {
+    let start_x = start[0] as f64;
+    let start_y = start[1] as f64;
+    let mid_x = mid[0] as f64;
+    let mid_y = mid[1] as f64;
+    let end_x = end[0] as f64;
+    let end_y = end[1] as f64;
+    let a_x = mid_x - start_x;
+    let a_y = mid_y - start_y;
+    let b_x = end_x - mid_x;
+    let b_y = end_y - mid_y;
+    let denominator = 2.0 * (a_x * b_y - a_y * b_x);
+    if denominator.abs() < 1e-9 {
+        return None;
+    }
+    let start_squared = start_x * start_x + start_y * start_y;
+    let mid_squared = mid_x * mid_x + mid_y * mid_y;
+    let end_squared = end_x * end_x + end_y * end_y;
+    let center_x = (start_squared * (mid_y - end_y)
+        + mid_squared * (end_y - start_y)
+        + end_squared * (start_y - mid_y))
+        / denominator;
+    let center_y = (start_squared * (end_x - mid_x)
+        + mid_squared * (start_x - end_x)
+        + end_squared * (mid_x - start_x))
+        / denominator;
+    Some((
+        center_x,
+        center_y,
+        (start_x - center_x).hypot(start_y - center_y),
+    ))
+}
+
+fn normalize_arc_sweep(start: f64, mid: f64, end: f64) -> (f64, f64) {
+    let tau = std::f64::consts::TAU;
+    let start = start.rem_euclid(tau);
+    let mid = mid.rem_euclid(tau);
+    let end = end.rem_euclid(tau);
+    let counter_clockwise_end = (end - start).rem_euclid(tau);
+    let counter_clockwise_mid = (mid - start).rem_euclid(tau);
+    if counter_clockwise_end == 0.0 {
+        return (start, start + tau);
+    }
+    if counter_clockwise_mid > 0.0 && counter_clockwise_mid < counter_clockwise_end {
+        return (start, start + counter_clockwise_end);
+    }
+    (end, end + (tau - counter_clockwise_end))
+}
+
+fn push_arc_chord(
+    output: &mut Vec<[i64; 4]>,
+    center_x: f64,
+    center_y: f64,
+    radius: f64,
+    low: f64,
+    high: f64,
+    max_operations: usize,
+) -> Result<(), Error> {
+    push_decomposed_segment(
+        output,
+        [
+            rounded_safe_f64(center_x + radius * low.cos())?,
+            rounded_safe_f64(center_y + radius * low.sin())?,
+            rounded_safe_f64(center_x + radius * high.cos())?,
+            rounded_safe_f64(center_y + radius * high.sin())?,
+        ],
+        max_operations,
+    )
+}
+
+fn push_decomposed_segment(
+    output: &mut Vec<[i64; 4]>,
+    segment: [i64; 4],
+    max_operations: usize,
+) -> Result<(), Error> {
+    if output.len() >= max_operations {
+        return Err(limit_error());
+    }
+    output.push(segment);
+    Ok(())
+}
+
+fn rounded_safe_f64(value: f64) -> Result<i64, Error> {
+    if !value.is_finite()
+        || value < JAVASCRIPT_SAFE_INTEGER_MIN as f64
+        || value > JAVASCRIPT_SAFE_INTEGER_MAX as f64
+    {
+        return Err(model_error(
+            "Graphic coordinate exceeds JavaScript safe-integer range",
+            Position::START,
+        ));
+    }
+    Ok(value.round_ties_even() as i64)
 }
 
 fn form_integer(source: &str, span: &FormSpan, head: &str) -> Result<i64, Error> {

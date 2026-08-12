@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Union
 
 import msgspec
 from msgspec import UNSET, Meta, Struct, UnsetType, field
@@ -66,7 +66,7 @@ class FootprintPlotRecord(Struct, forbid_unknown_fields=True, frozen=True):
     kind: Literal["footprint"]
     object_id: str
     operation_count: int
-    operations: list[ThickSegmentOperation]
+    operations: list[FootprintGraphicOperation]
     name: str
     layer: str
     locked: bool
@@ -84,8 +84,10 @@ class PlotterCoordinateSpace(Struct, forbid_unknown_fields=True, frozen=True):
 JavaScriptSafeInteger = Annotated[int, Meta(ge=-9007199254740991, le=9007199254740991)]
 
 
-class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True):
-    kind: Literal["ThickSegment"]
+FootprintGraphicOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation"]
+
+
+class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ThickSegment", tag_field="kind"):
     index: int
     start_x: JavaScriptSafeInteger
     start_y: JavaScriptSafeInteger
@@ -93,6 +95,55 @@ class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True):
     end_y: JavaScriptSafeInteger
     width_nm: JavaScriptSafeInteger
     layer: str
+
+
+class ArcThreePointOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ArcThreePoint", tag_field="kind"):
+    index: int
+    start_x: JavaScriptSafeInteger
+    start_y: JavaScriptSafeInteger
+    mid_x: JavaScriptSafeInteger
+    mid_y: JavaScriptSafeInteger
+    end_x: JavaScriptSafeInteger
+    end_y: JavaScriptSafeInteger
+    fill: PlotterFill
+    width_nm: JavaScriptSafeInteger
+    layer: str
+
+
+class CircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Circle", tag_field="kind"):
+    index: int
+    cx: JavaScriptSafeInteger
+    cy: JavaScriptSafeInteger
+    diameter_nm: JavaScriptSafeInteger
+    fill: PlotterFill
+    width_nm: JavaScriptSafeInteger
+    layer: str
+
+
+class RectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Rect", tag_field="kind"):
+    index: int
+    x1: JavaScriptSafeInteger
+    y1: JavaScriptSafeInteger
+    x2: JavaScriptSafeInteger
+    y2: JavaScriptSafeInteger
+    fill: PlotterFill
+    width_nm: JavaScriptSafeInteger
+    corner_radius_nm: JavaScriptSafeInteger
+    layer: str
+
+
+class PlotPolyOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="PlotPoly", tag_field="kind"):
+    index: int
+    points: list[PlotterPoint]
+    fill: PlotterFill
+    width_nm: JavaScriptSafeInteger
+    layer: str
+
+
+PlotterFill = Literal["NO_FILL", "FILLED_SHAPE"]
+
+
+PlotterPoint = Annotated[list[JavaScriptSafeInteger], Meta(min_length=2, max_length=2)]
 
 
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -225,7 +276,14 @@ __all__ = (
     "FootprintPlotRecord",
     "PlotterCoordinateSpace",
     "JavaScriptSafeInteger",
+    "FootprintGraphicOperation",
     "ThickSegmentOperation",
+    "ArcThreePointOperation",
+    "CircleOperation",
+    "RectOperation",
+    "PlotPolyOperation",
+    "PlotterFill",
+    "PlotterPoint",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",

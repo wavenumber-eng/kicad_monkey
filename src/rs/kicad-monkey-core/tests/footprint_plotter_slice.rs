@@ -1,4 +1,6 @@
-use kicad_monkey_core::{ErrorKind, FootprintPlotLimits, footprint_plot_document};
+use kicad_monkey_core::{
+    ErrorKind, FootprintGraphicOperation, FootprintPlotLimits, footprint_plot_document,
+};
 
 const LINE_FOOTPRINT: &str = r#"(footprint "Demo"
   (version 20240108)
@@ -33,7 +35,9 @@ fn footprint_plotter_reads_metadata_and_solid_lines_without_a_full_tree() {
     assert!(document.locked);
     assert!(!document.placed);
     assert_eq!(document.operations.len(), 1);
-    let line = &document.operations[0];
+    let FootprintGraphicOperation::ThickSegment(line) = &document.operations[0] else {
+        panic!("expected thick segment");
+    };
     assert_eq!(line.start_x, 0);
     assert_eq!(line.start_y, 0);
     assert_eq!(line.end_x, 1_500_000);
@@ -66,12 +70,95 @@ fn footprint_plotter_defaults_match_python_and_operation_limits_fail_closed() {
 }
 
 #[test]
-fn unsupported_dashed_lines_are_explicit() {
+fn dashed_lines_expand_to_bounded_thick_segments() {
     let source = LINE_FOOTPRINT.replace("(type solid)", "(type dash)");
-    let error = footprint_plot_document(&source, FootprintPlotLimits::default())
-        .expect_err("dash is not yet promoted");
+    let document = footprint_plot_document(&source, FootprintPlotLimits::default())
+        .expect("dashed line decomposition");
+    assert_eq!(document.operations.len(), 1);
+    let FootprintGraphicOperation::ThickSegment(segment) = &document.operations[0] else {
+        panic!("dash decomposition emits thick segments");
+    };
+    assert_eq!((segment.end_x, segment.end_y), (1_320_000, -1_760_000));
+
+    for style in ["dot", "dash_dot", "dash_dot_dot"] {
+        let patterned = LINE_FOOTPRINT.replace("(type solid)", &format!("(type {style})"));
+        let operations = footprint_plot_document(&patterned, FootprintPlotLimits::default())
+            .expect("supported patterned stroke")
+            .operations;
+        assert!(!operations.is_empty(), "{style}");
+        assert!(
+            operations
+                .iter()
+                .all(|operation| matches!(operation, FootprintGraphicOperation::ThickSegment(_))),
+            "{style} decomposes to thick segments"
+        );
+    }
+
+    let limited = FootprintPlotLimits {
+        max_operations: 0,
+        ..FootprintPlotLimits::default()
+    };
+    assert_eq!(
+        footprint_plot_document(&source, limited)
+            .expect_err("decomposition observes operation limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let unsupported = LINE_FOOTPRINT.replace("(type solid)", "(type custom)");
+    let error = footprint_plot_document(&unsupported, FootprintPlotLimits::default())
+        .expect_err("unknown stroke style must not become solid");
     assert_eq!(error.kind, ErrorKind::UnexpectedToken);
-    assert!(error.message.contains("only solid"));
+    assert!(error.message.contains("Unsupported footprint stroke type"));
+}
+
+#[test]
+fn promoted_graphics_follow_python_grouping_and_bound_emitted_operations() {
+    let source = r#"(footprint "Graphics"
+      (fp_circle (center 2 2) (end 2 3.5) (stroke (width 0.12)) (fill yes))
+      (fp_line (start 0 0) (end 2 0) (stroke (width 0.1) (type solid)))
+      (fp_rect (start -2 -1) (end -1 1) (stroke (width 0.05)) (fill no))
+      (fp_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.15)))
+      (fp_poly (pts (xy 0 0) (xy 2 0) (xy 1 1.5)) (stroke (width 0.1)) (fill solid))
+      (fp_line (start 0 1) (end 3 1) (stroke (width 0.1) (type dash)))
+      (fp_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.2) (type dot))))"#;
+    let document =
+        footprint_plot_document(source, FootprintPlotLimits::default()).expect("promoted graphics");
+    assert_eq!(document.operations.len(), 11);
+    assert!(matches!(
+        document.operations[0],
+        FootprintGraphicOperation::ThickSegment(_)
+    ));
+    assert!(matches!(
+        document.operations[3],
+        FootprintGraphicOperation::ArcThreePoint(_)
+    ));
+    assert!(matches!(
+        document.operations[8],
+        FootprintGraphicOperation::Circle(_)
+    ));
+    assert!(matches!(
+        document.operations[9],
+        FootprintGraphicOperation::Rect(_)
+    ));
+    let FootprintGraphicOperation::PlotPoly(poly) = &document.operations[10] else {
+        panic!("expected canonical polygon group last");
+    };
+    assert_eq!(
+        poly.points,
+        [[0, 0], [2_000_000, 0], [1_000_000, 1_500_000]]
+    );
+
+    let limited = FootprintPlotLimits {
+        max_operations: 10,
+        ..FootprintPlotLimits::default()
+    };
+    assert_eq!(
+        footprint_plot_document(source, limited)
+            .expect_err("decomposed output observes operation limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
 }
 
 #[test]
@@ -125,7 +212,10 @@ fn plotter_outputs_stay_inside_the_javascript_safe_integer_range() {
         (stroke (width 0.1) (type solid))))"#;
     let document = footprint_plot_document(inside, FootprintPlotLimits::default())
         .expect("largest representable near-boundary coordinate");
-    assert!(document.operations[0].start_x <= SAFE_MAX);
+    let FootprintGraphicOperation::ThickSegment(line) = &document.operations[0] else {
+        panic!("expected thick segment");
+    };
+    assert!(line.start_x <= SAFE_MAX);
 
     let outside = r#"(footprint "Demo"
       (fp_line (start 9007199255 0) (end 0 0)
