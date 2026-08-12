@@ -45,13 +45,13 @@ model PlotterCoordinateSpace {
   y_axis: "down";
 }
 
-/** Fill values emitted by promoted footprint graphics. */
+/** Fill values shared by plotter operation producers. */
 enum PlotterFill {
   noFill: "NO_FILL",
   filledShape: "FILLED_SHAPE",
 }
 
-/** Solid or decomposed footprint stroke segment. */
+/** Solid or decomposed segment shared by PCB, footprint, and drill producers. */
 model ThickSegmentOperation {
   kind: "ThickSegment";
   index: uint32;
@@ -60,10 +60,15 @@ model ThickSegmentOperation {
   end_x: JavaScriptSafeInteger;
   end_y: JavaScriptSafeInteger;
   width_nm: JavaScriptSafeInteger;
-  layer: string;
+  layer?: string;
+  role?: string;
+  layers?: string[];
+  mask_margin_nm?: JavaScriptSafeInteger;
+  pad_size_x_nm?: JavaScriptSafeInteger;
+  pad_size_y_nm?: JavaScriptSafeInteger;
 }
 
-/** Solid three-point footprint arc. */
+/** Solid three-point arc. */
 model ArcThreePointOperation {
   kind: "ArcThreePoint";
   index: uint32;
@@ -78,7 +83,7 @@ model ArcThreePointOperation {
   layer: string;
 }
 
-/** Footprint circle represented by center and diameter. */
+/** Circle shared by graphical and drill producers. */
 model CircleOperation {
   kind: "Circle";
   index: uint32;
@@ -87,10 +92,15 @@ model CircleOperation {
   diameter_nm: JavaScriptSafeInteger;
   fill: PlotterFill;
   width_nm: JavaScriptSafeInteger;
-  layer: string;
+  layer?: string;
+  role?: string;
+  layers?: string[];
+  mask_margin_nm?: JavaScriptSafeInteger;
+  pad_size_x_nm?: JavaScriptSafeInteger;
+  pad_size_y_nm?: JavaScriptSafeInteger;
 }
 
-/** Footprint rectangle with square corners. */
+/** Rectangle with square corners. */
 model RectOperation {
   kind: "Rect";
   index: uint32;
@@ -104,12 +114,12 @@ model RectOperation {
   layer: string;
 }
 
-/** Footprint polygon point stream. */
+/** Plotter point encoded as an exact coordinate pair. */
 @minItems(2)
 @maxItems(2)
 model PlotterPoint is Array<JavaScriptSafeInteger>;
 
-/** Footprint polygon operation. */
+/** Filled or outlined polygon operation. */
 model PlotPolyOperation {
   kind: "PlotPoly";
   index: uint32;
@@ -119,13 +129,86 @@ model PlotPolyOperation {
   layer: string;
 }
 
-/** Non-text footprint graphics promoted by the second plotter slice. */
-union FootprintGraphicOperation {
+/** Circular pad flash shared by footprint and PCB producers. */
+model FlashPadCircleOperation {
+  kind: "FlashPadCircle";
+  index: uint32;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  diameter_nm: JavaScriptSafeInteger;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+
+/** Oval pad flash shared by footprint and PCB producers. */
+model FlashPadOvalOperation {
+  kind: "FlashPadOval";
+  index: uint32;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  orient_deg: float64;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+
+/** Rectangular pad flash shared by footprint and PCB producers. */
+model FlashPadRectOperation {
+  kind: "FlashPadRect";
+  index: uint32;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  orient_deg: float64;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+
+/** Rounded-rectangle pad flash shared by footprint and PCB producers. */
+model FlashPadRoundRectOperation {
+  kind: "FlashPadRoundRect";
+  index: uint32;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  corner_radius_nm: JavaScriptSafeInteger;
+  orient_deg: float64;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+
+/** Four pad-local trapezoid corners. */
+@minItems(4)
+@maxItems(4)
+model PlotterQuad is Array<PlotterPoint>;
+
+/** Trapezoid pad flash shared by footprint and PCB producers. */
+model FlashPadTrapezOperation {
+  kind: "FlashPadTrapez";
+  index: uint32;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  corners: PlotterQuad;
+  orient_deg: float64;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+
+/** Shared plotter operation vocabulary promoted across source producers. */
+union PlotterOperation {
   thickSegment: ThickSegmentOperation,
   arcThreePoint: ArcThreePointOperation,
   circle: CircleOperation,
   rect: RectOperation,
   plotPoly: PlotPolyOperation,
+  flashPadCircle: FlashPadCircleOperation,
+  flashPadOval: FlashPadOvalOperation,
+  flashPadRect: FlashPadRectOperation,
+  flashPadRoundRect: FlashPadRoundRectOperation,
+  flashPadTrapez: FlashPadTrapezOperation,
 }
 
 /** One footprint record in the promoted non-text graphics slice. */
@@ -134,7 +217,7 @@ model FootprintPlotRecord {
   kind: "footprint";
   object_id: string;
   operation_count: uint32;
-  operations: FootprintGraphicOperation[];
+  operations: PlotterOperation[];
   name: string;
   layer: string;
   locked: boolean;

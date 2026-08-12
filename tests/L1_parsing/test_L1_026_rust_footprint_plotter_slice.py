@@ -42,7 +42,7 @@ def _run(command: list[str]) -> None:
     )
 
 
-def test_shared_graphic_vectors_match_python_generated_types_and_both_schemas() -> None:
+def test_shared_plotter_vectors_match_python_generated_types_and_both_schemas() -> None:
     payload = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))
     assert payload["schema"] == "kicad_monkey.footprint_plotter_parity.a0"
 
@@ -76,7 +76,11 @@ def test_shared_graphic_vectors_match_python_generated_types_and_both_schemas() 
         unsafe["version"] = 9_007_199_254_740_992
         assert list(Draft202012Validator(slice_schema).iter_errors(unsafe))
 
-    promoted = payload["vectors"][-1]["expected"]
+    promoted = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "promoted-graphics-and-stroke-decomposition"
+    )
     malformed_point = json.loads(json.dumps(promoted))
     malformed_point["records"][0]["operations"][-1]["points"][0] = [0]
     with pytest.raises(msgspec.ValidationError):

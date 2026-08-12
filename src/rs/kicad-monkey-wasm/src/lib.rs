@@ -9,9 +9,10 @@ use kicad_monkey_contracts::generated::footprint_edit_result::{
     FootprintEditResultA0, SourcePosition as FootprintEditSourcePosition,
 };
 use kicad_monkey_contracts::generated::footprint_plot_document::{
-    ArcThreePointOperation, CircleOperation, FootprintGraphicOperation, FootprintPlotDocumentA0,
-    FootprintPlotRecord, PlotPolyOperation, PlotterCoordinateSpace, PlotterFill, PlotterPoint,
-    RectOperation, ThickSegmentOperation,
+    ArcThreePointOperation, CircleOperation, FlashPadCircleOperation, FlashPadOvalOperation,
+    FlashPadRectOperation, FlashPadRoundRectOperation, FlashPadTrapezOperation,
+    FootprintPlotDocumentA0, FootprintPlotRecord, PlotPolyOperation, PlotterCoordinateSpace,
+    PlotterFill, PlotterOperation, PlotterPoint, PlotterQuad, RectOperation, ThickSegmentOperation,
 };
 use kicad_monkey_contracts::generated::footprint_plot_request::FootprintPlotRequestA0;
 use kicad_monkey_contracts::generated::footprint_plot_result::{
@@ -30,10 +31,10 @@ use kicad_monkey_contracts::generated::scan_result::{
 };
 use kicad_monkey_contracts::{JavaScriptSafeInteger, ValidatedNode, validate_build_request};
 use kicad_monkey_core::{
-    Error, ErrorKind, ErrorPhase, FootprintGraphicOperation as CoreGraphicOperation,
-    FootprintLimits, FootprintPlotLimits, FootprintView, PlotterFill as CorePlotterFill,
-    ProjectionLimits, Selector, Sexp, build, build_with_limit, footprint_plot_document,
-    parse_bytes, scan_reader_form_spans, utf8_text,
+    Error, ErrorKind, ErrorPhase, FootprintLimits, FootprintPlotLimits, FootprintView,
+    PlotterFill as CorePlotterFill, PlotterOperation as CorePlotterOperation, ProjectionLimits,
+    Selector, Sexp, build, build_with_limit, footprint_plot_document, parse_bytes,
+    scan_reader_form_spans, utf8_text,
 };
 use std::collections::BTreeSet;
 use std::io::{Cursor, Write};
@@ -267,7 +268,7 @@ fn plot_footprint_ir_impl(
                 .operations
                 .into_iter()
                 .enumerate()
-                .map(|(index, operation)| contract_graphic_operation(index, operation))
+                .map(|(index, operation)| contract_plotter_operation(index, operation))
                 .collect::<Result<Vec<_>, String>>()?;
             let contract_document = FootprintPlotDocumentA0 {
                 coordinate_space: PlotterCoordinateSpace {
@@ -338,24 +339,29 @@ fn plot_footprint_ir_impl(
     })
 }
 
-fn contract_graphic_operation(
+fn contract_plotter_operation(
     index: usize,
-    operation: CoreGraphicOperation,
-) -> Result<FootprintGraphicOperation, String> {
+    operation: CorePlotterOperation,
+) -> Result<PlotterOperation, String> {
     let index = u32::try_from(index).unwrap_or(u32::MAX);
     Ok(match operation {
-        CoreGraphicOperation::ThickSegment(operation) => ThickSegmentOperation {
+        CorePlotterOperation::ThickSegment(operation) => ThickSegmentOperation {
             end_x: safe_integer(operation.end_x)?,
             end_y: safe_integer(operation.end_y)?,
             index,
             kind: "ThickSegment".to_owned(),
             layer: operation.layer,
+            layers: operation.layers,
+            mask_margin_nm: optional_safe_integer(operation.mask_margin_nm)?,
+            pad_size_x_nm: optional_safe_integer(operation.pad_size_x_nm)?,
+            pad_size_y_nm: optional_safe_integer(operation.pad_size_y_nm)?,
+            role: operation.role,
             start_x: safe_integer(operation.start_x)?,
             start_y: safe_integer(operation.start_y)?,
             width_nm: safe_integer(operation.width_nm)?,
         }
         .into(),
-        CoreGraphicOperation::ArcThreePoint(operation) => ArcThreePointOperation {
+        CorePlotterOperation::ArcThreePoint(operation) => ArcThreePointOperation {
             end_x: safe_integer(operation.end_x)?,
             end_y: safe_integer(operation.end_y)?,
             fill: contract_fill(operation.fill),
@@ -369,7 +375,7 @@ fn contract_graphic_operation(
             width_nm: safe_integer(operation.width_nm)?,
         }
         .into(),
-        CoreGraphicOperation::Circle(operation) => CircleOperation {
+        CorePlotterOperation::Circle(operation) => CircleOperation {
             cx: safe_integer(operation.cx)?,
             cy: safe_integer(operation.cy)?,
             diameter_nm: safe_integer(operation.diameter_nm)?,
@@ -377,10 +383,15 @@ fn contract_graphic_operation(
             index,
             kind: "Circle".to_owned(),
             layer: operation.layer,
+            layers: operation.layers,
+            mask_margin_nm: optional_safe_integer(operation.mask_margin_nm)?,
+            pad_size_x_nm: optional_safe_integer(operation.pad_size_x_nm)?,
+            pad_size_y_nm: optional_safe_integer(operation.pad_size_y_nm)?,
+            role: operation.role,
             width_nm: safe_integer(operation.width_nm)?,
         }
         .into(),
-        CoreGraphicOperation::Rect(operation) => RectOperation {
+        CorePlotterOperation::Rect(operation) => RectOperation {
             corner_radius_nm: safe_integer(operation.corner_radius_nm)?,
             fill: contract_fill(operation.fill),
             index,
@@ -393,7 +404,7 @@ fn contract_graphic_operation(
             y2: safe_integer(operation.y2)?,
         }
         .into(),
-        CoreGraphicOperation::PlotPoly(operation) => PlotPolyOperation {
+        CorePlotterOperation::PlotPoly(operation) => PlotPolyOperation {
             fill: contract_fill(operation.fill),
             index,
             kind: "PlotPoly".to_owned(),
@@ -404,6 +415,64 @@ fn contract_graphic_operation(
                 .map(|[x, y]| Ok(PlotterPoint::from([safe_integer(x)?, safe_integer(y)?])))
                 .collect::<Result<Vec<_>, String>>()?,
             width_nm: safe_integer(operation.width_nm)?,
+        }
+        .into(),
+        CorePlotterOperation::FlashPadCircle(operation) => FlashPadCircleOperation {
+            diameter_nm: safe_integer(operation.diameter_nm)?,
+            index,
+            kind: "FlashPadCircle".to_owned(),
+            layers: operation.layers,
+            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
+            x: safe_integer(operation.x)?,
+            y: safe_integer(operation.y)?,
+        }
+        .into(),
+        CorePlotterOperation::FlashPadOval(operation) => FlashPadOvalOperation {
+            index,
+            kind: "FlashPadOval".to_owned(),
+            layers: operation.layers,
+            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
+            orient_deg: operation.orient_deg,
+            size_x_nm: safe_integer(operation.size_x_nm)?,
+            size_y_nm: safe_integer(operation.size_y_nm)?,
+            x: safe_integer(operation.x)?,
+            y: safe_integer(operation.y)?,
+        }
+        .into(),
+        CorePlotterOperation::FlashPadRect(operation) => FlashPadRectOperation {
+            index,
+            kind: "FlashPadRect".to_owned(),
+            layers: operation.layers,
+            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
+            orient_deg: operation.orient_deg,
+            size_x_nm: safe_integer(operation.size_x_nm)?,
+            size_y_nm: safe_integer(operation.size_y_nm)?,
+            x: safe_integer(operation.x)?,
+            y: safe_integer(operation.y)?,
+        }
+        .into(),
+        CorePlotterOperation::FlashPadRoundRect(operation) => FlashPadRoundRectOperation {
+            corner_radius_nm: safe_integer(operation.corner_radius_nm)?,
+            index,
+            kind: "FlashPadRoundRect".to_owned(),
+            layers: operation.layers,
+            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
+            orient_deg: operation.orient_deg,
+            size_x_nm: safe_integer(operation.size_x_nm)?,
+            size_y_nm: safe_integer(operation.size_y_nm)?,
+            x: safe_integer(operation.x)?,
+            y: safe_integer(operation.y)?,
+        }
+        .into(),
+        CorePlotterOperation::FlashPadTrapez(operation) => FlashPadTrapezOperation {
+            corners: contract_quad(operation.corners)?,
+            index,
+            kind: "FlashPadTrapez".to_owned(),
+            layers: operation.layers,
+            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
+            orient_deg: operation.orient_deg,
+            x: safe_integer(operation.x)?,
+            y: safe_integer(operation.y)?,
         }
         .into(),
     })
@@ -418,6 +487,21 @@ fn contract_fill(fill: CorePlotterFill) -> PlotterFill {
 
 fn safe_integer(value: i64) -> Result<JavaScriptSafeInteger, String> {
     JavaScriptSafeInteger::try_from(value).map_err(|error| error.to_string())
+}
+
+fn optional_safe_integer(value: Option<i64>) -> Result<Option<JavaScriptSafeInteger>, String> {
+    value.map(safe_integer).transpose()
+}
+
+fn contract_quad(corners: [[i64; 2]; 4]) -> Result<PlotterQuad, String> {
+    let points = corners
+        .into_iter()
+        .map(|[x, y]| Ok(PlotterPoint::from([safe_integer(x)?, safe_integer(y)?])))
+        .collect::<Result<Vec<_>, String>>()?;
+    let points: [PlotterPoint; 4] = points
+        .try_into()
+        .map_err(|_| "plotter quad must contain four points".to_owned())?;
+    Ok(PlotterQuad::from(points))
 }
 
 fn decimal_usize(value: &str, field: &str) -> Result<usize, String> {
@@ -931,14 +1015,16 @@ mod tests {
           (fp_line (start 0 0) (end 1 0) (stroke (width 0.1) (type solid)))
           (fp_rect (start 0 0) (end 1 1) (stroke (width 0.1)))
           (fp_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.1)))
-          (fp_poly (pts (xy 0 0) (xy 1 0) (xy 0 1)) (stroke (width 0.1))))"#;
+          (fp_poly (pts (xy 0 0) (xy 1 0) (xy 0 1)) (stroke (width 0.1)))
+          (pad "1" smd roundrect (at 2 0 45) (size 1.5 0.8)
+            (layers "F.Cu" "F.Mask") (roundrect_rratio 0.25)))"#;
         let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_operations":8}"#;
         let output = plot_footprint_ir(source, request).expect("WASM plotter operation");
         let metadata: Value =
             serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
         let document: Value =
             serde_json::from_slice(&output.output_bytes()).expect("plotter document JSON");
-        assert_eq!(metadata["total_operations"], 5);
+        assert_eq!(metadata["total_operations"], 6);
         assert_eq!(document["document_id"], "Demo");
         assert_eq!(document["records"][0]["operations"][0]["end_x"], 1_000_000);
         let kinds = document["records"][0]["operations"]
@@ -954,7 +1040,8 @@ mod tests {
                 "ArcThreePoint",
                 "Circle",
                 "Rect",
-                "PlotPoly"
+                "PlotPoly",
+                "FlashPadRoundRect"
             ]
         );
     }

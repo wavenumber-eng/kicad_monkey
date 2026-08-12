@@ -148,6 +148,26 @@ disposition = "required"
 wasm = "required"
 status = "review_ready"
 python_symbols = ["fp_line_to_ops", "fp_arc_to_ops", "fp_circle_to_op", "fp_rect_to_op", "fp_poly_to_op"]
-rust_symbols = ["FootprintGraphicOperation", "footprint_plot_document", "kicad-monkey-wasm.plotFootprintIr"]
+rust_symbols = ["PlotterOperation", "footprint_plot_document", "kicad-monkey-wasm.plotFootprintIr"]
+rack_cases = ["L0_046", "L0_049", "L1_026"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/footprint_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_026_rust_footprint_plotter_slice.py", "docs/design/rust-footprint-plotter-phase2-slice.html"]
+
+[[surfaces]]
+id = "plotter_ir.shared_operation_vocabulary"
+disposition = "required"
+wasm = "required"
+status = "review_ready"
+python_symbols = ["KiCadPlotterOp", "KiCadPlotterOpKind"]
+rust_symbols = ["PlotterOperation", "kicad_monkey_contracts.generated.PlotterOperation"]
+rack_cases = ["L0_046", "L0_049", "L1_026"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/contracts/typescript-smoke.ts", "tests/parity/footprint_plotter_a0_vectors.json"]
+
+[[surfaces]]
+id = "plotter_ir.footprint_standard_pads"
+disposition = "required"
+wasm = "required"
+status = "review_ready"
+python_symbols = ["pad_to_ops", "pad_drill_to_ops"]
+rust_symbols = ["PlotterOperation", "footprint_plot_document", "kicad-monkey-wasm.plotFootprintIr"]
 rack_cases = ["L0_046", "L0_049", "L1_026"]
 evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/footprint_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_026_rust_footprint_plotter_slice.py", "docs/design/rust-footprint-plotter-phase2-slice.html"]

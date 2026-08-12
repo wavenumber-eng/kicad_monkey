@@ -1,5 +1,5 @@
 use kicad_monkey_core::{
-    ErrorKind, FootprintGraphicOperation, FootprintPlotLimits, footprint_plot_document,
+    ErrorKind, FootprintPlotLimits, PlotterOperation, footprint_plot_document,
 };
 
 const LINE_FOOTPRINT: &str = r#"(footprint "Demo"
@@ -35,7 +35,7 @@ fn footprint_plotter_reads_metadata_and_solid_lines_without_a_full_tree() {
     assert!(document.locked);
     assert!(!document.placed);
     assert_eq!(document.operations.len(), 1);
-    let FootprintGraphicOperation::ThickSegment(line) = &document.operations[0] else {
+    let PlotterOperation::ThickSegment(line) = &document.operations[0] else {
         panic!("expected thick segment");
     };
     assert_eq!(line.start_x, 0);
@@ -43,7 +43,7 @@ fn footprint_plotter_reads_metadata_and_solid_lines_without_a_full_tree() {
     assert_eq!(line.end_x, 1_500_000);
     assert_eq!(line.end_y, -2_000_000);
     assert_eq!(line.width_nm, 200_000);
-    assert_eq!(line.layer, "F.SilkS");
+    assert_eq!(line.layer.as_deref(), Some("F.SilkS"));
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn dashed_lines_expand_to_bounded_thick_segments() {
     let document = footprint_plot_document(&source, FootprintPlotLimits::default())
         .expect("dashed line decomposition");
     assert_eq!(document.operations.len(), 1);
-    let FootprintGraphicOperation::ThickSegment(segment) = &document.operations[0] else {
+    let PlotterOperation::ThickSegment(segment) = &document.operations[0] else {
         panic!("dash decomposition emits thick segments");
     };
     assert_eq!((segment.end_x, segment.end_y), (1_320_000, -1_760_000));
@@ -89,7 +89,7 @@ fn dashed_lines_expand_to_bounded_thick_segments() {
         assert!(
             operations
                 .iter()
-                .all(|operation| matches!(operation, FootprintGraphicOperation::ThickSegment(_))),
+                .all(|operation| matches!(operation, PlotterOperation::ThickSegment(_))),
             "{style} decomposes to thick segments"
         );
     }
@@ -127,21 +127,18 @@ fn promoted_graphics_follow_python_grouping_and_bound_emitted_operations() {
     assert_eq!(document.operations.len(), 11);
     assert!(matches!(
         document.operations[0],
-        FootprintGraphicOperation::ThickSegment(_)
+        PlotterOperation::ThickSegment(_)
     ));
     assert!(matches!(
         document.operations[3],
-        FootprintGraphicOperation::ArcThreePoint(_)
+        PlotterOperation::ArcThreePoint(_)
     ));
     assert!(matches!(
         document.operations[8],
-        FootprintGraphicOperation::Circle(_)
+        PlotterOperation::Circle(_)
     ));
-    assert!(matches!(
-        document.operations[9],
-        FootprintGraphicOperation::Rect(_)
-    ));
-    let FootprintGraphicOperation::PlotPoly(poly) = &document.operations[10] else {
+    assert!(matches!(document.operations[9], PlotterOperation::Rect(_)));
+    let PlotterOperation::PlotPoly(poly) = &document.operations[10] else {
         panic!("expected canonical polygon group last");
     };
     assert_eq!(
@@ -156,6 +153,44 @@ fn promoted_graphics_follow_python_grouping_and_bound_emitted_operations() {
     assert_eq!(
         footprint_plot_document(source, limited)
             .expect_err("decomposed output observes operation limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+}
+
+#[test]
+fn standard_pad_flashes_and_drills_share_the_plotter_operation_vocabulary() {
+    let source = r#"(footprint "Pads"
+      (solder_mask_margin 0.05)
+      (pad "1" smd roundrect (at 1 2 45) (size 2 1)
+        (layers "F.Cu" "F.Mask") (roundrect_rratio 0.2))
+      (pad "2" thru_hole circle (at 5 5) (size 1.8 1.8)
+        (drill 0.8) (layers "*.Cu" "*.Mask")))"#;
+    let document = footprint_plot_document(source, FootprintPlotLimits::default())
+        .expect("pad plotter operations");
+    assert_eq!(document.operations.len(), 3);
+    let PlotterOperation::FlashPadRoundRect(roundrect) = &document.operations[0] else {
+        panic!("expected roundrect flash");
+    };
+    assert_eq!(roundrect.corner_radius_nm, 200_000);
+    assert_eq!(roundrect.mask_margin_nm, 50_000);
+    let PlotterOperation::FlashPadCircle(circle) = &document.operations[1] else {
+        panic!("expected through-hole copper flash");
+    };
+    assert_eq!(circle.layers, ["*.Cu", "*.Mask"]);
+    let PlotterOperation::Circle(drill) = &document.operations[2] else {
+        panic!("expected shared circle drill operation");
+    };
+    assert_eq!(drill.role.as_deref(), Some("pad_drill"));
+    assert_eq!(drill.layer, None);
+
+    let limited = FootprintPlotLimits {
+        max_operations: 2,
+        ..FootprintPlotLimits::default()
+    };
+    assert_eq!(
+        footprint_plot_document(source, limited)
+            .expect_err("pad flashes and drills share the emitted-operation limit")
             .kind,
         ErrorKind::ResourceLimit
     );
@@ -212,7 +247,7 @@ fn plotter_outputs_stay_inside_the_javascript_safe_integer_range() {
         (stroke (width 0.1) (type solid))))"#;
     let document = footprint_plot_document(inside, FootprintPlotLimits::default())
         .expect("largest representable near-boundary coordinate");
-    let FootprintGraphicOperation::ThickSegment(line) = &document.operations[0] else {
+    let PlotterOperation::ThickSegment(line) = &document.operations[0] else {
         panic!("expected thick segment");
     };
     assert!(line.start_x <= SAFE_MAX);

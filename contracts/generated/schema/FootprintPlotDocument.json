@@ -79,7 +79,7 @@
                 "operations": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/$defs/FootprintGraphicOperation"
+                        "$ref": "#/$defs/PlotterOperation"
                     }
                 },
                 "name": {
@@ -153,7 +153,7 @@
             "maximum": 9007199254740991,
             "description": "Integer that remains exact when decoded as a JavaScript number."
         },
-        "FootprintGraphicOperation": {
+        "PlotterOperation": {
             "anyOf": [
                 {
                     "$ref": "#/$defs/ThickSegmentOperation"
@@ -169,9 +169,24 @@
                 },
                 {
                     "$ref": "#/$defs/PlotPolyOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadCircleOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadOvalOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadRectOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadRoundRectOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadTrapezOperation"
                 }
             ],
-            "description": "Non-text footprint graphics promoted by the second plotter slice."
+            "description": "Shared plotter operation vocabulary promoted across source producers."
         },
         "ThickSegmentOperation": {
             "type": "object",
@@ -202,6 +217,24 @@
                 },
                 "layer": {
                     "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
                 }
             },
             "required": [
@@ -211,13 +244,12 @@
                 "start_y",
                 "end_x",
                 "end_y",
-                "width_nm",
-                "layer"
+                "width_nm"
             ],
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Solid or decomposed footprint stroke segment."
+            "description": "Solid or decomposed segment shared by PCB, footprint, and drill producers."
         },
         "ArcThreePointOperation": {
             "type": "object",
@@ -275,7 +307,7 @@
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Solid three-point footprint arc."
+            "description": "Solid three-point arc."
         },
         "CircleOperation": {
             "type": "object",
@@ -306,6 +338,24 @@
                 },
                 "layer": {
                     "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
                 }
             },
             "required": [
@@ -315,13 +365,12 @@
                 "cy",
                 "diameter_nm",
                 "fill",
-                "width_nm",
-                "layer"
+                "width_nm"
             ],
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Footprint circle represented by center and diameter."
+            "description": "Circle shared by graphical and drill producers."
         },
         "RectOperation": {
             "type": "object",
@@ -375,7 +424,7 @@
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Footprint rectangle with square corners."
+            "description": "Rectangle with square corners."
         },
         "PlotPolyOperation": {
             "type": "object",
@@ -416,7 +465,264 @@
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Footprint polygon operation."
+            "description": "Filled or outlined polygon operation."
+        },
+        "FlashPadCircleOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadCircle"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "diameter_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "diameter_nm",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Circular pad flash shared by footprint and PCB producers."
+        },
+        "FlashPadOvalOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadOval"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Oval pad flash shared by footprint and PCB producers."
+        },
+        "FlashPadRectOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadRect"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Rectangular pad flash shared by footprint and PCB producers."
+        },
+        "FlashPadRoundRectOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadRoundRect"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "corner_radius_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "corner_radius_nm",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Rounded-rectangle pad flash shared by footprint and PCB producers."
+        },
+        "FlashPadTrapezOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadTrapez"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "corners": {
+                    "$ref": "#/$defs/PlotterQuad"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "corners",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Trapezoid pad flash shared by footprint and PCB producers."
         },
         "PlotterFill": {
             "type": "string",
@@ -424,7 +730,7 @@
                 "NO_FILL",
                 "FILLED_SHAPE"
             ],
-            "description": "Fill values emitted by promoted footprint graphics."
+            "description": "Fill values shared by plotter operation producers."
         },
         "PlotterPoint": {
             "type": "array",
@@ -433,7 +739,16 @@
             },
             "minItems": 2,
             "maxItems": 2,
-            "description": "Footprint polygon point stream."
+            "description": "Plotter point encoded as an exact coordinate pair."
+        },
+        "PlotterQuad": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/PlotterPoint"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "Four pad-local trapezoid corners."
         }
     }
 }

@@ -31,8 +31,9 @@ Current design notes:
   API-boundary, and deferred-performance decision authorizing typed readers.
 - `rust-footprint-phase2-slice.html` - accepted first source-backed footprint
   reader and unknown-form-preserving focused writer boundary.
-- `rust-footprint-plotter-phase2-slice.html` - review-ready non-text footprint
-  graphics, patterned-stroke, generated-contract, native, and WASM boundary.
+- `rust-footprint-plotter-phase2-slice.html` - review-ready shared plotter
+  operation vocabulary plus non-text footprint graphics, standard pads,
+  patterned strokes, drills, generated contracts, native, and WASM boundary.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

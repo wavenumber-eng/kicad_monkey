@@ -281,3 +281,77 @@ fn plotter_operation_union_preserves_exact_polygon_points() {
         .expect("point") = serde_json::json!([0]);
     assert!(serde_json::from_value::<FootprintPlotDocumentA0>(short_point).is_err());
 }
+
+#[test]
+fn every_promoted_pad_integer_field_enforces_javascript_precision() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/footprint_plotter_a0_vectors.json"
+    ))
+    .expect("shared plotter vectors");
+    let mut document = vectors["vectors"]
+        .as_array()
+        .expect("vectors")
+        .iter()
+        .find(|vector| vector["id"] == "standard-pad-flashes-and-drills")
+        .expect("pad vector")["expected"]
+        .clone();
+    document["records"][0]["operations"][9]["mask_margin_nm"] = 0.into();
+    document["records"][0]["operations"][9]["pad_size_x_nm"] = 0.into();
+    document["records"][0]["operations"][9]["pad_size_y_nm"] = 0.into();
+
+    let paths = [
+        "/records/0/operations/0/x",
+        "/records/0/operations/0/y",
+        "/records/0/operations/0/diameter_nm",
+        "/records/0/operations/0/mask_margin_nm",
+        "/records/0/operations/1/x",
+        "/records/0/operations/1/y",
+        "/records/0/operations/1/size_x_nm",
+        "/records/0/operations/1/size_y_nm",
+        "/records/0/operations/1/mask_margin_nm",
+        "/records/0/operations/2/x",
+        "/records/0/operations/2/y",
+        "/records/0/operations/2/size_x_nm",
+        "/records/0/operations/2/size_y_nm",
+        "/records/0/operations/2/mask_margin_nm",
+        "/records/0/operations/3/x",
+        "/records/0/operations/3/y",
+        "/records/0/operations/3/size_x_nm",
+        "/records/0/operations/3/size_y_nm",
+        "/records/0/operations/3/corner_radius_nm",
+        "/records/0/operations/3/mask_margin_nm",
+        "/records/0/operations/4/x",
+        "/records/0/operations/4/y",
+        "/records/0/operations/4/corners/0/0",
+        "/records/0/operations/4/corners/0/1",
+        "/records/0/operations/4/corners/1/0",
+        "/records/0/operations/4/corners/1/1",
+        "/records/0/operations/4/corners/2/0",
+        "/records/0/operations/4/corners/2/1",
+        "/records/0/operations/4/corners/3/0",
+        "/records/0/operations/4/corners/3/1",
+        "/records/0/operations/4/mask_margin_nm",
+        "/records/0/operations/7/mask_margin_nm",
+        "/records/0/operations/7/pad_size_x_nm",
+        "/records/0/operations/7/pad_size_y_nm",
+        "/records/0/operations/9/mask_margin_nm",
+        "/records/0/operations/9/pad_size_x_nm",
+        "/records/0/operations/9/pad_size_y_nm",
+    ];
+    for path in paths {
+        for value in [JAVASCRIPT_SAFE_INTEGER_MIN, JAVASCRIPT_SAFE_INTEGER_MAX] {
+            let mut candidate = document.clone();
+            *candidate.pointer_mut(path).expect("pad integer field") = value.into();
+            serde_json::from_value::<FootprintPlotDocumentA0>(candidate)
+                .expect("safe pad boundary");
+        }
+        for value in [
+            JAVASCRIPT_SAFE_INTEGER_MIN - 1,
+            JAVASCRIPT_SAFE_INTEGER_MAX + 1,
+        ] {
+            let mut candidate = document.clone();
+            *candidate.pointer_mut(path).expect("pad integer field") = value.into();
+            assert!(serde_json::from_value::<FootprintPlotDocumentA0>(candidate).is_err());
+        }
+    }
+}

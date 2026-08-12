@@ -1,4 +1,4 @@
-//! TypeSpec-backed footprint graphics to plotter-IR conversion.
+//! Shared plotter operations and the source-selected footprint producer.
 
 use crate::footprint::{FootprintLimits, FootprintView};
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Lexer, Position, Sexp, TokenKind, parse};
@@ -18,7 +18,7 @@ const DOT_RATIO: f64 = 0.2;
 const ARC_CHORD_STEP_RADIANS: f64 = std::f64::consts::PI / 360.0;
 const MAX_DECOMPOSITION_STEPS: usize = 10_000;
 
-/// Limits for the first footprint plotter operation.
+/// Limits for the footprint plotter operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FootprintPlotLimits {
     pub max_source_bytes: usize,
@@ -38,7 +38,7 @@ impl Default for FootprintPlotLimits {
     }
 }
 
-/// Solid footprint line represented in the established plotter vocabulary.
+/// Solid segment shared by graphical and drill producers.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ThickSegment {
     pub start_x: i64,
@@ -46,10 +46,15 @@ pub struct ThickSegment {
     pub end_x: i64,
     pub end_y: i64,
     pub width_nm: i64,
-    pub layer: String,
+    pub layer: Option<String>,
+    pub role: Option<String>,
+    pub layers: Vec<String>,
+    pub mask_margin_nm: Option<i64>,
+    pub pad_size_x_nm: Option<i64>,
+    pub pad_size_y_nm: Option<i64>,
 }
 
-/// Fill values used by the promoted footprint graphic operations.
+/// Fill values shared by plotter operation producers.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PlotterFill {
     NoFill,
@@ -70,7 +75,7 @@ pub struct ArcThreePoint {
     pub layer: String,
 }
 
-/// Footprint circle represented by its center and diameter.
+/// Circle shared by graphical and drill producers.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlotterCircle {
     pub cx: i64,
@@ -78,7 +83,12 @@ pub struct PlotterCircle {
     pub diameter_nm: i64,
     pub fill: PlotterFill,
     pub width_nm: i64,
-    pub layer: String,
+    pub layer: Option<String>,
+    pub role: Option<String>,
+    pub layers: Vec<String>,
+    pub mask_margin_nm: Option<i64>,
+    pub pad_size_x_nm: Option<i64>,
+    pub pad_size_y_nm: Option<i64>,
 }
 
 /// Footprint rectangle with square corners.
@@ -103,18 +113,81 @@ pub struct PlotterPoly {
     pub layer: String,
 }
 
-/// Promoted non-text footprint graphic operation.
+/// Circular pad flash shared by footprint and PCB producers.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum FootprintGraphicOperation {
+pub struct FlashPadCircle {
+    pub x: i64,
+    pub y: i64,
+    pub diameter_nm: i64,
+    pub layers: Vec<String>,
+    pub mask_margin_nm: i64,
+}
+
+/// Oval pad flash shared by footprint and PCB producers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FlashPadOval {
+    pub x: i64,
+    pub y: i64,
+    pub size_x_nm: i64,
+    pub size_y_nm: i64,
+    pub orient_deg: f64,
+    pub layers: Vec<String>,
+    pub mask_margin_nm: i64,
+}
+
+/// Rectangular pad flash shared by footprint and PCB producers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FlashPadRect {
+    pub x: i64,
+    pub y: i64,
+    pub size_x_nm: i64,
+    pub size_y_nm: i64,
+    pub orient_deg: f64,
+    pub layers: Vec<String>,
+    pub mask_margin_nm: i64,
+}
+
+/// Rounded-rectangle pad flash shared by footprint and PCB producers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FlashPadRoundRect {
+    pub x: i64,
+    pub y: i64,
+    pub size_x_nm: i64,
+    pub size_y_nm: i64,
+    pub corner_radius_nm: i64,
+    pub orient_deg: f64,
+    pub layers: Vec<String>,
+    pub mask_margin_nm: i64,
+}
+
+/// Trapezoid pad flash shared by footprint and PCB producers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FlashPadTrapez {
+    pub x: i64,
+    pub y: i64,
+    pub corners: [[i64; 2]; 4],
+    pub orient_deg: f64,
+    pub layers: Vec<String>,
+    pub mask_margin_nm: i64,
+}
+
+/// Shared plotter operation vocabulary used across KiCad source producers.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PlotterOperation {
     ThickSegment(ThickSegment),
     ArcThreePoint(ArcThreePoint),
     Circle(PlotterCircle),
     Rect(PlotterRect),
     PlotPoly(PlotterPoly),
+    FlashPadCircle(FlashPadCircle),
+    FlashPadOval(FlashPadOval),
+    FlashPadRect(FlashPadRect),
+    FlashPadRoundRect(FlashPadRoundRect),
+    FlashPadTrapez(FlashPadTrapez),
 }
 
-/// Typed facts needed to serialize the first footprint plotter document subset.
-#[derive(Clone, Debug, Eq, PartialEq)]
+/// Typed facts needed to serialize the promoted footprint plotter subset.
+#[derive(Clone, Debug, PartialEq)]
 pub struct FootprintPlotDocument {
     pub name: String,
     pub version: i64,
@@ -127,7 +200,7 @@ pub struct FootprintPlotDocument {
     pub attr: Vec<String>,
     pub locked: bool,
     pub placed: bool,
-    pub operations: Vec<FootprintGraphicOperation>,
+    pub operations: Vec<PlotterOperation>,
 }
 
 /// Read supported footprint geometry directly from selected forms.
@@ -156,11 +229,13 @@ pub fn footprint_plot_document(
         "descr",
         "tags",
         "attr",
+        "solder_mask_margin",
         "fp_line",
         "fp_arc",
         "fp_circle",
         "fp_rect",
         "fp_poly",
+        "pad",
     ]
     .into_iter()
     .map(|head| vec!["footprint".to_owned(), head.to_owned()])
@@ -189,16 +264,18 @@ pub fn footprint_plot_document(
     let mut descr = None;
     let mut tags = None;
     let mut attr = None;
+    let mut solder_mask_margin = None;
     let mut metadata_forms = 0usize;
     let mut line_spans = Vec::new();
     let mut arc_spans = Vec::new();
     let mut circle_spans = Vec::new();
     let mut rect_spans = Vec::new();
     let mut poly_spans = Vec::new();
+    let mut pad_spans = Vec::new();
     for span in spans {
         if !matches!(
             span.head.as_deref(),
-            Some("fp_line" | "fp_arc" | "fp_circle" | "fp_rect" | "fp_poly")
+            Some("fp_line" | "fp_arc" | "fp_circle" | "fp_rect" | "fp_poly" | "pad")
         ) {
             metadata_forms = metadata_forms.saturating_add(1);
             if metadata_forms > limits.max_metadata_forms {
@@ -230,11 +307,15 @@ pub fn footprint_plot_document(
             Some("attr") if attr.is_none() => {
                 attr = Some(form_strings(source, &span, "attr")?);
             }
+            Some("solder_mask_margin") if solder_mask_margin.is_none() => {
+                solder_mask_margin = Some(form_number(source, &span, "solder_mask_margin")?);
+            }
             Some("fp_line") => line_spans.push(span),
             Some("fp_arc") => arc_spans.push(span),
             Some("fp_circle") => circle_spans.push(span),
             Some("fp_rect") => rect_spans.push(span),
             Some("fp_poly") => poly_spans.push(span),
+            Some("pad") => pad_spans.push(span),
             _ => {}
         }
     }
@@ -270,6 +351,12 @@ pub fn footprint_plot_document(
             limits.max_operations,
         )?;
     }
+    let footprint_mask_margin = solder_mask_margin.unwrap_or(0.0);
+    for span in pad_spans {
+        let remaining = limits.max_operations.saturating_sub(operations.len());
+        let additions = parse_pad(source, &span, footprint_mask_margin, remaining)?;
+        append_operations(&mut operations, additions, limits.max_operations)?;
+    }
     let (locked, placed) = root_flags(source)?;
     let version = version.unwrap_or(DEFAULT_FOOTPRINT_VERSION);
     ensure_javascript_safe_integer(version)?;
@@ -294,7 +381,7 @@ fn parse_line(
     source: &str,
     span: &FormSpan,
     max_operations: usize,
-) -> Result<Vec<FootprintGraphicOperation>, Error> {
+) -> Result<Vec<PlotterOperation>, Error> {
     let form = parse_span(source, span)?;
     let start =
         child(&form, "start").ok_or_else(|| model_error("fp_line requires start", span.start))?;
@@ -314,10 +401,15 @@ fn parse_line(
         end_x,
         end_y,
         width_nm: stroke.width_nm,
-        layer: layer.clone(),
+        layer: Some(layer.clone()),
+        role: None,
+        layers: Vec::new(),
+        mask_margin_nm: None,
+        pad_size_x_nm: None,
+        pad_size_y_nm: None,
     };
     if matches!(stroke.style, StrokeStyle::Default | StrokeStyle::Solid) {
-        return Ok(vec![FootprintGraphicOperation::ThickSegment(solid)]);
+        return Ok(vec![PlotterOperation::ThickSegment(solid)]);
     }
     let pieces = decompose_segment(
         start_x,
@@ -329,18 +421,23 @@ fn parse_line(
         max_operations,
     )?;
     if pieces.is_empty() {
-        return Ok(vec![FootprintGraphicOperation::ThickSegment(solid)]);
+        return Ok(vec![PlotterOperation::ThickSegment(solid)]);
     }
     Ok(pieces
         .into_iter()
         .map(|[start_x, start_y, end_x, end_y]| {
-            FootprintGraphicOperation::ThickSegment(ThickSegment {
+            PlotterOperation::ThickSegment(ThickSegment {
                 start_x,
                 start_y,
                 end_x,
                 end_y,
                 width_nm: stroke.width_nm,
-                layer: layer.clone(),
+                layer: Some(layer.clone()),
+                role: None,
+                layers: Vec::new(),
+                mask_margin_nm: None,
+                pad_size_x_nm: None,
+                pad_size_y_nm: None,
             })
         })
         .collect())
@@ -350,7 +447,7 @@ fn parse_arc(
     source: &str,
     span: &FormSpan,
     max_operations: usize,
-) -> Result<Vec<FootprintGraphicOperation>, Error> {
+) -> Result<Vec<PlotterOperation>, Error> {
     let form = parse_span(source, span)?;
     let start =
         child(&form, "start").ok_or_else(|| model_error("fp_arc requires start", span.start))?;
@@ -365,19 +462,17 @@ fn parse_arc(
     let layer = graphic_layer(&form);
     let stroke = parse_stroke(&form, span.start)?;
     if matches!(stroke.style, StrokeStyle::Default | StrokeStyle::Solid) {
-        return Ok(vec![FootprintGraphicOperation::ArcThreePoint(
-            ArcThreePoint {
-                start_x,
-                start_y,
-                mid_x,
-                mid_y,
-                end_x,
-                end_y,
-                fill: PlotterFill::NoFill,
-                width_nm: stroke.width_nm,
-                layer,
-            },
-        )]);
+        return Ok(vec![PlotterOperation::ArcThreePoint(ArcThreePoint {
+            start_x,
+            start_y,
+            mid_x,
+            mid_y,
+            end_x,
+            end_y,
+            fill: PlotterFill::NoFill,
+            width_nm: stroke.width_nm,
+            layer,
+        })]);
     }
     let pieces = decompose_arc(
         [start_x, start_y],
@@ -388,36 +483,39 @@ fn parse_arc(
         max_operations,
     )?;
     if pieces.is_empty() {
-        return Ok(vec![FootprintGraphicOperation::ArcThreePoint(
-            ArcThreePoint {
-                start_x,
-                start_y,
-                mid_x,
-                mid_y,
-                end_x,
-                end_y,
-                fill: PlotterFill::NoFill,
-                width_nm: stroke.width_nm,
-                layer,
-            },
-        )]);
+        return Ok(vec![PlotterOperation::ArcThreePoint(ArcThreePoint {
+            start_x,
+            start_y,
+            mid_x,
+            mid_y,
+            end_x,
+            end_y,
+            fill: PlotterFill::NoFill,
+            width_nm: stroke.width_nm,
+            layer,
+        })]);
     }
     Ok(pieces
         .into_iter()
         .map(|[start_x, start_y, end_x, end_y]| {
-            FootprintGraphicOperation::ThickSegment(ThickSegment {
+            PlotterOperation::ThickSegment(ThickSegment {
                 start_x,
                 start_y,
                 end_x,
                 end_y,
                 width_nm: stroke.width_nm,
-                layer: layer.clone(),
+                layer: Some(layer.clone()),
+                role: None,
+                layers: Vec::new(),
+                mask_margin_nm: None,
+                pad_size_x_nm: None,
+                pad_size_y_nm: None,
             })
         })
         .collect())
 }
 
-fn parse_circle(source: &str, span: &FormSpan) -> Result<FootprintGraphicOperation, Error> {
+fn parse_circle(source: &str, span: &FormSpan) -> Result<PlotterOperation, Error> {
     let form = parse_span(source, span)?;
     let center = child(&form, "center")
         .ok_or_else(|| model_error("fp_circle requires center", span.start))?;
@@ -428,23 +526,28 @@ fn parse_circle(source: &str, span: &FormSpan) -> Result<FootprintGraphicOperati
     let end_x_mm = numeric_at(end, 1, span.start)?;
     let end_y_mm = numeric_at(end, 2, span.start)?;
     let stroke = parse_stroke(&form, span.start)?;
-    Ok(FootprintGraphicOperation::Circle(PlotterCircle {
+    Ok(PlotterOperation::Circle(PlotterCircle {
         cx: mm_to_nm(center_x_mm)?,
         cy: mm_to_nm(center_y_mm)?,
         diameter_nm: mm_to_nm(2.0 * (end_x_mm - center_x_mm).hypot(end_y_mm - center_y_mm))?,
         fill: graphic_fill(&form),
         width_nm: stroke.width_nm,
-        layer: graphic_layer(&form),
+        layer: Some(graphic_layer(&form)),
+        role: None,
+        layers: Vec::new(),
+        mask_margin_nm: None,
+        pad_size_x_nm: None,
+        pad_size_y_nm: None,
     }))
 }
 
-fn parse_rect(source: &str, span: &FormSpan) -> Result<FootprintGraphicOperation, Error> {
+fn parse_rect(source: &str, span: &FormSpan) -> Result<PlotterOperation, Error> {
     let form = parse_span(source, span)?;
     let start =
         child(&form, "start").ok_or_else(|| model_error("fp_rect requires start", span.start))?;
     let end = child(&form, "end").ok_or_else(|| model_error("fp_rect requires end", span.start))?;
     let stroke = parse_stroke(&form, span.start)?;
-    Ok(FootprintGraphicOperation::Rect(PlotterRect {
+    Ok(PlotterOperation::Rect(PlotterRect {
         x1: mm_to_nm(numeric_at(start, 1, span.start)?)?,
         y1: mm_to_nm(numeric_at(start, 2, span.start)?)?,
         x2: mm_to_nm(numeric_at(end, 1, span.start)?)?,
@@ -456,7 +559,7 @@ fn parse_rect(source: &str, span: &FormSpan) -> Result<FootprintGraphicOperation
     }))
 }
 
-fn parse_poly(source: &str, span: &FormSpan) -> Result<FootprintGraphicOperation, Error> {
+fn parse_poly(source: &str, span: &FormSpan) -> Result<PlotterOperation, Error> {
     let form = parse_span(source, span)?;
     let points_form =
         child(&form, "pts").ok_or_else(|| model_error("fp_poly requires pts", span.start))?;
@@ -478,7 +581,7 @@ fn parse_poly(source: &str, span: &FormSpan) -> Result<FootprintGraphicOperation
         })
         .collect::<Result<Vec<_>, Error>>()?;
     let stroke = parse_stroke(&form, span.start)?;
-    Ok(FootprintGraphicOperation::PlotPoly(PlotterPoly {
+    Ok(PlotterOperation::PlotPoly(PlotterPoly {
         points,
         fill: graphic_fill(&form),
         width_nm: stroke.width_nm,
@@ -486,9 +589,366 @@ fn parse_poly(source: &str, span: &FormSpan) -> Result<FootprintGraphicOperation
     }))
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+struct PadDrill {
+    oval: bool,
+    diameter_mm: Option<f64>,
+    width_mm: Option<f64>,
+    height_mm: Option<f64>,
+    offset_x_mm: f64,
+    offset_y_mm: f64,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PadOperationContext<'a> {
+    x: i64,
+    y: i64,
+    orient_deg: f64,
+    size_x_nm: i64,
+    size_y_nm: i64,
+    pad_type: &'a str,
+    layers: &'a [String],
+    mask_margin_nm: i64,
+}
+
+fn parse_pad(
+    source: &str,
+    span: &FormSpan,
+    footprint_mask_margin_mm: f64,
+    max_operations: usize,
+) -> Result<Vec<PlotterOperation>, Error> {
+    let form = parse_span(source, span)?;
+    let values = list(&form).ok_or_else(|| model_error("pad must be a list", span.start))?;
+    let pad_type = values.get(2).and_then(sexp_text).unwrap_or("");
+    let shape = values.get(3).and_then(sexp_text).unwrap_or("");
+    let at = child(&form, "at");
+    let x = mm_to_nm(optional_numeric_at(at, 1, 0.0, span.start)?)?;
+    let y = mm_to_nm(optional_numeric_at(at, 2, 0.0, span.start)?)?;
+    let orient_deg = finite_number(optional_numeric_at(at, 3, 0.0, span.start)?, span.start)?;
+    let size = child(&form, "size");
+    let size_x_mm = optional_numeric_at(size, 1, 0.0, span.start)?;
+    let size_y_mm = optional_numeric_at(size, 2, 0.0, span.start)?;
+    let size_x_nm = mm_to_nm(size_x_mm)?;
+    let size_y_nm = mm_to_nm(size_y_mm)?;
+    let layers = child(&form, "layers")
+        .and_then(list)
+        .map(|values| {
+            values
+                .iter()
+                .skip(1)
+                .filter_map(sexp_text)
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let requested_mask_margin = child(&form, "solder_mask_margin")
+        .map(|value| numeric_at(value, 1, span.start))
+        .transpose()?
+        .unwrap_or(footprint_mask_margin_mm);
+    let mask_margin_nm = mm_to_nm(requested_mask_margin.max(-size_x_mm.min(size_y_mm) / 2.0))?;
+    let drill = parse_pad_drill(&form, span.start)?;
+    let suppress_npth_flash = pad_type == "np_thru_hole"
+        && shape == "circle"
+        && drill
+            .diameter_mm
+            .is_some_and(|diameter| size_x_mm.max(size_y_mm) <= diameter);
+
+    let mut output = Vec::new();
+    if !suppress_npth_flash {
+        let flash = match shape {
+            "circle" => Some(PlotterOperation::FlashPadCircle(FlashPadCircle {
+                x,
+                y,
+                diameter_nm: size_x_nm,
+                layers: layers.clone(),
+                mask_margin_nm,
+            })),
+            "oval" => Some(PlotterOperation::FlashPadOval(FlashPadOval {
+                x,
+                y,
+                size_x_nm,
+                size_y_nm,
+                orient_deg,
+                layers: layers.clone(),
+                mask_margin_nm,
+            })),
+            "rect" => Some(PlotterOperation::FlashPadRect(FlashPadRect {
+                x,
+                y,
+                size_x_nm,
+                size_y_nm,
+                orient_deg,
+                layers: layers.clone(),
+                mask_margin_nm,
+            })),
+            "roundrect" if !has_chamfered_roundrect(&form, span.start)? => {
+                let ratio = child(&form, "roundrect_rratio")
+                    .map(|value| numeric_at(value, 1, span.start))
+                    .transpose()?
+                    .unwrap_or(0.25);
+                Some(PlotterOperation::FlashPadRoundRect(FlashPadRoundRect {
+                    x,
+                    y,
+                    size_x_nm,
+                    size_y_nm,
+                    corner_radius_nm: rounded_safe_f64(size_x_nm.min(size_y_nm) as f64 * ratio)?,
+                    orient_deg,
+                    layers: layers.clone(),
+                    mask_margin_nm,
+                }))
+            }
+            "trapezoid" => {
+                let delta = child(&form, "rect_delta");
+                let delta_x = mm_to_nm(optional_numeric_at(delta, 1, 0.0, span.start)?)? / 2;
+                let delta_y = mm_to_nm(optional_numeric_at(delta, 2, 0.0, span.start)?)? / 2;
+                let half_x = size_x_nm / 2;
+                let half_y = size_y_nm / 2;
+                Some(PlotterOperation::FlashPadTrapez(FlashPadTrapez {
+                    x,
+                    y,
+                    corners: [
+                        [
+                            checked_safe_add(-half_x, -delta_y)?,
+                            checked_safe_add(half_y, delta_x)?,
+                        ],
+                        [
+                            checked_safe_add(half_x, delta_y)?,
+                            checked_safe_add(half_y, -delta_x)?,
+                        ],
+                        [
+                            checked_safe_add(half_x, -delta_y)?,
+                            checked_safe_add(-half_y, delta_x)?,
+                        ],
+                        [
+                            checked_safe_add(-half_x, delta_y)?,
+                            checked_safe_add(-half_y, -delta_x)?,
+                        ],
+                    ],
+                    orient_deg,
+                    layers: layers.clone(),
+                    mask_margin_nm,
+                }))
+            }
+            _ => None,
+        };
+        if let Some(flash) = flash {
+            push_plotter_operation(&mut output, flash, max_operations)?;
+        }
+    }
+
+    if matches!(pad_type, "thru_hole" | "np_thru_hole")
+        && let Some(drill_operation) = pad_drill_operation(
+            PadOperationContext {
+                x,
+                y,
+                orient_deg,
+                size_x_nm,
+                size_y_nm,
+                pad_type,
+                layers: &layers,
+                mask_margin_nm,
+            },
+            drill,
+        )?
+    {
+        push_plotter_operation(&mut output, drill_operation, max_operations)?;
+    }
+    Ok(output)
+}
+
+fn has_chamfered_roundrect(form: &Sexp, position: Position) -> Result<bool, Error> {
+    let has_corners = child(form, "chamfer")
+        .and_then(list)
+        .is_some_and(|values| values.len() > 1);
+    let ratio = child(form, "chamfer_ratio")
+        .map(|value| numeric_at(value, 1, position))
+        .transpose()?
+        .unwrap_or(0.0);
+    let round_ratio = child(form, "roundrect_rratio")
+        .map(|value| numeric_at(value, 1, position))
+        .transpose()?
+        .unwrap_or(0.25);
+    let size = child(form, "size");
+    let shorter_nm = mm_to_nm(
+        optional_numeric_at(size, 1, 0.0, position)?
+            .min(optional_numeric_at(size, 2, 0.0, position)?),
+    )?;
+    let corner_radius = rounded_safe_f64(shorter_nm as f64 * round_ratio)?;
+    Ok(has_corners && ratio > 0.0 && corner_radius < 1)
+}
+
+fn parse_pad_drill(form: &Sexp, position: Position) -> Result<PadDrill, Error> {
+    let Some(drill) = child(form, "drill") else {
+        return Ok(PadDrill::default());
+    };
+    let offset = child(drill, "offset");
+    let offset_x_mm = optional_numeric_at(offset, 1, 0.0, position)?;
+    let offset_y_mm = optional_numeric_at(offset, 2, 0.0, position)?;
+    if value_at(drill, 1) == Some("oval") {
+        let width_mm = optional_numeric(drill, 2, position)?;
+        let height_mm = optional_numeric(drill, 3, position)?;
+        return Ok(PadDrill {
+            oval: true,
+            diameter_mm: width_mm,
+            width_mm,
+            height_mm,
+            offset_x_mm,
+            offset_y_mm,
+        });
+    }
+    Ok(PadDrill {
+        diameter_mm: optional_numeric(drill, 1, position)?,
+        offset_x_mm,
+        offset_y_mm,
+        ..PadDrill::default()
+    })
+}
+
+fn pad_drill_operation(
+    context: PadOperationContext<'_>,
+    drill: PadDrill,
+) -> Result<Option<PlotterOperation>, Error> {
+    let role = if context.pad_type == "np_thru_hole" {
+        "npth_hole"
+    } else {
+        "pad_drill"
+    };
+    let offset_x_nm = mm_to_nm(drill.offset_x_mm)?;
+    let offset_y_nm = mm_to_nm(drill.offset_y_mm)?;
+    let [offset_x_nm, offset_y_nm] = rotate_nm(offset_x_nm, offset_y_nm, context.orient_deg)?;
+    let center = [
+        checked_safe_add(context.x, offset_x_nm)?,
+        checked_safe_add(context.y, offset_y_nm)?,
+    ];
+
+    if drill.oval
+        && let (Some(width_mm), Some(height_mm)) = (drill.width_mm, drill.height_mm)
+        && width_mm > 0.0
+        && height_mm > 0.0
+    {
+        return drill_slot_operation(
+            context,
+            center,
+            mm_to_nm(width_mm)?,
+            mm_to_nm(height_mm)?,
+            role,
+        );
+    }
+    if let Some(diameter_mm) = drill.diameter_mm.filter(|value| *value > 0.0) {
+        return Ok(Some(drill_circle_operation(
+            context,
+            center,
+            mm_to_nm(diameter_mm)?,
+            role,
+        )));
+    }
+    if context.pad_type == "np_thru_hole" {
+        let fallback = context.size_x_nm.min(context.size_y_nm);
+        if fallback > 0 {
+            return Ok(Some(drill_circle_operation(
+                context, center, fallback, role,
+            )));
+        }
+    }
+    Ok(None)
+}
+
+fn drill_circle_operation(
+    context: PadOperationContext<'_>,
+    [cx, cy]: [i64; 2],
+    diameter_nm: i64,
+    role: &str,
+) -> PlotterOperation {
+    let npth = role == "npth_hole";
+    PlotterOperation::Circle(PlotterCircle {
+        cx,
+        cy,
+        diameter_nm,
+        fill: PlotterFill::FilledShape,
+        width_nm: 0,
+        layer: None,
+        role: Some(role.to_owned()),
+        layers: context.layers.to_vec(),
+        mask_margin_nm: npth.then_some(context.mask_margin_nm),
+        pad_size_x_nm: npth.then_some(context.size_x_nm),
+        pad_size_y_nm: npth.then_some(context.size_y_nm),
+    })
+}
+
+fn drill_slot_operation(
+    context: PadOperationContext<'_>,
+    [cx, cy]: [i64; 2],
+    width_nm: i64,
+    height_nm: i64,
+    role: &str,
+) -> Result<Option<PlotterOperation>, Error> {
+    let major = width_nm.max(height_nm);
+    let minor = width_nm.min(height_nm);
+    if major <= 0 || minor <= 0 {
+        return Ok(None);
+    }
+    let mut theta = (-context.orient_deg).to_radians();
+    if height_nm > width_nm {
+        theta += std::f64::consts::FRAC_PI_2;
+    }
+    let half_length = (major - minor) as f64 / 2.0;
+    let dx = rounded_safe_f64(theta.cos() * half_length)?;
+    let dy = rounded_safe_f64(theta.sin() * half_length)?;
+    if dx == 0 && dy == 0 {
+        return Ok(Some(drill_circle_operation(context, [cx, cy], minor, role)));
+    }
+    Ok(Some(PlotterOperation::ThickSegment(ThickSegment {
+        start_x: checked_safe_add(cx, -dx)?,
+        start_y: checked_safe_add(cy, -dy)?,
+        end_x: checked_safe_add(cx, dx)?,
+        end_y: checked_safe_add(cy, dy)?,
+        width_nm: minor,
+        layer: None,
+        role: Some(role.to_owned()),
+        layers: context.layers.to_vec(),
+        mask_margin_nm: None,
+        pad_size_x_nm: None,
+        pad_size_y_nm: None,
+    })))
+}
+
+fn rotate_nm(x: i64, y: i64, orient_deg: f64) -> Result<[i64; 2], Error> {
+    if orient_deg == 0.0 {
+        return Ok([x, y]);
+    }
+    let theta = (-orient_deg).to_radians();
+    Ok([
+        rounded_safe_f64(x as f64 * theta.cos() - y as f64 * theta.sin())?,
+        rounded_safe_f64(x as f64 * theta.sin() + y as f64 * theta.cos())?,
+    ])
+}
+
+fn checked_safe_add(left: i64, right: i64) -> Result<i64, Error> {
+    left.checked_add(right)
+        .and_then(|value| ensure_javascript_safe_integer(value).ok())
+        .ok_or_else(|| {
+            model_error(
+                "Pad coordinate exceeds JavaScript safe-integer range",
+                Position::START,
+            )
+        })
+}
+
+fn push_plotter_operation(
+    output: &mut Vec<PlotterOperation>,
+    operation: PlotterOperation,
+    max_operations: usize,
+) -> Result<(), Error> {
+    if output.len() >= max_operations {
+        return Err(limit_error());
+    }
+    output.push(operation);
+    Ok(())
+}
+
 fn append_operations(
-    operations: &mut Vec<FootprintGraphicOperation>,
-    additions: Vec<FootprintGraphicOperation>,
+    operations: &mut Vec<PlotterOperation>,
+    additions: Vec<PlotterOperation>,
     max_operations: usize,
 ) -> Result<(), Error> {
     if additions.len() > max_operations.saturating_sub(operations.len()) {
@@ -499,7 +959,7 @@ fn append_operations(
 }
 
 fn remaining_operations(
-    operations: &[FootprintGraphicOperation],
+    operations: &[PlotterOperation],
     limits: FootprintPlotLimits,
 ) -> Result<usize, Error> {
     limits
@@ -809,6 +1269,15 @@ fn form_integer(source: &str, span: &FormSpan, head: &str) -> Result<i64, Error>
     }
 }
 
+fn form_number(source: &str, span: &FormSpan, head: &str) -> Result<f64, Error> {
+    let form = parse_span(source, span)?;
+    let values = metadata_values(&form, head, span.start)?;
+    let value = values
+        .first()
+        .ok_or_else(|| model_error("Metadata value is missing", span.start))?;
+    finite_number(numeric_value(value, span.start)?, span.start)
+}
+
 fn form_string(source: &str, span: &FormSpan, head: &str) -> Result<String, Error> {
     let form = parse_span(source, span)?;
     metadata_values(&form, head, span.start)?
@@ -876,13 +1345,46 @@ fn value_at(form: &Sexp, index: usize) -> Option<&str> {
 }
 
 fn numeric_at(form: &Sexp, index: usize, position: Position) -> Result<f64, Error> {
-    match list(form).and_then(|values| values.get(index)) {
-        Some(Sexp::Integer(value)) => Ok(*value as f64),
-        Some(Sexp::Float(value)) => Ok(*value),
-        Some(Sexp::Atom(value)) => value
+    let value = list(form)
+        .and_then(|values| values.get(index))
+        .ok_or_else(|| model_error("Expected numeric coordinate", position))?;
+    numeric_value(value, position)
+}
+
+fn optional_numeric(form: &Sexp, index: usize, position: Position) -> Result<Option<f64>, Error> {
+    list(form)
+        .and_then(|values| values.get(index))
+        .map(|value| numeric_value(value, position))
+        .transpose()
+}
+
+fn optional_numeric_at(
+    form: Option<&Sexp>,
+    index: usize,
+    default: f64,
+    position: Position,
+) -> Result<f64, Error> {
+    form.map(|value| optional_numeric(value, index, position))
+        .transpose()
+        .map(|value| value.flatten().unwrap_or(default))
+}
+
+fn numeric_value(value: &Sexp, position: Position) -> Result<f64, Error> {
+    match value {
+        Sexp::Integer(value) => Ok(*value as f64),
+        Sexp::Float(value) => Ok(*value),
+        Sexp::Atom(value) => value
             .parse::<f64>()
             .map_err(|_| model_error("Expected numeric coordinate", position)),
         _ => Err(model_error("Expected numeric coordinate", position)),
+    }
+}
+
+fn finite_number(value: f64, position: Position) -> Result<f64, Error> {
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(model_error("Expected finite numeric value", position))
     }
 }
 

@@ -89,6 +89,50 @@
         "generator": "pcbnew",
         "generator_version": "9.0"
       }
+    },
+    {
+      "id": "standard-pad-flashes-and-drills",
+      "source": "(footprint \"Pads\"\n  (version 20250101)\n  (generator pcbnew)\n  (generator_version \"9.0\")\n  (layer \"F.Cu\")\n  (solder_mask_margin 0.05)\n  (pad \"1\" smd circle (at 1 2) (size 1 1) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n  (pad \"2\" smd oval (at -1 0 30) (size 2 1) (layers \"B.Cu\" \"B.Paste\" \"B.Mask\") (solder_mask_margin -0.8))\n  (pad \"3\" smd rect (at 0 -2 -15) (size 1.6 0.8) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n  (pad \"4\" smd roundrect (at 3 0 90) (size 2 1) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\") (roundrect_rratio 0.2))\n  (pad \"5\" smd trapezoid (at 0 3 10) (size 2 1) (rect_delta 0.4 -0.2) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n  (pad \"6\" thru_hole circle (at 5 5 45) (size 1.8 1.8) (drill 0.8 (offset 0.1 -0.2)) (layers \"*.Cu\" \"*.Mask\"))\n  (pad \"\" np_thru_hole circle (at -5 5) (size 1 1) (drill 1) (layers \"*.Cu\" \"*.Mask\"))\n  (pad \"7\" thru_hole oval (at 5 -5 30) (size 2 1) (drill oval 0.6 1.2 (offset 0.2 0.1)) (layers \"*.Cu\" \"*.Mask\")))",
+      "source_path": "pads.kicad_mod",
+      "document_id": "pads",
+      "expected": {
+        "schema": "kicad.plotter_ir.a0",
+        "source_kind": "MOD",
+        "total_operations": 10,
+        "records": [
+          {
+            "uuid": "",
+            "kind": "footprint",
+            "object_id": "Pads",
+            "operation_count": 10,
+            "operations": [
+              {"kind": "FlashPadCircle", "index": 0, "x": 1000000, "y": 2000000, "diameter_nm": 1000000, "layers": ["F.Cu", "F.Paste", "F.Mask"], "mask_margin_nm": 50000},
+              {"kind": "FlashPadOval", "index": 1, "x": -1000000, "y": 0, "size_x_nm": 2000000, "size_y_nm": 1000000, "orient_deg": 30.0, "layers": ["B.Cu", "B.Paste", "B.Mask"], "mask_margin_nm": -500000},
+              {"kind": "FlashPadRect", "index": 2, "x": 0, "y": -2000000, "size_x_nm": 1600000, "size_y_nm": 800000, "orient_deg": -15.0, "layers": ["F.Cu", "F.Paste", "F.Mask"], "mask_margin_nm": 50000},
+              {"kind": "FlashPadRoundRect", "index": 3, "x": 3000000, "y": 0, "size_x_nm": 2000000, "size_y_nm": 1000000, "corner_radius_nm": 200000, "orient_deg": 90.0, "layers": ["F.Cu", "F.Paste", "F.Mask"], "mask_margin_nm": 50000},
+              {"kind": "FlashPadTrapez", "index": 4, "x": 0, "y": 3000000, "corners": [[-900000, 700000], [900000, 300000], [1100000, -300000], [-1100000, -700000]], "orient_deg": 10.0, "layers": ["F.Cu", "F.Paste", "F.Mask"], "mask_margin_nm": 50000},
+              {"kind": "FlashPadCircle", "index": 5, "x": 5000000, "y": 5000000, "diameter_nm": 1800000, "layers": ["*.Cu", "*.Mask"], "mask_margin_nm": 50000},
+              {"kind": "Circle", "index": 6, "cx": 4929289, "cy": 4787868, "diameter_nm": 800000, "fill": "FILLED_SHAPE", "width_nm": 0, "role": "pad_drill", "layers": ["*.Cu", "*.Mask"]},
+              {"kind": "Circle", "index": 7, "cx": -5000000, "cy": 5000000, "diameter_nm": 1000000, "fill": "FILLED_SHAPE", "width_nm": 0, "role": "npth_hole", "layers": ["*.Cu", "*.Mask"], "mask_margin_nm": 50000, "pad_size_x_nm": 1000000, "pad_size_y_nm": 1000000},
+              {"kind": "FlashPadOval", "index": 8, "x": 5000000, "y": -5000000, "size_x_nm": 2000000, "size_y_nm": 1000000, "orient_deg": 30.0, "layers": ["*.Cu", "*.Mask"], "mask_margin_nm": 50000},
+              {"kind": "ThickSegment", "index": 9, "start_x": 5073205, "start_y": -5273205, "end_x": 5373205, "end_y": -4753589, "width_nm": 600000, "role": "pad_drill", "layers": ["*.Cu", "*.Mask"]}
+            ],
+            "name": "Pads",
+            "layer": "F.Cu",
+            "locked": false,
+            "placed": false,
+            "descr": "",
+            "tags": "",
+            "attr": []
+          }
+        ],
+        "source_path": "pads.kicad_mod",
+        "document_id": "pads",
+        "coordinate_space": {"unit": "nm", "y_axis": "down"},
+        "version": 20250101,
+        "generator": "pcbnew",
+        "generator_version": "9.0"
+      }
     }
   ]
 }

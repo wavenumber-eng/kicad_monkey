@@ -311,7 +311,7 @@ secondary = [
 id = "L1_026"
 file = "test_L1_026_rust_footprint_plotter_slice.py"
 name = "Rust Footprint Plotter-IR Slice"
-description = "Prove non-text footprint graphics and patterned strokes from KiCad bytes to kicad.plotter_ir.a0"
+description = "Prove non-text footprint graphics, standard pads, and drills from KiCad bytes to shared kicad.plotter_ir.a0 operations"
 concerns = ["sexpr", "rust", "footprint", "plotter_ir", "wasm"]
 test_cases = "tests/parity/footprint_plotter_a0_vectors.json"
 test_case_type = "contract"
@@ -322,6 +322,8 @@ secondary = [
     "The TypeSpec slice remains a strict valid subset of the established plotter-IR contract",
     "The core reads selected forms without constructing a generic full-file tree",
     "Python and Rust preserve canonical graphic grouping and patterned-stroke decomposition",
+    "Footprint and future PCB producers share one TypeSpec and Rust plotter-operation vocabulary",
+    "Standard pad flashes, mask margins, circular drills, slots, and NPTH hints match Python",
     "Generated Python and TypeScript projections preserve the strict tagged operation union",
     "The WASM boundary accepts source bytes and returns bounded out-of-band JSON bytes",
     "Unsupported stroke styles and all resource limits fail explicitly",

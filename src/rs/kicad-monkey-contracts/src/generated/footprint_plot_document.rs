@@ -24,13 +24,13 @@ pub mod error {
         }
     }
 }
-///Solid three-point footprint arc.
+///Solid three-point arc.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Solid three-point footprint arc.",
+///  "description": "Solid three-point arc.",
 ///  "type": "object",
 ///  "required": [
 ///    "end_x",
@@ -102,13 +102,13 @@ pub struct ArcThreePointOperation {
     pub start_y: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
-///Footprint circle represented by center and diameter.
+///Circle shared by graphical and drill producers.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Footprint circle represented by center and diameter.",
+///  "description": "Circle shared by graphical and drill producers.",
 ///  "type": "object",
 ///  "required": [
 ///    "cx",
@@ -117,7 +117,6 @@ pub struct ArcThreePointOperation {
 ///    "fill",
 ///    "index",
 ///    "kind",
-///    "layer",
 ///    "width_nm"
 ///  ],
 ///  "properties": {
@@ -145,6 +144,24 @@ pub struct ArcThreePointOperation {
 ///    "layer": {
 ///      "type": "string"
 ///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "pad_size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "pad_size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "role": {
+///      "type": "string"
+///    },
 ///    "width_nm": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    }
@@ -162,69 +179,364 @@ pub struct CircleOperation {
     pub fill: PlotterFill,
     pub index: u32,
     pub kind: ::std::string::String,
-    pub layer: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub mask_margin_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_size_x_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_size_y_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub role: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
-///Non-text footprint graphics promoted by the second plotter slice.
+///Circular pad flash shared by footprint and PCB producers.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Non-text footprint graphics promoted by the second plotter slice.",
-///  "anyOf": [
-///    {
-///      "$ref": "#/$defs/ThickSegmentOperation"
+///  "description": "Circular pad flash shared by footprint and PCB producers.",
+///  "type": "object",
+///  "required": [
+///    "diameter_nm",
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "diameter_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
-///    {
-///      "$ref": "#/$defs/ArcThreePointOperation"
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
 ///    },
-///    {
-///      "$ref": "#/$defs/CircleOperation"
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadCircle"
 ///    },
-///    {
-///      "$ref": "#/$defs/RectOperation"
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
 ///    },
-///    {
-///      "$ref": "#/$defs/PlotPolyOperation"
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    }
-///  ]
+///  },
+///  "additionalProperties": false
 ///}
 /// ```
 /// </details>
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(untagged)]
-pub enum FootprintGraphicOperation {
-    ThickSegmentOperation(ThickSegmentOperation),
-    ArcThreePointOperation(ArcThreePointOperation),
-    CircleOperation(CircleOperation),
-    RectOperation(RectOperation),
-    PlotPolyOperation(PlotPolyOperation),
+#[serde(deny_unknown_fields)]
+pub struct FlashPadCircleOperation {
+    pub diameter_nm: crate::JavaScriptSafeInteger,
+    pub index: u32,
+    pub kind: ::std::string::String,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
 }
-impl ::std::convert::From<ThickSegmentOperation> for FootprintGraphicOperation {
-    fn from(value: ThickSegmentOperation) -> Self {
-        Self::ThickSegmentOperation(value)
-    }
+///Oval pad flash shared by footprint and PCB producers.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Oval pad flash shared by footprint and PCB producers.",
+///  "type": "object",
+///  "required": [
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "orient_deg",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadOval"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FlashPadOvalOperation {
+    pub index: u32,
+    pub kind: ::std::string::String,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    pub orient_deg: f64,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
 }
-impl ::std::convert::From<ArcThreePointOperation> for FootprintGraphicOperation {
-    fn from(value: ArcThreePointOperation) -> Self {
-        Self::ArcThreePointOperation(value)
-    }
+///Rectangular pad flash shared by footprint and PCB producers.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Rectangular pad flash shared by footprint and PCB producers.",
+///  "type": "object",
+///  "required": [
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "orient_deg",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadRect"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FlashPadRectOperation {
+    pub index: u32,
+    pub kind: ::std::string::String,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    pub orient_deg: f64,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
 }
-impl ::std::convert::From<CircleOperation> for FootprintGraphicOperation {
-    fn from(value: CircleOperation) -> Self {
-        Self::CircleOperation(value)
-    }
+///Rounded-rectangle pad flash shared by footprint and PCB producers.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Rounded-rectangle pad flash shared by footprint and PCB producers.",
+///  "type": "object",
+///  "required": [
+///    "corner_radius_nm",
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "orient_deg",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "corner_radius_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadRoundRect"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FlashPadRoundRectOperation {
+    pub corner_radius_nm: crate::JavaScriptSafeInteger,
+    pub index: u32,
+    pub kind: ::std::string::String,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    pub orient_deg: f64,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
 }
-impl ::std::convert::From<RectOperation> for FootprintGraphicOperation {
-    fn from(value: RectOperation) -> Self {
-        Self::RectOperation(value)
-    }
-}
-impl ::std::convert::From<PlotPolyOperation> for FootprintGraphicOperation {
-    fn from(value: PlotPolyOperation) -> Self {
-        Self::PlotPolyOperation(value)
-    }
+///Trapezoid pad flash shared by footprint and PCB producers.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Trapezoid pad flash shared by footprint and PCB producers.",
+///  "type": "object",
+///  "required": [
+///    "corners",
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "orient_deg",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "corners": {
+///      "$ref": "#/$defs/PlotterQuad"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadTrapez"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FlashPadTrapezOperation {
+    pub corners: PlotterQuad,
+    pub index: u32,
+    pub kind: ::std::string::String,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    pub orient_deg: f64,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
 }
 ///Strict non-text footprint subset of kicad.plotter_ir.a0.
 ///
@@ -361,7 +673,7 @@ pub struct FootprintPlotDocumentA0 {
 ///    "operations": {
 ///      "type": "array",
 ///      "items": {
-///        "$ref": "#/$defs/FootprintGraphicOperation"
+///        "$ref": "#/$defs/PlotterOperation"
 ///      }
 ///    },
 ///    "placed": {
@@ -389,18 +701,18 @@ pub struct FootprintPlotRecord {
     pub name: ::std::string::String,
     pub object_id: ::std::string::String,
     pub operation_count: u32,
-    pub operations: ::std::vec::Vec<FootprintGraphicOperation>,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
     pub placed: bool,
     pub tags: ::std::string::String,
     pub uuid: ::std::string::String,
 }
-///Footprint polygon operation.
+///Filled or outlined polygon operation.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Footprint polygon operation.",
+///  "description": "Filled or outlined polygon operation.",
 ///  "type": "object",
 ///  "required": [
 ///    "fill",
@@ -482,13 +794,13 @@ pub struct PlotterCoordinateSpace {
     pub unit: ::std::string::String,
     pub y_axis: ::std::string::String,
 }
-///Fill values emitted by promoted footprint graphics.
+///Fill values shared by plotter operation producers.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Fill values emitted by promoted footprint graphics.",
+///  "description": "Fill values shared by plotter operation producers.",
 ///  "type": "string",
 ///  "enum": [
 ///    "NO_FILL",
@@ -555,13 +867,119 @@ impl ::std::convert::TryFrom<::std::string::String> for PlotterFill {
         value.parse()
     }
 }
-///Footprint polygon point stream.
+///Shared plotter operation vocabulary promoted across source producers.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Footprint polygon point stream.",
+///  "description": "Shared plotter operation vocabulary promoted across source producers.",
+///  "anyOf": [
+///    {
+///      "$ref": "#/$defs/ThickSegmentOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/ArcThreePointOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/CircleOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/RectOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/PlotPolyOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadCircleOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadOvalOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadRectOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadRoundRectOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadTrapezOperation"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum PlotterOperation {
+    ThickSegmentOperation(ThickSegmentOperation),
+    ArcThreePointOperation(ArcThreePointOperation),
+    CircleOperation(CircleOperation),
+    RectOperation(RectOperation),
+    PlotPolyOperation(PlotPolyOperation),
+    FlashPadCircleOperation(FlashPadCircleOperation),
+    FlashPadOvalOperation(FlashPadOvalOperation),
+    FlashPadRectOperation(FlashPadRectOperation),
+    FlashPadRoundRectOperation(FlashPadRoundRectOperation),
+    FlashPadTrapezOperation(FlashPadTrapezOperation),
+}
+impl ::std::convert::From<ThickSegmentOperation> for PlotterOperation {
+    fn from(value: ThickSegmentOperation) -> Self {
+        Self::ThickSegmentOperation(value)
+    }
+}
+impl ::std::convert::From<ArcThreePointOperation> for PlotterOperation {
+    fn from(value: ArcThreePointOperation) -> Self {
+        Self::ArcThreePointOperation(value)
+    }
+}
+impl ::std::convert::From<CircleOperation> for PlotterOperation {
+    fn from(value: CircleOperation) -> Self {
+        Self::CircleOperation(value)
+    }
+}
+impl ::std::convert::From<RectOperation> for PlotterOperation {
+    fn from(value: RectOperation) -> Self {
+        Self::RectOperation(value)
+    }
+}
+impl ::std::convert::From<PlotPolyOperation> for PlotterOperation {
+    fn from(value: PlotPolyOperation) -> Self {
+        Self::PlotPolyOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadCircleOperation> for PlotterOperation {
+    fn from(value: FlashPadCircleOperation) -> Self {
+        Self::FlashPadCircleOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadOvalOperation> for PlotterOperation {
+    fn from(value: FlashPadOvalOperation) -> Self {
+        Self::FlashPadOvalOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadRectOperation> for PlotterOperation {
+    fn from(value: FlashPadRectOperation) -> Self {
+        Self::FlashPadRectOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadRoundRectOperation> for PlotterOperation {
+    fn from(value: FlashPadRoundRectOperation) -> Self {
+        Self::FlashPadRoundRectOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadTrapezOperation> for PlotterOperation {
+    fn from(value: FlashPadTrapezOperation) -> Self {
+        Self::FlashPadTrapezOperation(value)
+    }
+}
+///Plotter point encoded as an exact coordinate pair.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Plotter point encoded as an exact coordinate pair.",
 ///  "type": "array",
 ///  "items": {
 ///    "$ref": "#/$defs/JavaScriptSafeInteger"
@@ -590,13 +1008,48 @@ impl ::std::convert::From<[crate::JavaScriptSafeInteger; 2usize]> for PlotterPoi
         Self(value)
     }
 }
-///Footprint rectangle with square corners.
+///Four pad-local trapezoid corners.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Footprint rectangle with square corners.",
+///  "description": "Four pad-local trapezoid corners.",
+///  "type": "array",
+///  "items": {
+///    "$ref": "#/$defs/PlotterPoint"
+///  },
+///  "maxItems": 4,
+///  "minItems": 4
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct PlotterQuad(pub [PlotterPoint; 4usize]);
+impl ::std::ops::Deref for PlotterQuad {
+    type Target = [PlotterPoint; 4usize];
+    fn deref(&self) -> &[PlotterPoint; 4usize] {
+        &self.0
+    }
+}
+impl ::std::convert::From<PlotterQuad> for [PlotterPoint; 4usize] {
+    fn from(value: PlotterQuad) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<[PlotterPoint; 4usize]> for PlotterQuad {
+    fn from(value: [PlotterPoint; 4usize]) -> Self {
+        Self(value)
+    }
+}
+///Rectangle with square corners.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Rectangle with square corners.",
 ///  "type": "object",
 ///  "required": [
 ///    "corner_radius_nm",
@@ -663,20 +1116,19 @@ pub struct RectOperation {
     pub y1: crate::JavaScriptSafeInteger,
     pub y2: crate::JavaScriptSafeInteger,
 }
-///Solid or decomposed footprint stroke segment.
+///Solid or decomposed segment shared by PCB, footprint, and drill producers.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Solid or decomposed footprint stroke segment.",
+///  "description": "Solid or decomposed segment shared by PCB, footprint, and drill producers.",
 ///  "type": "object",
 ///  "required": [
 ///    "end_x",
 ///    "end_y",
 ///    "index",
 ///    "kind",
-///    "layer",
 ///    "start_x",
 ///    "start_y",
 ///    "width_nm"
@@ -700,6 +1152,24 @@ pub struct RectOperation {
 ///    "layer": {
 ///      "type": "string"
 ///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "pad_size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "pad_size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "role": {
+///      "type": "string"
+///    },
 ///    "start_x": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
@@ -721,7 +1191,18 @@ pub struct ThickSegmentOperation {
     pub end_y: crate::JavaScriptSafeInteger,
     pub index: u32,
     pub kind: ::std::string::String,
-    pub layer: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub mask_margin_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_size_x_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_size_y_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub role: ::std::option::Option<::std::string::String>,
     pub start_x: crate::JavaScriptSafeInteger,
     pub start_y: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,

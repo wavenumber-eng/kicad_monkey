@@ -66,7 +66,7 @@ class FootprintPlotRecord(Struct, forbid_unknown_fields=True, frozen=True):
     kind: Literal["footprint"]
     object_id: str
     operation_count: int
-    operations: list[FootprintGraphicOperation]
+    operations: list[PlotterOperation]
     name: str
     layer: str
     locked: bool
@@ -84,7 +84,7 @@ class PlotterCoordinateSpace(Struct, forbid_unknown_fields=True, frozen=True):
 JavaScriptSafeInteger = Annotated[int, Meta(ge=-9007199254740991, le=9007199254740991)]
 
 
-FootprintGraphicOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation"]
+PlotterOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadTrapezOperation"]
 
 
 class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ThickSegment", tag_field="kind"):
@@ -94,7 +94,12 @@ class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag
     end_x: JavaScriptSafeInteger
     end_y: JavaScriptSafeInteger
     width_nm: JavaScriptSafeInteger
-    layer: str
+    layer: str | UnsetType = field(default=UNSET)
+    role: str | UnsetType = field(default=UNSET)
+    layers: list[str] | UnsetType = field(default=UNSET)
+    mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    pad_size_x_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    pad_size_y_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
 
 
 class ArcThreePointOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ArcThreePoint", tag_field="kind"):
@@ -117,7 +122,12 @@ class CircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Circ
     diameter_nm: JavaScriptSafeInteger
     fill: PlotterFill
     width_nm: JavaScriptSafeInteger
-    layer: str
+    layer: str | UnsetType = field(default=UNSET)
+    role: str | UnsetType = field(default=UNSET)
+    layers: list[str] | UnsetType = field(default=UNSET)
+    mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    pad_size_x_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    pad_size_y_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
 
 
 class RectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Rect", tag_field="kind"):
@@ -140,10 +150,66 @@ class PlotPolyOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Pl
     layer: str
 
 
+class FlashPadCircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadCircle", tag_field="kind"):
+    index: int
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    diameter_nm: JavaScriptSafeInteger
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+
+
+class FlashPadOvalOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadOval", tag_field="kind"):
+    index: int
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    orient_deg: float
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+
+
+class FlashPadRectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadRect", tag_field="kind"):
+    index: int
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    orient_deg: float
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+
+
+class FlashPadRoundRectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadRoundRect", tag_field="kind"):
+    index: int
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    corner_radius_nm: JavaScriptSafeInteger
+    orient_deg: float
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+
+
+class FlashPadTrapezOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadTrapez", tag_field="kind"):
+    index: int
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    corners: PlotterQuad
+    orient_deg: float
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+
+
 PlotterFill = Literal["NO_FILL", "FILLED_SHAPE"]
 
 
 PlotterPoint = Annotated[list[JavaScriptSafeInteger], Meta(min_length=2, max_length=2)]
+
+
+PlotterQuad = Annotated[list[PlotterPoint], Meta(min_length=4, max_length=4)]
 
 
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -276,14 +342,20 @@ __all__ = (
     "FootprintPlotRecord",
     "PlotterCoordinateSpace",
     "JavaScriptSafeInteger",
-    "FootprintGraphicOperation",
+    "PlotterOperation",
     "ThickSegmentOperation",
     "ArcThreePointOperation",
     "CircleOperation",
     "RectOperation",
     "PlotPolyOperation",
+    "FlashPadCircleOperation",
+    "FlashPadOvalOperation",
+    "FlashPadRectOperation",
+    "FlashPadRoundRectOperation",
+    "FlashPadTrapezOperation",
     "PlotterFill",
     "PlotterPoint",
+    "PlotterQuad",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",

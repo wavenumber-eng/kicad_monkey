@@ -14,8 +14,9 @@ pub mod sexpr_projection;
 
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use plotter_ir::{
-    ArcThreePoint, FootprintGraphicOperation, FootprintPlotDocument, FootprintPlotLimits,
-    PlotterCircle, PlotterFill, PlotterPoly, PlotterRect, ThickSegment, footprint_plot_document,
+    ArcThreePoint, FlashPadCircle, FlashPadOval, FlashPadRect, FlashPadRoundRect, FlashPadTrapez,
+    FootprintPlotDocument, FootprintPlotLimits, PlotterCircle, PlotterFill, PlotterOperation,
+    PlotterPoly, PlotterRect, ThickSegment, footprint_plot_document,
 };
 
 pub use sexpr::{

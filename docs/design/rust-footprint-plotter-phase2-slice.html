@@ -14,9 +14,12 @@
       The footprint bytes-to-plotter proof now promotes standalone-footprint
       metadata, lines, three-point arcs, circles, rectangles, and polygons.
       Patterned line and arc strokes are decomposed into thick segments using
-      the Python path's dash rules. It emits a strict TypeSpec-owned subset of
-      the established <code>kicad.plotter_ir.a0</code> document. This slice does
-      not claim parity for text, properties, pads, symbols, or embedded PCB
+      the Python path's dash rules. Standard circle, oval, rectangle,
+      round-rectangle, and trapezoid pads emit pad flashes; through-hole and
+      NPTH pads also emit circular or slotted drill operations. It emits a
+      strict TypeSpec-owned subset of the established
+      <code>kicad.plotter_ir.a0</code> document. This slice does not claim parity
+      for text, properties, custom/chamfered pads, symbols, or embedded PCB
       footprints.
     </p>
   </section>
@@ -36,10 +39,18 @@
         and minimum-pen-width rules as the Python path.
       </li>
       <li>
+        <code>PlotterOperation</code> is producer-neutral. Footprint and future
+        PCB converters use the same geometry, pad-flash, and drill variants.
+        Symbol and schematic converters likewise extend and consume this one
+        operation vocabulary instead of defining parallel DTO families.
+      </li>
+      <li>
         Output order follows Python's canonical grouping: lines, arcs, circles,
         rectangles, then polygons. Source order is retained within each group.
         Solid/default strokes remain native operations; dash, dot,
         dash-dot, and dash-dot-dot strokes are deterministically decomposed.
+        Pads follow all graphics in source order, with each pad flash preceding
+        its drill overlay.
       </li>
       <li>
         Source bytes, nesting depth, metadata-form count, operation count, and
@@ -54,9 +65,11 @@
   <section>
     <h2>Contract And WASM Boundary</h2>
     <p>
-      TypeSpec owns the request, result metadata, exact two-coordinate polygon
-      points, fill vocabulary, and tagged graphic-operation union. Generated
-      Rust, Python, and TypeScript types stay deterministic. Browser
+      TypeSpec owns the request, result metadata, exact point/quad shapes, fill
+      vocabulary, and shared tagged operation union. The pad variants carry
+      layer lists and resolved mask margins; shared circle and segment variants
+      carry optional drill roles and NPTH size hints. Generated Rust, Python,
+      and TypeScript types stay deterministic. Browser
       callers pass KiCad and request bytes separately to
       <code>plotFootprintIr</code>. The operation returns result JSON and
       plotter-IR JSON as separate byte arrays, avoiding base64 and preserving a
@@ -77,6 +90,9 @@
       host adapter consume shared vectors and requires the exact same document.
       An interleaved input proves canonical grouping, and the corpus covers
       patterned line/arc decomposition plus every promoted operation and fill.
+      A standard-pad vector covers every promoted flash shape, inherited and
+      clamped mask margins, rotated drill offsets, slots, and suppressed NPTH
+      copper flashes.
       Documents validate against both the strict generated slice schema and the
       established plotter-IR schema. Rack L0_046 owns real Node-hosted WASM
       execution and Rust quality; L0_049 owns generated-language cleanliness.
@@ -86,10 +102,12 @@
   <section>
     <h2>Retained Work</h2>
     <p>
-      Promote footprint properties, text, and pads, then symbol output with
-      independent parity vectors. Text retains the separate shaping, outline,
-      and render-cache evidence gates. The Phase 2 boundary review remains
-      gated on that wider proof. Performance tuning remains profile-driven.
+      Promote custom and chamfered pads independently, then footprint
+      properties/text and symbol output. Text retains the separate shaping,
+      outline, and render-cache evidence gates. Embedded PCB footprints will
+      reuse the shared operations but require their own placement and record
+      parity. The Phase 2 boundary review remains gated on that wider proof.
+      Performance tuning remains profile-driven.
     </p>
   </section>
 </body>

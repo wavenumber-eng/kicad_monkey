@@ -1,25 +1,41 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
 /**
- * Non-text footprint graphics promoted by the second plotter slice.
+ * Shared plotter operation vocabulary promoted across source producers.
  */
-export type FootprintGraphicOperation =
-  ThickSegmentOperation | ArcThreePointOperation | CircleOperation | RectOperation | PlotPolyOperation;
+export type PlotterOperation =
+  | ThickSegmentOperation
+  | ArcThreePointOperation
+  | CircleOperation
+  | RectOperation
+  | PlotPolyOperation
+  | FlashPadCircleOperation
+  | FlashPadOvalOperation
+  | FlashPadRectOperation
+  | FlashPadRoundRectOperation
+  | FlashPadTrapezOperation;
 /**
  * Integer that remains exact when decoded as a JavaScript number.
  */
 export type JavaScriptSafeInteger = number;
 /**
- * Fill values emitted by promoted footprint graphics.
+ * Fill values shared by plotter operation producers.
  */
 export type PlotterFill = "NO_FILL" | "FILLED_SHAPE";
 /**
- * Footprint polygon point stream.
+ * Plotter point encoded as an exact coordinate pair.
  *
  * @minItems 2
  * @maxItems 2
  */
 export type PlotterPoint = [JavaScriptSafeInteger, JavaScriptSafeInteger];
+/**
+ * Four pad-local trapezoid corners.
+ *
+ * @minItems 4
+ * @maxItems 4
+ */
+export type PlotterQuad = [PlotterPoint, PlotterPoint, PlotterPoint, PlotterPoint];
 
 /**
  * Strict non-text footprint subset of kicad.plotter_ir.a0.
@@ -44,7 +60,7 @@ export interface FootprintPlotRecord {
   kind: "footprint";
   object_id: string;
   operation_count: number;
-  operations: FootprintGraphicOperation[];
+  operations: PlotterOperation[];
   name: string;
   layer: string;
   locked: boolean;
@@ -54,7 +70,7 @@ export interface FootprintPlotRecord {
   attr: string[];
 }
 /**
- * Solid or decomposed footprint stroke segment.
+ * Solid or decomposed segment shared by PCB, footprint, and drill producers.
  */
 export interface ThickSegmentOperation {
   kind: "ThickSegment";
@@ -64,10 +80,15 @@ export interface ThickSegmentOperation {
   end_x: JavaScriptSafeInteger;
   end_y: JavaScriptSafeInteger;
   width_nm: JavaScriptSafeInteger;
-  layer: string;
+  layer?: string;
+  role?: string;
+  layers?: string[];
+  mask_margin_nm?: JavaScriptSafeInteger;
+  pad_size_x_nm?: JavaScriptSafeInteger;
+  pad_size_y_nm?: JavaScriptSafeInteger;
 }
 /**
- * Solid three-point footprint arc.
+ * Solid three-point arc.
  */
 export interface ArcThreePointOperation {
   kind: "ArcThreePoint";
@@ -83,7 +104,7 @@ export interface ArcThreePointOperation {
   layer: string;
 }
 /**
- * Footprint circle represented by center and diameter.
+ * Circle shared by graphical and drill producers.
  */
 export interface CircleOperation {
   kind: "Circle";
@@ -93,10 +114,15 @@ export interface CircleOperation {
   diameter_nm: JavaScriptSafeInteger;
   fill: PlotterFill;
   width_nm: JavaScriptSafeInteger;
-  layer: string;
+  layer?: string;
+  role?: string;
+  layers?: string[];
+  mask_margin_nm?: JavaScriptSafeInteger;
+  pad_size_x_nm?: JavaScriptSafeInteger;
+  pad_size_y_nm?: JavaScriptSafeInteger;
 }
 /**
- * Footprint rectangle with square corners.
+ * Rectangle with square corners.
  */
 export interface RectOperation {
   kind: "Rect";
@@ -111,7 +137,7 @@ export interface RectOperation {
   layer: string;
 }
 /**
- * Footprint polygon operation.
+ * Filled or outlined polygon operation.
  */
 export interface PlotPolyOperation {
   kind: "PlotPoly";
@@ -120,6 +146,74 @@ export interface PlotPolyOperation {
   fill: PlotterFill;
   width_nm: JavaScriptSafeInteger;
   layer: string;
+}
+/**
+ * Circular pad flash shared by footprint and PCB producers.
+ */
+export interface FlashPadCircleOperation {
+  kind: "FlashPadCircle";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  diameter_nm: JavaScriptSafeInteger;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+/**
+ * Oval pad flash shared by footprint and PCB producers.
+ */
+export interface FlashPadOvalOperation {
+  kind: "FlashPadOval";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  orient_deg: number;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+/**
+ * Rectangular pad flash shared by footprint and PCB producers.
+ */
+export interface FlashPadRectOperation {
+  kind: "FlashPadRect";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  orient_deg: number;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+/**
+ * Rounded-rectangle pad flash shared by footprint and PCB producers.
+ */
+export interface FlashPadRoundRectOperation {
+  kind: "FlashPadRoundRect";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  corner_radius_nm: JavaScriptSafeInteger;
+  orient_deg: number;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+/**
+ * Trapezoid pad flash shared by footprint and PCB producers.
+ */
+export interface FlashPadTrapezOperation {
+  kind: "FlashPadTrapez";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  corners: PlotterQuad;
+  orient_deg: number;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
 }
 /**
  * Coordinate convention for the footprint plotter slice.
