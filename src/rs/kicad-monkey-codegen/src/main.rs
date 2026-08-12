@@ -11,11 +11,15 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use typify::{TypeSpace, TypeSpaceSettings};
 
-const SCHEMAS: [(&str, &str); 4] = [
+const SCHEMAS: [(&str, &str); 8] = [
     ("BuildRequest.json", "build_request.rs"),
     ("BuildResult.json", "build_result.rs"),
     ("ScanRequest.json", "scan_request.rs"),
     ("ScanResult.json", "scan_result.rs"),
+    ("FootprintEditRequest.json", "footprint_edit_request.rs"),
+    ("FootprintEditResult.json", "footprint_edit_result.rs"),
+    ("FootprintReadRequest.json", "footprint_read_request.rs"),
+    ("FootprintReadResult.json", "footprint_read_result.rs"),
 ];
 
 fn main() -> Result<()> {
@@ -24,6 +28,7 @@ fn main() -> Result<()> {
     let schema_root = root.join("contracts/generated/schema");
     let output_root = root.join("src/rs/kicad-monkey-contracts/src/generated");
     let mut expected = BTreeMap::new();
+    let mut modules = Vec::new();
 
     for (schema_name, output_name) in SCHEMAS {
         let schema_path = schema_root.join(schema_name);
@@ -33,7 +38,18 @@ fn main() -> Result<()> {
         project_for_typify(&mut schema);
         let generated = generate(schema)?;
         expected.insert(output_root.join(output_name), generated);
+        modules.push(output_name.trim_end_matches(".rs"));
     }
+    modules.sort_unstable();
+    let module_source = format!(
+        "//! TypeSpec-generated modules. Regenerate; do not edit module contents.\n\n{}\n",
+        modules
+            .into_iter()
+            .map(|module| format!("pub mod {module};"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+    expected.insert(output_root.join("mod.rs"), module_source);
 
     for (path, content) in expected {
         if check {

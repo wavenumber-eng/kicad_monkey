@@ -16,6 +16,10 @@ const roots = [
   ["BuildResult.json", "SExpressionBuildResultA0", "build-result.ts"],
   ["ScanRequest.json", "SExpressionScanRequestA0", "scan-request.ts"],
   ["ScanResult.json", "SExpressionScanResultA0", "scan-result.ts"],
+  ["FootprintEditRequest.json", "FootprintEditRequestA0", "footprint-edit-request.ts"],
+  ["FootprintEditResult.json", "FootprintEditResultA0", "footprint-edit-result.ts"],
+  ["FootprintReadRequest.json", "FootprintReadRequestA0", "footprint-read-request.ts"],
+  ["FootprintReadResult.json", "FootprintReadResultA0", "footprint-read-result.ts"],
 ];
 const schemas = new Map();
 for (const [file] of roots) {

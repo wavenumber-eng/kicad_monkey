@@ -56,6 +56,11 @@ class FormSpan(Struct, forbid_unknown_fields=True, frozen=True):
     head: str | UnsetType = field(default=UNSET)
 
 
+class FootprintProperty(Struct, forbid_unknown_fields=True, frozen=True):
+    name: str
+    value: str
+
+
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.sexpr_build.request"] = field(name="type")
     version: Literal["a0"]
@@ -89,10 +94,53 @@ class SExpressionScanResultA0(Struct, forbid_unknown_fields=True, frozen=True):
     diagnostics: list[Diagnostic]
 
 
+class FootprintEditRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.footprint_edit.request"] = field(name="type")
+    version: Literal["a0"]
+    property_name: str
+    value: str
+    max_source_bytes: str
+    max_output_bytes: str
+    max_depth: int
+    max_properties: int
+    max_pads: int
+
+
+class FootprintEditResultA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.footprint_edit.result"] = field(name="type")
+    version: Literal["a0"]
+    changed: bool
+    output_bytes: str
+    diagnostics: list[Diagnostic]
+
+
+class FootprintReadRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.footprint_read.request"] = field(name="type")
+    version: Literal["a0"]
+    max_source_bytes: str
+    max_depth: int
+    max_properties: int
+    max_pads: int
+
+
+class FootprintReadResultA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.footprint_read.result"] = field(name="type")
+    version: Literal["a0"]
+    name: str
+    source_bytes: str
+    properties: list[FootprintProperty]
+    pad_count: int
+    diagnostics: list[Diagnostic]
+
+
 decode_sexpr_build_request_a0 = msgspec.json.Decoder(SExpressionBuildRequestA0).decode
 decode_sexpr_build_result_a0 = msgspec.json.Decoder(SExpressionBuildResultA0).decode
 decode_sexpr_scan_request_a0 = msgspec.json.Decoder(SExpressionScanRequestA0).decode
 decode_sexpr_scan_result_a0 = msgspec.json.Decoder(SExpressionScanResultA0).decode
+decode_footprint_edit_request_a0 = msgspec.json.Decoder(FootprintEditRequestA0).decode
+decode_footprint_edit_result_a0 = msgspec.json.Decoder(FootprintEditResultA0).decode
+decode_footprint_read_request_a0 = msgspec.json.Decoder(FootprintReadRequestA0).decode
+decode_footprint_read_result_a0 = msgspec.json.Decoder(FootprintReadResultA0).decode
 
 
 __all__ = (
@@ -103,12 +151,21 @@ __all__ = (
     "SourcePosition",
     "Selector",
     "FormSpan",
+    "FootprintProperty",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",
     "SExpressionScanResultA0",
+    "FootprintEditRequestA0",
+    "FootprintEditResultA0",
+    "FootprintReadRequestA0",
+    "FootprintReadResultA0",
     "decode_sexpr_build_request_a0",
     "decode_sexpr_build_result_a0",
     "decode_sexpr_scan_request_a0",
     "decode_sexpr_scan_result_a0",
+    "decode_footprint_edit_request_a0",
+    "decode_footprint_edit_result_a0",
+    "decode_footprint_read_request_a0",
+    "decode_footprint_read_result_a0",
 )
