@@ -23,3 +23,6 @@ pub use sexpr_projection::{
     FormSpan, ProjectionLimits, Selector, StructuralIndex, parse_form, read_form_bytes,
     scan_form_spans, scan_form_spans_with_limits, scan_reader_form_spans,
 };
+#[cfg(feature = "measurement")]
+#[doc(hidden)]
+pub use sexpr_projection::{measure_form_span_sort, measure_reader_form_span_sort};

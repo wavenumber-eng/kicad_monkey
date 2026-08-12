@@ -6,6 +6,8 @@ use crate::sexpr::{
 use std::collections::BTreeSet;
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::Range;
+#[cfg(feature = "measurement")]
+use std::time::Instant;
 
 /// Resource ceilings for allocation-bounded structural scans.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -186,6 +188,16 @@ pub fn scan_form_spans_with_limits(
     selector: &Selector,
     limits: ProjectionLimits,
 ) -> Result<Vec<FormSpan>, Error> {
+    let mut spans = scan_form_spans_unsorted(source, selector, limits)?;
+    spans.sort_by_key(|span| span.range.start);
+    Ok(spans)
+}
+
+fn scan_form_spans_unsorted(
+    source: &str,
+    selector: &Selector,
+    limits: ProjectionLimits,
+) -> Result<Vec<FormSpan>, Error> {
     selector.validate()?;
     if source.len() > limits.max_source_bytes {
         return Err(resource_error(
@@ -309,8 +321,24 @@ pub fn scan_form_spans_with_limits(
             Position::START,
         ));
     }
-    spans.sort_by_key(|span| span.range.start);
     Ok(spans)
+}
+
+/// Test-only timing split for select-all scan and source-order sorting.
+#[cfg(feature = "measurement")]
+#[doc(hidden)]
+pub fn measure_form_span_sort(
+    source: &str,
+    selector: &Selector,
+    limits: ProjectionLimits,
+) -> Result<(Vec<FormSpan>, u128, u128), Error> {
+    let scan_started = Instant::now();
+    let mut spans = scan_form_spans_unsorted(source, selector, limits)?;
+    let scan_ns = scan_started.elapsed().as_nanos();
+    let sort_started = Instant::now();
+    spans.sort_by_key(|span| span.range.start);
+    let sort_ns = sort_started.elapsed().as_nanos();
+    Ok((spans, scan_ns, sort_ns))
 }
 
 /// Materialize only one previously selected form.
@@ -592,7 +620,6 @@ impl<'a> StreamingProjection<'a> {
                 Position::START,
             ));
         }
-        self.spans.sort_by_key(|span| span.range.start);
         Ok(self.spans)
     }
 
@@ -802,7 +829,45 @@ pub fn scan_reader_form_spans<R: Read>(
             scanner.feed(*byte)?;
         }
     }
-    scanner.finish()
+    let mut spans = scanner.finish()?;
+    spans.sort_by_key(|span| span.range.start);
+    Ok(spans)
+}
+
+/// Test-only timing split for streaming select-all scan and source-order sort.
+#[cfg(feature = "measurement")]
+#[doc(hidden)]
+pub fn measure_reader_form_span_sort<R: Read>(
+    mut reader: R,
+    selector: &Selector,
+    limits: ProjectionLimits,
+) -> Result<(Vec<FormSpan>, u128, u128), Error> {
+    selector.validate()?;
+    let scan_started = Instant::now();
+    let mut scanner = StreamingProjection::new(selector, limits);
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let count = reader.read(&mut buffer).map_err(|_| {
+            Error::at(
+                ErrorPhase::Lex,
+                ErrorKind::Io,
+                "Failed to read S-expression source",
+                scanner.position,
+            )
+        })?;
+        if count == 0 {
+            break;
+        }
+        for byte in &buffer[..count] {
+            scanner.feed(*byte)?;
+        }
+    }
+    let mut spans = scanner.finish()?;
+    let scan_ns = scan_started.elapsed().as_nanos();
+    let sort_started = Instant::now();
+    spans.sort_by_key(|span| span.range.start);
+    let sort_ns = sort_started.elapsed().as_nanos();
+    Ok((spans, scan_ns, sort_ns))
 }
 
 /// Seek and read only one selected form from an indexed native source.

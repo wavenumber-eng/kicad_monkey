@@ -91,11 +91,41 @@
   </section>
 
   <section>
+    <h2>Select-All Sorting Evidence</h2>
+    <p>
+      A separate non-default measurement feature times form discovery and the
+      final source-order sort independently. Five release runs per scanner and
+      corpus tier show that sorting is material on the large board:
+    </p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Selected forms</th><th>Scanner</th><th>Best scan</th><th>Best sort</th><th>Sort fraction</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Small</td><td>350</td><td>Memory</td><td>0.121 ms</td><td>0.017 ms</td><td>12.4%</td></tr>
+        <tr><td>Small</td><td>350</td><td>Stream</td><td>0.173 ms</td><td>0.018 ms</td><td>9.6%</td></tr>
+        <tr><td>Medium</td><td>41,192</td><td>Memory</td><td>15.438 ms</td><td>1.496 ms</td><td>8.8%</td></tr>
+        <tr><td>Medium</td><td>41,192</td><td>Stream</td><td>19.040 ms</td><td>1.554 ms</td><td>7.5%</td></tr>
+        <tr><td>Large</td><td>2,124,874</td><td>Memory</td><td>772.026 ms</td><td>166.160 ms</td><td>17.7%</td></tr>
+        <tr><td>Large</td><td>2,124,874</td><td>Stream</td><td>1,021.759 ms</td><td>165.172 ms</td><td>13.9%</td></tr>
+      </tbody>
+    </table>
+    <p>
+      This cost is recorded in a focused backlog issue for possible source-order
+      emission without the final <code>O(k log k)</code> sort. It does not block
+      the current functional port; the parser promotion review should promote
+      the optimization only if ratified budgets or a real consumer workload
+      require it.
+    </p>
+  </section>
+
+  <section>
     <h2>Retained Gates</h2>
     <ul>
       <li>Run the same hashed cases on Linux before ratifying floors.</li>
       <li>Set budgets only in the parser architecture/promotion review.</li>
-      <li>Measure selected-span sorting, path ownership, and selector scaling separately.</li>
+      <li>Keep the measured selected-span sorting cost visible during budget ratification.</li>
+      <li>Measure path ownership and selector scaling separately.</li>
       <li>Keep streaming-select, source-patch, and browser/WASM transfer as independent ledger tasks.</li>
       <li>Do not authorize typed-model expansion until every Phase 1 dependency closes.</li>
     </ul>

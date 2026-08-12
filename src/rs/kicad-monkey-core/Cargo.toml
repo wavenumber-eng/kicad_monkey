@@ -12,6 +12,13 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+measurement = []
+
+[[example]]
+name = "sexpr_selection_sort_benchmark"
+required-features = ["measurement"]
+
 [dev-dependencies]
 serde.workspace = true
 serde_json.workspace = true

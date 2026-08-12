@@ -26,7 +26,9 @@ required_metrics = [
 id = "selected_span_sort"
 complexity = "O(n + k log k)"
 required_workload = "select_everything"
-decision = "measure_before_optimizing"
+measurement_status = "material_on_large_windows_corpus"
+rack_case = "L1_024"
+decision = "backlog source-order emission; optimize only if ratified budgets or consumer profiles require it"
 
 [[watchlist]]
 id = "owned_path_depth"

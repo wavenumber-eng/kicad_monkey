@@ -262,3 +262,22 @@ secondary = [
     "Host and Rust toolchain identity are recorded",
     "Thresholds remain pending independent Windows and Linux ratification",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_024"
+file = "test_L1_024_rust_selected_span_sort.py"
+name = "Rust Selected-Span Sort Measurement"
+description = "Isolate final source-order sorting from select-all memory and streaming scans"
+concerns = ["sexpr", "rust", "performance", "projection"]
+test_cases = "tests/performance/sexpr_corpus_cases.toml"
+test_case_type = "benchmark"
+
+[subtests.objectives]
+primary = "Measure O(n + k log k) selected-span sorting independently on every named corpus tier"
+secondary = [
+    "Memory and streaming scanners return the same selected-form count",
+    "All raw runs and best/median sort fractions are transient evidence",
+    "Representation changes remain profiling-driven",
+]
