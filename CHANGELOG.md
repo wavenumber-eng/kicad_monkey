@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026.8.11.1
+
+- Add an import-specific footprint cleanup pipeline that removes Fab/User
+  content without regenerating STEP projections or convex-hull geometry.
+- Canonicalize one actual embedded STEP payload per footprint, including STEP
+  content mislabeled as SLDPRT, and drop genuine unsupported model formats
+  with a warning instead of relabeling them.
+
 ## 2026.8.11
 
 - Add a public, dependency-light normalizer for unsafe direct footprint pad

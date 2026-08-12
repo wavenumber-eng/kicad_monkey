@@ -456,53 +456,193 @@ def fp_filter__add_fab_bounding_orthogonal_convex(unfiltered_s_expression: Any) 
 
 
 def fp_filter__normalized_embedded_model_naming(unfiltered_s_expression: Any) -> Any:
-    """
-    This is a filter for an s-expression file that does the following:
-    - Looks for the model.
-    - Looks for the embedded_files.
-    - If there is an embedded_files (i.e. there is an embedded model),
-        it will rename the string in the file to match the footprint file name.
+    """Keep one real embedded STEP model and give it a footprint-scoped name.
+
+    Altium conversions can emit generic embedded names that collide when
+    footprints are collected into a library.  They can also emit several
+    component bodies even though the library contract permits one canonical
+    STEP model.  Select a real STEP payload (preferring a name that already
+    matches the footprint), rename that payload and its model reference, and
+    discard the other embedded model bodies.
+
+    A filename extension is not evidence that the payload is STEP.  Genuine
+    SolidWorks, Parasolid, or unknown payloads are dropped with a warning; this
+    filter does not pretend to convert proprietary model formats.
     """
     log.info("\nRunning fp_filter__normalized_embedded_model_naming()...\n")
 
-    footprint_name = unfiltered_s_expression[1]
+    footprint_name = str(unfiltered_s_expression[1])
 
     # For PCB-embedded footprints, the name is "library:footprint"
     # Extract just the footprint name (after the colon)
-    if ':' in str(footprint_name):
-        footprint_name_only = str(footprint_name).split(':')[-1]
+    if ':' in footprint_name:
+        footprint_name_only = footprint_name.split(':')[-1]
         log.info(f"  - Detected PCB footprint format, using name: {footprint_name_only}")
         footprint_name = footprint_name_only
 
     embedded_files_section = find_element(unfiltered_s_expression, 'embedded_files')
-    model_section = find_element(unfiltered_s_expression, 'model')
-
-    # Check if the "{footprint_name}.STEP" matches the embedded model name
-    if embedded_files_section is not None:
-        file_name = embedded_files_section[1][1][1] if len(embedded_files_section) > 1 else None
-        if file_name != f"{footprint_name}.STEP":
-            log.warning("Warning: Embedded file name does not match footprint name.")
-            log.info(f"- Renaming embedded model from {file_name} to {footprint_name}.STEP")
-            embedded_files_section[1][1][1] = QuotedString(f"{footprint_name}.STEP")
-            log.info("Success: Renamed embedded model file name.")
-    else:
+    if embedded_files_section is None:
         log.info("Info: No embedded_files section found (normal for PCB-embedded footprints).")
+        return unfiltered_s_expression
 
-    # Check if the model section exists and check the model name
-    if model_section is not None:
-        model_name = model_section[1] if len(model_section) > 1 else None
-        log.info(f"- Model name is {model_name}")
-        # Only check for kicad-embed if there's an embedded_files section
-        if embedded_files_section is not None and model_name != f"kicad-embed://{footprint_name}.STEP":
-            log.warning("Warning: Model name does not match footprint name.")
-            log.info(f"- Renaming model from {model_name} to kicad-embed://{footprint_name}.STEP")
-            model_section[1] = QuotedString(f"kicad-embed://{footprint_name}.STEP")
-            log.info("Success: Renamed model name.")
-    else:
-        log.info("Info: No model section found.")
+    embedded_models = [
+        item
+        for item in embedded_files_section[1:]
+        if _embedded_file_is_model(item)
+    ]
+    model_sections = [
+        item
+        for item in unfiltered_s_expression
+        if (
+            isinstance(item, list)
+            and len(item) > 1
+            and item[0] == 'model'
+            and str(item[1]).startswith('kicad-embed://')
+        )
+    ]
+    files_by_name: dict[str, list[list[Any]]] = {}
+    for file_node in embedded_models:
+        file_name = _embedded_file_name(file_node)
+        if file_name:
+            files_by_name.setdefault(file_name.casefold(), []).append(file_node)
+
+    candidates: list[tuple[list[Any], list[Any], str]] = []
+    paired_file_ids: set[int] = set()
+    for model_node in model_sections:
+        model_name = str(model_node[1])[len('kicad-embed://'):]
+        matches = files_by_name.get(model_name.casefold(), [])
+        if not matches:
+            log.warning("Dropping embedded model reference with no payload: %s", model_name)
+            continue
+        file_node = matches.pop(0)
+        paired_file_ids.add(id(file_node))
+        model_format = _embedded_file_model_format(file_node)
+        if model_format != 'step':
+            log.warning(
+                "Dropping unsupported embedded model %s (detected: %s); "
+                "no conversion to STEP is available",
+                model_name,
+                model_format,
+            )
+            continue
+        candidates.append((model_node, file_node, model_name))
+
+    for file_node in embedded_models:
+        if id(file_node) not in paired_file_ids:
+            log.warning(
+                "Dropping unreferenced embedded model payload %s (detected: %s)",
+                _embedded_file_name(file_node) or "<unnamed>",
+                _embedded_file_model_format(file_node),
+            )
+
+    selected: tuple[list[Any], list[Any], str] | None = None
+    matching = [
+        candidate
+        for candidate in candidates
+        if _embedded_model_stem(candidate[2]).casefold() == footprint_name.casefold()
+    ]
+    if matching:
+        selected = matching[0]
+    elif candidates:
+        selected = candidates[0]
+
+    if len(candidates) > 1:
+        kept = selected[2] if selected is not None else "none"
+        log.warning(
+            "Footprint %s contains %d embedded STEP models; keeping %s and dropping the rest",
+            footprint_name,
+            len(candidates),
+            kept,
+        )
+
+    selected_model = selected[0] if selected is not None else None
+    selected_file = selected[1] if selected is not None else None
+    canonical_name = f"{footprint_name}.STEP"
+    if selected_model is not None and selected_file is not None:
+        name_node = _direct_child(selected_file, 'name')
+        if name_node is not None:
+            name_node[1] = QuotedString(canonical_name)
+        selected_model[1] = QuotedString(f"kicad-embed://{canonical_name}")
+
+    embedded_files_section[:] = [
+        embedded_files_section[0],
+        *[
+            item
+            for item in embedded_files_section[1:]
+            if not _embedded_file_is_model(item) or item is selected_file
+        ],
+    ]
+    model_section_ids = {id(item) for item in model_sections}
+    unfiltered_s_expression[:] = [
+        item
+        for item in unfiltered_s_expression
+        if id(item) not in model_section_ids or item is selected_model
+    ]
+    if len(embedded_files_section) == 1:
+        unfiltered_s_expression.remove(embedded_files_section)
 
     log.info("\nDone! S-expression has been filtered...")
     return unfiltered_s_expression
+
+
+def _direct_child(node: list[Any], tag: str) -> list[Any] | None:
+    return next(
+        (
+            item
+            for item in node[1:]
+            if isinstance(item, list) and item and item[0] == tag
+        ),
+        None,
+    )
+
+
+def _embedded_file_name(file_node: list[Any]) -> str:
+    name_node = _direct_child(file_node, 'name')
+    return str(name_node[1]) if name_node is not None and len(name_node) > 1 else ""
+
+
+def _embedded_file_is_model(file_node: Any) -> bool:
+    if not isinstance(file_node, list) or not file_node or file_node[0] != 'file':
+        return False
+    type_node = _direct_child(file_node, 'type')
+    return (
+        type_node is not None
+        and len(type_node) > 1
+        and str(type_node[1]).casefold() == 'model'
+    )
+
+
+def _embedded_file_model_format(file_node: list[Any]) -> str:
+    data_node = _direct_child(file_node, 'data')
+    if data_node is None:
+        return 'unknown'
+    encoded = ''.join(str(item) for item in data_node[1:])
+    encoded = encoded.replace('\n', '').replace('\r', '').strip('|')
+    if not encoded:
+        return 'unknown'
+    try:
+        compressed = base64.b64decode(encoded)
+        try:
+            payload = zstd.ZstdDecompressor().decompress(compressed)
+        except zstd.ZstdError:
+            with zstd.ZstdDecompressor().stream_reader(compressed) as reader:
+                payload = reader.read()
+    except Exception:
+        return 'unknown'
+
+    head = payload.lstrip()[:64]
+    if head.startswith(b'ISO-10303-21;'):
+        return 'step'
+    if head.startswith(b'\xd0\xcf\x11\xe0'):
+        return 'solidworks'
+    if head.startswith(b'**'):
+        return 'parasolid'
+    return 'unknown'
+
+
+def _embedded_model_stem(name: str) -> str:
+    leaf = name.replace('\\', '/').rsplit('/', 1)[-1]
+    return leaf.rsplit('.', 1)[0] if '.' in leaf else leaf
 
 
 def fp_filter__fix_zero_sized_pads(unfiltered_s_expression: Any) -> Any:

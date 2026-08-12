@@ -39,6 +39,16 @@ filters. Existing destinations are not removed before a staged replacement is
 ready to publish. Multi-entry inputs require an exact native key and never
 fall back to the first generated asset.
 
+Imported footprint cleanup removes source Fab/User layers because downstream
+library generation owns those layers. It does not run Monkey's optional
+STEP-derived Fab projection or pad/silkscreen convex-hull fallback. Embedded
+model normalization keeps one payload whose decoded content is STEP, gives it
+a footprint-scoped `.STEP` name, and prefers an already footprint-named model
+when several STEP bodies exist. Incoming extensions are advisory: STEP content
+misnamed `.SLDPRT` is retained, while genuine SolidWorks, Parasolid, and
+unknown payloads are dropped with a warning because this toolchain has no
+proprietary-to-STEP converter.
+
 `kicad-cruncher` may depend on the documented public `kicad-monkey` API.
 `kicad-monkey` must not depend on `kicad-cruncher`.
 

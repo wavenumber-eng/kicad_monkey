@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026.8.11.1
+
+- Route Altium footprint conversion through import-specific cleanup so
+  intentional Fab/User removal does not invoke STEP projection or the
+  pad/silkscreen convex-hull fallback.
+- Consume the Monkey single-STEP normalization policy for imported embedded
+  models.
+
 ## 2026.8.11
 
 - Add typed, model-free Altium symbol and footprint conversion requests and

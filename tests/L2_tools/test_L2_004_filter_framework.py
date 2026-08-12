@@ -23,11 +23,13 @@ interest (`symbol`, `lib_symbols`, `layers`, etc.).
 
 from __future__ import annotations
 
+import base64
 import tempfile
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
+import zstandard as zstd
 
 # Phase E Slice E-3 — gate the whole filter framework suite on its
 # heavy geometry deps. ``kicad_filter_footprint`` imports ``numpy``,
@@ -525,6 +527,19 @@ class TestFpFilterFixFontToArial:
 
 
 class TestFpFilterNormalizedEmbeddedModelNaming:
+    @staticmethod
+    def _add_payload(
+        file_node,
+        payload: bytes,
+        *,
+        write_content_size: bool = True,
+    ) -> None:
+        compressed = zstd.ZstdCompressor(
+            write_content_size=write_content_size
+        ).compress(payload)
+        encoded = base64.b64encode(compressed).decode("ascii")
+        file_node.append(["data", f"|{encoded}|"])
+
     def test_renames_embedded_model_to_match_footprint(self):
         from kicad_monkey import fp_filter__normalized_embedded_model_naming
         sexp = parse_sexp(dedent("""
@@ -535,10 +550,13 @@ class TestFpFilterNormalizedEmbeddedModelNaming:
                 )
             )
         """))
+        ef = find_element(sexp, 'embedded_files')
+        # Embedded file's nested (name "...") inside the (file ...) record
+        file_elem = find_element(ef, 'file')
+        self._add_payload(file_elem, b"ISO-10303-21;\nHEADER;\nENDSEC;")
         out = fp_filter__normalized_embedded_model_naming(sexp)
         ef = find_element(out, 'embedded_files')
         model = find_element(out, 'model')
-        # Embedded file's nested (name "...") inside the (file ...) record
         file_elem = find_element(ef, 'file')
         name = find_element(file_elem, 'name')
         assert name[1] == QuotedString('MyPart.STEP')
@@ -554,12 +572,110 @@ class TestFpFilterNormalizedEmbeddedModelNaming:
                 )
             )
         """))
+        ef = find_element(sexp, 'embedded_files')
+        file_elem = find_element(ef, 'file')
+        self._add_payload(file_elem, b"ISO-10303-21;\nHEADER;\nENDSEC;")
         out = fp_filter__normalized_embedded_model_naming(sexp)
         ef = find_element(out, 'embedded_files')
         file_elem = find_element(ef, 'file')
         name = find_element(file_elem, 'name')
         # PCB-style "lib:name" — only the suffix is used
         assert name[1] == QuotedString('MyPart.STEP')
+
+    def test_step_content_with_solidworks_extension_is_kept_and_renamed(self):
+        from kicad_monkey import fp_filter__normalized_embedded_model_naming
+
+        sexp = parse_sexp(dedent("""
+            (footprint "MyPart"
+                (model "kicad-embed://source.SLDPRT")
+                (embedded_files
+                    (file (name "source.SLDPRT") (type "model"))
+                )
+            )
+        """))
+        file_elem = find_element(find_element(sexp, 'embedded_files'), 'file')
+        self._add_payload(file_elem, b"ISO-10303-21;\nHEADER;\nENDSEC;")
+
+        out = fp_filter__normalized_embedded_model_naming(sexp)
+
+        file_elem = find_element(find_element(out, 'embedded_files'), 'file')
+        assert find_element(file_elem, 'name')[1] == QuotedString('MyPart.STEP')
+        assert find_element(out, 'model')[1] == QuotedString(
+            'kicad-embed://MyPart.STEP'
+        )
+
+    def test_step_frame_without_content_size_is_kept(self):
+        from kicad_monkey import fp_filter__normalized_embedded_model_naming
+
+        sexp = parse_sexp(dedent("""
+            (footprint "MyPart"
+                (model "kicad-embed://source.STEP")
+                (embedded_files
+                    (file (name "source.STEP") (type "model"))
+                )
+            )
+        """))
+        file_elem = find_element(find_element(sexp, 'embedded_files'), 'file')
+        self._add_payload(
+            file_elem,
+            b"ISO-10303-21;\nHEADER;\nENDSEC;",
+            write_content_size=False,
+        )
+
+        out = fp_filter__normalized_embedded_model_naming(sexp)
+
+        assert find_element(out, 'model')[1] == QuotedString(
+            'kicad-embed://MyPart.STEP'
+        )
+
+    def test_drops_genuine_solidworks_payload_with_warning(self, caplog):
+        from kicad_monkey import fp_filter__normalized_embedded_model_naming
+
+        sexp = parse_sexp(dedent("""
+            (footprint "MyPart"
+                (model "kicad-embed://source.SLDPRT")
+                (embedded_files
+                    (file (name "source.SLDPRT") (type "model"))
+                )
+            )
+        """))
+        file_elem = find_element(find_element(sexp, 'embedded_files'), 'file')
+        self._add_payload(file_elem, b"\xd0\xcf\x11\xe0SolidWorks document")
+
+        out = fp_filter__normalized_embedded_model_naming(sexp)
+
+        assert find_element(out, 'model') is None
+        assert find_element(out, 'embedded_files') is None
+        assert "no conversion to STEP is available" in caplog.text
+
+    def test_multiple_steps_keep_footprint_named_model(self, caplog):
+        from kicad_monkey import fp_filter__normalized_embedded_model_naming
+
+        sexp = parse_sexp(dedent("""
+            (footprint "B04B-JWPF-SK-R"
+                (model "kicad-embed://04R-JWPF-VSLE-S.STEP" (offset (xyz 1 0 0)))
+                (model "kicad-embed://B04B-JWPF-SK-R.STEP" (offset (xyz 2 0 0)))
+                (embedded_files
+                    (file (name "04R-JWPF-VSLE-S.STEP") (type "model"))
+                    (file (name "B04B-JWPF-SK-R.STEP") (type "model"))
+                )
+            )
+        """))
+        files = find_all_elements(find_element(sexp, 'embedded_files'), 'file')
+        self._add_payload(files[0], b"ISO-10303-21;\nMATE;")
+        self._add_payload(files[1], b"ISO-10303-21;\nFOOTPRINT;")
+
+        out = fp_filter__normalized_embedded_model_naming(sexp)
+
+        files = find_all_elements(find_element(out, 'embedded_files'), 'file')
+        models = find_all_elements(out, 'model')
+        assert len(files) == 1
+        assert len(models) == 1
+        assert find_element(files[0], 'name')[1] == QuotedString(
+            'B04B-JWPF-SK-R.STEP'
+        )
+        assert find_element(models[0], 'offset')[1] == ['xyz', 2, 0, 0]
+        assert "contains 2 embedded STEP models" in caplog.text
 
 
 class TestFpFilterAddFabBoundingOrthogonalConvex:
@@ -653,6 +769,28 @@ class TestKicadFpFilterEntryPoint:
             assert "(size 0.001 0.001" in text
             # Fab outline regenerated
             assert "F.Fab" in text
+
+    def test_import_cleanup_does_not_generate_fab_geometry(self):
+        from kicad_monkey import KiCadFilterPipeline
+
+        with tempfile.TemporaryDirectory() as td:
+            in_path = Path(td) / "Foo.kicad_mod"
+            out_path = Path(td) / "Foo.out.kicad_mod"
+            in_path.write_text(dedent("""
+                (footprint "Foo" (version 20241229) (generator "pcbnew") (layer "F.Cu")
+                    (pad "1" smd rect (at -2 -1) (size 0.5 0.5) (layers "F.Cu"))
+                    (pad "2" smd rect (at  2 -1) (size 0 0)     (layers "F.Cu"))
+                    (fp_text user "OLD" (at 0 0) (layer "F.Fab"))
+                    (fp_rect (start -1 -1) (end 1 1) (layer "User.1"))
+                )
+            """).strip(), encoding='utf-8')
+
+            KiCadFilterPipeline().filter_footprint_import(in_path, out_path)
+            text = out_path.read_text(encoding='utf-8')
+
+            assert "(size 0.001 0.001" in text
+            assert "F.Fab" not in text
+            assert "User.1" not in text
 
 
 class TestKicadSymFilterEntryPoint:

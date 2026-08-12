@@ -64,11 +64,29 @@ class FakeKiCadRunner:
 
 
 class FailingFilterPipeline:
+    def filter_footprint_import(self, _source: Path, _destination: Path) -> None:
+        raise RuntimeError("filter failure")
+
     def filter_footprint(self, _source: Path, _destination: Path) -> None:
         raise RuntimeError("filter failure")
 
     def filter_symbol(self, _source: Path, _destination: Path) -> None:
         raise RuntimeError("filter failure")
+
+
+class RecordingFilterPipeline:
+    def __init__(self) -> None:
+        self.import_calls = 0
+        self.full_calls = 0
+
+    def filter_footprint_import(self, _source: Path, _destination: Path) -> None:
+        self.import_calls += 1
+
+    def filter_footprint(self, _source: Path, _destination: Path) -> None:
+        self.full_calls += 1
+
+    def filter_symbol(self, _source: Path, _destination: Path) -> None:
+        raise AssertionError("symbol filter was not expected")
 
 
 def _source(tmp_path: Path, suffix: str) -> Path:
@@ -104,6 +122,31 @@ def test_footprint_conversion_selects_exact_key_and_always_normalizes(tmp_path: 
     )
     assert any(stage.stage is ConversionStage.FILTER for stage in result.stages)
     assert not list(destination.parent.glob(".kicad-convert-*"))
+
+
+def test_footprint_conversion_uses_import_cleanup_without_fab_generation(
+    tmp_path: Path,
+) -> None:
+    filters = RecordingFilterPipeline()
+    destination = tmp_path / "out" / "Target.kicad_mod"
+    request = AltiumAssetConversionRequest(
+        source_library=_source(tmp_path, ".PcbLib"),
+        source_key="Target",
+        destination=destination,
+        kind=AltiumAssetKind.FOOTPRINT,
+        existing_policy=ExistingDestinationPolicy.REPLACE,
+        run_cleanup_filters=True,
+    )
+
+    result = AltiumAssetConversionExecutor(
+        kicad_cli=tmp_path / "kicad-cli.exe",
+        runner=FakeKiCadRunner(),
+        filter_pipeline=filters,
+    ).convert(request)
+
+    assert result.success is True
+    assert filters.import_calls == 1
+    assert filters.full_calls == 0
 
 
 def test_missing_exact_footprint_key_preserves_existing_destination(tmp_path: Path) -> None:
