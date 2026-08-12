@@ -304,3 +304,23 @@ secondary = [
     "A repeated edit is byte stable",
     "Resource and ambiguity limits fail closed",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_026"
+file = "test_L1_026_rust_footprint_plotter_slice.py"
+name = "Rust Footprint Plotter-IR Slice"
+description = "Prove the first solid fp_line path from KiCad bytes to kicad.plotter_ir.a0"
+concerns = ["sexpr", "rust", "footprint", "plotter_ir", "wasm"]
+test_cases = "tests/parity/footprint_plotter_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Rust and Python emit the same established plotter-IR document for the promoted footprint subset"
+secondary = [
+    "The TypeSpec slice remains a strict valid subset of the established plotter-IR contract",
+    "The core reads selected forms without constructing a generic full-file tree",
+    "The WASM boundary accepts source bytes and returns bounded out-of-band JSON bytes",
+    "Unsupported geometry and all resource limits fail explicitly",
+]

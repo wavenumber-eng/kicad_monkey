@@ -8,6 +8,14 @@ use kicad_monkey_contracts::generated::footprint_edit_result::{
     Diagnostic as FootprintEditDiagnostic, DiagnosticPhase as FootprintEditDiagnosticPhase,
     FootprintEditResultA0, SourcePosition as FootprintEditSourcePosition,
 };
+use kicad_monkey_contracts::generated::footprint_plot_document::{
+    FootprintPlotDocumentA0, FootprintPlotRecord, PlotterCoordinateSpace, ThickSegmentOperation,
+};
+use kicad_monkey_contracts::generated::footprint_plot_request::FootprintPlotRequestA0;
+use kicad_monkey_contracts::generated::footprint_plot_result::{
+    Diagnostic as FootprintPlotDiagnostic, DiagnosticPhase as FootprintPlotDiagnosticPhase,
+    FootprintPlotResultA0, SourcePosition as FootprintPlotSourcePosition,
+};
 use kicad_monkey_contracts::generated::footprint_read_request::FootprintReadRequestA0;
 use kicad_monkey_contracts::generated::footprint_read_result::{
     Diagnostic as FootprintDiagnostic, DiagnosticPhase as FootprintDiagnosticPhase,
@@ -20,11 +28,12 @@ use kicad_monkey_contracts::generated::scan_result::{
 };
 use kicad_monkey_contracts::{ValidatedNode, validate_build_request};
 use kicad_monkey_core::{
-    Error, ErrorKind, ErrorPhase, FootprintLimits, FootprintView, ProjectionLimits, Selector, Sexp,
-    build, build_with_limit, parse_bytes, scan_reader_form_spans, utf8_text,
+    Error, ErrorKind, ErrorPhase, FootprintLimits, FootprintPlotLimits, FootprintView,
+    ProjectionLimits, Selector, Sexp, build, build_with_limit, footprint_plot_document,
+    parse_bytes, scan_reader_form_spans, utf8_text,
 };
 use std::collections::BTreeSet;
-use std::io::Cursor;
+use std::io::{Cursor, Write};
 use wasm_bindgen::prelude::*;
 
 /// Canonicalize one KiCad S-expression byte buffer for the WASM smoke gate.
@@ -81,6 +90,37 @@ pub fn edit_footprint_property(
     request_json: &[u8],
 ) -> Result<FootprintEditOutput, JsValue> {
     edit_footprint_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
+}
+
+/// Paired metadata and out-of-band plotter-IR JSON bytes.
+#[wasm_bindgen]
+pub struct FootprintPlotOutput {
+    result_json: Vec<u8>,
+    output_bytes: Vec<u8>,
+}
+
+#[wasm_bindgen]
+impl FootprintPlotOutput {
+    /// TypeSpec-governed `FootprintPlotResultA0` metadata bytes.
+    #[wasm_bindgen(js_name = resultJson)]
+    pub fn result_json(&self) -> Vec<u8> {
+        self.result_json.clone()
+    }
+
+    /// `kicad.plotter_ir.a0` JSON bytes; empty when diagnostics are present.
+    #[wasm_bindgen(js_name = outputBytes)]
+    pub fn output_bytes(&self) -> Vec<u8> {
+        self.output_bytes.clone()
+    }
+}
+
+/// Convert supported standalone-footprint geometry to plotter-IR JSON bytes.
+#[wasm_bindgen(js_name = plotFootprintIr)]
+pub fn plot_footprint_ir(
+    source: &[u8],
+    request_json: &[u8],
+) -> Result<FootprintPlotOutput, JsValue> {
+    plot_footprint_ir_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
 }
 
 fn read_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, String> {
@@ -189,6 +229,168 @@ fn edit_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<FootprintEd
         result_json: serde_json::to_vec(&result).map_err(|error| error.to_string())?,
         output_bytes,
     })
+}
+
+fn plot_footprint_ir_impl(
+    source: &[u8],
+    request_json: &[u8],
+) -> Result<FootprintPlotOutput, String> {
+    let request: FootprintPlotRequestA0 =
+        serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
+    validate_identity(
+        &request.type_,
+        &request.version,
+        "kicad_monkey.footprint_plot.request",
+    )?;
+    let max_source_bytes = decimal_usize(&request.max_source_bytes, "max_source_bytes")?;
+    let max_output_bytes = decimal_usize(&request.max_output_bytes, "max_output_bytes")?;
+    let operation = (|| {
+        let text = utf8_text(source)?;
+        footprint_plot_document(
+            text,
+            FootprintPlotLimits {
+                max_source_bytes,
+                max_depth: request.max_depth as usize,
+                max_operations: request.max_operations as usize,
+            },
+        )
+    })();
+    let (result, output_bytes) = match operation {
+        Ok(document) => {
+            let total_operations = u32::try_from(document.operations.len()).unwrap_or(u32::MAX);
+            let document_id = request.document_id.unwrap_or_else(|| document.name.clone());
+            let operations = document
+                .operations
+                .into_iter()
+                .enumerate()
+                .map(|(index, operation)| ThickSegmentOperation {
+                    end_x: operation.end_x,
+                    end_y: operation.end_y,
+                    index: u32::try_from(index).unwrap_or(u32::MAX),
+                    kind: "ThickSegment".to_owned(),
+                    layer: operation.layer,
+                    start_x: operation.start_x,
+                    start_y: operation.start_y,
+                    width_nm: operation.width_nm,
+                })
+                .collect();
+            let contract_document = FootprintPlotDocumentA0 {
+                coordinate_space: PlotterCoordinateSpace {
+                    unit: "nm".to_owned(),
+                    y_axis: "down".to_owned(),
+                },
+                document_id,
+                generator: document.generator,
+                generator_version: document.generator_version,
+                records: vec![FootprintPlotRecord {
+                    attr: document.attr,
+                    descr: document.descr,
+                    kind: "footprint".to_owned(),
+                    layer: document.layer,
+                    locked: document.locked,
+                    name: document.name.clone(),
+                    object_id: document.name,
+                    operation_count: total_operations,
+                    operations,
+                    placed: document.placed,
+                    tags: document.tags,
+                    uuid: document.uuid,
+                }],
+                schema: "kicad.plotter_ir.a0".to_owned(),
+                source_kind: "MOD".to_owned(),
+                source_path: request.source_path,
+                total_operations,
+                version: document.version,
+            };
+            match serialize_bounded(&contract_document, max_output_bytes)? {
+                Some(output) => (
+                    FootprintPlotResultA0 {
+                        diagnostics: Vec::new(),
+                        output_bytes: output.len().to_string(),
+                        total_operations,
+                        type_: "kicad_monkey.footprint_plot.result".to_owned(),
+                        version: "a0".to_owned(),
+                    },
+                    output,
+                ),
+                None => (
+                    FootprintPlotResultA0 {
+                        diagnostics: vec![footprint_plot_limit_diagnostic()],
+                        output_bytes: "0".to_owned(),
+                        total_operations: 0,
+                        type_: "kicad_monkey.footprint_plot.result".to_owned(),
+                        version: "a0".to_owned(),
+                    },
+                    Vec::new(),
+                ),
+            }
+        }
+        Err(error) => (
+            FootprintPlotResultA0 {
+                diagnostics: vec![footprint_plot_diagnostic(error)],
+                output_bytes: "0".to_owned(),
+                total_operations: 0,
+                type_: "kicad_monkey.footprint_plot.result".to_owned(),
+                version: "a0".to_owned(),
+            },
+            Vec::new(),
+        ),
+    };
+    Ok(FootprintPlotOutput {
+        result_json: serde_json::to_vec(&result).map_err(|error| error.to_string())?,
+        output_bytes,
+    })
+}
+
+fn decimal_usize(value: &str, field: &str) -> Result<usize, String> {
+    value
+        .parse::<usize>()
+        .map_err(|_| format!("{field} must be a platform-sized decimal string"))
+}
+
+fn serialize_bounded<T: serde::Serialize>(
+    value: &T,
+    max_output_bytes: usize,
+) -> Result<Option<Vec<u8>>, String> {
+    let mut writer = BoundedWriter::new(max_output_bytes);
+    match serde_json::to_writer(&mut writer, value) {
+        Ok(()) => Ok(Some(writer.bytes)),
+        Err(_) if writer.exceeded => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+struct BoundedWriter {
+    bytes: Vec<u8>,
+    max_bytes: usize,
+    exceeded: bool,
+}
+
+impl BoundedWriter {
+    fn new(max_bytes: usize) -> Self {
+        Self {
+            bytes: Vec::with_capacity(max_bytes.min(64 * 1024)),
+            max_bytes,
+            exceeded: false,
+        }
+    }
+}
+
+impl Write for BoundedWriter {
+    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+        if buffer.len() > self.max_bytes.saturating_sub(self.bytes.len()) {
+            self.exceeded = true;
+            return Err(std::io::Error::other(
+                "serialized output exceeds max_output_bytes",
+            ));
+        }
+        self.bytes.extend_from_slice(buffer);
+        Ok(buffer.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 fn footprint_limits(
@@ -355,6 +557,34 @@ fn footprint_edit_diagnostic(error: Error) -> FootprintEditDiagnostic {
     }
 }
 
+fn footprint_plot_diagnostic(error: Error) -> FootprintPlotDiagnostic {
+    FootprintPlotDiagnostic {
+        code: error_code(error.kind).to_owned(),
+        message: error.message.into_owned(),
+        phase: match error.phase {
+            ErrorPhase::Lex => FootprintPlotDiagnosticPhase::Lex,
+            ErrorPhase::Tree => FootprintPlotDiagnosticPhase::Tree,
+            ErrorPhase::Build => FootprintPlotDiagnosticPhase::Build,
+        },
+        position: error.position.map(|position| FootprintPlotSourcePosition {
+            column: position.column.to_string(),
+            line: position.line.to_string(),
+            offset: position.offset.to_string(),
+        }),
+        token: error.token,
+    }
+}
+
+fn footprint_plot_limit_diagnostic() -> FootprintPlotDiagnostic {
+    FootprintPlotDiagnostic {
+        code: "resource_limit".to_owned(),
+        message: "Plotter IR JSON exceeds max_output_bytes".to_owned(),
+        phase: FootprintPlotDiagnosticPhase::Build,
+        position: None,
+        token: None,
+    }
+}
+
 fn error_code(kind: ErrorKind) -> &'static str {
     match kind {
         ErrorKind::InvalidUtf8 => "invalid_utf8",
@@ -382,8 +612,8 @@ fn js_error(error: Error) -> JsValue {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_sexpr, build_sexpr_impl, canonicalize_sexpr, edit_footprint_property, read_footprint,
-        scan_sexpr, scan_sexpr_impl,
+        build_sexpr, build_sexpr_impl, canonicalize_sexpr, edit_footprint_property,
+        plot_footprint_ir, plot_footprint_ir_impl, read_footprint, scan_sexpr, scan_sexpr_impl,
     };
     use serde_json::Value;
     use wasm_bindgen_test::wasm_bindgen_test;
@@ -453,6 +683,49 @@ mod tests {
                 .expect_err("output limit")
                 .contains("max_output_bytes")
         );
+    }
+
+    #[test]
+    fn footprint_plotter_host_path_emits_established_ir_shape_and_limits_output() {
+        let vectors: Value = serde_json::from_str(include_str!(
+            "../../../../tests/parity/footprint_plotter_a0_vectors.json"
+        ))
+        .expect("shared footprint vectors");
+        let vector = &vectors["vectors"][0];
+        let source = vector["source"].as_str().expect("source").as_bytes();
+        let request = serde_json::to_vec(&serde_json::json!({
+            "type": "kicad_monkey.footprint_plot.request",
+            "version": "a0",
+            "source_path": vector["source_path"],
+            "document_id": vector["document_id"],
+            "max_source_bytes": "4096",
+            "max_output_bytes": "4096",
+            "max_depth": 32,
+            "max_operations": 8
+        }))
+        .expect("request JSON");
+        let output = plot_footprint_ir_impl(source, &request).expect("plotter operation");
+        let metadata: Value =
+            serde_json::from_slice(&output.result_json).expect("result metadata JSON");
+        let document: Value =
+            serde_json::from_slice(&output.output_bytes).expect("plotter document JSON");
+        assert_eq!(metadata["diagnostics"], serde_json::json!([]));
+        assert_eq!(metadata["total_operations"], 1);
+        assert_eq!(document, vector["expected"]);
+
+        let limited_request = std::str::from_utf8(&request)
+            .expect("request UTF-8")
+            .replace(
+                "\"max_output_bytes\":\"4096\"",
+                "\"max_output_bytes\":\"8\"",
+            );
+        let limited = plot_footprint_ir_impl(source, limited_request.as_bytes())
+            .expect("output limit belongs in result metadata");
+        let limited_metadata: Value =
+            serde_json::from_slice(&limited.result_json).expect("limited result JSON");
+        assert_eq!(limited_metadata["diagnostics"][0]["code"], "resource_limit");
+        assert_eq!(limited_metadata["diagnostics"][0]["phase"], "build");
+        assert!(limited.output_bytes.is_empty());
     }
 
     #[wasm_bindgen_test]
@@ -565,5 +838,19 @@ mod tests {
             "unexpected_token"
         );
         assert!(failed.output_bytes().is_empty());
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_footprint_plotter_returns_paired_ir_bytes() {
+        let source = br#"(footprint "Demo" (fp_line (start 0 0) (end 1 0) (stroke (width 0.1) (type solid)) (layer "F.SilkS")))"#;
+        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_operations":8}"#;
+        let output = plot_footprint_ir(source, request).expect("WASM plotter operation");
+        let metadata: Value =
+            serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
+        let document: Value =
+            serde_json::from_slice(&output.output_bytes()).expect("plotter document JSON");
+        assert_eq!(metadata["total_operations"], 1);
+        assert_eq!(document["document_id"], "Demo");
+        assert_eq!(document["records"][0]["operations"][0]["end_x"], 1_000_000);
     }
 }

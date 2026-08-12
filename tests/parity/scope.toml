@@ -131,3 +131,13 @@ python_symbols = ["KiCadFootprint", "Footprint"]
 rust_symbols = ["FootprintView", "FootprintProperty", "FootprintEdit", "kicad-monkey-wasm.readFootprint", "kicad-monkey-wasm.editFootprintProperty"]
 rack_cases = ["L0_046", "L0_049", "L1_025"]
 evidence = ["src/tsp/kicad_monkey/footprint-a0.tsp", "src/rs/kicad-monkey-core/src/footprint.rs", "src/rs/kicad-monkey-core/tests/footprint_typed_slice.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_025_rust_footprint_typed_slice.py", "docs/design/rust-footprint-phase2-slice.html"]
+
+[[surfaces]]
+id = "plotter_ir.footprint_solid_lines"
+disposition = "required"
+wasm = "required"
+status = "review_ready"
+python_symbols = ["KiCadFootprint", "footprint_to_ir", "fp_line_to_op"]
+rust_symbols = ["footprint_plot_document", "FootprintPlotDocument", "kicad-monkey-wasm.plotFootprintIr"]
+rack_cases = ["L0_046", "L0_049", "L1_026"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/footprint_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_026_rust_footprint_plotter_slice.py", "docs/design/rust-footprint-plotter-phase2-slice.html"]

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 2 Footprint Plotter-IR Slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 2 Footprint Plotter-IR Slice</h1>
+
+  <section>
+    <h2>Decision</h2>
+    <p>
+      The first bytes-to-plotter proof promotes standalone-footprint metadata
+      and solid <code>fp_line</code> geometry. It emits a strict TypeSpec-owned
+      subset of the established <code>kicad.plotter_ir.a0</code> document. This
+      slice proves the boundary and does not claim parity for dashed lines,
+      text, properties, arcs, circles, rectangles, polygons, pads, symbols, or
+      embedded PCB footprints.
+    </p>
+  </section>
+
+  <section>
+    <h2>Architecture</h2>
+    <ul>
+      <li>
+        <code>FootprintView</code> first enforces one standalone footprint root.
+        The plotter reader then selects only exact top-level metadata and
+        <code>fp_line</code> spans. It parses those small forms independently
+        and never constructs a generic tree for the complete file.
+      </li>
+      <li>
+        Coordinates cross the boundary as integer nanometres with Y down.
+        Conversion uses ties-to-even rounding and the same default, negative,
+        and minimum-pen-width rules as the Python path.
+      </li>
+      <li>
+        Output order follows source order. Unsupported stroke styles are
+        explicit model diagnostics; they are not silently rendered as solid.
+      </li>
+      <li>
+        Source bytes, nesting depth, operation count, and serialized output
+        bytes are caller bounded. The JSON writer stops at the output limit
+        instead of first allocating an unbounded result.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Contract And WASM Boundary</h2>
+    <p>
+      TypeSpec owns the request, result metadata, and initial document subset.
+      Generated Rust, Python, and TypeScript types stay deterministic. Browser
+      callers pass KiCad and request bytes separately to
+      <code>plotFootprintIr</code>. The operation returns result JSON and
+      plotter-IR JSON as separate byte arrays, avoiding base64 and preserving a
+      resource-limit diagnostic envelope.
+    </p>
+  </section>
+
+  <section>
+    <h2>Parity Evidence</h2>
+    <p>
+      Rack L1_026 makes Python and Rust consume one shared vector and requires
+      the exact same document. It validates that document against both the
+      strict generated slice schema and the established plotter-IR schema.
+      Rack L0_046 owns real Node-hosted WASM execution and Rust quality; L0_049
+      owns generated-language cleanliness.
+    </p>
+  </section>
+
+  <section>
+    <h2>Retained Work</h2>
+    <p>
+      Expand TypeSpec to the full plotter operation union, then promote dashed
+      lines, remaining footprint graphics, pads, text, and symbol output with
+      independent parity vectors. The Phase 2 boundary review remains gated on
+      that wider proof. Performance tuning remains profile-driven.
+    </p>
+  </section>
+</body>
+</html>

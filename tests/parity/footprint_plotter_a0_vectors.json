@@ -1,0 +1,49 @@
+{
+  "schema": "kicad_monkey.footprint_plotter_parity.a0",
+  "vectors": [
+    {
+      "id": "solid-line-with-metadata",
+      "source": "(footprint \"Demo\"\n  (version 20240108)\n  (generator pcbnew)\n  (generator_version \"8.0\")\n  (layer \"F.Cu\")\n  (uuid \"abc\")\n  (descr \"Example\")\n  (tags \"demo test\")\n  (attr smd through_hole)\n  (fp_line (start 0 0) (end 1.5 -2) (stroke (width 0.2) (type solid)) (layer \"F.SilkS\")))",
+      "source_path": "demo.kicad_mod",
+      "document_id": "fixture",
+      "expected": {
+        "schema": "kicad.plotter_ir.a0",
+        "source_kind": "MOD",
+        "total_operations": 1,
+        "records": [
+          {
+            "uuid": "abc",
+            "kind": "footprint",
+            "object_id": "Demo",
+            "operation_count": 1,
+            "operations": [
+              {
+                "kind": "ThickSegment",
+                "index": 0,
+                "start_x": 0,
+                "start_y": 0,
+                "end_x": 1500000,
+                "end_y": -2000000,
+                "width_nm": 200000,
+                "layer": "F.SilkS"
+              }
+            ],
+            "name": "Demo",
+            "layer": "F.Cu",
+            "locked": false,
+            "placed": false,
+            "descr": "Example",
+            "tags": "demo test",
+            "attr": ["smd", "through_hole"]
+          }
+        ],
+        "source_path": "demo.kicad_mod",
+        "document_id": "fixture",
+        "coordinate_space": {"unit": "nm", "y_axis": "down"},
+        "version": 20240108,
+        "generator": "pcbnew",
+        "generator_version": "8.0"
+      }
+    }
+  ]
+}

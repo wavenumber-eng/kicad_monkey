@@ -7,11 +7,15 @@
 #![forbid(unsafe_code)]
 
 pub mod footprint;
+pub mod plotter_ir;
 pub mod sexpr;
 pub mod sexpr_mutation;
 pub mod sexpr_projection;
 
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
+pub use plotter_ir::{
+    FootprintPlotDocument, FootprintPlotLimits, ThickSegment, footprint_plot_document,
+};
 
 pub use sexpr::{
     Error, ErrorKind, ErrorPhase, FormatOptions, Lexer, Limits, Patch, Position, Sexp, Token,

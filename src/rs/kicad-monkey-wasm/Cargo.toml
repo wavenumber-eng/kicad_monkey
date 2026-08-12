@@ -18,6 +18,7 @@ workspace = true
 [dependencies]
 kicad-monkey-contracts = { path = "../kicad-monkey-contracts" }
 kicad-monkey-core = { path = "../kicad-monkey-core" }
+serde.workspace = true
 serde_json.workspace = true
 wasm-bindgen.workspace = true
 
