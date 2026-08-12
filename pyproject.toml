@@ -16,6 +16,7 @@ dependencies = [
     "trimesh",
     "uharfbuzz",
     "zstandard",
+    "msgspec>=0.21.1",
 ]
 
 [project.optional-dependencies]
