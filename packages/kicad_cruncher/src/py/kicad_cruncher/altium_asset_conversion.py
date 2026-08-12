@@ -496,7 +496,7 @@ class AltiumAssetConversionExecutor:
 
     def _apply_cleanup_filters(self, kind: AltiumAssetKind, path: Path) -> None:
         if kind is AltiumAssetKind.FOOTPRINT:
-            self._filter_pipeline.filter_footprint(path, path)
+            self._filter_pipeline.filter_footprint_import(path, path)
         else:
             self._filter_pipeline.filter_symbol(path, path)
 

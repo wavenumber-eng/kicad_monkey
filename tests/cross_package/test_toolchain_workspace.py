@@ -9,6 +9,7 @@ from pathlib import Path
 
 import kicad_cruncher
 import kicad_monkey
+from kicad_cruncher import AltiumAssetConversionExecutor
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -51,6 +52,20 @@ def test_workspace_imports_both_packages_from_the_checkout() -> None:
 
     assert monkey_source.is_relative_to(REPOSITORY_ROOT / "src" / "py")
     assert cruncher_source.is_relative_to(CRUNCHER_ROOT / "src" / "py")
+
+
+def test_cruncher_accepts_monkey_import_cleanup_pipeline(
+    tmp_path: Path,
+) -> None:
+    """Cruncher's live Monkey dependency carries the import cleanup contract."""
+
+    pipeline = kicad_monkey.KiCadFilterPipeline()
+    AltiumAssetConversionExecutor(
+        kicad_cli=tmp_path / "kicad-cli",
+        filter_pipeline=pipeline,
+    )
+
+    assert callable(pipeline.filter_footprint_import)
 
 
 def test_workspace_cruncher_cli_uses_live_monkey() -> None:

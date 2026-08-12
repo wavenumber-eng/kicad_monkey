@@ -161,8 +161,18 @@ def _run_filters(
 class KiCadFilterPipeline:
     """File-level KiCad cleanup transforms for generated or migrated artifacts."""
 
+    def filter_footprint_import(self, path_in: str | Path, out_path: str | Path) -> None:
+        """Clean an imported footprint without synthesizing Fab geometry."""
+        _run_filters(Path(path_in), Path(out_path), [
+            fp_filter__clean_fab,
+            fp_filter__fix_zero_sized_pads,
+            fp_filter__fix_fp_text_font_to_arial,
+            fp_filter__remove_schematic_inherited_metadata,
+            fp_filter__normalized_embedded_model_naming,
+        ])
+
     def filter_footprint(self, path_in: str | Path, out_path: str | Path) -> None:
-        """Apply all footprint filters to a `.kicad_mod` file, in order."""
+        """Apply all footprint filters, including generated Fab geometry."""
         _run_filters(Path(path_in), Path(out_path), [
             fp_filter__clean_fab,
             fp_filter__fix_zero_sized_pads,
