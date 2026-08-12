@@ -34,7 +34,7 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Edit metadata; the resulting KiCad UTF-8 bytes are returned out of band.",
+    "description": "Edit metadata paired with a separate resulting KiCad UTF-8 byte buffer.",
     "title": "Footprint edit result a0",
     "$defs": {
         "Diagnostic": {

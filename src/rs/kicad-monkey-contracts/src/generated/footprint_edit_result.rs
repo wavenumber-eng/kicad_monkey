@@ -146,7 +146,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DiagnosticPhase {
         value.parse()
     }
 }
-///Edit metadata; the resulting KiCad UTF-8 bytes are returned out of band.
+///Edit metadata paired with a separate resulting KiCad UTF-8 byte buffer.
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -154,7 +154,7 @@ impl ::std::convert::TryFrom<::std::string::String> for DiagnosticPhase {
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.footprint_edit.result:a0",
 ///  "title": "Footprint edit result a0",
-///  "description": "Edit metadata; the resulting KiCad UTF-8 bytes are returned out of band.",
+///  "description": "Edit metadata paired with a separate resulting KiCad UTF-8 byte buffer.",
 ///  "type": "object",
 ///  "required": [
 ///    "changed",

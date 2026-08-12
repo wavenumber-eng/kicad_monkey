@@ -24,7 +24,11 @@
       <li>
         <code>FootprintView</code> borrows UTF-8 source and retains only the
         root, top-level property, and top-level pad spans selected by the Phase
-        1 scanner. It never constructs a generic full-file tree.
+        1 scanner. It requires exactly one top-level form and uses exact
+        <code>[footprint, property]</code> and
+        <code>[footprint, pad]</code> paths, so foreign roots and nested
+        metadata cannot contribute footprint facts. It never constructs a
+        generic full-file tree.
       </li>
       <li>
         Names and properties decode lazily from their exact form ranges. The
@@ -49,8 +53,11 @@
       Python <code>msgspec</code>, and TypeScript projections. Actual
       Node-hosted WASM tests call <code>readFootprint</code> and
       <code>editFootprintProperty</code> with separate byte buffers. The read
-      operation returns typed JSON; the edit returns KiCad UTF-8 bytes without
-      base64 encoding.
+      operation returns typed JSON. The edit returns a paired object containing
+      <code>FootprintEditResultA0</code> JSON and a separate KiCad UTF-8 output
+      buffer, without base64 encoding. No-op edits return the original bytes
+      with <code>changed=false</code>; model failures return diagnostics and an
+      empty output buffer.
     </p>
   </section>
 
@@ -58,8 +65,9 @@
     <h2>Test Ownership</h2>
     <p>
       Rack L1_025 owns typed read, source-preserving write, unknown-form
-      survival, semantic reparse, stable second edit, ambiguity, and resource
-      limits. Rack L0_046 owns actual WASM execution and Rust quality. Rack
+      survival, semantic reparse, stable second edit, exact root association,
+      absolute lazy-error positions, ambiguity, and resource limits. Rack
+      L0_046 owns actual WASM execution, paired edit metadata, and Rust quality. Rack
       L0_049 owns generated Python and TypeScript projection cleanliness.
     </p>
   </section>

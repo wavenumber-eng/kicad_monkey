@@ -51,53 +51,51 @@ pub struct FootprintView<'a> {
 impl<'a> FootprintView<'a> {
     /// Validate and index the top-level footprint, properties, and pads.
     pub fn parse(source: &'a str, limits: FootprintLimits) -> Result<Self, Error> {
-        let selected_limit = limits
+        let child_limit = limits
             .max_properties
             .checked_add(limits.max_pads)
-            .and_then(|value| value.checked_add(1))
             .ok_or_else(limit_error)?;
-        let selector = Selector {
-            heads: Some(BTreeSet::from([
-                "footprint".to_owned(),
-                "property".to_owned(),
-                "pad".to_owned(),
-            ])),
+        let projection_limits = |max_selected_forms| ProjectionLimits {
+            max_source_bytes: limits.max_source_bytes,
+            max_depth: limits.max_depth,
+            max_selected_forms,
+            ..ProjectionLimits::default()
+        };
+        let root_selector = Selector {
             min_depth: Some(0),
+            max_depth: Some(0),
+            ..Selector::default()
+        };
+        let roots = scan_form_spans_with_limits(source, &root_selector, projection_limits(2))?;
+        let [root] = roots.try_into().map_err(|_| {
+            source_error(
+                "Expected exactly one top-level footprint form",
+                Position::START,
+            )
+        })?;
+        if root.head.as_deref() != Some("footprint") {
+            return Err(source_error("Expected a footprint root", root.start));
+        }
+
+        let child_selector = Selector {
+            paths: Some(BTreeSet::from([
+                vec!["footprint".to_owned(), "property".to_owned()],
+                vec!["footprint".to_owned(), "pad".to_owned()],
+            ])),
+            min_depth: Some(1),
             max_depth: Some(1),
             ..Selector::default()
         };
-        let spans = scan_form_spans_with_limits(
-            source,
-            &selector,
-            ProjectionLimits {
-                max_source_bytes: limits.max_source_bytes,
-                max_depth: limits.max_depth,
-                max_selected_forms: selected_limit,
-                ..ProjectionLimits::default()
-            },
-        )?;
-
-        let mut root = None;
-        let mut root_count = 0usize;
+        let spans =
+            scan_form_spans_with_limits(source, &child_selector, projection_limits(child_limit))?;
         let mut properties = Vec::new();
         let mut pad_count = 0usize;
         for span in spans {
             match (span.depth, span.head.as_deref()) {
-                (0, Some("footprint")) => {
-                    root_count = root_count.saturating_add(1);
-                    if root.is_none() {
-                        root = Some(span);
-                    }
-                }
                 (1, Some("property")) => properties.push(span),
                 (1, Some("pad")) => pad_count = pad_count.saturating_add(1),
                 _ => {}
             }
-        }
-        let root =
-            root.ok_or_else(|| source_error("Expected one footprint root", Position::START))?;
-        if root_count != 1 {
-            return Err(source_error("Expected one footprint root", root.start));
         }
         if properties.len() > limits.max_properties || pad_count > limits.max_pads {
             return Err(limit_error());
@@ -113,15 +111,18 @@ impl<'a> FootprintView<'a> {
     /// Decode the footprint name without materializing its child forms.
     pub fn name(&self) -> Result<Cow<'a, str>, Error> {
         let text = self.root.text(self.source)?;
-        let mut lexer = Lexer::new(text);
-        expect_kind(
-            lexer.next(),
-            TokenKind::Left,
-            "Expected footprint opening parenthesis",
-        )?;
-        expect_atom(lexer.next(), "footprint", "Expected footprint root")?;
-        let token = next_value(lexer.next(), "Expected footprint name")?;
-        Ok(decoded(token))
+        (|| {
+            let mut lexer = Lexer::new(text);
+            expect_kind(
+                lexer.next(),
+                TokenKind::Left,
+                "Expected footprint opening parenthesis",
+            )?;
+            expect_atom(lexer.next(), "footprint", "Expected footprint root")?;
+            let token = next_value(lexer.next(), "Expected footprint name")?;
+            Ok(decoded(token))
+        })()
+        .map_err(|error| rebase_error(error, &self.root))
     }
 
     pub fn pad_count(&self) -> usize {
@@ -129,7 +130,7 @@ impl<'a> FootprintView<'a> {
     }
 
     /// Decode properties one at a time from their selected source ranges.
-    pub fn properties(&'a self) -> impl Iterator<Item = Result<FootprintProperty<'a>, Error>> + 'a {
+    pub fn properties(&self) -> impl Iterator<Item = Result<FootprintProperty<'a>, Error>> + '_ {
         self.properties
             .iter()
             .map(|span| property_from_span(self.source, span))
@@ -197,21 +198,44 @@ fn property_from_span<'a>(
     span: &FormSpan,
 ) -> Result<FootprintProperty<'a>, Error> {
     let text = span.text(source)?;
-    let mut lexer = Lexer::new(text);
-    expect_kind(
-        lexer.next(),
-        TokenKind::Left,
-        "Expected property opening parenthesis",
-    )?;
-    expect_atom(lexer.next(), "property", "Expected property form")?;
-    let name = next_value(lexer.next(), "Expected property name")?;
-    let value = next_value(lexer.next(), "Expected property value")?;
-    Ok(FootprintProperty {
-        name: decoded(name),
-        value: decoded(value.clone()),
-        value_range: (span.range.start + value.position.offset)
-            ..(span.range.start + value.position.offset + value.lexeme.len()),
-    })
+    (|| {
+        let mut lexer = Lexer::new(text);
+        expect_kind(
+            lexer.next(),
+            TokenKind::Left,
+            "Expected property opening parenthesis",
+        )?;
+        expect_atom(lexer.next(), "property", "Expected property form")?;
+        let name = next_value(lexer.next(), "Expected property name")?;
+        let value = next_value(lexer.next(), "Expected property value")?;
+        Ok(FootprintProperty {
+            name: decoded(name),
+            value: decoded(value.clone()),
+            value_range: (span.range.start + value.position.offset)
+                ..(span.range.start + value.position.offset + value.lexeme.len()),
+        })
+    })()
+    .map_err(|error| rebase_error(error, span))
+}
+
+fn rebase_error(mut error: Error, span: &FormSpan) -> Error {
+    if let Some(position) = error.position {
+        error.position = Some(Position {
+            offset: span.range.start.saturating_add(position.offset),
+            line: span
+                .start
+                .line
+                .saturating_add(position.line.saturating_sub(1)),
+            column: if position.line == 1 {
+                span.start
+                    .column
+                    .saturating_add(position.column.saturating_sub(1))
+            } else {
+                position.column
+            },
+        });
+    }
+    error
 }
 
 fn decoded(token: Token<'_>) -> Cow<'_, str> {

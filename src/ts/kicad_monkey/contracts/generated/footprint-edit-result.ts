@@ -3,7 +3,7 @@
 export type DiagnosticPhase = "lex" | "tree" | "build";
 
 /**
- * Edit metadata; the resulting KiCad UTF-8 bytes are returned out of band.
+ * Edit metadata paired with a separate resulting KiCad UTF-8 byte buffer.
  */
 export interface FootprintEditResultA0 {
   type: "kicad_monkey.footprint_edit.result";

@@ -55,7 +55,7 @@ model FootprintEditRequest {
   max_pads: uint32;
 }
 
-/** Edit metadata; the resulting KiCad UTF-8 bytes are returned out of band. */
+/** Edit metadata paired with a separate resulting KiCad UTF-8 byte buffer. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.footprint_edit.result:a0")
 @extension("title", "Footprint edit result a0")

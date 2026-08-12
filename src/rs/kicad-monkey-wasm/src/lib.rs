@@ -4,6 +4,10 @@
 
 use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;
 use kicad_monkey_contracts::generated::footprint_edit_request::FootprintEditRequestA0;
+use kicad_monkey_contracts::generated::footprint_edit_result::{
+    Diagnostic as FootprintEditDiagnostic, DiagnosticPhase as FootprintEditDiagnosticPhase,
+    FootprintEditResultA0, SourcePosition as FootprintEditSourcePosition,
+};
 use kicad_monkey_contracts::generated::footprint_read_request::FootprintReadRequestA0;
 use kicad_monkey_contracts::generated::footprint_read_result::{
     Diagnostic as FootprintDiagnostic, DiagnosticPhase as FootprintDiagnosticPhase,
@@ -48,9 +52,34 @@ pub fn read_footprint(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, JsV
     read_footprint_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
 }
 
-/// Apply one source-preserving property edit and return KiCad bytes.
+/// Paired metadata and out-of-band KiCad bytes from a footprint edit.
+#[wasm_bindgen]
+pub struct FootprintEditOutput {
+    result_json: Vec<u8>,
+    output_bytes: Vec<u8>,
+}
+
+#[wasm_bindgen]
+impl FootprintEditOutput {
+    /// TypeSpec-governed `FootprintEditResultA0` metadata bytes.
+    #[wasm_bindgen(js_name = resultJson)]
+    pub fn result_json(&self) -> Vec<u8> {
+        self.result_json.clone()
+    }
+
+    /// Edited KiCad UTF-8 bytes; empty when diagnostics are present.
+    #[wasm_bindgen(js_name = outputBytes)]
+    pub fn output_bytes(&self) -> Vec<u8> {
+        self.output_bytes.clone()
+    }
+}
+
+/// Apply one source-preserving property edit and return metadata plus KiCad bytes.
 #[wasm_bindgen(js_name = editFootprintProperty)]
-pub fn edit_footprint_property(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, JsValue> {
+pub fn edit_footprint_property(
+    source: &[u8],
+    request_json: &[u8],
+) -> Result<FootprintEditOutput, JsValue> {
     edit_footprint_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
 }
 
@@ -69,29 +98,31 @@ fn read_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, St
         request.max_properties,
         request.max_pads,
     )?;
-    let result = match utf8_text(source).and_then(|text| FootprintView::parse(text, limits)) {
-        Ok(view) => {
-            let name = view.name().map_err(|error| error.to_string())?.into_owned();
-            let properties = view
-                .properties()
-                .map(|property| {
-                    property.map(|value| FootprintContractProperty {
-                        name: value.name.into_owned(),
-                        value: value.value.into_owned(),
-                    })
+    let operation = (|| {
+        let text = utf8_text(source)?;
+        let view = FootprintView::parse(text, limits)?;
+        let name = view.name()?.into_owned();
+        let properties = view
+            .properties()
+            .map(|property| {
+                property.map(|value| FootprintContractProperty {
+                    name: value.name.into_owned(),
+                    value: value.value.into_owned(),
                 })
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|error| error.to_string())?;
-            FootprintReadResultA0 {
-                diagnostics: Vec::new(),
-                name,
-                pad_count: u32::try_from(view.pad_count()).unwrap_or(u32::MAX),
-                properties,
-                source_bytes: source.len().to_string(),
-                type_: "kicad_monkey.footprint_read.result".to_owned(),
-                version: "a0".to_owned(),
-            }
-        }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok((name, properties, view.pad_count()))
+    })();
+    let result = match operation {
+        Ok((name, properties, pad_count)) => FootprintReadResultA0 {
+            diagnostics: Vec::new(),
+            name,
+            pad_count: u32::try_from(pad_count).unwrap_or(u32::MAX),
+            properties,
+            source_bytes: source.len().to_string(),
+            type_: "kicad_monkey.footprint_read.result".to_owned(),
+            version: "a0".to_owned(),
+        },
         Err(error) => FootprintReadResultA0 {
             diagnostics: vec![footprint_diagnostic(error)],
             name: String::new(),
@@ -105,7 +136,7 @@ fn read_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, St
     serde_json::to_vec(&result).map_err(|error| error.to_string())
 }
 
-fn edit_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, String> {
+fn edit_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<FootprintEditOutput, String> {
     let request: FootprintEditRequestA0 =
         serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
     validate_identity(
@@ -120,15 +151,44 @@ fn edit_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, St
         request.max_properties,
         request.max_pads,
     )?;
-    let text = utf8_text(source).map_err(|error| error.to_string())?;
-    let view = FootprintView::parse(text, limits).map_err(|error| error.to_string())?;
-    view.set_property(
-        &request.property_name,
-        &request.value,
-        limits.max_output_bytes,
-    )
-    .map(|edit| edit.source.into_bytes())
-    .map_err(|error| error.to_string())
+    let operation = (|| {
+        let text = utf8_text(source)?;
+        let view = FootprintView::parse(text, limits)?;
+        view.set_property(
+            &request.property_name,
+            &request.value,
+            limits.max_output_bytes,
+        )
+    })();
+    let (result, output_bytes) = match operation {
+        Ok(edit) => {
+            let output = edit.source.into_bytes();
+            (
+                FootprintEditResultA0 {
+                    changed: edit.changed,
+                    diagnostics: Vec::new(),
+                    output_bytes: output.len().to_string(),
+                    type_: "kicad_monkey.footprint_edit.result".to_owned(),
+                    version: "a0".to_owned(),
+                },
+                output,
+            )
+        }
+        Err(error) => (
+            FootprintEditResultA0 {
+                changed: false,
+                diagnostics: vec![footprint_edit_diagnostic(error)],
+                output_bytes: "0".to_owned(),
+                type_: "kicad_monkey.footprint_edit.result".to_owned(),
+                version: "a0".to_owned(),
+            },
+            Vec::new(),
+        ),
+    };
+    Ok(FootprintEditOutput {
+        result_json: serde_json::to_vec(&result).map_err(|error| error.to_string())?,
+        output_bytes,
+    })
 }
 
 fn footprint_limits(
@@ -269,6 +329,24 @@ fn footprint_diagnostic(error: Error) -> FootprintDiagnostic {
             ErrorPhase::Build => FootprintDiagnosticPhase::Build,
         },
         position: error.position.map(|position| FootprintSourcePosition {
+            column: position.column.to_string(),
+            line: position.line.to_string(),
+            offset: position.offset.to_string(),
+        }),
+        token: error.token,
+    }
+}
+
+fn footprint_edit_diagnostic(error: Error) -> FootprintEditDiagnostic {
+    FootprintEditDiagnostic {
+        code: error_code(error.kind).to_owned(),
+        message: error.message.into_owned(),
+        phase: match error.phase {
+            ErrorPhase::Lex => FootprintEditDiagnosticPhase::Lex,
+            ErrorPhase::Tree => FootprintEditDiagnosticPhase::Tree,
+            ErrorPhase::Build => FootprintEditDiagnosticPhase::Build,
+        },
+        position: error.position.map(|position| FootprintEditSourcePosition {
             column: position.column.to_string(),
             line: position.line.to_string(),
             offset: position.offset.to_string(),
@@ -418,9 +496,74 @@ mod tests {
 
         let edit_request = br#"{"type":"kicad_monkey.footprint_edit.request","version":"a0","property_name":"Value","value":"new value","max_source_bytes":"1024","max_output_bytes":"1024","max_depth":32,"max_properties":8,"max_pads":8}"#;
         let edited = edit_footprint_property(source, edit_request).expect("typed footprint edit");
+        let metadata: Value =
+            serde_json::from_slice(&edited.result_json()).expect("edit result JSON");
+        let output = edited.output_bytes();
+        assert_eq!(metadata["changed"], true);
+        assert_eq!(metadata["output_bytes"], output.len().to_string());
+        assert_eq!(metadata["diagnostics"], serde_json::json!([]));
         assert_eq!(
-            edited,
+            output,
             br#"(footprint "Demo" (property "Value" "new value") (pad "1" smd rect) (future "keep"))"#
         );
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_footprint_lazy_errors_are_structured_and_absolute() {
+        let source = b"# prefix\n(footprint \"Demo\"\n  (property \"Value\")\n)";
+        let request = br#"{"type":"kicad_monkey.footprint_read.request","version":"a0","max_source_bytes":"1024","max_depth":32,"max_properties":8,"max_pads":8}"#;
+        let result = read_footprint(source, request).expect("model errors belong in result JSON");
+        let value: Value = serde_json::from_slice(&result).expect("result JSON");
+        assert_eq!(value["properties"], serde_json::json!([]));
+        assert_eq!(value["diagnostics"][0]["code"], "unexpected_token");
+        assert_eq!(value["diagnostics"][0]["position"]["line"], "3");
+        assert_eq!(value["diagnostics"][0]["position"]["column"], "20");
+        let property_start = source
+            .windows(b"(property".len())
+            .position(|window| window == b"(property")
+            .expect("property start");
+        let closing_offset = property_start
+            + source[property_start..]
+                .iter()
+                .position(|byte| *byte == b')')
+                .expect("property close");
+        assert_eq!(
+            value["diagnostics"][0]["position"]["offset"],
+            closing_offset.to_string()
+        );
+
+        let foreign = b"(metadata (property \"Value\" \"wrong\"))\n(footprint \"Demo\")";
+        let foreign_result =
+            read_footprint(foreign, request).expect("extra root belongs in result JSON");
+        let foreign_value: Value =
+            serde_json::from_slice(&foreign_result).expect("foreign result JSON");
+        assert_eq!(foreign_value["diagnostics"][0]["code"], "unexpected_token");
+        assert_eq!(foreign_value["properties"], serde_json::json!([]));
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_footprint_noop_edit_returns_metadata_and_original_bytes() {
+        let source = br#"(footprint "Demo" (property "Value" "same"))"#;
+        let request = br#"{"type":"kicad_monkey.footprint_edit.request","version":"a0","property_name":"Value","value":"same","max_source_bytes":"1024","max_output_bytes":"1024","max_depth":32,"max_properties":8,"max_pads":8}"#;
+        let edited = edit_footprint_property(source, request).expect("no-op edit");
+        let metadata: Value =
+            serde_json::from_slice(&edited.result_json()).expect("edit result JSON");
+        assert_eq!(metadata["changed"], false);
+        assert_eq!(metadata["output_bytes"], source.len().to_string());
+        assert_eq!(metadata["diagnostics"], serde_json::json!([]));
+        assert_eq!(edited.output_bytes(), source);
+
+        let missing_request = br#"{"type":"kicad_monkey.footprint_edit.request","version":"a0","property_name":"Missing","value":"same","max_source_bytes":"1024","max_output_bytes":"1024","max_depth":32,"max_properties":8,"max_pads":8}"#;
+        let failed = edit_footprint_property(source, missing_request)
+            .expect("model failures belong in edit metadata");
+        let failed_metadata: Value =
+            serde_json::from_slice(&failed.result_json()).expect("failed edit result JSON");
+        assert_eq!(failed_metadata["changed"], false);
+        assert_eq!(failed_metadata["output_bytes"], "0");
+        assert_eq!(
+            failed_metadata["diagnostics"][0]["code"],
+            "unexpected_token"
+        );
+        assert!(failed.output_bytes().is_empty());
     }
 }

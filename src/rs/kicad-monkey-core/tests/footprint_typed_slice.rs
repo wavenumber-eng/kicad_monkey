@@ -84,3 +84,54 @@ fn typed_view_and_writer_fail_closed_on_limits_and_ambiguous_properties() {
         ErrorKind::ResourceLimit
     );
 }
+
+#[test]
+fn typed_view_requires_one_footprint_root_and_ignores_nested_foreign_properties() {
+    let extra_root = format!("(metadata (property \"Value\" \"wrong\"))\n{SOURCE}");
+    assert_eq!(
+        FootprintView::parse(&extra_root, FootprintLimits::default())
+            .expect_err("extra top-level form")
+            .kind,
+        ErrorKind::UnexpectedToken
+    );
+
+    let foreign_child = SOURCE.replace(
+        "  (future_extension (nested \"must survive\"))",
+        "  (metadata (property \"Value\" \"wrong\"))\n  (future_extension (nested \"must survive\"))",
+    );
+    let view =
+        FootprintView::parse(&foreign_child, FootprintLimits::default()).expect("typed view");
+    let properties = view
+        .properties()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("properties");
+    assert_eq!(properties.len(), 2);
+    let edit = view
+        .set_property("Value", "right", usize::MAX)
+        .expect("focused edit");
+    assert!(
+        edit.source
+            .contains("(metadata (property \"Value\" \"wrong\"))")
+    );
+    assert!(edit.source.contains("(property \"Value\" \"right\""));
+}
+
+#[test]
+fn lazy_property_errors_report_absolute_source_positions() {
+    let source = "# prefix\n(footprint \"Demo\"\n  (property \"Value\")\n)\n";
+    let view = FootprintView::parse(source, FootprintLimits::default()).expect("typed view");
+    let error = view
+        .properties()
+        .next()
+        .expect("property")
+        .expect_err("missing value");
+    let property_start = source.find("(property").expect("property offset");
+    let closing_offset = property_start
+        + source[property_start..]
+            .find(')')
+            .expect("property closing offset");
+    let position = error.position.expect("absolute position");
+    assert_eq!(position.offset, closing_offset);
+    assert_eq!(position.line, 3);
+    assert_eq!(position.column, 20);
+}

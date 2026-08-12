@@ -299,6 +299,8 @@ primary = "A footprint can be read and edited without a generic full-file tree o
 secondary = [
     "Name, property, and pad facts are read from selected source spans",
     "Focused property edits preserve untouched bytes and reparse semantically",
+    "Only children of the single footprint root contribute typed facts",
+    "Lazy diagnostics use absolute source positions",
     "A repeated edit is byte stable",
     "Resource and ambiguity limits fail closed",
 ]
