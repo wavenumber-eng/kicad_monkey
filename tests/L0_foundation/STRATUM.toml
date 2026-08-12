@@ -81,3 +81,68 @@ module = "kicad_monkey.kicad_stroke_font"
 
 [subtests.objectives]
 primary = "The complete U+0020 through U+2BFF Newstroke range decodes without changing legacy glyphs"
+
+[[subtests]]
+id = "L0_044"
+file = "test_L0_044_rust_sexpr_core.py"
+name = "Rust L0 Workspace Tests"
+description = "Run the locked Rust core, generated-contract, and adapter unit tests through Rack"
+concerns = ["sexpr", "contracts", "wasm"]
+test_case_type = "algorithmic"
+
+[subtests.objectives]
+primary = "All native Rust L0 workspace tests pass under Rack"
+secondary = [
+    "Lexer tokens borrow exact source ranges and report byte offsets",
+    "Parse -> build -> parse is semantically equal",
+    "Deterministic output is stable on the second write",
+    "Malformed and resource-limited input fails with structured diagnostics",
+]
+
+[[subtests]]
+id = "L0_045"
+file = "test_L0_045_sexpr_cross_language_vectors.py"
+name = "Cross-Language S-Expression Vectors"
+description = "Require Python and Rust to consume one language-neutral parser/build vector set"
+concerns = ["sexpr"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Python and Rust agree on canonical build output and diagnostic phase for the first parser slice"
+secondary = [
+    "Stable case IDs identify every parity vector",
+    "Successful cases are semantically stable on the second write",
+    "Failure cases preserve lex/tree phase and message family",
+]
+
+[[subtests]]
+id = "L0_046"
+file = "test_L0_046_rust_l0_signoff.py"
+name = "Rust L0 Signoff"
+description = "Use Rack to close parity registry, TypeSpec generation, Rust quality, and real WASM smoke gates"
+concerns = ["sexpr", "contracts", "wasm"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Every required Rust L0 surface has evidence and all generated/native/WASM checks are clean"
+secondary = [
+    "TypeSpec JSON Schema and generated Rust projections are reproducible",
+    "Cargo formatting, checking, and Clippy pass with warnings denied",
+    "The WASM target executes a byte-input/byte-output smoke test under Node",
+]
+
+[[subtests]]
+id = "L0_047"
+file = "test_L0_047_rust_sexpr_performance.py"
+name = "Rust S-Expression Performance Evidence"
+description = "Measure release Rust and Python on one frozen synthetic parser workload"
+concerns = ["sexpr", "performance"]
+test_case_type = "benchmark"
+
+[subtests.objectives]
+primary = "Rack emits reproducible scan, parse, and build evidence before threshold ratification"
+secondary = [
+    "Python and Rust process byte-identical generated input",
+    "Selected form count and deterministic output size agree",
+    "Thresholds remain explicitly pending the L0 architecture review",
+]

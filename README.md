@@ -238,6 +238,21 @@ uv run --extra test python tests/rack.py run L0_foundation
 uv run --extra test python tests/rack.py run L99_signoff
 ```
 
+The parser-first Rust port uses the same Rack orchestrator. Its L0 gate is
+split into locked Cargo tests, shared Python/Rust vectors, generated-contract
+and executable WASM signoff, and comparative performance evidence:
+
+```powershell
+uv run python tests/rack.py run L0_044
+uv run python tests/rack.py run L0_045
+uv run python tests/rack.py run L0_046
+uv run python tests/rack.py run L0_047
+```
+
+Run `npm ci` once to install the pinned TypeSpec toolchain. The executable WASM
+test also requires the lock-compatible runner documented in
+`docs/design/rust-standard.html`.
+
 `L99_signoff` checks release metadata, changelog coverage, public API contract
 resolution, API design-doc ownership, Rack test ownership, corpus archive
 hygiene, and the current ruff/pyright ratchet state.

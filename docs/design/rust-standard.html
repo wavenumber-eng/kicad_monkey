@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>KiCad Monkey Rust Workspace Standard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>KiCad Monkey Rust Workspace Standard</h1>
+  <p>
+    This proposal records the provisional Rust hygiene boundary for the
+    parser-first port tracked by GitHub issue 59. It is reviewed again at the
+    parser, first typed boundary, and downstream cutover gates.
+  </p>
+
+  <section>
+    <h2>Workspace And Toolchain</h2>
+    <ul>
+      <li>Rust source lives under <code>src/rs/</code> in the polyglot repository.</li>
+      <li>The root Cargo workspace uses edition 2024 and resolver 3.</li>
+      <li>Workspace metadata, lint policy, and release profiles are centralized.</li>
+      <li><code>Cargo.lock</code> is committed and signoff commands use <code>--locked</code>.</li>
+      <li><code>rust-toolchain.toml</code> requests stable Rust with rustfmt and Clippy.</li>
+    </ul>
+    <p>
+      The bootstrap MSRV is Rust 1.95 because it is the available reviewed
+      local toolchain. The downstream Alexandria workspace currently declares
+      Rust 1.96. This mismatch is provisional and must be resolved at or before
+      the Phase 2 boundary review; it is not an implied long-term MSRV policy.
+    </p>
+  </section>
+
+  <section>
+    <h2>L0 Crate Boundaries</h2>
+    <ul>
+      <li><code>kicad-monkey-core</code> owns dependency-free KiCad syntax, structural indexing, selection, mutation, and write-back.</li>
+      <li><code>kicad-monkey-contracts</code> contains committed Rust types generated from TypeSpec JSON Schema through Typify.</li>
+      <li><code>kicad-monkey-wasm</code> is a thin browser adapter over the core and generated contracts.</li>
+      <li><code>kicad-monkey-codegen</code> is build tooling only and never enters parser or browser runtime dependency graphs.</li>
+    </ul>
+    <p>
+      Whole-buffer scans borrow UTF-8 source. Native stream scans retain only
+      their structural stack and selected metadata, then use exact byte ranges
+      to seek and read requested forms. A reusable structural index owns form
+      metadata but never owns or duplicates the source file.
+    </p>
+  </section>
+
+  <section>
+    <h2>Safety Boundary</h2>
+    <p>
+      Package-owned crates set <code>unsafe_code = "forbid"</code>. The current
+      parser has no unsafe exception. A future exception is allowed only when
+      profiling or a required external ABI proves that a safe design cannot
+      meet the contract. It requires an ADR, a minimal isolated crate or module,
+      documented invariants, focused tests, and architecture-review approval.
+    </p>
+    <p>
+      Untrusted KiCad input must return structured errors rather than panic.
+      Parsers enforce explicit source, depth, node, decoded-string, and output
+      limits. The core does not depend on ambient filesystem or process state.
+    </p>
+  </section>
+
+  <section>
+    <h2>Dependency Policy</h2>
+    <p>
+      Prefer package-owned implementations for small, format-specific behavior
+      when the code is easier to audit, test, and maintain than another public
+      dependency. Do not recreate mature general-purpose standards or
+      infrastructure merely to avoid dependencies.
+    </p>
+    <ul>
+      <li>The first S-expression core remains dependency-free.</li>
+      <li>Serde is the expected default for generated contract serialization.</li>
+      <li>Rustybuzz and a reviewed outline library are valid candidates for complex font behavior.</li>
+      <li>Geometer remains the external process/WASM boundary for promoted generic planar kernels.</li>
+      <li>Third-party APIs stay behind package-owned types and operation contracts.</li>
+    </ul>
+    <p>
+      Each dependency is reviewed for behavior parity, maintenance, license,
+      supply-chain posture, native/WASM support, compile cost, binary size, and
+      performance. Crate selection remains reversible until its parity slice is
+      promoted.
+    </p>
+  </section>
+
+  <section>
+    <h2>Contract Authority</h2>
+    <p>
+      Authored contracts live under <code>src/tsp/kicad_monkey/</code>.
+      TypeSpec emits closed JSON Schemas under
+      <code>contracts/generated/schema/</code>; the package code generator then
+      produces strict Serde Rust types. Generated files are committed for
+      consumers and are checked for drift through Rack.
+    </p>
+    <p>
+      Large KiCad inputs and outputs are separate byte buffers, not base64 or
+      JSON arrays. Operation envelopes contain selectors, limits, spans, and
+      diagnostics. This is the required shape for native, Python, and browser
+      adapters as those boundaries are promoted.
+    </p>
+  </section>
+
+  <section>
+    <h2>Required Validation</h2>
+    <pre><code>cargo fmt --all -- --check
+cargo check --workspace --all-targets --locked
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --locked
+cargo test --doc --workspace --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+npm run check:typespec
+cargo run --package kicad-monkey-codegen --locked -- --check
+cargo test --package kicad-monkey-wasm --target wasm32-unknown-unknown --locked</code></pre>
+    <p>
+      Bootstrap the browser test host with <code>npm ci</code>,
+      <code>rustup target add wasm32-unknown-unknown</code>, and the
+      lock-compatible
+      <code>cargo install wasm-bindgen-cli --version 0.2.127 --locked</code>.
+      CI must install these tools explicitly; a missing runner is a failed
+      promoted gate, not a skipped browser test.
+    </p>
+    <p>
+      Package tests remain orchestrated by Rack. <code>L0_044</code> owns the
+      locked native Rust suite, <code>L0_045</code> owns shared Python/Rust
+      vectors, <code>L0_046</code> owns parity-registry, generation, quality,
+      and executable WASM checks, and <code>L0_047</code> records comparative
+      release-mode measurements. Performance thresholds are ratified by the L0
+      parser architecture review rather than inferred from one workstation.
+    </p>
+  </section>
+
+  <section>
+    <h2>Publication</h2>
+    <p>
+      Workspace crates are unpublished during incubation. Internal Cargo
+      references are selected before downstream cutover. Public Cargo registry
+      publication occurs only after API, MSRV, license, documentation, parity,
+      and package-content review.
+    </p>
+  </section>
+</body>
+</html>

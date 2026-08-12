@@ -1,0 +1,10 @@
+emit:
+  - "@typespec/json-schema"
+
+options:
+  "@typespec/json-schema":
+    emitter-output-dir: "{project-root}/contracts/generated/schema"
+    file-type: json
+    seal-object-schemas: true
+
+warn-as-error: true

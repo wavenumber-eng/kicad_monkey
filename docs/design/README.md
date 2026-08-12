@@ -19,6 +19,10 @@ sections live under `api/`, and all design HTML uses `styles.css`.
 
 Current design notes:
 
+- `rust-standard.html` - provisional Rust workspace, safety, dependency, and
+  review policy for the native/WASM port.
+- `rust-sexpr-l0-review.html` - accepted Rust S-expression foundation review,
+  evidence, corrections, and retained Phase 1 promotion gates.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

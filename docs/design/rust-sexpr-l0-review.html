@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust S-Expression L0 Architecture Review</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust S-Expression L0 Architecture Review</h1>
+
+  <section>
+    <h2>Decision</h2>
+    <p>
+      The Rust L0 S-expression foundation is approved for the next parser-only
+      corpus phase. Typed KiCad source-model expansion remains gated on the L1
+      semantic pass-through evidence and the remaining Phase 1 promotion items
+      below.
+    </p>
+  </section>
+
+  <section>
+    <h2>Reviewed Boundary</h2>
+    <ul>
+      <li>Borrowed byte-offset lexer and bounded generic tree parsing.</li>
+      <li>Deterministic build and generic token-preserving formatting.</li>
+      <li>Structural spans, path/head/depth selectors, pruning, and reusable indexes.</li>
+      <li>Chunk-safe native stream scans and seeked partial form reads.</li>
+      <li>Generic mutation and source-preserving patch primitives.</li>
+      <li>TypeSpec-governed scan/build envelopes and generated strict Rust DTOs.</li>
+      <li>Native and executable browser-WASM byte operation paths.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Review Corrections</h2>
+    <p>The review found and closed these implementation issues before approval:</p>
+    <ul>
+      <li>Reusable indexed selection changed from quadratic ancestor searches to bounded path checks.</li>
+      <li>Inline quote atoms now retain Python/KiCad builder behavior and have a shared parity vector.</li>
+      <li>Streaming scans now match Unicode-whitespace and whole-line-comment behavior across chunk boundaries.</li>
+      <li>Public partial reads reject inverted ranges instead of converting them to empty reads.</li>
+      <li>Decoded-string limits are enforced while decoding without first allocating the complete decoded payload.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Evidence</h2>
+    <ul>
+      <li>Rack <code>L0_foundation</code>: 47 of 47 subtests and 1,445 tests pass.</li>
+      <li>Rust property evidence: 2,000 generated semantic round trips and 1,000 malformed variants.</li>
+      <li>Streaming equivalence: every chunk size from 1 through 17 over CRLF, Unicode, comments, escapes, and quoted delimiters.</li>
+      <li>WASM: a real Node-hosted <code>wasm-bindgen-test</code> executes bytes in to canonical bytes out.</li>
+      <li>The unoptimized-by-<code>wasm-opt</code> release WASM artifact is approximately 258 KiB.</li>
+      <li>On the frozen 2,108,903-byte synthetic PCB workload, repeated observed Rust speedups were approximately 22x scan, 32-35x parse, and 9-11x build versus Python.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Promotion Gates Retained</h2>
+    <ol>
+      <li>
+        Ratify performance floors only after package-corpus small/medium/large
+        cases add peak-memory, streaming-select, source-patch, and WASM transfer
+        measurements. The current synthetic benchmark is evidence, not a
+        release threshold.
+      </li>
+      <li>
+        Add the handwritten semantic validator for the TypeSpec <code>Node</code>
+        union before exposing the build-operation envelope. The generated shape
+        intentionally cannot express all kind/payload exclusivity rules.
+      </li>
+      <li>
+        Generate Python and TypeScript projections from the same TypeSpec
+        authority before those language adapters become public. No handwritten
+        competing DTO is permitted in the interim.
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Phase 1 Performance Watchlist</h2>
+    <ul>
+      <li>
+        Both structural scanners preserve source ordering with a final selected
+        span sort. Selection is therefore <code>O(n + k log k)</code>, where
+        <code>k</code> is the selected-form count. Corpus measurements must
+        report this cost separately for select-everything workloads before the
+        sort is removed or replaced.
+      </li>
+      <li>
+        Frames clone complete paths and stored spans own their paths, so memory
+        follows the sum of selected path depths rather than only form count.
+        Deep corpus files must be included in peak-memory evidence.
+      </li>
+      <li>
+        Path-restricted scans compare eligible forms against every requested
+        path. Workloads with many paths belong in the corpus gate. If profiling
+        shows material cost, parent-indexed spans plus interned head IDs or a
+        selector trie are the preferred investigation directions.
+      </li>
+    </ul>
+    <p>
+      These observations do not block the L1 parser-only corpus phase. The
+      configured depth and resource bounds remain required while the costs are
+      measured.
+    </p>
+  </section>
+
+  <section>
+    <h2>Next Authorized Slice</h2>
+    <p>
+      Run the parser-only L1 corpus gate across promoted KiCad suffixes. Require
+      parse, deterministic build, reparse, semantic equality, and byte-stable
+      second output. This review does not authorize typed PCB, schematic,
+      rendering, or downstream <code>pcb_a0</code> expansion yet.
+    </p>
+  </section>
+</body>
+</html>

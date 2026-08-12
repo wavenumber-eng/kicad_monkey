@@ -8,6 +8,8 @@
 __pycache__/
 build/
 dist/
+target/
+node_modules/
 *.egg-info/
 rack_results/
 tests/**/output/

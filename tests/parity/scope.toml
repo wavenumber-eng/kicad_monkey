@@ -1,0 +1,113 @@
+schema = "kicad_monkey.parity_scope.a0"
+milestone = "rust_l0_foundation"
+review_state = "ready"
+
+[[surfaces]]
+id = "sexpr.lex_parse"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["lex_sexp", "parse_sexp", "KicadSexprLexer", "KicadSexprParser"]
+rust_symbols = ["Lexer", "parse", "parse_bytes", "parse_with_limits"]
+rack_cases = ["L0_044", "L0_045", "L0_046"]
+evidence = ["tests/parity/sexpr_l0_vectors.a0.json", "src/rs/kicad-monkey-core/tests/sexpr_foundation.rs"]
+
+[[surfaces]]
+id = "sexpr.diagnostics_spans"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["SexprError", "SexpSpan", "parse_sexp_with_spans"]
+rust_symbols = ["Error", "Position", "FormSpan", "StructuralIndex"]
+rack_cases = ["L0_044", "L0_046"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_l0_completion.rs"]
+
+[[surfaces]]
+id = "sexpr.selection_pruning"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["SexpSelector", "iter_sexp_form_spans", "parse_sexp_span"]
+rust_symbols = ["Selector", "scan_form_spans", "parse_form", "StructuralIndex.select"]
+rack_cases = ["L0_044", "L0_046"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_l0_completion.rs"]
+
+[[surfaces]]
+id = "sexpr.streaming_partial_reads"
+disposition = "required"
+wasm = "native_io_not_applicable"
+status = "closed"
+python_symbols = ["iter_sexp_file_form_spans"]
+rust_symbols = ["scan_reader_form_spans", "read_form_bytes"]
+rack_cases = ["L0_044", "L0_046"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_l0_completion.rs"]
+
+[[surfaces]]
+id = "sexpr.build_format"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["build_sexp", "format_sexp"]
+rust_symbols = ["build", "format"]
+rack_cases = ["L0_044", "L0_045", "L0_046"]
+evidence = ["tests/parity/sexpr_l0_vectors.a0.json", "src/rs/kicad-monkey-core/tests/sexpr_l0_completion.rs"]
+
+[[surfaces]]
+id = "sexpr.source_preserving_write"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["source-model focused write behavior"]
+rust_symbols = ["Patch", "apply_patches", "apply_patches_with_limit"]
+rack_cases = ["L0_044"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_foundation.rs"]
+
+[[surfaces]]
+id = "sexpr.mutation"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["replace_element", "remove_element", "remove_all_elements", "set_value", "walk", "find_path", "transform_descendants"]
+rust_symbols = ["replace_element", "remove_element", "remove_all_elements", "set_value", "walk", "find_path", "transform_descendants"]
+rack_cases = ["L0_044"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_l0_completion.rs"]
+
+[[surfaces]]
+id = "sexpr.properties_limits"
+disposition = "required"
+wasm = "required"
+status = "closed"
+python_symbols = ["roundtrip_sexp_text"]
+rust_symbols = ["Limits", "ProjectionLimits"]
+rack_cases = ["L0_044"]
+evidence = ["src/rs/kicad-monkey-core/tests/sexpr_properties.rs"]
+
+[[surfaces]]
+id = "sexpr.operation_contracts"
+disposition = "replaced_by_contract"
+wasm = "required"
+status = "closed"
+python_symbols = []
+rust_symbols = ["kicad-monkey-contracts", "kicad-monkey-wasm.scanSexpr"]
+rack_cases = ["L0_046"]
+evidence = ["src/tsp/kicad_monkey/sexpr-a0.tsp", "contracts/generated/schema/ScanRequest.json", "contracts/generated/schema/ScanResult.json", "src/rs/kicad-monkey-contracts/src/generated/mod.rs"]
+
+[[surfaces]]
+id = "sexpr.build_operation_contract"
+disposition = "replaced_by_contract"
+wasm = "required"
+status = "review_ready"
+python_symbols = []
+rust_symbols = ["kicad-monkey-contracts.generated.build_request", "kicad-monkey-contracts.generated.build_result"]
+rack_cases = ["L0_046"]
+evidence = ["src/tsp/kicad_monkey/sexpr-a0.tsp", "contracts/generated/schema/BuildRequest.json", "contracts/generated/schema/BuildResult.json"]
+
+[[surfaces]]
+id = "sexpr.performance"
+disposition = "required"
+wasm = "measurement_deferred_to_boundary_review"
+status = "review_ready"
+python_symbols = ["parse_sexp", "build_sexp", "iter_sexp_form_spans"]
+rust_symbols = ["parse", "build", "scan_form_spans"]
+rack_cases = ["L0_047"]
+evidence = ["tests/performance/sexpr_l0.toml", "src/rs/kicad-monkey-core/examples/sexpr_l0_benchmark.rs"]

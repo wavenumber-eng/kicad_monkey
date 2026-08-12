@@ -61,14 +61,20 @@ build-backend = "hatchling.build"
 
 [tool.wn_dev_std]
 standard_version = "2026.7.18"
-enabled_scopes = ["repo", "ci", "docs.design", "docs.links", "docs.plans"]
+enabled_scopes = ["repo", "language", "ci", "docs.design", "docs.links", "docs.plans"]
 profile = "python-package"
 distribution = "pypi"
-languages = ["python"]
+languages = ["python", "rust"]
 strict = true
 
 [tool.wn_dev_std.pr_hygiene]
 enabled = true
+
+[tool.wn_dev_std.rust]
+source_root = "src/rs"
+
+[tool.wn_dev_std.documentation.standard_docs]
+rust = "docs/design/rust-standard.html"
 
 [tool.uv]
 package = true

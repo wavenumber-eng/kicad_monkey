@@ -1,0 +1,25 @@
+[package]
+name = "kicad-monkey-wasm"
+description = "Browser WASM adapters for KiCad Monkey byte operations"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+kicad-monkey-contracts = { path = "../kicad-monkey-contracts" }
+kicad-monkey-core = { path = "../kicad-monkey-core" }
+serde_json.workspace = true
+wasm-bindgen.workspace = true
+
+[dev-dependencies]
+wasm-bindgen-test.workspace = true
