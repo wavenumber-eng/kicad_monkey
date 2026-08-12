@@ -701,7 +701,7 @@ requires-dist = [
     { name = "trimesh" },
     { name = "twine", marker = "extra == 'test'", specifier = ">=5.0.0" },
     { name = "uharfbuzz" },
-    { name = "wn-dev-std", marker = "python_full_version >= '3.12' and extra == 'test'", specifier = ">=2026.7.18" },
+    { name = "wn-dev-std", marker = "python_full_version >= '3.12' and extra == 'test'", specifier = ">=2026.8.11" },
     { name = "wn-rack", marker = "extra == 'test'", specifier = ">=1.1.0" },
     { name = "zstandard" },
 ]
@@ -719,7 +719,7 @@ dev = [
     { name = "ruff", specifier = ">=0.8.0" },
     { name = "tomli-w", specifier = ">=1.2.0" },
     { name = "twine", specifier = ">=5.0.0" },
-    { name = "wn-dev-std", marker = "python_full_version >= '3.12'", specifier = ">=2026.7.18" },
+    { name = "wn-dev-std", marker = "python_full_version >= '3.12'", specifier = ">=2026.8.11" },
     { name = "wn-rack", specifier = ">=1.1.0" },
 ]
 
@@ -1587,15 +1587,15 @@ wheels = [
 
 [[package]]
 name = "wn-dev-std"
-version = "2026.7.18"
+version = "2026.8.11"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonschema" },
     { name = "wn-rack", version = "2026.7.16", source = { registry = "https://pypi.org/simple" } },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/da/f4/d91ef7c9572dbd4da9161839c131a39e3a553104e78724b299d011a3b4d5/wn_dev_std-2026.7.18.tar.gz", hash = "sha256:ff7bb0f88e77af49dd38d7748d9ddad1df61c20f2fa349cb8be4887aa6fe4392", size = 246661, upload-time = "2026-07-19T02:13:47.998Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b4/a1/a3443aeac1c67af9108a28aabd356187d5143650d6e4088609f388bd97a2/wn_dev_std-2026.8.11.tar.gz", hash = "sha256:d3c7939c830f5ba9298fb68f2de135a39219fffd1e9345dcb4bd76df48dfdb38", size = 247306, upload-time = "2026-08-12T00:57:04.298Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/19/a4/baa526ba2aed3fd15fc9c4bae35c0123b2d5192b18f607ed9ad191823cbe/wn_dev_std-2026.7.18-py3-none-any.whl", hash = "sha256:d9edfb060f1503e2ee2d74fb1756986722e303c44f49a7f8c7cd86fa20132c16", size = 160368, upload-time = "2026-07-19T02:13:46.649Z" },
+    { url = "https://files.pythonhosted.org/packages/02/4e/05f4bea6e0011834c82ef1d5c7f8faac25fbdd71403e48e7a252c60cd1d7/wn_dev_std-2026.8.11-py3-none-any.whl", hash = "sha256:09098cc007bcde16453ef7ff7c72425d17d964b46cca3ecf6fcd540c57bd9595", size = 160371, upload-time = "2026-08-12T00:57:03.085Z" },
 ]
 
 [[package]]

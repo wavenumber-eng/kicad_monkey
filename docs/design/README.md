@@ -22,9 +22,9 @@ Current design notes:
 - `rust-standard.html` - provisional Rust workspace, safety, dependency, and
   review policy for the native/WASM port.
 - `rust-sexpr-l0-review.html` - accepted Rust S-expression foundation review,
-  evidence, corrections, and retained Phase 1 promotion gates.
+  evidence, corrections, and retained parser-promotion gates.
 - `rust-sexpr-l1-review.html` - accepted parser-only corpus parity review and
-  the remaining performance and memory gates before Phase 1 promotion.
+  the remaining performance and memory gates before typed-reader expansion.
 - `rust-sexpr-phase1-measurement.html` - accepted named-corpus release timing
   and peak-memory method, Windows evidence, and retained Linux ratification.
 - `rust-sexpr-phase1-promotion.html` - accepted parser correctness, safety,
