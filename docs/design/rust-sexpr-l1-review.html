@@ -113,18 +113,29 @@
         required by the L0 review.
       </li>
       <li>
-        Keep the build-operation envelope private until its handwritten
-        TypeSpec-union semantic validator is present.
+        Generate and verify Python and TypeScript projections from the same
+        TypeSpec authority before those adapters become public.
       </li>
     </ol>
   </section>
 
   <section>
+    <h2>Gate Closed Since This Review</h2>
+    <p>
+      The build-operation envelope was initially private pending a handwritten
+      TypeSpec-union semantic validator. Phase 1 closed that gate with
+      kind/payload exclusivity, identity, depth, node-count, integer-range,
+      bounded-output, native, and executable WASM evidence.
+    </p>
+  </section>
+
+  <section>
     <h2>Next Authorized Slice</h2>
     <p>
-      Complete the remaining Phase 1 performance and memory evidence using
-      promoted corpus cases. Optimize only where those measurements show a
-      material cost, then perform the Phase 1 promotion review.
+      Generate the Python and TypeScript contract projections, perform a narrow
+      parser correctness/boundary promotion review, and begin the first typed
+      reader/writer vertical slice. Further profiling is advisory until real
+      typed-reader workloads or pre-cutover budgets require it.
     </p>
   </section>
 </body>

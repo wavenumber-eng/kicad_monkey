@@ -16,13 +16,25 @@
         },
         "max_output_bytes": {
             "type": "string"
+        },
+        "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_nodes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
         }
     },
     "required": [
         "type",
         "version",
         "root",
-        "max_output_bytes"
+        "max_output_bytes",
+        "max_depth",
+        "max_nodes"
     ],
     "unevaluatedProperties": {
         "not": {}

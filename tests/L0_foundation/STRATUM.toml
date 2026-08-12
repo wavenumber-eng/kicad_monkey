@@ -147,3 +147,19 @@ secondary = [
     "Selected form count and deterministic output size agree",
     "Thresholds remain explicitly pending the L0 architecture review",
 ]
+
+[[subtests]]
+id = "L0_048"
+file = "test_L0_048_rust_build_contract.py"
+name = "Rust Semantic Build Contract"
+description = "Require TypeSpec limits, semantic node-union validation, bounded output, and executable WASM build bytes"
+concerns = ["sexpr", "contracts", "wasm"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "The public build operation accepts only semantically valid bounded generic trees"
+secondary = [
+    "Node kind and payload are exclusive",
+    "Depth, node count, integer range, and output size fail closed",
+    "Native and actual Node-hosted WASM tests execute the same validator path",
+]

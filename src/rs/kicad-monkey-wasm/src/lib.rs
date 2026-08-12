@@ -2,13 +2,15 @@
 
 #![forbid(unsafe_code)]
 
+use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;
 use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
 use kicad_monkey_contracts::generated::scan_result::{
     Diagnostic, DiagnosticPhase, FormSpan, SExpressionScanResultA0, SourcePosition,
 };
+use kicad_monkey_contracts::{ValidatedNode, validate_build_request};
 use kicad_monkey_core::{
-    Error, ErrorKind, ErrorPhase, ProjectionLimits, Selector, build, parse_bytes,
-    scan_reader_form_spans,
+    Error, ErrorKind, ErrorPhase, ProjectionLimits, Selector, Sexp, build, build_with_limit,
+    parse_bytes, scan_reader_form_spans,
 };
 use std::collections::BTreeSet;
 use std::io::Cursor;
@@ -25,6 +27,32 @@ pub fn canonicalize_sexpr(source: &[u8]) -> Result<Vec<u8>, JsValue> {
 #[wasm_bindgen(js_name = scanSexpr)]
 pub fn scan_sexpr(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, JsValue> {
     scan_sexpr_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
+}
+
+/// Build canonical UTF-8 bytes from a TypeSpec-governed generic node request.
+#[wasm_bindgen(js_name = buildSexpr)]
+pub fn build_sexpr(request_json: &[u8]) -> Result<Vec<u8>, JsValue> {
+    build_sexpr_impl(request_json).map_err(|message| JsValue::from_str(&message))
+}
+
+fn build_sexpr_impl(request_json: &[u8]) -> Result<Vec<u8>, String> {
+    let request: SExpressionBuildRequestA0 =
+        serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
+    let validated = validate_build_request(request).map_err(|error| error.to_string())?;
+    let tree = core_node(validated.root);
+    build_with_limit(&tree, validated.max_output_bytes)
+        .map(String::into_bytes)
+        .map_err(|error| error.to_string())
+}
+
+fn core_node(node: ValidatedNode) -> Sexp {
+    match node {
+        ValidatedNode::List(children) => Sexp::List(children.into_iter().map(core_node).collect()),
+        ValidatedNode::Atom(value) => Sexp::Atom(value),
+        ValidatedNode::Quoted(value) => Sexp::Quoted(value),
+        ValidatedNode::Integer(value) => Sexp::Integer(value),
+        ValidatedNode::Float(value) => Sexp::Float(value),
+    }
 }
 
 fn scan_sexpr_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, String> {
@@ -131,7 +159,7 @@ fn js_error(error: Error) -> JsValue {
 
 #[cfg(test)]
 mod tests {
-    use super::{canonicalize_sexpr, scan_sexpr_impl};
+    use super::{build_sexpr, build_sexpr_impl, canonicalize_sexpr, scan_sexpr_impl};
     use serde_json::Value;
     use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -156,11 +184,66 @@ mod tests {
         assert!(value.get("source").is_none());
     }
 
+    #[test]
+    fn typed_build_validates_union_payloads_and_output_limits() {
+        let request = br#"{
+            "type":"kicad_monkey.sexpr_build.request",
+            "version":"a0",
+            "root":{"kind":"list","children":[
+                {"kind":"atom","text":"root"},
+                {"kind":"quoted","text":"a b"},
+                {"kind":"integer","integer":"42"}
+            ]},
+            "max_output_bytes":"64",
+            "max_depth":8,
+            "max_nodes":8
+        }"#;
+        assert_eq!(
+            build_sexpr_impl(request).expect("valid build"),
+            b"(root \"a b\" 42)"
+        );
+
+        let conflict = request
+            .windows(b"{\"kind\":\"atom\",\"text\":\"root\"}".len())
+            .position(|window| window == b"{\"kind\":\"atom\",\"text\":\"root\"}")
+            .expect("fixture contains atom");
+        let mut invalid = request.to_vec();
+        invalid.splice(
+            conflict..conflict + b"{\"kind\":\"atom\",\"text\":\"root\"}".len(),
+            b"{\"kind\":\"atom\",\"text\":\"root\",\"integer\":\"1\"}"
+                .iter()
+                .copied(),
+        );
+        assert!(
+            build_sexpr_impl(&invalid)
+                .expect_err("conflict")
+                .contains("conflicting_payload")
+        );
+
+        let too_small = String::from_utf8(request.to_vec())
+            .expect("JSON UTF-8")
+            .replace("\"max_output_bytes\":\"64\"", "\"max_output_bytes\":\"4\"");
+        assert!(
+            build_sexpr_impl(too_small.as_bytes())
+                .expect_err("output limit")
+                .contains("max_output_bytes")
+        );
+    }
+
     #[wasm_bindgen_test]
     fn wasm_byte_input_produces_canonical_byte_output() {
         assert_eq!(
             canonicalize_sexpr(b"(root(child 1))").expect("valid source"),
             b"(root\n\t(child 1)\n)"
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_typed_build_produces_canonical_bytes() {
+        let request = br#"{"type":"kicad_monkey.sexpr_build.request","version":"a0","root":{"kind":"list","children":[{"kind":"atom","text":"root"}]},"max_output_bytes":"64","max_depth":4,"max_nodes":4}"#;
+        assert_eq!(
+            build_sexpr(request).expect("valid build request"),
+            b"(root)"
         );
     }
 }

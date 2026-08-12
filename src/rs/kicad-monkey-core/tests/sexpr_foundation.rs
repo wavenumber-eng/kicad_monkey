@@ -1,6 +1,6 @@
 use kicad_monkey_core::{
     ErrorKind, ErrorPhase, Limits, Patch, Sexp, TokenKind, apply_patches, apply_patches_with_limit,
-    build, lex, parse, parse_bytes, parse_with_limits,
+    build, build_with_limit, lex, parse, parse_bytes, parse_with_limits,
 };
 use serde::Deserialize;
 use std::fs;
@@ -12,6 +12,19 @@ fn atom(value: &str) -> Sexp {
 
 fn quoted(value: &str) -> Sexp {
     Sexp::Quoted(value.to_owned())
+}
+
+#[test]
+fn bounded_builder_refuses_output_growth_before_appending_past_the_limit() {
+    let tree = list(vec![atom("root"), quoted("a\nb")]);
+    let built = build(&tree).expect("tree should build");
+    assert_eq!(
+        build_with_limit(&tree, built.len()).expect("exact limit should pass"),
+        built
+    );
+    let error = build_with_limit(&tree, built.len() - 1).expect_err("limit should fail");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+    assert_eq!(error.phase, ErrorPhase::Build);
 }
 
 fn list(values: Vec<Sexp>) -> Sexp {

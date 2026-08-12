@@ -913,9 +913,14 @@ impl<'a> Parser<'a> {
 
 /// Deterministically build a KiCad S-expression from an owned tree.
 pub fn build(value: &Sexp) -> Result<String, Error> {
-    let mut output = String::new();
+    build_with_limit(value, usize::MAX)
+}
+
+/// Deterministically build while refusing to allocate beyond an output limit.
+pub fn build_with_limit(value: &Sexp, max_output_bytes: usize) -> Result<String, Error> {
+    let mut output = BuildOutput::new(max_output_bytes);
     build_into(value, "", &mut output)?;
-    Ok(output)
+    Ok(output.text)
 }
 
 /// Reformat source tokens without materializing an owned expression tree.
@@ -1056,18 +1061,67 @@ pub fn apply_patches_with_limit(
     Ok(output)
 }
 
-fn build_into(value: &Sexp, indent: &str, output: &mut String) -> Result<(), Error> {
+struct BuildOutput {
+    text: String,
+    max_bytes: usize,
+}
+
+impl BuildOutput {
+    fn new(max_bytes: usize) -> Self {
+        Self {
+            text: String::new(),
+            max_bytes,
+        }
+    }
+
+    fn push(&mut self, character: char) -> Result<(), Error> {
+        let required = character.len_utf8();
+        self.reserve(required)?;
+        self.text.push(character);
+        Ok(())
+    }
+
+    fn push_str(&mut self, value: &str) -> Result<(), Error> {
+        self.reserve(value.len())?;
+        self.text.push_str(value);
+        Ok(())
+    }
+
+    fn reserve(&self, additional: usize) -> Result<(), Error> {
+        if self
+            .text
+            .len()
+            .checked_add(additional)
+            .is_none_or(|length| length > self.max_bytes)
+        {
+            Err(Error::build(
+                ErrorKind::ResourceLimit,
+                "Built S-expression output exceeds max_output_bytes",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl fmt::Write for BuildOutput {
+    fn write_str(&mut self, value: &str) -> fmt::Result {
+        self.push_str(value).map_err(|_| fmt::Error)
+    }
+}
+
+fn build_into(value: &Sexp, indent: &str, output: &mut BuildOutput) -> Result<(), Error> {
     match value {
         Sexp::List(values) => {
-            output.push('(');
+            output.push('(')?;
             let mut last_was_list = false;
             for (index, child) in values.iter().enumerate() {
                 if index > 0 {
                     if matches!(child, Sexp::List(_)) {
-                        output.push_str("\n\t");
-                        output.push_str(indent);
+                        output.push_str("\n\t")?;
+                        output.push_str(indent)?;
                     } else {
-                        output.push(' ');
+                        output.push(' ')?;
                     }
                 }
                 let mut child_indent = String::with_capacity(indent.len() + 1);
@@ -1077,36 +1131,35 @@ fn build_into(value: &Sexp, indent: &str, output: &mut String) -> Result<(), Err
                 last_was_list = matches!(child, Sexp::List(_));
             }
             if last_was_list {
-                output.push('\n');
-                output.push_str(indent);
+                output.push('\n')?;
+                output.push_str(indent)?;
             }
-            output.push(')');
+            output.push(')')?;
             Ok(())
         }
         Sexp::Atom(value) => {
             if value.is_empty() {
-                output.push_str("\"\"");
+                output.push_str("\"\"")?;
             } else if value
                 .chars()
                 .any(|character| character.is_whitespace() || matches!(character, '(' | ')'))
                 || value.starts_with('"')
             {
-                output.push('"');
-                escape_quoted_into(value, output);
-                output.push('"');
+                output.push('"')?;
+                escape_quoted_into(value, output)?;
+                output.push('"')?;
             } else {
-                output.push_str(value);
+                output.push_str(value)?;
             }
             Ok(())
         }
         Sexp::Quoted(value) => {
-            output.push('"');
-            escape_quoted_into(value, output);
-            output.push('"');
+            output.push('"')?;
+            escape_quoted_into(value, output)?;
+            output.push('"')?;
             Ok(())
         }
-        Sexp::Integer(value) => write!(output, "{value}")
-            .map_err(|_| Error::build(ErrorKind::InvalidBuildValue, "Failed to write integer")),
+        Sexp::Integer(value) => write!(output, "{value}").map_err(|_| build_output_error()),
         Sexp::Float(value) => {
             if !value.is_finite() {
                 return Err(Error::build(
@@ -1115,27 +1168,33 @@ fn build_into(value: &Sexp, indent: &str, output: &mut String) -> Result<(), Err
                 ));
             }
             if *value == 0.0 {
-                output.push('0');
+                output.push('0')?;
             } else {
-                write!(output, "{value}").map_err(|_| {
-                    Error::build(ErrorKind::InvalidBuildValue, "Failed to write float")
-                })?;
+                write!(output, "{value}").map_err(|_| build_output_error())?;
             }
             Ok(())
         }
     }
 }
 
-fn escape_quoted_into(value: &str, output: &mut String) {
+fn build_output_error() -> Error {
+    Error::build(
+        ErrorKind::ResourceLimit,
+        "Built S-expression output exceeds max_output_bytes",
+    )
+}
+
+fn escape_quoted_into(value: &str, output: &mut BuildOutput) -> Result<(), Error> {
     for character in value.chars() {
         match character {
-            '\n' => output.push_str("\\n"),
-            '\r' => output.push_str("\\r"),
-            '\\' => output.push_str("\\\\"),
-            '"' => output.push_str("\\\""),
-            _ => output.push(character),
+            '\n' => output.push_str("\\n")?,
+            '\r' => output.push_str("\\r")?,
+            '\\' => output.push_str("\\\\")?,
+            '"' => output.push_str("\\\"")?,
+            _ => output.push(character)?,
         }
     }
+    Ok(())
 }
 
 pub(crate) fn decode_quoted(lexeme: &str) -> String {

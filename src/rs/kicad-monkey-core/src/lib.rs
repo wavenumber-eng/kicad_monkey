@@ -12,8 +12,8 @@ pub mod sexpr_projection;
 
 pub use sexpr::{
     Error, ErrorKind, ErrorPhase, FormatOptions, Lexer, Limits, Patch, Position, Sexp, Token,
-    TokenKind, apply_patches, apply_patches_with_limit, build, format, lex, parse, parse_bytes,
-    parse_with_limits,
+    TokenKind, apply_patches, apply_patches_with_limit, build, build_with_limit, format, lex,
+    parse, parse_bytes, parse_with_limits,
 };
 pub use sexpr_mutation::{
     Walk, find_path, remove_all_elements, remove_element, replace_element, set_value,

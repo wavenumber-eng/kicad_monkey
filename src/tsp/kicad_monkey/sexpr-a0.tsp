@@ -99,6 +99,8 @@ model BuildRequest {
   version: "a0";
   root: Node;
   max_output_bytes: uint64;
+  max_depth: uint32;
+  max_nodes: uint32;
 }
 
 /** Build metadata; output UTF-8 bytes are returned out of band. */

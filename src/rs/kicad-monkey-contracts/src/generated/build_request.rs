@@ -170,12 +170,24 @@ impl ::std::convert::TryFrom<::std::string::String> for NodeKind {
 ///  "description": "Deterministic generic-tree build request.",
 ///  "type": "object",
 ///  "required": [
+///    "max_depth",
+///    "max_nodes",
 ///    "max_output_bytes",
 ///    "root",
 ///    "type",
 ///    "version"
 ///  ],
 ///  "properties": {
+///    "max_depth": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_nodes": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
 ///    "max_output_bytes": {
 ///      "type": "string"
 ///    },
@@ -198,6 +210,8 @@ impl ::std::convert::TryFrom<::std::string::String> for NodeKind {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct SExpressionBuildRequestA0 {
+    pub max_depth: u32,
+    pub max_nodes: u32,
     pub max_output_bytes: ::std::string::String,
     pub root: Node,
     #[serde(rename = "type")]

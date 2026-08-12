@@ -96,11 +96,11 @@ evidence = ["src/tsp/kicad_monkey/sexpr-a0.tsp", "contracts/generated/schema/Sca
 id = "sexpr.build_operation_contract"
 disposition = "replaced_by_contract"
 wasm = "required"
-status = "review_ready"
+status = "closed"
 python_symbols = []
-rust_symbols = ["kicad-monkey-contracts.generated.build_request", "kicad-monkey-contracts.generated.build_result"]
-rack_cases = ["L0_046"]
-evidence = ["src/tsp/kicad_monkey/sexpr-a0.tsp", "contracts/generated/schema/BuildRequest.json", "contracts/generated/schema/BuildResult.json"]
+rust_symbols = ["validate_build_request", "ValidatedNode", "build_with_limit", "kicad-monkey-wasm.buildSexpr"]
+rack_cases = ["L0_046", "L0_048"]
+evidence = ["src/tsp/kicad_monkey/sexpr-a0.tsp", "contracts/generated/schema/BuildRequest.json", "contracts/generated/schema/BuildResult.json", "src/rs/kicad-monkey-contracts/src/lib.rs", "src/rs/kicad-monkey-contracts/tests/generated_contracts.rs", "src/rs/kicad-monkey-core/tests/sexpr_foundation.rs", "src/rs/kicad-monkey-wasm/src/lib.rs"]
 
 [[surfaces]]
 id = "sexpr.performance"
