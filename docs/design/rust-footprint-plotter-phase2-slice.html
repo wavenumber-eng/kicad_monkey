@@ -39,9 +39,11 @@
         explicit model diagnostics; they are not silently rendered as solid.
       </li>
       <li>
-        Source bytes, nesting depth, operation count, and serialized output
-        bytes are caller bounded. The JSON writer stops at the output limit
-        instead of first allocating an unbounded result.
+        Source bytes, nesting depth, metadata-form count, operation count, and
+        serialized output bytes are independently caller bounded. Metadata
+        duplicates therefore cannot consume the geometry allowance. The JSON
+        writer stops at the output limit instead of first allocating an
+        unbounded result.
       </li>
     </ul>
   </section>
@@ -55,6 +57,12 @@
       <code>plotFootprintIr</code>. The operation returns result JSON and
       plotter-IR JSON as separate byte arrays, avoiding base64 and preserving a
       resource-limit diagnostic envelope.
+    </p>
+    <p>
+      Every numeric document field declared as a JavaScript-safe integer is
+      bounded to ±9,007,199,254,740,991 in JSON Schema. Native conversion and
+      the generated Rust and Python transport types enforce the same range so
+      an out-of-range integer cannot silently lose precision in JavaScript.
     </p>
   </section>
 

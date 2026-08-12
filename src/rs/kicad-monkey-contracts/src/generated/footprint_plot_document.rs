@@ -81,7 +81,7 @@ pub mod error {
 ///      "minimum": 0.0
 ///    },
 ///    "version": {
-///      "type": "integer"
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -101,7 +101,7 @@ pub struct FootprintPlotDocumentA0 {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub source_path: ::std::option::Option<::std::string::String>,
     pub total_operations: u32,
-    pub version: i64,
+    pub version: crate::JavaScriptSafeInteger,
 }
 ///One footprint record in the first typed plotter slice.
 ///
@@ -244,10 +244,10 @@ pub struct PlotterCoordinateSpace {
 ///  ],
 ///  "properties": {
 ///    "end_x": {
-///      "type": "integer"
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
 ///    "end_y": {
-///      "type": "integer"
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
 ///    "index": {
 ///      "type": "integer",
@@ -262,13 +262,13 @@ pub struct PlotterCoordinateSpace {
 ///      "type": "string"
 ///    },
 ///    "start_x": {
-///      "type": "integer"
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
 ///    "start_y": {
-///      "type": "integer"
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
 ///    "width_nm": {
-///      "type": "integer"
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -278,12 +278,12 @@ pub struct PlotterCoordinateSpace {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ThickSegmentOperation {
-    pub end_x: i64,
-    pub end_y: i64,
+    pub end_x: crate::JavaScriptSafeInteger,
+    pub end_y: crate::JavaScriptSafeInteger,
     pub index: u32,
     pub kind: ::std::string::String,
     pub layer: ::std::string::String,
-    pub start_x: i64,
-    pub start_y: i64,
-    pub width_nm: i64,
+    pub start_x: crate::JavaScriptSafeInteger,
+    pub start_y: crate::JavaScriptSafeInteger,
+    pub width_nm: crate::JavaScriptSafeInteger,
 }

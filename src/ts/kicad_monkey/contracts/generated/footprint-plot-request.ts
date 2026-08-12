@@ -11,5 +11,6 @@ export interface FootprintPlotRequestA0 {
   max_source_bytes: string;
   max_output_bytes: string;
   max_depth: number;
+  max_metadata_forms: number;
   max_operations: number;
 }

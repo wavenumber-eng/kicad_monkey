@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 import msgspec
-from msgspec import UNSET, Struct, UnsetType, field
+from msgspec import UNSET, Meta, Struct, UnsetType, field
 
 
 class Node(Struct, forbid_unknown_fields=True, frozen=True):
@@ -81,14 +81,17 @@ class PlotterCoordinateSpace(Struct, forbid_unknown_fields=True, frozen=True):
     y_axis: Literal["down"]
 
 
+JavaScriptSafeInteger = Annotated[int, Meta(ge=-9007199254740991, le=9007199254740991)]
+
+
 class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True):
     kind: Literal["ThickSegment"]
     index: int
-    start_x: int
-    start_y: int
-    end_x: int
-    end_y: int
-    width_nm: int
+    start_x: JavaScriptSafeInteger
+    start_y: JavaScriptSafeInteger
+    end_x: JavaScriptSafeInteger
+    end_y: JavaScriptSafeInteger
+    width_nm: JavaScriptSafeInteger
     layer: str
 
 
@@ -171,7 +174,7 @@ class FootprintPlotDocumentA0(Struct, forbid_unknown_fields=True, frozen=True):
     records: list[FootprintPlotRecord]
     document_id: str
     coordinate_space: PlotterCoordinateSpace
-    version: int
+    version: JavaScriptSafeInteger
     generator: str
     generator_version: str
     source_path: str | UnsetType = field(default=UNSET)
@@ -183,6 +186,7 @@ class FootprintPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     max_source_bytes: str
     max_output_bytes: str
     max_depth: int
+    max_metadata_forms: int
     max_operations: int
     source_path: str | UnsetType = field(default=UNSET)
     document_id: str | UnsetType = field(default=UNSET)
@@ -220,6 +224,7 @@ __all__ = (
     "FootprintProperty",
     "FootprintPlotRecord",
     "PlotterCoordinateSpace",
+    "JavaScriptSafeInteger",
     "ThickSegmentOperation",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",

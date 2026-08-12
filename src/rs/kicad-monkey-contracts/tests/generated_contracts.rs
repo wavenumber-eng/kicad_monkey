@@ -1,6 +1,10 @@
 use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;
+use kicad_monkey_contracts::generated::footprint_plot_document::FootprintPlotDocumentA0;
 use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
-use kicad_monkey_contracts::{ValidatedNode, validate_build_request};
+use kicad_monkey_contracts::{
+    JAVASCRIPT_SAFE_INTEGER_MAX, JAVASCRIPT_SAFE_INTEGER_MIN, JavaScriptSafeInteger, ValidatedNode,
+    validate_build_request,
+};
 
 #[test]
 fn generated_scan_request_is_strict_and_round_trips_wire_names() {
@@ -92,4 +96,86 @@ fn build_node_semantics_enforce_depth_count_and_integer_limits() {
         validate_build_request(integer).expect_err("integer").code,
         "invalid_integer"
     );
+}
+
+#[test]
+fn javascript_safe_integer_accepts_exact_boundaries_and_rejects_neighbors() {
+    for value in [JAVASCRIPT_SAFE_INTEGER_MIN, JAVASCRIPT_SAFE_INTEGER_MAX] {
+        let safe = JavaScriptSafeInteger::try_from(value).expect("safe boundary");
+        assert_eq!(safe.get(), value);
+        let json = serde_json::to_string(&safe).expect("safe integer JSON");
+        let decoded: JavaScriptSafeInteger =
+            serde_json::from_str(&json).expect("safe boundary JSON");
+        assert_eq!(decoded, safe);
+    }
+
+    for value in [
+        JAVASCRIPT_SAFE_INTEGER_MIN - 1,
+        JAVASCRIPT_SAFE_INTEGER_MAX + 1,
+    ] {
+        assert!(JavaScriptSafeInteger::try_from(value).is_err());
+        assert!(serde_json::from_str::<JavaScriptSafeInteger>(&value.to_string()).is_err());
+    }
+}
+
+#[test]
+fn every_plotter_safe_integer_field_rejects_precision_losing_values() {
+    let base = serde_json::json!({
+        "schema": "kicad.plotter_ir.a0",
+        "source_kind": "MOD",
+        "total_operations": 1,
+        "records": [{
+            "uuid": "",
+            "kind": "footprint",
+            "object_id": "Demo",
+            "operation_count": 1,
+            "operations": [{
+                "kind": "ThickSegment",
+                "index": 0,
+                "start_x": 0,
+                "start_y": 0,
+                "end_x": 0,
+                "end_y": 0,
+                "width_nm": 0,
+                "layer": "F.SilkS"
+            }],
+            "name": "Demo",
+            "layer": "F.Cu",
+            "locked": false,
+            "placed": false,
+            "descr": "",
+            "tags": "",
+            "attr": []
+        }],
+        "document_id": "Demo",
+        "coordinate_space": {"unit": "nm", "y_axis": "down"},
+        "version": 0,
+        "generator": "pcbnew",
+        "generator_version": "10.0"
+    });
+    let paths = [
+        "/version",
+        "/records/0/operations/0/start_x",
+        "/records/0/operations/0/start_y",
+        "/records/0/operations/0/end_x",
+        "/records/0/operations/0/end_y",
+        "/records/0/operations/0/width_nm",
+    ];
+
+    for path in paths {
+        for value in [JAVASCRIPT_SAFE_INTEGER_MIN, JAVASCRIPT_SAFE_INTEGER_MAX] {
+            let mut document = base.clone();
+            *document.pointer_mut(path).expect("safe integer field") = value.into();
+            serde_json::from_value::<FootprintPlotDocumentA0>(document)
+                .expect("safe boundary document");
+        }
+        for value in [
+            JAVASCRIPT_SAFE_INTEGER_MIN - 1,
+            JAVASCRIPT_SAFE_INTEGER_MAX + 1,
+        ] {
+            let mut document = base.clone();
+            *document.pointer_mut(path).expect("safe integer field") = value.into();
+            assert!(serde_json::from_value::<FootprintPlotDocumentA0>(document).is_err());
+        }
+    }
 }

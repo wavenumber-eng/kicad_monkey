@@ -84,10 +84,10 @@ function renderPython() {
     "",
     "from __future__ import annotations",
     "",
-    "from typing import Literal",
+    "from typing import Annotated, Literal",
     "",
     "import msgspec",
-    "from msgspec import UNSET, Struct, UnsetType, field",
+    "from msgspec import UNSET, Meta, Struct, UnsetType, field",
   ];
   for (const [name, value] of definitions) {
     lines.push("", "", ...renderPythonDeclaration(name, value.schema));
@@ -112,6 +112,13 @@ function renderPython() {
 function renderPythonDeclaration(name, schema) {
   if (Array.isArray(schema.enum)) {
     return [`${name} = Literal[${schema.enum.map(pythonLiteral).join(", ")}]`];
+  }
+  if (schema.type === "integer") {
+    const constraints = [];
+    if (Number.isSafeInteger(schema.minimum)) constraints.push(`ge=${schema.minimum}`);
+    if (Number.isSafeInteger(schema.maximum)) constraints.push(`le=${schema.maximum}`);
+    assert(constraints.length > 0, `${name}: unconstrained integer alias`);
+    return [`${name} = Annotated[int, Meta(${constraints.join(", ")})]`];
   }
   assert(schema.type === "object", `${name}: expected object or enum`);
   const required = new Set(schema.required ?? []);

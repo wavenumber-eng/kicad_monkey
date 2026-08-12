@@ -36,6 +36,7 @@ pub mod error {
 ///  "type": "object",
 ///  "required": [
 ///    "max_depth",
+///    "max_metadata_forms",
 ///    "max_operations",
 ///    "max_output_bytes",
 ///    "max_source_bytes",
@@ -47,6 +48,11 @@ pub mod error {
 ///      "type": "string"
 ///    },
 ///    "max_depth": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_metadata_forms": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
@@ -84,6 +90,7 @@ pub struct FootprintPlotRequestA0 {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub document_id: ::std::option::Option<::std::string::String>,
     pub max_depth: u32,
+    pub max_metadata_forms: u32,
     pub max_operations: u32,
     pub max_output_bytes: ::std::string::String,
     pub max_source_bytes: ::std::string::String,

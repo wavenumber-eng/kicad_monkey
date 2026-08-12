@@ -26,7 +26,7 @@ use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
 use kicad_monkey_contracts::generated::scan_result::{
     Diagnostic, DiagnosticPhase, FormSpan, SExpressionScanResultA0, SourcePosition,
 };
-use kicad_monkey_contracts::{ValidatedNode, validate_build_request};
+use kicad_monkey_contracts::{JavaScriptSafeInteger, ValidatedNode, validate_build_request};
 use kicad_monkey_core::{
     Error, ErrorKind, ErrorPhase, FootprintLimits, FootprintPlotLimits, FootprintView,
     ProjectionLimits, Selector, Sexp, build, build_with_limit, footprint_plot_document,
@@ -251,6 +251,7 @@ fn plot_footprint_ir_impl(
             FootprintPlotLimits {
                 max_source_bytes,
                 max_depth: request.max_depth as usize,
+                max_metadata_forms: request.max_metadata_forms as usize,
                 max_operations: request.max_operations as usize,
             },
         )
@@ -263,17 +264,24 @@ fn plot_footprint_ir_impl(
                 .operations
                 .into_iter()
                 .enumerate()
-                .map(|(index, operation)| ThickSegmentOperation {
-                    end_x: operation.end_x,
-                    end_y: operation.end_y,
-                    index: u32::try_from(index).unwrap_or(u32::MAX),
-                    kind: "ThickSegment".to_owned(),
-                    layer: operation.layer,
-                    start_x: operation.start_x,
-                    start_y: operation.start_y,
-                    width_nm: operation.width_nm,
+                .map(|(index, operation)| {
+                    Ok(ThickSegmentOperation {
+                        end_x: JavaScriptSafeInteger::try_from(operation.end_x)
+                            .map_err(|error| error.to_string())?,
+                        end_y: JavaScriptSafeInteger::try_from(operation.end_y)
+                            .map_err(|error| error.to_string())?,
+                        index: u32::try_from(index).unwrap_or(u32::MAX),
+                        kind: "ThickSegment".to_owned(),
+                        layer: operation.layer,
+                        start_x: JavaScriptSafeInteger::try_from(operation.start_x)
+                            .map_err(|error| error.to_string())?,
+                        start_y: JavaScriptSafeInteger::try_from(operation.start_y)
+                            .map_err(|error| error.to_string())?,
+                        width_nm: JavaScriptSafeInteger::try_from(operation.width_nm)
+                            .map_err(|error| error.to_string())?,
+                    })
                 })
-                .collect();
+                .collect::<Result<Vec<_>, String>>()?;
             let contract_document = FootprintPlotDocumentA0 {
                 coordinate_space: PlotterCoordinateSpace {
                     unit: "nm".to_owned(),
@@ -300,7 +308,8 @@ fn plot_footprint_ir_impl(
                 source_kind: "MOD".to_owned(),
                 source_path: request.source_path,
                 total_operations,
-                version: document.version,
+                version: JavaScriptSafeInteger::try_from(document.version)
+                    .map_err(|error| error.to_string())?,
             };
             match serialize_bounded(&contract_document, max_output_bytes)? {
                 Some(output) => (
@@ -701,6 +710,7 @@ mod tests {
             "max_source_bytes": "4096",
             "max_output_bytes": "4096",
             "max_depth": 32,
+            "max_metadata_forms": 32,
             "max_operations": 8
         }))
         .expect("request JSON");
@@ -843,7 +853,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn wasm_footprint_plotter_returns_paired_ir_bytes() {
         let source = br#"(footprint "Demo" (fp_line (start 0 0) (end 1 0) (stroke (width 0.1) (type solid)) (layer "F.SilkS")))"#;
-        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_operations":8}"#;
+        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_operations":8}"#;
         let output = plot_footprint_ir(source, request).expect("WASM plotter operation");
         let metadata: Value =
             serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
@@ -852,5 +862,22 @@ mod tests {
         assert_eq!(metadata["total_operations"], 1);
         assert_eq!(document["document_id"], "Demo");
         assert_eq!(document["records"][0]["operations"][0]["end_x"], 1_000_000);
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_footprint_plotter_rejects_precision_losing_integer_output() {
+        let source = br#"(footprint "Demo" (version 9007199254740992))"#;
+        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_operations":8}"#;
+        let output = plot_footprint_ir(source, request).expect("range error result metadata");
+        let metadata: Value =
+            serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
+        assert_eq!(metadata["diagnostics"][0]["code"], "unexpected_token");
+        assert!(
+            metadata["diagnostics"][0]["message"]
+                .as_str()
+                .expect("diagnostic message")
+                .contains("safe-integer")
+        );
+        assert!(output.output_bytes().is_empty());
     }
 }

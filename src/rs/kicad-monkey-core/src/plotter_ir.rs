@@ -10,12 +10,15 @@ const DEFAULT_FOOTPRINT_LAYER: &str = "F.Cu";
 const DEFAULT_LINE_LAYER: &str = "F.SilkS";
 const DEFAULT_STROKE_WIDTH_NM: i64 = 152_400;
 const MIN_PLOT_PEN_WIDTH_NM: i64 = 84_700;
+const JAVASCRIPT_SAFE_INTEGER_MAX: i64 = 9_007_199_254_740_991;
+const JAVASCRIPT_SAFE_INTEGER_MIN: i64 = -JAVASCRIPT_SAFE_INTEGER_MAX;
 
 /// Limits for the first footprint plotter operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FootprintPlotLimits {
     pub max_source_bytes: usize,
     pub max_depth: usize,
+    pub max_metadata_forms: usize,
     pub max_operations: usize,
 }
 
@@ -24,6 +27,7 @@ impl Default for FootprintPlotLimits {
         Self {
             max_source_bytes: 64 * 1024 * 1024,
             max_depth: 128,
+            max_metadata_forms: 256,
             max_operations: 100_000,
         }
     }
@@ -71,7 +75,8 @@ pub fn footprint_plot_document(
     let name = view.name()?.into_owned();
     let max_selected_forms = limits
         .max_operations
-        .checked_add(8)
+        .checked_add(limits.max_metadata_forms)
+        .and_then(|value| value.checked_add(1))
         .ok_or_else(limit_error)?;
     let paths = [
         "version",
@@ -111,8 +116,15 @@ pub fn footprint_plot_document(
     let mut descr = None;
     let mut tags = None;
     let mut attr = None;
+    let mut metadata_forms = 0usize;
     let mut operations = Vec::new();
     for span in spans {
+        if span.head.as_deref() != Some("fp_line") {
+            metadata_forms = metadata_forms.saturating_add(1);
+            if metadata_forms > limits.max_metadata_forms {
+                return Err(metadata_limit_error());
+            }
+        }
         match span.head.as_deref() {
             Some("version") if version.is_none() => {
                 version = Some(form_integer(source, &span, "version")?);
@@ -148,9 +160,11 @@ pub fn footprint_plot_document(
         }
     }
     let (locked, placed) = root_flags(source)?;
+    let version = version.unwrap_or(DEFAULT_FOOTPRINT_VERSION);
+    ensure_javascript_safe_integer(version)?;
     Ok(FootprintPlotDocument {
         name,
-        version: version.unwrap_or(DEFAULT_FOOTPRINT_VERSION),
+        version,
         generator: generator.unwrap_or_else(|| DEFAULT_GENERATOR.to_owned()),
         generator_version: generator_version
             .unwrap_or_else(|| DEFAULT_GENERATOR_VERSION.to_owned()),
@@ -301,13 +315,27 @@ fn numeric_at(form: &Sexp, index: usize, position: Position) -> Result<f64, Erro
 
 fn mm_to_nm(value: f64) -> Result<i64, Error> {
     let scaled = value * 1_000_000.0;
-    if !scaled.is_finite() || scaled < i64::MIN as f64 || scaled > i64::MAX as f64 {
+    if !scaled.is_finite()
+        || scaled < JAVASCRIPT_SAFE_INTEGER_MIN as f64
+        || scaled > JAVASCRIPT_SAFE_INTEGER_MAX as f64
+    {
         return Err(model_error(
-            "Coordinate exceeds plotter integer range",
+            "Coordinate exceeds JavaScript safe-integer range",
             Position::START,
         ));
     }
     Ok(scaled.round_ties_even() as i64)
+}
+
+fn ensure_javascript_safe_integer(value: i64) -> Result<i64, Error> {
+    if (JAVASCRIPT_SAFE_INTEGER_MIN..=JAVASCRIPT_SAFE_INTEGER_MAX).contains(&value) {
+        Ok(value)
+    } else {
+        Err(model_error(
+            "Footprint version exceeds JavaScript safe-integer range",
+            Position::START,
+        ))
+    }
 }
 
 fn root_flags(source: &str) -> Result<(bool, bool), Error> {
@@ -361,6 +389,15 @@ fn limit_error() -> Error {
         ErrorPhase::Tree,
         ErrorKind::ResourceLimit,
         "Footprint plotter operation exceeds configured limits",
+        Position::START,
+    )
+}
+
+fn metadata_limit_error() -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        "Footprint plotter metadata exceeds max_metadata_forms",
         Position::START,
     )
 }

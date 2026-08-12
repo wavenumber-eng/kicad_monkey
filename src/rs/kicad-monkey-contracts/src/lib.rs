@@ -8,6 +8,67 @@ pub mod generated;
 use generated::build_request::{Node, NodeKind, SExpressionBuildRequestA0};
 use std::fmt;
 
+/// Largest integer represented exactly by JavaScript's IEEE-754 `number`.
+pub const JAVASCRIPT_SAFE_INTEGER_MAX: i64 = 9_007_199_254_740_991;
+/// Smallest integer represented exactly by JavaScript's IEEE-754 `number`.
+pub const JAVASCRIPT_SAFE_INTEGER_MIN: i64 = -JAVASCRIPT_SAFE_INTEGER_MAX;
+
+/// Integer guaranteed to remain exact across JSON and JavaScript/WASM boundaries.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, serde::Serialize)]
+#[serde(transparent)]
+pub struct JavaScriptSafeInteger(i64);
+
+impl JavaScriptSafeInteger {
+    pub const fn get(self) -> i64 {
+        self.0
+    }
+}
+
+impl TryFrom<i64> for JavaScriptSafeInteger {
+    type Error = JavaScriptSafeIntegerError;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        if (JAVASCRIPT_SAFE_INTEGER_MIN..=JAVASCRIPT_SAFE_INTEGER_MAX).contains(&value) {
+            Ok(Self(value))
+        } else {
+            Err(JavaScriptSafeIntegerError { value })
+        }
+    }
+}
+
+impl From<JavaScriptSafeInteger> for i64 {
+    fn from(value: JavaScriptSafeInteger) -> Self {
+        value.0
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for JavaScriptSafeInteger {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = i64::deserialize(deserializer)?;
+        Self::try_from(value).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct JavaScriptSafeIntegerError {
+    value: i64,
+}
+
+impl fmt::Display for JavaScriptSafeIntegerError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{} is outside the JavaScript safe-integer range",
+            self.value
+        )
+    }
+}
+
+impl std::error::Error for JavaScriptSafeIntegerError {}
+
 /// Validated, payload-exclusive generic node ready for conversion by adapters.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValidatedNode {

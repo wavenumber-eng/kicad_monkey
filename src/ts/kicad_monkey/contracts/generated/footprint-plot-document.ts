@@ -1,6 +1,11 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
 /**
+ * Integer that remains exact when decoded as a JavaScript number.
+ */
+export type JavaScriptSafeInteger = number;
+
+/**
  * Strict subset of kicad.plotter_ir.a0 emitted by the initial footprint slice.
  */
 export interface FootprintPlotDocumentA0 {
@@ -11,7 +16,7 @@ export interface FootprintPlotDocumentA0 {
   source_path?: string;
   document_id: string;
   coordinate_space: PlotterCoordinateSpace;
-  version: number;
+  version: JavaScriptSafeInteger;
   generator: string;
   generator_version: string;
 }
@@ -38,11 +43,11 @@ export interface FootprintPlotRecord {
 export interface ThickSegmentOperation {
   kind: "ThickSegment";
   index: number;
-  start_x: number;
-  start_y: number;
-  end_x: number;
-  end_y: number;
-  width_nm: number;
+  start_x: JavaScriptSafeInteger;
+  start_y: JavaScriptSafeInteger;
+  end_x: JavaScriptSafeInteger;
+  end_y: JavaScriptSafeInteger;
+  width_nm: JavaScriptSafeInteger;
   layer: string;
 }
 /**

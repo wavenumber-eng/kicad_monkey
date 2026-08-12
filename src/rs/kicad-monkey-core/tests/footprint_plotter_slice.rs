@@ -76,13 +76,62 @@ fn unsupported_dashed_lines_are_explicit() {
 
 #[test]
 fn duplicate_metadata_keeps_the_first_value_like_the_python_model() {
-    let source = r#"(footprint "Demo"
-      (generator first)
-      (generator second)
-      (layer "F.Cu")
-      (layer "B.Cu"))"#;
-    let document = footprint_plot_document(source, FootprintPlotLimits::default())
-        .expect("duplicate metadata remains deterministic");
-    assert_eq!(document.generator, "first");
+    let duplicates = (0..24)
+        .map(|index| format!("(generator value-{index})"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let source = format!("(footprint \"Demo\" {duplicates} (layer \"F.Cu\") (layer \"B.Cu\"))");
+    let limits = FootprintPlotLimits {
+        max_metadata_forms: 32,
+        max_operations: 0,
+        ..FootprintPlotLimits::default()
+    };
+    let document =
+        footprint_plot_document(&source, limits).expect("duplicate metadata remains deterministic");
+    assert_eq!(document.generator, "value-0");
     assert_eq!(document.layer, "F.Cu");
+
+    let metadata_limited = FootprintPlotLimits {
+        max_metadata_forms: 8,
+        ..limits
+    };
+    let error = footprint_plot_document(&source, metadata_limited)
+        .expect_err("metadata has an independent limit");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+}
+
+#[test]
+fn plotter_outputs_stay_inside_the_javascript_safe_integer_range() {
+    const SAFE_MAX: i64 = 9_007_199_254_740_991;
+    const SAFE_MIN: i64 = -SAFE_MAX;
+
+    for version in [SAFE_MIN, SAFE_MAX] {
+        let source = format!("(footprint \"Demo\" (version {version}))");
+        let document = footprint_plot_document(&source, FootprintPlotLimits::default())
+            .expect("safe boundary version");
+        assert_eq!(document.version, version);
+    }
+
+    for version in [SAFE_MIN - 1, SAFE_MAX + 1] {
+        let source = format!("(footprint \"Demo\" (version {version}))");
+        let error = footprint_plot_document(&source, FootprintPlotLimits::default())
+            .expect_err("unsafe version");
+        assert_eq!(error.kind, ErrorKind::UnexpectedToken);
+        assert!(error.message.contains("safe-integer"));
+    }
+
+    let inside = r#"(footprint "Demo"
+      (fp_line (start 9007199254.74099 0) (end 0 0)
+        (stroke (width 0.1) (type solid))))"#;
+    let document = footprint_plot_document(inside, FootprintPlotLimits::default())
+        .expect("largest representable near-boundary coordinate");
+    assert!(document.operations[0].start_x <= SAFE_MAX);
+
+    let outside = r#"(footprint "Demo"
+      (fp_line (start 9007199255 0) (end 0 0)
+        (stroke (width 0.1) (type solid))))"#;
+    let error = footprint_plot_document(outside, FootprintPlotLimits::default())
+        .expect_err("unsafe coordinate");
+    assert_eq!(error.kind, ErrorKind::UnexpectedToken);
+    assert!(error.message.contains("safe-integer"));
 }

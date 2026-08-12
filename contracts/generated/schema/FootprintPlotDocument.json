@@ -32,7 +32,7 @@
             "$ref": "#/$defs/PlotterCoordinateSpace"
         },
         "version": {
-            "type": "integer"
+            "$ref": "#/$defs/JavaScriptSafeInteger"
         },
         "generator": {
             "type": "string"
@@ -147,6 +147,12 @@
             },
             "description": "Coordinate convention for the initial footprint plotter slice."
         },
+        "JavaScriptSafeInteger": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Integer that remains exact when decoded as a JavaScript number."
+        },
         "ThickSegmentOperation": {
             "type": "object",
             "properties": {
@@ -160,19 +166,19 @@
                     "maximum": 4294967295
                 },
                 "start_x": {
-                    "type": "integer"
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
                 },
                 "start_y": {
-                    "type": "integer"
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
                 },
                 "end_x": {
-                    "type": "integer"
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
                 },
                 "end_y": {
-                    "type": "integer"
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
                 },
                 "width_nm": {
-                    "type": "integer"
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
                 },
                 "layer": {
                     "type": "string"

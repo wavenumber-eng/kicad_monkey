@@ -11,7 +11,9 @@ import msgspec
 import pytest
 
 from kicad_monkey.contracts.generated import (
+    FootprintPlotDocumentA0,
     SExpressionBuildRequestA0,
+    decode_footprint_plot_document_a0,
     decode_sexpr_build_request_a0,
 )
 
@@ -60,3 +62,40 @@ def test_generated_projections_are_current_and_typescript_compiles() -> None:
     assert npm is not None, "npm is required for generated contract checks"
     _run([npm, "run", "check:python-generation"])
     _run([npm, "run", "check:typescript-generation"])
+
+
+@pytest.mark.parametrize("version", [-9_007_199_254_740_991, 9_007_199_254_740_991])
+def test_python_plotter_projection_accepts_javascript_safe_boundaries(version: int) -> None:
+    payload = json.dumps(
+        {
+            "schema": "kicad.plotter_ir.a0",
+            "source_kind": "MOD",
+            "total_operations": 0,
+            "records": [],
+            "document_id": "boundary",
+            "coordinate_space": {"unit": "nm", "y_axis": "down"},
+            "version": version,
+            "generator": "pcbnew",
+            "generator_version": "10.0",
+        }
+    ).encode()
+    assert isinstance(decode_footprint_plot_document_a0(payload), FootprintPlotDocumentA0)
+
+
+@pytest.mark.parametrize("version", [-9_007_199_254_740_992, 9_007_199_254_740_992])
+def test_python_plotter_projection_rejects_unsafe_integer_neighbors(version: int) -> None:
+    payload = json.dumps(
+        {
+            "schema": "kicad.plotter_ir.a0",
+            "source_kind": "MOD",
+            "total_operations": 0,
+            "records": [],
+            "document_id": "boundary",
+            "coordinate_space": {"unit": "nm", "y_axis": "down"},
+            "version": version,
+            "generator": "pcbnew",
+            "generator_version": "10.0",
+        }
+    ).encode()
+    with pytest.raises(msgspec.ValidationError):
+        decode_footprint_plot_document_a0(payload)

@@ -47,6 +47,9 @@ def test_shared_solid_line_vector_matches_python_and_both_ir_schemas() -> None:
     established_schema = json.loads(ESTABLISHED_SCHEMA_PATH.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(slice_schema)
     Draft202012Validator.check_schema(established_schema)
+    safe_integer = slice_schema["$defs"]["JavaScriptSafeInteger"]
+    assert safe_integer["minimum"] == -9_007_199_254_740_991
+    assert safe_integer["maximum"] == 9_007_199_254_740_991
 
     for vector in payload["vectors"]:
         footprint = KiCadFootprint.from_string(vector["source"])
@@ -58,6 +61,10 @@ def test_shared_solid_line_vector_matches_python_and_both_ir_schemas() -> None:
         assert actual == vector["expected"], vector["id"]
         Draft202012Validator(slice_schema).validate(actual)
         Draft202012Validator(established_schema).validate(actual)
+
+        unsafe = json.loads(json.dumps(actual))
+        unsafe["version"] = 9_007_199_254_740_992
+        assert list(Draft202012Validator(slice_schema).iter_errors(unsafe))
 
 
 def test_rust_core_and_host_adapter_consume_the_shared_vector() -> None:

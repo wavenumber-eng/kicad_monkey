@@ -28,6 +28,11 @@
             "minimum": 0,
             "maximum": 4294967295
         },
+        "max_metadata_forms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
         "max_operations": {
             "type": "integer",
             "minimum": 0,
@@ -40,6 +45,7 @@
         "max_source_bytes",
         "max_output_bytes",
         "max_depth",
+        "max_metadata_forms",
         "max_operations"
     ],
     "unevaluatedProperties": {

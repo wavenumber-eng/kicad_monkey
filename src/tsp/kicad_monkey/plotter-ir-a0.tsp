@@ -6,6 +6,11 @@ using Wavenumber.KicadMonkey.Contracts.SexprA0;
 
 namespace Wavenumber.KicadMonkey.Contracts.PlotterIrA0;
 
+/** Integer that remains exact when decoded as a JavaScript number. */
+@minValue(-9007199254740991)
+@maxValue(9007199254740991)
+scalar JavaScriptSafeInteger extends safeint;
+
 /** Resource-bounded first footprint plotter operation. Source bytes are out of band. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.footprint_plot.request:a0")
@@ -18,6 +23,7 @@ model FootprintPlotRequest {
   max_source_bytes: uint64;
   max_output_bytes: uint64;
   max_depth: uint32;
+  max_metadata_forms: uint32;
   max_operations: uint32;
 }
 
@@ -43,11 +49,11 @@ model PlotterCoordinateSpace {
 model ThickSegmentOperation {
   kind: "ThickSegment";
   index: uint32;
-  start_x: safeint;
-  start_y: safeint;
-  end_x: safeint;
-  end_y: safeint;
-  width_nm: safeint;
+  start_x: JavaScriptSafeInteger;
+  start_y: JavaScriptSafeInteger;
+  end_x: JavaScriptSafeInteger;
+  end_y: JavaScriptSafeInteger;
+  width_nm: JavaScriptSafeInteger;
   layer: string;
 }
 
@@ -79,7 +85,7 @@ model FootprintPlotDocument {
   source_path?: string;
   document_id: string;
   coordinate_space: PlotterCoordinateSpace;
-  version: safeint;
+  version: JavaScriptSafeInteger;
   generator: string;
   generator_version: string;
 }

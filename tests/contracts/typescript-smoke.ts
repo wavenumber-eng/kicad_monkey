@@ -58,6 +58,7 @@ const footprintPlot = {
   max_source_bytes: "1048576",
   max_output_bytes: "1048576",
   max_depth: 64,
+  max_metadata_forms: 128,
   max_operations: 4096,
 } satisfies FootprintPlotRequestA0;
 

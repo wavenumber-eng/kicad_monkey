@@ -72,6 +72,11 @@ fn generate(value: Value) -> Result<String> {
     let schema: RootSchema = serde_json::from_value(value)?;
     let mut settings = TypeSpaceSettings::default();
     settings.with_struct_builder(false);
+    settings.with_replacement(
+        "JavaScriptSafeInteger",
+        "crate::JavaScriptSafeInteger",
+        [].into_iter(),
+    );
     let mut type_space = TypeSpace::new(&settings);
     type_space.add_root_schema(schema)?;
     let body = type_space.to_stream().to_string();
