@@ -6,6 +6,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod document_metadata;
 pub mod footprint;
 pub mod pcb;
 pub mod plotter_ir;
@@ -17,6 +18,7 @@ pub mod symbol_library;
 mod symbol_pin;
 pub mod symbol_plotter_ir;
 
+pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use pcb::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbDocument, PcbEdit,

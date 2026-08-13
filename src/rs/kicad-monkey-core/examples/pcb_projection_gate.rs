@@ -174,6 +174,8 @@ fn force_decode(view: &PcbView<'_>) -> Result<(), kicad_monkey_core::Error> {
     view.barcodes().collect::<Result<Vec<_>, _>>()?;
     view.tables().collect::<Result<Vec<_>, _>>()?;
     view.table_cells().collect::<Result<Vec<_>, _>>()?;
+    view.paper()?;
+    view.title_block()?;
     Ok(())
 }
 
@@ -321,6 +323,7 @@ fn extended_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Erro
             "pad_to_paste_clearance": metadata.pad_to_paste_clearance,
             "pad_to_paste_clearance_ratio": metadata.pad_to_paste_clearance_ratio,
         },
+        "document_metadata": document_metadata_summary(view)?,
         "setup": setup.map(|item| json!({
             "aux_axis_origin": [item.aux_axis_origin.x, item.aux_axis_origin.y],
             "stackup": item.stackup.map(|stackup| json!({
@@ -395,6 +398,26 @@ fn extended_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Erro
             "layer": item.layer,
             "locked": item.locked,
             "uuid": item.uuid,
+        })),
+    }))
+}
+
+fn document_metadata_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
+    let paper = view.paper()?;
+    let title_block = view.title_block()?;
+    Ok(json!({
+        "paper": {
+            "size": paper.size,
+            "width": paper.width,
+            "height": paper.height,
+            "portrait": paper.portrait,
+        },
+        "title_block": title_block.map(|item| json!({
+            "title": item.title,
+            "date": item.date,
+            "revision": item.revision,
+            "company": item.company,
+            "comments": item.comments,
         })),
     }))
 }

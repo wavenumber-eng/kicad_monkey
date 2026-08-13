@@ -1,6 +1,7 @@
 //! Remaining top-level PCB collections and focused shared-field writeback.
 
 use super::*;
+use std::collections::BTreeMap;
 
 const DEFAULT_VERSION: i64 = 20_260_206;
 const DEFAULT_GENERATOR: &str = "pcbnew";
@@ -97,6 +98,52 @@ pub struct PcbTableCell {
 }
 
 impl<'a> PcbView<'a> {
+    /// Return the board paper declaration, or KiCad Monkey's Python-compatible
+    /// A4 default when the form is absent.
+    pub fn paper(&self) -> Result<KiCadPaper, Error> {
+        let Some(span) = self.first_top_level("paper") else {
+            return Ok(KiCadPaper {
+                size: DEFAULT_PAPER.to_owned(),
+                width: None,
+                height: None,
+                portrait: false,
+                source_range: None,
+            });
+        };
+        let values = bounded_scalar_values(self.source, span, 4)?;
+        let size = values
+            .first()
+            .map(token_string)
+            .unwrap_or_else(|| DEFAULT_PAPER.to_owned());
+        let mut numeric = values
+            .iter()
+            .skip(1)
+            .filter(|value| token_string(value) != "portrait");
+        let width = numeric
+            .next()
+            .map(|value| parse_f64(value, span))
+            .transpose()?;
+        let height = numeric
+            .next()
+            .map(|value| parse_f64(value, span))
+            .transpose()?;
+        Ok(KiCadPaper {
+            size,
+            width,
+            height,
+            portrait: values.iter().any(|value| token_string(value) == "portrait"),
+            source_range: Some(span.range.clone()),
+        })
+    }
+
+    /// Decode the first board title block using the same close-to-format
+    /// record that the schematic reader will consume.
+    pub fn title_block(&self) -> Result<Option<KiCadTitleBlock>, Error> {
+        self.first_top_level("title_block")
+            .map(|span| title_block_from_span(self.source, span, self.limits))
+            .transpose()
+    }
+
     pub fn metadata(&self) -> Result<PcbBoardMetadata, Error> {
         let general = self.first_top_level("general");
         let setup = self.first_top_level("setup");
@@ -108,9 +155,7 @@ impl<'a> PcbView<'a> {
             generator_version: self
                 .top_level_string("generator_version")?
                 .unwrap_or_else(|| DEFAULT_GENERATOR_VERSION.to_owned()),
-            paper: self
-                .top_level_string("paper")?
-                .unwrap_or_else(|| DEFAULT_PAPER.to_owned()),
+            paper: self.paper()?.size,
             thickness: nested_f64(self.source, general, "thickness", self.limits)?
                 .unwrap_or(DEFAULT_THICKNESS),
             legacy_teardrops: nested_bool(self.source, general, "legacy_teardrops", self.limits)?,
@@ -282,6 +327,37 @@ impl<'a> PcbView<'a> {
             .map(|token| parse_i64(token, span))
             .transpose()
     }
+}
+
+fn title_block_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<KiCadTitleBlock, Error> {
+    let children = direct_children(source, span, limits.max_title_block_children, limits)?;
+    let mut comments = BTreeMap::new();
+    for comment in children
+        .iter()
+        .filter(|child| child.head.as_deref() == Some("comment"))
+    {
+        let values = bounded_scalar_values(source, comment, 2)?;
+        if values.len() < 2 {
+            continue;
+        }
+        let number = parse_i64(&values[0], comment)?;
+        if !comments.contains_key(&number) && comments.len() >= limits.max_title_block_comments {
+            return Err(limit_error());
+        }
+        comments.insert(number, token_string(&values[1]));
+    }
+    Ok(KiCadTitleBlock {
+        title: optional_child_string(source, &children, "title")?.unwrap_or_default(),
+        date: optional_child_string(source, &children, "date")?.unwrap_or_default(),
+        revision: optional_child_string(source, &children, "rev")?.unwrap_or_default(),
+        company: optional_child_string(source, &children, "company")?.unwrap_or_default(),
+        comments,
+        source_range: span.range.clone(),
+    })
 }
 
 pub(super) fn index_variants(

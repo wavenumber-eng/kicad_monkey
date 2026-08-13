@@ -10,6 +10,7 @@ import subprocess
 
 from _suite_paths import TEST_CORPUS_ROOT
 from kicad_monkey import KiCadPcb
+from kicad_monkey.kicad_base import find_element, unquote_string
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -25,7 +26,9 @@ EXTENDED_CARRIERS = """(kicad_pcb
   (generator pcbnew)
   (generator_version "10.0")
   (general (thickness 1.8) (legacy_teardrops yes))
-  (paper "A3")
+  (paper "User" 420 297 portrait)
+  (title_block (title "Control Board") (date "2026-08-13") (rev "B")
+    (company "Wavenumber") (comment 2 "second") (comment 1 "first"))
   (setup (pad_to_mask_clearance 0.05) (pad_to_paste_clearance -0.01)
     (pad_to_paste_clearance_ratio -0.1))
   (embedded_fonts yes)
@@ -150,6 +153,8 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
             "pcb_footprint_children_slice",
             "--test",
             "pcb_setup_slice",
+            "--test",
+            "pcb_document_metadata_slice",
         ]
     )
 
@@ -247,6 +252,34 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         "pad_to_mask_clearance": board.pad_to_mask_clearance,
         "pad_to_paste_clearance": board.pad_to_paste_clearance,
         "pad_to_paste_clearance_ratio": board.pad_to_paste_clearance_ratio,
+    }
+    paper = find_element(board._raw_sexp, "paper")
+    paper_values = list(paper[1:]) if paper else []
+    numeric_values = [
+        float(value) for value in paper_values[1:] if isinstance(value, (int, float))
+    ]
+    title_block = board.title_block
+    assert summary["document_metadata"] == {
+        "paper": {
+            "size": unquote_string(paper_values[0]) if paper_values else "A4",
+            "width": numeric_values[0] if numeric_values else None,
+            "height": numeric_values[1] if len(numeric_values) > 1 else None,
+            "portrait": "portrait" in paper_values[1:],
+        },
+        "title_block": (
+            {
+                "title": title_block.title,
+                "date": title_block.date,
+                "revision": title_block.rev,
+                "company": title_block.company,
+                "comments": {
+                    str(number): text
+                    for number, text in sorted(title_block.comments.items())
+                },
+            }
+            if title_block is not None
+            else None
+        ),
     }
     stackup = board.stackup
     assert summary["setup"] == (

@@ -8,6 +8,7 @@ use crate::sexpr::{
     apply_patches_with_limit, build_with_limit, decode_quoted,
 };
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
+use crate::{KiCadPaper, KiCadTitleBlock};
 use std::collections::BTreeMap;
 use std::ops::Range;
 
@@ -43,6 +44,8 @@ pub struct PcbLimits {
     pub max_object_children: usize,
     pub max_setup_children: usize,
     pub max_stackup_layers: usize,
+    pub max_title_block_children: usize,
+    pub max_title_block_comments: usize,
     pub max_layers: usize,
     pub max_nets: usize,
     pub max_properties: usize,
@@ -89,6 +92,8 @@ impl Default for PcbLimits {
             max_object_children: 1_000_000,
             max_setup_children: 16_384,
             max_stackup_layers: 512,
+            max_title_block_children: 4_096,
+            max_title_block_comments: 1_024,
             max_layers: 256,
             max_nets: 2_000_000,
             max_properties: 100_000,
