@@ -210,3 +210,27 @@ fn nested_text_metadata_limits_fail_at_the_requested_boundary() {
         );
     }
 }
+
+#[test]
+fn incomplete_text_box_points_are_ignored_when_deriving_fallback_extents() {
+    let source = r#"(kicad_pcb
+      (footprint "Demo:Malformed"
+        (fp_text_box "box"
+          (pts (xy 999) (xy) (xy -2 -1) (xy 3 4 ignored)))))"#;
+    let text_box = PcbView::parse(source, PcbLimits::default())
+        .expect("board")
+        .footprint_text_boxes()
+        .next()
+        .expect("text box")
+        .expect("typed text box");
+    assert_eq!(
+        text_box
+            .polygon_points
+            .iter()
+            .map(|point| (point.x, point.y))
+            .collect::<Vec<_>>(),
+        [(-2.0, -1.0), (3.0, 4.0)]
+    );
+    assert_eq!((text_box.start.x, text_box.start.y), (-2.0, -1.0));
+    assert_eq!((text_box.end.x, text_box.end.y), (3.0, 4.0));
+}

@@ -279,17 +279,52 @@ fn text_box_points(
     span: &FormSpan,
     limits: PcbLimits,
 ) -> Result<Vec<PcbPoint>, Error> {
-    direct_children(source, span, limits.max_text_box_points, limits)?
+    let mut result = Vec::new();
+    for point in direct_children(source, span, limits.max_text_box_points, limits)?
         .into_iter()
         .filter(|point| point.head.as_deref() == Some("xy"))
-        .map(|point| {
-            let values = bounded_scalar_values(source, &point, 2)?;
-            Ok(PcbPoint {
-                x: optional_f64(values.first(), &point)?.unwrap_or(0.0),
-                y: optional_f64(values.get(1), &point)?.unwrap_or(0.0),
-            })
-        })
-        .collect()
+    {
+        let values = first_two_scalar_values(source, &point)?;
+        let [x, y] = values.as_slice() else {
+            continue;
+        };
+        result.push(PcbPoint {
+            x: parse_f64(x, &point)?,
+            y: parse_f64(y, &point)?,
+        });
+    }
+    Ok(result)
+}
+
+fn first_two_scalar_values<'a>(source: &'a str, span: &FormSpan) -> Result<Vec<Token<'a>>, Error> {
+    let text = span.text(source)?;
+    (|| {
+        let mut lexer = Lexer::new(text);
+        expect_kind(
+            lexer.next(),
+            TokenKind::Left,
+            "Expected form opening parenthesis",
+        )?;
+        let _head = next_scalar(lexer.next(), "Expected form head")?;
+        let mut values = Vec::with_capacity(2);
+        let mut depth = 1usize;
+        for token in lexer {
+            let token = token?;
+            match token.kind {
+                TokenKind::Left => depth += 1,
+                TokenKind::Right => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ if depth == 1 && values.len() < 2 => values.push(token),
+                _ => {}
+            }
+        }
+        Ok(values)
+    })()
+    .map_err(|error| rebase_error(error, span))
 }
 
 fn text_box_margins(source: &str, children: &[FormSpan]) -> Result<[f64; 4], Error> {

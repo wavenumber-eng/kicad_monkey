@@ -87,7 +87,7 @@ PHYSICAL_CARRIERS = """(kicad_pcb
         (line_spacing 1.1) (bold yes) italic)
         (justify left top mirror) (href "https://example.invalid")))
     (fp_text_box "Review" locked
-      (pts (xy -2 -1) (xy 3 -1) (xy 3 4) (xy -2 4))
+      (pts (xy 999) (xy) (xy -2 -1) (xy 3 -1) (xy 3 4) (xy -2 4))
       (margins 1 2 3 4) (angle 45) (layer "F.Fab")
       (effects (font (size 2 3)))
       (border no) (stroke (width 0.12) (type dash)) (knockout) (uuid fp-box-id)
