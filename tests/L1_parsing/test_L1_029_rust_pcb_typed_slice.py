@@ -115,13 +115,28 @@ PAD_DETAIL_CARRIERS = """(kicad_pcb
       (solder_mask_margin 0.05) (solder_paste_margin -0.01)
       (solder_paste_margin_ratio -0.1) (clearance invalid)
       (thermal_bridge_width 0.3) (thermal_bridge_angle 45) (thermal_gap 0.2)
-      (zone_connect 2) (remove_unused_layers) (keep_end_layers no))
+      (zone_connect 2) (remove_unused_layers) (keep_end_layers no)
+      (teardrops (best_length_ratio 0.5) (max_length 1)
+        (best_width_ratio 1) (max_width 2) (curved_edges no)filter_ratio 0.9)
+        (enabled yes) (allow_two_segments yes) (prefer_zone_connections no))
+      (backdrill (size 0.5) (layers "F.Cu" "In1.Cu"))
+      (tertiary_drill (size 0.4) (layers "B.Cu" "In2.Cu"))
+      (front_post_machining counterbore (size 1.1) (depth 0.2) (angle 90))
+      (back_post_machining countersink (size 1.2) (depth 0.25) (angle 75))
+      (zone_layer_connections "In1.Cu" "In2.Cu"))
     (pad "2" smd custom (at 5 6) (size 2 2) (layers "B.Cu")
       (options (clearance outline) (anchor rect))
       (primitives
         (gr_poly (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 999))
           (width 0.1) (fill solid))
-        (gr_line (start 0 0) (end 1 1))))))"""
+        (gr_line (start 0 0) (end 1 1)))))
+  (via (at 4 5) (size 1) (drill 0.4) (layers "F.Cu" "B.Cu")
+    (backdrill (size 0.6) (layers "F.Cu" "In2.Cu"))
+    (tertiary_drill (size 0.45) (layers "B.Cu" "In3.Cu"))
+    (front_post_machining counterbore (size 1.3) (depth 0.3) (angle 80))
+    (back_post_machining countersink (size 1.4) (depth 0.35) (angle 70))
+    (zone_layer_connections "In3.Cu" "In4.Cu")
+    (uuid via-id)))"""
 
 
 def _run(command: list[str], *, timeout: int = 180) -> subprocess.CompletedProcess[str]:
@@ -188,6 +203,8 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
             "pcb_footprint_text_slice",
             "--test",
             "pcb_pad_detail_slice",
+            "--test",
+            "pcb_manufacturing_slice",
         ]
     )
 
@@ -602,13 +619,23 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
             },
         }
     if board.vias:
+        via = board.vias[0]
         assert summary["first_via"] == {
-            "at_x": board.vias[0].at_x,
-            "at_y": board.vias[0].at_y,
+            "at_x": via.at_x,
+            "at_y": via.at_y,
             "net": {
-                "ordinal": board.vias[0].net.ordinal,
-                "name": board.vias[0].net.name or None,
+                "ordinal": via.net.ordinal,
+                "name": via.net.name or None,
             },
+            "backdrill": _drill_properties_summary(via.backdrill),
+            "tertiary_drill": _drill_properties_summary(via.tertiary_drill),
+            "front_post_machining": _post_machining_summary(
+                via.front_post_machining
+            ),
+            "back_post_machining": _post_machining_summary(via.back_post_machining),
+            "zone_layer_connections": _zone_layer_connections_summary(
+                via.zone_layer_connections
+            ),
         }
     if summary["first_graphic"] is not None:
         graphic_collections = {
@@ -698,6 +725,16 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
             "zone_connect": pad.zone_connect,
             "remove_unused_layers": pad.remove_unused_layers,
             "keep_end_layers": pad.keep_end_layers,
+            "teardrops": _teardrop_summary(pad.teardrops),
+            "backdrill": _drill_properties_summary(pad.backdrill),
+            "tertiary_drill": _drill_properties_summary(pad.tertiary_drill),
+            "front_post_machining": _post_machining_summary(
+                pad.front_post_machining
+            ),
+            "back_post_machining": _post_machining_summary(pad.back_post_machining),
+            "zone_layer_connections": _zone_layer_connections_summary(
+                pad.zone_layer_connections
+            ),
         }
     custom_pad = next((pad for pad in pads if pad.shape.value == "custom"), None)
     assert summary["first_custom_pad"] == (
@@ -733,6 +770,46 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
             "scale": list(model.scale),
             "rotate": list(model.rotate),
         }
+
+
+def _drill_properties_summary(value: object | None) -> dict | None:
+    if value is None:
+        return None
+    return {
+        "size": value.size,
+        "layers": [value.layers.start, value.layers.end],
+    }
+
+
+def _post_machining_summary(value: object | None) -> dict | None:
+    if value is None:
+        return None
+    return {
+        "mode": value.mode,
+        "size": value.size,
+        "depth": value.depth,
+        "angle": value.angle,
+    }
+
+
+def _zone_layer_connections_summary(value: object | None) -> list[str] | None:
+    return list(value.forced_layers) if value is not None else None
+
+
+def _teardrop_summary(value: object | None) -> dict | None:
+    if value is None:
+        return None
+    return {
+        "best_length_ratio": value.best_length_ratio,
+        "max_length": value.max_length,
+        "best_width_ratio": value.best_width_ratio,
+        "max_width": value.max_width,
+        "curved_edges": value.curved_edges,
+        "filter_ratio": value.filter_ratio,
+        "enabled": value.enabled,
+        "allow_two_segments": value.allow_two_segments,
+        "prefer_zone_connections": value.prefer_zone_connections,
+    }
 
 
 def _assert_physical_summary(board: KiCadPcb, summary: dict) -> None:

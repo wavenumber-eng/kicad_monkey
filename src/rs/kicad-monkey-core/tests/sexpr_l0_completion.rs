@@ -79,6 +79,59 @@ fn selectors_match_exact_paths_depths_and_source_bytes() {
 }
 
 #[test]
+fn structural_scanners_preserve_legacy_teardrop_dialect_boundaries() {
+    let source = r#"(kicad_pcb
+  (footprint "Demo"
+    (pad "1" smd rect
+      (teardrops (curved_edges no)filter_ratio 0.9)
+        (enabled yes) (allow_two_segments yes))
+      (uuid pad-id))))"#;
+    let selector = Selector {
+        heads: Some(BTreeSet::from([
+            "pad".to_owned(),
+            "teardrops".to_owned(),
+            "enabled".to_owned(),
+            "uuid".to_owned(),
+        ])),
+        ..Selector::default()
+    };
+    let memory = scan_form_spans(source, &selector).expect("memory scanner");
+    let streaming = scan_reader_form_spans(
+        Cursor::new(source.as_bytes()),
+        &selector,
+        ProjectionLimits::default(),
+    )
+    .expect("streaming scanner");
+    assert_eq!(streaming, memory);
+
+    let pad = memory
+        .iter()
+        .find(|span| span.head.as_deref() == Some("pad"))
+        .expect("pad span");
+    assert!(
+        pad.text(source)
+            .expect("pad source")
+            .contains("(uuid pad-id)")
+    );
+    let teardrops = memory
+        .iter()
+        .find(|span| span.head.as_deref() == Some("teardrops"))
+        .expect("teardrop span");
+    let teardrop_source = teardrops.text(source).expect("teardrop source");
+    assert!(teardrop_source.contains("filter_ratio 0.9)"));
+    assert!(teardrop_source.contains("(enabled yes)"));
+    assert!(!teardrop_source.contains("(uuid pad-id)"));
+    assert_eq!(
+        memory
+            .iter()
+            .find(|span| span.head.as_deref() == Some("enabled"))
+            .expect("enabled span")
+            .path,
+        ["kicad_pcb", "footprint", "pad", "teardrops", "enabled"]
+    );
+}
+
+#[test]
 fn selected_nested_form_has_exact_position_and_materializes_on_demand() {
     let selector = Selector {
         paths: Some(BTreeSet::from([vec![

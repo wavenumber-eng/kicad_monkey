@@ -15,6 +15,7 @@ use std::ops::Range;
 mod document;
 mod extended;
 mod footprints;
+mod manufacturing;
 mod pads;
 mod physical;
 mod selection;
@@ -25,6 +26,10 @@ pub use extended::{
 };
 pub use footprints::{
     PcbFootprintGraphic, PcbFootprintProperty, PcbFootprintText, PcbFootprintTextBox,
+};
+pub use manufacturing::{
+    PcbDrillLayerSpan, PcbDrillProperties, PcbPostMachiningProperties, PcbTeardropParameters,
+    PcbZoneLayerConnections,
 };
 pub use pads::{PcbPad, PcbPadCustomOptions, PcbPadCustomPrimitive};
 pub use physical::{
@@ -70,6 +75,9 @@ pub struct PcbLimits {
     pub max_pad_custom_primitives: usize,
     pub max_pad_custom_point_forms: usize,
     pub max_pad_custom_points: usize,
+    pub max_manufacturing_children: usize,
+    pub max_teardrop_scalars: usize,
+    pub max_zone_layer_connections: usize,
     pub max_model_children: usize,
     pub max_pads: usize,
     pub max_models: usize,
@@ -129,6 +137,9 @@ impl Default for PcbLimits {
             max_pad_custom_primitives: 1_000_000,
             max_pad_custom_point_forms: 4_000_000,
             max_pad_custom_points: 4_000_000,
+            max_manufacturing_children: 4_096,
+            max_teardrop_scalars: 256,
+            max_zone_layer_connections: 4_096,
             max_model_children: 32,
             max_pads: 4_000_000,
             max_models: 1_000_000,
@@ -385,6 +396,11 @@ pub struct PcbVia {
     pub layers: Vec<String>,
     pub net: PcbNetRef,
     pub uuid: Option<String>,
+    pub backdrill: Option<PcbDrillProperties>,
+    pub tertiary_drill: Option<PcbDrillProperties>,
+    pub front_post_machining: Option<PcbPostMachiningProperties>,
+    pub back_post_machining: Option<PcbPostMachiningProperties>,
+    pub zone_layer_connections: Option<PcbZoneLayerConnections>,
     pub source_range: Range<usize>,
 }
 
@@ -1490,6 +1506,33 @@ fn via_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<Pcb
         layers,
         net: child_net_ref_or_zero(source, &children)?,
         uuid: optional_uuid(source, &children)?,
+        backdrill: manufacturing::drill_properties_from_children(
+            source,
+            &children,
+            "backdrill",
+            limits,
+        )?,
+        tertiary_drill: manufacturing::drill_properties_from_children(
+            source,
+            &children,
+            "tertiary_drill",
+            limits,
+        )?,
+        front_post_machining: manufacturing::post_machining_from_children(
+            source,
+            &children,
+            "front_post_machining",
+            limits,
+        )?,
+        back_post_machining: manufacturing::post_machining_from_children(
+            source,
+            &children,
+            "back_post_machining",
+            limits,
+        )?,
+        zone_layer_connections: manufacturing::zone_layer_connections_from_children(
+            source, &children, limits,
+        )?,
         source_range: span.range.clone(),
     })
 }
@@ -1669,11 +1712,17 @@ fn bounded_scalar_values<'a>(
         let _head = next_scalar(lexer.next(), "Expected form head")?;
         let mut values = Vec::new();
         let mut depth = 1usize;
+        let mut teardrop_bare_field = false;
+        let mut teardrop_bare_value = false;
         for token in lexer {
             let token = token?;
             match token.kind {
                 TokenKind::Left => depth += 1,
                 TokenKind::Right => {
+                    if depth == 1 && teardrop_bare_value {
+                        teardrop_bare_value = false;
+                        continue;
+                    }
                     depth -= 1;
                     if depth == 0 {
                         break;
@@ -1682,6 +1731,21 @@ fn bounded_scalar_values<'a>(
                 _ if depth == 1 => {
                     if values.len() >= maximum {
                         return Err(limit_error());
+                    }
+                    if span.head.as_deref() == Some("teardrops") {
+                        if teardrop_bare_field {
+                            teardrop_bare_field = false;
+                            teardrop_bare_value = true;
+                        } else if matches!(
+                            token.lexeme,
+                            "best_length_ratio"
+                                | "max_length"
+                                | "best_width_ratio"
+                                | "max_width"
+                                | "filter_ratio"
+                        ) {
+                            teardrop_bare_field = true;
+                        }
                     }
                     values.push(token);
                 }

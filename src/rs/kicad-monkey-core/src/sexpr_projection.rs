@@ -175,6 +175,15 @@ struct Frame {
     visible: bool,
     scan_children: bool,
     awaiting_head: bool,
+    teardrop_bare_field: TeardropBareField,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum TeardropBareField {
+    #[default]
+    None,
+    AwaitingValue,
+    AwaitingClose,
 }
 
 /// Select complete list forms without materializing a token vector or tree.
@@ -243,10 +252,19 @@ fn scan_form_spans_unsorted(
                     visible,
                     scan_children: visible,
                     awaiting_head: true,
+                    teardrop_bare_field: TeardropBareField::None,
                 });
                 saw_root = true;
             }
             TokenKind::Right => {
+                if stack.last().is_some_and(|frame| {
+                    frame.head.as_deref() == Some("teardrops")
+                        && frame.teardrop_bare_field == TeardropBareField::AwaitingClose
+                }) {
+                    stack.last_mut().expect("checked above").teardrop_bare_field =
+                        TeardropBareField::None;
+                    continue;
+                }
                 let Some(frame) = stack.pop() else {
                     return Err(Error::at(
                         ErrorPhase::Tree,
@@ -304,6 +322,14 @@ fn scan_form_spans_unsorted(
                             &frame.path,
                             frame.depth,
                         );
+                } else if frame.head.as_deref() == Some("teardrops") {
+                    frame.teardrop_bare_field = match frame.teardrop_bare_field {
+                        TeardropBareField::None if is_teardrop_numeric_field(token.lexeme) => {
+                            TeardropBareField::AwaitingValue
+                        }
+                        TeardropBareField::AwaitingValue => TeardropBareField::AwaitingClose,
+                        state => state,
+                    };
                 }
             }
         }
@@ -326,6 +352,13 @@ fn scan_form_spans_unsorted(
         ));
     }
     Ok(spans)
+}
+
+fn is_teardrop_numeric_field(value: &str) -> bool {
+    matches!(
+        value,
+        "best_length_ratio" | "max_length" | "best_width_ratio" | "max_width" | "filter_ratio"
+    )
 }
 
 /// Test-only timing split for select-all scan and source-order sorting.
@@ -460,6 +493,7 @@ struct StreamingProjection<'a> {
     head_bytes: Vec<u8>,
     unicode_bytes: Vec<u8>,
     collect_head: bool,
+    collect_teardrop_scalar: bool,
     saw_root: bool,
     line_has_content: bool,
     last_was_cr: bool,
@@ -479,6 +513,7 @@ impl<'a> StreamingProjection<'a> {
             head_bytes: Vec::new(),
             unicode_bytes: Vec::new(),
             collect_head: false,
+            collect_teardrop_scalar: false,
             saw_root: false,
             line_has_content: false,
             last_was_cr: false,
@@ -660,12 +695,23 @@ impl<'a> StreamingProjection<'a> {
             visible,
             scan_children: visible,
             awaiting_head: true,
+            teardrop_bare_field: TeardropBareField::None,
         });
         self.saw_root = true;
         Ok(())
     }
 
     fn close_form(&mut self, close: Position) -> Result<(), Error> {
+        if self.stack.last().is_some_and(|frame| {
+            frame.head.as_deref() == Some("teardrops")
+                && frame.teardrop_bare_field == TeardropBareField::AwaitingClose
+        }) {
+            self.stack
+                .last_mut()
+                .expect("checked above")
+                .teardrop_bare_field = TeardropBareField::None;
+            return Ok(());
+        }
         let Some(frame) = self.stack.pop() else {
             return Err(Error::at(
                 ErrorPhase::Tree,
@@ -697,11 +743,15 @@ impl<'a> StreamingProjection<'a> {
     fn begin_head(&mut self) {
         self.token_start = self.position;
         self.collect_head = self.stack.last().is_some_and(|frame| frame.awaiting_head);
+        self.collect_teardrop_scalar = self.stack.last().is_some_and(|frame| {
+            frame.head.as_deref() == Some("teardrops")
+                && frame.teardrop_bare_field != TeardropBareField::AwaitingClose
+        });
         self.head_bytes.clear();
     }
 
     fn push_head_byte(&mut self, byte: u8) -> Result<(), Error> {
-        if self.collect_head {
+        if self.collect_head || self.collect_teardrop_scalar {
             if self.head_bytes.len() >= self.limits.max_head_bytes {
                 return Err(resource_error(
                     "Projection form head exceeds max_head_bytes",
@@ -714,7 +764,7 @@ impl<'a> StreamingProjection<'a> {
     }
 
     fn finish_head(&mut self, quoted: bool) -> Result<(), Error> {
-        if !self.collect_head {
+        if !self.collect_head && !self.collect_teardrop_scalar {
             return Ok(());
         }
         let text =
@@ -724,6 +774,25 @@ impl<'a> StreamingProjection<'a> {
         } else {
             text.to_owned()
         };
+        if !self.collect_head {
+            let frame = self.stack.last_mut().ok_or_else(|| {
+                Error::at(
+                    ErrorPhase::Tree,
+                    ErrorKind::MissingOpeningParenthesis,
+                    "Missing initial opening parenthesis",
+                    self.token_start,
+                )
+            })?;
+            frame.teardrop_bare_field = match frame.teardrop_bare_field {
+                TeardropBareField::None if is_teardrop_numeric_field(&head) => {
+                    TeardropBareField::AwaitingValue
+                }
+                TeardropBareField::AwaitingValue => TeardropBareField::AwaitingClose,
+                state => state,
+            };
+            self.collect_teardrop_scalar = false;
+            return Ok(());
+        }
         let Some(frame) = self.stack.last_mut() else {
             return Err(Error::at(
                 ErrorPhase::Tree,
@@ -740,6 +809,7 @@ impl<'a> StreamingProjection<'a> {
                 .selector
                 .should_scan_children(frame.head.as_deref(), &frame.path, frame.depth);
         self.collect_head = false;
+        self.collect_teardrop_scalar = false;
         Ok(())
     }
 

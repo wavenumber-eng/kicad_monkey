@@ -276,6 +276,13 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
         "first_via": via.map(|item| json!({
             "at_x": item.at_x, "at_y": item.at_y,
             "net": {"ordinal": item.net.ordinal, "name": item.net.name},
+            "backdrill": drill_properties_summary(item.backdrill.as_ref()),
+            "tertiary_drill": drill_properties_summary(item.tertiary_drill.as_ref()),
+            "front_post_machining": post_machining_summary(item.front_post_machining.as_ref()),
+            "back_post_machining": post_machining_summary(item.back_post_machining.as_ref()),
+            "zone_layer_connections": zone_layer_connections_summary(
+                item.zone_layer_connections.as_ref()
+            ),
         })),
         "first_graphic": graphics.first().map(|item| json!({
             "kind": graphic_kind_name(item.kind), "text": item.text, "layer": item.layer,
@@ -323,8 +330,56 @@ fn first_pad_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Err
             "thermal_gap": item.thermal_gap, "zone_connect": item.zone_connect,
             "remove_unused_layers": item.remove_unused_layers,
             "keep_end_layers": item.keep_end_layers,
+            "teardrops": teardrop_summary(item.teardrops.as_ref()),
+            "backdrill": drill_properties_summary(item.backdrill.as_ref()),
+            "tertiary_drill": drill_properties_summary(item.tertiary_drill.as_ref()),
+            "front_post_machining": post_machining_summary(item.front_post_machining.as_ref()),
+            "back_post_machining": post_machining_summary(item.back_post_machining.as_ref()),
+            "zone_layer_connections": zone_layer_connections_summary(
+                item.zone_layer_connections.as_ref()
+            ),
         })
     }))
+}
+
+fn drill_properties_summary(value: Option<&kicad_monkey_core::PcbDrillProperties>) -> Value {
+    value.map_or(Value::Null, |value| {
+        json!({
+            "size": value.size,
+            "layers": [value.layers.start, value.layers.end],
+        })
+    })
+}
+
+fn post_machining_summary(value: Option<&kicad_monkey_core::PcbPostMachiningProperties>) -> Value {
+    value.map_or(Value::Null, |value| {
+        json!({
+            "mode": value.mode, "size": value.size,
+            "depth": value.depth, "angle": value.angle,
+        })
+    })
+}
+
+fn zone_layer_connections_summary(
+    value: Option<&kicad_monkey_core::PcbZoneLayerConnections>,
+) -> Value {
+    value.map_or(Value::Null, |value| json!(value.forced_layers))
+}
+
+fn teardrop_summary(value: Option<&kicad_monkey_core::PcbTeardropParameters>) -> Value {
+    value.map_or(Value::Null, |value| {
+        json!({
+            "best_length_ratio": value.best_length_ratio,
+            "max_length": value.max_length,
+            "best_width_ratio": value.best_width_ratio,
+            "max_width": value.max_width,
+            "curved_edges": value.curved_edges,
+            "filter_ratio": value.filter_ratio,
+            "enabled": value.enabled,
+            "allow_two_segments": value.allow_two_segments,
+            "prefer_zone_connections": value.prefer_zone_connections,
+        })
+    })
 }
 
 fn first_custom_pad_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
