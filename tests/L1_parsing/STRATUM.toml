@@ -409,3 +409,45 @@ secondary = [
     "Source, family, nested-object, depth, and output limits fail closed",
     "Lazy typed diagnostics use absolute board-source positions",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_030"
+file = "test_L1_030_rust_pcb_roundtrip.py"
+name = "Rust Native PCB Owned Round-Trip"
+description = "Require exact owned writeback and complete promoted semantic decoding over every authoritative PCB input"
+concerns = ["sexpr", "rust", "pcb", "writeback", "native", "shared_corpus"]
+test_cases = "${WN_TEST_CORPUS}/kicad/**/input/**/*.kicad_pcb"
+test_case_type = "shared_corpus"
+
+[subtests.objectives]
+primary = "Every authoritative PCB input survives two complete promoted semantic decode passes and byte-exact owned writes"
+secondary = [
+    "Derived output and reference-output trees are excluded from the authority",
+    "Every failure identifies the input path and processing stage",
+    "The first owned write is exact and the second write is byte stable",
+    "File-local source and decoded values are released before the next board",
+    "Focused mutation, transaction, I/O, and resource-limit tests remain Rack owned",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_031"
+file = "test_L1_031_rust_pcb_cli_mutation.py"
+name = "Rust Native PCB Mutation KiCad CLI Acceptance"
+description = "Require every promoted native Rust PCB edit family to preserve unrelated semantics, stabilize, and load in KiCad"
+concerns = ["sexpr", "rust", "pcb", "writeback", "native", "kicad_cli"]
+test_cases = "tests/parity/pcb_native_mutation_a0.kicad_pcb"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "KiCad accepts source-preserving outputs from every promoted native PCB edit family"
+secondary = [
+    "Property insertion, update, and removal reparse and stabilize",
+    "Top-level identified removal reparses and stabilizes",
+    "Identified layer replacement reparses and stabilizes",
+    "Each edit preserves unrelated promoted semantics",
+    "The native semantic gate remains mandatory when kicad-cli is unavailable",
+]

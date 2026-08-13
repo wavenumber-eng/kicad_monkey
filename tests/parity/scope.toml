@@ -1,6 +1,6 @@
 schema = "kicad_monkey.parity_scope.a0"
-milestone = "rust_phase1_parser_promoted"
-review_state = "accepted"
+milestone = "rust_phase3_pcb_review_ready"
+review_state = "review_ready"
 
 [[surfaces]]
 id = "sexpr.lex_parse"
@@ -186,7 +186,7 @@ evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/footprint_pl
 id = "pcb.native_setup_stackup"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["KiCadPcb.setup_sexp", "KiCadPcb.aux_axis_origin_mm", "Stackup", "StackupLayer"]
 rust_symbols = ["PcbView.setup", "PcbSetup", "PcbStackup", "PcbStackupLayer"]
 rack_cases = ["L1_029"]
@@ -196,7 +196,7 @@ evidence = ["src/rs/kicad-monkey-core/src/pcb/setup.rs", "src/rs/kicad-monkey-co
 id = "pcb.native_footprint_children"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["Footprint", "Property", "FpLine", "FpArc", "FpCircle", "FpRect", "FpPoly"]
 rust_symbols = ["PcbFootprint", "PcbFootprintProperty", "PcbFootprintGraphic", "PcbView.footprint_properties", "PcbView.footprint_graphics"]
 rack_cases = ["L1_029"]
@@ -206,7 +206,7 @@ evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src
 id = "pcb.native_selective_reads"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["KiCadPcb"]
 rust_symbols = ["PcbFamily", "PcbSelection", "PcbView.parse_selected", "PcbDocument.view_selected", "PcbView.footprint_properties", "PcbView.footprint_graphics"]
 rack_cases = ["L1_029"]
@@ -216,7 +216,7 @@ evidence = ["src/rs/kicad-monkey-core/src/pcb/selection.rs", "src/rs/kicad-monke
 id = "pcb.native_typed_read_write"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["KiCadPcb", "KiCadPcbProjection"]
 rust_symbols = ["PcbView", "PcbCounts", "PcbFootprint", "PcbPad", "PcbModelReference", "PcbNetRef", "PcbSegment", "PcbVia", "PcbZone", "PcbZonePolygon", "PcbZoneFilledPolygon", "PcbZoneKeepout", "PcbZonePlacement", "PcbEdit"]
 rack_cases = ["L1_029"]
@@ -226,7 +226,7 @@ evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src
 id = "pcb.native_physical_facts"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["Pad", "Via", "FootprintPlacement", "KiCadPcb.board_outline_carriers"]
 rust_symbols = ["PcbView.holes", "PcbHole", "PcbPadDrill", "PcbView.footprint_transforms", "PcbFootprintTransform", "PcbView.profile_primitives", "PcbProfilePrimitive"]
 rack_cases = ["L1_029"]
@@ -236,18 +236,88 @@ evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src
 id = "pcb.native_owned_document"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["KiCadPcb.from_file", "KiCadPcb.write"]
 rust_symbols = ["PcbDocument", "PcbDocument.from_reader", "PcbDocument.write_to", "PcbDocument.view", "PcbDocument.set_property", "PcbDocument.upsert_property", "PcbDocument.remove_property", "PcbDocument.remove_top_level_by_id", "PcbDocument.set_top_level_layer_by_id"]
-rack_cases = ["L1_029"]
-evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src/pcb/document.rs", "src/rs/kicad-monkey-core/tests/pcb_document_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]
+rack_cases = ["L1_029", "L1_030", "L1_031"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src/pcb/document.rs", "src/rs/kicad-monkey-core/tests/pcb_document_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_mutation_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "tests/L1_parsing/test_L1_031_rust_pcb_cli_mutation.py", "docs/design/rust-pcb-phase3-slice.html"]
 
 [[surfaces]]
 id = "pcb.native_remaining_carriers"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["GrText", "GrLine", "GrRect", "GrArc", "GrCircle", "GrPoly", "GrCurve", "GrTextBox", "Arc", "Dimension", "Group", "GeneratedObject", "EmbeddedFile"]
 rust_symbols = ["PcbGraphic", "PcbGraphicKind", "PcbRoutingArc", "PcbDimension", "PcbGroup", "PcbGeneratedItem", "PcbEmbeddedFile", "PcbView.remove_top_level_by_id"]
 rack_cases = ["L1_029"]
 evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/tests/pcb_typed_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_document_metadata"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadPcb.paper", "KiCadPcb.title_block", "KiCadPcb.general", "KiCadPcb.generator", "KiCadPcb.generator_version"]
+rust_symbols = ["PcbView.paper", "PcbView.title_block", "PcbView.metadata", "KiCadPaper", "KiCadTitleBlock", "PcbBoardMetadata"]
+rack_cases = ["L1_029", "L1_030"]
+evidence = ["src/rs/kicad-monkey-core/src/document_metadata.rs", "src/rs/kicad-monkey-core/src/pcb/extended.rs", "src/rs/kicad-monkey-core/tests/pcb_document_metadata_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_footprint_text"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["FpText", "FpTextBox", "Effects", "Font"]
+rust_symbols = ["PcbView.footprint_texts", "PcbView.footprint_text_boxes", "PcbFootprintText", "PcbFootprintTextBox", "KiCadTextEffects", "KiCadFont"]
+rack_cases = ["L1_029", "L1_030"]
+evidence = ["src/rs/kicad-monkey-core/src/text_metadata.rs", "src/rs/kicad-monkey-core/src/pcb/footprints.rs", "src/rs/kicad-monkey-core/tests/pcb_footprint_text_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_pad_detail"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["Pad", "PadPrimitive", "TeardropParams", "ZoneLayerConnection"]
+rust_symbols = ["PcbPad", "PcbPadPrimitive", "PcbTeardropParameters", "PcbZoneLayerConnection", "PcbView.pads"]
+rack_cases = ["L1_029", "L1_030"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb/pads.rs", "src/rs/kicad-monkey-core/src/pcb/manufacturing.rs", "src/rs/kicad-monkey-core/tests/pcb_pad_detail_slice.rs", "src/rs/kicad-monkey-core/tests/pcb_manufacturing_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_via_detail"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["Via", "TeardropParams", "ZoneLayerConnection"]
+rust_symbols = ["PcbVia", "PcbViaKind", "PcbTeardropParameters", "PcbZoneLayerConnection", "PcbView.vias"]
+rack_cases = ["L1_029", "L1_030"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb/vias.rs", "src/rs/kicad-monkey-core/src/pcb/manufacturing.rs", "src/rs/kicad-monkey-core/tests/pcb_via_detail_slice.rs", "src/rs/kicad-monkey-core/tests/pcb_manufacturing_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_manufacturing_records"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["Backdrill", "TeardropParams", "ZoneLayerConnection", "Pad", "Via"]
+rust_symbols = ["PcbBackdrill", "PcbPostMachining", "PcbTeardropParameters", "PcbZoneLayerConnection", "PcbTertiaryDrill"]
+rack_cases = ["L1_029", "L1_030"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb/manufacturing.rs", "src/rs/kicad-monkey-core/tests/pcb_manufacturing_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_owned_roundtrip_corpus"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadPcb.from_file", "KiCadPcb.to_text"]
+rust_symbols = ["PcbDocument.from_reader", "PcbDocument.write_to", "PcbDocument.view", "pcb_roundtrip_gate"]
+rack_cases = ["L1_030"]
+evidence = ["src/rs/kicad-monkey-core/examples/pcb_roundtrip_gate.rs", "tests/L1_parsing/test_L1_030_rust_pcb_roundtrip.py", "tests/L1_parsing/STRATUM.toml", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "pcb.native_cli_mutation_acceptance"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["KiCadPcb.from_file", "KiCadPcb.to_text"]
+rust_symbols = ["PcbDocument.set_property", "PcbDocument.upsert_property", "PcbDocument.remove_property", "PcbDocument.remove_top_level_by_id", "PcbDocument.set_top_level_layer_by_id", "pcb_mutation_gate"]
+rack_cases = ["L1_031"]
+evidence = ["tests/parity/pcb_native_mutation_a0.kicad_pcb", "src/rs/kicad-monkey-core/examples/pcb_mutation_gate.rs", "tests/L1_parsing/test_L1_031_rust_pcb_cli_mutation.py", "tests/L1_parsing/STRATUM.toml", "docs/design/rust-pcb-phase3-slice.html"]
