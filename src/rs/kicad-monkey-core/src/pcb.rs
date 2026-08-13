@@ -1022,12 +1022,7 @@ fn pad_from_span(
     let children = direct_children(source, &indexed.span, limits.max_pad_children, limits)?;
     let at = optional_vector(source, &children, "at", [0.0, 0.0, 0.0])?;
     let size = optional_pair(source, &children, "size", [0.0, 0.0])?;
-    let layers = child(&children, "layers")
-        .map(|item| {
-            scalar_values(source, item).map(|values| values.iter().map(token_string).collect())
-        })
-        .transpose()?
-        .unwrap_or_default();
+    let layers = child_strings(source, &children, "layers", limits.max_layers)?;
     Ok(PcbPad {
         footprint_index: indexed.parent_index,
         number: required_string(header.first(), "Expected pad number", &indexed.span)?,
@@ -1099,12 +1094,7 @@ fn segment_from_span(
 fn via_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<PcbVia, Error> {
     let children = direct_children(source, span, limits.max_object_children, limits)?;
     let at = required_xy(source, &children, "at", span)?;
-    let layers = child(&children, "layers")
-        .map(|item| {
-            scalar_values(source, item).map(|values| values.iter().map(token_string).collect())
-        })
-        .transpose()?
-        .unwrap_or_default();
+    let layers = child_strings(source, &children, "layers", limits.max_layers)?;
     Ok(PcbVia {
         at_x: at.0,
         at_y: at.1,

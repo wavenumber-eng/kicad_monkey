@@ -133,3 +133,62 @@ fn physical_views_are_selective_and_limits_fail_closed() {
         ErrorKind::ResourceLimit
     );
 }
+
+#[test]
+fn pad_and_via_layer_tokens_obey_exact_lazy_limits() {
+    let exact = PcbView::parse(
+        PHYSICAL,
+        PcbLimits {
+            max_layers: 2,
+            ..PcbLimits::default()
+        },
+    )
+    .expect("board");
+    assert_eq!(
+        exact
+            .pads()
+            .next()
+            .expect("pad")
+            .expect("exact layers")
+            .layers
+            .len(),
+        2
+    );
+    assert_eq!(
+        exact
+            .vias()
+            .next()
+            .expect("via")
+            .expect("exact layers")
+            .layers
+            .len(),
+        2
+    );
+
+    let limited = PcbView::parse(
+        PHYSICAL,
+        PcbLimits {
+            max_layers: 1,
+            ..PcbLimits::default()
+        },
+    )
+    .expect("layer-token decoding remains lazy");
+    assert_eq!(
+        limited
+            .pads()
+            .next()
+            .expect("pad")
+            .expect_err("pad layer limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+    assert_eq!(
+        limited
+            .vias()
+            .next()
+            .expect("via")
+            .expect_err("via layer limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+}
