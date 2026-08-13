@@ -331,3 +331,23 @@ python_symbols = ["KiCadCompiledSchematicGraph", "validate_compiled_schematic_gr
 rust_symbols = ["kicad_monkey_contracts.generated.compiled_schematic_graph.CompiledSchematicGraphA0", "kicad_monkey_contracts.decode_compiled_schematic_graph_a0", "kicad_monkey_contracts.validate_compiled_schematic_graph_contract"]
 rack_cases = ["L0_046", "L0_049", "L0_050", "L3_018"]
 evidence = ["src/tsp/kicad_monkey/compiled-schematic-graph-a0.tsp", "contracts/generated/schema/CompiledSchematicGraph.json", "tests/parity/compiled_schematic_graph_a0_vectors.json", "src/rs/kicad-monkey-contracts/src/generated/compiled_schematic_graph.rs", "src/py/kicad_monkey/contracts/generated.py", "src/ts/kicad_monkey/contracts/generated/compiled-schematic-graph.ts", "tests/L3_rendering/test_L3_018_compiled_schematic_graph.py", "docs/design/rust-compiled-schematic-graph-phase4-contract.html"]
+
+[[surfaces]]
+id = "compiled_graph.native_identity_allocator"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "review_ready"
+python_symbols = ["SchCompiledSchematicGraphIdentityAllocator", "compiled_schematic_graph_design_scope"]
+rust_symbols = ["CompiledGraphIdentityAllocator", "compiled_schematic_graph_design_scope"]
+rack_cases = ["L0_046", "L0_050", "L3_018"]
+evidence = ["tests/parity/compiled_schematic_graph_a0_vectors.json", "src/rs/kicad-monkey-core/src/compiled_schematic_graph/identity.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_semantics.rs", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
+
+[[surfaces]]
+id = "compiled_graph.native_semantic_validator"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "review_ready"
+python_symbols = ["validate_compiled_schematic_graph"]
+rust_symbols = ["validate_compiled_schematic_graph", "compiled_graph_validation_gate"]
+rack_cases = ["L0_046", "L3_018"]
+evidence = ["src/rs/kicad-monkey-core/src/compiled_schematic_graph/validation.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_semantics.rs", "src/rs/kicad-monkey-core/examples/compiled_graph_validation_gate.rs", "tests/L3_rendering/test_L3_018_compiled_schematic_graph.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]

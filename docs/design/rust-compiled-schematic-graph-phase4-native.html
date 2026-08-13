@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 4 native compiled graph semantics</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 4 native compiled graph semantics</h1>
+  <p>
+    Status: review ready. This vertical slice ports deterministic identity and
+    graph-wide semantic validation. It does not yet claim project-byte parsing,
+    connectivity compilation, or exact project-to-graph parity.
+  </p>
+
+  <h2>Identity allocation</h2>
+  <p>
+    <code>CompiledGraphIdentityAllocator</code> owns scope and selector
+    normalization, canonical ASCII JSON, duplicate-address detection, and UUIDv7
+    byte formatting. It matches all shared source, derived, supporting, Unicode,
+    precedence, normalization, and failure vectors. RustCrypto <code>sha2</code>
+    supplies only SHA-256, and <code>unicode-casefold</code> supplies Unicode full
+    case folding; both sit behind package-owned APIs and work without native FFI.
+    Canonicalization and allocation policy remain in-house. Their licenses,
+    maintenance, and final feature topology remain part of the later dependency
+    review rather than an implied public API commitment.
+  </p>
+
+  <h2>Semantic validation</h2>
+  <p>
+    Validation first applies the strict TypeSpec transport boundary, then builds
+    each reference index exactly once. It validates RFC 4122 UUIDv7 row identity,
+    uniqueness, typed references, definition and occurrence inverse ownership,
+    hierarchy ownership, terminal/local/component page ownership, scalar hierarchy
+    bindings, resolution completeness, and graphical target attribution.
+  </p>
+  <p>
+    Hierarchy cycle detection uses one color map and marks each unit occurrence
+    visiting and done once. Runtime is O(rows + references), retained validation
+    memory is O(rows), and no collection cross-product or repeated parent-chain
+    walk is used. The validator borrows generated DTO strings and does not clone
+    row payloads. Compiler input and output ceilings belong to the upcoming named
+    source-bundle/compiler operation; this already-owned DTO validator does not
+    invent a second arbitrary size policy.
+  </p>
+
+  <h2>Evidence and retained work</h2>
+  <ul>
+    <li>The native allocator consumes the same language-neutral vectors as Python, including Unicode canonicalization.</li>
+    <li>Focused Rust tests cover valid semantics, wrong reference types, inverse ownership, cycles, duplicate IDs, binding roles, and graphical target types.</li>
+    <li>Rack L3_018 sends all four reference-project graphs through the native strict and semantic validators in one sequential native process.</li>
+    <li>Package-owned unsafe code remains forbidden.</li>
+    <li>Named multi-file source bundles, schematic/project readers and writers, connectivity compilation, graph emission, and exact corpus differential output remain active Phase 4 work.</li>
+  </ul>
+</body>
+</html>

@@ -90,7 +90,15 @@ pub fn validate_compiled_schematic_graph_contract(
         "graphical_artifact_links",
         "sch.graphical_artifact_link",
         |row| &row.type_,
-    )
+    )?;
+    for (index, link) in document.graphical_artifact_links.iter().enumerate() {
+        require_literal(
+            &link.artifact_key,
+            "sch.dwg_scene",
+            format!("$.graphical_artifact_links[{index}].artifact_key"),
+        )?;
+    }
+    Ok(())
 }
 
 fn validate_row_types<T>(

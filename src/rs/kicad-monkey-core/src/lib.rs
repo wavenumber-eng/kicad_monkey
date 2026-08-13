@@ -6,6 +6,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod compiled_schematic_graph;
 pub mod document_metadata;
 pub mod footprint;
 pub mod pcb;
@@ -19,6 +20,10 @@ mod symbol_pin;
 pub mod symbol_plotter_ir;
 pub mod text_metadata;
 
+pub use compiled_schematic_graph::{
+    CompiledGraphIdentityAllocator, CompiledGraphIdentityError, IdentityMapping,
+    compiled_schematic_graph_design_scope, validate_compiled_schematic_graph,
+};
 pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use pcb::{

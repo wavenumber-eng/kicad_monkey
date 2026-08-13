@@ -73,14 +73,20 @@ def test_identity_vectors_match_the_python_producer_allocator() -> None:
     scope = compiled_schematic_graph_design_scope(**scope_input)
     assert scope == identity["normalized_scope"]
     allocator = SchCompiledSchematicGraphIdentityAllocator(design_scope=scope)
-    for allocation in identity["allocations"]:
+    allocations = [*identity["allocations"], *identity["supporting_allocations"]]
+    for allocation in allocations:
         actual = _allocate(allocator, allocation)
         assert actual == allocation["expected"]
         parsed = uuid.UUID(actual)
         assert parsed.version == 7
         assert parsed.variant == uuid.RFC_4122
         collection = vectors["graph"][allocation["graph_collection"]]
-        assert collection[0]["id"] == actual
+        assert collection[allocation.get("graph_index", 0)]["id"] == actual
+
+    for allocation in identity["canonical_allocations"]:
+        actual = _allocate(allocator, allocation)
+        assert actual == allocation["expected"]
+        assert uuid.UUID(actual).version == 7
 
     assert {row["object_type"] for row in identity["allocations"]} == {
         "sch.unit_definition",

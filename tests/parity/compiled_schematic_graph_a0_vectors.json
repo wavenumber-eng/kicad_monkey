@@ -59,9 +59,9 @@
         },
         "owner_refs": [
           "019fd985-0000-7d5f-b6d5-237fe7bfef46",
-          "66666666-6666-7666-8666-666666666666"
+          "019fd985-0000-7205-a385-be2492374029"
         ],
-        "expected": "019fd985-0000-775e-bcac-d070e2c34dd3"
+        "expected": "019fd985-0000-7c5b-b2f4-44c42d62ea74"
       },
       {
         "graph_collection": "component_occurrences",
@@ -84,10 +84,9 @@
           "sch.source_key.source_path": "/root/reused"
         },
         "owner_refs": [
-          "019fd985-0000-7d5f-b6d5-237fe7bfef46",
-          "019fd985-0000-714a-90bb-4744651116df"
+          "019fd985-0000-7d5f-b6d5-237fe7bfef46"
         ],
-        "expected": "019fd985-0000-7438-82b5-6a5c09a3d092"
+        "expected": "019fd985-0000-71d7-8015-6c08bedcc9b7"
       },
       {
         "graph_collection": "local_net_occurrences",
@@ -95,20 +94,20 @@
         "object_type": "sch.local_net_occurrence",
         "identity": {
           "page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
-          "terminal_occurrence_refs": ["019fd985-0000-7438-82b5-6a5c09a3d092"]
+          "terminal_occurrence_refs": ["019fd985-0000-71d7-8015-6c08bedcc9b7"]
         },
-        "expected": "019fd985-0000-70a1-9575-b7d696880996"
+        "expected": "019fd985-0000-7f74-b93e-5e3a42e9be65"
       },
       {
         "graph_collection": "hierarchy_terminal_bindings",
         "mode": "derived",
         "object_type": "sch.hierarchy_terminal_binding",
         "identity": {
-          "hierarchy_occurrence_ref": "019fd985-0000-775e-bcac-d070e2c34dd3",
-          "parent_terminal_occurrence_ref": "019fd985-0000-7438-82b5-6a5c09a3d092",
-          "child_terminal_occurrence_ref": "99999999-9999-7999-8999-999999999999"
+          "hierarchy_occurrence_ref": "019fd985-0000-7c5b-b2f4-44c42d62ea74",
+          "parent_terminal_occurrence_ref": "019fd985-0000-71d7-8015-6c08bedcc9b7",
+          "child_terminal_occurrence_ref": "019fd985-0000-7321-bf81-8d54d28d25ec"
         },
-        "expected": "019fd985-0000-7d82-b67d-3ee680e23276"
+        "expected": "019fd985-0000-7709-ae6c-501864a2cd76"
       },
       {
         "graph_collection": "graphical_artifact_links",
@@ -122,6 +121,39 @@
           "element_id": "symbol-u1"
         },
         "expected": "019fd985-0000-70cf-9b4f-6a8bdfc29938"
+      }
+    ],
+    "supporting_allocations": [
+      {
+        "graph_collection": "unit_occurrences",
+        "graph_index": 1,
+        "mode": "source",
+        "object_type": "sch.unit_occurrence",
+        "source_identity": {"sch.source_key.source_path": "/root/reused/child"},
+        "owner_refs": [],
+        "expected": "019fd985-0000-7205-a385-be2492374029"
+      },
+      {
+        "graph_collection": "page_occurrences",
+        "graph_index": 1,
+        "mode": "source",
+        "object_type": "sch.page_occurrence",
+        "source_identity": {"sch.source_key.source_path": "/root/reused/child"},
+        "owner_refs": ["019fd985-0000-7205-a385-be2492374029"],
+        "expected": "019fd985-0000-7151-a442-4fc15d036a4f"
+      },
+      {
+        "graph_collection": "terminal_occurrences",
+        "graph_index": 1,
+        "mode": "source",
+        "object_type": "sch.terminal_occurrence",
+        "source_identity": {
+          "sch.source_key.source_uuid": "child-port",
+          "sch.source_key.source_subobject": "SIG",
+          "sch.source_key.source_path": "/root/reused/child"
+        },
+        "owner_refs": ["019fd985-0000-7151-a442-4fc15d036a4f"],
+        "expected": "019fd985-0000-7321-bf81-8d54d28d25ec"
       }
     ],
     "selector_equivalence": [
@@ -152,8 +184,7 @@
             "sch.source_key.source_subobject": "1"
           },
           "owner_refs": [
-            "019fd985-0000-7d5f-b6d5-237fe7bfef46",
-            "019fd985-0000-714a-90bb-4744651116df"
+            "019fd985-0000-7d5f-b6d5-237fe7bfef46"
           ]
         },
         "right": {
@@ -164,11 +195,10 @@
             "sch.source_key.source_path": "ignored"
           },
           "owner_refs": [
-            "019fd985-0000-7d5f-b6d5-237fe7bfef46",
-            "019fd985-0000-714a-90bb-4744651116df"
+            "019fd985-0000-7d5f-b6d5-237fe7bfef46"
           ]
         },
-        "expected": "019fd985-0000-7438-82b5-6a5c09a3d092"
+        "expected": "019fd985-0000-71d7-8015-6c08bedcc9b7"
       },
       {
         "id": "generic-uuid-precedes-other-selectors",
@@ -213,6 +243,28 @@
           "source_cad": "kicad",
           "project_file": "folder/example.kicad_pro"
         }
+      },
+      {
+        "source_cad": " KİCAD ",
+        "project": {"name": "Straße\\Δ.KICAD_PRO"},
+        "expected": {
+          "source_cad": "ki̇cad",
+          "project_file": "strasse/δ.kicad_pro"
+        }
+      }
+    ],
+    "canonical_allocations": [
+      {
+        "mode": "derived",
+        "object_type": "sch.graphical_artifact_link",
+        "identity": {
+          "unicode": "Straße😀",
+          "quote": "a\"b",
+          "enabled": true,
+          "count": 2,
+          "refs": ["β", "A"]
+        },
+        "expected": "019fd985-0000-7573-8a65-44bdbe9de297"
       }
     ],
     "failures": [
@@ -287,6 +339,14 @@
       "unit_definition_ref": "019fd985-0000-70bd-a222-1ececf294168",
       "page_occurrence_refs": ["019fd985-0000-7d5f-b6d5-237fe7bfef46"],
       "source_identity": {"sch.source_key.source_path": "/root/reused"}
+    }, {
+      "type": "sch.unit_occurrence",
+      "id": "019fd985-0000-7205-a385-be2492374029",
+      "display_name": "child",
+      "unit_definition_ref": "019fd985-0000-70bd-a222-1ececf294168",
+      "page_occurrence_refs": ["019fd985-0000-7151-a442-4fc15d036a4f"],
+      "parent_hierarchy_occurrence_ref": "019fd985-0000-7c5b-b2f4-44c42d62ea74",
+      "source_identity": {"sch.source_key.source_path": "/root/reused/child"}
     }],
     "page_occurrences": [{
       "type": "sch.page_occurrence",
@@ -298,13 +358,23 @@
       "sheet_number": "1",
       "instance_order": 0,
       "source_identity": {"sch.source_key.source_path": "/root/reused"}
+    }, {
+      "type": "sch.page_occurrence",
+      "id": "019fd985-0000-7151-a442-4fc15d036a4f",
+      "display_name": "child",
+      "page_definition_ref": "019fd985-0000-775f-b855-85c6a18a16b0",
+      "unit_occurrence_ref": "019fd985-0000-7205-a385-be2492374029",
+      "address_key": "sheet2",
+      "sheet_number": "2",
+      "instance_order": 1,
+      "source_identity": {"sch.source_key.source_path": "/root/reused/child"}
     }],
     "hierarchy_occurrences": [{
       "type": "sch.hierarchy_occurrence",
-      "id": "019fd985-0000-775e-bcac-d070e2c34dd3",
+      "id": "019fd985-0000-7c5b-b2f4-44c42d62ea74",
       "parent_unit_occurrence_ref": "019fd985-0000-7739-a887-bda09e13c502",
       "parent_page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
-      "child_unit_occurrence_ref": "66666666-6666-7666-8666-666666666666",
+      "child_unit_occurrence_ref": "019fd985-0000-7205-a385-be2492374029",
       "source_identity": {
         "sch.source_key.source_uuid": "sheet-placement",
         "sch.source_key.source_path": "/root/reused",
@@ -327,7 +397,7 @@
     }],
     "local_net_occurrences": [{
       "type": "sch.local_net_occurrence",
-      "id": "019fd985-0000-70a1-9575-b7d696880996",
+      "id": "019fd985-0000-7f74-b93e-5e3a42e9be65",
       "page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
       "display_name": "SIG",
       "qualified_name": "/SIG",
@@ -336,26 +406,37 @@
     }],
     "terminal_occurrences": [{
       "type": "sch.terminal_occurrence",
-      "id": "019fd985-0000-7438-82b5-6a5c09a3d092",
+      "id": "019fd985-0000-71d7-8015-6c08bedcc9b7",
       "page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
-      "role": "component_pin",
-      "local_net_occurrence_ref": "019fd985-0000-70a1-9575-b7d696880996",
-      "component_occurrence_ref": "019fd985-0000-714a-90bb-4744651116df",
-      "name": "GPIO",
-      "pin_designator": "1",
-      "resolution_diagnostics": ["logical_pin_unresolved", "design_net_unresolved"],
+      "role": "sheet_entry",
+      "local_net_occurrence_ref": "019fd985-0000-7f74-b93e-5e3a42e9be65",
+      "name": "SIG",
+      "pin_designator": "",
+      "resolution_diagnostics": ["design_net_unresolved"],
       "source_identity": {
         "sch.source_key.source_uuid": "symbol-u1",
         "sch.source_key.source_subobject": "1",
         "sch.source_key.source_path": "/root/reused"
       }
+    }, {
+      "type": "sch.terminal_occurrence",
+      "id": "019fd985-0000-7321-bf81-8d54d28d25ec",
+      "page_occurrence_ref": "019fd985-0000-7151-a442-4fc15d036a4f",
+      "role": "port",
+      "name": "SIG",
+      "pin_designator": "",
+      "source_identity": {
+        "sch.source_key.source_uuid": "child-port",
+        "sch.source_key.source_subobject": "SIG",
+        "sch.source_key.source_path": "/root/reused/child"
+      }
     }],
     "hierarchy_terminal_bindings": [{
       "type": "sch.hierarchy_terminal_binding",
-      "id": "019fd985-0000-7d82-b67d-3ee680e23276",
-      "hierarchy_occurrence_ref": "019fd985-0000-775e-bcac-d070e2c34dd3",
-      "parent_terminal_occurrence_ref": "019fd985-0000-7438-82b5-6a5c09a3d092",
-      "child_terminal_occurrence_ref": "99999999-9999-7999-8999-999999999999",
+      "id": "019fd985-0000-7709-ae6c-501864a2cd76",
+      "hierarchy_occurrence_ref": "019fd985-0000-7c5b-b2f4-44c42d62ea74",
+      "parent_terminal_occurrence_ref": "019fd985-0000-71d7-8015-6c08bedcc9b7",
+      "child_terminal_occurrence_ref": "019fd985-0000-7321-bf81-8d54d28d25ec",
       "source_identity": {"sch.source_key.source_subobject": "SIG"}
     }],
     "graphical_artifact_links": [{

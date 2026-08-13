@@ -54,13 +54,17 @@ fn compiled_schematic_graph_vector_decodes_strictly_in_rust() {
         .as_array()
         .expect("identity allocations");
     assert_eq!(allocations.len(), 10);
-    for allocation in allocations {
+    let supporting = vectors["identity"]["supporting_allocations"]
+        .as_array()
+        .expect("supporting allocations");
+    for allocation in allocations.iter().chain(supporting) {
         let expected = allocation["expected"].as_str().expect("expected UUID");
         assert_uuid_v7(expected);
         let collection = allocation["graph_collection"]
             .as_str()
             .expect("graph collection");
-        assert_eq!(vectors["graph"][collection][0]["id"], expected);
+        let graph_index = allocation["graph_index"].as_u64().unwrap_or(0) as usize;
+        assert_eq!(vectors["graph"][collection][graph_index]["id"], expected);
     }
 
     let mut invalid = graph;
@@ -105,6 +109,7 @@ fn strict_compiled_graph_boundary_rejects_every_literal_mismatch() {
         "/terminal_occurrences/0/type",
         "/hierarchy_terminal_bindings/0/type",
         "/graphical_artifact_links/0/type",
+        "/graphical_artifact_links/0/artifact_key",
     ];
     for path in paths {
         let mut graph = vectors["graph"].clone();

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import copy
 import json
+import shutil
+import subprocess
 from functools import lru_cache
+from pathlib import Path
 
 import pytest
 
@@ -33,6 +36,13 @@ COLLECTIONS = (
     "terminal_occurrences",
     "hierarchy_terminal_bindings",
     "graphical_artifact_links",
+)
+PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+REFERENCE_CASES = (
+    "real_world/yoshi_mainboard",
+    "real_world/taillight",
+    "real_world/speedy_processing_module",
+    "real_world/jumperless_v5r7",
 )
 
 
@@ -96,6 +106,35 @@ def test_reference_projects_emit_complete_valid_graphs(
         for row in graph[name]
         for policy_key in ("dnp", "in_bom", "on_board", "variant")
     )
+
+
+def test_reference_projects_pass_the_native_semantic_validator() -> None:
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for native graph validation"
+    input_text = "".join(
+        f"{json.dumps(_compiled_graph(case_id), separators=(',', ':'))}\n"
+        for case_id in REFERENCE_CASES
+    )
+    completed = subprocess.run(
+        [
+            cargo,
+            "run",
+            "--locked",
+            "--quiet",
+            "--package",
+            "kicad-monkey-core",
+            "--example",
+            "compiled_graph_validation_gate",
+        ],
+        cwd=PACKAGE_ROOT,
+        input=input_text,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.count(" rows ") == len(REFERENCE_CASES)
 
 
 def test_speedy_preserves_reuse_multipart_and_scalar_hierarchy_bindings() -> None:
