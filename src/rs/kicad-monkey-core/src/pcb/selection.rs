@@ -8,6 +8,8 @@ pub enum PcbFamily {
     Nets,
     Properties,
     Footprints,
+    FootprintProperties,
+    FootprintGraphics,
     Pads,
     Models,
     Segments,
@@ -61,6 +63,8 @@ impl PcbSelection {
         let mut result = self;
         if self.contains(PcbFamily::Pads)
             || self.contains(PcbFamily::Models)
+            || self.contains(PcbFamily::FootprintProperties)
+            || self.contains(PcbFamily::FootprintGraphics)
             || self.contains(PcbFamily::Holes)
             || self.contains(PcbFamily::FootprintTransforms)
             || self.contains(PcbFamily::Profile)

@@ -20,12 +20,13 @@ pub mod symbol_plotter_ir;
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use pcb::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbDocument, PcbEdit,
-    PcbEmbeddedFile, PcbFamily, PcbFootprint, PcbFootprintTransform, PcbGeneratedItem, PcbGraphic,
-    PcbGraphicKind, PcbGroup, PcbHole, PcbHoleOwner, PcbHoleShape, PcbImage, PcbLayer, PcbLimits,
-    PcbModelReference, PcbNet, PcbNetRef, PcbPad, PcbPadDrill, PcbPoint, PcbProfileOwner,
-    PcbProfilePrimitive, PcbProperty, PcbRoutingArc, PcbSegment, PcbSelection, PcbTable,
-    PcbTableCell, PcbVia, PcbView, PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout,
-    PcbZoneLayerProperty, PcbZonePlacement, PcbZonePlacementSource, PcbZonePolygon,
+    PcbEmbeddedFile, PcbFamily, PcbFootprint, PcbFootprintGraphic, PcbFootprintProperty,
+    PcbFootprintTransform, PcbGeneratedItem, PcbGraphic, PcbGraphicKind, PcbGroup, PcbHole,
+    PcbHoleOwner, PcbHoleShape, PcbImage, PcbLayer, PcbLimits, PcbModelReference, PcbNet,
+    PcbNetRef, PcbPad, PcbPadDrill, PcbPoint, PcbProfileOwner, PcbProfilePrimitive, PcbProperty,
+    PcbRoutingArc, PcbSegment, PcbSelection, PcbTable, PcbTableCell, PcbVia, PcbView, PcbZone,
+    PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZonePlacement,
+    PcbZonePlacementSource, PcbZonePolygon,
 };
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
 pub use plotter_types::{

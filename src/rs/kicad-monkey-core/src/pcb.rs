@@ -13,12 +13,14 @@ use std::ops::Range;
 
 mod document;
 mod extended;
+mod footprints;
 mod physical;
 mod selection;
 mod zones;
 pub use extended::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbImage, PcbTable, PcbTableCell,
 };
+pub use footprints::{PcbFootprintGraphic, PcbFootprintProperty};
 pub use physical::{
     PcbFootprintTransform, PcbHole, PcbHoleOwner, PcbHoleShape, PcbPadDrill, PcbProfileOwner,
     PcbProfilePrimitive,
@@ -42,6 +44,8 @@ pub struct PcbLimits {
     pub max_properties: usize,
     pub max_footprints: usize,
     pub max_footprint_children: usize,
+    pub max_footprint_attributes: usize,
+    pub max_footprint_properties: usize,
     pub max_footprint_graphics: usize,
     pub max_pad_children: usize,
     pub max_model_children: usize,
@@ -84,6 +88,8 @@ impl Default for PcbLimits {
             max_properties: 100_000,
             max_footprints: 1_000_000,
             max_footprint_children: 1_000_000,
+            max_footprint_attributes: 256,
+            max_footprint_properties: 4_000_000,
             max_footprint_graphics: 4_000_000,
             max_pad_children: 256,
             max_model_children: 32,
@@ -123,6 +129,7 @@ pub struct PcbCounts {
     pub properties: usize,
     pub variants: usize,
     pub footprints: usize,
+    pub footprint_properties: usize,
     pub pads: usize,
     pub models: usize,
     pub footprint_graphics: usize,
@@ -175,7 +182,10 @@ impl PcbCounts {
         if !selection.contains(PcbFamily::Models) {
             self.models = 0;
         }
-        if !selection.contains(PcbFamily::Profile) {
+        if !selection.contains(PcbFamily::FootprintProperties) {
+            self.footprint_properties = 0;
+        }
+        if !selection.contains(PcbFamily::FootprintGraphics) {
             self.footprint_graphics = 0;
         }
         if !selection.contains(PcbFamily::Segments) {
@@ -278,6 +288,18 @@ pub struct PcbFootprint {
     pub placement_sheet_name: Option<String>,
     pub placement_sheet_file: Option<String>,
     pub uuid: Option<String>,
+    pub description: String,
+    pub tags: String,
+    pub attributes: Vec<String>,
+    pub embedded_fonts: bool,
+    pub duplicate_pad_numbers_are_jumpers: Option<bool>,
+    pub solder_mask_margin: Option<f64>,
+    pub solder_paste_margin: Option<f64>,
+    pub solder_paste_margin_ratio: Option<f64>,
+    pub clearance: Option<f64>,
+    pub zone_connect: Option<i64>,
+    pub property_count: usize,
+    pub graphic_count: usize,
     pub pad_count: usize,
     pub model_count: usize,
     pub source_range: Range<usize>,
@@ -439,6 +461,8 @@ pub struct PcbEdit {
 #[derive(Clone, Debug)]
 struct IndexedFootprint {
     span: FormSpan,
+    property_count: usize,
+    graphic_count: usize,
     pad_count: usize,
     model_count: usize,
 }
@@ -483,6 +507,7 @@ struct PcbIndex {
     properties: Vec<FormSpan>,
     nets: Vec<FormSpan>,
     footprints: Vec<IndexedFootprint>,
+    footprint_properties: Vec<IndexedNestedForm>,
     pads: Vec<IndexedNestedForm>,
     models: Vec<IndexedNestedForm>,
     footprint_graphics: Vec<IndexedNestedForm>,
@@ -513,6 +538,7 @@ pub struct PcbView<'a> {
     properties: Vec<FormSpan>,
     nets: Vec<FormSpan>,
     footprints: Vec<IndexedFootprint>,
+    footprint_properties: Vec<IndexedNestedForm>,
     pads: Vec<IndexedNestedForm>,
     models: Vec<IndexedNestedForm>,
     footprint_graphics: Vec<IndexedNestedForm>,
@@ -590,6 +616,7 @@ impl<'a> PcbView<'a> {
             properties: index.properties,
             nets: index.nets,
             footprints: index.footprints,
+            footprint_properties: index.footprint_properties,
             pads: index.pads,
             models: index.models,
             footprint_graphics: index.footprint_graphics,
@@ -1053,6 +1080,8 @@ fn index_footprint(
     }
     let children = direct_children(source, span, limits.max_footprint_children, limits)?;
     let footprint_index = index.footprints.len();
+    let mut property_count = 0usize;
+    let mut graphic_count = 0usize;
     let mut pad_count = 0usize;
     let mut model_count = 0usize;
     for child in children {
@@ -1061,6 +1090,16 @@ fn index_footprint(
             span: child,
         };
         match indexed.span.head.as_deref() {
+            Some("property") => {
+                property_count = property_count.checked_add(1).ok_or_else(limit_error)?;
+                if selection.contains(PcbFamily::FootprintProperties) {
+                    bounded_push(
+                        &mut index.footprint_properties,
+                        indexed,
+                        limits.max_footprint_properties,
+                    )?;
+                }
+            }
             Some("pad") => {
                 pad_count = pad_count.checked_add(1).ok_or_else(limit_error)?;
                 if selection.contains(PcbFamily::Pads) {
@@ -1073,24 +1112,29 @@ fn index_footprint(
                     bounded_push(&mut index.models, indexed, limits.max_models)?;
                 }
             }
-            Some(head)
-                if selection.contains(PcbFamily::Profile)
-                    && physical::is_footprint_profile_head(head) =>
-            {
-                bounded_push(
-                    &mut index.footprint_graphics,
-                    indexed,
-                    limits.max_footprint_graphics,
-                )?;
+            Some(head) if physical::is_footprint_profile_head(head) => {
+                graphic_count = graphic_count.checked_add(1).ok_or_else(limit_error)?;
+                if selection.contains(PcbFamily::FootprintGraphics)
+                    || selection.contains(PcbFamily::Profile)
+                {
+                    bounded_push(
+                        &mut index.footprint_graphics,
+                        indexed,
+                        limits.max_footprint_graphics,
+                    )?;
+                }
             }
             _ => {}
         }
     }
     index.footprints.push(IndexedFootprint {
         span: span.clone(),
+        property_count,
+        graphic_count,
         pad_count,
         model_count,
     });
+    index.counts.footprint_properties = index.footprint_properties.len();
     index.counts.pads = index.pads.len();
     index.counts.models = index.models.len();
     index.counts.footprint_graphics = index.footprint_graphics.len();
@@ -1164,6 +1208,18 @@ fn footprint_from_span(
         placement_sheet_name: None,
         placement_sheet_file: None,
         uuid: None,
+        description: String::new(),
+        tags: String::new(),
+        attributes: Vec::new(),
+        embedded_fonts: false,
+        duplicate_pad_numbers_are_jumpers: None,
+        solder_mask_margin: None,
+        solder_paste_margin: None,
+        solder_paste_margin_ratio: None,
+        clearance: None,
+        zone_connect: None,
+        property_count: indexed.property_count,
+        graphic_count: indexed.graphic_count,
         pad_count: indexed.pad_count,
         model_count: indexed.model_count,
         source_range: indexed.span.range.clone(),
@@ -1189,12 +1245,43 @@ fn footprint_from_span(
             Some("path") => result.placement_path = first_string(source, child)?,
             Some("sheetname") => result.placement_sheet_name = first_string(source, child)?,
             Some("sheetfile") => result.placement_sheet_file = first_string(source, child)?,
+            Some("descr") => result.description = first_string(source, child)?.unwrap_or_default(),
+            Some("tags") => result.tags = first_string(source, child)?.unwrap_or_default(),
+            Some("attr") => {
+                result.attributes =
+                    bounded_scalar_values(source, child, limits.max_footprint_attributes)?
+                        .iter()
+                        .map(token_string)
+                        .collect();
+            }
+            Some("embedded_fonts") => {
+                result.embedded_fonts = child_bool(source, &children, "embedded_fonts")?;
+            }
+            Some("duplicate_pad_numbers_are_jumpers") => {
+                result.duplicate_pad_numbers_are_jumpers = Some(child_bool(
+                    source,
+                    &children,
+                    "duplicate_pad_numbers_are_jumpers",
+                )?);
+            }
+            Some("solder_mask_margin") => {
+                result.solder_mask_margin = first_f64(source, child)?;
+            }
+            Some("solder_paste_margin") => {
+                result.solder_paste_margin = first_f64(source, child)?;
+            }
+            Some("solder_paste_margin_ratio") => {
+                result.solder_paste_margin_ratio = first_f64(source, child)?;
+            }
+            Some("clearance") => result.clearance = first_f64(source, child)?,
+            Some("zone_connect") => result.zone_connect = first_i64(source, child)?,
             Some("uuid" | "tstamp") if result.uuid.is_none() => {
                 result.uuid = first_string(source, child)?;
             }
             _ => {}
         }
     }
+    result.locked |= has_flag(&header, "locked");
     Ok(result)
 }
 
@@ -1650,7 +1737,49 @@ fn child<'a>(children: &'a [FormSpan], head: &str) -> Option<&'a FormSpan> {
 }
 
 fn first_string(source: &str, span: &FormSpan) -> Result<Option<String>, Error> {
-    Ok(scalar_values(source, span)?.first().map(token_string))
+    Ok(first_scalar_value(source, span)?.as_ref().map(token_string))
+}
+
+fn first_f64(source: &str, span: &FormSpan) -> Result<Option<f64>, Error> {
+    let value = first_scalar_value(source, span)?;
+    optional_f64(value.as_ref(), span)
+}
+
+fn first_i64(source: &str, span: &FormSpan) -> Result<Option<i64>, Error> {
+    first_scalar_value(source, span)?
+        .as_ref()
+        .map(|token| parse_i64(token, span))
+        .transpose()
+}
+
+fn first_scalar_value<'a>(source: &'a str, span: &FormSpan) -> Result<Option<Token<'a>>, Error> {
+    let text = span.text(source)?;
+    (|| {
+        let mut lexer = Lexer::new(text);
+        expect_kind(
+            lexer.next(),
+            TokenKind::Left,
+            "Expected form opening parenthesis",
+        )?;
+        let _head = next_scalar(lexer.next(), "Expected form head")?;
+        let mut depth = 1usize;
+        for token in lexer {
+            let token = token?;
+            match token.kind {
+                TokenKind::Left => depth += 1,
+                TokenKind::Right => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Ok(None);
+                    }
+                }
+                _ if depth == 1 => return Ok(Some(token)),
+                _ => {}
+            }
+        }
+        Ok(None)
+    })()
+    .map_err(|error| rebase_error(error, span))
 }
 
 fn optional_child_string(

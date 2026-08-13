@@ -70,6 +70,14 @@ ZONE_CARRIERS = """(kicad_pcb
 PHYSICAL_CARRIERS = """(kicad_pcb
   (footprint "Demo:Part" (layer "B.Cu") (at 100 50 90) (locked yes)
     (path "/root/U1") (sheetname "RF") (sheetfile "rf.kicad_sch") (uuid fp-id)
+    (descr "Physical carrier") (tags "durable vector")
+    (attr smd dnp exclude_from_bom) (embedded_fonts yes)
+    (duplicate_pad_numbers_are_jumpers no)
+    (solder_mask_margin 0.1) (solder_paste_margin -0.02)
+    (solder_paste_margin_ratio -0.15) (clearance 0.25) (zone_connect 2)
+    (property "Reference" "U1" (at 0 -2 0) (layer "F.SilkS")
+      (hide yes) (unlocked yes) (uuid property-id))
+    (property "Datasheet" "https://example.invalid")
     (fp_line (start -1 0) (end 1 0) (stroke (width 0.1) (type default))
       (layer "Edge.Cuts") (uuid fp-edge))
     (fp_circle (center 0 0) (end 1 0) (stroke (width 0.1) (type default))
@@ -90,6 +98,7 @@ def _run(command: list[str], *, timeout: int = 180) -> subprocess.CompletedProce
         cwd=PACKAGE_ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=timeout,
         check=False,
     )
@@ -137,6 +146,8 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
             "pcb_physical_slice",
             "--test",
             "pcb_document_slice",
+            "--test",
+            "pcb_footprint_children_slice",
         ]
     )
 
@@ -189,6 +200,9 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         "properties": len(board.properties),
         "variants": len(board.variants),
         "footprints": len(board.footprints),
+        "footprint_properties": sum(
+            len(footprint.properties) for footprint in board.footprints
+        ),
         "pads": sum(len(footprint.pads) for footprint in board.footprints),
         "models": sum(len(footprint.models) for footprint in board.footprints),
         "footprint_graphics": sum(
@@ -406,10 +420,64 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
             "uuid": cell.uuid or None,
         }
     if board.footprints:
+        footprint = board.footprints[0]
         assert summary["first_footprint"] == {
-            "library_link": board.footprints[0].library_link,
-            "reference": board.footprints[0].get_property_value("Reference") or None,
+            "library_link": footprint.library_link,
+            "reference": footprint.get_property_value("Reference") or None,
+            "value": footprint.get_property_value("Value") or None,
+            "layer": footprint.layer,
+            "description": footprint.descr,
+            "tags": footprint.tags,
+            "attributes": footprint.attr,
+            "locked": footprint.locked,
+            "embedded_fonts": footprint.embedded_fonts,
+            "duplicate_pad_numbers_are_jumpers": (
+                footprint.duplicate_pad_numbers_are_jumpers
+            ),
+            "solder_mask_margin": footprint.solder_mask_margin,
+            "solder_paste_margin": footprint.solder_paste_margin,
+            "solder_paste_margin_ratio": footprint.solder_paste_margin_ratio,
+            "clearance": footprint.clearance,
+            "zone_connect": footprint.zone_connect,
+            "property_count": len(footprint.properties),
+            "graphic_count": (
+                len(footprint.fp_lines)
+                + len(footprint.fp_arcs)
+                + len(footprint.fp_circles)
+                + len(footprint.fp_rects)
+                + len(footprint.fp_polys)
+            ),
         }
+        first_property = next(
+            (
+                (footprint_index, prop)
+                for footprint_index, footprint in enumerate(board.footprints)
+                for prop in footprint.properties
+            ),
+            None,
+        )
+        if first_property is None:
+            assert summary["first_footprint_property"] is None
+        else:
+            footprint_index, prop = first_property
+            assert summary["first_footprint_property"] == {
+                "footprint_index": footprint_index,
+                "name": prop.name,
+                "value": prop.value,
+                "at_x": prop.at_x,
+                "at_y": prop.at_y,
+                "angle": prop.at_angle,
+                "layer": prop.layer,
+                "hidden": prop.hide,
+                "unlocked": prop.unlocked,
+                "graphical": prop.graphical,
+                "uuid": prop.uuid,
+            }
+        _assert_first_footprint_graphic(board, summary)
+    else:
+        assert summary["first_footprint"] is None
+        assert summary["first_footprint_property"] is None
+        assert summary["first_footprint_graphic"] is None
     if board.segments:
         assert summary["first_segment"] == {
             "start_x": board.segments[0].start_x,
@@ -585,3 +653,39 @@ def _assert_physical_summary(board: KiCadPcb, summary: dict) -> None:
         }
     else:
         assert summary["first_hole"] is None
+
+
+def _assert_first_footprint_graphic(board: KiCadPcb, summary: dict) -> None:
+    collection_by_head = {
+        "fp_line": ("gr_line", "fp_lines"),
+        "fp_arc": ("gr_arc", "fp_arcs"),
+        "fp_circle": ("gr_circle", "fp_circles"),
+        "fp_rect": ("gr_rect", "fp_rects"),
+        "fp_poly": ("gr_poly", "fp_polys"),
+    }
+    first = None
+    for footprint_index, footprint in enumerate(board.footprints):
+        for element in footprint._raw_sexp or ():
+            if not isinstance(element, list) or not element:
+                continue
+            selected = collection_by_head.get(element[0])
+            if selected is not None:
+                kind, collection_name = selected
+                first = (footprint_index, kind, getattr(footprint, collection_name)[0])
+                break
+        if first is not None:
+            break
+    if first is None:
+        assert summary["first_footprint_graphic"] is None
+        return
+    footprint_index, kind, graphic = first
+    assert summary["first_footprint_graphic"] == {
+        "footprint_index": footprint_index,
+        "kind": kind,
+        "layer": graphic.layer,
+        "stroke_width": graphic.stroke.width,
+        "stroke_kind": graphic.stroke.type.value,
+        "fill": graphic.fill.value if hasattr(graphic, "fill") else None,
+        "point_count": len(graphic.points) if hasattr(graphic, "points") else 0,
+        "uuid": graphic.uuid,
+    }

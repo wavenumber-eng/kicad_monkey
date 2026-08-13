@@ -62,6 +62,27 @@ fn verify_selective_equivalence(
     require_hidden_dependency("pad nets", pads.nets().next())?;
     require_hidden_dependency("pad footprints", pads.footprints().next())?;
 
+    let footprint_properties =
+        document.view_selected(PcbSelection::only(PcbFamily::FootprintProperties))?;
+    require_same(
+        "footprint properties",
+        footprint_properties.footprint_properties(),
+        full.footprint_properties(),
+    )?;
+    require_hidden_dependency(
+        "property footprints",
+        footprint_properties.footprints().next(),
+    )?;
+
+    let footprint_graphics =
+        document.view_selected(PcbSelection::only(PcbFamily::FootprintGraphics))?;
+    require_same(
+        "footprint graphics",
+        footprint_graphics.footprint_graphics(),
+        full.footprint_graphics(),
+    )?;
+    require_hidden_dependency("graphic footprints", footprint_graphics.footprints().next())?;
+
     let zones = document.view_selected(PcbSelection::only(PcbFamily::Zones))?;
     require_same("zones", zones.zones(), full.zones())?;
     require_hidden_dependency("zone nets", zones.nets().next())?;
@@ -136,6 +157,8 @@ fn force_decode(view: &PcbView<'_>) -> Result<(), kicad_monkey_core::Error> {
     view.nets().collect::<Result<Vec<_>, _>>()?;
     view.properties().collect::<Result<Vec<_>, _>>()?;
     view.footprints().collect::<Result<Vec<_>, _>>()?;
+    view.footprint_properties().collect::<Result<Vec<_>, _>>()?;
+    view.footprint_graphics().collect::<Result<Vec<_>, _>>()?;
     view.pads().collect::<Result<Vec<_>, _>>()?;
     view.models().collect::<Result<Vec<_>, _>>()?;
     view.segments().collect::<Result<Vec<_>, _>>()?;
@@ -193,6 +216,8 @@ fn physical_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Erro
 fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
     let graphics = view.graphics().collect::<Result<Vec<_>, _>>()?;
     let footprint = view.footprints().next().transpose()?;
+    let footprint_property = view.footprint_properties().next().transpose()?;
+    let footprint_graphic = view.footprint_graphics().next().transpose()?;
     let pad = view.pads().next().transpose()?;
     let model = view.models().next().transpose()?;
     let segment = view.segments().next().transpose()?;
@@ -205,6 +230,33 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
     Ok(json!({
         "first_footprint": footprint.map(|item| json!({
             "library_link": item.library_link, "reference": item.reference,
+            "value": item.value, "layer": item.layer,
+            "description": item.description, "tags": item.tags,
+            "attributes": item.attributes, "locked": item.locked,
+            "embedded_fonts": item.embedded_fonts,
+            "duplicate_pad_numbers_are_jumpers": item.duplicate_pad_numbers_are_jumpers,
+            "solder_mask_margin": item.solder_mask_margin,
+            "solder_paste_margin": item.solder_paste_margin,
+            "solder_paste_margin_ratio": item.solder_paste_margin_ratio,
+            "clearance": item.clearance, "zone_connect": item.zone_connect,
+            "property_count": item.property_count, "graphic_count": item.graphic_count,
+        })),
+        "first_footprint_property": footprint_property.map(|item| json!({
+            "footprint_index": item.footprint_index,
+            "name": item.name, "value": item.value,
+            "at_x": item.at.x, "at_y": item.at.y, "angle": item.angle,
+            "layer": item.layer, "hidden": item.hidden, "unlocked": item.unlocked,
+            "graphical": item.graphical, "uuid": item.uuid,
+        })),
+        "first_footprint_graphic": footprint_graphic.map(|item| json!({
+            "footprint_index": item.footprint_index,
+            "kind": graphic_kind_name(item.graphic.kind),
+            "layer": item.graphic.layer,
+            "stroke_width": item.graphic.stroke_width,
+            "stroke_kind": item.graphic.stroke_kind,
+            "fill": item.graphic.fill,
+            "point_count": item.graphic.points.len(),
+            "uuid": item.graphic.uuid,
         })),
         "first_pad": pad.map(|item| json!({
             "number": item.number, "kind": item.kind, "shape": item.shape,
@@ -406,6 +458,7 @@ fn count_summary(counts: PcbCounts) -> Value {
         "properties": counts.properties,
         "variants": counts.variants,
         "footprints": counts.footprints,
+        "footprint_properties": counts.footprint_properties,
         "pads": counts.pads,
         "models": counts.models,
         "footprint_graphics": counts.footprint_graphics,
