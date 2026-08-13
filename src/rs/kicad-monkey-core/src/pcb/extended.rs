@@ -144,30 +144,35 @@ impl<'a> PcbView<'a> {
     pub fn variants(&self) -> impl Iterator<Item = Result<PcbBoardVariant, Error>> + '_ {
         self.variants
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Variants))
             .map(|span| board_variant_from_span(self.source, span, self.limits))
     }
 
     pub fn images(&self) -> impl Iterator<Item = Result<PcbImage, Error>> + '_ {
         self.images
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Images))
             .map(|span| image_from_span(self.source, span, self.limits))
     }
 
     pub fn barcodes(&self) -> impl Iterator<Item = Result<PcbBarcode, Error>> + '_ {
         self.barcodes
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Barcodes))
             .map(|span| barcode_from_span(self.source, span, self.limits))
     }
 
     pub fn tables(&self) -> impl Iterator<Item = Result<PcbTable, Error>> + '_ {
         self.tables
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Tables))
             .map(|table| table_from_span(self.source, table, self.limits))
     }
 
     pub fn table_cells(&self) -> impl Iterator<Item = Result<PcbTableCell, Error>> + '_ {
         self.table_cells
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Tables))
             .map(|indexed| table_cell_from_span(self.source, indexed, self.limits))
     }
 

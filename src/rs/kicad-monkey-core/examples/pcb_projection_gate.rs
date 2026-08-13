@@ -1,7 +1,8 @@
 //! Native JSON summary used by Rack to compare the Rust PCB view to Python.
 
 use kicad_monkey_core::{
-    PcbCounts, PcbDocument, PcbGraphicKind, PcbHoleOwner, PcbLimits, PcbProfileOwner, PcbView,
+    Error, PcbCounts, PcbDocument, PcbFamily, PcbGraphicKind, PcbHoleOwner, PcbLimits,
+    PcbProfileOwner, PcbSelection, PcbView,
 };
 use serde_json::{Value, json};
 use std::env;
@@ -18,6 +19,7 @@ fn summarize(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
     let source = document.source();
     let view = document.view()?;
     force_decode(&view)?;
+    verify_selective_equivalence(&document, &view)?;
     let mut summary = json!({
         "path": path,
         "source_bytes": source.len(),
@@ -49,6 +51,84 @@ fn summarize(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
             .clone(),
     );
     Ok(summary)
+}
+
+fn verify_selective_equivalence(
+    document: &PcbDocument,
+    full: &PcbView<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let pads = document.view_selected(PcbSelection::only(PcbFamily::Pads))?;
+    require_same("pads", pads.pads(), full.pads())?;
+    require_hidden_dependency("pad nets", pads.nets().next())?;
+    require_hidden_dependency("pad footprints", pads.footprints().next())?;
+
+    let zones = document.view_selected(PcbSelection::only(PcbFamily::Zones))?;
+    require_same("zones", zones.zones(), full.zones())?;
+    require_hidden_dependency("zone nets", zones.nets().next())?;
+
+    let holes = document.view_selected(PcbSelection::only(PcbFamily::Holes))?;
+    require_same("holes", holes.holes(), full.holes())?;
+    require_hidden_dependency("hole pads", holes.pads().next())?;
+    require_hidden_dependency("hole vias", holes.vias().next())?;
+
+    let profile = document.view_selected(PcbSelection::only(PcbFamily::Profile))?;
+    require_same(
+        "profile primitives",
+        profile.profile_primitives(),
+        full.profile_primitives(),
+    )?;
+    require_hidden_dependency("profile graphics", profile.graphics().next())?;
+    require_hidden_dependency("profile footprints", profile.footprints().next())?;
+
+    let transforms = document.view_selected(PcbSelection::only(PcbFamily::FootprintTransforms))?;
+    require_same(
+        "footprint transforms",
+        transforms.footprint_transforms(),
+        full.footprint_transforms(),
+    )?;
+    require_hidden_dependency("transform footprints", transforms.footprints().next())?;
+    Ok(())
+}
+
+fn require_same<T: PartialEq>(
+    label: &str,
+    mut selected: impl Iterator<Item = Result<T, Error>>,
+    mut full: impl Iterator<Item = Result<T, Error>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut index = 0usize;
+    loop {
+        match (selected.next(), full.next()) {
+            (Some(selected), Some(full)) => {
+                if selected? != full? {
+                    return Err(std::io::Error::other(format!(
+                        "selective {label} diverged from full view at item {index}"
+                    ))
+                    .into());
+                }
+                index += 1;
+            }
+            (None, None) => return Ok(()),
+            _ => {
+                return Err(std::io::Error::other(format!(
+                    "selective {label} diverged from full view at item {index}"
+                ))
+                .into());
+            }
+        }
+    }
+}
+
+fn require_hidden_dependency<T>(
+    label: &str,
+    item: Option<Result<T, Error>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if item.is_some() {
+        return Err(std::io::Error::other(format!(
+            "selective view exposed internal {label} dependency"
+        ))
+        .into());
+    }
+    Ok(())
 }
 
 fn force_decode(view: &PcbView<'_>) -> Result<(), kicad_monkey_core::Error> {

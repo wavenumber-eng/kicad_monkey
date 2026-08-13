@@ -58,6 +58,11 @@ impl PcbDocument {
         PcbView::parse(&self.source, self.limits)
     }
 
+    /// Build a dependency-aware selected view over the current source.
+    pub fn view_selected(&self, selection: PcbSelection) -> Result<PcbView<'_>, Error> {
+        PcbView::parse_selected(&self.source, self.limits, selection)
+    }
+
     /// Write the current source verbatim after checking the output ceiling.
     pub fn write_to(&self, mut writer: impl Write) -> Result<(), Error> {
         if self.source.len() > self.limits.max_output_bytes {

@@ -93,16 +93,24 @@ pub struct PcbProfilePrimitive {
 impl<'a> PcbView<'a> {
     /// Iterate source-authored holes: footprint-local pad drills, then board vias.
     pub fn holes(&self) -> impl Iterator<Item = Result<PcbHole, Error>> + '_ {
-        let pads =
-            self.pads.iter().enumerate().filter_map(|(index, span)| {
+        let pads = self
+            .pads
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Holes))
+            .enumerate()
+            .filter_map(|(index, span)| {
                 match pad_hole_from_span(self.source, span, index, self.limits) {
                     Ok(Some(hole)) => Some(Ok(hole)),
                     Ok(None) => None,
                     Err(error) => Some(Err(error)),
                 }
             });
-        let vias =
-            self.vias.iter().enumerate().filter_map(|(index, span)| {
+        let vias = self
+            .vias
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Holes))
+            .enumerate()
+            .filter_map(|(index, span)| {
                 match via_hole_from_span(self.source, span, index, self.limits) {
                     Ok(Some(hole)) => Some(Ok(hole)),
                     Ok(None) => None,
@@ -116,32 +124,44 @@ impl<'a> PcbView<'a> {
     pub fn footprint_transforms(
         &self,
     ) -> impl Iterator<Item = Result<PcbFootprintTransform, Error>> + '_ {
-        self.footprints.iter().enumerate().map(|(index, span)| {
-            footprint_transform_from_span(self.source, span, index, self.limits)
-        })
+        self.footprints
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::FootprintTransforms))
+            .enumerate()
+            .map(|(index, span)| {
+                footprint_transform_from_span(self.source, span, index, self.limits)
+            })
     }
 
     /// Iterate top-level and footprint-local Edge.Cuts carriers.
     pub fn profile_primitives(
         &self,
     ) -> impl Iterator<Item = Result<PcbProfilePrimitive, Error>> + '_ {
-        let board = self.graphics.iter().filter_map(|span| {
-            match profile_from_span(self.source, span, PcbProfileOwner::Board, self.limits) {
-                Ok(Some(profile)) => Some(Ok(profile)),
-                Ok(None) => None,
-                Err(error) => Some(Err(error)),
-            }
-        });
-        let footprints = self.footprint_graphics.iter().filter_map(|indexed| {
-            let owner = PcbProfileOwner::Footprint {
-                footprint_index: indexed.parent_index,
-            };
-            match profile_from_span(self.source, &indexed.span, owner, self.limits) {
-                Ok(Some(profile)) => Some(Ok(profile)),
-                Ok(None) => None,
-                Err(error) => Some(Err(error)),
-            }
-        });
+        let board = self
+            .graphics
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Profile))
+            .filter_map(|span| {
+                match profile_from_span(self.source, span, PcbProfileOwner::Board, self.limits) {
+                    Ok(Some(profile)) => Some(Ok(profile)),
+                    Ok(None) => None,
+                    Err(error) => Some(Err(error)),
+                }
+            });
+        let footprints = self
+            .footprint_graphics
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Profile))
+            .filter_map(|indexed| {
+                let owner = PcbProfileOwner::Footprint {
+                    footprint_index: indexed.parent_index,
+                };
+                match profile_from_span(self.source, &indexed.span, owner, self.limits) {
+                    Ok(Some(profile)) => Some(Ok(profile)),
+                    Ok(None) => None,
+                    Err(error) => Some(Err(error)),
+                }
+            });
         board.chain(footprints)
     }
 }

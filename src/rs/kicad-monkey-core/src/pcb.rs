@@ -14,6 +14,7 @@ use std::ops::Range;
 mod document;
 mod extended;
 mod physical;
+mod selection;
 mod zones;
 pub use extended::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbImage, PcbTable, PcbTableCell,
@@ -22,6 +23,7 @@ pub use physical::{
     PcbFootprintTransform, PcbHole, PcbHoleOwner, PcbHoleShape, PcbPadDrill, PcbProfileOwner,
     PcbProfilePrimitive,
 };
+pub use selection::{PcbFamily, PcbSelection};
 pub use zones::{
     PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZonePlacement,
     PcbZonePlacementSource, PcbZonePolygon,
@@ -146,6 +148,88 @@ pub struct PcbCounts {
     pub generated_items: usize,
     pub embedded_files: usize,
     pub unknown_top_level: usize,
+}
+
+impl PcbCounts {
+    fn retain_selection(&mut self, selection: PcbSelection) {
+        self.retain_primary_selection(selection);
+        self.retain_extended_selection(selection);
+    }
+
+    fn retain_primary_selection(&mut self, selection: PcbSelection) {
+        if !selection.contains(PcbFamily::Layers) {
+            self.layers = 0;
+        }
+        if !selection.contains(PcbFamily::Nets) {
+            self.nets = 0;
+        }
+        if !selection.contains(PcbFamily::Properties) {
+            self.properties = 0;
+        }
+        if !selection.contains(PcbFamily::Footprints) {
+            self.footprints = 0;
+        }
+        if !selection.contains(PcbFamily::Pads) {
+            self.pads = 0;
+        }
+        if !selection.contains(PcbFamily::Models) {
+            self.models = 0;
+        }
+        if !selection.contains(PcbFamily::Profile) {
+            self.footprint_graphics = 0;
+        }
+        if !selection.contains(PcbFamily::Segments) {
+            self.segments = 0;
+        }
+        if !selection.contains(PcbFamily::Vias) {
+            self.vias = 0;
+        }
+        if !selection.contains(PcbFamily::Zones) {
+            self.zones = 0;
+        }
+        if !selection.contains(PcbFamily::Arcs) {
+            self.arcs = 0;
+        }
+    }
+
+    fn retain_extended_selection(&mut self, selection: PcbSelection) {
+        if !selection.contains(PcbFamily::Graphics) {
+            self.graphics = 0;
+            self.gr_texts = 0;
+            self.gr_lines = 0;
+            self.gr_rects = 0;
+            self.gr_arcs = 0;
+            self.gr_circles = 0;
+            self.gr_polys = 0;
+            self.gr_curves = 0;
+            self.gr_text_boxes = 0;
+        }
+        if !selection.contains(PcbFamily::Images) {
+            self.images = 0;
+        }
+        if !selection.contains(PcbFamily::Barcodes) {
+            self.barcodes = 0;
+        }
+        if !selection.contains(PcbFamily::Tables) {
+            self.tables = 0;
+            self.table_cells = 0;
+        }
+        if !selection.contains(PcbFamily::Groups) {
+            self.groups = 0;
+        }
+        if !selection.contains(PcbFamily::Dimensions) {
+            self.dimensions = 0;
+        }
+        if !selection.contains(PcbFamily::GeneratedItems) {
+            self.generated_items = 0;
+        }
+        if !selection.contains(PcbFamily::EmbeddedFiles) {
+            self.embedded_files = 0;
+        }
+        if !selection.contains(PcbFamily::Variants) {
+            self.variants = 0;
+        }
+    }
 }
 
 /// One exact top-level PCB property and its editable value range.
@@ -449,11 +533,21 @@ pub struct PcbView<'a> {
     net_resolver: NetResolver,
     counts: PcbCounts,
     limits: PcbLimits,
+    selection: PcbSelection,
 }
 
 impl<'a> PcbView<'a> {
     /// Validate one `kicad_pcb` root and index its major domain families.
     pub fn parse(source: &'a str, limits: PcbLimits) -> Result<Self, Error> {
+        Self::parse_selected(source, limits, PcbSelection::all())
+    }
+
+    /// Validate a board and index only the requested families plus dependencies.
+    pub fn parse_selected(
+        source: &'a str,
+        limits: PcbLimits,
+        selection: PcbSelection,
+    ) -> Result<Self, Error> {
         let selected_limit = limits
             .max_top_level_forms
             .checked_add(1)
@@ -483,8 +577,10 @@ impl<'a> PcbView<'a> {
             return Err(limit_error());
         }
 
-        let index = index_top_level(source, &top_level, limits)?;
+        let effective = selection.dependencies();
+        let mut index = index_top_level(source, &top_level, limits, effective)?;
         let net_resolver = net_resolver_from_spans(source, &index.nets)?;
+        index.counts.retain_selection(selection);
 
         Ok(Self {
             source,
@@ -514,6 +610,7 @@ impl<'a> PcbView<'a> {
             net_resolver,
             counts: index.counts,
             limits,
+            selection,
         })
     }
 
@@ -523,6 +620,10 @@ impl<'a> PcbView<'a> {
 
     pub fn source(&self) -> &'a str {
         self.source
+    }
+
+    pub fn selection(&self) -> PcbSelection {
+        self.selection
     }
 
     pub fn root_span(&self) -> &FormSpan {
@@ -545,105 +646,130 @@ impl<'a> PcbView<'a> {
     pub fn layers(&self) -> impl Iterator<Item = Result<PcbLayer, Error>> + '_ {
         self.layer_forms
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Layers))
             .map(|span| layer_from_span(self.source, span))
     }
 
     pub fn nets(&self) -> impl Iterator<Item = Result<PcbNet, Error>> + '_ {
         self.nets
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Nets))
             .map(|span| net_from_span(self.source, span))
     }
 
     pub fn properties(&self) -> impl Iterator<Item = Result<PcbProperty, Error>> + '_ {
         self.properties
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Properties))
             .map(|span| property_from_span(self.source, span))
     }
 
     pub fn footprints(&self) -> impl Iterator<Item = Result<PcbFootprint, Error>> + '_ {
         self.footprints
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Footprints))
             .map(|indexed| footprint_from_span(self.source, indexed, self.limits))
     }
 
     pub fn pads(&self) -> impl Iterator<Item = Result<PcbPad, Error>> + '_ {
-        self.pads.iter().map(|indexed| {
-            pad_from_span(self.source, indexed, self.limits).map(|mut pad| {
-                pad.net = self.net_resolver.resolve(pad.net);
-                pad
+        self.pads
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Pads))
+            .map(|indexed| {
+                pad_from_span(self.source, indexed, self.limits).map(|mut pad| {
+                    pad.net = self.net_resolver.resolve(pad.net);
+                    pad
+                })
             })
-        })
     }
 
     pub fn models(&self) -> impl Iterator<Item = Result<PcbModelReference, Error>> + '_ {
         self.models
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Models))
             .map(|indexed| model_from_span(self.source, indexed, self.limits))
     }
 
     pub fn segments(&self) -> impl Iterator<Item = Result<PcbSegment, Error>> + '_ {
-        self.segments.iter().map(|span| {
-            segment_from_span(self.source, span, self.limits).map(|mut segment| {
-                segment.net = self.net_resolver.resolve(segment.net);
-                segment
+        self.segments
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Segments))
+            .map(|span| {
+                segment_from_span(self.source, span, self.limits).map(|mut segment| {
+                    segment.net = self.net_resolver.resolve(segment.net);
+                    segment
+                })
             })
-        })
     }
 
     pub fn vias(&self) -> impl Iterator<Item = Result<PcbVia, Error>> + '_ {
-        self.vias.iter().map(|span| {
-            via_from_span(self.source, span, self.limits).map(|mut via| {
-                via.net = self.net_resolver.resolve(via.net);
-                via
+        self.vias
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Vias))
+            .map(|span| {
+                via_from_span(self.source, span, self.limits).map(|mut via| {
+                    via.net = self.net_resolver.resolve(via.net);
+                    via
+                })
             })
-        })
     }
 
     pub fn zones(&self) -> impl Iterator<Item = Result<PcbZone, Error>> + '_ {
-        self.zones.iter().map(|span| {
-            zones::zone_from_span(self.source, span, self.limits).map(|mut zone| {
-                zone.net = self.net_resolver.resolve(zone.net);
-                zone
+        self.zones
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Zones))
+            .map(|span| {
+                zones::zone_from_span(self.source, span, self.limits).map(|mut zone| {
+                    zone.net = self.net_resolver.resolve(zone.net);
+                    zone
+                })
             })
-        })
     }
 
     pub fn graphics(&self) -> impl Iterator<Item = Result<PcbGraphic, Error>> + '_ {
         self.graphics
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Graphics))
             .map(|span| graphic_from_span(self.source, span, self.limits))
     }
 
     pub fn arcs(&self) -> impl Iterator<Item = Result<PcbRoutingArc, Error>> + '_ {
-        self.arcs.iter().map(|span| {
-            routing_arc_from_span(self.source, span, self.limits).map(|mut arc| {
-                arc.net = self.net_resolver.resolve(arc.net);
-                arc
+        self.arcs
+            .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Arcs))
+            .map(|span| {
+                routing_arc_from_span(self.source, span, self.limits).map(|mut arc| {
+                    arc.net = self.net_resolver.resolve(arc.net);
+                    arc
+                })
             })
-        })
     }
 
     pub fn dimensions(&self) -> impl Iterator<Item = Result<PcbDimension, Error>> + '_ {
         self.dimensions
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Dimensions))
             .map(|span| dimension_from_span(self.source, span, self.limits))
     }
 
     pub fn groups(&self) -> impl Iterator<Item = Result<PcbGroup, Error>> + '_ {
         self.groups
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::Groups))
             .map(|span| group_from_span(self.source, span, self.limits))
     }
 
     pub fn generated_items(&self) -> impl Iterator<Item = Result<PcbGeneratedItem, Error>> + '_ {
         self.generated_items
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::GeneratedItems))
             .map(|span| generated_from_span(self.source, span, self.limits))
     }
 
     pub fn embedded_files(&self) -> impl Iterator<Item = Result<PcbEmbeddedFile, Error>> + '_ {
         self.embedded_files
             .iter()
+            .filter(move |_| self.selection.contains(PcbFamily::EmbeddedFiles))
             .map(|span| embedded_file_from_span(self.source, span, self.limits))
     }
 
@@ -691,7 +817,10 @@ impl<'a> PcbView<'a> {
             return Err(output_limit_error());
         }
         let matches = self
-            .properties()
+            .top_level
+            .iter()
+            .filter(|span| span.head.as_deref() == Some("property"))
+            .map(|span| property_from_span(self.source, span))
             .filter_map(|property| match property {
                 Ok(property) if property.name == name => Some(Ok(property)),
                 Ok(_) => None,
@@ -752,49 +881,61 @@ fn index_top_level(
     source: &str,
     top_level: &[FormSpan],
     limits: PcbLimits,
+    selection: PcbSelection,
 ) -> Result<PcbIndex, Error> {
     let mut index = PcbIndex::default();
     for span in top_level {
-        match span.head.as_deref() {
-            Some("layers") => index_layers(source, span, limits, &mut index)?,
-            Some("net") => {
+        let Some(head) = span.head.as_deref() else {
+            index.counts.unknown_top_level += 1;
+            continue;
+        };
+        if top_level_family(head).is_some_and(|family| !selection.contains(family)) {
+            continue;
+        }
+        match head {
+            "layers" => {
+                index_layers(source, span, limits, &mut index)?;
+            }
+            "net" => {
                 bounded_push(&mut index.nets, span.clone(), limits.max_nets)?;
                 index.counts.nets += 1;
             }
-            Some("property") => {
+            "property" => {
                 bounded_push(&mut index.properties, span.clone(), limits.max_properties)?;
                 index.counts.properties += 1;
             }
-            Some("footprint" | "module") => index_footprint(source, span, limits, &mut index)?,
-            Some("segment") => {
+            "footprint" | "module" => {
+                index_footprint(source, span, limits, selection, &mut index)?;
+            }
+            "segment" => {
                 bounded_push(&mut index.segments, span.clone(), limits.max_segments)?;
                 index.counts.segments += 1;
             }
-            Some("via") => {
+            "via" => {
                 bounded_push(&mut index.vias, span.clone(), limits.max_vias)?;
                 index.counts.vias += 1;
             }
-            Some("zone") => {
+            "zone" => {
                 bounded_push(&mut index.zones, span.clone(), limits.max_zones)?;
                 index.counts.zones += 1;
             }
-            Some("arc") => {
+            "arc" => {
                 bounded_push(&mut index.arcs, span.clone(), limits.max_arcs)?;
                 index.counts.arcs += 1;
             }
-            Some(head) if graphic_kind(head).is_some() => {
+            head if graphic_kind(head).is_some() => {
                 bounded_push(&mut index.graphics, span.clone(), limits.max_graphics)?;
                 increment_graphic_count(&mut index.counts, head);
             }
-            Some("group") => {
+            "group" => {
                 bounded_push(&mut index.groups, span.clone(), limits.max_groups)?;
                 index.counts.groups += 1;
             }
-            Some("dimension") => {
+            "dimension" => {
                 bounded_push(&mut index.dimensions, span.clone(), limits.max_dimensions)?;
                 index.counts.dimensions += 1;
             }
-            Some("generated") => {
+            "generated" => {
                 bounded_push(
                     &mut index.generated_items,
                     span.clone(),
@@ -802,22 +943,51 @@ fn index_top_level(
                 )?;
                 index.counts.generated_items += 1;
             }
-            Some("embedded_files") => index_embedded_files(source, span, limits, &mut index)?,
-            Some("variants") => extended::index_variants(source, span, limits, &mut index)?,
-            Some("image") => {
+            "embedded_files" => {
+                index_embedded_files(source, span, limits, &mut index)?;
+            }
+            "variants" => {
+                extended::index_variants(source, span, limits, &mut index)?;
+            }
+            "image" => {
                 bounded_push(&mut index.images, span.clone(), limits.max_images)?;
                 index.counts.images += 1;
             }
-            Some("barcode") => {
+            "barcode" => {
                 bounded_push(&mut index.barcodes, span.clone(), limits.max_barcodes)?;
                 index.counts.barcodes += 1;
             }
-            Some("table") => extended::index_table(source, span, limits, &mut index)?,
-            Some(head) if is_known_metadata(head) => {}
+            "table" => {
+                extended::index_table(source, span, limits, &mut index)?;
+            }
+            head if is_known_top_level(head) => {}
             _ => index.counts.unknown_top_level += 1,
         }
     }
     Ok(index)
+}
+
+fn top_level_family(head: &str) -> Option<PcbFamily> {
+    match head {
+        "layers" => Some(PcbFamily::Layers),
+        "net" => Some(PcbFamily::Nets),
+        "property" => Some(PcbFamily::Properties),
+        "footprint" | "module" => Some(PcbFamily::Footprints),
+        "segment" => Some(PcbFamily::Segments),
+        "via" => Some(PcbFamily::Vias),
+        "zone" => Some(PcbFamily::Zones),
+        "arc" => Some(PcbFamily::Arcs),
+        head if graphic_kind(head).is_some() => Some(PcbFamily::Graphics),
+        "group" => Some(PcbFamily::Groups),
+        "dimension" => Some(PcbFamily::Dimensions),
+        "generated" => Some(PcbFamily::GeneratedItems),
+        "embedded_files" => Some(PcbFamily::EmbeddedFiles),
+        "variants" => Some(PcbFamily::Variants),
+        "image" => Some(PcbFamily::Images),
+        "barcode" => Some(PcbFamily::Barcodes),
+        "table" => Some(PcbFamily::Tables),
+        _ => None,
+    }
 }
 
 fn increment_graphic_count(counts: &mut PcbCounts, head: &str) {
@@ -875,6 +1045,7 @@ fn index_footprint(
     source: &str,
     span: &FormSpan,
     limits: PcbLimits,
+    selection: PcbSelection,
     index: &mut PcbIndex,
 ) -> Result<(), Error> {
     if index.footprints.len() == limits.max_footprints {
@@ -882,26 +1053,39 @@ fn index_footprint(
     }
     let children = direct_children(source, span, limits.max_footprint_children, limits)?;
     let footprint_index = index.footprints.len();
-    let pad_start = index.pads.len();
-    let model_start = index.models.len();
+    let mut pad_count = 0usize;
+    let mut model_count = 0usize;
     for child in children {
         let indexed = IndexedNestedForm {
             parent_index: footprint_index,
             span: child,
         };
         match indexed.span.head.as_deref() {
-            Some("pad") => bounded_push(&mut index.pads, indexed, limits.max_pads)?,
-            Some("model") => bounded_push(&mut index.models, indexed, limits.max_models)?,
-            Some(head) if physical::is_footprint_profile_head(head) => bounded_push(
-                &mut index.footprint_graphics,
-                indexed,
-                limits.max_footprint_graphics,
-            )?,
+            Some("pad") => {
+                pad_count = pad_count.checked_add(1).ok_or_else(limit_error)?;
+                if selection.contains(PcbFamily::Pads) {
+                    bounded_push(&mut index.pads, indexed, limits.max_pads)?;
+                }
+            }
+            Some("model") => {
+                model_count = model_count.checked_add(1).ok_or_else(limit_error)?;
+                if selection.contains(PcbFamily::Models) {
+                    bounded_push(&mut index.models, indexed, limits.max_models)?;
+                }
+            }
+            Some(head)
+                if selection.contains(PcbFamily::Profile)
+                    && physical::is_footprint_profile_head(head) =>
+            {
+                bounded_push(
+                    &mut index.footprint_graphics,
+                    indexed,
+                    limits.max_footprint_graphics,
+                )?;
+            }
             _ => {}
         }
     }
-    let pad_count = index.pads.len() - pad_start;
-    let model_count = index.models.len() - model_start;
     index.footprints.push(IndexedFootprint {
         span: span.clone(),
         pad_count,

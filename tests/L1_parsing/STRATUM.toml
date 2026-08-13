@@ -399,6 +399,7 @@ secondary = [
     "Pad/via holes, footprint placement transforms, and board/footprint-local Edge.Cuts carriers are iterable physical facts with explicit coordinate spaces",
     "Footprint profile indexing is bounded before append, while non-profile graphics remain lazily unparsed by the selective profile view",
     "An owned board document exposes bounded native stream I/O and commits source-preserving edits only after semantic reparse",
+    "Dependency-aware selected views match full-view pads, zones, holes, profiles, and transforms on both mandatory boards while hiding internal net, footprint, via, and graphic dependencies",
     "Owned failed edits are transactional, unknown forms survive, and repeated writes are stable no-ops",
     "Top-level UUID and legacy-ID removal checks all forms, is ambiguity-safe, source preserving, bounded, and idempotent",
     "Identified top-level layer replacement is exact, ambiguity-safe, bounded, and byte stable after semantic reparse",
