@@ -1195,6 +1195,11 @@ fn footprint_from_span(
         &indexed.span,
     )?;
     let children = direct_children(source, &indexed.span, limits.max_footprint_children, limits)?;
+    let locked = has_flag(&header, "locked") || child_bool(source, &children, "locked")?;
+    let embedded_fonts = child_bool(source, &children, "embedded_fonts")?;
+    let duplicate_pad_numbers_are_jumpers = child(&children, "duplicate_pad_numbers_are_jumpers")
+        .map(|_| child_bool(source, &children, "duplicate_pad_numbers_are_jumpers"))
+        .transpose()?;
     let mut result = PcbFootprint {
         library_link,
         reference: None,
@@ -1203,7 +1208,7 @@ fn footprint_from_span(
         at_x: None,
         at_y: None,
         angle: None,
-        locked: false,
+        locked,
         placement_path: None,
         placement_sheet_name: None,
         placement_sheet_file: None,
@@ -1211,8 +1216,8 @@ fn footprint_from_span(
         description: String::new(),
         tags: String::new(),
         attributes: Vec::new(),
-        embedded_fonts: false,
-        duplicate_pad_numbers_are_jumpers: None,
+        embedded_fonts,
+        duplicate_pad_numbers_are_jumpers,
         solder_mask_margin: None,
         solder_paste_margin: None,
         solder_paste_margin_ratio: None,
@@ -1241,7 +1246,6 @@ fn footprint_from_span(
                 result.at_y = optional_f64(values.get(1), child)?;
                 result.angle = optional_f64(values.get(2), child)?;
             }
-            Some("locked") => result.locked = child_bool(source, &children, "locked")?,
             Some("path") => result.placement_path = first_string(source, child)?,
             Some("sheetname") => result.placement_sheet_name = first_string(source, child)?,
             Some("sheetfile") => result.placement_sheet_file = first_string(source, child)?,
@@ -1253,16 +1257,6 @@ fn footprint_from_span(
                         .iter()
                         .map(token_string)
                         .collect();
-            }
-            Some("embedded_fonts") => {
-                result.embedded_fonts = child_bool(source, &children, "embedded_fonts")?;
-            }
-            Some("duplicate_pad_numbers_are_jumpers") => {
-                result.duplicate_pad_numbers_are_jumpers = Some(child_bool(
-                    source,
-                    &children,
-                    "duplicate_pad_numbers_are_jumpers",
-                )?);
             }
             Some("solder_mask_margin") => {
                 result.solder_mask_margin = first_f64(source, child)?;
@@ -1281,7 +1275,6 @@ fn footprint_from_span(
             _ => {}
         }
     }
-    result.locked |= has_flag(&header, "locked");
     Ok(result)
 }
 

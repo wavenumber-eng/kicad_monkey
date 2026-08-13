@@ -195,3 +195,21 @@ fn footprint_child_and_attribute_limits_fail_before_growth() {
         SOURCE.find("(attr").unwrap()
     );
 }
+
+#[test]
+fn duplicate_boolean_metadata_is_first_match_and_root_flag_linear() {
+    let duplicates = (0..4_096)
+        .map(|_| "    (embedded_fonts no)\n    (duplicate_pad_numbers_are_jumpers yes)\n")
+        .collect::<String>();
+    let source = format!(
+        "(kicad_pcb\n  (footprint \"Duplicate\" locked\n    (embedded_fonts yes)\n    (duplicate_pad_numbers_are_jumpers no)\n{duplicates}  )\n)"
+    );
+    let view = PcbView::parse(&source, PcbLimits::default()).expect("duplicate fields");
+    let footprint = view.footprints().next().expect("footprint").expect("typed");
+    assert!(
+        footprint.locked,
+        "the root scalar flag remains authoritative"
+    );
+    assert!(footprint.embedded_fonts, "the first matching child wins");
+    assert_eq!(footprint.duplicate_pad_numbers_are_jumpers, Some(false));
+}
