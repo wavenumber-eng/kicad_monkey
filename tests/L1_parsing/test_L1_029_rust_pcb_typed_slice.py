@@ -81,6 +81,17 @@ PHYSICAL_CARRIERS = """(kicad_pcb
     (property "Reference" "U1" (at 0 -2 0) (layer "F.SilkS")
       (hide yes) (unlocked yes) (uuid property-id))
     (property "Datasheet" "https://example.invalid")
+    (fp_text reference "U1" (at 1 -2 90) hide
+      (layer "F.SilkS" knockout) (uuid fp-text-id)
+      (effects (font (face "Inter") (size 1.5 2.5) (thickness 0.2)
+        (line_spacing 1.1) (bold yes) italic)
+        (justify left top mirror) (href "https://example.invalid")))
+    (fp_text_box "Review" locked
+      (pts (xy -2 -1) (xy 3 -1) (xy 3 4) (xy -2 4))
+      (margins 1 2 3 4) (angle 45) (layer "F.Fab")
+      (effects (font (size 2 3)))
+      (border no) (stroke (width 0.12) (type dash)) (knockout) (uuid fp-box-id)
+      (render_cache "Review" 45))
     (fp_line (start -1 0) (end 1 0) (stroke (width 0.1) (type default))
       (layer "Edge.Cuts") (uuid fp-edge))
     (fp_circle (center 0 0) (end 1 0) (stroke (width 0.1) (type default))
@@ -155,6 +166,8 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
             "pcb_setup_slice",
             "--test",
             "pcb_document_metadata_slice",
+            "--test",
+            "pcb_footprint_text_slice",
         ]
     )
 
@@ -219,6 +232,12 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
             + len(footprint.fp_circles)
             + len(footprint.fp_polys)
             for footprint in board.footprints
+        ),
+        "footprint_texts": sum(
+            len(footprint.fp_texts) for footprint in board.footprints
+        ),
+        "footprint_text_boxes": sum(
+            len(footprint.fp_text_boxes) for footprint in board.footprints
         ),
         "segments": len(board.segments),
         "vias": len(board.vias),
@@ -515,6 +534,8 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
                 + len(footprint.fp_rects)
                 + len(footprint.fp_polys)
             ),
+            "text_count": len(footprint.fp_texts),
+            "text_box_count": len(footprint.fp_text_boxes),
         }
         first_property = next(
             (
@@ -542,10 +563,14 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
                 "uuid": prop.uuid,
             }
         _assert_first_footprint_graphic(board, summary)
+        _assert_first_footprint_text(board, summary)
+        _assert_first_footprint_text_box(board, summary)
     else:
         assert summary["first_footprint"] is None
         assert summary["first_footprint_property"] is None
         assert summary["first_footprint_graphic"] is None
+        assert summary["first_footprint_text"] is None
+        assert summary["first_footprint_text_box"] is None
     if board.segments:
         assert summary["first_segment"] == {
             "start_x": board.segments[0].start_x,
@@ -756,4 +781,78 @@ def _assert_first_footprint_graphic(board: KiCadPcb, summary: dict) -> None:
         "fill": graphic.fill.value if hasattr(graphic, "fill") else None,
         "point_count": len(graphic.points) if hasattr(graphic, "points") else 0,
         "uuid": graphic.uuid,
+    }
+
+
+def _assert_first_footprint_text(board: KiCadPcb, summary: dict) -> None:
+    first = next(
+        (
+            (footprint_index, text)
+            for footprint_index, footprint in enumerate(board.footprints)
+            for text in footprint.fp_texts
+        ),
+        None,
+    )
+    if first is None:
+        assert summary["first_footprint_text"] is None
+        return
+    footprint_index, text = first
+    font = text.effects.font
+    assert summary["first_footprint_text"] == {
+        "footprint_index": footprint_index,
+        "kind": text.text_type,
+        "text": text.text,
+        "at": [text.at_x, text.at_y, text.at_angle],
+        "layer": text.layer,
+        "knockout": text.knockout,
+        "hidden": text.hide,
+        "uuid": text.uuid,
+        "font_face": font.face,
+        "font_size": [font.size_x, font.size_y],
+        "font_thickness": font.thickness,
+        "font_bold": font.bold,
+        "font_italic": font.italic,
+        "line_spacing": font.line_spacing,
+        "justify": text.effects.justify or [],
+        "href": text.effects.href,
+        "has_render_cache": text.render_cache is not None,
+    }
+
+
+def _assert_first_footprint_text_box(board: KiCadPcb, summary: dict) -> None:
+    first = next(
+        (
+            (footprint_index, text_box)
+            for footprint_index, footprint in enumerate(board.footprints)
+            for text_box in footprint.fp_text_boxes
+        ),
+        None,
+    )
+    if first is None:
+        assert summary["first_footprint_text_box"] is None
+        return
+    footprint_index, text_box = first
+    assert summary["first_footprint_text_box"] == {
+        "footprint_index": footprint_index,
+        "text": text_box.text,
+        "start": [text_box.start_x, text_box.start_y],
+        "end": [text_box.end_x, text_box.end_y],
+        "margins": list(text_box.margins),
+        "angle": text_box.angle,
+        "polygon_points": [list(point) for point in text_box.polygon_points or []],
+        "layer": text_box.layer,
+        "locked": text_box.locked,
+        "font_size": (
+            [text_box.effects.font.size_x, text_box.effects.font.size_y]
+            if text_box.effects is not None
+            else None
+        ),
+        "stroke_width": text_box.stroke.width if text_box.stroke is not None else None,
+        "stroke_kind": (
+            text_box.stroke.type.value if text_box.stroke is not None else None
+        ),
+        "border": text_box.border,
+        "knockout": text_box.knockout,
+        "uuid": text_box.uuid,
+        "has_render_cache": text_box.render_cache is not None,
     }

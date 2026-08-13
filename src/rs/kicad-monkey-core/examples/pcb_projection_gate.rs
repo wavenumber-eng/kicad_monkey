@@ -159,6 +159,8 @@ fn force_decode(view: &PcbView<'_>) -> Result<(), kicad_monkey_core::Error> {
     view.footprints().collect::<Result<Vec<_>, _>>()?;
     view.footprint_properties().collect::<Result<Vec<_>, _>>()?;
     view.footprint_graphics().collect::<Result<Vec<_>, _>>()?;
+    view.footprint_texts().collect::<Result<Vec<_>, _>>()?;
+    view.footprint_text_boxes().collect::<Result<Vec<_>, _>>()?;
     view.pads().collect::<Result<Vec<_>, _>>()?;
     view.models().collect::<Result<Vec<_>, _>>()?;
     view.segments().collect::<Result<Vec<_>, _>>()?;
@@ -242,6 +244,7 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
             "solder_paste_margin_ratio": item.solder_paste_margin_ratio,
             "clearance": item.clearance, "zone_connect": item.zone_connect,
             "property_count": item.property_count, "graphic_count": item.graphic_count,
+            "text_count": item.text_count, "text_box_count": item.text_box_count,
         })),
         "first_footprint_property": footprint_property.map(|item| json!({
             "footprint_index": item.footprint_index,
@@ -260,6 +263,8 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
             "point_count": item.graphic.points.len(),
             "uuid": item.graphic.uuid,
         })),
+        "first_footprint_text": footprint_text_summary(view)?,
+        "first_footprint_text_box": footprint_text_box_summary(view)?,
         "first_pad": pad.map(|item| json!({
             "number": item.number, "kind": item.kind, "shape": item.shape,
             "at_x": item.at_x, "at_y": item.at_y, "size_x": item.size_x,
@@ -300,6 +305,51 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
             "encoded_data_bytes": item.encoded_data_bytes,
         })),
     }))
+}
+
+fn footprint_text_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
+    Ok(view
+        .footprint_texts()
+        .next()
+        .transpose()?
+        .map_or(Value::Null, |item| {
+            json!({
+                "footprint_index": item.footprint_index,
+                "kind": item.kind, "text": item.text,
+                "at": [item.at.x, item.at.y, item.angle],
+                "layer": item.layer, "knockout": item.knockout,
+                "hidden": item.hidden, "uuid": item.uuid,
+                "font_face": item.effects.font.face,
+                "font_size": [item.effects.font.size_x, item.effects.font.size_y],
+                "font_thickness": item.effects.font.thickness,
+                "font_bold": item.effects.font.bold, "font_italic": item.effects.font.italic,
+                "line_spacing": item.effects.font.line_spacing,
+                "justify": item.effects.justify, "href": item.effects.href,
+                "has_render_cache": item.render_cache_range.is_some(),
+            })
+        }))
+}
+
+fn footprint_text_box_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
+    Ok(view
+        .footprint_text_boxes()
+        .next()
+        .transpose()?
+        .map_or(Value::Null, |item| {
+            json!({
+                "footprint_index": item.footprint_index, "text": item.text,
+                "start": [item.start.x, item.start.y], "end": [item.end.x, item.end.y],
+                "margins": item.margins, "angle": item.angle,
+                "polygon_points": item.polygon_points.iter()
+                    .map(|point| [point.x, point.y]).collect::<Vec<_>>(),
+                "layer": item.layer, "locked": item.locked,
+                "font_size": item.effects.as_ref()
+                    .map(|effects| [effects.font.size_x, effects.font.size_y]),
+                "stroke_width": item.stroke_width, "stroke_kind": item.stroke_kind,
+                "border": item.border, "knockout": item.knockout, "uuid": item.uuid,
+                "has_render_cache": item.render_cache_range.is_some(),
+            })
+        }))
 }
 
 fn extended_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
@@ -503,6 +553,8 @@ fn count_summary(counts: PcbCounts) -> Value {
         "pads": counts.pads,
         "models": counts.models,
         "footprint_graphics": counts.footprint_graphics,
+        "footprint_texts": counts.footprint_texts,
+        "footprint_text_boxes": counts.footprint_text_boxes,
         "segments": counts.segments,
         "vias": counts.vias,
         "zones": counts.zones,

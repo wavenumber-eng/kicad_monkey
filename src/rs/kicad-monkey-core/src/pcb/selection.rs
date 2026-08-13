@@ -11,6 +11,8 @@ pub enum PcbFamily {
     Footprints,
     FootprintProperties,
     FootprintGraphics,
+    FootprintTexts,
+    FootprintTextBoxes,
     Pads,
     Models,
     Segments,
@@ -66,6 +68,8 @@ impl PcbSelection {
             || self.contains(PcbFamily::Models)
             || self.contains(PcbFamily::FootprintProperties)
             || self.contains(PcbFamily::FootprintGraphics)
+            || self.contains(PcbFamily::FootprintTexts)
+            || self.contains(PcbFamily::FootprintTextBoxes)
             || self.contains(PcbFamily::Holes)
             || self.contains(PcbFamily::FootprintTransforms)
             || self.contains(PcbFamily::Profile)

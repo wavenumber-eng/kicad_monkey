@@ -17,18 +17,20 @@ pub mod sexpr_projection;
 pub mod symbol_library;
 mod symbol_pin;
 pub mod symbol_plotter_ir;
+pub mod text_metadata;
 
 pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use pcb::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbDocument, PcbEdit,
     PcbEmbeddedFile, PcbFamily, PcbFootprint, PcbFootprintGraphic, PcbFootprintProperty,
-    PcbFootprintTransform, PcbGeneratedItem, PcbGraphic, PcbGraphicKind, PcbGroup, PcbHole,
-    PcbHoleOwner, PcbHoleShape, PcbImage, PcbLayer, PcbLimits, PcbModelReference, PcbNet,
-    PcbNetRef, PcbPad, PcbPadDrill, PcbPoint, PcbProfileOwner, PcbProfilePrimitive, PcbProperty,
-    PcbRoutingArc, PcbSegment, PcbSelection, PcbSetup, PcbStackup, PcbStackupLayer, PcbTable,
-    PcbTableCell, PcbVia, PcbView, PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout,
-    PcbZoneLayerProperty, PcbZonePlacement, PcbZonePlacementSource, PcbZonePolygon,
+    PcbFootprintText, PcbFootprintTextBox, PcbFootprintTransform, PcbGeneratedItem, PcbGraphic,
+    PcbGraphicKind, PcbGroup, PcbHole, PcbHoleOwner, PcbHoleShape, PcbImage, PcbLayer, PcbLimits,
+    PcbModelReference, PcbNet, PcbNetRef, PcbPad, PcbPadDrill, PcbPoint, PcbProfileOwner,
+    PcbProfilePrimitive, PcbProperty, PcbRoutingArc, PcbSegment, PcbSelection, PcbSetup,
+    PcbStackup, PcbStackupLayer, PcbTable, PcbTableCell, PcbVia, PcbView, PcbZone,
+    PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZonePlacement,
+    PcbZonePlacementSource, PcbZonePolygon,
 };
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
 pub use plotter_types::{
@@ -42,6 +44,7 @@ pub use symbol_library::{
 pub use symbol_plotter_ir::{
     SymbolPlotDocument, SymbolPlotLimits, SymbolPlotRecord, symbol_plot_document,
 };
+pub use text_metadata::{KiCadColor, KiCadFont, KiCadTextEffects};
 
 pub use sexpr::{
     Error, ErrorKind, ErrorPhase, FormatOptions, Lexer, Limits, Patch, Position, Sexp, Token,

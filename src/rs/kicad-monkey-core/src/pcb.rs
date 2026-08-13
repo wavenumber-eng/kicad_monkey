@@ -8,7 +8,7 @@ use crate::sexpr::{
     apply_patches_with_limit, build_with_limit, decode_quoted,
 };
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
-use crate::{KiCadPaper, KiCadTitleBlock};
+use crate::{KiCadPaper, KiCadTextEffects, KiCadTitleBlock};
 use std::collections::BTreeMap;
 use std::ops::Range;
 
@@ -22,7 +22,9 @@ mod zones;
 pub use extended::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbImage, PcbTable, PcbTableCell,
 };
-pub use footprints::{PcbFootprintGraphic, PcbFootprintProperty};
+pub use footprints::{
+    PcbFootprintGraphic, PcbFootprintProperty, PcbFootprintText, PcbFootprintTextBox,
+};
 pub use physical::{
     PcbFootprintTransform, PcbHole, PcbHoleOwner, PcbHoleShape, PcbPadDrill, PcbProfileOwner,
     PcbProfilePrimitive,
@@ -54,6 +56,12 @@ pub struct PcbLimits {
     pub max_footprint_attributes: usize,
     pub max_footprint_properties: usize,
     pub max_footprint_graphics: usize,
+    pub max_footprint_texts: usize,
+    pub max_footprint_text_boxes: usize,
+    pub max_text_effect_children: usize,
+    pub max_text_font_children: usize,
+    pub max_text_justify_tokens: usize,
+    pub max_text_box_points: usize,
     pub max_pad_children: usize,
     pub max_model_children: usize,
     pub max_pads: usize,
@@ -102,6 +110,12 @@ impl Default for PcbLimits {
             max_footprint_attributes: 256,
             max_footprint_properties: 4_000_000,
             max_footprint_graphics: 4_000_000,
+            max_footprint_texts: 4_000_000,
+            max_footprint_text_boxes: 4_000_000,
+            max_text_effect_children: 4_096,
+            max_text_font_children: 4_096,
+            max_text_justify_tokens: 1_024,
+            max_text_box_points: 1_000_000,
             max_pad_children: 256,
             max_model_children: 32,
             max_pads: 4_000_000,
@@ -144,6 +158,8 @@ pub struct PcbCounts {
     pub pads: usize,
     pub models: usize,
     pub footprint_graphics: usize,
+    pub footprint_texts: usize,
+    pub footprint_text_boxes: usize,
     pub segments: usize,
     pub vias: usize,
     pub zones: usize,
@@ -198,6 +214,12 @@ impl PcbCounts {
         }
         if !selection.contains(PcbFamily::FootprintGraphics) {
             self.footprint_graphics = 0;
+        }
+        if !selection.contains(PcbFamily::FootprintTexts) {
+            self.footprint_texts = 0;
+        }
+        if !selection.contains(PcbFamily::FootprintTextBoxes) {
+            self.footprint_text_boxes = 0;
         }
         if !selection.contains(PcbFamily::Segments) {
             self.segments = 0;
@@ -311,6 +333,8 @@ pub struct PcbFootprint {
     pub zone_connect: Option<i64>,
     pub property_count: usize,
     pub graphic_count: usize,
+    pub text_count: usize,
+    pub text_box_count: usize,
     pub pad_count: usize,
     pub model_count: usize,
     pub source_range: Range<usize>,
@@ -474,6 +498,8 @@ struct IndexedFootprint {
     span: FormSpan,
     property_count: usize,
     graphic_count: usize,
+    text_count: usize,
+    text_box_count: usize,
     pad_count: usize,
     model_count: usize,
 }
@@ -522,6 +548,8 @@ struct PcbIndex {
     pads: Vec<IndexedNestedForm>,
     models: Vec<IndexedNestedForm>,
     footprint_graphics: Vec<IndexedNestedForm>,
+    footprint_texts: Vec<IndexedNestedForm>,
+    footprint_text_boxes: Vec<IndexedNestedForm>,
     segments: Vec<FormSpan>,
     vias: Vec<FormSpan>,
     zones: Vec<FormSpan>,
@@ -553,6 +581,8 @@ pub struct PcbView<'a> {
     pads: Vec<IndexedNestedForm>,
     models: Vec<IndexedNestedForm>,
     footprint_graphics: Vec<IndexedNestedForm>,
+    footprint_texts: Vec<IndexedNestedForm>,
+    footprint_text_boxes: Vec<IndexedNestedForm>,
     segments: Vec<FormSpan>,
     vias: Vec<FormSpan>,
     zones: Vec<FormSpan>,
@@ -631,6 +661,8 @@ impl<'a> PcbView<'a> {
             pads: index.pads,
             models: index.models,
             footprint_graphics: index.footprint_graphics,
+            footprint_texts: index.footprint_texts,
+            footprint_text_boxes: index.footprint_text_boxes,
             segments: index.segments,
             vias: index.vias,
             zones: index.zones,
@@ -1179,6 +1211,8 @@ fn index_footprint(
     let footprint_index = index.footprints.len();
     let mut property_count = 0usize;
     let mut graphic_count = 0usize;
+    let mut text_count = 0usize;
+    let mut text_box_count = 0usize;
     let mut pad_count = 0usize;
     let mut model_count = 0usize;
     for child in children {
@@ -1221,6 +1255,26 @@ fn index_footprint(
                     )?;
                 }
             }
+            Some("fp_text") => {
+                text_count = text_count.checked_add(1).ok_or_else(limit_error)?;
+                if selection.contains(PcbFamily::FootprintTexts) {
+                    bounded_push(
+                        &mut index.footprint_texts,
+                        indexed,
+                        limits.max_footprint_texts,
+                    )?;
+                }
+            }
+            Some("fp_text_box") => {
+                text_box_count = text_box_count.checked_add(1).ok_or_else(limit_error)?;
+                if selection.contains(PcbFamily::FootprintTextBoxes) {
+                    bounded_push(
+                        &mut index.footprint_text_boxes,
+                        indexed,
+                        limits.max_footprint_text_boxes,
+                    )?;
+                }
+            }
             _ => {}
         }
     }
@@ -1228,6 +1282,8 @@ fn index_footprint(
         span: span.clone(),
         property_count,
         graphic_count,
+        text_count,
+        text_box_count,
         pad_count,
         model_count,
     });
@@ -1235,6 +1291,8 @@ fn index_footprint(
     index.counts.pads = index.pads.len();
     index.counts.models = index.models.len();
     index.counts.footprint_graphics = index.footprint_graphics.len();
+    index.counts.footprint_texts = index.footprint_texts.len();
+    index.counts.footprint_text_boxes = index.footprint_text_boxes.len();
     index.counts.footprints += 1;
     Ok(())
 }
@@ -1322,6 +1380,8 @@ fn footprint_from_span(
         zone_connect: None,
         property_count: indexed.property_count,
         graphic_count: indexed.graphic_count,
+        text_count: indexed.text_count,
+        text_box_count: indexed.text_box_count,
         pad_count: indexed.pad_count,
         model_count: indexed.model_count,
         source_range: indexed.span.range.clone(),
