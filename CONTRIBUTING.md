@@ -64,7 +64,9 @@ Design documentation is release-signoff material:
 Expected local checks:
 
 ```powershell
+uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
 uv run --extra test python tests/rack.py run L0_foundation
+uv run --extra test python tests/rack.py run L1_029
 uv run --extra test python tests/rack.py run L99_signoff
 uv run --extra test python -m build
 uv run --extra test twine check dist/*

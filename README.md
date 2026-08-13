@@ -292,6 +292,14 @@ Git LFS. CI restores that archive from the public object URL recorded in
 emergency reroute. The loose mirror is ignored locally; test helpers extract the
 archive on demand when no external corpus is configured.
 
+Restore and verify the archive before running mandatory corpus-backed Rust
+parity gates:
+
+```powershell
+uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
+uv run --extra test python tests/rack.py run L1_029
+```
+
 ## API Shape
 
 Stable package-root exports are recorded in

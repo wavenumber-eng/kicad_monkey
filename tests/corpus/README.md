@@ -39,9 +39,11 @@ Source snapshot:
 Archive SOP:
 
 ```powershell
+uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
 uv run --extra test python scripts/package_kicad_corpus.py
-uv run --extra test python scripts/kicad_corpus_archive.py verify
+uv run --extra test python scripts/kicad_corpus_archive.py verify --check-zip
 uv run --extra test python scripts/package_kicad_corpus.py --check
+uv run --extra test python tests/rack.py run L1_029
 uv run --extra test python tests/rack.py run L99_signoff
 ```
 

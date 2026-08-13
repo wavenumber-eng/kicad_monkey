@@ -498,7 +498,7 @@ fn nested_named_bool(
     };
     let children = direct_children(source, parent, limits.max_object_children, limits)?;
     let Some(field) = child(&children, head) else {
-        return Ok(default);
+        return Ok(false);
     };
     let values = scalar_values(source, field)?;
     Ok(values
@@ -607,10 +607,7 @@ fn numeric_list(
     let Some(span) = child(children, head) else {
         return Ok(Vec::new());
     };
-    let values = scalar_values(source, span)?;
-    if values.len() > limits.max_table_values {
-        return Err(limit_error());
-    }
+    let values = bounded_scalar_values(source, span, limits.max_table_values)?;
     values.iter().map(|value| parse_f64(value, span)).collect()
 }
 
@@ -622,9 +619,6 @@ fn joined_data_bytes(
     let Some(data) = child(children, "data") else {
         return Ok(0);
     };
-    let values = scalar_values(source, data)?;
-    if values.len() > limits.max_table_values {
-        return Err(limit_error());
-    }
+    let values = bounded_scalar_values(source, data, limits.max_image_data_parts)?;
     Ok(values.iter().map(token_string).map(|part| part.len()).sum())
 }

@@ -47,6 +47,7 @@ pub struct PcbLimits {
     pub max_embedded_files: usize,
     pub max_variants: usize,
     pub max_images: usize,
+    pub max_image_data_parts: usize,
     pub max_barcodes: usize,
     pub max_tables: usize,
     pub max_table_cells: usize,
@@ -84,6 +85,7 @@ impl Default for PcbLimits {
             max_embedded_files: 100_000,
             max_variants: 100_000,
             max_images: 100_000,
+            max_image_data_parts: 1_000_000,
             max_barcodes: 100_000,
             max_tables: 100_000,
             max_table_cells: 1_000_000,
@@ -1282,6 +1284,14 @@ fn embedded_file_from_span(
 }
 
 fn scalar_values<'a>(source: &'a str, span: &FormSpan) -> Result<Vec<Token<'a>>, Error> {
+    bounded_scalar_values(source, span, usize::MAX)
+}
+
+fn bounded_scalar_values<'a>(
+    source: &'a str,
+    span: &FormSpan,
+    maximum: usize,
+) -> Result<Vec<Token<'a>>, Error> {
     let text = span.text(source)?;
     (|| {
         let mut lexer = Lexer::new(text);
@@ -1303,7 +1313,12 @@ fn scalar_values<'a>(source: &'a str, span: &FormSpan) -> Result<Vec<Token<'a>>,
                         break;
                     }
                 }
-                _ if depth == 1 => values.push(token),
+                _ if depth == 1 => {
+                    if values.len() >= maximum {
+                        return Err(limit_error());
+                    }
+                    values.push(token);
+                }
                 _ => {}
             }
         }

@@ -46,6 +46,10 @@ EXTENDED_CARRIERS = """(kicad_pcb
       (table_cell "B" (start 10 0) (end 20 5) (layer "F.Cu")))
     (uuid table-id))
 )"""
+SPARSE_TABLE_BLOCKS = """(kicad_pcb
+  (table (uuid absent-blocks))
+  (table (border) (separators) (uuid sparse-blocks))
+)"""
 
 
 def _run(command: list[str], *, timeout: int = 180) -> subprocess.CompletedProcess[str]:
@@ -102,7 +106,9 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
 def test_native_pcb_projection_matches_python_on_promoted_corpus() -> None:
     missing = [str(path) for path in CORPUS_BOARDS if not path.is_file()]
     assert not missing, (
-        "required promoted PCB corpus evidence is unavailable; missing: "
+        "required promoted PCB corpus evidence is unavailable. Restore and verify it "
+        "with `uv run --extra test python scripts/kicad_corpus_archive.py restore "
+        "--check-zip`, or set WN_TEST_CORPUS to a reviewed corpus root. Missing: "
         + ", ".join(missing)
     )
     executable = _projection_executable()
@@ -115,13 +121,23 @@ def test_native_pcb_projection_matches_python_on_promoted_corpus() -> None:
 
 
 def test_newer_sparse_carriers_match_python_on_durable_vector(tmp_path: Path) -> None:
-    board_path = tmp_path / "extended-carriers.kicad_pcb"
-    board_path.write_text(EXTENDED_CARRIERS, encoding="utf-8")
+    inputs = {
+        "extended-carriers.kicad_pcb": EXTENDED_CARRIERS,
+        "sparse-table-blocks.kicad_pcb": SPARSE_TABLE_BLOCKS,
+    }
+    board_paths = []
+    for name, source in inputs.items():
+        board_path = tmp_path / name
+        board_path.write_text(source, encoding="utf-8")
+        board_paths.append(board_path)
     summaries = json.loads(
-        _run([str(_projection_executable()), str(board_path)]).stdout
+        _run(
+            [str(_projection_executable()), *(str(path) for path in board_paths)]
+        ).stdout
     )
-    assert len(summaries) == 1
-    _assert_summary_matches_python(board_path, summaries[0])
+    assert len(summaries) == len(board_paths)
+    for board_path, summary in zip(board_paths, summaries, strict=True):
+        _assert_summary_matches_python(board_path, summary)
 
 
 def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:

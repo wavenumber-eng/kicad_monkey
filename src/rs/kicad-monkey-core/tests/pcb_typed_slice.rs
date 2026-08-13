@@ -605,6 +605,38 @@ fn board_metadata_defaults_match_the_python_model() {
 }
 
 #[test]
+fn sparse_table_blocks_match_python_parent_sensitive_defaults() {
+    let source = r#"(kicad_pcb
+      (table (uuid absent-blocks))
+      (table (border) (separators) (uuid sparse-blocks))
+    )"#;
+    let view = PcbView::parse(source, PcbLimits::default()).expect("tables");
+    let tables = view
+        .tables()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("typed tables");
+    assert_eq!(tables.len(), 2);
+    assert_eq!(
+        (
+            tables[0].border_external,
+            tables[0].border_header,
+            tables[0].separator_rows,
+            tables[0].separator_columns,
+        ),
+        (true, false, true, true)
+    );
+    assert_eq!(
+        (
+            tables[1].border_external,
+            tables[1].border_header,
+            tables[1].separator_rows,
+            tables[1].separator_columns,
+        ),
+        (false, false, false, false)
+    );
+}
+
+#[test]
 fn identified_layer_edit_is_exact_stable_and_fail_closed() {
     let limits = PcbLimits::default();
     let view = PcbView::parse(EXTENDED_CARRIERS, limits).expect("board view");
@@ -719,9 +751,9 @@ fn extended_collection_limits_fail_closed_at_index_and_decode_boundaries() {
         view.images()
             .next()
             .expect("image")
-            .expect_err("image data parts")
-            .kind,
-        ErrorKind::ResourceLimit
+            .expect("typed image")
+            .encoded_data_bytes,
+        8
     );
     assert_eq!(
         view.tables()
@@ -731,6 +763,30 @@ fn extended_collection_limits_fail_closed_at_index_and_decode_boundaries() {
             .kind,
         ErrorKind::ResourceLimit
     );
+
+    let limits = PcbLimits {
+        max_image_data_parts: 1,
+        ..PcbLimits::default()
+    };
+    let view = PcbView::parse(EXTENDED_CARRIERS, limits).expect("lazy image limit");
+    assert_eq!(
+        view.images()
+            .next()
+            .expect("image")
+            .expect_err("image data parts")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+    assert!(view.tables().next().expect("table").is_ok());
+
+    let limits = PcbLimits {
+        max_image_data_parts: 2,
+        max_table_values: 2,
+        ..PcbLimits::default()
+    };
+    let view = PcbView::parse(EXTENDED_CARRIERS, limits).expect("exact lazy limits");
+    assert!(view.images().next().expect("image").is_ok());
+    assert!(view.tables().next().expect("table").is_ok());
 }
 
 #[test]

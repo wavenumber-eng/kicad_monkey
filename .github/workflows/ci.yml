@@ -35,7 +35,7 @@ jobs:
       - name: Validate public corpus archive metadata
         run: uv run --extra test python scripts/kicad_corpus_archive.py metadata
       - name: Restore public corpus archive
-        run: uv run --extra test python scripts/kicad_corpus_archive.py restore
+        run: uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
       - name: Prepare public corpus archive
         run: |
           uv run --extra test python scripts/package_kicad_corpus.py --check
@@ -43,6 +43,7 @@ jobs:
       - name: Run public test and signoff baseline
         run: |
           uv run --extra test python tests/rack.py run L0_foundation
+          uv run --extra test python tests/rack.py run L1_029
           uv run --extra test python tests/rack.py run L99_signoff
       - name: Run cross-package source gate
         run: uv run --all-packages --all-extras python -m pytest tests/cross_package -q
