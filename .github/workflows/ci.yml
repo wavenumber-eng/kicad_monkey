@@ -44,6 +44,7 @@ jobs:
         run: |
           uv run --extra test python tests/rack.py run L0_foundation
           uv run --extra test python tests/rack.py run L1_029
+          uv run --extra test python tests/rack.py run L1_030
           uv run --extra test python tests/rack.py run L99_signoff
       - name: Run cross-package source gate
         run: uv run --all-packages --all-extras python -m pytest tests/cross_package -q
