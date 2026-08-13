@@ -46,6 +46,12 @@
         clock-low, output-low, edge-clock-high, and non-logic styles. Hidden
         pins emit no operations, and arbitrary rotations remain deterministic.
       </li>
+      <li>
+        A child with no body resolves its <code>extends</code> chain to the
+        first base containing subsymbol geometry while retaining the requested
+        child's header metadata. Missing bases and cycles terminate with empty
+        geometry, matching the Python library renderer.
+      </li>
     </ul>
   </section>
 
@@ -81,9 +87,9 @@
     </p>
     <p>
       Pin names and numbers follow through the Rustybuzz shaping and outline
-      extraction gate. Symbol inheritance also remains a separate
-      library-resolution slice; this producer records the base name but does
-      not resolve inherited geometry.
+      extraction gate. The inheritance slice resolves render geometry only;
+      broader inherited source-model fields remain part of future typed model
+      expansion.
     </p>
   </section>
 </body>

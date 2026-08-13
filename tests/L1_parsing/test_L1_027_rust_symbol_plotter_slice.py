@@ -182,6 +182,28 @@ def test_every_non_text_pin_style_matches_python_geometry() -> None:
     ]
 
 
+def test_symbol_library_inheritance_uses_base_geometry() -> None:
+    source = """(kicad_symbol_lib
+      (symbol "Base" (in_bom yes) (on_board yes)
+        (symbol "Base_1_1"
+          (rectangle (start -1 1) (end 1 -1)
+            (stroke (width 0.1) (type solid)) (fill (type background)))))
+      (symbol "Middle" (extends "Base"))
+      (symbol "Child" (extends "Middle") (in_bom no) (power local)))"""
+    library = KiCadSymbolLib.from_text(source)
+    document = library.symbol_to_ir("Child", unit=1, style=0).to_dict()
+    assert document["document_id"] == "Child"
+    assert document["records"][0]["object_id"] == "Child"
+    assert document["records"][0]["extends"] == "Middle"
+    assert document["records"][0]["in_bom"] is False
+    assert document["records"][0]["power"] is True
+    assert document["records"][1]["object_id"] == "Base_1_1"
+    assert [operation["kind"] for operation in document["records"][1]["operations"]] == [
+        "Rect",
+        "Rect",
+    ]
+
+
 def test_rust_symbol_core_and_host_adapter_are_rack_orchestrated() -> None:
     cargo = shutil.which("cargo")
     assert cargo is not None, "cargo is required for the Rust plotter-IR gate"

@@ -626,6 +626,16 @@ mod tests {
     use serde_json::Value;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    const SYMBOL_LIBRARY: &[u8] = br#"(kicad_symbol_lib
+      (symbol "Other" (symbol "Other_1_1"))
+      (symbol "Demo" (in_bom yes) (on_board yes)
+        (symbol "Demo_1_1"
+          (rectangle (start -1 1) (end 1 -1)
+            (stroke (width 0.2) (type solid)) (fill (type background)))
+          (pin passive inverted_clock (at 0 0 0) (length 2.54)
+            (name "") (number ""))))
+      (symbol "Child" (extends "Demo") (in_bom no)))"#;
+
     #[test]
     fn typed_scan_keeps_input_bytes_out_of_band() {
         let request = br#"{
@@ -938,16 +948,8 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn wasm_symbol_plotter_returns_selected_non_text_ir_bytes() {
-        let source = br#"(kicad_symbol_lib
-          (symbol "Other" (symbol "Other_1_1"))
-          (symbol "Demo" (in_bom yes) (on_board yes)
-            (symbol "Demo_1_1"
-              (rectangle (start -1 1) (end 1 -1)
-                (stroke (width 0.2) (type solid)) (fill (type background)))
-              (pin passive inverted_clock (at 0 0 0) (length 2.54)
-                (name "") (number "")))))"#;
         let request = br#"{"type":"kicad_monkey.symbol_plot.request","version":"a0","symbol_name":"Demo","unit":1,"style":0,"max_source_bytes":"4096","max_output_bytes":"65536","max_depth":32,"max_symbols":10,"max_subsymbols":10,"max_operations":10,"max_points":100}"#;
-        let output = plot_symbol_ir(source, request).expect("WASM symbol plot operation");
+        let output = plot_symbol_ir(SYMBOL_LIBRARY, request).expect("WASM symbol plot operation");
         let metadata: Value =
             serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
         let document: Value =
@@ -965,6 +967,20 @@ mod tests {
         assert_eq!(document["records"][1]["operations"][2]["kind"], "PlotPoly");
         assert_eq!(document["records"][1]["operations"][3]["kind"], "PlotPoly");
         assert_eq!(document["records"][1]["operations"][4]["kind"], "Rect");
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_symbol_plotter_resolves_inherited_geometry() {
+        let request = br#"{"type":"kicad_monkey.symbol_plot.request","version":"a0","symbol_name":"Child","unit":1,"style":0,"max_source_bytes":"4096","max_output_bytes":"65536","max_depth":32,"max_symbols":10,"max_subsymbols":10,"max_operations":10,"max_points":100}"#;
+        let inherited =
+            plot_symbol_ir(SYMBOL_LIBRARY, request).expect("WASM inherited symbol operation");
+        let inherited_document: Value = serde_json::from_slice(&inherited.output_bytes())
+            .expect("inherited symbol document JSON");
+        assert_eq!(inherited_document["records"][0]["object_id"], "Child");
+        assert_eq!(inherited_document["records"][0]["extends"], "Demo");
+        assert_eq!(inherited_document["records"][0]["in_bom"], false);
+        assert_eq!(inherited_document["records"][1]["object_id"], "Demo_1_1");
+        assert_eq!(inherited_document["total_operations"], 5);
     }
 
     #[wasm_bindgen_test]

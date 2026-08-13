@@ -10,6 +10,7 @@ use crate::sexpr::{
 };
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use crate::symbol_pin::pin_operations;
+use std::collections::{BTreeMap, BTreeSet};
 
 const DEFAULT_BODY_WIDTH_NM: i64 = 152_400;
 const DEFAULT_POLYLINE_WIDTH_NM: i64 = 152_400;
@@ -64,6 +65,12 @@ pub struct SymbolPlotDocument {
     pub records: Vec<SymbolPlotRecord>,
 }
 
+#[derive(Clone, Copy, Debug)]
+enum SymbolSpanLookup {
+    Unique(usize),
+    Duplicate(Position),
+}
+
 /// Select and convert one symbol without materializing the complete library.
 pub fn symbol_plot_document(
     source: &str,
@@ -74,9 +81,22 @@ pub fn symbol_plot_document(
 ) -> Result<SymbolPlotDocument, Error> {
     validate_limits(source, symbol_name, limits)?;
     validate_library_root(source, limits)?;
-    let span = select_symbol_span(source, symbol_name, limits)?;
-    let form = parse_selected_symbol(source, &span, limits)?;
-    build_document(&form, symbol_name, unit, style, limits, span.start)
+    let spans = select_symbol_spans(source, limits)?;
+    let index = index_symbol_spans(source, &spans)?;
+    let span = find_symbol_span(&spans, &index, symbol_name)?
+        .ok_or_else(|| model_error("Requested library symbol was not found", Position::START))?;
+    let form = parse_selected_symbol(source, span, limits)?;
+    let inherited = inherited_geometry(source, &spans, &index, &form, symbol_name, limits)?;
+    let geometry = inherited.as_ref().unwrap_or(&form);
+    build_document(
+        &form,
+        geometry,
+        symbol_name,
+        unit,
+        style,
+        limits,
+        span.start,
+    )
 }
 
 fn validate_limits(source: &str, symbol_name: &str, limits: SymbolPlotLimits) -> Result<(), Error> {
@@ -116,12 +136,8 @@ fn validate_library_root(source: &str, limits: SymbolPlotLimits) -> Result<(), E
     Ok(())
 }
 
-fn select_symbol_span(
-    source: &str,
-    symbol_name: &str,
-    limits: SymbolPlotLimits,
-) -> Result<FormSpan, Error> {
-    let spans = scan_form_spans_with_limits(
+fn select_symbol_spans(source: &str, limits: SymbolPlotLimits) -> Result<Vec<FormSpan>, Error> {
+    scan_form_spans_with_limits(
         source,
         &Selector {
             paths: Some(
@@ -134,17 +150,71 @@ fn select_symbol_span(
             ..Selector::default()
         },
         projection_limits(limits, limits.max_symbols),
-    )?;
-    let mut selected = None;
-    for span in spans {
-        if selected_name(source, &span)? == symbol_name {
-            if selected.is_some() {
-                return Err(model_error("Duplicate library symbol name", span.start));
-            }
-            selected = Some(span);
-        }
+    )
+}
+
+fn index_symbol_spans(
+    source: &str,
+    spans: &[FormSpan],
+) -> Result<BTreeMap<String, SymbolSpanLookup>, Error> {
+    let mut index = BTreeMap::new();
+    for (span_index, span) in spans.iter().enumerate() {
+        let name = selected_name(source, span)?;
+        index
+            .entry(name)
+            .and_modify(|entry| *entry = SymbolSpanLookup::Duplicate(span.start))
+            .or_insert(SymbolSpanLookup::Unique(span_index));
     }
-    selected.ok_or_else(|| model_error("Requested library symbol was not found", Position::START))
+    Ok(index)
+}
+
+fn find_symbol_span<'a>(
+    spans: &'a [FormSpan],
+    index: &BTreeMap<String, SymbolSpanLookup>,
+    symbol_name: &str,
+) -> Result<Option<&'a FormSpan>, Error> {
+    match index.get(symbol_name) {
+        Some(SymbolSpanLookup::Unique(span_index)) => Ok(spans.get(*span_index)),
+        Some(SymbolSpanLookup::Duplicate(position)) => {
+            Err(model_error("Duplicate library symbol name", *position))
+        }
+        None => Ok(None),
+    }
+}
+
+fn inherited_geometry(
+    source: &str,
+    spans: &[FormSpan],
+    index: &BTreeMap<String, SymbolSpanLookup>,
+    target: &Sexp,
+    target_name: &str,
+    limits: SymbolPlotLimits,
+) -> Result<Option<Sexp>, Error> {
+    if children(target, "symbol").next().is_some() {
+        return Ok(None);
+    }
+    let mut base_name = extends_name(target);
+    let mut seen = BTreeSet::from([target_name.to_owned()]);
+    while let Some(name) = base_name {
+        if !seen.insert(name.clone()) {
+            return Ok(None);
+        }
+        let Some(span) = find_symbol_span(spans, index, &name)? else {
+            return Ok(None);
+        };
+        let form = parse_selected_symbol(source, span, limits)?;
+        if children(&form, "symbol").next().is_some() {
+            return Ok(Some(form));
+        }
+        base_name = extends_name(&form);
+    }
+    Ok(None)
+}
+
+fn extends_name(form: &Sexp) -> Option<String> {
+    child(form, "extends")
+        .and_then(|value| value_at(value, 1))
+        .map(str::to_owned)
 }
 
 fn projection_limits(limits: SymbolPlotLimits, max_selected_forms: usize) -> ProjectionLimits {
@@ -158,18 +228,24 @@ fn projection_limits(limits: SymbolPlotLimits, max_selected_forms: usize) -> Pro
 
 fn selected_name(source: &str, span: &FormSpan) -> Result<String, Error> {
     let text = span.text(source)?;
-    let mut lexer = Lexer::new(text);
-    let _left = lexer.next().transpose()?;
-    let _head = lexer.next().transpose()?;
-    let token = lexer
-        .next()
-        .transpose()?
-        .ok_or_else(|| model_error("Library symbol name is missing", span.start))?;
-    match token.kind {
-        TokenKind::QuotedString => Ok(decode_quoted(token.lexeme)),
-        TokenKind::Atom => Ok(token.lexeme.to_owned()),
-        _ => Err(model_error("Library symbol name is invalid", span.start)),
-    }
+    (|| {
+        let mut lexer = Lexer::new(text);
+        let _left = lexer.next().transpose()?;
+        let _head = lexer.next().transpose()?;
+        let token = lexer
+            .next()
+            .transpose()?
+            .ok_or_else(|| model_error("Library symbol name is missing", Position::START))?;
+        match token.kind {
+            TokenKind::QuotedString => Ok(decode_quoted(token.lexeme)),
+            TokenKind::Atom => Ok(token.lexeme.to_owned()),
+            _ => Err(model_error(
+                "Library symbol name is invalid",
+                token.position,
+            )),
+        }
+    })()
+    .map_err(|error| rebase_error(error, span))
 }
 
 fn parse_selected_symbol(
@@ -191,19 +267,20 @@ fn parse_selected_symbol(
 }
 
 fn build_document(
-    form: &Sexp,
+    header: &Sexp,
+    geometry: &Sexp,
     symbol_name: &str,
     unit: Option<u32>,
     style: u32,
     limits: SymbolPlotLimits,
     position: Position,
 ) -> Result<SymbolPlotDocument, Error> {
-    let forms = list(form).ok_or_else(|| model_error("Expected symbol list", position))?;
+    let forms = list(header).ok_or_else(|| model_error("Expected symbol list", position))?;
     let mut point_count = 0usize;
     let mut records = Vec::new();
     let mut subsymbol_count = 0usize;
     let mut operation_count = 0usize;
-    for subsymbol in children(form, "symbol") {
+    for subsymbol in children(geometry, "symbol") {
         subsymbol_count = subsymbol_count.saturating_add(1);
         if subsymbol_count > limits.max_subsymbols {
             return Err(limit_error("Symbol subsymbol limit exceeded"));
@@ -233,14 +310,14 @@ fn build_document(
     let _ = forms;
     Ok(SymbolPlotDocument {
         name: symbol_name.to_owned(),
-        extends: child(form, "extends")
+        extends: child(header, "extends")
             .and_then(|value| value_at(value, 1))
             .map(str::to_owned),
         unit,
         style,
-        in_bom: yes_flag(form, "in_bom", true),
-        on_board: yes_flag(form, "on_board", true),
-        power: child(form, "power").is_some() || has_atom(form, "power"),
+        in_bom: yes_flag(header, "in_bom", true),
+        on_board: yes_flag(header, "on_board", true),
+        power: child(header, "power").is_some() || has_atom(header, "power"),
         records,
     })
 }

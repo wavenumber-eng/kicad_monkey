@@ -300,3 +300,38 @@ fn hidden_and_rotated_pins_preserve_fail_closed_ordering() {
     };
     assert_eq!(outline.fill, PlotterFill::NoFill);
 }
+
+#[test]
+fn inheritance_uses_base_geometry_and_requested_symbol_metadata() {
+    let source = r#"(kicad_symbol_lib
+      (symbol "Base" (in_bom yes) (on_board yes)
+        (symbol "Base_1_1"
+          (rectangle (start -1 1) (end 1 -1)
+            (stroke (width 0.1) (type solid)) (fill (type background)))))
+      (symbol "Middle" (extends "Base"))
+      (symbol "Child" (extends "Middle") (in_bom no) (power local)))"#;
+    let document = symbol_plot_document(source, "Child", Some(1), 0, SymbolPlotLimits::default())
+        .expect("inherited plot");
+    assert_eq!(document.name, "Child");
+    assert_eq!(document.extends.as_deref(), Some("Middle"));
+    assert!(!document.in_bom);
+    assert!(document.power);
+    assert_eq!(document.records.len(), 1);
+    assert_eq!(document.records[0].name, "Base_1_1");
+    assert_eq!(document.records[0].operations.len(), 2);
+}
+
+#[test]
+fn missing_and_cyclic_inheritance_match_python_empty_geometry_behavior() {
+    let missing = r#"(kicad_symbol_lib (symbol "Child" (extends "Missing")))"#;
+    let document = symbol_plot_document(missing, "Child", Some(1), 0, SymbolPlotLimits::default())
+        .expect("missing base is non-fatal");
+    assert!(document.records.is_empty());
+
+    let cyclic = r#"(kicad_symbol_lib
+      (symbol "A" (extends "B"))
+      (symbol "B" (extends "A")))"#;
+    let document = symbol_plot_document(cyclic, "A", Some(1), 0, SymbolPlotLimits::default())
+        .expect("cycle is bounded and non-fatal");
+    assert!(document.records.is_empty());
+}
