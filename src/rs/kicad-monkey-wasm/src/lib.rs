@@ -9,11 +9,11 @@ use kicad_monkey_contracts::generated::footprint_edit_result::{
     FootprintEditResultA0, SourcePosition as FootprintEditSourcePosition,
 };
 use kicad_monkey_contracts::generated::footprint_plot_document::{
-    ArcThreePointOperation, CircleOperation, FlashPadCircleOperation, FlashPadOvalOperation,
-    FlashPadRectOperation, FlashPadRoundRectOperation, FlashPadTrapezOperation,
-    FootprintPlotDocumentA0, FootprintPlotRecord, PlotPolyOperation, PlotterCoordinateSpace,
-    PlotterDrillRole, PlotterFill, PlotterOperation, PlotterPoint, PlotterQuad, RectOperation,
-    ThickSegmentOperation,
+    ArcThreePointOperation, CircleOperation, FlashPadCircleOperation, FlashPadCustomOperation,
+    FlashPadOvalOperation, FlashPadRectOperation, FlashPadRoundRectOperation,
+    FlashPadTrapezOperation, FootprintPlotDocumentA0, FootprintPlotRecord, PlotPolyOperation,
+    PlotterCoordinateSpace, PlotterDrillRole, PlotterFill, PlotterOperation, PlotterPoint,
+    PlotterQuad, RectOperation, ThickSegmentOperation,
 };
 use kicad_monkey_contracts::generated::footprint_plot_request::FootprintPlotRequestA0;
 use kicad_monkey_contracts::generated::footprint_plot_result::{
@@ -463,6 +463,35 @@ fn contract_plotter_operation(
             layers: operation.layers,
             mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
             orient_deg: operation.orient_deg,
+            size_x_nm: safe_integer(operation.size_x_nm)?,
+            size_y_nm: safe_integer(operation.size_y_nm)?,
+            x: safe_integer(operation.x)?,
+            y: safe_integer(operation.y)?,
+        }
+        .into(),
+        CorePlotterOperation::FlashPadCustom(operation) => FlashPadCustomOperation {
+            anchor_shape: operation.anchor_shape,
+            index,
+            kind: "FlashPadCustom".to_owned(),
+            layers: operation.layers,
+            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
+            orient_deg: operation.orient_deg,
+            polygon_widths_nm: operation
+                .polygon_widths_nm
+                .unwrap_or_default()
+                .into_iter()
+                .map(safe_integer)
+                .collect::<Result<Vec<_>, String>>()?,
+            polygons: operation
+                .polygons
+                .into_iter()
+                .map(|polygon| {
+                    polygon
+                        .into_iter()
+                        .map(|[x, y]| Ok(PlotterPoint::from([safe_integer(x)?, safe_integer(y)?])))
+                        .collect::<Result<Vec<_>, String>>()
+                })
+                .collect::<Result<Vec<_>, String>>()?,
             size_x_nm: safe_integer(operation.size_x_nm)?,
             size_y_nm: safe_integer(operation.size_y_nm)?,
             x: safe_integer(operation.x)?,
@@ -1028,14 +1057,19 @@ mod tests {
           (fp_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.1)))
           (fp_poly (pts (xy 0 0) (xy 1 0) (xy 0 1)) (stroke (width 0.1)))
           (pad "1" smd roundrect (at 2 0 45) (size 1.5 0.8)
-            (layers "F.Cu" "F.Mask") (roundrect_rratio 0.25)))"#;
+            (layers "F.Cu" "F.Mask") (roundrect_rratio 0.25))
+          (pad "2" smd custom (at 0 2) (size 1 1) (layers "F.Cu" "F.Mask")
+            (options (anchor rect))
+            (primitives
+              (gr_poly (pts (xy -0.5 -0.5) (xy 0.5 -0.5) (xy 0 0.5))
+                (width 0.05) (fill yes)))))"#;
         let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_operations":8}"#;
         let output = plot_footprint_ir(source, request).expect("WASM plotter operation");
         let metadata: Value =
             serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
         let document: Value =
             serde_json::from_slice(&output.output_bytes()).expect("plotter document JSON");
-        assert_eq!(metadata["total_operations"], 6);
+        assert_eq!(metadata["total_operations"], 7);
         assert_eq!(document["document_id"], "Demo");
         assert_eq!(document["records"][0]["operations"][0]["end_x"], 1_000_000);
         let kinds = document["records"][0]["operations"]
@@ -1052,7 +1086,8 @@ mod tests {
                 "Circle",
                 "Rect",
                 "PlotPoly",
-                "FlashPadRoundRect"
+                "FlashPadRoundRect",
+                "FlashPadCustom"
             ]
         );
     }

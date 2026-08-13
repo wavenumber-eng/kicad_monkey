@@ -7,8 +7,8 @@ pub mod generated;
 
 use generated::build_request::{Node, NodeKind, SExpressionBuildRequestA0};
 use generated::footprint_plot_document::{
-    CircleOperation, FootprintPlotDocumentA0, PlotterDrillRole, PlotterOperation,
-    ThickSegmentOperation,
+    CircleOperation, FlashPadCustomOperation, FootprintPlotDocumentA0, PlotterDrillRole,
+    PlotterOperation, ThickSegmentOperation,
 };
 use std::fmt;
 
@@ -192,6 +192,9 @@ pub fn validate_footprint_plot_document(
                 PlotterOperation::FlashPadRoundRectOperation(operation) => {
                     require_layers(&operation.layers, path)?;
                 }
+                PlotterOperation::FlashPadCustomOperation(operation) => {
+                    validate_custom_pad(operation, path)?;
+                }
                 PlotterOperation::FlashPadTrapezOperation(operation) => {
                     require_layers(&operation.layers, path)?;
                 }
@@ -206,6 +209,23 @@ pub fn validate_footprint_plot_document(
             "operation_count_mismatch",
             "$.total_operations",
             "total_operations must equal all record operation counts",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_custom_pad(
+    operation: &FlashPadCustomOperation,
+    path: String,
+) -> Result<(), ValidationError> {
+    require_layers(&operation.layers, path.clone())?;
+    if !operation.polygon_widths_nm.is_empty()
+        && operation.polygon_widths_nm.len() != operation.polygons.len()
+    {
+        return Err(validation_error(
+            "polygon_width_count_mismatch",
+            format!("{path}.polygon_widths_nm"),
+            "non-empty polygon_widths_nm must contain one width per polygon",
         ));
     }
     Ok(())

@@ -84,7 +84,7 @@ class PlotterCoordinateSpace(Struct, forbid_unknown_fields=True, frozen=True):
 JavaScriptSafeInteger = Annotated[int, Meta(ge=-9007199254740991, le=9007199254740991)]
 
 
-PlotterOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadTrapezOperation"]
+PlotterOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadCustomOperation", "FlashPadTrapezOperation"]
 
 
 class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ThickSegment", tag_field="kind"):
@@ -191,6 +191,20 @@ class FlashPadRoundRectOperation(Struct, forbid_unknown_fields=True, frozen=True
     orient_deg: float
     layers: list[str]
     mask_margin_nm: JavaScriptSafeInteger
+
+
+class FlashPadCustomOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadCustom", tag_field="kind"):
+    index: int
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    orient_deg: float
+    polygons: list[list[PlotterPoint]]
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+    polygon_widths_nm: list[JavaScriptSafeInteger] | UnsetType = field(default=UNSET)
+    anchor_shape: str | UnsetType = field(default=UNSET)
 
 
 class FlashPadTrapezOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadTrapez", tag_field="kind"):
@@ -354,9 +368,14 @@ def validate_footprint_plot_document_a0(value: FootprintPlotDocumentA0) -> None:
                 FlashPadOvalOperation,
                 FlashPadRectOperation,
                 FlashPadRoundRectOperation,
+                FlashPadCustomOperation,
                 FlashPadTrapezOperation,
             )) and not operation.layers:
                 raise msgspec.ValidationError(f"missing_layers at {path}")
+            if isinstance(operation, FlashPadCustomOperation):
+                widths = operation.polygon_widths_nm
+                if widths is not UNSET and widths and len(widths) != len(operation.polygons):
+                    raise msgspec.ValidationError(f"polygon_width_count_mismatch at {path}.polygon_widths_nm")
     if value.total_operations != total_operations:
         raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
 
@@ -408,6 +427,7 @@ __all__ = (
     "FlashPadOvalOperation",
     "FlashPadRectOperation",
     "FlashPadRoundRectOperation",
+    "FlashPadCustomOperation",
     "FlashPadTrapezOperation",
     "PlotterDrillRole",
     "PlotterFill",

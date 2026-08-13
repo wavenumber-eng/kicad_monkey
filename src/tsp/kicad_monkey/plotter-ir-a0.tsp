@@ -196,6 +196,27 @@ model FlashPadRoundRectOperation {
   mask_margin_nm: JavaScriptSafeInteger;
 }
 
+/**
+ * Custom pad flash shared by footprint and PCB producers. Polygon coordinates
+ * are pad-local. A non-empty polygon_widths_nm has one entry per polygon;
+ * generated semantic validation enforces that relationship. An empty array is
+ * equivalent to omission for generated Rust transport bindings.
+ */
+model FlashPadCustomOperation {
+  kind: "FlashPadCustom";
+  index: uint32;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  orient_deg: float64;
+  polygons: PlotterPoint[][];
+  polygon_widths_nm?: JavaScriptSafeInteger[];
+  anchor_shape?: string;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+
 /** Four pad-local trapezoid corners. */
 @minItems(4)
 @maxItems(4)
@@ -224,6 +245,7 @@ union PlotterOperation {
   flashPadOval: FlashPadOvalOperation,
   flashPadRect: FlashPadRectOperation,
   flashPadRoundRect: FlashPadRoundRectOperation,
+  flashPadCustom: FlashPadCustomOperation,
   flashPadTrapez: FlashPadTrapezOperation,
 }
 

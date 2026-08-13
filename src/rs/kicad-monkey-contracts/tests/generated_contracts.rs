@@ -357,6 +357,54 @@ fn every_promoted_pad_integer_field_enforces_javascript_precision() {
 }
 
 #[test]
+fn custom_pad_integer_fields_enforce_javascript_precision() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/footprint_plotter_a0_vectors.json"
+    ))
+    .expect("shared plotter vectors");
+    let document = vectors["vectors"]
+        .as_array()
+        .expect("vectors")
+        .iter()
+        .find(|vector| vector["id"] == "custom-and-chamfered-pad-flashes")
+        .expect("custom pad vector")["expected"]
+        .clone();
+    let paths = [
+        "/records/0/operations/0/x",
+        "/records/0/operations/0/y",
+        "/records/0/operations/0/size_x_nm",
+        "/records/0/operations/0/size_y_nm",
+        "/records/0/operations/0/polygons/0/0/0",
+        "/records/0/operations/0/polygons/0/0/1",
+        "/records/0/operations/0/polygon_widths_nm/0",
+        "/records/0/operations/0/mask_margin_nm",
+        "/records/0/operations/1/x",
+        "/records/0/operations/1/y",
+        "/records/0/operations/1/size_x_nm",
+        "/records/0/operations/1/size_y_nm",
+        "/records/0/operations/1/polygons/0/0/0",
+        "/records/0/operations/1/polygons/0/0/1",
+        "/records/0/operations/1/mask_margin_nm",
+    ];
+    for path in paths {
+        for value in [JAVASCRIPT_SAFE_INTEGER_MIN, JAVASCRIPT_SAFE_INTEGER_MAX] {
+            let mut candidate = document.clone();
+            *candidate.pointer_mut(path).expect("custom integer field") = value.into();
+            serde_json::from_value::<FootprintPlotDocumentA0>(candidate)
+                .expect("safe custom boundary");
+        }
+        for value in [
+            JAVASCRIPT_SAFE_INTEGER_MIN - 1,
+            JAVASCRIPT_SAFE_INTEGER_MAX + 1,
+        ] {
+            let mut candidate = document.clone();
+            *candidate.pointer_mut(path).expect("custom integer field") = value.into();
+            assert!(serde_json::from_value::<FootprintPlotDocumentA0>(candidate).is_err());
+        }
+    }
+}
+
+#[test]
 fn shared_circle_and_segment_semantics_reject_contradictory_states() {
     let vectors: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../tests/parity/footprint_plotter_a0_vectors.json"
@@ -410,4 +458,26 @@ fn shared_circle_and_segment_semantics_reject_contradictory_states() {
         >(arbitrary_role)
         .is_err()
     );
+
+    let custom = vectors["vectors"][3]["expected"].clone();
+    let custom_document: FootprintPlotDocumentA0 =
+        serde_json::from_value(custom.clone()).expect("custom transport document");
+    validate_footprint_plot_document(&custom_document).expect("valid custom pad semantics");
+
+    let mut mismatched_widths = custom;
+    mismatched_widths["records"][0]["operations"][0]["polygon_widths_nm"] =
+        serde_json::json!([50_000]);
+    let mismatched_document: FootprintPlotDocumentA0 =
+        serde_json::from_value(mismatched_widths).expect("width mismatch is structurally valid");
+    let error = validate_footprint_plot_document(&mismatched_document)
+        .expect_err("custom widths must align with polygons");
+    assert_eq!(error.code, "polygon_width_count_mismatch");
+
+    let mut missing_layers = vectors["vectors"][3]["expected"].clone();
+    missing_layers["records"][0]["operations"][0]["layers"] = serde_json::json!([]);
+    let missing_layers_document: FootprintPlotDocumentA0 =
+        serde_json::from_value(missing_layers).expect("empty layers are structurally valid");
+    let error = validate_footprint_plot_document(&missing_layers_document)
+        .expect_err("custom pads require layers");
+    assert_eq!(error.code, "missing_layers");
 }

@@ -221,6 +221,80 @@ fn standard_pad_flashes_and_drills_share_the_plotter_operation_vocabulary() {
             .kind,
         ErrorKind::ResourceLimit
     );
+
+    let unsafe_polygon = r#"(footprint "Unsafe"
+      (pad "1" smd custom (size 1 1) (layers "F.Cu")
+        (primitives
+          (gr_poly (pts (xy 9007199255 0) (xy 0 0) (xy 0 1))
+            (width 0.1) (fill yes)))))"#;
+    let error = footprint_plot_document(unsafe_polygon, FootprintPlotLimits::default())
+        .expect_err("custom polygon coordinate must remain exact in JavaScript");
+    assert_eq!(error.kind, ErrorKind::UnexpectedToken);
+    assert!(error.message.contains("safe-integer"));
+}
+
+#[test]
+fn custom_and_chamfered_pads_match_python_local_polygon_semantics() {
+    let source = r#"(footprint "CustomPads"
+      (solder_mask_margin 0.03)
+      (pad "1" smd custom (at 1 -2 30) (size 2 1)
+        (layers "F.Cu" "F.Paste" "F.Mask")
+        (options (clearance outline) (anchor rect))
+        (primitives
+          (gr_poly (pts (xy -1 -0.5) (xy 1 -0.5) (xy 0 0.5))
+            (width 0.05) (fill yes))
+          (gr_arc (start 0 0) (mid 0.5 0.5) (end 1 0) (width 0.1))
+          (gr_poly (pts (xy -0.25 0) (xy 0.25 0) (xy 0 0.25)) (fill yes))))
+      (pad "2" smd roundrect (at -3 4 -45) (size 2 1)
+        (layers "B.Cu" "B.Paste" "B.Mask")
+        (roundrect_rratio 0) (chamfer_ratio 0.25)
+        (chamfer top_left bottom_right)))"#;
+    let document = footprint_plot_document(source, FootprintPlotLimits::default())
+        .expect("custom pad plotter operations");
+    assert_eq!(document.operations.len(), 2);
+
+    let PlotterOperation::FlashPadCustom(custom) = &document.operations[0] else {
+        panic!("expected custom pad flash");
+    };
+    assert_eq!(custom.x, 1_000_000);
+    assert_eq!(custom.y, -2_000_000);
+    assert_eq!(custom.anchor_shape.as_deref(), Some("rect"));
+    assert_eq!(custom.polygon_widths_nm.as_deref(), Some(&[50_000, 0][..]));
+    assert_eq!(
+        custom.polygons,
+        [
+            vec![[-1_000_000, -500_000], [1_000_000, -500_000], [0, 500_000]],
+            vec![[-250_000, 0], [250_000, 0], [0, 250_000]],
+        ]
+    );
+
+    let PlotterOperation::FlashPadCustom(chamfered) = &document.operations[1] else {
+        panic!("expected chamfered pad custom flash");
+    };
+    assert_eq!(chamfered.polygon_widths_nm, None);
+    assert_eq!(chamfered.anchor_shape, None);
+    assert_eq!(
+        chamfered.polygons,
+        [vec![
+            [-1_000_000, -250_000],
+            [-750_000, -500_000],
+            [1_000_000, -500_000],
+            [1_000_000, 250_000],
+            [750_000, 500_000],
+            [-1_000_000, 500_000],
+        ]]
+    );
+
+    let limited = FootprintPlotLimits {
+        max_operations: 1,
+        ..FootprintPlotLimits::default()
+    };
+    assert_eq!(
+        footprint_plot_document(source, limited)
+            .expect_err("custom flashes observe the operation limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
 }
 
 #[test]

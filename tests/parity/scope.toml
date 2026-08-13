@@ -171,3 +171,13 @@ python_symbols = ["pad_to_ops", "pad_drill_to_ops"]
 rust_symbols = ["PlotterOperation", "footprint_plot_document", "kicad-monkey-wasm.plotFootprintIr"]
 rack_cases = ["L0_046", "L0_049", "L1_026"]
 evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/footprint_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_026_rust_footprint_plotter_slice.py", "docs/design/rust-footprint-plotter-phase2-slice.html"]
+
+[[surfaces]]
+id = "plotter_ir.footprint_custom_chamfered_pads"
+disposition = "required"
+wasm = "required"
+status = "review_ready"
+python_symbols = ["pad_to_ops", "_chamfered_pad_local_polygon_nm"]
+rust_symbols = ["FlashPadCustom", "PlotterOperation", "footprint_plot_document", "kicad-monkey-wasm.plotFootprintIr"]
+rack_cases = ["L0_046", "L0_049", "L1_026"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/footprint_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-core/tests/footprint_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/lib.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/L1_parsing/test_L1_026_rust_footprint_plotter_slice.py", "docs/design/rust-footprint-plotter-phase2-slice.html"]

@@ -183,6 +183,9 @@
                     "$ref": "#/$defs/FlashPadRoundRectOperation"
                 },
                 {
+                    "$ref": "#/$defs/FlashPadCustomOperation"
+                },
+                {
                     "$ref": "#/$defs/FlashPadTrapezOperation"
                 }
             ],
@@ -674,6 +677,78 @@
                 "not": {}
             },
             "description": "Rounded-rectangle pad flash shared by footprint and PCB producers."
+        },
+        "FlashPadCustomOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadCustom"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "polygons": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/PlotterPoint"
+                        }
+                    }
+                },
+                "polygon_widths_nm": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/JavaScriptSafeInteger"
+                    }
+                },
+                "anchor_shape": {
+                    "type": "string"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "orient_deg",
+                "polygons",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Custom pad flash shared by footprint and PCB producers. Polygon coordinates\nare pad-local. A non-empty polygon_widths_nm has one entry per polygon;\ngenerated semantic validation enforces that relationship. An empty array is\nequivalent to omission for generated Rust transport bindings."
         },
         "FlashPadTrapezOperation": {
             "type": "object",

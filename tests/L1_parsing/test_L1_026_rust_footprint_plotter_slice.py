@@ -94,6 +94,18 @@ def test_shared_plotter_vectors_match_python_generated_types_and_both_schemas() 
     with pytest.raises(msgspec.ValidationError):
         decode_footprint_plot_document_a0(json.dumps(unknown_kind).encode("utf-8"))
 
+    custom = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "custom-and-chamfered-pad-flashes"
+    )
+    mismatched_widths = json.loads(json.dumps(custom))
+    mismatched_widths["records"][0]["operations"][0]["polygon_widths_nm"] = [50_000]
+    with pytest.raises(msgspec.ValidationError, match="polygon_width_count_mismatch"):
+        decode_footprint_plot_document_a0(
+            json.dumps(mismatched_widths).encode("utf-8")
+        )
+
     for mutation in ("missing_layer", "arbitrary_role", "mixed_graphic_drill"):
         invalid = json.loads(json.dumps(promoted))
         operation = invalid["records"][0]["operations"][0]

@@ -257,6 +257,104 @@ pub struct FlashPadCircleOperation {
     pub x: crate::JavaScriptSafeInteger,
     pub y: crate::JavaScriptSafeInteger,
 }
+/**Custom pad flash shared by footprint and PCB producers. Polygon coordinates
+are pad-local. A non-empty polygon_widths_nm has one entry per polygon;
+generated semantic validation enforces that relationship. An empty array is
+equivalent to omission for generated Rust transport bindings.*/
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Custom pad flash shared by footprint and PCB producers. Polygon coordinates\nare pad-local. A non-empty polygon_widths_nm has one entry per polygon;\ngenerated semantic validation enforces that relationship. An empty array is\nequivalent to omission for generated Rust transport bindings.",
+///  "type": "object",
+///  "required": [
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "orient_deg",
+///    "polygons",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "anchor_shape": {
+///      "type": "string"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadCustom"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "polygon_widths_nm": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/JavaScriptSafeInteger"
+///      }
+///    },
+///    "polygons": {
+///      "type": "array",
+///      "items": {
+///        "type": "array",
+///        "items": {
+///          "$ref": "#/$defs/PlotterPoint"
+///        }
+///      }
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct FlashPadCustomOperation {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub anchor_shape: ::std::option::Option<::std::string::String>,
+    pub index: u32,
+    pub kind: ::std::string::String,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    pub orient_deg: f64,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub polygon_widths_nm: ::std::vec::Vec<crate::JavaScriptSafeInteger>,
+    pub polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
+}
 ///Oval pad flash shared by footprint and PCB producers.
 ///
 /// <details><summary>JSON schema</summary>
@@ -980,6 +1078,9 @@ impl ::std::convert::TryFrom<::std::string::String> for PlotterFill {
 ///      "$ref": "#/$defs/FlashPadRoundRectOperation"
 ///    },
 ///    {
+///      "$ref": "#/$defs/FlashPadCustomOperation"
+///    },
+///    {
 ///      "$ref": "#/$defs/FlashPadTrapezOperation"
 ///    }
 ///  ]
@@ -998,6 +1099,7 @@ pub enum PlotterOperation {
     FlashPadOvalOperation(FlashPadOvalOperation),
     FlashPadRectOperation(FlashPadRectOperation),
     FlashPadRoundRectOperation(FlashPadRoundRectOperation),
+    FlashPadCustomOperation(FlashPadCustomOperation),
     FlashPadTrapezOperation(FlashPadTrapezOperation),
 }
 impl ::std::convert::From<ThickSegmentOperation> for PlotterOperation {
@@ -1043,6 +1145,11 @@ impl ::std::convert::From<FlashPadRectOperation> for PlotterOperation {
 impl ::std::convert::From<FlashPadRoundRectOperation> for PlotterOperation {
     fn from(value: FlashPadRoundRectOperation) -> Self {
         Self::FlashPadRoundRectOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadCustomOperation> for PlotterOperation {
+    fn from(value: FlashPadCustomOperation) -> Self {
+        Self::FlashPadCustomOperation(value)
     }
 }
 impl ::std::convert::From<FlashPadTrapezOperation> for PlotterOperation {

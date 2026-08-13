@@ -16,10 +16,12 @@
       Patterned line and arc strokes are decomposed into thick segments using
       the Python path's dash rules. Standard circle, oval, rectangle,
       round-rectangle, and trapezoid pads emit pad flashes; through-hole and
-      NPTH pads also emit circular or slotted drill operations. It emits a
+      NPTH pads also emit circular or slotted drill operations. Custom-pad
+      <code>gr_poly</code> primitives and zero-radius chamfered roundrect pads
+      emit the shared custom flash. It emits a
       strict TypeSpec-owned subset of the established
       <code>kicad.plotter_ir.a0</code> document. This slice does not claim parity
-      for text, properties, custom/chamfered pads, symbols, or embedded PCB
+      for text, properties, non-polygon custom primitives, symbols, or embedded PCB
       footprints.
     </p>
   </section>
@@ -84,7 +86,8 @@
       fields; a drill requires <code>role</code> plus non-empty
       <code>layers</code>; NPTH additionally requires mask and pad-size hints.
       Operation counts and pad-flash layer lists are validated at the same
-      boundary.
+      boundary. Custom-pad polygon widths are optional, but a non-empty width
+      list must contain exactly one value per polygon.
     </p>
     <p>
       Every numeric document field declared as a JavaScript-safe integer is
@@ -104,6 +107,9 @@
       A standard-pad vector covers every promoted flash shape, inherited and
       clamped mask margins, rotated drill offsets, slots, and suppressed NPTH
       copper flashes.
+      A custom-pad vector proves local polygon coordinates, per-polygon widths,
+      anchor metadata, ignored non-polygon primitives, and exact chamfered
+      roundrect polygon construction.
       Documents validate against both the strict generated slice schema and the
       established plotter-IR schema. Rack L0_046 owns real Node-hosted WASM
       execution and Rust quality; L0_049 owns generated-language cleanliness.
@@ -119,8 +125,7 @@
   <section>
     <h2>Retained Work</h2>
     <p>
-      Promote custom and chamfered pads independently, then footprint
-      properties/text and symbol output. Text retains the separate shaping,
+      Promote footprint properties/text and symbol output next. Text retains the separate shaping,
       outline, and render-cache evidence gates. Embedded PCB footprints will
       reuse the shared operations but require their own placement and record
       parity. The Phase 2 boundary review remains gated on that wider proof.

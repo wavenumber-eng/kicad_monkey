@@ -13,6 +13,7 @@ export type PlotterOperation =
   | FlashPadOvalOperation
   | FlashPadRectOperation
   | FlashPadRoundRectOperation
+  | FlashPadCustomOperation
   | FlashPadTrapezOperation;
 /**
  * Integer that remains exact when decoded as a JavaScript number.
@@ -210,6 +211,26 @@ export interface FlashPadRoundRectOperation {
   size_y_nm: JavaScriptSafeInteger;
   corner_radius_nm: JavaScriptSafeInteger;
   orient_deg: number;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+}
+/**
+ * Custom pad flash shared by footprint and PCB producers. Polygon coordinates
+ * are pad-local. A non-empty polygon_widths_nm has one entry per polygon;
+ * generated semantic validation enforces that relationship. An empty array is
+ * equivalent to omission for generated Rust transport bindings.
+ */
+export interface FlashPadCustomOperation {
+  kind: "FlashPadCustom";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  orient_deg: number;
+  polygons: PlotterPoint[][];
+  polygon_widths_nm?: JavaScriptSafeInteger[];
+  anchor_shape?: string;
   layers: string[];
   mask_margin_nm: JavaScriptSafeInteger;
 }

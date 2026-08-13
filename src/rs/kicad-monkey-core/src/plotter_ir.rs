@@ -160,6 +160,21 @@ pub struct FlashPadRoundRect {
     pub mask_margin_nm: i64,
 }
 
+/// Custom pad flash shared by footprint and PCB producers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FlashPadCustom {
+    pub x: i64,
+    pub y: i64,
+    pub size_x_nm: i64,
+    pub size_y_nm: i64,
+    pub orient_deg: f64,
+    pub polygons: Vec<Vec<[i64; 2]>>,
+    pub polygon_widths_nm: Option<Vec<i64>>,
+    pub anchor_shape: Option<String>,
+    pub layers: Vec<String>,
+    pub mask_margin_nm: i64,
+}
+
 /// Trapezoid pad flash shared by footprint and PCB producers.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FlashPadTrapez {
@@ -183,6 +198,7 @@ pub enum PlotterOperation {
     FlashPadOval(FlashPadOval),
     FlashPadRect(FlashPadRect),
     FlashPadRoundRect(FlashPadRoundRect),
+    FlashPadCustom(FlashPadCustom),
     FlashPadTrapez(FlashPadTrapez),
 }
 
@@ -681,22 +697,34 @@ fn parse_pad(
                 layers: layers.clone(),
                 mask_margin_nm,
             })),
-            "roundrect" if !has_chamfered_roundrect(&form, span.start)? => {
-                let ratio = child(&form, "roundrect_rratio")
-                    .map(|value| numeric_at(value, 1, span.start))
-                    .transpose()?
-                    .unwrap_or(0.25);
-                Some(PlotterOperation::FlashPadRoundRect(FlashPadRoundRect {
+            "roundrect" => Some(parse_roundrect_flash(
+                &form,
+                span.start,
+                PadOperationContext {
                     x,
                     y,
+                    orient_deg,
                     size_x_nm,
                     size_y_nm,
-                    corner_radius_nm: rounded_safe_f64(size_x_nm.min(size_y_nm) as f64 * ratio)?,
-                    orient_deg,
-                    layers: layers.clone(),
+                    pad_type,
+                    layers: &layers,
                     mask_margin_nm,
-                }))
-            }
+                },
+            )?),
+            "custom" => Some(parse_custom_pad_flash(
+                &form,
+                span.start,
+                PadOperationContext {
+                    x,
+                    y,
+                    orient_deg,
+                    size_x_nm,
+                    size_y_nm,
+                    pad_type,
+                    layers: &layers,
+                    mask_margin_nm,
+                },
+            )?),
             "trapezoid" => {
                 let delta = child(&form, "rect_delta");
                 let delta_x = mm_to_nm(optional_numeric_at(delta, 1, 0.0, span.start)?)? / 2;
@@ -756,25 +784,171 @@ fn parse_pad(
     Ok(output)
 }
 
-fn has_chamfered_roundrect(form: &Sexp, position: Position) -> Result<bool, Error> {
-    let has_corners = child(form, "chamfer")
-        .and_then(list)
-        .is_some_and(|values| values.len() > 1);
-    let ratio = child(form, "chamfer_ratio")
-        .map(|value| numeric_at(value, 1, position))
-        .transpose()?
-        .unwrap_or(0.0);
+fn parse_roundrect_flash(
+    form: &Sexp,
+    position: Position,
+    context: PadOperationContext<'_>,
+) -> Result<PlotterOperation, Error> {
     let round_ratio = child(form, "roundrect_rratio")
         .map(|value| numeric_at(value, 1, position))
         .transpose()?
         .unwrap_or(0.25);
-    let size = child(form, "size");
-    let shorter_nm = mm_to_nm(
-        optional_numeric_at(size, 1, 0.0, position)?
-            .min(optional_numeric_at(size, 2, 0.0, position)?),
-    )?;
-    let corner_radius = rounded_safe_f64(shorter_nm as f64 * round_ratio)?;
-    Ok(has_corners && ratio > 0.0 && corner_radius < 1)
+    let corner_radius_nm =
+        rounded_safe_f64(context.size_x_nm.min(context.size_y_nm) as f64 * round_ratio)?;
+    let chamfer_ratio = child(form, "chamfer_ratio")
+        .map(|value| numeric_at(value, 1, position))
+        .transpose()?
+        .unwrap_or(0.0);
+    let chamfer_corners = child(form, "chamfer")
+        .and_then(list)
+        .map(|values| {
+            values
+                .iter()
+                .skip(1)
+                .filter_map(sexp_text)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if !chamfer_corners.is_empty() && chamfer_ratio > 0.0 && corner_radius_nm < 1 {
+        return Ok(PlotterOperation::FlashPadCustom(FlashPadCustom {
+            x: context.x,
+            y: context.y,
+            size_x_nm: context.size_x_nm,
+            size_y_nm: context.size_y_nm,
+            orient_deg: context.orient_deg,
+            polygons: vec![chamfered_pad_polygon(
+                context.size_x_nm,
+                context.size_y_nm,
+                chamfer_ratio,
+                &chamfer_corners,
+            )?],
+            polygon_widths_nm: None,
+            anchor_shape: None,
+            layers: context.layers.to_vec(),
+            mask_margin_nm: context.mask_margin_nm,
+        }));
+    }
+    Ok(PlotterOperation::FlashPadRoundRect(FlashPadRoundRect {
+        x: context.x,
+        y: context.y,
+        size_x_nm: context.size_x_nm,
+        size_y_nm: context.size_y_nm,
+        corner_radius_nm,
+        orient_deg: context.orient_deg,
+        layers: context.layers.to_vec(),
+        mask_margin_nm: context.mask_margin_nm,
+    }))
+}
+
+fn parse_custom_pad_flash(
+    form: &Sexp,
+    position: Position,
+    context: PadOperationContext<'_>,
+) -> Result<PlotterOperation, Error> {
+    let mut polygons = Vec::new();
+    let mut polygon_widths_nm = Vec::new();
+    if let Some(primitives) = child(form, "primitives").and_then(list) {
+        for primitive in primitives.iter().skip(1) {
+            if value_at(primitive, 0) != Some("gr_poly") {
+                continue;
+            }
+            let Some(points) = child(primitive, "pts").and_then(list) else {
+                continue;
+            };
+            let polygon = points
+                .iter()
+                .skip(1)
+                .filter(|point| value_at(point, 0) == Some("xy"))
+                .map(|point| {
+                    Ok([
+                        mm_to_nm(numeric_at(point, 1, position)?)?,
+                        mm_to_nm(numeric_at(point, 2, position)?)?,
+                    ])
+                })
+                .collect::<Result<Vec<_>, Error>>()?;
+            if polygon.is_empty() {
+                continue;
+            }
+            polygons.push(polygon);
+            let width_mm = child(primitive, "width")
+                .map(|width| numeric_at(width, 1, position))
+                .transpose()?
+                .unwrap_or(0.0);
+            polygon_widths_nm.push(mm_to_nm(width_mm)?);
+        }
+    }
+    let anchor_shape = child(form, "options")
+        .and_then(|options| child(options, "anchor"))
+        .and_then(|anchor| value_at(anchor, 1))
+        .filter(|anchor| !anchor.is_empty())
+        .map(str::to_owned);
+    Ok(PlotterOperation::FlashPadCustom(FlashPadCustom {
+        x: context.x,
+        y: context.y,
+        size_x_nm: context.size_x_nm,
+        size_y_nm: context.size_y_nm,
+        orient_deg: context.orient_deg,
+        polygons,
+        polygon_widths_nm: Some(polygon_widths_nm),
+        anchor_shape,
+        layers: context.layers.to_vec(),
+        mask_margin_nm: context.mask_margin_nm,
+    }))
+}
+
+fn chamfered_pad_polygon(
+    size_x_nm: i64,
+    size_y_nm: i64,
+    chamfer_ratio: f64,
+    chamfer_corners: &[&str],
+) -> Result<Vec<[i64; 2]>, Error> {
+    let half_width = size_x_nm as f64 / 2.0;
+    let half_height = size_y_nm as f64 / 2.0;
+    let shorter = size_x_nm.min(size_y_nm) as f64;
+    let chamfer = (chamfer_ratio * shorter).max(0.0);
+    let mut corners = vec![
+        [-half_width, -half_height],
+        [half_width, -half_height],
+        [half_width, half_height],
+        [-half_width, half_height],
+    ];
+    if chamfer > 0.0 {
+        let corner_names = ["top_left", "top_right", "bottom_right", "bottom_left"];
+        let sign = [0.0, 1.0, -1.0, 0.0, 0.0, -1.0, 1.0, 0.0];
+        let chamfer_count = corner_names
+            .iter()
+            .filter(|name| chamfer_corners.contains(name))
+            .count();
+        let mut position = 0;
+        for (corner_index, name) in corner_names.iter().enumerate() {
+            if !chamfer_corners.contains(name) {
+                position += 1;
+                continue;
+            }
+            corners.insert(position + 1, corners[position]);
+            corners[position][0] += sign[(2 * corner_index) & 7] * chamfer;
+            corners[position][1] += sign[(2 * corner_index + 6) & 7] * chamfer;
+            corners[position + 1][0] += sign[(2 * corner_index + 1) & 7] * chamfer;
+            corners[position + 1][1] += sign[(2 * corner_index + 7) & 7] * chamfer;
+            position += 2;
+        }
+        if chamfer_count > 1 && 2.0 * chamfer >= shorter {
+            corners.dedup_by(|right, left| {
+                (right[0] - left[0]).abs() <= 1e-9 && (right[1] - left[1]).abs() <= 1e-9
+            });
+            if corners.len() > 1 {
+                let first = corners[0];
+                let last = corners[corners.len() - 1];
+                if (first[0] - last[0]).abs() < 1e-9 && (first[1] - last[1]).abs() < 1e-9 {
+                    corners.pop();
+                }
+            }
+        }
+    }
+    corners
+        .into_iter()
+        .map(|[x, y]| Ok([rounded_safe_f64(x)?, rounded_safe_f64(y)?]))
+        .collect()
 }
 
 fn parse_pad_drill(form: &Sexp, position: Position) -> Result<PadDrill, Error> {

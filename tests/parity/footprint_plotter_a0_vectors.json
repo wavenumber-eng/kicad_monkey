@@ -133,6 +133,66 @@
         "generator": "pcbnew",
         "generator_version": "9.0"
       }
+    },
+    {
+      "id": "custom-and-chamfered-pad-flashes",
+      "source": "(footprint \"CustomPads\"\n  (version 20250101)\n  (generator pcbnew)\n  (generator_version \"9.0\")\n  (layer \"F.Cu\")\n  (solder_mask_margin 0.03)\n  (pad \"1\" smd custom (at 1 -2 30) (size 2 1) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\")\n    (options (clearance outline) (anchor rect))\n    (primitives\n      (gr_poly (pts (xy -1 -0.5) (xy 1 -0.5) (xy 0 0.5)) (width 0.05) (fill yes))\n      (gr_arc (start 0 0) (mid 0.5 0.5) (end 1 0) (width 0.1))\n      (gr_poly (pts (xy -0.25 0) (xy 0.25 0) (xy 0 0.25)) (fill yes))))\n  (pad \"2\" smd roundrect (at -3 4 -45) (size 2 1) (layers \"B.Cu\" \"B.Paste\" \"B.Mask\")\n    (roundrect_rratio 0) (chamfer_ratio 0.25) (chamfer top_left bottom_right)))",
+      "source_path": "custom.kicad_mod",
+      "document_id": "custom",
+      "expected": {
+        "schema": "kicad.plotter_ir.a0",
+        "source_kind": "MOD",
+        "total_operations": 2,
+        "records": [
+          {
+            "uuid": "",
+            "kind": "footprint",
+            "object_id": "CustomPads",
+            "operation_count": 2,
+            "operations": [
+              {
+                "kind": "FlashPadCustom",
+                "index": 0,
+                "x": 1000000,
+                "y": -2000000,
+                "size_x_nm": 2000000,
+                "size_y_nm": 1000000,
+                "orient_deg": 30.0,
+                "polygons": [[[-1000000, -500000], [1000000, -500000], [0, 500000]], [[-250000, 0], [250000, 0], [0, 250000]]],
+                "polygon_widths_nm": [50000, 0],
+                "anchor_shape": "rect",
+                "layers": ["F.Cu", "F.Paste", "F.Mask"],
+                "mask_margin_nm": 30000
+              },
+              {
+                "kind": "FlashPadCustom",
+                "index": 1,
+                "x": -3000000,
+                "y": 4000000,
+                "size_x_nm": 2000000,
+                "size_y_nm": 1000000,
+                "orient_deg": -45.0,
+                "polygons": [[[-1000000, -250000], [-750000, -500000], [1000000, -500000], [1000000, 250000], [750000, 500000], [-1000000, 500000]]],
+                "layers": ["B.Cu", "B.Paste", "B.Mask"],
+                "mask_margin_nm": 30000
+              }
+            ],
+            "name": "CustomPads",
+            "layer": "F.Cu",
+            "locked": false,
+            "placed": false,
+            "descr": "",
+            "tags": "",
+            "attr": []
+          }
+        ],
+        "source_path": "custom.kicad_mod",
+        "document_id": "custom",
+        "coordinate_space": {"unit": "nm", "y_axis": "down"},
+        "version": 20250101,
+        "generator": "pcbnew",
+        "generator_version": "9.0"
+      }
     }
   ]
 }

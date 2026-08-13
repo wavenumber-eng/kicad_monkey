@@ -76,12 +76,12 @@ const footprintPlotDocument = {
 
 const footprintGraphicDocument = {
   ...footprintPlotDocument,
-  total_operations: 3,
+  total_operations: 4,
   records: [{
     uuid: "",
     kind: "footprint",
     object_id: "Graphics",
-    operation_count: 3,
+    operation_count: 4,
     operations: [
       {
         kind: "ArcThreePoint",
@@ -115,6 +115,20 @@ const footprintGraphicDocument = {
         orient_deg: 45,
         layers: ["F.Cu", "F.Mask"],
         mask_margin_nm: 50_000,
+      },
+      {
+        kind: "FlashPadCustom",
+        index: 3,
+        x: 0,
+        y: 0,
+        size_x_nm: 2_000_000,
+        size_y_nm: 1_000_000,
+        orient_deg: 0,
+        polygons: [[[-1_000_000, -500_000], [1_000_000, -500_000], [0, 500_000]]],
+        polygon_widths_nm: [50_000],
+        anchor_shape: "rect",
+        layers: ["F.Cu", "F.Mask"],
+        mask_margin_nm: 0,
       },
     ],
     name: "Graphics",
