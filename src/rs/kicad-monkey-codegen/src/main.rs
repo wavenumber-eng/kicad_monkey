@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use typify::{TypeSpace, TypeSpaceSettings};
 
-const SCHEMAS: [(&str, &str); 11] = [
+const SCHEMAS: [(&str, &str); 14] = [
     ("BuildRequest.json", "build_request.rs"),
     ("BuildResult.json", "build_result.rs"),
     ("ScanRequest.json", "scan_request.rs"),
@@ -23,6 +23,9 @@ const SCHEMAS: [(&str, &str); 11] = [
     ("FootprintPlotDocument.json", "footprint_plot_document.rs"),
     ("FootprintPlotRequest.json", "footprint_plot_request.rs"),
     ("FootprintPlotResult.json", "footprint_plot_result.rs"),
+    ("SymbolPlotDocument.json", "symbol_plot_document.rs"),
+    ("SymbolPlotRequest.json", "symbol_plot_request.rs"),
+    ("SymbolPlotResult.json", "symbol_plot_result.rs"),
 ];
 
 fn main() -> Result<()> {

@@ -13,6 +13,9 @@ use generated::footprint_plot_document::{
     CircleOperation, FlashPadCustomOperation, FootprintPlotDocumentA0, PlotterDrillRole,
     PlotterOperation, ThickSegmentOperation,
 };
+use generated::symbol_plot_document::{
+    PlotterOperation as SymbolOperation, SymbolPlotDocumentA0, SymbolPlotRecord,
+};
 use std::fmt;
 
 /// Largest integer represented exactly by JavaScript's IEEE-754 `number`.
@@ -176,35 +179,7 @@ pub fn validate_footprint_plot_document(
         total_operations = total_operations.saturating_add(record.operations.len());
         for (operation_index, operation) in record.operations.iter().enumerate() {
             let path = format!("$.records[{record_index}].operations[{operation_index}]");
-            match operation {
-                PlotterOperation::ThickSegmentOperation(operation) => {
-                    validate_shared_segment(operation, path)?;
-                }
-                PlotterOperation::CircleOperation(operation) => {
-                    validate_shared_circle(operation, path)?;
-                }
-                PlotterOperation::FlashPadCircleOperation(operation) => {
-                    require_layers(&operation.layers, path)?;
-                }
-                PlotterOperation::FlashPadOvalOperation(operation) => {
-                    require_layers(&operation.layers, path)?;
-                }
-                PlotterOperation::FlashPadRectOperation(operation) => {
-                    require_layers(&operation.layers, path)?;
-                }
-                PlotterOperation::FlashPadRoundRectOperation(operation) => {
-                    require_layers(&operation.layers, path)?;
-                }
-                PlotterOperation::FlashPadCustomOperation(operation) => {
-                    validate_custom_pad(operation, path)?;
-                }
-                PlotterOperation::FlashPadTrapezOperation(operation) => {
-                    require_layers(&operation.layers, path)?;
-                }
-                PlotterOperation::ArcThreePointOperation(_)
-                | PlotterOperation::RectOperation(_)
-                | PlotterOperation::PlotPolyOperation(_) => {}
-            }
+            validate_footprint_operation(operation, path)?;
         }
     }
     if document.total_operations as usize != total_operations {
@@ -215,6 +190,138 @@ pub fn validate_footprint_plot_document(
         ));
     }
     Ok(())
+}
+
+fn validate_footprint_operation(
+    operation: &PlotterOperation,
+    path: String,
+) -> Result<(), ValidationError> {
+    match operation {
+        PlotterOperation::ThickSegmentOperation(operation) => {
+            validate_shared_segment(operation, path)
+        }
+        PlotterOperation::CircleOperation(operation) => validate_shared_circle(operation, path),
+        _ => validate_footprint_static_operation(operation, path),
+    }
+}
+
+fn validate_footprint_static_operation(
+    operation: &PlotterOperation,
+    path: String,
+) -> Result<(), ValidationError> {
+    match operation {
+        PlotterOperation::ArcThreePointOperation(value) => {
+            require_layer(value.layer.as_deref(), path)
+        }
+        PlotterOperation::RectOperation(value) => require_layer(value.layer.as_deref(), path),
+        PlotterOperation::PlotPolyOperation(value) => require_layer(value.layer.as_deref(), path),
+        PlotterOperation::BezierCurveOperation(value) => {
+            require_layer(value.layer.as_deref(), path)
+        }
+        _ => validate_footprint_pad_operation(operation, path),
+    }
+}
+
+fn validate_footprint_pad_operation(
+    operation: &PlotterOperation,
+    path: String,
+) -> Result<(), ValidationError> {
+    match operation {
+        PlotterOperation::FlashPadCircleOperation(value) => require_layers(&value.layers, path),
+        PlotterOperation::FlashPadOvalOperation(value) => require_layers(&value.layers, path),
+        PlotterOperation::FlashPadRectOperation(value) => require_layers(&value.layers, path),
+        PlotterOperation::FlashPadRoundRectOperation(value) => require_layers(&value.layers, path),
+        PlotterOperation::FlashPadCustomOperation(value) => validate_custom_pad(value, path),
+        PlotterOperation::FlashPadTrapezOperation(value) => require_layers(&value.layers, path),
+        _ => Ok(()),
+    }
+}
+
+/// Enforce record counts and producer-specific states for symbol geometry.
+pub fn validate_symbol_plot_document(
+    document: &SymbolPlotDocumentA0,
+) -> Result<(), ValidationError> {
+    if !matches!(
+        document.records.first(),
+        Some(SymbolPlotRecord::SymbolHeaderPlotRecord(_))
+    ) {
+        return Err(validation_error(
+            "missing_symbol_header",
+            "$.records[0]",
+            "the first symbol record must be the lib_symbol header",
+        ));
+    }
+    let mut total_operations = 0usize;
+    for (record_index, record) in document.records.iter().enumerate() {
+        let (declared, operations) = match record {
+            SymbolPlotRecord::SymbolHeaderPlotRecord(record) => {
+                if record_index != 0 || record.operation_count != 0 || !record.operations.is_empty()
+                {
+                    return Err(validation_error(
+                        "invalid_symbol_header",
+                        format!("$.records[{record_index}]"),
+                        "lib_symbol header operations must be empty",
+                    ));
+                }
+                (record.operation_count, &record.operations)
+            }
+            SymbolPlotRecord::LibSubsymbolPlotRecord(record) => {
+                (record.operation_count, &record.operations)
+            }
+        };
+        if declared as usize != operations.len() {
+            return Err(validation_error(
+                "operation_count_mismatch",
+                format!("$.records[{record_index}].operation_count"),
+                "operation_count must equal the operation array length",
+            ));
+        }
+        total_operations = total_operations.saturating_add(operations.len());
+        for (operation_index, operation) in operations.iter().enumerate() {
+            let path = format!("$.records[{record_index}].operations[{operation_index}]");
+            validate_symbol_operation(operation, path)?;
+        }
+    }
+    if document.total_operations as usize != total_operations {
+        return Err(validation_error(
+            "operation_count_mismatch",
+            "$.total_operations",
+            "total_operations must equal all record operation counts",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_symbol_operation(
+    operation: &SymbolOperation,
+    path: String,
+) -> Result<(), ValidationError> {
+    let valid = match operation {
+        SymbolOperation::ArcThreePointOperation(value) => value.layer.is_none(),
+        SymbolOperation::RectOperation(value) => value.layer.is_none(),
+        SymbolOperation::PlotPolyOperation(value) => value.layer.is_none(),
+        SymbolOperation::BezierCurveOperation(value) => value.layer.is_none(),
+        SymbolOperation::CircleOperation(value) => symbol_circle_is_layer_free(value),
+        _ => false,
+    };
+    if valid {
+        Ok(())
+    } else {
+        Err(validation_error(
+            "invalid_symbol_operation",
+            path,
+            "symbol records accept only layer-free body geometry",
+        ))
+    }
+}
+
+fn symbol_circle_is_layer_free(value: &generated::symbol_plot_document::CircleOperation) -> bool {
+    value.layer.is_none()
+        && value.role.is_none()
+        && value.layers.is_empty()
+        && value.mask_margin_nm.is_none()
+        && value.pad_size_x_nm.is_none()
+        && value.pad_size_y_nm.is_none()
 }
 
 fn validate_custom_pad(
@@ -321,6 +428,18 @@ fn require_layers(layers: &[String], path: String) -> Result<(), ValidationError
         ))
     } else {
         Ok(())
+    }
+}
+
+fn require_layer(layer: Option<&str>, path: String) -> Result<(), ValidationError> {
+    if layer.is_some_and(|value| !value.is_empty()) {
+        Ok(())
+    } else {
+        Err(validation_error(
+            "missing_layer",
+            path,
+            "footprint graphic operations require a layer",
+        ))
     }
 }
 

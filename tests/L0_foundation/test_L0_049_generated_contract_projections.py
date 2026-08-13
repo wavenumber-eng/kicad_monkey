@@ -131,3 +131,14 @@ def test_python_plotter_decoder_enforces_graphic_and_drill_semantics() -> None:
     operation["layers"] = ["F.Cu"]
     with pytest.raises(msgspec.ValidationError):
         decode_footprint_plot_document_a0(json.dumps(arbitrary_role).encode())
+
+    promoted = vectors["vectors"][1]["expected"]
+    static_missing_layer = json.loads(json.dumps(promoted))
+    static_operation = next(
+        operation
+        for operation in static_missing_layer["records"][0]["operations"]
+        if operation["kind"] == "ArcThreePoint"
+    )
+    del static_operation["layer"]
+    with pytest.raises(msgspec.ValidationError, match="missing_layer"):
+        decode_footprint_plot_document_a0(json.dumps(static_missing_layer).encode())

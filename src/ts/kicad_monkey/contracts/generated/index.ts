@@ -9,3 +9,6 @@ export type { FootprintReadResultA0 } from "./footprint-read-result.js";
 export type { FootprintPlotDocumentA0 } from "./footprint-plot-document.js";
 export type { FootprintPlotRequestA0 } from "./footprint-plot-request.js";
 export type { FootprintPlotResultA0 } from "./footprint-plot-result.js";
+export type { SymbolPlotDocumentA0 } from "./symbol-plot-document.js";
+export type { SymbolPlotRequestA0 } from "./symbol-plot-request.js";
+export type { SymbolPlotResultA0 } from "./symbol-plot-result.js";

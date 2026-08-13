@@ -767,130 +767,27 @@ pub struct FlashPadTrapezOperation {
     pub x: crate::JavaScriptSafeInteger,
     pub y: crate::JavaScriptSafeInteger,
 }
-/**Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and
-consumers must run generated semantic validation after structural decoding.*/
+///One selected graphical subsymbol record.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0",
-///  "title": "Footprint plot document a0",
-///  "description": "Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
+///  "description": "One selected graphical subsymbol record.",
 ///  "type": "object",
 ///  "required": [
-///    "coordinate_space",
-///    "document_id",
-///    "generator",
-///    "generator_version",
-///    "records",
-///    "schema",
-///    "source_kind",
-///    "total_operations",
-///    "version"
-///  ],
-///  "properties": {
-///    "coordinate_space": {
-///      "$ref": "#/$defs/PlotterCoordinateSpace"
-///    },
-///    "document_id": {
-///      "type": "string"
-///    },
-///    "generator": {
-///      "type": "string"
-///    },
-///    "generator_version": {
-///      "type": "string"
-///    },
-///    "records": {
-///      "type": "array",
-///      "items": {
-///        "$ref": "#/$defs/FootprintPlotRecord"
-///      }
-///    },
-///    "schema": {
-///      "type": "string",
-///      "const": "kicad.plotter_ir.a0"
-///    },
-///    "source_kind": {
-///      "type": "string",
-///      "const": "MOD"
-///    },
-///    "source_path": {
-///      "type": "string"
-///    },
-///    "total_operations": {
-///      "type": "integer",
-///      "maximum": 4294967295.0,
-///      "minimum": 0.0
-///    },
-///    "version": {
-///      "$ref": "#/$defs/JavaScriptSafeInteger"
-///    }
-///  },
-///  "additionalProperties": false
-///}
-/// ```
-/// </details>
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct FootprintPlotDocumentA0 {
-    pub coordinate_space: PlotterCoordinateSpace,
-    pub document_id: ::std::string::String,
-    pub generator: ::std::string::String,
-    pub generator_version: ::std::string::String,
-    pub records: ::std::vec::Vec<FootprintPlotRecord>,
-    pub schema: ::std::string::String,
-    pub source_kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub source_path: ::std::option::Option<::std::string::String>,
-    pub total_operations: u32,
-    pub version: crate::JavaScriptSafeInteger,
-}
-///One footprint record in the promoted non-text graphics slice.
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "description": "One footprint record in the promoted non-text graphics slice.",
-///  "type": "object",
-///  "required": [
-///    "attr",
-///    "descr",
 ///    "kind",
-///    "layer",
-///    "locked",
-///    "name",
 ///    "object_id",
 ///    "operation_count",
 ///    "operations",
-///    "placed",
-///    "tags",
+///    "style",
+///    "unit",
 ///    "uuid"
 ///  ],
 ///  "properties": {
-///    "attr": {
-///      "type": "array",
-///      "items": {
-///        "type": "string"
-///      }
-///    },
-///    "descr": {
-///      "type": "string"
-///    },
 ///    "kind": {
 ///      "type": "string",
-///      "const": "footprint"
-///    },
-///    "layer": {
-///      "type": "string"
-///    },
-///    "locked": {
-///      "type": "boolean"
-///    },
-///    "name": {
-///      "type": "string"
+///      "const": "lib_subsymbol"
 ///    },
 ///    "object_id": {
 ///      "type": "string"
@@ -906,14 +803,19 @@ pub struct FootprintPlotDocumentA0 {
 ///        "$ref": "#/$defs/PlotterOperation"
 ///      }
 ///    },
-///    "placed": {
-///      "type": "boolean"
+///    "style": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
 ///    },
-///    "tags": {
-///      "type": "string"
+///    "unit": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
 ///    },
 ///    "uuid": {
-///      "type": "string"
+///      "type": "string",
+///      "const": ""
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -922,18 +824,13 @@ pub struct FootprintPlotDocumentA0 {
 /// </details>
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct FootprintPlotRecord {
-    pub attr: ::std::vec::Vec<::std::string::String>,
-    pub descr: ::std::string::String,
+pub struct LibSubsymbolPlotRecord {
     pub kind: ::std::string::String,
-    pub layer: ::std::string::String,
-    pub locked: bool,
-    pub name: ::std::string::String,
     pub object_id: ::std::string::String,
     pub operation_count: u32,
     pub operations: ::std::vec::Vec<PlotterOperation>,
-    pub placed: bool,
-    pub tags: ::std::string::String,
+    pub style: u32,
+    pub unit: u32,
     pub uuid: ::std::string::String,
 }
 ///Filled or outlined polygon operation.
@@ -1584,6 +1481,194 @@ pub struct RectOperation {
     pub x2: crate::JavaScriptSafeInteger,
     pub y1: crate::JavaScriptSafeInteger,
     pub y2: crate::JavaScriptSafeInteger,
+}
+///Leading metadata record for the selected library symbol.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Leading metadata record for the selected library symbol.",
+///  "type": "object",
+///  "required": [
+///    "in_bom",
+///    "kind",
+///    "name",
+///    "object_id",
+///    "on_board",
+///    "operation_count",
+///    "operations",
+///    "power",
+///    "style",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "extends": {
+///      "type": "string"
+///    },
+///    "in_bom": {
+///      "type": "boolean"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "lib_symbol"
+///    },
+///    "name": {
+///      "type": "string"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "on_board": {
+///      "type": "boolean"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "power": {
+///      "type": "boolean"
+///    },
+///    "style": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "unit": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "uuid": {
+///      "type": "string",
+///      "const": ""
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SymbolHeaderPlotRecord {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extends: ::std::option::Option<::std::string::String>,
+    pub in_bom: bool,
+    pub kind: ::std::string::String,
+    pub name: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub on_board: bool,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub power: bool,
+    pub style: u32,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub unit: ::std::option::Option<u32>,
+    pub uuid: ::std::string::String,
+}
+///Strict non-text library-symbol subset of kicad.plotter_ir.a0.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "$id": "urn:wavenumber:schema:kicad_monkey.symbol_plot.document:a0",
+///  "title": "Symbol plot document a0",
+///  "description": "Strict non-text library-symbol subset of kicad.plotter_ir.a0.",
+///  "type": "object",
+///  "required": [
+///    "coordinate_space",
+///    "document_id",
+///    "records",
+///    "schema",
+///    "source_kind",
+///    "total_operations"
+///  ],
+///  "properties": {
+///    "coordinate_space": {
+///      "$ref": "#/$defs/PlotterCoordinateSpace"
+///    },
+///    "document_id": {
+///      "type": "string"
+///    },
+///    "records": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/SymbolPlotRecord"
+///      }
+///    },
+///    "schema": {
+///      "type": "string",
+///      "const": "kicad.plotter_ir.a0"
+///    },
+///    "source_kind": {
+///      "type": "string",
+///      "const": "SYM"
+///    },
+///    "source_path": {
+///      "type": "string"
+///    },
+///    "total_operations": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SymbolPlotDocumentA0 {
+    pub coordinate_space: PlotterCoordinateSpace,
+    pub document_id: ::std::string::String,
+    pub records: ::std::vec::Vec<SymbolPlotRecord>,
+    pub schema: ::std::string::String,
+    pub source_kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub source_path: ::std::option::Option<::std::string::String>,
+    pub total_operations: u32,
+}
+///`SymbolPlotRecord`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "$ref": "#/$defs/SymbolHeaderPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/LibSubsymbolPlotRecord"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum SymbolPlotRecord {
+    SymbolHeaderPlotRecord(SymbolHeaderPlotRecord),
+    LibSubsymbolPlotRecord(LibSubsymbolPlotRecord),
+}
+impl ::std::convert::From<SymbolHeaderPlotRecord> for SymbolPlotRecord {
+    fn from(value: SymbolHeaderPlotRecord) -> Self {
+        Self::SymbolHeaderPlotRecord(value)
+    }
+}
+impl ::std::convert::From<LibSubsymbolPlotRecord> for SymbolPlotRecord {
+    fn from(value: LibSubsymbolPlotRecord) -> Self {
+        Self::LibSubsymbolPlotRecord(value)
+    }
 }
 /**Solid or decomposed segment shared by PCB, footprint, and drill producers.
 Graphic state requires only layer. Drill state requires role plus layers;

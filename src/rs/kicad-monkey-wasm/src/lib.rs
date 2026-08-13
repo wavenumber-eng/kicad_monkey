@@ -2,6 +2,11 @@
 
 #![forbid(unsafe_code)]
 
+mod plotter_contract;
+mod symbol_plot;
+
+pub use symbol_plot::{SymbolPlotOutput, plot_symbol_ir};
+
 use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;
 use kicad_monkey_contracts::generated::footprint_edit_request::FootprintEditRequestA0;
 use kicad_monkey_contracts::generated::footprint_edit_result::{
@@ -9,11 +14,7 @@ use kicad_monkey_contracts::generated::footprint_edit_result::{
     FootprintEditResultA0, SourcePosition as FootprintEditSourcePosition,
 };
 use kicad_monkey_contracts::generated::footprint_plot_document::{
-    ArcThreePointOperation, CircleOperation, FlashPadCircleOperation, FlashPadCustomOperation,
-    FlashPadOvalOperation, FlashPadRectOperation, FlashPadRoundRectOperation,
-    FlashPadTrapezOperation, FootprintPlotDocumentA0, FootprintPlotRecord, PlotPolyOperation,
-    PlotterCoordinateSpace, PlotterDrillRole, PlotterFill, PlotterOperation, PlotterPoint,
-    PlotterQuad, RectOperation, ThickSegmentOperation,
+    FootprintPlotDocumentA0, FootprintPlotRecord, PlotterCoordinateSpace,
 };
 use kicad_monkey_contracts::generated::footprint_plot_request::FootprintPlotRequestA0;
 use kicad_monkey_contracts::generated::footprint_plot_result::{
@@ -35,10 +36,10 @@ use kicad_monkey_contracts::{
 };
 use kicad_monkey_core::{
     Error, ErrorKind, ErrorPhase, FootprintLimits, FootprintPlotLimits, FootprintView,
-    PlotterFill as CorePlotterFill, PlotterOperation as CorePlotterOperation, ProjectionLimits,
-    Selector, Sexp, build, build_with_limit, footprint_plot_document, parse_bytes,
-    scan_reader_form_spans, utf8_text,
+    ProjectionLimits, Selector, Sexp, build, build_with_limit, footprint_plot_document,
+    parse_bytes, scan_reader_form_spans, utf8_text,
 };
+use plotter_contract::contract_plotter_operation;
 use std::collections::BTreeSet;
 use std::io::{Cursor, Write};
 use wasm_bindgen::prelude::*;
@@ -344,217 +345,13 @@ fn plot_footprint_ir_impl(
     })
 }
 
-#[allow(
-    clippy::too_many_lines,
-    reason = "pre-standard exhaustive transport-union adapter retained under the structural ratchet"
-)]
-fn contract_plotter_operation(
-    index: usize,
-    operation: CorePlotterOperation,
-) -> Result<PlotterOperation, String> {
-    let index = u32::try_from(index).unwrap_or(u32::MAX);
-    Ok(match operation {
-        CorePlotterOperation::ThickSegment(operation) => ThickSegmentOperation {
-            end_x: safe_integer(operation.end_x)?,
-            end_y: safe_integer(operation.end_y)?,
-            index,
-            kind: "ThickSegment".to_owned(),
-            layer: operation.layer,
-            layers: operation.layers,
-            mask_margin_nm: optional_safe_integer(operation.mask_margin_nm)?,
-            pad_size_x_nm: optional_safe_integer(operation.pad_size_x_nm)?,
-            pad_size_y_nm: optional_safe_integer(operation.pad_size_y_nm)?,
-            role: contract_drill_role(operation.role.as_deref())?,
-            start_x: safe_integer(operation.start_x)?,
-            start_y: safe_integer(operation.start_y)?,
-            width_nm: safe_integer(operation.width_nm)?,
-        }
-        .into(),
-        CorePlotterOperation::ArcThreePoint(operation) => ArcThreePointOperation {
-            end_x: safe_integer(operation.end_x)?,
-            end_y: safe_integer(operation.end_y)?,
-            fill: contract_fill(operation.fill),
-            index,
-            kind: "ArcThreePoint".to_owned(),
-            layer: operation.layer,
-            mid_x: safe_integer(operation.mid_x)?,
-            mid_y: safe_integer(operation.mid_y)?,
-            start_x: safe_integer(operation.start_x)?,
-            start_y: safe_integer(operation.start_y)?,
-            width_nm: safe_integer(operation.width_nm)?,
-        }
-        .into(),
-        CorePlotterOperation::Circle(operation) => CircleOperation {
-            cx: safe_integer(operation.cx)?,
-            cy: safe_integer(operation.cy)?,
-            diameter_nm: safe_integer(operation.diameter_nm)?,
-            fill: contract_fill(operation.fill),
-            index,
-            kind: "Circle".to_owned(),
-            layer: operation.layer,
-            layers: operation.layers,
-            mask_margin_nm: optional_safe_integer(operation.mask_margin_nm)?,
-            pad_size_x_nm: optional_safe_integer(operation.pad_size_x_nm)?,
-            pad_size_y_nm: optional_safe_integer(operation.pad_size_y_nm)?,
-            role: contract_drill_role(operation.role.as_deref())?,
-            width_nm: safe_integer(operation.width_nm)?,
-        }
-        .into(),
-        CorePlotterOperation::Rect(operation) => RectOperation {
-            corner_radius_nm: safe_integer(operation.corner_radius_nm)?,
-            fill: contract_fill(operation.fill),
-            index,
-            kind: "Rect".to_owned(),
-            layer: operation.layer,
-            width_nm: safe_integer(operation.width_nm)?,
-            x1: safe_integer(operation.x1)?,
-            x2: safe_integer(operation.x2)?,
-            y1: safe_integer(operation.y1)?,
-            y2: safe_integer(operation.y2)?,
-        }
-        .into(),
-        CorePlotterOperation::PlotPoly(operation) => PlotPolyOperation {
-            fill: contract_fill(operation.fill),
-            index,
-            kind: "PlotPoly".to_owned(),
-            layer: operation.layer,
-            points: operation
-                .points
-                .into_iter()
-                .map(|[x, y]| Ok(PlotterPoint::from([safe_integer(x)?, safe_integer(y)?])))
-                .collect::<Result<Vec<_>, String>>()?,
-            width_nm: safe_integer(operation.width_nm)?,
-        }
-        .into(),
-        CorePlotterOperation::FlashPadCircle(operation) => FlashPadCircleOperation {
-            diameter_nm: safe_integer(operation.diameter_nm)?,
-            index,
-            kind: "FlashPadCircle".to_owned(),
-            layers: operation.layers,
-            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
-            x: safe_integer(operation.x)?,
-            y: safe_integer(operation.y)?,
-        }
-        .into(),
-        CorePlotterOperation::FlashPadOval(operation) => FlashPadOvalOperation {
-            index,
-            kind: "FlashPadOval".to_owned(),
-            layers: operation.layers,
-            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
-            orient_deg: operation.orient_deg,
-            size_x_nm: safe_integer(operation.size_x_nm)?,
-            size_y_nm: safe_integer(operation.size_y_nm)?,
-            x: safe_integer(operation.x)?,
-            y: safe_integer(operation.y)?,
-        }
-        .into(),
-        CorePlotterOperation::FlashPadRect(operation) => FlashPadRectOperation {
-            index,
-            kind: "FlashPadRect".to_owned(),
-            layers: operation.layers,
-            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
-            orient_deg: operation.orient_deg,
-            size_x_nm: safe_integer(operation.size_x_nm)?,
-            size_y_nm: safe_integer(operation.size_y_nm)?,
-            x: safe_integer(operation.x)?,
-            y: safe_integer(operation.y)?,
-        }
-        .into(),
-        CorePlotterOperation::FlashPadRoundRect(operation) => FlashPadRoundRectOperation {
-            corner_radius_nm: safe_integer(operation.corner_radius_nm)?,
-            index,
-            kind: "FlashPadRoundRect".to_owned(),
-            layers: operation.layers,
-            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
-            orient_deg: operation.orient_deg,
-            size_x_nm: safe_integer(operation.size_x_nm)?,
-            size_y_nm: safe_integer(operation.size_y_nm)?,
-            x: safe_integer(operation.x)?,
-            y: safe_integer(operation.y)?,
-        }
-        .into(),
-        CorePlotterOperation::FlashPadCustom(operation) => FlashPadCustomOperation {
-            anchor_shape: operation.anchor_shape,
-            index,
-            kind: "FlashPadCustom".to_owned(),
-            layers: operation.layers,
-            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
-            orient_deg: operation.orient_deg,
-            polygon_widths_nm: operation
-                .polygon_widths_nm
-                .unwrap_or_default()
-                .into_iter()
-                .map(safe_integer)
-                .collect::<Result<Vec<_>, String>>()?,
-            polygons: operation
-                .polygons
-                .into_iter()
-                .map(|polygon| {
-                    polygon
-                        .into_iter()
-                        .map(|[x, y]| Ok(PlotterPoint::from([safe_integer(x)?, safe_integer(y)?])))
-                        .collect::<Result<Vec<_>, String>>()
-                })
-                .collect::<Result<Vec<_>, String>>()?,
-            size_x_nm: safe_integer(operation.size_x_nm)?,
-            size_y_nm: safe_integer(operation.size_y_nm)?,
-            x: safe_integer(operation.x)?,
-            y: safe_integer(operation.y)?,
-        }
-        .into(),
-        CorePlotterOperation::FlashPadTrapez(operation) => FlashPadTrapezOperation {
-            corners: contract_quad(operation.corners)?,
-            index,
-            kind: "FlashPadTrapez".to_owned(),
-            layers: operation.layers,
-            mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
-            orient_deg: operation.orient_deg,
-            x: safe_integer(operation.x)?,
-            y: safe_integer(operation.y)?,
-        }
-        .into(),
-    })
-}
-
-fn contract_fill(fill: CorePlotterFill) -> PlotterFill {
-    match fill {
-        CorePlotterFill::NoFill => PlotterFill::NoFill,
-        CorePlotterFill::FilledShape => PlotterFill::FilledShape,
-    }
-}
-
-fn safe_integer(value: i64) -> Result<JavaScriptSafeInteger, String> {
-    JavaScriptSafeInteger::try_from(value).map_err(|error| error.to_string())
-}
-
-fn optional_safe_integer(value: Option<i64>) -> Result<Option<JavaScriptSafeInteger>, String> {
-    value.map(safe_integer).transpose()
-}
-
-fn contract_drill_role(value: Option<&str>) -> Result<Option<PlotterDrillRole>, String> {
-    value
-        .map(|role| PlotterDrillRole::try_from(role).map_err(|error| error.to_string()))
-        .transpose()
-}
-
-fn contract_quad(corners: [[i64; 2]; 4]) -> Result<PlotterQuad, String> {
-    let points = corners
-        .into_iter()
-        .map(|[x, y]| Ok(PlotterPoint::from([safe_integer(x)?, safe_integer(y)?])))
-        .collect::<Result<Vec<_>, String>>()?;
-    let points: [PlotterPoint; 4] = points
-        .try_into()
-        .map_err(|_| "plotter quad must contain four points".to_owned())?;
-    Ok(PlotterQuad::from(points))
-}
-
 fn decimal_usize(value: &str, field: &str) -> Result<usize, String> {
     value
         .parse::<usize>()
         .map_err(|_| format!("{field} must be a platform-sized decimal string"))
 }
 
-fn serialize_bounded<T: serde::Serialize>(
+pub(crate) fn serialize_bounded<T: serde::Serialize>(
     value: &T,
     max_output_bytes: usize,
 ) -> Result<Option<Vec<u8>>, String> {
@@ -819,7 +616,8 @@ fn js_error(error: Error) -> JsValue {
 mod tests {
     use super::{
         build_sexpr, build_sexpr_impl, canonicalize_sexpr, edit_footprint_property,
-        plot_footprint_ir, plot_footprint_ir_impl, read_footprint, scan_sexpr, scan_sexpr_impl,
+        plot_footprint_ir, plot_footprint_ir_impl, plot_symbol_ir, read_footprint, scan_sexpr,
+        scan_sexpr_impl,
     };
     use serde_json::Value;
     use wasm_bindgen_test::wasm_bindgen_test;
@@ -1130,6 +928,45 @@ mod tests {
                 .expect("diagnostic message")
                 .contains("safety step limit")
         );
+        assert_eq!(metadata["total_operations"], 0);
+        assert!(output.output_bytes().is_empty());
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_symbol_plotter_returns_selected_non_text_ir_bytes() {
+        let source = br#"(kicad_symbol_lib
+          (symbol "Other" (symbol "Other_1_1"))
+          (symbol "Demo" (in_bom yes) (on_board yes)
+            (symbol "Demo_1_1"
+              (rectangle (start -1 1) (end 1 -1)
+                (stroke (width 0.2) (type solid)) (fill (type background))))))"#;
+        let request = br#"{"type":"kicad_monkey.symbol_plot.request","version":"a0","symbol_name":"Demo","unit":1,"style":0,"max_source_bytes":"4096","max_output_bytes":"65536","max_depth":32,"max_symbols":10,"max_subsymbols":10,"max_operations":10,"max_points":100}"#;
+        let output = plot_symbol_ir(source, request).expect("WASM symbol plot operation");
+        let metadata: Value =
+            serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
+        let document: Value =
+            serde_json::from_slice(&output.output_bytes()).expect("symbol document JSON");
+        assert_eq!(metadata["total_operations"], 2);
+        assert_eq!(document["source_kind"], "SYM");
+        assert_eq!(document["records"][0]["object_id"], "Demo");
+        assert_eq!(document["records"][1]["operations"][0]["kind"], "Rect");
+        assert_eq!(
+            document["records"][1]["operations"][0]["fill"],
+            "FILLED_WITH_BG_BODYCOLOR"
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_symbol_plotter_fails_closed_without_partial_ir() {
+        let source = br#"(kicad_symbol_lib
+          (symbol "Demo" (symbol "Demo_1_1"
+            (polyline (pts (xy 0 0) (xy 1 0))
+              (stroke (width 0.1) (type solid)) (fill (type none))))))"#;
+        let request = br#"{"type":"kicad_monkey.symbol_plot.request","version":"a0","symbol_name":"Demo","style":0,"max_source_bytes":"4096","max_output_bytes":"65536","max_depth":32,"max_symbols":10,"max_subsymbols":10,"max_operations":10,"max_points":1}"#;
+        let output = plot_symbol_ir(source, request).expect("WASM symbol limit result");
+        let metadata: Value =
+            serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
+        assert_eq!(metadata["diagnostics"][0]["code"], "resource_limit");
         assert_eq!(metadata["total_operations"], 0);
         assert!(output.output_bytes().is_empty());
     }

@@ -11,3 +11,6 @@ pub mod footprint_read_request;
 pub mod footprint_read_result;
 pub mod scan_request;
 pub mod scan_result;
+pub mod symbol_plot_document;
+pub mod symbol_plot_request;
+pub mod symbol_plot_result;

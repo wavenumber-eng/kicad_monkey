@@ -8,15 +8,21 @@
 
 pub mod footprint;
 pub mod plotter_ir;
+pub mod plotter_types;
 pub mod sexpr;
 pub mod sexpr_mutation;
 pub mod sexpr_projection;
+pub mod symbol_plotter_ir;
 
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
-pub use plotter_ir::{
-    ArcThreePoint, FlashPadCircle, FlashPadCustom, FlashPadOval, FlashPadRect, FlashPadRoundRect,
-    FlashPadTrapez, FootprintPlotDocument, FootprintPlotLimits, PlotterCircle, PlotterFill,
-    PlotterOperation, PlotterPoly, PlotterRect, ThickSegment, footprint_plot_document,
+pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
+pub use plotter_types::{
+    ArcThreePoint, BezierCurve, FlashPadCircle, FlashPadCustom, FlashPadOval, FlashPadRect,
+    FlashPadRoundRect, FlashPadTrapez, PlotterCircle, PlotterFill, PlotterLineStyle,
+    PlotterOperation, PlotterPoly, PlotterRect, ThickSegment,
+};
+pub use symbol_plotter_ir::{
+    SymbolPlotDocument, SymbolPlotLimits, SymbolPlotRecord, symbol_plot_document,
 };
 
 pub use sexpr::{

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 2 Symbol Plotter-IR Slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 2 Symbol Plotter-IR Slice</h1>
+
+  <section>
+    <h2>Decision</h2>
+    <p>
+      Library-symbol bytes now produce the non-text body subset of
+      <code>kicad.plotter_ir.a0</code>. Rectangles, circles, three-point arcs,
+      polylines, and cubic Béziers reuse the same producer-neutral operations
+      as footprints and future PCB and schematic readers. Text, pin labels,
+      and pin graphics remain outside this slice so shaping and pin semantics
+      can close through their own parity gates.
+    </p>
+  </section>
+
+  <section>
+    <h2>Source Selection And Semantics</h2>
+    <ul>
+      <li>
+        The reader validates one <code>kicad_symbol_lib</code> root, scans only
+        top-level symbol spans, and materializes only the uniquely named target.
+      </li>
+      <li>
+        Unit zero remains common to every requested unit. Style zero remains
+        common to every style, and request style zero selects the normal
+        style-one body used by the Python API.
+      </li>
+      <li>
+        Symbol Y-up millimetres become Y-down integer nanometres with
+        ties-to-even rounding and JavaScript-safe-integer enforcement.
+      </li>
+      <li>
+        KiCad stroke defaults, explicit RGBA colours, line styles, fill enums,
+        and fill-first/deferred-outline ordering match the Python producer.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Contracts And Resource Bounds</h2>
+    <p>
+      TypeSpec owns the symbol request, result, document, record union, shared
+      style fields, expanded fill vocabulary, and Bézier operation. Generated
+      Rust, Python/msgspec, and TypeScript projections are committed. Semantic
+      validation requires the <code>lib_symbol</code> header first and permits
+      only layer-free body geometry in <code>lib_subsymbol</code> records;
+      footprint graphics still require a layer and pad/drill states cannot
+      cross into symbol output.
+    </p>
+    <p>
+      Source bytes, depth, library symbol count, subsymbol count, operation
+      count, geometry point count, and output bytes are independently bounded.
+      Every failure returns diagnostics with empty output. Browser callers use
+      <code>plotSymbolIr</code> with separate source and request byte arrays.
+    </p>
+  </section>
+
+  <section>
+    <h2>Evidence And Retained Work</h2>
+    <p>
+      Rack L1_027 compares the exact non-text operation stream with the Python
+      oracle, validates both the generated strict schema and established IR
+      schema, and orchestrates native and host-adapter Rust tests. The real
+      WASM suite covers successful selection and fail-closed point limits.
+      Rustfmt, warnings-denied Clippy, the wn-dev-std structural ratchet, the
+      complete Cargo workspace, and deterministic contract generation pass.
+    </p>
+    <p>
+      Next work may add pin graphics without text, followed by Rustybuzz-based
+      text shaping and outline extraction. Symbol inheritance also remains a
+      separate library-resolution slice; this producer records the base name
+      but does not resolve inherited geometry.
+    </p>
+  </section>
+</body>
+</html>

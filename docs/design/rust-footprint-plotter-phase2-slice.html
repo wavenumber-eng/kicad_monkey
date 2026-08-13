@@ -125,8 +125,10 @@
   <section>
     <h2>Retained Work</h2>
     <p>
-      Promote footprint properties/text and symbol output next. Text retains the separate shaping,
-      outline, and render-cache evidence gates. Embedded PCB footprints will
+      Promote footprint properties/text and symbol pin graphics next. The
+      companion symbol-body slice now reuses this operation vocabulary. Text
+      retains the separate shaping, outline, and render-cache evidence gates.
+      Embedded PCB footprints will
       reuse the shared operations but require their own placement and record
       parity. The Phase 2 boundary review remains gated on that wider proof.
       Performance tuning remains profile-driven.

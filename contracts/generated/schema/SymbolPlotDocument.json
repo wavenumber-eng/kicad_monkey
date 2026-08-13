@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0",
+    "$id": "urn:wavenumber:schema:kicad_monkey.symbol_plot.document:a0",
     "type": "object",
     "properties": {
         "schema": {
@@ -9,7 +9,7 @@
         },
         "source_kind": {
             "type": "string",
-            "const": "MOD"
+            "const": "SYM"
         },
         "total_operations": {
             "type": "integer",
@@ -19,7 +19,7 @@
         "records": {
             "type": "array",
             "items": {
-                "$ref": "#/$defs/FootprintPlotRecord"
+                "$ref": "#/$defs/SymbolPlotRecord"
             }
         },
         "source_path": {
@@ -30,15 +30,6 @@
         },
         "coordinate_space": {
             "$ref": "#/$defs/PlotterCoordinateSpace"
-        },
-        "version": {
-            "$ref": "#/$defs/JavaScriptSafeInteger"
-        },
-        "generator": {
-            "type": "string"
-        },
-        "generator_version": {
-            "type": "string"
         }
     },
     "required": [
@@ -47,84 +38,23 @@
         "total_operations",
         "records",
         "document_id",
-        "coordinate_space",
-        "version",
-        "generator",
-        "generator_version"
+        "coordinate_space"
     ],
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
-    "title": "Footprint plot document a0",
+    "description": "Strict non-text library-symbol subset of kicad.plotter_ir.a0.",
+    "title": "Symbol plot document a0",
     "$defs": {
-        "FootprintPlotRecord": {
-            "type": "object",
-            "properties": {
-                "uuid": {
-                    "type": "string"
+        "SymbolPlotRecord": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/SymbolHeaderPlotRecord"
                 },
-                "kind": {
-                    "type": "string",
-                    "const": "footprint"
-                },
-                "object_id": {
-                    "type": "string"
-                },
-                "operation_count": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 4294967295
-                },
-                "operations": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/$defs/PlotterOperation"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                },
-                "layer": {
-                    "type": "string"
-                },
-                "locked": {
-                    "type": "boolean"
-                },
-                "placed": {
-                    "type": "boolean"
-                },
-                "descr": {
-                    "type": "string"
-                },
-                "tags": {
-                    "type": "string"
-                },
-                "attr": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                {
+                    "$ref": "#/$defs/LibSubsymbolPlotRecord"
                 }
-            },
-            "required": [
-                "uuid",
-                "kind",
-                "object_id",
-                "operation_count",
-                "operations",
-                "name",
-                "layer",
-                "locked",
-                "placed",
-                "descr",
-                "tags",
-                "attr"
-            ],
-            "unevaluatedProperties": {
-                "not": {}
-            },
-            "description": "One footprint record in the promoted non-text graphics slice."
+            ]
         },
         "PlotterCoordinateSpace": {
             "type": "object",
@@ -147,11 +77,123 @@
             },
             "description": "Coordinate convention for the footprint plotter slice."
         },
-        "JavaScriptSafeInteger": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991,
-            "description": "Integer that remains exact when decoded as a JavaScript number."
+        "SymbolHeaderPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string",
+                    "const": ""
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "lib_symbol"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "extends": {
+                    "type": "string"
+                },
+                "unit": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "style": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "in_bom": {
+                    "type": "boolean"
+                },
+                "on_board": {
+                    "type": "boolean"
+                },
+                "power": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "name",
+                "style",
+                "in_bom",
+                "on_board",
+                "power"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Leading metadata record for the selected library symbol."
+        },
+        "LibSubsymbolPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string",
+                    "const": ""
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "lib_subsymbol"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "unit": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "style": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "unit",
+                "style"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One selected graphical subsymbol record."
         },
         "PlotterOperation": {
             "anyOf": [
@@ -905,6 +947,12 @@
                 "not": {}
             },
             "description": "Trapezoid pad flash shared by footprint and PCB producers."
+        },
+        "JavaScriptSafeInteger": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Integer that remains exact when decoded as a JavaScript number."
         },
         "PlotterDrillRole": {
             "type": "string",

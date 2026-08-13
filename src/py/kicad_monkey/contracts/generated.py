@@ -84,7 +84,7 @@ class PlotterCoordinateSpace(Struct, forbid_unknown_fields=True, frozen=True):
 JavaScriptSafeInteger = Annotated[int, Meta(ge=-9007199254740991, le=9007199254740991)]
 
 
-PlotterOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadCustomOperation", "FlashPadTrapezOperation"]
+PlotterOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "BezierCurveOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadCustomOperation", "FlashPadTrapezOperation"]
 
 
 class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ThickSegment", tag_field="kind"):
@@ -112,7 +112,10 @@ class ArcThreePointOperation(Struct, forbid_unknown_fields=True, frozen=True, ta
     end_y: JavaScriptSafeInteger
     fill: PlotterFill
     width_nm: JavaScriptSafeInteger
-    layer: str
+    layer: str | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
+    fill_color: str | UnsetType = field(default=UNSET)
+    line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
 
 
 class CircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Circle", tag_field="kind"):
@@ -128,6 +131,9 @@ class CircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Circ
     mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     pad_size_x_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     pad_size_y_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
+    fill_color: str | UnsetType = field(default=UNSET)
+    line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
 
 
 class RectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Rect", tag_field="kind"):
@@ -139,7 +145,10 @@ class RectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Rect",
     fill: PlotterFill
     width_nm: JavaScriptSafeInteger
     corner_radius_nm: JavaScriptSafeInteger
-    layer: str
+    layer: str | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
+    fill_color: str | UnsetType = field(default=UNSET)
+    line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
 
 
 class PlotPolyOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="PlotPoly", tag_field="kind"):
@@ -147,7 +156,27 @@ class PlotPolyOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Pl
     points: list[PlotterPoint]
     fill: PlotterFill
     width_nm: JavaScriptSafeInteger
-    layer: str
+    layer: str | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
+    fill_color: str | UnsetType = field(default=UNSET)
+    line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
+
+
+class BezierCurveOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="BezierCurve", tag_field="kind"):
+    index: int
+    start_x: JavaScriptSafeInteger
+    start_y: JavaScriptSafeInteger
+    ctrl1_x: JavaScriptSafeInteger
+    ctrl1_y: JavaScriptSafeInteger
+    ctrl2_x: JavaScriptSafeInteger
+    ctrl2_y: JavaScriptSafeInteger
+    end_x: JavaScriptSafeInteger
+    end_y: JavaScriptSafeInteger
+    width_nm: JavaScriptSafeInteger
+    tolerance_nm: JavaScriptSafeInteger
+    layer: str | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
+    line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
 
 
 class FlashPadCircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadCircle", tag_field="kind"):
@@ -220,13 +249,42 @@ class FlashPadTrapezOperation(Struct, forbid_unknown_fields=True, frozen=True, t
 PlotterDrillRole = Literal["pad_drill", "npth_hole"]
 
 
-PlotterFill = Literal["NO_FILL", "FILLED_SHAPE"]
+PlotterFill = Literal["NO_FILL", "FILLED_SHAPE", "FILLED_WITH_BG_BODYCOLOR", "FILLED_WITH_COLOR", "HATCH", "REVERSE_HATCH", "CROSS_HATCH"]
+
+
+PlotterLineStyle = Literal["DEFAULT", "SOLID", "DASH", "DOT", "DASH_DOT", "DASH_DOT_DOT"]
 
 
 PlotterPoint = Annotated[list[JavaScriptSafeInteger], Meta(min_length=2, max_length=2)]
 
 
 PlotterQuad = Annotated[list[PlotterPoint], Meta(min_length=4, max_length=4)]
+
+
+SymbolPlotRecord = Union["SymbolHeaderPlotRecord", "LibSubsymbolPlotRecord"]
+
+
+class SymbolHeaderPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="lib_symbol", tag_field="kind"):
+    uuid: Literal[""]
+    object_id: str
+    operation_count: int
+    operations: list[PlotterOperation]
+    name: str
+    style: int
+    in_bom: bool
+    on_board: bool
+    power: bool
+    extends_: str | UnsetType = field(default=UNSET, name="extends")
+    unit: int | UnsetType = field(default=UNSET)
+
+
+class LibSubsymbolPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="lib_subsymbol", tag_field="kind"):
+    uuid: Literal[""]
+    object_id: str
+    operation_count: int
+    operations: list[PlotterOperation]
+    unit: int
+    style: int
 
 
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -334,6 +392,41 @@ class FootprintPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
     diagnostics: list[Diagnostic]
 
 
+class SymbolPlotDocumentA0(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad.plotter_ir.a0"]
+    source_kind: Literal["SYM"]
+    total_operations: int
+    records: list[SymbolPlotRecord]
+    document_id: str
+    coordinate_space: PlotterCoordinateSpace
+    source_path: str | UnsetType = field(default=UNSET)
+
+
+class SymbolPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.symbol_plot.request"] = field(name="type")
+    version: Literal["a0"]
+    symbol_name: str
+    style: int
+    max_source_bytes: str
+    max_output_bytes: str
+    max_depth: int
+    max_symbols: int
+    max_subsymbols: int
+    max_operations: int
+    max_points: int
+    unit: int | UnsetType = field(default=UNSET)
+    source_path: str | UnsetType = field(default=UNSET)
+    document_id: str | UnsetType = field(default=UNSET)
+
+
+class SymbolPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.symbol_plot.result"] = field(name="type")
+    version: Literal["a0"]
+    output_bytes: str
+    total_operations: int
+    diagnostics: list[Diagnostic]
+
+
 decode_sexpr_build_request_a0 = msgspec.json.Decoder(SExpressionBuildRequestA0).decode
 decode_sexpr_build_result_a0 = msgspec.json.Decoder(SExpressionBuildResultA0).decode
 decode_sexpr_scan_request_a0 = msgspec.json.Decoder(SExpressionScanRequestA0).decode
@@ -363,6 +456,9 @@ def validate_footprint_plot_document_a0(value: FootprintPlotDocumentA0) -> None:
             path = f"$.records[{record_index}].operations[{operation_index}]"
             if isinstance(operation, (ThickSegmentOperation, CircleOperation)):
                 _validate_shared_graphic_or_drill(operation, path)
+            elif isinstance(operation, (ArcThreePointOperation, RectOperation, PlotPolyOperation, BezierCurveOperation)):
+                if operation.layer is UNSET or not operation.layer:
+                    raise msgspec.ValidationError(f"missing_layer at {path}")
             elif isinstance(operation, (
                 FlashPadCircleOperation,
                 FlashPadOvalOperation,
@@ -403,6 +499,41 @@ def _validate_shared_graphic_or_drill(operation: ThickSegmentOperation | CircleO
         raise msgspec.ValidationError(f"conflicting_plotter_fields at {path}")
 decode_footprint_plot_request_a0 = msgspec.json.Decoder(FootprintPlotRequestA0).decode
 decode_footprint_plot_result_a0 = msgspec.json.Decoder(FootprintPlotResultA0).decode
+_symbol_plot_document_a0_decoder = msgspec.json.Decoder(SymbolPlotDocumentA0)
+
+
+def decode_symbol_plot_document_a0(data: bytes) -> SymbolPlotDocumentA0:
+    value = _symbol_plot_document_a0_decoder.decode(data)
+    validate_symbol_plot_document_a0(value)
+    return value
+
+
+def validate_symbol_plot_document_a0(value: SymbolPlotDocumentA0) -> None:
+    if not value.records or not isinstance(value.records[0], SymbolHeaderPlotRecord):
+        raise msgspec.ValidationError("missing_symbol_header at $.records[0]")
+    total_operations = 0
+    for record_index, record in enumerate(value.records):
+        if isinstance(record, SymbolHeaderPlotRecord):
+            if record_index != 0 or record.operation_count != 0 or record.operations:
+                raise msgspec.ValidationError(f"invalid_symbol_header at $.records[{record_index}]")
+        elif record.operation_count != len(record.operations):
+            raise msgspec.ValidationError(f"operation_count_mismatch at $.records[{record_index}].operation_count")
+        total_operations += len(record.operations)
+        for operation_index, operation in enumerate(record.operations):
+            path = f"$.records[{record_index}].operations[{operation_index}]"
+            allowed = isinstance(operation, (ArcThreePointOperation, CircleOperation, RectOperation, PlotPolyOperation, BezierCurveOperation))
+            layer = None if not hasattr(operation, 'layer') or operation.layer is UNSET else operation.layer
+            if not allowed or layer is not None:
+                raise msgspec.ValidationError(f"invalid_symbol_operation at {path}")
+            if isinstance(operation, CircleOperation):
+                role = None if operation.role is UNSET else operation.role
+                layers = [] if operation.layers is UNSET else operation.layers
+                if role is not None or layers or operation.mask_margin_nm is not UNSET or operation.pad_size_x_nm is not UNSET or operation.pad_size_y_nm is not UNSET:
+                    raise msgspec.ValidationError(f"invalid_symbol_operation at {path}")
+    if value.total_operations != total_operations:
+        raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
+decode_symbol_plot_request_a0 = msgspec.json.Decoder(SymbolPlotRequestA0).decode
+decode_symbol_plot_result_a0 = msgspec.json.Decoder(SymbolPlotResultA0).decode
 
 
 __all__ = (
@@ -423,6 +554,7 @@ __all__ = (
     "CircleOperation",
     "RectOperation",
     "PlotPolyOperation",
+    "BezierCurveOperation",
     "FlashPadCircleOperation",
     "FlashPadOvalOperation",
     "FlashPadRectOperation",
@@ -431,8 +563,12 @@ __all__ = (
     "FlashPadTrapezOperation",
     "PlotterDrillRole",
     "PlotterFill",
+    "PlotterLineStyle",
     "PlotterPoint",
     "PlotterQuad",
+    "SymbolPlotRecord",
+    "SymbolHeaderPlotRecord",
+    "LibSubsymbolPlotRecord",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",
@@ -444,6 +580,9 @@ __all__ = (
     "FootprintPlotDocumentA0",
     "FootprintPlotRequestA0",
     "FootprintPlotResultA0",
+    "SymbolPlotDocumentA0",
+    "SymbolPlotRequestA0",
+    "SymbolPlotResultA0",
     "decode_sexpr_build_request_a0",
     "decode_sexpr_build_result_a0",
     "decode_sexpr_scan_request_a0",
@@ -455,5 +594,9 @@ __all__ = (
     "decode_footprint_plot_document_a0",
     "decode_footprint_plot_request_a0",
     "decode_footprint_plot_result_a0",
+    "decode_symbol_plot_document_a0",
+    "decode_symbol_plot_request_a0",
+    "decode_symbol_plot_result_a0",
     "validate_footprint_plot_document_a0",
+    "validate_symbol_plot_document_a0",
 )

@@ -1,9 +1,10 @@
 use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;
 use kicad_monkey_contracts::generated::footprint_plot_document::FootprintPlotDocumentA0;
 use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
+use kicad_monkey_contracts::generated::symbol_plot_document::SymbolPlotDocumentA0;
 use kicad_monkey_contracts::{
     JAVASCRIPT_SAFE_INTEGER_MAX, JAVASCRIPT_SAFE_INTEGER_MIN, JavaScriptSafeInteger, ValidatedNode,
-    validate_build_request, validate_footprint_plot_document,
+    validate_build_request, validate_footprint_plot_document, validate_symbol_plot_document,
 };
 
 #[test]
@@ -27,6 +28,44 @@ fn generated_scan_request_is_strict_and_round_trips_wire_names() {
 
     let with_extra = json.replace("\"max_depth\":512", "\"extra\":1,\"max_depth\":512");
     assert!(serde_json::from_str::<SExpressionScanRequestA0>(&with_extra).is_err());
+}
+
+#[test]
+fn symbol_plotter_contract_enforces_record_and_domain_semantics() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/symbol_plotter_a0_vectors.json"
+    )))
+    .expect("symbol vectors");
+    let expected = vectors["vectors"][0]["expected"].clone();
+    let document: SymbolPlotDocumentA0 =
+        serde_json::from_value(expected.clone()).expect("symbol transport document");
+    validate_symbol_plot_document(&document).expect("valid symbol semantics");
+
+    let mut missing_header = expected.clone();
+    missing_header["records"]
+        .as_array_mut()
+        .expect("records")
+        .remove(0);
+    let document: SymbolPlotDocumentA0 =
+        serde_json::from_value(missing_header).expect("structurally valid missing header");
+    assert_eq!(
+        validate_symbol_plot_document(&document)
+            .expect_err("header required")
+            .code,
+        "missing_symbol_header"
+    );
+
+    let mut layered = expected;
+    layered["records"][1]["operations"][0]["layer"] = serde_json::json!("F.SilkS");
+    let document: SymbolPlotDocumentA0 =
+        serde_json::from_value(layered).expect("structurally valid layered symbol");
+    assert_eq!(
+        validate_symbol_plot_document(&document)
+            .expect_err("symbol body must be layer-free")
+            .code,
+        "invalid_symbol_operation"
+    );
 }
 
 fn build_request(root: &str, max_depth: u32, max_nodes: u32) -> SExpressionBuildRequestA0 {

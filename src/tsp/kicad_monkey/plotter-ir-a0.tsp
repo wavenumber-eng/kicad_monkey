@@ -49,6 +49,21 @@ model PlotterCoordinateSpace {
 enum PlotterFill {
   noFill: "NO_FILL",
   filledShape: "FILLED_SHAPE",
+  filledWithBackgroundBodyColor: "FILLED_WITH_BG_BODYCOLOR",
+  filledWithColor: "FILLED_WITH_COLOR",
+  hatch: "HATCH",
+  reverseHatch: "REVERSE_HATCH",
+  crossHatch: "CROSS_HATCH",
+}
+
+/** KiCad stroke styles carried without producer-specific decomposition. */
+enum PlotterLineStyle {
+  default: "DEFAULT",
+  solid: "SOLID",
+  dash: "DASH",
+  dot: "DOT",
+  dashDot: "DASH_DOT",
+  dashDotDot: "DASH_DOT_DOT",
 }
 
 /** Semantic roles allowed on shared circle and segment drill operations. */
@@ -91,7 +106,10 @@ model ArcThreePointOperation {
   end_y: JavaScriptSafeInteger;
   fill: PlotterFill;
   width_nm: JavaScriptSafeInteger;
-  layer: string;
+  layer?: string;
+  stroke_color?: string;
+  fill_color?: string;
+  line_style?: PlotterLineStyle;
 }
 
 /**
@@ -114,6 +132,9 @@ model CircleOperation {
   mask_margin_nm?: JavaScriptSafeInteger;
   pad_size_x_nm?: JavaScriptSafeInteger;
   pad_size_y_nm?: JavaScriptSafeInteger;
+  stroke_color?: string;
+  fill_color?: string;
+  line_style?: PlotterLineStyle;
 }
 
 /** Rectangle with square corners. */
@@ -127,7 +148,10 @@ model RectOperation {
   fill: PlotterFill;
   width_nm: JavaScriptSafeInteger;
   corner_radius_nm: JavaScriptSafeInteger;
-  layer: string;
+  layer?: string;
+  stroke_color?: string;
+  fill_color?: string;
+  line_style?: PlotterLineStyle;
 }
 
 /** Plotter point encoded as an exact coordinate pair. */
@@ -142,7 +166,29 @@ model PlotPolyOperation {
   points: PlotterPoint[];
   fill: PlotterFill;
   width_nm: JavaScriptSafeInteger;
-  layer: string;
+  layer?: string;
+  stroke_color?: string;
+  fill_color?: string;
+  line_style?: PlotterLineStyle;
+}
+
+/** Cubic Bézier shared by symbol and schematic producers. */
+model BezierCurveOperation {
+  kind: "BezierCurve";
+  index: uint32;
+  start_x: JavaScriptSafeInteger;
+  start_y: JavaScriptSafeInteger;
+  ctrl1_x: JavaScriptSafeInteger;
+  ctrl1_y: JavaScriptSafeInteger;
+  ctrl2_x: JavaScriptSafeInteger;
+  ctrl2_y: JavaScriptSafeInteger;
+  end_x: JavaScriptSafeInteger;
+  end_y: JavaScriptSafeInteger;
+  width_nm: JavaScriptSafeInteger;
+  tolerance_nm: JavaScriptSafeInteger;
+  layer?: string;
+  stroke_color?: string;
+  line_style?: PlotterLineStyle;
 }
 
 /** Circular pad flash shared by footprint and PCB producers. */
@@ -241,6 +287,7 @@ union PlotterOperation {
   circle: CircleOperation,
   rect: RectOperation,
   plotPoly: PlotPolyOperation,
+  bezierCurve: BezierCurveOperation,
   flashPadCircle: FlashPadCircleOperation,
   flashPadOval: FlashPadOvalOperation,
   flashPadRect: FlashPadRectOperation,
@@ -283,4 +330,83 @@ model FootprintPlotDocument {
   version: JavaScriptSafeInteger;
   generator: string;
   generator_version: string;
+}
+
+/** Resource-bounded library-symbol plot operation. Source bytes are out of band. */
+@jsonSchema
+@id("urn:wavenumber:schema:kicad_monkey.symbol_plot.request:a0")
+@extension("title", "Symbol plot request a0")
+model SymbolPlotRequest {
+  type: "kicad_monkey.symbol_plot.request";
+  version: "a0";
+  symbol_name: string;
+  unit?: uint32;
+  style: uint32;
+  source_path?: string;
+  document_id?: string;
+  max_source_bytes: uint64;
+  max_output_bytes: uint64;
+  max_depth: uint32;
+  max_symbols: uint32;
+  max_subsymbols: uint32;
+  max_operations: uint32;
+  max_points: uint32;
+}
+
+/** Metadata paired with a separate symbol plotter-IR JSON byte buffer. */
+@jsonSchema
+@id("urn:wavenumber:schema:kicad_monkey.symbol_plot.result:a0")
+@extension("title", "Symbol plot result a0")
+model SymbolPlotResult {
+  type: "kicad_monkey.symbol_plot.result";
+  version: "a0";
+  output_bytes: uint64;
+  total_operations: uint32;
+  diagnostics: Diagnostic[];
+}
+
+/** Leading metadata record for the selected library symbol. */
+model SymbolHeaderPlotRecord {
+  uuid: "";
+  kind: "lib_symbol";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  name: string;
+  `extends`?: string;
+  unit?: uint32;
+  style: uint32;
+  in_bom: boolean;
+  on_board: boolean;
+  power: boolean;
+}
+
+/** One selected graphical subsymbol record. */
+model LibSubsymbolPlotRecord {
+  uuid: "";
+  kind: "lib_subsymbol";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  unit: uint32;
+  style: uint32;
+}
+
+union SymbolPlotRecord {
+  header: SymbolHeaderPlotRecord,
+  subsymbol: LibSubsymbolPlotRecord,
+}
+
+/** Strict non-text library-symbol subset of kicad.plotter_ir.a0. */
+@jsonSchema
+@id("urn:wavenumber:schema:kicad_monkey.symbol_plot.document:a0")
+@extension("title", "Symbol plot document a0")
+model SymbolPlotDocument {
+  schema: "kicad.plotter_ir.a0";
+  source_kind: "SYM";
+  total_operations: uint32;
+  records: SymbolPlotRecord[];
+  source_path?: string;
+  document_id: string;
+  coordinate_space: PlotterCoordinateSpace;
 }

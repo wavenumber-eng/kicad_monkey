@@ -1,5 +1,6 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
+export type SymbolPlotRecord = SymbolHeaderPlotRecord | LibSubsymbolPlotRecord;
 /**
  * Shared plotter operation vocabulary promoted across source producers.
  */
@@ -55,37 +56,33 @@ export type PlotterPoint = [JavaScriptSafeInteger, JavaScriptSafeInteger];
 export type PlotterQuad = [PlotterPoint, PlotterPoint, PlotterPoint, PlotterPoint];
 
 /**
- * Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and
- * consumers must run generated semantic validation after structural decoding.
+ * Strict non-text library-symbol subset of kicad.plotter_ir.a0.
  */
-export interface FootprintPlotDocumentA0 {
+export interface SymbolPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
-  source_kind: "MOD";
+  source_kind: "SYM";
   total_operations: number;
-  records: FootprintPlotRecord[];
+  records: SymbolPlotRecord[];
   source_path?: string;
   document_id: string;
   coordinate_space: PlotterCoordinateSpace;
-  version: JavaScriptSafeInteger;
-  generator: string;
-  generator_version: string;
 }
 /**
- * One footprint record in the promoted non-text graphics slice.
+ * Leading metadata record for the selected library symbol.
  */
-export interface FootprintPlotRecord {
-  uuid: string;
-  kind: "footprint";
+export interface SymbolHeaderPlotRecord {
+  uuid: "";
+  kind: "lib_symbol";
   object_id: string;
   operation_count: number;
   operations: PlotterOperation[];
   name: string;
-  layer: string;
-  locked: boolean;
-  placed: boolean;
-  descr: string;
-  tags: string;
-  attr: string[];
+  extends?: string;
+  unit?: number;
+  style: number;
+  in_bom: boolean;
+  on_board: boolean;
+  power: boolean;
 }
 /**
  * Solid or decomposed segment shared by PCB, footprint, and drill producers.
@@ -290,6 +287,18 @@ export interface FlashPadTrapezOperation {
   orient_deg: number;
   layers: string[];
   mask_margin_nm: JavaScriptSafeInteger;
+}
+/**
+ * One selected graphical subsymbol record.
+ */
+export interface LibSubsymbolPlotRecord {
+  uuid: "";
+  kind: "lib_subsymbol";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  unit: number;
+  style: number;
 }
 /**
  * Coordinate convention for the footprint plotter slice.

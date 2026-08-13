@@ -1,6 +1,7 @@
 //! Shared plotter operations and the source-selected footprint producer.
 
 use crate::footprint::{FootprintLimits, FootprintView};
+pub use crate::plotter_types::*;
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Lexer, Position, Sexp, TokenKind, parse};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 const DEFAULT_FOOTPRINT_VERSION: i64 = 20_260_206;
@@ -36,170 +37,6 @@ impl Default for FootprintPlotLimits {
             max_operations: 100_000,
         }
     }
-}
-
-/// Solid segment shared by graphical and drill producers.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ThickSegment {
-    pub start_x: i64,
-    pub start_y: i64,
-    pub end_x: i64,
-    pub end_y: i64,
-    pub width_nm: i64,
-    pub layer: Option<String>,
-    pub role: Option<String>,
-    pub layers: Vec<String>,
-    pub mask_margin_nm: Option<i64>,
-    pub pad_size_x_nm: Option<i64>,
-    pub pad_size_y_nm: Option<i64>,
-}
-
-/// Fill values shared by plotter operation producers.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum PlotterFill {
-    NoFill,
-    FilledShape,
-}
-
-/// Solid three-point footprint arc.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ArcThreePoint {
-    pub start_x: i64,
-    pub start_y: i64,
-    pub mid_x: i64,
-    pub mid_y: i64,
-    pub end_x: i64,
-    pub end_y: i64,
-    pub fill: PlotterFill,
-    pub width_nm: i64,
-    pub layer: String,
-}
-
-/// Circle shared by graphical and drill producers.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PlotterCircle {
-    pub cx: i64,
-    pub cy: i64,
-    pub diameter_nm: i64,
-    pub fill: PlotterFill,
-    pub width_nm: i64,
-    pub layer: Option<String>,
-    pub role: Option<String>,
-    pub layers: Vec<String>,
-    pub mask_margin_nm: Option<i64>,
-    pub pad_size_x_nm: Option<i64>,
-    pub pad_size_y_nm: Option<i64>,
-}
-
-/// Footprint rectangle with square corners.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PlotterRect {
-    pub x1: i64,
-    pub y1: i64,
-    pub x2: i64,
-    pub y2: i64,
-    pub fill: PlotterFill,
-    pub width_nm: i64,
-    pub corner_radius_nm: i64,
-    pub layer: String,
-}
-
-/// Footprint polygon point stream.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PlotterPoly {
-    pub points: Vec<[i64; 2]>,
-    pub fill: PlotterFill,
-    pub width_nm: i64,
-    pub layer: String,
-}
-
-/// Circular pad flash shared by footprint and PCB producers.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FlashPadCircle {
-    pub x: i64,
-    pub y: i64,
-    pub diameter_nm: i64,
-    pub layers: Vec<String>,
-    pub mask_margin_nm: i64,
-}
-
-/// Oval pad flash shared by footprint and PCB producers.
-#[derive(Clone, Debug, PartialEq)]
-pub struct FlashPadOval {
-    pub x: i64,
-    pub y: i64,
-    pub size_x_nm: i64,
-    pub size_y_nm: i64,
-    pub orient_deg: f64,
-    pub layers: Vec<String>,
-    pub mask_margin_nm: i64,
-}
-
-/// Rectangular pad flash shared by footprint and PCB producers.
-#[derive(Clone, Debug, PartialEq)]
-pub struct FlashPadRect {
-    pub x: i64,
-    pub y: i64,
-    pub size_x_nm: i64,
-    pub size_y_nm: i64,
-    pub orient_deg: f64,
-    pub layers: Vec<String>,
-    pub mask_margin_nm: i64,
-}
-
-/// Rounded-rectangle pad flash shared by footprint and PCB producers.
-#[derive(Clone, Debug, PartialEq)]
-pub struct FlashPadRoundRect {
-    pub x: i64,
-    pub y: i64,
-    pub size_x_nm: i64,
-    pub size_y_nm: i64,
-    pub corner_radius_nm: i64,
-    pub orient_deg: f64,
-    pub layers: Vec<String>,
-    pub mask_margin_nm: i64,
-}
-
-/// Custom pad flash shared by footprint and PCB producers.
-#[derive(Clone, Debug, PartialEq)]
-pub struct FlashPadCustom {
-    pub x: i64,
-    pub y: i64,
-    pub size_x_nm: i64,
-    pub size_y_nm: i64,
-    pub orient_deg: f64,
-    pub polygons: Vec<Vec<[i64; 2]>>,
-    pub polygon_widths_nm: Option<Vec<i64>>,
-    pub anchor_shape: Option<String>,
-    pub layers: Vec<String>,
-    pub mask_margin_nm: i64,
-}
-
-/// Trapezoid pad flash shared by footprint and PCB producers.
-#[derive(Clone, Debug, PartialEq)]
-pub struct FlashPadTrapez {
-    pub x: i64,
-    pub y: i64,
-    pub corners: [[i64; 2]; 4],
-    pub orient_deg: f64,
-    pub layers: Vec<String>,
-    pub mask_margin_nm: i64,
-}
-
-/// Shared plotter operation vocabulary used across KiCad source producers.
-#[derive(Clone, Debug, PartialEq)]
-pub enum PlotterOperation {
-    ThickSegment(ThickSegment),
-    ArcThreePoint(ArcThreePoint),
-    Circle(PlotterCircle),
-    Rect(PlotterRect),
-    PlotPoly(PlotterPoly),
-    FlashPadCircle(FlashPadCircle),
-    FlashPadOval(FlashPadOval),
-    FlashPadRect(FlashPadRect),
-    FlashPadRoundRect(FlashPadRoundRect),
-    FlashPadCustom(FlashPadCustom),
-    FlashPadTrapez(FlashPadTrapez),
 }
 
 /// Typed facts needed to serialize the promoted footprint plotter subset.
@@ -492,7 +329,10 @@ fn parse_arc(
             end_y,
             fill: PlotterFill::NoFill,
             width_nm: stroke.width_nm,
-            layer,
+            layer: Some(layer),
+            stroke_color: None,
+            fill_color: None,
+            line_style: None,
         })]);
     }
     let pieces = decompose_arc(
@@ -513,7 +353,10 @@ fn parse_arc(
             end_y,
             fill: PlotterFill::NoFill,
             width_nm: stroke.width_nm,
-            layer,
+            layer: Some(layer),
+            stroke_color: None,
+            fill_color: None,
+            line_style: None,
         })]);
     }
     Ok(pieces
@@ -559,6 +402,9 @@ fn parse_circle(source: &str, span: &FormSpan) -> Result<PlotterOperation, Error
         mask_margin_nm: None,
         pad_size_x_nm: None,
         pad_size_y_nm: None,
+        stroke_color: None,
+        fill_color: None,
+        line_style: None,
     }))
 }
 
@@ -576,7 +422,10 @@ fn parse_rect(source: &str, span: &FormSpan) -> Result<PlotterOperation, Error> 
         fill: graphic_fill(&form),
         width_nm: stroke.width_nm,
         corner_radius_nm: 0,
-        layer: graphic_layer(&form),
+        layer: Some(graphic_layer(&form)),
+        stroke_color: None,
+        fill_color: None,
+        line_style: None,
     }))
 }
 
@@ -606,7 +455,10 @@ fn parse_poly(source: &str, span: &FormSpan) -> Result<PlotterOperation, Error> 
         points,
         fill: graphic_fill(&form),
         width_nm: stroke.width_nm,
-        layer: graphic_layer(&form),
+        layer: Some(graphic_layer(&form)),
+        stroke_color: None,
+        fill_color: None,
+        line_style: None,
     }))
 }
 
@@ -1055,6 +907,9 @@ fn drill_circle_operation(
         mask_margin_nm: npth.then_some(context.mask_margin_nm),
         pad_size_x_nm: npth.then_some(context.size_x_nm),
         pad_size_y_nm: npth.then_some(context.size_y_nm),
+        stroke_color: None,
+        fill_color: None,
+        line_style: None,
     })
 }
 

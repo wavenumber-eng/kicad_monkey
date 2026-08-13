@@ -23,6 +23,9 @@ const roots = [
   ["FootprintPlotDocument.json", "FootprintPlotDocumentA0", "footprint-plot-document.ts"],
   ["FootprintPlotRequest.json", "FootprintPlotRequestA0", "footprint-plot-request.ts"],
   ["FootprintPlotResult.json", "FootprintPlotResultA0", "footprint-plot-result.ts"],
+  ["SymbolPlotDocument.json", "SymbolPlotDocumentA0", "symbol-plot-document.ts"],
+  ["SymbolPlotRequest.json", "SymbolPlotRequestA0", "symbol-plot-request.ts"],
+  ["SymbolPlotResult.json", "SymbolPlotResultA0", "symbol-plot-result.ts"],
 ];
 const schemas = new Map();
 for (const [file] of roots) {
@@ -112,6 +115,8 @@ function renderPython() {
     const functionName = `decode_${snakeCase(typeName.replace(/^SExpression/u, "sexpr_"))}`;
     if (typeName === "FootprintPlotDocumentA0") {
       lines.push(...renderPythonPlotterValidation(functionName, typeName));
+    } else if (typeName === "SymbolPlotDocumentA0") {
+      lines.push(...renderPythonSymbolPlotterValidation(functionName, typeName));
     } else {
       lines.push(`${functionName} = msgspec.json.Decoder(${typeName}).decode`);
     }
@@ -121,6 +126,7 @@ function renderPython() {
     ...roots.map(([, typeName]) => typeName),
     ...roots.map(([, typeName]) => `decode_${snakeCase(typeName.replace(/^SExpression/u, "sexpr_"))}`),
     "validate_footprint_plot_document_a0",
+    "validate_symbol_plot_document_a0",
   ];
   lines.push("", "", "__all__ = (", ...exported.map((name) => `    ${pythonLiteral(name)},`), ")", "");
   return lines.join("\n");
@@ -149,6 +155,9 @@ function renderPythonPlotterValidation(functionName, typeName) {
     '            path = f"$.records[{record_index}].operations[{operation_index}]"',
     "            if isinstance(operation, (ThickSegmentOperation, CircleOperation)):",
     "                _validate_shared_graphic_or_drill(operation, path)",
+    "            elif isinstance(operation, (ArcThreePointOperation, RectOperation, PlotPolyOperation, BezierCurveOperation)):",
+    "                if operation.layer is UNSET or not operation.layer:",
+    '                    raise msgspec.ValidationError(f"missing_layer at {path}")',
     "            elif isinstance(operation, (",
     "                FlashPadCircleOperation,",
     "                FlashPadOvalOperation,",
@@ -187,6 +196,44 @@ function renderPythonPlotterValidation(functionName, typeName) {
     "    )",
     "    if not (graphic or pad_drill or npth_hole):",
     '        raise msgspec.ValidationError(f"conflicting_plotter_fields at {path}")',
+  ];
+}
+
+function renderPythonSymbolPlotterValidation(functionName, typeName) {
+  return [
+    `_symbol_plot_document_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _symbol_plot_document_a0_decoder.decode(data)",
+    "    validate_symbol_plot_document_a0(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_symbol_plot_document_a0(value: ${typeName}) -> None:`,
+    "    if not value.records or not isinstance(value.records[0], SymbolHeaderPlotRecord):",
+    '        raise msgspec.ValidationError("missing_symbol_header at $.records[0]")',
+    "    total_operations = 0",
+    "    for record_index, record in enumerate(value.records):",
+    "        if isinstance(record, SymbolHeaderPlotRecord):",
+    "            if record_index != 0 or record.operation_count != 0 or record.operations:",
+    '                raise msgspec.ValidationError(f"invalid_symbol_header at $.records[{record_index}]")',
+    "        elif record.operation_count != len(record.operations):",
+    '            raise msgspec.ValidationError(f"operation_count_mismatch at $.records[{record_index}].operation_count")',
+    "        total_operations += len(record.operations)",
+    "        for operation_index, operation in enumerate(record.operations):",
+    '            path = f"$.records[{record_index}].operations[{operation_index}]"',
+    "            allowed = isinstance(operation, (ArcThreePointOperation, CircleOperation, RectOperation, PlotPolyOperation, BezierCurveOperation))",
+    "            layer = None if not hasattr(operation, 'layer') or operation.layer is UNSET else operation.layer",
+    "            if not allowed or layer is not None:",
+    '                raise msgspec.ValidationError(f"invalid_symbol_operation at {path}")',
+    "            if isinstance(operation, CircleOperation):",
+    "                role = None if operation.role is UNSET else operation.role",
+    "                layers = [] if operation.layers is UNSET else operation.layers",
+    "                if role is not None or layers or operation.mask_margin_nm is not UNSET or operation.pad_size_x_nm is not UNSET or operation.pad_size_y_nm is not UNSET:",
+    '                    raise msgspec.ValidationError(f"invalid_symbol_operation at {path}")',
+    "    if value.total_operations != total_operations:",
+    '        raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")',
   ];
 }
 
@@ -231,7 +278,7 @@ function renderPythonDeclaration(name, schema, tag = undefined) {
   const lines = [`class ${name}(Struct, forbid_unknown_fields=True, frozen=True${tagOptions}):`];
   if (ordered.length === 0) return [...lines, "    pass"];
   for (const [property, propertySchema] of ordered) {
-    const pythonName = ["type", "float"].includes(property) ? `${property}_` : property;
+    const pythonName = ["type", "float", "extends"].includes(property) ? `${property}_` : property;
     const annotation = pythonType(propertySchema);
     const rename = pythonName === property ? "" : `, name=${pythonLiteral(property)}`;
     if (required.has(property)) {

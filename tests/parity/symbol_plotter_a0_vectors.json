@@ -1,0 +1,125 @@
+{
+  "schema": "kicad_monkey.symbol_plotter_parity.a0",
+  "vectors": [
+    {
+      "id": "non-text-shared-body-primitives",
+      "source_path": "demo.kicad_sym",
+      "document_id": "demo-doc",
+      "symbol_name": "Demo",
+      "unit": 1,
+      "style": 0,
+      "source": "(kicad_symbol_lib (version 20241209) (generator \"kicad_symbol_editor\")\n(symbol \"Demo\" (in_bom no) (on_board yes)\n(symbol \"Demo_1_1\"\n(rectangle (start -1 2) (end 3 -4) (stroke (width 0.2) (type dash) (color 1 2 3 0.5)) (fill (type background)))\n(circle (center 1 -2) (radius 0.5) (stroke (width 0) (type solid)) (fill (type none)))\n(arc (start 0 0) (mid 1 1) (end 2 0) (stroke (width -0.1) (type dot)) (fill (type outline)))\n(polyline (pts (xy 0 0) (xy 1 -1) (xy 2 0)) (stroke (width 0) (type dash_dot)) (fill (type none)))\n(bezier (pts (xy 0 0) (xy 1 2) (xy 3 2) (xy 4 0)) (stroke (width 0.1) (type dash_dot_dot)) (fill (type none))))))",
+      "expected": {
+        "schema": "kicad.plotter_ir.a0",
+        "source_kind": "SYM",
+        "total_operations": 6,
+        "records": [
+          {
+            "uuid": "",
+            "kind": "lib_symbol",
+            "object_id": "Demo",
+            "operation_count": 0,
+            "operations": [],
+            "name": "Demo",
+            "unit": 1,
+            "style": 0,
+            "in_bom": false,
+            "on_board": true,
+            "power": false
+          },
+          {
+            "uuid": "",
+            "kind": "lib_subsymbol",
+            "object_id": "Demo_1_1",
+            "operation_count": 6,
+            "operations": [
+              {
+                "kind": "Rect",
+                "index": 0,
+                "x1": -1000000,
+                "y1": -2000000,
+                "x2": 3000000,
+                "y2": 4000000,
+                "fill": "FILLED_WITH_BG_BODYCOLOR",
+                "width_nm": 0,
+                "corner_radius_nm": 0,
+                "stroke_color": "#FFFFC2FF",
+                "fill_color": "#FFFFC2FF",
+                "line_style": "DASH"
+              },
+              {
+                "kind": "Circle",
+                "index": 1,
+                "cx": 1000000,
+                "cy": 2000000,
+                "diameter_nm": 1000000,
+                "fill": "NO_FILL",
+                "width_nm": 152400,
+                "stroke_color": "#840000FF",
+                "line_style": "SOLID"
+              },
+              {
+                "kind": "ArcThreePoint",
+                "index": 2,
+                "start_x": 0,
+                "start_y": 0,
+                "mid_x": 1000000,
+                "mid_y": -1000000,
+                "end_x": 2000000,
+                "end_y": 0,
+                "fill": "FILLED_SHAPE",
+                "width_nm": 0,
+                "stroke_color": "#840000FF",
+                "fill_color": "#840000FF",
+                "line_style": "DOT"
+              },
+              {
+                "kind": "PlotPoly",
+                "index": 3,
+                "points": [[0, 0], [1000000, 1000000], [2000000, 0]],
+                "fill": "NO_FILL",
+                "width_nm": 152400,
+                "stroke_color": "#840000FF",
+                "line_style": "DASH_DOT"
+              },
+              {
+                "kind": "BezierCurve",
+                "index": 4,
+                "start_x": 0,
+                "start_y": 0,
+                "ctrl1_x": 1000000,
+                "ctrl1_y": -2000000,
+                "ctrl2_x": 3000000,
+                "ctrl2_y": -2000000,
+                "end_x": 4000000,
+                "end_y": 0,
+                "tolerance_nm": 0,
+                "width_nm": 100000,
+                "stroke_color": "#840000FF",
+                "line_style": "DASH_DOT_DOT"
+              },
+              {
+                "kind": "Rect",
+                "index": 5,
+                "x1": -1000000,
+                "y1": -2000000,
+                "x2": 3000000,
+                "y2": 4000000,
+                "fill": "NO_FILL",
+                "width_nm": 200000,
+                "corner_radius_nm": 0,
+                "stroke_color": "#01020380",
+                "line_style": "DASH"
+              }
+            ],
+            "unit": 1,
+            "style": 1
+          }
+        ],
+        "source_path": "demo.kicad_sym",
+        "document_id": "demo-doc",
+        "coordinate_space": {"unit": "nm", "y_axis": "down"}
+      }
+    }
+  ]
+}
