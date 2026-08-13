@@ -259,7 +259,7 @@ impl<'a> PcbView<'a> {
         })
     }
 
-    fn first_top_level(&self, head: &str) -> Option<&FormSpan> {
+    pub(super) fn first_top_level(&self, head: &str) -> Option<&FormSpan> {
         self.top_level
             .iter()
             .find(|span| span.head.as_deref() == Some(head))

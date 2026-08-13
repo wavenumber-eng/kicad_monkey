@@ -16,6 +16,7 @@ mod extended;
 mod footprints;
 mod physical;
 mod selection;
+mod setup;
 mod zones;
 pub use extended::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbImage, PcbTable, PcbTableCell,
@@ -26,6 +27,7 @@ pub use physical::{
     PcbProfilePrimitive,
 };
 pub use selection::{PcbFamily, PcbSelection};
+pub use setup::{PcbSetup, PcbStackup, PcbStackupLayer};
 pub use zones::{
     PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZonePlacement,
     PcbZonePlacementSource, PcbZonePolygon,
@@ -39,6 +41,8 @@ pub struct PcbLimits {
     pub max_depth: usize,
     pub max_top_level_forms: usize,
     pub max_object_children: usize,
+    pub max_setup_children: usize,
+    pub max_stackup_layers: usize,
     pub max_layers: usize,
     pub max_nets: usize,
     pub max_properties: usize,
@@ -83,6 +87,8 @@ impl Default for PcbLimits {
             max_depth: 512,
             max_top_level_forms: 4_000_000,
             max_object_children: 1_000_000,
+            max_setup_children: 16_384,
+            max_stackup_layers: 512,
             max_layers: 256,
             max_nets: 2_000_000,
             max_properties: 100_000,

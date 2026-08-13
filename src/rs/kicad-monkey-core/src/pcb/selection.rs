@@ -5,6 +5,7 @@
 #[repr(u8)]
 pub enum PcbFamily {
     Layers,
+    Setup,
     Nets,
     Properties,
     Footprints,

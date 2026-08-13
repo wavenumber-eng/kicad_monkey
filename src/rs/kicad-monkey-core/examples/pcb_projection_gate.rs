@@ -302,6 +302,7 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
 
 fn extended_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
     let metadata = view.metadata()?;
+    let setup = view.setup()?;
     let variant = view.variants().next().transpose()?;
     let image = view.images().next().transpose()?;
     let barcode = view.barcodes().next().transpose()?;
@@ -320,6 +321,23 @@ fn extended_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Erro
             "pad_to_paste_clearance": metadata.pad_to_paste_clearance,
             "pad_to_paste_clearance_ratio": metadata.pad_to_paste_clearance_ratio,
         },
+        "setup": setup.map(|item| json!({
+            "aux_axis_origin": [item.aux_axis_origin.x, item.aux_axis_origin.y],
+            "stackup": item.stackup.map(|stackup| json!({
+                "layer_count": stackup.layers.len(),
+                "copper_finish": stackup.copper_finish,
+                "dielectric_constraints": stackup.dielectric_constraints,
+                "edge_connector": stackup.edge_connector,
+                "edge_plating": stackup.edge_plating,
+                "first_layer": stackup.layers.first().map(|layer| json!({
+                    "name": layer.name, "type_name": layer.type_name,
+                    "thickness": layer.thickness,
+                    "thickness_locked": layer.thickness_locked,
+                    "material": layer.material, "epsilon_r": layer.epsilon_r,
+                    "loss_tangent": layer.loss_tangent, "color": layer.color,
+                })),
+            })),
+        })),
         "first_variant": variant.map(|item| json!({
             "name": item.name,
             "description": item.description,

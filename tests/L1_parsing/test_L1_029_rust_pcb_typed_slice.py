@@ -148,6 +148,8 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
             "pcb_document_slice",
             "--test",
             "pcb_footprint_children_slice",
+            "--test",
+            "pcb_setup_slice",
         ]
     )
 
@@ -246,6 +248,39 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         "pad_to_paste_clearance": board.pad_to_paste_clearance,
         "pad_to_paste_clearance_ratio": board.pad_to_paste_clearance_ratio,
     }
+    stackup = board.stackup
+    assert summary["setup"] == (
+        {
+            "aux_axis_origin": list(board.aux_axis_origin_mm),
+            "stackup": (
+                {
+                    "layer_count": len(stackup.layers),
+                    "copper_finish": stackup.copper_finish,
+                    "dielectric_constraints": stackup.dielectric_constraints,
+                    "edge_connector": stackup.edge_connector.value,
+                    "edge_plating": stackup.edge_plating,
+                    "first_layer": (
+                        {
+                            "name": stackup.layers[0].name,
+                            "type_name": stackup.layers[0].type_name,
+                            "thickness": stackup.layers[0].thickness,
+                            "thickness_locked": stackup.layers[0].thickness_locked,
+                            "material": stackup.layers[0].material,
+                            "epsilon_r": stackup.layers[0].epsilon_r,
+                            "loss_tangent": stackup.layers[0].loss_tangent,
+                            "color": stackup.layers[0].color,
+                        }
+                        if stackup.layers
+                        else None
+                    ),
+                }
+                if stackup is not None
+                else None
+            ),
+        }
+        if board.setup_sexp is not None
+        else None
+    )
     assert summary["zone_metrics"] == {
         "authored_polygons": sum(len(zone.polygons) for zone in board.zones),
         "filled_polygons": sum(len(zone.filled_polygons) for zone in board.zones),
