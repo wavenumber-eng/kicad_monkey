@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 pub mod footprint;
+pub mod pcb;
 pub mod plotter_ir;
 pub mod plotter_types;
 pub mod sexpr;
@@ -17,6 +18,10 @@ mod symbol_pin;
 pub mod symbol_plotter_ir;
 
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
+pub use pcb::{
+    PcbCounts, PcbEdit, PcbFootprint, PcbLayer, PcbLimits, PcbNet, PcbNetRef, PcbProperty,
+    PcbSegment, PcbVia, PcbView, PcbZone,
+};
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
 pub use plotter_types::{
     ArcThreePoint, BezierCurve, FlashPadCircle, FlashPadCustom, FlashPadOval, FlashPadRect,

@@ -372,3 +372,24 @@ secondary = [
     "Source, selected-form, nested-object, and output limits fail closed",
     "TypeSpec projections and native, host, and real-WASM operations share one contract",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_029"
+file = "test_L1_029_rust_pcb_typed_slice.py"
+name = "Rust Native PCB Reader/Writer Slice"
+description = "Run the source-backed PCB view, focused writer, and promoted corpus parity through Rack"
+concerns = ["sexpr", "rust", "pcb", "writeback", "native"]
+test_cases = "${WN_TEST_CORPUS}/kicad/projects"
+test_case_type = "shared_corpus"
+
+[subtests.objectives]
+primary = "Native Rust indexes and edits major PCB families without a generic full-file tree"
+secondary = [
+    "Layers, nets, footprints, pads, models, routing, and zones match the Python model",
+    "Exact source spans and unknown top-level forms remain available in source order",
+    "Focused property writes preserve untouched bytes and are stable after semantic reparse",
+    "Source, family, nested-object, depth, and output limits fail closed",
+    "Lazy typed diagnostics use absolute board-source positions",
+]
