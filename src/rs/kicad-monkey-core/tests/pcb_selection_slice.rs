@@ -75,10 +75,13 @@ fn selected_physical_facts_equal_full_views_and_hide_storage_dependencies() {
     let full = PcbView::parse(SOURCE, PcbLimits::default()).expect("full");
     let holes = PcbView::parse_selected(
         SOURCE,
-        PcbLimits::default(),
+        PcbLimits {
+            max_nets: 0,
+            ..PcbLimits::default()
+        },
         PcbSelection::only(PcbFamily::Holes),
     )
-    .expect("holes");
+    .expect("holes do not require net resolution");
     assert_eq!(
         holes
             .holes()

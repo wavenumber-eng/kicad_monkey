@@ -73,11 +73,11 @@ impl PcbSelection {
         if self.contains(PcbFamily::Profile) {
             result = result.with(PcbFamily::Graphics);
         }
-        if result.contains(PcbFamily::Pads)
-            || result.contains(PcbFamily::Segments)
-            || result.contains(PcbFamily::Vias)
-            || result.contains(PcbFamily::Zones)
-            || result.contains(PcbFamily::Arcs)
+        if self.contains(PcbFamily::Pads)
+            || self.contains(PcbFamily::Segments)
+            || self.contains(PcbFamily::Vias)
+            || self.contains(PcbFamily::Zones)
+            || self.contains(PcbFamily::Arcs)
         {
             result = result.with(PcbFamily::Nets);
         }
