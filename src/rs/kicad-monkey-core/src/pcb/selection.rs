@@ -64,16 +64,7 @@ impl PcbSelection {
 
     pub(super) const fn dependencies(self) -> Self {
         let mut result = self;
-        if self.contains(PcbFamily::Pads)
-            || self.contains(PcbFamily::Models)
-            || self.contains(PcbFamily::FootprintProperties)
-            || self.contains(PcbFamily::FootprintGraphics)
-            || self.contains(PcbFamily::FootprintTexts)
-            || self.contains(PcbFamily::FootprintTextBoxes)
-            || self.contains(PcbFamily::Holes)
-            || self.contains(PcbFamily::FootprintTransforms)
-            || self.contains(PcbFamily::Profile)
-        {
+        if self.intersects(Self::FOOTPRINT_DEPENDENTS) {
             result = result.with(PcbFamily::Footprints);
         }
         if self.contains(PcbFamily::Holes) {
@@ -82,15 +73,34 @@ impl PcbSelection {
         if self.contains(PcbFamily::Profile) {
             result = result.with(PcbFamily::Graphics);
         }
-        if self.contains(PcbFamily::Pads)
-            || self.contains(PcbFamily::Segments)
-            || self.contains(PcbFamily::Vias)
-            || self.contains(PcbFamily::Zones)
-            || self.contains(PcbFamily::Arcs)
-        {
+        if self.intersects(Self::NET_DEPENDENTS) {
             result = result.with(PcbFamily::Nets);
         }
         result
+    }
+
+    const FOOTPRINT_DEPENDENTS: Self = Self(
+        family_mask(PcbFamily::Pads)
+            | family_mask(PcbFamily::Models)
+            | family_mask(PcbFamily::FootprintProperties)
+            | family_mask(PcbFamily::FootprintGraphics)
+            | family_mask(PcbFamily::FootprintTexts)
+            | family_mask(PcbFamily::FootprintTextBoxes)
+            | family_mask(PcbFamily::Holes)
+            | family_mask(PcbFamily::FootprintTransforms)
+            | family_mask(PcbFamily::Profile),
+    );
+
+    const NET_DEPENDENTS: Self = Self(
+        family_mask(PcbFamily::Pads)
+            | family_mask(PcbFamily::Segments)
+            | family_mask(PcbFamily::Vias)
+            | family_mask(PcbFamily::Zones)
+            | family_mask(PcbFamily::Arcs),
+    );
+
+    const fn intersects(self, other: Self) -> bool {
+        self.0 & other.0 != 0
     }
 }
 

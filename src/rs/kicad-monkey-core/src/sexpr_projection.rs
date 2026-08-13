@@ -1,9 +1,12 @@
 //! Allocation-bounded structural selection over KiCad S-expression source.
 
+mod scanner;
+
 use crate::sexpr::{
     Error, ErrorKind, ErrorPhase, Lexer, Position, Sexp, Token, TokenKind, decode_quoted,
     is_teardrop_numeric_key, parse,
 };
+use scanner::scan_form_spans_unsorted;
 use std::collections::BTreeSet;
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::Range;
@@ -200,158 +203,6 @@ pub fn scan_form_spans_with_limits(
 ) -> Result<Vec<FormSpan>, Error> {
     let mut spans = scan_form_spans_unsorted(source, selector, limits)?;
     spans.sort_by_key(|span| span.range.start);
-    Ok(spans)
-}
-
-#[allow(
-    clippy::too_many_lines,
-    reason = "pre-standard single-pass scanner retained under the structural ratchet"
-)]
-fn scan_form_spans_unsorted(
-    source: &str,
-    selector: &Selector,
-    limits: ProjectionLimits,
-) -> Result<Vec<FormSpan>, Error> {
-    selector.validate()?;
-    if source.len() > limits.max_source_bytes {
-        return Err(resource_error(
-            "Projection source exceeds max_source_bytes",
-            Position::START,
-        ));
-    }
-    let mut stack: Vec<Frame> = Vec::new();
-    let mut spans = Vec::new();
-    let mut saw_root = false;
-
-    for token in Lexer::new(source) {
-        let token = token?;
-        match token.kind {
-            TokenKind::Left => {
-                if stack.len() > limits.max_depth {
-                    return Err(resource_error(
-                        "Projection nesting exceeds max_depth",
-                        token.position,
-                    ));
-                }
-                if let Some(parent) = stack.last_mut()
-                    && parent.awaiting_head
-                {
-                    parent.awaiting_head = false;
-                    parent.scan_children = parent.visible
-                        && selector.should_scan_children(None, &parent.path, parent.depth);
-                }
-                let visible = stack.last().is_none_or(|parent| parent.scan_children);
-                let path = stack
-                    .last()
-                    .map_or_else(Vec::new, |parent| parent.path.clone());
-                let depth = stack.len();
-                stack.push(Frame {
-                    head: None,
-                    path,
-                    depth,
-                    start: token.position,
-                    visible,
-                    scan_children: visible,
-                    awaiting_head: true,
-                    teardrop_bare_field: TeardropBareField::None,
-                });
-                saw_root = true;
-            }
-            TokenKind::Right => {
-                if stack.last().is_some_and(|frame| {
-                    frame.head.as_deref() == Some("teardrops")
-                        && frame.teardrop_bare_field == TeardropBareField::AwaitingClose
-                }) {
-                    stack.last_mut().expect("checked above").teardrop_bare_field =
-                        TeardropBareField::None;
-                    continue;
-                }
-                let Some(frame) = stack.pop() else {
-                    return Err(Error::at(
-                        ErrorPhase::Tree,
-                        ErrorKind::UnbalancedClosingParenthesis,
-                        "Unbalanced closing parenthesis",
-                        token.position,
-                    ));
-                };
-                let span = FormSpan {
-                    head: frame.head,
-                    path: frame.path,
-                    depth: frame.depth,
-                    range: frame.start.offset..token.position.offset + 1,
-                    start: frame.start,
-                    end: Position {
-                        offset: token.position.offset + 1,
-                        line: token.position.line,
-                        column: token.position.column + 1,
-                    },
-                };
-                if frame.visible && selector.matches(&span) {
-                    spans.push(span);
-                    if spans.len() > limits.max_selected_forms {
-                        return Err(resource_error(
-                            "Projection selection exceeds max_selected_forms",
-                            token.position,
-                        ));
-                    }
-                }
-            }
-            _ => {
-                let Some(frame) = stack.last_mut() else {
-                    return Err(Error::at(
-                        ErrorPhase::Tree,
-                        ErrorKind::MissingOpeningParenthesis,
-                        "Missing initial opening parenthesis",
-                        token.position,
-                    )
-                    .with_token(token.lexeme));
-                };
-                if frame.awaiting_head {
-                    if token.lexeme.len() > limits.max_head_bytes {
-                        return Err(resource_error(
-                            "Projection form head exceeds max_head_bytes",
-                            token.position,
-                        ));
-                    }
-                    let head = token_head(&token);
-                    frame.path.push(head.clone());
-                    frame.head = Some(head);
-                    frame.awaiting_head = false;
-                    frame.scan_children = frame.visible
-                        && selector.should_scan_children(
-                            frame.head.as_deref(),
-                            &frame.path,
-                            frame.depth,
-                        );
-                } else if frame.head.as_deref() == Some("teardrops") {
-                    frame.teardrop_bare_field = match frame.teardrop_bare_field {
-                        TeardropBareField::None if is_teardrop_numeric_key(token.lexeme) => {
-                            TeardropBareField::AwaitingValue
-                        }
-                        TeardropBareField::AwaitingValue => TeardropBareField::AwaitingClose,
-                        state => state,
-                    };
-                }
-            }
-        }
-    }
-
-    if let Some(frame) = stack.last() {
-        return Err(Error::at(
-            ErrorPhase::Tree,
-            ErrorKind::UnbalancedOpeningParenthesis,
-            "Unbalanced opening parenthesis",
-            frame.start,
-        ));
-    }
-    if !saw_root {
-        return Err(Error::at(
-            ErrorPhase::Tree,
-            ErrorKind::EmptyExpression,
-            "No or empty expression",
-            Position::START,
-        ));
-    }
     Ok(spans)
 }
 

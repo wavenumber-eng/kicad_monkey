@@ -48,6 +48,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     require_graphic_layer(&baseline.view()?, LAYER_EDIT_ID, Some("F.SilkS"))?;
     require_graphic_layer(&baseline.view()?, REMOVE_ID, Some("F.SilkS"))?;
 
+    let cases = run_cases(source, limits, &baseline_snapshot, &output_dir)?;
+    println!(
+        "{}",
+        serde_json::to_string(&GateEvidence {
+            schema: "kicad_monkey.pcb_mutation_cli_evidence.a0",
+            cases,
+        })?
+    );
+    Ok(())
+}
+
+fn run_cases(
+    source: String,
+    limits: PcbLimits,
+    baseline_snapshot: &SemanticSnapshot,
+    output_dir: &Path,
+) -> Result<Vec<CaseEvidence>, Box<dyn std::error::Error>> {
     let mut cases = Vec::new();
 
     let mut update = PcbDocument::parse(source.clone(), limits)?;
@@ -56,11 +73,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "property update changed",
     )?;
     require_property(&update.view()?, EXISTING_PROPERTY, Some("updated"))?;
-    require_graphics_equal(&baseline_snapshot, &snapshot(&update.view()?)?)?;
+    require_graphics_equal(baseline_snapshot, &snapshot(&update.view()?)?)?;
     cases.push(finish_case(
         "property_update",
         update,
-        &output_dir,
+        output_dir,
         "property-update.kicad_pcb",
         |document| document.set_property(EXISTING_PROPERTY, "updated"),
     )?);
@@ -71,11 +88,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "property insertion changed",
     )?;
     require_property(&insert.view()?, INSERTED_PROPERTY, Some("inserted"))?;
-    require_graphics_equal(&baseline_snapshot, &snapshot(&insert.view()?)?)?;
+    require_graphics_equal(baseline_snapshot, &snapshot(&insert.view()?)?)?;
     cases.push(finish_case(
         "property_insert",
         insert,
-        &output_dir,
+        output_dir,
         "property-insert.kicad_pcb",
         |document| document.upsert_property(INSERTED_PROPERTY, "inserted"),
     )?);
@@ -86,11 +103,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "property removal changed",
     )?;
     require_property(&remove_property.view()?, EXISTING_PROPERTY, None)?;
-    require_graphics_equal(&baseline_snapshot, &snapshot(&remove_property.view()?)?)?;
+    require_graphics_equal(baseline_snapshot, &snapshot(&remove_property.view()?)?)?;
     cases.push(finish_case(
         "property_remove",
         remove_property,
-        &output_dir,
+        output_dir,
         "property-remove.kicad_pcb",
         |document| document.remove_property(EXISTING_PROPERTY),
     )?);
@@ -102,11 +119,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     require_graphic_layer(&layer.view()?, LAYER_EDIT_ID, Some(EDITED_LAYER))?;
     require_graphic_layer(&layer.view()?, REMOVE_ID, Some("F.SilkS"))?;
-    require_properties_equal(&baseline_snapshot, &snapshot(&layer.view()?)?)?;
+    require_properties_equal(baseline_snapshot, &snapshot(&layer.view()?)?)?;
     cases.push(finish_case(
         "stable_layer_edit",
         layer,
-        &output_dir,
+        output_dir,
         "layer-edit.kicad_pcb",
         |document| document.set_top_level_layer_by_id(LAYER_EDIT_ID, EDITED_LAYER),
     )?);
@@ -118,7 +135,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     require_graphic_absent(&remove_top_level.view()?, REMOVE_ID)?;
     require_graphic_layer(&remove_top_level.view()?, LAYER_EDIT_ID, Some("F.SilkS"))?;
-    require_properties_equal(&baseline_snapshot, &snapshot(&remove_top_level.view()?)?)?;
+    require_properties_equal(baseline_snapshot, &snapshot(&remove_top_level.view()?)?)?;
     require(
         snapshot(&remove_top_level.view()?)?.graphics.len() + 1 == baseline_snapshot.graphics.len(),
         "top-level removal changed an unexpected number of graphics",
@@ -126,19 +143,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cases.push(finish_case(
         "top_level_remove",
         remove_top_level,
-        &output_dir,
+        output_dir,
         "top-level-remove.kicad_pcb",
         |document| document.remove_top_level_by_id(REMOVE_ID),
     )?);
 
-    println!(
-        "{}",
-        serde_json::to_string(&GateEvidence {
-            schema: "kicad_monkey.pcb_mutation_cli_evidence.a0",
-            cases,
-        })?
-    );
-    Ok(())
+    Ok(cases)
 }
 
 fn finish_case(
@@ -158,6 +168,12 @@ fn finish_case(
     require(
         reparsed.source() == before_repeat,
         "repeated mutation changed source bytes",
+    )?;
+    let mut second_bytes = Vec::new();
+    reparsed.write_to(&mut second_bytes)?;
+    require(
+        second_bytes == before_repeat.as_bytes(),
+        "second write changed emitted bytes",
     )?;
     Ok(CaseEvidence {
         operation,

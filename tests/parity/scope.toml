@@ -1,6 +1,6 @@
 schema = "kicad_monkey.parity_scope.a0"
-milestone = "rust_phase3_pcb_review_ready"
-review_state = "review_ready"
+milestone = "rust_phase3_pcb_promoted"
+review_state = "accepted"
 
 [[surfaces]]
 id = "sexpr.lex_parse"

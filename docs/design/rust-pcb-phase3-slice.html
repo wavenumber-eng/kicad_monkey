@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head><meta charset="utf-8"><title>Rust native PCB Phase 3 slice</title><link rel="stylesheet" href="styles.css"></head>
 <body>
 <h1>Rust native PCB reader/writer Phase 3 slice</h1>
-<p>Status: review ready. This slice begins native parity; it does not approve or expand WASM packaging.</p>
+<p>Status: accepted. This slice closes the native PCB reader/writer and source-preserving round-trip milestone; it does not approve or expand WASM packaging.</p>
 <h2>Boundary</h2>
 <p><code>PcbView</code> owns no source text and builds no generic S-expression tree. It borrows one UTF-8 board buffer, validates exactly one <code>kicad_pcb</code> root, and retains exact structural spans for direct board forms. Nested footprint, routing, and zone facts are decoded from their bounded source spans.</p>
 <p>The first promoted families are layers, nets, top-level properties, footprints, typed nested pads and 3D-model references, segments, vias, and zones. Pads expose their identity, geometry, layers, resolved board-level net reference, UUID, parent-footprint index, and exact source range. Model references expose path, offset, scale, rotation, parent-footprint index, and exact source range. Unknown top-level forms remain iterable and all untouched bytes survive focused edits.</p>
