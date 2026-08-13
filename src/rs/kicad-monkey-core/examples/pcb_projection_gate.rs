@@ -275,6 +275,12 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
         })),
         "first_via": via.map(|item| json!({
             "at_x": item.at_x, "at_y": item.at_y,
+            "size": item.size, "drill": item.drill, "layers": item.layers,
+            "free": item.free, "via_type": item.via_type, "uuid": item.uuid,
+            "tenting": front_back_optional_bool_summary(item.tenting.as_ref()),
+            "covering": front_back_optional_bool_summary(item.covering.as_ref()),
+            "plugging": front_back_optional_bool_summary(item.plugging.as_ref()),
+            "capping": item.capping, "filling": item.filling,
             "net": {"ordinal": item.net.ordinal, "name": item.net.name},
             "backdrill": drill_properties_summary(item.backdrill.as_ref()),
             "tertiary_drill": drill_properties_summary(item.tertiary_drill.as_ref()),
@@ -347,6 +353,16 @@ fn drill_properties_summary(value: Option<&kicad_monkey_core::PcbDrillProperties
         json!({
             "size": value.size,
             "layers": [value.layers.start, value.layers.end],
+        })
+    })
+}
+
+fn front_back_optional_bool_summary(
+    value: Option<&kicad_monkey_core::PcbFrontBackOptionalBool>,
+) -> Value {
+    value.map_or(Value::Null, |value| {
+        json!({
+            "front": value.front, "back": value.back,
         })
     })
 }

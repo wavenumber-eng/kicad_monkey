@@ -130,7 +130,10 @@ PAD_DETAIL_CARRIERS = """(kicad_pcb
         (gr_poly (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 999))
           (width 0.1) (fill solid))
         (gr_line (start 0 0) (end 1 1)))))
-  (via (at 4 5) (size 1) (drill 0.4) (layers "F.Cu" "B.Cu")
+  (via blind (at 4 5) (size 1) (drill 0.4) (layers "F.Cu" "B.Cu")
+    (free yes) (tenting (front yes) (back no))
+    (covering (front none) (back yes)) (plugging (front no) (back none))
+    (capping yes) (filling no)
     (backdrill (size 0.6) (layers "F.Cu" "In2.Cu"))
     (tertiary_drill (size 0.45) (layers "B.Cu" "In3.Cu"))
     (front_post_machining counterbore (size 1.3) (depth 0.3) (angle 80))
@@ -205,6 +208,8 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
             "pcb_pad_detail_slice",
             "--test",
             "pcb_manufacturing_slice",
+            "--test",
+            "pcb_via_detail_slice",
         ]
     )
 
@@ -623,6 +628,17 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         assert summary["first_via"] == {
             "at_x": via.at_x,
             "at_y": via.at_y,
+            "size": via.size,
+            "drill": via.drill,
+            "layers": via.layers,
+            "free": via.free,
+            "via_type": via.via_type,
+            "uuid": via.uuid or None,
+            "tenting": _front_back_optional_bool_summary(via.tenting),
+            "covering": _front_back_optional_bool_summary(via.covering),
+            "plugging": _front_back_optional_bool_summary(via.plugging),
+            "capping": via.capping,
+            "filling": via.filling,
             "net": {
                 "ordinal": via.net.ordinal,
                 "name": via.net.name or None,
@@ -779,6 +795,12 @@ def _drill_properties_summary(value: object | None) -> dict | None:
         "size": value.size,
         "layers": [value.layers.start, value.layers.end],
     }
+
+
+def _front_back_optional_bool_summary(value: object | None) -> dict | None:
+    if value is None:
+        return None
+    return {"front": value.front, "back": value.back}
 
 
 def _post_machining_summary(value: object | None) -> dict | None:

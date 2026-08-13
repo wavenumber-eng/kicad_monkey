@@ -20,6 +20,7 @@ mod pads;
 mod physical;
 mod selection;
 mod setup;
+mod vias;
 mod zones;
 pub use extended::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbImage, PcbTable, PcbTableCell,
@@ -38,6 +39,7 @@ pub use physical::{
 };
 pub use selection::{PcbFamily, PcbSelection};
 pub use setup::{PcbSetup, PcbStackup, PcbStackupLayer};
+pub use vias::{PcbFrontBackOptionalBool, PcbVia};
 pub use zones::{
     PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZonePlacement,
     PcbZonePlacementSource, PcbZonePolygon,
@@ -75,6 +77,9 @@ pub struct PcbLimits {
     pub max_pad_custom_primitives: usize,
     pub max_pad_custom_point_forms: usize,
     pub max_pad_custom_points: usize,
+    pub max_via_header_scalars: usize,
+    pub max_via_children: usize,
+    pub max_via_policy_children: usize,
     pub max_manufacturing_children: usize,
     pub max_teardrop_scalars: usize,
     pub max_zone_layer_connections: usize,
@@ -137,6 +142,9 @@ impl Default for PcbLimits {
             max_pad_custom_primitives: 1_000_000,
             max_pad_custom_point_forms: 4_000_000,
             max_pad_custom_points: 4_000_000,
+            max_via_header_scalars: 32,
+            max_via_children: 4_096,
+            max_via_policy_children: 256,
             max_manufacturing_children: 4_096,
             max_teardrop_scalars: 256,
             max_zone_layer_connections: 4_096,
@@ -384,23 +392,6 @@ pub struct PcbSegment {
     pub layer: Option<String>,
     pub net: PcbNetRef,
     pub uuid: Option<String>,
-    pub source_range: Range<usize>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PcbVia {
-    pub at_x: f64,
-    pub at_y: f64,
-    pub size: Option<f64>,
-    pub drill: Option<f64>,
-    pub layers: Vec<String>,
-    pub net: PcbNetRef,
-    pub uuid: Option<String>,
-    pub backdrill: Option<PcbDrillProperties>,
-    pub tertiary_drill: Option<PcbDrillProperties>,
-    pub front_post_machining: Option<PcbPostMachiningProperties>,
-    pub back_post_machining: Option<PcbPostMachiningProperties>,
-    pub zone_layer_connections: Option<PcbZoneLayerConnections>,
     pub source_range: Range<usize>,
 }
 
@@ -786,7 +777,7 @@ impl<'a> PcbView<'a> {
             .iter()
             .filter(move |_| self.selection.contains(PcbFamily::Vias))
             .map(|span| {
-                via_from_span(self.source, span, self.limits).map(|mut via| {
+                vias::via_from_span(self.source, span, self.limits).map(|mut via| {
                     via.net = self.net_resolver.resolve(via.net);
                     via
                 })
@@ -1490,49 +1481,6 @@ fn segment_from_span(
         layer: optional_child_string(source, &children, "layer")?,
         net: child_net_ref_or_zero(source, &children)?,
         uuid: optional_uuid(source, &children)?,
-        source_range: span.range.clone(),
-    })
-}
-
-fn via_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<PcbVia, Error> {
-    let children = direct_children(source, span, limits.max_object_children, limits)?;
-    let at = required_xy(source, &children, "at", span)?;
-    let layers = child_strings(source, &children, "layers", limits.max_layers)?;
-    Ok(PcbVia {
-        at_x: at.0,
-        at_y: at.1,
-        size: optional_child_f64(source, &children, "size")?,
-        drill: optional_child_f64(source, &children, "drill")?,
-        layers,
-        net: child_net_ref_or_zero(source, &children)?,
-        uuid: optional_uuid(source, &children)?,
-        backdrill: manufacturing::drill_properties_from_children(
-            source,
-            &children,
-            "backdrill",
-            limits,
-        )?,
-        tertiary_drill: manufacturing::drill_properties_from_children(
-            source,
-            &children,
-            "tertiary_drill",
-            limits,
-        )?,
-        front_post_machining: manufacturing::post_machining_from_children(
-            source,
-            &children,
-            "front_post_machining",
-            limits,
-        )?,
-        back_post_machining: manufacturing::post_machining_from_children(
-            source,
-            &children,
-            "back_post_machining",
-            limits,
-        )?,
-        zone_layer_connections: manufacturing::zone_layer_connections_from_children(
-            source, &children, limits,
-        )?,
         source_range: span.range.clone(),
     })
 }

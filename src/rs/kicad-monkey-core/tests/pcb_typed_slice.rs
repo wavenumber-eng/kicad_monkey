@@ -217,7 +217,7 @@ fn typed_iterators_decode_routing_and_zones() {
     let via = view.vias().next().expect("via").expect("typed via");
     assert_eq!(
         (via.at_x, via.at_y, via.size, via.drill),
-        (5.0, 6.0, Some(0.8), Some(0.4))
+        (5.0, 6.0, 0.8, 0.4)
     );
     assert_eq!(via.layers, ["F.Cu", "B.Cu"]);
 

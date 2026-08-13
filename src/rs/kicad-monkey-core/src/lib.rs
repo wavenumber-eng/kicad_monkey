@@ -25,14 +25,14 @@ pub use pcb::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbDocument,
     PcbDrillLayerSpan, PcbDrillProperties, PcbEdit, PcbEmbeddedFile, PcbFamily, PcbFootprint,
     PcbFootprintGraphic, PcbFootprintProperty, PcbFootprintText, PcbFootprintTextBox,
-    PcbFootprintTransform, PcbGeneratedItem, PcbGraphic, PcbGraphicKind, PcbGroup, PcbHole,
-    PcbHoleOwner, PcbHoleShape, PcbImage, PcbLayer, PcbLimits, PcbModelReference, PcbNet,
-    PcbNetRef, PcbPad, PcbPadCustomOptions, PcbPadCustomPrimitive, PcbPadDrill, PcbPoint,
-    PcbPostMachiningProperties, PcbProfileOwner, PcbProfilePrimitive, PcbProperty, PcbRoutingArc,
-    PcbSegment, PcbSelection, PcbSetup, PcbStackup, PcbStackupLayer, PcbTable, PcbTableCell,
-    PcbTeardropParameters, PcbVia, PcbView, PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout,
-    PcbZoneLayerConnections, PcbZoneLayerProperty, PcbZonePlacement, PcbZonePlacementSource,
-    PcbZonePolygon,
+    PcbFootprintTransform, PcbFrontBackOptionalBool, PcbGeneratedItem, PcbGraphic, PcbGraphicKind,
+    PcbGroup, PcbHole, PcbHoleOwner, PcbHoleShape, PcbImage, PcbLayer, PcbLimits,
+    PcbModelReference, PcbNet, PcbNetRef, PcbPad, PcbPadCustomOptions, PcbPadCustomPrimitive,
+    PcbPadDrill, PcbPoint, PcbPostMachiningProperties, PcbProfileOwner, PcbProfilePrimitive,
+    PcbProperty, PcbRoutingArc, PcbSegment, PcbSelection, PcbSetup, PcbStackup, PcbStackupLayer,
+    PcbTable, PcbTableCell, PcbTeardropParameters, PcbVia, PcbView, PcbZone, PcbZoneFilledPolygon,
+    PcbZoneKeepout, PcbZoneLayerConnections, PcbZoneLayerProperty, PcbZonePlacement,
+    PcbZonePlacementSource, PcbZonePolygon,
 };
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
 pub use plotter_types::{
