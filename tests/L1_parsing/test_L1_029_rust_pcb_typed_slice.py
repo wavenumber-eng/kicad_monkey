@@ -99,6 +99,22 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         "segments": len(board.segments),
         "vias": len(board.vias),
         "zones": len(board.zones),
+        "gr_texts": len(board.gr_texts),
+        "gr_lines": len(board.gr_lines),
+        "gr_rects": len(board.gr_rects),
+        "gr_arcs": len(board.gr_arcs),
+        "gr_circles": len(board.gr_circles),
+        "gr_polys": len(board.gr_polys),
+        "gr_curves": len(board.gr_curves),
+        "gr_text_boxes": len(board.gr_text_boxes),
+        "images": len(board.images),
+        "barcodes": len(board.barcodes),
+        "tables": len(board.tables),
+        "arcs": len(board.arcs),
+        "dimensions": len(board.dimensions),
+        "groups": len(board.groups),
+        "generated_items": len(board.generated_items),
+        "embedded_files": len(board.embedded_files),
     }
     if board.footprints:
         assert summary["first_footprint"] == {
@@ -122,6 +138,61 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
                 "ordinal": board.vias[0].net.ordinal,
                 "name": board.vias[0].net.name or None,
             },
+        }
+    if summary["first_graphic"] is not None:
+        graphic_collections = {
+            "gr_text": board.gr_texts,
+            "gr_line": board.gr_lines,
+            "gr_rect": board.gr_rects,
+            "gr_arc": board.gr_arcs,
+            "gr_circle": board.gr_circles,
+            "gr_poly": board.gr_polys,
+            "gr_curve": board.gr_curves,
+            "gr_text_box": board.gr_text_boxes,
+        }
+        kind = summary["first_graphic"]["kind"]
+        graphic = graphic_collections[kind][0]
+        assert summary["first_graphic"]["layer"] == graphic.layer
+        if kind in {"gr_text", "gr_text_box"}:
+            assert summary["first_graphic"]["text"] == graphic.text
+    if board.arcs:
+        arc = board.arcs[0]
+        assert summary["first_arc"] == {
+            "start_x": arc.start_x,
+            "mid_x": arc.mid_x,
+            "end_x": arc.end_x,
+            "net": {"ordinal": arc.net.ordinal, "name": arc.net.name or None},
+        }
+    if board.dimensions:
+        dimension = board.dimensions[0]
+        assert summary["first_dimension"] == {
+            "kind": dimension.dimension_type,
+            "layer": dimension.layer,
+            "point_count": len(dimension.points),
+            "uuid": dimension.uuid or None,
+        }
+    if board.groups:
+        group = board.groups[0]
+        assert summary["first_group"] == {
+            "name": group.name,
+            "uuid": group.uuid or None,
+            "member_count": len(group.members),
+        }
+    if board.generated_items:
+        generated = board.generated_items[0]
+        assert summary["first_generated"] == {
+            "kind": generated.generator_type or None,
+            "name": generated.name or None,
+            "uuid": generated.uuid or None,
+            "member_count": len(generated.members),
+        }
+    if board.embedded_files:
+        embedded = board.embedded_files[0]
+        assert summary["first_embedded_file"] == {
+            "name": embedded.name,
+            "file_type": embedded.file_type,
+            "checksum": embedded.checksum or None,
+            "encoded_data_bytes": len(embedded.data),
         }
     pads = [pad for footprint in board.footprints for pad in footprint.pads]
     if pads:

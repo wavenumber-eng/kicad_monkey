@@ -18,6 +18,7 @@ pub struct PcbLimits {
     pub max_output_bytes: usize,
     pub max_depth: usize,
     pub max_top_level_forms: usize,
+    pub max_object_children: usize,
     pub max_layers: usize,
     pub max_nets: usize,
     pub max_properties: usize,
@@ -30,6 +31,15 @@ pub struct PcbLimits {
     pub max_segments: usize,
     pub max_vias: usize,
     pub max_zones: usize,
+    pub max_arcs: usize,
+    pub max_graphics: usize,
+    pub max_graphic_points: usize,
+    pub max_dimensions: usize,
+    pub max_groups: usize,
+    pub max_generated_items: usize,
+    pub max_generated_children: usize,
+    pub max_members: usize,
+    pub max_embedded_files: usize,
 }
 
 impl Default for PcbLimits {
@@ -39,6 +49,7 @@ impl Default for PcbLimits {
             max_output_bytes: 512 * 1024 * 1024,
             max_depth: 512,
             max_top_level_forms: 4_000_000,
+            max_object_children: 1_000_000,
             max_layers: 256,
             max_nets: 2_000_000,
             max_properties: 100_000,
@@ -51,6 +62,15 @@ impl Default for PcbLimits {
             max_segments: 8_000_000,
             max_vias: 4_000_000,
             max_zones: 1_000_000,
+            max_arcs: 8_000_000,
+            max_graphics: 4_000_000,
+            max_graphic_points: 4_000_000,
+            max_dimensions: 1_000_000,
+            max_groups: 1_000_000,
+            max_generated_items: 1_000_000,
+            max_generated_children: 4_000_000,
+            max_members: 4_000_000,
+            max_embedded_files: 100_000,
         }
     }
 }
@@ -69,6 +89,17 @@ pub struct PcbCounts {
     pub zones: usize,
     pub arcs: usize,
     pub graphics: usize,
+    pub gr_texts: usize,
+    pub gr_lines: usize,
+    pub gr_rects: usize,
+    pub gr_arcs: usize,
+    pub gr_circles: usize,
+    pub gr_polys: usize,
+    pub gr_curves: usize,
+    pub gr_text_boxes: usize,
+    pub images: usize,
+    pub barcodes: usize,
+    pub tables: usize,
     pub groups: usize,
     pub dimensions: usize,
     pub generated_items: usize,
@@ -186,6 +217,98 @@ pub struct PcbZone {
     pub source_range: Range<usize>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PcbPoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PcbGraphicKind {
+    Text,
+    Line,
+    Rect,
+    Arc,
+    Circle,
+    Poly,
+    Curve,
+    TextBox,
+}
+
+/// A producer-neutral typed view of one board graphic carrier.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PcbGraphic {
+    pub kind: PcbGraphicKind,
+    pub text: Option<String>,
+    pub at: Option<PcbPoint>,
+    pub start: Option<PcbPoint>,
+    pub mid: Option<PcbPoint>,
+    pub end: Option<PcbPoint>,
+    pub center: Option<PcbPoint>,
+    pub points: Vec<PcbPoint>,
+    pub layer: Option<String>,
+    pub stroke_width: Option<f64>,
+    pub stroke_kind: Option<String>,
+    pub fill: Option<String>,
+    pub uuid: Option<String>,
+    pub source_range: Range<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PcbRoutingArc {
+    pub start: PcbPoint,
+    pub mid: PcbPoint,
+    pub end: PcbPoint,
+    pub width: Option<f64>,
+    pub layer: Option<String>,
+    pub net: PcbNetRef,
+    pub uuid: Option<String>,
+    pub source_range: Range<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PcbDimension {
+    pub kind: String,
+    pub layer: String,
+    pub points: Vec<PcbPoint>,
+    pub height: f64,
+    pub leader_length: Option<f64>,
+    pub orientation: Option<i64>,
+    pub locked: bool,
+    pub uuid: Option<String>,
+    pub source_range: Range<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PcbGroup {
+    pub name: String,
+    pub uuid: Option<String>,
+    pub locked: bool,
+    pub members: Vec<String>,
+    pub source_range: Range<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PcbGeneratedItem {
+    pub kind: Option<String>,
+    pub name: Option<String>,
+    pub layer: Option<String>,
+    pub uuid: Option<String>,
+    pub locked: bool,
+    pub members: Vec<String>,
+    pub property_heads: Vec<String>,
+    pub source_range: Range<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PcbEmbeddedFile {
+    pub name: String,
+    pub file_type: String,
+    pub checksum: Option<String>,
+    pub encoded_data_bytes: usize,
+    pub source_range: Range<usize>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PcbEdit {
     pub source: String,
@@ -244,6 +367,12 @@ struct PcbIndex {
     segments: Vec<FormSpan>,
     vias: Vec<FormSpan>,
     zones: Vec<FormSpan>,
+    graphics: Vec<FormSpan>,
+    arcs: Vec<FormSpan>,
+    dimensions: Vec<FormSpan>,
+    groups: Vec<FormSpan>,
+    generated_items: Vec<FormSpan>,
+    embedded_files: Vec<FormSpan>,
     counts: PcbCounts,
 }
 
@@ -262,6 +391,12 @@ pub struct PcbView<'a> {
     segments: Vec<FormSpan>,
     vias: Vec<FormSpan>,
     zones: Vec<FormSpan>,
+    graphics: Vec<FormSpan>,
+    arcs: Vec<FormSpan>,
+    dimensions: Vec<FormSpan>,
+    groups: Vec<FormSpan>,
+    generated_items: Vec<FormSpan>,
+    embedded_files: Vec<FormSpan>,
     net_resolver: NetResolver,
     counts: PcbCounts,
     limits: PcbLimits,
@@ -315,6 +450,12 @@ impl<'a> PcbView<'a> {
             segments: index.segments,
             vias: index.vias,
             zones: index.zones,
+            graphics: index.graphics,
+            arcs: index.arcs,
+            dimensions: index.dimensions,
+            groups: index.groups,
+            generated_items: index.generated_items,
+            embedded_files: index.embedded_files,
             net_resolver,
             counts: index.counts,
             limits,
@@ -415,6 +556,94 @@ impl<'a> PcbView<'a> {
         })
     }
 
+    pub fn graphics(&self) -> impl Iterator<Item = Result<PcbGraphic, Error>> + '_ {
+        self.graphics
+            .iter()
+            .map(|span| graphic_from_span(self.source, span, self.limits))
+    }
+
+    pub fn arcs(&self) -> impl Iterator<Item = Result<PcbRoutingArc, Error>> + '_ {
+        self.arcs.iter().map(|span| {
+            routing_arc_from_span(self.source, span, self.limits).map(|mut arc| {
+                arc.net = self.net_resolver.resolve(arc.net);
+                arc
+            })
+        })
+    }
+
+    pub fn dimensions(&self) -> impl Iterator<Item = Result<PcbDimension, Error>> + '_ {
+        self.dimensions
+            .iter()
+            .map(|span| dimension_from_span(self.source, span, self.limits))
+    }
+
+    pub fn groups(&self) -> impl Iterator<Item = Result<PcbGroup, Error>> + '_ {
+        self.groups
+            .iter()
+            .map(|span| group_from_span(self.source, span, self.limits))
+    }
+
+    pub fn generated_items(&self) -> impl Iterator<Item = Result<PcbGeneratedItem, Error>> + '_ {
+        self.generated_items
+            .iter()
+            .map(|span| generated_from_span(self.source, span, self.limits))
+    }
+
+    pub fn embedded_files(&self) -> impl Iterator<Item = Result<PcbEmbeddedFile, Error>> + '_ {
+        self.embedded_files
+            .iter()
+            .map(|span| embedded_file_from_span(self.source, span, self.limits))
+    }
+
+    /// Remove one unambiguous identified top-level object by `uuid` or legacy `id`.
+    pub fn remove_top_level_by_id(&self, identifier: &str) -> Result<PcbEdit, Error> {
+        if identifier.is_empty() {
+            return Err(source_error(
+                "PCB object identifier cannot be empty",
+                self.root.start,
+            ));
+        }
+        let mut matches = Vec::new();
+        for span in self.identified_top_level_spans() {
+            if top_level_identifier(self.source, span, self.limits)?.as_deref() == Some(identifier)
+            {
+                matches.push(span);
+            }
+        }
+        match matches.as_slice() {
+            [] => Ok(PcbEdit {
+                source: self.source.to_owned(),
+                changed: false,
+            }),
+            [span] => Ok(PcbEdit {
+                source: apply_patches_with_limit(
+                    self.source,
+                    &[Patch::new(span.range.start, span.range.end, "")],
+                    self.limits.max_output_bytes,
+                )?,
+                changed: true,
+            }),
+            _ => Err(source_error(
+                "PCB object identifier is ambiguous",
+                self.root.start,
+            )),
+        }
+    }
+
+    fn identified_top_level_spans(&self) -> impl Iterator<Item = &FormSpan> {
+        self.footprints
+            .iter()
+            .map(|item| &item.span)
+            .chain(self.segments.iter())
+            .chain(self.vias.iter())
+            .chain(self.zones.iter())
+            .chain(self.graphics.iter())
+            .chain(self.arcs.iter())
+            .chain(self.dimensions.iter())
+            .chain(self.groups.iter())
+            .chain(self.generated_items.iter())
+    }
+
     /// Replace one unambiguous top-level board property without rewriting the board.
     pub fn set_property(&self, name: &str, value: &str) -> Result<PcbEdit, Error> {
         if self.source.len() > self.limits.max_output_bytes {
@@ -464,6 +693,20 @@ impl<'a> PcbView<'a> {
     }
 }
 
+fn top_level_identifier(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<Option<String>, Error> {
+    let maximum = match span.head.as_deref() {
+        Some("footprint" | "module") => limits.max_footprint_children,
+        Some("generated") => limits.max_generated_children,
+        _ => limits.max_object_children,
+    };
+    let children = direct_children(source, span, maximum, limits)?;
+    optional_uuid_or_id(source, &children)
+}
+
 fn index_top_level(
     source: &str,
     top_level: &[FormSpan],
@@ -494,18 +737,71 @@ fn index_top_level(
                 bounded_push(&mut index.zones, span.clone(), limits.max_zones)?;
                 index.counts.zones += 1;
             }
-            Some("arc") => index.counts.arcs += 1,
-            Some(head) if head.starts_with("gr_") => index.counts.graphics += 1,
-            Some("group") => index.counts.groups += 1,
-            Some("dimension") => index.counts.dimensions += 1,
-            Some("generated") => index.counts.generated_items += 1,
-            Some("embedded_files") => index.counts.embedded_files += 1,
-            Some("image" | "barcode" | "table") => {}
+            Some("arc") => {
+                bounded_push(&mut index.arcs, span.clone(), limits.max_arcs)?;
+                index.counts.arcs += 1;
+            }
+            Some(head) if graphic_kind(head).is_some() => {
+                bounded_push(&mut index.graphics, span.clone(), limits.max_graphics)?;
+                increment_graphic_count(&mut index.counts, head);
+            }
+            Some("group") => {
+                bounded_push(&mut index.groups, span.clone(), limits.max_groups)?;
+                index.counts.groups += 1;
+            }
+            Some("dimension") => {
+                bounded_push(&mut index.dimensions, span.clone(), limits.max_dimensions)?;
+                index.counts.dimensions += 1;
+            }
+            Some("generated") => {
+                bounded_push(
+                    &mut index.generated_items,
+                    span.clone(),
+                    limits.max_generated_items,
+                )?;
+                index.counts.generated_items += 1;
+            }
+            Some("embedded_files") => index_embedded_files(source, span, limits, &mut index)?,
+            Some("image") => index.counts.images += 1,
+            Some("barcode") => index.counts.barcodes += 1,
+            Some("table") => index.counts.tables += 1,
             Some(head) if is_known_metadata(head) => {}
             _ => index.counts.unknown_top_level += 1,
         }
     }
     Ok(index)
+}
+
+fn increment_graphic_count(counts: &mut PcbCounts, head: &str) {
+    counts.graphics += 1;
+    match head {
+        "gr_text" => counts.gr_texts += 1,
+        "gr_line" => counts.gr_lines += 1,
+        "gr_rect" => counts.gr_rects += 1,
+        "gr_arc" => counts.gr_arcs += 1,
+        "gr_circle" => counts.gr_circles += 1,
+        "gr_poly" => counts.gr_polys += 1,
+        "gr_curve" => counts.gr_curves += 1,
+        "gr_text_box" => counts.gr_text_boxes += 1,
+        _ => {}
+    }
+}
+
+fn index_embedded_files(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+    index: &mut PcbIndex,
+) -> Result<(), Error> {
+    let children = direct_children(source, span, limits.max_embedded_files, limits)?;
+    for child in children
+        .into_iter()
+        .filter(|child| child.head.as_deref() == Some("file"))
+    {
+        bounded_push(&mut index.embedded_files, child, limits.max_embedded_files)?;
+    }
+    index.counts.embedded_files = index.embedded_files.len();
+    Ok(())
 }
 
 fn index_layers(
@@ -742,7 +1038,7 @@ fn segment_from_span(
     span: &FormSpan,
     limits: PcbLimits,
 ) -> Result<PcbSegment, Error> {
-    let children = direct_children(source, span, 64, limits)?;
+    let children = direct_children(source, span, limits.max_object_children, limits)?;
     let start = required_xy(source, &children, "start", span)?;
     let end = required_xy(source, &children, "end", span)?;
     Ok(PcbSegment {
@@ -759,7 +1055,7 @@ fn segment_from_span(
 }
 
 fn via_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<PcbVia, Error> {
-    let children = direct_children(source, span, 64, limits)?;
+    let children = direct_children(source, span, limits.max_object_children, limits)?;
     let at = required_xy(source, &children, "at", span)?;
     let layers = child(&children, "layers")
         .map(|item| {
@@ -780,7 +1076,7 @@ fn via_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<Pcb
 }
 
 fn zone_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<PcbZone, Error> {
-    let children = direct_children(source, span, 256, limits)?;
+    let children = direct_children(source, span, limits.max_object_children, limits)?;
     let layers = if let Some(item) = child(&children, "layers") {
         scalar_values(source, item)?
             .iter()
@@ -800,6 +1096,161 @@ fn zone_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<Pc
     })
 }
 
+fn graphic_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbGraphic, Error> {
+    let kind = span
+        .head
+        .as_deref()
+        .and_then(graphic_kind)
+        .ok_or_else(|| source_error("Expected board graphic form", span.start))?;
+    let header = scalar_values(source, span)?;
+    let children = direct_children(source, span, limits.max_object_children, limits)?;
+    let points = child(&children, "pts")
+        .map(|points| points_from_span(source, points, limits))
+        .transpose()?
+        .unwrap_or_default();
+    let (stroke_width, stroke_kind) = if let Some(stroke) = child(&children, "stroke") {
+        let fields = direct_children(source, stroke, 16, limits)?;
+        (
+            optional_child_f64(source, &fields, "width")?,
+            optional_child_string(source, &fields, "type")?,
+        )
+    } else {
+        (None, None)
+    };
+    Ok(PcbGraphic {
+        kind,
+        text: matches!(kind, PcbGraphicKind::Text | PcbGraphicKind::TextBox)
+            .then(|| header.first().map(token_string))
+            .flatten(),
+        at: optional_child_point(source, &children, "at")?,
+        start: optional_child_point(source, &children, "start")?,
+        mid: optional_child_point(source, &children, "mid")?,
+        end: optional_child_point(source, &children, "end")?,
+        center: optional_child_point(source, &children, "center")?,
+        points,
+        layer: optional_child_string(source, &children, "layer")?,
+        stroke_width,
+        stroke_kind,
+        fill: optional_child_string(source, &children, "fill")?,
+        uuid: optional_uuid(source, &children)?,
+        source_range: span.range.clone(),
+    })
+}
+
+fn routing_arc_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbRoutingArc, Error> {
+    let children = direct_children(source, span, limits.max_object_children, limits)?;
+    Ok(PcbRoutingArc {
+        start: required_point(source, &children, "start", span)?,
+        mid: required_point(source, &children, "mid", span)?,
+        end: required_point(source, &children, "end", span)?,
+        width: optional_child_f64(source, &children, "width")?,
+        layer: optional_child_string(source, &children, "layer")?,
+        net: child_net_ref(source, &children)?,
+        uuid: optional_uuid(source, &children)?,
+        source_range: span.range.clone(),
+    })
+}
+
+fn dimension_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbDimension, Error> {
+    let header = scalar_values(source, span)?;
+    let children = direct_children(source, span, limits.max_object_children, limits)?;
+    let points = child(&children, "pts")
+        .map(|points| points_from_span(source, points, limits))
+        .transpose()?
+        .unwrap_or_default();
+    Ok(PcbDimension {
+        kind: optional_child_string(source, &children, "type")?
+            .unwrap_or_else(|| "aligned".to_owned()),
+        layer: optional_child_string(source, &children, "layer")?
+            .unwrap_or_else(|| "Cmts.User".to_owned()),
+        points,
+        height: optional_child_f64(source, &children, "height")?.unwrap_or(0.0),
+        leader_length: optional_child_f64(source, &children, "leader_length")?,
+        orientation: optional_child_i64(source, &children, "orientation")?,
+        locked: has_flag(&header, "locked") || child_bool(source, &children, "locked")?,
+        uuid: optional_uuid(source, &children)?,
+        source_range: span.range.clone(),
+    })
+}
+
+fn group_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<PcbGroup, Error> {
+    let header = scalar_values(source, span)?;
+    let children = direct_children(source, span, limits.max_object_children, limits)?;
+    Ok(PcbGroup {
+        name: required_string(header.first(), "Expected group name", span)?,
+        uuid: optional_uuid_or_id(source, &children)?,
+        locked: has_flag(&header, "locked") || child_bool(source, &children, "locked")?,
+        members: child_strings(source, &children, "members", limits.max_members)?,
+        source_range: span.range.clone(),
+    })
+}
+
+fn generated_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbGeneratedItem, Error> {
+    let header = scalar_values(source, span)?;
+    let children = direct_children(source, span, limits.max_generated_children, limits)?;
+    let known = ["id", "type", "name", "layer", "locked", "members"];
+    let property_heads = children
+        .iter()
+        .filter_map(|child| child.head.as_ref())
+        .filter(|head| !known.contains(&head.as_str()))
+        .cloned()
+        .collect();
+    Ok(PcbGeneratedItem {
+        kind: optional_child_string(source, &children, "type")?,
+        name: optional_child_string(source, &children, "name")?,
+        layer: optional_child_string(source, &children, "layer")?,
+        uuid: optional_child_string(source, &children, "id")?,
+        locked: has_flag(&header, "locked") || child_bool(source, &children, "locked")?,
+        members: child_strings(source, &children, "members", limits.max_members)?,
+        property_heads,
+        source_range: span.range.clone(),
+    })
+}
+
+fn embedded_file_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbEmbeddedFile, Error> {
+    let children = direct_children(source, span, 16, limits)?;
+    let encoded_data_bytes = child(&children, "data")
+        .map(|data| {
+            scalar_values(source, data).map(|tokens| {
+                tokens
+                    .iter()
+                    .map(token_string)
+                    .map(|part| part.trim_matches('|').len())
+                    .sum()
+            })
+        })
+        .transpose()?
+        .unwrap_or(0);
+    Ok(PcbEmbeddedFile {
+        name: optional_child_string(source, &children, "name")?.unwrap_or_default(),
+        file_type: optional_child_string(source, &children, "type")?
+            .unwrap_or_else(|| "other".to_owned()),
+        checksum: optional_child_string(source, &children, "checksum")?,
+        encoded_data_bytes,
+        source_range: span.range.clone(),
+    })
+}
+
 fn scalar_values<'a>(source: &'a str, span: &FormSpan) -> Result<Vec<Token<'a>>, Error> {
     let text = span.text(source)?;
     (|| {
@@ -811,11 +1262,19 @@ fn scalar_values<'a>(source: &'a str, span: &FormSpan) -> Result<Vec<Token<'a>>,
         )?;
         let _head = next_scalar(lexer.next(), "Expected form head")?;
         let mut values = Vec::new();
+        let mut depth = 1usize;
         for token in lexer {
             let token = token?;
             match token.kind {
-                TokenKind::Left | TokenKind::Right => break,
-                _ => values.push(token),
+                TokenKind::Left => depth += 1,
+                TokenKind::Right => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ if depth == 1 => values.push(token),
+                _ => {}
             }
         }
         Ok(values)
@@ -875,6 +1334,49 @@ fn required_xy(
         required_f64(values.first(), "Expected x coordinate", span)?,
         required_f64(values.get(1), "Expected y coordinate", span)?,
     ))
+}
+
+fn required_point(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+    parent: &FormSpan,
+) -> Result<PcbPoint, Error> {
+    let (x, y) = required_xy(source, children, head, parent)?;
+    Ok(PcbPoint { x, y })
+}
+
+fn optional_child_point(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+) -> Result<Option<PcbPoint>, Error> {
+    let Some(span) = child(children, head) else {
+        return Ok(None);
+    };
+    let values = scalar_values(source, span)?;
+    Ok(Some(PcbPoint {
+        x: required_f64(values.first(), "Expected x coordinate", span)?,
+        y: required_f64(values.get(1), "Expected y coordinate", span)?,
+    }))
+}
+
+fn points_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<Vec<PcbPoint>, Error> {
+    direct_children(source, span, limits.max_graphic_points, limits)?
+        .into_iter()
+        .filter(|point| point.head.as_deref() == Some("xy"))
+        .map(|point| {
+            let values = scalar_values(source, &point)?;
+            Ok(PcbPoint {
+                x: required_f64(values.first(), "Expected point x", &point)?,
+                y: required_f64(values.get(1), "Expected point y", &point)?,
+            })
+        })
+        .collect()
 }
 
 fn optional_pair(
@@ -965,6 +1467,53 @@ fn optional_child_f64(
     optional_f64(values.first(), span)
 }
 
+fn optional_child_i64(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+) -> Result<Option<i64>, Error> {
+    let Some(span) = child(children, head) else {
+        return Ok(None);
+    };
+    let values = scalar_values(source, span)?;
+    values
+        .first()
+        .map(|token| parse_i64(token, span))
+        .transpose()
+}
+
+fn child_strings(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+    maximum: usize,
+) -> Result<Vec<String>, Error> {
+    let Some(span) = child(children, head) else {
+        return Ok(Vec::new());
+    };
+    let values = scalar_values(source, span)?;
+    if values.len() > maximum {
+        return Err(limit_error());
+    }
+    Ok(values.iter().map(token_string).collect())
+}
+
+fn child_bool(source: &str, children: &[FormSpan], head: &str) -> Result<bool, Error> {
+    let Some(span) = child(children, head) else {
+        return Ok(false);
+    };
+    let values = scalar_values(source, span)?;
+    Ok(values
+        .first()
+        .is_none_or(|value| matches!(token_string(value).as_str(), "yes" | "true" | "1")))
+}
+
+fn has_flag(values: &[Token<'_>], expected: &str) -> bool {
+    values
+        .iter()
+        .any(|value| value.kind == TokenKind::Atom && value.lexeme == expected)
+}
+
 fn child_net_ref(source: &str, children: &[FormSpan]) -> Result<PcbNetRef, Error> {
     let Some(span) = child(children, "net") else {
         return Ok(PcbNetRef::default());
@@ -991,6 +1540,14 @@ fn child_net_ref(source: &str, children: &[FormSpan]) -> Result<PcbNetRef, Error
 
 fn optional_uuid(source: &str, children: &[FormSpan]) -> Result<Option<String>, Error> {
     if let Some(span) = child(children, "uuid").or_else(|| child(children, "tstamp")) {
+        first_string(source, span)
+    } else {
+        Ok(None)
+    }
+}
+
+fn optional_uuid_or_id(source: &str, children: &[FormSpan]) -> Result<Option<String>, Error> {
+    if let Some(span) = child(children, "uuid").or_else(|| child(children, "id")) {
         first_string(source, span)
     } else {
         Ok(None)
@@ -1114,6 +1671,20 @@ fn is_known_metadata(head: &str) -> bool {
             | "variants"
             | "embedded_fonts"
     )
+}
+
+fn graphic_kind(head: &str) -> Option<PcbGraphicKind> {
+    match head {
+        "gr_text" => Some(PcbGraphicKind::Text),
+        "gr_line" => Some(PcbGraphicKind::Line),
+        "gr_rect" => Some(PcbGraphicKind::Rect),
+        "gr_arc" => Some(PcbGraphicKind::Arc),
+        "gr_circle" => Some(PcbGraphicKind::Circle),
+        "gr_poly" => Some(PcbGraphicKind::Poly),
+        "gr_curve" => Some(PcbGraphicKind::Curve),
+        "gr_text_box" => Some(PcbGraphicKind::TextBox),
+        _ => None,
+    }
 }
 
 fn is_known_top_level(head: &str) -> bool {

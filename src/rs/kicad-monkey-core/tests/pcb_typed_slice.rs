@@ -40,6 +40,26 @@ const SOURCE: &str = r#"# board comment survives
 )
 "#;
 
+const CARRIERS: &str = r#"(kicad_pcb
+  (net 1 "GND")
+  (gr_text "hello" (at 1 2) (layer "F.SilkS") (uuid text-id))
+  (gr_line (start 1 2) (end 3 4) (stroke (width 0.2) (type dash)) (layer "Edge.Cuts") (uuid line-id))
+  (gr_rect (start 5 6) (end 7 8) (stroke (width 0.3) (type default)) (fill solid) (layer "F.Cu"))
+  (gr_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.4) (type default)) (layer "B.Cu"))
+  (gr_circle (center 10 10) (end 12 10) (stroke (width 0.5) (type default)) (fill no) (layer "Dwgs.User"))
+  (gr_poly (pts (xy 0 0) (xy 1 0) (xy 1 1)) (stroke (width 0.1) (type default)) (fill solid) (layer "F.Cu"))
+  (gr_curve (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 2 1)) (stroke (width 0.1) (type default)) (layer "F.SilkS"))
+  (gr_text_box "boxed" (start 0 0) (end 5 5) (layer "F.SilkS"))
+  (arc (start 0 0) (mid 1 1) (end 2 0) (width 0.25) (layer "F.Cu") (net "GND") (uuid arc-id))
+  (dimension (type aligned) (locked yes) (layer "Cmts.User") (uuid dimension-id)
+    (pts (xy 0 0) (xy 5 0)) (height 2.5) (orientation 1))
+  (group "Review" (id group-id) locked (members line-id arc-id))
+  (generated (id generated-id) (type tuned_delay) (name "Tune") (layer "F.Cu")
+    (locked yes) (corner_radius 1.5) (members arc-id))
+  (embedded_files
+    (file (name "asset.step") (type model) (data |YWJj| |ZA==|) (checksum "abcd")))
+)"#;
+
 #[test]
 fn board_view_indexes_major_families_and_exact_unknown_source() {
     let view = PcbView::parse(SOURCE, PcbLimits::default()).expect("board view");
@@ -340,5 +360,197 @@ fn board_net_table_resolves_ordinal_name_unknown_and_empty_references_once() {
             },
             kicad_monkey_core::PcbNetRef::default(),
         ]
+    );
+}
+
+#[test]
+fn remaining_board_carriers_are_typed_in_source_order() {
+    let view = PcbView::parse(CARRIERS, PcbLimits::default()).expect("board view");
+    let counts = view.counts();
+    assert_eq!(
+        (
+            counts.graphics,
+            counts.gr_texts,
+            counts.gr_lines,
+            counts.gr_rects,
+            counts.gr_arcs,
+            counts.gr_circles,
+            counts.gr_polys,
+            counts.gr_curves,
+            counts.gr_text_boxes,
+        ),
+        (8, 1, 1, 1, 1, 1, 1, 1, 1)
+    );
+    assert_eq!(
+        (
+            counts.arcs,
+            counts.dimensions,
+            counts.groups,
+            counts.generated_items,
+            counts.embedded_files,
+        ),
+        (1, 1, 1, 1, 1)
+    );
+    let graphics = view
+        .graphics()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("graphics");
+    assert_eq!(graphics[0].text.as_deref(), Some("hello"));
+    assert_eq!(graphics[1].start.expect("start").x, 1.0);
+    assert_eq!(graphics[1].stroke_width, Some(0.2));
+    assert_eq!(graphics[1].stroke_kind.as_deref(), Some("dash"));
+    assert_eq!(graphics[4].center.expect("center").x, 10.0);
+    assert_eq!(graphics[5].points.len(), 3);
+    assert_eq!(graphics[6].points.len(), 4);
+}
+
+#[test]
+fn routing_arcs_and_dimensions_are_typed() {
+    let view = PcbView::parse(CARRIERS, PcbLimits::default()).expect("board view");
+    let arc = view.arcs().next().expect("arc").expect("typed arc");
+    assert_eq!((arc.start.x, arc.mid.y, arc.end.x), (0.0, 1.0, 2.0));
+    assert_eq!(
+        (arc.net.ordinal, arc.net.name.as_deref()),
+        (Some(1), Some("GND"))
+    );
+
+    let dimension = view
+        .dimensions()
+        .next()
+        .expect("dimension")
+        .expect("typed dimension");
+    assert_eq!(dimension.kind, "aligned");
+    assert_eq!(dimension.points.len(), 2);
+    assert!(dimension.locked);
+    assert_eq!(dimension.orientation, Some(1));
+}
+
+#[test]
+fn groups_generated_items_and_embedded_files_are_typed() {
+    let view = PcbView::parse(CARRIERS, PcbLimits::default()).expect("board view");
+    let group = view.groups().next().expect("group").expect("typed group");
+    assert_eq!(group.name, "Review");
+    assert_eq!(group.uuid.as_deref(), Some("group-id"));
+    assert!(group.locked);
+    assert_eq!(group.members, ["line-id", "arc-id"]);
+
+    let generated = view
+        .generated_items()
+        .next()
+        .expect("generated")
+        .expect("typed generated");
+    assert_eq!(generated.kind.as_deref(), Some("tuned_delay"));
+    assert_eq!(generated.name.as_deref(), Some("Tune"));
+    assert_eq!(generated.property_heads, ["corner_radius"]);
+
+    let file = view
+        .embedded_files()
+        .next()
+        .expect("file")
+        .expect("typed file");
+    assert_eq!(file.name, "asset.step");
+    assert_eq!(file.file_type, "model");
+    assert_eq!(file.checksum.as_deref(), Some("abcd"));
+    assert_eq!(file.encoded_data_bytes, 8);
+}
+
+#[test]
+fn identified_top_level_removal_is_source_preserving_and_idempotent() {
+    let limits = PcbLimits::default();
+    let view = PcbView::parse(CARRIERS, limits).expect("board view");
+    let removed = view
+        .remove_top_level_by_id("group-id")
+        .expect("remove group");
+    assert!(removed.changed);
+    assert!(!removed.source.contains("(group \"Review\""));
+    assert!(removed.source.contains("(generated (id generated-id)"));
+    assert!(removed.source.contains("(file (name \"asset.step\")"));
+    parse(&removed.source).expect("removed source remains valid");
+
+    let second = PcbView::parse(&removed.source, limits)
+        .expect("reparse")
+        .remove_top_level_by_id("group-id")
+        .expect("stable absent removal");
+    assert!(!second.changed);
+    assert_eq!(second.source, removed.source);
+
+    let duplicate = CARRIERS.replace("(uuid line-id)", "(uuid group-id)");
+    let view = PcbView::parse(&duplicate, limits).expect("duplicate view");
+    assert_eq!(
+        view.remove_top_level_by_id("group-id")
+            .expect_err("ambiguous identifier")
+            .kind,
+        ErrorKind::UnexpectedToken
+    );
+}
+
+#[test]
+fn expanded_carrier_and_nested_collection_limits_fail_closed() {
+    for limits in [
+        PcbLimits {
+            max_graphics: 7,
+            ..PcbLimits::default()
+        },
+        PcbLimits {
+            max_arcs: 0,
+            ..PcbLimits::default()
+        },
+        PcbLimits {
+            max_dimensions: 0,
+            ..PcbLimits::default()
+        },
+        PcbLimits {
+            max_groups: 0,
+            ..PcbLimits::default()
+        },
+        PcbLimits {
+            max_generated_items: 0,
+            ..PcbLimits::default()
+        },
+        PcbLimits {
+            max_embedded_files: 0,
+            ..PcbLimits::default()
+        },
+    ] {
+        assert_eq!(
+            PcbView::parse(CARRIERS, limits)
+                .expect_err("carrier limit")
+                .kind,
+            ErrorKind::ResourceLimit
+        );
+    }
+
+    let view = PcbView::parse(
+        CARRIERS,
+        PcbLimits {
+            max_graphic_points: 2,
+            ..PcbLimits::default()
+        },
+    )
+    .expect("point limit remains lazy");
+    assert_eq!(
+        view.graphics()
+            .nth(5)
+            .expect("polygon")
+            .expect_err("point limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let view = PcbView::parse(
+        CARRIERS,
+        PcbLimits {
+            max_members: 1,
+            ..PcbLimits::default()
+        },
+    )
+    .expect("member limit remains lazy");
+    assert_eq!(
+        view.groups()
+            .next()
+            .expect("group")
+            .expect_err("member limit")
+            .kind,
+        ErrorKind::ResourceLimit
     );
 }

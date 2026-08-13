@@ -392,6 +392,8 @@ secondary = [
     "Board net references resolve ordinal-only and name-only encodings against the net table",
     "Exact source spans and unknown top-level forms remain available in source order",
     "Focused property writes preserve untouched bytes and are stable after semantic reparse",
+    "Board graphics, routing arcs, dimensions, groups, generated items, and embedded files expose bounded typed iterators",
+    "Top-level UUID and legacy-ID removal is ambiguity-safe, source preserving, and idempotent",
     "Source, family, nested-object, depth, and output limits fail closed",
     "Lazy typed diagnostics use absolute board-source positions",
 ]
