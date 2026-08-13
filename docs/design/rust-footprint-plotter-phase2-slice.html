@@ -55,11 +55,13 @@
         its drill overlay.
       </li>
       <li>
-        Source bytes, nesting depth, metadata-form count, operation count, and
-        serialized output bytes are independently caller bounded. Metadata
-        duplicates therefore cannot consume the geometry allowance. The JSON
-        writer stops at the output limit instead of first allocating an
-        unbounded result.
+        Source bytes, nesting depth, metadata-form count, operation count,
+        retained polygon-point count, and serialized output bytes are
+        independently caller bounded. Custom-pad and footprint polygons
+        enforce the point allowance while parsing, before oversized geometry
+        is retained. Metadata duplicates therefore cannot consume a geometry
+        allowance. The JSON writer stops at the output limit instead of first
+        allocating an unbounded result.
       </li>
     </ul>
   </section>

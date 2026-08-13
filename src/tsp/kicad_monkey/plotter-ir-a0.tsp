@@ -25,6 +25,7 @@ model FootprintPlotRequest {
   max_depth: uint32;
   max_metadata_forms: uint32;
   max_operations: uint32;
+  max_points: uint32;
 }
 
 /** Metadata paired with a separate kicad.plotter_ir.a0 JSON byte buffer. */

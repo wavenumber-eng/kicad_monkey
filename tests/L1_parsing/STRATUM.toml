@@ -327,6 +327,7 @@ secondary = [
     "Custom gr_poly flashes and chamfered roundrect polygons match Python exactly",
     "Shared graphic and drill states are semantically exclusive after structural decoding",
     "Pattern step caps and zero-progress strokes fail without partial geometry",
+    "Footprint and custom-pad polygon points are bounded before retained output growth",
     "Generated Python and TypeScript projections preserve the strict tagged operation union",
     "The WASM boundary accepts source bytes and returns bounded out-of-band JSON bytes",
     "Unsupported stroke styles and all resource limits fail explicitly",

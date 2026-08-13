@@ -13,4 +13,5 @@ export interface FootprintPlotRequestA0 {
   max_depth: number;
   max_metadata_forms: number;
   max_operations: number;
+  max_points: number;
 }

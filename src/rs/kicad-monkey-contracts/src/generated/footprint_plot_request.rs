@@ -39,6 +39,7 @@ pub mod error {
 ///    "max_metadata_forms",
 ///    "max_operations",
 ///    "max_output_bytes",
+///    "max_points",
 ///    "max_source_bytes",
 ///    "type",
 ///    "version"
@@ -64,6 +65,11 @@ pub mod error {
 ///    },
 ///    "max_output_bytes": {
 ///      "type": "string"
+///    },
+///    "max_points": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
 ///    },
 ///    "max_source_bytes": {
 ///      "type": "string"
@@ -93,6 +99,7 @@ pub struct FootprintPlotRequestA0 {
     pub max_metadata_forms: u32,
     pub max_operations: u32,
     pub max_output_bytes: ::std::string::String,
+    pub max_points: u32,
     pub max_source_bytes: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub source_path: ::std::option::Option<::std::string::String>,

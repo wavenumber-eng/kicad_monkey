@@ -395,6 +395,7 @@ class FootprintPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     max_depth: int
     max_metadata_forms: int
     max_operations: int
+    max_points: int
     source_path: str | UnsetType = field(default=UNSET)
     document_id: str | UnsetType = field(default=UNSET)
 

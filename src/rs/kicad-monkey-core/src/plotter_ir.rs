@@ -26,6 +26,7 @@ pub struct FootprintPlotLimits {
     pub max_depth: usize,
     pub max_metadata_forms: usize,
     pub max_operations: usize,
+    pub max_points: usize,
 }
 
 impl Default for FootprintPlotLimits {
@@ -35,6 +36,7 @@ impl Default for FootprintPlotLimits {
             max_depth: 128,
             max_metadata_forms: 256,
             max_operations: 100_000,
+            max_points: 1_000_000,
         }
     }
 }
@@ -54,6 +56,16 @@ pub struct FootprintPlotDocument {
     pub locked: bool,
     pub placed: bool,
     pub operations: Vec<PlotterOperation>,
+}
+
+#[derive(Default)]
+struct FootprintGeometrySpans {
+    lines: Vec<FormSpan>,
+    arcs: Vec<FormSpan>,
+    circles: Vec<FormSpan>,
+    rects: Vec<FormSpan>,
+    polys: Vec<FormSpan>,
+    pads: Vec<FormSpan>,
 }
 
 /// Read supported footprint geometry directly from selected forms.
@@ -124,12 +136,7 @@ pub fn footprint_plot_document(
     let mut attr = None;
     let mut solder_mask_margin = None;
     let mut metadata_forms = 0usize;
-    let mut line_spans = Vec::new();
-    let mut arc_spans = Vec::new();
-    let mut circle_spans = Vec::new();
-    let mut rect_spans = Vec::new();
-    let mut poly_spans = Vec::new();
-    let mut pad_spans = Vec::new();
+    let mut geometry = FootprintGeometrySpans::default();
     for span in spans {
         if !matches!(
             span.head.as_deref(),
@@ -168,53 +175,17 @@ pub fn footprint_plot_document(
             Some("solder_mask_margin") if solder_mask_margin.is_none() => {
                 solder_mask_margin = Some(form_number(source, &span, "solder_mask_margin")?);
             }
-            Some("fp_line") => line_spans.push(span),
-            Some("fp_arc") => arc_spans.push(span),
-            Some("fp_circle") => circle_spans.push(span),
-            Some("fp_rect") => rect_spans.push(span),
-            Some("fp_poly") => poly_spans.push(span),
-            Some("pad") => pad_spans.push(span),
+            Some("fp_line") => geometry.lines.push(span),
+            Some("fp_arc") => geometry.arcs.push(span),
+            Some("fp_circle") => geometry.circles.push(span),
+            Some("fp_rect") => geometry.rects.push(span),
+            Some("fp_poly") => geometry.polys.push(span),
+            Some("pad") => geometry.pads.push(span),
             _ => {}
         }
     }
-    let mut operations = Vec::new();
-    for span in line_spans {
-        let remaining = remaining_operations(&operations, limits)?;
-        let additions = parse_line(source, &span, remaining)?;
-        append_operations(&mut operations, additions, limits.max_operations)?;
-    }
-    for span in arc_spans {
-        let remaining = remaining_operations(&operations, limits)?;
-        let additions = parse_arc(source, &span, remaining)?;
-        append_operations(&mut operations, additions, limits.max_operations)?;
-    }
-    for span in circle_spans {
-        append_operations(
-            &mut operations,
-            vec![parse_circle(source, &span)?],
-            limits.max_operations,
-        )?;
-    }
-    for span in rect_spans {
-        append_operations(
-            &mut operations,
-            vec![parse_rect(source, &span)?],
-            limits.max_operations,
-        )?;
-    }
-    for span in poly_spans {
-        append_operations(
-            &mut operations,
-            vec![parse_poly(source, &span)?],
-            limits.max_operations,
-        )?;
-    }
-    let footprint_mask_margin = solder_mask_margin.unwrap_or(0.0);
-    for span in pad_spans {
-        let remaining = limits.max_operations.saturating_sub(operations.len());
-        let additions = parse_pad(source, &span, footprint_mask_margin, remaining)?;
-        append_operations(&mut operations, additions, limits.max_operations)?;
-    }
+    let operations =
+        build_geometry_operations(source, geometry, solder_mask_margin.unwrap_or(0.0), limits)?;
     let (locked, placed) = root_flags(source)?;
     let version = version.unwrap_or(DEFAULT_FOOTPRINT_VERSION);
     ensure_javascript_safe_integer(version)?;
@@ -233,6 +204,64 @@ pub fn footprint_plot_document(
         placed,
         operations,
     })
+}
+
+fn build_geometry_operations(
+    source: &str,
+    geometry: FootprintGeometrySpans,
+    footprint_mask_margin: f64,
+    limits: FootprintPlotLimits,
+) -> Result<Vec<PlotterOperation>, Error> {
+    let mut operations = Vec::new();
+    let mut point_count = 0usize;
+    for span in geometry.lines {
+        let remaining = remaining_operations(&operations, limits)?;
+        let additions = parse_line(source, &span, remaining)?;
+        append_bounded_operations(&mut operations, additions, limits, &mut point_count)?;
+    }
+    for span in geometry.arcs {
+        let remaining = remaining_operations(&operations, limits)?;
+        let additions = parse_arc(source, &span, remaining)?;
+        append_bounded_operations(&mut operations, additions, limits, &mut point_count)?;
+    }
+    for span in geometry.circles {
+        append_bounded_operations(
+            &mut operations,
+            vec![parse_circle(source, &span)?],
+            limits,
+            &mut point_count,
+        )?;
+    }
+    for span in geometry.rects {
+        append_bounded_operations(
+            &mut operations,
+            vec![parse_rect(source, &span)?],
+            limits,
+            &mut point_count,
+        )?;
+    }
+    for span in geometry.polys {
+        let remaining_points = limits.max_points.saturating_sub(point_count);
+        append_bounded_operations(
+            &mut operations,
+            vec![parse_poly(source, &span, remaining_points)?],
+            limits,
+            &mut point_count,
+        )?;
+    }
+    for span in geometry.pads {
+        let remaining = limits.max_operations.saturating_sub(operations.len());
+        let remaining_points = limits.max_points.saturating_sub(point_count);
+        let additions = parse_pad(
+            source,
+            &span,
+            footprint_mask_margin,
+            remaining,
+            remaining_points,
+        )?;
+        append_bounded_operations(&mut operations, additions, limits, &mut point_count)?;
+    }
+    Ok(operations)
 }
 
 fn parse_line(
@@ -429,11 +458,11 @@ fn parse_rect(source: &str, span: &FormSpan) -> Result<PlotterOperation, Error> 
     }))
 }
 
-fn parse_poly(source: &str, span: &FormSpan) -> Result<PlotterOperation, Error> {
+fn parse_poly(source: &str, span: &FormSpan, max_points: usize) -> Result<PlotterOperation, Error> {
     let form = parse_span(source, span)?;
     let points_form =
         child(&form, "pts").ok_or_else(|| model_error("fp_poly requires pts", span.start))?;
-    let points = list(points_form)
+    let point_forms = list(points_form)
         .ok_or_else(|| model_error("fp_poly pts must be a list", span.start))?
         .iter()
         .skip(1)
@@ -442,14 +471,17 @@ fn parse_poly(source: &str, span: &FormSpan) -> Result<PlotterOperation, Error> 
                 .and_then(|items| items.first())
                 .and_then(sexp_text)
                 == Some("xy")
-        })
-        .map(|value| {
-            Ok([
-                mm_to_nm(numeric_at(value, 1, span.start)?)?,
-                mm_to_nm(numeric_at(value, 2, span.start)?)?,
-            ])
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
+        });
+    let mut points = Vec::new();
+    for value in point_forms {
+        if points.len() >= max_points {
+            return Err(geometry_limit_error());
+        }
+        points.push([
+            mm_to_nm(numeric_at(value, 1, span.start)?)?,
+            mm_to_nm(numeric_at(value, 2, span.start)?)?,
+        ]);
+    }
     let stroke = parse_stroke(&form, span.start)?;
     Ok(PlotterOperation::PlotPoly(PlotterPoly {
         points,
@@ -493,6 +525,7 @@ fn parse_pad(
     span: &FormSpan,
     footprint_mask_margin_mm: f64,
     max_operations: usize,
+    max_points: usize,
 ) -> Result<Vec<PlotterOperation>, Error> {
     let form = parse_span(source, span)?;
     let values = list(&form).ok_or_else(|| model_error("pad must be a list", span.start))?;
@@ -529,6 +562,16 @@ fn parse_pad(
         && drill
             .diameter_mm
             .is_some_and(|diameter| size_x_mm.max(size_y_mm) <= diameter);
+    let context = PadOperationContext {
+        x,
+        y,
+        orient_deg,
+        size_x_nm,
+        size_y_nm,
+        pad_type,
+        layers: &layers,
+        mask_margin_nm,
+    };
 
     let mut output = Vec::new();
     if !suppress_npth_flash {
@@ -559,32 +602,10 @@ fn parse_pad(
                 mask_margin_nm,
             })),
             "roundrect" => Some(parse_roundrect_flash(
-                &form,
-                span.start,
-                PadOperationContext {
-                    x,
-                    y,
-                    orient_deg,
-                    size_x_nm,
-                    size_y_nm,
-                    pad_type,
-                    layers: &layers,
-                    mask_margin_nm,
-                },
+                &form, span.start, context, max_points,
             )?),
             "custom" => Some(parse_custom_pad_flash(
-                &form,
-                span.start,
-                PadOperationContext {
-                    x,
-                    y,
-                    orient_deg,
-                    size_x_nm,
-                    size_y_nm,
-                    pad_type,
-                    layers: &layers,
-                    mask_margin_nm,
-                },
+                &form, span.start, context, max_points,
             )?),
             "trapezoid" => {
                 let delta = child(&form, "rect_delta");
@@ -626,19 +647,7 @@ fn parse_pad(
     }
 
     if matches!(pad_type, "thru_hole" | "np_thru_hole")
-        && let Some(drill_operation) = pad_drill_operation(
-            PadOperationContext {
-                x,
-                y,
-                orient_deg,
-                size_x_nm,
-                size_y_nm,
-                pad_type,
-                layers: &layers,
-                mask_margin_nm,
-            },
-            drill,
-        )?
+        && let Some(drill_operation) = pad_drill_operation(context, drill)?
     {
         push_plotter_operation(&mut output, drill_operation, max_operations)?;
     }
@@ -649,6 +658,7 @@ fn parse_roundrect_flash(
     form: &Sexp,
     position: Position,
     context: PadOperationContext<'_>,
+    max_points: usize,
 ) -> Result<PlotterOperation, Error> {
     let round_ratio = child(form, "roundrect_rratio")
         .map(|value| numeric_at(value, 1, position))
@@ -671,18 +681,22 @@ fn parse_roundrect_flash(
         })
         .unwrap_or_default();
     if !chamfer_corners.is_empty() && chamfer_ratio > 0.0 && corner_radius_nm < 1 {
+        let polygon = chamfered_pad_polygon(
+            context.size_x_nm,
+            context.size_y_nm,
+            chamfer_ratio,
+            &chamfer_corners,
+        )?;
+        if polygon.len() > max_points {
+            return Err(geometry_limit_error());
+        }
         return Ok(PlotterOperation::FlashPadCustom(FlashPadCustom {
             x: context.x,
             y: context.y,
             size_x_nm: context.size_x_nm,
             size_y_nm: context.size_y_nm,
             orient_deg: context.orient_deg,
-            polygons: vec![chamfered_pad_polygon(
-                context.size_x_nm,
-                context.size_y_nm,
-                chamfer_ratio,
-                &chamfer_corners,
-            )?],
+            polygons: vec![polygon],
             polygon_widths_nm: None,
             anchor_shape: None,
             layers: context.layers.to_vec(),
@@ -705,9 +719,11 @@ fn parse_custom_pad_flash(
     form: &Sexp,
     position: Position,
     context: PadOperationContext<'_>,
+    max_points: usize,
 ) -> Result<PlotterOperation, Error> {
     let mut polygons = Vec::new();
     let mut polygon_widths_nm = Vec::new();
+    let mut point_count = 0usize;
     if let Some(primitives) = child(form, "primitives").and_then(list) {
         for primitive in primitives.iter().skip(1) {
             if value_at(primitive, 0) != Some("gr_poly") {
@@ -716,17 +732,21 @@ fn parse_custom_pad_flash(
             let Some(points) = child(primitive, "pts").and_then(list) else {
                 continue;
             };
-            let polygon = points
+            let mut polygon = Vec::new();
+            for point in points
                 .iter()
                 .skip(1)
                 .filter(|point| value_at(point, 0) == Some("xy"))
-                .map(|point| {
-                    Ok([
-                        mm_to_nm(numeric_at(point, 1, position)?)?,
-                        mm_to_nm(numeric_at(point, 2, position)?)?,
-                    ])
-                })
-                .collect::<Result<Vec<_>, Error>>()?;
+            {
+                if point_count >= max_points {
+                    return Err(geometry_limit_error());
+                }
+                polygon.push([
+                    mm_to_nm(numeric_at(point, 1, position)?)?,
+                    mm_to_nm(numeric_at(point, 2, position)?)?,
+                ]);
+                point_count = point_count.saturating_add(1);
+            }
             if polygon.is_empty() {
                 continue;
             }
@@ -994,6 +1014,35 @@ fn append_operations(
     }
     operations.extend(additions);
     Ok(())
+}
+
+fn append_bounded_operations(
+    operations: &mut Vec<PlotterOperation>,
+    additions: Vec<PlotterOperation>,
+    limits: FootprintPlotLimits,
+    point_count: &mut usize,
+) -> Result<(), Error> {
+    let added_points = additions
+        .iter()
+        .map(operation_point_count)
+        .try_fold(0usize, usize::checked_add)
+        .ok_or_else(geometry_limit_error)?;
+    if added_points > limits.max_points.saturating_sub(*point_count) {
+        return Err(geometry_limit_error());
+    }
+    append_operations(operations, additions, limits.max_operations)?;
+    *point_count = point_count.saturating_add(added_points);
+    Ok(())
+}
+
+fn operation_point_count(operation: &PlotterOperation) -> usize {
+    match operation {
+        PlotterOperation::PlotPoly(value) => value.points.len(),
+        PlotterOperation::FlashPadCustom(value) => {
+            value.polygons.iter().map(Vec::len).sum::<usize>()
+        }
+        _ => 0,
+    }
 }
 
 fn remaining_operations(
@@ -1546,6 +1595,15 @@ fn metadata_limit_error() -> Error {
         ErrorPhase::Tree,
         ErrorKind::ResourceLimit,
         "Footprint plotter metadata exceeds max_metadata_forms",
+        Position::START,
+    )
+}
+
+fn geometry_limit_error() -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        "Footprint plotter geometry exceeds max_points",
         Position::START,
     )
 }

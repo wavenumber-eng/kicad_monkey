@@ -299,6 +299,20 @@ fn custom_and_chamfered_pads_match_python_local_polygon_semantics() {
             .kind,
         ErrorKind::ResourceLimit
     );
+
+    let exact_points = FootprintPlotLimits {
+        max_points: 12,
+        ..FootprintPlotLimits::default()
+    };
+    assert!(footprint_plot_document(source, exact_points).is_ok());
+    let limited_points = FootprintPlotLimits {
+        max_points: 11,
+        ..exact_points
+    };
+    let error = footprint_plot_document(source, limited_points)
+        .expect_err("custom polygon points observe an aggregate limit");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+    assert!(error.message.contains("max_points"));
 }
 
 #[test]

@@ -60,6 +60,7 @@ const footprintPlot = {
   max_depth: 64,
   max_metadata_forms: 128,
   max_operations: 4096,
+  max_points: 16384,
 } satisfies FootprintPlotRequestA0;
 
 const footprintPlotDocument = {

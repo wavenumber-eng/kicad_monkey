@@ -14,6 +14,7 @@ import pytest
 from kicad_monkey.contracts.generated import (
     FootprintPlotDocumentA0,
     decode_footprint_plot_document_a0,
+    decode_footprint_plot_request_a0,
 )
 from kicad_monkey.kicad_footprint import KiCadFootprint
 from kicad_monkey.kicad_footprint_to_ir import footprint_to_ir
@@ -137,3 +138,21 @@ def test_rust_core_and_host_adapter_consume_the_shared_vector() -> None:
         ]
     )
     _run([cargo, "test", "--locked", "--package", "kicad-monkey-wasm"])
+
+
+def test_footprint_plot_request_requires_an_explicit_point_budget() -> None:
+    request = {
+        "type": "kicad_monkey.footprint_plot.request",
+        "version": "a0",
+        "max_source_bytes": "4096",
+        "max_output_bytes": "4096",
+        "max_depth": 32,
+        "max_metadata_forms": 32,
+        "max_operations": 32,
+        "max_points": 128,
+    }
+    decoded = decode_footprint_plot_request_a0(json.dumps(request).encode())
+    assert decoded.max_points == 128
+    del request["max_points"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_footprint_plot_request_a0(json.dumps(request).encode())

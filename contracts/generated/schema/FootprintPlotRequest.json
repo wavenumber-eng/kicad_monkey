@@ -37,6 +37,11 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 4294967295
+        },
+        "max_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
         }
     },
     "required": [
@@ -46,7 +51,8 @@
         "max_output_bytes",
         "max_depth",
         "max_metadata_forms",
-        "max_operations"
+        "max_operations",
+        "max_points"
     ],
     "unevaluatedProperties": {
         "not": {}
