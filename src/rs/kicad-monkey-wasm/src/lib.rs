@@ -939,14 +939,16 @@ mod tests {
           (symbol "Demo" (in_bom yes) (on_board yes)
             (symbol "Demo_1_1"
               (rectangle (start -1 1) (end 1 -1)
-                (stroke (width 0.2) (type solid)) (fill (type background))))))"#;
+                (stroke (width 0.2) (type solid)) (fill (type background)))
+              (pin passive inverted_clock (at 0 0 0) (length 2.54)
+                (name "") (number "")))))"#;
         let request = br#"{"type":"kicad_monkey.symbol_plot.request","version":"a0","symbol_name":"Demo","unit":1,"style":0,"max_source_bytes":"4096","max_output_bytes":"65536","max_depth":32,"max_symbols":10,"max_subsymbols":10,"max_operations":10,"max_points":100}"#;
         let output = plot_symbol_ir(source, request).expect("WASM symbol plot operation");
         let metadata: Value =
             serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
         let document: Value =
             serde_json::from_slice(&output.output_bytes()).expect("symbol document JSON");
-        assert_eq!(metadata["total_operations"], 2);
+        assert_eq!(metadata["total_operations"], 5);
         assert_eq!(document["source_kind"], "SYM");
         assert_eq!(document["records"][0]["object_id"], "Demo");
         assert_eq!(document["records"][1]["operations"][0]["kind"], "Rect");
@@ -954,6 +956,11 @@ mod tests {
             document["records"][1]["operations"][0]["fill"],
             "FILLED_WITH_BG_BODYCOLOR"
         );
+        assert_eq!(document["records"][1]["operations"][1]["kind"], "Circle");
+        assert_eq!(document["records"][1]["operations"][1]["cx"], 1_905_000);
+        assert_eq!(document["records"][1]["operations"][2]["kind"], "PlotPoly");
+        assert_eq!(document["records"][1]["operations"][3]["kind"], "PlotPoly");
+        assert_eq!(document["records"][1]["operations"][4]["kind"], "Rect");
     }
 
     #[wasm_bindgen_test]

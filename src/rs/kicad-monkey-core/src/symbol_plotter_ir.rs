@@ -9,6 +9,7 @@ use crate::sexpr::{
     parse_with_limits,
 };
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
+use crate::symbol_pin::pin_operations;
 
 const DEFAULT_BODY_WIDTH_NM: i64 = 152_400;
 const DEFAULT_POLYLINE_WIDTH_NM: i64 = 152_400;
@@ -278,6 +279,11 @@ fn convert_subsymbol(
             if let Some(outline) = outline {
                 push_operation(&mut outlines, outline, max_operations)?;
             }
+        }
+    }
+    for pin in children(form, "pin") {
+        for operation in pin_operations(pin, max_points, point_count, position)? {
+            push_operation(&mut fills, operation, max_operations)?;
         }
     }
     if fills.len().saturating_add(outlines.len()) > max_operations {

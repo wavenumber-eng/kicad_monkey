@@ -183,3 +183,120 @@ fn root_target_and_duplicate_contracts_are_strict() {
         ErrorKind::UnexpectedToken
     );
 }
+
+#[test]
+fn every_pin_graphic_style_matches_the_python_geometry_order() {
+    let styles = [
+        "line",
+        "inverted",
+        "clock",
+        "inverted_clock",
+        "input_low",
+        "clock_low",
+        "output_low",
+        "edge_clock_high",
+        "non_logic",
+    ];
+    let pins = styles
+        .iter()
+        .enumerate()
+        .map(|(index, style)| {
+            format!(
+                "(pin passive {style} (at 0 {} 0) (length 2.54) (name \"\") (number \"\"))",
+                index as f64 * 2.54
+            )
+        })
+        .collect::<String>();
+    let source = format!("(kicad_symbol_lib (symbol \"Pins\" (symbol \"Pins_1_1\" {pins})))");
+    let document = symbol_plot_document(&source, "Pins", Some(1), 0, SymbolPlotLimits::default())
+        .expect("pin styles");
+    let operations = &document.records[0].operations;
+    assert_eq!(operations.len(), 20);
+    assert_circle_at(&operations[1], 1_905_000, -2_540_000);
+    assert_circle_at(&operations[5], 1_905_000, -7_620_000);
+    let actual_polys = operations
+        .iter()
+        .filter_map(|operation| match operation {
+            PlotterOperation::PlotPoly(poly) => Some(poly.points.clone()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(actual_polys, expected_pin_polys());
+}
+
+fn assert_circle_at(operation: &PlotterOperation, cx: i64, cy: i64) {
+    let PlotterOperation::Circle(circle) = operation else {
+        panic!("pin circle")
+    };
+    assert_eq!(
+        (circle.cx, circle.cy, circle.diameter_nm),
+        (cx, cy, 1_270_000)
+    );
+    assert_eq!(circle.stroke_color.as_deref(), Some("#840000FF"));
+}
+
+fn expected_pin_polys() -> Vec<Vec<[i64; 2]>> {
+    vec![
+        vec![[2_540_000, 0], [0, 0]],
+        vec![[1_270_000, -2_540_000], [0, -2_540_000]],
+        vec![[2_540_000, -5_080_000], [0, -5_080_000]],
+        vec![
+            [2_540_000, -4_445_000],
+            [3_810_000, -5_080_000],
+            [2_540_000, -5_715_000],
+        ],
+        vec![[1_270_000, -7_620_000], [0, -7_620_000]],
+        vec![
+            [2_540_000, -6_985_000],
+            [3_810_000, -7_620_000],
+            [2_540_000, -8_255_000],
+        ],
+        vec![[2_540_000, -10_160_000], [0, -10_160_000]],
+        vec![
+            [1_270_000, -10_160_000],
+            [1_270_000, -11_430_000],
+            [2_540_000, -10_160_000],
+        ],
+        vec![[2_540_000, -12_700_000], [0, -12_700_000]],
+        vec![
+            [2_540_000, -12_065_000],
+            [3_810_000, -12_700_000],
+            [2_540_000, -13_335_000],
+        ],
+        vec![
+            [1_270_000, -12_700_000],
+            [1_270_000, -13_970_000],
+            [2_540_000, -12_700_000],
+        ],
+        vec![[2_540_000, -15_240_000], [0, -15_240_000]],
+        vec![[2_540_000, -16_510_000], [1_270_000, -15_240_000]],
+        vec![
+            [2_540_000, -17_145_000],
+            [1_270_000, -17_780_000],
+            [2_540_000, -18_415_000],
+        ],
+        vec![[1_270_000, -17_780_000], [0, -17_780_000]],
+        vec![[2_540_000, -20_320_000], [0, -20_320_000]],
+        vec![[3_175_000, -20_955_000], [1_905_000, -19_685_000]],
+        vec![[3_175_000, -19_685_000], [1_905_000, -20_955_000]],
+    ]
+}
+
+#[test]
+fn hidden_and_rotated_pins_preserve_fail_closed_ordering() {
+    let source = r#"(kicad_symbol_lib (symbol "D" (symbol "D_1_1"
+      (rectangle (start -1 1) (end 1 -1) (stroke (width 0.1) (type solid)) (fill (type background)))
+      (pin passive line (at 0 0 90) (length 2.54) (name "") (number ""))
+      (pin passive line (at 0 0 0) (length 2.54) (hide yes) (name "") (number "")))))"#;
+    let document = symbol_plot_document(source, "D", None, 0, SymbolPlotLimits::default())
+        .expect("rotated pins");
+    assert_eq!(document.records[0].operations.len(), 3);
+    let PlotterOperation::PlotPoly(pin) = &document.records[0].operations[1] else {
+        panic!("pin between fill and outline")
+    };
+    assert_eq!(pin.points, [[0, -2_540_000], [0, 0]]);
+    let PlotterOperation::Rect(outline) = &document.records[0].operations[2] else {
+        panic!("outline remains deferred after pins")
+    };
+    assert_eq!(outline.fill, PlotterFill::NoFill);
+}

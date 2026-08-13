@@ -121,6 +121,67 @@ def test_symbol_semantic_validator_rejects_cross_domain_states() -> None:
         decode_symbol_plot_document_a0(json.dumps(pad).encode())
 
 
+def _pin_style_source() -> str:
+    styles = (
+        "line",
+        "inverted",
+        "clock",
+        "inverted_clock",
+        "input_low",
+        "clock_low",
+        "output_low",
+        "edge_clock_high",
+        "non_logic",
+    )
+    pins = "".join(
+        f'(pin passive {style} (at 0 {index * 2.54} 0) (length 2.54) '
+        '(name "") (number ""))'
+        for index, style in enumerate(styles)
+    )
+    return f'(kicad_symbol_lib (symbol "Pins" (symbol "Pins_1_1" {pins})))'
+
+
+def test_every_non_text_pin_style_matches_python_geometry() -> None:
+    library = KiCadSymbolLib.from_text(_pin_style_source())
+    symbol = next(value for value in library.symbols if value.name == "Pins")
+    operations = lib_symbol_to_ir(symbol, unit=1, style=0).to_dict()["records"][1][
+        "operations"
+    ]
+
+    assert [operation["kind"] for operation in operations] == [
+        "PlotPoly", "Circle", "PlotPoly", "PlotPoly", "PlotPoly",
+        "Circle", "PlotPoly", "PlotPoly", "PlotPoly", "PlotPoly",
+        "PlotPoly", "PlotPoly", "PlotPoly", "PlotPoly", "PlotPoly",
+        "PlotPoly", "PlotPoly", "PlotPoly", "PlotPoly", "PlotPoly",
+    ]
+    assert [(operations[index]["cx"], operations[index]["cy"]) for index in (1, 5)] == [
+        (1_905_000, -2_540_000),
+        (1_905_000, -7_620_000),
+    ]
+    assert [
+        operation["points"] for operation in operations if operation["kind"] == "PlotPoly"
+    ] == [
+        [[2_540_000, 0], [0, 0]],
+        [[1_270_000, -2_540_000], [0, -2_540_000]],
+        [[2_540_000, -5_080_000], [0, -5_080_000]],
+        [[2_540_000, -4_445_000], [3_810_000, -5_080_000], [2_540_000, -5_715_000]],
+        [[1_270_000, -7_620_000], [0, -7_620_000]],
+        [[2_540_000, -6_985_000], [3_810_000, -7_620_000], [2_540_000, -8_255_000]],
+        [[2_540_000, -10_160_000], [0, -10_160_000]],
+        [[1_270_000, -10_160_000], [1_270_000, -11_430_000], [2_540_000, -10_160_000]],
+        [[2_540_000, -12_700_000], [0, -12_700_000]],
+        [[2_540_000, -12_065_000], [3_810_000, -12_700_000], [2_540_000, -13_335_000]],
+        [[1_270_000, -12_700_000], [1_270_000, -13_970_000], [2_540_000, -12_700_000]],
+        [[2_540_000, -15_240_000], [0, -15_240_000]],
+        [[2_540_000, -16_510_000], [1_270_000, -15_240_000]],
+        [[2_540_000, -17_145_000], [1_270_000, -17_780_000], [2_540_000, -18_415_000]],
+        [[1_270_000, -17_780_000], [0, -17_780_000]],
+        [[2_540_000, -20_320_000], [0, -20_320_000]],
+        [[3_175_000, -20_955_000], [1_905_000, -19_685_000]],
+        [[3_175_000, -19_685_000], [1_905_000, -20_955_000]],
+    ]
+
+
 def test_rust_symbol_core_and_host_adapter_are_rack_orchestrated() -> None:
     cargo = shutil.which("cargo")
     assert cargo is not None, "cargo is required for the Rust plotter-IR gate"

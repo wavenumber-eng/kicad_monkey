@@ -12,6 +12,7 @@ pub mod plotter_types;
 pub mod sexpr;
 pub mod sexpr_mutation;
 pub mod sexpr_projection;
+mod symbol_pin;
 pub mod symbol_plotter_ir;
 
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};

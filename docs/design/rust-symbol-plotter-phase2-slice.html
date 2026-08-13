@@ -14,9 +14,10 @@
       Library-symbol bytes now produce the non-text body subset of
       <code>kicad.plotter_ir.a0</code>. Rectangles, circles, three-point arcs,
       polylines, and cubic Béziers reuse the same producer-neutral operations
-      as footprints and future PCB and schematic readers. Text, pin labels,
-      and pin graphics remain outside this slice so shaping and pin semantics
-      can close through their own parity gates.
+      as footprints and future PCB and schematic readers. Pin shafts and all
+      nine non-text pin decorations share those operations as well. Text and
+      pin labels remain outside this slice so shaping can close through its own
+      parity gate.
     </p>
   </section>
 
@@ -39,6 +40,11 @@
       <li>
         KiCad stroke defaults, explicit RGBA colours, line styles, fill enums,
         and fill-first/deferred-outline ordering match the Python producer.
+      </li>
+      <li>
+        Pin geometry covers line, inverted, clock, inverted-clock, input-low,
+        clock-low, output-low, edge-clock-high, and non-logic styles. Hidden
+        pins emit no operations, and arbitrary rotations remain deterministic.
       </li>
     </ul>
   </section>
@@ -65,18 +71,19 @@
   <section>
     <h2>Evidence And Retained Work</h2>
     <p>
-      Rack L1_027 compares the exact non-text operation stream with the Python
-      oracle, validates both the generated strict schema and established IR
-      schema, and orchestrates native and host-adapter Rust tests. The real
-      WASM suite covers successful selection and fail-closed point limits.
+      Rack L1_027 compares the exact body and all-style pin operation streams
+      with the Python oracle, validates both the generated strict schema and
+      established IR schema, and orchestrates native and host-adapter Rust
+      tests. The real WASM suite covers successful pin geometry and fail-closed
+      point limits.
       Rustfmt, warnings-denied Clippy, the wn-dev-std structural ratchet, the
       complete Cargo workspace, and deterministic contract generation pass.
     </p>
     <p>
-      Next work may add pin graphics without text, followed by Rustybuzz-based
-      text shaping and outline extraction. Symbol inheritance also remains a
-      separate library-resolution slice; this producer records the base name
-      but does not resolve inherited geometry.
+      Pin names and numbers follow through the Rustybuzz shaping and outline
+      extraction gate. Symbol inheritance also remains a separate
+      library-resolution slice; this producer records the base name but does
+      not resolve inherited geometry.
     </p>
   </section>
 </body>
