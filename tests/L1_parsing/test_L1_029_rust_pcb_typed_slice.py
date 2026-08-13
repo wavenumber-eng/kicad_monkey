@@ -50,6 +50,23 @@ SPARSE_TABLE_BLOCKS = """(kicad_pcb
   (table (uuid absent-blocks))
   (table (border) (separators) (uuid sparse-blocks))
 )"""
+ZONE_CARRIERS = """(kicad_pcb
+  (net 1 "GND")
+  (zone (net 1) (net_name "GND") (locked yes) (layers "F.Cu" "B.Cu")
+    (uuid zone-copper) (name "Power") (hatch edge 0.6) (priority 3)
+    (placement (enabled yes) (component_class "RF"))
+    (connect_pads (clearance 0.7))
+    (min_thickness 0.3) (filled_areas_thickness yes)
+    (fill yes (thermal_gap 0.4) (thermal_bridge_width 0.6)
+      (island_removal_mode 2) (island_area_min 5))
+    (property (layer "F.Cu") (hatch_position (xy 1 2)))
+    (polygon (pts (xy 0 0) (xy 10 0) (xy 10 10)))
+    (filled_polygon (layer "F.Cu") (island)
+      (pts (xy 0 0) (xy 10 0) (xy 10 10) (xy 0 10))))
+  (zone (net 0) (layer "F.Cu") (uuid zone-keepout)
+    (keepout (tracks allowed) (vias not_allowed))
+    (polygon (pts (xy 1 1) (xy 2 1) (xy 2 2))))
+)"""
 
 
 def _run(command: list[str], *, timeout: int = 180) -> subprocess.CompletedProcess[str]:
@@ -99,6 +116,8 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
             "kicad-monkey-core",
             "--test",
             "pcb_typed_slice",
+            "--test",
+            "pcb_zone_slice",
         ]
     )
 
@@ -124,6 +143,7 @@ def test_newer_sparse_carriers_match_python_on_durable_vector(tmp_path: Path) ->
     inputs = {
         "extended-carriers.kicad_pcb": EXTENDED_CARRIERS,
         "sparse-table-blocks.kicad_pcb": SPARSE_TABLE_BLOCKS,
+        "zone-carriers.kicad_pcb": ZONE_CARRIERS,
     }
     board_paths = []
     for name, source in inputs.items():
@@ -184,6 +204,91 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         "pad_to_paste_clearance": board.pad_to_paste_clearance,
         "pad_to_paste_clearance_ratio": board.pad_to_paste_clearance_ratio,
     }
+    assert summary["zone_metrics"] == {
+        "authored_polygons": sum(len(zone.polygons) for zone in board.zones),
+        "filled_polygons": sum(len(zone.filled_polygons) for zone in board.zones),
+        "authored_points": sum(
+            len(polygon.points) for zone in board.zones for polygon in zone.polygons
+        ),
+        "filled_points": sum(
+            len(polygon.points)
+            for zone in board.zones
+            for polygon in zone.filled_polygons
+        ),
+        "keepouts": sum(zone.keepout is not None for zone in board.zones),
+        "placements": sum(zone.placement is not None for zone in board.zones),
+        "layer_properties": sum(
+            len(zone.layer_properties) for zone in board.zones
+        ),
+    }
+    if board.zones:
+        zone = board.zones[0]
+        assert summary["first_zone"] == {
+            "net": {"ordinal": zone.net.ordinal, "name": zone.net.name or None},
+            "has_explicit_net_name": zone.has_explicit_net_name,
+            "layers": zone.layers,
+            "layers_plural": zone.layers_plural,
+            "locked": zone.locked,
+            "uuid": zone.uuid or None,
+            "name": zone.name,
+            "hatch_style": zone.hatch_style,
+            "hatch_pitch": zone.hatch_pitch,
+            "priority": zone.priority,
+            "connect_pads_clearance": zone.connect_pads_clearance,
+            "min_thickness": zone.min_thickness,
+            "filled_areas_thickness": zone.filled_areas_thickness,
+            "fill_enabled": zone.fill_enabled,
+            "thermal_gap": zone.thermal_gap,
+            "thermal_bridge_width": zone.thermal_bridge_width,
+            "island_removal_mode": zone.island_removal_mode,
+            "island_area_min": zone.island_area_min,
+            "keepout": (
+                {
+                    "tracks": zone.keepout.tracks,
+                    "vias": zone.keepout.vias,
+                    "pads": zone.keepout.pads,
+                    "copperpour": zone.keepout.copperpour,
+                    "footprints": zone.keepout.footprints,
+                }
+                if zone.keepout
+                else None
+            ),
+            "placement": (
+                {
+                    "enabled": zone.placement.enabled,
+                    "source_type": zone.placement.source_type.value,
+                    "source": zone.placement.source,
+                }
+                if zone.placement
+                else None
+            ),
+            "first_layer_property": (
+                {
+                    "layer": zone.layer_properties[0][0],
+                    "hatch_offset": list(zone.layer_properties[0][1]),
+                }
+                if zone.layer_properties
+                else None
+            ),
+            "first_authored_points": (
+                [list(point) for point in zone.polygons[0].points]
+                if zone.polygons
+                else None
+            ),
+            "first_filled": (
+                {
+                    "layer": zone.filled_polygons[0].layer,
+                    "island": zone.filled_polygons[0].island,
+                    "points": [
+                        list(point) for point in zone.filled_polygons[0].points
+                    ],
+                }
+                if zone.filled_polygons
+                else None
+            ),
+        }
+    else:
+        assert summary["first_zone"] is None
     if board.variants:
         variant = board.variants[0]
         assert summary["first_variant"] == {

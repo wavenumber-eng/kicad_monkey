@@ -23,6 +23,8 @@ pub use pcb::{
     PcbEmbeddedFile, PcbFootprint, PcbGeneratedItem, PcbGraphic, PcbGraphicKind, PcbGroup,
     PcbImage, PcbLayer, PcbLimits, PcbModelReference, PcbNet, PcbNetRef, PcbPad, PcbPoint,
     PcbProperty, PcbRoutingArc, PcbSegment, PcbTable, PcbTableCell, PcbVia, PcbView, PcbZone,
+    PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZonePlacement,
+    PcbZonePlacementSource, PcbZonePolygon,
 };
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
 pub use plotter_types::{

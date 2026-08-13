@@ -394,6 +394,8 @@ secondary = [
     "Focused property writes preserve untouched bytes and are stable after semantic reparse",
     "Board graphics, routing arcs, dimensions, groups, generated items, and embedded files expose bounded typed iterators",
     "Variants, images, barcodes, tables, and nested table cells expose bounded source-ordered typed iterators",
+    "Zones expose Python-parity fill, keepout, placement, per-layer, authored-outline, and filled-polygon semantics",
+    "Zone polygon, point, and per-layer-property ceilings fail during lazy decoding before typed collections exceed their limits",
     "Top-level UUID and legacy-ID removal checks all forms, is ambiguity-safe, source preserving, bounded, and idempotent",
     "Identified top-level layer replacement is exact, ambiguity-safe, bounded, and byte stable after semantic reparse",
     "Source, family, nested-object, depth, and output limits fail closed",

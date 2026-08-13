@@ -12,8 +12,13 @@ use std::collections::BTreeMap;
 use std::ops::Range;
 
 mod extended;
+mod zones;
 pub use extended::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbImage, PcbTable, PcbTableCell,
+};
+pub use zones::{
+    PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZonePlacement,
+    PcbZonePlacementSource, PcbZonePolygon,
 };
 
 /// Resource ceilings for one native PCB read or focused edit.
@@ -36,6 +41,9 @@ pub struct PcbLimits {
     pub max_segments: usize,
     pub max_vias: usize,
     pub max_zones: usize,
+    pub max_zone_polygons: usize,
+    pub max_zone_points: usize,
+    pub max_zone_layer_properties: usize,
     pub max_arcs: usize,
     pub max_graphics: usize,
     pub max_graphic_points: usize,
@@ -74,6 +82,9 @@ impl Default for PcbLimits {
             max_segments: 8_000_000,
             max_vias: 4_000_000,
             max_zones: 1_000_000,
+            max_zone_polygons: 1_000_000,
+            max_zone_points: 16_000_000,
+            max_zone_layer_properties: 1_000_000,
             max_arcs: 8_000_000,
             max_graphics: 4_000_000,
             max_graphic_points: 4_000_000,
@@ -225,15 +236,6 @@ pub struct PcbVia {
     pub drill: Option<f64>,
     pub layers: Vec<String>,
     pub net: PcbNetRef,
-    pub uuid: Option<String>,
-    pub source_range: Range<usize>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PcbZone {
-    pub net: PcbNetRef,
-    pub net_name: Option<String>,
-    pub layers: Vec<String>,
     pub uuid: Option<String>,
     pub source_range: Range<usize>,
 }
@@ -582,10 +584,7 @@ impl<'a> PcbView<'a> {
 
     pub fn zones(&self) -> impl Iterator<Item = Result<PcbZone, Error>> + '_ {
         self.zones.iter().map(|span| {
-            zone_from_span(self.source, span, self.limits).map(|mut zone| {
-                if zone.net.name.is_none() {
-                    zone.net.name.clone_from(&zone.net_name);
-                }
+            zones::zone_from_span(self.source, span, self.limits).map(|mut zone| {
                 zone.net = self.net_resolver.resolve(zone.net);
                 zone
             })
@@ -1102,27 +1101,6 @@ fn via_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<Pcb
         drill: optional_child_f64(source, &children, "drill")?,
         layers,
         net: child_net_ref(source, &children)?,
-        uuid: optional_uuid(source, &children)?,
-        source_range: span.range.clone(),
-    })
-}
-
-fn zone_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<PcbZone, Error> {
-    let children = direct_children(source, span, limits.max_object_children, limits)?;
-    let layers = if let Some(item) = child(&children, "layers") {
-        scalar_values(source, item)?
-            .iter()
-            .map(token_string)
-            .collect()
-    } else if let Some(layer) = optional_child_string(source, &children, "layer")? {
-        vec![layer]
-    } else {
-        Vec::new()
-    };
-    Ok(PcbZone {
-        net: child_net_ref(source, &children)?,
-        net_name: optional_child_string(source, &children, "net_name")?,
-        layers,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),
     })

@@ -28,6 +28,12 @@ fn summarize(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
             .expect("extended summary")
             .clone(),
     );
+    object.extend(
+        zone_summary(&view)?
+            .as_object()
+            .expect("zone summary")
+            .clone(),
+    );
     Ok(summary)
 }
 
@@ -190,6 +196,76 @@ fn extended_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Erro
             "layer": item.layer,
             "locked": item.locked,
             "uuid": item.uuid,
+        })),
+    }))
+}
+
+fn zone_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
+    let zones = view.zones().collect::<Result<Vec<_>, _>>()?;
+    let authored_polygons = zones.iter().map(|zone| zone.polygons.len()).sum::<usize>();
+    let filled_polygons = zones
+        .iter()
+        .map(|zone| zone.filled_polygons.len())
+        .sum::<usize>();
+    let authored_points = zones
+        .iter()
+        .flat_map(|zone| &zone.polygons)
+        .map(|polygon| polygon.points.len())
+        .sum::<usize>();
+    let filled_points = zones
+        .iter()
+        .flat_map(|zone| &zone.filled_polygons)
+        .map(|polygon| polygon.points.len())
+        .sum::<usize>();
+    Ok(json!({
+        "zone_metrics": {
+            "authored_polygons": authored_polygons,
+            "filled_polygons": filled_polygons,
+            "authored_points": authored_points,
+            "filled_points": filled_points,
+            "keepouts": zones.iter().filter(|zone| zone.keepout.is_some()).count(),
+            "placements": zones.iter().filter(|zone| zone.placement.is_some()).count(),
+            "layer_properties": zones.iter().map(|zone| zone.layer_properties.len()).sum::<usize>(),
+        },
+        "first_zone": zones.first().map(|zone| json!({
+            "net": {"ordinal": zone.net.ordinal, "name": zone.net.name},
+            "has_explicit_net_name": zone.has_explicit_net_name,
+            "layers": zone.layers,
+            "layers_plural": zone.layers_plural,
+            "locked": zone.locked,
+            "uuid": zone.uuid,
+            "name": zone.name,
+            "hatch_style": zone.hatch_style,
+            "hatch_pitch": zone.hatch_pitch,
+            "priority": zone.priority,
+            "connect_pads_clearance": zone.connect_pads_clearance,
+            "min_thickness": zone.min_thickness,
+            "filled_areas_thickness": zone.filled_areas_thickness,
+            "fill_enabled": zone.fill_enabled,
+            "thermal_gap": zone.thermal_gap,
+            "thermal_bridge_width": zone.thermal_bridge_width,
+            "island_removal_mode": zone.island_removal_mode,
+            "island_area_min": zone.island_area_min,
+            "keepout": zone.keepout.as_ref().map(|keepout| json!({
+                "tracks": keepout.tracks, "vias": keepout.vias, "pads": keepout.pads,
+                "copperpour": keepout.copperpour, "footprints": keepout.footprints,
+            })),
+            "placement": zone.placement.as_ref().map(|placement| json!({
+                "enabled": placement.enabled,
+                "source_type": placement.source_type.as_str(),
+                "source": placement.source,
+            })),
+            "first_layer_property": zone.layer_properties.first().map(|property| json!({
+                "layer": property.layer,
+                "hatch_offset": [property.hatch_offset.x, property.hatch_offset.y],
+            })),
+            "first_authored_points": zone.polygons.first().map(|polygon| polygon.points
+                .iter().map(|point| [point.x, point.y]).collect::<Vec<_>>()),
+            "first_filled": zone.filled_polygons.first().map(|polygon| json!({
+                "layer": polygon.layer,
+                "island": polygon.island,
+                "points": polygon.points.iter().map(|point| [point.x, point.y]).collect::<Vec<_>>(),
+            })),
         })),
     }))
 }
