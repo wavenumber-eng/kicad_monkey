@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head>
   <meta charset="utf-8">
   <title>Rust Phase 2 Native-Core Boundary And WASM Feasibility Review</title>
@@ -11,12 +11,12 @@
   <section>
     <h2>Review Status</h2>
     <p>
-      This packet is ready for review; it does not approve Phase 3. The first
-      typed footprint and symbol-library reader/writer proofs and the first
-      shared footprint/symbol plotter-IR proofs are implemented. The next
-      authorized product phase is the KiCad-native PCB reader/writer. The
-      completed WASM work is feasibility evidence; further browser packaging
-      and all downstream <code>pcb_a0</code> work are outside the next phase.
+      The native Phase 2 boundary is approved and Phase 3 KiCad-native PCB
+      reader/writer work may proceed. The typed footprint and symbol-library
+      reader/writer proofs and shared footprint/symbol plotter-IR proofs are
+      implemented. WASM feasibility is demonstrated, but WASM packaging is not
+      approved; the remaining adapter findings are deferred to Phase 7.
+      Downstream <code>pcb_a0</code> work remains outside this plan.
       The durable ordering and ownership decision is recorded in
       <a href="../adrs/ADR-011-native-first-rust-port-delivery.md">ADR-011</a>.
     </p>
@@ -102,74 +102,76 @@
       buffer. Edit and plot operations allocate the produced KiCad or JSON
       bytes plus a separate metadata buffer. Paired-output objects retain
       compatibility clone getters and also expose
-      <code>takeOutputBytes</code>, which consumes the result and transfers
-      ownership exactly once for large-output paths.
+      <code>takeOutputBytes</code>. Complete non-empty execution evidence for
+      every paired result remains a deferred packaging gate.
     </p>
     <p>
       Locked release wasm32 builds before JavaScript glue, compression, or
       wasm-opt measure 292,798 bytes for <code>sexpr</code>, 409,815 bytes for
       <code>footprint</code>, 556,646 bytes for <code>symbol</code>, and
       787,825 bytes with every default feature. The three operation families
-      build independently; the default remains an all-operations development
-      artifact.
+      compile independently under isolated feature checks; actual isolated
+      artifact build/link evidence remains a deferred packaging gate. The
+      default remains an all-operations development artifact.
     </p>
   </section>
 
   <section>
-    <h2>Findings Requiring Disposition</h2>
+    <h2>Deferred WASM Packaging Gates</h2>
     <ol>
       <li>
-        <strong>Closed — WASM artifact ownership and features.</strong>
-        Cargo features <code>sexpr</code>, <code>footprint</code>, and
-        <code>symbol</code> independently compile operation-shaped artifacts.
-        Rack verifies every locked wasm32 feature build. If PCB or graph
-        operations are selected after native parity, each receives its own
-        feature or downstream-owned artifact rather than entering every build.
+        <strong>Shared plotter DTO.</strong> Before adding PCB, graph, or other
+        WASM plotter producers, generate one canonical Rust
+        <code>PlotterOperation</code> type for footprint and symbol documents
+        and remove the symbol adapter's per-operation JSON round-trip.
       </li>
       <li>
-        <strong>Closed — large output ownership.</strong> Every paired edit or
-        plot result exposes a tested consuming <code>takeOutputBytes</code>
-        path. Repeated cloning is no longer the only supported browser API.
+        <strong>Bounded symbol-library read.</strong> Add
+        <code>max_output_bytes</code> to the read contract, serialize through a
+        bounded writer, and return a structured resource-limit result without
+        partial summaries.
       </li>
       <li>
-        <strong>Retained gate — Python integration.</strong> Generated Python
-        contracts and Python-oracle parity are complete. PyO3 acceleration is
-        optional work after native parity and is not required to approve this
-        boundary.
+        <strong>Take-once execution evidence.</strong> Add non-empty ownership
+        tests for footprint edit, footprint plot, and symbol plot, including at
+        least one direct invocation of the generated JavaScript method.
       </li>
       <li>
-        <strong>Retained gate — text and complete visual parity.</strong>
-        Outline text remains behind FontBundle, Rustybuzz shaping-record, and
-        outline-extraction gates. Phase 2 proves the non-text IR subset; it does
-        not claim full SVG or text-render parity.
-      </li>
-      <li>
-        <strong>Retained gate — platform matrix.</strong> Windows native and
-        Node-hosted real wasm32 execution pass. The native Windows
-        <code>kicad-cruncher</code> lane is the product critical path. Other
-        native platforms and an actual browser are required only by later
-        artifacts that claim support for them.
-      </li>
-      <li>
-        <strong>Dispositioned scope: WASM and downstream adapters.</strong>
-        Do not expand WASM while native reader/writer, plotter, compiler, CLI,
-        and Rack parity remain open. Select concrete browser operations after
-        native parity; downstream projects may package their own wrappers.
-        <code>pcb_a0</code>, Viz, and ALX adapters are a separate downstream
-        task and are not gates in this plan.
+        <strong>Artifact build evidence.</strong> Replace the isolated
+        <code>cargo check</code> feature test with actual build/link evidence
+        when WASM packaging resumes. Until then, describe the current evidence
+        as independent feature compilation.
       </li>
     </ol>
   </section>
 
   <section>
-    <h2>Requested Review Decision</h2>
+    <h2>Retained Native Gates</h2>
+    <ul>
+      <li>
+        PyO3 acceleration remains optional after native parity.
+      </li>
+      <li>
+        Text/render parity retains the FontBundle, Rustybuzz shaping-record,
+        outline extraction, and render-cache gates.
+      </li>
+      <li>
+        Native Windows <code>kicad-cruncher</code> and Rack parity remain the
+        product critical path. Linux and real-browser evidence apply only to
+        later artifacts that claim those platforms.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Recorded Review Decision</h2>
     <p>
-      Review the closed blocker evidence, the intentional
-      transport-versus-operation diagnostic split, and the retained gates.
-      Phase 3 KiCad-native PCB reader/writer work is authorized only after the
-      boundary review records approval or explicit disposition. No
-      public Cargo compatibility promise is created by this review; all crates
-      remain <code>publish = false</code> during incubation.
+      Approve the Phase 2 native boundary and authorize Phase 3 KiCad-native
+      PCB reader/writer work. Record WASM as feasibility demonstrated and
+      packaging not approved; the four findings above must close before future
+      WASM expansion. No public Cargo compatibility promise is created by this
+      decision; all crates remain <code>publish = false</code> during
+      incubation.
     </p>
   </section>
 </body>
