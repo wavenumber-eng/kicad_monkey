@@ -124,3 +124,23 @@ def test_rust_l0_quality_and_real_wasm_smoke() -> None:
             "--locked",
         ]
     )
+
+
+def test_wasm_operation_families_build_independently() -> None:
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for WASM feature checks"
+    for feature in ("sexpr", "footprint", "symbol"):
+        _run(
+            [
+                cargo,
+                "check",
+                "--package",
+                "kicad-monkey-wasm",
+                "--target",
+                "wasm32-unknown-unknown",
+                "--no-default-features",
+                "--features",
+                feature,
+                "--locked",
+            ]
+        )

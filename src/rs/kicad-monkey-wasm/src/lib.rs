@@ -2,53 +2,82 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(any(feature = "footprint", feature = "symbol"))]
 mod plotter_contract;
+#[cfg(feature = "symbol")]
 mod symbol_library;
+#[cfg(feature = "symbol")]
 mod symbol_plot;
 
+#[cfg(feature = "symbol")]
 pub use symbol_library::{
     SymbolLibraryEditOutput, edit_symbol_library_boolean, read_symbol_library,
 };
+#[cfg(feature = "symbol")]
 pub use symbol_plot::{SymbolPlotOutput, plot_symbol_ir};
 
+#[cfg(feature = "sexpr")]
 use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;
+#[cfg(feature = "footprint")]
 use kicad_monkey_contracts::generated::footprint_edit_request::FootprintEditRequestA0;
+#[cfg(feature = "footprint")]
 use kicad_monkey_contracts::generated::footprint_edit_result::{
     Diagnostic as FootprintEditDiagnostic, DiagnosticPhase as FootprintEditDiagnosticPhase,
     FootprintEditResultA0, SourcePosition as FootprintEditSourcePosition,
 };
+#[cfg(feature = "footprint")]
 use kicad_monkey_contracts::generated::footprint_plot_document::{
     FootprintPlotDocumentA0, FootprintPlotRecord, PlotterCoordinateSpace,
 };
+#[cfg(feature = "footprint")]
 use kicad_monkey_contracts::generated::footprint_plot_request::FootprintPlotRequestA0;
+#[cfg(feature = "footprint")]
 use kicad_monkey_contracts::generated::footprint_plot_result::{
     Diagnostic as FootprintPlotDiagnostic, DiagnosticPhase as FootprintPlotDiagnosticPhase,
     FootprintPlotResultA0, SourcePosition as FootprintPlotSourcePosition,
 };
+#[cfg(feature = "footprint")]
 use kicad_monkey_contracts::generated::footprint_read_request::FootprintReadRequestA0;
+#[cfg(feature = "footprint")]
 use kicad_monkey_contracts::generated::footprint_read_result::{
     Diagnostic as FootprintDiagnostic, DiagnosticPhase as FootprintDiagnosticPhase,
     FootprintProperty as FootprintContractProperty, FootprintReadResultA0,
     SourcePosition as FootprintSourcePosition,
 };
+#[cfg(feature = "sexpr")]
 use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
+#[cfg(feature = "sexpr")]
 use kicad_monkey_contracts::generated::scan_result::{
     Diagnostic, DiagnosticPhase, FormSpan, SExpressionScanResultA0, SourcePosition,
 };
-use kicad_monkey_contracts::{
-    JavaScriptSafeInteger, ValidatedNode, validate_build_request, validate_footprint_plot_document,
-};
+#[cfg(feature = "footprint")]
+use kicad_monkey_contracts::{JavaScriptSafeInteger, validate_footprint_plot_document};
+#[cfg(feature = "sexpr")]
+use kicad_monkey_contracts::{ValidatedNode, validate_build_request};
+use kicad_monkey_core::ErrorKind;
+#[cfg(any(feature = "sexpr", feature = "footprint"))]
+use kicad_monkey_core::{Error, ErrorPhase};
+#[cfg(feature = "footprint")]
 use kicad_monkey_core::{
-    Error, ErrorKind, ErrorPhase, FootprintLimits, FootprintPlotLimits, FootprintView,
-    ProjectionLimits, Selector, Sexp, build, build_with_limit, footprint_plot_document,
-    parse_bytes, scan_reader_form_spans, utf8_text,
+    FootprintLimits, FootprintPlotLimits, FootprintView, footprint_plot_document, utf8_text,
 };
+#[cfg(feature = "sexpr")]
+use kicad_monkey_core::{
+    ProjectionLimits, Selector, Sexp, build, build_with_limit, parse_bytes, scan_reader_form_spans,
+};
+#[cfg(feature = "footprint")]
 use plotter_contract::contract_plotter_operation;
+#[cfg(feature = "sexpr")]
 use std::collections::BTreeSet;
-use std::io::{Cursor, Write};
+#[cfg(feature = "sexpr")]
+use std::io::Cursor;
+#[cfg(any(feature = "footprint", feature = "symbol"))]
+use std::io::Write;
+#[cfg(any(feature = "sexpr", feature = "footprint"))]
 use wasm_bindgen::prelude::*;
 
 /// Canonicalize one KiCad S-expression byte buffer for the WASM smoke gate.
+#[cfg(feature = "sexpr")]
 #[wasm_bindgen(js_name = canonicalizeSexpr)]
 pub fn canonicalize_sexpr(source: &[u8]) -> Result<Vec<u8>, JsValue> {
     let tree = parse_bytes(source).map_err(js_error)?;
@@ -56,30 +85,35 @@ pub fn canonicalize_sexpr(source: &[u8]) -> Result<Vec<u8>, JsValue> {
 }
 
 /// Run the TypeSpec-governed structural scan operation over caller-owned bytes.
+#[cfg(feature = "sexpr")]
 #[wasm_bindgen(js_name = scanSexpr)]
 pub fn scan_sexpr(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, JsValue> {
     scan_sexpr_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
 }
 
 /// Build canonical UTF-8 bytes from a TypeSpec-governed generic node request.
+#[cfg(feature = "sexpr")]
 #[wasm_bindgen(js_name = buildSexpr)]
 pub fn build_sexpr(request_json: &[u8]) -> Result<Vec<u8>, JsValue> {
     build_sexpr_impl(request_json).map_err(|message| JsValue::from_str(&message))
 }
 
 /// Read typed standalone-footprint facts from caller-owned KiCad bytes.
+#[cfg(feature = "footprint")]
 #[wasm_bindgen(js_name = readFootprint)]
 pub fn read_footprint(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, JsValue> {
     read_footprint_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
 }
 
 /// Paired metadata and out-of-band KiCad bytes from a footprint edit.
+#[cfg(feature = "footprint")]
 #[wasm_bindgen]
 pub struct FootprintEditOutput {
     result_json: Vec<u8>,
     output_bytes: Vec<u8>,
 }
 
+#[cfg(feature = "footprint")]
 #[wasm_bindgen]
 impl FootprintEditOutput {
     /// TypeSpec-governed `FootprintEditResultA0` metadata bytes.
@@ -102,6 +136,7 @@ impl FootprintEditOutput {
 }
 
 /// Apply one source-preserving property edit and return metadata plus KiCad bytes.
+#[cfg(feature = "footprint")]
 #[wasm_bindgen(js_name = editFootprintProperty)]
 pub fn edit_footprint_property(
     source: &[u8],
@@ -111,12 +146,14 @@ pub fn edit_footprint_property(
 }
 
 /// Paired metadata and out-of-band plotter-IR JSON bytes.
+#[cfg(feature = "footprint")]
 #[wasm_bindgen]
 pub struct FootprintPlotOutput {
     result_json: Vec<u8>,
     output_bytes: Vec<u8>,
 }
 
+#[cfg(feature = "footprint")]
 #[wasm_bindgen]
 impl FootprintPlotOutput {
     /// TypeSpec-governed `FootprintPlotResultA0` metadata bytes.
@@ -139,6 +176,7 @@ impl FootprintPlotOutput {
 }
 
 /// Convert supported standalone-footprint geometry to plotter-IR JSON bytes.
+#[cfg(feature = "footprint")]
 #[wasm_bindgen(js_name = plotFootprintIr)]
 pub fn plot_footprint_ir(
     source: &[u8],
@@ -147,6 +185,7 @@ pub fn plot_footprint_ir(
     plot_footprint_ir_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
 }
 
+#[cfg(feature = "footprint")]
 fn read_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, String> {
     let request: FootprintReadRequestA0 =
         serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
@@ -200,6 +239,7 @@ fn read_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, St
     serde_json::to_vec(&result).map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "footprint")]
 fn edit_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<FootprintEditOutput, String> {
     let request: FootprintEditRequestA0 =
         serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
@@ -255,6 +295,7 @@ fn edit_footprint_impl(source: &[u8], request_json: &[u8]) -> Result<FootprintEd
     })
 }
 
+#[cfg(feature = "footprint")]
 fn plot_footprint_ir_impl(
     source: &[u8],
     request_json: &[u8],
@@ -353,6 +394,7 @@ fn plot_footprint_ir_impl(
     })
 }
 
+#[cfg(feature = "footprint")]
 fn footprint_plot_limits(request: &FootprintPlotRequestA0) -> Result<FootprintPlotLimits, String> {
     Ok(FootprintPlotLimits {
         max_source_bytes: decimal_usize(&request.max_source_bytes, "max_source_bytes")?,
@@ -363,12 +405,14 @@ fn footprint_plot_limits(request: &FootprintPlotRequestA0) -> Result<FootprintPl
     })
 }
 
+#[cfg(any(feature = "footprint", feature = "symbol"))]
 fn decimal_usize(value: &str, field: &str) -> Result<usize, String> {
     value
         .parse::<usize>()
         .map_err(|_| format!("{field} must be a platform-sized decimal string"))
 }
 
+#[cfg(any(feature = "footprint", feature = "symbol"))]
 pub(crate) fn serialize_bounded<T: serde::Serialize>(
     value: &T,
     max_output_bytes: usize,
@@ -381,12 +425,14 @@ pub(crate) fn serialize_bounded<T: serde::Serialize>(
     }
 }
 
+#[cfg(any(feature = "footprint", feature = "symbol"))]
 struct BoundedWriter {
     bytes: Vec<u8>,
     max_bytes: usize,
     exceeded: bool,
 }
 
+#[cfg(any(feature = "footprint", feature = "symbol"))]
 impl BoundedWriter {
     fn new(max_bytes: usize) -> Self {
         Self {
@@ -397,6 +443,7 @@ impl BoundedWriter {
     }
 }
 
+#[cfg(any(feature = "footprint", feature = "symbol"))]
 impl Write for BoundedWriter {
     fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
         if buffer.len() > self.max_bytes.saturating_sub(self.bytes.len()) {
@@ -414,6 +461,7 @@ impl Write for BoundedWriter {
     }
 }
 
+#[cfg(feature = "footprint")]
 fn footprint_limits(
     max_source_bytes: &str,
     max_output_bytes: Option<&str>,
@@ -437,6 +485,7 @@ fn footprint_limits(
     })
 }
 
+#[cfg(any(feature = "footprint", feature = "symbol"))]
 fn validate_identity(type_: &str, version: &str, expected: &str) -> Result<(), String> {
     if type_ != expected || version != "a0" {
         return Err(format!("Unsupported contract identity: {type_}:{version}"));
@@ -444,6 +493,7 @@ fn validate_identity(type_: &str, version: &str, expected: &str) -> Result<(), S
     Ok(())
 }
 
+#[cfg(feature = "sexpr")]
 fn build_sexpr_impl(request_json: &[u8]) -> Result<Vec<u8>, String> {
     let request: SExpressionBuildRequestA0 =
         serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
@@ -454,6 +504,7 @@ fn build_sexpr_impl(request_json: &[u8]) -> Result<Vec<u8>, String> {
         .map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "sexpr")]
 fn core_node(node: ValidatedNode) -> Sexp {
     match node {
         ValidatedNode::List(children) => Sexp::List(children.into_iter().map(core_node).collect()),
@@ -464,6 +515,7 @@ fn core_node(node: ValidatedNode) -> Sexp {
     }
 }
 
+#[cfg(feature = "sexpr")]
 fn scan_sexpr_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, String> {
     let request: SExpressionScanRequestA0 =
         serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
@@ -502,14 +554,17 @@ fn scan_sexpr_impl(source: &[u8], request_json: &[u8]) -> Result<Vec<u8>, String
     serde_json::to_vec(&result).map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "sexpr")]
 fn nonempty_set(values: Vec<String>) -> Option<BTreeSet<String>> {
     (!values.is_empty()).then(|| values.into_iter().collect())
 }
 
+#[cfg(feature = "sexpr")]
 fn nonempty_paths(values: Vec<Vec<String>>) -> Option<BTreeSet<Vec<String>>> {
     (!values.is_empty()).then(|| values.into_iter().collect())
 }
 
+#[cfg(feature = "sexpr")]
 fn contract_span(span: kicad_monkey_core::FormSpan) -> FormSpan {
     FormSpan {
         column: span.start.column.to_string(),
@@ -524,6 +579,7 @@ fn contract_span(span: kicad_monkey_core::FormSpan) -> FormSpan {
     }
 }
 
+#[cfg(feature = "sexpr")]
 fn contract_diagnostic(error: Error) -> Diagnostic {
     Diagnostic {
         code: error_code(error.kind).to_owned(),
@@ -542,6 +598,7 @@ fn contract_diagnostic(error: Error) -> Diagnostic {
     }
 }
 
+#[cfg(feature = "footprint")]
 fn footprint_diagnostic(error: Error) -> FootprintDiagnostic {
     FootprintDiagnostic {
         code: error_code(error.kind).to_owned(),
@@ -560,6 +617,7 @@ fn footprint_diagnostic(error: Error) -> FootprintDiagnostic {
     }
 }
 
+#[cfg(feature = "footprint")]
 fn footprint_edit_diagnostic(error: Error) -> FootprintEditDiagnostic {
     FootprintEditDiagnostic {
         code: error_code(error.kind).to_owned(),
@@ -578,6 +636,7 @@ fn footprint_edit_diagnostic(error: Error) -> FootprintEditDiagnostic {
     }
 }
 
+#[cfg(feature = "footprint")]
 fn footprint_plot_diagnostic(error: Error) -> FootprintPlotDiagnostic {
     FootprintPlotDiagnostic {
         code: error_code(error.kind).to_owned(),
@@ -596,6 +655,7 @@ fn footprint_plot_diagnostic(error: Error) -> FootprintPlotDiagnostic {
     }
 }
 
+#[cfg(feature = "footprint")]
 fn footprint_plot_limit_diagnostic() -> FootprintPlotDiagnostic {
     FootprintPlotDiagnostic {
         code: "resource_limit".to_owned(),
@@ -626,6 +686,7 @@ fn error_code(kind: ErrorKind) -> &'static str {
     }
 }
 
+#[cfg(feature = "sexpr")]
 fn js_error(error: Error) -> JsValue {
     JsValue::from_str(&error.to_string())
 }

@@ -103,10 +103,12 @@
       ownership exactly once for large-output paths.
     </p>
     <p>
-      A release wasm32 build of the current all-operations crate is 786,265
-      bytes before JavaScript glue, compression, or wasm-opt. The WASM crate
-      currently has no operation-family feature topology; all exports compile
-      into one artifact.
+      Locked release wasm32 builds before JavaScript glue, compression, or
+      wasm-opt measure 292,798 bytes for <code>sexpr</code>, 409,815 bytes for
+      <code>footprint</code>, 556,646 bytes for <code>symbol</code>, and
+      787,825 bytes with every default feature. The three operation families
+      build independently; the default remains an all-operations development
+      artifact.
     </p>
   </section>
 
@@ -114,11 +116,12 @@
     <h2>Findings Requiring Disposition</h2>
     <ol>
       <li>
-        <strong>Boundary blocker — WASM artifact ownership and features.</strong>
-        Before PCB and schematic operations expand this crate, choose either
-        operation-family Cargo features or separate adapter crates/artifacts.
-        Prove at least S-expression, footprint, and symbol builds independently
-        so browser consumers do not inherit unrelated converter code.
+        <strong>Closed — WASM artifact ownership and features.</strong>
+        Cargo features <code>sexpr</code>, <code>footprint</code>, and
+        <code>symbol</code> independently compile operation-shaped artifacts.
+        Rack verifies every locked wasm32 feature build. Future PCB and graph
+        families must receive their own feature rather than enter all existing
+        artifacts.
       </li>
       <li>
         <strong>Closed — large output ownership.</strong> Every paired edit or
@@ -149,9 +152,10 @@
   <section>
     <h2>Requested Review Decision</h2>
     <p>
-      Review the two blockers, the intentional transport-versus-operation
-      diagnostic split, and the retained gates. Phase 3 is authorized only
-      after the boundary review records closure or explicit disposition. No
+      Review the closed blocker evidence, the intentional
+      transport-versus-operation diagnostic split, and the retained gates.
+      Phase 3 is authorized only after the boundary review records approval or
+      explicit disposition. No
       public Cargo compatibility promise is created by this review; all crates
       remain <code>publish = false</code> during incubation.
     </p>
