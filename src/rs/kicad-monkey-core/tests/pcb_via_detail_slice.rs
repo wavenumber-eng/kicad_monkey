@@ -88,3 +88,36 @@ fn via_detail_limits_accept_exact_boundaries_and_fail_closed_above_them() {
         assert_eq!(error.kind, ErrorKind::ResourceLimit);
     }
 }
+
+#[test]
+fn via_and_hole_coordinates_share_component_wise_python_defaults() {
+    for (at, expected) in [
+        ("", (0.0, 0.0)),
+        ("(at)", (0.0, 0.0)),
+        ("(at 7)", (7.0, 0.0)),
+    ] {
+        let source =
+            format!("(kicad_pcb (via {at} (size 1) (drill 0.4) (layers \"F.Cu\" \"B.Cu\")))");
+        let view = PcbView::parse(&source, PcbLimits::default()).expect("board");
+        let via = view.vias().next().expect("via").expect("typed via");
+        assert_eq!((via.at_x, via.at_y), expected);
+        let hole = view.holes().next().expect("hole").expect("typed hole");
+        assert_eq!((hole.center.x, hole.center.y), expected);
+    }
+
+    let malformed = "(kicad_pcb (via (at nope) (drill 0.4)))";
+    let view = PcbView::parse(malformed, PcbLimits::default()).expect("lazy board");
+    for error in [
+        view.vias().next().expect("via").expect_err("malformed via"),
+        view.holes()
+            .next()
+            .expect("hole")
+            .expect_err("malformed hole"),
+    ] {
+        assert_eq!(error.kind, ErrorKind::UnexpectedToken);
+        assert_eq!(
+            error.position.expect("absolute position").offset,
+            malformed.find("nope").expect("token")
+        );
+    }
+}

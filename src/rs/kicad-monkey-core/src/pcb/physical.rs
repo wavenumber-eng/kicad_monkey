@@ -249,17 +249,17 @@ fn via_hole_from_span(
     owner_index: usize,
     limits: PcbLimits,
 ) -> Result<Option<PcbHole>, Error> {
-    let children = direct_children(source, span, limits.max_object_children, limits)?;
+    let children = direct_children(source, span, limits.max_via_children, limits)?;
     let Some(drill) = optional_child_f64(source, &children, "drill")?.filter(|drill| *drill > 0.0)
     else {
         return Ok(None);
     };
-    let at = required_point(source, &children, "at", span)?;
+    let at = optional_coordinate_pair(source, &children, "at")?;
     Ok(Some(PcbHole {
         owner: PcbHoleOwner::Via,
         owner_index,
         footprint_index: None,
-        center: at,
+        center: PcbPoint { x: at[0], y: at[1] },
         offset: PcbPoint { x: 0.0, y: 0.0 },
         shape: PcbHoleShape::Round,
         width: drill,

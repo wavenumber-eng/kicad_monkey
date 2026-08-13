@@ -40,10 +40,10 @@ pub(super) fn via_from_span(
 ) -> Result<PcbVia, Error> {
     let header = bounded_scalar_values(source, span, limits.max_via_header_scalars)?;
     let children = direct_children(source, span, limits.max_via_children, limits)?;
-    let at = required_xy(source, &children, "at", span)?;
+    let at = optional_coordinate_pair(source, &children, "at")?;
     Ok(PcbVia {
-        at_x: at.0,
-        at_y: at.1,
+        at_x: at[0],
+        at_y: at[1],
         size: optional_child_f64(source, &children, "size")?.unwrap_or_default(),
         drill: optional_child_f64(source, &children, "drill")?.unwrap_or_default(),
         layers: child_strings(source, &children, "layers", limits.max_layers)?,

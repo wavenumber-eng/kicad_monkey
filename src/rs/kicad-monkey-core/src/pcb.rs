@@ -1842,6 +1842,21 @@ fn optional_pair(
     ])
 }
 
+fn optional_coordinate_pair(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+) -> Result<[f64; 2], Error> {
+    let Some(span) = child(children, head) else {
+        return Ok([0.0, 0.0]);
+    };
+    let values = first_two_scalar_values(source, span)?;
+    Ok([
+        optional_f64(values.first(), span)?.unwrap_or_default(),
+        optional_f64(values.get(1), span)?.unwrap_or_default(),
+    ])
+}
+
 fn optional_vector(
     source: &str,
     children: &[FormSpan],
