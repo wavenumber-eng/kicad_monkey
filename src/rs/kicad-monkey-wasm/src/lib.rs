@@ -93,6 +93,12 @@ impl FootprintEditOutput {
     pub fn output_bytes(&self) -> Vec<u8> {
         self.output_bytes.clone()
     }
+
+    /// Consume this result and transfer the edited bytes exactly once.
+    #[wasm_bindgen(js_name = takeOutputBytes)]
+    pub fn take_output_bytes(self) -> Vec<u8> {
+        self.output_bytes
+    }
 }
 
 /// Apply one source-preserving property edit and return metadata plus KiCad bytes.
@@ -123,6 +129,12 @@ impl FootprintPlotOutput {
     #[wasm_bindgen(js_name = outputBytes)]
     pub fn output_bytes(&self) -> Vec<u8> {
         self.output_bytes.clone()
+    }
+
+    /// Consume this result and transfer the plotter-IR bytes exactly once.
+    #[wasm_bindgen(js_name = takeOutputBytes)]
+    pub fn take_output_bytes(self) -> Vec<u8> {
+        self.output_bytes
     }
 }
 

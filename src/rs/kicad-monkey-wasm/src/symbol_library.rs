@@ -89,6 +89,12 @@ impl SymbolLibraryEditOutput {
     pub fn output_bytes(&self) -> Vec<u8> {
         self.output_bytes.clone()
     }
+
+    /// Consume this result and transfer the edited bytes exactly once.
+    #[wasm_bindgen(js_name = takeOutputBytes)]
+    pub fn take_output_bytes(self) -> Vec<u8> {
+        self.output_bytes
+    }
 }
 
 /// Edit one symbol boolean while preserving all unrelated source bytes.

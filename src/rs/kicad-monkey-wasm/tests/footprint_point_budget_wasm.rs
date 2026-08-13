@@ -20,5 +20,5 @@ fn wasm_custom_geometry_point_limit_fails_without_partial_output() {
             .contains("max_points")
     );
     assert_eq!(metadata["total_operations"], 0);
-    assert!(output.output_bytes().is_empty());
+    assert!(output.take_output_bytes().is_empty());
 }

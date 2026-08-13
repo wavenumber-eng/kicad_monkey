@@ -23,7 +23,7 @@ fn wasm_symbol_library_read_and_semantic_write_are_byte_oriented() {
         edit_symbol_library_boolean(SOURCE, EDIT_REQUEST).expect("WASM symbol edit operation");
     let metadata: Value =
         serde_json::from_slice(&output.result_json()).expect("edit metadata JSON");
-    let edited = String::from_utf8(output.output_bytes()).expect("edited UTF-8");
+    let edited = String::from_utf8(output.take_output_bytes()).expect("edited UTF-8");
     assert_eq!(metadata["changed"], true);
     assert!(edited.contains("(in_bom no)"));
     assert!(edited.contains("(future_extension \"keep\")"));
@@ -33,5 +33,5 @@ fn wasm_symbol_library_read_and_semantic_write_are_byte_oriented() {
     let second_metadata: Value =
         serde_json::from_slice(&second.result_json()).expect("second metadata JSON");
     assert_eq!(second_metadata["changed"], false);
-    assert_eq!(second.output_bytes(), edited.as_bytes());
+    assert_eq!(second.take_output_bytes(), edited.as_bytes());
 }

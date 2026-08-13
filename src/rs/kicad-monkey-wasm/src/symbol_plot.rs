@@ -35,6 +35,12 @@ impl SymbolPlotOutput {
     pub fn output_bytes(&self) -> Vec<u8> {
         self.output_bytes.clone()
     }
+
+    /// Consume this result and transfer the plotter-IR bytes exactly once.
+    #[wasm_bindgen(js_name = takeOutputBytes)]
+    pub fn take_output_bytes(self) -> Vec<u8> {
+        self.output_bytes
+    }
 }
 
 /// Convert one selected library symbol to non-text plotter-IR JSON bytes.

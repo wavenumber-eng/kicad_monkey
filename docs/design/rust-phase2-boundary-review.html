@@ -97,9 +97,10 @@
     <p>
       WASM inputs are borrowed slices. Read operations serialize one result
       buffer. Edit and plot operations allocate the produced KiCad or JSON
-      bytes plus a separate metadata buffer. Current paired-output getters
-      clone their Rust vectors before crossing the JavaScript boundary, so a
-      caller can accidentally request the same large output more than once.
+      bytes plus a separate metadata buffer. Paired-output objects retain
+      compatibility clone getters and also expose
+      <code>takeOutputBytes</code>, which consumes the result and transfers
+      ownership exactly once for large-output paths.
     </p>
     <p>
       A release wasm32 build of the current all-operations crate is 786,265
@@ -120,10 +121,9 @@
         so browser consumers do not inherit unrelated converter code.
       </li>
       <li>
-        <strong>Boundary blocker — large output ownership.</strong> Add a
-        consuming/take-once output API or document and test an equivalent
-        ownership mechanism. Repeated cloning of plotter or future PCB/graph
-        buffers must not be the only supported browser path.
+        <strong>Closed — large output ownership.</strong> Every paired edit or
+        plot result exposes a tested consuming <code>takeOutputBytes</code>
+        path. Repeated cloning is no longer the only supported browser API.
       </li>
       <li>
         <strong>Retained gate — Python integration.</strong> Generated Python
