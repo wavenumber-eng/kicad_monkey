@@ -3,8 +3,12 @@
 #![forbid(unsafe_code)]
 
 mod plotter_contract;
+mod symbol_library;
 mod symbol_plot;
 
+pub use symbol_library::{
+    SymbolLibraryEditOutput, edit_symbol_library_boolean, read_symbol_library,
+};
 pub use symbol_plot::{SymbolPlotOutput, plot_symbol_ir};
 
 use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;

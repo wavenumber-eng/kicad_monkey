@@ -1,0 +1,155 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.symbol_library_read.result:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.symbol_library_read.result"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "source_bytes": {
+            "type": "string"
+        },
+        "symbols": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/SymbolSummary"
+            }
+        },
+        "diagnostics": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/Diagnostic"
+            }
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "source_bytes",
+        "symbols",
+        "diagnostics"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Typed symbol-library facts retaining source order.",
+    "title": "Symbol library read result a0",
+    "$defs": {
+        "SymbolSummary": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "extends": {
+                    "type": "string"
+                },
+                "in_bom": {
+                    "type": "boolean"
+                },
+                "on_board": {
+                    "type": "boolean"
+                },
+                "power": {
+                    "type": "boolean"
+                },
+                "power_kind": {
+                    "type": "string"
+                },
+                "property_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "subsymbol_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "pin_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                }
+            },
+            "required": [
+                "name",
+                "in_bom",
+                "on_board",
+                "power",
+                "property_count",
+                "subsymbol_count",
+                "pin_count"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One source-backed top-level symbol summary."
+        },
+        "Diagnostic": {
+            "type": "object",
+            "properties": {
+                "phase": {
+                    "$ref": "#/$defs/DiagnosticPhase"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "position": {
+                    "$ref": "#/$defs/SourcePosition"
+                },
+                "token": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "phase",
+                "code",
+                "message"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Stable operation diagnostic shared by native, Python, and browser adapters."
+        },
+        "DiagnosticPhase": {
+            "type": "string",
+            "enum": [
+                "lex",
+                "tree",
+                "build"
+            ]
+        },
+        "SourcePosition": {
+            "type": "object",
+            "properties": {
+                "offset": {
+                    "type": "string"
+                },
+                "line": {
+                    "type": "string"
+                },
+                "column": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "offset",
+                "line",
+                "column"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Zero-based UTF-8 byte offset with one-based source coordinates."
+        }
+    }
+}

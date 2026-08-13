@@ -1,0 +1,83 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.symbol_library_edit.request:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.symbol_library_edit.request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "symbol_name": {
+            "type": "string"
+        },
+        "field": {
+            "$ref": "#/$defs/SymbolBooleanField"
+        },
+        "value": {
+            "type": "boolean"
+        },
+        "max_source_bytes": {
+            "type": "string"
+        },
+        "max_output_bytes": {
+            "type": "string"
+        },
+        "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_symbols": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_metadata_forms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_subsymbols": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_pins": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "symbol_name",
+        "field",
+        "value",
+        "max_source_bytes",
+        "max_output_bytes",
+        "max_depth",
+        "max_symbols",
+        "max_metadata_forms",
+        "max_subsymbols",
+        "max_pins"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Focused source-preserving edit of one symbol boolean field.",
+    "title": "Symbol library edit request a0",
+    "$defs": {
+        "SymbolBooleanField": {
+            "type": "string",
+            "enum": [
+                "in_bom",
+                "on_board"
+            ]
+        }
+    }
+}

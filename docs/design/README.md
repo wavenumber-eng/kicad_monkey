@@ -34,6 +34,10 @@ Current design notes:
 - `rust-footprint-plotter-phase2-slice.html` - review-ready shared plotter
   operation vocabulary plus non-text footprint graphics, standard pads,
   patterned strokes, drills, generated contracts, native, and WASM boundary.
+- `rust-symbol-plotter-phase2-slice.html` - non-text library-symbol body and
+  pin geometry using the shared plotter operation vocabulary.
+- `rust-symbol-library-phase2-slice.html` - typed symbol-library iteration and
+  source-preserving write-back boundary.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

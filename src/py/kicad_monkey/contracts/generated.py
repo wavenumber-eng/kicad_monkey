@@ -287,6 +287,21 @@ class LibSubsymbolPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, ta
     style: int
 
 
+SymbolBooleanField = Literal["in_bom", "on_board"]
+
+
+class SymbolSummary(Struct, forbid_unknown_fields=True, frozen=True):
+    name: str
+    in_bom: bool
+    on_board: bool
+    power: bool
+    property_count: int
+    subsymbol_count: int
+    pin_count: int
+    extends_: str | UnsetType = field(default=UNSET, name="extends")
+    power_kind: str | UnsetType = field(default=UNSET)
+
+
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.sexpr_build.request"] = field(name="type")
     version: Literal["a0"]
@@ -427,6 +442,48 @@ class SymbolPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
     diagnostics: list[Diagnostic]
 
 
+class SymbolLibraryEditRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.symbol_library_edit.request"] = field(name="type")
+    version: Literal["a0"]
+    symbol_name: str
+    field: SymbolBooleanField
+    value: bool
+    max_source_bytes: str
+    max_output_bytes: str
+    max_depth: int
+    max_symbols: int
+    max_metadata_forms: int
+    max_subsymbols: int
+    max_pins: int
+
+
+class SymbolLibraryEditResultA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.symbol_library_edit.result"] = field(name="type")
+    version: Literal["a0"]
+    changed: bool
+    output_bytes: str
+    diagnostics: list[Diagnostic]
+
+
+class SymbolLibraryReadRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.symbol_library_read.request"] = field(name="type")
+    version: Literal["a0"]
+    max_source_bytes: str
+    max_depth: int
+    max_symbols: int
+    max_metadata_forms: int
+    max_subsymbols: int
+    max_pins: int
+
+
+class SymbolLibraryReadResultA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.symbol_library_read.result"] = field(name="type")
+    version: Literal["a0"]
+    source_bytes: str
+    symbols: list[SymbolSummary]
+    diagnostics: list[Diagnostic]
+
+
 decode_sexpr_build_request_a0 = msgspec.json.Decoder(SExpressionBuildRequestA0).decode
 decode_sexpr_build_result_a0 = msgspec.json.Decoder(SExpressionBuildResultA0).decode
 decode_sexpr_scan_request_a0 = msgspec.json.Decoder(SExpressionScanRequestA0).decode
@@ -534,6 +591,10 @@ def validate_symbol_plot_document_a0(value: SymbolPlotDocumentA0) -> None:
         raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
 decode_symbol_plot_request_a0 = msgspec.json.Decoder(SymbolPlotRequestA0).decode
 decode_symbol_plot_result_a0 = msgspec.json.Decoder(SymbolPlotResultA0).decode
+decode_symbol_library_edit_request_a0 = msgspec.json.Decoder(SymbolLibraryEditRequestA0).decode
+decode_symbol_library_edit_result_a0 = msgspec.json.Decoder(SymbolLibraryEditResultA0).decode
+decode_symbol_library_read_request_a0 = msgspec.json.Decoder(SymbolLibraryReadRequestA0).decode
+decode_symbol_library_read_result_a0 = msgspec.json.Decoder(SymbolLibraryReadResultA0).decode
 
 
 __all__ = (
@@ -569,6 +630,8 @@ __all__ = (
     "SymbolPlotRecord",
     "SymbolHeaderPlotRecord",
     "LibSubsymbolPlotRecord",
+    "SymbolBooleanField",
+    "SymbolSummary",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",
@@ -583,6 +646,10 @@ __all__ = (
     "SymbolPlotDocumentA0",
     "SymbolPlotRequestA0",
     "SymbolPlotResultA0",
+    "SymbolLibraryEditRequestA0",
+    "SymbolLibraryEditResultA0",
+    "SymbolLibraryReadRequestA0",
+    "SymbolLibraryReadResultA0",
     "decode_sexpr_build_request_a0",
     "decode_sexpr_build_result_a0",
     "decode_sexpr_scan_request_a0",
@@ -597,6 +664,10 @@ __all__ = (
     "decode_symbol_plot_document_a0",
     "decode_symbol_plot_request_a0",
     "decode_symbol_plot_result_a0",
+    "decode_symbol_library_edit_request_a0",
+    "decode_symbol_library_edit_result_a0",
+    "decode_symbol_library_read_request_a0",
+    "decode_symbol_library_read_result_a0",
     "validate_footprint_plot_document_a0",
     "validate_symbol_plot_document_a0",
 )

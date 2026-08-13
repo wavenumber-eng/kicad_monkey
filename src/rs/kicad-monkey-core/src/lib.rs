@@ -12,6 +12,7 @@ pub mod plotter_types;
 pub mod sexpr;
 pub mod sexpr_mutation;
 pub mod sexpr_projection;
+pub mod symbol_library;
 mod symbol_pin;
 pub mod symbol_plotter_ir;
 
@@ -21,6 +22,9 @@ pub use plotter_types::{
     ArcThreePoint, BezierCurve, FlashPadCircle, FlashPadCustom, FlashPadOval, FlashPadRect,
     FlashPadRoundRect, FlashPadTrapez, PlotterCircle, PlotterFill, PlotterLineStyle,
     PlotterOperation, PlotterPoly, PlotterRect, ThickSegment,
+};
+pub use symbol_library::{
+    SymbolBooleanField, SymbolLibraryEdit, SymbolLibraryLimits, SymbolLibraryView, SymbolSummary,
 };
 pub use symbol_plotter_ir::{
     SymbolPlotDocument, SymbolPlotLimits, SymbolPlotRecord, symbol_plot_document,

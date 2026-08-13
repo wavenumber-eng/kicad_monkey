@@ -26,6 +26,10 @@ const roots = [
   ["SymbolPlotDocument.json", "SymbolPlotDocumentA0", "symbol-plot-document.ts"],
   ["SymbolPlotRequest.json", "SymbolPlotRequestA0", "symbol-plot-request.ts"],
   ["SymbolPlotResult.json", "SymbolPlotResultA0", "symbol-plot-result.ts"],
+  ["SymbolLibraryEditRequest.json", "SymbolLibraryEditRequestA0", "symbol-library-edit-request.ts"],
+  ["SymbolLibraryEditResult.json", "SymbolLibraryEditResultA0", "symbol-library-edit-result.ts"],
+  ["SymbolLibraryReadRequest.json", "SymbolLibraryReadRequestA0", "symbol-library-read-request.ts"],
+  ["SymbolLibraryReadResult.json", "SymbolLibraryReadResultA0", "symbol-library-read-result.ts"],
 ];
 const schemas = new Map();
 for (const [file] of roots) {

@@ -12,3 +12,7 @@ export type { FootprintPlotResultA0 } from "./footprint-plot-result.js";
 export type { SymbolPlotDocumentA0 } from "./symbol-plot-document.js";
 export type { SymbolPlotRequestA0 } from "./symbol-plot-request.js";
 export type { SymbolPlotResultA0 } from "./symbol-plot-result.js";
+export type { SymbolLibraryEditRequestA0 } from "./symbol-library-edit-request.js";
+export type { SymbolLibraryEditResultA0 } from "./symbol-library-edit-result.js";
+export type { SymbolLibraryReadRequestA0 } from "./symbol-library-read-request.js";
+export type { SymbolLibraryReadResultA0 } from "./symbol-library-read-result.js";
