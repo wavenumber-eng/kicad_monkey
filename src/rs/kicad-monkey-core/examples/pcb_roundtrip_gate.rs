@@ -50,25 +50,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut source_bytes = 0usize;
     for path in paths {
         let limits = PcbLimits::default();
-        let document =
-            PcbDocument::from_reader(BufReader::new(std::fs::File::open(&path)?), limits)?;
+        let file = std::fs::File::open(&path).map_err(|error| stage_error(&path, "open", error))?;
+        let document = PcbDocument::from_reader(BufReader::new(file), limits)
+            .map_err(|error| stage_error(&path, "owned read", error))?;
         let file_source_bytes = document.source().len();
-        let counts = validate_promoted_model(&document.view()?)?;
+        let view = document
+            .view()
+            .map_err(|error| stage_error(&path, "first view", error))?;
+        let counts = validate_promoted_model(&view)
+            .map_err(|error| stage_error(&path, "first semantic decode", error))?;
 
         let mut first_write = Vec::new();
-        document.write_to(&mut first_write)?;
+        document
+            .write_to(&mut first_write)
+            .map_err(|error| stage_error(&path, "first write", error))?;
         if first_write != document.source().as_bytes() {
             return Err(format!("first owned write changed {}", path.display()).into());
         }
         drop(document);
-        let reparsed = PcbDocument::from_reader(Cursor::new(&first_write), limits)?;
+        let reparsed = PcbDocument::from_reader(Cursor::new(&first_write), limits)
+            .map_err(|error| stage_error(&path, "reparse", error))?;
         drop(first_write);
-        let second_counts = validate_promoted_model(&reparsed.view()?)?;
+        let second_view = reparsed
+            .view()
+            .map_err(|error| stage_error(&path, "second view", error))?;
+        let second_counts = validate_promoted_model(&second_view)
+            .map_err(|error| stage_error(&path, "second semantic decode", error))?;
         if second_counts != counts {
             return Err(format!("semantic counts changed for {}", path.display()).into());
         }
         let mut second_write = Vec::new();
-        reparsed.write_to(&mut second_write)?;
+        reparsed
+            .write_to(&mut second_write)
+            .map_err(|error| stage_error(&path, "second write", error))?;
         if second_write != reparsed.source().as_bytes() {
             return Err(format!("second owned write changed {}", path.display()).into());
         }
@@ -96,6 +110,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     println!("{}", serde_json::to_string(&evidence)?);
     Ok(())
+}
+
+fn stage_error(
+    path: &std::path::Path,
+    stage: &str,
+    error: impl std::fmt::Display,
+) -> Box<dyn std::error::Error> {
+    format!("{}: {stage}: {error}", path.display()).into()
 }
 
 fn validate_promoted_model(view: &PcbView<'_>) -> Result<PcbCounts, Error> {
