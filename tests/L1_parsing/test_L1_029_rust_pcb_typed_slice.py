@@ -8,8 +8,6 @@ from pathlib import Path
 import shutil
 import subprocess
 
-import pytest
-
 from _suite_paths import TEST_CORPUS_ROOT
 from kicad_monkey import KiCadPcb
 
@@ -56,10 +54,12 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
     )
 
 
-@pytest.mark.parametrize("board_path", CORPUS_BOARDS, ids=lambda path: path.parent.parent.name)
-def test_native_pcb_projection_matches_python_on_promoted_corpus(board_path: Path) -> None:
-    if not board_path.is_file():
-        pytest.skip(f"missing corpus board: {board_path}")
+def test_native_pcb_projection_matches_python_on_promoted_corpus() -> None:
+    missing = [str(path) for path in CORPUS_BOARDS if not path.is_file()]
+    assert not missing, (
+        "required promoted PCB corpus evidence is unavailable; missing: "
+        + ", ".join(missing)
+    )
     cargo = shutil.which("cargo")
     assert cargo is not None, "cargo is required for the Rust PCB gate"
     _run(
@@ -78,7 +78,15 @@ def test_native_pcb_projection_matches_python_on_promoted_corpus(board_path: Pat
         / "target/debug/examples"
         / ("pcb_projection_gate.exe" if os.name == "nt" else "pcb_projection_gate")
     )
-    summary = json.loads(_run([str(executable), str(board_path)]).stdout)[0]
+    summaries = json.loads(
+        _run([str(executable), *(str(path) for path in CORPUS_BOARDS)]).stdout
+    )
+    assert len(summaries) == len(CORPUS_BOARDS)
+    for board_path, summary in zip(CORPUS_BOARDS, summaries, strict=True):
+        _assert_summary_matches_python(board_path, summary)
+
+
+def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
     board = KiCadPcb.from_file(board_path)
     assert summary["source_bytes"] == board_path.stat().st_size
     assert summary["counts"] == {
@@ -114,4 +122,30 @@ def test_native_pcb_projection_matches_python_on_promoted_corpus(board_path: Pat
                 "ordinal": board.vias[0].net.ordinal,
                 "name": board.vias[0].net.name or None,
             },
+        }
+    pads = [pad for footprint in board.footprints for pad in footprint.pads]
+    if pads:
+        pad = pads[0]
+        assert summary["first_pad"] == {
+            "number": pad.number,
+            "kind": pad.pad_type.value,
+            "shape": pad.shape.value,
+            "at_x": pad.at_x,
+            "at_y": pad.at_y,
+            "size_x": pad.size_x,
+            "size_y": pad.size_y,
+            "layers": pad.layers,
+            "net": {
+                "ordinal": pad.net.ordinal,
+                "name": pad.net.name or None,
+            },
+        }
+    models = [model for footprint in board.footprints for model in footprint.models]
+    if models:
+        model = models[0]
+        assert summary["first_model"] == {
+            "path": model.path,
+            "offset": list(model.offset),
+            "scale": list(model.scale),
+            "rotate": list(model.rotate),
         }

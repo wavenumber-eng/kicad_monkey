@@ -188,6 +188,6 @@ disposition = "required"
 wasm = "deferred_native_first"
 status = "review_ready"
 python_symbols = ["KiCadPcb", "KiCadPcbProjection"]
-rust_symbols = ["PcbView", "PcbCounts", "PcbFootprint", "PcbSegment", "PcbVia", "PcbZone", "PcbEdit"]
+rust_symbols = ["PcbView", "PcbCounts", "PcbFootprint", "PcbPad", "PcbModelReference", "PcbNetRef", "PcbSegment", "PcbVia", "PcbZone", "PcbEdit"]
 rack_cases = ["L1_029"]
 evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/tests/pcb_typed_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]

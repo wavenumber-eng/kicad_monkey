@@ -8,6 +8,7 @@ use crate::sexpr::{
     apply_patches_with_limit, build_with_limit, decode_quoted,
 };
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
+use std::collections::BTreeMap;
 use std::ops::Range;
 
 /// Resource ceilings for one native PCB read or focused edit.
@@ -22,6 +23,8 @@ pub struct PcbLimits {
     pub max_properties: usize,
     pub max_footprints: usize,
     pub max_footprint_children: usize,
+    pub max_pad_children: usize,
+    pub max_model_children: usize,
     pub max_pads: usize,
     pub max_models: usize,
     pub max_segments: usize,
@@ -41,6 +44,8 @@ impl Default for PcbLimits {
             max_properties: 100_000,
             max_footprints: 1_000_000,
             max_footprint_children: 1_000_000,
+            max_pad_children: 256,
+            max_model_children: 32,
             max_pads: 4_000_000,
             max_models: 1_000_000,
             max_segments: 8_000_000,
@@ -118,6 +123,35 @@ pub struct PcbFootprint {
     pub source_range: Range<usize>,
 }
 
+/// One typed footprint pad in board source order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PcbPad {
+    pub footprint_index: usize,
+    pub number: String,
+    pub kind: String,
+    pub shape: String,
+    pub at_x: f64,
+    pub at_y: f64,
+    pub angle: f64,
+    pub size_x: f64,
+    pub size_y: f64,
+    pub layers: Vec<String>,
+    pub net: PcbNetRef,
+    pub uuid: Option<String>,
+    pub source_range: Range<usize>,
+}
+
+/// One typed footprint 3D-model reference in board source order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PcbModelReference {
+    pub footprint_index: usize,
+    pub path: String,
+    pub offset: [f64; 3],
+    pub scale: [f64; 3],
+    pub rotate: [f64; 3],
+    pub source_range: Range<usize>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct PcbSegment {
     pub start_x: f64,
@@ -165,12 +199,48 @@ struct IndexedFootprint {
     model_count: usize,
 }
 
+#[derive(Clone, Debug)]
+struct IndexedNestedForm {
+    footprint_index: usize,
+    span: FormSpan,
+}
+
+#[derive(Clone, Debug, Default)]
+struct NetResolver {
+    name_by_ordinal: BTreeMap<i64, String>,
+    ordinal_by_name: BTreeMap<String, i64>,
+}
+
+impl NetResolver {
+    fn resolve(&self, mut net: PcbNetRef) -> PcbNetRef {
+        if net.name.is_none()
+            && let Some(name) = net
+                .ordinal
+                .and_then(|ordinal| self.name_by_ordinal.get(&ordinal))
+                .filter(|name| !name.is_empty())
+        {
+            net.name = Some(name.clone());
+        }
+        if net.ordinal.is_none()
+            && let Some(ordinal) = net
+                .name
+                .as_ref()
+                .and_then(|name| self.ordinal_by_name.get(name))
+        {
+            net.ordinal = Some(*ordinal);
+        }
+        net
+    }
+}
+
 #[derive(Debug, Default)]
 struct PcbIndex {
     layer_forms: Vec<FormSpan>,
     properties: Vec<FormSpan>,
     nets: Vec<FormSpan>,
     footprints: Vec<IndexedFootprint>,
+    pads: Vec<IndexedNestedForm>,
+    models: Vec<IndexedNestedForm>,
     segments: Vec<FormSpan>,
     vias: Vec<FormSpan>,
     zones: Vec<FormSpan>,
@@ -187,9 +257,12 @@ pub struct PcbView<'a> {
     properties: Vec<FormSpan>,
     nets: Vec<FormSpan>,
     footprints: Vec<IndexedFootprint>,
+    pads: Vec<IndexedNestedForm>,
+    models: Vec<IndexedNestedForm>,
     segments: Vec<FormSpan>,
     vias: Vec<FormSpan>,
     zones: Vec<FormSpan>,
+    net_resolver: NetResolver,
     counts: PcbCounts,
     limits: PcbLimits,
 }
@@ -227,6 +300,7 @@ impl<'a> PcbView<'a> {
         }
 
         let index = index_top_level(source, &top_level, limits)?;
+        let net_resolver = net_resolver_from_spans(source, &index.nets)?;
 
         Ok(Self {
             source,
@@ -236,9 +310,12 @@ impl<'a> PcbView<'a> {
             properties: index.properties,
             nets: index.nets,
             footprints: index.footprints,
+            pads: index.pads,
+            models: index.models,
             segments: index.segments,
             vias: index.vias,
             zones: index.zones,
+            net_resolver,
             counts: index.counts,
             limits,
         })
@@ -293,22 +370,49 @@ impl<'a> PcbView<'a> {
             .map(|indexed| footprint_from_span(self.source, indexed, self.limits))
     }
 
-    pub fn segments(&self) -> impl Iterator<Item = Result<PcbSegment, Error>> + '_ {
-        self.segments
+    pub fn pads(&self) -> impl Iterator<Item = Result<PcbPad, Error>> + '_ {
+        self.pads.iter().map(|indexed| {
+            pad_from_span(self.source, indexed, self.limits).map(|mut pad| {
+                pad.net = self.net_resolver.resolve(pad.net);
+                pad
+            })
+        })
+    }
+
+    pub fn models(&self) -> impl Iterator<Item = Result<PcbModelReference, Error>> + '_ {
+        self.models
             .iter()
-            .map(|span| segment_from_span(self.source, span, self.limits))
+            .map(|indexed| model_from_span(self.source, indexed, self.limits))
+    }
+
+    pub fn segments(&self) -> impl Iterator<Item = Result<PcbSegment, Error>> + '_ {
+        self.segments.iter().map(|span| {
+            segment_from_span(self.source, span, self.limits).map(|mut segment| {
+                segment.net = self.net_resolver.resolve(segment.net);
+                segment
+            })
+        })
     }
 
     pub fn vias(&self) -> impl Iterator<Item = Result<PcbVia, Error>> + '_ {
-        self.vias
-            .iter()
-            .map(|span| via_from_span(self.source, span, self.limits))
+        self.vias.iter().map(|span| {
+            via_from_span(self.source, span, self.limits).map(|mut via| {
+                via.net = self.net_resolver.resolve(via.net);
+                via
+            })
+        })
     }
 
     pub fn zones(&self) -> impl Iterator<Item = Result<PcbZone, Error>> + '_ {
-        self.zones
-            .iter()
-            .map(|span| zone_from_span(self.source, span, self.limits))
+        self.zones.iter().map(|span| {
+            zone_from_span(self.source, span, self.limits).map(|mut zone| {
+                if zone.net.name.is_none() {
+                    zone.net.name.clone_from(&zone.net_name);
+                }
+                zone.net = self.net_resolver.resolve(zone.net);
+                zone
+            })
+        })
     }
 
     /// Replace one unambiguous top-level board property without rewriting the board.
@@ -396,6 +500,7 @@ fn index_top_level(
             Some("dimension") => index.counts.dimensions += 1,
             Some("generated") => index.counts.generated_items += 1,
             Some("embedded_files") => index.counts.embedded_files += 1,
+            Some("image" | "barcode" | "table") => {}
             Some(head) if is_known_metadata(head) => {}
             _ => index.counts.unknown_top_level += 1,
         }
@@ -432,14 +537,19 @@ fn index_footprint(
         return Err(limit_error());
     }
     let children = direct_children(source, span, limits.max_footprint_children, limits)?;
-    let pad_count = children
+    let footprint_index = index.footprints.len();
+    let pad_forms: Vec<_> = children
         .iter()
         .filter(|child| child.head.as_deref() == Some("pad"))
-        .count();
-    let model_count = children
+        .cloned()
+        .collect();
+    let model_forms: Vec<_> = children
         .iter()
         .filter(|child| child.head.as_deref() == Some("model"))
-        .count();
+        .cloned()
+        .collect();
+    let pad_count = pad_forms.len();
+    let model_count = model_forms.len();
     index.counts.pads = index
         .counts
         .pads
@@ -458,6 +568,18 @@ fn index_footprint(
         pad_count,
         model_count,
     });
+    index
+        .pads
+        .extend(pad_forms.into_iter().map(|span| IndexedNestedForm {
+            footprint_index,
+            span,
+        }));
+    index
+        .models
+        .extend(model_forms.into_iter().map(|span| IndexedNestedForm {
+            footprint_index,
+            span,
+        }));
     index.counts.footprints += 1;
     Ok(())
 }
@@ -552,6 +674,67 @@ fn footprint_from_span(
         }
     }
     Ok(result)
+}
+
+fn pad_from_span(
+    source: &str,
+    indexed: &IndexedNestedForm,
+    limits: PcbLimits,
+) -> Result<PcbPad, Error> {
+    let header = scalar_values(source, &indexed.span)?;
+    let children = direct_children(source, &indexed.span, limits.max_pad_children, limits)?;
+    let at = optional_vector(source, &children, "at", [0.0, 0.0, 0.0])?;
+    let size = optional_pair(source, &children, "size", [0.0, 0.0])?;
+    let layers = child(&children, "layers")
+        .map(|item| {
+            scalar_values(source, item).map(|values| values.iter().map(token_string).collect())
+        })
+        .transpose()?
+        .unwrap_or_default();
+    Ok(PcbPad {
+        footprint_index: indexed.footprint_index,
+        number: required_string(header.first(), "Expected pad number", &indexed.span)?,
+        kind: required_string(header.get(1), "Expected pad kind", &indexed.span)?,
+        shape: required_string(header.get(2), "Expected pad shape", &indexed.span)?,
+        at_x: at[0],
+        at_y: at[1],
+        angle: at[2],
+        size_x: size[0],
+        size_y: size[1],
+        layers,
+        net: child_net_ref(source, &children)?,
+        uuid: optional_uuid(source, &children)?,
+        source_range: indexed.span.range.clone(),
+    })
+}
+
+fn model_from_span(
+    source: &str,
+    indexed: &IndexedNestedForm,
+    limits: PcbLimits,
+) -> Result<PcbModelReference, Error> {
+    let header = scalar_values(source, &indexed.span)?;
+    let children = direct_children(source, &indexed.span, limits.max_model_children, limits)?;
+    Ok(PcbModelReference {
+        footprint_index: indexed.footprint_index,
+        path: required_string(header.first(), "Expected model path", &indexed.span)?,
+        offset: nested_xyz(source, &children, "offset", [0.0, 0.0, 0.0], limits)?,
+        scale: nested_xyz(source, &children, "scale", [1.0, 1.0, 1.0], limits)?,
+        rotate: nested_xyz(source, &children, "rotate", [0.0, 0.0, 0.0], limits)?,
+        source_range: indexed.span.range.clone(),
+    })
+}
+
+fn net_resolver_from_spans(source: &str, spans: &[FormSpan]) -> Result<NetResolver, Error> {
+    let mut resolver = NetResolver::default();
+    for span in spans {
+        let net = net_from_span(source, span)?;
+        resolver.name_by_ordinal.insert(net.code, net.name.clone());
+        if !net.name.is_empty() {
+            resolver.ordinal_by_name.insert(net.name, net.code);
+        }
+    }
+    Ok(resolver)
 }
 
 fn segment_from_span(
@@ -694,6 +877,61 @@ fn required_xy(
     ))
 }
 
+fn optional_pair(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+    default: [f64; 2],
+) -> Result<[f64; 2], Error> {
+    let Some(span) = child(children, head) else {
+        return Ok(default);
+    };
+    let values = scalar_values(source, span)?;
+    Ok([
+        required_f64(values.first(), "Expected first numeric value", span)?,
+        required_f64(values.get(1), "Expected second numeric value", span)?,
+    ])
+}
+
+fn optional_vector(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+    default: [f64; 3],
+) -> Result<[f64; 3], Error> {
+    let Some(span) = child(children, head) else {
+        return Ok(default);
+    };
+    let values = scalar_values(source, span)?;
+    Ok([
+        required_f64(values.first(), "Expected first numeric value", span)?,
+        required_f64(values.get(1), "Expected second numeric value", span)?,
+        optional_f64(values.get(2), span)?.unwrap_or(default[2]),
+    ])
+}
+
+fn nested_xyz(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+    default: [f64; 3],
+    limits: PcbLimits,
+) -> Result<[f64; 3], Error> {
+    let Some(container) = child(children, head) else {
+        return Ok(default);
+    };
+    let nested = direct_children(source, container, limits.max_model_children, limits)?;
+    let Some(xyz) = child(&nested, "xyz") else {
+        return Ok(default);
+    };
+    let values = scalar_values(source, xyz)?;
+    Ok([
+        required_f64(values.first(), "Expected model x value", xyz)?,
+        required_f64(values.get(1), "Expected model y value", xyz)?,
+        required_f64(values.get(2), "Expected model z value", xyz)?,
+    ])
+}
+
 fn child<'a>(children: &'a [FormSpan], head: &str) -> Option<&'a FormSpan> {
     children
         .iter()
@@ -738,7 +976,10 @@ fn child_net_ref(source: &str, children: &[FormSpan]) -> Result<PcbNetRef, Error
     if let Ok(ordinal) = token.lexeme.parse() {
         Ok(PcbNetRef {
             ordinal: Some(ordinal),
-            name: None,
+            name: values
+                .get(1)
+                .map(token_string)
+                .filter(|name| !name.is_empty()),
         })
     } else {
         Ok(PcbNetRef {

@@ -388,6 +388,8 @@ test_case_type = "shared_corpus"
 primary = "Native Rust indexes and edits major PCB families without a generic full-file tree"
 secondary = [
     "Layers, nets, footprints, pads, models, routing, and zones match the Python model",
+    "Both named corpus boards are mandatory and missing evidence fails rather than skips",
+    "Board net references resolve ordinal-only and name-only encodings against the net table",
     "Exact source spans and unknown top-level forms remain available in source order",
     "Focused property writes preserve untouched bytes and are stable after semantic reparse",
     "Source, family, nested-object, depth, and output limits fail closed",

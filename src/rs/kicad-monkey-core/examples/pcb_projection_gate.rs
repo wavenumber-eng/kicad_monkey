@@ -11,6 +11,8 @@ fn summarize(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
     let view = PcbView::parse(&source, PcbLimits::default())?;
     let counts = view.counts();
     let footprint = view.footprints().next().transpose()?;
+    let pad = view.pads().next().transpose()?;
+    let model = view.models().next().transpose()?;
     let segment = view.segments().next().transpose()?;
     let via = view.vias().next().transpose()?;
     // Force every promoted iterator to decode so lazy failures fail the gate.
@@ -18,6 +20,8 @@ fn summarize(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
     view.nets().collect::<Result<Vec<_>, _>>()?;
     view.properties().collect::<Result<Vec<_>, _>>()?;
     view.footprints().collect::<Result<Vec<_>, _>>()?;
+    view.pads().collect::<Result<Vec<_>, _>>()?;
+    view.models().collect::<Result<Vec<_>, _>>()?;
     view.segments().collect::<Result<Vec<_>, _>>()?;
     view.vias().collect::<Result<Vec<_>, _>>()?;
     view.zones().collect::<Result<Vec<_>, _>>()?;
@@ -39,6 +43,23 @@ fn summarize(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
         "first_footprint": footprint.map(|item| json!({
             "library_link": item.library_link,
             "reference": item.reference,
+        })),
+        "first_pad": pad.map(|item| json!({
+            "number": item.number,
+            "kind": item.kind,
+            "shape": item.shape,
+            "at_x": item.at_x,
+            "at_y": item.at_y,
+            "size_x": item.size_x,
+            "size_y": item.size_y,
+            "layers": item.layers,
+            "net": {"ordinal": item.net.ordinal, "name": item.net.name},
+        })),
+        "first_model": model.map(|item| json!({
+            "path": item.path,
+            "offset": item.offset,
+            "scale": item.scale,
+            "rotate": item.rotate,
         })),
         "first_segment": segment.map(|item| json!({
             "start_x": item.start_x,

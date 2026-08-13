@@ -20,7 +20,10 @@ const SOURCE: &str = r#"# board comment survives
     (property "Value" "Demo")
     (uuid 11111111-1111-1111-1111-111111111111)
     (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu" "F.Paste"))
-    (model "${KICAD9_3DMODEL_DIR}/Demo.wrl")
+    (model "${KICAD9_3DMODEL_DIR}/Demo.wrl"
+      (offset (xyz 1 2 3))
+      (scale (xyz 1.5 2.5 3.5))
+      (rotate (xyz 10 20 30)))
     (future_footprint_data (nested "preserve")))
   (segment (start 1 2) (end 3 4) (width 0.25) (layer "F.Cu") (net 1)
     (uuid 22222222-2222-2222-2222-222222222222))
@@ -30,6 +33,9 @@ const SOURCE: &str = r#"# board comment survives
     (uuid 44444444-4444-4444-4444-444444444444)
     (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1))))
   (gr_line (start 0 0) (end 1 1) (stroke (width 0.1) (type default)) (layer "Edge.Cuts"))
+  (image (at 0 0) (data "known image"))
+  (barcode "known barcode")
+  (table (cells))
   (future_board_data (nested "must survive"))
 )
 "#;
@@ -65,6 +71,10 @@ fn board_view_indexes_major_families_and_exact_unknown_source() {
         .text(SOURCE)
         .expect("unknown text");
     assert_eq!(unknown, "(future_board_data (nested \"must survive\"))");
+    assert_eq!(
+        view.unknown_top_level_forms().count(),
+        counts.unknown_top_level
+    );
 }
 
 #[test]
@@ -99,6 +109,35 @@ fn typed_iterators_decode_layers_nets_and_footprints() {
 }
 
 #[test]
+fn typed_iterators_decode_nested_pads_and_models() {
+    let view = PcbView::parse(SOURCE, PcbLimits::default()).expect("board view");
+    let pad = view.pads().next().expect("pad").expect("typed pad");
+    assert_eq!(
+        (
+            pad.footprint_index,
+            pad.number.as_str(),
+            pad.kind.as_str(),
+            pad.shape.as_str(),
+            pad.net.ordinal,
+            pad.net.name.as_deref(),
+        ),
+        (0, "1", "smd", "rect", None, None)
+    );
+    assert_eq!(
+        (pad.at_x, pad.at_y, pad.size_x, pad.size_y),
+        (0.0, 0.0, 1.0, 1.0)
+    );
+    assert_eq!(pad.layers, ["F.Cu", "F.Paste"]);
+
+    let model = view.models().next().expect("model").expect("typed model");
+    assert_eq!(model.footprint_index, 0);
+    assert_eq!(model.path, "${KICAD9_3DMODEL_DIR}/Demo.wrl");
+    assert_eq!(model.offset, [1.0, 2.0, 3.0]);
+    assert_eq!(model.scale, [1.5, 2.5, 3.5]);
+    assert_eq!(model.rotate, [10.0, 20.0, 30.0]);
+}
+
+#[test]
 fn typed_iterators_decode_routing_and_zones() {
     let view = PcbView::parse(SOURCE, PcbLimits::default()).expect("board view");
     let segment = view
@@ -122,7 +161,7 @@ fn typed_iterators_decode_routing_and_zones() {
             segment.net.ordinal,
             segment.net.name.as_deref()
         ),
-        (Some(0.25), Some("F.Cu"), Some(1), None)
+        (Some(0.25), Some("F.Cu"), Some(1), Some("GND"))
     );
 
     let via = view.vias().next().expect("via").expect("typed via");
@@ -221,15 +260,85 @@ fn root_family_nested_and_output_limits_fail_closed() {
             .kind,
         ErrorKind::ResourceLimit
     );
+
+    let view = PcbView::parse(
+        SOURCE,
+        PcbLimits {
+            max_pad_children: 2,
+            ..PcbLimits::default()
+        },
+    )
+    .expect("pad child limit remains lazy");
+    assert_eq!(
+        view.pads()
+            .next()
+            .expect("pad")
+            .expect_err("pad child limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+    let view = PcbView::parse(
+        SOURCE,
+        PcbLimits {
+            max_model_children: 2,
+            ..PcbLimits::default()
+        },
+    )
+    .expect("model child limit remains lazy");
+    assert_eq!(
+        view.models()
+            .next()
+            .expect("model")
+            .expect_err("model child limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
 }
 
 #[test]
-fn malformed_lazy_records_report_absolute_positions() {
+fn malformed_net_table_records_report_absolute_positions() {
     let source = "# prefix\n(kicad_pcb\n  (net wrong \"GND\")\n)\n";
-    let view = PcbView::parse(source, PcbLimits::default()).expect("board view");
-    let error = view.nets().next().expect("net").expect_err("bad net code");
+    let error = PcbView::parse(source, PcbLimits::default()).expect_err("bad net code");
     let position = error.position.expect("absolute position");
     assert_eq!(position.offset, source.find("wrong").expect("offset"));
     assert_eq!(position.line, 3);
     assert_eq!(position.column, 8);
+}
+
+#[test]
+fn board_net_table_resolves_ordinal_name_unknown_and_empty_references_once() {
+    let source = r#"(kicad_pcb
+  (net 1 "GND")
+  (net 2 "SIG")
+  (footprint "Demo"
+    (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net 1))
+    (pad "2" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net "SIG"))
+    (pad "3" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net 99))
+    (pad "4" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net "MISSING"))
+    (pad "5" smd rect (at 0 0) (size 1 1) (layers "F.Cu")))
+)"#;
+    let view = PcbView::parse(source, PcbLimits::default()).expect("board view");
+    let pads = view.pads().collect::<Result<Vec<_>, _>>().expect("pads");
+    assert_eq!(
+        pads.iter().map(|pad| pad.net.clone()).collect::<Vec<_>>(),
+        [
+            kicad_monkey_core::PcbNetRef {
+                ordinal: Some(1),
+                name: Some("GND".to_owned()),
+            },
+            kicad_monkey_core::PcbNetRef {
+                ordinal: Some(2),
+                name: Some("SIG".to_owned()),
+            },
+            kicad_monkey_core::PcbNetRef {
+                ordinal: Some(99),
+                name: None,
+            },
+            kicad_monkey_core::PcbNetRef {
+                ordinal: None,
+                name: Some("MISSING".to_owned()),
+            },
+            kicad_monkey_core::PcbNetRef::default(),
+        ]
+    );
 }
