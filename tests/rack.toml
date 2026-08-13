@@ -84,6 +84,37 @@ description = "Broader routine-validation lane"
 [lanes.strict]
 description = "Heavier or stricter validation lane"
 
+# The Python package profile remains authoritative for this polyglot root.
+# Rack L0_046 invokes the Rust profile policy directly; this records the
+# standard failing lane command expected by wn-dev-std's Rust hygiene check.
+[[subtests]]
+id = "rust-structural-hygiene"
+command = "dev-std audit . --scope language"
+
+[[subtests]]
+id = "rust-format"
+command = "cargo fmt --all -- --check"
+
+[[subtests]]
+id = "rust-check"
+command = "cargo check --workspace --all-targets --locked"
+
+[[subtests]]
+id = "rust-clippy"
+command = "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings"
+
+[[subtests]]
+id = "rust-test"
+command = "cargo test --workspace --locked"
+
+[[subtests]]
+id = "rust-doctest"
+command = "cargo test --doc --workspace --locked"
+
+[[subtests]]
+id = "rust-rustdoc"
+command = "RUSTDOCFLAGS=\"-D warnings\" cargo doc --workspace --no-deps --locked"
+
 # =============================================================================
 # Dependencies
 # =============================================================================

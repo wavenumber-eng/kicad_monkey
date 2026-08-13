@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import tomllib
 
+from wn_dev_std.rust_policy import check_rust_policy
+
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_ROOT = PACKAGE_ROOT / "contracts" / "generated" / "schema"
@@ -61,7 +63,6 @@ def test_typespec_and_generated_rust_contracts_are_clean() -> None:
     assert (PACKAGE_ROOT / "node_modules" / ".bin" / "tsp.cmd").exists(), (
         "TypeSpec dependencies are missing; run `npm ci`"
     )
-
     before = _schema_hashes()
     _run([npm, "run", "check:typespec"])
     _run([npm, "run", "generate:contracts"])
@@ -77,6 +78,15 @@ def test_typespec_and_generated_rust_contracts_are_clean() -> None:
             "--check",
         ]
     )
+
+
+def test_wn_dev_std_rust_hygiene_profile_passes() -> None:
+    config = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+        "tool"
+    ]["wn_dev_std"]
+    checks = check_rust_policy(PACKAGE_ROOT, config, "rust-app")
+    failures = [f"{check.name}: {check.detail}" for check in checks if not check.passed]
+    assert not failures, "\n".join(failures)
 
 
 def test_rust_l0_quality_and_real_wasm_smoke() -> None:

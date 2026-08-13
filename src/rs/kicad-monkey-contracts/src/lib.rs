@@ -1,7 +1,10 @@
 //! Generated transport types for KiCad Monkey operation boundaries.
 
 #![forbid(unsafe_code)]
-#![allow(clippy::derivable_impls)] // Typify emits explicit schema defaults.
+#![allow(
+    clippy::derivable_impls,
+    reason = "Typify emits explicit schema defaults in committed generated modules"
+)]
 
 pub mod generated;
 
@@ -261,7 +264,10 @@ fn validate_shared_circle(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the validator receives the complete shared graphic/drill state as separate fields"
+)]
 fn validate_graphic_or_drill(
     layer: Option<&str>,
     role: Option<PlotterDrillRole>,
@@ -318,6 +324,10 @@ fn require_layers(layers: &[String], path: String) -> Result<(), ValidationError
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "pre-standard recursive union validator retained under the structural ratchet"
+)]
 fn validate_node(
     node: Node,
     path: String,

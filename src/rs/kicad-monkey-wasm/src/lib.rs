@@ -344,6 +344,10 @@ fn plot_footprint_ir_impl(
     })
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "pre-standard exhaustive transport-union adapter retained under the structural ratchet"
+)]
 fn contract_plotter_operation(
     index: usize,
     operation: CorePlotterOperation,

@@ -104,6 +104,15 @@
 
   <section>
     <h2>Required Validation</h2>
+    <p>
+      The 2026.8.12 standard adds syntax-aware structural limits: at most seven
+      parameters, 100 production-function lines, 150 test-function lines,
+      1,000 file lines, cyclomatic complexity 10, and nesting depth four.
+      Existing parser and plotter debt is captured in the checked-in
+      <code>rust-hygiene-baseline.json</code>; the ratchet rejects new entries
+      or increases. Clippy uses the same reviewed thresholds, and every local
+      allowance requires a written reason.
+    </p>
     <pre><code>cargo fmt --all -- --check
 cargo check --workspace --all-targets --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings

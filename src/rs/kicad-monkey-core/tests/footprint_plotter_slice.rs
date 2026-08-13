@@ -20,6 +20,10 @@ const LINE_FOOTPRINT: &str = r#"(footprint "Demo"
 )"#;
 
 #[test]
+#[allow(
+    clippy::cognitive_complexity,
+    reason = "single parity assertion test intentionally verifies the complete promoted record"
+)]
 fn footprint_plotter_reads_metadata_and_solid_lines_without_a_full_tree() {
     let document = footprint_plot_document(LINE_FOOTPRINT, FootprintPlotLimits::default())
         .expect("plotter document");

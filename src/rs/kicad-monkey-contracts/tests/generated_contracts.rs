@@ -119,6 +119,10 @@ fn javascript_safe_integer_accepts_exact_boundaries_and_rejects_neighbors() {
 }
 
 #[test]
+#[allow(
+    clippy::too_many_lines,
+    reason = "boundary matrix stays below the reviewed 150-line test-function limit"
+)]
 fn every_plotter_safe_integer_field_rejects_precision_losing_values() {
     let base = serde_json::json!({
         "schema": "kicad.plotter_ir.a0",

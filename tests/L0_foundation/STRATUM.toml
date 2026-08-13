@@ -119,7 +119,7 @@ secondary = [
 id = "L0_046"
 file = "test_L0_046_rust_l0_signoff.py"
 name = "Rust L0 Signoff"
-description = "Use Rack to close parity registry, TypeSpec generation, Rust quality, and real WASM smoke gates"
+description = "Use Rack to close parity registry, TypeSpec generation, structural Rust hygiene, quality, and real WASM smoke gates"
 concerns = ["sexpr", "contracts", "wasm"]
 test_case_type = "contract"
 
@@ -128,6 +128,7 @@ primary = "Every required Rust L0 surface has evidence and all generated/native/
 secondary = [
     "TypeSpec JSON Schema and generated Rust projections are reproducible",
     "Cargo formatting, checking, and Clippy pass with warnings denied",
+    "wn-dev-std Tree-sitter hygiene prevents new parameter, size, complexity, and nesting debt",
     "The WASM target executes a byte-input/byte-output smoke test under Node",
 ]
 

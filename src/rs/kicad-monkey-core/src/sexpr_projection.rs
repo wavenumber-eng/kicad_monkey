@@ -193,6 +193,10 @@ pub fn scan_form_spans_with_limits(
     Ok(spans)
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "pre-standard single-pass scanner retained under the structural ratchet"
+)]
 fn scan_form_spans_unsorted(
     source: &str,
     selector: &Selector,
@@ -482,6 +486,10 @@ impl<'a> StreamingProjection<'a> {
         }
     }
 
+    #[allow(
+        clippy::too_many_lines,
+        reason = "pre-standard byte-state transition retained under the structural ratchet"
+    )]
     fn feed(&mut self, byte: u8) -> Result<(), Error> {
         if self.position.offset >= self.limits.max_source_bytes {
             return Err(resource_error(

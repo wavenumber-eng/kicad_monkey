@@ -220,6 +220,11 @@ pub struct FootprintPlotDocument {
 }
 
 /// Read supported footprint geometry directly from selected forms.
+#[allow(
+    clippy::cognitive_complexity,
+    clippy::too_many_lines,
+    reason = "pre-standard source-selection orchestrator retained under the structural ratchet"
+)]
 pub fn footprint_plot_document(
     source: &str,
     limits: FootprintPlotLimits,
@@ -627,6 +632,10 @@ struct PadOperationContext<'a> {
     mask_margin_nm: i64,
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "pre-standard pad dispatch retained under the structural ratchet"
+)]
 fn parse_pad(
     source: &str,
     span: &FormSpan,

@@ -634,6 +634,10 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[allow(
+        clippy::cognitive_complexity,
+        reason = "pre-standard dialect parser retained under the structural ratchet"
+    )]
     fn parse_teardrops_body(
         &mut self,
         values: &mut Vec<Sexp>,
@@ -1206,6 +1210,10 @@ pub(crate) fn decode_quoted(lexeme: &str) -> String {
     decode_quoted_with_limit(lexeme, usize::MAX).unwrap_or_default()
 }
 
+#[allow(
+    clippy::cognitive_complexity,
+    reason = "pre-standard bounded escape decoder retained under the structural ratchet"
+)]
 fn decode_quoted_with_limit(lexeme: &str, max_bytes: usize) -> Option<String> {
     let body = &lexeme[1..lexeme.len() - 1];
     let mut output = String::with_capacity(body.len().min(max_bytes));
