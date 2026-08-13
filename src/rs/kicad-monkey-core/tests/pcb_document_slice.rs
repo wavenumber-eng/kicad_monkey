@@ -135,6 +135,49 @@ fn property_upsert_and_removal_fail_closed_on_ambiguity_and_output_limits() {
 }
 
 #[test]
+fn property_insertion_enforces_exact_count_limit_at_view_and_document_boundaries() {
+    let source = "(kicad_pcb (property \"Owner\" \"old\"))";
+    let exact_limits = PcbLimits {
+        max_properties: 2,
+        ..PcbLimits::default()
+    };
+    let edit = kicad_monkey_core::PcbView::parse(source, exact_limits)
+        .expect("view")
+        .upsert_property("Revision", "A")
+        .expect("exact limit");
+    assert!(edit.changed);
+    assert_eq!(
+        kicad_monkey_core::PcbView::parse(&edit.source, exact_limits)
+            .expect("reparse")
+            .counts()
+            .properties,
+        2
+    );
+
+    let strict_limits = PcbLimits {
+        max_properties: 1,
+        ..PcbLimits::default()
+    };
+    let view = kicad_monkey_core::PcbView::parse(source, strict_limits).expect("strict view");
+    assert_eq!(
+        view.upsert_property("Revision", "A")
+            .expect_err("direct view ceiling")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+    let mut document =
+        PcbDocument::parse(source.to_owned(), strict_limits).expect("strict document");
+    assert_eq!(
+        document
+            .upsert_property("Revision", "A")
+            .expect_err("owned ceiling")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+    assert_eq!(document.source(), source);
+}
+
+#[test]
 fn failed_owned_mutations_leave_the_document_unchanged() {
     let ambiguous = SOURCE.replace(
         "(property \"Owner\" \"old\")",

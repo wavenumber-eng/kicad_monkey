@@ -942,6 +942,14 @@ impl<'a> PcbView<'a> {
     }
 
     fn insert_property(&self, name: &str, value: &str) -> Result<PcbEdit, Error> {
+        let property_count = self
+            .top_level
+            .iter()
+            .filter(|span| span.head.as_deref() == Some("property"))
+            .count();
+        if property_count >= self.limits.max_properties {
+            return Err(limit_error());
+        }
         let form = build_with_limit(
             &Sexp::List(vec![
                 Sexp::Atom("property".to_owned()),
