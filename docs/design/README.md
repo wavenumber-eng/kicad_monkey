@@ -41,6 +41,9 @@ Current design notes:
 - `rust-phase2-boundary-review.html` - review packet for the first typed native
   boundary, the completed WASM feasibility proof, and the native-first
   continuation decision.
+- `rust-compiled-schematic-graph-phase4-contract.html` - review-ready TypeSpec
+  authority, generated transport projections, and deterministic identity
+  vectors for the Phase 4 schematic compiler.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

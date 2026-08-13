@@ -180,3 +180,21 @@ secondary = [
     "TypeScript declarations compile under strict consumer settings",
     "Regeneration checks reject hand-edited or stale projections",
 ]
+
+[[subtests]]
+id = "L0_050"
+file = "test_L0_050_compiled_graph_contract.py"
+name = "Compiled Schematic Graph Contract and Identity Vectors"
+description = "Require strict generated a0 graph projections and portable deterministic identity allocation"
+concerns = ["contracts", "schematic", "compiled_graph", "identity"]
+test_cases = "tests/parity/compiled_schematic_graph_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "TypeSpec owns the complete compiled-graph transport and freezes deterministic identity allocation in language-neutral vectors"
+secondary = [
+    "All ten graph row families have strict generated transport projections",
+    "Unknown fields and unregistered enum tokens fail closed",
+    "Project scope normalization is portable across path separators and case",
+    "The Python authority replays exact source and topology-derived UUIDv7 vectors ready for the native compiler",
+]

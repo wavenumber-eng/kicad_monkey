@@ -1,4 +1,5 @@
 use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;
+use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
 use kicad_monkey_contracts::generated::footprint_plot_document::FootprintPlotDocumentA0;
 use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
 use kicad_monkey_contracts::generated::symbol_plot_document::SymbolPlotDocumentA0;
@@ -28,6 +29,35 @@ fn generated_scan_request_is_strict_and_round_trips_wire_names() {
 
     let with_extra = json.replace("\"max_depth\":512", "\"extra\":1,\"max_depth\":512");
     assert!(serde_json::from_str::<SExpressionScanRequestA0>(&with_extra).is_err());
+}
+
+#[test]
+fn compiled_schematic_graph_vector_decodes_strictly_in_rust() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/compiled_schematic_graph_a0_vectors.json"
+    )))
+    .expect("compiled graph vectors");
+    let graph = vectors["graph"].clone();
+    let decoded: CompiledSchematicGraphA0 =
+        serde_json::from_value(graph.clone()).expect("compiled graph transport");
+    assert_eq!(
+        decoded.identity_namespace,
+        "sch.compiled_schematic_graph.a0"
+    );
+    assert_eq!(decoded.graphical_artifact_links.len(), 1);
+    assert_eq!(
+        serde_json::to_value(&decoded).expect("compiled graph re-encode"),
+        graph
+    );
+
+    let mut invalid = graph;
+    invalid["unknown_field"] = true.into();
+    assert!(serde_json::from_value::<CompiledSchematicGraphA0>(invalid).is_err());
+
+    let mut invalid_role = vectors["graph"].clone();
+    invalid_role["terminal_occurrences"][0]["role"] = "invented_role".into();
+    assert!(serde_json::from_value::<CompiledSchematicGraphA0>(invalid_role).is_err());
 }
 
 #[test]

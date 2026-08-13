@@ -2,6 +2,7 @@
 
 pub mod build_request;
 pub mod build_result;
+pub mod compiled_schematic_graph;
 pub mod footprint_edit_request;
 pub mod footprint_edit_result;
 pub mod footprint_plot_document;

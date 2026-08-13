@@ -11,8 +11,10 @@ import msgspec
 import pytest
 
 from kicad_monkey.contracts.generated import (
+    CompiledSchematicGraphA0,
     FootprintPlotDocumentA0,
     SExpressionBuildRequestA0,
+    decode_compiled_schematic_graph_a0,
     decode_footprint_plot_document_a0,
     decode_sexpr_build_request_a0,
 )
@@ -62,6 +64,18 @@ def test_generated_projections_are_current_and_typescript_compiles() -> None:
     assert npm is not None, "npm is required for generated contract checks"
     _run([npm, "run", "check:python-generation"])
     _run([npm, "run", "check:typescript-generation"])
+
+
+def test_generated_compiled_graph_projection_accepts_registered_vector() -> None:
+    vectors = json.loads(
+        (PACKAGE_ROOT / "tests/parity/compiled_schematic_graph_a0_vectors.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert isinstance(
+        decode_compiled_schematic_graph_a0(json.dumps(vectors["graph"]).encode()),
+        CompiledSchematicGraphA0,
+    )
 
 
 @pytest.mark.parametrize("version", [-9_007_199_254_740_991, 9_007_199_254_740_991])

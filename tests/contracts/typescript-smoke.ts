@@ -1,4 +1,5 @@
 import type {
+  CompiledSchematicGraphA0,
   FootprintEditRequestA0,
   FootprintPlotDocumentA0,
   FootprintPlotRequestA0,
@@ -6,6 +7,24 @@ import type {
   SExpressionBuildRequestA0,
   SExpressionScanRequestA0,
 } from "../../src/ts/kicad_monkey/contracts/generated/index.js";
+
+const compiledGraph = {
+  schema: "kicad_monkey.compiled_schematic_graph.a0",
+  type: "sch.compiled_schematic_graph",
+  identity_namespace: "sch.compiled_schematic_graph.a0",
+  unit_definitions: [],
+  page_definitions: [],
+  unit_occurrences: [],
+  page_occurrences: [],
+  hierarchy_occurrences: [],
+  component_occurrences: [],
+  local_net_occurrences: [],
+  terminal_occurrences: [],
+  hierarchy_terminal_bindings: [],
+  graphical_artifact_links: [],
+} satisfies CompiledSchematicGraphA0;
+
+void compiledGraph;
 
 const buildRequest = {
   type: "kicad_monkey.sexpr_build.request",

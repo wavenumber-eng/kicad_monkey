@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use typify::{TypeSpace, TypeSpaceSettings};
 
-const SCHEMAS: [(&str, &str); 18] = [
+const SCHEMAS: [(&str, &str); 19] = [
     ("BuildRequest.json", "build_request.rs"),
     ("BuildResult.json", "build_result.rs"),
     ("ScanRequest.json", "scan_request.rs"),
@@ -42,6 +42,7 @@ const SCHEMAS: [(&str, &str); 18] = [
         "SymbolLibraryReadResult.json",
         "symbol_library_read_result.rs",
     ),
+    ("CompiledSchematicGraph.json", "compiled_schematic_graph.rs"),
 ];
 
 fn main() -> Result<()> {

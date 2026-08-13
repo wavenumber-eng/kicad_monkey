@@ -302,6 +302,131 @@ class SymbolSummary(Struct, forbid_unknown_fields=True, frozen=True):
     power_kind: str | UnsetType = field(default=UNSET)
 
 
+class UnitDefinition(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["sch.unit_definition"] = field(name="type")
+    id: str
+    display_name: str
+    page_definition_refs: list[str]
+    source_identity: SourceIdentity
+
+
+class PageDefinition(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["sch.page_definition"] = field(name="type")
+    id: str
+    display_name: str
+    unit_definition_ref: str
+    source_identity: SourceIdentity
+
+
+class UnitOccurrence(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["sch.unit_occurrence"] = field(name="type")
+    id: str
+    display_name: str
+    unit_definition_ref: str
+    page_occurrence_refs: list[str]
+    source_identity: SourceIdentity
+    parent_hierarchy_occurrence_ref: str | UnsetType = field(default=UNSET)
+
+
+class PageOccurrence(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["sch.page_occurrence"] = field(name="type")
+    id: str
+    display_name: str
+    page_definition_ref: str
+    unit_occurrence_ref: str
+    instance_order: int
+    source_identity: SourceIdentity
+    address_key: str | UnsetType = field(default=UNSET)
+    sheet_number: str | UnsetType = field(default=UNSET)
+
+
+class HierarchyOccurrence(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["sch.hierarchy_occurrence"] = field(name="type")
+    id: str
+    parent_unit_occurrence_ref: str
+    parent_page_occurrence_ref: str
+    child_unit_occurrence_ref: str
+    source_identity: SourceIdentity
+
+
+class ComponentOccurrence(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["sch.component_occurrence"] = field(name="type")
+    id: str
+    page_occurrence_ref: str
+    source_designator: str
+    physical_designator: str
+    display_designator: str
+    unit: int
+    body_style: int
+    source_identity: SourceIdentity
+    design_component_ref: str | UnsetType = field(default=UNSET)
+
+
+class LocalNetOccurrence(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["sch.local_net_occurrence"] = field(name="type")
+    id: str
+    page_occurrence_ref: str
+    display_name: str
+    aliases: list[str]
+    source_identity: SourceIdentity
+    design_net_ref: str | UnsetType = field(default=UNSET)
+    qualified_name: str | UnsetType = field(default=UNSET)
+
+
+class TerminalOccurrence(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["sch.terminal_occurrence"] = field(name="type")
+    id: str
+    page_occurrence_ref: str
+    role: TerminalRole
+    name: str
+    pin_designator: str
+    source_identity: SourceIdentity
+    local_net_occurrence_ref: str | UnsetType = field(default=UNSET)
+    design_net_ref: str | UnsetType = field(default=UNSET)
+    component_occurrence_ref: str | UnsetType = field(default=UNSET)
+    design_component_pin_ref: str | UnsetType = field(default=UNSET)
+    resolution_diagnostics: list[ResolutionDiagnostic] | UnsetType = field(default=UNSET)
+
+
+class HierarchyTerminalBinding(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["sch.hierarchy_terminal_binding"] = field(name="type")
+    id: str
+    hierarchy_occurrence_ref: str
+    parent_terminal_occurrence_ref: str
+    child_terminal_occurrence_ref: str
+    source_identity: SourceIdentity
+    design_net_ref: str | UnsetType = field(default=UNSET)
+
+
+class GraphicalArtifactLink(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["sch.graphical_artifact_link"] = field(name="type")
+    id: str
+    page_occurrence_ref: str
+    target_type: GraphicalTargetType
+    target_ref: str
+    artifact_key: Literal["sch.dwg_scene"]
+    element_id: str
+    source_identity: SourceIdentity
+
+
+class SourceIdentity(Struct, forbid_unknown_fields=True, frozen=True):
+    sch_source_key_source_uuid: str | UnsetType = field(default=UNSET, name="sch.source_key.source_uuid")
+    sch_source_key_source_path: str | UnsetType = field(default=UNSET, name="sch.source_key.source_path")
+    sch_source_key_source_record: str | UnsetType = field(default=UNSET, name="sch.source_key.source_record")
+    sch_source_key_source_subobject: str | UnsetType = field(default=UNSET, name="sch.source_key.source_subobject")
+    sch_source_key_compiled_net: str | UnsetType = field(default=UNSET, name="sch.source_key.compiled_net")
+    sch_source_key_artifact_element: str | UnsetType = field(default=UNSET, name="sch.source_key.artifact_element")
+
+
+TerminalRole = Literal["component_pin", "sheet_entry", "port", "power_port"]
+
+
+ResolutionDiagnostic = Literal["logical_pin_unresolved", "component_occurrence_unresolved", "hierarchy_terminal_binding_unresolved", "design_net_unresolved"]
+
+
+GraphicalTargetType = Literal["sch.component_occurrence", "sch.hierarchy_occurrence", "sch.terminal_occurrence", "sch.local_net_occurrence", "sch.page_occurrence"]
+
+
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.sexpr_build.request"] = field(name="type")
     version: Literal["a0"]
@@ -485,6 +610,22 @@ class SymbolLibraryReadResultA0(Struct, forbid_unknown_fields=True, frozen=True)
     diagnostics: list[Diagnostic]
 
 
+class CompiledSchematicGraphA0(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad_monkey.compiled_schematic_graph.a0"]
+    type_: Literal["sch.compiled_schematic_graph"] = field(name="type")
+    identity_namespace: Literal["sch.compiled_schematic_graph.a0"]
+    unit_definitions: list[UnitDefinition]
+    page_definitions: list[PageDefinition]
+    unit_occurrences: list[UnitOccurrence]
+    page_occurrences: list[PageOccurrence]
+    hierarchy_occurrences: list[HierarchyOccurrence]
+    component_occurrences: list[ComponentOccurrence]
+    local_net_occurrences: list[LocalNetOccurrence]
+    terminal_occurrences: list[TerminalOccurrence]
+    hierarchy_terminal_bindings: list[HierarchyTerminalBinding]
+    graphical_artifact_links: list[GraphicalArtifactLink]
+
+
 decode_sexpr_build_request_a0 = msgspec.json.Decoder(SExpressionBuildRequestA0).decode
 decode_sexpr_build_result_a0 = msgspec.json.Decoder(SExpressionBuildResultA0).decode
 decode_sexpr_scan_request_a0 = msgspec.json.Decoder(SExpressionScanRequestA0).decode
@@ -596,6 +737,7 @@ decode_symbol_library_edit_request_a0 = msgspec.json.Decoder(SymbolLibraryEditRe
 decode_symbol_library_edit_result_a0 = msgspec.json.Decoder(SymbolLibraryEditResultA0).decode
 decode_symbol_library_read_request_a0 = msgspec.json.Decoder(SymbolLibraryReadRequestA0).decode
 decode_symbol_library_read_result_a0 = msgspec.json.Decoder(SymbolLibraryReadResultA0).decode
+decode_compiled_schematic_graph_a0 = msgspec.json.Decoder(CompiledSchematicGraphA0).decode
 
 
 __all__ = (
@@ -633,6 +775,20 @@ __all__ = (
     "LibSubsymbolPlotRecord",
     "SymbolBooleanField",
     "SymbolSummary",
+    "UnitDefinition",
+    "PageDefinition",
+    "UnitOccurrence",
+    "PageOccurrence",
+    "HierarchyOccurrence",
+    "ComponentOccurrence",
+    "LocalNetOccurrence",
+    "TerminalOccurrence",
+    "HierarchyTerminalBinding",
+    "GraphicalArtifactLink",
+    "SourceIdentity",
+    "TerminalRole",
+    "ResolutionDiagnostic",
+    "GraphicalTargetType",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",
@@ -651,6 +807,7 @@ __all__ = (
     "SymbolLibraryEditResultA0",
     "SymbolLibraryReadRequestA0",
     "SymbolLibraryReadResultA0",
+    "CompiledSchematicGraphA0",
     "decode_sexpr_build_request_a0",
     "decode_sexpr_build_result_a0",
     "decode_sexpr_scan_request_a0",
@@ -669,6 +826,7 @@ __all__ = (
     "decode_symbol_library_edit_result_a0",
     "decode_symbol_library_read_request_a0",
     "decode_symbol_library_read_result_a0",
+    "decode_compiled_schematic_graph_a0",
     "validate_footprint_plot_document_a0",
     "validate_symbol_plot_document_a0",
 )

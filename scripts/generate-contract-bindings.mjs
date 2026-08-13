@@ -30,6 +30,7 @@ const roots = [
   ["SymbolLibraryEditResult.json", "SymbolLibraryEditResultA0", "symbol-library-edit-result.ts"],
   ["SymbolLibraryReadRequest.json", "SymbolLibraryReadRequestA0", "symbol-library-read-request.ts"],
   ["SymbolLibraryReadResult.json", "SymbolLibraryReadResultA0", "symbol-library-read-result.ts"],
+  ["CompiledSchematicGraph.json", "CompiledSchematicGraphA0", "compiled-schematic-graph.ts"],
 ];
 const schemas = new Map();
 for (const [file] of roots) {
@@ -282,7 +283,11 @@ function renderPythonDeclaration(name, schema, tag = undefined) {
   const lines = [`class ${name}(Struct, forbid_unknown_fields=True, frozen=True${tagOptions}):`];
   if (ordered.length === 0) return [...lines, "    pass"];
   for (const [property, propertySchema] of ordered) {
-    const pythonName = ["type", "float", "extends"].includes(property) ? `${property}_` : property;
+    const sanitized = property.replace(/[^A-Za-z0-9_]/gu, "_");
+    const identifier = /^[A-Za-z_]/u.test(sanitized) ? sanitized : `_${sanitized}`;
+    const pythonName = ["type", "float", "extends"].includes(identifier)
+      ? `${identifier}_`
+      : identifier;
     const annotation = pythonType(propertySchema);
     const rename = pythonName === property ? "" : `, name=${pythonLiteral(property)}`;
     if (required.has(property)) {

@@ -321,3 +321,13 @@ python_symbols = ["KiCadPcb.from_file", "KiCadPcb.to_text"]
 rust_symbols = ["PcbDocument.set_property", "PcbDocument.upsert_property", "PcbDocument.remove_property", "PcbDocument.remove_top_level_by_id", "PcbDocument.set_top_level_layer_by_id", "pcb_mutation_gate"]
 rack_cases = ["L1_031"]
 evidence = ["tests/parity/pcb_native_mutation_a0.kicad_pcb", "src/rs/kicad-monkey-core/examples/pcb_mutation_gate.rs", "tests/L1_parsing/test_L1_031_rust_pcb_cli_mutation.py", "tests/L1_parsing/STRATUM.toml", "docs/design/rust-pcb-phase3-slice.html"]
+
+[[surfaces]]
+id = "compiled_graph.typespec_contract"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "review_ready"
+python_symbols = ["KiCadCompiledSchematicGraph", "validate_compiled_schematic_graph", "CompiledSchematicGraphA0", "SchCompiledSchematicGraphIdentityAllocator"]
+rust_symbols = ["kicad_monkey_contracts.generated.compiled_schematic_graph.CompiledSchematicGraphA0"]
+rack_cases = ["L0_046", "L0_049", "L0_050", "L3_018"]
+evidence = ["src/tsp/kicad_monkey/compiled-schematic-graph-a0.tsp", "contracts/generated/schema/CompiledSchematicGraph.json", "tests/parity/compiled_schematic_graph_a0_vectors.json", "src/rs/kicad-monkey-contracts/src/generated/compiled_schematic_graph.rs", "src/py/kicad_monkey/contracts/generated.py", "src/ts/kicad_monkey/contracts/generated/compiled-schematic-graph.ts", "tests/L3_rendering/test_L3_018_compiled_schematic_graph.py", "docs/design/rust-compiled-schematic-graph-phase4-contract.html"]

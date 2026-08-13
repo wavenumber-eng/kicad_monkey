@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import copy
+import json
 from functools import lru_cache
 
 import pytest
 
 from kicad_monkey import KiCadDesign, validate_compiled_schematic_graph
+from kicad_monkey.contracts.generated import decode_compiled_schematic_graph_a0
 from kicad_monkey.kicad_compiled_schematic_graph import build_compiled_schematic_graph
 from kicad_monkey.kicad_compiled_schematic_graph_identity import (
     SchCompiledSchematicGraphIdentityAllocator,
@@ -80,6 +82,7 @@ def test_reference_projects_emit_complete_valid_graphs(
 
     assert tuple(len(graph[name]) for name in COLLECTIONS) == expected_counts
     validate_compiled_schematic_graph(graph)
+    decode_compiled_schematic_graph_a0(json.dumps(graph).encode())
     row_ids = [row["id"] for name in COLLECTIONS for row in graph[name]]
     assert len(row_ids) == len(set(row_ids))
     selectors = [

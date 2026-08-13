@@ -16,3 +16,4 @@ export type { SymbolLibraryEditRequestA0 } from "./symbol-library-edit-request.j
 export type { SymbolLibraryEditResultA0 } from "./symbol-library-edit-result.js";
 export type { SymbolLibraryReadRequestA0 } from "./symbol-library-read-request.js";
 export type { SymbolLibraryReadResultA0 } from "./symbol-library-read-result.js";
+export type { CompiledSchematicGraphA0 } from "./compiled-schematic-graph.js";
