@@ -60,6 +60,36 @@ const CARRIERS: &str = r#"(kicad_pcb
     (file (name "asset.step") (type model) (data |YWJj| |ZA==|) (checksum "abcd")))
 )"#;
 
+const EXTENDED_CARRIERS: &str = r#"(kicad_pcb
+  (version 20260206)
+  (generator pcbnew)
+  (generator_version "10.0")
+  (general (thickness 1.8) (legacy_teardrops yes))
+  (paper "A3")
+  (setup
+    (pad_to_mask_clearance 0.05)
+    (pad_to_paste_clearance -0.01)
+    (pad_to_paste_clearance_ratio -0.1))
+  (embedded_fonts yes)
+  (variants
+    (variant (name "Production") (description "Loaded"))
+    (variant (name "No RF")))
+  (image (at 1 2) (layer "F.SilkS") (scale 2) (locked yes)
+    (data "YWJj" "ZA==") (uuid image-id))
+  (barcode (locked yes) (at 3 4 90) (layer "B.SilkS") (size 10 5)
+    (text "ABC") (text_height 1.2) (type qrcode) (ecc_level H)
+    (hide yes) (knockout yes) (margins 0.5 0.75) (uuid barcode-id))
+  (table (column_count 2) (layer "F.Cu")
+    (border (external no) (header yes))
+    (separators (rows no) (cols yes))
+    (column_widths 10 20) (row_heights 5 6)
+    (cells
+      (table_cell "A" (start 0 0) (end 10 5) (margins 1 2 3 4)
+        (span 2 1) (angle 90) (layer "F.Cu") (locked yes) (uuid cell-id))
+      (table_cell "B" (start 10 0) (end 20 5) (layer "F.Cu")))
+    (uuid table-id))
+)"#;
+
 #[test]
 fn board_view_indexes_major_families_and_exact_unknown_source() {
     let view = PcbView::parse(SOURCE, PcbLimits::default()).expect("board view");
@@ -452,6 +482,255 @@ fn groups_generated_items_and_embedded_files_are_typed() {
     assert_eq!(file.file_type, "model");
     assert_eq!(file.checksum.as_deref(), Some("abcd"));
     assert_eq!(file.encoded_data_bytes, 8);
+}
+
+#[test]
+fn board_metadata_and_newer_top_level_collections_are_typed() {
+    let view = PcbView::parse(EXTENDED_CARRIERS, PcbLimits::default()).expect("board view");
+    assert_extended_metadata_and_counts(&view);
+    assert_variants_and_image(&view);
+    assert_barcode(&view);
+    assert_table_and_cells(&view);
+}
+
+fn assert_extended_metadata_and_counts(view: &PcbView<'_>) {
+    let metadata = view.metadata().expect("metadata");
+    assert_eq!(metadata.version, 20_260_206);
+    assert_eq!(metadata.generator, "pcbnew");
+    assert_eq!(metadata.generator_version, "10.0");
+    assert_eq!(metadata.paper, "A3");
+    assert_eq!(metadata.thickness, 1.8);
+    assert!(metadata.legacy_teardrops);
+    assert!(metadata.embedded_fonts);
+    assert_eq!(metadata.pad_to_mask_clearance, 0.05);
+    assert_eq!(metadata.pad_to_paste_clearance, -0.01);
+    assert_eq!(metadata.pad_to_paste_clearance_ratio, -0.1);
+
+    let counts = view.counts();
+    assert_eq!(
+        (
+            counts.variants,
+            counts.images,
+            counts.barcodes,
+            counts.tables,
+            counts.table_cells,
+        ),
+        (2, 1, 1, 1, 2)
+    );
+}
+
+fn assert_variants_and_image(view: &PcbView<'_>) {
+    let variants = view
+        .variants()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("variants");
+    assert_eq!(variants[0].name, "Production");
+    assert_eq!(variants[0].description.as_deref(), Some("Loaded"));
+    assert_eq!(variants[1].description, None);
+    assert_eq!(
+        &view.source()[variants[0].source_range.clone()],
+        "(variant (name \"Production\") (description \"Loaded\"))"
+    );
+
+    let image = view.images().next().expect("image").expect("typed image");
+    assert_eq!((image.at.x, image.at.y, image.scale), (1.0, 2.0, 2.0));
+    assert_eq!(image.layer, "F.SilkS");
+    assert!(image.locked);
+    assert_eq!(image.encoded_data_bytes, 8);
+    assert_eq!(image.uuid.as_deref(), Some("image-id"));
+}
+
+fn assert_barcode(view: &PcbView<'_>) {
+    let barcode = view
+        .barcodes()
+        .next()
+        .expect("barcode")
+        .expect("typed barcode");
+    assert_eq!(
+        (barcode.at.x, barcode.at.y, barcode.angle),
+        (3.0, 4.0, 90.0)
+    );
+    assert_eq!((barcode.width, barcode.height), (10.0, 5.0));
+    assert_eq!(barcode.text, "ABC");
+    assert_eq!(barcode.kind, "qrcode");
+    assert_eq!(barcode.ecc_level.as_deref(), Some("H"));
+    assert!(barcode.locked);
+    assert!(!barcode.show_text);
+    assert!(barcode.knockout);
+    assert_eq!((barcode.margins.x, barcode.margins.y), (0.5, 0.75));
+}
+
+fn assert_table_and_cells(view: &PcbView<'_>) {
+    let table = view.tables().next().expect("table").expect("typed table");
+    assert_eq!(table.column_count, 2);
+    assert_eq!(table.layer, "F.Cu");
+    assert!(!table.border_external);
+    assert!(table.border_header);
+    assert!(!table.separator_rows);
+    assert!(table.separator_columns);
+    assert_eq!(table.column_widths, [10.0, 20.0]);
+    assert_eq!(table.row_heights, [5.0, 6.0]);
+    assert_eq!(table.cell_count, 2);
+
+    let cells = view
+        .table_cells()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("table cells");
+    assert_eq!(cells[0].table_index, 0);
+    assert_eq!(cells[0].text, "A");
+    assert_eq!(cells[0].margins, [1.0, 2.0, 3.0, 4.0]);
+    assert_eq!((cells[0].column_span, cells[0].row_span), (2, 1));
+    assert!(cells[0].locked);
+}
+
+#[test]
+fn board_metadata_defaults_match_the_python_model() {
+    let view = PcbView::parse("(kicad_pcb)", PcbLimits::default()).expect("empty board");
+    let metadata = view.metadata().expect("default metadata");
+    assert_eq!(metadata.version, 20_260_206);
+    assert_eq!(metadata.generator, "pcbnew");
+    assert_eq!(metadata.generator_version, "10.0");
+    assert_eq!(metadata.paper, "A4");
+    assert_eq!(metadata.thickness, 1.6);
+    assert!(!metadata.legacy_teardrops);
+    assert!(!metadata.embedded_fonts);
+    assert_eq!(metadata.pad_to_mask_clearance, 0.0);
+
+    let bare = PcbView::parse(
+        "(kicad_pcb (general (legacy_teardrops)))",
+        PcbLimits::default(),
+    )
+    .expect("bare boolean board");
+    assert!(!bare.metadata().expect("bare metadata").legacy_teardrops);
+}
+
+#[test]
+fn identified_layer_edit_is_exact_stable_and_fail_closed() {
+    let limits = PcbLimits::default();
+    let view = PcbView::parse(EXTENDED_CARRIERS, limits).expect("board view");
+    let edit = view
+        .set_top_level_layer_by_id("image-id", "B.SilkS")
+        .expect("change image layer");
+    assert!(edit.changed);
+    assert!(edit.source.contains("(image (at 1 2) (layer \"B.SilkS\")"));
+    assert!(edit.source.contains("(barcode (locked yes)"));
+    assert!(edit.source.contains("(uuid table-id)"));
+    parse(&edit.source).expect("edited board reparses");
+
+    let reparsed = PcbView::parse(&edit.source, limits).expect("edited view");
+    assert_eq!(
+        reparsed
+            .images()
+            .next()
+            .expect("image")
+            .expect("typed image")
+            .layer,
+        "B.SilkS"
+    );
+    let stable = reparsed
+        .set_top_level_layer_by_id("image-id", "B.SilkS")
+        .expect("stable edit");
+    assert!(!stable.changed);
+    assert_eq!(stable.source, edit.source);
+
+    let strict = PcbView::parse(
+        EXTENDED_CARRIERS,
+        PcbLimits {
+            max_output_bytes: EXTENDED_CARRIERS.len() - 1,
+            ..limits
+        },
+    )
+    .expect("strict view");
+    assert_eq!(
+        strict
+            .set_top_level_layer_by_id("image-id", "B.SilkS")
+            .expect_err("output limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+    assert_eq!(
+        view.set_top_level_layer_by_id("missing", "F.Cu")
+            .expect_err("missing id")
+            .kind,
+        ErrorKind::UnexpectedToken
+    );
+
+    let ambiguous = EXTENDED_CARRIERS.replacen(
+        "  (variants",
+        "  (future_item (uuid image-id) (payload keep))\n  (variants",
+        1,
+    );
+    let view = PcbView::parse(&ambiguous, limits).expect("ambiguous view");
+    assert_eq!(
+        view.set_top_level_layer_by_id("image-id", "F.Cu")
+            .expect_err("identifier ambiguity")
+            .kind,
+        ErrorKind::UnexpectedToken
+    );
+
+    let missing_layer = "(kicad_pcb (future_item (uuid future-id)))";
+    let view = PcbView::parse(missing_layer, limits).expect("future view");
+    assert_eq!(
+        view.set_top_level_layer_by_id("future-id", "F.Cu")
+            .expect_err("layer is required")
+            .kind,
+        ErrorKind::UnexpectedToken
+    );
+}
+
+#[test]
+fn extended_collection_limits_fail_closed_at_index_and_decode_boundaries() {
+    for limits in [
+        PcbLimits {
+            max_variants: 1,
+            ..PcbLimits::default()
+        },
+        PcbLimits {
+            max_images: 0,
+            ..PcbLimits::default()
+        },
+        PcbLimits {
+            max_barcodes: 0,
+            ..PcbLimits::default()
+        },
+        PcbLimits {
+            max_tables: 0,
+            ..PcbLimits::default()
+        },
+        PcbLimits {
+            max_table_cells: 1,
+            ..PcbLimits::default()
+        },
+    ] {
+        assert_eq!(
+            PcbView::parse(EXTENDED_CARRIERS, limits)
+                .expect_err("collection limit")
+                .kind,
+            ErrorKind::ResourceLimit
+        );
+    }
+
+    let limits = PcbLimits {
+        max_table_values: 1,
+        ..PcbLimits::default()
+    };
+    let view = PcbView::parse(EXTENDED_CARRIERS, limits).expect("lazy value limit");
+    assert_eq!(
+        view.images()
+            .next()
+            .expect("image")
+            .expect_err("image data parts")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+    assert_eq!(
+        view.tables()
+            .next()
+            .expect("table")
+            .expect_err("table values")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
 }
 
 #[test]

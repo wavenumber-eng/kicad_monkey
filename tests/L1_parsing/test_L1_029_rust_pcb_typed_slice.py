@@ -20,6 +20,32 @@ CORPUS_BOARDS = (
     CORPUS_ROOT
     / "kicad/projects/speedy_processing_module/input/11-10084__speedy_processing_module__B.kicad_pcb",
 )
+EXTENDED_CARRIERS = """(kicad_pcb
+  (version 20260206)
+  (generator pcbnew)
+  (generator_version "10.0")
+  (general (thickness 1.8) (legacy_teardrops yes))
+  (paper "A3")
+  (setup (pad_to_mask_clearance 0.05) (pad_to_paste_clearance -0.01)
+    (pad_to_paste_clearance_ratio -0.1))
+  (embedded_fonts yes)
+  (variants (variant (name "Production") (description "Loaded"))
+    (variant (name "No RF")))
+  (image (at 1 2) (layer "F.SilkS") (scale 2) (locked yes)
+    (data "YWJj" "ZA==") (uuid image-id))
+  (barcode (locked yes) (at 3 4 90) (layer "B.SilkS") (size 10 5)
+    (text "ABC") (text_height 1.2) (type qrcode) (ecc_level H)
+    (hide yes) (knockout yes) (margins 0.5 0.75) (uuid barcode-id))
+  (table (column_count 2) (layer "F.Cu")
+    (border (external no) (header yes))
+    (separators (rows no) (cols yes))
+    (column_widths 10 20) (row_heights 5 6)
+    (cells
+      (table_cell "A" (start 0 0) (end 10 5) (margins 1 2 3 4)
+        (span 2 1) (angle 90) (layer "F.Cu") (locked yes) (uuid cell-id))
+      (table_cell "B" (start 10 0) (end 20 5) (layer "F.Cu")))
+    (uuid table-id))
+)"""
 
 
 def _run(command: list[str], *, timeout: int = 180) -> subprocess.CompletedProcess[str]:
@@ -36,6 +62,25 @@ def _run(command: list[str], *, timeout: int = 180) -> subprocess.CompletedProce
         f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
     )
     return completed
+
+
+def _projection_executable() -> Path:
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for the Rust PCB gate"
+    _run(
+        [
+            cargo,
+            "build",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--example",
+            "pcb_projection_gate",
+        ]
+    )
+    return PACKAGE_ROOT / "target/debug/examples" / (
+        "pcb_projection_gate.exe" if os.name == "nt" else "pcb_projection_gate"
+    )
 
 
 def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
@@ -60,30 +105,23 @@ def test_native_pcb_projection_matches_python_on_promoted_corpus() -> None:
         "required promoted PCB corpus evidence is unavailable; missing: "
         + ", ".join(missing)
     )
-    cargo = shutil.which("cargo")
-    assert cargo is not None, "cargo is required for the Rust PCB gate"
-    _run(
-        [
-            cargo,
-            "build",
-            "--locked",
-            "--package",
-            "kicad-monkey-core",
-            "--example",
-            "pcb_projection_gate",
-        ]
-    )
-    executable = (
-        PACKAGE_ROOT
-        / "target/debug/examples"
-        / ("pcb_projection_gate.exe" if os.name == "nt" else "pcb_projection_gate")
-    )
+    executable = _projection_executable()
     summaries = json.loads(
         _run([str(executable), *(str(path) for path in CORPUS_BOARDS)]).stdout
     )
     assert len(summaries) == len(CORPUS_BOARDS)
     for board_path, summary in zip(CORPUS_BOARDS, summaries, strict=True):
         _assert_summary_matches_python(board_path, summary)
+
+
+def test_newer_sparse_carriers_match_python_on_durable_vector(tmp_path: Path) -> None:
+    board_path = tmp_path / "extended-carriers.kicad_pcb"
+    board_path.write_text(EXTENDED_CARRIERS, encoding="utf-8")
+    summaries = json.loads(
+        _run([str(_projection_executable()), str(board_path)]).stdout
+    )
+    assert len(summaries) == 1
+    _assert_summary_matches_python(board_path, summaries[0])
 
 
 def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
@@ -93,6 +131,7 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         "layers": len(board.layers),
         "nets": len(board.nets),
         "properties": len(board.properties),
+        "variants": len(board.variants),
         "footprints": len(board.footprints),
         "pads": sum(len(footprint.pads) for footprint in board.footprints),
         "models": sum(len(footprint.models) for footprint in board.footprints),
@@ -110,12 +149,112 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         "images": len(board.images),
         "barcodes": len(board.barcodes),
         "tables": len(board.tables),
+        "table_cells": sum(len(table.cells) for table in board.tables),
         "arcs": len(board.arcs),
         "dimensions": len(board.dimensions),
         "groups": len(board.groups),
         "generated_items": len(board.generated_items),
         "embedded_files": len(board.embedded_files),
     }
+    assert summary["metadata"] == {
+        "version": board.version,
+        "generator": board.generator,
+        "generator_version": board.generator_version,
+        "paper": board.paper,
+        "thickness": board.thickness,
+        "legacy_teardrops": board.legacy_teardrops,
+        "embedded_fonts": board.embedded_fonts,
+        "pad_to_mask_clearance": board.pad_to_mask_clearance,
+        "pad_to_paste_clearance": board.pad_to_paste_clearance,
+        "pad_to_paste_clearance_ratio": board.pad_to_paste_clearance_ratio,
+    }
+    if board.variants:
+        variant = board.variants[0]
+        assert summary["first_variant"] == {
+            "name": variant.name,
+            "description": variant.description,
+        }
+    else:
+        assert summary["first_variant"] is None
+    if board.images:
+        image = board.images[0]
+        assert summary["first_image"] == {
+            "at_x": image.at_x,
+            "at_y": image.at_y,
+            "scale": image.scale,
+            "layer": image.layer,
+            "locked": image.locked,
+            "encoded_data_bytes": len(image.data),
+            "uuid": image.uuid or None,
+        }
+    else:
+        assert summary["first_image"] is None
+    if board.barcodes:
+        barcode = board.barcodes[0]
+        assert summary["first_barcode"] == {
+            "at_x": barcode.at_x,
+            "at_y": barcode.at_y,
+            "angle": barcode.at_angle,
+            "layer": barcode.layer,
+            "width": barcode.width,
+            "height": barcode.height,
+            "text": barcode.text,
+            "text_height": barcode.text_height,
+            "kind": barcode.barcode_type,
+            "ecc_level": barcode.ecc_level,
+            "locked": barcode.locked,
+            "show_text": barcode.show_text,
+            "knockout": barcode.knockout,
+            "margin_x": barcode.margins.x,
+            "margin_y": barcode.margins.y,
+            "uuid": barcode.uuid or None,
+        }
+    else:
+        assert summary["first_barcode"] is None
+    if board.tables:
+        table = board.tables[0]
+        assert summary["first_table"] == {
+            "column_count": table.column_count,
+            "layer": table.layer,
+            "border_external": table.border_external,
+            "border_header": table.border_header,
+            "separator_rows": table.separators_rows,
+            "separator_columns": table.separators_cols,
+            "column_widths": table.column_widths,
+            "row_heights": table.row_heights,
+            "cell_count": len(table.cells),
+            "uuid": table.uuid or None,
+        }
+    else:
+        assert summary["first_table"] is None
+
+    first_cell = next(
+        (
+            (table_index, cell)
+            for table_index, table in enumerate(board.tables)
+            for cell in table.cells
+        ),
+        None,
+    )
+    if first_cell is None:
+        assert summary["first_table_cell"] is None
+    else:
+        table_index, cell = first_cell
+        assert summary["first_table_cell"] == {
+            "table_index": table_index,
+            "text": cell.text,
+            "start_x": cell.start_x,
+            "start_y": cell.start_y,
+            "end_x": cell.end_x,
+            "end_y": cell.end_y,
+            "margins": list(cell.margins),
+            "column_span": cell.span[0],
+            "row_span": cell.span[1],
+            "angle": cell.angle,
+            "layer": cell.layer,
+            "locked": cell.locked,
+            "uuid": cell.uuid or None,
+        }
     if board.footprints:
         assert summary["first_footprint"] == {
             "library_link": board.footprints[0].library_link,

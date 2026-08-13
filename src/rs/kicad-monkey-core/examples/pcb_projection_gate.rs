@@ -9,7 +9,54 @@ use std::process::ExitCode;
 fn summarize(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
     let source = fs::read_to_string(path)?;
     let view = PcbView::parse(&source, PcbLimits::default())?;
-    let counts = view.counts();
+    force_decode(&view)?;
+    let mut summary = json!({
+        "path": path,
+        "source_bytes": source.len(),
+        "counts": count_summary(view.counts()),
+    });
+    let object = summary.as_object_mut().expect("summary is an object");
+    object.extend(
+        native_summary(&view)?
+            .as_object()
+            .expect("native summary")
+            .clone(),
+    );
+    object.extend(
+        extended_summary(&view)?
+            .as_object()
+            .expect("extended summary")
+            .clone(),
+    );
+    Ok(summary)
+}
+
+fn force_decode(view: &PcbView<'_>) -> Result<(), kicad_monkey_core::Error> {
+    view.layers().collect::<Result<Vec<_>, _>>()?;
+    view.nets().collect::<Result<Vec<_>, _>>()?;
+    view.properties().collect::<Result<Vec<_>, _>>()?;
+    view.footprints().collect::<Result<Vec<_>, _>>()?;
+    view.pads().collect::<Result<Vec<_>, _>>()?;
+    view.models().collect::<Result<Vec<_>, _>>()?;
+    view.segments().collect::<Result<Vec<_>, _>>()?;
+    view.vias().collect::<Result<Vec<_>, _>>()?;
+    view.zones().collect::<Result<Vec<_>, _>>()?;
+    view.graphics().collect::<Result<Vec<_>, _>>()?;
+    view.arcs().collect::<Result<Vec<_>, _>>()?;
+    view.dimensions().collect::<Result<Vec<_>, _>>()?;
+    view.groups().collect::<Result<Vec<_>, _>>()?;
+    view.generated_items().collect::<Result<Vec<_>, _>>()?;
+    view.embedded_files().collect::<Result<Vec<_>, _>>()?;
+    view.variants().collect::<Result<Vec<_>, _>>()?;
+    view.images().collect::<Result<Vec<_>, _>>()?;
+    view.barcodes().collect::<Result<Vec<_>, _>>()?;
+    view.tables().collect::<Result<Vec<_>, _>>()?;
+    view.table_cells().collect::<Result<Vec<_>, _>>()?;
+    Ok(())
+}
+
+fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
+    let graphics = view.graphics().collect::<Result<Vec<_>, _>>()?;
     let footprint = view.footprints().next().transpose()?;
     let pad = view.pads().next().transpose()?;
     let model = view.models().next().transpose()?;
@@ -20,91 +67,129 @@ fn summarize(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
     let group = view.groups().next().transpose()?;
     let generated = view.generated_items().next().transpose()?;
     let embedded_file = view.embedded_files().next().transpose()?;
-    // Force every promoted iterator to decode so lazy failures fail the gate.
-    view.layers().collect::<Result<Vec<_>, _>>()?;
-    view.nets().collect::<Result<Vec<_>, _>>()?;
-    view.properties().collect::<Result<Vec<_>, _>>()?;
-    view.footprints().collect::<Result<Vec<_>, _>>()?;
-    view.pads().collect::<Result<Vec<_>, _>>()?;
-    view.models().collect::<Result<Vec<_>, _>>()?;
-    view.segments().collect::<Result<Vec<_>, _>>()?;
-    view.vias().collect::<Result<Vec<_>, _>>()?;
-    view.zones().collect::<Result<Vec<_>, _>>()?;
-    let graphics = view.graphics().collect::<Result<Vec<_>, _>>()?;
-    view.arcs().collect::<Result<Vec<_>, _>>()?;
-    view.dimensions().collect::<Result<Vec<_>, _>>()?;
-    view.groups().collect::<Result<Vec<_>, _>>()?;
-    view.generated_items().collect::<Result<Vec<_>, _>>()?;
-    view.embedded_files().collect::<Result<Vec<_>, _>>()?;
-
     Ok(json!({
-        "path": path,
-        "source_bytes": source.len(),
-        "counts": count_summary(counts),
         "first_footprint": footprint.map(|item| json!({
-            "library_link": item.library_link,
-            "reference": item.reference,
+            "library_link": item.library_link, "reference": item.reference,
         })),
         "first_pad": pad.map(|item| json!({
-            "number": item.number,
-            "kind": item.kind,
-            "shape": item.shape,
-            "at_x": item.at_x,
-            "at_y": item.at_y,
-            "size_x": item.size_x,
-            "size_y": item.size_y,
-            "layers": item.layers,
+            "number": item.number, "kind": item.kind, "shape": item.shape,
+            "at_x": item.at_x, "at_y": item.at_y, "size_x": item.size_x,
+            "size_y": item.size_y, "layers": item.layers,
             "net": {"ordinal": item.net.ordinal, "name": item.net.name},
         })),
         "first_model": model.map(|item| json!({
-            "path": item.path,
-            "offset": item.offset,
-            "scale": item.scale,
-            "rotate": item.rotate,
+            "path": item.path, "offset": item.offset, "scale": item.scale, "rotate": item.rotate,
         })),
         "first_segment": segment.map(|item| json!({
-            "start_x": item.start_x,
-            "end_x": item.end_x,
+            "start_x": item.start_x, "end_x": item.end_x,
             "net": {"ordinal": item.net.ordinal, "name": item.net.name},
         })),
         "first_via": via.map(|item| json!({
-            "at_x": item.at_x,
-            "at_y": item.at_y,
+            "at_x": item.at_x, "at_y": item.at_y,
             "net": {"ordinal": item.net.ordinal, "name": item.net.name},
         })),
         "first_graphic": graphics.first().map(|item| json!({
-            "kind": graphic_kind_name(item.kind),
-            "text": item.text,
-            "layer": item.layer,
+            "kind": graphic_kind_name(item.kind), "text": item.text, "layer": item.layer,
         })),
         "first_arc": arc.map(|item| json!({
-            "start_x": item.start.x,
-            "mid_x": item.mid.x,
-            "end_x": item.end.x,
+            "start_x": item.start.x, "mid_x": item.mid.x, "end_x": item.end.x,
             "net": {"ordinal": item.net.ordinal, "name": item.net.name},
         })),
         "first_dimension": dimension.map(|item| json!({
-            "kind": item.kind,
-            "layer": item.layer,
-            "point_count": item.points.len(),
-            "uuid": item.uuid,
+            "kind": item.kind, "layer": item.layer,
+            "point_count": item.points.len(), "uuid": item.uuid,
         })),
         "first_group": group.map(|item| json!({
-            "name": item.name,
-            "uuid": item.uuid,
-            "member_count": item.members.len(),
+            "name": item.name, "uuid": item.uuid, "member_count": item.members.len(),
         })),
         "first_generated": generated.map(|item| json!({
-            "kind": item.kind,
-            "name": item.name,
-            "uuid": item.uuid,
+            "kind": item.kind, "name": item.name, "uuid": item.uuid,
             "member_count": item.members.len(),
         })),
         "first_embedded_file": embedded_file.map(|item| json!({
-            "name": item.name,
-            "file_type": item.file_type,
-            "checksum": item.checksum,
+            "name": item.name, "file_type": item.file_type, "checksum": item.checksum,
             "encoded_data_bytes": item.encoded_data_bytes,
+        })),
+    }))
+}
+
+fn extended_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
+    let metadata = view.metadata()?;
+    let variant = view.variants().next().transpose()?;
+    let image = view.images().next().transpose()?;
+    let barcode = view.barcodes().next().transpose()?;
+    let table = view.tables().next().transpose()?;
+    let table_cell = view.table_cells().next().transpose()?;
+    Ok(json!({
+        "metadata": {
+            "version": metadata.version,
+            "generator": metadata.generator,
+            "generator_version": metadata.generator_version,
+            "paper": metadata.paper,
+            "thickness": metadata.thickness,
+            "legacy_teardrops": metadata.legacy_teardrops,
+            "embedded_fonts": metadata.embedded_fonts,
+            "pad_to_mask_clearance": metadata.pad_to_mask_clearance,
+            "pad_to_paste_clearance": metadata.pad_to_paste_clearance,
+            "pad_to_paste_clearance_ratio": metadata.pad_to_paste_clearance_ratio,
+        },
+        "first_variant": variant.map(|item| json!({
+            "name": item.name,
+            "description": item.description,
+        })),
+        "first_image": image.map(|item| json!({
+            "at_x": item.at.x,
+            "at_y": item.at.y,
+            "scale": item.scale,
+            "layer": item.layer,
+            "locked": item.locked,
+            "encoded_data_bytes": item.encoded_data_bytes,
+            "uuid": item.uuid,
+        })),
+        "first_barcode": barcode.map(|item| json!({
+            "at_x": item.at.x,
+            "at_y": item.at.y,
+            "angle": item.angle,
+            "layer": item.layer,
+            "width": item.width,
+            "height": item.height,
+            "text": item.text,
+            "text_height": item.text_height,
+            "kind": item.kind,
+            "ecc_level": item.ecc_level,
+            "locked": item.locked,
+            "show_text": item.show_text,
+            "knockout": item.knockout,
+            "margin_x": item.margins.x,
+            "margin_y": item.margins.y,
+            "uuid": item.uuid,
+        })),
+        "first_table": table.map(|item| json!({
+            "column_count": item.column_count,
+            "layer": item.layer,
+            "border_external": item.border_external,
+            "border_header": item.border_header,
+            "separator_rows": item.separator_rows,
+            "separator_columns": item.separator_columns,
+            "column_widths": item.column_widths,
+            "row_heights": item.row_heights,
+            "cell_count": item.cell_count,
+            "uuid": item.uuid,
+        })),
+        "first_table_cell": table_cell.map(|item| json!({
+            "table_index": item.table_index,
+            "text": item.text,
+            "start_x": item.start.x,
+            "start_y": item.start.y,
+            "end_x": item.end.x,
+            "end_y": item.end.y,
+            "margins": item.margins,
+            "column_span": item.column_span,
+            "row_span": item.row_span,
+            "angle": item.angle,
+            "layer": item.layer,
+            "locked": item.locked,
+            "uuid": item.uuid,
         })),
     }))
 }
@@ -114,6 +199,7 @@ fn count_summary(counts: PcbCounts) -> Value {
         "layers": counts.layers,
         "nets": counts.nets,
         "properties": counts.properties,
+        "variants": counts.variants,
         "footprints": counts.footprints,
         "pads": counts.pads,
         "models": counts.models,
@@ -131,6 +217,7 @@ fn count_summary(counts: PcbCounts) -> Value {
         "images": counts.images,
         "barcodes": counts.barcodes,
         "tables": counts.tables,
+        "table_cells": counts.table_cells,
         "arcs": counts.arcs,
         "dimensions": counts.dimensions,
         "groups": counts.groups,

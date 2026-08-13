@@ -11,6 +11,11 @@ use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_sp
 use std::collections::BTreeMap;
 use std::ops::Range;
 
+mod extended;
+pub use extended::{
+    PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbImage, PcbTable, PcbTableCell,
+};
+
 /// Resource ceilings for one native PCB read or focused edit.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PcbLimits {
@@ -40,6 +45,12 @@ pub struct PcbLimits {
     pub max_generated_children: usize,
     pub max_members: usize,
     pub max_embedded_files: usize,
+    pub max_variants: usize,
+    pub max_images: usize,
+    pub max_barcodes: usize,
+    pub max_tables: usize,
+    pub max_table_cells: usize,
+    pub max_table_values: usize,
 }
 
 impl Default for PcbLimits {
@@ -71,6 +82,12 @@ impl Default for PcbLimits {
             max_generated_children: 4_000_000,
             max_members: 4_000_000,
             max_embedded_files: 100_000,
+            max_variants: 100_000,
+            max_images: 100_000,
+            max_barcodes: 100_000,
+            max_tables: 100_000,
+            max_table_cells: 1_000_000,
+            max_table_values: 1_000_000,
         }
     }
 }
@@ -81,6 +98,7 @@ pub struct PcbCounts {
     pub layers: usize,
     pub nets: usize,
     pub properties: usize,
+    pub variants: usize,
     pub footprints: usize,
     pub pads: usize,
     pub models: usize,
@@ -100,6 +118,7 @@ pub struct PcbCounts {
     pub images: usize,
     pub barcodes: usize,
     pub tables: usize,
+    pub table_cells: usize,
     pub groups: usize,
     pub dimensions: usize,
     pub generated_items: usize,
@@ -324,7 +343,7 @@ struct IndexedFootprint {
 
 #[derive(Clone, Debug)]
 struct IndexedNestedForm {
-    footprint_index: usize,
+    parent_index: usize,
     span: FormSpan,
 }
 
@@ -373,6 +392,11 @@ struct PcbIndex {
     groups: Vec<FormSpan>,
     generated_items: Vec<FormSpan>,
     embedded_files: Vec<FormSpan>,
+    variants: Vec<FormSpan>,
+    images: Vec<FormSpan>,
+    barcodes: Vec<FormSpan>,
+    tables: Vec<extended::IndexedTable>,
+    table_cells: Vec<IndexedNestedForm>,
     counts: PcbCounts,
 }
 
@@ -397,6 +421,11 @@ pub struct PcbView<'a> {
     groups: Vec<FormSpan>,
     generated_items: Vec<FormSpan>,
     embedded_files: Vec<FormSpan>,
+    variants: Vec<FormSpan>,
+    images: Vec<FormSpan>,
+    barcodes: Vec<FormSpan>,
+    tables: Vec<extended::IndexedTable>,
+    table_cells: Vec<IndexedNestedForm>,
     net_resolver: NetResolver,
     counts: PcbCounts,
     limits: PcbLimits,
@@ -456,6 +485,11 @@ impl<'a> PcbView<'a> {
             groups: index.groups,
             generated_items: index.generated_items,
             embedded_files: index.embedded_files,
+            variants: index.variants,
+            images: index.images,
+            barcodes: index.barcodes,
+            tables: index.tables,
+            table_cells: index.table_cells,
             net_resolver,
             counts: index.counts,
             limits,
@@ -751,9 +785,16 @@ fn index_top_level(
                 index.counts.generated_items += 1;
             }
             Some("embedded_files") => index_embedded_files(source, span, limits, &mut index)?,
-            Some("image") => index.counts.images += 1,
-            Some("barcode") => index.counts.barcodes += 1,
-            Some("table") => index.counts.tables += 1,
+            Some("variants") => extended::index_variants(source, span, limits, &mut index)?,
+            Some("image") => {
+                bounded_push(&mut index.images, span.clone(), limits.max_images)?;
+                index.counts.images += 1;
+            }
+            Some("barcode") => {
+                bounded_push(&mut index.barcodes, span.clone(), limits.max_barcodes)?;
+                index.counts.barcodes += 1;
+            }
+            Some("table") => extended::index_table(source, span, limits, &mut index)?,
             Some(head) if is_known_metadata(head) => {}
             _ => index.counts.unknown_top_level += 1,
         }
@@ -856,13 +897,13 @@ fn index_footprint(
     index
         .pads
         .extend(pad_forms.into_iter().map(|span| IndexedNestedForm {
-            footprint_index,
+            parent_index: footprint_index,
             span,
         }));
     index
         .models
         .extend(model_forms.into_iter().map(|span| IndexedNestedForm {
-            footprint_index,
+            parent_index: footprint_index,
             span,
         }));
     index.counts.footprints += 1;
@@ -977,7 +1018,7 @@ fn pad_from_span(
         .transpose()?
         .unwrap_or_default();
     Ok(PcbPad {
-        footprint_index: indexed.footprint_index,
+        footprint_index: indexed.parent_index,
         number: required_string(header.first(), "Expected pad number", &indexed.span)?,
         kind: required_string(header.get(1), "Expected pad kind", &indexed.span)?,
         shape: required_string(header.get(2), "Expected pad shape", &indexed.span)?,
@@ -1001,7 +1042,7 @@ fn model_from_span(
     let header = scalar_values(source, &indexed.span)?;
     let children = direct_children(source, &indexed.span, limits.max_model_children, limits)?;
     Ok(PcbModelReference {
-        footprint_index: indexed.footprint_index,
+        footprint_index: indexed.parent_index,
         path: required_string(header.first(), "Expected model path", &indexed.span)?,
         offset: nested_xyz(source, &children, "offset", [0.0, 0.0, 0.0], limits)?,
         scale: nested_xyz(source, &children, "scale", [1.0, 1.0, 1.0], limits)?,

@@ -19,9 +19,10 @@ pub mod symbol_plotter_ir;
 
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use pcb::{
-    PcbCounts, PcbDimension, PcbEdit, PcbEmbeddedFile, PcbFootprint, PcbGeneratedItem, PcbGraphic,
-    PcbGraphicKind, PcbGroup, PcbLayer, PcbLimits, PcbModelReference, PcbNet, PcbNetRef, PcbPad,
-    PcbPoint, PcbProperty, PcbRoutingArc, PcbSegment, PcbVia, PcbView, PcbZone,
+    PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbEdit,
+    PcbEmbeddedFile, PcbFootprint, PcbGeneratedItem, PcbGraphic, PcbGraphicKind, PcbGroup,
+    PcbImage, PcbLayer, PcbLimits, PcbModelReference, PcbNet, PcbNetRef, PcbPad, PcbPoint,
+    PcbProperty, PcbRoutingArc, PcbSegment, PcbTable, PcbTableCell, PcbVia, PcbView, PcbZone,
 };
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
 pub use plotter_types::{
