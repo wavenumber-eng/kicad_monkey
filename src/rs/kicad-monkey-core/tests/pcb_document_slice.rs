@@ -60,6 +60,81 @@ fn owned_document_commits_reparsed_edits_and_stable_noops() {
 }
 
 #[test]
+fn owned_property_upsert_and_removal_match_python_mutation_semantics() {
+    let mut document = PcbDocument::parse(
+        "(kicad_pcb\r\n  (property \"Owner\" \"old\")\r\n  (future keep)\r\n)".to_owned(),
+        PcbLimits::default(),
+    )
+    .expect("document");
+    assert!(
+        document
+            .upsert_property("Revision", "A\"1")
+            .expect("insert")
+    );
+    assert!(!document.upsert_property("Revision", "A\"1").expect("no-op"));
+    assert!(document.upsert_property("Revision", "B").expect("update"));
+    assert!(document.remove_property("Owner").expect("remove"));
+    assert!(!document.remove_property("Owner").expect("absent no-op"));
+    assert!(
+        document
+            .source()
+            .contains("\r\n  (property \"Revision\" \"B\")\r\n")
+    );
+    assert!(document.source().contains("(future keep)"));
+    assert!(!document.source().contains("property \"Owner\""));
+    let properties = document
+        .view()
+        .expect("reparse")
+        .properties()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("properties");
+    assert_eq!(properties.len(), 1);
+    assert_eq!(properties[0].name, "Revision");
+    assert_eq!(properties[0].value, "B");
+}
+
+#[test]
+fn property_upsert_and_removal_fail_closed_on_ambiguity_and_output_limits() {
+    let duplicate = "(kicad_pcb (property \"Owner\" \"a\") (property \"Owner\" \"b\"))";
+    let mut ambiguous =
+        PcbDocument::parse(duplicate.to_owned(), PcbLimits::default()).expect("document");
+    assert_eq!(
+        ambiguous
+            .upsert_property("Owner", "c")
+            .expect_err("upsert ambiguity")
+            .kind,
+        ErrorKind::UnexpectedToken
+    );
+    assert_eq!(
+        ambiguous
+            .remove_property("Owner")
+            .expect_err("remove ambiguity")
+            .kind,
+        ErrorKind::UnexpectedToken
+    );
+    assert_eq!(ambiguous.source(), duplicate);
+
+    let source = "(kicad_pcb)";
+    let mut limited = PcbDocument::parse(
+        source.to_owned(),
+        PcbLimits {
+            max_output_bytes: source.len(),
+            ..PcbLimits::default()
+        },
+    )
+    .expect("document");
+    assert_eq!(
+        limited
+            .upsert_property("Revision", "A")
+            .expect_err("output limit")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+    assert_eq!(limited.source(), source);
+    assert!(!limited.remove_property("Missing").expect("bounded no-op"));
+}
+
+#[test]
 fn failed_owned_mutations_leave_the_document_unchanged() {
     let ambiguous = SOURCE.replace(
         "(property \"Owner\" \"old\")",

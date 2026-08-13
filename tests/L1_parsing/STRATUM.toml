@@ -403,6 +403,7 @@ secondary = [
     "Embedded footprint metadata, manufacturing settings, properties, and non-text graphics are bounded, source ordered, parent identified, and selectively equivalent on both mandatory boards",
     "Board setup origins and physical stackup layers expose bounded close-to-format material and electrical semantics with Python corpus parity",
     "Owned failed edits are transactional, unknown forms survive, and repeated writes are stable no-ops",
+    "Board properties support ambiguity-safe source-preserving create, update, remove, semantic reparse, CRLF retention, output ceilings, and stable no-ops",
     "Top-level UUID and legacy-ID removal checks all forms, is ambiguity-safe, source preserving, bounded, and idempotent",
     "Identified top-level layer replacement is exact, ambiguity-safe, bounded, and byte stable after semantic reparse",
     "Source, family, nested-object, depth, and output limits fail closed",

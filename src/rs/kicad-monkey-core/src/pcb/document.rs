@@ -77,6 +77,18 @@ impl PcbDocument {
         self.commit(edit)
     }
 
+    /// Update or create one board property and reparse before committing.
+    pub fn upsert_property(&mut self, name: &str, value: &str) -> Result<bool, Error> {
+        let edit = self.view()?.upsert_property(name, value)?;
+        self.commit(edit)
+    }
+
+    /// Remove one board property and reparse before committing.
+    pub fn remove_property(&mut self, name: &str) -> Result<bool, Error> {
+        let edit = self.view()?.remove_property(name)?;
+        self.commit(edit)
+    }
+
     /// Remove one unambiguous identified top-level form and reparse before committing.
     pub fn remove_top_level_by_id(&mut self, identifier: &str) -> Result<bool, Error> {
         let edit = self.view()?.remove_top_level_by_id(identifier)?;

@@ -849,17 +849,7 @@ impl<'a> PcbView<'a> {
         if self.source.len() > self.limits.max_output_bytes {
             return Err(output_limit_error());
         }
-        let matches = self
-            .top_level
-            .iter()
-            .filter(|span| span.head.as_deref() == Some("property"))
-            .map(|span| property_from_span(self.source, span))
-            .filter_map(|property| match property {
-                Ok(property) if property.name == name => Some(Ok(property)),
-                Ok(_) => None,
-                Err(error) => Some(Err(error)),
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let matches = self.matching_properties(name)?;
         let [property] = matches.as_slice() else {
             return Err(source_error(
                 if matches.is_empty() {
@@ -891,6 +881,94 @@ impl<'a> PcbView<'a> {
         )?;
         Ok(PcbEdit {
             source,
+            changed: true,
+        })
+    }
+
+    /// Update or append one unambiguous top-level board property.
+    pub fn upsert_property(&self, name: &str, value: &str) -> Result<PcbEdit, Error> {
+        let matches = self.matching_properties(name)?;
+        match matches.as_slice() {
+            [_] => self.set_property(name, value),
+            [] => self.insert_property(name, value),
+            _ => Err(source_error(
+                "PCB property name is ambiguous",
+                self.root.start,
+            )),
+        }
+    }
+
+    /// Remove one unambiguous top-level board property by name.
+    pub fn remove_property(&self, name: &str) -> Result<PcbEdit, Error> {
+        if self.source.len() > self.limits.max_output_bytes {
+            return Err(output_limit_error());
+        }
+        let matches = self.matching_properties(name)?;
+        match matches.as_slice() {
+            [] => Ok(PcbEdit {
+                source: self.source.to_owned(),
+                changed: false,
+            }),
+            [property] => Ok(PcbEdit {
+                source: apply_patches_with_limit(
+                    self.source,
+                    &[Patch::new(
+                        property.source_range.start,
+                        property.source_range.end,
+                        "",
+                    )],
+                    self.limits.max_output_bytes,
+                )?,
+                changed: true,
+            }),
+            _ => Err(source_error(
+                "PCB property name is ambiguous",
+                self.root.start,
+            )),
+        }
+    }
+
+    fn matching_properties(&self, name: &str) -> Result<Vec<PcbProperty>, Error> {
+        self.top_level
+            .iter()
+            .filter(|span| span.head.as_deref() == Some("property"))
+            .map(|span| property_from_span(self.source, span))
+            .filter_map(|property| match property {
+                Ok(property) if property.name == name => Some(Ok(property)),
+                Ok(_) => None,
+                Err(error) => Some(Err(error)),
+            })
+            .collect()
+    }
+
+    fn insert_property(&self, name: &str, value: &str) -> Result<PcbEdit, Error> {
+        let form = build_with_limit(
+            &Sexp::List(vec![
+                Sexp::Atom("property".to_owned()),
+                Sexp::Quoted(name.to_owned()),
+                Sexp::Quoted(value.to_owned()),
+            ]),
+            self.limits.max_output_bytes,
+        )?;
+        let offset = self.root.range.end.saturating_sub(1);
+        let newline = if self.source.contains("\r\n") {
+            "\r\n"
+        } else {
+            "\n"
+        };
+        let prefix =
+            if self.source[..offset].ends_with('\n') || self.source[..offset].ends_with('\r') {
+                ""
+            } else {
+                newline
+            };
+        let replacement = format!("{prefix}  {form}{newline}");
+        Ok(PcbEdit {
+            source: apply_patches_with_limit(
+                self.source,
+                &[Patch::new(offset, offset, replacement)],
+                self.limits.max_output_bytes,
+            )?,
             changed: true,
         })
     }

@@ -238,9 +238,9 @@ disposition = "required"
 wasm = "deferred_native_first"
 status = "review_ready"
 python_symbols = ["KiCadPcb.from_file", "KiCadPcb.write"]
-rust_symbols = ["PcbDocument", "PcbDocument.from_reader", "PcbDocument.write_to", "PcbDocument.view", "PcbDocument.set_property", "PcbDocument.remove_top_level_by_id", "PcbDocument.set_top_level_layer_by_id"]
+rust_symbols = ["PcbDocument", "PcbDocument.from_reader", "PcbDocument.write_to", "PcbDocument.view", "PcbDocument.set_property", "PcbDocument.upsert_property", "PcbDocument.remove_property", "PcbDocument.remove_top_level_by_id", "PcbDocument.set_top_level_layer_by_id"]
 rack_cases = ["L1_029"]
-evidence = ["src/rs/kicad-monkey-core/src/pcb/document.rs", "src/rs/kicad-monkey-core/tests/pcb_document_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]
+evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src/pcb/document.rs", "src/rs/kicad-monkey-core/tests/pcb_document_slice.rs", "src/rs/kicad-monkey-core/examples/pcb_projection_gate.rs", "tests/L1_parsing/test_L1_029_rust_pcb_typed_slice.py", "docs/design/rust-pcb-phase3-slice.html"]
 
 [[surfaces]]
 id = "pcb.native_remaining_carriers"
