@@ -6,7 +6,13 @@
     reason = "Typify emits explicit schema defaults in committed generated modules"
 )]
 
+mod compiled_graph_contract;
 pub mod generated;
+
+pub use compiled_graph_contract::{
+    CompiledGraphDecodeError, decode_compiled_schematic_graph_a0,
+    validate_compiled_schematic_graph_contract,
+};
 
 use generated::build_request::{Node, NodeKind, SExpressionBuildRequestA0};
 use generated::footprint_plot_document::{
@@ -572,7 +578,7 @@ fn require_absent(path: &str, valid: bool) -> Result<(), ValidationError> {
     }
 }
 
-fn validation_error(
+pub(crate) fn validation_error(
     code: &'static str,
     path: impl Into<String>,
     message: &'static str,

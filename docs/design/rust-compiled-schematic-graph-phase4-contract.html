@@ -21,6 +21,8 @@
     unregistered enum values fail during transport decoding. Wire names such
     as <code>type</code> and the registered dotted source-identity selectors
     are preserved even when a target language requires a safe local name.
+    The a0 shape is closed: every additive field, source selector, enum value,
+    or row family requires a new schema version and an explicit migration.
   </p>
   <p>
     Generated projections are structural DTOs. Graph-wide reference closure,
@@ -34,8 +36,10 @@
   <p>
     <code>compiled_schematic_graph_a0_vectors.json</code> freezes project-scope
     normalization plus source-derived and topology-derived UUIDv7 results.
-    The current Python allocator replays those values. The native allocator
-    must consume the same vector file before it may emit a compiled graph.
+    The current Python allocator replays those values. The vectors cover every
+    row type, both source and derived branches, UUIDv7 version/variant bits,
+    selector precedence, normalization, and fail-closed inputs. The native
+    allocator must consume the same vector file before it may emit a compiled graph.
     This keeps identity behavior language neutral without prematurely moving
     compiler logic into the transport generator.
   </p>
@@ -44,7 +48,7 @@
   <ul>
     <li>Rack L0_049 checks Python and TypeScript regeneration and use.</li>
     <li>Rack L0_050 decodes all ten row families and replays identity vectors.</li>
-    <li>The Rust contracts crate decodes the identical graph vector strictly.</li>
+    <li>The Rust contracts crate uses a package-owned strict envelope and row-literal decoder over the generated DTO.</li>
     <li>Rack L3_018 decodes all four reference-project producer outputs through the generated contract.</li>
     <li>TypeSpec remains the only editable transport source of truth.</li>
     <li>WASM packaging remains deferred under the native-first ADR.</li>

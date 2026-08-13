@@ -1,11 +1,11 @@
 use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;
-use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
 use kicad_monkey_contracts::generated::footprint_plot_document::FootprintPlotDocumentA0;
 use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
 use kicad_monkey_contracts::generated::symbol_plot_document::SymbolPlotDocumentA0;
 use kicad_monkey_contracts::{
     JAVASCRIPT_SAFE_INTEGER_MAX, JAVASCRIPT_SAFE_INTEGER_MIN, JavaScriptSafeInteger, ValidatedNode,
-    validate_build_request, validate_footprint_plot_document, validate_symbol_plot_document,
+    decode_compiled_schematic_graph_a0, validate_build_request, validate_footprint_plot_document,
+    validate_symbol_plot_document,
 };
 
 #[test]
@@ -39,8 +39,8 @@ fn compiled_schematic_graph_vector_decodes_strictly_in_rust() {
     )))
     .expect("compiled graph vectors");
     let graph = vectors["graph"].clone();
-    let decoded: CompiledSchematicGraphA0 =
-        serde_json::from_value(graph.clone()).expect("compiled graph transport");
+    let encoded = serde_json::to_vec(&graph).expect("compiled graph vector JSON");
+    let decoded = decode_compiled_schematic_graph_a0(&encoded).expect("strict compiled graph");
     assert_eq!(
         decoded.identity_namespace,
         "sch.compiled_schematic_graph.a0"
@@ -50,14 +50,69 @@ fn compiled_schematic_graph_vector_decodes_strictly_in_rust() {
         serde_json::to_value(&decoded).expect("compiled graph re-encode"),
         graph
     );
+    let allocations = vectors["identity"]["allocations"]
+        .as_array()
+        .expect("identity allocations");
+    assert_eq!(allocations.len(), 10);
+    for allocation in allocations {
+        let expected = allocation["expected"].as_str().expect("expected UUID");
+        assert_uuid_v7(expected);
+        let collection = allocation["graph_collection"]
+            .as_str()
+            .expect("graph collection");
+        assert_eq!(vectors["graph"][collection][0]["id"], expected);
+    }
 
     let mut invalid = graph;
     invalid["unknown_field"] = true.into();
-    assert!(serde_json::from_value::<CompiledSchematicGraphA0>(invalid).is_err());
+    let encoded = serde_json::to_vec(&invalid).expect("invalid graph JSON");
+    assert!(decode_compiled_schematic_graph_a0(&encoded).is_err());
 
     let mut invalid_role = vectors["graph"].clone();
     invalid_role["terminal_occurrences"][0]["role"] = "invented_role".into();
-    assert!(serde_json::from_value::<CompiledSchematicGraphA0>(invalid_role).is_err());
+    let encoded = serde_json::to_vec(&invalid_role).expect("invalid role JSON");
+    assert!(decode_compiled_schematic_graph_a0(&encoded).is_err());
+}
+
+fn assert_uuid_v7(value: &str) {
+    let bytes = value.as_bytes();
+    assert_eq!(bytes.len(), 36);
+    assert_eq!(bytes[14], b'7', "UUID version: {value}");
+    assert!(
+        matches!(bytes[19], b'8' | b'9' | b'a' | b'b'),
+        "UUID variant: {value}"
+    );
+}
+
+#[test]
+fn strict_compiled_graph_boundary_rejects_every_literal_mismatch() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/compiled_schematic_graph_a0_vectors.json"
+    )))
+    .expect("compiled graph vectors");
+    let paths = [
+        "/schema",
+        "/type",
+        "/identity_namespace",
+        "/unit_definitions/0/type",
+        "/page_definitions/0/type",
+        "/unit_occurrences/0/type",
+        "/page_occurrences/0/type",
+        "/hierarchy_occurrences/0/type",
+        "/component_occurrences/0/type",
+        "/local_net_occurrences/0/type",
+        "/terminal_occurrences/0/type",
+        "/hierarchy_terminal_bindings/0/type",
+        "/graphical_artifact_links/0/type",
+    ];
+    for path in paths {
+        let mut graph = vectors["graph"].clone();
+        *graph.pointer_mut(path).expect("registered literal path") = "wrong.a1".into();
+        let encoded = serde_json::to_vec(&graph).expect("invalid literal JSON");
+        let error = decode_compiled_schematic_graph_a0(&encoded).expect_err(path);
+        assert!(error.to_string().contains("unsupported_contract"), "{path}");
+    }
 }
 
 #[test]

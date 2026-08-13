@@ -193,8 +193,8 @@ test_case_type = "contract"
 [subtests.objectives]
 primary = "TypeSpec owns the complete compiled-graph transport and freezes deterministic identity allocation in language-neutral vectors"
 secondary = [
-    "All ten graph row families have strict generated transport projections",
-    "Unknown fields and unregistered enum tokens fail closed",
-    "Project scope normalization is portable across path separators and case",
-    "The Python authority replays exact source and topology-derived UUIDv7 vectors ready for the native compiler",
+    "All ten graph row families have strict generated transport projections and exact allocator outputs",
+    "Unknown fields, unregistered enum tokens, and every Rust envelope or row literal mismatch fail closed",
+    "Project scope normalization and selector precedence are portable across path separators, case, and whitespace",
+    "The Python authority rejects missing, invalid, and duplicate identities and emits RFC 4122 UUIDv7 values ready for the native compiler",
 ]

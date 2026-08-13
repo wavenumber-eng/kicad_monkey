@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +27,22 @@ def _vectors() -> dict[str, Any]:
     return json.loads(VECTORS.read_text(encoding="utf-8"))
 
 
+def _allocate(
+    allocator: SchCompiledSchematicGraphIdentityAllocator,
+    allocation: dict[str, Any],
+) -> str:
+    if allocation["mode"] == "source":
+        return allocator.allocate_source(
+            object_type=allocation["object_type"],
+            source_identity=allocation["source_identity"],
+            owner_refs=allocation["owner_refs"],
+        )
+    return allocator.allocate_derived(
+        object_type=allocation["object_type"],
+        identity=allocation["identity"],
+    )
+
+
 def test_generated_compiled_graph_projection_is_strict_and_complete() -> None:
     graph = _vectors()["graph"]
     decoded = decode_compiled_schematic_graph_a0(json.dumps(graph).encode())
@@ -33,7 +51,7 @@ def test_generated_compiled_graph_projection_is_strict_and_complete() -> None:
     assert len(decoded.graphical_artifact_links) == 1
     assert (
         decoded.unit_definitions[0].source_identity.sch_source_key_source_path
-        == "root.kicad_sch"
+        == "sheet.kicad_sch"
     )
     assert json.loads(msgspec.json.encode(decoded)) == graph
 
@@ -49,21 +67,66 @@ def test_generated_compiled_graph_projection_is_strict_and_complete() -> None:
 
 
 def test_identity_vectors_match_the_python_producer_allocator() -> None:
-    identity = _vectors()["identity"]
+    vectors = _vectors()
+    identity = vectors["identity"]
     scope_input = identity["scope_input"]
     scope = compiled_schematic_graph_design_scope(**scope_input)
     assert scope == identity["normalized_scope"]
     allocator = SchCompiledSchematicGraphIdentityAllocator(design_scope=scope)
     for allocation in identity["allocations"]:
-        if allocation["mode"] == "source":
-            actual = allocator.allocate_source(
-                object_type=allocation["object_type"],
-                source_identity=allocation["source_identity"],
-                owner_refs=allocation["owner_refs"],
-            )
-        else:
-            actual = allocator.allocate_derived(
-                object_type=allocation["object_type"],
-                identity=allocation["identity"],
-            )
+        actual = _allocate(allocator, allocation)
         assert actual == allocation["expected"]
+        parsed = uuid.UUID(actual)
+        assert parsed.version == 7
+        assert parsed.variant == uuid.RFC_4122
+        collection = vectors["graph"][allocation["graph_collection"]]
+        assert collection[0]["id"] == actual
+
+    assert {row["object_type"] for row in identity["allocations"]} == {
+        "sch.unit_definition",
+        "sch.page_definition",
+        "sch.unit_occurrence",
+        "sch.page_occurrence",
+        "sch.hierarchy_occurrence",
+        "sch.component_occurrence",
+        "sch.local_net_occurrence",
+        "sch.terminal_occurrence",
+        "sch.hierarchy_terminal_binding",
+        "sch.graphical_artifact_link",
+    }
+
+
+def test_identity_selector_precedence_and_scope_normalization_are_portable() -> None:
+    identity = _vectors()["identity"]
+    scope = identity["normalized_scope"]
+    for case in identity["selector_equivalence"]:
+        left_allocator = SchCompiledSchematicGraphIdentityAllocator(design_scope=scope)
+        right_allocator = SchCompiledSchematicGraphIdentityAllocator(design_scope=scope)
+        left = {"mode": "source", **case["left"]}
+        right = {"mode": "source", **case["right"]}
+        assert _allocate(left_allocator, left) == case["expected"]
+        assert _allocate(right_allocator, right) == case["expected"]
+
+    for case in identity["scope_cases"]:
+        assert compiled_schematic_graph_design_scope(
+            source_cad=case["source_cad"], project=case["project"]
+        ) == case["expected"]
+
+
+def test_identity_invalid_and_duplicate_addresses_fail_closed() -> None:
+    identity = _vectors()["identity"]
+    for case in identity["failures"]:
+        with pytest.raises(ValueError, match=re.escape(case["error_match"])):
+            if case["mode"] == "scope":
+                compiled_schematic_graph_design_scope(
+                    source_cad=case["source_cad"], project=case["project"]
+                )
+                continue
+            allocator = SchCompiledSchematicGraphIdentityAllocator(
+                design_scope=identity["normalized_scope"]
+            )
+            allocation = dict(case)
+            if case["mode"] == "duplicate_source":
+                allocation["mode"] = "source"
+                _allocate(allocator, allocation)
+            _allocate(allocator, allocation)

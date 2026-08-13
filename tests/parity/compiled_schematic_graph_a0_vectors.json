@@ -11,6 +11,7 @@
     },
     "allocations": [
       {
+        "graph_collection": "unit_definitions",
         "mode": "source",
         "object_type": "sch.unit_definition",
         "source_identity": {
@@ -21,6 +22,7 @@
         "expected": "019fd985-0000-70bd-a222-1ececf294168"
       },
       {
+        "graph_collection": "page_definitions",
         "mode": "source",
         "object_type": "sch.page_definition",
         "source_identity": {
@@ -31,34 +33,226 @@
         "expected": "019fd985-0000-775f-b855-85c6a18a16b0"
       },
       {
-        "mode": "source",
-        "object_type": "sch.terminal_occurrence",
-        "source_identity": {
-          "sch.source_key.source_uuid": "22222222-2222-2222-2222-222222222222",
-          "sch.source_key.source_subobject": "1",
-          "sch.source_key.source_path": "ignored"
-        },
-        "owner_refs": [
-          "33333333-3333-7333-8333-333333333333",
-          "44444444-4444-7444-8444-444444444444"
-        ],
-        "expected": "019fd985-0000-7add-b1e5-e963dc94ae89"
-      },
-      {
-        "mode": "derived",
-        "object_type": "sch.local_net_occurrence",
-        "identity": {
-          "page_occurrence_ref": "33333333-3333-7333-8333-333333333333",
-          "terminal_occurrence_refs": ["019fd985-0000-7add-b1e5-e963dc94ae89"]
-        },
-        "expected": "019fd985-0000-72f1-ae66-5eb49119d483"
-      },
-      {
+        "graph_collection": "unit_occurrences",
         "mode": "source",
         "object_type": "sch.unit_occurrence",
         "source_identity": {"sch.source_key.source_path": "/root/reused"},
-        "owner_refs": ["ignored-owner"],
-        "expected": "019fd985-0000-7e95-90d6-a1d7d6b833c7"
+        "owner_refs": [],
+        "expected": "019fd985-0000-7739-a887-bda09e13c502"
+      },
+      {
+        "graph_collection": "page_occurrences",
+        "mode": "source",
+        "object_type": "sch.page_occurrence",
+        "source_identity": {"sch.source_key.source_path": "/root/reused"},
+        "owner_refs": ["019fd985-0000-7739-a887-bda09e13c502"],
+        "expected": "019fd985-0000-7d5f-b6d5-237fe7bfef46"
+      },
+      {
+        "graph_collection": "hierarchy_occurrences",
+        "mode": "source",
+        "object_type": "sch.hierarchy_occurrence",
+        "source_identity": {
+          "sch.source_key.source_uuid": "sheet-placement",
+          "sch.source_key.source_path": "/root/reused",
+          "sch.source_key.source_record": "instance-path:/root/reused"
+        },
+        "owner_refs": [
+          "019fd985-0000-7d5f-b6d5-237fe7bfef46",
+          "66666666-6666-7666-8666-666666666666"
+        ],
+        "expected": "019fd985-0000-775e-bcac-d070e2c34dd3"
+      },
+      {
+        "graph_collection": "component_occurrences",
+        "mode": "source",
+        "object_type": "sch.component_occurrence",
+        "source_identity": {
+          "sch.source_key.source_uuid": "symbol-u1",
+          "sch.source_key.source_path": "/root/reused"
+        },
+        "owner_refs": ["019fd985-0000-7d5f-b6d5-237fe7bfef46"],
+        "expected": "019fd985-0000-714a-90bb-4744651116df"
+      },
+      {
+        "graph_collection": "terminal_occurrences",
+        "mode": "source",
+        "object_type": "sch.terminal_occurrence",
+        "source_identity": {
+          "sch.source_key.source_uuid": "symbol-u1",
+          "sch.source_key.source_subobject": "1",
+          "sch.source_key.source_path": "/root/reused"
+        },
+        "owner_refs": [
+          "019fd985-0000-7d5f-b6d5-237fe7bfef46",
+          "019fd985-0000-714a-90bb-4744651116df"
+        ],
+        "expected": "019fd985-0000-7438-82b5-6a5c09a3d092"
+      },
+      {
+        "graph_collection": "local_net_occurrences",
+        "mode": "derived",
+        "object_type": "sch.local_net_occurrence",
+        "identity": {
+          "page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
+          "terminal_occurrence_refs": ["019fd985-0000-7438-82b5-6a5c09a3d092"]
+        },
+        "expected": "019fd985-0000-70a1-9575-b7d696880996"
+      },
+      {
+        "graph_collection": "hierarchy_terminal_bindings",
+        "mode": "derived",
+        "object_type": "sch.hierarchy_terminal_binding",
+        "identity": {
+          "hierarchy_occurrence_ref": "019fd985-0000-775e-bcac-d070e2c34dd3",
+          "parent_terminal_occurrence_ref": "019fd985-0000-7438-82b5-6a5c09a3d092",
+          "child_terminal_occurrence_ref": "99999999-9999-7999-8999-999999999999"
+        },
+        "expected": "019fd985-0000-7d82-b67d-3ee680e23276"
+      },
+      {
+        "graph_collection": "graphical_artifact_links",
+        "mode": "derived",
+        "object_type": "sch.graphical_artifact_link",
+        "identity": {
+          "page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
+          "target_type": "sch.component_occurrence",
+          "target_ref": "019fd985-0000-714a-90bb-4744651116df",
+          "artifact_key": "sch.dwg_scene",
+          "element_id": "symbol-u1"
+        },
+        "expected": "019fd985-0000-70cf-9b4f-6a8bdfc29938"
+      }
+    ],
+    "selector_equivalence": [
+      {
+        "id": "unit-occurrence-path-precedence",
+        "left": {
+          "object_type": "sch.unit_occurrence",
+          "source_identity": {"sch.source_key.source_path": "/root/reused"},
+          "owner_refs": []
+        },
+        "right": {
+          "object_type": "sch.unit_occurrence",
+          "source_identity": {
+            "sch.source_key.source_path": "/root/reused",
+            "sch.source_key.source_uuid": "ignored",
+            "sch.source_key.source_record": "ignored"
+          },
+          "owner_refs": []
+        },
+        "expected": "019fd985-0000-7739-a887-bda09e13c502"
+      },
+      {
+        "id": "terminal-uuid-subobject-precedence",
+        "left": {
+          "object_type": "sch.terminal_occurrence",
+          "source_identity": {
+            "sch.source_key.source_uuid": "symbol-u1",
+            "sch.source_key.source_subobject": "1"
+          },
+          "owner_refs": [
+            "019fd985-0000-7d5f-b6d5-237fe7bfef46",
+            "019fd985-0000-714a-90bb-4744651116df"
+          ]
+        },
+        "right": {
+          "object_type": "sch.terminal_occurrence",
+          "source_identity": {
+            "sch.source_key.source_uuid": "symbol-u1",
+            "sch.source_key.source_subobject": "1",
+            "sch.source_key.source_path": "ignored"
+          },
+          "owner_refs": [
+            "019fd985-0000-7d5f-b6d5-237fe7bfef46",
+            "019fd985-0000-714a-90bb-4744651116df"
+          ]
+        },
+        "expected": "019fd985-0000-7438-82b5-6a5c09a3d092"
+      },
+      {
+        "id": "generic-uuid-precedes-other-selectors",
+        "left": {
+          "object_type": "sch.component_occurrence",
+          "source_identity": {"sch.source_key.source_uuid": "symbol-u1"},
+          "owner_refs": ["019fd985-0000-7d5f-b6d5-237fe7bfef46"]
+        },
+        "right": {
+          "object_type": "sch.component_occurrence",
+          "source_identity": {
+            "sch.source_key.source_uuid": "symbol-u1",
+            "sch.source_key.compiled_net": "ignored",
+            "sch.source_key.source_path": "ignored",
+            "sch.source_key.artifact_element": "ignored",
+            "sch.source_key.source_record": "ignored"
+          },
+          "owner_refs": ["019fd985-0000-7d5f-b6d5-237fe7bfef46"]
+        },
+        "expected": "019fd985-0000-714a-90bb-4744651116df"
+      },
+      {
+        "id": "mapping-and-owner-whitespace-normalization",
+        "left": {
+          "object_type": "sch.component_occurrence",
+          "source_identity": {"sch.source_key.source_uuid": "symbol-u1"},
+          "owner_refs": ["019fd985-0000-7d5f-b6d5-237fe7bfef46"]
+        },
+        "right": {
+          "object_type": "sch.component_occurrence",
+          "source_identity": {"sch.source_key.source_uuid": "  symbol-u1  "},
+          "owner_refs": ["  019fd985-0000-7d5f-b6d5-237fe7bfef46  "]
+        },
+        "expected": "019fd985-0000-714a-90bb-4744651116df"
+      }
+    ],
+    "scope_cases": [
+      {
+        "source_cad": " KiCad ",
+        "project": {"name": "Folder\\Example.KICAD_PRO"},
+        "expected": {
+          "source_cad": "kicad",
+          "project_file": "folder/example.kicad_pro"
+        }
+      }
+    ],
+    "failures": [
+      {
+        "id": "missing-project-name",
+        "mode": "scope",
+        "source_cad": "KiCad",
+        "project": {},
+        "error_match": "requires a source project filename or name"
+      },
+      {
+        "id": "terminal-path-is-not-stable-identity",
+        "mode": "source",
+        "object_type": "sch.terminal_occurrence",
+        "source_identity": {"sch.source_key.source_path": "sheet.kicad_sch"},
+        "owner_refs": [],
+        "error_match": "requires governed source identity"
+      },
+      {
+        "id": "derived-identity-must-not-be-empty",
+        "mode": "derived",
+        "object_type": "sch.local_net_occurrence",
+        "identity": {},
+        "error_match": "derived identity must not be empty"
+      },
+      {
+        "id": "object-type-must-use-sch-namespace",
+        "mode": "source",
+        "object_type": "pcb.component_occurrence",
+        "source_identity": {"sch.source_key.source_uuid": "symbol-u1"},
+        "owner_refs": [],
+        "error_match": "must use the sch. namespace"
+      },
+      {
+        "id": "duplicate-address-fails-closed",
+        "mode": "duplicate_source",
+        "object_type": "sch.component_occurrence",
+        "source_identity": {"sch.source_key.source_uuid": "symbol-u1"},
+        "owner_refs": [],
+        "error_match": "duplicate stable schematic identity address"
       }
     ]
   },
@@ -71,57 +265,70 @@
       "id": "019fd985-0000-70bd-a222-1ececf294168",
       "display_name": "root",
       "page_definition_refs": ["019fd985-0000-775f-b855-85c6a18a16b0"],
-      "source_identity": {"sch.source_key.source_path": "root.kicad_sch"}
+      "source_identity": {
+        "sch.source_key.source_path": "sheet.kicad_sch",
+        "sch.source_key.source_uuid": "11111111-1111-1111-1111-111111111111"
+      }
     }],
     "page_definitions": [{
       "type": "sch.page_definition",
       "id": "019fd985-0000-775f-b855-85c6a18a16b0",
       "display_name": "root",
       "unit_definition_ref": "019fd985-0000-70bd-a222-1ececf294168",
-      "source_identity": {"sch.source_key.source_path": "root.kicad_sch"}
+      "source_identity": {
+        "sch.source_key.source_path": "sheet.kicad_sch",
+        "sch.source_key.source_uuid": "11111111-1111-1111-1111-111111111111"
+      }
     }],
     "unit_occurrences": [{
       "type": "sch.unit_occurrence",
-      "id": "019fd985-0000-7e95-90d6-a1d7d6b833c7",
+      "id": "019fd985-0000-7739-a887-bda09e13c502",
       "display_name": "root",
       "unit_definition_ref": "019fd985-0000-70bd-a222-1ececf294168",
-      "page_occurrence_refs": ["33333333-3333-7333-8333-333333333333"],
-      "source_identity": {"sch.source_key.source_path": "/"}
+      "page_occurrence_refs": ["019fd985-0000-7d5f-b6d5-237fe7bfef46"],
+      "source_identity": {"sch.source_key.source_path": "/root/reused"}
     }],
     "page_occurrences": [{
       "type": "sch.page_occurrence",
-      "id": "33333333-3333-7333-8333-333333333333",
+      "id": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
       "display_name": "root",
       "page_definition_ref": "019fd985-0000-775f-b855-85c6a18a16b0",
-      "unit_occurrence_ref": "019fd985-0000-7e95-90d6-a1d7d6b833c7",
+      "unit_occurrence_ref": "019fd985-0000-7739-a887-bda09e13c502",
       "address_key": "sheet1",
       "sheet_number": "1",
       "instance_order": 0,
-      "source_identity": {"sch.source_key.source_path": "/"}
+      "source_identity": {"sch.source_key.source_path": "/root/reused"}
     }],
     "hierarchy_occurrences": [{
       "type": "sch.hierarchy_occurrence",
-      "id": "55555555-5555-7555-8555-555555555555",
-      "parent_unit_occurrence_ref": "019fd985-0000-7e95-90d6-a1d7d6b833c7",
-      "parent_page_occurrence_ref": "33333333-3333-7333-8333-333333333333",
+      "id": "019fd985-0000-775e-bcac-d070e2c34dd3",
+      "parent_unit_occurrence_ref": "019fd985-0000-7739-a887-bda09e13c502",
+      "parent_page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
       "child_unit_occurrence_ref": "66666666-6666-7666-8666-666666666666",
-      "source_identity": {"sch.source_key.source_uuid": "sheet-placement"}
+      "source_identity": {
+        "sch.source_key.source_uuid": "sheet-placement",
+        "sch.source_key.source_path": "/root/reused",
+        "sch.source_key.source_record": "instance-path:/root/reused"
+      }
     }],
     "component_occurrences": [{
       "type": "sch.component_occurrence",
-      "id": "77777777-7777-7777-8777-777777777777",
-      "page_occurrence_ref": "33333333-3333-7333-8333-333333333333",
+      "id": "019fd985-0000-714a-90bb-4744651116df",
+      "page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
       "source_designator": "U1",
       "physical_designator": "U1",
       "display_designator": "U1",
       "unit": 1,
       "body_style": 0,
-      "source_identity": {"sch.source_key.source_uuid": "symbol-u1"}
+      "source_identity": {
+        "sch.source_key.source_uuid": "symbol-u1",
+        "sch.source_key.source_path": "/root/reused"
+      }
     }],
     "local_net_occurrences": [{
       "type": "sch.local_net_occurrence",
-      "id": "019fd985-0000-72f1-ae66-5eb49119d483",
-      "page_occurrence_ref": "33333333-3333-7333-8333-333333333333",
+      "id": "019fd985-0000-70a1-9575-b7d696880996",
+      "page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
       "display_name": "SIG",
       "qualified_name": "/SIG",
       "aliases": ["SIG_ALIAS"],
@@ -129,33 +336,34 @@
     }],
     "terminal_occurrences": [{
       "type": "sch.terminal_occurrence",
-      "id": "019fd985-0000-7add-b1e5-e963dc94ae89",
-      "page_occurrence_ref": "33333333-3333-7333-8333-333333333333",
+      "id": "019fd985-0000-7438-82b5-6a5c09a3d092",
+      "page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
       "role": "component_pin",
-      "local_net_occurrence_ref": "019fd985-0000-72f1-ae66-5eb49119d483",
-      "component_occurrence_ref": "77777777-7777-7777-8777-777777777777",
+      "local_net_occurrence_ref": "019fd985-0000-70a1-9575-b7d696880996",
+      "component_occurrence_ref": "019fd985-0000-714a-90bb-4744651116df",
       "name": "GPIO",
       "pin_designator": "1",
       "resolution_diagnostics": ["logical_pin_unresolved", "design_net_unresolved"],
       "source_identity": {
         "sch.source_key.source_uuid": "symbol-u1",
-        "sch.source_key.source_subobject": "1"
+        "sch.source_key.source_subobject": "1",
+        "sch.source_key.source_path": "/root/reused"
       }
     }],
     "hierarchy_terminal_bindings": [{
       "type": "sch.hierarchy_terminal_binding",
-      "id": "88888888-8888-7888-8888-888888888888",
-      "hierarchy_occurrence_ref": "55555555-5555-7555-8555-555555555555",
-      "parent_terminal_occurrence_ref": "019fd985-0000-7add-b1e5-e963dc94ae89",
+      "id": "019fd985-0000-7d82-b67d-3ee680e23276",
+      "hierarchy_occurrence_ref": "019fd985-0000-775e-bcac-d070e2c34dd3",
+      "parent_terminal_occurrence_ref": "019fd985-0000-7438-82b5-6a5c09a3d092",
       "child_terminal_occurrence_ref": "99999999-9999-7999-8999-999999999999",
       "source_identity": {"sch.source_key.source_subobject": "SIG"}
     }],
     "graphical_artifact_links": [{
       "type": "sch.graphical_artifact_link",
-      "id": "aaaaaaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa",
-      "page_occurrence_ref": "33333333-3333-7333-8333-333333333333",
+      "id": "019fd985-0000-70cf-9b4f-6a8bdfc29938",
+      "page_occurrence_ref": "019fd985-0000-7d5f-b6d5-237fe7bfef46",
       "target_type": "sch.component_occurrence",
-      "target_ref": "77777777-7777-7777-8777-777777777777",
+      "target_ref": "019fd985-0000-714a-90bb-4744651116df",
       "artifact_key": "sch.dwg_scene",
       "element_id": "symbol-u1",
       "source_identity": {"sch.source_key.artifact_element": "symbol-u1"}
