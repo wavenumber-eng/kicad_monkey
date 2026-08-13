@@ -2,20 +2,23 @@
 <html lang="en" data-doc-status="proposal">
 <head>
   <meta charset="utf-8">
-  <title>Rust Phase 2 Native/WASM Boundary Review</title>
+  <title>Rust Phase 2 Native-Core Boundary And WASM Feasibility Review</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Rust Phase 2 Native/WASM Boundary Review</h1>
+  <h1>Rust Phase 2 Native-Core Boundary And WASM Feasibility Review</h1>
 
   <section>
     <h2>Review Status</h2>
     <p>
       This packet is ready for review; it does not approve Phase 3. The first
       typed footprint and symbol-library reader/writer proofs and the first
-      shared footprint/symbol plotter-IR proofs are implemented. PCB and
-      downstream <code>pcb_a0</code> expansion remains gated on closure or
-      explicit disposition of the findings below.
+      shared footprint/symbol plotter-IR proofs are implemented. The next
+      authorized product phase is the KiCad-native PCB reader/writer. The
+      completed WASM work is feasibility evidence; further browser packaging
+      and all downstream <code>pcb_a0</code> work are outside the next phase.
+      The durable ordering and ownership decision is recorded in
+      <a href="../adrs/ADR-011-native-first-rust-port-delivery.md">ADR-011</a>.
     </p>
   </section>
 
@@ -119,9 +122,9 @@
         <strong>Closed — WASM artifact ownership and features.</strong>
         Cargo features <code>sexpr</code>, <code>footprint</code>, and
         <code>symbol</code> independently compile operation-shaped artifacts.
-        Rack verifies every locked wasm32 feature build. Future PCB and graph
-        families must receive their own feature rather than enter all existing
-        artifacts.
+        Rack verifies every locked wasm32 feature build. If PCB or graph
+        operations are selected after native parity, each receives its own
+        feature or downstream-owned artifact rather than entering every build.
       </li>
       <li>
         <strong>Closed — large output ownership.</strong> Every paired edit or
@@ -130,9 +133,9 @@
       </li>
       <li>
         <strong>Retained gate — Python integration.</strong> Generated Python
-        contracts and Python-oracle parity are complete, but PyO3 acceleration
-        is intentionally Phase 6. Confirm that it is not required to approve
-        the Phase 2 native/WASM boundary.
+        contracts and Python-oracle parity are complete. PyO3 acceleration is
+        optional work after native parity and is not required to approve this
+        boundary.
       </li>
       <li>
         <strong>Retained gate — text and complete visual parity.</strong>
@@ -142,9 +145,18 @@
       </li>
       <li>
         <strong>Retained gate — platform matrix.</strong> Windows native and
-        Node-hosted real wasm32 execution pass. Linux and an actual browser
-        engine remain pre-cutover/release gates unless the reviewer promotes
-        either to a Phase 2 blocker.
+        Node-hosted real wasm32 execution pass. The native Windows
+        <code>kicad-cruncher</code> lane is the product critical path. Other
+        native platforms and an actual browser are required only by later
+        artifacts that claim support for them.
+      </li>
+      <li>
+        <strong>Dispositioned scope: WASM and downstream adapters.</strong>
+        Do not expand WASM while native reader/writer, plotter, compiler, CLI,
+        and Rack parity remain open. Select concrete browser operations after
+        native parity; downstream projects may package their own wrappers.
+        <code>pcb_a0</code>, Viz, and ALX adapters are a separate downstream
+        task and are not gates in this plan.
       </li>
     </ol>
   </section>
@@ -154,8 +166,8 @@
     <p>
       Review the closed blocker evidence, the intentional
       transport-versus-operation diagnostic split, and the retained gates.
-      Phase 3 is authorized only after the boundary review records approval or
-      explicit disposition. No
+      Phase 3 KiCad-native PCB reader/writer work is authorized only after the
+      boundary review records approval or explicit disposition. No
       public Cargo compatibility promise is created by this review; all crates
       remain <code>publish = false</code> during incubation.
     </p>

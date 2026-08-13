@@ -38,8 +38,9 @@ Current design notes:
   pin geometry using the shared plotter operation vocabulary.
 - `rust-symbol-library-phase2-slice.html` - typed symbol-library iteration and
   source-preserving write-back boundary.
-- `rust-phase2-boundary-review.html` - review packet for the first typed
-  native/WASM boundary and its unresolved artifact/copy-ownership findings.
+- `rust-phase2-boundary-review.html` - review packet for the first typed native
+  boundary, the completed WASM feasibility proof, and the native-first
+  continuation decision.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path
