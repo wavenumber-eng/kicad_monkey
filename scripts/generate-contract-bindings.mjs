@@ -110,15 +110,79 @@ function renderPython() {
   lines.push("", "");
   for (const [, typeName] of roots) {
     const functionName = `decode_${snakeCase(typeName.replace(/^SExpression/u, "sexpr_"))}`;
-    lines.push(`${functionName} = msgspec.json.Decoder(${typeName}).decode`);
+    if (typeName === "FootprintPlotDocumentA0") {
+      lines.push(...renderPythonPlotterValidation(functionName, typeName));
+    } else {
+      lines.push(`${functionName} = msgspec.json.Decoder(${typeName}).decode`);
+    }
   }
   const exported = [
     ...definitions.keys(),
     ...roots.map(([, typeName]) => typeName),
     ...roots.map(([, typeName]) => `decode_${snakeCase(typeName.replace(/^SExpression/u, "sexpr_"))}`),
+    "validate_footprint_plot_document_a0",
   ];
   lines.push("", "", "__all__ = (", ...exported.map((name) => `    ${pythonLiteral(name)},`), ")", "");
   return lines.join("\n");
+}
+
+function renderPythonPlotterValidation(functionName, typeName) {
+  return [
+    `_footprint_plot_document_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _footprint_plot_document_a0_decoder.decode(data)",
+    "    validate_footprint_plot_document_a0(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_footprint_plot_document_a0(value: ${typeName}) -> None:`,
+    "    total_operations = 0",
+    "    for record_index, record in enumerate(value.records):",
+    "        if record.operation_count != len(record.operations):",
+    "            raise msgspec.ValidationError(",
+    '                f"operation_count_mismatch at $.records[{record_index}].operation_count"',
+    "            )",
+    "        total_operations += len(record.operations)",
+    "        for operation_index, operation in enumerate(record.operations):",
+    '            path = f"$.records[{record_index}].operations[{operation_index}]"',
+    "            if isinstance(operation, (ThickSegmentOperation, CircleOperation)):",
+    "                _validate_shared_graphic_or_drill(operation, path)",
+    "            elif isinstance(operation, (",
+    "                FlashPadCircleOperation,",
+    "                FlashPadOvalOperation,",
+    "                FlashPadRectOperation,",
+    "                FlashPadRoundRectOperation,",
+    "                FlashPadTrapezOperation,",
+    "            )) and not operation.layers:",
+    '                raise msgspec.ValidationError(f"missing_layers at {path}")',
+    "    if value.total_operations != total_operations:",
+    '        raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")',
+    "",
+    "",
+    "def _validate_shared_graphic_or_drill(operation: ThickSegmentOperation | CircleOperation, path: str) -> None:",
+    "    layer = None if operation.layer is UNSET else operation.layer",
+    "    role = None if operation.role is UNSET else operation.role",
+    "    layers = [] if operation.layers is UNSET else operation.layers",
+    "    has_mask = operation.mask_margin_nm is not UNSET",
+    "    has_size_x = operation.pad_size_x_nm is not UNSET",
+    "    has_size_y = operation.pad_size_y_nm is not UNSET",
+    "    graphic = (",
+    "        role is None and layer is not None and not layers",
+    "        and not has_mask and not has_size_x and not has_size_y",
+    "    )",
+    "    pad_drill = (",
+    '        role == "pad_drill" and layer is None and bool(layers)',
+    "        and not has_mask and not has_size_x and not has_size_y",
+    "    )",
+    "    npth_hole = (",
+    '        role == "npth_hole" and layer is None and bool(layers)',
+    "        and has_mask and has_size_x and has_size_y",
+    "    )",
+    "    if not (graphic or pad_drill or npth_hole):",
+    '        raise msgspec.ValidationError(f"conflicting_plotter_fields at {path}")',
+  ];
 }
 
 function renderPythonDeclaration(name, schema, tag = undefined) {

@@ -19,6 +19,10 @@ export type PlotterOperation =
  */
 export type JavaScriptSafeInteger = number;
 /**
+ * Semantic roles allowed on shared circle and segment drill operations.
+ */
+export type PlotterDrillRole = "pad_drill" | "npth_hole";
+/**
  * Fill values shared by plotter operation producers.
  */
 export type PlotterFill = "NO_FILL" | "FILLED_SHAPE";
@@ -38,7 +42,8 @@ export type PlotterPoint = [JavaScriptSafeInteger, JavaScriptSafeInteger];
 export type PlotterQuad = [PlotterPoint, PlotterPoint, PlotterPoint, PlotterPoint];
 
 /**
- * Strict non-text footprint subset of kicad.plotter_ir.a0.
+ * Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and
+ * consumers must run generated semantic validation after structural decoding.
  */
 export interface FootprintPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
@@ -71,6 +76,9 @@ export interface FootprintPlotRecord {
 }
 /**
  * Solid or decomposed segment shared by PCB, footprint, and drill producers.
+ * Graphic state requires only layer. Drill state requires role plus layers;
+ * NPTH drill state additionally requires all mask and pad-size hints. The
+ * generated semantic validator enforces these mutually exclusive states.
  */
 export interface ThickSegmentOperation {
   kind: "ThickSegment";
@@ -81,7 +89,7 @@ export interface ThickSegmentOperation {
   end_y: JavaScriptSafeInteger;
   width_nm: JavaScriptSafeInteger;
   layer?: string;
-  role?: string;
+  role?: PlotterDrillRole;
   layers?: string[];
   mask_margin_nm?: JavaScriptSafeInteger;
   pad_size_x_nm?: JavaScriptSafeInteger;
@@ -104,7 +112,10 @@ export interface ArcThreePointOperation {
   layer: string;
 }
 /**
- * Circle shared by graphical and drill producers.
+ * Circle shared by graphical and drill producers. Graphic state requires only
+ * layer. Drill state requires role plus layers; NPTH state additionally
+ * requires all mask and pad-size hints. The generated semantic validator
+ * enforces these mutually exclusive states.
  */
 export interface CircleOperation {
   kind: "Circle";
@@ -115,7 +126,7 @@ export interface CircleOperation {
   fill: PlotterFill;
   width_nm: JavaScriptSafeInteger;
   layer?: string;
-  role?: string;
+  role?: PlotterDrillRole;
   layers?: string[];
   mask_margin_nm?: JavaScriptSafeInteger;
   pad_size_x_nm?: JavaScriptSafeInteger;

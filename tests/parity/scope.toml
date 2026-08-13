@@ -158,9 +158,9 @@ disposition = "required"
 wasm = "required"
 status = "review_ready"
 python_symbols = ["KiCadPlotterOp", "KiCadPlotterOpKind"]
-rust_symbols = ["PlotterOperation", "kicad_monkey_contracts.generated.PlotterOperation"]
+rust_symbols = ["PlotterOperation", "kicad_monkey_contracts.generated.PlotterOperation", "validate_footprint_plot_document"]
 rack_cases = ["L0_046", "L0_049", "L1_026"]
-evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/contracts/typescript-smoke.ts", "tests/parity/footprint_plotter_a0_vectors.json"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "src/rs/kicad-monkey-contracts/src/lib.rs", "src/rs/kicad-monkey-core/src/plotter_ir.rs", "src/rs/kicad-monkey-wasm/src/lib.rs", "tests/contracts/typescript-smoke.ts", "tests/parity/footprint_plotter_a0_vectors.json"]
 
 [[surfaces]]
 id = "plotter_ir.footprint_standard_pads"

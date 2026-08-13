@@ -99,3 +99,35 @@ def test_python_plotter_projection_rejects_unsafe_integer_neighbors(version: int
     ).encode()
     with pytest.raises(msgspec.ValidationError):
         decode_footprint_plot_document_a0(payload)
+
+
+def test_python_plotter_decoder_enforces_graphic_and_drill_semantics() -> None:
+    vectors = json.loads(
+        (PACKAGE_ROOT / "tests" / "parity" / "footprint_plotter_a0_vectors.json")
+        .read_text(encoding="utf-8")
+    )
+    valid = vectors["vectors"][0]["expected"]
+    assert isinstance(
+        decode_footprint_plot_document_a0(json.dumps(valid).encode()),
+        FootprintPlotDocumentA0,
+    )
+
+    missing_layer = json.loads(json.dumps(valid))
+    del missing_layer["records"][0]["operations"][0]["layer"]
+    with pytest.raises(msgspec.ValidationError, match="conflicting_plotter_fields"):
+        decode_footprint_plot_document_a0(json.dumps(missing_layer).encode())
+
+    contradictory = json.loads(json.dumps(valid))
+    operation = contradictory["records"][0]["operations"][0]
+    operation["layers"] = ["F.Cu"]
+    operation["mask_margin_nm"] = 0
+    with pytest.raises(msgspec.ValidationError, match="conflicting_plotter_fields"):
+        decode_footprint_plot_document_a0(json.dumps(contradictory).encode())
+
+    arbitrary_role = json.loads(json.dumps(valid))
+    operation = arbitrary_role["records"][0]["operations"][0]
+    del operation["layer"]
+    operation["role"] = "arbitrary"
+    operation["layers"] = ["F.Cu"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_footprint_plot_document_a0(json.dumps(arbitrary_role).encode())

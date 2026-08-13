@@ -11,7 +11,10 @@ from jsonschema import Draft202012Validator
 import msgspec
 import pytest
 
-from kicad_monkey.contracts.generated import FootprintPlotDocumentA0
+from kicad_monkey.contracts.generated import (
+    FootprintPlotDocumentA0,
+    decode_footprint_plot_document_a0,
+)
 from kicad_monkey.kicad_footprint import KiCadFootprint
 from kicad_monkey.kicad_footprint_to_ir import footprint_to_ir
 
@@ -69,7 +72,7 @@ def test_shared_plotter_vectors_match_python_generated_types_and_both_schemas() 
         # internally; the canonical interchange vector normalizes them to the
         # TypeSpec-owned integer representation used by Rust and WASM.
         encoded = json.dumps(vector["expected"]).encode("utf-8")
-        generated = msgspec.json.decode(encoded, type=FootprintPlotDocumentA0)
+        generated = decode_footprint_plot_document_a0(encoded)
         assert json.loads(msgspec.json.encode(generated)) == vector["expected"]
 
         unsafe = json.loads(json.dumps(actual))
@@ -84,18 +87,27 @@ def test_shared_plotter_vectors_match_python_generated_types_and_both_schemas() 
     malformed_point = json.loads(json.dumps(promoted))
     malformed_point["records"][0]["operations"][-1]["points"][0] = [0]
     with pytest.raises(msgspec.ValidationError):
-        msgspec.json.decode(
-            json.dumps(malformed_point).encode("utf-8"),
-            type=FootprintPlotDocumentA0,
-        )
+        decode_footprint_plot_document_a0(json.dumps(malformed_point).encode("utf-8"))
 
     unknown_kind = json.loads(json.dumps(promoted))
     unknown_kind["records"][0]["operations"][0]["kind"] = "Unknown"
     with pytest.raises(msgspec.ValidationError):
-        msgspec.json.decode(
-            json.dumps(unknown_kind).encode("utf-8"),
-            type=FootprintPlotDocumentA0,
-        )
+        decode_footprint_plot_document_a0(json.dumps(unknown_kind).encode("utf-8"))
+
+    for mutation in ("missing_layer", "arbitrary_role", "mixed_graphic_drill"):
+        invalid = json.loads(json.dumps(promoted))
+        operation = invalid["records"][0]["operations"][0]
+        if mutation == "missing_layer":
+            del operation["layer"]
+        elif mutation == "arbitrary_role":
+            del operation["layer"]
+            operation["role"] = "arbitrary"
+            operation["layers"] = ["F.Cu"]
+        else:
+            operation["layers"] = ["F.Cu"]
+            operation["mask_margin_nm"] = 0
+        with pytest.raises(msgspec.ValidationError):
+            decode_footprint_plot_document_a0(json.dumps(invalid).encode("utf-8"))
 
 
 def test_rust_core_and_host_adapter_consume_the_shared_vector() -> None:

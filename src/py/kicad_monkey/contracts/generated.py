@@ -95,7 +95,7 @@ class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag
     end_y: JavaScriptSafeInteger
     width_nm: JavaScriptSafeInteger
     layer: str | UnsetType = field(default=UNSET)
-    role: str | UnsetType = field(default=UNSET)
+    role: PlotterDrillRole | UnsetType = field(default=UNSET)
     layers: list[str] | UnsetType = field(default=UNSET)
     mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     pad_size_x_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
@@ -123,7 +123,7 @@ class CircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Circ
     fill: PlotterFill
     width_nm: JavaScriptSafeInteger
     layer: str | UnsetType = field(default=UNSET)
-    role: str | UnsetType = field(default=UNSET)
+    role: PlotterDrillRole | UnsetType = field(default=UNSET)
     layers: list[str] | UnsetType = field(default=UNSET)
     mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     pad_size_x_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
@@ -201,6 +201,9 @@ class FlashPadTrapezOperation(Struct, forbid_unknown_fields=True, frozen=True, t
     orient_deg: float
     layers: list[str]
     mask_margin_nm: JavaScriptSafeInteger
+
+
+PlotterDrillRole = Literal["pad_drill", "npth_hole"]
 
 
 PlotterFill = Literal["NO_FILL", "FILLED_SHAPE"]
@@ -325,7 +328,60 @@ decode_footprint_edit_request_a0 = msgspec.json.Decoder(FootprintEditRequestA0).
 decode_footprint_edit_result_a0 = msgspec.json.Decoder(FootprintEditResultA0).decode
 decode_footprint_read_request_a0 = msgspec.json.Decoder(FootprintReadRequestA0).decode
 decode_footprint_read_result_a0 = msgspec.json.Decoder(FootprintReadResultA0).decode
-decode_footprint_plot_document_a0 = msgspec.json.Decoder(FootprintPlotDocumentA0).decode
+_footprint_plot_document_a0_decoder = msgspec.json.Decoder(FootprintPlotDocumentA0)
+
+
+def decode_footprint_plot_document_a0(data: bytes) -> FootprintPlotDocumentA0:
+    value = _footprint_plot_document_a0_decoder.decode(data)
+    validate_footprint_plot_document_a0(value)
+    return value
+
+
+def validate_footprint_plot_document_a0(value: FootprintPlotDocumentA0) -> None:
+    total_operations = 0
+    for record_index, record in enumerate(value.records):
+        if record.operation_count != len(record.operations):
+            raise msgspec.ValidationError(
+                f"operation_count_mismatch at $.records[{record_index}].operation_count"
+            )
+        total_operations += len(record.operations)
+        for operation_index, operation in enumerate(record.operations):
+            path = f"$.records[{record_index}].operations[{operation_index}]"
+            if isinstance(operation, (ThickSegmentOperation, CircleOperation)):
+                _validate_shared_graphic_or_drill(operation, path)
+            elif isinstance(operation, (
+                FlashPadCircleOperation,
+                FlashPadOvalOperation,
+                FlashPadRectOperation,
+                FlashPadRoundRectOperation,
+                FlashPadTrapezOperation,
+            )) and not operation.layers:
+                raise msgspec.ValidationError(f"missing_layers at {path}")
+    if value.total_operations != total_operations:
+        raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
+
+
+def _validate_shared_graphic_or_drill(operation: ThickSegmentOperation | CircleOperation, path: str) -> None:
+    layer = None if operation.layer is UNSET else operation.layer
+    role = None if operation.role is UNSET else operation.role
+    layers = [] if operation.layers is UNSET else operation.layers
+    has_mask = operation.mask_margin_nm is not UNSET
+    has_size_x = operation.pad_size_x_nm is not UNSET
+    has_size_y = operation.pad_size_y_nm is not UNSET
+    graphic = (
+        role is None and layer is not None and not layers
+        and not has_mask and not has_size_x and not has_size_y
+    )
+    pad_drill = (
+        role == "pad_drill" and layer is None and bool(layers)
+        and not has_mask and not has_size_x and not has_size_y
+    )
+    npth_hole = (
+        role == "npth_hole" and layer is None and bool(layers)
+        and has_mask and has_size_x and has_size_y
+    )
+    if not (graphic or pad_drill or npth_hole):
+        raise msgspec.ValidationError(f"conflicting_plotter_fields at {path}")
 decode_footprint_plot_request_a0 = msgspec.json.Decoder(FootprintPlotRequestA0).decode
 decode_footprint_plot_result_a0 = msgspec.json.Decoder(FootprintPlotResultA0).decode
 
@@ -353,6 +409,7 @@ __all__ = (
     "FlashPadRectOperation",
     "FlashPadRoundRectOperation",
     "FlashPadTrapezOperation",
+    "PlotterDrillRole",
     "PlotterFill",
     "PlotterPoint",
     "PlotterQuad",
@@ -378,4 +435,5 @@ __all__ = (
     "decode_footprint_plot_document_a0",
     "decode_footprint_plot_request_a0",
     "decode_footprint_plot_result_a0",
+    "validate_footprint_plot_document_a0",
 )

@@ -6,6 +6,10 @@
 pub mod generated;
 
 use generated::build_request::{Node, NodeKind, SExpressionBuildRequestA0};
+use generated::footprint_plot_document::{
+    CircleOperation, FootprintPlotDocumentA0, PlotterDrillRole, PlotterOperation,
+    ThickSegmentOperation,
+};
 use std::fmt;
 
 /// Largest integer represented exactly by JavaScript's IEEE-754 `number`.
@@ -151,6 +155,147 @@ pub fn validate_build_request(
         max_depth,
         max_nodes,
     })
+}
+
+/// Enforce the cross-field semantics of shared graphical and drill operations.
+pub fn validate_footprint_plot_document(
+    document: &FootprintPlotDocumentA0,
+) -> Result<(), ValidationError> {
+    let mut total_operations = 0usize;
+    for (record_index, record) in document.records.iter().enumerate() {
+        if record.operation_count as usize != record.operations.len() {
+            return Err(validation_error(
+                "operation_count_mismatch",
+                format!("$.records[{record_index}].operation_count"),
+                "operation_count must equal the operation array length",
+            ));
+        }
+        total_operations = total_operations.saturating_add(record.operations.len());
+        for (operation_index, operation) in record.operations.iter().enumerate() {
+            let path = format!("$.records[{record_index}].operations[{operation_index}]");
+            match operation {
+                PlotterOperation::ThickSegmentOperation(operation) => {
+                    validate_shared_segment(operation, path)?;
+                }
+                PlotterOperation::CircleOperation(operation) => {
+                    validate_shared_circle(operation, path)?;
+                }
+                PlotterOperation::FlashPadCircleOperation(operation) => {
+                    require_layers(&operation.layers, path)?;
+                }
+                PlotterOperation::FlashPadOvalOperation(operation) => {
+                    require_layers(&operation.layers, path)?;
+                }
+                PlotterOperation::FlashPadRectOperation(operation) => {
+                    require_layers(&operation.layers, path)?;
+                }
+                PlotterOperation::FlashPadRoundRectOperation(operation) => {
+                    require_layers(&operation.layers, path)?;
+                }
+                PlotterOperation::FlashPadTrapezOperation(operation) => {
+                    require_layers(&operation.layers, path)?;
+                }
+                PlotterOperation::ArcThreePointOperation(_)
+                | PlotterOperation::RectOperation(_)
+                | PlotterOperation::PlotPolyOperation(_) => {}
+            }
+        }
+    }
+    if document.total_operations as usize != total_operations {
+        return Err(validation_error(
+            "operation_count_mismatch",
+            "$.total_operations",
+            "total_operations must equal all record operation counts",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_shared_segment(
+    operation: &ThickSegmentOperation,
+    path: String,
+) -> Result<(), ValidationError> {
+    validate_graphic_or_drill(
+        operation.layer.as_deref(),
+        operation.role,
+        &operation.layers,
+        operation.mask_margin_nm.is_some(),
+        operation.pad_size_x_nm.is_some(),
+        operation.pad_size_y_nm.is_some(),
+        path,
+    )
+}
+
+fn validate_shared_circle(
+    operation: &CircleOperation,
+    path: String,
+) -> Result<(), ValidationError> {
+    validate_graphic_or_drill(
+        operation.layer.as_deref(),
+        operation.role,
+        &operation.layers,
+        operation.mask_margin_nm.is_some(),
+        operation.pad_size_x_nm.is_some(),
+        operation.pad_size_y_nm.is_some(),
+        path,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_graphic_or_drill(
+    layer: Option<&str>,
+    role: Option<PlotterDrillRole>,
+    layers: &[String],
+    has_mask_margin: bool,
+    has_pad_size_x: bool,
+    has_pad_size_y: bool,
+    path: String,
+) -> Result<(), ValidationError> {
+    match role {
+        None if layer.is_some()
+            && layers.is_empty()
+            && !has_mask_margin
+            && !has_pad_size_x
+            && !has_pad_size_y =>
+        {
+            Ok(())
+        }
+        Some(PlotterDrillRole::PadDrill)
+            if layer.is_none()
+                && !layers.is_empty()
+                && !has_mask_margin
+                && !has_pad_size_x
+                && !has_pad_size_y =>
+        {
+            Ok(())
+        }
+        Some(PlotterDrillRole::NpthHole)
+            if layer.is_none()
+                && !layers.is_empty()
+                && has_mask_margin
+                && has_pad_size_x
+                && has_pad_size_y =>
+        {
+            Ok(())
+        }
+        _ => Err(validation_error(
+            "conflicting_plotter_fields",
+            path,
+            "circle/segment must be one complete graphic, pad-drill, or NPTH variant",
+        )),
+    }
+}
+
+fn require_layers(layers: &[String], path: String) -> Result<(), ValidationError> {
+    if layers.is_empty() {
+        Err(validation_error(
+            "missing_layers",
+            path,
+            "pad flash operations require at least one layer",
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn validate_node(

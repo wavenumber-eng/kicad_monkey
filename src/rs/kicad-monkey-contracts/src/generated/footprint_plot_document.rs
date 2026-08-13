@@ -102,13 +102,16 @@ pub struct ArcThreePointOperation {
     pub start_y: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
-///Circle shared by graphical and drill producers.
+/**Circle shared by graphical and drill producers. Graphic state requires only
+layer. Drill state requires role plus layers; NPTH state additionally
+requires all mask and pad-size hints. The generated semantic validator
+enforces these mutually exclusive states.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Circle shared by graphical and drill producers.",
+///  "description": "Circle shared by graphical and drill producers. Graphic state requires only\nlayer. Drill state requires role plus layers; NPTH state additionally\nrequires all mask and pad-size hints. The generated semantic validator\nenforces these mutually exclusive states.",
 ///  "type": "object",
 ///  "required": [
 ///    "cx",
@@ -160,7 +163,7 @@ pub struct ArcThreePointOperation {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
 ///    "role": {
-///      "type": "string"
+///      "$ref": "#/$defs/PlotterDrillRole"
 ///    },
 ///    "width_nm": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
@@ -190,7 +193,7 @@ pub struct CircleOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub pad_size_y_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub role: ::std::option::Option<::std::string::String>,
+    pub role: ::std::option::Option<PlotterDrillRole>,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
 ///Circular pad flash shared by footprint and PCB producers.
@@ -538,7 +541,8 @@ pub struct FlashPadTrapezOperation {
     pub x: crate::JavaScriptSafeInteger,
     pub y: crate::JavaScriptSafeInteger,
 }
-///Strict non-text footprint subset of kicad.plotter_ir.a0.
+/**Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and
+consumers must run generated semantic validation after structural decoding.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -546,7 +550,7 @@ pub struct FlashPadTrapezOperation {
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0",
 ///  "title": "Footprint plot document a0",
-///  "description": "Strict non-text footprint subset of kicad.plotter_ir.a0.",
+///  "description": "Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
 ///  "type": "object",
 ///  "required": [
 ///    "coordinate_space",
@@ -793,6 +797,79 @@ pub struct PlotPolyOperation {
 pub struct PlotterCoordinateSpace {
     pub unit: ::std::string::String,
     pub y_axis: ::std::string::String,
+}
+///Semantic roles allowed on shared circle and segment drill operations.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Semantic roles allowed on shared circle and segment drill operations.",
+///  "type": "string",
+///  "enum": [
+///    "pad_drill",
+///    "npth_hole"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlotterDrillRole {
+    #[serde(rename = "pad_drill")]
+    PadDrill,
+    #[serde(rename = "npth_hole")]
+    NpthHole,
+}
+impl ::std::fmt::Display for PlotterDrillRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::PadDrill => f.write_str("pad_drill"),
+            Self::NpthHole => f.write_str("npth_hole"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlotterDrillRole {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "pad_drill" => Ok(Self::PadDrill),
+            "npth_hole" => Ok(Self::NpthHole),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterDrillRole {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterDrillRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterDrillRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 ///Fill values shared by plotter operation producers.
 ///
@@ -1116,13 +1193,16 @@ pub struct RectOperation {
     pub y1: crate::JavaScriptSafeInteger,
     pub y2: crate::JavaScriptSafeInteger,
 }
-///Solid or decomposed segment shared by PCB, footprint, and drill producers.
+/**Solid or decomposed segment shared by PCB, footprint, and drill producers.
+Graphic state requires only layer. Drill state requires role plus layers;
+NPTH drill state additionally requires all mask and pad-size hints. The
+generated semantic validator enforces these mutually exclusive states.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Solid or decomposed segment shared by PCB, footprint, and drill producers.",
+///  "description": "Solid or decomposed segment shared by PCB, footprint, and drill producers.\nGraphic state requires only layer. Drill state requires role plus layers;\nNPTH drill state additionally requires all mask and pad-size hints. The\ngenerated semantic validator enforces these mutually exclusive states.",
 ///  "type": "object",
 ///  "required": [
 ///    "end_x",
@@ -1168,7 +1248,7 @@ pub struct RectOperation {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
 ///    "role": {
-///      "type": "string"
+///      "$ref": "#/$defs/PlotterDrillRole"
 ///    },
 ///    "start_x": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
@@ -1202,7 +1282,7 @@ pub struct ThickSegmentOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub pad_size_y_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub role: ::std::option::Option<::std::string::String>,
+    pub role: ::std::option::Option<PlotterDrillRole>,
     pub start_x: crate::JavaScriptSafeInteger,
     pub start_y: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,

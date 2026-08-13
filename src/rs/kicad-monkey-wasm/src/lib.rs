@@ -12,7 +12,8 @@ use kicad_monkey_contracts::generated::footprint_plot_document::{
     ArcThreePointOperation, CircleOperation, FlashPadCircleOperation, FlashPadOvalOperation,
     FlashPadRectOperation, FlashPadRoundRectOperation, FlashPadTrapezOperation,
     FootprintPlotDocumentA0, FootprintPlotRecord, PlotPolyOperation, PlotterCoordinateSpace,
-    PlotterFill, PlotterOperation, PlotterPoint, PlotterQuad, RectOperation, ThickSegmentOperation,
+    PlotterDrillRole, PlotterFill, PlotterOperation, PlotterPoint, PlotterQuad, RectOperation,
+    ThickSegmentOperation,
 };
 use kicad_monkey_contracts::generated::footprint_plot_request::FootprintPlotRequestA0;
 use kicad_monkey_contracts::generated::footprint_plot_result::{
@@ -29,7 +30,9 @@ use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
 use kicad_monkey_contracts::generated::scan_result::{
     Diagnostic, DiagnosticPhase, FormSpan, SExpressionScanResultA0, SourcePosition,
 };
-use kicad_monkey_contracts::{JavaScriptSafeInteger, ValidatedNode, validate_build_request};
+use kicad_monkey_contracts::{
+    JavaScriptSafeInteger, ValidatedNode, validate_build_request, validate_footprint_plot_document,
+};
 use kicad_monkey_core::{
     Error, ErrorKind, ErrorPhase, FootprintLimits, FootprintPlotLimits, FootprintView,
     PlotterFill as CorePlotterFill, PlotterOperation as CorePlotterOperation, ProjectionLimits,
@@ -299,6 +302,8 @@ fn plot_footprint_ir_impl(
                 version: JavaScriptSafeInteger::try_from(document.version)
                     .map_err(|error| error.to_string())?,
             };
+            validate_footprint_plot_document(&contract_document)
+                .map_err(|error| error.to_string())?;
             match serialize_bounded(&contract_document, max_output_bytes)? {
                 Some(output) => (
                     FootprintPlotResultA0 {
@@ -355,7 +360,7 @@ fn contract_plotter_operation(
             mask_margin_nm: optional_safe_integer(operation.mask_margin_nm)?,
             pad_size_x_nm: optional_safe_integer(operation.pad_size_x_nm)?,
             pad_size_y_nm: optional_safe_integer(operation.pad_size_y_nm)?,
-            role: operation.role,
+            role: contract_drill_role(operation.role.as_deref())?,
             start_x: safe_integer(operation.start_x)?,
             start_y: safe_integer(operation.start_y)?,
             width_nm: safe_integer(operation.width_nm)?,
@@ -387,7 +392,7 @@ fn contract_plotter_operation(
             mask_margin_nm: optional_safe_integer(operation.mask_margin_nm)?,
             pad_size_x_nm: optional_safe_integer(operation.pad_size_x_nm)?,
             pad_size_y_nm: optional_safe_integer(operation.pad_size_y_nm)?,
-            role: operation.role,
+            role: contract_drill_role(operation.role.as_deref())?,
             width_nm: safe_integer(operation.width_nm)?,
         }
         .into(),
@@ -491,6 +496,12 @@ fn safe_integer(value: i64) -> Result<JavaScriptSafeInteger, String> {
 
 fn optional_safe_integer(value: Option<i64>) -> Result<Option<JavaScriptSafeInteger>, String> {
     value.map(safe_integer).transpose()
+}
+
+fn contract_drill_role(value: Option<&str>) -> Result<Option<PlotterDrillRole>, String> {
+    value
+        .map(|role| PlotterDrillRole::try_from(role).map_err(|error| error.to_string()))
+        .transpose()
 }
 
 fn contract_quad(corners: [[i64; 2]; 4]) -> Result<PlotterQuad, String> {
@@ -1060,6 +1071,27 @@ mod tests {
                 .expect("diagnostic message")
                 .contains("safe-integer")
         );
+        assert!(output.output_bytes().is_empty());
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_pattern_step_limit_returns_diagnostic_without_partial_geometry() {
+        let source = br#"(footprint "Long"
+          (fp_line (start 0 0) (end 7000000 0)
+            (stroke (width 0.1) (type dash))))"#;
+        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_operations":100000}"#;
+        let output = plot_footprint_ir(source, request)
+            .expect("decomposition limit belongs in result metadata");
+        let metadata: Value =
+            serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
+        assert_eq!(metadata["diagnostics"][0]["code"], "resource_limit");
+        assert!(
+            metadata["diagnostics"][0]["message"]
+                .as_str()
+                .expect("diagnostic message")
+                .contains("safety step limit")
+        );
+        assert_eq!(metadata["total_operations"], 0);
         assert!(output.output_bytes().is_empty());
     }
 }

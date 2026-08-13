@@ -51,7 +51,18 @@ enum PlotterFill {
   filledShape: "FILLED_SHAPE",
 }
 
-/** Solid or decomposed segment shared by PCB, footprint, and drill producers. */
+/** Semantic roles allowed on shared circle and segment drill operations. */
+enum PlotterDrillRole {
+  padDrill: "pad_drill",
+  npthHole: "npth_hole",
+}
+
+/**
+ * Solid or decomposed segment shared by PCB, footprint, and drill producers.
+ * Graphic state requires only layer. Drill state requires role plus layers;
+ * NPTH drill state additionally requires all mask and pad-size hints. The
+ * generated semantic validator enforces these mutually exclusive states.
+ */
 model ThickSegmentOperation {
   kind: "ThickSegment";
   index: uint32;
@@ -61,7 +72,7 @@ model ThickSegmentOperation {
   end_y: JavaScriptSafeInteger;
   width_nm: JavaScriptSafeInteger;
   layer?: string;
-  role?: string;
+  role?: PlotterDrillRole;
   layers?: string[];
   mask_margin_nm?: JavaScriptSafeInteger;
   pad_size_x_nm?: JavaScriptSafeInteger;
@@ -83,7 +94,12 @@ model ArcThreePointOperation {
   layer: string;
 }
 
-/** Circle shared by graphical and drill producers. */
+/**
+ * Circle shared by graphical and drill producers. Graphic state requires only
+ * layer. Drill state requires role plus layers; NPTH state additionally
+ * requires all mask and pad-size hints. The generated semantic validator
+ * enforces these mutually exclusive states.
+ */
 model CircleOperation {
   kind: "Circle";
   index: uint32;
@@ -93,7 +109,7 @@ model CircleOperation {
   fill: PlotterFill;
   width_nm: JavaScriptSafeInteger;
   layer?: string;
-  role?: string;
+  role?: PlotterDrillRole;
   layers?: string[];
   mask_margin_nm?: JavaScriptSafeInteger;
   pad_size_x_nm?: JavaScriptSafeInteger;
@@ -227,7 +243,10 @@ model FootprintPlotRecord {
   attr: string[];
 }
 
-/** Strict non-text footprint subset of kicad.plotter_ir.a0. */
+/**
+ * Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and
+ * consumers must run generated semantic validation after structural decoding.
+ */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0")
 @extension("title", "Footprint plot document a0")

@@ -113,6 +113,33 @@ fn dashed_lines_expand_to_bounded_thick_segments() {
 }
 
 #[test]
+fn patterned_decomposition_never_returns_truncated_or_zero_progress_geometry() {
+    let long_segment = r#"(footprint "Long"
+      (fp_line (start 0 0) (end 7000000 0)
+        (stroke (width 0.1) (type dash))))"#;
+    let error = footprint_plot_document(long_segment, FootprintPlotLimits::default())
+        .expect_err("long segment must not return the first 10,000 pattern steps");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+    assert!(error.message.contains("safety step limit"));
+
+    let long_arc = r#"(footprint "LongArc"
+      (fp_arc (start 1000000 0) (mid 0 1000000) (end -1000000 0)
+        (stroke (width 0.1) (type dot))))"#;
+    let error = footprint_plot_document(long_arc, FootprintPlotLimits::default())
+        .expect_err("long arc must not return the first 10,000 pattern steps");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+    assert!(error.message.contains("safety step limit"));
+
+    let zero_progress = r#"(footprint "Zero"
+      (fp_line (start 0 0) (end 1 0)
+        (stroke (width -1) (type dot))))"#;
+    let error = footprint_plot_document(zero_progress, FootprintPlotLimits::default())
+        .expect_err("zero-width pattern cannot progress");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+    assert!(error.message.contains("forward progress"));
+}
+
+#[test]
 fn promoted_graphics_follow_python_grouping_and_bound_emitted_operations() {
     let source = r#"(footprint "Graphics"
       (fp_circle (center 2 2) (end 2 3.5) (stroke (width 0.12)) (fill yes))

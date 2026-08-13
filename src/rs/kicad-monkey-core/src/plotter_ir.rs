@@ -1030,6 +1030,11 @@ fn graphic_fill(form: &Sexp) -> PlotterFill {
 }
 
 fn stroke_pattern(style: StrokeStyle, width_nm: i64) -> Result<(Vec<f64>, usize), Error> {
+    if width_nm <= 0 {
+        return Err(decomposition_limit_error(
+            "Patterned stroke width cannot make forward progress",
+        ));
+    }
     let width = width_nm as f64;
     let dash = DASH_RATIO * width;
     let gap = GAP_RATIO * width;
@@ -1069,6 +1074,11 @@ fn decompose_segment(
     let mut index = 0usize;
     while current < total && index < MAX_DECOMPOSITION_STEPS {
         let next = current + strokes[index % wrap];
+        if !next.is_finite() || next <= current {
+            return Err(decomposition_limit_error(
+                "Patterned segment decomposition cannot make forward progress",
+            ));
+        }
         if index.is_multiple_of(2) {
             let end_along = next.min(total);
             if end_along > current {
@@ -1086,6 +1096,11 @@ fn decompose_segment(
         }
         current = next;
         index += 1;
+    }
+    if current < total {
+        return Err(decomposition_limit_error(
+            "Patterned segment decomposition exceeds the safety step limit",
+        ));
     }
     Ok(output)
 }
@@ -1125,7 +1140,17 @@ fn decompose_arc(
     while current_angle < arc_end_angle && index < MAX_DECOMPOSITION_STEPS {
         let segment_length = strokes[index % wrap];
         let theta = std::f64::consts::TAU * segment_length / circumference;
+        if !theta.is_finite() || theta <= 0.0 {
+            return Err(decomposition_limit_error(
+                "Patterned arc decomposition cannot make forward progress",
+            ));
+        }
         let next_angle = (current_angle + theta).min(arc_end_angle);
+        if !next_angle.is_finite() || next_angle <= current_angle {
+            return Err(decomposition_limit_error(
+                "Patterned arc decomposition cannot make forward progress",
+            ));
+        }
         if index.is_multiple_of(2) {
             let subdivide = style == StrokeStyle::Dash
                 || (matches!(style, StrokeStyle::DashDot | StrokeStyle::DashDotDot)
@@ -1134,6 +1159,11 @@ fn decompose_arc(
                 let mut low = current_angle;
                 while low < next_angle {
                     let high = (low + ARC_CHORD_STEP_RADIANS).min(next_angle);
+                    if !high.is_finite() || high <= low {
+                        return Err(decomposition_limit_error(
+                            "Patterned arc chord decomposition cannot make forward progress",
+                        ));
+                    }
                     push_arc_chord(
                         &mut output,
                         center_x,
@@ -1159,6 +1189,11 @@ fn decompose_arc(
         }
         current_angle = next_angle;
         index += 1;
+    }
+    if current_angle < arc_end_angle {
+        return Err(decomposition_limit_error(
+            "Patterned arc decomposition exceeds the safety step limit",
+        ));
     }
     Ok(output)
 }
@@ -1473,6 +1508,15 @@ fn metadata_limit_error() -> Error {
         ErrorPhase::Tree,
         ErrorKind::ResourceLimit,
         "Footprint plotter metadata exceeds max_metadata_forms",
+        Position::START,
+    )
+}
+
+fn decomposition_limit_error(message: &'static str) -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        message,
         Position::START,
     )
 }

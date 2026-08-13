@@ -76,6 +76,17 @@
       resource-limit diagnostic envelope.
     </p>
     <p>
+      Shared <code>Circle</code> and <code>ThickSegment</code> payloads have
+      three mutually exclusive semantic states: graphic, plated drill, and
+      NPTH drill. TypeSpec restricts the role vocabulary; generated Python
+      decoding and the Rust contract boundary run mandatory cross-field
+      validation. A graphic requires <code>layer</code> and forbids drill
+      fields; a drill requires <code>role</code> plus non-empty
+      <code>layers</code>; NPTH additionally requires mask and pad-size hints.
+      Operation counts and pad-flash layer lists are validated at the same
+      boundary.
+    </p>
+    <p>
       Every numeric document field declared as a JavaScript-safe integer is
       bounded to ±9,007,199,254,740,991 in JSON Schema. Native conversion and
       the generated Rust and Python transport types enforce the same range so
@@ -96,6 +107,12 @@
       Documents validate against both the strict generated slice schema and the
       established plotter-IR schema. Rack L0_046 owns real Node-hosted WASM
       execution and Rust quality; L0_049 owns generated-language cleanliness.
+    </p>
+    <p>
+      Pattern decomposition is fail-closed. The fixed safety-step cap and any
+      zero-progress pattern produce a resource-limit diagnostic and no output
+      document; neither segment nor arc conversion may return truncated
+      geometry.
     </p>
   </section>
 

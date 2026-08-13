@@ -3,7 +3,7 @@ use kicad_monkey_contracts::generated::footprint_plot_document::FootprintPlotDoc
 use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
 use kicad_monkey_contracts::{
     JAVASCRIPT_SAFE_INTEGER_MAX, JAVASCRIPT_SAFE_INTEGER_MIN, JavaScriptSafeInteger, ValidatedNode,
-    validate_build_request,
+    validate_build_request, validate_footprint_plot_document,
 };
 
 #[test]
@@ -354,4 +354,60 @@ fn every_promoted_pad_integer_field_enforces_javascript_precision() {
             assert!(serde_json::from_value::<FootprintPlotDocumentA0>(candidate).is_err());
         }
     }
+}
+
+#[test]
+fn shared_circle_and_segment_semantics_reject_contradictory_states() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/footprint_plotter_a0_vectors.json"
+    ))
+    .expect("shared plotter vectors");
+    let valid = vectors["vectors"][1]["expected"].clone();
+    let document: FootprintPlotDocumentA0 =
+        serde_json::from_value(valid.clone()).expect("structural transport document");
+    validate_footprint_plot_document(&document).expect("valid graphical semantics");
+
+    let cases = [
+        ("missing layer", serde_json::json!(null), None, None),
+        (
+            "graphic with drill fields",
+            serde_json::json!("F.SilkS"),
+            Some(serde_json::json!(["F.Cu"])),
+            Some(serde_json::json!(0)),
+        ),
+    ];
+    for (name, layer, layers, mask) in cases {
+        let mut malformed = valid.clone();
+        let operation = &mut malformed["records"][0]["operations"][0];
+        if layer.is_null() {
+            operation
+                .as_object_mut()
+                .expect("operation")
+                .remove("layer");
+        } else {
+            operation["layer"] = layer;
+        }
+        if let Some(layers) = layers {
+            operation["layers"] = layers;
+        }
+        if let Some(mask) = mask {
+            operation["mask_margin_nm"] = mask;
+        }
+        let document: FootprintPlotDocumentA0 =
+            serde_json::from_value(malformed).expect("structurally valid malformed document");
+        let error = validate_footprint_plot_document(&document).expect_err(name);
+        assert_eq!(error.code, "conflicting_plotter_fields", "{name}");
+    }
+
+    let arbitrary_role = serde_json::json!({
+        "kind": "ThickSegment", "index": 0,
+        "start_x": 0, "start_y": 0, "end_x": 1, "end_y": 1, "width_nm": 1,
+        "role": "arbitrary", "layers": ["F.Cu"]
+    });
+    assert!(
+        serde_json::from_value::<
+            kicad_monkey_contracts::generated::footprint_plot_document::PlotterOperation,
+        >(arbitrary_role)
+        .is_err()
+    );
 }
