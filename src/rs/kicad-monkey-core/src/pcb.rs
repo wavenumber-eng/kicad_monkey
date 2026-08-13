@@ -15,6 +15,7 @@ use std::ops::Range;
 mod document;
 mod extended;
 mod footprints;
+mod pads;
 mod physical;
 mod selection;
 mod setup;
@@ -25,6 +26,7 @@ pub use extended::{
 pub use footprints::{
     PcbFootprintGraphic, PcbFootprintProperty, PcbFootprintText, PcbFootprintTextBox,
 };
+pub use pads::{PcbPad, PcbPadCustomOptions, PcbPadCustomPrimitive};
 pub use physical::{
     PcbFootprintTransform, PcbHole, PcbHoleOwner, PcbHoleShape, PcbPadDrill, PcbProfileOwner,
     PcbProfilePrimitive,
@@ -62,7 +64,12 @@ pub struct PcbLimits {
     pub max_text_font_children: usize,
     pub max_text_justify_tokens: usize,
     pub max_text_box_points: usize,
+    pub max_pad_header_scalars: usize,
     pub max_pad_children: usize,
+    pub max_pad_chamfer_corners: usize,
+    pub max_pad_custom_primitives: usize,
+    pub max_pad_custom_point_forms: usize,
+    pub max_pad_custom_points: usize,
     pub max_model_children: usize,
     pub max_pads: usize,
     pub max_models: usize,
@@ -116,7 +123,12 @@ impl Default for PcbLimits {
             max_text_font_children: 4_096,
             max_text_justify_tokens: 1_024,
             max_text_box_points: 1_000_000,
+            max_pad_header_scalars: 256,
             max_pad_children: 256,
+            max_pad_chamfer_corners: 64,
+            max_pad_custom_primitives: 1_000_000,
+            max_pad_custom_point_forms: 4_000_000,
+            max_pad_custom_points: 4_000_000,
             max_model_children: 32,
             max_pads: 4_000_000,
             max_models: 1_000_000,
@@ -337,25 +349,6 @@ pub struct PcbFootprint {
     pub text_box_count: usize,
     pub pad_count: usize,
     pub model_count: usize,
-    pub source_range: Range<usize>,
-}
-
-/// One typed footprint pad in board source order.
-#[derive(Clone, Debug, PartialEq)]
-pub struct PcbPad {
-    pub footprint_index: usize,
-    pub number: String,
-    pub kind: String,
-    pub shape: String,
-    pub at_x: f64,
-    pub at_y: f64,
-    pub angle: f64,
-    pub size_x: f64,
-    pub size_y: f64,
-    pub drill: Option<PcbPadDrill>,
-    pub layers: Vec<String>,
-    pub net: PcbNetRef,
-    pub uuid: Option<String>,
     pub source_range: Range<usize>,
 }
 
@@ -746,7 +739,7 @@ impl<'a> PcbView<'a> {
             .iter()
             .filter(move |_| self.selection.contains(PcbFamily::Pads))
             .map(|indexed| {
-                pad_from_span(self.source, indexed, self.limits).map(|mut pad| {
+                pads::pad_from_span(self.source, indexed, self.limits).map(|mut pad| {
                     pad.net = self.net_resolver.resolve(pad.net);
                     pad
                 })
@@ -1435,34 +1428,6 @@ fn footprint_from_span(
     Ok(result)
 }
 
-fn pad_from_span(
-    source: &str,
-    indexed: &IndexedNestedForm,
-    limits: PcbLimits,
-) -> Result<PcbPad, Error> {
-    let header = scalar_values(source, &indexed.span)?;
-    let children = direct_children(source, &indexed.span, limits.max_pad_children, limits)?;
-    let at = optional_vector(source, &children, "at", [0.0, 0.0, 0.0])?;
-    let size = optional_pair(source, &children, "size", [0.0, 0.0])?;
-    let layers = child_strings(source, &children, "layers", limits.max_layers)?;
-    Ok(PcbPad {
-        footprint_index: indexed.parent_index,
-        number: required_string(header.first(), "Expected pad number", &indexed.span)?,
-        kind: required_string(header.get(1), "Expected pad kind", &indexed.span)?,
-        shape: required_string(header.get(2), "Expected pad shape", &indexed.span)?,
-        at_x: at[0],
-        at_y: at[1],
-        angle: at[2],
-        size_x: size[0],
-        size_y: size[1],
-        drill: physical::pad_drill_from_children(source, &children, limits)?,
-        layers,
-        net: child_net_ref(source, &children)?,
-        uuid: optional_uuid(source, &children)?,
-        source_range: indexed.span.range.clone(),
-    })
-}
-
 fn model_from_span(
     source: &str,
     indexed: &IndexedNestedForm,
@@ -1720,6 +1685,37 @@ fn bounded_scalar_values<'a>(
                     }
                     values.push(token);
                 }
+                _ => {}
+            }
+        }
+        Ok(values)
+    })()
+    .map_err(|error| rebase_error(error, span))
+}
+
+fn first_two_scalar_values<'a>(source: &'a str, span: &FormSpan) -> Result<Vec<Token<'a>>, Error> {
+    let text = span.text(source)?;
+    (|| {
+        let mut lexer = Lexer::new(text);
+        expect_kind(
+            lexer.next(),
+            TokenKind::Left,
+            "Expected form opening parenthesis",
+        )?;
+        let _head = next_scalar(lexer.next(), "Expected form head")?;
+        let mut values = Vec::with_capacity(2);
+        let mut depth = 1usize;
+        for token in lexer {
+            let token = token?;
+            match token.kind {
+                TokenKind::Left => depth += 1,
+                TokenKind::Right => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ if depth == 1 && values.len() < 2 => values.push(token),
                 _ => {}
             }
         }

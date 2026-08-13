@@ -26,11 +26,11 @@ pub use pcb::{
     PcbEmbeddedFile, PcbFamily, PcbFootprint, PcbFootprintGraphic, PcbFootprintProperty,
     PcbFootprintText, PcbFootprintTextBox, PcbFootprintTransform, PcbGeneratedItem, PcbGraphic,
     PcbGraphicKind, PcbGroup, PcbHole, PcbHoleOwner, PcbHoleShape, PcbImage, PcbLayer, PcbLimits,
-    PcbModelReference, PcbNet, PcbNetRef, PcbPad, PcbPadDrill, PcbPoint, PcbProfileOwner,
-    PcbProfilePrimitive, PcbProperty, PcbRoutingArc, PcbSegment, PcbSelection, PcbSetup,
-    PcbStackup, PcbStackupLayer, PcbTable, PcbTableCell, PcbVia, PcbView, PcbZone,
-    PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZonePlacement,
-    PcbZonePlacementSource, PcbZonePolygon,
+    PcbModelReference, PcbNet, PcbNetRef, PcbPad, PcbPadCustomOptions, PcbPadCustomPrimitive,
+    PcbPadDrill, PcbPoint, PcbProfileOwner, PcbProfilePrimitive, PcbProperty, PcbRoutingArc,
+    PcbSegment, PcbSelection, PcbSetup, PcbStackup, PcbStackupLayer, PcbTable, PcbTableCell,
+    PcbVia, PcbView, PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty,
+    PcbZonePlacement, PcbZonePlacementSource, PcbZonePolygon,
 };
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
 pub use plotter_types::{

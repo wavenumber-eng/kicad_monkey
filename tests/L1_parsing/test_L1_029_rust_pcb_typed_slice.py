@@ -104,6 +104,24 @@ PHYSICAL_CARRIERS = """(kicad_pcb
     (layer "Edge.Cuts") (uuid board-edge))
   (via (at 4 5) (size 1) (drill 0.4) (layers "F.Cu" "B.Cu") (uuid via-1))
 )"""
+PAD_DETAIL_CARRIERS = """(kicad_pcb
+  (net 7 "POWER")
+  (footprint "Demo:Pads"
+    (layer "F.Cu")
+    (pad "1" smd roundrect (at 1 2 30) (size 3 4) (layers "F.Cu" "F.Mask")
+      (net 7 "POWER") (uuid round-id) (pinfunction "VCC") (pintype "power_in")
+      (die_length 0.8) (rect_delta 0.2 0.4 ignored) (roundrect_rratio 0.25)
+      (chamfer_ratio 0.1) (chamfer top_left bottom_right)
+      (solder_mask_margin 0.05) (solder_paste_margin -0.01)
+      (solder_paste_margin_ratio -0.1) (clearance invalid)
+      (thermal_bridge_width 0.3) (thermal_bridge_angle 45) (thermal_gap 0.2)
+      (zone_connect 2) (remove_unused_layers) (keep_end_layers no))
+    (pad "2" smd custom (at 5 6) (size 2 2) (layers "B.Cu")
+      (options (clearance outline) (anchor rect))
+      (primitives
+        (gr_poly (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 999))
+          (width 0.1) (fill solid))
+        (gr_line (start 0 0) (end 1 1))))))"""
 
 
 def _run(command: list[str], *, timeout: int = 180) -> subprocess.CompletedProcess[str]:
@@ -168,6 +186,8 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
             "pcb_document_metadata_slice",
             "--test",
             "pcb_footprint_text_slice",
+            "--test",
+            "pcb_pad_detail_slice",
         ]
     )
 
@@ -195,6 +215,7 @@ def test_newer_sparse_carriers_match_python_on_durable_vector(tmp_path: Path) ->
         "sparse-table-blocks.kicad_pcb": SPARSE_TABLE_BLOCKS,
         "zone-carriers.kicad_pcb": ZONE_CARRIERS,
         "physical-carriers.kicad_pcb": PHYSICAL_CARRIERS,
+        "pad-detail-carriers.kicad_pcb": PAD_DETAIL_CARRIERS,
     }
     board_paths = []
     for name, source in inputs.items():
@@ -660,7 +681,49 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
                 "ordinal": pad.net.ordinal,
                 "name": pad.net.name or None,
             },
+            "pin_function": pad.pinfunction or None,
+            "pin_type": pad.pintype or None,
+            "die_length": pad.die_length,
+            "rect_delta": [pad.rect_delta_x, pad.rect_delta_y],
+            "roundrect_rratio": pad.roundrect_rratio,
+            "chamfer_ratio": pad.chamfer_ratio,
+            "chamfer_corners": pad.chamfer_corners,
+            "solder_mask_margin": pad.solder_mask_margin,
+            "solder_paste_margin": pad.solder_paste_margin,
+            "solder_paste_margin_ratio": pad.solder_paste_margin_ratio,
+            "clearance": pad.clearance,
+            "thermal_bridge_width": pad.thermal_bridge_width,
+            "thermal_bridge_angle": pad.thermal_bridge_angle,
+            "thermal_gap": pad.thermal_gap,
+            "zone_connect": pad.zone_connect,
+            "remove_unused_layers": pad.remove_unused_layers,
+            "keep_end_layers": pad.keep_end_layers,
         }
+    custom_pad = next((pad for pad in pads if pad.shape.value == "custom"), None)
+    assert summary["first_custom_pad"] == (
+        {
+            "number": custom_pad.number,
+            "options": (
+                {
+                    "clearance": custom_pad.custom_options.clearance,
+                    "anchor": custom_pad.custom_options.anchor,
+                }
+                if custom_pad.custom_options is not None
+                else None
+            ),
+            "primitives": [
+                {
+                    "kind": primitive.primitive_type,
+                    "points": [list(point) for point in primitive.points],
+                    "width": primitive.width,
+                    "fill": primitive.fill.value if primitive.fill is not None else None,
+                }
+                for primitive in custom_pad.custom_primitives
+            ],
+        }
+        if custom_pad is not None
+        else None
+    )
     models = [model for footprint in board.footprints for model in footprint.models]
     if models:
         model = models[0]

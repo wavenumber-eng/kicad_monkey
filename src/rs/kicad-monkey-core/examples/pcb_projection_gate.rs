@@ -222,7 +222,6 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
     let footprint = view.footprints().next().transpose()?;
     let footprint_property = view.footprint_properties().next().transpose()?;
     let footprint_graphic = view.footprint_graphics().next().transpose()?;
-    let pad = view.pads().next().transpose()?;
     let model = view.models().next().transpose()?;
     let segment = view.segments().next().transpose()?;
     let via = view.vias().next().transpose()?;
@@ -265,12 +264,8 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
         })),
         "first_footprint_text": footprint_text_summary(view)?,
         "first_footprint_text_box": footprint_text_box_summary(view)?,
-        "first_pad": pad.map(|item| json!({
-            "number": item.number, "kind": item.kind, "shape": item.shape,
-            "at_x": item.at_x, "at_y": item.at_y, "size_x": item.size_x,
-            "size_y": item.size_y, "layers": item.layers,
-            "net": {"ordinal": item.net.ordinal, "name": item.net.name},
-        })),
+        "first_pad": first_pad_summary(view)?,
+        "first_custom_pad": first_custom_pad_summary(view)?,
         "first_model": model.map(|item| json!({
             "path": item.path, "offset": item.offset, "scale": item.scale, "rotate": item.rotate,
         })),
@@ -305,6 +300,53 @@ fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error>
             "encoded_data_bytes": item.encoded_data_bytes,
         })),
     }))
+}
+
+fn first_pad_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
+    Ok(view.pads().next().transpose()?.map_or(Value::Null, |item| {
+        json!({
+            "number": item.number, "kind": item.kind, "shape": item.shape,
+            "at_x": item.at_x, "at_y": item.at_y, "size_x": item.size_x,
+            "size_y": item.size_y, "layers": item.layers,
+            "net": {"ordinal": item.net.ordinal, "name": item.net.name},
+            "pin_function": item.pin_function, "pin_type": item.pin_type,
+            "die_length": item.die_length,
+            "rect_delta": [item.rect_delta_x, item.rect_delta_y],
+            "roundrect_rratio": item.roundrect_rratio,
+            "chamfer_ratio": item.chamfer_ratio, "chamfer_corners": item.chamfer_corners,
+            "solder_mask_margin": item.solder_mask_margin,
+            "solder_paste_margin": item.solder_paste_margin,
+            "solder_paste_margin_ratio": item.solder_paste_margin_ratio,
+            "clearance": item.clearance,
+            "thermal_bridge_width": item.thermal_bridge_width,
+            "thermal_bridge_angle": item.thermal_bridge_angle,
+            "thermal_gap": item.thermal_gap, "zone_connect": item.zone_connect,
+            "remove_unused_layers": item.remove_unused_layers,
+            "keep_end_layers": item.keep_end_layers,
+        })
+    }))
+}
+
+fn first_custom_pad_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
+    for pad in view.pads() {
+        let pad = pad?;
+        if pad.shape != "custom" {
+            continue;
+        }
+        return Ok(json!({
+            "number": pad.number,
+            "options": pad.custom_options.map(|options| json!({
+                "clearance": options.clearance, "anchor": options.anchor,
+            })),
+            "primitives": pad.custom_primitives.into_iter().map(|primitive| json!({
+                "kind": primitive.kind,
+                "points": primitive.points.into_iter()
+                    .map(|point| [point.x, point.y]).collect::<Vec<_>>(),
+                "width": primitive.width, "fill": primitive.fill,
+            })).collect::<Vec<_>>(),
+        }));
+    }
+    Ok(Value::Null)
 }
 
 fn footprint_text_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {

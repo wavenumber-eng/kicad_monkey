@@ -296,37 +296,6 @@ fn text_box_points(
     Ok(result)
 }
 
-fn first_two_scalar_values<'a>(source: &'a str, span: &FormSpan) -> Result<Vec<Token<'a>>, Error> {
-    let text = span.text(source)?;
-    (|| {
-        let mut lexer = Lexer::new(text);
-        expect_kind(
-            lexer.next(),
-            TokenKind::Left,
-            "Expected form opening parenthesis",
-        )?;
-        let _head = next_scalar(lexer.next(), "Expected form head")?;
-        let mut values = Vec::with_capacity(2);
-        let mut depth = 1usize;
-        for token in lexer {
-            let token = token?;
-            match token.kind {
-                TokenKind::Left => depth += 1,
-                TokenKind::Right => {
-                    depth -= 1;
-                    if depth == 0 {
-                        break;
-                    }
-                }
-                _ if depth == 1 && values.len() < 2 => values.push(token),
-                _ => {}
-            }
-        }
-        Ok(values)
-    })()
-    .map_err(|error| rebase_error(error, span))
-}
-
 fn text_box_margins(source: &str, children: &[FormSpan]) -> Result<[f64; 4], Error> {
     let Some(margins) = child(children, "margins") else {
         return Ok([0.0; 4]);
