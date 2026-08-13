@@ -380,18 +380,22 @@ fn validate_optional_ref(
 
 fn validate_definition_ownership(
     document: &CompiledSchematicGraphA0,
-    index: &GraphIndex<'_>,
+    _index: &GraphIndex<'_>,
 ) -> Result<(), ValidationError> {
+    let mut pages_by_unit: HashMap<&str, HashSet<&str>> = HashMap::new();
     for page in &document.page_definitions {
-        let unit = index
-            .unit_definitions
-            .get(page.unit_definition_ref.as_str())
-            .ok_or_else(|| ownership_error("page definition unit owner is unresolved"))?;
-        if !unit.page_definition_refs.contains(&page.id) {
-            return Err(ownership_error(
-                "page definition is not listed by its owning unit",
-            ));
-        }
+        pages_by_unit
+            .entry(&page.unit_definition_ref)
+            .or_default()
+            .insert(&page.id);
+    }
+    for unit in &document.unit_definitions {
+        require_exact_inverse(
+            &unit.page_definition_refs,
+            pages_by_unit.get(unit.id.as_str()),
+            "page definition is not listed by its owning unit",
+            "unit definition page ownership inverse is inconsistent",
+        )?;
     }
     Ok(())
 }
@@ -400,6 +404,7 @@ fn validate_occurrence_ownership(
     document: &CompiledSchematicGraphA0,
     index: &GraphIndex<'_>,
 ) -> Result<(), ValidationError> {
+    let mut pages_by_unit: HashMap<&str, HashSet<&str>> = HashMap::new();
     for page in &document.page_occurrences {
         let definition = index
             .page_definitions
@@ -414,11 +419,35 @@ fn validate_occurrence_ownership(
                 "page occurrence definition has the wrong unit owner",
             ));
         }
-        if !unit.page_occurrence_refs.contains(&page.id) {
-            return Err(ownership_error(
-                "page occurrence is not listed by its owning unit occurrence",
-            ));
-        }
+        pages_by_unit
+            .entry(&page.unit_occurrence_ref)
+            .or_default()
+            .insert(&page.id);
+    }
+    for unit in &document.unit_occurrences {
+        require_exact_inverse(
+            &unit.page_occurrence_refs,
+            pages_by_unit.get(unit.id.as_str()),
+            "page occurrence is not listed by its owning unit occurrence",
+            "unit occurrence page ownership inverse is inconsistent",
+        )?;
+    }
+    Ok(())
+}
+
+fn require_exact_inverse(
+    actual: &[String],
+    expected: Option<&HashSet<&str>>,
+    missing_message: &'static str,
+    inconsistent_message: &'static str,
+) -> Result<(), ValidationError> {
+    let actual_set: HashSet<&str> = actual.iter().map(String::as_str).collect();
+    if expected.is_some_and(|values| !values.is_subset(&actual_set)) {
+        return Err(ownership_error(missing_message));
+    }
+    let expected_len = expected.map_or(0, HashSet::len);
+    if actual.len() != expected_len || actual_set.len() != expected_len {
+        return Err(ownership_error(inconsistent_message));
     }
     Ok(())
 }
@@ -463,6 +492,14 @@ fn validate_hierarchy_ownership<'a>(
             hierarchy.child_unit_occurrence_ref.as_str(),
             hierarchy.parent_unit_occurrence_ref.as_str(),
         );
+    }
+    for unit in &document.unit_occurrences {
+        let expected = incoming_by_child.get(unit.id.as_str()).copied();
+        if unit.parent_hierarchy_occurrence_ref.as_deref() != expected {
+            return Err(ownership_error(
+                "unit occurrence hierarchy inverse is inconsistent",
+            ));
+        }
     }
     Ok(parent_by_child)
 }

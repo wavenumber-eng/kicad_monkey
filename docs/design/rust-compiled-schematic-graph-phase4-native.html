@@ -30,9 +30,10 @@
   <p>
     Validation first applies the strict TypeSpec transport boundary, then builds
     each reference index exactly once. It validates RFC 4122 UUIDv7 row identity,
-    uniqueness, typed references, definition and occurrence inverse ownership,
-    hierarchy ownership, terminal/local/component page ownership, scalar hierarchy
-    bindings, resolution completeness, and graphical target attribution.
+    uniqueness, typed references, exact bidirectional definition/page and
+    occurrence/page ownership, exact hierarchy parent/child inverse ownership,
+    terminal/local/component page ownership, scalar hierarchy bindings,
+    resolution completeness, and graphical target attribution.
   </p>
   <p>
     Hierarchy cycle detection uses one color map and marks each unit occurrence
@@ -47,8 +48,9 @@
   <h2>Evidence and retained work</h2>
   <ul>
     <li>The native allocator consumes the same language-neutral vectors as Python, including Unicode canonicalization.</li>
-    <li>Focused Rust tests cover valid semantics, wrong reference types, inverse ownership, cycles, duplicate IDs, binding roles, and graphical target types.</li>
-    <li>Rack L3_018 sends all four reference-project graphs through the native strict and semantic validators in one sequential native process.</li>
+    <li>Shared Python/Rust negative vectors cover missing, duplicate, cross-owner, and hierarchy inverse failures; a wide-owner regression protects the indexed linear path.</li>
+    <li>Focused Rust tests also cover valid semantics, wrong reference types, cycles, duplicate IDs, binding roles, and graphical target types.</li>
+    <li>Rack L3_018 sends all four reference-project graphs through the native strict and semantic validators in one sequential native process. The process enforces its line ceiling while reading, before retaining bytes past the bounded payload-plus-line-ending allowance.</li>
     <li>Package-owned unsafe code remains forbidden.</li>
     <li>Named multi-file source bundles, schematic/project readers and writers, connectivity compilation, graph emission, and exact corpus differential output remain active Phase 4 work.</li>
   </ul>

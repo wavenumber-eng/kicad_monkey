@@ -308,6 +308,23 @@
       }
     ]
   },
+  "semantic_failures": [
+    {
+      "id": "definition-extra-cross-owner-inverse",
+      "kind": "definition_extra_cross_owner",
+      "error_match": "unit definition page ownership inverse is inconsistent"
+    },
+    {
+      "id": "occurrence-extra-cross-owner-inverse",
+      "kind": "occurrence_extra_cross_owner",
+      "error_match": "unit occurrence page ownership inverse is inconsistent"
+    },
+    {
+      "id": "hierarchy-parent-inverse-points-at-foreign-child",
+      "kind": "hierarchy_wrong_parent_inverse",
+      "error_match": "unit occurrence hierarchy inverse is inconsistent"
+    }
+  ],
   "graph": {
     "schema": "kicad_monkey.compiled_schematic_graph.a0",
     "type": "sch.compiled_schematic_graph",

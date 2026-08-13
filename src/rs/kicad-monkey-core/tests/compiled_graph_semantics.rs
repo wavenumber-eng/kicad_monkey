@@ -222,3 +222,113 @@ fn native_semantic_validator_rejects_ids_bindings_and_graphical_targets() {
         "wrong_reference_type"
     );
 }
+
+#[test]
+fn shared_inverse_ownership_failures_are_rejected_by_rust() {
+    let vectors = vectors();
+    for case in vectors["semantic_failures"]
+        .as_array()
+        .expect("semantic failures")
+    {
+        let graph = semantic_failure_graph(
+            vectors["graph"].clone(),
+            case["kind"].as_str().expect("failure kind"),
+        );
+        let bytes = serde_json::to_vec(&graph).expect("failure graph JSON");
+        let graph = decode_compiled_schematic_graph_a0(&bytes).expect("strict failure graph");
+        let error = validate_compiled_schematic_graph(&graph).expect_err("semantic failure");
+        assert!(
+            error
+                .message
+                .contains(case["error_match"].as_str().expect("error match")),
+            "{}",
+            case["id"]
+        );
+    }
+}
+
+fn semantic_failure_graph(mut graph: Value, kind: &str) -> Value {
+    match kind {
+        "definition_extra_cross_owner" => add_cross_owner_definition(&mut graph),
+        "occurrence_extra_cross_owner" => add_cross_owner_occurrence(&mut graph),
+        "hierarchy_wrong_parent_inverse" => {
+            graph["unit_occurrences"][0]["parent_hierarchy_occurrence_ref"] =
+                graph["hierarchy_occurrences"][0]["id"].clone();
+        }
+        _ => panic!("unknown semantic failure kind {kind}"),
+    }
+    graph
+}
+
+fn add_cross_owner_definition(graph: &mut Value) {
+    let mut unit = graph["unit_definitions"][0].clone();
+    let mut page = graph["page_definitions"][0].clone();
+    unit["id"] = "aaaaaaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa".into();
+    unit["page_definition_refs"] = serde_json::json!(["bbbbbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb"]);
+    page["id"] = "bbbbbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb".into();
+    page["unit_definition_ref"] = unit["id"].clone();
+    graph["unit_definitions"]
+        .as_array_mut()
+        .expect("unit definitions")
+        .push(unit);
+    graph["page_definitions"]
+        .as_array_mut()
+        .expect("page definitions")
+        .push(page.clone());
+    graph["unit_definitions"][0]["page_definition_refs"]
+        .as_array_mut()
+        .expect("page refs")
+        .push(page["id"].clone());
+}
+
+fn add_cross_owner_occurrence(graph: &mut Value) {
+    let mut unit = graph["unit_occurrences"][0].clone();
+    let mut page = graph["page_occurrences"][0].clone();
+    unit["id"] = "cccccccc-cccc-7ccc-8ccc-cccccccccccc".into();
+    unit["page_occurrence_refs"] = serde_json::json!(["dddddddd-dddd-7ddd-8ddd-dddddddddddd"]);
+    unit.as_object_mut()
+        .expect("unit occurrence")
+        .remove("parent_hierarchy_occurrence_ref");
+    page["id"] = "dddddddd-dddd-7ddd-8ddd-dddddddddddd".into();
+    page["unit_occurrence_ref"] = unit["id"].clone();
+    graph["unit_occurrences"]
+        .as_array_mut()
+        .expect("unit occurrences")
+        .push(unit);
+    graph["page_occurrences"]
+        .as_array_mut()
+        .expect("page occurrences")
+        .push(page.clone());
+    graph["unit_occurrences"][0]["page_occurrence_refs"]
+        .as_array_mut()
+        .expect("page refs")
+        .push(page["id"].clone());
+}
+
+#[test]
+fn wide_definition_owner_validates_with_one_prebuilt_inverse_membership_set() {
+    let vectors = vectors();
+    let bytes = serde_json::to_vec(&vectors["graph"]).expect("graph JSON");
+    let mut graph = decode_compiled_schematic_graph_a0(&bytes).expect("strict graph");
+    let unit_ref = graph.unit_definitions[0].id.clone();
+    let template = graph.page_definitions[0].clone();
+    for index in 0_u64..2_048 {
+        let mut page = template.clone();
+        page.id = format!("00000000-0000-7{:03x}-8000-{index:012x}", index & 0xfff);
+        page.unit_definition_ref.clone_from(&unit_ref);
+        graph.unit_definitions[0]
+            .page_definition_refs
+            .push(page.id.clone());
+        graph.page_definitions.push(page);
+    }
+    validate_compiled_schematic_graph(&graph).expect("wide exact inverse");
+    graph.unit_definitions[0]
+        .page_definition_refs
+        .push(graph.page_definitions[1].id.clone());
+    assert!(
+        validate_compiled_schematic_graph(&graph)
+            .expect_err("duplicate inverse")
+            .message
+            .contains("inverse is inconsistent")
+    );
+}

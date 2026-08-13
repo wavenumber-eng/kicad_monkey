@@ -1054,15 +1054,22 @@ def _validate_graph_rows(
 
 
 def _validate_definition_ownership(payload: dict[str, object]) -> None:
-    unit_by_id = {
-        str(row["id"]): row for row in _payload_collection(payload, "unit_definitions")
-    }
+    pages_by_unit: dict[str, set[str]] = {}
     for page in _payload_collection(payload, "page_definitions"):
-        page_ref = str(page["id"])
-        unit = unit_by_id[str(page["unit_definition_ref"])]
+        pages_by_unit.setdefault(str(page["unit_definition_ref"]), set()).add(
+            str(page["id"])
+        )
+    for unit in _payload_collection(payload, "unit_definitions"):
         page_refs = unit.get("page_definition_refs", [])
-        if not isinstance(page_refs, list) or page_ref not in map(str, page_refs):
+        if not isinstance(page_refs, list):
+            raise ValueError("page_definition_refs must be a list")
+        actual = [str(value) for value in page_refs]
+        actual_set = set(actual)
+        expected = pages_by_unit.get(str(unit["id"]), set())
+        if not expected.issubset(actual_set):
             raise ValueError("page definition is not listed by its owning unit")
+        if len(actual) != len(expected) or actual_set != expected:
+            raise ValueError("unit definition page ownership inverse is inconsistent")
 
 
 def _validate_occurrence_ownership(payload: dict[str, object]) -> None:
@@ -1072,17 +1079,27 @@ def _validate_occurrence_ownership(payload: dict[str, object]) -> None:
     unit_occurrence_by_id = {
         str(row["id"]): row for row in _payload_collection(payload, "unit_occurrences")
     }
+    pages_by_unit: dict[str, set[str]] = {}
     for page in _payload_collection(payload, "page_occurrences"):
         page_ref = str(page["id"])
         definition = page_definition_by_id[str(page["page_definition_ref"])]
         unit = unit_occurrence_by_id[str(page["unit_occurrence_ref"])]
         if definition.get("unit_definition_ref") != unit.get("unit_definition_ref"):
             raise ValueError("page occurrence definition has the wrong unit owner")
+        pages_by_unit.setdefault(str(unit["id"]), set()).add(page_ref)
+    for unit_ref, unit in unit_occurrence_by_id.items():
         page_refs = unit.get("page_occurrence_refs", [])
-        if not isinstance(page_refs, list) or page_ref not in map(str, page_refs):
+        if not isinstance(page_refs, list):
+            raise ValueError("page_occurrence_refs must be a list")
+        actual = [str(value) for value in page_refs]
+        actual_set = set(actual)
+        expected = pages_by_unit.get(unit_ref, set())
+        if not expected.issubset(actual_set):
             raise ValueError(
                 "page occurrence is not listed by its owning unit occurrence"
             )
+        if len(actual) != len(expected) or actual_set != expected:
+            raise ValueError("unit occurrence page ownership inverse is inconsistent")
 
 
 def _validate_hierarchy_ownership(payload: dict[str, object]) -> None:
@@ -1105,6 +1122,11 @@ def _validate_hierarchy_ownership(payload: dict[str, object]) -> None:
             raise ValueError("unit occurrence has multiple incoming hierarchy owners")
         child = unit_by_id[child_ref]
         if str(child.get("parent_hierarchy_occurrence_ref", "")) != hierarchy_ref:
+            raise ValueError("unit occurrence hierarchy inverse is inconsistent")
+    for unit_ref, unit in unit_by_id.items():
+        actual = str(unit.get("parent_hierarchy_occurrence_ref", ""))
+        expected = incoming_by_child.get(unit_ref, "")
+        if actual != expected:
             raise ValueError("unit occurrence hierarchy inverse is inconsistent")
 
 

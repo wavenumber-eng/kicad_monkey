@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,9 @@ from kicad_monkey.contracts.generated import (
 from kicad_monkey.kicad_compiled_schematic_graph_identity import (
     SchCompiledSchematicGraphIdentityAllocator,
     compiled_schematic_graph_design_scope,
+)
+from kicad_monkey.kicad_compiled_schematic_graph import (
+    validate_compiled_schematic_graph,
 )
 
 VECTORS = Path(__file__).resolve().parents[1] / "parity/compiled_schematic_graph_a0_vectors.json"
@@ -136,3 +140,43 @@ def test_identity_invalid_and_duplicate_addresses_fail_closed() -> None:
                 allocation["mode"] = "source"
                 _allocate(allocator, allocation)
             _allocate(allocator, allocation)
+
+
+def _semantic_failure_graph(kind: str) -> dict[str, Any]:
+    graph = deepcopy(_vectors()["graph"])
+    if kind == "definition_extra_cross_owner":
+        unit = deepcopy(graph["unit_definitions"][0])
+        page = deepcopy(graph["page_definitions"][0])
+        unit["id"] = "aaaaaaaa-aaaa-7aaa-8aaa-aaaaaaaaaaaa"
+        unit["page_definition_refs"] = ["bbbbbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb"]
+        page["id"] = "bbbbbbbb-bbbb-7bbb-8bbb-bbbbbbbbbbbb"
+        page["unit_definition_ref"] = unit["id"]
+        graph["unit_definitions"].append(unit)
+        graph["page_definitions"].append(page)
+        graph["unit_definitions"][0]["page_definition_refs"].append(page["id"])
+    elif kind == "occurrence_extra_cross_owner":
+        unit = deepcopy(graph["unit_occurrences"][0])
+        page = deepcopy(graph["page_occurrences"][0])
+        unit["id"] = "cccccccc-cccc-7ccc-8ccc-cccccccccccc"
+        unit["page_occurrence_refs"] = ["dddddddd-dddd-7ddd-8ddd-dddddddddddd"]
+        unit.pop("parent_hierarchy_occurrence_ref", None)
+        page["id"] = "dddddddd-dddd-7ddd-8ddd-dddddddddddd"
+        page["unit_occurrence_ref"] = unit["id"]
+        graph["unit_occurrences"].append(unit)
+        graph["page_occurrences"].append(page)
+        graph["unit_occurrences"][0]["page_occurrence_refs"].append(page["id"])
+    elif kind == "hierarchy_wrong_parent_inverse":
+        graph["unit_occurrences"][0]["parent_hierarchy_occurrence_ref"] = graph[
+            "hierarchy_occurrences"
+        ][0]["id"]
+    else:  # pragma: no cover - vector registry is closed
+        raise AssertionError(f"unknown semantic failure kind {kind}")
+    return graph
+
+
+def test_shared_inverse_ownership_failures_are_rejected_by_python() -> None:
+    for case in _vectors()["semantic_failures"]:
+        graph = _semantic_failure_graph(case["kind"])
+        decode_compiled_schematic_graph_a0(json.dumps(graph).encode())
+        with pytest.raises(ValueError, match=re.escape(case["error_match"])):
+            validate_compiled_schematic_graph(graph)
