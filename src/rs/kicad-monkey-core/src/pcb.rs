@@ -11,6 +11,7 @@ use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_sp
 use std::collections::BTreeMap;
 use std::ops::Range;
 
+mod document;
 mod extended;
 mod physical;
 mod zones;
@@ -1798,3 +1799,4 @@ fn output_limit_error() -> Error {
         "PCB output exceeds max_output_bytes",
     )
 }
+pub use document::PcbDocument;

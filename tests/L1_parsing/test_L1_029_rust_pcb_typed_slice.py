@@ -135,6 +135,8 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
             "pcb_zone_slice",
             "--test",
             "pcb_physical_slice",
+            "--test",
+            "pcb_document_slice",
         ]
     )
 

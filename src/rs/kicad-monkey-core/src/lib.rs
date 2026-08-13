@@ -19,7 +19,7 @@ pub mod symbol_plotter_ir;
 
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use pcb::{
-    PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbEdit,
+    PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbDocument, PcbEdit,
     PcbEmbeddedFile, PcbFootprint, PcbFootprintTransform, PcbGeneratedItem, PcbGraphic,
     PcbGraphicKind, PcbGroup, PcbHole, PcbHoleOwner, PcbHoleShape, PcbImage, PcbLayer, PcbLimits,
     PcbModelReference, PcbNet, PcbNetRef, PcbPad, PcbPadDrill, PcbPoint, PcbProfileOwner,

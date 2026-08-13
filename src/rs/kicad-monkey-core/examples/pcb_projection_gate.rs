@@ -1,16 +1,22 @@
 //! Native JSON summary used by Rack to compare the Rust PCB view to Python.
 
 use kicad_monkey_core::{
-    PcbCounts, PcbGraphicKind, PcbHoleOwner, PcbLimits, PcbProfileOwner, PcbView,
+    PcbCounts, PcbDocument, PcbGraphicKind, PcbHoleOwner, PcbLimits, PcbProfileOwner, PcbView,
 };
 use serde_json::{Value, json};
 use std::env;
-use std::fs;
+use std::fs::File;
 use std::process::ExitCode;
 
 fn summarize(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
-    let source = fs::read_to_string(path)?;
-    let view = PcbView::parse(&source, PcbLimits::default())?;
+    let document = PcbDocument::from_reader(File::open(path)?, PcbLimits::default())?;
+    let mut round_trip = Vec::new();
+    document.write_to(&mut round_trip)?;
+    if round_trip != document.source().as_bytes() {
+        return Err("owned PCB write changed unedited source".into());
+    }
+    let source = document.source();
+    let view = document.view()?;
     force_decode(&view)?;
     let mut summary = json!({
         "path": path,
