@@ -597,6 +597,9 @@ impl<'a> PcbView<'a> {
 
     /// Remove one unambiguous identified top-level object by `uuid` or legacy `id`.
     pub fn remove_top_level_by_id(&self, identifier: &str) -> Result<PcbEdit, Error> {
+        if self.source.len() > self.limits.max_output_bytes {
+            return Err(output_limit_error());
+        }
         if identifier.is_empty() {
             return Err(source_error(
                 "PCB object identifier cannot be empty",
@@ -604,7 +607,7 @@ impl<'a> PcbView<'a> {
             ));
         }
         let mut matches = Vec::new();
-        for span in self.identified_top_level_spans() {
+        for span in &self.top_level {
             if top_level_identifier(self.source, span, self.limits)?.as_deref() == Some(identifier)
             {
                 matches.push(span);
@@ -628,20 +631,6 @@ impl<'a> PcbView<'a> {
                 self.root.start,
             )),
         }
-    }
-
-    fn identified_top_level_spans(&self) -> impl Iterator<Item = &FormSpan> {
-        self.footprints
-            .iter()
-            .map(|item| &item.span)
-            .chain(self.segments.iter())
-            .chain(self.vias.iter())
-            .chain(self.zones.iter())
-            .chain(self.graphics.iter())
-            .chain(self.arcs.iter())
-            .chain(self.dimensions.iter())
-            .chain(self.groups.iter())
-            .chain(self.generated_items.iter())
     }
 
     /// Replace one unambiguous top-level board property without rewriting the board.

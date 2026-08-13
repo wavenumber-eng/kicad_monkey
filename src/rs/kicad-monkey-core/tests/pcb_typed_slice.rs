@@ -474,6 +474,22 @@ fn identified_top_level_removal_is_source_preserving_and_idempotent() {
     assert!(!second.changed);
     assert_eq!(second.source, removed.source);
 
+    let strict = PcbView::parse(
+        &removed.source,
+        PcbLimits {
+            max_output_bytes: removed.source.len() - 1,
+            ..limits
+        },
+    )
+    .expect("strict reparse");
+    assert_eq!(
+        strict
+            .remove_top_level_by_id("group-id")
+            .expect_err("idempotent output must remain bounded")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+
     let duplicate = CARRIERS.replace("(uuid line-id)", "(uuid group-id)");
     let view = PcbView::parse(&duplicate, limits).expect("duplicate view");
     assert_eq!(
@@ -482,6 +498,27 @@ fn identified_top_level_removal_is_source_preserving_and_idempotent() {
             .kind,
         ErrorKind::UnexpectedToken
     );
+
+    let prefix = CARRIERS
+        .strip_suffix(')')
+        .expect("synthetic board terminator");
+    let unknown_duplicate = format!("{prefix}  (future_item (uuid group-id) (payload keep))\n)\n");
+    let view = PcbView::parse(&unknown_duplicate, limits).expect("future-form view");
+    assert_eq!(
+        view.remove_top_level_by_id("group-id")
+            .expect_err("future duplicate must be ambiguous")
+            .kind,
+        ErrorKind::UnexpectedToken
+    );
+
+    let unknown = "(kicad_pcb\n  (future_item (uuid future-id) (payload keep))\n)\n";
+    let view = PcbView::parse(unknown, limits).expect("unknown view");
+    let edit = view
+        .remove_top_level_by_id("future-id")
+        .expect("remove identified future form");
+    assert!(edit.changed);
+    assert!(!edit.source.contains("future_item"));
+    parse(&edit.source).expect("future removal reparses");
 }
 
 #[test]

@@ -393,7 +393,7 @@ secondary = [
     "Exact source spans and unknown top-level forms remain available in source order",
     "Focused property writes preserve untouched bytes and are stable after semantic reparse",
     "Board graphics, routing arcs, dimensions, groups, generated items, and embedded files expose bounded typed iterators",
-    "Top-level UUID and legacy-ID removal is ambiguity-safe, source preserving, and idempotent",
+    "Top-level UUID and legacy-ID removal checks all forms, is ambiguity-safe, source preserving, bounded, and idempotent",
     "Source, family, nested-object, depth, and output limits fail closed",
     "Lazy typed diagnostics use absolute board-source positions",
 ]
