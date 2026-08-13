@@ -396,6 +396,8 @@ secondary = [
     "Variants, images, barcodes, tables, and nested table cells expose bounded source-ordered typed iterators",
     "Zones expose Python-parity fill, keepout, placement, per-layer, authored-outline, and filled-polygon semantics",
     "Zone polygon, point, and per-layer-property ceilings fail during lazy decoding before typed collections exceed their limits",
+    "Pad/via holes, footprint placement transforms, and board/footprint-local Edge.Cuts carriers are iterable physical facts with explicit coordinate spaces",
+    "Footprint profile indexing is bounded before append, while non-profile graphics remain lazily unparsed by the selective profile view",
     "Top-level UUID and legacy-ID removal checks all forms, is ambiguity-safe, source preserving, bounded, and idempotent",
     "Identified top-level layer replacement is exact, ambiguity-safe, bounded, and byte stable after semantic reparse",
     "Source, family, nested-object, depth, and output limits fail closed",

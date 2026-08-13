@@ -1,6 +1,8 @@
 //! Native JSON summary used by Rack to compare the Rust PCB view to Python.
 
-use kicad_monkey_core::{PcbCounts, PcbGraphicKind, PcbLimits, PcbView};
+use kicad_monkey_core::{
+    PcbCounts, PcbGraphicKind, PcbHoleOwner, PcbLimits, PcbProfileOwner, PcbView,
+};
 use serde_json::{Value, json};
 use std::env;
 use std::fs;
@@ -34,6 +36,12 @@ fn summarize(path: &str) -> Result<Value, Box<dyn std::error::Error>> {
             .expect("zone summary")
             .clone(),
     );
+    object.extend(
+        physical_summary(&view)?
+            .as_object()
+            .expect("physical summary")
+            .clone(),
+    );
     Ok(summary)
 }
 
@@ -46,7 +54,6 @@ fn force_decode(view: &PcbView<'_>) -> Result<(), kicad_monkey_core::Error> {
     view.models().collect::<Result<Vec<_>, _>>()?;
     view.segments().collect::<Result<Vec<_>, _>>()?;
     view.vias().collect::<Result<Vec<_>, _>>()?;
-    view.zones().collect::<Result<Vec<_>, _>>()?;
     view.graphics().collect::<Result<Vec<_>, _>>()?;
     view.arcs().collect::<Result<Vec<_>, _>>()?;
     view.dimensions().collect::<Result<Vec<_>, _>>()?;
@@ -59,6 +66,42 @@ fn force_decode(view: &PcbView<'_>) -> Result<(), kicad_monkey_core::Error> {
     view.tables().collect::<Result<Vec<_>, _>>()?;
     view.table_cells().collect::<Result<Vec<_>, _>>()?;
     Ok(())
+}
+
+fn physical_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
+    let transforms = view.footprint_transforms().collect::<Result<Vec<_>, _>>()?;
+    let holes = view.holes().collect::<Result<Vec<_>, _>>()?;
+    let profile = view.profile_primitives().collect::<Result<Vec<_>, _>>()?;
+    Ok(json!({
+        "physical_metrics": {
+            "footprint_transforms": transforms.len(),
+            "holes": holes.len(),
+            "pad_holes": holes.iter().filter(|hole| hole.owner == PcbHoleOwner::Pad).count(),
+            "via_holes": holes.iter().filter(|hole| hole.owner == PcbHoleOwner::Via).count(),
+            "profile_primitives": profile.len(),
+            "board_profile": profile.iter()
+                .filter(|primitive| primitive.owner == PcbProfileOwner::Board).count(),
+            "footprint_profile": profile.iter()
+                .filter(|primitive| matches!(primitive.owner, PcbProfileOwner::Footprint { .. }))
+                .count(),
+        },
+        "first_footprint_transform": transforms.first().map(|transform| json!({
+            "footprint_index": transform.footprint_index,
+            "x": transform.x, "y": transform.y, "angle": transform.angle,
+            "layer": transform.layer, "locked": transform.locked,
+            "path": transform.path, "sheet_name": transform.sheet_name,
+            "sheet_file": transform.sheet_file, "uuid": transform.uuid,
+        })),
+        "first_hole": holes.first().map(|hole| json!({
+            "owner": hole.owner.as_str(), "owner_index": hole.owner_index,
+            "footprint_index": hole.footprint_index,
+            "center": [hole.center.x, hole.center.y],
+            "offset": [hole.offset.x, hole.offset.y],
+            "shape": hole.shape.as_str(), "width": hole.width, "height": hole.height,
+            "angle": hole.angle, "plated": hole.plated, "layers": hole.layers,
+            "uuid": hole.uuid,
+        })),
+    }))
 }
 
 fn native_summary(view: &PcbView<'_>) -> Result<Value, kicad_monkey_core::Error> {
@@ -279,6 +322,7 @@ fn count_summary(counts: PcbCounts) -> Value {
         "footprints": counts.footprints,
         "pads": counts.pads,
         "models": counts.models,
+        "footprint_graphics": counts.footprint_graphics,
         "segments": counts.segments,
         "vias": counts.vias,
         "zones": counts.zones,

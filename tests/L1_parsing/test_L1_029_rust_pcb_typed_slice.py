@@ -67,6 +67,21 @@ ZONE_CARRIERS = """(kicad_pcb
     (keepout (tracks allowed) (vias not_allowed))
     (polygon (pts (xy 1 1) (xy 2 1) (xy 2 2))))
 )"""
+PHYSICAL_CARRIERS = """(kicad_pcb
+  (footprint "Demo:Part" (layer "B.Cu") (at 100 50 90) (locked yes)
+    (path "/root/U1") (sheetname "RF") (sheetfile "rf.kicad_sch") (uuid fp-id)
+    (fp_line (start -1 0) (end 1 0) (stroke (width 0.1) (type default))
+      (layer "Edge.Cuts") (uuid fp-edge))
+    (fp_circle (center 0 0) (end 1 0) (stroke (width 0.1) (type default))
+      (fill none) (layer "F.SilkS"))
+    (pad "1" thru_hole circle (at 1 2 30) (size 2 2)
+      (drill 0.8 (offset 0.1 -0.2)) (layers "*.Cu" "*.Mask") (uuid pad-1))
+    (pad "" np_thru_hole oval (at -2 3) (size 2 3)
+      (drill oval 1 2) (layers "*.Cu" "*.Mask") (uuid pad-2)))
+  (gr_line (start 0 0) (end 10 0) (stroke (width 0.05) (type default))
+    (layer "Edge.Cuts") (uuid board-edge))
+  (via (at 4 5) (size 1) (drill 0.4) (layers "F.Cu" "B.Cu") (uuid via-1))
+)"""
 
 
 def _run(command: list[str], *, timeout: int = 180) -> subprocess.CompletedProcess[str]:
@@ -118,6 +133,8 @@ def test_rack_runs_native_pcb_reader_writer_correctness_gate() -> None:
             "pcb_typed_slice",
             "--test",
             "pcb_zone_slice",
+            "--test",
+            "pcb_physical_slice",
         ]
     )
 
@@ -144,6 +161,7 @@ def test_newer_sparse_carriers_match_python_on_durable_vector(tmp_path: Path) ->
         "extended-carriers.kicad_pcb": EXTENDED_CARRIERS,
         "sparse-table-blocks.kicad_pcb": SPARSE_TABLE_BLOCKS,
         "zone-carriers.kicad_pcb": ZONE_CARRIERS,
+        "physical-carriers.kicad_pcb": PHYSICAL_CARRIERS,
     }
     board_paths = []
     for name, source in inputs.items():
@@ -171,6 +189,14 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         "footprints": len(board.footprints),
         "pads": sum(len(footprint.pads) for footprint in board.footprints),
         "models": sum(len(footprint.models) for footprint in board.footprints),
+        "footprint_graphics": sum(
+            len(footprint.fp_lines)
+            + len(footprint.fp_arcs)
+            + len(footprint.fp_rects)
+            + len(footprint.fp_circles)
+            + len(footprint.fp_polys)
+            for footprint in board.footprints
+        ),
         "segments": len(board.segments),
         "vias": len(board.vias),
         "zones": len(board.zones),
@@ -289,6 +315,7 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         }
     else:
         assert summary["first_zone"] is None
+    _assert_physical_summary(board, summary)
     if board.variants:
         variant = board.variants[0]
         assert summary["first_variant"] == {
@@ -379,7 +406,7 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
     if board.footprints:
         assert summary["first_footprint"] == {
             "library_link": board.footprints[0].library_link,
-            "reference": board.footprints[0].get_property_value("Reference"),
+            "reference": board.footprints[0].get_property_value("Reference") or None,
         }
     if board.segments:
         assert summary["first_segment"] == {
@@ -480,3 +507,79 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
             "scale": list(model.scale),
             "rotate": list(model.rotate),
         }
+
+
+def _assert_physical_summary(board: KiCadPcb, summary: dict) -> None:
+    pad_holes = [
+        (index, footprint_index, pad)
+        for index, (footprint_index, pad) in enumerate(
+            (footprint_index, pad)
+            for footprint_index, footprint in enumerate(board.footprints)
+            for pad in footprint.pads
+        )
+        if pad.drill is not None and pad.drill > 0
+    ]
+    via_holes = [(index, via) for index, via in enumerate(board.vias) if via.drill > 0]
+    profile = board.board_outline_carriers()
+    assert summary["physical_metrics"] == {
+        "footprint_transforms": len(board.footprints),
+        "holes": len(pad_holes) + len(via_holes),
+        "pad_holes": len(pad_holes),
+        "via_holes": len(via_holes),
+        "profile_primitives": len(profile),
+        "board_profile": sum(item.owner_kind == "board" for item in profile),
+        "footprint_profile": sum(item.owner_kind == "footprint" for item in profile),
+    }
+    if board.footprints:
+        footprint = board.footprints[0]
+        assert summary["first_footprint_transform"] == {
+            "footprint_index": 0,
+            "x": footprint.at_x,
+            "y": footprint.at_y,
+            "angle": footprint.at_angle,
+            "layer": footprint.layer,
+            "locked": footprint.locked,
+            "path": footprint.placement.path or None,
+            "sheet_name": footprint.placement.sheetname or None,
+            "sheet_file": footprint.placement.sheetfile or None,
+            "uuid": footprint.uuid or None,
+        }
+    else:
+        assert summary["first_footprint_transform"] is None
+
+    if pad_holes:
+        owner_index, footprint_index, pad = pad_holes[0]
+        width = pad.drill_width if pad.drill_oval else pad.drill
+        height = pad.drill_height if pad.drill_oval else pad.drill
+        assert summary["first_hole"] == {
+            "owner": "pad",
+            "owner_index": owner_index,
+            "footprint_index": footprint_index,
+            "center": [pad.at_x, pad.at_y],
+            "offset": [pad.drill_offset_x or 0.0, pad.drill_offset_y or 0.0],
+            "shape": "oval" if pad.drill_oval else "round",
+            "width": width,
+            "height": height if height is not None else width,
+            "angle": pad.at_angle,
+            "plated": pad.pad_type.value != "np_thru_hole",
+            "layers": pad.layers,
+            "uuid": pad.uuid or None,
+        }
+    elif via_holes:
+        owner_index, via = via_holes[0]
+        assert summary["first_hole"] == {
+            "owner": "via",
+            "owner_index": owner_index,
+            "footprint_index": None,
+            "center": [via.at_x, via.at_y],
+            "offset": [0.0, 0.0],
+            "shape": "round",
+            "width": via.drill,
+            "height": via.drill,
+            "angle": 0.0,
+            "plated": True,
+            "layers": via.layers,
+            "uuid": via.uuid or None,
+        }
+    else:
+        assert summary["first_hole"] is None

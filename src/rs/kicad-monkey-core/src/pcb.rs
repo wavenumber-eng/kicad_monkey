@@ -12,9 +12,14 @@ use std::collections::BTreeMap;
 use std::ops::Range;
 
 mod extended;
+mod physical;
 mod zones;
 pub use extended::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbImage, PcbTable, PcbTableCell,
+};
+pub use physical::{
+    PcbFootprintTransform, PcbHole, PcbHoleOwner, PcbHoleShape, PcbPadDrill, PcbProfileOwner,
+    PcbProfilePrimitive,
 };
 pub use zones::{
     PcbZone, PcbZoneFilledPolygon, PcbZoneKeepout, PcbZoneLayerProperty, PcbZonePlacement,
@@ -34,6 +39,7 @@ pub struct PcbLimits {
     pub max_properties: usize,
     pub max_footprints: usize,
     pub max_footprint_children: usize,
+    pub max_footprint_graphics: usize,
     pub max_pad_children: usize,
     pub max_model_children: usize,
     pub max_pads: usize,
@@ -75,6 +81,7 @@ impl Default for PcbLimits {
             max_properties: 100_000,
             max_footprints: 1_000_000,
             max_footprint_children: 1_000_000,
+            max_footprint_graphics: 4_000_000,
             max_pad_children: 256,
             max_model_children: 32,
             max_pads: 4_000_000,
@@ -115,6 +122,7 @@ pub struct PcbCounts {
     pub footprints: usize,
     pub pads: usize,
     pub models: usize,
+    pub footprint_graphics: usize,
     pub segments: usize,
     pub vias: usize,
     pub zones: usize,
@@ -180,6 +188,10 @@ pub struct PcbFootprint {
     pub at_x: Option<f64>,
     pub at_y: Option<f64>,
     pub angle: Option<f64>,
+    pub locked: bool,
+    pub placement_path: Option<String>,
+    pub placement_sheet_name: Option<String>,
+    pub placement_sheet_file: Option<String>,
     pub uuid: Option<String>,
     pub pad_count: usize,
     pub model_count: usize,
@@ -198,6 +210,7 @@ pub struct PcbPad {
     pub angle: f64,
     pub size_x: f64,
     pub size_y: f64,
+    pub drill: Option<PcbPadDrill>,
     pub layers: Vec<String>,
     pub net: PcbNetRef,
     pub uuid: Option<String>,
@@ -387,6 +400,7 @@ struct PcbIndex {
     footprints: Vec<IndexedFootprint>,
     pads: Vec<IndexedNestedForm>,
     models: Vec<IndexedNestedForm>,
+    footprint_graphics: Vec<IndexedNestedForm>,
     segments: Vec<FormSpan>,
     vias: Vec<FormSpan>,
     zones: Vec<FormSpan>,
@@ -416,6 +430,7 @@ pub struct PcbView<'a> {
     footprints: Vec<IndexedFootprint>,
     pads: Vec<IndexedNestedForm>,
     models: Vec<IndexedNestedForm>,
+    footprint_graphics: Vec<IndexedNestedForm>,
     segments: Vec<FormSpan>,
     vias: Vec<FormSpan>,
     zones: Vec<FormSpan>,
@@ -480,6 +495,7 @@ impl<'a> PcbView<'a> {
             footprints: index.footprints,
             pads: index.pads,
             models: index.models,
+            footprint_graphics: index.footprint_graphics,
             segments: index.segments,
             vias: index.vias,
             zones: index.zones,
@@ -865,48 +881,34 @@ fn index_footprint(
     }
     let children = direct_children(source, span, limits.max_footprint_children, limits)?;
     let footprint_index = index.footprints.len();
-    let pad_forms: Vec<_> = children
-        .iter()
-        .filter(|child| child.head.as_deref() == Some("pad"))
-        .cloned()
-        .collect();
-    let model_forms: Vec<_> = children
-        .iter()
-        .filter(|child| child.head.as_deref() == Some("model"))
-        .cloned()
-        .collect();
-    let pad_count = pad_forms.len();
-    let model_count = model_forms.len();
-    index.counts.pads = index
-        .counts
-        .pads
-        .checked_add(pad_count)
-        .ok_or_else(limit_error)?;
-    index.counts.models = index
-        .counts
-        .models
-        .checked_add(model_count)
-        .ok_or_else(limit_error)?;
-    if index.counts.pads > limits.max_pads || index.counts.models > limits.max_models {
-        return Err(limit_error());
+    let pad_start = index.pads.len();
+    let model_start = index.models.len();
+    for child in children {
+        let indexed = IndexedNestedForm {
+            parent_index: footprint_index,
+            span: child,
+        };
+        match indexed.span.head.as_deref() {
+            Some("pad") => bounded_push(&mut index.pads, indexed, limits.max_pads)?,
+            Some("model") => bounded_push(&mut index.models, indexed, limits.max_models)?,
+            Some(head) if physical::is_footprint_profile_head(head) => bounded_push(
+                &mut index.footprint_graphics,
+                indexed,
+                limits.max_footprint_graphics,
+            )?,
+            _ => {}
+        }
     }
+    let pad_count = index.pads.len() - pad_start;
+    let model_count = index.models.len() - model_start;
     index.footprints.push(IndexedFootprint {
         span: span.clone(),
         pad_count,
         model_count,
     });
-    index
-        .pads
-        .extend(pad_forms.into_iter().map(|span| IndexedNestedForm {
-            parent_index: footprint_index,
-            span,
-        }));
-    index
-        .models
-        .extend(model_forms.into_iter().map(|span| IndexedNestedForm {
-            parent_index: footprint_index,
-            span,
-        }));
+    index.counts.pads = index.pads.len();
+    index.counts.models = index.models.len();
+    index.counts.footprint_graphics = index.footprint_graphics.len();
     index.counts.footprints += 1;
     Ok(())
 }
@@ -972,6 +974,10 @@ fn footprint_from_span(
         at_x: None,
         at_y: None,
         angle: None,
+        locked: false,
+        placement_path: None,
+        placement_sheet_name: None,
+        placement_sheet_file: None,
         uuid: None,
         pad_count: indexed.pad_count,
         model_count: indexed.model_count,
@@ -994,6 +1000,10 @@ fn footprint_from_span(
                 result.at_y = optional_f64(values.get(1), child)?;
                 result.angle = optional_f64(values.get(2), child)?;
             }
+            Some("locked") => result.locked = child_bool(source, &children, "locked")?,
+            Some("path") => result.placement_path = first_string(source, child)?,
+            Some("sheetname") => result.placement_sheet_name = first_string(source, child)?,
+            Some("sheetfile") => result.placement_sheet_file = first_string(source, child)?,
             Some("uuid" | "tstamp") if result.uuid.is_none() => {
                 result.uuid = first_string(source, child)?;
             }
@@ -1028,6 +1038,7 @@ fn pad_from_span(
         angle: at[2],
         size_x: size[0],
         size_y: size[1],
+        drill: physical::pad_drill_from_children(source, &children, limits)?,
         layers,
         net: child_net_ref(source, &children)?,
         uuid: optional_uuid(source, &children)?,
@@ -1079,7 +1090,7 @@ fn segment_from_span(
         end_y: end.1,
         width: optional_child_f64(source, &children, "width")?,
         layer: optional_child_string(source, &children, "layer")?,
-        net: child_net_ref(source, &children)?,
+        net: child_net_ref_or_zero(source, &children)?,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),
     })
@@ -1100,7 +1111,7 @@ fn via_from_span(source: &str, span: &FormSpan, limits: PcbLimits) -> Result<Pcb
         size: optional_child_f64(source, &children, "size")?,
         drill: optional_child_f64(source, &children, "drill")?,
         layers,
-        net: child_net_ref(source, &children)?,
+        net: child_net_ref_or_zero(source, &children)?,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),
     })
@@ -1163,7 +1174,7 @@ fn routing_arc_from_span(
         end: required_point(source, &children, "end", span)?,
         width: optional_child_f64(source, &children, "width")?,
         layer: optional_child_string(source, &children, "layer")?,
-        net: child_net_ref(source, &children)?,
+        net: child_net_ref_or_zero(source, &children)?,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),
     })
@@ -1514,10 +1525,7 @@ fn child_strings(
     let Some(span) = child(children, head) else {
         return Ok(Vec::new());
     };
-    let values = scalar_values(source, span)?;
-    if values.len() > maximum {
-        return Err(limit_error());
-    }
+    let values = bounded_scalar_values(source, span, maximum)?;
     Ok(values.iter().map(token_string).collect())
 }
 
@@ -1558,6 +1566,17 @@ fn child_net_ref(source: &str, children: &[FormSpan]) -> Result<PcbNetRef, Error
             ordinal: None,
             name: Some(token_string(token)),
         })
+    }
+}
+
+fn child_net_ref_or_zero(source: &str, children: &[FormSpan]) -> Result<PcbNetRef, Error> {
+    if child(children, "net").is_none() {
+        Ok(PcbNetRef {
+            ordinal: Some(0),
+            name: None,
+        })
+    } else {
+        child_net_ref(source, children)
     }
 }
 
@@ -1698,14 +1717,14 @@ fn is_known_metadata(head: &str) -> bool {
 
 fn graphic_kind(head: &str) -> Option<PcbGraphicKind> {
     match head {
-        "gr_text" => Some(PcbGraphicKind::Text),
-        "gr_line" => Some(PcbGraphicKind::Line),
-        "gr_rect" => Some(PcbGraphicKind::Rect),
-        "gr_arc" => Some(PcbGraphicKind::Arc),
-        "gr_circle" => Some(PcbGraphicKind::Circle),
-        "gr_poly" => Some(PcbGraphicKind::Poly),
-        "gr_curve" => Some(PcbGraphicKind::Curve),
-        "gr_text_box" => Some(PcbGraphicKind::TextBox),
+        "gr_text" | "fp_text" => Some(PcbGraphicKind::Text),
+        "gr_line" | "fp_line" => Some(PcbGraphicKind::Line),
+        "gr_rect" | "fp_rect" => Some(PcbGraphicKind::Rect),
+        "gr_arc" | "fp_arc" => Some(PcbGraphicKind::Arc),
+        "gr_circle" | "fp_circle" => Some(PcbGraphicKind::Circle),
+        "gr_poly" | "fp_poly" => Some(PcbGraphicKind::Poly),
+        "gr_curve" | "fp_curve" => Some(PcbGraphicKind::Curve),
+        "gr_text_box" | "fp_text_box" => Some(PcbGraphicKind::TextBox),
         _ => None,
     }
 }

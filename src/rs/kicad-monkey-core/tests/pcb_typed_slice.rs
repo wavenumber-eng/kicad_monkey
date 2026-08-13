@@ -394,6 +394,52 @@ fn board_net_table_resolves_ordinal_name_unknown_and_empty_references_once() {
 }
 
 #[test]
+fn absent_routing_and_zone_nets_match_python_net_zero_defaults() {
+    let source = r#"(kicad_pcb
+  (segment (start 0 0) (end 1 0) (width 0.1) (layer "F.Cu"))
+  (via (at 0 0) (size 1) (drill 0.5) (layers "F.Cu" "B.Cu"))
+  (arc (start 0 0) (mid 1 1) (end 2 0) (width 0.1) (layer "F.Cu"))
+  (zone (layer "F.Cu")))"#;
+    let view = PcbView::parse(source, PcbLimits::default()).expect("board");
+    assert_eq!(
+        view.segments()
+            .next()
+            .expect("segment")
+            .expect("decoded")
+            .net
+            .ordinal,
+        Some(0)
+    );
+    assert_eq!(
+        view.vias()
+            .next()
+            .expect("via")
+            .expect("decoded")
+            .net
+            .ordinal,
+        Some(0)
+    );
+    assert_eq!(
+        view.arcs()
+            .next()
+            .expect("arc")
+            .expect("decoded")
+            .net
+            .ordinal,
+        Some(0)
+    );
+    assert_eq!(
+        view.zones()
+            .next()
+            .expect("zone")
+            .expect("decoded")
+            .net
+            .ordinal,
+        Some(0)
+    );
+}
+
+#[test]
 fn remaining_board_carriers_are_typed_in_source_order() {
     let view = PcbView::parse(CARRIERS, PcbLimits::default()).expect("board view");
     let counts = view.counts();

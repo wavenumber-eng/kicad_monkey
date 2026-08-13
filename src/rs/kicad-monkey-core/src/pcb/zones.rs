@@ -122,7 +122,7 @@ pub(super) fn zone_from_span(
         .transpose()?
         .flatten()
         .or_else(|| net_name_span.map(|_| String::new()));
-    let mut net = child_net_ref(source, &children)?;
+    let mut net = child_net_ref_or_zero(source, &children)?;
     if let Some(explicit_name) = &net_name {
         net.name = Some(explicit_name.clone());
     }

@@ -103,6 +103,7 @@ fn absent_zone_fields_match_python_defaults() {
     let source = "(kicad_pcb (zone (layers) (property)))";
     let view = PcbView::parse(source, PcbLimits::default()).expect("board");
     let zone = view.zones().next().expect("zone").expect("decoded");
+    assert_eq!(zone.net.ordinal, Some(0));
     assert_default_zone_scalars(&zone);
     assert_default_zone_collections(&zone);
 }
