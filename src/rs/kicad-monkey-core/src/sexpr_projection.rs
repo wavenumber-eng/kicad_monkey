@@ -1,7 +1,8 @@
 //! Allocation-bounded structural selection over KiCad S-expression source.
 
 use crate::sexpr::{
-    Error, ErrorKind, ErrorPhase, Lexer, Position, Sexp, Token, TokenKind, decode_quoted, parse,
+    Error, ErrorKind, ErrorPhase, Lexer, Position, Sexp, Token, TokenKind, decode_quoted,
+    is_teardrop_numeric_key, parse,
 };
 use std::collections::BTreeSet;
 use std::io::{Read, Seek, SeekFrom};
@@ -324,7 +325,7 @@ fn scan_form_spans_unsorted(
                         );
                 } else if frame.head.as_deref() == Some("teardrops") {
                     frame.teardrop_bare_field = match frame.teardrop_bare_field {
-                        TeardropBareField::None if is_teardrop_numeric_field(token.lexeme) => {
+                        TeardropBareField::None if is_teardrop_numeric_key(token.lexeme) => {
                             TeardropBareField::AwaitingValue
                         }
                         TeardropBareField::AwaitingValue => TeardropBareField::AwaitingClose,
@@ -352,13 +353,6 @@ fn scan_form_spans_unsorted(
         ));
     }
     Ok(spans)
-}
-
-fn is_teardrop_numeric_field(value: &str) -> bool {
-    matches!(
-        value,
-        "best_length_ratio" | "max_length" | "best_width_ratio" | "max_width" | "filter_ratio"
-    )
 }
 
 /// Test-only timing split for select-all scan and source-order sorting.
@@ -784,7 +778,7 @@ impl<'a> StreamingProjection<'a> {
                 )
             })?;
             frame.teardrop_bare_field = match frame.teardrop_bare_field {
-                TeardropBareField::None if is_teardrop_numeric_field(&head) => {
+                TeardropBareField::None if is_teardrop_numeric_key(&head) => {
                     TeardropBareField::AwaitingValue
                 }
                 TeardropBareField::AwaitingValue => TeardropBareField::AwaitingClose,

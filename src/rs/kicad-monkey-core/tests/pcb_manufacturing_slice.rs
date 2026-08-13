@@ -190,3 +190,60 @@ fn malformed_bare_teardrop_value_reports_an_absolute_source_position() {
         source.find("bad").expect("bad token")
     );
 }
+
+#[test]
+fn teardrop_booleans_accept_only_the_parser_dialect_and_report_absolute_errors() {
+    let valid = board_with_teardrops(
+        "(curved_edges yes) (enabled true) (allow_two_segments no) (prefer_zone_connections false)",
+    );
+    let parameters = PcbView::parse(&valid, PcbLimits::default())
+        .expect("valid board")
+        .pads()
+        .next()
+        .expect("pad")
+        .expect("typed pad")
+        .teardrops
+        .expect("teardrops");
+    assert_eq!(parameters.curved_edges, Some(true));
+    assert_eq!(parameters.enabled, Some(true));
+    assert_eq!(parameters.allow_two_segments, Some(false));
+    assert_eq!(parameters.prefer_zone_connections, Some(false));
+
+    let empty = board_with_teardrops("(enabled)");
+    assert_eq!(
+        PcbView::parse(&empty, PcbLimits::default())
+            .expect("empty boolean board")
+            .pads()
+            .next()
+            .expect("pad")
+            .expect("typed pad")
+            .teardrops
+            .expect("teardrops")
+            .enabled,
+        None
+    );
+
+    for invalid in ["maybe", "1"] {
+        let source = board_with_teardrops(&format!("(enabled {invalid})"));
+        let error = PcbView::parse(&source, PcbLimits::default())
+            .expect("lazy invalid board")
+            .pads()
+            .next()
+            .expect("pad")
+            .expect_err("invalid boolean");
+        assert_eq!(error.kind, ErrorKind::UnexpectedToken);
+        let field = format!("(enabled {invalid}");
+        assert_eq!(
+            error.position.expect("absolute position").offset,
+            source.find(&field).expect("field") + "(enabled ".len()
+        );
+    }
+}
+
+fn board_with_teardrops(body: &str) -> String {
+    format!(
+        "(kicad_pcb (footprint \"Bool\" (layer \"F.Cu\") \
+         (pad \"1\" smd rect (at 0 0) (size 1 1) (layers \"F.Cu\") \
+         (teardrops {body}))))"
+    )
+}

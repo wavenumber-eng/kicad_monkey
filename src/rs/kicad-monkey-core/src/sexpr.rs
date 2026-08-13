@@ -1346,22 +1346,22 @@ fn consume_digits(bytes: &[u8], index: &mut usize) -> usize {
 
 fn is_teardrop_field_key(token: &Token<'_>) -> bool {
     token.kind == TokenKind::Atom
-        && matches!(
-            token.lexeme,
-            "best_length_ratio"
-                | "max_length"
-                | "best_width_ratio"
-                | "max_width"
-                | "curve_points"
-                | "filter_ratio"
-                | "enabled"
-                | "allow_two_segments"
-                | "prefer_zone_connections"
-                | "curved_edges"
-        )
+        && (is_teardrop_numeric_key(token.lexeme) || is_teardrop_bool_key(token.lexeme))
 }
 
-fn is_teardrop_bool_key(key: &str) -> bool {
+pub(crate) fn is_teardrop_numeric_key(key: &str) -> bool {
+    matches!(
+        key,
+        "best_length_ratio"
+            | "max_length"
+            | "best_width_ratio"
+            | "max_width"
+            | "curve_points"
+            | "filter_ratio"
+    )
+}
+
+pub(crate) fn is_teardrop_bool_key(key: &str) -> bool {
     matches!(
         key,
         "enabled" | "allow_two_segments" | "prefer_zone_connections" | "curved_edges"

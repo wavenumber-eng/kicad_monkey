@@ -5,7 +5,7 @@
 
 use crate::sexpr::{
     Error, ErrorKind, ErrorPhase, Lexer, Patch, Position, Sexp, Token, TokenKind,
-    apply_patches_with_limit, build_with_limit, decode_quoted,
+    apply_patches_with_limit, build_with_limit, decode_quoted, is_teardrop_numeric_key,
 };
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use crate::{KiCadPaper, KiCadTextEffects, KiCadTitleBlock};
@@ -1736,14 +1736,7 @@ fn bounded_scalar_values<'a>(
                         if teardrop_bare_field {
                             teardrop_bare_field = false;
                             teardrop_bare_value = true;
-                        } else if matches!(
-                            token.lexeme,
-                            "best_length_ratio"
-                                | "max_length"
-                                | "best_width_ratio"
-                                | "max_width"
-                                | "filter_ratio"
-                        ) {
+                        } else if is_teardrop_numeric_key(token.lexeme) {
                             teardrop_bare_field = true;
                         }
                     }

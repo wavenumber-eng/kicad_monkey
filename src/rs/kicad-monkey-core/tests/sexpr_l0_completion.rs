@@ -129,6 +129,33 @@ fn structural_scanners_preserve_legacy_teardrop_dialect_boundaries() {
             .path,
         ["kicad_pcb", "footprint", "pad", "teardrops", "enabled"]
     );
+
+    let curve_points = source.replace("filter_ratio 0.9", "curve_points 4");
+    let memory = scan_form_spans(&curve_points, &selector).expect("curve-points memory scanner");
+    let streaming = scan_reader_form_spans(
+        Cursor::new(curve_points.as_bytes()),
+        &selector,
+        ProjectionLimits::default(),
+    )
+    .expect("curve-points streaming scanner");
+    assert_eq!(streaming, memory);
+    assert!(
+        memory
+            .iter()
+            .find(|span| span.head.as_deref() == Some("pad"))
+            .expect("curve-points pad")
+            .text(&curve_points)
+            .expect("pad source")
+            .contains("(uuid pad-id)")
+    );
+    assert_eq!(
+        memory
+            .iter()
+            .find(|span| span.head.as_deref() == Some("enabled"))
+            .expect("curve-points enabled")
+            .path,
+        ["kicad_pcb", "footprint", "pad", "teardrops", "enabled"]
+    );
 }
 
 #[test]

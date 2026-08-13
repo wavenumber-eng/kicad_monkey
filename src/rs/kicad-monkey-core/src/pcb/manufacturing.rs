@@ -132,11 +132,17 @@ pub(super) fn teardrop_parameters_from_children(
         max_length: teardrop_f64(source, &fields, &bare, "max_length", span)?,
         best_width_ratio: teardrop_f64(source, &fields, &bare, "best_width_ratio", span)?,
         max_width: teardrop_f64(source, &fields, &bare, "max_width", span)?,
-        curved_edges: teardrop_bool(source, &fields, &bare, "curved_edges")?,
+        curved_edges: teardrop_bool(source, &fields, &bare, "curved_edges", span)?,
         filter_ratio: teardrop_f64(source, &fields, &bare, "filter_ratio", span)?,
-        enabled: teardrop_bool(source, &fields, &bare, "enabled")?,
-        allow_two_segments: teardrop_bool(source, &fields, &bare, "allow_two_segments")?,
-        prefer_zone_connections: teardrop_bool(source, &fields, &bare, "prefer_zone_connections")?,
+        enabled: teardrop_bool(source, &fields, &bare, "enabled", span)?,
+        allow_two_segments: teardrop_bool(source, &fields, &bare, "allow_two_segments", span)?,
+        prefer_zone_connections: teardrop_bool(
+            source,
+            &fields,
+            &bare,
+            "prefer_zone_connections",
+            span,
+        )?,
         source_range: span.range.clone(),
     }))
 }
@@ -162,15 +168,29 @@ fn teardrop_bool(
     fields: &[FormSpan],
     bare: &[(String, Token<'_>)],
     head: &str,
+    parent: &FormSpan,
 ) -> Result<Option<bool>, Error> {
-    let value = if let Some(span) = child(fields, head) {
-        first_string(source, span)?
-    } else {
-        bare.iter()
-            .find(|(key, _)| key == head)
-            .map(|(_, value)| token_string(value))
-    };
-    Ok(value.map(|value| matches!(value.to_ascii_lowercase().as_str(), "yes" | "true" | "1")))
+    if let Some(span) = child(fields, head) {
+        return first_scalar_value(source, span)?
+            .as_ref()
+            .map(|token| parse_teardrop_bool(token, span))
+            .transpose();
+    }
+    bare.iter()
+        .find(|(key, _)| key == head)
+        .map(|(_, token)| parse_teardrop_bool(token, parent))
+        .transpose()
+}
+
+fn parse_teardrop_bool(token: &Token<'_>, span: &FormSpan) -> Result<bool, Error> {
+    match token.lexeme.to_ascii_lowercase().as_str() {
+        "yes" | "true" => Ok(true),
+        "no" | "false" => Ok(false),
+        _ => Err(source_error(
+            "Expected yes/no for teardrops field",
+            rebase_position(token.position, span),
+        )),
+    }
 }
 
 fn bare_teardrop_values<'a>(
