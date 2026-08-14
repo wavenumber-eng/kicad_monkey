@@ -48,7 +48,13 @@
   carries occurrence-specific reference and unit; overlays optional variant flags and
   fields; and folds the placed-sheet policy into each symbol. The index records both
   the canonical modern address and the legacy UUID address once per occurrence, so
-  repeated symbol resolution does not reconstruct hierarchy paths.</p>
+  repeated symbol resolution does not reconstruct hierarchy paths. Legacy symbol
+  instances use one bundle-wide, source-first index because KiCad commonly stores
+  child-occurrence records in the top schematic rather than in the child definition.
+  Modern compatibility lookup uses project-specific and bundle-fallback reversed-path
+  indexes plus a constant-time first-instance fallback. Resolution is therefore
+  bounded by the queried path length and returned symbol count instead of rescanning
+  every instance for every repeated occurrence.</p>
 
   <p>Coordinates are snapped immediately to KiCad's 100-nm schematic internal-unit
   grid and stored as signed integers. A dependency-free decimal parser performs the

@@ -227,4 +227,6 @@ secondary = [
     "Placed-symbol source fields, policy, properties, and pin mappings match Python",
     "Modern and legacy symbol instance paths plus variant overlays match Python",
     "Effective per-occurrence symbol references, units, fields, and policy match Python",
+    "Top-schematic legacy records resolve distinct repeated child occurrences",
+    "Modern suffix compatibility and fallback resolution use bounded indexes rather than occurrence-by-instance scans",
 ]

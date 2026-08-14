@@ -144,6 +144,7 @@ pub struct SchematicBundleIndex {
     definitions: Vec<SchematicDefinition>,
     definition_by_path: HashMap<String, usize>,
     occurrences: Vec<SchematicOccurrence>,
+    legacy_symbol_instance_by_path: HashMap<String, (usize, usize)>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -179,6 +180,7 @@ impl SchematicBundleIndex {
             definitions.push(definition);
         }
         let occurrences = realize_occurrences(bundle, &definitions, &definition_by_path, limits)?;
+        let legacy_symbol_instance_by_path = index_bundle_legacy_instances(&definitions);
         Ok(Self {
             project_name: bundle
                 .project_path()
@@ -186,6 +188,7 @@ impl SchematicBundleIndex {
             definitions,
             definition_by_path,
             occurrences,
+            legacy_symbol_instance_by_path,
         })
     }
 
@@ -230,8 +233,32 @@ impl SchematicBundleIndex {
                 "schematic occurrence definition is missing",
             )
         })?;
-        resolve_effective_symbols(definition, occurrence, &self.project_name, variant_name)
+        resolve_effective_symbols(
+            definition,
+            occurrence,
+            &self.project_name,
+            variant_name,
+            &self.definitions,
+            &self.legacy_symbol_instance_by_path,
+        )
     }
+}
+
+fn index_bundle_legacy_instances(
+    definitions: &[SchematicDefinition],
+) -> HashMap<String, (usize, usize)> {
+    let mut index = HashMap::new();
+    for (definition_index, definition) in definitions.iter().enumerate() {
+        for (instance_index, instance) in definition.legacy_symbol_instances.iter().enumerate() {
+            let path = instance.path.trim_end_matches('/');
+            if !path.is_empty() {
+                index
+                    .entry(path.to_owned())
+                    .or_insert((definition_index, instance_index));
+            }
+        }
+    }
+    index
 }
 
 fn portable_file_stem(path: &str) -> String {

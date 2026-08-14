@@ -2,7 +2,7 @@ use crate::{
     SchematicDefinition, SchematicOccurrence, SchematicPlacedSymbol, SchematicSymbolInstance,
     SourceBundleError, SourceBundleErrorKind,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicEffectiveSymbol {
@@ -28,6 +28,8 @@ pub(crate) fn resolve_effective_symbols(
     occurrence: &SchematicOccurrence,
     project_name: &str,
     variant_name: Option<&str>,
+    definitions: &[SchematicDefinition],
+    legacy_index: &HashMap<String, (usize, usize)>,
 ) -> Result<Vec<SchematicEffectiveSymbol>, SourceBundleError> {
     definition
         .symbols
@@ -35,32 +37,41 @@ pub(crate) fn resolve_effective_symbols(
         .enumerate()
         .map(|(index, symbol)| {
             resolve_effective_symbol(
-                definition,
                 occurrence,
                 project_name,
                 variant_name,
                 index,
                 symbol,
+                definitions,
+                legacy_index,
             )
         })
         .collect()
 }
 
 fn resolve_effective_symbol(
-    definition: &SchematicDefinition,
     occurrence: &SchematicOccurrence,
     project_name: &str,
     variant_name: Option<&str>,
     symbol_index: usize,
     symbol: &SchematicPlacedSymbol,
+    definitions: &[SchematicDefinition],
+    legacy_index: &HashMap<String, (usize, usize)>,
 ) -> Result<SchematicEffectiveSymbol, SourceBundleError> {
     let modern = resolve_modern_instance(symbol, project_name, occurrence)?;
     let legacy_path = legacy_symbol_path(&occurrence.legacy_address, &symbol.uuid);
-    let legacy = modern.is_none().then(|| {
-        definition
-            .legacy_symbol_instance(&legacy_path)
-            .filter(|instance| !instance.path.is_empty())
-    });
+    let legacy = modern
+        .is_none()
+        .then(|| {
+            legacy_index
+                .get(legacy_path.trim_end_matches('/'))
+                .and_then(|(definition_index, instance_index)| {
+                    definitions.get(*definition_index).and_then(|definition| {
+                        definition.legacy_symbol_instances.get(*instance_index)
+                    })
+                })
+        })
+        .flatten();
     let mut fields = symbol
         .properties
         .iter()
@@ -77,7 +88,6 @@ fn resolve_effective_symbol(
         .filter(|reference| !reference.is_empty())
         .or_else(|| {
             legacy
-                .flatten()
                 .map(|instance| instance.reference.as_str())
                 .filter(|reference| !reference.is_empty())
         })
@@ -85,11 +95,7 @@ fn resolve_effective_symbol(
         .unwrap_or_default()
         .to_owned();
     let unit = modern.map_or_else(
-        || {
-            legacy
-                .flatten()
-                .map_or(symbol.unit, |instance| instance.unit)
-        },
+        || legacy.map_or(symbol.unit, |instance| instance.unit),
         |instance| instance.unit,
     );
     let dnp = variant.and_then(|value| value.dnp).unwrap_or(symbol.dnp);
@@ -136,29 +142,13 @@ fn resolve_modern_instance<'a>(
     }
     let target = occurrence.legacy_address.trim_end_matches('/');
     if !target.is_empty() {
-        let project_exists = symbol
-            .instances
-            .iter()
-            .any(|instance| instance.project.as_ref() == project_name);
-        let mut matches = symbol.instances.iter().filter(|instance| {
-            (!project_exists || instance.project.as_ref() == project_name) && {
-                let path = instance.path.trim_end_matches('/');
-                !path.is_empty() && (path.ends_with(target) || target.ends_with(path))
-            }
-        });
-        if let Some(instance) = matches.next() {
-            let count = 1_usize.saturating_add(matches.count());
-            if count > 1 {
-                return Err(ambiguity_error(occurrence, count));
-            }
-            return Ok(Some(instance));
+        match symbol.compatible_instance_for_project(project_name, target) {
+            Ok(Some(instance)) => return Ok(Some(instance)),
+            Ok(None) => {}
+            Err(error) => return Err(ambiguity_error(occurrence, error.matches)),
         }
     }
-    Ok(symbol
-        .instances
-        .iter()
-        .find(|instance| instance.project.as_ref() == project_name)
-        .or_else(|| symbol.instances.first()))
+    Ok(symbol.first_instance_for_project(project_name))
 }
 
 fn exact_instance<'a>(

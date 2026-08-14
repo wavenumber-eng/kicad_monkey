@@ -32,6 +32,9 @@ pub struct SchematicPlacedSymbol {
     pub instances: Vec<SchematicSymbolInstance>,
     instance_by_project_path: HashMap<Arc<str>, HashMap<String, InstanceIndexEntry>>,
     instance_by_path: HashMap<String, InstanceIndexEntry>,
+    suffix_by_project: HashMap<Arc<str>, InstanceSuffixIndex>,
+    suffix_all_projects: InstanceSuffixIndex,
+    first_instance_by_project: HashMap<Arc<str>, usize>,
 }
 
 impl SchematicPlacedSymbol {
@@ -52,6 +55,28 @@ impl SchematicPlacedSymbol {
         path: &str,
     ) -> Result<Option<&SchematicSymbolInstance>, SchematicSymbolInstanceLookupError> {
         self.resolve_instance_entry(self.instance_by_path.get(normalized_path(path)))
+    }
+
+    pub(crate) fn compatible_instance_for_project(
+        &self,
+        project: &str,
+        path: &str,
+    ) -> Result<Option<&SchematicSymbolInstance>, SchematicSymbolInstanceLookupError> {
+        let entry = self.suffix_by_project.get(project).map_or_else(
+            || self.suffix_all_projects.query(path),
+            |index| index.query(path),
+        );
+        self.resolve_instance_entry(entry.as_ref())
+    }
+
+    pub(crate) fn first_instance_for_project(
+        &self,
+        project: &str,
+    ) -> Option<&SchematicSymbolInstance> {
+        self.first_instance_by_project
+            .get(project)
+            .map(|index| &self.instances[*index])
+            .or_else(|| self.instances.first())
     }
 
     fn resolve_instance_entry(
@@ -91,6 +116,93 @@ impl std::error::Error for SchematicSymbolInstanceLookupError {}
 struct InstanceIndexEntry {
     index: usize,
     matches: usize,
+}
+
+impl InstanceIndexEntry {
+    fn merge(self, other: Self) -> Self {
+        Self {
+            index: self.index.min(other.index),
+            matches: self.matches.saturating_add(other.matches),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct InstanceSuffixIndex {
+    nodes: Vec<InstanceSuffixNode>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct InstanceSuffixNode {
+    children: HashMap<u8, usize>,
+    descendants: Option<InstanceIndexEntry>,
+    terminal: Option<InstanceIndexEntry>,
+}
+
+#[derive(Debug, Default)]
+struct SchematicSymbolInstanceIndexes {
+    by_project_path: HashMap<Arc<str>, HashMap<String, InstanceIndexEntry>>,
+    by_path: HashMap<String, InstanceIndexEntry>,
+    suffix_by_project: HashMap<Arc<str>, InstanceSuffixIndex>,
+    suffix_all_projects: InstanceSuffixIndex,
+    first_by_project: HashMap<Arc<str>, usize>,
+}
+
+impl InstanceSuffixIndex {
+    fn insert(&mut self, path: &str, instance_index: usize) {
+        let path = normalized_path(path);
+        if path.is_empty() {
+            return;
+        }
+        if self.nodes.is_empty() {
+            self.nodes.push(InstanceSuffixNode::default());
+        }
+        let entry = InstanceIndexEntry {
+            index: instance_index,
+            matches: 1,
+        };
+        let mut node_index = 0_usize;
+        for byte in path.bytes().rev() {
+            let next = self.nodes[node_index].children.get(&byte).copied();
+            node_index = next.unwrap_or_else(|| {
+                let index = self.nodes.len();
+                self.nodes.push(InstanceSuffixNode::default());
+                self.nodes[node_index].children.insert(byte, index);
+                index
+            });
+            merge_index_entry(&mut self.nodes[node_index].descendants, entry);
+        }
+        merge_index_entry(&mut self.nodes[node_index].terminal, entry);
+    }
+
+    fn query(&self, path: &str) -> Option<InstanceIndexEntry> {
+        let path = normalized_path(path);
+        if path.is_empty() || self.nodes.is_empty() {
+            return None;
+        }
+        let mut node_index = 0_usize;
+        let mut shorter = None;
+        let length = path.len();
+        for (offset, byte) in path.bytes().rev().enumerate() {
+            let Some(next) = self.nodes[node_index].children.get(&byte).copied() else {
+                return shorter;
+            };
+            node_index = next;
+            if offset + 1 < length
+                && let Some(terminal) = self.nodes[node_index].terminal
+            {
+                merge_index_entry(&mut shorter, terminal);
+            }
+        }
+        if let Some(descendants) = self.nodes[node_index].descendants {
+            merge_index_entry(&mut shorter, descendants);
+        }
+        shorter
+    }
+}
+
+fn merge_index_entry(target: &mut Option<InstanceIndexEntry>, entry: InstanceIndexEntry) {
+    *target = Some(target.map_or(entry, |current| current.merge(entry)));
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -178,20 +290,7 @@ fn parse_symbol(
     })?;
     let instances =
         parse_symbol_instances(source, child(&spans, "instances"), source_path, limits)?;
-    let mut instance_by_project_path =
-        HashMap::<Arc<str>, HashMap<String, InstanceIndexEntry>>::new();
-    let mut instance_by_path = HashMap::with_capacity(instances.len());
-    for (index, instance) in instances.iter().enumerate() {
-        let path = normalized_path(&instance.path);
-        update_instance_index(
-            instance_by_project_path
-                .entry(Arc::clone(&instance.project))
-                .or_default(),
-            path,
-            index,
-        );
-        update_instance_index(&mut instance_by_path, path, index);
-    }
+    let indexes = index_symbol_instances(&instances);
     Ok(SchematicPlacedSymbol {
         lib_id: scalar(source, &spans, "lib_id", source_path, limits)?.unwrap_or_default(),
         lib_name: scalar(source, &spans, "lib_name", source_path, limits)?.unwrap_or_default(),
@@ -223,9 +322,42 @@ fn parse_symbol(
         properties: parse_properties(source, &spans, source_path, limits)?,
         pins: parse_pins(source, &spans, source_path, limits)?,
         instances,
-        instance_by_project_path,
-        instance_by_path,
+        instance_by_project_path: indexes.by_project_path,
+        instance_by_path: indexes.by_path,
+        suffix_by_project: indexes.suffix_by_project,
+        suffix_all_projects: indexes.suffix_all_projects,
+        first_instance_by_project: indexes.first_by_project,
     })
+}
+
+fn index_symbol_instances(instances: &[SchematicSymbolInstance]) -> SchematicSymbolInstanceIndexes {
+    let mut indexes = SchematicSymbolInstanceIndexes {
+        by_path: HashMap::with_capacity(instances.len()),
+        ..SchematicSymbolInstanceIndexes::default()
+    };
+    for (index, instance) in instances.iter().enumerate() {
+        let path = normalized_path(&instance.path);
+        update_instance_index(
+            indexes
+                .by_project_path
+                .entry(Arc::clone(&instance.project))
+                .or_default(),
+            path,
+            index,
+        );
+        update_instance_index(&mut indexes.by_path, path, index);
+        indexes
+            .suffix_by_project
+            .entry(Arc::clone(&instance.project))
+            .or_default()
+            .insert(path, index);
+        indexes.suffix_all_projects.insert(path, index);
+        indexes
+            .first_by_project
+            .entry(Arc::clone(&instance.project))
+            .or_insert(index);
+    }
+    indexes
 }
 
 fn update_instance_index(
