@@ -30,10 +30,9 @@ pub struct SchematicPlacedSymbol {
     pub properties: Vec<SchematicSymbolProperty>,
     pub pins: Vec<SchematicSymbolPin>,
     pub instances: Vec<SchematicSymbolInstance>,
-    instance_by_project_path: HashMap<Arc<str>, HashMap<String, InstanceIndexEntry>>,
-    instance_by_path: HashMap<String, InstanceIndexEntry>,
-    suffix_by_project: HashMap<Arc<str>, InstanceSuffixIndex>,
-    suffix_all_projects: InstanceSuffixIndex,
+    instance_by_project_path: HashMap<Arc<str>, HashMap<Arc<str>, InstanceIndexEntry>>,
+    instance_by_path: HashMap<Arc<str>, InstanceIndexEntry>,
+    suffix_index: InstanceSuffixIndex,
     first_instance_by_project: HashMap<Arc<str>, usize>,
 }
 
@@ -62,10 +61,18 @@ impl SchematicPlacedSymbol {
         project: &str,
         path: &str,
     ) -> Result<Option<&SchematicSymbolInstance>, SchematicSymbolInstanceLookupError> {
-        let entry = self.suffix_by_project.get(project).map_or_else(
-            || self.suffix_all_projects.query(path),
-            |index| index.query(path),
-        );
+        let (ordered, prefixes) = self
+            .suffix_index
+            .by_project
+            .get(project)
+            .and_then(|ordered| {
+                self.suffix_index
+                    .prefixes_by_project
+                    .get(project)
+                    .map(|prefixes| (ordered, prefixes))
+            })
+            .unwrap_or((&self.suffix_index.all, &self.suffix_index.prefixes_all));
+        let entry = self.suffix_index.query(path, ordered, prefixes);
         self.resolve_instance_entry(entry.as_ref())
     }
 
@@ -129,76 +136,217 @@ impl InstanceIndexEntry {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct InstanceSuffixIndex {
-    nodes: Vec<InstanceSuffixNode>,
+    reversed_bytes: Vec<u8>,
+    reversed_ranges: Vec<InstancePathRange>,
+    by_project: HashMap<Arc<str>, Vec<usize>>,
+    all: Vec<usize>,
+    prefixes_by_project: HashMap<Arc<str>, HashMap<PathFingerprint, FingerprintBucket>>,
+    prefixes_all: HashMap<PathFingerprint, FingerprintBucket>,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-struct InstanceSuffixNode {
-    children: HashMap<u8, usize>,
-    descendants: Option<InstanceIndexEntry>,
-    terminal: Option<InstanceIndexEntry>,
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct InstancePathRange {
+    start: usize,
+    end: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct PathFingerprint {
+    first: u64,
+    second: u64,
+    length: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum FingerprintBucket {
+    One(InstanceIndexEntry),
+    Collision(Vec<InstanceIndexEntry>),
 }
 
 #[derive(Debug, Default)]
 struct SchematicSymbolInstanceIndexes {
-    by_project_path: HashMap<Arc<str>, HashMap<String, InstanceIndexEntry>>,
-    by_path: HashMap<String, InstanceIndexEntry>,
-    suffix_by_project: HashMap<Arc<str>, InstanceSuffixIndex>,
-    suffix_all_projects: InstanceSuffixIndex,
+    by_project_path: HashMap<Arc<str>, HashMap<Arc<str>, InstanceIndexEntry>>,
+    by_path: HashMap<Arc<str>, InstanceIndexEntry>,
+    suffix_index: InstanceSuffixIndex,
     first_by_project: HashMap<Arc<str>, usize>,
 }
 
 impl InstanceSuffixIndex {
-    fn insert(&mut self, path: &str, instance_index: usize) {
+    fn insert(&mut self, path: &str, project: &Arc<str>, instance_index: usize) {
         let path = normalized_path(path);
+        let start = self.reversed_bytes.len();
+        self.reversed_bytes.extend(path.bytes().rev());
+        self.reversed_ranges.push(InstancePathRange {
+            start,
+            end: self.reversed_bytes.len(),
+        });
         if path.is_empty() {
             return;
         }
-        if self.nodes.is_empty() {
-            self.nodes.push(InstanceSuffixNode::default());
-        }
-        let entry = InstanceIndexEntry {
-            index: instance_index,
-            matches: 1,
-        };
-        let mut node_index = 0_usize;
-        for byte in path.bytes().rev() {
-            let next = self.nodes[node_index].children.get(&byte).copied();
-            node_index = next.unwrap_or_else(|| {
-                let index = self.nodes.len();
-                self.nodes.push(InstanceSuffixNode::default());
-                self.nodes[node_index].children.insert(byte, index);
-                index
-            });
-            merge_index_entry(&mut self.nodes[node_index].descendants, entry);
-        }
-        merge_index_entry(&mut self.nodes[node_index].terminal, entry);
+        self.by_project
+            .entry(Arc::clone(project))
+            .or_default()
+            .push(instance_index);
+        self.all.push(instance_index);
     }
 
-    fn query(&self, path: &str) -> Option<InstanceIndexEntry> {
+    fn finish(
+        &mut self,
+        by_project_path: &HashMap<Arc<str>, HashMap<Arc<str>, InstanceIndexEntry>>,
+        by_path: &HashMap<Arc<str>, InstanceIndexEntry>,
+    ) {
+        let bytes = &self.reversed_bytes;
+        let ranges = &self.reversed_ranges;
+        let compare = |left: &usize, right: &usize| {
+            reversed_path(bytes, ranges, *left)
+                .cmp(reversed_path(bytes, ranges, *right))
+                .then(left.cmp(right))
+        };
+        self.all.sort_unstable_by(compare);
+        for ordered in self.by_project.values_mut() {
+            ordered.sort_unstable_by(compare);
+        }
+        self.prefixes_all = fingerprint_index(by_path, bytes, ranges);
+        for (project, paths) in by_project_path {
+            self.prefixes_by_project
+                .insert(Arc::clone(project), fingerprint_index(paths, bytes, ranges));
+        }
+    }
+
+    fn query(
+        &self,
+        path: &str,
+        ordered: &[usize],
+        prefixes: &HashMap<PathFingerprint, FingerprintBucket>,
+    ) -> Option<InstanceIndexEntry> {
         let path = normalized_path(path);
-        if path.is_empty() || self.nodes.is_empty() {
+        if path.is_empty() {
             return None;
         }
-        let mut node_index = 0_usize;
-        let mut shorter = None;
-        let length = path.len();
-        for (offset, byte) in path.bytes().rev().enumerate() {
-            let Some(next) = self.nodes[node_index].children.get(&byte).copied() else {
-                return shorter;
-            };
-            node_index = next;
-            if offset + 1 < length
-                && let Some(terminal) = self.nodes[node_index].terminal
+        let reversed = path.bytes().rev().collect::<Vec<_>>();
+        let mut result = None;
+        let mut fingerprint = PathFingerprint::default();
+        for (offset, byte) in reversed.iter().copied().enumerate() {
+            fingerprint.push(byte);
+            if offset + 1 < reversed.len()
+                && let Some(bucket) = prefixes.get(&fingerprint)
+                && let Some(entry) = bucket.matching(&reversed[..=offset], self)
             {
-                merge_index_entry(&mut shorter, terminal);
+                merge_index_entry(&mut result, entry);
             }
         }
-        if let Some(descendants) = self.nodes[node_index].descendants {
-            merge_index_entry(&mut shorter, descendants);
+        let start =
+            ordered.partition_point(|index| self.reversed_path(*index) < reversed.as_slice());
+        let end = prefix_successor(&reversed).map_or(ordered.len(), |upper| {
+            ordered.partition_point(|index| self.reversed_path(*index) < upper.as_slice())
+        });
+        if end > start {
+            merge_index_entry(
+                &mut result,
+                InstanceIndexEntry {
+                    index: ordered[start],
+                    matches: end - start,
+                },
+            );
         }
-        shorter
+        result
     }
+
+    fn reversed_path(&self, instance_index: usize) -> &[u8] {
+        reversed_path(&self.reversed_bytes, &self.reversed_ranges, instance_index)
+    }
+}
+
+fn prefix_successor(prefix: &[u8]) -> Option<Vec<u8>> {
+    let mut successor = prefix.to_vec();
+    while successor.last() == Some(&u8::MAX) {
+        successor.pop();
+    }
+    let last = successor.last_mut()?;
+    *last += 1;
+    Some(successor)
+}
+
+impl Default for PathFingerprint {
+    fn default() -> Self {
+        Self {
+            first: 0xcbf2_9ce4_8422_2325,
+            second: 0x8422_2325_cbf2_9ce4,
+            length: 0,
+        }
+    }
+}
+
+impl PathFingerprint {
+    fn push(&mut self, byte: u8) {
+        self.first = self
+            .first
+            .wrapping_mul(0x0000_0100_0000_01b3)
+            .wrapping_add(u64::from(byte) + 1);
+        self.second = self
+            .second
+            .wrapping_mul(0x9e37_79b1_85eb_ca87)
+            .wrapping_add(u64::from(byte) + 0x100);
+        self.length += 1;
+    }
+
+    fn for_reversed_path(path: &[u8]) -> Self {
+        let mut fingerprint = Self::default();
+        for byte in path {
+            fingerprint.push(*byte);
+        }
+        fingerprint
+    }
+}
+
+impl FingerprintBucket {
+    fn matching(
+        &self,
+        path: &[u8],
+        suffix_index: &InstanceSuffixIndex,
+    ) -> Option<InstanceIndexEntry> {
+        match self {
+            Self::One(entry) => (suffix_index.reversed_path(entry.index) == path).then_some(*entry),
+            Self::Collision(entries) => entries
+                .iter()
+                .find(|entry| suffix_index.reversed_path(entry.index) == path)
+                .copied(),
+        }
+    }
+}
+
+fn fingerprint_index(
+    paths: &HashMap<Arc<str>, InstanceIndexEntry>,
+    reversed_bytes: &[u8],
+    reversed_ranges: &[InstancePathRange],
+) -> HashMap<PathFingerprint, FingerprintBucket> {
+    let mut index = HashMap::with_capacity(paths.len());
+    for entry in paths
+        .values()
+        .filter(|entry| !reversed_path(reversed_bytes, reversed_ranges, entry.index).is_empty())
+    {
+        let path = reversed_path(reversed_bytes, reversed_ranges, entry.index);
+        let fingerprint = PathFingerprint::for_reversed_path(path);
+        index
+            .entry(fingerprint)
+            .and_modify(|bucket| match bucket {
+                FingerprintBucket::One(first) => {
+                    *bucket = FingerprintBucket::Collision(vec![*first, *entry]);
+                }
+                FingerprintBucket::Collision(entries) => entries.push(*entry),
+            })
+            .or_insert(FingerprintBucket::One(*entry));
+    }
+    index
+}
+
+fn reversed_path<'a>(
+    bytes: &'a [u8],
+    ranges: &[InstancePathRange],
+    instance_index: usize,
+) -> &'a [u8] {
+    let range = ranges[instance_index];
+    &bytes[range.start..range.end]
 }
 
 fn merge_index_entry(target: &mut Option<InstanceIndexEntry>, entry: InstanceIndexEntry) {
@@ -225,6 +373,7 @@ pub(crate) fn parse_placed_symbols(
     limits: SchematicBundleLimits,
 ) -> Result<Vec<SchematicPlacedSymbol>, SourceBundleError> {
     let mut symbols = Vec::new();
+    let mut retained_instance_index_bytes = 0_usize;
     for span in spans
         .iter()
         .filter(|span| span.depth == 1 && span.head.as_deref() == Some("symbol"))
@@ -238,7 +387,12 @@ pub(crate) fn parse_placed_symbols(
         let text = span
             .text(source)
             .map_err(|error| source_error(source_path, error.to_string()))?;
-        symbols.push(parse_symbol(text, source_path, limits)?);
+        symbols.push(parse_symbol(
+            text,
+            source_path,
+            limits,
+            &mut retained_instance_index_bytes,
+        )?);
     }
     Ok(symbols)
 }
@@ -247,6 +401,7 @@ fn parse_symbol(
     source: &str,
     source_path: &str,
     limits: SchematicBundleLimits,
+    retained_instance_index_bytes: &mut usize,
 ) -> Result<SchematicPlacedSymbol, SourceBundleError> {
     let selected_limit = limits
         .max_symbol_properties_per_symbol
@@ -290,7 +445,12 @@ fn parse_symbol(
     })?;
     let instances =
         parse_symbol_instances(source, child(&spans, "instances"), source_path, limits)?;
-    let indexes = index_symbol_instances(&instances);
+    let indexes = index_symbol_instances(
+        &instances,
+        limits.max_symbol_instance_index_bytes_per_source,
+        retained_instance_index_bytes,
+        source_path,
+    )?;
     Ok(SchematicPlacedSymbol {
         lib_id: scalar(source, &spans, "lib_id", source_path, limits)?.unwrap_or_default(),
         lib_name: scalar(source, &spans, "lib_name", source_path, limits)?.unwrap_or_default(),
@@ -324,54 +484,86 @@ fn parse_symbol(
         instances,
         instance_by_project_path: indexes.by_project_path,
         instance_by_path: indexes.by_path,
-        suffix_by_project: indexes.suffix_by_project,
-        suffix_all_projects: indexes.suffix_all_projects,
+        suffix_index: indexes.suffix_index,
         first_instance_by_project: indexes.first_by_project,
     })
 }
 
-fn index_symbol_instances(instances: &[SchematicSymbolInstance]) -> SchematicSymbolInstanceIndexes {
+fn index_symbol_instances(
+    instances: &[SchematicSymbolInstance],
+    max_index_bytes: usize,
+    retained_bytes: &mut usize,
+    source_path: &str,
+) -> Result<SchematicSymbolInstanceIndexes, SourceBundleError> {
     let mut indexes = SchematicSymbolInstanceIndexes {
         by_path: HashMap::with_capacity(instances.len()),
         ..SchematicSymbolInstanceIndexes::default()
     };
     for (index, instance) in instances.iter().enumerate() {
         let path = normalized_path(&instance.path);
+        let required = instance_index_bytes(path).ok_or_else(|| {
+            limit_error(source_path, "symbol instance index byte count overflows")
+        })?;
+        let candidate_bytes = retained_bytes.checked_add(required).ok_or_else(|| {
+            limit_error(source_path, "symbol instance index byte count overflows")
+        })?;
+        if candidate_bytes > max_index_bytes {
+            return Err(limit_error(
+                source_path,
+                "symbol instance index bytes exceed their limit",
+            ));
+        }
+        *retained_bytes = candidate_bytes;
+        let path_key = indexes
+            .by_path
+            .get_key_value(path)
+            .map_or_else(|| Arc::<str>::from(path), |(key, _)| Arc::clone(key));
         update_instance_index(
             indexes
                 .by_project_path
                 .entry(Arc::clone(&instance.project))
                 .or_default(),
-            path,
+            Arc::clone(&path_key),
             index,
         );
-        update_instance_index(&mut indexes.by_path, path, index);
-        indexes
-            .suffix_by_project
-            .entry(Arc::clone(&instance.project))
-            .or_default()
-            .insert(path, index);
-        indexes.suffix_all_projects.insert(path, index);
+        update_instance_index(&mut indexes.by_path, path_key, index);
+        indexes.suffix_index.insert(path, &instance.project, index);
         indexes
             .first_by_project
             .entry(Arc::clone(&instance.project))
             .or_insert(index);
     }
     indexes
+        .suffix_index
+        .finish(&indexes.by_project_path, &indexes.by_path);
+    Ok(indexes)
 }
 
 fn update_instance_index(
-    index: &mut HashMap<String, InstanceIndexEntry>,
-    path: &str,
+    index: &mut HashMap<Arc<str>, InstanceIndexEntry>,
+    path: Arc<str>,
     instance_index: usize,
 ) {
     index
-        .entry(path.to_owned())
+        .entry(path)
         .and_modify(|entry| entry.matches = entry.matches.saturating_add(1))
         .or_insert(InstanceIndexEntry {
             index: instance_index,
             matches: 1,
         });
+}
+
+fn instance_index_bytes(path: &str) -> Option<usize> {
+    let range_bytes = std::mem::size_of::<InstancePathRange>();
+    if path.is_empty() {
+        return Some(range_bytes);
+    }
+    path.len()
+        .checked_mul(2)
+        .and_then(|bytes| bytes.checked_add(range_bytes))
+        .and_then(|bytes| bytes.checked_add(2 * std::mem::size_of::<usize>()))
+        .and_then(|bytes| bytes.checked_add(2 * std::mem::size_of::<PathFingerprint>()))
+        .and_then(|bytes| bytes.checked_add(2 * std::mem::size_of::<InstanceIndexEntry>()))
 }
 
 fn normalized_path(path: &str) -> &str {

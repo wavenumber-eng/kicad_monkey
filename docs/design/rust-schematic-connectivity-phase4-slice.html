@@ -51,10 +51,13 @@
   repeated symbol resolution does not reconstruct hierarchy paths. Legacy symbol
   instances use one bundle-wide, source-first index because KiCad commonly stores
   child-occurrence records in the top schematic rather than in the child definition.
-  Modern compatibility lookup uses project-specific and bundle-fallback reversed-path
-  indexes plus a constant-time first-instance fallback. Resolution is therefore
-  bounded by the queried path length and returned symbol count instead of rescanning
-  every instance for every repeated occurrence.</p>
+  Modern compatibility lookup uses one compact reversed-byte arena, sorted
+  project-specific and bundle-fallback instance vectors, rolling-fingerprint prefix
+  indexes, and a constant-time first-instance fallback. Resolution is therefore
+  bounded by the queried path length and logarithmic range lookup instead of
+  rescanning every instance for every repeated occurrence. A separate aggregate
+  per-source index-byte allowance accounts for copied path bytes, retained ranges,
+  and both project/global index entries before any of them are retained.</p>
 
   <p>Coordinates are snapped immediately to KiCad's 100-nm schematic internal-unit
   grid and stored as signed integers. A dependency-free decimal parser performs the

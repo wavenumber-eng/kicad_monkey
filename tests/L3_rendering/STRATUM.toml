@@ -229,4 +229,5 @@ secondary = [
     "Effective per-occurrence symbol references, units, fields, and policy match Python",
     "Top-schematic legacy records resolve distinct repeated child occurrences",
     "Modern suffix compatibility and fallback resolution use bounded indexes rather than occurrence-by-instance scans",
+    "Compact modern-instance indexes enforce an aggregate per-source byte allowance at the exact boundary",
 ]

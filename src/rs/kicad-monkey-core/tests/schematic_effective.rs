@@ -2,7 +2,8 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
     SourceBundleManifestA0, SourceBundleSource, SourceKind,
 };
 use kicad_monkey_core::{
-    SchematicBundleIndex, SchematicBundleLimits, SourceBundle, SourceBundleLimits,
+    SchematicBundleIndex, SchematicBundleLimits, SourceBundle, SourceBundleErrorKind,
+    SourceBundleLimits,
 };
 
 #[test]
@@ -102,6 +103,74 @@ fn indexed_suffix_resolution_rejects_ambiguous_compatible_paths() {
         .effective_symbols(2, None)
         .expect_err("compatible suffix paths must be ambiguous");
     assert!(error.message.contains("ambiguous across 2 records"));
+}
+
+#[test]
+fn compact_suffix_index_preserves_shorter_path_and_project_scoping() {
+    let root = br#"(kicad_sch
+      (uuid top-source)
+      (sheet (uuid sheet-a)
+        (property "Sheetname" "Page")
+        (property "Sheetfile" "child.kicad_sch")))"#
+        .to_vec();
+    let child = br#"(kicad_sch
+      (uuid child-source)
+      (symbol (lib_id "Demo:Part") (uuid child-symbol)
+        (instances
+          (project "other"
+            (path "/wrong/sheet-a" (reference "WRONG") (unit 8)))
+          (project "root"
+            (path "sheet-a" (reference "RIGHT") (unit 4))))))"#
+        .to_vec();
+    let index = SchematicBundleIndex::build(&bundle(root, child), SchematicBundleLimits::default())
+        .expect("short suffix index");
+
+    let symbol = index.effective_symbols(2, None).expect("child symbol");
+    assert_eq!((symbol[0].reference.as_str(), symbol[0].unit), ("RIGHT", 4));
+}
+
+#[test]
+fn compact_instance_indexes_enforce_the_aggregate_source_byte_budget() {
+    let long_path = format!("/{}", "x".repeat(4_096));
+    let short_path = "/sheet/second";
+    let root = format!(
+        "(kicad_sch \
+         (symbol (uuid symbol-a) (instances \
+         (project \"root\" \
+           (path \"{long_path}\" (reference \"U1\"))))) \
+         (symbol (uuid symbol-b) (instances \
+         (project \"root\" \
+           (path \"{short_path}\" (reference \"U2\"))))))"
+    )
+    .into_bytes();
+    let source = bundle(root, b"(kicad_sch)".to_vec());
+    let index_bytes = [long_path.as_str(), short_path]
+        .into_iter()
+        .map(logical_instance_index_bytes)
+        .sum();
+
+    SchematicBundleIndex::build(
+        &source,
+        SchematicBundleLimits {
+            max_symbol_instance_index_bytes_per_source: index_bytes,
+            ..SchematicBundleLimits::default()
+        },
+    )
+    .expect("exact compact-index byte limit");
+    let error = SchematicBundleIndex::build(
+        &source,
+        SchematicBundleLimits {
+            max_symbol_instance_index_bytes_per_source: index_bytes - 1,
+            ..SchematicBundleLimits::default()
+        },
+    )
+    .expect_err("one byte over compact-index limit");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(error.message.contains("instance index bytes"));
+}
+
+fn logical_instance_index_bytes(path: &str) -> usize {
+    14 * size_of::<usize>() + 2 * path.trim_end_matches('/').len()
 }
 
 fn bundle(root: Vec<u8>, child: Vec<u8>) -> SourceBundle {
