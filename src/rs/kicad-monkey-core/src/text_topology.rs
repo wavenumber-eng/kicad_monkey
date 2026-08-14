@@ -507,13 +507,18 @@ fn collect_fractured(
     limits: TextTopologyLimits,
     work: &mut Work,
 ) -> Result<Vec<TextPoint>, TextContourError> {
-    let mut points = Vec::new();
+    let mut points: Vec<TextPoint> = Vec::new();
     let mut current = 0;
     loop {
         charge_link(limits, work)?;
-        charge_output(1, limits, work)?;
         let edge = edges[current].expect("fractured exterior edge is populated");
-        points.push(edge.p1);
+        // KiCad assembles the fractured ring through SHAPE_LINE_CHAIN::Append,
+        // which drops points equal to the last one; a bridge split point can
+        // coincide with the hole's bridge vertex at small glyph sizes.
+        if points.last() != Some(&edge.p1) {
+            charge_output(1, limits, work)?;
+            points.push(edge.p1);
+        }
         if edge.next == 0 {
             break;
         }

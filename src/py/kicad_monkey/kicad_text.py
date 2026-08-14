@@ -1881,15 +1881,20 @@ class KiCadTextRenderer:
                 gy = pt[1] + cursor_y + hb_y_offset + vertical_offset
                 vx = run_x + gx * scale_x
                 vy = run_y - gy * scale_y
-                transformed.append(
-                    self._transform_rendered_text_point(
-                        params,
-                        cos_a=cos_a,
-                        sin_a=sin_a,
-                        x=vx,
-                        y=vy,
-                    )
+                transformed_pt = self._transform_rendered_text_point(
+                    params,
+                    cos_a=cos_a,
+                    sin_a=sin_a,
+                    x=vx,
+                    y=vy,
                 )
+                # KiCad's SHAPE_LINE_CHAIN::Append drops points equal to the
+                # last one; distinct outline points can collapse after the
+                # glyph scale at small text sizes. The Rust port dedups at the
+                # same post-transform stage (`push_transformed`).
+                if transformed and transformed[-1] == transformed_pt:
+                    continue
+                transformed.append(transformed_pt)
             if transformed:
                 contours_out.append(transformed)
         appended = len(contours_out) - appended_before

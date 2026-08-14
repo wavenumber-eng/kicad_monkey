@@ -246,6 +246,7 @@ def _write_outline_text_board(
     font_face: str = "Arial",
     angle: float = 0.0,
     justify: str | None = "left top",
+    font_size: str = "2 2",
 ) -> None:
     justify_expr = f"\t\t\t(justify {justify})\n" if justify else ""
     source.write_text(
@@ -273,7 +274,7 @@ def _write_outline_text_board(
 \t\t(layer "F.SilkS")
 \t\t(uuid "11111111-1111-1111-1111-111111111111")
 \t\t(effects
-\t\t\t(font (face "{font_face}") (size 2 2) (thickness 0.2) {font_style})
+\t\t\t(font (face "{font_face}") (size {font_size}) (thickness 0.2) {font_style})
 {justify_expr}
 \t\t)
 \t)
@@ -998,6 +999,57 @@ def test_python_render_cache_generator_matches_kicad_oracle_for_mirrored_glyphs(
 ):
     source = tmp_path / f"render_cache_python_generator_{case_name}.kicad_pcb"
     _write_outline_text_board(source, text, justify="left top mirror")
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.parametrize(
+    ("text", "angle", "justify", "case_name"),
+    [
+        # At small glyph sizes a fracture bridge split point can coincide
+        # exactly with the hole's bridge vertex; KiCad's
+        # SHAPE_LINE_CHAIN::Append drops the duplicated point.
+        ("C203", 90.0, "left top mirror", "small_bold_mirrored_rotated"),
+        ("R80", 0.0, "left top mirror", "small_bold_mirrored"),
+    ],
+)
+def test_python_render_cache_generator_matches_small_size_dedup_oracle(
+    tmp_path: Path,
+    text: str,
+    angle: float,
+    justify: str,
+    case_name: str,
+):
+    source = tmp_path / f"render_cache_python_generator_{case_name}.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        text,
+        font_style="bold",
+        angle=angle,
+        justify=justify,
+        font_size="0.6 0.6",
+    )
 
     oracle = run_kicad_pcb_render_cache_save_oracle(
         kicad_cli=_CLI,

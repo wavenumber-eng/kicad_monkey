@@ -267,6 +267,50 @@ fn reversed_winding_rings_normalize_before_fracture() {
 }
 
 #[test]
+fn coincident_bridge_split_point_is_not_duplicated() {
+    // The hole's bridge vertex (1, 2) lies exactly on the exterior's left
+    // edge, so the bridge split point coincides with it. KiCad assembles the
+    // fractured ring through SHAPE_LINE_CHAIN::Append, which drops points
+    // equal to the last one, so the coincident pair collapses to a single
+    // point. Expected output fixed against the Python reference fracture
+    // helpers; small bold corpus glyphs (Arial C203/R80 at 0.6 mm) pin the
+    // same rule against live save oracles.
+    let input = [
+        TextContour {
+            points: [(1.0, 0.0), (4.0, 0.0), (4.0, 4.0), (1.0, 4.0)]
+                .map(|(x, y)| TextPoint { x, y })
+                .to_vec(),
+        },
+        TextContour {
+            points: [(2.0, 1.5), (1.0, 2.0), (2.0, 3.0), (3.0, 2.0)]
+                .map(|(x, y)| TextPoint { x, y })
+                .to_vec(),
+        },
+    ];
+    let output = fracture_text_contours_a0(&input, TextTopologyLimits::default()).unwrap();
+    assert_eq!(output.contours.len(), 1);
+    let actual: Vec<(f64, f64)> = output.contours[0]
+        .points
+        .iter()
+        .map(|point| (point.x, point.y))
+        .collect();
+    assert_eq!(
+        actual,
+        [
+            (4.0, 4.0),
+            (1.0, 4.0),
+            (1.0, 2.0),
+            (2.0, 3.0),
+            (3.0, 2.0),
+            (2.0, 1.5),
+            (1.0, 2.0),
+            (1.0, 0.0),
+            (4.0, 0.0),
+        ]
+    );
+}
+
+#[test]
 fn nonfinite_input_is_rejected_before_topology_publication() {
     let input = [TextContour {
         points: vec![

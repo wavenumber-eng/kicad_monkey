@@ -257,7 +257,13 @@
   no <code>Simplify()</code> and keep font contour order and ring seams
   untouched. Live Arial <code>%</code> (one glyph mixing a hole-free slash
   outer with holed rings), <code>Tp%</code>, and <code>i:j;!?</code>
-  save-oracle cases pin this scoping. The
+  save-oracle cases pin this scoping. The fractured ring is assembled through
+  KiCad's <code>SHAPE_LINE_CHAIN::Append</code>, which drops points equal to
+  the last one: when a bridge split point coincides exactly with the hole's
+  bridge vertex (as happens at small glyph sizes where distinct outline points
+  collapse after scaling), the pair collapses to a single published point;
+  a coincident-bridge unit case and live small bold Arial
+  <code>C203</code>/<code>R80</code> save-oracle cases pin this. The
   pairwise containment and prior-edge bridge scans have independent work
   ceilings; input points, edge slots, link traversal, polygons, and published
   points are also bounded. Finite comparisons intentionally preserve Python's

@@ -410,7 +410,11 @@ def _fracture_exterior_with_holes(
     current_index = 0
     while True:
         edge = edges[current_index]
-        fractured.append(edge["p1"])
+        # KiCad assembles the fractured ring through SHAPE_LINE_CHAIN::Append,
+        # which drops points equal to the last one; a bridge split point can
+        # coincide with the hole's bridge vertex at small glyph sizes.
+        if not fractured or fractured[-1] != edge["p1"]:
+            fractured.append(edge["p1"])
         next_index = int(edge["next"])
         if next_index == 0:
             break
