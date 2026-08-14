@@ -69,11 +69,13 @@ pub struct SchematicOccurrence {
     pub index: usize,
     pub source_path: String,
     pub parent_index: Option<usize>,
+    pub parent_sheet_index: Option<usize>,
     pub sheet_uuid: Option<String>,
     pub sheet_name: String,
     pub sheet_file: String,
     pub occurrence_address: String,
     pub legacy_address: String,
+    pub human_address: String,
     pub effective_in_bom: bool,
     pub effective_on_board: bool,
     pub effective_dnp: bool,
@@ -760,7 +762,7 @@ fn decoded(token: Token<'_>) -> Cow<'_, str> {
 
 #[derive(Clone, Debug)]
 enum HierarchyWork {
-    Enter(HierarchyEnter),
+    Enter(Box<HierarchyEnter>),
     Exit(String),
 }
 
@@ -768,9 +770,11 @@ enum HierarchyWork {
 struct HierarchyEnter {
     source_path: String,
     parent_index: Option<usize>,
+    parent_sheet_index: Option<usize>,
     sheet: Option<SchematicSheet>,
     parent_address: String,
     parent_legacy_address: String,
+    parent_human_address: String,
     effective_in_bom: bool,
     effective_on_board: bool,
     effective_dnp: bool,
@@ -785,17 +789,19 @@ fn realize_occurrences(
 ) -> Result<Vec<SchematicOccurrence>, SourceBundleError> {
     let mut occurrences = Vec::new();
     let mut active_sources = HashSet::new();
-    let mut work = vec![HierarchyWork::Enter(HierarchyEnter {
+    let mut work = vec![HierarchyWork::Enter(Box::new(HierarchyEnter {
         source_path: bundle.root_schematic_path().to_owned(),
         parent_index: None,
+        parent_sheet_index: None,
         sheet: None,
         parent_address: String::new(),
         parent_legacy_address: String::new(),
+        parent_human_address: String::new(),
         effective_in_bom: true,
         effective_on_board: true,
         effective_dnp: false,
         effective_exclude_from_sim: false,
-    })];
+    }))];
     while let Some(item) = work.pop() {
         match item {
             HierarchyWork::Exit(source_path) => {
@@ -828,27 +834,30 @@ fn realize_occurrences(
                 let occurrence = materialize_occurrence(&enter, definition, index, limits)?;
                 let occurrence_address = occurrence.occurrence_address.clone();
                 let legacy_address = occurrence.legacy_address.clone();
+                let human_address = occurrence.human_address.clone();
                 occurrences.push(occurrence);
                 work.push(HierarchyWork::Exit(enter.source_path.clone()));
-                for child in definition.sheets.iter().rev() {
+                for (child_index, child) in definition.sheets.iter().enumerate().rev() {
                     let child_source = bundle.resolve_schematic(
                         &enter.source_path,
                         &child.sheet_file,
                         limits.max_path_bytes,
                     )?;
                     let child_path = child_source.path().to_owned();
-                    work.push(HierarchyWork::Enter(HierarchyEnter {
+                    work.push(HierarchyWork::Enter(Box::new(HierarchyEnter {
                         source_path: child_path,
                         parent_index: Some(index),
+                        parent_sheet_index: Some(child_index),
                         sheet: Some(child.clone()),
                         parent_address: occurrence_address.clone(),
                         parent_legacy_address: legacy_address.clone(),
+                        parent_human_address: human_address.clone(),
                         effective_in_bom: enter.effective_in_bom && child.in_bom,
                         effective_on_board: enter.effective_on_board && child.on_board,
                         effective_dnp: enter.effective_dnp || child.dnp,
                         effective_exclude_from_sim: enter.effective_exclude_from_sim
                             || child.exclude_from_sim,
-                    }));
+                    })));
                 }
             }
         }
@@ -862,45 +871,8 @@ fn materialize_occurrence(
     index: usize,
     limits: SchematicBundleLimits,
 ) -> Result<SchematicOccurrence, SourceBundleError> {
-    let segment = enter
-        .sheet
-        .as_ref()
-        .map(|value| {
-            if value.uuid.is_empty() {
-                &value.sheet_file
-            } else {
-                &value.uuid
-            }
-        })
-        .or(definition.uuid.as_ref())
-        .map_or("root", String::as_str);
-    let occurrence_address = if enter.parent_address.is_empty() {
-        format!("/{segment}")
-    } else {
-        format!("{}/{segment}", enter.parent_address.trim_end_matches('/'))
-    };
-    let legacy_address = enter.sheet.as_ref().map_or_else(
-        || "/".to_owned(),
-        |sheet| {
-            let segment = if sheet.uuid.is_empty() {
-                &sheet.sheet_file
-            } else {
-                &sheet.uuid
-            };
-            let parent = enter.parent_legacy_address.trim_end_matches('/');
-            if parent.is_empty() {
-                format!("/{segment}/")
-            } else {
-                format!("{parent}/{segment}/")
-            }
-        },
-    );
-    if occurrence_address.len() > limits.max_path_bytes {
-        return Err(schematic_limit(
-            &enter.source_path,
-            "occurrence address exceeds max_path_bytes",
-        ));
-    }
+    let (occurrence_address, legacy_address, human_address) =
+        occurrence_paths(enter, definition, limits)?;
     let (sheet_uuid, sheet_name, sheet_file) = enter.sheet.as_ref().map_or_else(
         || (None, "root".to_owned(), String::new()),
         |value| {
@@ -919,16 +891,84 @@ fn materialize_occurrence(
         index,
         source_path: enter.source_path.clone(),
         parent_index: enter.parent_index,
+        parent_sheet_index: enter.parent_sheet_index,
         sheet_uuid,
         sheet_name,
         sheet_file,
         occurrence_address,
         legacy_address,
+        human_address,
         effective_in_bom: enter.effective_in_bom,
         effective_on_board: enter.effective_on_board,
         effective_dnp: enter.effective_dnp,
         effective_exclude_from_sim: enter.effective_exclude_from_sim,
     })
+}
+
+fn occurrence_paths(
+    enter: &HierarchyEnter,
+    definition: &SchematicDefinition,
+    limits: SchematicBundleLimits,
+) -> Result<(String, String, String), SourceBundleError> {
+    let uuid_segment = enter
+        .sheet
+        .as_ref()
+        .map(|sheet| nonempty_or(&sheet.uuid, &sheet.sheet_file))
+        .or(definition.uuid.as_deref())
+        .unwrap_or("root");
+    let occurrence = join_occurrence_path(&enter.parent_address, uuid_segment, false);
+    let legacy = enter.sheet.as_ref().map_or_else(
+        || "/".to_owned(),
+        |_| join_occurrence_path(&enter.parent_legacy_address, uuid_segment, true),
+    );
+    let human = enter.sheet.as_ref().map_or_else(
+        || "/".to_owned(),
+        |sheet| {
+            join_occurrence_path(
+                &enter.parent_human_address,
+                nonempty_or(&sheet.sheet_name, &sheet.sheet_file),
+                true,
+            )
+        },
+    );
+    if [occurrence.len(), legacy.len(), human.len()]
+        .into_iter()
+        .any(|bytes| bytes > limits.max_path_bytes)
+    {
+        return Err(schematic_limit(
+            &enter.source_path,
+            "schematic occurrence path exceeds max_path_bytes",
+        ));
+    }
+    Ok((occurrence, legacy, human))
+}
+
+fn nonempty_or<'a>(preferred: &'a str, fallback: &'a str) -> &'a str {
+    if preferred.is_empty() {
+        fallback
+    } else {
+        preferred
+    }
+}
+
+fn join_occurrence_path(parent: &str, segment: &str, trailing_slash: bool) -> String {
+    let parent = parent.trim_matches('/');
+    let segment = segment.trim_matches('/');
+    let joined = match (parent.is_empty(), segment.is_empty()) {
+        (true, true) => String::new(),
+        (true, false) => segment.to_owned(),
+        (false, true) => parent.to_owned(),
+        (false, false) => format!("{parent}/{segment}"),
+    };
+    if trailing_slash {
+        if joined.is_empty() {
+            "/".to_owned()
+        } else {
+            format!("/{joined}/")
+        }
+    } else {
+        format!("/{joined}")
+    }
 }
 
 fn schematic_error(path: &str, error: crate::Error) -> SourceBundleError {

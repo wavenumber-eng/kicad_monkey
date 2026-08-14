@@ -13,80 +13,13 @@ mod driver_types;
 mod pin_naming;
 mod stacked_pins;
 mod wire_union;
+pub use driver_types::{
+    SchematicLabelDriver, SchematicPinDriver, SchematicWireDriverKind, SchematicWireSubgraph,
+};
 pub use pin_naming::SchematicSubpartSettings;
 use pin_naming::{PinNaming, build_pin_namings};
 use stacked_pins::expand_stacked_pin;
 use wire_union::WirePointUnion;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum SchematicWireDriverKind {
-    Pin,
-    LocalPowerPin,
-    GlobalPowerPin,
-    LocalLabel,
-    GlobalLabel,
-    HierarchicalLabel,
-    SheetPin,
-}
-
-impl SchematicWireDriverKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Pin => "pin",
-            Self::LocalPowerPin => "local_power_pin",
-            Self::GlobalPowerPin => "global_power_pin",
-            Self::LocalLabel => "local_label",
-            Self::GlobalLabel => "global_label",
-            Self::HierarchicalLabel => "hier_label",
-            Self::SheetPin => "sheet_pin",
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SchematicPinDriver {
-    pub symbol_index: usize,
-    pub symbol_uuid: String,
-    pub reference: String,
-    pub pin_number: String,
-    pub pin_name: String,
-    pub electrical_type: String,
-    pub hidden: bool,
-    pub at: SchematicPoint,
-    pub priority: SchematicDriverPriority,
-    pub kind: SchematicWireDriverKind,
-    pub power_value: String,
-    pub has_multiple: bool,
-    pub designator_with_unit: String,
-    pub parent_pin_count: usize,
-    pub is_power: bool,
-    pub is_implicit_hidden_power: bool,
-    pub source_pin_uuid: String,
-    pub pin_svg_id: String,
-    pub source_order: usize,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SchematicLabelDriver {
-    pub text: String,
-    pub at: SchematicPoint,
-    pub priority: SchematicDriverPriority,
-    pub kind: SchematicWireDriverKind,
-    pub shape: String,
-    pub source_uuid: String,
-    pub source_order: usize,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SchematicWireSubgraph {
-    pub coords: Vec<SchematicPoint>,
-    pub pin_drivers: Vec<SchematicPinDriver>,
-    pub label_drivers: Vec<SchematicLabelDriver>,
-    pub chosen_name: String,
-    pub chosen_priority: SchematicDriverPriority,
-    pub chosen_kind: Option<SchematicWireDriverKind>,
-    pub no_connect: bool,
-}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SchematicOccurrenceConnectivityLimits {
@@ -144,7 +77,30 @@ pub fn build_schematic_occurrence_subgraphs_with_settings(
     subparts: SchematicSubpartSettings,
     limits: SchematicOccurrenceConnectivityLimits,
 ) -> Result<Vec<SchematicWireSubgraph>, SourceBundleError> {
-    OccurrenceBuilder::new(index, occurrence_index, subparts, limits)?.build()
+    build_schematic_occurrence_subgraphs_with_options(
+        index,
+        occurrence_index,
+        subparts,
+        false,
+        limits,
+    )
+}
+
+pub(crate) fn build_schematic_occurrence_subgraphs_with_options(
+    index: &SchematicBundleIndex,
+    occurrence_index: usize,
+    subparts: SchematicSubpartSettings,
+    include_off_board_symbols: bool,
+    limits: SchematicOccurrenceConnectivityLimits,
+) -> Result<Vec<SchematicWireSubgraph>, SourceBundleError> {
+    OccurrenceBuilder::new(
+        index,
+        occurrence_index,
+        subparts,
+        include_off_board_symbols,
+        limits,
+    )?
+    .build()
 }
 
 struct OccurrenceBuilder<'a> {
@@ -152,6 +108,7 @@ struct OccurrenceBuilder<'a> {
     definition: &'a crate::SchematicDefinition,
     occurrence_index: usize,
     subparts: SchematicSubpartSettings,
+    include_off_board_symbols: bool,
     limits: SchematicOccurrenceConnectivityLimits,
     retained_string_bytes: usize,
     expanded_pins: usize,
@@ -179,6 +136,7 @@ impl<'a> OccurrenceBuilder<'a> {
         index: &'a SchematicBundleIndex,
         occurrence_index: usize,
         subparts: SchematicSubpartSettings,
+        include_off_board_symbols: bool,
         limits: SchematicOccurrenceConnectivityLimits,
     ) -> Result<Self, SourceBundleError> {
         let occurrence = index.occurrence(occurrence_index).ok_or_else(|| {
@@ -200,6 +158,7 @@ impl<'a> OccurrenceBuilder<'a> {
             definition,
             occurrence_index,
             subparts,
+            include_off_board_symbols,
             limits,
             retained_string_bytes: 0,
             expanded_pins: 0,
@@ -405,9 +364,10 @@ impl<'a> OccurrenceBuilder<'a> {
         let terminals = terminals
             .iter()
             .filter(|terminal| {
-                effective
-                    .get(terminal.symbol_index)
-                    .is_some_and(|symbol| symbol.on_board)
+                self.include_off_board_symbols
+                    || effective
+                        .get(terminal.symbol_index)
+                        .is_some_and(|symbol| symbol.on_board)
             })
             .collect::<Vec<_>>();
         let namings = build_pin_namings(

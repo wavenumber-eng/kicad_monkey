@@ -1,5 +1,74 @@
-use super::SchematicWireDriverKind;
-use crate::{SchematicDriverPriority, SchematicLabelScope};
+use crate::{SchematicDriverPriority, SchematicLabelScope, SchematicPoint};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SchematicWireDriverKind {
+    Pin,
+    LocalPowerPin,
+    GlobalPowerPin,
+    LocalLabel,
+    GlobalLabel,
+    HierarchicalLabel,
+    SheetPin,
+}
+
+impl SchematicWireDriverKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pin => "pin",
+            Self::LocalPowerPin => "local_power_pin",
+            Self::GlobalPowerPin => "global_power_pin",
+            Self::LocalLabel => "local_label",
+            Self::GlobalLabel => "global_label",
+            Self::HierarchicalLabel => "hier_label",
+            Self::SheetPin => "sheet_pin",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SchematicPinDriver {
+    pub symbol_index: usize,
+    pub symbol_uuid: String,
+    pub reference: String,
+    pub pin_number: String,
+    pub pin_name: String,
+    pub electrical_type: String,
+    pub hidden: bool,
+    pub at: SchematicPoint,
+    pub priority: SchematicDriverPriority,
+    pub kind: SchematicWireDriverKind,
+    pub power_value: String,
+    pub has_multiple: bool,
+    pub designator_with_unit: String,
+    pub parent_pin_count: usize,
+    pub is_power: bool,
+    pub is_implicit_hidden_power: bool,
+    pub source_pin_uuid: String,
+    pub pin_svg_id: String,
+    pub source_order: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SchematicLabelDriver {
+    pub text: String,
+    pub at: SchematicPoint,
+    pub priority: SchematicDriverPriority,
+    pub kind: SchematicWireDriverKind,
+    pub shape: String,
+    pub source_uuid: String,
+    pub source_order: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SchematicWireSubgraph {
+    pub coords: Vec<SchematicPoint>,
+    pub pin_drivers: Vec<SchematicPinDriver>,
+    pub label_drivers: Vec<SchematicLabelDriver>,
+    pub chosen_name: String,
+    pub chosen_priority: SchematicDriverPriority,
+    pub chosen_kind: Option<SchematicWireDriverKind>,
+    pub no_connect: bool,
+}
 
 pub(super) fn label_type(
     scope: SchematicLabelScope,

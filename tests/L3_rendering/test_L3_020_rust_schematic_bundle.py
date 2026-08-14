@@ -17,6 +17,11 @@ from kicad_monkey.kicad_netlist_compiler import (
     compile_sheet_subgraphs,
     name_net,
 )
+from kicad_monkey.kicad_netlist_design import (
+    compile_design_subgraphs,
+    merge_design_nets,
+)
+from kicad_monkey.kicad_netlist_model import KiCadDriverKind
 from kicad_monkey.kicad_schematic_connectivity import (
     ConnectivityGraph,
     iter_symbol_pins,
@@ -309,6 +314,7 @@ def _request(
     list[dict[str, object]],
     list[dict[str, object]],
     list[dict[str, object]],
+    dict[str, object],
 ]:
     case = get_kicad_corpus_case(case_id)
     assert case is not None
@@ -338,14 +344,29 @@ def _request(
         assert occurrence_source is not None
         expected_occurrences.append(
             {
-            "source_path": Path(occurrence_source).resolve().relative_to(bundle_root).as_posix(),
-            "parent_index": occurrence.parent.index if occurrence.parent else None,
+                "source_path": Path(occurrence_source)
+                .resolve()
+                .relative_to(bundle_root)
+                .as_posix(),
+                "parent_index": occurrence.parent.index
+                if occurrence.parent
+                else None,
+                "parent_sheet_index": (
+                    next(
+                        index
+                        for index, sheet in enumerate(occurrence.parent.schematic.sheets)
+                        if sheet is occurrence.sheet_symbol
+                    )
+                    if occurrence.parent is not None
+                    else None
+                ),
                 "occurrence_address": occurrence.occurrence_address,
                 "legacy_address": occurrence.sheet_path_uuids,
-            "effective_in_bom": occurrence.effective_in_bom,
-            "effective_on_board": occurrence.effective_on_board,
-            "effective_dnp": occurrence.effective_dnp,
-            "effective_exclude_from_sim": occurrence.effective_exclude_from_sim,
+                "human_address": occurrence.sheet_path,
+                "effective_in_bom": occurrence.effective_in_bom,
+                "effective_on_board": occurrence.effective_on_board,
+                "effective_dnp": occurrence.effective_dnp,
+                "effective_exclude_from_sim": occurrence.effective_exclude_from_sim,
             }
         )
     expected_definitions = {
@@ -551,6 +572,7 @@ def _request(
         expected_local_nets.append(
             {"occurrence_index": occurrence.index, "nets": nets}
         )
+    expected_scalar_design = _scalar_design_summary(top)
     return (
         request,
         expected_definitions,
@@ -560,7 +582,87 @@ def _request(
         expected_terminals,
         expected_wire_subgraphs,
         expected_local_nets,
+        expected_scalar_design,
     )
+
+
+def _scalar_design_summary(top: KiCadSchematic) -> dict[str, object]:
+    compiled = compile_design_subgraphs(top)
+    compiled_index_by_identity = {
+        id(compiled_sheet): index for index, compiled_sheet in enumerate(compiled)
+    }
+    bindings: list[dict[str, object]] = []
+    for child_index, child in enumerate(compiled):
+        parent = child.parent
+        sheet = child.parent_sheet
+        if parent is None or sheet is None:
+            continue
+        parent_index = compiled_index_by_identity[id(parent)]
+        hierarchical_by_name: dict[str, tuple[int, str]] = {}
+        for subgraph_index, subgraph in enumerate(child.subgraphs):
+            for label in subgraph.label_drivers:
+                if label.kind == KiCadDriverKind.HIER_LABEL:
+                    hierarchical_by_name.setdefault(
+                        label.text, (subgraph_index, label.source_uuid)
+                    )
+        for pin in sheet.pins:
+            parent_subgraph = parent.coord_to_sg.get(
+                snap_mm_to_iu(pin.at_x, pin.at_y)
+            )
+            child_match = hierarchical_by_name.get(pin.name)
+            child_subgraph = child_match[0] if child_match is not None else None
+            bindings.append(
+                {
+                    "parent_occurrence_index": parent_index + 1,
+                    "child_occurrence_index": child_index + 1,
+                    "sheet_pin_name": pin.name,
+                    "sheet_pin_uuid": pin.uuid,
+                    "hierarchical_label_uuid": (
+                        child_match[1] if child_match is not None else None
+                    ),
+                    "parent_subgraph_index": parent_subgraph,
+                    "child_subgraph_index": child_subgraph,
+                    "resolved": parent_subgraph is not None
+                    and child_subgraph is not None,
+                }
+            )
+    for compiled_sheet in compiled:
+        compiled_sheet.bus_subgraphs = []
+        compiled_sheet.bus_member_wire_sg = []
+        compiled_sheet.bus_aliases_design = {}
+    nets = merge_design_nets(compiled)
+    members_by_code: dict[int, list[list[int]]] = {}
+    for occurrence_index, compiled_sheet in enumerate(compiled, start=1):
+        for subgraph_index, code in compiled_sheet.subgraph_net_codes.items():
+            members_by_code.setdefault(code, []).append(
+                [occurrence_index, subgraph_index]
+            )
+    return {
+        "nets": [
+            {
+                "name": net.name,
+                "code": net.code,
+                "driver_priority": int(net.driver_priority),
+                "driver_kind": str(net.driver_kind),
+                "auto_named": net.auto_named,
+                "members": members_by_code.get(net.code, []),
+                "terminals": [
+                    {
+                        "designator": terminal.designator,
+                        "pin": terminal.pin,
+                        "pin_name": terminal.pin_name,
+                        "pin_type": terminal.pin_type,
+                        "sheet_path": terminal.sheet_path,
+                        "source_pin_id": terminal.source_pin_id,
+                        "svg_id": terminal.svg_id,
+                    }
+                    for terminal in net.terminals
+                ],
+            }
+            for net in nets
+        ],
+        "hierarchy_bindings": bindings,
+    }
 
 
 def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
@@ -581,7 +683,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         cwd=PACKAGE_ROOT,
         input="".join(
             f"{json.dumps(request, separators=(',', ':'))}\n"
-            for request, _definitions, _occurrences, _source_models, _effective, _terminals, _wire_subgraphs, _local_nets in requests_and_counts
+            for request, _definitions, _occurrences, _source_models, _effective, _terminals, _wire_subgraphs, _local_nets, _scalar_design in requests_and_counts
         ),
         capture_output=True,
         text=True,
@@ -601,6 +703,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         terminals,
         wire_subgraphs,
         local_nets,
+        scalar_design,
     ) in zip(
         results, requests_and_counts, strict=True
     ):
@@ -615,6 +718,9 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
             f"partition={_partition_difference(result['wire_subgraphs'][0]['subgraphs'], cast(list[dict[str, Any]], wire_subgraphs[0]['subgraphs']))}"
         )
         assert result["local_nets"] == local_nets
+        assert result["scalar_design"] == scalar_design, _first_difference(
+            result["scalar_design"], scalar_design
+        )
         assert {
             definition["source_path"]: definition for definition in result["definitions"]
         } == source_models

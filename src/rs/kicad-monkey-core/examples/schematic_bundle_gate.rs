@@ -3,10 +3,11 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
 };
 use kicad_monkey_core::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicBusSubgraph, SchematicDefinition,
-    SchematicLabelScope, SchematicLocalNet, SchematicOccurrenceConnectivityLimits,
-    SchematicPlacedSymbol, SchematicPoint, SchematicSheet, SchematicWireSubgraph, SourceBundle,
-    SourceBundleLimits, build_schematic_bus_subgraphs, build_schematic_occurrence_nets,
-    build_schematic_occurrence_subgraphs,
+    SchematicDesignNet, SchematicLabelScope, SchematicLocalNet,
+    SchematicOccurrenceConnectivityLimits, SchematicPlacedSymbol, SchematicPoint, SchematicSheet,
+    SchematicWireSubgraph, SourceBundle, SourceBundleLimits, build_schematic_bus_subgraphs,
+    build_schematic_occurrence_nets, build_schematic_occurrence_subgraphs,
+    build_schematic_scalar_design_nets,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -32,6 +33,7 @@ struct ResultSummary {
     symbol_terminals: Vec<TerminalOccurrenceSummary>,
     wire_subgraphs: Vec<WireOccurrenceSummary>,
     local_nets: Vec<LocalNetOccurrenceSummary>,
+    scalar_design: ScalarDesignSummary,
     total_bytes: usize,
 }
 
@@ -171,8 +173,10 @@ struct LabelSummary {
 struct OccurrenceSummary {
     source_path: String,
     parent_index: Option<usize>,
+    parent_sheet_index: Option<usize>,
     occurrence_address: String,
     legacy_address: String,
+    human_address: String,
     effective_in_bom: bool,
     effective_on_board: bool,
     effective_dnp: bool,
@@ -284,6 +288,46 @@ struct LocalNetTerminalSummary {
 }
 
 #[derive(Debug, Serialize)]
+struct ScalarDesignSummary {
+    nets: Vec<DesignNetSummary>,
+    hierarchy_bindings: Vec<HierarchyBindingSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct DesignNetSummary {
+    name: String,
+    code: u64,
+    driver_priority: i8,
+    driver_kind: String,
+    auto_named: bool,
+    members: Vec<[usize; 2]>,
+    terminals: Vec<DesignTerminalSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct DesignTerminalSummary {
+    designator: String,
+    pin: String,
+    pin_name: String,
+    pin_type: String,
+    sheet_path: String,
+    source_pin_id: String,
+    svg_id: String,
+}
+
+#[derive(Debug, Serialize)]
+struct HierarchyBindingSummary {
+    parent_occurrence_index: usize,
+    child_occurrence_index: usize,
+    sheet_pin_name: String,
+    sheet_pin_uuid: String,
+    hierarchical_label_uuid: Option<String>,
+    parent_subgraph_index: Option<usize>,
+    child_subgraph_index: Option<usize>,
+    resolved: bool,
+}
+
+#[derive(Debug, Serialize)]
 struct WireLabelSummary {
     text: String,
     at: [i64; 2],
@@ -318,6 +362,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let symbol_terminals = terminal_summaries(&index)?;
         let wire_subgraphs = wire_summaries(&index)?;
         let local_nets = local_net_summaries(&index)?;
+        let scalar_design = scalar_design_summary(&index)?;
         println!(
             "{}",
             serde_json::to_string(&ResultSummary {
@@ -331,8 +376,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                     .map(|occurrence| OccurrenceSummary {
                         source_path: occurrence.source_path.clone(),
                         parent_index: occurrence.parent_index,
+                        parent_sheet_index: occurrence.parent_sheet_index,
                         occurrence_address: occurrence.occurrence_address.clone(),
                         legacy_address: occurrence.legacy_address.clone(),
+                        human_address: occurrence.human_address.clone(),
                         effective_in_bom: occurrence.effective_in_bom,
                         effective_on_board: occurrence.effective_on_board,
                         effective_dnp: occurrence.effective_dnp,
@@ -343,6 +390,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 symbol_terminals,
                 wire_subgraphs,
                 local_nets,
+                scalar_design,
                 total_bytes: bundle.total_bytes(),
             })?
         );
@@ -352,6 +400,59 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("no source bundle requests supplied".into());
     }
     Ok(())
+}
+
+fn scalar_design_summary(
+    index: &SchematicBundleIndex,
+) -> Result<ScalarDesignSummary, kicad_monkey_core::SourceBundleError> {
+    let design = build_schematic_scalar_design_nets(index, 1, Default::default())?;
+    Ok(ScalarDesignSummary {
+        nets: design.nets.iter().map(design_net_summary).collect(),
+        hierarchy_bindings: design
+            .hierarchy_bindings
+            .iter()
+            .map(|binding| HierarchyBindingSummary {
+                parent_occurrence_index: binding.parent_occurrence_index,
+                child_occurrence_index: binding.child_occurrence_index,
+                sheet_pin_name: binding.sheet_pin_name.clone(),
+                sheet_pin_uuid: binding.sheet_pin_uuid.clone(),
+                hierarchical_label_uuid: binding.hierarchical_label_uuid.clone(),
+                parent_subgraph_index: binding.parent_subgraph_index,
+                child_subgraph_index: binding.child_subgraph_index,
+                resolved: binding.is_resolved(),
+            })
+            .collect(),
+    })
+}
+
+fn design_net_summary(net: &SchematicDesignNet) -> DesignNetSummary {
+    DesignNetSummary {
+        name: net.name.clone(),
+        code: net.code,
+        driver_priority: net.driver_priority as i8,
+        driver_kind: net
+            .driver_kind
+            .map_or_else(String::new, |kind| kind.as_str().to_owned()),
+        auto_named: net.auto_named,
+        members: net
+            .members
+            .iter()
+            .map(|member| [member.occurrence_index, member.subgraph_index])
+            .collect(),
+        terminals: net
+            .terminals
+            .iter()
+            .map(|terminal| DesignTerminalSummary {
+                designator: terminal.designator.clone(),
+                pin: terminal.pin.clone(),
+                pin_name: terminal.pin_name.clone(),
+                pin_type: terminal.pin_type.clone(),
+                sheet_path: terminal.sheet_path.clone(),
+                source_pin_id: terminal.source_pin_id.clone(),
+                svg_id: terminal.svg_id.clone(),
+            })
+            .collect(),
+    }
 }
 
 fn local_net_summaries(

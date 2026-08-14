@@ -69,6 +69,15 @@
   project-level letter, digit, and separator conventions without coupling this
   local compiler to a generic project tree.</p>
 
+  <p><code>build_schematic_scalar_design_nets</code> now compiles every realized
+  occurrence once and performs the first design-wide connectivity pass with a
+  bounded union-find. Parent sheet pins bind to same-name child hierarchical
+  labels; equal global labels and equal global-power values merge across the
+  design; local-power values remain occurrence-local. The output preserves
+  every resolved and unresolved hierarchy boundary, stable member references,
+  human-path naming, canonical UUID-path terminals, source/render pin identity,
+  deduplicated component terminals, and sequential emitted-net codes.</p>
+
   <p>The accepted bus and wire segment indexes plus borrowed alias map are built
   once and shared by the bus-subgraph and local-wire passes for an occurrence.
   Custom static indexes are not rebuilt for each bus subgraph or driver. Embedded
@@ -277,9 +286,18 @@
   identity, duplicate weak sheet-pin suffixes, and simultaneous exact/one-over
   output ceilings.</p>
 
+  <p>The four-project differential also disables only cross-sheet bus-member
+  promotion in the Python design compiler and compares the complete remaining
+  scalar design result: hierarchy bindings, union membership, final names,
+  driver semantics, codes, and terminals. Focused native vectors cover
+  resolved and unresolved boundaries, global-label and global-power merging,
+  local-power isolation, human versus UUID paths, exact output ceilings, merge
+  keys, union work, driver fan-in, and diagnostic order.</p>
+
   <h2>Deferred work</h2>
-  <p>Hierarchy-terminal binding, design-wide global/power merging, graph row production, schematic
-  mutation, and semantic round-trip remain in Phase 4. Browser/WASM packaging remains
-  deferred by the native-first plan.</p>
+  <p>Cross-sheet bus-member promotion, compiled graph row production,
+  project-file subpart setting ingestion, schematic mutation, and semantic
+  round-trip remain in Phase 4. Browser/WASM packaging remains deferred by the
+  native-first plan.</p>
 </body>
 </html>

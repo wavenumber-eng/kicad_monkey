@@ -126,6 +126,26 @@ pub fn build_schematic_occurrence_nets_with_settings(
     Ok(nets)
 }
 
+pub(crate) fn name_schematic_subgraph(
+    source_path: &str,
+    sheet_path: &str,
+    subgraph: &SchematicWireSubgraph,
+    max_name_bytes: usize,
+) -> Result<(String, bool), SourceBundleError> {
+    NetBuilder {
+        source_path,
+        sheet_path,
+        limits: SchematicLocalNetLimits {
+            max_name_bytes,
+            max_retained_string_bytes: usize::MAX,
+            ..SchematicLocalNetLimits::default()
+        },
+        retained_string_bytes: 0,
+        terminal_count: 0,
+    }
+    .name_net(subgraph)
+}
+
 struct NetBuilder<'a> {
     source_path: &'a str,
     sheet_path: &'a str,
