@@ -122,7 +122,11 @@
 
   <p>Bus aliases and their aggregate source members have separate parsing
   ceilings. Bus expressions independently bound input bytes, direct group
-  members, expanded members, retained output/work bytes, and nesting depth.
+  members, parsed-member bytes, expanded members, live expansion work items,
+  live work bytes, final output bytes, and nesting depth. Alias members and
+  combined group qualifiers are length-checked as borrowed data before they are
+  cloned or concatenated; the live-work and final-output budgets remain
+  independently tunable even while both collections coexist.
   Vector cardinality is checked before reserving or generating members, so a
   syntactically small extreme range cannot trigger proportional allocation.</p>
 
@@ -157,8 +161,10 @@
   <p>Native bus tests mirror the established Python vector/group/alias corpus and
   add current KiCad C++ regression vectors for formatted ranges, overbar/
   superscript/subscript names, quoted and escaped spaces, and formatted members.
-  Exact/one-over cardinality and byte tests, huge-range rejection, iterative
-  alias ordering, cycle detection, nesting, and work-item ceilings are durable
+  Exact/one-over parsed, work-item, live-work-byte, output-count, and
+  output-byte tests include simultaneous queued work and retained output.
+  Huge-range rejection, oversized borrowed aliases, nested qualifiers,
+  iterative alias ordering, cycle detection, and nesting ceilings are durable
   Rust evidence. Rack L3_020 also compares every authored bus alias and member on
   the four real compiled-graph projects.</p>
 

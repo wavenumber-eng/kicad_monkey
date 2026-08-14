@@ -199,7 +199,7 @@ fn expansion_limits_fail_before_unbounded_growth() {
         "D[0..2]",
         SchematicBusExpansionLimits {
             max_expanded_members: 3,
-            max_retained_bytes: 6,
+            max_parsed_member_bytes: 6,
             ..defaults
         },
     )
@@ -212,7 +212,7 @@ fn expansion_limits_fail_before_unbounded_growth() {
             ..defaults
         },
         SchematicBusExpansionLimits {
-            max_retained_bytes: 5,
+            max_parsed_member_bytes: 5,
             ..defaults
         },
         SchematicBusExpansionLimits {
@@ -253,7 +253,7 @@ fn group_alias_work_and_depth_limits_are_independent() {
     let escaped = parse_schematic_bus_group(
         "{A/B}",
         SchematicBusExpansionLimits {
-            max_retained_bytes: 9,
+            max_parsed_member_bytes: 9,
             ..defaults
         },
     )
@@ -263,7 +263,7 @@ fn group_alias_work_and_depth_limits_are_independent() {
     let escaped_error = parse_schematic_bus_group(
         "{A/B}",
         SchematicBusExpansionLimits {
-            max_retained_bytes: 8,
+            max_parsed_member_bytes: 8,
             ..defaults
         },
     )
@@ -306,7 +306,7 @@ fn group_alias_work_and_depth_limits_are_independent() {
         "A",
         &fanout,
         SchematicBusExpansionLimits {
-            max_expanded_members: 2,
+            max_expansion_work_items: 3,
             ..defaults
         },
     )
@@ -317,7 +317,7 @@ fn group_alias_work_and_depth_limits_are_independent() {
         "LONG",
         &HashMap::new(),
         SchematicBusExpansionLimits {
-            max_retained_bytes: 3,
+            max_expanded_output_bytes: 3,
             ..defaults
         },
     )
@@ -326,6 +326,115 @@ fn group_alias_work_and_depth_limits_are_independent() {
         plain_error.kind,
         SchematicBusExpansionErrorKind::ResourceLimit
     );
+}
+
+#[test]
+fn live_work_and_output_budgets_are_independent_at_exact_boundaries() {
+    let aliases = HashMap::from([(
+        "FAN".to_owned(),
+        vec!["AA".to_owned(), "BB".to_owned(), "CC".to_owned()],
+    )]);
+    let defaults = SchematicBusExpansionLimits::default();
+    let exact = SchematicBusExpansionLimits {
+        max_expansion_work_items: 4,
+        max_expansion_work_bytes: 9,
+        max_expanded_members: 3,
+        max_expanded_output_bytes: 12,
+        ..defaults
+    };
+    assert_eq!(
+        expand_schematic_bus_label("Q{FAN}", &aliases, exact).expect("exact live budgets"),
+        ["Q.AA", "Q.BB", "Q.CC"]
+    );
+
+    for (limits, message) in [
+        (
+            SchematicBusExpansionLimits {
+                max_expansion_work_items: 3,
+                ..exact
+            },
+            "work items",
+        ),
+        (
+            SchematicBusExpansionLimits {
+                max_expansion_work_bytes: 8,
+                ..exact
+            },
+            "work bytes",
+        ),
+        (
+            SchematicBusExpansionLimits {
+                max_expanded_members: 2,
+                ..exact
+            },
+            "member count",
+        ),
+        (
+            SchematicBusExpansionLimits {
+                max_expanded_output_bytes: 11,
+                ..exact
+            },
+            "member bytes",
+        ),
+    ] {
+        let error = expand_schematic_bus_label("Q{FAN}", &aliases, limits)
+            .expect_err("one-over independent expansion budget");
+        assert_eq!(error.kind, SchematicBusExpansionErrorKind::ResourceLimit);
+        assert!(error.message.contains(message), "{}", error.message);
+    }
+}
+
+#[test]
+fn alias_inputs_and_nested_qualifiers_are_preflighted_before_cloning() {
+    let oversized = HashMap::from([("A".to_owned(), vec!["X".repeat(1_024)])]);
+    let error = expand_schematic_bus_label(
+        "A",
+        &oversized,
+        SchematicBusExpansionLimits {
+            max_input_bytes: 16,
+            ..SchematicBusExpansionLimits::default()
+        },
+    )
+    .expect_err("oversized borrowed alias member");
+    assert_eq!(error.kind, SchematicBusExpansionErrorKind::ResourceLimit);
+    assert!(error.message.contains("expression bytes"));
+
+    let defaults = SchematicBusExpansionLimits::default();
+    let exact = SchematicBusExpansionLimits {
+        max_expansion_work_items: 4,
+        max_expansion_work_bytes: 30,
+        max_expanded_members: 3,
+        max_expanded_output_bytes: 33,
+        ..defaults
+    };
+    let aliases = HashMap::from([("INNER".to_owned(), vec!["SUB{A,B,C}".to_owned()])]);
+    let text = "OUTER{INNER}";
+    assert_eq!(
+        expand_schematic_bus_label(text, &aliases, exact).expect("exact nested qualifier budgets"),
+        ["OUTER.SUB.A", "OUTER.SUB.B", "OUTER.SUB.C"]
+    );
+    let error = expand_schematic_bus_label(
+        text,
+        &aliases,
+        SchematicBusExpansionLimits {
+            max_expansion_work_items: 3,
+            ..exact
+        },
+    )
+    .expect_err("nested qualifier one item over work limit");
+    assert_eq!(error.kind, SchematicBusExpansionErrorKind::ResourceLimit);
+    assert!(error.message.contains("work items"));
+    let error = expand_schematic_bus_label(
+        text,
+        &aliases,
+        SchematicBusExpansionLimits {
+            max_expansion_work_bytes: 29,
+            ..exact
+        },
+    )
+    .expect_err("nested qualifier one byte over work limit");
+    assert_eq!(error.kind, SchematicBusExpansionErrorKind::ResourceLimit);
+    assert!(error.message.contains("work bytes"));
 }
 
 #[test]

@@ -1,55 +1,18 @@
 //! Bounded KiCad schematic bus-label parsing and expansion.
 
+mod contract;
+
+pub use contract::{
+    SchematicBusExpansionError, SchematicBusExpansionErrorKind, SchematicBusExpansionLimits,
+};
+
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
-use std::fmt;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct SchematicBusExpansionLimits {
-    pub max_input_bytes: usize,
-    pub max_group_members: usize,
-    pub max_expanded_members: usize,
-    pub max_retained_bytes: usize,
-    pub max_nesting_depth: usize,
-}
-
-impl Default for SchematicBusExpansionLimits {
-    fn default() -> Self {
-        Self {
-            max_input_bytes: 1024 * 1024,
-            max_group_members: 1_000_000,
-            max_expanded_members: 1_000_000,
-            max_retained_bytes: 64 * 1024 * 1024,
-            max_nesting_depth: 512,
-        }
-    }
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicBusPattern {
     pub prefix: String,
     pub members: Vec<String>,
 }
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum SchematicBusExpansionErrorKind {
-    ResourceLimit,
-    AliasCycle,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SchematicBusExpansionError {
-    pub kind: SchematicBusExpansionErrorKind,
-    pub message: String,
-}
-
-impl fmt::Display for SchematicBusExpansionError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.message)
-    }
-}
-
-impl Error for SchematicBusExpansionError {}
 
 /// Normalize the escaped slash form used by KiCad net names for matching.
 pub fn canonical_bus_member_name(text: &str) -> String {
@@ -69,7 +32,7 @@ pub fn parse_schematic_bus_vector(
         return Err(resource_error("bus vector member count exceeds its limit"));
     }
     let expected_bytes = vector_member_bytes(&vector)?;
-    if expected_bytes > limits.max_retained_bytes {
+    if expected_bytes > limits.max_parsed_member_bytes {
         return Err(resource_error("bus member bytes exceed their limit"));
     }
     let mut members = Vec::new();
@@ -84,7 +47,7 @@ pub fn parse_schematic_bus_vector(
             &mut retained_bytes,
             member,
             limits.max_expanded_members,
-            limits.max_retained_bytes,
+            limits.max_parsed_member_bytes,
         )?;
     }
     Ok(Some(SchematicBusPattern {
@@ -175,11 +138,7 @@ struct ExpansionState<'a> {
 
 impl<'a> ExpansionState<'a> {
     fn run(mut self, text: &str) -> Result<Vec<String>, SchematicBusExpansionError> {
-        self.push_task(ExpansionTask::Expand {
-            text: text.to_owned(),
-            qualifier: String::new(),
-            depth: 0,
-        })?;
+        self.push_borrowed_expand(text, "", 0)?;
         while let Some(task) = self.stack.pop() {
             self.work_bytes = self.work_bytes.saturating_sub(task.retained_bytes());
             match task {
@@ -207,6 +166,8 @@ impl<'a> ExpansionState<'a> {
         }
         check_input(&text, self.limits)?;
         if let Some((alias_name, members)) = self.aliases.get_key_value(&text) {
+            let child_depth = self.child_depth(depth)?;
+            self.preflight_members(members, qualifier.len(), 1)?;
             if !self.active_aliases.insert(alias_name.as_str()) {
                 return Err(SchematicBusExpansionError {
                     kind: SchematicBusExpansionErrorKind::AliasCycle,
@@ -214,11 +175,13 @@ impl<'a> ExpansionState<'a> {
                 });
             }
             self.push_task(ExpansionTask::LeaveAlias(alias_name))?;
-            for member in members.iter().rev() {
+            let mut qualifier = Some(qualifier);
+            for (offset, member) in members.iter().rev().enumerate() {
+                let child_qualifier = take_last_or_clone(&mut qualifier, offset, members.len())?;
                 self.push_task(ExpansionTask::Expand {
                     text: member.clone(),
-                    qualifier: qualifier.clone(),
-                    depth: depth.saturating_add(1),
+                    qualifier: child_qualifier,
+                    depth: child_depth,
                 })?;
             }
             return Ok(());
@@ -227,12 +190,18 @@ impl<'a> ExpansionState<'a> {
             return self.expand_vector(&vector, &qualifier);
         }
         if let Some(group) = parse_schematic_bus_group(&text, self.limits)? {
-            let nested_qualifier = join_qualifier(&qualifier, &group.prefix);
-            for member in group.members.into_iter().rev() {
+            let child_depth = self.child_depth(depth)?;
+            let nested_length = joined_qualifier_length(&qualifier, &group.prefix)?;
+            self.preflight_members(&group.members, nested_length, 0)?;
+            let mut nested_qualifier = Some(join_qualifier(&qualifier, &group.prefix));
+            let member_count = group.members.len();
+            for (offset, member) in group.members.into_iter().rev().enumerate() {
+                let child_qualifier =
+                    take_last_or_clone(&mut nested_qualifier, offset, member_count)?;
                 self.push_task(ExpansionTask::Expand {
                     text: member,
-                    qualifier: nested_qualifier.clone(),
-                    depth: depth.saturating_add(1),
+                    qualifier: child_qualifier,
+                    depth: child_depth,
                 })?;
             }
             return Ok(());
@@ -276,7 +245,7 @@ impl<'a> ExpansionState<'a> {
             .output_bytes
             .checked_add(additional_bytes)
             .ok_or_else(|| resource_error("bus member bytes overflowed"))?;
-        if next_bytes > self.limits.max_retained_bytes {
+        if next_bytes > self.limits.max_expanded_output_bytes {
             return Err(resource_error("bus member bytes exceed their limit"));
         }
         self.output
@@ -292,6 +261,100 @@ impl<'a> ExpansionState<'a> {
 
     fn push_task(&mut self, task: ExpansionTask<'a>) -> Result<(), SchematicBusExpansionError> {
         push_task(&mut self.stack, &mut self.work_bytes, task, self.limits)
+    }
+
+    fn push_borrowed_expand(
+        &mut self,
+        text: &str,
+        qualifier: &str,
+        depth: usize,
+    ) -> Result<(), SchematicBusExpansionError> {
+        check_input(text, self.limits)?;
+        let bytes = text
+            .len()
+            .checked_add(qualifier.len())
+            .ok_or_else(|| resource_error("bus expansion work bytes overflowed"))?;
+        self.preflight_work(1, bytes)?;
+        self.push_task(ExpansionTask::Expand {
+            text: text.to_owned(),
+            qualifier: qualifier.to_owned(),
+            depth,
+        })
+    }
+
+    fn preflight_members(
+        &self,
+        members: &[String],
+        qualifier_bytes: usize,
+        extra_items: usize,
+    ) -> Result<(), SchematicBusExpansionError> {
+        let additional_items = members
+            .len()
+            .checked_add(extra_items)
+            .ok_or_else(|| resource_error("bus expansion work item count overflowed"))?;
+        let additional_bytes = members.iter().try_fold(0_usize, |total, member| {
+            check_input(member, self.limits)?;
+            total
+                .checked_add(member.len())
+                .and_then(|value| value.checked_add(qualifier_bytes))
+                .ok_or_else(|| resource_error("bus expansion work bytes overflowed"))
+        })?;
+        self.preflight_work(additional_items, additional_bytes)
+    }
+
+    fn preflight_work(
+        &self,
+        additional_items: usize,
+        additional_bytes: usize,
+    ) -> Result<(), SchematicBusExpansionError> {
+        let next_items = self
+            .stack
+            .len()
+            .checked_add(additional_items)
+            .ok_or_else(|| resource_error("bus expansion work item count overflowed"))?;
+        if next_items > self.limits.max_expansion_work_items {
+            return Err(resource_error(
+                "bus expansion work items exceed their limit",
+            ));
+        }
+        let next_bytes = self
+            .work_bytes
+            .checked_add(additional_bytes)
+            .ok_or_else(|| resource_error("bus expansion work bytes overflowed"))?;
+        if next_bytes > self.limits.max_expansion_work_bytes {
+            return Err(resource_error(
+                "bus expansion work bytes exceed their limit",
+            ));
+        }
+        Ok(())
+    }
+
+    fn child_depth(&self, depth: usize) -> Result<usize, SchematicBusExpansionError> {
+        let child = depth
+            .checked_add(1)
+            .ok_or_else(|| resource_error("bus expansion nesting overflowed"))?;
+        if child > self.limits.max_nesting_depth {
+            Err(resource_error("bus expansion nesting exceeds its limit"))
+        } else {
+            Ok(child)
+        }
+    }
+}
+
+fn take_last_or_clone(
+    value: &mut Option<String>,
+    offset: usize,
+    count: usize,
+) -> Result<String, SchematicBusExpansionError> {
+    if offset + 1 == count {
+        value
+            .take()
+            .ok_or_else(|| resource_error("bus expansion qualifier state is missing"))
+    } else {
+        value
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| resource_error("bus expansion qualifier state is missing"))
     }
 }
 
@@ -739,7 +802,7 @@ fn push_group_member(
     let next_bytes = retained_bytes
         .checked_add(escaped_net_name_bytes(member)?)
         .ok_or_else(|| resource_error("bus member bytes overflowed"))?;
-    if next_bytes > limits.max_retained_bytes {
+    if next_bytes > limits.max_parsed_member_bytes {
         return Err(resource_error("bus member bytes exceed their limit"));
     }
     let escaped = escape_net_name(member);
@@ -800,6 +863,18 @@ fn join_qualifier(outer: &str, inner: &str) -> String {
     }
 }
 
+fn joined_qualifier_length(outer: &str, inner: &str) -> Result<usize, SchematicBusExpansionError> {
+    match (outer.is_empty(), inner.is_empty()) {
+        (true, _) => Ok(inner.len()),
+        (_, true) => Ok(outer.len()),
+        (false, false) => outer
+            .len()
+            .checked_add(1)
+            .and_then(|length| length.checked_add(inner.len()))
+            .ok_or_else(|| resource_error("bus expansion qualifier bytes overflowed")),
+    }
+}
+
 fn push_qualified_output(
     output: &mut Vec<String>,
     retained_bytes: &mut usize,
@@ -822,7 +897,7 @@ fn push_qualified_output(
     let next_bytes = retained_bytes
         .checked_add(qualified_bytes)
         .ok_or_else(|| resource_error("bus member bytes overflowed"))?;
-    if next_bytes > limits.max_retained_bytes {
+    if next_bytes > limits.max_expanded_output_bytes {
         return Err(resource_error("bus member bytes exceed their limit"));
     }
     output.push(qualify(qualifier, member));
@@ -857,7 +932,7 @@ fn push_task<'a>(
     task: ExpansionTask<'a>,
     limits: SchematicBusExpansionLimits,
 ) -> Result<(), SchematicBusExpansionError> {
-    if stack.len() >= limits.max_expanded_members {
+    if stack.len() >= limits.max_expansion_work_items {
         return Err(resource_error(
             "bus expansion work items exceed their limit",
         ));
@@ -865,7 +940,7 @@ fn push_task<'a>(
     let next_bytes = work_bytes
         .checked_add(task.retained_bytes())
         .ok_or_else(|| resource_error("bus expansion work bytes overflowed"))?;
-    if next_bytes > limits.max_retained_bytes {
+    if next_bytes > limits.max_expansion_work_bytes {
         return Err(resource_error(
             "bus expansion work bytes exceed their limit",
         ));
