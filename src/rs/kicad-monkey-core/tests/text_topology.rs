@@ -230,6 +230,43 @@ fn simplify_seam_picks_smallest_x_min_y_run_and_scans_hole_bridge_from_seam() {
 }
 
 #[test]
+fn reversed_winding_rings_normalize_before_fracture() {
+    // Mirrored text flips every ring's winding, but `Fracture()`'s Clipper2
+    // `Simplify()` emits a fixed orientation (exteriors positive shoelace
+    // area, holes negative), so a holed group fed reversed rings must produce
+    // the identical fractured output as its forward-wound twin.
+    let forward = [
+        TextContour {
+            points: [
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (1.5, 1.0),
+                (2.0, 0.0),
+                (3.0, 0.0),
+                (3.0, 5.0),
+                (0.0, 5.0),
+            ]
+            .map(|(x, y)| TextPoint { x, y })
+            .to_vec(),
+        },
+        TextContour {
+            points: [(1.0, 2.0), (1.0, 3.0), (2.0, 3.0), (2.0, 2.0), (1.5, 1.9)]
+                .map(|(x, y)| TextPoint { x, y })
+                .to_vec(),
+        },
+    ];
+    let reversed: Vec<TextContour> = forward
+        .iter()
+        .map(|contour| TextContour {
+            points: contour.points.iter().rev().copied().collect(),
+        })
+        .collect();
+    let expected = fracture_text_contours_a0(&forward, TextTopologyLimits::default()).unwrap();
+    let actual = fracture_text_contours_a0(&reversed, TextTopologyLimits::default()).unwrap();
+    assert_eq!(actual.contours, expected.contours);
+}
+
+#[test]
 fn nonfinite_input_is_rejected_before_topology_publication() {
     let input = [TextContour {
         points: vec![

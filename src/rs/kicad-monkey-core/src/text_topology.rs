@@ -94,9 +94,12 @@ pub fn fracture_text_contours_a0(
         return Err(limit("$.contours", "input contour limit exceeded"));
     }
     let mut work = Work::default();
-    let normalized = normalize_contours(contours, limits, &mut work)?;
+    let mut normalized = normalize_contours(contours, limits, &mut work)?;
     let polygons = classify_contours(&normalized, limits, &mut work)?;
     let has_holes = polygons.iter().any(|polygon| !polygon.holes.is_empty());
+    if has_holes {
+        normalize_fracture_orientation(&mut normalized, &polygons)?;
+    }
     let mut output = Vec::with_capacity(polygons.len());
     for polygon in &polygons {
         let points = fracture_polygon(&normalized, polygon, has_holes, limits, &mut work)?;
@@ -291,6 +294,39 @@ fn fracture_polygon(
         bridge_hole(&mut edges, *info, limits, work)?;
     }
     collect_fractured(&edges, limits, work)
+}
+
+/// `Fracture()`'s Clipper2 `Simplify()` emits rings in a fixed orientation
+/// (exteriors positive shoelace area in the cache frame, holes negative)
+/// regardless of input winding. Mirrored text flips every ring's winding, so
+/// holed groups normalize orientation before the seam/bridge rules; hole-free
+/// groups skip `Simplify()` and keep their stored winding.
+fn normalize_fracture_orientation(
+    contours: &mut [TextContour],
+    polygons: &[Polygon],
+) -> Result<(), TextContourError> {
+    for polygon in polygons {
+        if signed_area(&contours[polygon.exterior].points)? < 0.0 {
+            contours[polygon.exterior].points.reverse();
+        }
+        for &hole in &polygon.holes {
+            if signed_area(&contours[hole].points)? > 0.0 {
+                contours[hole].points.reverse();
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Shoelace signed area; nonfinite accumulation fails closed.
+fn signed_area(points: &[TextPoint]) -> Result<f64, TextContourError> {
+    let mut total = 0.0;
+    for index in 0..points.len() {
+        let p1 = points[index];
+        let p2 = points[(index + 1) % points.len()];
+        total += p1.x * p2.y - p2.x * p1.y;
+    }
+    checked_derived(total / 2.0)
 }
 
 /// Ring seam stored by `Fracture()`'s Clipper2 `Simplify()` rewrite: one past

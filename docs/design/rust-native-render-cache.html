@@ -239,7 +239,14 @@
   drawn glyph independently and only when that glyph has holes
   (<code>if (glyph.HasHoles()) glyph.Fracture()</code>), so cache composition
   threads per-glyph contour group sizes from layout and scopes fracture to
-  each group. Within a holed group, <code>Simplify()</code> rewrites every
+  each group. Within a holed group, <code>Simplify()</code> first emits every
+  ring in a fixed orientation (exteriors positive shoelace area in the cache
+  frame, holes negative) regardless of input winding &mdash; mirrored text
+  flips every ring's winding, so holed groups orientation-normalize before
+  the seam/bridge rules, while hole-free groups keep their stored winding;
+  live mirrored Arial <code>D</code>/<code>R8</code> save-oracle cases and
+  mirrored corpus footprint texts pin this. <code>Simplify()</code> also
+  rewrites every
   ring seam: rings restart one past the exit of the min-y run containing the
   smallest-x min-y point, where a run is a maximal stretch of consecutive
   stored points at the ring's minimum y and, with several min-y runs, the

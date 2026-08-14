@@ -215,6 +215,16 @@ def _point_in_polygon(point: tuple[float, float], polygon: list[tuple[float, flo
     return inside
 
 
+def _signed_area(points: list[tuple[float, float]]) -> float:
+    total = 0.0
+    count = len(points)
+    for index in range(count):
+        x1, y1 = points[index]
+        x2, y2 = points[(index + 1) % count]
+        total += x1 * y2 - x2 * y1
+    return total / 2.0
+
+
 def _fracture_seam_index(points: list[tuple[float, float]]) -> int:
     """Approximate the ring seam `Fracture()`'s Clipper2 `Simplify()` stores.
 
@@ -455,6 +465,19 @@ def _fracture_contour_group(
             parent["holes"].append(contour)
 
     group_has_holes = any(polygon["holes"] for polygon in polygons)
+    if group_has_holes:
+        # `Fracture()`'s Clipper2 `Simplify()` emits rings in a fixed
+        # orientation (exteriors positive shoelace area in the cache frame,
+        # holes negative) regardless of input winding.  Mirrored text flips
+        # every ring's winding, so normalize before the seam/bridge rules;
+        # hole-free groups skip Simplify and keep their stored winding.
+        for polygon in polygons:
+            if _signed_area(polygon["exterior"]) < 0.0:
+                polygon["exterior"] = list(reversed(polygon["exterior"]))
+            polygon["holes"] = [
+                list(reversed(hole)) if _signed_area(hole) > 0.0 else hole
+                for hole in polygon["holes"]
+            ]
     fractured: list[list[tuple[float, float]]] = []
     for polygon in polygons:
         if polygon["holes"]:

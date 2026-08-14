@@ -978,6 +978,48 @@ def test_python_render_cache_generator_matches_kicad_oracle_for_outline_glyphs(
 
 
 @pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.parametrize(
+    ("text", "case_name"),
+    [
+        # Mirroring flips every ring's winding, but Fracture()'s Clipper2
+        # Simplify() emits a fixed orientation, so mirrored holed glyphs must
+        # orientation-normalize before the seam/bridge rules.
+        ("D", "mirrored_holed"),
+        ("R8", "mirrored_multi_holed"),
+    ],
+)
+def test_python_render_cache_generator_matches_kicad_oracle_for_mirrored_glyphs(
+    tmp_path: Path,
+    text: str,
+    case_name: str,
+):
+    source = tmp_path / f"render_cache_python_generator_{case_name}.kicad_pcb"
+    _write_outline_text_board(source, text, justify="left top mirror")
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
 @pytest.mark.skipif(not _ARIAL.exists(), reason="Arial font not installed")
 @pytest.mark.parametrize(
     (
