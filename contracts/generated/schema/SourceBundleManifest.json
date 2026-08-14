@@ -51,12 +51,10 @@
                     "$ref": "#/$defs/SourceKind"
                 },
                 "slot": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 4294967295
+                    "$ref": "#/$defs/SourceSlot"
                 },
                 "source_bytes": {
-                    "type": "string"
+                    "$ref": "#/$defs/CanonicalUint64Decimal"
                 }
             },
             "required": [
@@ -81,6 +79,17 @@
                 "other"
             ],
             "description": "KiCad source role within one schematic compiler input bundle."
+        },
+        "SourceSlot": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "description": "Zero-based byte-buffer slot within one manifest."
+        },
+        "CanonicalUint64Decimal": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,19})$",
+            "description": "Canonical decimal wire encoding for an unsigned 64-bit byte count."
         }
     }
 }

@@ -220,7 +220,7 @@ fn consume_descriptor(
 ) -> Result<(String, SourceFile, usize), SourceBundleError> {
     let path = normalize_bundle_path(&descriptor.path, limits.max_path_bytes)?;
     validate_kind_suffix(&descriptor, &path)?;
-    let slot = descriptor.slot as usize;
+    let slot = descriptor.slot.0 as usize;
     if slot >= buffers.len() || used_slots[slot] {
         return Err(SourceBundleError::new(
             SourceBundleErrorKind::Slot,

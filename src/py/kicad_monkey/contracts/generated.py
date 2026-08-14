@@ -39,14 +39,14 @@ class SourcePosition(Struct, forbid_unknown_fields=True, frozen=True):
 class Selector(Struct, forbid_unknown_fields=True, frozen=True):
     heads: list[str] | UnsetType = field(default=UNSET)
     paths: list[list[str]] | UnsetType = field(default=UNSET)
-    min_depth: int | UnsetType = field(default=UNSET)
-    max_depth: int | UnsetType = field(default=UNSET)
+    min_depth: Annotated[int, Meta(ge=0, le=4294967295)] | UnsetType = field(default=UNSET)
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)] | UnsetType = field(default=UNSET)
     prune_heads: list[str] | UnsetType = field(default=UNSET)
 
 
 class FormSpan(Struct, forbid_unknown_fields=True, frozen=True):
     path: list[str]
-    depth: int
+    depth: Annotated[int, Meta(ge=0, le=4294967295)]
     start_offset: str
     end_offset: str
     line: str
@@ -65,7 +65,7 @@ class FootprintPlotRecord(Struct, forbid_unknown_fields=True, frozen=True):
     uuid: str
     kind: Literal["footprint"]
     object_id: str
-    operation_count: int
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
     operations: list[PlotterOperation]
     name: str
     layer: str
@@ -88,7 +88,7 @@ PlotterOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "Cir
 
 
 class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ThickSegment", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     start_x: JavaScriptSafeInteger
     start_y: JavaScriptSafeInteger
     end_x: JavaScriptSafeInteger
@@ -103,7 +103,7 @@ class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag
 
 
 class ArcThreePointOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ArcThreePoint", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     start_x: JavaScriptSafeInteger
     start_y: JavaScriptSafeInteger
     mid_x: JavaScriptSafeInteger
@@ -119,7 +119,7 @@ class ArcThreePointOperation(Struct, forbid_unknown_fields=True, frozen=True, ta
 
 
 class CircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Circle", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     cx: JavaScriptSafeInteger
     cy: JavaScriptSafeInteger
     diameter_nm: JavaScriptSafeInteger
@@ -137,7 +137,7 @@ class CircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Circ
 
 
 class RectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Rect", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     x1: JavaScriptSafeInteger
     y1: JavaScriptSafeInteger
     x2: JavaScriptSafeInteger
@@ -152,7 +152,7 @@ class RectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Rect",
 
 
 class PlotPolyOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="PlotPoly", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     points: list[PlotterPoint]
     fill: PlotterFill
     width_nm: JavaScriptSafeInteger
@@ -163,7 +163,7 @@ class PlotPolyOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Pl
 
 
 class BezierCurveOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="BezierCurve", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     start_x: JavaScriptSafeInteger
     start_y: JavaScriptSafeInteger
     ctrl1_x: JavaScriptSafeInteger
@@ -180,7 +180,7 @@ class BezierCurveOperation(Struct, forbid_unknown_fields=True, frozen=True, tag=
 
 
 class FlashPadCircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadCircle", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     x: JavaScriptSafeInteger
     y: JavaScriptSafeInteger
     diameter_nm: JavaScriptSafeInteger
@@ -189,7 +189,7 @@ class FlashPadCircleOperation(Struct, forbid_unknown_fields=True, frozen=True, t
 
 
 class FlashPadOvalOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadOval", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     x: JavaScriptSafeInteger
     y: JavaScriptSafeInteger
     size_x_nm: JavaScriptSafeInteger
@@ -200,7 +200,7 @@ class FlashPadOvalOperation(Struct, forbid_unknown_fields=True, frozen=True, tag
 
 
 class FlashPadRectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadRect", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     x: JavaScriptSafeInteger
     y: JavaScriptSafeInteger
     size_x_nm: JavaScriptSafeInteger
@@ -211,7 +211,7 @@ class FlashPadRectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag
 
 
 class FlashPadRoundRectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadRoundRect", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     x: JavaScriptSafeInteger
     y: JavaScriptSafeInteger
     size_x_nm: JavaScriptSafeInteger
@@ -223,7 +223,7 @@ class FlashPadRoundRectOperation(Struct, forbid_unknown_fields=True, frozen=True
 
 
 class FlashPadCustomOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadCustom", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     x: JavaScriptSafeInteger
     y: JavaScriptSafeInteger
     size_x_nm: JavaScriptSafeInteger
@@ -237,7 +237,7 @@ class FlashPadCustomOperation(Struct, forbid_unknown_fields=True, frozen=True, t
 
 
 class FlashPadTrapezOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadTrapez", tag_field="kind"):
-    index: int
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
     x: JavaScriptSafeInteger
     y: JavaScriptSafeInteger
     corners: PlotterQuad
@@ -267,24 +267,24 @@ SymbolPlotRecord = Union["SymbolHeaderPlotRecord", "LibSubsymbolPlotRecord"]
 class SymbolHeaderPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="lib_symbol", tag_field="kind"):
     uuid: Literal[""]
     object_id: str
-    operation_count: int
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
     operations: list[PlotterOperation]
     name: str
-    style: int
+    style: Annotated[int, Meta(ge=0, le=4294967295)]
     in_bom: bool
     on_board: bool
     power: bool
     extends_: str | UnsetType = field(default=UNSET, name="extends")
-    unit: int | UnsetType = field(default=UNSET)
+    unit: Annotated[int, Meta(ge=0, le=4294967295)] | UnsetType = field(default=UNSET)
 
 
 class LibSubsymbolPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="lib_subsymbol", tag_field="kind"):
     uuid: Literal[""]
     object_id: str
-    operation_count: int
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
     operations: list[PlotterOperation]
-    unit: int
-    style: int
+    unit: Annotated[int, Meta(ge=0, le=4294967295)]
+    style: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
 SymbolBooleanField = Literal["in_bom", "on_board"]
@@ -295,9 +295,9 @@ class SymbolSummary(Struct, forbid_unknown_fields=True, frozen=True):
     in_bom: bool
     on_board: bool
     power: bool
-    property_count: int
-    subsymbol_count: int
-    pin_count: int
+    property_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    subsymbol_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    pin_count: Annotated[int, Meta(ge=0, le=4294967295)]
     extends_: str | UnsetType = field(default=UNSET, name="extends")
     power_kind: str | UnsetType = field(default=UNSET)
 
@@ -334,7 +334,7 @@ class PageOccurrence(Struct, forbid_unknown_fields=True, frozen=True):
     display_name: str
     page_definition_ref: str
     unit_occurrence_ref: str
-    instance_order: int
+    instance_order: Annotated[int, Meta(ge=0, le=4294967295)]
     source_identity: SourceIdentity
     address_key: str | UnsetType = field(default=UNSET)
     sheet_number: str | UnsetType = field(default=UNSET)
@@ -356,8 +356,8 @@ class ComponentOccurrence(Struct, forbid_unknown_fields=True, frozen=True):
     source_designator: str
     physical_designator: str
     display_designator: str
-    unit: int
-    body_style: int
+    unit: Annotated[int, Meta(ge=1, le=4294967295)]
+    body_style: Annotated[int, Meta(ge=0, le=4294967295)]
     source_identity: SourceIdentity
     design_component_ref: str | UnsetType = field(default=UNSET)
 
@@ -430,11 +430,17 @@ GraphicalTargetType = Literal["sch.component_occurrence", "sch.hierarchy_occurre
 class SourceBundleSource(Struct, forbid_unknown_fields=True, frozen=True):
     path: str
     kind: SourceKind
-    slot: int
-    source_bytes: str
+    slot: SourceSlot
+    source_bytes: CanonicalUint64Decimal
 
 
 SourceKind = Literal["project", "schematic", "symbol_library", "symbol_table", "worksheet", "other"]
+
+
+SourceSlot = Annotated[int, Meta(ge=0, le=4294967295)]
+
+
+CanonicalUint64Decimal = Annotated[str, Meta(pattern="^(0|[1-9][0-9]{0,19})$")]
 
 
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -442,8 +448,8 @@ class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True)
     version: Literal["a0"]
     root: Node
     max_output_bytes: str
-    max_depth: int
-    max_nodes: int
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_nodes: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
 class SExpressionBuildResultA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -458,8 +464,8 @@ class SExpressionScanRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     version: Literal["a0"]
     selector: Selector
     max_source_bytes: str
-    max_depth: int
-    max_selected_forms: int
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_selected_forms: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
 class SExpressionScanResultA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -477,9 +483,9 @@ class FootprintEditRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     value: str
     max_source_bytes: str
     max_output_bytes: str
-    max_depth: int
-    max_properties: int
-    max_pads: int
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_properties: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_pads: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
 class FootprintEditResultA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -494,9 +500,9 @@ class FootprintReadRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.footprint_read.request"] = field(name="type")
     version: Literal["a0"]
     max_source_bytes: str
-    max_depth: int
-    max_properties: int
-    max_pads: int
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_properties: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_pads: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
 class FootprintReadResultA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -505,14 +511,14 @@ class FootprintReadResultA0(Struct, forbid_unknown_fields=True, frozen=True):
     name: str
     source_bytes: str
     properties: list[FootprintProperty]
-    pad_count: int
+    pad_count: Annotated[int, Meta(ge=0, le=4294967295)]
     diagnostics: list[Diagnostic]
 
 
 class FootprintPlotDocumentA0(Struct, forbid_unknown_fields=True, frozen=True):
     schema: Literal["kicad.plotter_ir.a0"]
     source_kind: Literal["MOD"]
-    total_operations: int
+    total_operations: Annotated[int, Meta(ge=0, le=4294967295)]
     records: list[FootprintPlotRecord]
     document_id: str
     coordinate_space: PlotterCoordinateSpace
@@ -527,10 +533,10 @@ class FootprintPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     version: Literal["a0"]
     max_source_bytes: str
     max_output_bytes: str
-    max_depth: int
-    max_metadata_forms: int
-    max_operations: int
-    max_points: int
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_metadata_forms: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_operations: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_points: Annotated[int, Meta(ge=0, le=4294967295)]
     source_path: str | UnsetType = field(default=UNSET)
     document_id: str | UnsetType = field(default=UNSET)
 
@@ -539,14 +545,14 @@ class FootprintPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.footprint_plot.result"] = field(name="type")
     version: Literal["a0"]
     output_bytes: str
-    total_operations: int
+    total_operations: Annotated[int, Meta(ge=0, le=4294967295)]
     diagnostics: list[Diagnostic]
 
 
 class SymbolPlotDocumentA0(Struct, forbid_unknown_fields=True, frozen=True):
     schema: Literal["kicad.plotter_ir.a0"]
     source_kind: Literal["SYM"]
-    total_operations: int
+    total_operations: Annotated[int, Meta(ge=0, le=4294967295)]
     records: list[SymbolPlotRecord]
     document_id: str
     coordinate_space: PlotterCoordinateSpace
@@ -557,15 +563,15 @@ class SymbolPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.symbol_plot.request"] = field(name="type")
     version: Literal["a0"]
     symbol_name: str
-    style: int
+    style: Annotated[int, Meta(ge=0, le=4294967295)]
     max_source_bytes: str
     max_output_bytes: str
-    max_depth: int
-    max_symbols: int
-    max_subsymbols: int
-    max_operations: int
-    max_points: int
-    unit: int | UnsetType = field(default=UNSET)
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_symbols: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_subsymbols: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_operations: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_points: Annotated[int, Meta(ge=0, le=4294967295)]
+    unit: Annotated[int, Meta(ge=0, le=4294967295)] | UnsetType = field(default=UNSET)
     source_path: str | UnsetType = field(default=UNSET)
     document_id: str | UnsetType = field(default=UNSET)
 
@@ -574,7 +580,7 @@ class SymbolPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.symbol_plot.result"] = field(name="type")
     version: Literal["a0"]
     output_bytes: str
-    total_operations: int
+    total_operations: Annotated[int, Meta(ge=0, le=4294967295)]
     diagnostics: list[Diagnostic]
 
 
@@ -586,11 +592,11 @@ class SymbolLibraryEditRequestA0(Struct, forbid_unknown_fields=True, frozen=True
     value: bool
     max_source_bytes: str
     max_output_bytes: str
-    max_depth: int
-    max_symbols: int
-    max_metadata_forms: int
-    max_subsymbols: int
-    max_pins: int
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_symbols: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_metadata_forms: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_subsymbols: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_pins: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
 class SymbolLibraryEditResultA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -605,11 +611,11 @@ class SymbolLibraryReadRequestA0(Struct, forbid_unknown_fields=True, frozen=True
     type_: Literal["kicad_monkey.symbol_library_read.request"] = field(name="type")
     version: Literal["a0"]
     max_source_bytes: str
-    max_depth: int
-    max_symbols: int
-    max_metadata_forms: int
-    max_subsymbols: int
-    max_pins: int
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_symbols: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_metadata_forms: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_subsymbols: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_pins: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
 class SymbolLibraryReadResultA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -757,7 +763,15 @@ decode_symbol_library_edit_result_a0 = msgspec.json.Decoder(SymbolLibraryEditRes
 decode_symbol_library_read_request_a0 = msgspec.json.Decoder(SymbolLibraryReadRequestA0).decode
 decode_symbol_library_read_result_a0 = msgspec.json.Decoder(SymbolLibraryReadResultA0).decode
 decode_compiled_schematic_graph_a0 = msgspec.json.Decoder(CompiledSchematicGraphA0).decode
-decode_source_bundle_manifest_a0 = msgspec.json.Decoder(SourceBundleManifestA0).decode
+_source_bundle_manifest_a0_decoder = msgspec.json.Decoder(SourceBundleManifestA0)
+
+
+def decode_source_bundle_manifest_a0(data: bytes) -> SourceBundleManifestA0:
+    value = _source_bundle_manifest_a0_decoder.decode(data)
+    for source in value.sources:
+        if int(source.source_bytes) > 18_446_744_073_709_551_615:
+            raise msgspec.ValidationError("source_bytes exceeds uint64")
+    return value
 
 
 __all__ = (
@@ -811,6 +825,8 @@ __all__ = (
     "GraphicalTargetType",
     "SourceBundleSource",
     "SourceKind",
+    "SourceSlot",
+    "CanonicalUint64Decimal",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",

@@ -14,12 +14,19 @@ enum SourceKind {
   other,
 }
 
+/** Canonical decimal wire encoding for an unsigned 64-bit byte count. */
+@pattern("^(0|[1-9][0-9]{0,19})$")
+scalar CanonicalUint64Decimal extends string;
+
+/** Zero-based byte-buffer slot within one manifest. */
+scalar SourceSlot extends uint32;
+
 /** Metadata for one named byte buffer supplied out of band. */
 model SourceBundleSource {
   path: string;
   kind: SourceKind;
-  slot: uint32;
-  source_bytes: uint64;
+  slot: SourceSlot;
+  source_bytes: CanonicalUint64Decimal;
 }
 
 /** Portable inventory for a named multi-file schematic compiler input. */

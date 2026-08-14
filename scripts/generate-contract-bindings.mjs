@@ -123,6 +123,8 @@ function renderPython() {
       lines.push(...renderPythonPlotterValidation(functionName, typeName));
     } else if (typeName === "SymbolPlotDocumentA0") {
       lines.push(...renderPythonSymbolPlotterValidation(functionName, typeName));
+    } else if (typeName === "SourceBundleManifestA0") {
+      lines.push(...renderPythonSourceBundleValidation(functionName, typeName));
     } else {
       lines.push(`${functionName} = msgspec.json.Decoder(${typeName}).decode`);
     }
@@ -136,6 +138,20 @@ function renderPython() {
   ];
   lines.push("", "", "__all__ = (", ...exported.map((name) => `    ${pythonLiteral(name)},`), ")", "");
   return lines.join("\n");
+}
+
+function renderPythonSourceBundleValidation(functionName, typeName) {
+  return [
+    `_source_bundle_manifest_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _source_bundle_manifest_a0_decoder.decode(data)",
+    "    for source in value.sources:",
+    "        if int(source.source_bytes) > 18_446_744_073_709_551_615:",
+    '            raise msgspec.ValidationError("source_bytes exceeds uint64")',
+    "    return value",
+  ];
 }
 
 function renderPythonPlotterValidation(functionName, typeName) {
@@ -257,6 +273,10 @@ function renderPythonDeclaration(name, schema, tag = undefined) {
     assert(constraints.length > 0, `${name}: unconstrained integer alias`);
     return [`${name} = Annotated[int, Meta(${constraints.join(", ")})]`];
   }
+  if (schema.type === "string") {
+    assert(typeof schema.pattern === "string", `${name}: unconstrained string alias`);
+    return [`${name} = Annotated[str, Meta(pattern=${pythonLiteral(schema.pattern)})]`];
+  }
   if (schema.type === "array") {
     const itemType = pythonType(schema.items);
     const constraints = [];
@@ -307,9 +327,20 @@ function renderPythonDeclaration(name, schema, tag = undefined) {
 function pythonType(schema) {
   if (typeof schema.$ref === "string") return schema.$ref.split("/").at(-1);
   if ("const" in schema) return `Literal[${pythonLiteral(schema.const)}]`;
-  if (schema.type === "string") return "str";
+  if (schema.type === "string") {
+    return typeof schema.pattern === "string"
+      ? `Annotated[str, Meta(pattern=${pythonLiteral(schema.pattern)})]`
+      : "str";
+  }
   if (schema.type === "number") return "float";
-  if (schema.type === "integer") return "int";
+  if (schema.type === "integer") {
+    const constraints = [];
+    if (Number.isSafeInteger(schema.minimum)) constraints.push(`ge=${schema.minimum}`);
+    if (Number.isSafeInteger(schema.maximum)) constraints.push(`le=${schema.maximum}`);
+    return constraints.length > 0
+      ? `Annotated[int, Meta(${constraints.join(", ")})]`
+      : "int";
+  }
   if (schema.type === "boolean") return "bool";
   if (schema.type === "array" && Array.isArray(schema.prefixItems)) {
     return `tuple[${schema.prefixItems.map(pythonType).join(", ")}]`;

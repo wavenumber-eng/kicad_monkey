@@ -7,6 +7,7 @@ from pathlib import Path
 
 import msgspec
 import pytest
+from jsonschema import Draft202012Validator
 
 from kicad_monkey.contracts.generated import (
     SourceBundleManifestA0,
@@ -14,6 +15,10 @@ from kicad_monkey.contracts.generated import (
 )
 
 VECTORS = Path(__file__).resolve().parents[1] / "parity/source_bundle_a0_vectors.json"
+SCHEMA = (
+    Path(__file__).resolve().parents[2]
+    / "contracts/generated/schema/SourceBundleManifest.json"
+)
 
 
 def test_generated_source_bundle_manifest_is_strict_and_keeps_bytes_out_of_band() -> None:
@@ -32,3 +37,19 @@ def test_generated_source_bundle_manifest_is_strict_and_keeps_bytes_out_of_band(
     wrong_literal = {**manifest, "version": "a1"}
     with pytest.raises(msgspec.ValidationError):
         decode_source_bundle_manifest_a0(json.dumps(wrong_literal).encode())
+
+
+def test_shared_integer_transport_cases_match_json_schema_and_python() -> None:
+    vectors = json.loads(VECTORS.read_text(encoding="utf-8"))
+    schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    validator = Draft202012Validator(schema)
+    for case in vectors["transport_cases"]:
+        candidate = json.loads(json.dumps(vectors["manifest"]))
+        candidate["sources"][0][case["field"]] = case["value"]
+        schema_valid = not list(validator.iter_errors(candidate))
+        assert schema_valid is case.get("schema_valid", case["valid"]), case["id"]
+        if case["valid"]:
+            decode_source_bundle_manifest_a0(json.dumps(candidate).encode())
+        else:
+            with pytest.raises(msgspec.ValidationError):
+                decode_source_bundle_manifest_a0(json.dumps(candidate).encode())

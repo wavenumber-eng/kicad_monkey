@@ -25,6 +25,15 @@
     extra buffers.
   </p>
   <p>
+    The slot is a named <code>uint32</code> scalar, so JSON Schema, generated
+    Python/msgspec, and generated Rust reject values outside 0 through
+    4,294,967,295. The byte count is a named canonical-decimal string scalar:
+    schema and Python reject signs, leading zeroes, and non-digits, while the
+    promoted Python and Rust decoders additionally enforce the exact
+    18,446,744,073,709,551,615 maximum. Shared vectors cover both bounds and
+    malformed, negative, leading-zero, and overflow cases.
+  </p>
+  <p>
     <code>SourceBundle</code> owns each supplied buffer once and preserves its
     bytes exactly. Portable paths normalize separators and lexical dot segments,
     reject absolute paths and traversal beyond the bundle root, and use exact

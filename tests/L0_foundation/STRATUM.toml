@@ -212,6 +212,7 @@ test_case_type = "contract"
 primary = "TypeSpec owns the named source inventory while file bytes remain out of band"
 secondary = [
     "Source paths, kinds, byte sizes, and slots have strict generated projections",
+    "Shared schema, Python, and Rust vectors enforce uint32 slots and canonical uint64 decimal byte counts",
     "Unknown fields and unsupported contract literals fail closed",
     "The manifest cannot hide base64 or embedded source payloads",
 ]

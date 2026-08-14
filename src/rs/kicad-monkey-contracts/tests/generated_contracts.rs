@@ -4,9 +4,29 @@ use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
 use kicad_monkey_contracts::generated::symbol_plot_document::SymbolPlotDocumentA0;
 use kicad_monkey_contracts::{
     JAVASCRIPT_SAFE_INTEGER_MAX, JAVASCRIPT_SAFE_INTEGER_MIN, JavaScriptSafeInteger, ValidatedNode,
-    decode_compiled_schematic_graph_a0, validate_build_request, validate_footprint_plot_document,
-    validate_symbol_plot_document,
+    decode_compiled_schematic_graph_a0, decode_source_bundle_manifest_a0, validate_build_request,
+    validate_footprint_plot_document, validate_symbol_plot_document,
 };
+
+#[test]
+fn source_bundle_integer_transport_matches_shared_boundaries_and_failures() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/source_bundle_a0_vectors.json"
+    )))
+    .expect("source bundle vectors");
+    for case in vectors["transport_cases"]
+        .as_array()
+        .expect("transport cases")
+    {
+        let mut candidate = vectors["manifest"].clone();
+        candidate["sources"][0][case["field"].as_str().expect("field")] = case["value"].clone();
+        let result = decode_source_bundle_manifest_a0(
+            &serde_json::to_vec(&candidate).expect("candidate JSON"),
+        );
+        assert_eq!(result.is_ok(), case["valid"], "{}", case["id"]);
+    }
+}
 
 #[test]
 fn generated_scan_request_is_strict_and_round_trips_wire_names() {

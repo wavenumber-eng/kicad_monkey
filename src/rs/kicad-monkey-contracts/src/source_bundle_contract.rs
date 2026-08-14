@@ -23,7 +23,31 @@ pub fn validate_source_bundle_manifest_contract(
 ) -> Result<(), ValidationError> {
     require_literal(&manifest.schema, SCHEMA, "$.schema")?;
     require_literal(&manifest.type_, DOCUMENT_TYPE, "$.type")?;
-    require_literal(&manifest.version, VERSION, "$.version")
+    require_literal(&manifest.version, VERSION, "$.version")?;
+    for (index, source) in manifest.sources.iter().enumerate() {
+        validate_canonical_uint64(&source.source_bytes).map_err(|()| {
+            validation_error(
+                "invalid_uint64",
+                format!("$.sources[{index}].source_bytes"),
+                "source_bytes must be canonical unsigned 64-bit decimal",
+            )
+        })?;
+    }
+    Ok(())
+}
+
+fn validate_canonical_uint64(value: &str) -> Result<(), ()> {
+    let canonical_digits = value == "0"
+        || value
+            .as_bytes()
+            .first()
+            .is_some_and(|first| (b'1'..=b'9').contains(first))
+            && value.as_bytes().iter().all(u8::is_ascii_digit);
+    if canonical_digits && value.parse::<u64>().is_ok() {
+        Ok(())
+    } else {
+        Err(())
+    }
 }
 
 fn require_literal(value: &str, expected: &str, path: &str) -> Result<(), ValidationError> {

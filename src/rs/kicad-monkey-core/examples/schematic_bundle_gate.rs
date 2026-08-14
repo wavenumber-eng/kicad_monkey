@@ -115,8 +115,8 @@ fn load_request(request: Request) -> Result<LoadedRequest, Box<dyn Error>> {
         descriptors.push(SourceBundleSource {
             kind,
             path: relative,
-            slot,
-            source_bytes: bytes.len().to_string(),
+            slot: slot.into(),
+            source_bytes: bytes.len().to_string().into(),
         });
         buffers.push(bytes);
     }

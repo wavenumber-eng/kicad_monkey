@@ -130,6 +130,12 @@ fn project_for_typify(value: &mut Value) {
     match value {
         Value::Object(object) => {
             object.remove("$schema");
+            if object.get("pattern").and_then(Value::as_str) == Some("^(0|[1-9][0-9]{0,19})$") {
+                // The promoted decoder enforces canonical uint64 semantics.
+                // Avoid introducing a regex runtime into generated Rust for
+                // one closed decimal grammar.
+                object.remove("pattern");
+            }
             if object
                 .get("unevaluatedProperties")
                 .is_some_and(|entry| entry == &serde_json::json!({"not": {}}))

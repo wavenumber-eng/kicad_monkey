@@ -22,8 +22,8 @@ fn descriptor(path: &str, kind: SourceKind, slot: u32, bytes: &[u8]) -> SourceBu
     SourceBundleSource {
         kind,
         path: path.to_owned(),
-        slot,
-        source_bytes: bytes.len().to_string(),
+        slot: slot.into(),
+        source_bytes: bytes.len().to_string().into(),
     }
 }
 
@@ -112,7 +112,7 @@ fn manifest_slots_paths_sizes_kinds_and_project_json_fail_closed() {
     ];
 
     let mut duplicate_slot = base.clone();
-    duplicate_slot[1].slot = 0;
+    duplicate_slot[1].slot = 0.into();
     assert_eq!(
         SourceBundle::from_manifest(
             manifest(duplicate_slot),
@@ -125,7 +125,7 @@ fn manifest_slots_paths_sizes_kinds_and_project_json_fail_closed() {
     );
 
     let mut wrong_size = base.clone();
-    wrong_size[1].source_bytes = "999".to_owned();
+    wrong_size[1].source_bytes = "999".to_owned().into();
     assert_eq!(
         SourceBundle::from_manifest(
             manifest(wrong_size),

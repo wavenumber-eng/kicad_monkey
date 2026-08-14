@@ -24,6 +24,49 @@ pub mod error {
         }
     }
 }
+///Canonical decimal wire encoding for an unsigned 64-bit byte count.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Canonical decimal wire encoding for an unsigned 64-bit byte count.",
+///  "type": "string"
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize, ::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd,
+)]
+#[serde(transparent)]
+pub struct CanonicalUint64Decimal(pub ::std::string::String);
+impl ::std::ops::Deref for CanonicalUint64Decimal {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<CanonicalUint64Decimal> for ::std::string::String {
+    fn from(value: CanonicalUint64Decimal) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::std::string::String> for CanonicalUint64Decimal {
+    fn from(value: ::std::string::String) -> Self {
+        Self(value)
+    }
+}
+impl ::std::str::FromStr for CanonicalUint64Decimal {
+    type Err = ::std::convert::Infallible;
+    fn from_str(value: &str) -> ::std::result::Result<Self, Self::Err> {
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::fmt::Display for CanonicalUint64Decimal {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 ///Portable inventory for a named multi-file schematic compiler input.
 ///
 /// <details><summary>JSON schema</summary>
@@ -105,12 +148,10 @@ pub struct SourceBundleManifestA0 {
 ///      "type": "string"
 ///    },
 ///    "slot": {
-///      "type": "integer",
-///      "maximum": 4294967295.0,
-///      "minimum": 0.0
+///      "$ref": "#/$defs/SourceSlot"
 ///    },
 ///    "source_bytes": {
-///      "type": "string"
+///      "$ref": "#/$defs/CanonicalUint64Decimal"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -122,8 +163,8 @@ pub struct SourceBundleManifestA0 {
 pub struct SourceBundleSource {
     pub kind: SourceKind,
     pub path: ::std::string::String,
-    pub slot: u32,
-    pub source_bytes: ::std::string::String,
+    pub slot: SourceSlot,
+    pub source_bytes: CanonicalUint64Decimal,
 }
 ///KiCad source role within one schematic compiler input bundle.
 ///
@@ -216,5 +257,60 @@ impl ::std::convert::TryFrom<::std::string::String> for SourceKind {
         value: ::std::string::String,
     ) -> ::std::result::Result<Self, self::error::ConversionError> {
         value.parse()
+    }
+}
+///Zero-based byte-buffer slot within one manifest.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Zero-based byte-buffer slot within one manifest.",
+///  "type": "integer",
+///  "maximum": 4294967295.0,
+///  "minimum": 0.0
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct SourceSlot(pub u32);
+impl ::std::ops::Deref for SourceSlot {
+    type Target = u32;
+    fn deref(&self) -> &u32 {
+        &self.0
+    }
+}
+impl ::std::convert::From<SourceSlot> for u32 {
+    fn from(value: SourceSlot) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<u32> for SourceSlot {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+impl ::std::str::FromStr for SourceSlot {
+    type Err = <u32 as ::std::str::FromStr>::Err;
+    fn from_str(value: &str) -> ::std::result::Result<Self, Self::Err> {
+        Ok(Self(value.parse()?))
+    }
+}
+impl ::std::convert::TryFrom<&str> for SourceSlot {
+    type Error = <u32 as ::std::str::FromStr>::Err;
+    fn try_from(value: &str) -> ::std::result::Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<String> for SourceSlot {
+    type Error = <u32 as ::std::str::FromStr>::Err;
+    fn try_from(value: String) -> ::std::result::Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+impl ::std::fmt::Display for SourceSlot {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        self.0.fmt(f)
     }
 }
