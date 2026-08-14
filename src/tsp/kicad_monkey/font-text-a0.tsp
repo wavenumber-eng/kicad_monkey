@@ -133,7 +133,7 @@ union CoordinateComparisonPolicy {
 /**
  * HarfBuzz-compatible feature range over half-open UTF-8 byte offsets.
  * Non-global endpoints are UTF-8 code-point boundaries. A global range is
- * start=0 and end=4294967295. Rustybuzz receives these values unchanged after
+ * start=0 and end=4294967295. HarfRust receives these values unchanged after
  * UnicodeBuffer::push_str assigns char_indices clusters.
  */
 model ShapingFeature {

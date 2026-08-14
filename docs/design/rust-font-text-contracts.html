@@ -53,7 +53,7 @@
   <p>Text positions use UTF-8 byte offsets. The Rust implementation must feed
   the complete string through <code>UnicodeBuffer::push_str</code>, whose
   <code>char_indices</code> clusters are UTF-8 byte offsets, and pass each
-  feature's half-open <code>[start, end)</code> range to Rustybuzz unchanged.
+  feature's half-open <code>[start, end)</code> range to HarfRust unchanged.
   Non-global endpoints must be UTF-8 code-point boundaries; the sole global
   sentinel is <code>start=0, end=4294967295</code>. Output glyph clusters use
   the same unit but only scalar-start offsets: the terminal byte length is a
@@ -89,8 +89,8 @@
 
   <h2>Retained implementation gates</h2>
   <ul>
-    <li>Choose and pin Rustybuzz and the outline parser only with a real
-    shaping/outline oracle corpus and dependency review.</li>
+    <li>Keep the pinned HarfRust shaper and ttf-parser/Skrifa outline stack
+    governed by real shaping/outline oracle corpora and dependency review.</li>
     <li>Validate face indices and requested variation axes against font bytes.</li>
     <li>Preflight untrusted JSON collection sizes before generated DTO
     allocation at any public operation boundary.</li>

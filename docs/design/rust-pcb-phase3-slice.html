@@ -40,7 +40,7 @@
 <tr><td>Zone refill and thermal generation</td><td>Retained, not implemented</td><td>Future explicitly promoted operation; prefer KiCad semantics and evaluate a Geometer process adapter only if its operation contract fits</td><td>Stored authored/filled zone geometry remains readable; no implicit refill on parse or write</td></tr>
 <tr><td>Polygon boolean, offset, clipping, merging, and large planar-set operations</td><td>Retained behind a conditional bridge-entry gate</td><td>Geometer process/WASM boundary when justified, not the parser core</td><td>Requires a named operation, TypeSpec process contract, version/resource/failure semantics, and native/browser parity before adoption</td></tr>
 <tr><td>Contour closure, topology repair, self-intersection cleanup, and board-outline inference</td><td>Retained</td><td>Future close-to-format operation or Geometer kernel, selected only after corpus evidence defines semantics</td><td><code>profile_primitives()</code> exposes source carriers without inventing repaired contours</td></tr>
-<tr><td>Render-only tessellation, text outlines, cached render polygons, mesh, convex hull, and shader work</td><td>Retained or out of scope</td><td>Later plotter/text slices or downstream visualizers</td><td>Rustybuzz/text-outline evidence remains separate; mesh, convex hull, and shader ports are not Phase 3 requirements</td></tr>
+<tr><td>Render-only tessellation, text outlines, cached render polygons, mesh, convex hull, and shader work</td><td>Retained or out of scope</td><td>Later plotter/text slices or downstream visualizers</td><td>HarfRust/text-outline evidence remains separate; mesh, convex hull, and shader ports are not Phase 3 requirements</td></tr>
 </tbody>
 </table>
 <h2>Evidence</h2>

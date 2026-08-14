@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust KiCad version compatibility policy</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust KiCad version compatibility policy</h1>
+
+  <p>Status: proposed. This document defines the compatibility evidence that
+  must exist before the Rust-port plan exits. It does not turn the current
+  evidence-collection row into a broad support promise.</p>
+
+  <h2>Compatibility unit</h2>
+  <p>A compatibility claim names an exact KiCad release, such as
+  <code>10.0.5</code>, rather than only a major version. The row also records
+  each observed file-format identifier independently for PCB, footprint,
+  schematic, symbol-library, project JSON, worksheet, and exported netlist
+  inputs. A file's authored <code>version</code> is format evidence;
+  <code>generator_version</code> is provenance and must not be used as a
+  substitute.</p>
+
+  <p>Each promoted family has separate cells for parse/read, exact or semantic
+  round trip, mutation/writeback, plotter/render output, and applicable
+  <code>kicad-cli</code> acceptance. A passing parser cell does not imply that
+  the writer, plotter, or CLI cell passes. Every cell links to a Rack case or a
+  durable fixture manifest. Missing and not-applicable cells are explicit.</p>
+
+  <h2>Current release matrix</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>KiCad release</th>
+        <th>Channel</th>
+        <th>Observed format identifiers</th>
+        <th>Current evidence</th>
+        <th>Disposition</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>10.0.5</code></td>
+        <td>stable</td>
+        <td>Per-family inventory is required from the repository-local corpus
+        before plan exit; no dates are inferred from the release number.</td>
+        <td>Windows <code>kicad-cli version</code> reports
+        <code>10.0.5</code>. Existing PCB save/upgrade and render-cache oracle
+        lanes provide operation evidence, but do not yet constitute the
+        complete per-family release matrix.</td>
+        <td>Evidence collecting; not yet a complete support claim.</td>
+      </tr>
+      <tr>
+        <td>next selected nightly</td>
+        <td>nightly, opt-in</td>
+        <td>No build selected.</td>
+        <td>No nightly lane is active.</td>
+        <td>Advisory only.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Stable-release gate</h2>
+  <p>Before plan exit, the <code>kicad-version-compatibility</code> step must
+  replace every inventory placeholder for each claimed stable release with
+  the exact release/build identity, all encountered format identifiers, the
+  hashed fixture or corpus manifest, and the Rack evidence for every promoted
+  operation. Unknown newer forms must still demonstrate source preservation;
+  they are not silently promoted to typed support. Failures remain scoped to
+  their family and operation instead of invalidating unrelated cells.</p>
+
+  <h2>Nightly observation policy</h2>
+  <p>A nightly lane is added only when an upstream format change is known to be
+  staged or when a concrete consumer requires early validation. It pins the
+  full build string, upstream Git revision when available, capture date, and
+  fixture hashes. Nightly failures are visible and actionable but advisory;
+  nightly success never expands the stable compatibility claim. When the
+  change ships, its evidence is recaptured under the exact stable release and
+  only then may it enter an authoritative row.</p>
+
+  <h2>Source pins and dependency versions</h2>
+  <p>Upstream source revisions used to answer semantic questions are recorded
+  beside the affected design or oracle and are distinct from the installed
+  release row. Rust dependency versions, including HarfRust, ttf-parser, and
+  Skrifa, are lockfile and dependency-review evidence; they likewise do not
+  stand in for a KiCad release claim.</p>
+</body>
+</html>

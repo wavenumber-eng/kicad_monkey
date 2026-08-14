@@ -60,6 +60,8 @@ Current design notes:
   net-class enrichment, and bounded KiCad version-E S-expression output.
 - `rust-phase4-exit-audit.html` - explicit accepted-corpus, compiler,
   writer, malformed-graph, and netlist/compiled-graph Phase 4 exit mapping.
+- `rust-kicad-version-compatibility.html` - exact stable-release format and
+  operation evidence matrix policy plus opt-in nightly observation rules.
 - `rust-font-text-contracts.html` - TypeSpec-owned out-of-band font bundles,
   deterministic selection, and independently attributable shaping and outline
   oracle records.

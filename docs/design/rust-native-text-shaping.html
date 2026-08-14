@@ -14,14 +14,13 @@
   system fonts, or expose a browser operation.</p>
 
   <h2>Dependency decision</h2>
-  <p>The implementation uses <code>harfrust 0.13.0</code>, the maintained
-  official successor fork of Rustybuzz. HarfRust tracks HarfBuzz 14.3.0,
+  <p>The implementation uses <code>harfrust 0.13.0</code>, a maintained
+  pure-Rust HarfBuzz-compatible shaper. HarfRust tracks HarfBuzz 14.3.0,
   forbids unsafe code in its library, exposes all three glyph safety flags, and
   assigns distinct buffer bits to unsafe-to-concat and safe-to-insert-tatweel.
-  Rustybuzz 0.20.1 is archived, tracks HarfBuzz 10.0.1, exposes only
-  unsafe-to-break, and aliases the two optional output-flag bits. Those gaps
-  prevent it from implementing the accepted a0 shaping record without a fork
-  or an encoded-string workaround.</p>
+  It was selected because the accepted a0 record requires those distinct
+  outputs; candidates that omit or alias them cannot implement the contract
+  without a fork or encoded-string workaround.</p>
 
   <p>The committed oracle uses uharfbuzz/HarfBuzz 14.2.0. Exact agreement on
   the fixed corpus is required despite the one-minor upstream difference.
