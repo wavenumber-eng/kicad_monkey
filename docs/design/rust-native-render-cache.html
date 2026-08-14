@@ -217,6 +217,14 @@
   <p>Live native evidence covers Impact fake bold, Impact fake italic, and
   Arial bold-italic resolving to the real bold face with only the italic
   shear faked, all at tolerance <code>0.002</code>.</p>
+  <p>Face resolution itself stays caller-side: the Rust request receives font
+  bytes, and the caller resolves board faces through KiCad's own bundled
+  fontconfig (the <code>family:Bold</code>/<code>:Italic</code>
+  <code>FcNameParse</code> match of <code>FONTCONFIG::FindFont</code> in
+  <code>common/font/fontconfig.cpp</code>) before any fallback, so a face not
+  installed on the machine substitutes to the same installed file the KiCad
+  oracle picks. Live Ubuntu Sans regular and bold substitution save-oracle
+  cases pin this.</p>
 
   <h2>Cache contour topology</h2>
   <p><code>fracture_text_contours_a0</code> trims one repeated closing point,

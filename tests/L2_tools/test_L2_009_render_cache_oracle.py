@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 
@@ -1550,6 +1551,59 @@ def test_python_render_cache_generator_matches_system_font_lookup_oracle(
     generated = RenderCacheResolver().ensure_cache(request)
 
     assert request.font_face == "Consolas"
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(
+    not os.environ.get("KICAD_FONTCONFIG_DLL"),
+    reason="KiCad fontconfig DLL not provisioned",
+)
+@pytest.mark.parametrize(
+    ("font_style", "case_name"),
+    [
+        ("", "substituted_regular"),
+        ("(bold yes)", "substituted_bold"),
+    ],
+)
+def test_python_render_cache_generator_matches_fontconfig_substitution_oracle(
+    tmp_path: Path,
+    font_style: str,
+    case_name: str,
+):
+    # "Ubuntu Sans" is not shipped with KiCad and is absent from stock
+    # Windows installs, so KiCad's FONTCONFIG::FindFont substitutes an
+    # installed face (Noto Sans here). Our resolver must run the same match
+    # through KiCad's bundled fontconfig instead of falling back to Arial.
+    source = tmp_path / f"render_cache_fontconfig_{case_name}.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        "FC",
+        font_style=font_style,
+        font_face="Ubuntu Sans",
+    )
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / f"oracle_fontconfig_{case_name}",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert request.font_face == "Ubuntu Sans"
     assert generated.usable
     assert generated.cache is not None
     comparison = compare_render_caches(

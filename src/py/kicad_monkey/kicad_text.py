@@ -312,8 +312,130 @@ def _system_font_paths() -> Dict[Tuple[str, bool, bool], Tuple[str, ...]]:
     return {key: tuple(value) for key, value in out.items()}
 
 
+class _KiCadFontconfigApi:
+    """ctypes wrapper over KiCad's bundled fontconfig DLL.
+
+    Mirrors KiCad's ``FONTCONFIG::FindFont``: the family name with ``:Bold``
+    / ``:Italic`` appended is parsed by ``FcNameParse``, run through
+    ``FcConfigSubstitute(FcMatchPattern)`` + ``FcDefaultSubstitute`` +
+    ``FcFontMatch``, and the matched ``file`` value is extracted. This is how
+    KiCad substitutes an installed face (e.g. Noto Sans) for a board font
+    that is not present on the machine.
+    """
+
+    _FC_MATCH_PATTERN = 0
+    _FC_RESULT_MATCH = 0
+
+    def __init__(self, dll_path: Path) -> None:
+        # KiCad ships its fontconfig configuration next to the DLL at
+        # <root>/etc/fonts; without FONTCONFIG_PATH the DLL finds no config.
+        etc_fonts = dll_path.parent.parent / "etc" / "fonts"
+        if etc_fonts.is_dir():
+            os.environ.setdefault("FONTCONFIG_PATH", str(etc_fonts))
+        if hasattr(os, "add_dll_directory"):
+            os.add_dll_directory(str(dll_path.parent))
+        lib = ctypes.CDLL(str(dll_path))
+        lib.FcInitLoadConfigAndFonts.restype = ctypes.c_void_p
+        lib.FcNameParse.restype = ctypes.c_void_p
+        lib.FcNameParse.argtypes = [ctypes.c_char_p]
+        lib.FcConfigSubstitute.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_int,
+        ]
+        lib.FcDefaultSubstitute.argtypes = [ctypes.c_void_p]
+        lib.FcFontMatch.restype = ctypes.c_void_p
+        lib.FcFontMatch.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        lib.FcPatternGetString.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_char_p),
+        ]
+        lib.FcPatternDestroy.argtypes = [ctypes.c_void_p]
+        self.lib = lib
+        config = lib.FcInitLoadConfigAndFonts()
+        if not config:
+            raise OSError("fontconfig configuration failed to load")
+        self.config = config
+
+    def match_file(self, font_name: str, bold: bool, italic: bool) -> Optional[str]:
+        query = font_name
+        if bold:
+            query += ":Bold"
+        if italic:
+            query += ":Italic"
+        pattern = self.lib.FcNameParse(query.encode("utf-8"))
+        if not pattern:
+            return None
+        try:
+            self.lib.FcConfigSubstitute(self.config, pattern, self._FC_MATCH_PATTERN)
+            self.lib.FcDefaultSubstitute(pattern)
+            result = ctypes.c_int(0)
+            match = self.lib.FcFontMatch(self.config, pattern, ctypes.byref(result))
+            if not match:
+                return None
+            try:
+                value = ctypes.c_char_p()
+                status = self.lib.FcPatternGetString(
+                    match, b"file", 0, ctypes.byref(value)
+                )
+                if status != self._FC_RESULT_MATCH:
+                    return None
+                return (value.value or b"").decode("utf-8", "replace") or None
+            finally:
+                self.lib.FcPatternDestroy(match)
+        finally:
+            self.lib.FcPatternDestroy(pattern)
+
+
+_FONTCONFIG_API: Optional[_KiCadFontconfigApi] = None
+_FONTCONFIG_API_MISSING = False
+
+
+def _find_fontconfig_dll() -> Optional[Path]:
+    env_path = os.environ.get("KICAD_FONTCONFIG_DLL")
+    if env_path and Path(env_path).is_file():
+        return Path(env_path)
+
+    return None
+
+
+def _get_fontconfig_api() -> Optional[_KiCadFontconfigApi]:
+    global _FONTCONFIG_API, _FONTCONFIG_API_MISSING
+    if _FONTCONFIG_API_MISSING:
+        return None
+    if _FONTCONFIG_API is not None:
+        return _FONTCONFIG_API
+
+    dll_path = _find_fontconfig_dll()
+    if dll_path is None:
+        _FONTCONFIG_API_MISSING = True
+        return None
+
+    try:
+        _FONTCONFIG_API = _KiCadFontconfigApi(dll_path)
+    except OSError:
+        _FONTCONFIG_API_MISSING = True
+        return None
+
+    return _FONTCONFIG_API
+
+
 @lru_cache(maxsize=128)
 def _fontconfig_match_path(font_name: str, bold: bool = False, italic: bool = False) -> Optional[str]:
+    api = _get_fontconfig_api()
+    if api is not None:
+        matched = api.match_file(font_name.strip(), bold=bold, italic=italic)
+        if matched:
+            path = Path(matched)
+            if path.exists() and path.suffix.casefold() in {".ttf", ".otf", ".ttc"}:
+                return str(path)
+
     query = font_name.strip() or "sans-serif"
     styles: List[str] = []
     if bold:
