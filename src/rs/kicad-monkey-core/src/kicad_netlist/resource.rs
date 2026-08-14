@@ -32,6 +32,11 @@ impl StringBudget {
         }
         Ok(())
     }
+
+    #[cfg(test)]
+    pub(super) const fn used(&self) -> usize {
+        self.used
+    }
 }
 
 pub(super) fn check_count(

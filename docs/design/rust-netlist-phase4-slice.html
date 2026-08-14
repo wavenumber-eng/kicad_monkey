@@ -9,7 +9,8 @@
   <h1>Rust Phase 4 native KiCad netlist slice</h1>
 
   <p>Status: implemented and ready for focused review. This slice promotes the
-  native in-process netlist model and KiCad version-E S-expression writer. It
+  native in-process version-E-oriented netlist projection and KiCad version-E
+  S-expression writer. It
   does not promote a JSON, TypeSpec, WASM, or stable Cargo interchange API.</p>
 
   <h2>Boundary</h2>
@@ -20,7 +21,11 @@
   title metadata. <code>emit_kicad_netlist</code> writes that model directly to
   KiCad's version-E S-expression format through a bounded pretty emitter.</p>
 
-  <p>The Rust structs are native compiler state. The example gate serializes
+  <p>This slice intentionally governs the semantic subset consumed by the
+  version-E writer. It does not yet promote net-class aliases, graphical IDs,
+  bus flags, terminal endpoint records, libraries, or design source/date/tool
+  metadata as complete native model fields. The Rust structs are native
+  compiler state. The example gate serializes
   them only as test evidence. Any future browser, downstream JSON, or public
   interchange operation must first receive a TypeSpec-owned contract and
   generated projections; this implementation must not become an accidental
@@ -47,7 +52,10 @@
   retained-string, and output-byte allowances are independent. Component rows
   are rejected when a new group would cross the ceiling; candidates and pins
   are rejected before insertion. Title-block children and comments are counted
-  from the structural index before model allocation.</p>
+  from the structural index before model allocation. Recursive variable
+  expansion has separate per-result and aggregate-work ceilings. Wildcard
+  matching likewise has a caller-owned aggregate work ceiling across all nets
+  and patterns.</p>
 
   <p>Source parsing and model construction are linear apart from ordered map/set
   operations and natural pin sorting. Wildcard matching uses an iterative
@@ -60,8 +68,8 @@
   <h2>Evidence</h2>
   <p><code>kicad_netlist.rs</code> owns synthetic model, writer, wildcard,
   reachability, title-block, and one-over/one-under resource evidence. Rack
-  <code>L3_020</code> builds the native example once and compares the complete
-  Rust netlist model with Python on four governed real projects: Yoshi
+  <code>L3_020</code> builds the native example once and compares the governed
+  version-E projection with Python on four governed real projects: Yoshi
   Mainboard, Taillight, Speedy Processing Module, and Jumperless V5r7. The same
   gate parses both emitted version-E documents and compares their governed
   semantic trees. The four-project gate is mandatory corpus evidence and does

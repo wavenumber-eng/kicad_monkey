@@ -3,8 +3,10 @@
 mod build;
 mod emit;
 mod glob;
+mod merge;
 mod resource;
 mod types;
+mod variables;
 
 pub use build::build_kicad_netlist;
 pub use emit::emit_kicad_netlist;

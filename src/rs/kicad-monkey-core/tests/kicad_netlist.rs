@@ -33,6 +33,14 @@ fn native_materializer_emits_components_libparts_sheets_and_resolved_nets() {
     let index = structural_index();
     let netlist =
         build_kicad_netlist(&index, None, KiCadNetlistLimits::default()).expect("native netlist");
+    assert_structural_netlist(&netlist);
+    let output = emit_kicad_netlist(&netlist, "root.kicad_sch", "", "kicad_monkey", 1_000_000)
+        .expect("version-E output");
+    let reparsed = kicad_monkey_core::sexpr::parse(&output).expect("valid S-expression");
+    assert!(matches!(reparsed, kicad_monkey_core::sexpr::Sexp::List(_)));
+}
+
+fn assert_structural_netlist(netlist: &KiCadNetlist) {
     assert_eq!(netlist.sheets.len(), 2);
     assert_eq!(
         netlist
@@ -46,6 +54,7 @@ fn native_materializer_emits_components_libparts_sheets_and_resolved_nets() {
     assert_eq!(netlist.libparts[0].lib, "Demo");
     assert_eq!(netlist.libparts[0].part, "One");
     assert_eq!(netlist.libparts[0].description, "Synthetic library part");
+    assert_eq!(netlist.components[0].value, "first-duplicate-uuid-wins");
     assert_eq!(netlist.sheets[0].title, "Structural demo");
     assert_eq!(netlist.sheets[0].company, "Wavenumber");
     assert_eq!(netlist.sheets[0].revision, "A");
@@ -58,18 +67,15 @@ fn native_materializer_emits_components_libparts_sheets_and_resolved_nets() {
             .flat_map(|net| &net.terminals)
             .any(|terminal| terminal.designator == "R1")
     );
-    let output = emit_kicad_netlist(&netlist, "root.kicad_sch", "", "kicad_monkey", 1_000_000)
-        .expect("version-E output");
-    let reparsed = kicad_monkey_core::sexpr::parse(&output).expect("valid S-expression");
-    assert!(matches!(reparsed, kicad_monkey_core::sexpr::Sexp::List(_)));
 }
 
 #[test]
 fn project_patterns_assign_the_first_declared_valid_net_class() {
     let project = r#"{
       "net_settings": {
-        "classes": [{"name":"Power"}, {"name":"Fallback"}],
+        "classes": [{"name":""}, {"name":"Power"}, {"name":"Fallback"}],
         "netclass_patterns": [
+          {"pattern":"*", "netclass":""},
           {"pattern":"*", "netclass":"missing"},
           {"pattern":"*", "netclass":"Power"},
           {"pattern":"*", "netclass":"Fallback"}
@@ -167,6 +173,8 @@ fn structural_index_with_limits(
         (property "Sheetname" "Child")
         (property "Sheetfile" "child.kicad_sch")
         (pin "SIG" input (at 20 0 180) (uuid sheet-pin)))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 0 0 0) (uuid root-symbol)
+        (property "Reference" "R1") (property "Value" "first-duplicate-uuid-wins"))
       (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 0 0 0) (uuid root-symbol)
         (property "Reference" "R1") (property "Value" "One")))"#
         .to_vec();

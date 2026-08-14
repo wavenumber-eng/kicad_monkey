@@ -1,7 +1,9 @@
-use super::glob::GlobPattern;
+use super::glob::{GlobPattern, GlobWorkBudget};
+use super::merge::merge_component_group;
 use super::resource::{
     StringBudget, check_count, ensure_capacity, limit_error, project_error, schematic_error,
 };
+use super::variables::{ExpansionWorkBudget, VariableResolver};
 use super::{
     KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetlist, KiCadNetlistComponent,
     KiCadNetlistComponentUnit, KiCadNetlistLimits, KiCadNetlistTerminal,
@@ -20,6 +22,7 @@ pub fn build_kicad_netlist(
     limits: KiCadNetlistLimits,
 ) -> Result<KiCadNetlist, SourceBundleError> {
     let mut budget = StringBudget::new(limits.max_retained_string_bytes);
+    let mut expansion_work = ExpansionWorkBudget::new(limits.max_variable_expansion_work_bytes);
     let mut design_limits = limits.design;
     design_limits.max_nets = design_limits.max_nets.min(limits.max_nets);
     design_limits.max_terminals = design_limits.max_terminals.min(limits.max_terminals);
@@ -33,13 +36,16 @@ pub fn build_kicad_netlist(
         .transpose()
         .map_err(project_error)?
         .unwrap_or_default();
-    let variable_index = project_variables
-        .into_iter()
-        .map(|(name, value)| (name.to_lowercase(), value))
-        .collect::<HashMap<_, _>>();
+    let variable_index = project_variable_index(project_variables, &mut expansion_work)?;
     let mut netlist = KiCadNetlist {
         nets: build_nets(scalar.nets, project_settings.as_ref(), limits, &mut budget)?,
-        components: build_components(index, &variable_index, limits, &mut budget)?,
+        components: build_components(
+            index,
+            &variable_index,
+            limits,
+            &mut budget,
+            &mut expansion_work,
+        )?,
         libparts: build_libparts(index, limits, &mut budget)?,
         libraries: Vec::new(),
         sheets: build_sheets(index, limits, &mut budget)?,
@@ -49,6 +55,17 @@ pub fn build_kicad_netlist(
     validate_counts(&netlist, limits)?;
     netlist.nets.shrink_to_fit();
     Ok(netlist)
+}
+
+fn project_variable_index(
+    variables: Vec<(String, String)>,
+    work: &mut ExpansionWorkBudget,
+) -> Result<HashMap<String, String>, SourceBundleError> {
+    let mut index = HashMap::with_capacity(variables.len());
+    for (name, value) in variables {
+        index.insert(work.fold(&name)?, value);
+    }
+    Ok(index)
 }
 
 fn build_nets(
@@ -61,6 +78,7 @@ fn build_nets(
     let class_names = settings.map(class_names).unwrap_or_default();
     let exact_classes = settings.map(exact_class_assignments).unwrap_or_default();
     let patterns = settings.map(compile_class_patterns).unwrap_or_default();
+    let mut wildcard_work = GlobWorkBudget::new(limits.max_wildcard_match_work);
     let mut terminal_count = 0usize;
     let mut result = Vec::with_capacity(nets.len());
     for net in nets {
@@ -94,7 +112,13 @@ fn build_nets(
                 svg_id: terminal.svg_id,
             });
         }
-        let net_class = resolve_class(&net.name, &class_names, &exact_classes, &patterns);
+        let net_class = resolve_class(
+            &net.name,
+            &class_names,
+            &exact_classes,
+            &patterns,
+            &mut wildcard_work,
+        )?;
         let driver_kind = net
             .driver_kind
             .map_or_else(String::new, |kind| kind.as_str().to_owned());
@@ -116,6 +140,7 @@ fn class_names(settings: &ProjectNetSettings) -> HashSet<&str> {
     settings
         .classes
         .iter()
+        .filter(|class| !class.name.is_empty())
         .map(|class| class.name.as_str())
         .chain(std::iter::once("Default"))
         .collect()
@@ -148,30 +173,29 @@ fn resolve_class(
     classes: &HashSet<&str>,
     assignments: &HashMap<&str, &[String]>,
     patterns: &[(GlobPattern, &str)],
-) -> String {
-    assignments
-        .get(net)
-        .and_then(|assigned| {
-            assigned
-                .iter()
-                .map(String::as_str)
-                .find(|class| classes.contains(class))
-        })
-        .or_else(|| {
-            patterns
-                .iter()
-                .find(|(pattern, class)| classes.contains(class) && pattern.matches(net))
-                .map(|(_, class)| *class)
-        })
-        .unwrap_or("Default")
-        .to_owned()
+    work: &mut GlobWorkBudget,
+) -> Result<String, SourceBundleError> {
+    if let Some(class) = assignments.get(net).and_then(|assigned| {
+        assigned
+            .iter()
+            .map(String::as_str)
+            .find(|class| classes.contains(class))
+    }) {
+        return Ok(class.to_owned());
+    }
+    for (pattern, class) in patterns {
+        if classes.contains(class) && pattern.matches(net, work)? {
+            return Ok((*class).to_owned());
+        }
+    }
+    Ok("Default".to_owned())
 }
 
 #[derive(Clone)]
-struct ComponentCandidate {
-    unit: i64,
-    order: usize,
-    component: KiCadNetlistComponent,
+pub(super) struct ComponentCandidate {
+    pub(super) unit: i64,
+    pub(super) order: usize,
+    pub(super) component: KiCadNetlistComponent,
 }
 
 fn build_components(
@@ -179,8 +203,10 @@ fn build_components(
     project_variables: &HashMap<String, String>,
     limits: KiCadNetlistLimits,
     budget: &mut StringBudget,
+    expansion_work: &mut ExpansionWorkBudget,
 ) -> Result<Vec<KiCadNetlistComponent>, SourceBundleError> {
-    let mut collection = ComponentCollection::new(project_variables, limits, budget);
+    let mut collection =
+        ComponentCollection::new(project_variables, limits, budget, expansion_work);
     for occurrence in index.occurrences() {
         collection.collect_occurrence(index, occurrence)?;
     }
@@ -194,6 +220,7 @@ struct ComponentCollection<'a> {
     group_index: HashMap<(String, String), usize>,
     order: usize,
     candidate_count: usize,
+    seen_symbol_uuids: HashSet<(usize, String)>,
 }
 
 impl<'a> ComponentCollection<'a> {
@@ -201,18 +228,21 @@ impl<'a> ComponentCollection<'a> {
         project_variables: &'a HashMap<String, String>,
         limits: KiCadNetlistLimits,
         budget: &'a mut StringBudget,
+        expansion_work: &'a mut ExpansionWorkBudget,
     ) -> Self {
         Self {
             materializer: ComponentMaterializer {
                 project_variables,
                 limits,
                 budget,
+                expansion_work,
             },
             limits,
             groups: Vec::new(),
             group_index: HashMap::new(),
             order: 0,
             candidate_count: 0,
+            seen_symbol_uuids: HashSet::new(),
         }
     }
 
@@ -234,6 +264,13 @@ impl<'a> ComponentCollection<'a> {
                 })?;
             let library = definition.library_symbol_for_placement(placed);
             if omitted_component(&effective, library) {
+                continue;
+            }
+            if !effective.uuid.is_empty()
+                && !self
+                    .seen_symbol_uuids
+                    .insert((occurrence.index, effective.uuid.clone()))
+            {
                 continue;
             }
             self.add_candidate(occurrence, placed, effective, library, parent_properties)?;
@@ -295,7 +332,7 @@ impl<'a> ComponentCollection<'a> {
         let mut result = Vec::with_capacity(self.groups.len());
         let mut emitted_multi = HashSet::new();
         for group in self.groups {
-            let component = merge_component_group(group)?;
+            let component = merge_component_group(group, self.limits, self.materializer.budget)?;
             if component.units.len() > 1
                 && !emitted_multi.insert(component.reference.to_lowercase())
             {
@@ -321,6 +358,7 @@ struct ComponentMaterializer<'a> {
     project_variables: &'a HashMap<String, String>,
     limits: KiCadNetlistLimits,
     budget: &'a mut StringBudget,
+    expansion_work: &'a mut ExpansionWorkBudget,
 }
 
 impl ComponentMaterializer<'_> {
@@ -332,16 +370,17 @@ impl ComponentMaterializer<'_> {
         library: Option<&SchematicLibrarySymbol>,
         parent_properties: &[crate::SchematicSymbolProperty],
     ) -> Result<KiCadNetlistComponent, SourceBundleError> {
-        let value = expand_variables(
-            &blank(&effective.value),
+        let mut variables = VariableResolver::new(
             &effective.fields,
             self.project_variables,
-            "Value",
-        );
-        let footprint = shown_field(effective, self.project_variables, "Footprint");
-        let datasheet = shown_field(effective, self.project_variables, "Datasheet");
-        let description = shown_field(effective, self.project_variables, "Description");
-        let fields = user_fields(effective, self.project_variables, self.limits)?;
+            self.limits.max_expanded_string_bytes,
+            self.expansion_work,
+        )?;
+        let value = variables.expand_blank(&effective.value, "Value")?;
+        let footprint = shown_field(effective, &mut variables, "Footprint")?;
+        let datasheet = shown_field(effective, &mut variables, "Datasheet")?;
+        let description = shown_field(effective, &mut variables, "Description")?;
+        let fields = user_fields(effective, &mut variables, self.limits, self.budget)?;
         let properties = component_properties(
             occurrence,
             effective,
@@ -349,6 +388,7 @@ impl ComponentMaterializer<'_> {
             parent_properties,
             &fields,
             self.limits,
+            self.budget,
         )?;
         let (libsource_lib, libsource_part) = component_libsource(placed);
         let libsource_description = library
@@ -370,9 +410,6 @@ impl ComponentMaterializer<'_> {
             self.limits.max_component_unit_pins,
             "KiCad netlist component-unit pin count",
         )?;
-        for (key, item) in fields.iter().chain(properties.iter()) {
-            self.budget.reserve_many([key.len(), item.len()])?;
-        }
         self.budget.reserve_many([
             effective.reference.len(),
             value.len(),
@@ -421,29 +458,36 @@ fn component_properties(
     parent_properties: &[crate::SchematicSymbolProperty],
     fields: &BTreeMap<String, String>,
     limits: KiCadNetlistLimits,
+    budget: &mut StringBudget,
 ) -> Result<BTreeMap<String, String>, SourceBundleError> {
-    let mut properties = fields.clone();
+    let mut properties = BTreeMap::new();
+    for (name, value) in fields {
+        insert_property(&mut properties, name, value, limits, budget)?;
+    }
     for property in parent_properties {
         if !property.key.is_empty() {
-            properties
-                .entry(property.key.clone())
-                .or_insert_with(|| property.value.clone());
+            insert_property(
+                &mut properties,
+                &property.key,
+                &property.value,
+                limits,
+                budget,
+            )?;
         }
     }
     let (sheet_name, sheet_file) = if occurrence.parent_index.is_none() {
         (
             portable_stem(&occurrence.source_path),
-            portable_name(&occurrence.source_path).to_owned(),
+            portable_name(&occurrence.source_path),
         )
     } else {
-        (occurrence.sheet_name.clone(), occurrence.sheet_file.clone())
+        (
+            occurrence.sheet_name.as_str(),
+            occurrence.sheet_file.as_str(),
+        )
     };
-    properties
-        .entry("Sheetname".to_owned())
-        .or_insert(sheet_name);
-    properties
-        .entry("Sheetfile".to_owned())
-        .or_insert(sheet_file);
+    insert_property(&mut properties, "Sheetname", sheet_name, limits, budget)?;
+    insert_property(&mut properties, "Sheetfile", sheet_file, limits, budget)?;
     for (excluded, name) in [
         (!effective.in_bom, "exclude_from_bom"),
         (!effective.on_board, "exclude_from_board"),
@@ -451,7 +495,7 @@ fn component_properties(
         (effective.dnp, "dnp"),
     ] {
         if excluded {
-            properties.entry(name.to_owned()).or_default();
+            insert_property(&mut properties, name, "", limits, budget)?;
         }
     }
     if let Some(library) = library {
@@ -459,18 +503,31 @@ fn component_properties(
             if let Some(value) = library_property(library, name)
                 && !value.is_empty()
             {
-                properties
-                    .entry(name.to_owned())
-                    .or_insert(value.to_owned());
+                insert_property(&mut properties, name, value, limits, budget)?;
             }
         }
     }
-    check_count(
+    Ok(properties)
+}
+
+fn insert_property(
+    properties: &mut BTreeMap<String, String>,
+    name: &str,
+    value: &str,
+    limits: KiCadNetlistLimits,
+    budget: &mut StringBudget,
+) -> Result<(), SourceBundleError> {
+    if properties.contains_key(name) {
+        return Ok(());
+    }
+    ensure_capacity(
         properties.len(),
         limits.max_component_fields,
-        "KiCad netlist component field count",
+        "KiCad netlist component field count exceeds its limit",
     )?;
-    Ok(properties)
+    budget.reserve_many([name.len(), value.len()])?;
+    properties.insert(name.to_owned(), value.to_owned());
+    Ok(())
 }
 
 fn parent_sheet_properties<'a>(
@@ -495,84 +552,22 @@ fn parent_sheet_properties<'a>(
         .ok_or_else(|| schematic_error("KiCad netlist parent sheet is missing"))
 }
 
-fn merge_component_group(
-    mut candidates: Vec<ComponentCandidate>,
-) -> Result<KiCadNetlistComponent, SourceBundleError> {
-    candidates.sort_by_key(|candidate| candidate.order);
-    let primary_index = candidates
-        .iter()
-        .enumerate()
-        .filter(|(_, candidate)| !candidate.component.instance_uuids.is_empty())
-        .min_by_key(|(_, candidate)| &candidate.component.instance_uuids[0])
-        .map_or(0, |(index, _)| index);
-    let mut primary = candidates[primary_index].component.clone();
-    let mut uuids = candidates
-        .iter()
-        .enumerate()
-        .filter(|(index, _)| *index != primary_index)
-        .rev()
-        .filter_map(|(_, candidate)| candidate.component.instance_uuids.first().cloned())
-        .collect::<Vec<_>>();
-    if let Some(uuid) = primary.instance_uuids.first().cloned() {
-        uuids.push(uuid);
-    }
-    uuids.dedup();
-    primary.instance_uuids = uuids;
-    candidates.sort_by_key(|candidate| (candidate.unit <= 0, candidate.unit, candidate.order));
-    for field in ["value", "footprint", "datasheet", "description"] {
-        if component_string(&primary, field).is_empty()
-            && let Some(value) = candidates
-                .iter()
-                .map(|candidate| component_string(&candidate.component, field))
-                .find(|value| !value.is_empty())
-                .map(str::to_owned)
-        {
-            set_component_string(&mut primary, field, value);
-        }
-    }
-    let mut fields = BTreeMap::new();
-    for candidate in &candidates {
-        for (name, value) in &candidate.component.fields {
-            fields.entry(name.clone()).or_insert_with(|| value.clone());
-        }
-    }
-    fields.insert("Footprint".to_owned(), primary.footprint.clone());
-    fields.insert("Datasheet".to_owned(), primary.datasheet.clone());
-    fields.insert("Description".to_owned(), primary.description.clone());
-    primary.fields = fields;
-    Ok(primary)
-}
-
-fn component_string<'a>(component: &'a KiCadNetlistComponent, field: &str) -> &'a str {
-    match field {
-        "value" => &component.value,
-        "footprint" => &component.footprint,
-        "datasheet" => &component.datasheet,
-        _ => &component.description,
-    }
-}
-
-fn set_component_string(component: &mut KiCadNetlistComponent, field: &str, value: String) {
-    match field {
-        "value" => component.value = value,
-        "footprint" => component.footprint = value,
-        "datasheet" => component.datasheet = value,
-        _ => component.description = value,
-    }
-}
-
 fn build_libparts(
     index: &SchematicBundleIndex,
     limits: KiCadNetlistLimits,
     budget: &mut StringBudget,
 ) -> Result<Vec<KiCadLibPart>, SourceBundleError> {
     let mut seen = HashSet::new();
+    let mut seen_definitions = HashSet::new();
     let mut result = Vec::new();
     let mut pin_count = 0usize;
     // Match the compiled-design walk: only reachable schematic occurrences
     // contribute library parts, and their first-seen order follows the
     // hierarchy rather than the caller's SourceBundle insertion order.
     for occurrence in index.occurrences() {
+        if !seen_definitions.insert(occurrence.source_path.as_str()) {
+            continue;
+        }
         let definition = index
             .definition(&occurrence.source_path)
             .ok_or_else(|| schematic_error("KiCad netlist occurrence definition is missing"))?;
@@ -735,14 +730,25 @@ fn component_units(
         limits.max_component_units,
         "KiCad netlist component unit count",
     )?;
-    (1..=unit_count)
-        .map(|unit| {
-            let mut pins = symbol
-                .subsymbols
-                .iter()
-                .filter(|subsymbol| matches!(subsymbol.unit, 0) || subsymbol.unit == unit)
-                .flat_map(|subsymbol| subsymbol.pins.iter())
-                .collect::<Vec<_>>();
+    let mut common = Vec::new();
+    let mut by_unit = vec![Vec::new(); unit_count_usize];
+    for subsymbol in &symbol.subsymbols {
+        if subsymbol.unit == 0 {
+            common.extend(&subsymbol.pins);
+        } else if let Ok(index) = usize::try_from(subsymbol.unit.saturating_sub(1))
+            && let Some(pins) = by_unit.get_mut(index)
+        {
+            pins.extend(&subsymbol.pins);
+        }
+    }
+    by_unit
+        .into_iter()
+        .enumerate()
+        .map(|(index, unit_pins)| {
+            let unit = i64::try_from(index)
+                .map_err(|_| limit_error("KiCad netlist component unit index overflows"))?
+                .saturating_add(1);
+            let mut pins = common.iter().copied().chain(unit_pins).collect::<Vec<_>>();
             pins.sort_by_key(|pin| (pin.at.x_iu, -pin.at.y_iu));
             let mut seen = HashSet::new();
             let mut numbers = Vec::new();
@@ -779,8 +785,9 @@ fn component_units(
 
 fn user_fields(
     effective: &SchematicEffectiveSymbol,
-    project_variables: &HashMap<String, String>,
+    variables: &mut VariableResolver<'_, '_>,
     limits: KiCadNetlistLimits,
+    budget: &mut StringBudget,
 ) -> Result<BTreeMap<String, String>, SourceBundleError> {
     let mut fields = BTreeMap::new();
     for (name, value) in &effective.fields {
@@ -792,78 +799,22 @@ fn user_fields(
             limits.max_component_fields,
             "KiCad netlist component field count",
         )?;
-        fields.insert(
-            name.clone(),
-            expand_variables(&blank(value), &effective.fields, project_variables, name),
-        );
+        let expanded = variables.expand_blank(value, name)?;
+        budget.reserve_many([name.len(), expanded.len()])?;
+        fields.insert(name.clone(), expanded);
     }
     Ok(fields)
 }
 
 fn shown_field(
     effective: &SchematicEffectiveSymbol,
-    project_variables: &HashMap<String, String>,
+    variables: &mut VariableResolver<'_, '_>,
     name: &str,
-) -> String {
-    effective
-        .fields
-        .get(name)
-        .map_or_else(String::new, |value| {
-            expand_variables(&blank(value), &effective.fields, project_variables, name)
-        })
-}
-
-fn expand_variables(
-    text: &str,
-    fields: &BTreeMap<String, String>,
-    project_variables: &HashMap<String, String>,
-    skip: &str,
-) -> String {
-    let mut result = text.to_owned();
-    for _ in 0..10 {
-        let next = expand_variables_once(&result, fields, project_variables, skip);
-        if next == result {
-            break;
-        }
-        result = next;
-    }
-    result
-}
-
-fn expand_variables_once(
-    text: &str,
-    fields: &BTreeMap<String, String>,
-    project_variables: &HashMap<String, String>,
-    skip: &str,
-) -> String {
-    let mut output = String::with_capacity(text.len());
-    let mut remaining = text;
-    while let Some(start) = remaining.find("${") {
-        output.push_str(&remaining[..start]);
-        let Some(end) = remaining[start + 2..].find('}') else {
-            output.push_str(&remaining[start..]);
-            return output;
-        };
-        let close = start + 2 + end;
-        let name = remaining[start + 2..close].trim();
-        let replacement = (!name.eq_ignore_ascii_case(skip))
-            .then(|| {
-                fields
-                    .iter()
-                    .find(|(key, _)| key.eq_ignore_ascii_case(name))
-                    .map(|(_, value)| blank(value))
-                    .or_else(|| project_variables.get(&name.to_lowercase()).cloned())
-            })
-            .flatten();
-        if let Some(replacement) = replacement {
-            output.push_str(&replacement);
-        } else {
-            output.push_str(&remaining[start..=close]);
-        }
-        remaining = &remaining[close + 1..];
-    }
-    output.push_str(remaining);
-    output
+) -> Result<String, SourceBundleError> {
+    effective.fields.get(name).map_or_else(
+        || Ok(String::new()),
+        |value| variables.expand_blank(value, name),
+    )
 }
 
 fn validate_counts(
@@ -936,23 +887,14 @@ fn is_standard_field(value: &str) -> bool {
     )
 }
 
-fn blank(value: &str) -> String {
-    if value == "~" {
-        String::new()
-    } else {
-        value.to_owned()
-    }
-}
-
 fn portable_name(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
 
-fn portable_stem(path: &str) -> String {
+fn portable_stem(path: &str) -> &str {
     portable_name(path)
         .strip_suffix(".kicad_sch")
         .unwrap_or_else(|| portable_name(path))
-        .to_owned()
 }
 
 fn nonempty_owned(value: &str, fallback: &str) -> String {

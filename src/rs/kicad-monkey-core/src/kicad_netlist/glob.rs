@@ -1,3 +1,30 @@
+use super::resource::limit_error;
+use crate::SourceBundleError;
+
+pub(super) struct GlobWorkBudget {
+    used: usize,
+    maximum: usize,
+}
+
+impl GlobWorkBudget {
+    pub(super) const fn new(maximum: usize) -> Self {
+        Self { used: 0, maximum }
+    }
+
+    fn reserve(&mut self, work: usize) -> Result<(), SourceBundleError> {
+        self.used = self
+            .used
+            .checked_add(work)
+            .ok_or_else(|| limit_error("KiCad netlist wildcard match work overflows"))?;
+        if self.used > self.maximum {
+            return Err(limit_error(
+                "KiCad netlist wildcard match work exceeds its limit",
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct GlobPattern {
     tokens: Vec<Token>,
@@ -57,7 +84,18 @@ impl GlobPattern {
     ///
     /// The active-state simulation avoids exponential star backtracking while
     /// retaining Python `fnmatchcase` semantics for `*`, `?`, and classes.
-    pub(super) fn matches(&self, value: &str) -> bool {
+    pub(super) fn matches(
+        &self,
+        value: &str,
+        work: &mut GlobWorkBudget,
+    ) -> Result<bool, SourceBundleError> {
+        let character_count = value.chars().count();
+        let operation_count = self
+            .tokens
+            .len()
+            .checked_mul(character_count.saturating_add(2))
+            .ok_or_else(|| limit_error("KiCad netlist wildcard match work overflows"))?;
+        work.reserve(operation_count)?;
         let mut active = vec![false; self.tokens.len() + 1];
         active[0] = true;
         close_stars(&self.tokens, &mut active);
@@ -83,7 +121,7 @@ impl GlobPattern {
             active = next;
         }
         close_stars(&self.tokens, &mut active);
-        active[self.tokens.len()]
+        Ok(active[self.tokens.len()])
     }
 }
 
@@ -151,7 +189,8 @@ fn parse_class(characters: &[char], start: usize) -> Option<(CharacterClass, usi
 
 #[cfg(test)]
 mod tests {
-    use super::GlobPattern;
+    use super::{GlobPattern, GlobWorkBudget};
+    use crate::SourceBundleErrorKind;
 
     #[test]
     fn matches_python_style_wildcards_without_backtracking() {
@@ -166,7 +205,30 @@ mod tests {
             ("[*]", "*", true),
             ("[]a]", "]", true),
         ] {
-            assert_eq!(GlobPattern::compile(pattern).matches(value), expected);
+            let mut work = GlobWorkBudget::new(10_000);
+            assert_eq!(
+                GlobPattern::compile(pattern)
+                    .matches(value, &mut work)
+                    .expect("work fits"),
+                expected
+            );
         }
+    }
+
+    #[test]
+    fn aggregate_match_work_accepts_exact_limit_and_rejects_one_under() {
+        let pattern = GlobPattern::compile("BUS[0-7]*");
+        let required = pattern.tokens.len() * ("BUS0123".chars().count() + 2);
+        let mut exact = GlobWorkBudget::new(required);
+        assert!(pattern.matches("BUS0123", &mut exact).expect("exact limit"));
+
+        let mut one_under = GlobWorkBudget::new(required - 1);
+        assert_eq!(
+            pattern
+                .matches("BUS0123", &mut one_under)
+                .expect_err("one under")
+                .kind,
+            SourceBundleErrorKind::ResourceLimit
+        );
     }
 }

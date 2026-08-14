@@ -805,7 +805,7 @@ def _scalar_design_summary(top: KiCadSchematic) -> dict[str, object]:
     }
 
 
-def _netlist_summary(design: KiCadDesign) -> dict[str, object]:
+def _netlist_version_e_summary(design: KiCadDesign) -> dict[str, object]:
     netlist = design.to_netlist()
     return {
         "nets": [
@@ -1070,7 +1070,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         python_graph = expected_graph
         assert rust_graph == python_graph, _first_difference(rust_graph, python_graph)
         design = KiCadDesign.from_project_file(project_path)
-        expected_netlist = _netlist_summary(design)
+        expected_netlist = _netlist_version_e_summary(design)
         assert result["netlist"] == expected_netlist, _first_difference(
             result["netlist"], expected_netlist
         )
