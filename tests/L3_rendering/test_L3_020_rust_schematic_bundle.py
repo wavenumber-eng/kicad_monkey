@@ -133,8 +133,41 @@ def _definition_summary(schematic: object, bundle_root: Path) -> dict[str, objec
                     {"number": pin.number, "uuid": pin.uuid, "alternate": pin.alternate}
                     for pin in symbol.pins
                 ],
+                "instances": [
+                    {
+                        "project": instance.project,
+                        "path": instance.path,
+                        "reference": instance.reference,
+                        "unit": instance.unit,
+                        "variants": [
+                            {
+                                "name": variant.name,
+                                "policy": [
+                                    variant.dnp,
+                                    variant.exclude_from_sim,
+                                    variant.in_bom,
+                                    variant.on_board,
+                                    variant.in_pos_files,
+                                ],
+                                "fields": [list(field) for field in variant.fields],
+                            }
+                            for variant in instance.variants
+                        ],
+                    }
+                    for instance in symbol.instances
+                ],
             }
             for symbol in getattr(schematic, "symbols", ())
+        ],
+        "legacy_symbol_instances": [
+            {
+                "path": instance.path,
+                "reference": instance.reference,
+                "unit": instance.unit,
+                "value": instance.value,
+                "footprint": instance.footprint,
+            }
+            for instance in getattr(schematic, "symbol_instances", ())
         ],
         "wires": [_polyline(value) for value in getattr(schematic, "wires", ())],
         "buses": [_polyline(value) for value in getattr(schematic, "buses", ())],

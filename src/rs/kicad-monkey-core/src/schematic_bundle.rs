@@ -2,8 +2,9 @@
 
 use crate::schematic_source::{
     SchematicBusEntry, SchematicConnectivity, SchematicJunction, SchematicLabel,
-    SchematicNoConnect, SchematicPlacedSymbol, SchematicPolyline, SchematicSheetPin,
-    parse_placed_symbols, parse_sheet_pin, parse_source_carriers,
+    SchematicLegacySymbolInstance, SchematicNoConnect, SchematicPlacedSymbol, SchematicPolyline,
+    SchematicSheetPin, parse_legacy_symbol_instances, parse_placed_symbols, parse_sheet_pin,
+    parse_source_carriers,
 };
 use crate::sexpr::{Lexer, Token, TokenKind, decode_quoted};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
@@ -24,6 +25,11 @@ pub struct SchematicBundleLimits {
     pub max_symbols_per_source: usize,
     pub max_symbol_properties_per_symbol: usize,
     pub max_symbol_pins_per_symbol: usize,
+    pub max_symbol_instance_projects_per_symbol: usize,
+    pub max_symbol_instances_per_symbol: usize,
+    pub max_symbol_variants_per_instance: usize,
+    pub max_symbol_variant_fields_per_variant: usize,
+    pub max_legacy_symbol_instances_per_source: usize,
     pub max_decoded_string_bytes: usize,
     pub max_connectivity_objects_per_source: usize,
     pub max_wires_per_source: usize,
@@ -50,6 +56,11 @@ impl Default for SchematicBundleLimits {
             max_symbols_per_source: 4_000_000,
             max_symbol_properties_per_symbol: 1_000_000,
             max_symbol_pins_per_symbol: 1_000_000,
+            max_symbol_instance_projects_per_symbol: 1_000_000,
+            max_symbol_instances_per_symbol: 1_000_000,
+            max_symbol_variants_per_instance: 1_000_000,
+            max_symbol_variant_fields_per_variant: 1_000_000,
+            max_legacy_symbol_instances_per_source: 4_000_000,
             max_decoded_string_bytes: 64 * 1024 * 1024,
             max_connectivity_objects_per_source: 4_000_000,
             max_wires_per_source: 4_000_000,
@@ -89,6 +100,7 @@ pub struct SchematicDefinition {
     pub uuid: Option<String>,
     pub sheets: Vec<SchematicSheet>,
     pub symbols: Vec<SchematicPlacedSymbol>,
+    pub legacy_symbol_instances: Vec<SchematicLegacySymbolInstance>,
     pub wires: Vec<SchematicPolyline>,
     pub buses: Vec<SchematicPolyline>,
     pub bus_entries: Vec<SchematicBusEntry>,
@@ -96,6 +108,15 @@ pub struct SchematicDefinition {
     pub no_connects: Vec<SchematicNoConnect>,
     pub labels: Vec<SchematicLabel>,
     pub connectivity: SchematicConnectivity,
+    legacy_symbol_instance_by_path: HashMap<String, usize>,
+}
+
+impl SchematicDefinition {
+    pub fn legacy_symbol_instance(&self, path: &str) -> Option<&SchematicLegacySymbolInstance> {
+        self.legacy_symbol_instance_by_path
+            .get(path.trim_end_matches('/'))
+            .map(|index| &self.legacy_symbol_instances[*index])
+    }
 }
 
 /// One root or child occurrence realized in parent-first source order.
@@ -213,6 +234,7 @@ fn parse_schematic_definition(
         uuid: None,
         sheets: Vec::new(),
         symbols: Vec::new(),
+        legacy_symbol_instances: Vec::new(),
         wires: Vec::new(),
         buses: Vec::new(),
         bus_entries: Vec::new(),
@@ -220,9 +242,21 @@ fn parse_schematic_definition(
         no_connects: Vec::new(),
         labels: Vec::new(),
         connectivity: SchematicConnectivity::default(),
+        legacy_symbol_instance_by_path: HashMap::new(),
     };
     populate_schematic_definition(&mut definition, text, &spans, source.path(), limits)?;
     definition.symbols = parse_placed_symbols(text, source.path(), &spans, limits)?;
+    definition.legacy_symbol_instances =
+        parse_legacy_symbol_instances(text, source.path(), &spans, limits)?;
+    for (index, instance) in definition.legacy_symbol_instances.iter().enumerate() {
+        let path = instance.path.trim_end_matches('/');
+        if !path.is_empty() {
+            definition
+                .legacy_symbol_instance_by_path
+                .entry(path.to_owned())
+                .or_insert(index);
+        }
+    }
     let carriers = parse_source_carriers(text, source.path(), &spans, limits)?;
     definition.wires = carriers.wires;
     definition.buses = carriers.buses;
@@ -544,6 +578,7 @@ fn schematic_selector() -> Selector {
         &["kicad_sch", "global_label"],
         &["kicad_sch", "hierarchical_label"],
         &["kicad_sch", "symbol"],
+        &["kicad_sch", "symbol_instances"],
     ]
     .into_iter()
     .map(|path| path.iter().map(|part| (*part).to_owned()).collect())

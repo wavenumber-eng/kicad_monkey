@@ -33,6 +33,7 @@ struct DefinitionSummary {
     source_path: String,
     sheets: Vec<SheetSummary>,
     symbols: Vec<SymbolSummary>,
+    legacy_symbol_instances: Vec<LegacySymbolInstanceSummary>,
     wires: Vec<PolylineSummary>,
     buses: Vec<PolylineSummary>,
     bus_entries: Vec<BusEntrySummary>,
@@ -55,6 +56,7 @@ struct SymbolSummary {
     uuid: String,
     properties: Vec<[String; 2]>,
     pins: Vec<SymbolPinSummary>,
+    instances: Vec<SymbolInstanceSummary>,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,6 +64,31 @@ struct SymbolPinSummary {
     number: String,
     uuid: String,
     alternate: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct SymbolInstanceSummary {
+    project: String,
+    path: String,
+    reference: String,
+    unit: i64,
+    variants: Vec<SymbolVariantSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct SymbolVariantSummary {
+    name: String,
+    policy: [Option<bool>; 5],
+    fields: Vec<[String; 2]>,
+}
+
+#[derive(Debug, Serialize)]
+struct LegacySymbolInstanceSummary {
+    path: String,
+    reference: String,
+    unit: i64,
+    value: String,
+    footprint: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -174,6 +201,17 @@ fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {
         source_path: definition.source_path.clone(),
         sheets: definition.sheets.iter().map(sheet_summary).collect(),
         symbols: definition.symbols.iter().map(symbol_summary).collect(),
+        legacy_symbol_instances: definition
+            .legacy_symbol_instances
+            .iter()
+            .map(|instance| LegacySymbolInstanceSummary {
+                path: instance.path.clone(),
+                reference: instance.reference.clone(),
+                unit: instance.unit,
+                value: instance.value.clone(),
+                footprint: instance.footprint.clone(),
+            })
+            .collect(),
         wires: definition
             .wires
             .iter()
@@ -284,6 +322,35 @@ fn symbol_summary(symbol: &SchematicPlacedSymbol) -> SymbolSummary {
                 number: pin.number.clone(),
                 uuid: pin.uuid.clone(),
                 alternate: pin.alternate.clone(),
+            })
+            .collect(),
+        instances: symbol
+            .instances
+            .iter()
+            .map(|instance| SymbolInstanceSummary {
+                project: instance.project.clone(),
+                path: instance.path.clone(),
+                reference: instance.reference.clone(),
+                unit: instance.unit,
+                variants: instance
+                    .variants
+                    .iter()
+                    .map(|variant| SymbolVariantSummary {
+                        name: variant.name.clone(),
+                        policy: [
+                            variant.dnp,
+                            variant.exclude_from_sim,
+                            variant.in_bom,
+                            variant.on_board,
+                            variant.in_pos_files,
+                        ],
+                        fields: variant
+                            .fields
+                            .iter()
+                            .map(|field| [field.name.clone(), field.value.clone()])
+                            .collect(),
+                    })
+                    .collect(),
             })
             .collect(),
     }

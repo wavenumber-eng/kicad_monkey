@@ -29,6 +29,15 @@
   source-model boundary: library-pin geometry and occurrence-transformed terminals
   are resolved by the next compiler slice rather than hidden in the reader.</p>
 
+  <p>Placed symbols retain both generations of KiCad occurrence metadata. Modern
+  <code>instances/project/path</code> records retain project, path, reference, unit,
+  ordered variant overlays, tri-state policy overrides, and ordered field overrides.
+  Legacy schematic-level <code>symbol_instances/path</code> records retain path,
+  reference, unit, value, and footprint. Both path families have normalized,
+  first-record-wins indexes for exact lookup while their source-order vectors remain
+  available for diagnostics and round-trip work. A modern path is accepted only when
+  its selected span is structurally owned by the current project form.</p>
+
   <p>Coordinates are snapped immediately to KiCad's 100-nm schematic internal-unit
   grid and stored as signed integers. A dependency-free decimal parser performs the
   scale and ties-to-even rounding without conversion through binary floating point.
@@ -61,7 +70,8 @@
   <p>Callers can independently bound wires, buses, bus entries, junctions,
   no-connect markers, and labels, as well as aggregate connectivity objects, points
   per carrier, total carrier points per source, placed symbols per source, properties
-  per symbol, and source pin mappings per symbol. Every retained-family check occurs
+  per symbol, source pin mappings per symbol, modern instance projects and paths,
+  variants and their fields, and legacy instance paths. Every retained-family check occurs
   before parsing and pushing that object. Point collectors check before pushing past
   the effective per-form or remaining per-source allowance. Carrier-local structural
   selection is also bounded from that remaining allowance. Invalid/non-finite
@@ -83,13 +93,16 @@
   every connectivity component with the established Python implementation across the
   four compiled-graph reference projects in one native process, including every
   hierarchical sheet pin and placed-symbol field, property, and pin mapping. The
+  same corpus comparison covers modern project/path records, variant overlays, and
+  legacy schematic-level symbol-instance paths. The
   native evidence process and its Python harness explicitly use UTF-8 at the process
   boundary, so non-ASCII KiCad values such as micro and ohm symbols remain exact on
   Windows. Focused synthetic tests cover pin defaults and independent pre-push limits
   for sheet pins, symbols, symbol properties, and symbol pin mappings.</p>
 
   <h2>Deferred work</h2>
-  <p>Library-pin geometry and placed-symbol terminal transformation, bus-name expansion,
+  <p>Effective occurrence overlay resolution, library-pin geometry and placed-symbol
+  terminal transformation, bus-name expansion,
   hierarchy-terminal binding, net naming/merging, graph row production, schematic
   mutation, and semantic round-trip remain in Phase 4. Browser/WASM packaging remains
   deferred by the native-first plan.</p>

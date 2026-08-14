@@ -561,26 +561,8 @@ fn hierarchical_sheet_pins_are_typed_and_independently_bounded() {
 }
 
 #[test]
-fn placed_symbols_preserve_source_fields_children_and_independent_limits() {
-    let project = b"{}".to_vec();
-    let root = br#"(kicad_sch
-      (symbol
-        (lib_id "Device:R") (lib_name "R") (at 12.7 25.4 90) (mirror x)
-        (unit 2) (convert 2) (exclude_from_sim yes) (in_bom no)
-        (on_board no) (in_pos_files no) (dnp yes) (fields_autoplaced)
-        (uuid symbol-a)
-        (property "Reference" "R1") (property "Value" "10k")
-        (pin "1" (uuid pin-1) (alternate "ALT")) (pin "2" (uuid pin-2))))"#
-        .to_vec();
-    let bundle = SourceBundle::from_manifest(
-        manifest(vec![
-            descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
-            descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
-        ]),
-        vec![project, root],
-        SourceBundleLimits::default(),
-    )
-    .expect("placed symbol bundle");
+fn placed_symbols_preserve_source_fields_and_children() {
+    let bundle = placed_symbol_bundle();
     let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
         .expect("placed symbol index");
     let symbol = &index
@@ -610,7 +592,51 @@ fn placed_symbols_preserve_source_fields_children_and_independent_limits() {
     assert_eq!(symbol.pins[0].number, "1");
     assert_eq!(symbol.pins[0].alternate.as_deref(), Some("ALT"));
     assert_eq!(symbol.pins[1].uuid, "pin-2");
+}
 
+#[test]
+fn modern_and_legacy_symbol_instance_overlays_are_typed_and_indexed() {
+    let bundle = placed_symbol_bundle();
+    let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("placed symbol index");
+    let definition = index.definition("design/root.kicad_sch").expect("root");
+    let symbol = &definition.symbols[0];
+    let instance = symbol.instance("/root/").expect("normalized modern path");
+    assert_eq!(
+        (
+            instance.project.as_str(),
+            instance.reference.as_str(),
+            instance.unit
+        ),
+        ("demo", "R1", 2)
+    );
+    let variant = instance.variant("DNP").expect("variant overlay");
+    assert_eq!((variant.dnp, variant.in_bom), (Some(true), Some(false)));
+    assert_eq!(variant.exclude_from_sim, None);
+    assert_eq!(
+        (
+            variant.fields[0].name.as_str(),
+            variant.fields[0].value.as_str()
+        ),
+        ("MPN", "variant-part")
+    );
+    let legacy = definition
+        .legacy_symbol_instance("/legacy/symbol-a/")
+        .expect("normalized legacy path");
+    assert_eq!(
+        (
+            legacy.reference.as_str(),
+            legacy.unit,
+            legacy.value.as_str(),
+            legacy.footprint.as_str()
+        ),
+        ("R9", 3, "legacy-value", "Legacy:Part")
+    );
+}
+
+#[test]
+fn symbol_and_instance_limits_fail_independently_before_retention() {
+    let bundle = placed_symbol_bundle();
     for limits in [
         SchematicBundleLimits {
             max_symbols_per_source: 0,
@@ -624,6 +650,26 @@ fn placed_symbols_preserve_source_fields_children_and_independent_limits() {
             max_symbol_pins_per_symbol: 1,
             ..SchematicBundleLimits::default()
         },
+        SchematicBundleLimits {
+            max_symbol_instance_projects_per_symbol: 0,
+            ..SchematicBundleLimits::default()
+        },
+        SchematicBundleLimits {
+            max_symbol_instances_per_symbol: 0,
+            ..SchematicBundleLimits::default()
+        },
+        SchematicBundleLimits {
+            max_symbol_variants_per_instance: 0,
+            ..SchematicBundleLimits::default()
+        },
+        SchematicBundleLimits {
+            max_symbol_variant_fields_per_variant: 0,
+            ..SchematicBundleLimits::default()
+        },
+        SchematicBundleLimits {
+            max_legacy_symbol_instances_per_source: 0,
+            ..SchematicBundleLimits::default()
+        },
     ] {
         assert_eq!(
             SchematicBundleIndex::build(&bundle, limits)
@@ -632,4 +678,58 @@ fn placed_symbols_preserve_source_fields_children_and_independent_limits() {
             SourceBundleErrorKind::ResourceLimit
         );
     }
+}
+
+fn placed_symbol_bundle() -> SourceBundle {
+    let project = b"{}".to_vec();
+    let root = br#"(kicad_sch
+      (symbol
+        (lib_id "Device:R") (lib_name "R") (at 12.7 25.4 90) (mirror x)
+        (unit 2) (convert 2) (exclude_from_sim yes) (in_bom no)
+        (on_board no) (in_pos_files no) (dnp yes) (fields_autoplaced)
+        (uuid symbol-a)
+        (property "Reference" "R1") (property "Value" "10k")
+        (pin "1" (uuid pin-1) (alternate "ALT")) (pin "2" (uuid pin-2))
+        (instances
+          (project "demo"
+            (path "/root" (reference "R1") (unit 2)
+              (variant (name "DNP") (dnp yes) (in_bom no)
+                (field (name "MPN") (value "variant-part")))))))
+      (symbol_instances
+        (path "/legacy/symbol-a" (reference "R9") (unit 3)
+          (value "legacy-value") (footprint "Legacy:Part"))))"#
+        .to_vec();
+    SourceBundle::from_manifest(
+        manifest(vec![
+            descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
+            descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+        ]),
+        vec![project, root],
+        SourceBundleLimits::default(),
+    )
+    .expect("placed symbol bundle")
+}
+
+#[test]
+fn modern_symbol_instance_paths_require_exact_project_ownership() {
+    let project = b"{}".to_vec();
+    let root = br#"(kicad_sch
+      (symbol (uuid symbol-a)
+        (instances
+          (project "demo")
+          (foreign (path "/not-owned" (reference "R1") (unit 1))))))"#
+        .to_vec();
+    let bundle = SourceBundle::from_manifest(
+        manifest(vec![
+            descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
+            descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+        ]),
+        vec![project, root],
+        SourceBundleLimits::default(),
+    )
+    .expect("foreign instance bundle");
+    let error = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect_err("foreign path must not inherit a preceding project");
+    assert_eq!(error.kind, SourceBundleErrorKind::Schematic);
+    assert!(error.message.contains("outside its owning project"));
 }

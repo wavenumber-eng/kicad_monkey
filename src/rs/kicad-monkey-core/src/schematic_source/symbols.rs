@@ -1,10 +1,13 @@
 use super::{
     SchematicPoint, carrier_form_spans, child_point, child_scalar, direct_scalars, limit_error,
-    source_error,
+    parse_symbol_instances, source_error,
 };
 use crate::schematic_bundle::SchematicBundleLimits;
 use crate::sexpr_projection::FormSpan;
 use crate::source_bundle::SourceBundleError;
+use std::collections::HashMap;
+
+use super::SchematicSymbolInstance;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SchematicPlacedSymbol {
@@ -24,6 +27,16 @@ pub struct SchematicPlacedSymbol {
     pub uuid: String,
     pub properties: Vec<SchematicSymbolProperty>,
     pub pins: Vec<SchematicSymbolPin>,
+    pub instances: Vec<SchematicSymbolInstance>,
+    instance_by_path: HashMap<String, usize>,
+}
+
+impl SchematicPlacedSymbol {
+    pub fn instance(&self, path: &str) -> Option<&SchematicSymbolInstance> {
+        self.instance_by_path
+            .get(path.trim_end_matches('/'))
+            .map(|index| &self.instances[*index])
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -93,6 +106,7 @@ fn parse_symbol(
             "uuid",
             "property",
             "pin",
+            "instances",
         ],
         source_path,
         limits,
@@ -108,6 +122,15 @@ fn parse_symbol(
             .get(2)
             .map_or(Ok(0.0), |value| finite_f64(value, source_path))
     })?;
+    let instances =
+        parse_symbol_instances(source, child(&spans, "instances"), source_path, limits)?;
+    let mut instance_by_path = HashMap::with_capacity(instances.len());
+    for (index, instance) in instances.iter().enumerate() {
+        let path = instance.path.trim_end_matches('/');
+        if !path.is_empty() {
+            instance_by_path.entry(path.to_owned()).or_insert(index);
+        }
+    }
     Ok(SchematicPlacedSymbol {
         lib_id: scalar(source, &spans, "lib_id", source_path, limits)?.unwrap_or_default(),
         lib_name: scalar(source, &spans, "lib_name", source_path, limits)?.unwrap_or_default(),
@@ -138,6 +161,8 @@ fn parse_symbol(
         uuid: scalar(source, &spans, "uuid", source_path, limits)?.unwrap_or_default(),
         properties: parse_properties(source, &spans, source_path, limits)?,
         pins: parse_pins(source, &spans, source_path, limits)?,
+        instances,
+        instance_by_path,
     })
 }
 

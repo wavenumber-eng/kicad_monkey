@@ -225,4 +225,5 @@ secondary = [
     "Shared decimal vectors fix exact ties-even and signed-IU boundary policy",
     "Hierarchical sheet-pin name, shape, UUID, and position match Python",
     "Placed-symbol source fields, policy, properties, and pin mappings match Python",
+    "Modern and legacy symbol instance paths plus variant overlays match Python",
 ]

@@ -7,8 +7,14 @@ use crate::source_bundle::{SourceBundleError, SourceBundleErrorKind};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+mod symbol_instances;
 mod symbols;
 
+pub use symbol_instances::{
+    SchematicLegacySymbolInstance, SchematicSymbolInstance, SchematicSymbolInstanceVariant,
+    SchematicSymbolVariantField,
+};
+pub(crate) use symbol_instances::{parse_legacy_symbol_instances, parse_symbol_instances};
 pub(crate) use symbols::parse_placed_symbols;
 pub use symbols::{SchematicPlacedSymbol, SchematicSymbolPin, SchematicSymbolProperty};
 
