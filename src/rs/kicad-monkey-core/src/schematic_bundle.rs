@@ -1,3 +1,4 @@
+use crate::KiCadTitleBlock;
 use crate::schematic_bundle_indexes::{
     index_bundle_legacy_instances, index_library_symbols, portable_file_stem,
     resolve_library_pin_owners,
@@ -6,9 +7,9 @@ use crate::schematic_effective::{SchematicEffectiveSymbol, resolve_effective_sym
 use crate::schematic_source::{
     SchematicBusAlias, SchematicBusEntry, SchematicConnectivity, SchematicJunction, SchematicLabel,
     SchematicLegacySymbolInstance, SchematicLibrarySymbol, SchematicNoConnect,
-    SchematicPlacedSymbol, SchematicPolyline, SchematicSheetPin, parse_bus_aliases,
-    parse_embedded_library_symbols, parse_legacy_symbol_instances, parse_placed_symbols,
-    parse_sheet_pin, parse_source_carriers,
+    SchematicPlacedSymbol, SchematicPolyline, SchematicSheetPin, SchematicSymbolProperty,
+    parse_bus_aliases, parse_embedded_library_symbols, parse_legacy_symbol_instances,
+    parse_placed_symbols, parse_sheet_pin, parse_source_carriers,
 };
 use crate::schematic_terminals::{SchematicSymbolTerminal, resolve_symbol_terminals};
 use crate::sexpr::{Lexer, Token, TokenKind, decode_quoted};
@@ -20,7 +21,11 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 mod document;
 mod path_helpers;
+mod sheet_parse;
+mod title_block;
 use path_helpers::{join_occurrence_path, nonempty_or, portable_file_name, portable_parent};
+use sheet_parse::{SheetParseState, default_sheet};
+use title_block::parse_title_block;
 
 pub use crate::schematic_bundle_limits::SchematicBundleLimits;
 pub use document::{SchematicDocument, SchematicDocumentLimits};
@@ -34,6 +39,7 @@ pub struct SchematicSheet {
     pub on_board: bool,
     pub dnp: bool,
     pub exclude_from_sim: bool,
+    pub properties: Vec<SchematicSymbolProperty>,
     pub pins: Vec<SchematicSheetPin>,
 }
 
@@ -44,6 +50,7 @@ pub struct SchematicDefinition {
     pub generator: Option<String>,
     pub generator_version: Option<String>,
     pub uuid: Option<String>,
+    pub title_block: Option<KiCadTitleBlock>,
     pub sheets: Vec<SchematicSheet>,
     pub symbols: Vec<SchematicPlacedSymbol>,
     pub library_symbols: Vec<SchematicLibrarySymbol>,
@@ -98,18 +105,6 @@ pub struct SchematicBundleIndex {
     definition_by_path: HashMap<String, usize>,
     occurrences: Vec<SchematicOccurrence>,
     legacy_symbol_instance_by_path: HashMap<String, (usize, usize)>,
-}
-
-#[derive(Clone, Debug, Default)]
-struct SheetParseState {
-    property_count: usize,
-    uuid_seen: bool,
-    sheet_name_seen: bool,
-    sheet_file_seen: bool,
-    in_bom_seen: bool,
-    on_board_seen: bool,
-    dnp_seen: bool,
-    exclude_from_sim_seen: bool,
 }
 
 impl SchematicBundleIndex {
@@ -299,6 +294,7 @@ fn parse_schematic_definition_text(
         generator: None,
         generator_version: None,
         uuid: None,
+        title_block: None,
         sheets: Vec::new(),
         symbols: Vec::new(),
         library_symbols: Vec::new(),
@@ -316,6 +312,7 @@ fn parse_schematic_definition_text(
         library_pin_owner_by_symbol: Vec::new(),
     };
     populate_schematic_definition(&mut definition, text, &spans, source_path, limits)?;
+    definition.title_block = parse_title_block(text, &spans, source_path, limits)?;
     definition.symbols = parse_placed_symbols(text, source_path, &spans, limits)?;
     definition.library_symbols = parse_embedded_library_symbols(text, source_path, &spans, limits)?;
     definition.library_symbol_by_key = index_library_symbols(
@@ -399,7 +396,7 @@ fn populate_schematic_definition(
                 sheet_states.push(SheetParseState::default());
                 current_sheet = Some(definition.sheets.len() - 1);
             }
-            (2, head) => {
+            (2, head) if span.path.get(1).is_some_and(|part| part == "sheet") => {
                 let Some(index) = current_sheet else {
                     return Err(SourceBundleError::new(
                         SourceBundleErrorKind::Schematic,
@@ -421,19 +418,6 @@ fn populate_schematic_definition(
         }
     }
     Ok(())
-}
-
-fn default_sheet() -> SchematicSheet {
-    SchematicSheet {
-        uuid: String::new(),
-        sheet_name: String::new(),
-        sheet_file: String::new(),
-        in_bom: true,
-        on_board: true,
-        dnp: false,
-        exclude_from_sim: false,
-        pins: Vec::new(),
-    }
 }
 
 fn parse_sheet_child(
@@ -498,6 +482,10 @@ fn parse_sheet_property(
             "sheet property requires a name and value",
         ));
     }
+    sheet.properties.push(SchematicSymbolProperty {
+        key: values[0].clone(),
+        value: values[1].clone(),
+    });
     match values[0].as_str() {
         "Sheetname" | "Sheet name" if !state.sheet_name_seen => {
             state.sheet_name_seen = true;
@@ -643,6 +631,12 @@ fn schematic_selector() -> Selector {
         &["kicad_sch", "generator"],
         &["kicad_sch", "generator_version"],
         &["kicad_sch", "uuid"],
+        &["kicad_sch", "title_block"],
+        &["kicad_sch", "title_block", "title"],
+        &["kicad_sch", "title_block", "date"],
+        &["kicad_sch", "title_block", "rev"],
+        &["kicad_sch", "title_block", "company"],
+        &["kicad_sch", "title_block", "comment"],
         &["kicad_sch", "sheet"],
         &["kicad_sch", "sheet", "uuid"],
         &["kicad_sch", "sheet", "property"],

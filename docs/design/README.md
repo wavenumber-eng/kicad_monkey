@@ -56,6 +56,8 @@ Current design notes:
   worksheet semantics, bounded lazy item decoding, and exact owned writeback.
 - `rust-project-phase4-slice.html` - insertion-ordered project JSON semantics,
   full restored-corpus parity, and transactional exact/canonical writeback.
+- `rust-netlist-phase4-slice.html` - native resolved netlist model, project
+  net-class enrichment, and bounded KiCad version-E S-expression output.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

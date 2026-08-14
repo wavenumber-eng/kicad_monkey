@@ -15,7 +15,7 @@ mod driver_types;
 mod graphical_ids;
 mod pin_naming;
 mod render_ids;
-mod stacked_pins;
+pub(crate) mod stacked_pins;
 mod wire_union;
 use driver_selection::resolve_driver;
 pub use driver_types::{

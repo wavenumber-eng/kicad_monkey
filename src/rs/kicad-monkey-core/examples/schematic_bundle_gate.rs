@@ -3,12 +3,13 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
     SourceBundleManifestA0, SourceBundleSource, SourceKind,
 };
 use kicad_monkey_core::{
-    SchematicBundleIndex, SchematicBundleLimits, SchematicBusSubgraph, SchematicDefinition,
-    SchematicDesignNet, SchematicLabelScope, SchematicLocalNet,
-    SchematicOccurrenceConnectivityLimits, SchematicPlacedSymbol, SchematicPoint, SchematicSheet,
-    SchematicWireSubgraph, SourceBundle, SourceBundleLimits, build_compiled_schematic_graph,
-    build_schematic_bus_subgraphs, build_schematic_occurrence_nets,
-    build_schematic_occurrence_subgraphs, build_schematic_scalar_design_nets,
+    KiCadNetlist, ProjectDocument, ProjectLimits, SchematicBundleIndex, SchematicBundleLimits,
+    SchematicBusSubgraph, SchematicDefinition, SchematicDesignNet, SchematicLabelScope,
+    SchematicLocalNet, SchematicOccurrenceConnectivityLimits, SchematicPlacedSymbol,
+    SchematicPoint, SchematicSheet, SchematicWireSubgraph, SourceBundle, SourceBundleLimits,
+    build_compiled_schematic_graph, build_kicad_netlist, build_schematic_bus_subgraphs,
+    build_schematic_occurrence_nets, build_schematic_occurrence_subgraphs,
+    build_schematic_scalar_design_nets, emit_kicad_netlist,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -36,6 +37,8 @@ struct ResultSummary {
     local_nets: Vec<LocalNetOccurrenceSummary>,
     scalar_design: ScalarDesignSummary,
     compiled_graph: CompiledSchematicGraphA0,
+    netlist: KiCadNetlist,
+    netlist_sexpr: String,
     total_bytes: usize,
 }
 
@@ -360,12 +363,38 @@ fn main() -> Result<(), Box<dyn Error>> {
             SourceBundleLimits::default(),
         )?;
         let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())?;
+        let project_document = bundle
+            .project()
+            .map(|source| {
+                ProjectDocument::from_reader(
+                    source.bytes(),
+                    ProjectLimits {
+                        max_source_bytes: source.bytes().len(),
+                        max_output_bytes: source.bytes().len(),
+                        ..ProjectLimits::default()
+                    },
+                )
+            })
+            .transpose()?;
         let effective_symbols = effective_summaries(&index)?;
         let symbol_terminals = terminal_summaries(&index)?;
         let wire_subgraphs = wire_summaries(&index)?;
         let local_nets = local_net_summaries(&index)?;
         let scalar_design = scalar_design_summary(&index)?;
         let compiled_graph = build_compiled_schematic_graph(&index, Default::default())?;
+        let netlist_limits = Default::default();
+        let netlist = build_kicad_netlist(
+            &index,
+            project_document.as_ref().map(ProjectDocument::view),
+            netlist_limits,
+        )?;
+        let netlist_sexpr = emit_kicad_netlist(
+            &netlist,
+            "",
+            "",
+            "kicad_monkey",
+            netlist_limits.max_output_bytes,
+        )?;
         println!(
             "{}",
             serde_json::to_string(&ResultSummary {
@@ -395,6 +424,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 local_nets,
                 scalar_design,
                 compiled_graph,
+                netlist,
+                netlist_sexpr,
                 total_bytes: bundle.total_bytes(),
             })?
         );

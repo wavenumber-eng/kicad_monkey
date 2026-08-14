@@ -8,10 +8,13 @@ use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_sp
 use crate::source_bundle::SourceBundleError;
 use std::collections::BTreeSet;
 
+use super::SchematicSymbolProperty;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicLibrarySymbol {
     pub name: String,
     pub extends: Option<String>,
+    pub properties: Vec<SchematicSymbolProperty>,
     pub power: bool,
     pub power_kind: Option<String>,
     pub duplicate_pin_numbers_are_jumpers: bool,
@@ -120,6 +123,7 @@ fn parse_library_symbol(
             "extends",
             "power",
             "pin",
+            "property",
             "duplicate_pin_numbers_are_jumpers",
             "jumper_pin_groups",
         ],
@@ -128,6 +132,7 @@ fn parse_library_symbol(
         limits
             .max_library_subsymbols_per_source
             .saturating_add(limits.max_library_pins_per_source)
+            .saturating_add(limits.max_library_properties_per_symbol)
             .saturating_add(6),
     )?;
     let root = selected
@@ -139,6 +144,7 @@ fn parse_library_symbol(
         .next()
         .unwrap_or_default();
     let extends = child_scalar(text, &selected, "extends", source_path, limits)?;
+    let properties = parse_library_properties(text, &selected, source_path, limits)?;
     let power = selected
         .iter()
         .find(|selected| selected.depth == 1 && selected.head.as_deref() == Some("power"));
@@ -186,12 +192,39 @@ fn parse_library_symbol(
     Ok(SchematicLibrarySymbol {
         name,
         extends,
+        properties,
         power: power.is_some(),
         power_kind,
         duplicate_pin_numbers_are_jumpers,
         jumper_pin_groups,
         subsymbols,
     })
+}
+
+fn parse_library_properties(
+    source: &str,
+    selected: &[FormSpan],
+    source_path: &str,
+    limits: SchematicBundleLimits,
+) -> Result<Vec<SchematicSymbolProperty>, SourceBundleError> {
+    let mut properties = Vec::new();
+    for property in selected
+        .iter()
+        .filter(|selected| selected.depth == 1 && selected.head.as_deref() == Some("property"))
+    {
+        if properties.len() >= limits.max_library_properties_per_symbol {
+            return Err(limit_error(
+                source_path,
+                "embedded library symbol property count exceeds its limit",
+            ));
+        }
+        let values = direct_scalars(source, property, 2, source_path, limits)?;
+        properties.push(SchematicSymbolProperty {
+            key: values.first().cloned().unwrap_or_default(),
+            value: values.get(1).cloned().unwrap_or_default(),
+        });
+    }
+    Ok(properties)
 }
 
 #[derive(Default)]

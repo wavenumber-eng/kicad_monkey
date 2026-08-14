@@ -23,6 +23,7 @@ from kicad_monkey.kicad_netlist_design import (
     merge_design_nets,
 )
 from kicad_monkey.kicad_netlist_model import KiCadDriverKind
+from kicad_monkey.kicad_netlist_kicadsexpr import to_kicad_sexpr
 from kicad_monkey.kicad_schematic_ids import schematic_sheet_pin_group_id
 from kicad_monkey.kicad_schematic_connectivity import (
     ConnectivityGraph,
@@ -30,6 +31,7 @@ from kicad_monkey.kicad_schematic_connectivity import (
     snap_mm_to_iu,
 )
 from kicad_monkey.kicad_schematic import KiCadSchematic
+from kicad_monkey.kicad_sexpr import parse_sexp
 from kicad_monkey.kicad_schematic_occurrence import walk_schematic_occurrences
 from kicad_monkey.testing.corpus import (
     get_kicad_corpus_case,
@@ -197,6 +199,18 @@ def _first_difference(left: object, right: object, path: str = "root") -> str | 
     if left != right:
         return f"{path}: {left!r} != {right!r}"
     return None
+
+
+def _unordered_netlist_sexpr(value: object) -> object:
+    """Canonicalize version-E blocks whose child-form order is non-semantic."""
+    if not isinstance(value, list):
+        return str(value)
+    scalars = tuple(str(item) for item in value if not isinstance(item, list))
+    children = sorted(
+        (_unordered_netlist_sexpr(item) for item in value if isinstance(item, list)),
+        key=repr,
+    )
+    return scalars, tuple(children)
 
 
 def _wire_stats(occurrences: list[dict[str, Any]]) -> list[tuple[int, int, int, int]]:
@@ -791,6 +805,92 @@ def _scalar_design_summary(top: KiCadSchematic) -> dict[str, object]:
     }
 
 
+def _netlist_summary(design: KiCadDesign) -> dict[str, object]:
+    netlist = design.to_netlist()
+    return {
+        "nets": [
+            {
+                "name": net.name,
+                "code": net.code,
+                "terminals": [
+                    {
+                        "designator": terminal.designator,
+                        "pin": terminal.pin,
+                        "pin_name": terminal.pin_name,
+                        "pin_type": terminal.pin_type,
+                        "sheet_path": terminal.sheet_path,
+                        "source_pin_id": terminal.source_pin_id,
+                        "svg_id": terminal.svg_id,
+                    }
+                    for terminal in net.terminals
+                ],
+                "driver_priority": int(net.driver_priority),
+                "driver_kind": str(net.driver_kind),
+                "auto_named": net.auto_named,
+                "net_class": net.net_class,
+            }
+            for net in netlist.nets
+        ],
+        "components": [
+            {
+                "reference": component.reference,
+                "value": component.value,
+                "footprint": component.footprint,
+                "datasheet": component.datasheet,
+                "description": component.description,
+                "fields": component.fields,
+                "libsource_lib": component.libsource_lib,
+                "libsource_part": component.libsource_part,
+                "libsource_description": component.libsource_description,
+                "sheet_path_names": component.sheet_path_names,
+                "sheet_path_uuids": component.sheet_path_uuids,
+                "instance_uuids": component.instance_uuids,
+                "properties": component.properties,
+                "units": [
+                    {"name": unit.name, "pins": unit.pins}
+                    for unit in component.units
+                ],
+                "in_bom": component.in_bom,
+                "on_board": component.on_board,
+                "dnp": component.dnp,
+            }
+            for component in netlist.components
+        ],
+        "libparts": [
+            {
+                "lib": part.lib,
+                "part": part.part,
+                "description": part.description,
+                "docs": part.docs,
+                "footprints_filter": part.footprints_filter,
+                "fields": part.fields,
+                "pins": [
+                    {
+                        "number": pin.number,
+                        "name": pin.name,
+                        "pin_type": pin.pin_type,
+                    }
+                    for pin in part.pins
+                ],
+            }
+            for part in netlist.libparts
+        ],
+        "libraries": list(netlist.libraries),
+        "sheets": [
+            {
+                "number": sheet.number,
+                "name": sheet.name,
+                "tstamps": sheet.tstamps,
+                "title": sheet.title,
+                "company": sheet.company,
+                "revision": sheet.revision,
+                "date": sheet.date,
+            }
+            for sheet in netlist.design_metadata.sheets
+        ],
+    }
+
+
 def _run_native_bundle_requests(requests: list[dict[str, object]]) -> list[dict[str, Any]]:
     cargo = shutil.which("cargo")
     assert cargo is not None, "cargo is required for native source-bundle validation"
@@ -969,6 +1069,17 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         rust_graph = cast(dict[str, object], result["compiled_graph"])
         python_graph = expected_graph
         assert rust_graph == python_graph, _first_difference(rust_graph, python_graph)
+        design = KiCadDesign.from_project_file(project_path)
+        expected_netlist = _netlist_summary(design)
+        assert result["netlist"] == expected_netlist, _first_difference(
+            result["netlist"], expected_netlist
+        )
+        expected_sexpr = to_kicad_sexpr(
+            design.to_netlist(), source_path="", date="", tool="kicad_monkey"
+        )
+        assert _unordered_netlist_sexpr(
+            parse_sexp(cast(str, result["netlist_sexpr"]))
+        ) == _unordered_netlist_sexpr(parse_sexp(expected_sexpr))
         assert {
             definition["source_path"]: definition for definition in result["definitions"]
         } == source_models

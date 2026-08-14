@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 4 native KiCad netlist slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 4 native KiCad netlist slice</h1>
+
+  <p>Status: implemented and ready for focused review. This slice promotes the
+  native in-process netlist model and KiCad version-E S-expression writer. It
+  does not promote a JSON, TypeSpec, WASM, or stable Cargo interchange API.</p>
+
+  <h2>Boundary</h2>
+  <p><code>build_kicad_netlist</code> consumes the existing
+  <code>SchematicBundleIndex</code> and an optional typed
+  <code>ProjectView</code>. It materializes resolved design nets, terminals,
+  components, component units, embedded library parts and pins, and per-sheet
+  title metadata. <code>emit_kicad_netlist</code> writes that model directly to
+  KiCad's version-E S-expression format through a bounded pretty emitter.</p>
+
+  <p>The Rust structs are native compiler state. The example gate serializes
+  them only as test evidence. Any future browser, downstream JSON, or public
+  interchange operation must first receive a TypeSpec-owned contract and
+  generated projections; this implementation must not become an accidental
+  hand-maintained transport contract.</p>
+
+  <h2>Semantic decisions</h2>
+  <ul>
+    <li>Net codes begin at one and reuse the accepted native scalar design compiler.</li>
+    <li>Power symbols, bookkeeping references, and off-board placements follow the Python/KiCad component omission rules.</li>
+    <li>Repeated and multi-unit placements merge deterministically while retaining occurrence UUIDs and unit pin inventories.</li>
+    <li>Only reachable compiled-sheet occurrences contribute library parts; first-seen order follows hierarchy order rather than source-buffer order.</li>
+    <li>Placed, parent-sheet, policy, and embedded-library properties use Python's established precedence and first-value behavior.</li>
+    <li>KiCad's <code>~</code> blank sentinel normalizes to the empty model value and returns to <code>~</code> where the version-E writer requires it.</li>
+    <li>Project net-class resolution applies the first valid exact assignment, then the first valid wildcard pattern, then <code>Default</code>.</li>
+    <li>The in-house wildcard matcher covers case-sensitive <code>*</code>, <code>?</code>, bracket classes, negated classes, and ranges without exponential star backtracking.</li>
+    <li>Schematic title, company, revision, and date are parsed from each reachable source and attached to that occurrence's design sheet.</li>
+    <li>The writer deliberately preserves the established Python version-E shape, including empty title fields and nine empty comment rows.</li>
+  </ul>
+
+  <h2>Resource and complexity policy</h2>
+  <p>The scalar compiler's net and terminal ceilings are tightened to the
+  caller's netlist ceilings before compilation. Net, terminal, component-row,
+  component-candidate, field, unit, unit-pin, library-part, library-pin, sheet,
+  retained-string, and output-byte allowances are independent. Component rows
+  are rejected when a new group would cross the ceiling; candidates and pins
+  are rejected before insertion. Title-block children and comments are counted
+  from the structural index before model allocation.</p>
+
+  <p>Source parsing and model construction are linear apart from ordered map/set
+  operations and natural pin sorting. Wildcard matching uses an iterative
+  active-state simulation with O(pattern length) work memory and predictable
+  O(pattern length times net-name length) time per attempted pattern. It never
+  uses recursive or exponential wildcard backtracking. Version-E output is
+  appended directly and checked before every write; an output-limit failure
+  returns an error and publishes no partial string.</p>
+
+  <h2>Evidence</h2>
+  <p><code>kicad_netlist.rs</code> owns synthetic model, writer, wildcard,
+  reachability, title-block, and one-over/one-under resource evidence. Rack
+  <code>L3_020</code> builds the native example once and compares the complete
+  Rust netlist model with Python on four governed real projects: Yoshi
+  Mainboard, Taillight, Speedy Processing Module, and Jumperless V5r7. The same
+  gate parses both emitted version-E documents and compares their governed
+  semantic trees. The four-project gate is mandatory corpus evidence and does
+  not silently skip unavailable inputs.</p>
+
+  <h2>Deferred work</h2>
+  <p>This slice does not replace the native <code>kicad_cruncher</code> command,
+  expose a public package API, reproduce every CLI option, or approve browser
+  packaging. Those remain later native-first slices. Exact KiCad CLI-oracle
+  expansion may add cases, but should reuse this model and direct writer rather
+  than introduce a parallel JSON-shaped compiler.</p>
+</body>
+</html>

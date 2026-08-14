@@ -14,7 +14,7 @@ struct Usage {
     bytes: usize,
 }
 
-pub(super) fn expand_stacked_pin(
+pub(crate) fn expand_stacked_pin(
     value: &str,
     max_count: usize,
     max_bytes: usize,

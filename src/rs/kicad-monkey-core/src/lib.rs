@@ -9,6 +9,7 @@
 pub mod compiled_schematic_graph;
 pub mod document_metadata;
 pub mod footprint;
+pub mod kicad_netlist;
 pub mod pcb;
 pub mod plotter_ir;
 pub mod plotter_types;
@@ -44,6 +45,11 @@ pub use compiled_schematic_graph::{
 };
 pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
+pub use kicad_netlist::{
+    KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetlist, KiCadNetlistComponent,
+    KiCadNetlistComponentUnit, KiCadNetlistLimits, KiCadNetlistTerminal, build_kicad_netlist,
+    emit_kicad_netlist,
+};
 pub use pcb::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbDocument,
     PcbDrillLayerSpan, PcbDrillProperties, PcbEdit, PcbEmbeddedFile, PcbFamily, PcbFootprint,
