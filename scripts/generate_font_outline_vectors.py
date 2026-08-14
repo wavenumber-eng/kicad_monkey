@@ -13,7 +13,7 @@ from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.basePen import BasePen
 from fontTools.pens.t2CharStringPen import T2CharStringPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
-from fontTools.ttLib import TTFont
+from fontTools.ttLib import TTCollection, TTFont
 from fontTools.ttLib.tables.TupleVariation import TupleVariation
 from fontTools.varLib.instancer import instantiateVariableFont
 
@@ -21,6 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
 STROKE_FONT_PATH = ROOT / "assets/fonts/kicad-stroke.ttf"
 VARIABLE_FONT_PATH = ROOT / "tests/parity/fonts/outline-variable-fixture.ttf"
 CFF_FONT_PATH = ROOT / "tests/parity/fonts/outline-cff-fixture.otf"
+CFF2_FONT_PATH = ROOT / "tests/parity/fonts/outline-cff2-fixture.otf"
+COMPOSITE_FONT_PATH = ROOT / "tests/parity/fonts/outline-composite-fixture.ttf"
+COLLECTION_FONT_PATH = ROOT / "tests/parity/fonts/outline-collection-fixture.ttc"
 OUTPUT_PATH = ROOT / "tests/parity/font_outline_a0_vectors.json"
 
 
@@ -96,6 +99,9 @@ def generate_vectors() -> dict[str, Any]:
         "assets/fonts/kicad-stroke.ttf": STROKE_FONT_PATH.read_bytes(),
         "tests/parity/fonts/outline-variable-fixture.ttf": _variable_font_fixture(),
         "tests/parity/fonts/outline-cff-fixture.otf": _cff_font_fixture(),
+        "tests/parity/fonts/outline-cff2-fixture.otf": _cff2_font_fixture(),
+        "tests/parity/fonts/outline-composite-fixture.ttf": _composite_font_fixture(),
+        "tests/parity/fonts/outline-collection-fixture.ttc": _collection_font_fixture(),
     }
     cases = (
         {
@@ -130,6 +136,31 @@ def generate_vectors() -> dict[str, Any]:
             "variations": [],
             "coordinate_comparison": {"mode": "absolute_tolerance", "absolute_tolerance": 0.0001},
         },
+        {
+            "case_id": "cff2_cubic_outline",
+            "font_id": "outline_cff2_fixture",
+            "font_path": "tests/parity/fonts/outline-cff2-fixture.otf",
+            "glyph_name": "S",
+            "variations": [{"axis": "wght", "value": 700.0}],
+            "coordinate_comparison": {"mode": "absolute_tolerance", "absolute_tolerance": 0.003},
+        },
+        {
+            "case_id": "transformed_composite_glyf",
+            "font_id": "outline_composite_fixture",
+            "font_path": "tests/parity/fonts/outline-composite-fixture.ttf",
+            "glyph_name": "X",
+            "variations": [],
+            "coordinate_comparison": {"mode": "absolute_tolerance", "absolute_tolerance": 0.0001},
+        },
+        {
+            "case_id": "collection_second_face",
+            "font_id": "outline_collection_second_face",
+            "font_path": "tests/parity/fonts/outline-collection-fixture.ttc",
+            "face_index": 1,
+            "glyph_name": "C",
+            "variations": [],
+            "coordinate_comparison": {"mode": "exact"},
+        },
     )
     records = [
         _outline_case(font_buffers[str(case["font_path"])], case) for case in cases
@@ -159,7 +190,8 @@ def generate_vectors() -> dict[str, Any]:
 
 
 def _outline_case(font_bytes: bytes, case: dict[str, Any]) -> dict[str, Any]:
-    font = TTFont(BytesIO(font_bytes), fontNumber=0, lazy=False)
+    face_index = int(case.get("face_index", 0))
+    font = TTFont(BytesIO(font_bytes), fontNumber=face_index, lazy=False)
     location = {
         str(variation["axis"]): float(variation["value"])
         for variation in case["variations"]
@@ -185,7 +217,7 @@ def _outline_case(font_bytes: bytes, case: dict[str, Any]) -> dict[str, Any]:
         "coordinate_comparison": case["coordinate_comparison"],
         "font_id": case["font_id"],
         "font_sha256": hashlib.sha256(font_bytes).hexdigest(),
-        "face_index": 0,
+        "face_index": face_index,
         "variations": case["variations"],
         "glyph_id": glyph_id,
         "units_per_em": cast(Any, font["head"]).unitsPerEm,
@@ -264,6 +296,121 @@ def _cff_font_fixture() -> bytes:
     return _save_deterministic(builder)
 
 
+def _cff2_font_fixture() -> bytes:
+    builder = FontBuilder(1000, isTTF=False)
+    glyph_order = [".notdef", "S"]
+    builder.setupGlyphOrder(glyph_order)
+    char_strings: dict[str, Any] = {}
+    for name in glyph_order:
+        pen = T2CharStringPen(None, None, CFF2=True)
+        if name == "S":
+            pen.moveTo((750, 750))
+            pen.curveTo((550, 900), (200, 850), (180, 600))
+            pen.curveTo((160, 420), (650, 500), (620, 250))
+            pen.curveTo((600, 80), (260, 70), (120, 220))
+            pen.closePath()
+        char_string = pen.getCharString(private=None, globalSubrs=None)
+        if name == "S":
+            program = cast(list[Any], char_string.program)
+            if program[:2] != [750, 750]:
+                raise ValueError("unexpected generated CFF2 fixture program")
+            # One region: vary the first rmoveto operand by +100 at wght=900.
+            char_string.program = [750, 100, 1, "blend", *program[1:]]
+        char_strings[name] = char_string
+    builder.setupCharacterMap({0x0053: "S"})
+    _setup_names(builder, "KiCad Monkey Outline CFF2 Fixture")
+    builder.setupFvar([("wght", 100, 400, 900, "Weight")], [])
+    builder.setupCFF2(char_strings, regions=[{"wght": (0.0, 1.0, 1.0)}])
+    builder.setupHorizontalMetrics({name: (600, 0) for name in glyph_order})
+    builder.setupHorizontalHeader(ascent=900, descent=-200)
+    builder.setupOS2(
+        sTypoAscender=900,
+        sTypoDescender=-200,
+        usWinAscent=900,
+        usWinDescent=200,
+    )
+    builder.setupPost()
+    return _save_deterministic(builder)
+
+
+def _composite_font_fixture() -> bytes:
+    builder = FontBuilder(1000, isTTF=True)
+    glyph_order = [".notdef", "base", "X"]
+    builder.setupGlyphOrder(glyph_order)
+    base_pen = TTGlyphPen(None)
+    base_pen.moveTo((50, 50))
+    base_pen.qCurveTo((300, 700), (550, 50))
+    base_pen.lineTo((400, 50))
+    base_pen.qCurveTo((300, 400), (200, 50))
+    base_pen.closePath()
+    base_glyph = base_pen.glyph()
+    component_pen = TTGlyphPen({"base": base_glyph})
+    # Use a symmetric shear with no component offset so both engines exercise
+    # the affine transform without entering legacy scaled-offset ambiguity.
+    component_pen.addComponent("base", (0.75, 0.125, 0.125, 1.125, 0, 0))
+    builder.setupGlyf(
+        {
+            ".notdef": TTGlyphPen(None).glyph(),
+            "base": base_glyph,
+            "X": component_pen.glyph(),
+        }
+    )
+    builder.setupHorizontalMetrics({".notdef": (800, 0), "base": (800, 50), "X": (800, 44)})
+    builder.setupHorizontalHeader(ascent=900, descent=-200)
+    builder.setupCharacterMap({0x0058: "X"})
+    _setup_names(builder, "KiCad Monkey Outline Composite Fixture")
+    builder.setupOS2(
+        sTypoAscender=900,
+        sTypoDescender=-200,
+        usWinAscent=900,
+        usWinDescent=200,
+    )
+    builder.setupPost()
+    builder.setupMaxp()
+    return _save_deterministic(builder)
+
+
+def _collection_font_fixture() -> bytes:
+    collection = TTCollection()
+    collection.fonts = [
+        TTFont(BytesIO(_collection_face_fixture("First", "Z", 0x005A, 40))),
+        TTFont(BytesIO(_collection_face_fixture("Second", "C", 0x0043, 160))),
+    ]
+    for font in collection.fonts:
+        font.recalcTimestamp = False
+    output = BytesIO()
+    collection.save(output)
+    return output.getvalue()
+
+
+def _collection_face_fixture(
+    suffix: str, glyph_name: str, codepoint: int, inset: int
+) -> bytes:
+    builder = FontBuilder(1000, isTTF=True)
+    glyph_order = [".notdef", glyph_name]
+    builder.setupGlyphOrder(glyph_order)
+    pen = TTGlyphPen(None)
+    pen.moveTo((inset, 100))
+    pen.lineTo((900 - inset, 100))
+    pen.lineTo((800 - inset, 700))
+    pen.lineTo((200 + inset, 700))
+    pen.closePath()
+    builder.setupGlyf({".notdef": TTGlyphPen(None).glyph(), glyph_name: pen.glyph()})
+    builder.setupHorizontalMetrics({name: (1000, 0) for name in glyph_order})
+    builder.setupHorizontalHeader(ascent=900, descent=-200)
+    builder.setupCharacterMap({codepoint: glyph_name})
+    _setup_names(builder, f"KiCad Monkey Outline Collection {suffix}")
+    builder.setupOS2(
+        sTypoAscender=900,
+        sTypoDescender=-200,
+        usWinAscent=900,
+        usWinDescent=200,
+    )
+    builder.setupPost()
+    builder.setupMaxp()
+    return _save_deterministic(builder)
+
+
 def _setup_names(builder: FontBuilder, family: str) -> None:
     compact = family.replace(" ", "")
     builder.setupNameTable(
@@ -308,6 +455,9 @@ def main() -> None:
     font_payloads = {
         VARIABLE_FONT_PATH: _variable_font_fixture(),
         CFF_FONT_PATH: _cff_font_fixture(),
+        CFF2_FONT_PATH: _cff2_font_fixture(),
+        COMPOSITE_FONT_PATH: _composite_font_fixture(),
+        COLLECTION_FONT_PATH: _collection_font_fixture(),
     }
     if args.check:
         if OUTPUT_PATH.read_bytes() != encoded:

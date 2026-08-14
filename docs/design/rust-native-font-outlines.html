@@ -29,6 +29,11 @@
   resource policy, command publication, parity vectors, and all KiCad-specific
   transforms. No shaping or rendering framework was added.</p>
 
+  <p>The Cargo edge disables default features and enables only
+  <code>std</code> and <code>variable-fonts</code>. OpenType/Apple layout and
+  glyph-name parsing are not pulled into the core merely because the upstream
+  default bundle includes them.</p>
+
   <h2>Coordinate and command semantics</h2>
   <p><code>extract_font_outline_a0</code> verifies the out-of-band font hash,
   parses the requested face, validates unique variation tags against the
@@ -41,7 +46,10 @@
   <p>The language-neutral oracle uses FontTools' atomic BasePen quadratic and
   cubic callbacks. For TrueType <code>glyf</code>, the implicit closing edge is
   emitted as an explicit line before close to match the parser's callback
-  stream. CFF retains its native close callback behavior. Integer records use
+  stream. CFF retains its native close callback behavior. CFF2 character
+  strings end without an explicit endchar operator; the package closes any
+  still-open final contour after successful extraction so consumers receive
+  the same semantic path produced by FontTools. Integer records use
   exact comparison; variation and CFF records permit only the declared small
   absolute coordinate tolerance.</p>
 
@@ -65,11 +73,11 @@
   <h2>Evidence and deferrals</h2>
   <p>The fixed corpus includes the tracked KiCad stroke TTF, a deterministic
   in-house quadratic variable TTF whose <code>wght</code> coordinate changes a
-  real control point, and a deterministic cubic CFF OTF. Rack validates every
+  real control point, a transformed composite TrueType glyph, a two-face TTC
+  selected at face index one, and deterministic cubic CFF and CFF2 OTFs. Rack validates every
   record through generated schema and Python decoding, verifies exact font
   hashes and deterministic regeneration, and runs the focused Rust suite.
-  CFF2, collections with a nonzero face index, composite-glyph-specific
-  fixtures, production variable fonts, shaping-to-outline composition, final
+  Production variable fonts, shaping-to-outline composition, final
   render-cache parity, and WASM packaging remain separate expansion work.</p>
 </body>
 </html>

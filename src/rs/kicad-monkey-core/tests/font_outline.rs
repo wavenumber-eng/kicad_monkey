@@ -20,6 +20,18 @@ const CFF_FONT: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../tests/parity/fonts/outline-cff-fixture.otf"
 ));
+const CFF2_FONT: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../tests/parity/fonts/outline-cff2-fixture.otf"
+));
+const COMPOSITE_FONT: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../tests/parity/fonts/outline-composite-fixture.ttf"
+));
+const COLLECTION_FONT: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../tests/parity/fonts/outline-collection-fixture.ttc"
+));
 
 fn vectors() -> Value {
     serde_json::from_str(include_str!(concat!(
@@ -43,6 +55,9 @@ fn font_bytes(font_id: &str) -> &'static [u8] {
         "kicad_stroke_regular" => STROKE_FONT,
         "outline_variable_fixture" => VARIABLE_FONT,
         "outline_cff_fixture" => CFF_FONT,
+        "outline_cff2_fixture" => CFF2_FONT,
+        "outline_composite_fixture" => COMPOSITE_FONT,
+        "outline_collection_second_face" => COLLECTION_FONT,
         other => panic!("unknown fixture font: {other}"),
     }
 }
@@ -72,7 +87,7 @@ fn ttf_parser_matches_fixed_fonttools_records() {
             request(&record),
             FontOutlineLimits::default(),
         )
-        .expect("extract fixed outline record");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", record.case_id));
         assert_eq!(u32::from(output.units_per_em), record.units_per_em.get());
         compare_commands(
             &output.commands,
@@ -99,6 +114,23 @@ fn corpus_covers_line_quadratic_variable_and_cubic_paths() {
         &find(&records, "cff_cubic_outline").commands,
         "curve_to"
     ));
+    assert!(has_kind(
+        &find(&records, "cff2_cubic_outline").commands,
+        "curve_to"
+    ));
+    let composite = find(&records, "transformed_composite_glyf");
+    assert!(has_kind(&composite.commands, "quad_to"));
+    assert_ne!(
+        coordinate(&composite.commands[0], "x"),
+        50.0,
+        "the composite transform must change its base glyph origin"
+    );
+    let collection = find(&records, "collection_second_face");
+    assert_eq!(collection.face_index, 1);
+    assert_eq!(
+        collection.font_id.as_str(),
+        "outline_collection_second_face"
+    );
 }
 
 #[test]
@@ -137,6 +169,49 @@ fn resource_limits_are_inclusive_and_fail_closed() {
     };
     assert_eq!(
         extract_font_outline_a0(bytes, request(&record), no_metadata)
+            .unwrap_err()
+            .kind,
+        FontOutlineErrorKind::ResourceLimit
+    );
+
+    let variable = records()
+        .into_iter()
+        .find(|record| record.case_id.as_str() == "variable_quadratic_weight_700")
+        .unwrap();
+    let metadata_bytes = variable.font_id.len()
+        + variable.font_sha256.len()
+        + variable
+            .variations
+            .iter()
+            .map(|variation| variation.axis.0.len())
+            .sum::<usize>();
+    let exact_metadata_and_variations = FontOutlineLimits {
+        max_metadata_bytes: metadata_bytes,
+        max_variations: variable.variations.len(),
+        ..FontOutlineLimits::default()
+    };
+    extract_font_outline_a0(
+        VARIABLE_FONT,
+        request(&variable),
+        exact_metadata_and_variations,
+    )
+    .expect("metadata and variation limits are inclusive");
+    let one_under_metadata = FontOutlineLimits {
+        max_metadata_bytes: metadata_bytes - 1,
+        ..FontOutlineLimits::default()
+    };
+    assert_eq!(
+        extract_font_outline_a0(VARIABLE_FONT, request(&variable), one_under_metadata)
+            .unwrap_err()
+            .kind,
+        FontOutlineErrorKind::ResourceLimit
+    );
+    let one_under_variations = FontOutlineLimits {
+        max_variations: variable.variations.len() - 1,
+        ..FontOutlineLimits::default()
+    };
+    assert_eq!(
+        extract_font_outline_a0(VARIABLE_FONT, request(&variable), one_under_variations,)
             .unwrap_err()
             .kind,
         FontOutlineErrorKind::ResourceLimit
@@ -229,6 +304,12 @@ fn has_kind(commands: &[OutlineCommand], kind: &str) -> bool {
         .unwrap()
         .iter()
         .any(|command| command["kind"] == kind)
+}
+
+fn coordinate(command: &OutlineCommand, field: &str) -> f64 {
+    serde_json::to_value(command).unwrap()[field]
+        .as_f64()
+        .unwrap()
 }
 
 fn compare_commands(

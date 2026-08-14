@@ -20,6 +20,27 @@
       "font_path": "tests/parity/fonts/outline-cff-fixture.otf",
       "font_sha256": "83e67e1e0332393f5bb0c0352e8f92d705b31672e9e992589464b9426583de49",
       "units_per_em": 1000
+    },
+    {
+      "face_index": 0,
+      "font_id": "outline_cff2_fixture",
+      "font_path": "tests/parity/fonts/outline-cff2-fixture.otf",
+      "font_sha256": "38fb2b9bbcae1698655eedcbb0049bc6435b83c85857e5d364c13850c7545cb2",
+      "units_per_em": 1000
+    },
+    {
+      "face_index": 0,
+      "font_id": "outline_composite_fixture",
+      "font_path": "tests/parity/fonts/outline-composite-fixture.ttf",
+      "font_sha256": "aac6d96e38d11c4b85f0183ca2988fe27495ac38fa65771d63f73e062e67bc24",
+      "units_per_em": 1000
+    },
+    {
+      "face_index": 1,
+      "font_id": "outline_collection_second_face",
+      "font_path": "tests/parity/fonts/outline-collection-fixture.ttc",
+      "font_sha256": "c3d74d23050a53b6062f32999fd600cebccbb705b6a9d6d285940f8d31d570a5",
+      "units_per_em": 1000
     }
   ],
   "oracle": {
@@ -495,6 +516,162 @@
       "face_index": 0,
       "font_id": "outline_cff_fixture",
       "font_sha256": "83e67e1e0332393f5bb0c0352e8f92d705b31672e9e992589464b9426583de49",
+      "glyph_id": 1,
+      "schema": "kicad_monkey.outline_vector.a0",
+      "type": "kicad_monkey.outline_vector",
+      "units_per_em": 1000,
+      "variations": [],
+      "version": "a0"
+    },
+    {
+      "case_id": "cff2_cubic_outline",
+      "commands": [
+        {
+          "kind": "move_to",
+          "x": 810,
+          "y": 750
+        },
+        {
+          "control1_x": 610,
+          "control1_y": 900,
+          "control2_x": 260,
+          "control2_y": 850,
+          "kind": "curve_to",
+          "x": 240,
+          "y": 600
+        },
+        {
+          "control1_x": 220,
+          "control1_y": 420,
+          "control2_x": 710,
+          "control2_y": 500,
+          "kind": "curve_to",
+          "x": 680,
+          "y": 250
+        },
+        {
+          "control1_x": 660,
+          "control1_y": 80,
+          "control2_x": 320,
+          "control2_y": 70,
+          "kind": "curve_to",
+          "x": 180,
+          "y": 220
+        },
+        {
+          "kind": "close"
+        }
+      ],
+      "coordinate_comparison": {
+        "absolute_tolerance": 0.003,
+        "mode": "absolute_tolerance"
+      },
+      "coordinate_format": "font_design_units_f64",
+      "face_index": 0,
+      "font_id": "outline_cff2_fixture",
+      "font_sha256": "38fb2b9bbcae1698655eedcbb0049bc6435b83c85857e5d364c13850c7545cb2",
+      "glyph_id": 1,
+      "schema": "kicad_monkey.outline_vector.a0",
+      "type": "kicad_monkey.outline_vector",
+      "units_per_em": 1000,
+      "variations": [
+        {
+          "axis": "wght",
+          "value": 700.0
+        }
+      ],
+      "version": "a0"
+    },
+    {
+      "case_id": "transformed_composite_glyf",
+      "commands": [
+        {
+          "kind": "move_to",
+          "x": 43.75,
+          "y": 62.5
+        },
+        {
+          "control_x": 312.5,
+          "control_y": 825,
+          "kind": "quad_to",
+          "x": 418.75,
+          "y": 125
+        },
+        {
+          "kind": "line_to",
+          "x": 306.25,
+          "y": 106.25
+        },
+        {
+          "control_x": 275,
+          "control_y": 487.5,
+          "kind": "quad_to",
+          "x": 156.25,
+          "y": 81.25
+        },
+        {
+          "kind": "line_to",
+          "x": 43.75,
+          "y": 62.5
+        },
+        {
+          "kind": "close"
+        }
+      ],
+      "coordinate_comparison": {
+        "absolute_tolerance": 0.0001,
+        "mode": "absolute_tolerance"
+      },
+      "coordinate_format": "font_design_units_f64",
+      "face_index": 0,
+      "font_id": "outline_composite_fixture",
+      "font_sha256": "aac6d96e38d11c4b85f0183ca2988fe27495ac38fa65771d63f73e062e67bc24",
+      "glyph_id": 2,
+      "schema": "kicad_monkey.outline_vector.a0",
+      "type": "kicad_monkey.outline_vector",
+      "units_per_em": 1000,
+      "variations": [],
+      "version": "a0"
+    },
+    {
+      "case_id": "collection_second_face",
+      "commands": [
+        {
+          "kind": "move_to",
+          "x": 160,
+          "y": 100
+        },
+        {
+          "kind": "line_to",
+          "x": 740,
+          "y": 100
+        },
+        {
+          "kind": "line_to",
+          "x": 640,
+          "y": 700
+        },
+        {
+          "kind": "line_to",
+          "x": 360,
+          "y": 700
+        },
+        {
+          "kind": "line_to",
+          "x": 160,
+          "y": 100
+        },
+        {
+          "kind": "close"
+        }
+      ],
+      "coordinate_comparison": {
+        "mode": "exact"
+      },
+      "coordinate_format": "font_design_units_f64",
+      "face_index": 1,
+      "font_id": "outline_collection_second_face",
+      "font_sha256": "c3d74d23050a53b6062f32999fd600cebccbb705b6a9d6d285940f8d31d570a5",
       "glyph_id": 1,
       "schema": "kicad_monkey.outline_vector.a0",
       "type": "kicad_monkey.outline_vector",

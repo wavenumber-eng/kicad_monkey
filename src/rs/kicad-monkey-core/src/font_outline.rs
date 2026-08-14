@@ -102,6 +102,9 @@ pub fn extract_font_outline_a0(
     })?;
     let mut builder = BoundedOutlineBuilder::new(limits.max_commands);
     let outlined = face.outline_glyph(glyph_id, &mut builder).is_some();
+    if outlined {
+        builder.finish_open_contour();
+    }
     if builder.exceeded {
         return Err(outline_error(
             FontOutlineErrorKind::ResourceLimit,
@@ -292,6 +295,7 @@ struct BoundedOutlineBuilder {
     commands: Vec<OutlineCommand>,
     limit: usize,
     exceeded: bool,
+    contour_open: bool,
 }
 
 impl BoundedOutlineBuilder {
@@ -300,6 +304,7 @@ impl BoundedOutlineBuilder {
             commands: Vec::with_capacity(limit.min(256)),
             limit,
             exceeded: false,
+            contour_open: false,
         }
     }
 
@@ -310,10 +315,17 @@ impl BoundedOutlineBuilder {
             self.exceeded = true;
         }
     }
+
+    fn finish_open_contour(&mut self) {
+        if self.contour_open {
+            self.close();
+        }
+    }
 }
 
 impl OutlineBuilder for BoundedOutlineBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
+        self.contour_open = true;
         self.push(
             OutlineMoveTo {
                 kind: "move_to".to_owned(),
@@ -378,6 +390,7 @@ impl OutlineBuilder for BoundedOutlineBuilder {
             }
             .into(),
         );
+        self.contour_open = false;
     }
 }
 

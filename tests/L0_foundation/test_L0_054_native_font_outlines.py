@@ -30,6 +30,9 @@ def test_fonttools_outline_records_are_current_strict_and_out_of_band() -> None:
         "kicad_stroke_regular",
         "outline_variable_fixture",
         "outline_cff_fixture",
+        "outline_cff2_fixture",
+        "outline_composite_fixture",
+        "outline_collection_second_face",
     }
     for font in fonts.values():
         path = PACKAGE_ROOT / font["font_path"]
@@ -56,6 +59,19 @@ def test_fonttools_outline_records_are_current_strict_and_out_of_band() -> None:
         command["kind"] == "curve_to"
         for command in by_case["cff_cubic_outline"]["commands"]
     )
+    cff2 = by_case["cff2_cubic_outline"]
+    assert cff2["variations"] == [{"axis": "wght", "value": 700.0}]
+    assert cff2["commands"][0]["x"] == 810
+    assert any(
+        command["kind"] == "curve_to"
+        for command in cff2["commands"]
+    )
+    composite = by_case["transformed_composite_glyf"]
+    assert any(command["kind"] == "quad_to" for command in composite["commands"])
+    assert composite["commands"][0]["x"] != 50
+    collection = by_case["collection_second_face"]
+    assert collection["face_index"] == 1
+    assert collection["font_id"] == "outline_collection_second_face"
 
     completed = subprocess.run(
         [sys.executable, "scripts/generate_font_outline_vectors.py", "--check"],
