@@ -1,18 +1,25 @@
 //! Bounded `.kicad_pro` JSON source model and exact owned writer.
 
+mod json_preflight;
+
 use serde::Serialize;
 use serde_json::{Map, Value};
 use std::fmt::{Display, Formatter};
 use std::io::{Read, Write};
 
+use json_preflight::preflight_json_structure;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProjectLimits {
     pub max_source_bytes: usize,
     pub max_output_bytes: usize,
+    pub max_json_nodes: usize,
+    pub max_json_depth: usize,
     pub max_text_variables: usize,
     pub max_variants: usize,
     pub max_net_classes: usize,
     pub max_netclass_assignments: usize,
+    pub max_netclass_assignment_references: usize,
     pub max_netclass_patterns: usize,
     pub max_net_colors: usize,
     pub max_diff_pair_dimensions: usize,
@@ -24,10 +31,13 @@ impl Default for ProjectLimits {
         Self {
             max_source_bytes: 64 * 1024 * 1024,
             max_output_bytes: 64 * 1024 * 1024,
+            max_json_nodes: 8_000_000,
+            max_json_depth: 256,
             max_text_variables: 1_000_000,
             max_variants: 1_000_000,
             max_net_classes: 1_000_000,
-            max_netclass_assignments: 4_000_000,
+            max_netclass_assignments: 1_000_000,
+            max_netclass_assignment_references: 4_000_000,
             max_netclass_patterns: 1_000_000,
             max_net_colors: 1_000_000,
             max_diff_pair_dimensions: 1_000_000,
@@ -270,6 +280,7 @@ impl ProjectDocument {
         if source.len() > limits.max_source_bytes {
             return Err(limit_error("project source exceeds max_source_bytes"));
         }
+        preflight_json_structure(&source, limits)?;
         let value: Value = serde_json::from_str(&source)
             .map_err(|error| ProjectError::new(ProjectErrorKind::InvalidJson, error.to_string()))?;
         let Value::Object(root) = value else {
@@ -558,17 +569,14 @@ fn net_assignments(
     else {
         return Ok(Vec::new());
     };
-    let mut count = 0usize;
+    check_count(
+        values.len(),
+        limits.max_netclass_assignments,
+        "netclass assignments",
+    )?;
+    let mut reference_count = 0usize;
     let mut result = Vec::with_capacity(values.len());
     for (name, classes) in values {
-        count = count
-            .checked_add(1)
-            .ok_or_else(|| limit_error("assignment count overflows"))?;
-        check_count(
-            count,
-            limits.max_netclass_assignments,
-            "netclass assignments",
-        )?;
         let classes = classes.as_array().map_or(&[][..], Vec::as_slice);
         let mut typed = Vec::new();
         for class in classes {
@@ -576,13 +584,13 @@ fn net_assignments(
             if class.is_empty() {
                 continue;
             }
-            count = count
+            reference_count = reference_count
                 .checked_add(1)
-                .ok_or_else(|| limit_error("assignment count overflows"))?;
+                .ok_or_else(|| limit_error("assignment reference count overflows"))?;
             check_count(
-                count,
-                limits.max_netclass_assignments,
-                "netclass assignments",
+                reference_count,
+                limits.max_netclass_assignment_references,
+                "netclass assignment references",
             )?;
             budget.string(&class)?;
             typed.push(class);
@@ -705,7 +713,10 @@ fn variant_from_value(value: &Value) -> Option<ProjectVariant> {
     let value = value.as_object()?;
     Some(ProjectVariant {
         name: object_string(value, "name"),
-        description: value.get("description").map(project_string),
+        description: match value.get("description") {
+            None | Some(Value::Null) => None,
+            Some(value) => Some(project_string(value)),
+        },
     })
 }
 

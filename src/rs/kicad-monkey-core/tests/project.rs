@@ -162,7 +162,8 @@ fn exact_promoted_collection_limits_are_accepted() {
             max_text_variables: 2,
             max_variants: 2,
             max_net_classes: 1,
-            max_netclass_assignments: 2,
+            max_netclass_assignments: 1,
+            max_netclass_assignment_references: 1,
             max_netclass_patterns: 1,
             max_net_colors: 1,
             max_diff_pair_dimensions: 1,
@@ -208,6 +209,96 @@ fn null_variant_description_matches_python_none() {
             description: None,
         }]
     );
+}
+
+#[test]
+fn removed_null_variant_description_matches_python_none() {
+    let mut document = ProjectDocument::parse(
+        r#"{"schematic":{"variants":[{"name":"Null","description":null}]}}"#.to_owned(),
+        ProjectLimits::default(),
+    )
+    .expect("project");
+    assert_eq!(
+        document.remove_variant("Null").expect("remove"),
+        Some(kicad_monkey_core::ProjectVariant {
+            name: "Null".to_owned(),
+            description: None,
+        })
+    );
+}
+
+#[test]
+fn json_node_and_depth_preflight_accept_exact_and_reject_one_over() {
+    let dense = r#"{"values":[0,1,{"x":"y"}]}"#;
+    ProjectDocument::parse(
+        dense.to_owned(),
+        ProjectLimits {
+            max_json_nodes: 6,
+            max_json_depth: 3,
+            ..ProjectLimits::default()
+        },
+    )
+    .expect("exact dense and nested limits");
+
+    for limits in [
+        ProjectLimits {
+            max_json_nodes: 5,
+            ..ProjectLimits::default()
+        },
+        ProjectLimits {
+            max_json_depth: 2,
+            ..ProjectLimits::default()
+        },
+    ] {
+        assert_eq!(
+            ProjectDocument::parse(dense.to_owned(), limits)
+                .expect_err("one over")
+                .kind,
+            ProjectErrorKind::ResourceLimit
+        );
+    }
+}
+
+#[test]
+fn netclass_assignment_and_reference_limits_are_independent() {
+    let source = r#"{"net_settings":{"netclass_assignments":{"A":["One","Two"],"B":[]}}}"#;
+    let exact = ProjectLimits {
+        max_netclass_assignments: 2,
+        max_netclass_assignment_references: 2,
+        ..ProjectLimits::default()
+    };
+    assert_eq!(
+        ProjectDocument::parse(source.to_owned(), exact)
+            .expect("exact")
+            .view()
+            .net_settings()
+            .expect("settings")
+            .assignments
+            .len(),
+        2
+    );
+    for limits in [
+        ProjectLimits {
+            max_netclass_assignments: 1,
+            max_netclass_assignment_references: 2,
+            ..ProjectLimits::default()
+        },
+        ProjectLimits {
+            max_netclass_assignments: 2,
+            max_netclass_assignment_references: 1,
+            ..ProjectLimits::default()
+        },
+    ] {
+        assert_eq!(
+            ProjectDocument::parse(source.to_owned(), limits)
+                .expect("source")
+                .view()
+                .net_settings()
+                .expect_err("one over")
+                .kind,
+            ProjectErrorKind::ResourceLimit
+        );
+    }
 }
 
 #[test]
@@ -347,6 +438,10 @@ fn source_output_and_typed_collection_limits_fail_closed() {
             ..ProjectLimits::default()
         },
         ProjectLimits {
+            max_netclass_assignment_references: 0,
+            ..ProjectLimits::default()
+        },
+        ProjectLimits {
             max_netclass_patterns: 0,
             ..ProjectLimits::default()
         },
@@ -367,8 +462,8 @@ fn source_output_and_typed_collection_limits_fail_closed() {
         let document = ProjectDocument::parse(PROJECT.to_owned(), limits).expect("source");
         let result = match index {
             0 => document.view().text_variables().map(|_| ()),
-            1 | 7 => document.view().variants().map(|_| ()),
-            2..=5 => document.view().net_settings().map(|_| ()),
+            1 | 8 => document.view().variants().map(|_| ()),
+            2..=6 => document.view().net_settings().map(|_| ()),
             _ => document.view().board_design_settings().map(|_| ()),
         };
         assert_eq!(

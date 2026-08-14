@@ -35,14 +35,19 @@
     <p>Input admission reads at most <code>max_source_bytes + 1</code>. Exact
     writes reject over-limit owned source before publishing bytes. Canonical
     serialization uses a bounded writer and never retains output beyond
-    <code>max_output_bytes</code>. Typed projection independently bounds text
+    <code>max_output_bytes</code>. A non-allocating structural preflight bounds
+    JSON value nodes and container depth before the generic Serde DOM is
+    materialized. Typed projection independently bounds text
     variables, variants, net classes, assignments, patterns, colors,
-    differential-pair presets, and aggregate copied string bytes.</p>
+    differential-pair presets, and aggregate copied string bytes. Outer
+    netclass assignments and their nested class references have independent
+    ceilings.</p>
     <p>The implementation uses the workspace's existing <code>serde</code> and
     <code>serde_json</code> dependencies. The enabled <code>preserve_order</code>
     and <code>arbitrary_precision</code> features add the standard
     <code>indexmap</code>/<code>hashbrown</code> support needed for observable
-    KiCad/Python canonical parity; no custom JSON parser is introduced. The
+    KiCad/Python canonical parity. The structural preflight is not a JSON
+    parser: Serde remains authoritative for syntax and materialization. The
     crate continues to forbid unsafe code.</p>
     <p>Invalid UTF-8, malformed JSON, non-object roots, invalid paths, mutation
     conflicts, I/O errors, and resource exhaustion use a structured project

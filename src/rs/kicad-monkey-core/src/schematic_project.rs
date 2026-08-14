@@ -25,6 +25,16 @@ pub(crate) fn project_subpart_settings(
         )
     })?;
     let view = document.view();
+    if let Some(schematic) = view.raw().get("schematic")
+        && !schematic.is_null()
+        && !schematic.is_object()
+    {
+        return Err(SourceBundleError::new(
+            SourceBundleErrorKind::Project,
+            Some(project.path()),
+            "project schematic settings container must be a JSON object",
+        ));
+    }
     Ok(SchematicSubpartSettings {
         first_id: setting_codepoint(
             setting(&view, "schematic.subpart_first_id", project)?,
