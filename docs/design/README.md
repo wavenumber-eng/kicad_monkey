@@ -50,6 +50,8 @@ Current design notes:
   validation, one-scan schematic definitions, and repeated hierarchy occurrences.
 - `rust-schematic-connectivity-phase4-slice.html` - typed schematic connection
   carriers and deterministic 100-nm-grid wire connectivity over source bundles.
+- `rust-schematic-writer-phase4-slice.html` - exact owned schematic writeback,
+  transactional placed-symbol property edits, and promoted semantic reparse.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

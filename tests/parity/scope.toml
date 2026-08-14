@@ -391,3 +391,13 @@ python_symbols = ["KiCadProject.get_path", "build_compiled_schematic_graph"]
 rust_symbols = ["SchematicBundleIndex.subpart_settings", "build_schematic_occurrence_nets", "build_schematic_scalar_design_nets", "build_compiled_schematic_graph"]
 rack_cases = ["L0_046", "L3_020"]
 evidence = ["src/rs/kicad-monkey-core/src/schematic_project.rs", "src/rs/kicad-monkey-core/tests/schematic_netlist.rs", "src/py/kicad_monkey/kicad_compiled_schematic_graph.py", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html", "docs/design/rust-schematic-connectivity-phase4-slice.html"]
+
+[[surfaces]]
+id = "schematic.native_owned_writer"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "review_ready"
+python_symbols = ["KiCadSchematic.to_text", "SchSymbol.properties"]
+rust_symbols = ["SchematicDocument", "SchematicDocumentLimits"]
+rack_cases = ["L1_032"]
+evidence = ["src/rs/kicad-monkey-core/src/schematic_bundle/document.rs", "src/rs/kicad-monkey-core/tests/schematic_document.rs", "src/rs/kicad-monkey-core/examples/schematic_roundtrip_gate.rs", "tests/L1_parsing/test_L1_032_rust_schematic_roundtrip.py", "docs/design/rust-schematic-writer-phase4-slice.html"]

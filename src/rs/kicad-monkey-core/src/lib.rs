@@ -61,8 +61,8 @@ pub use plotter_types::{
     PlotterOperation, PlotterPoly, PlotterRect, ThickSegment,
 };
 pub use schematic_bundle::{
-    SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicOccurrence,
-    SchematicSheet,
+    SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicDocument,
+    SchematicDocumentLimits, SchematicOccurrence, SchematicSheet,
 };
 pub use schematic_bus::{
     SchematicBusExpansionError, SchematicBusExpansionErrorKind, SchematicBusExpansionLimits,

@@ -18,10 +18,12 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::SourceKind;
 use std::borrow::Cow;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
+mod document;
 mod path_helpers;
 use path_helpers::{join_occurrence_path, nonempty_or, portable_file_name, portable_parent};
 
 pub use crate::schematic_bundle_limits::SchematicBundleLimits;
+pub use document::{SchematicDocument, SchematicDocumentLimits};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicSheet {
@@ -260,6 +262,14 @@ fn parse_schematic_definition(
     limits: SchematicBundleLimits,
 ) -> Result<SchematicDefinition, SourceBundleError> {
     let text = source.text()?;
+    parse_schematic_definition_text(text, source.path(), limits)
+}
+
+fn parse_schematic_definition_text(
+    text: &str,
+    source_path: &str,
+    limits: SchematicBundleLimits,
+) -> Result<SchematicDefinition, SourceBundleError> {
     let spans = scan_form_spans_with_limits(
         text,
         &schematic_selector(),
@@ -270,7 +280,7 @@ fn parse_schematic_definition(
             ..ProjectionLimits::default()
         },
     )
-    .map_err(|error| schematic_error(source.path(), error))?;
+    .map_err(|error| schematic_error(source_path, error))?;
     let roots = spans
         .iter()
         .filter(|span| span.depth == 0)
@@ -278,13 +288,13 @@ fn parse_schematic_definition(
     if roots.len() != 1 || roots[0].head.as_deref() != Some("kicad_sch") {
         return Err(SourceBundleError::new(
             SourceBundleErrorKind::Schematic,
-            Some(source.path()),
+            Some(source_path),
             "schematic source must contain exactly one kicad_sch root",
         ));
     }
 
     let mut definition = SchematicDefinition {
-        source_path: source.path().to_owned(),
+        source_path: source_path.to_owned(),
         version: None,
         generator: None,
         generator_version: None,
@@ -305,22 +315,21 @@ fn parse_schematic_definition(
         library_symbol_by_key: HashMap::new(),
         library_pin_owner_by_symbol: Vec::new(),
     };
-    populate_schematic_definition(&mut definition, text, &spans, source.path(), limits)?;
-    definition.symbols = parse_placed_symbols(text, source.path(), &spans, limits)?;
-    definition.library_symbols =
-        parse_embedded_library_symbols(text, source.path(), &spans, limits)?;
+    populate_schematic_definition(&mut definition, text, &spans, source_path, limits)?;
+    definition.symbols = parse_placed_symbols(text, source_path, &spans, limits)?;
+    definition.library_symbols = parse_embedded_library_symbols(text, source_path, &spans, limits)?;
     definition.library_symbol_by_key = index_library_symbols(
         &definition.library_symbols,
-        source.path(),
+        source_path,
         limits.max_library_lookup_key_bytes_per_source,
     )?;
     definition.library_pin_owner_by_symbol = resolve_library_pin_owners(
         &definition.library_symbols,
         &definition.library_symbol_by_key,
     );
-    definition.bus_aliases = parse_bus_aliases(text, source.path(), &spans, limits)?;
+    definition.bus_aliases = parse_bus_aliases(text, source_path, &spans, limits)?;
     definition.legacy_symbol_instances =
-        parse_legacy_symbol_instances(text, source.path(), &spans, limits)?;
+        parse_legacy_symbol_instances(text, source_path, &spans, limits)?;
     for (index, instance) in definition.legacy_symbol_instances.iter().enumerate() {
         let path = instance.path.trim_end_matches('/');
         if !path.is_empty() {
@@ -330,7 +339,7 @@ fn parse_schematic_definition(
                 .or_insert(index);
         }
     }
-    let carriers = parse_source_carriers(text, source.path(), &spans, limits)?;
+    let carriers = parse_source_carriers(text, source_path, &spans, limits)?;
     definition.wires = carriers.wires;
     definition.buses = carriers.buses;
     definition.bus_entries = carriers.bus_entries;
@@ -345,7 +354,7 @@ fn parse_schematic_definition(
     {
         return Err(SourceBundleError::new(
             SourceBundleErrorKind::Schematic,
-            Some(source.path()),
+            Some(source_path),
             "hierarchical sheet is missing Sheetfile",
         ));
     }
@@ -976,11 +985,12 @@ fn occurrence_paths(
 }
 
 fn schematic_error(path: &str, error: crate::Error) -> SourceBundleError {
-    SourceBundleError::new(
-        SourceBundleErrorKind::Schematic,
-        Some(path),
-        error.to_string(),
-    )
+    let kind = if error.kind == crate::ErrorKind::ResourceLimit {
+        SourceBundleErrorKind::ResourceLimit
+    } else {
+        SourceBundleErrorKind::Schematic
+    };
+    SourceBundleError::new(kind, Some(path), error.to_string())
 }
 
 fn schematic_limit(path: &str, message: impl Into<String>) -> SourceBundleError {

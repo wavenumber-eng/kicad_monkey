@@ -451,3 +451,27 @@ secondary = [
     "Each edit preserves unrelated promoted semantics",
     "The native semantic gate remains mandatory when kicad-cli is unavailable",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_032"
+file = "test_L1_032_rust_schematic_roundtrip.py"
+name = "Rust Native Schematic Owned Round-Trip"
+description = "Require exact native writeback, promoted semantic stability, and transactional symbol-property edits"
+concerns = ["sexpr", "rust", "schematic", "writeback", "native"]
+test_cases = "tests/L1_parsing/cases/schematics/input/*.kicad_sch"
+test_case_type = "reference"
+
+[subtests.objectives]
+primary = "Every durable schematic input survives two promoted semantic decode passes and byte-exact owned writes"
+secondary = [
+    "All eight package-local schematic references are mandatory",
+    "The first owned write is exact and the second write is byte stable",
+    "Promoted typed definitions compare equal after reparse",
+    "Placed-symbol property create, update, and removal preserve unknown forms",
+    "Ambiguous UUIDs and property names fail without changing owned source",
+    "Source, property, decoded-scalar, and output ceilings fail closed",
+    "CRLF and one-line source layouts remain valid after focused insertion",
+    "Failures identify the input path and processing stage",
+]
