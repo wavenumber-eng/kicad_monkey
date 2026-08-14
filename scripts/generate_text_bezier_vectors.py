@@ -11,6 +11,7 @@ from kicad_monkey.kicad_text import KiCadTextRenderer
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_PATH = ROOT / "tests/parity/text_bezier_vectors.json"
+KICAD_REVISION = "5f555f4d63b970e410d567d1f79e05e8ce41b9d8"
 
 CASES: tuple[dict[str, Any], ...] = (
     {
@@ -79,7 +80,9 @@ def generate_vectors() -> dict[str, Any]:
     return {
         "oracle": {
             "implementation": "kicad_monkey.KiCadTextRenderer._bezier_get_poly",
-            "kicad_source_algorithm": "common/font/outline_decomposer.cpp",
+            "kicad_revision": KICAD_REVISION,
+            "kicad_source_algorithm": "libs/kimath/src/bezier_curves.cpp",
+            "kicad_text_integration": "common/font/outline_decomposer.cpp",
             "coordinate_space": "caller_units_f64",
         },
         "records": records,

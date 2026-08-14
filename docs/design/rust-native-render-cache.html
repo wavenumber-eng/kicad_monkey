@@ -21,8 +21,10 @@
     <li>Accepted fixed outline records establish raw line, quadratic, cubic,
     composite, collection-face, gvar, CFF, and CFF2 commands.</li>
     <li>Rack L0_055 establishes the safe-Rust port of KiCad's
-    <code>common/font/outline_decomposer.cpp</code> curve approximation before
-    any placement transform.</li>
+    <code>BEZIER_POLY</code> curve approximation in
+    <code>libs/kimath/src/bezier_curves.cpp</code> before any placement
+    transform. The text integration path is
+    <code>common/font/outline_decomposer.cpp</code>.</li>
     <li>Native shaping-to-contour placement and cache hole fracture will then
     be compared against the existing Python intermediate and KiCad save-oracle
     suites.</li>
@@ -34,13 +36,17 @@
   coordinates and reproduce the current Python/KiCad approximation, including
   inflection-aware cubic splitting and KiCad's nonpositive-tolerance fallback.
   The API is independent of font parsing and placement so the same kernel can
-  consume TrueType, CFF, or future close-to-format curves.</p>
+  consume TrueType, CFF, or future close-to-format curves. Source provenance is
+  pinned to KiCad revision
+  <code>5f555f4d63b970e410d567d1f79e05e8ce41b9d8</code>, matching the Python
+  renderer's documented reference revision.</p>
 
   <p>Retained points and decomposition work have separate inclusive limits.
   Quadratic segment counts are rejected before iteration when they exceed the
   work ceiling. Cubic fallback uses an explicit bounded stack rather than
   recursive call-stack growth. Every append and work item is charged before it
-  is retained or processed; failures publish no output.</p>
+  is retained or processed; failures publish no output. Direct adversarial
+  quadratic and high-curvature cubic exhaustion tests protect both paths.</p>
 
   <h2>Still open</h2>
   <p>This first render-cache stratum does not yet claim shaped glyph placement,

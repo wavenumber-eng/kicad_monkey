@@ -11,7 +11,8 @@ KiCad Source Reference:
     Key files referenced:
     - common/font/outline_font.cpp - TrueType glyph generation with FreeType/HarfBuzz
     - common/font/font.cpp - Font base class, alignment calculations
-    - common/font/outline_decomposer.cpp - Bezier curve flattening
+    - libs/kimath/src/bezier_curves.cpp - Bezier curve flattening algorithm
+    - common/font/outline_decomposer.cpp - Text outline integration path
     - include/font/outline_font.h - Constants (OUTLINE_FONT_SIZE_COMPENSATION=1.4)
     - include/font/text_attributes.h - TEXT_ATTRIBUTES structure
     - pcbnew/pcb_text.cpp - TransformTextToPolySet(), knockout rendering
@@ -85,7 +86,8 @@ KiCad Source References:
 - kicad/common/font/outline_font.cpp - Main glyph rendering
 - kicad/common/font/font.cpp - Alignment calculation (HEIGHT_FUDGE_FACTOR)
 - kicad/include/font/outline_font.h - OUTLINE_FONT_SIZE_COMPENSATION constant
-- kicad/common/font/outline_decomposer.cpp - Bezier curve flattening
+- kicad/libs/kimath/src/bezier_curves.cpp - Bezier curve flattening algorithm
+- kicad/common/font/outline_decomposer.cpp - Text outline integration path
 
 See ARCHITECTURE.md for full documentation of the text rendering algorithm.
 """

@@ -13,7 +13,9 @@ struct Vectors {
 #[derive(Deserialize)]
 struct Oracle {
     implementation: String,
+    kicad_revision: String,
     kicad_source_algorithm: String,
+    kicad_text_integration: String,
     coordinate_space: String,
 }
 
@@ -74,7 +76,15 @@ fn native_decomposition_matches_fixed_python_kicad_records() {
     );
     assert_eq!(
         vectors.oracle.kicad_source_algorithm,
+        "libs/kimath/src/bezier_curves.cpp"
+    );
+    assert_eq!(
+        vectors.oracle.kicad_text_integration,
         "common/font/outline_decomposer.cpp"
+    );
+    assert_eq!(
+        vectors.oracle.kicad_revision,
+        "5f555f4d63b970e410d567d1f79e05e8ce41b9d8"
     );
     assert_eq!(vectors.oracle.coordinate_space, "caller_units_f64");
     for record in vectors.records {
@@ -142,7 +152,7 @@ fn output_and_work_limits_are_independently_inclusive() {
 }
 
 #[test]
-fn nonfinite_inputs_and_extreme_quadratic_work_fail_closed() {
+fn nonfinite_inputs_and_adversarial_curve_work_fail_closed() {
     let invalid = flatten_quadratic_bezier(
         [
             TextPoint { x: 0.0, y: 0.0 },
@@ -183,6 +193,28 @@ fn nonfinite_inputs_and_extreme_quadratic_work_fail_closed() {
     )
     .unwrap_err();
     assert_eq!(limited.kind, TextBezierErrorKind::ResourceLimit);
+
+    let cubic_limited = flatten_cubic_bezier(
+        [
+            TextPoint { x: 0.0, y: 0.0 },
+            TextPoint {
+                x: 1.0e9,
+                y: -1.0e12,
+            },
+            TextPoint {
+                x: -1.0e9,
+                y: 1.0e12,
+            },
+            TextPoint { x: 1.0, y: 0.0 },
+        ],
+        1.0e-12,
+        TextBezierLimits {
+            max_points: 64,
+            max_work_items: 8,
+        },
+    )
+    .unwrap_err();
+    assert_eq!(cubic_limited.kind, TextBezierErrorKind::ResourceLimit);
 }
 
 fn assert_close(actual: f64, expected: f64, tolerance: f64, path: &str) {

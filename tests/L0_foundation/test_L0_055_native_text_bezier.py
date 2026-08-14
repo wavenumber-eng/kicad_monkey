@@ -1,4 +1,4 @@
-"""KiCad outline-decomposer parity gate for native text geometry."""
+"""KiCad BEZIER_POLY parity gate for native text geometry."""
 
 from __future__ import annotations
 
@@ -15,7 +15,9 @@ def test_python_kicad_decomposition_records_are_current_and_cover_curve_classes(
     vectors = json.loads(VECTORS.read_text(encoding="utf-8"))
     assert vectors["oracle"] == {
         "implementation": "kicad_monkey.KiCadTextRenderer._bezier_get_poly",
-        "kicad_source_algorithm": "common/font/outline_decomposer.cpp",
+        "kicad_revision": "5f555f4d63b970e410d567d1f79e05e8ce41b9d8",
+        "kicad_source_algorithm": "libs/kimath/src/bezier_curves.cpp",
+        "kicad_text_integration": "common/font/outline_decomposer.cpp",
         "coordinate_space": "caller_units_f64",
     }
     records = {record["case_id"]: record for record in vectors["records"]}
