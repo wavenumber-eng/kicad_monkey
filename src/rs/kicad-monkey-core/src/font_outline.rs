@@ -6,12 +6,23 @@ use kicad_monkey_contracts::generated::outline_vector::{
     OutlineMoveTo, OutlineQuadTo,
 };
 use sha2::{Digest, Sha256};
+use skrifa::{
+    FontRef as SkrifaFontRef, GlyphId as SkrifaGlyphId, MetadataProvider,
+    instance::{LocationRef, Size},
+    outline::{DrawSettings, Hinting, HintingInstance, OutlinePen},
+};
 use std::collections::HashSet;
 use std::fmt;
 use ttf_parser::{Face, GlyphId, OutlineBuilder, Tag};
 
 /// Outline implementation and upstream parser version pinned by this workspace.
 pub const FONT_OUTLINE_ENGINE: &str = "ttf-parser-0.25.1";
+/// Safe-Rust hinted outline backend used for final KiCad cache parity.
+pub const HINTED_FONT_OUTLINE_ENGINE: &str = "skrifa-0.46.0";
+const KICAD_HINTED_PPEM: f32 = 358.25;
+// Skrifa emits pixel coordinates. KiCad's FreeType path emits 26.6 values and
+// then applies 72 / 1152, leaving the equivalent four internal units per pixel.
+const KICAD_HIGH_RESOLUTION_SCALE: f32 = 4.0;
 
 /// Explicit ceilings for one outline extraction call.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -20,6 +31,7 @@ pub struct FontOutlineLimits {
     pub max_metadata_bytes: usize,
     pub max_variations: usize,
     pub max_commands: usize,
+    pub max_hinting_memory_bytes: usize,
 }
 
 impl Default for FontOutlineLimits {
@@ -29,6 +41,7 @@ impl Default for FontOutlineLimits {
             max_metadata_bytes: 16 * 1024 * 1024,
             max_variations: 4_096,
             max_commands: 16 * 1024 * 1024,
+            max_hinting_memory_bytes: 64 * 1024 * 1024,
         }
     }
 }
@@ -56,6 +69,15 @@ pub struct FontOutlineFaceRequest<'a> {
 pub struct FontOutlineFace<'a> {
     face: Face<'a>,
     max_commands: usize,
+}
+
+/// Validated safe-Rust hinted face reusable across a bounded text run.
+pub struct HintedFontOutlineFace<'a> {
+    outlines: skrifa::outline::OutlineGlyphCollection<'a>,
+    hinting: HintingInstance,
+    units_per_em: u16,
+    max_commands: usize,
+    max_hinting_memory_bytes: usize,
 }
 
 /// Native outline in unscaled font design units.
@@ -187,6 +209,146 @@ impl<'a> FontOutlineFace<'a> {
             commands: builder.commands,
             units_per_em: self.face.units_per_em(),
         })
+    }
+}
+
+impl<'a> HintedFontOutlineFace<'a> {
+    /// Build a FreeType-normal-target compatible hinted face from caller bytes.
+    pub fn new(
+        font_bytes: &'a [u8],
+        request: FontOutlineFaceRequest<'_>,
+        limits: FontOutlineLimits,
+    ) -> Result<Self, FontOutlineError> {
+        preflight_face(font_bytes, request, limits)?;
+        validate_hash(font_bytes, request.font_sha256)?;
+        if !request.variations.is_empty() {
+            return Err(outline_error(
+                FontOutlineErrorKind::InvalidInput,
+                "$.variations",
+                "hinted outline variation coordinates are not yet supported",
+            ));
+        }
+        let font = SkrifaFontRef::from_index(font_bytes, request.face_index).map_err(|_| {
+            outline_error(
+                FontOutlineErrorKind::InvalidFont,
+                "$.face_index",
+                "font bytes or face index are invalid",
+            )
+        })?;
+        let units_per_em = Face::parse(font_bytes, request.face_index)
+            .map_err(|_| {
+                outline_error(
+                    FontOutlineErrorKind::InvalidFont,
+                    "$.face_index",
+                    "font bytes or face index are invalid",
+                )
+            })?
+            .units_per_em();
+        let outlines = font.outline_glyphs();
+        let hinting = HintingInstance::new(
+            &outlines,
+            Size::new(KICAD_HINTED_PPEM),
+            LocationRef::default(),
+            skrifa::outline::HintingOptions::default(),
+        )
+        .map_err(|_| {
+            outline_error(
+                FontOutlineErrorKind::InvalidFont,
+                "$.font",
+                "font hinting instance could not be initialized",
+            )
+        })?;
+        Ok(Self {
+            outlines,
+            hinting,
+            units_per_em,
+            max_commands: limits.max_commands,
+            max_hinting_memory_bytes: limits.max_hinting_memory_bytes,
+        })
+    }
+
+    /// Return the face's OpenType units per em.
+    pub fn units_per_em(&self) -> u16 {
+        self.units_per_em
+    }
+
+    /// Return the scratch-memory requirement for one embedded-hinted draw.
+    pub fn glyph_hinting_memory_size(&self, glyph_id: u32) -> Result<usize, FontOutlineError> {
+        let glyph = self.outline_glyph(glyph_id)?;
+        Ok(glyph.draw_memory_size(Hinting::Embedded))
+    }
+
+    /// Extract one glyph under the face's configured command ceiling.
+    pub fn extract_glyph(&self, glyph_id: u32) -> Result<FontOutlineOutput, FontOutlineError> {
+        self.extract_glyph_with_limit(glyph_id, self.max_commands)
+    }
+
+    /// Extract one glyph under the stricter of the face and caller ceilings.
+    pub fn extract_glyph_with_limit(
+        &self,
+        glyph_id: u32,
+        max_commands: usize,
+    ) -> Result<FontOutlineOutput, FontOutlineError> {
+        let glyph = self.outline_glyph(glyph_id)?;
+        let memory_size = glyph.draw_memory_size(Hinting::Embedded);
+        if memory_size > self.max_hinting_memory_bytes {
+            return Err(outline_error(
+                FontOutlineErrorKind::ResourceLimit,
+                "$.hinting_memory",
+                "glyph hinting memory exceeds the configured limit",
+            ));
+        }
+        let mut memory = vec![0_u8; memory_size];
+        let mut builder = BoundedOutlineBuilder::new_scaled(
+            max_commands.min(self.max_commands),
+            KICAD_HIGH_RESOLUTION_SCALE,
+        );
+        glyph
+            .draw(
+                DrawSettings::hinted(&self.hinting, false).with_memory(Some(&mut memory)),
+                &mut builder,
+            )
+            .map_err(|_| {
+                outline_error(
+                    FontOutlineErrorKind::InvalidFont,
+                    "$.glyph_id",
+                    "hinted glyph outline could not be drawn",
+                )
+            })?;
+        builder.finish_open_contour();
+        if builder.exceeded {
+            return Err(outline_error(
+                FontOutlineErrorKind::ResourceLimit,
+                "$.commands",
+                "outline command count exceeds the configured limit",
+            ));
+        }
+        if !builder.saw_callback {
+            return Err(outline_error(
+                FontOutlineErrorKind::MissingOutline,
+                "$.glyph_id",
+                "font does not contain an outline for the requested glyph",
+            ));
+        }
+        Ok(FontOutlineOutput {
+            commands: builder.commands,
+            units_per_em: self.units_per_em,
+        })
+    }
+
+    fn outline_glyph(
+        &self,
+        glyph_id: u32,
+    ) -> Result<skrifa::outline::OutlineGlyph<'a>, FontOutlineError> {
+        self.outlines
+            .get(SkrifaGlyphId::from(glyph_id))
+            .ok_or_else(|| {
+                outline_error(
+                    FontOutlineErrorKind::MissingOutline,
+                    "$.glyph_id",
+                    "font does not contain an outline for the requested glyph",
+                )
+            })
     }
 }
 
@@ -362,16 +524,22 @@ struct BoundedOutlineBuilder {
     exceeded: bool,
     saw_callback: bool,
     contour_open: bool,
+    coordinate_scale: f32,
 }
 
 impl BoundedOutlineBuilder {
     fn new(limit: usize) -> Self {
+        Self::new_scaled(limit, 1.0)
+    }
+
+    fn new_scaled(limit: usize, coordinate_scale: f32) -> Self {
         Self {
             commands: Vec::with_capacity(limit.min(256)),
             limit,
             exceeded: false,
             saw_callback: false,
             contour_open: false,
+            coordinate_scale,
         }
     }
 
@@ -386,8 +554,12 @@ impl BoundedOutlineBuilder {
 
     fn finish_open_contour(&mut self) {
         if self.contour_open {
-            self.close();
+            OutlineBuilder::close(self);
         }
+    }
+
+    fn scaled(&self, value: f32) -> FiniteFloat {
+        finite(value * self.coordinate_scale)
     }
 }
 
@@ -397,8 +569,8 @@ impl OutlineBuilder for BoundedOutlineBuilder {
         self.push(
             OutlineMoveTo {
                 kind: "move_to".to_owned(),
-                x: finite(x),
-                y: finite(y),
+                x: self.scaled(x),
+                y: self.scaled(y),
             }
             .into(),
         );
@@ -408,8 +580,8 @@ impl OutlineBuilder for BoundedOutlineBuilder {
         self.push(
             OutlineLineTo {
                 kind: "line_to".to_owned(),
-                x: finite(x),
-                y: finite(y),
+                x: self.scaled(x),
+                y: self.scaled(y),
             }
             .into(),
         );
@@ -418,11 +590,11 @@ impl OutlineBuilder for BoundedOutlineBuilder {
     fn quad_to(&mut self, control_x: f32, control_y: f32, x: f32, y: f32) {
         self.push(
             OutlineQuadTo {
-                control_x: finite(control_x),
-                control_y: finite(control_y),
+                control_x: self.scaled(control_x),
+                control_y: self.scaled(control_y),
                 kind: "quad_to".to_owned(),
-                x: finite(x),
-                y: finite(y),
+                x: self.scaled(x),
+                y: self.scaled(y),
             }
             .into(),
         );
@@ -439,13 +611,13 @@ impl OutlineBuilder for BoundedOutlineBuilder {
     ) {
         self.push(
             OutlineCurveTo {
-                control1_x: finite(control1_x),
-                control1_y: finite(control1_y),
-                control2_x: finite(control2_x),
-                control2_y: finite(control2_y),
+                control1_x: self.scaled(control1_x),
+                control1_y: self.scaled(control1_y),
+                control2_x: self.scaled(control2_x),
+                control2_y: self.scaled(control2_y),
                 kind: "curve_to".to_owned(),
-                x: finite(x),
-                y: finite(y),
+                x: self.scaled(x),
+                y: self.scaled(y),
             }
             .into(),
         );
@@ -459,6 +631,36 @@ impl OutlineBuilder for BoundedOutlineBuilder {
             .into(),
         );
         self.contour_open = false;
+    }
+}
+
+impl OutlinePen for BoundedOutlineBuilder {
+    fn move_to(&mut self, x: f32, y: f32) {
+        OutlineBuilder::move_to(self, x, y);
+    }
+
+    fn line_to(&mut self, x: f32, y: f32) {
+        OutlineBuilder::line_to(self, x, y);
+    }
+
+    fn quad_to(&mut self, control_x: f32, control_y: f32, x: f32, y: f32) {
+        OutlineBuilder::quad_to(self, control_x, control_y, x, y);
+    }
+
+    fn curve_to(
+        &mut self,
+        control1_x: f32,
+        control1_y: f32,
+        control2_x: f32,
+        control2_y: f32,
+        x: f32,
+        y: f32,
+    ) {
+        OutlineBuilder::curve_to(self, control1_x, control1_y, control2_x, control2_y, x, y);
+    }
+
+    fn close(&mut self) {
+        OutlineBuilder::close(self);
     }
 }
 

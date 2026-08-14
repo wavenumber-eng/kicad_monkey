@@ -33,9 +33,11 @@
     <li>Rack L0_057 applies single-line horizontal/vertical alignment, mirroring,
     and clockwise rotation about the authored text origin. Fixed records invoke
     the Python renderer's alignment and transform helpers directly.</li>
-    <li>Multiline/markup behavior, cache hole fracture, and final cache
-    serialization will then be compared against the existing Python
-    intermediate and KiCad save-oracle suites.</li>
+    <li>Rack L0_058 and L0_059 establish bounded cache hole fracture and typed
+    cache S-expression read/write.</li>
+    <li>Rack L2_009 compares the separate embedded-hinted path against a live
+    KiCad save oracle for representative line-only, curved, and holed Arial
+    glyphs.</li>
   </ol>
 
   <h2>Curve-decomposition boundary</h2>
@@ -91,6 +93,28 @@
   local shaped-run metrics after the contour points are positioned, mirrored,
   and rotated.</p>
 
+  <h2>KiCad-compatible hinted outline boundary</h2>
+  <p><code>HintedFontOutlineFace</code> uses the safe-Rust Skrifa 0.46 embedded
+  TrueType hinting engine at KiCad's effective 358.25 pixels-per-em. Skrifa
+  returns pixel coordinates; the adapter applies four internal units per pixel,
+  equivalent to KiCad's FreeType 26.6 coordinates followed by its
+  <code>72 / 1152</code> high-resolution scale. The existing unhinted
+  <code>ttf-parser</code> APIs and fixed design-unit records remain unchanged;
+  callers select the hinted cache operation explicitly.</p>
+  <p>Font bytes, metadata, variations, outline commands, and per-glyph hinting
+  scratch memory have independent fail-closed ceilings. Scratch memory is
+  sized before allocation, with inclusive exact and one-under tests. The
+  initial hinted boundary deliberately rejects nonempty variation coordinates
+  until a variable-font KiCad oracle is promoted. No package-owned unsafe code
+  is used.</p>
+  <p>The dependency is the Google Fontations
+  <a href="https://github.com/googlefonts/fontations">Skrifa</a> crate under
+  its MIT/Apache-2.0 terms. The workspace pins 0.46.0 in <code>Cargo.lock</code>,
+  reuses the existing <code>read-fonts</code> version, disables default features,
+  and enables only <code>std</code>; the unused autohint-shaping feature does not
+  enter the graph. KiCad Monkey continues to own all request validation,
+  resource limits, coordinate conversion, topology, and cache I/O.</p>
+
   <h2>Cache contour topology</h2>
   <p><code>fracture_text_contours_a0</code> trims one repeated closing point,
   ignores contours with fewer than three retained points, assigns later
@@ -123,8 +147,10 @@
   oracle.</p>
 
   <h2>Still open</h2>
-  <p>The current render-cache strata do not yet claim multiline/markup
-  behavior, fake bold/italic, or final KiCad save-oracle parity. Those remain active parts of
+  <p>The current render-cache strata now establish live KiCad save-oracle
+  parity for representative plain single-line Arial glyphs. They do not yet
+  claim multiline/markup behavior, fake bold/italic, broad font coverage, or
+  repository-local corpus coverage. Those remain active parts of
   <code>render-cache-parity</code>, not deferred packaging work. Font discovery
   stays native-only and outside the platform-neutral byte-input core; WASM
   packaging remains in its later selected-operation phase.</p>

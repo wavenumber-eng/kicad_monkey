@@ -2,7 +2,7 @@
 
 use crate::{
     TextContourError, TextContourErrorKind, TextContourLimits, TextContourOutput,
-    TextContourRequest, shape_text_contours_a0,
+    TextContourRequest, shape_text_contours_a0, shape_text_contours_hinted_a0,
 };
 use kicad_monkey_contracts::generated::shaping_record::{ShapingInput, TextDirection};
 
@@ -50,19 +50,38 @@ pub fn layout_single_line_text_a0(
     request: TextLayoutRequest<'_>,
     limits: TextContourLimits,
 ) -> Result<TextContourOutput, TextContourError> {
+    layout_single_line_text_with_outline_mode(font_bytes, request, limits, false)
+}
+
+/// Render one horizontal plain-text line using KiCad-compatible embedded hinting.
+pub fn layout_single_line_text_hinted_a0(
+    font_bytes: &[u8],
+    request: TextLayoutRequest<'_>,
+    limits: TextContourLimits,
+) -> Result<TextContourOutput, TextContourError> {
+    layout_single_line_text_with_outline_mode(font_bytes, request, limits, true)
+}
+
+fn layout_single_line_text_with_outline_mode(
+    font_bytes: &[u8],
+    request: TextLayoutRequest<'_>,
+    limits: TextContourLimits,
+    hinted: bool,
+) -> Result<TextContourOutput, TextContourError> {
     let transform = validated_transform(request)?;
-    let mut output = shape_text_contours_a0(
-        font_bytes,
-        TextContourRequest {
-            shaping: request.shaping,
-            size_x: request.size_x,
-            size_y: request.size_y,
-            origin_x: 0.0,
-            origin_y: 0.0,
-            max_error: request.max_error,
-        },
-        limits,
-    )?;
+    let contour_request = TextContourRequest {
+        shaping: request.shaping,
+        size_x: request.size_x,
+        size_y: request.size_y,
+        origin_x: 0.0,
+        origin_y: 0.0,
+        max_error: request.max_error,
+    };
+    let mut output = if hinted {
+        shape_text_contours_hinted_a0(font_bytes, contour_request, limits)?
+    } else {
+        shape_text_contours_a0(font_bytes, contour_request, limits)?
+    };
     let translation = aligned_translation(request, output.advance_x)?;
     transform_output(&mut output, translation, transform)?;
     Ok(output)

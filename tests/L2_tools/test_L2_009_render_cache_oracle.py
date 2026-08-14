@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 from pathlib import Path
+import subprocess
 
 import pytest
 
 from kicad_cli_resolver import resolve_kicad_cli
 from kicad_monkey.kicad_pcb import KiCadPcb
+from kicad_monkey.kicad_primitives import RenderCache
 from kicad_monkey.kicad_render_cache import (
     RenderCacheResolver,
     render_cache_request_for_board_text,
@@ -25,10 +28,12 @@ from kicad_monkey.kicad_render_cache_oracle import (
     run_kicad_pcb_render_cache_save_oracle,
     summarize_render_cache_entries,
 )
+from kicad_monkey.kicad_sexpr import parse_sexp
 
 
 _CLI = resolve_kicad_cli(required_capability="pcb_svg")
 _CONSOLAS = Path("C:/Windows/Fonts/consola.ttf")
+_ARIAL = Path("C:/Windows/Fonts/arial.ttf")
 
 
 def _find_wavenumber_font() -> Path | None:
@@ -961,6 +966,97 @@ def test_python_render_cache_generator_matches_kicad_oracle_for_outline_glyphs(
     comparison = compare_render_caches(
         oracle.entries[0].cache,
         generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(not _ARIAL.exists(), reason="Arial font not installed")
+@pytest.mark.parametrize("text", ["TE", "S", "O"])
+def test_native_render_cache_matches_kicad_save_oracle_for_outline_glyphs(
+    tmp_path: Path,
+    text: str,
+):
+    source = tmp_path / f"render_cache_native_{text}.kicad_pcb"
+    _write_outline_text_board(source, text)
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_native",
+    )
+
+    font_bytes = _ARIAL.read_bytes()
+    # Arial's OpenType head table uses 2048 units per em. Keeping this explicit
+    # makes the live system-font precondition and shaping scale independently visible.
+    units_per_em = 2048
+    request_path = tmp_path / "native_request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "shaping": {
+                    "font_id": "windows_arial_regular",
+                    "font_sha256": hashlib.sha256(font_bytes).hexdigest(),
+                    "face_index": 0,
+                    "variations": [],
+                    "text": text,
+                    "text_index_unit": "utf8_byte_offset",
+                    "scale_x": units_per_em,
+                    "scale_y": units_per_em,
+                    "direction": "left_to_right",
+                    "script": "Latn",
+                    "language": "en",
+                    "features": [],
+                    "buffer_properties": {
+                        "cluster_level": "monotone_graphemes",
+                        "beginning_of_text": True,
+                        "end_of_text": True,
+                        "default_ignorables": "normal",
+                        "do_not_insert_dotted_circle": False,
+                        "produce_unsafe_to_concat": False,
+                        "produce_safe_to_insert_tatweel": False,
+                    },
+                },
+                "size_x": 2.0,
+                "size_y": 2.0,
+                "position_x": 10.0,
+                "position_y": 10.0,
+                "angle_degrees": 0.0,
+                "mirrored": False,
+                "horizontal_alignment": "left",
+                "vertical_alignment": "top",
+                "max_error": 2.0,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--quiet",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--example",
+            "text_render_cache_oracle_gate",
+            "--",
+            str(_ARIAL),
+            str(request_path),
+        ],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    native_cache = RenderCache.from_sexp(parse_sexp(f"(holder {completed.stdout})"))
+    assert native_cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        native_cache,
         tolerance=0.002,
     )
     assert comparison.matched, comparison

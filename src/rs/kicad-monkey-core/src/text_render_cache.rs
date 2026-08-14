@@ -3,7 +3,7 @@
 use crate::{
     Lexer, TextContour, TextContourError, TextContourErrorKind, TextContourLimits,
     TextLayoutRequest, TextPoint, TextTopologyLimits, Token, TokenKind, fracture_text_contours_a0,
-    layout_single_line_text_a0,
+    layout_single_line_text_a0, layout_single_line_text_hinted_a0,
 };
 use std::fmt::{self, Write};
 
@@ -76,11 +76,33 @@ pub fn generate_text_render_cache_a0(
     request: TextLayoutRequest<'_>,
     limits: TextRenderCacheLimits,
 ) -> Result<TextRenderCache, TextRenderCacheError> {
+    generate_text_render_cache_with_outline_mode(font_bytes, request, limits, false)
+}
+
+/// Compose a KiCad-compatible embedded-hinted layout and cache topology.
+pub fn generate_text_render_cache_hinted_a0(
+    font_bytes: &[u8],
+    request: TextLayoutRequest<'_>,
+    limits: TextRenderCacheLimits,
+) -> Result<TextRenderCache, TextRenderCacheError> {
+    generate_text_render_cache_with_outline_mode(font_bytes, request, limits, true)
+}
+
+fn generate_text_render_cache_with_outline_mode(
+    font_bytes: &[u8],
+    request: TextLayoutRequest<'_>,
+    limits: TextRenderCacheLimits,
+    hinted: bool,
+) -> Result<TextRenderCache, TextRenderCacheError> {
     if request.shaping.text.len() > limits.max_text_bytes {
         return Err(limit("$.text", "render-cache text limit exceeded"));
     }
-    let layout = layout_single_line_text_a0(font_bytes, request, limits.contours)
-        .map_err(map_contour_error)?;
+    let layout = if hinted {
+        layout_single_line_text_hinted_a0(font_bytes, request, limits.contours)
+    } else {
+        layout_single_line_text_a0(font_bytes, request, limits.contours)
+    }
+    .map_err(map_contour_error)?;
     let mut topology_limits = limits.topology;
     topology_limits.max_output_polygons = topology_limits
         .max_output_polygons

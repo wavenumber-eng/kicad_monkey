@@ -3,8 +3,8 @@ use kicad_monkey_contracts::generated::outline_vector::{
 };
 use kicad_monkey_contracts::validate_outline_vector_contract;
 use kicad_monkey_core::{
-    FONT_OUTLINE_ENGINE, FontOutlineErrorKind, FontOutlineLimits, FontOutlineRequest,
-    extract_font_outline_a0,
+    FONT_OUTLINE_ENGINE, FontOutlineErrorKind, FontOutlineFaceRequest, FontOutlineLimits,
+    FontOutlineRequest, HINTED_FONT_OUTLINE_ENGINE, HintedFontOutlineFace, extract_font_outline_a0,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -213,6 +213,61 @@ fn resource_limits_are_inclusive_and_fail_closed() {
     };
     assert_eq!(
         extract_font_outline_a0(VARIABLE_FONT, request(&variable), one_under_variations,)
+            .unwrap_err()
+            .kind,
+        FontOutlineErrorKind::ResourceLimit
+    );
+}
+
+#[test]
+fn hinted_outline_memory_and_command_limits_are_inclusive() {
+    let record = records().remove(0);
+    let face_request = FontOutlineFaceRequest {
+        font_id: &record.font_id,
+        font_sha256: &record.font_sha256,
+        face_index: record.face_index,
+        variations: &record.variations,
+    };
+    assert_eq!(HINTED_FONT_OUTLINE_ENGINE, "skrifa-0.46.0");
+    let face = HintedFontOutlineFace::new(STROKE_FONT, face_request, FontOutlineLimits::default())
+        .expect("hinted face");
+    let memory_size = face
+        .glyph_hinting_memory_size(record.glyph_id)
+        .expect("hinting memory size");
+    assert!(memory_size > 0);
+    let output = face.extract_glyph(record.glyph_id).expect("hinted outline");
+    assert!(!output.commands.is_empty());
+
+    let exact = FontOutlineLimits {
+        max_hinting_memory_bytes: memory_size,
+        max_commands: output.commands.len(),
+        ..FontOutlineLimits::default()
+    };
+    HintedFontOutlineFace::new(STROKE_FONT, face_request, exact)
+        .expect("exact hinted face")
+        .extract_glyph(record.glyph_id)
+        .expect("inclusive hinted limits");
+
+    let one_under_memory = FontOutlineLimits {
+        max_hinting_memory_bytes: memory_size - 1,
+        ..FontOutlineLimits::default()
+    };
+    assert_eq!(
+        HintedFontOutlineFace::new(STROKE_FONT, face_request, one_under_memory)
+            .expect("bounded hinted face")
+            .extract_glyph(record.glyph_id)
+            .unwrap_err()
+            .kind,
+        FontOutlineErrorKind::ResourceLimit
+    );
+    let one_under_commands = FontOutlineLimits {
+        max_commands: output.commands.len() - 1,
+        ..FontOutlineLimits::default()
+    };
+    assert_eq!(
+        HintedFontOutlineFace::new(STROKE_FONT, face_request, one_under_commands)
+            .expect("bounded hinted face")
+            .extract_glyph(record.glyph_id)
             .unwrap_err()
             .kind,
         FontOutlineErrorKind::ResourceLimit

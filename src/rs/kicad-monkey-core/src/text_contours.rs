@@ -2,9 +2,9 @@
 
 use crate::{
     FontOutlineError, FontOutlineErrorKind, FontOutlineFace, FontOutlineFaceRequest,
-    FontOutlineLimits, TextBezierError, TextBezierErrorKind, TextBezierLimits, TextPoint,
-    TextShapingError, TextShapingErrorKind, TextShapingLimits, flatten_cubic_bezier,
-    flatten_quadratic_bezier, shape_text_a0,
+    FontOutlineLimits, HintedFontOutlineFace, TextBezierError, TextBezierErrorKind,
+    TextBezierLimits, TextPoint, TextShapingError, TextShapingErrorKind, TextShapingLimits,
+    TextShapingOutput, flatten_cubic_bezier, flatten_quadratic_bezier, shape_text_a0,
 };
 use kicad_monkey_contracts::FiniteFloat;
 use kicad_monkey_contracts::generated::outline_vector::{
@@ -106,6 +106,78 @@ pub fn shape_text_contours_a0(
     request: TextContourRequest<'_>,
     limits: TextContourLimits,
 ) -> Result<TextContourOutput, TextContourError> {
+    shape_text_contours_with_outline_mode(font_bytes, request, limits, OutlineMode::Unhinted)
+}
+
+/// Shape and place one plain text run using KiCad-compatible embedded hinting.
+pub fn shape_text_contours_hinted_a0(
+    font_bytes: &[u8],
+    request: TextContourRequest<'_>,
+    limits: TextContourLimits,
+) -> Result<TextContourOutput, TextContourError> {
+    shape_text_contours_with_outline_mode(font_bytes, request, limits, OutlineMode::Hinted)
+}
+
+#[derive(Clone, Copy)]
+enum OutlineMode {
+    Unhinted,
+    Hinted,
+}
+
+trait ContourOutlineFace {
+    fn units_per_em(&self) -> u16;
+
+    fn outline_to_internal(&self) -> f64;
+
+    fn extract_glyph_with_limit(
+        &self,
+        glyph_id: u32,
+        max_commands: usize,
+    ) -> Result<crate::FontOutlineOutput, FontOutlineError>;
+}
+
+impl ContourOutlineFace for FontOutlineFace<'_> {
+    fn units_per_em(&self) -> u16 {
+        FontOutlineFace::units_per_em(self)
+    }
+
+    fn outline_to_internal(&self) -> f64 {
+        KICAD_OUTLINE_FACE_SCALER / f64::from(self.units_per_em())
+    }
+
+    fn extract_glyph_with_limit(
+        &self,
+        glyph_id: u32,
+        max_commands: usize,
+    ) -> Result<crate::FontOutlineOutput, FontOutlineError> {
+        FontOutlineFace::extract_glyph_with_limit(self, glyph_id, max_commands)
+    }
+}
+
+impl ContourOutlineFace for HintedFontOutlineFace<'_> {
+    fn units_per_em(&self) -> u16 {
+        HintedFontOutlineFace::units_per_em(self)
+    }
+
+    fn outline_to_internal(&self) -> f64 {
+        1.0
+    }
+
+    fn extract_glyph_with_limit(
+        &self,
+        glyph_id: u32,
+        max_commands: usize,
+    ) -> Result<crate::FontOutlineOutput, FontOutlineError> {
+        HintedFontOutlineFace::extract_glyph_with_limit(self, glyph_id, max_commands)
+    }
+}
+
+fn shape_text_contours_with_outline_mode(
+    font_bytes: &[u8],
+    request: TextContourRequest<'_>,
+    limits: TextContourLimits,
+    outline_mode: OutlineMode,
+) -> Result<TextContourOutput, TextContourError> {
     validate_request(request)?;
     preflight_outline_metadata(font_bytes, request.shaping, limits.outline)?;
     let shaped =
@@ -120,17 +192,32 @@ pub fn shape_text_contours_a0(
                 .expect("shaping variation coordinates are finite"),
         })
         .collect::<Vec<_>>();
-    let face = FontOutlineFace::new(
-        font_bytes,
-        FontOutlineFaceRequest {
-            font_id: request.shaping.font_id.as_str(),
-            font_sha256: &request.shaping.font_sha256.0,
-            face_index: request.shaping.face_index,
-            variations: &variations,
-        },
-        limits.outline,
-    )
-    .map_err(map_outline_error)?;
+    let face_request = FontOutlineFaceRequest {
+        font_id: request.shaping.font_id.as_str(),
+        font_sha256: &request.shaping.font_sha256.0,
+        face_index: request.shaping.face_index,
+        variations: &variations,
+    };
+    match outline_mode {
+        OutlineMode::Unhinted => {
+            let face = FontOutlineFace::new(font_bytes, face_request, limits.outline)
+                .map_err(map_outline_error)?;
+            compose_shaped_contours(&face, &shaped, request, limits)
+        }
+        OutlineMode::Hinted => {
+            let face = HintedFontOutlineFace::new(font_bytes, face_request, limits.outline)
+                .map_err(map_outline_error)?;
+            compose_shaped_contours(&face, &shaped, request, limits)
+        }
+    }
+}
+
+fn compose_shaped_contours(
+    face: &impl ContourOutlineFace,
+    shaped: &TextShapingOutput,
+    request: TextContourRequest<'_>,
+    limits: TextContourLimits,
+) -> Result<TextContourOutput, TextContourError> {
     if face.units_per_em() != shaped.units_per_em {
         return Err(contour_error(
             TextContourErrorKind::InvalidInput,
@@ -139,8 +226,7 @@ pub fn shape_text_contours_a0(
         ));
     }
 
-    let units_per_em = f64::from(shaped.units_per_em);
-    let outline_to_internal = KICAD_OUTLINE_FACE_SCALER / units_per_em;
+    let outline_to_internal = face.outline_to_internal();
     let position_x_to_internal = KICAD_OUTLINE_FACE_SCALER / f64::from(request.shaping.scale_x);
     let position_y_to_internal = KICAD_OUTLINE_FACE_SCALER / f64::from(request.shaping.scale_y);
     let internal_to_x =

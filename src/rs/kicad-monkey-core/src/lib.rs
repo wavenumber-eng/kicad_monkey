@@ -54,7 +54,7 @@ pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
 pub use font_outline::{
     FONT_OUTLINE_ENGINE, FontOutlineError, FontOutlineErrorKind, FontOutlineFace,
     FontOutlineFaceRequest, FontOutlineLimits, FontOutlineOutput, FontOutlineRequest,
-    extract_font_outline_a0,
+    HINTED_FONT_OUTLINE_ENGINE, HintedFontOutlineFace, extract_font_outline_a0,
 };
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use kicad_netlist::{
@@ -139,17 +139,17 @@ pub use text_bezier::{
 pub use text_contours::{
     KICAD_OUTLINE_FACE_SCALER, KICAD_OUTLINE_SIZE_COMPENSATION, KICAD_TEXT_BEZIER_ERROR,
     TextContour, TextContourError, TextContourErrorKind, TextContourLimits, TextContourOutput,
-    TextContourRequest, shape_text_contours_a0,
+    TextContourRequest, shape_text_contours_a0, shape_text_contours_hinted_a0,
 };
 pub use text_layout::{
     KICAD_TEXT_HEIGHT_FUDGE_FACTOR, TextHorizontalAlignment, TextLayoutRequest,
-    TextVerticalAlignment, layout_single_line_text_a0,
+    TextVerticalAlignment, layout_single_line_text_a0, layout_single_line_text_hinted_a0,
 };
 pub use text_metadata::{KiCadColor, KiCadFont, KiCadTextEffects};
 pub use text_render_cache::{
     TextRenderCache, TextRenderCacheError, TextRenderCacheErrorKind, TextRenderCacheLimits,
-    TextRenderCachePolygon, generate_text_render_cache_a0, read_text_render_cache_a0,
-    write_text_render_cache_a0,
+    TextRenderCachePolygon, generate_text_render_cache_a0, generate_text_render_cache_hinted_a0,
+    read_text_render_cache_a0, write_text_render_cache_a0,
 };
 pub use text_shaping::{
     TEXT_SHAPING_ENGINE, TextShapingError, TextShapingErrorKind, TextShapingLimits,

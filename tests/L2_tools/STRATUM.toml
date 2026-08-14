@@ -97,6 +97,25 @@ module = "kicad_monkey.kicad_library_extraction"
 primary = "Project-local KiCad library assets extract into valid inspectable files"
 
 [[subtests]]
+id = "L2_009"
+file = "test_L2_009_render_cache_oracle.py"
+name = "KiCad Render Cache Oracle"
+description = "Compare Python and native text render caches with live KiCad save behavior"
+concerns = ["tools", "rust", "rendering.text", "parity"]
+test_case_type = "oracle"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_render_cache"
+
+[subtests.objectives]
+primary = "Text render caches match KiCad save-oracle geometry within the accepted tolerance"
+secondary = [
+    "The native hinted path covers representative line-only, curved, and holed Arial glyphs",
+    "Caller-supplied font bytes and fixed face identity drive the native oracle adapter",
+    "Plain single-line native cache output stays independently attributable from multiline, markup, and fake-style work",
+]
+
+[[subtests]]
 id = "L2_011"
 file = "test_L2_011_stroke_webfont_generator.py"
 name = "KiCad Stroke Webfont Generator"
