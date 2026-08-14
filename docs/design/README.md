@@ -52,6 +52,8 @@ Current design notes:
   carriers and deterministic 100-nm-grid wire connectivity over source bundles.
 - `rust-schematic-writer-phase4-slice.html` - exact owned schematic writeback,
   transactional placed-symbol property edits, and promoted semantic reparse.
+- `rust-worksheet-phase4-slice.html` - source-ordered modern and legacy
+  worksheet semantics, bounded lazy item decoding, and exact owned writeback.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

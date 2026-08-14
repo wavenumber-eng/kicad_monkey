@@ -33,6 +33,8 @@ pub mod symbol_library;
 mod symbol_pin;
 pub mod symbol_plotter_ir;
 pub mod text_metadata;
+pub mod worksheet;
+mod worksheet_preflight;
 
 pub use compiled_schematic_graph::{
     CompiledGraphIdentityAllocator, CompiledGraphIdentityError, CompiledSchematicGraphLimits,
@@ -107,6 +109,12 @@ pub use symbol_plotter_ir::{
     SymbolPlotDocument, SymbolPlotLimits, SymbolPlotRecord, symbol_plot_document,
 };
 pub use text_metadata::{KiCadColor, KiCadFont, KiCadTextEffects};
+pub use worksheet::{
+    WorksheetBitmap, WorksheetColor, WorksheetCorner, WorksheetDocument, WorksheetFont,
+    WorksheetFormat, WorksheetItem, WorksheetLimits, WorksheetLine, WorksheetMetadata,
+    WorksheetPoint, WorksheetPolygon, WorksheetRect, WorksheetRepeat, WorksheetSetup,
+    WorksheetText, WorksheetView,
+};
 
 pub use sexpr::{
     Error, ErrorKind, ErrorPhase, FormatOptions, Lexer, Limits, Patch, Position, Sexp, Token,

@@ -477,3 +477,25 @@ secondary = [
     "CRLF and one-line source layouts remain valid after focused insertion",
     "Failures identify the input path and processing stage",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_033"
+file = "test_L1_033_rust_worksheet_roundtrip.py"
+name = "Rust Native Worksheet Reader/Writer"
+description = "Require complete typed worksheet parity and exact owned writeback"
+concerns = ["sexpr", "rust", "worksheet", "writeback", "native"]
+test_cases = "tests/L1_parsing/cases/worksheets/input/*.kicad_wks"
+test_case_type = "reference"
+
+[subtests.objectives]
+primary = "All durable modern and legacy worksheets match Python semantics and write exactly"
+secondary = [
+    "Setup, line, rectangle, polygon, text, font, repeat, corner, and bitmap fields match Python",
+    "Interleaved worksheet item order and bitmap data-part boundaries are preserved",
+    "The first owned write is exact and the second write is byte stable",
+    "Focused setup-line-width edits preserve unknown forms and reparse transactionally",
+    "Source, item, node, polygon, bitmap, decoded-string, and output limits fail closed",
+    "Lazy item diagnostics are rebased to absolute worksheet positions",
+]

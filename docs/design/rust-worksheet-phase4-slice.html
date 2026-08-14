@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 4 native worksheet reader/writer slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 4 native worksheet reader/writer slice</h1>
+  <p><strong>Status:</strong> review-ready native product slice.</p>
+
+  <section>
+    <h2>Decision and boundary</h2>
+    <p><code>WorksheetView</code> is a borrowed, source-ordered reader for both
+    modern <code>kicad_wks</code> and legacy <code>page_layout</code> roots. It
+    promotes metadata, setup, line, rectangle, polygon, text/font, repeat,
+    corner, and bitmap fields while preserving the Python model's defaults and
+    first-value behavior. Unknown root forms stay outside the typed projection.</p>
+    <p>The reader performs one structural scan of the root and direct children.
+    Individual known items are decoded lazily, so callers can iterate a large
+    worksheet without retaining a generic tree for the whole file. Item order
+    and bitmap data-part boundaries are observable. <code>WorksheetDocument</code>
+    owns the exact UTF-8 source and writes it unchanged unless a promoted edit
+    is requested.</p>
+    <p>The first edit creates or updates the setup line width. It rejects
+    ambiguous setup/linewidth forms, preserves unknown text and newline style,
+    reparses the candidate before commit, and returns a stable no-op when the
+    requested value is already present. This is an exact source writer, not a
+    canonical worksheet pretty-printer.</p>
+  </section>
+
+  <section>
+    <h2>Resource and safety behavior</h2>
+    <p>Reader admission consumes at most <code>max_source_bytes + 1</code>.
+    Structural depth and item count are bounded before typed iteration. Each
+    lazy item has independent node and decoded-string ceilings. A streaming
+    lexical preflight counts polygon point sets/points, accepted justification
+    tokens, and the selected bitmap data form before the generic per-item tree
+    is retained. Bitmap part and aggregate decoded-byte limits therefore stop
+    oversized data without first collecting the complete typed vector.</p>
+    <p>All writes enforce <code>max_output_bytes</code> before publishing output.
+    Invalid UTF-8, I/O failures, nonfinite mutation values, ambiguity, and
+    resource failures use the core diagnostic envelope and leave the owned
+    document unchanged. Lazy item positions are rebased to the original source.
+    The implementation is linear in input plus emitted output, contains no
+    package-owned unsafe code, and adds no dependency.</p>
+  </section>
+
+  <section>
+    <h2>Evidence and retained work</h2>
+    <p>Rack case L1_033 requires all five package-local worksheets. Its native
+    executable compares every promoted field with the Python model, preserves
+    interleaved item order, performs exact first and stable second writes, and
+    cannot silently skip missing corpus files. Focused Rust tests cover modern
+    and legacy defaults, every advertised lazy semantic ceiling, bounded input
+    and output, absolute diagnostics, I/O failure, unknown-form preservation,
+    CRLF insertion, ambiguity, and transactional update/no-op behavior.</p>
+    <p>KiCad does not expose a dedicated command-line worksheet parser, so this
+    slice does not claim an independent <code>kicad-cli</code> worksheet oracle.
+    The durable Python implementation and exact source round trip are the
+    current semantic authorities. Later board/schematic plotting integration
+    can add an application-level worksheet rendering oracle.</p>
+    <p>This slice does not close Phase 4. Broader native schematic compiler and
+    writer parity, project writeback, plotter closure, native cruncher assembly,
+    full Python/Rust test parity, and later selected WASM packaging remain
+    independently tracked.</p>
+  </section>
+</body>
+</html>
