@@ -240,15 +240,16 @@ secondary = [
 id = "L0_053"
 file = "test_L0_053_native_text_shaping.py"
 name = "Native HarfRust Shaping Parity"
-description = "Require exact native shaping parity against fixed uharfbuzz records"
+description = "Require exact native shaping parity plus explicit version-bound optional-flag evidence"
 concerns = ["rust", "rendering.text", "fonts", "parity"]
 test_cases = "tests/parity/font_shaping_a0_vectors.json"
 test_case_type = "contract"
 
 [subtests.objectives]
-primary = "Native safe-Rust shaping matches fixed-font HarfBuzz glyph records exactly"
+primary = "Native safe-Rust shaping matches promoted HarfBuzz glyph records exactly"
 secondary = [
-    "UTF-8 clusters, scaled RTL output, default ignorables, features, and glyph flags remain explicit",
+    "UTF-8 clusters, scaled RTL output, default ignorables, ranged features, and variation axes are behavioral evidence",
+    "Optional Arabic glyph flags remain explicit under the pinned C/Rust engine-version policy",
     "Font bytes are out of band and SHA-256 exact",
     "Input and publication resource ceilings fail closed",
     "The Python oracle generator is deterministic and the focused Rust suite passes",

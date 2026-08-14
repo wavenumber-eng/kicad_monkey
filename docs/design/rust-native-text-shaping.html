@@ -8,8 +8,8 @@
 <body>
   <h1>Rust native text shaping</h1>
 
-  <p>Status: review-ready proposal. This slice implements native, fixed-font
-  shaping records. It does not extract outlines, build render caches, discover
+  <p>Status: review-ready proposal. This slice implements native shaping over
+  fixed evidence. It does not extract outlines, build render caches, discover
   system fonts, or expose a browser operation.</p>
 
   <h2>Dependency decision</h2>
@@ -25,12 +25,18 @@
   <p>The committed oracle uses uharfbuzz/HarfBuzz 14.2.0. Exact agreement on
   the fixed corpus is required despite the one-minor upstream difference.
   Expanding scripts or font technologies requires adding pinned records rather
-  than assuming blanket equivalence.</p>
+  than assuming blanket equivalence. Optional Arabic safety flags have one
+  explicit version boundary: C HarfBuzz 14.2 classifies safe-tatweel clusters
+  with additional unsafe flags that HarfRust 14.3 no longer sets. The evidence
+  therefore requires exact glyph geometry and proves that both engines publish
+  safe-tatweel, while a separate exact record proves unsafe-to-concat. It does
+  not mislabel version-specific flag classification as exact parity.</p>
 
   <h2>Native boundary</h2>
   <p><code>shape_text_a0</code> consumes a generated
   <code>ShapingInput</code> and a separate caller-owned font byte slice. It
-  verifies the exact SHA-256 and face index, applies ordered variations,
+  verifies the exact SHA-256 and face index, indexes the face's variation axes
+  once, rejects coordinates on static or unknown axes, applies variations,
   separate signed 32-bit HarfBuzz x/y scales, direction, script, language,
   feature ranges, cluster level, text-boundary state, default-ignorable policy,
   dotted-circle policy, and both optional glyph-flag requests. The result is a
@@ -42,7 +48,11 @@
   <code>UnicodeBuffer::push_str</code> in HarfRust. Clusters therefore retain
   UTF-8 byte offsets. The corpus includes a combining sequence whose terminal
   cluster cannot be confused with a scalar or UTF-16 index, scaled RTL output,
-  global features, and remove/preserve default-ignorable behavior.</p>
+  a non-global feature range whose boundaries differ from scalar indices, a
+  supported variable-font axis, global features, and remove/preserve
+  default-ignorable behavior. The Python adapter represents every feature as
+  its ordered <code>(start, end, value)</code> sequence and fails closed on
+  duplicate tags that its mapping API could not preserve in C-array order.</p>
 
   <h2>Resource and failure policy</h2>
   <p>Caller-selected font, text, metadata, feature, and variation ceilings are
@@ -60,11 +70,12 @@
 
   <h2>Evidence and deferrals</h2>
   <p><code>scripts/generate_font_shaping_vectors.py</code> regenerates the
-  fixed uharfbuzz records from the tracked KiCad stroke TTF and has a
-  deterministic check mode. Rack validates every record against the generated
-  schema and decoder, then runs the focused native Rust suite. System-font
-  discovery, CFF/variable-font expansion, broad script coverage, outline
-  extraction, final render-cache parity, and WASM packaging remain separate
-  plan steps.</p>
+  fixed uharfbuzz records from the tracked KiCad stroke TTF plus a deterministic
+  in-house variable/GSUB fixture and checks both JSON and font bytes. Rack
+  validates every contract record against the generated schema and decoder,
+  validates the separately named versioned flag evidence, then runs the focused
+  native Rust suite. System-font discovery, production variable-font and broad
+  script expansion, outline extraction, final render-cache parity, and WASM
+  packaging remain separate plan steps.</p>
 </body>
 </html>

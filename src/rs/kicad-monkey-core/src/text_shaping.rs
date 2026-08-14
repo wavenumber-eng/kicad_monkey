@@ -8,7 +8,9 @@ use kicad_monkey_contracts::generated::shaping_record::{
     DefaultIgnorablePolicy, ShapedGlyph, ShapingClusterLevel, ShapingInput, TextDirection,
 };
 use kicad_monkey_contracts::{JavaScriptSafeInteger, validate_shaping_input_contract};
+use read_fonts::TableProvider;
 use sha2::{Digest, Sha256};
+use std::collections::HashSet;
 use std::fmt;
 
 /// Shaping implementation and upstream compatibility level pinned by this workspace.
@@ -92,6 +94,7 @@ pub fn shape_text_a0(
             "font bytes or face index are invalid",
         )
     })?;
+    validate_variation_axes(&font, input)?;
     let variations = variations(input)?;
     let instance = ShaperInstance::from_variations(&font, variations);
     let shaper_data = ShaperData::new(&font);
@@ -132,6 +135,52 @@ pub fn shape_text_a0(
         units_per_em: u16::try_from(shaper.units_per_em())
             .expect("HarfRust derives units per em from a u16 font field"),
     })
+}
+
+fn validate_variation_axes(
+    font: &FontRef<'_>,
+    input: &ShapingInput,
+) -> Result<(), TextShapingError> {
+    if input.variations.is_empty() {
+        return Ok(());
+    }
+    let fvar_tag = Tag::new(b"fvar");
+    let fvar = font.fvar().map_err(|_| {
+        if font.data_for_tag(fvar_tag).is_some() {
+            shaping_error(
+                TextShapingErrorKind::InvalidFont,
+                "$.variations",
+                "font variation axis table is malformed",
+            )
+        } else {
+            shaping_error(
+                TextShapingErrorKind::InvalidInput,
+                "$.variations",
+                "font does not support variation coordinates",
+            )
+        }
+    })?;
+    let axes = fvar.axes().map_err(|_| {
+        shaping_error(
+            TextShapingErrorKind::InvalidFont,
+            "$.variations",
+            "font variation axis records are malformed",
+        )
+    })?;
+    let axis_tags = axes
+        .iter()
+        .map(|axis| axis.axis_tag())
+        .collect::<HashSet<_>>();
+    for (index, variation) in input.variations.iter().enumerate() {
+        if !axis_tags.contains(&tag(&variation.axis.0)) {
+            return Err(shaping_error(
+                TextShapingErrorKind::InvalidInput,
+                format!("$.variations[{index}].axis"),
+                "font does not define the requested variation axis",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn preflight(

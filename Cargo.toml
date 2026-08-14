@@ -29,6 +29,7 @@ too_many_lines = "deny"
 anyhow = "1.0.102"
 harfrust = "0.13.0"
 prettyplease = "0.2.37"
+read-fonts = "0.43.0"
 schemars = "0.8.22"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.151", features = ["arbitrary_precision", "preserve_order", "unbounded_depth"] }

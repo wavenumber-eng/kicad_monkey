@@ -277,6 +277,7 @@ version = "0.1.0"
 dependencies = [
  "harfrust",
  "kicad-monkey-contracts",
+ "read-fonts",
  "serde",
  "serde_json",
  "sha2",

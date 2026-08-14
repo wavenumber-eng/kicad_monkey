@@ -1,4 +1,6 @@
-use kicad_monkey_contracts::generated::shaping_record::ShapingRecordA0;
+use kicad_monkey_contracts::generated::shaping_record::{
+    ShapedGlyph, ShapingInput, ShapingRecordA0,
+};
 use kicad_monkey_contracts::validate_shaping_record_contract;
 use kicad_monkey_core::{
     TEXT_SHAPING_ENGINE, TextShapingErrorKind, TextShapingLimits, shape_text_a0,
@@ -7,6 +9,10 @@ use kicad_monkey_core::{
 const FONT_BYTES: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../assets/fonts/kicad-stroke.ttf"
+));
+const VARIABLE_FONT_BYTES: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../tests/parity/fonts/shaping-variable-fixture.ttf"
 ));
 
 fn vectors() -> serde_json::Value {
@@ -26,6 +32,14 @@ fn records() -> Vec<ShapingRecordA0> {
         .collect()
 }
 
+fn font_bytes(font_id: &str) -> &'static [u8] {
+    match font_id {
+        "kicad_stroke_regular" => FONT_BYTES,
+        "shaping_variable_fixture" => VARIABLE_FONT_BYTES,
+        other => panic!("unknown fixture font: {other}"),
+    }
+}
+
 #[test]
 fn harfrust_matches_fixed_uharfbuzz_records_exactly() {
     let vectors = vectors();
@@ -34,11 +48,21 @@ fn harfrust_matches_fixed_uharfbuzz_records_exactly() {
     assert_eq!(vectors["oracle"]["text_input_api"], "hb_buffer_add_utf8");
     for (expected, record) in vectors["records"].as_array().unwrap().iter().zip(records()) {
         validate_shaping_record_contract(&record).expect("valid oracle record");
-        let actual = shape_text_a0(FONT_BYTES, &record.input, TextShapingLimits::default())
-            .expect("shape fixed-font record");
+        let actual = shape_text_a0(
+            font_bytes(&record.input.font_id),
+            &record.input,
+            TextShapingLimits::default(),
+        )
+        .expect("shape fixed-font record");
+        let expected_font = vectors["fonts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|font| font["font_id"].as_str() == Some(record.input.font_id.as_str()))
+            .unwrap();
         assert_eq!(
             u64::from(actual.units_per_em),
-            vectors["oracle"]["units_per_em"]
+            expected_font["units_per_em"]
         );
         assert_eq!(
             serde_json::to_value(actual.glyphs).unwrap(),
@@ -90,6 +114,68 @@ fn unicode_clusters_scaled_rtl_and_ignorables_are_structurally_visible() {
         .find(|record| record.case_id.as_str().contains("preserve_default"))
         .unwrap();
     assert!(removed.glyphs.len() < preserved.glyphs.len());
+
+    let ranged = records
+        .iter()
+        .find(|record| record.case_id.as_str() == "fixture_non_global_utf8_feature")
+        .unwrap();
+    assert_eq!(ranged.input.text.len(), 4);
+    assert_eq!(
+        (ranged.input.features[0].start, ranged.input.features[0].end),
+        (2, 4)
+    );
+    assert_eq!(ranged.glyphs.len(), 2, "the ranged liga joins only A and B");
+    let mut without_feature = ranged.input.clone();
+    without_feature.features.clear();
+    assert_eq!(
+        shape_text_a0(
+            VARIABLE_FONT_BYTES,
+            &without_feature,
+            TextShapingLimits::default()
+        )
+        .unwrap()
+        .glyphs
+        .len(),
+        3,
+        "the generated font proves the ranged feature changes shaping"
+    );
+
+    let arabic = records
+        .iter()
+        .find(|record| record.case_id.as_str() == "kicad_stroke_arabic_unsafe_concat")
+        .unwrap();
+    assert!(arabic.glyphs.iter().any(|glyph| glyph.unsafe_to_concat));
+}
+
+#[test]
+fn optional_arabic_flags_are_mapped_with_versioned_evidence() {
+    let evidence = &vectors()["versioned_optional_flag_evidence"];
+    assert_eq!(evidence["comparison"], "geometry_exact_flag_presence");
+    let input: ShapingInput = serde_json::from_value(evidence["input"].clone()).unwrap();
+    let c_glyphs: Vec<ShapedGlyph> =
+        serde_json::from_value(evidence["uharfbuzz_glyphs"].clone()).unwrap();
+    let rust_glyphs = shape_text_a0(FONT_BYTES, &input, TextShapingLimits::default())
+        .unwrap()
+        .glyphs;
+    assert_eq!(geometry(&rust_glyphs), geometry(&c_glyphs));
+    assert!(c_glyphs.iter().any(|glyph| glyph.safe_to_insert_tatweel));
+    assert!(rust_glyphs.iter().any(|glyph| glyph.safe_to_insert_tatweel));
+}
+
+fn geometry(glyphs: &[ShapedGlyph]) -> Vec<(u32, u32, i64, i64, i64, i64)> {
+    glyphs
+        .iter()
+        .map(|glyph| {
+            (
+                glyph.glyph_id,
+                glyph.cluster,
+                glyph.x_advance.get(),
+                glyph.y_advance.get(),
+                glyph.x_offset.get(),
+                glyph.y_offset.get(),
+            )
+        })
+        .collect()
 }
 
 #[test]
@@ -198,4 +284,38 @@ fn output_and_adapter_specific_inputs_are_bounded() {
             .kind,
         TextShapingErrorKind::InvalidInput
     );
+}
+
+#[test]
+fn variation_axes_are_supported_indexed_and_fail_closed() {
+    let variable = records()
+        .into_iter()
+        .find(|record| record.case_id.as_str() == "fixture_supported_variation_axis")
+        .unwrap();
+    shape_text_a0(
+        VARIABLE_FONT_BYTES,
+        &variable.input,
+        TextShapingLimits::default(),
+    )
+    .expect("declared wght axis is accepted");
+
+    let mut unknown_axis = variable.input.clone();
+    unknown_axis.variations[0].axis.0 = "wdth".to_owned();
+    let error = shape_text_a0(
+        VARIABLE_FONT_BYTES,
+        &unknown_axis,
+        TextShapingLimits::default(),
+    )
+    .expect_err("unknown variable-font axis must not be ignored");
+    assert_eq!(error.kind, TextShapingErrorKind::InvalidInput);
+    assert_eq!(error.path, "$.variations[0].axis");
+
+    let mut non_variable = variable.input;
+    non_variable.font_id = "kicad_stroke_regular".parse().unwrap();
+    non_variable.font_sha256.0 =
+        "e12a1ae527c6089914db479f4a30d2b5ff2745953e27b5709d6b933f4be3b487".to_owned();
+    let error = shape_text_a0(FONT_BYTES, &non_variable, TextShapingLimits::default())
+        .expect_err("variations on a static face must not be ignored");
+    assert_eq!(error.kind, TextShapingErrorKind::InvalidInput);
+    assert_eq!(error.path, "$.variations");
 }
