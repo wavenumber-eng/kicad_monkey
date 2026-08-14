@@ -284,20 +284,55 @@ fn output_and_adapter_specific_inputs_are_bounded() {
             .kind,
         TextShapingErrorKind::InvalidInput
     );
+
+    let mut duplicate_feature = records()
+        .into_iter()
+        .find(|record| record.case_id.as_str() == "fixture_non_global_utf8_feature")
+        .unwrap()
+        .input;
+    let repeated = duplicate_feature.features[0].clone();
+    duplicate_feature.features.push(repeated);
+    let error = shape_text_a0(
+        VARIABLE_FONT_BYTES,
+        &duplicate_feature,
+        TextShapingLimits::default(),
+    )
+    .expect_err("native shaping must share the duplicate-tag semantic boundary");
+    assert_eq!(error.kind, TextShapingErrorKind::InvalidContract);
+    assert_eq!(error.path, "$.features[1].tag");
 }
 
 #[test]
 fn variation_axes_are_supported_indexed_and_fail_closed() {
-    let variable = records()
-        .into_iter()
+    let records = records();
+    let default = records
+        .iter()
+        .find(|record| record.case_id.as_str() == "fixture_default_variation_axis")
+        .unwrap()
+        .clone();
+    let variable = records
+        .iter()
         .find(|record| record.case_id.as_str() == "fixture_supported_variation_axis")
-        .unwrap();
-    shape_text_a0(
+        .unwrap()
+        .clone();
+    let default_output = shape_text_a0(
+        VARIABLE_FONT_BYTES,
+        &default.input,
+        TextShapingLimits::default(),
+    )
+    .expect("default variable-font location");
+    let variable_output = shape_text_a0(
         VARIABLE_FONT_BYTES,
         &variable.input,
         TextShapingLimits::default(),
     )
     .expect("declared wght axis is accepted");
+    assert_eq!(default_output.glyphs[0].x_advance.get(), 500);
+    assert_eq!(variable_output.glyphs[0].x_advance.get(), 620);
+    assert_ne!(
+        default_output.glyphs[0].x_advance, variable_output.glyphs[0].x_advance,
+        "the wght coordinate must alter the generated gvar phantom advance"
+    );
 
     let mut unknown_axis = variable.input.clone();
     unknown_axis.variations[0].axis.0 = "wdth".to_owned();

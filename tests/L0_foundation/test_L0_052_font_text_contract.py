@@ -261,6 +261,13 @@ def test_text_semantics_reject_invalid_indices_ids_units_and_nonfinite_programma
     with pytest.raises(msgspec.ValidationError, match="invalid_text_index"):
         decode_shaping_record_a0(json.dumps(terminal_cluster).encode())
 
+    duplicate_feature = deepcopy(vectors["shaping_index_record"])
+    duplicate_feature["input"]["features"].append(
+        deepcopy(duplicate_feature["input"]["features"][0])
+    )
+    with pytest.raises(msgspec.ValidationError, match="duplicate_feature_tag"):
+        decode_shaping_record_a0(json.dumps(duplicate_feature).encode())
+
     empty_text_glyph = deepcopy(vectors["shaping_record"])
     empty_text_glyph["input"]["text"] = ""
     empty_text_glyph["input"]["features"] = []

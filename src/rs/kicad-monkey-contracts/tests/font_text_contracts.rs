@@ -310,6 +310,17 @@ fn shaping_indices_require_utf8_code_point_boundaries() {
         validate_shaping_record_contract(&invalid).unwrap_err().code,
         "invalid_text_index"
     );
+
+    let mut duplicate_feature = vectors["shaping_index_record"].clone();
+    let repeated = duplicate_feature["input"]["features"][0].clone();
+    duplicate_feature["input"]["features"]
+        .as_array_mut()
+        .unwrap()
+        .push(repeated);
+    let invalid: ShapingRecordA0 = serde_json::from_value(duplicate_feature).unwrap();
+    let error = validate_shaping_record_contract(&invalid).unwrap_err();
+    assert_eq!(error.code, "duplicate_feature_tag");
+    assert_eq!(error.path, "$.input.features[1].tag");
 }
 
 #[test]

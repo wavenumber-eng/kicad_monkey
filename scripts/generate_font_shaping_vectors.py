@@ -12,6 +12,7 @@ from typing import Any, cast
 from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.ttLib.tables.TupleVariation import TupleVariation
 import uharfbuzz as _hb
 
 hb = cast(Any, _hb)
@@ -119,6 +120,22 @@ CASES: tuple[dict[str, Any], ...] = (
         "features": [{"tag": "dlig", "value": 1, "start": 2, "end": 4}],
         "variations": [],
         "cluster_level": "monotone_characters",
+        "default_ignorables": "normal",
+        "produce_unsafe_to_concat": False,
+        "produce_safe_to_insert_tatweel": False,
+    },
+    {
+        "case_id": "fixture_default_variation_axis",
+        "font_id": "shaping_variable_fixture",
+        "font_path": "tests/parity/fonts/shaping-variable-fixture.ttf",
+        "text": "A",
+        "direction": "left_to_right",
+        "script": "Latn",
+        "language": "en",
+        "scale": (1000, 1000),
+        "features": [],
+        "variations": [],
+        "cluster_level": "monotone_graphemes",
         "default_ignorables": "normal",
         "produce_unsafe_to_concat": False,
         "produce_safe_to_insert_tatweel": False,
@@ -329,6 +346,17 @@ def _variable_font_fixture() -> bytes:
     builder.setupPost()
     builder.setupMaxp()
     builder.setupFvar([("wght", 100, 400, 900, "Weight")], [])
+    builder.setupGvar(
+        {
+            "A": [
+                TupleVariation(
+                    {"wght": (0.0, 1.0, 1.0)},
+                    [(0, 0)] * 3
+                    + [(0, 0), (200, 0), (0, 0), (0, 0)],
+                )
+            ]
+        }
+    )
     addOpenTypeFeaturesFromString(
         builder.font,
         "feature dlig { sub A B by AB; } dlig;",

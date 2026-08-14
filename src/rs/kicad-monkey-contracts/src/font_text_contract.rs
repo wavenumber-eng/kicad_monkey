@@ -145,12 +145,20 @@ fn validate_feature_indices(input: &ShapingInput) -> Result<(), ValidationError>
     })?;
     let mut char_starts = HashSet::with_capacity(input.text.chars().count());
     char_starts.extend(input.text.char_indices().map(|(index, _)| index as u32));
+    let mut feature_tags = HashSet::with_capacity(input.features.len());
     for (index, feature) in input.features.iter().enumerate() {
         if !valid_tag(&feature.tag.0) {
             return Err(error(
                 "invalid_tag",
                 format!("$.features[{index}].tag"),
                 "feature must use a printable four-byte OpenType tag",
+            ));
+        }
+        if !feature_tags.insert(feature.tag.0.as_str()) {
+            return Err(error(
+                "duplicate_feature_tag",
+                format!("$.features[{index}].tag"),
+                "feature tags must be unique at the shaping boundary",
             ));
         }
         let global = feature.start == 0 && feature.end == u32::MAX;

@@ -63,6 +63,23 @@ def test_fixed_uharfbuzz_records_are_current_strict_and_use_utf8_input() -> None
     ]
     assert len(ranged["glyphs"]) == 2
 
+    default_axis = next(
+        record
+        for record in vectors["records"]
+        if record["case_id"] == "fixture_default_variation_axis"
+    )
+    weighted_axis = next(
+        record
+        for record in vectors["records"]
+        if record["case_id"] == "fixture_supported_variation_axis"
+    )
+    assert default_axis["input"]["variations"] == []
+    assert weighted_axis["input"]["variations"] == [
+        {"axis": "wght", "value": 700.0}
+    ]
+    assert default_axis["glyphs"][0]["x_advance"] == 500
+    assert weighted_axis["glyphs"][0]["x_advance"] == 620
+
     arabic = next(
         record
         for record in vectors["records"]
