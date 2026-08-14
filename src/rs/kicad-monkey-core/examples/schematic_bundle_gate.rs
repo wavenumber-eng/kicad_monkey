@@ -159,7 +159,7 @@ fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {
                     .iter()
                     .map(|pin| SheetPinSummary {
                         name: pin.name.clone(),
-                        shape: pin.shape.clone(),
+                        shape: pin.shape.as_str().to_owned(),
                         uuid: pin.uuid.clone(),
                         at: point_pair(pin.at),
                     })

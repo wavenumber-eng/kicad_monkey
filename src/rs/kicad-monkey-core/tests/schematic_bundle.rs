@@ -4,7 +4,7 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
 };
 use kicad_monkey_core::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicLabelScope,
-    SchematicPoint, SourceBundle, SourceBundleErrorKind, SourceBundleLimits,
+    SchematicPinShape, SchematicPoint, SourceBundle, SourceBundleErrorKind, SourceBundleLimits,
 };
 
 fn manifest(sources: Vec<SourceBundleSource>) -> SourceBundleManifestA0 {
@@ -509,7 +509,10 @@ fn hierarchical_sheet_pins_are_typed_and_independently_bounded() {
       (sheet
         (uuid child)
         (property "Sheetfile" "child.kicad_sch")
-        (pin "DATA" bidirectional (at 12.7 25.4 180) (uuid pin-a))))"#
+        (pin "DATA" bidirectional (at 12.7 25.4 180) (uuid pin-a))
+        (pin "READY" output (at 0 0 0))
+        (pin "MISSING" (at 0 0 0))
+        (pin "UNKNOWN" bogus (at 0 0 0))))"#
         .to_vec();
     let child = b"(kicad_sch)".to_vec();
     let bundle = SourceBundle::from_manifest(
@@ -530,7 +533,7 @@ fn hierarchical_sheet_pins_are_typed_and_independently_bounded() {
         .sheets[0]
         .pins[0];
     assert_eq!(pin.name, "DATA");
-    assert_eq!(pin.shape, "bidirectional");
+    assert_eq!(pin.shape, SchematicPinShape::Bidirectional);
     assert_eq!(pin.uuid, "pin-a");
     assert_eq!(
         pin.at,
@@ -539,6 +542,14 @@ fn hierarchical_sheet_pins_are_typed_and_independently_bounded() {
             y_iu: 254_000
         }
     );
+    let pins = &index
+        .definition("design/root.kicad_sch")
+        .expect("root")
+        .sheets[0]
+        .pins;
+    assert_eq!(pins[1].shape, SchematicPinShape::Output);
+    assert_eq!(pins[2].shape, SchematicPinShape::Input);
+    assert_eq!(pins[3].shape, SchematicPinShape::Input);
 
     let limits = SchematicBundleLimits {
         max_sheet_pins_per_sheet: 0,

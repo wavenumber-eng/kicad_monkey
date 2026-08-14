@@ -86,9 +86,41 @@ pub struct SchematicLabel {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicSheetPin {
     pub name: String,
-    pub shape: String,
+    pub shape: SchematicPinShape,
     pub uuid: String,
     pub at: SchematicPoint,
+}
+
+/// Closed KiCad electrical-shape vocabulary for hierarchical sheet pins.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SchematicPinShape {
+    Input,
+    Output,
+    Bidirectional,
+    TriState,
+    Passive,
+}
+
+impl SchematicPinShape {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Input => "input",
+            Self::Output => "output",
+            Self::Bidirectional => "bidirectional",
+            Self::TriState => "tri_state",
+            Self::Passive => "passive",
+        }
+    }
+
+    fn from_source(value: Option<&str>) -> Self {
+        match value {
+            Some("output") => Self::Output,
+            Some("bidirectional") => Self::Bidirectional,
+            Some("tri_state") => Self::TriState,
+            Some("passive") => Self::Passive,
+            _ => Self::Input,
+        }
+    }
 }
 
 /// Deterministic connected components over wire endpoints and registered carrier points.
@@ -184,7 +216,7 @@ pub(crate) fn parse_sheet_pin(
     let values = direct_scalars(text, root, 2, source_path, limits)?;
     Ok(SchematicSheetPin {
         name: values.first().cloned().unwrap_or_default(),
-        shape: values.get(1).cloned().unwrap_or_else(|| "input".to_owned()),
+        shape: SchematicPinShape::from_source(values.get(1).map(String::as_str)),
         uuid: child_scalar(text, &spans, "uuid", source_path, limits)?.unwrap_or_default(),
         at: child_point(
             text,
@@ -941,39 +973,4 @@ fn limit_error(source_path: &str, message: impl Into<String>) -> SourceBundleErr
 }
 
 #[cfg(test)]
-mod tests {
-    use super::parse_iu;
-    use serde::Deserialize;
-
-    #[derive(Deserialize)]
-    struct CoordinateVectors {
-        cases: Vec<CoordinateCase>,
-    }
-
-    #[derive(Deserialize)]
-    struct CoordinateCase {
-        name: String,
-        millimetres: String,
-        expected_iu: Option<String>,
-    }
-
-    #[test]
-    fn exact_decimal_coordinates_match_shared_ties_even_and_range_vectors() {
-        let vectors: CoordinateVectors = serde_json::from_str(include_str!(
-            "../../../../tests/parity/schematic_coordinate_iu_vectors.json"
-        ))
-        .expect("coordinate vectors");
-        for case in vectors.cases {
-            let actual = parse_iu(&case.millimetres, "vector");
-            match case.expected_iu {
-                Some(expected) => assert_eq!(
-                    actual.expect(&case.name).to_string(),
-                    expected,
-                    "{}",
-                    case.name
-                ),
-                None => assert!(actual.is_err(), "{} unexpectedly decoded", case.name),
-            }
-        }
-    }
-}
+mod tests;
