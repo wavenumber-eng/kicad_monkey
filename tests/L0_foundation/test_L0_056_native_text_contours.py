@@ -68,3 +68,21 @@ def test_focused_native_text_contour_suite_passes() -> None:
         check=False,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
+
+    unit_completed = subprocess.run(
+        [
+            "cargo",
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--lib",
+            "text_contours::tests",
+        ],
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    assert unit_completed.returncode == 0, unit_completed.stdout + unit_completed.stderr

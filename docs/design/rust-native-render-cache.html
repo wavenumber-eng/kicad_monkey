@@ -142,13 +142,12 @@
   The typed cache wrapper composes those ceilings with the existing text,
   topology, and cache-output limits.</p>
   <p>Live native evidence currently covers left/top, center/center, rotated
-  mirrored, tabbed, and explicit-line-spacing blocks at tolerance
-  <code>0.002</code>. Right-aligned multi-glyph blocks remain an active
-  precision gap: KiCad's HarfBuzz-FreeType path uses hinted advances, while
-  the current HarfRust cursor uses design advances; the observed Arial
-  <code>SS</code> alignment drift is approximately <code>0.00313</code> mm.
-  This requires an attributable hinted-advance stage rather than a widened
-  comparison tolerance.</p>
+  mirrored, tabbed, explicit-line-spacing, right-aligned multi-glyph,
+  kerning, and whitespace blocks at tolerance <code>0.002</code>. The hinted
+  path follows KiCad's integer <code>VECTOR2I</code> cursor semantics: each
+  Harf advance is scaled by <code>72 / 1152</code> into internal units and
+  truncated toward zero before the next glyph. This closes the prior Arial
+  <code>SS</code> alignment gap without widening the comparison tolerance.</p>
 
   <h2>Cache contour topology</h2>
   <p><code>fracture_text_contours_a0</code> trims one repeated closing point,
@@ -184,8 +183,8 @@
   <h2>Still open</h2>
   <p>The current render-cache strata now establish live KiCad save-oracle
   parity for representative plain single-line, multiline, tabbed, and explicit
-  line-spacing Arial text. They do not yet claim markup behavior, fake
-  bold/italic, right-aligned multi-glyph hinted-advance precision, broad font
+  line-spacing, right-aligned, kerning, and whitespace Arial text. They do not
+  yet claim markup behavior, fake bold/italic, broad font and composite-glyph
   coverage, or repository-local corpus coverage. Those remain active parts of
   <code>render-cache-parity</code>, not deferred packaging work. Font discovery
   stays native-only and outside the platform-neutral byte-input core; WASM

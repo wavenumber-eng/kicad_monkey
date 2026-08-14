@@ -186,6 +186,8 @@ trait ContourOutlineFace {
 
     fn outline_to_internal(&self) -> f64;
 
+    fn quantizes_cursor_to_internal_units(&self) -> bool;
+
     fn extract_glyph_with_limit(
         &self,
         glyph_id: u32,
@@ -200,6 +202,10 @@ impl ContourOutlineFace for FontOutlineFace<'_> {
 
     fn outline_to_internal(&self) -> f64 {
         KICAD_OUTLINE_FACE_SCALER / f64::from(self.units_per_em())
+    }
+
+    fn quantizes_cursor_to_internal_units(&self) -> bool {
+        false
     }
 
     fn extract_glyph_with_limit(
@@ -218,6 +224,10 @@ impl ContourOutlineFace for HintedFontOutlineFace<'_> {
 
     fn outline_to_internal(&self) -> f64 {
         1.0
+    }
+
+    fn quantizes_cursor_to_internal_units(&self) -> bool {
+        true
     }
 
     fn extract_glyph_with_limit(
@@ -319,8 +329,18 @@ fn compose_shaped_contours(
             Err(error) if error.kind == FontOutlineErrorKind::MissingOutline => {}
             Err(error) => return Err(map_outline_error(error)),
         }
-        cursor_x += glyph.x_advance.get() as f64;
-        cursor_y += glyph.y_advance.get() as f64;
+        cursor_x = advance_cursor(
+            cursor_x,
+            glyph.x_advance.get() as f64,
+            position_x_to_internal,
+            face.quantizes_cursor_to_internal_units(),
+        );
+        cursor_y = advance_cursor(
+            cursor_y,
+            glyph.y_advance.get() as f64,
+            position_y_to_internal,
+            face.quantizes_cursor_to_internal_units(),
+        );
         if !cursor_x.is_finite() || !cursor_y.is_finite() {
             return Err(contour_error(
                 TextContourErrorKind::InvalidInput,
@@ -344,6 +364,15 @@ fn compose_shaped_contours(
         shaped.units_per_em,
         shaped.glyphs.len(),
     ))
+}
+
+fn advance_cursor(current: f64, advance: f64, to_internal: f64, quantize: bool) -> f64 {
+    let next = current + advance;
+    if quantize {
+        (next * to_internal).trunc() / to_internal
+    } else {
+        next
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -649,5 +678,37 @@ fn contour_error(
         kind,
         path: path.into(),
         message,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::advance_cursor;
+
+    #[test]
+    fn hinted_cursor_quantizes_each_advance_to_internal_units() {
+        let to_internal = 1433.0 / 2048.0;
+        let first = advance_cursor(0.0, 1366.0, to_internal, true);
+        let second = advance_cursor(first, 1366.0, to_internal, true);
+
+        let expected_first = (1366.0_f64 * to_internal).trunc() / to_internal;
+        let expected_second = ((expected_first + 1366.0) * to_internal).trunc() / to_internal;
+        assert_eq!(first, expected_first);
+        assert_eq!(second, expected_second);
+        assert_ne!(second, advance_cursor(0.0, 2732.0, to_internal, true));
+    }
+
+    #[test]
+    fn hinted_cursor_truncates_negative_internal_positions_toward_zero() {
+        let to_internal = 1433.0 / 2048.0;
+        let position = advance_cursor(0.0, -1366.0, to_internal, true);
+
+        assert_eq!(position, (-1366.0_f64 * to_internal).trunc() / to_internal);
+        assert!(position > -1366.0);
+    }
+
+    #[test]
+    fn unhinted_cursor_preserves_the_shaping_position() {
+        assert_eq!(advance_cursor(12.5, 3.25, 0.75, false), 15.75);
     }
 }
