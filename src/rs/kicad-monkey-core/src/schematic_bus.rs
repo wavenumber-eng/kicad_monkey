@@ -166,6 +166,9 @@ impl<'a> ExpansionState<'a> {
         }
         check_input(&text, self.limits)?;
         if let Some((alias_name, members)) = self.aliases.get_key_value(&text) {
+            if members.is_empty() {
+                return Ok(());
+            }
             let child_depth = self.child_depth(depth)?;
             self.preflight_members(members, qualifier.len(), 1)?;
             if !self.active_aliases.insert(alias_name.as_str()) {
@@ -292,6 +295,7 @@ impl<'a> ExpansionState<'a> {
             .len()
             .checked_add(extra_items)
             .ok_or_else(|| resource_error("bus expansion work item count overflowed"))?;
+        self.preflight_work_items(additional_items)?;
         let additional_bytes = members.iter().try_fold(0_usize, |total, member| {
             check_input(member, self.limits)?;
             total
@@ -299,13 +303,21 @@ impl<'a> ExpansionState<'a> {
                 .and_then(|value| value.checked_add(qualifier_bytes))
                 .ok_or_else(|| resource_error("bus expansion work bytes overflowed"))
         })?;
-        self.preflight_work(additional_items, additional_bytes)
+        self.preflight_work_bytes(additional_bytes)
     }
 
     fn preflight_work(
         &self,
         additional_items: usize,
         additional_bytes: usize,
+    ) -> Result<(), SchematicBusExpansionError> {
+        self.preflight_work_items(additional_items)?;
+        self.preflight_work_bytes(additional_bytes)
+    }
+
+    fn preflight_work_items(
+        &self,
+        additional_items: usize,
     ) -> Result<(), SchematicBusExpansionError> {
         let next_items = self
             .stack
@@ -317,6 +329,13 @@ impl<'a> ExpansionState<'a> {
                 "bus expansion work items exceed their limit",
             ));
         }
+        Ok(())
+    }
+
+    fn preflight_work_bytes(
+        &self,
+        additional_bytes: usize,
+    ) -> Result<(), SchematicBusExpansionError> {
         let next_bytes = self
             .work_bytes
             .checked_add(additional_bytes)

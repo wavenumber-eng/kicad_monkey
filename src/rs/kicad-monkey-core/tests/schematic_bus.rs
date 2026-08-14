@@ -438,6 +438,45 @@ fn alias_inputs_and_nested_qualifiers_are_preflighted_before_cloning() {
 }
 
 #[test]
+fn empty_aliases_do_not_consume_nonexistent_child_depth() {
+    let aliases = HashMap::from([("EMPTY".to_owned(), Vec::new())]);
+    let root_limits = SchematicBusExpansionLimits {
+        max_nesting_depth: 0,
+        ..SchematicBusExpansionLimits::default()
+    };
+    assert_eq!(
+        expand_schematic_bus_label("EMPTY", &aliases, root_limits).expect("empty root alias"),
+        Vec::<String>::new()
+    );
+    let nested_limits = SchematicBusExpansionLimits {
+        max_nesting_depth: 1,
+        ..SchematicBusExpansionLimits::default()
+    };
+    assert_eq!(
+        expand_schematic_bus_label("Q{EMPTY}", &aliases, nested_limits)
+            .expect("empty alias exactly at nested depth limit"),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn alias_fanout_count_is_rejected_before_member_content_scan() {
+    let aliases = HashMap::from([("FAN".to_owned(), vec!["OK".to_owned(), "X".repeat(1_024)])]);
+    let error = expand_schematic_bus_label(
+        "FAN",
+        &aliases,
+        SchematicBusExpansionLimits {
+            max_input_bytes: 16,
+            max_expansion_work_items: 2,
+            ..SchematicBusExpansionLimits::default()
+        },
+    )
+    .expect_err("fanout plus alias sentinel exceeds the work-item limit");
+    assert_eq!(error.kind, SchematicBusExpansionErrorKind::ResourceLimit);
+    assert!(error.message.contains("work items"), "{}", error.message);
+}
+
+#[test]
 fn schematic_bus_aliases_are_typed_in_source_order_and_bounded() {
     let root = br#"(kicad_sch
       (bus_alias "MEM" (members "A0" "A1"))

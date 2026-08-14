@@ -126,7 +126,9 @@
   live work bytes, final output bytes, and nesting depth. Alias members and
   combined group qualifiers are length-checked as borrowed data before they are
   cloned or concatenated; the live-work and final-output budgets remain
-  independently tunable even while both collections coexist.
+  independently tunable even while both collections coexist. Alias fanout is
+  rejected from its cardinality before member contents are scanned, and an
+  empty alias terminates without consuming a nonexistent child-depth step.
   Vector cardinality is checked before reserving or generating members, so a
   syntactically small extreme range cannot trigger proportional allocation.</p>
 
