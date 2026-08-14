@@ -421,6 +421,42 @@ fn jumper_group_capacity_wins_before_member_decoding() {
     );
 }
 
+#[test]
+fn empty_jumper_groups_do_not_consume_capacity_or_decode_members() {
+    let empty_source = source_bundle(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Jumper" (jumper_pin_groups ()))))
+        "#,
+    );
+    let zero_limits = SchematicBundleLimits {
+        max_jumper_groups_per_source: 0,
+        max_jumper_members_per_source: 0,
+        max_jumper_member_bytes_per_source: 0,
+        ..SchematicBundleLimits::default()
+    };
+    SchematicBundleIndex::build(&empty_source, zero_limits)
+        .expect("an empty jumper group consumes no capacity");
+
+    let mixed_source = source_bundle(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Jumper"
+              (jumper_pin_groups () ("must not be decoded")))))
+        "#,
+    );
+    let error = SchematicBundleIndex::build(&mixed_source, zero_limits)
+        .expect_err("the first nonempty group must be admitted before decoding");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(
+        error.message.contains("jumper group count"),
+        "{}",
+        error.message
+    );
+}
+
 fn jumper_source() -> &'static [u8] {
     br#"(kicad_sch
       (uuid root)
