@@ -1,9 +1,10 @@
 //! Typed native KiCad text render-cache generation and S-expression I/O.
 
 use crate::{
-    Lexer, TextContour, TextContourError, TextContourErrorKind, TextContourLimits,
-    TextLayoutRequest, TextPoint, TextTopologyLimits, Token, TokenKind, fracture_text_contours_a0,
-    layout_single_line_text_a0, layout_single_line_text_hinted_a0,
+    Lexer, TextBlockLayoutLimits, TextBlockLayoutRequest, TextContour, TextContourError,
+    TextContourErrorKind, TextContourLimits, TextLayoutRequest, TextPoint, TextTopologyLimits,
+    Token, TokenKind, fracture_text_contours_a0, layout_single_line_text_a0,
+    layout_single_line_text_hinted_a0, layout_text_block_hinted_a0,
 };
 use std::fmt::{self, Write};
 
@@ -88,6 +89,34 @@ pub fn generate_text_render_cache_hinted_a0(
     generate_text_render_cache_with_outline_mode(font_bytes, request, limits, true)
 }
 
+/// Compose KiCad-compatible multiline/tabbed hinted layout and cache topology.
+pub fn generate_text_render_cache_block_hinted_a0(
+    font_bytes: &[u8],
+    request: TextBlockLayoutRequest<'_>,
+    mut block_limits: TextBlockLayoutLimits,
+    limits: TextRenderCacheLimits,
+) -> Result<TextRenderCache, TextRenderCacheError> {
+    if request.shaping.text.len() > limits.max_text_bytes {
+        return Err(limit("$.text", "render-cache text limit exceeded"));
+    }
+    block_limits.contours.shaping.max_text_bytes = block_limits
+        .contours
+        .shaping
+        .max_text_bytes
+        .min(limits.max_text_bytes);
+    block_limits.contours.max_contours =
+        block_limits.contours.max_contours.min(limits.max_contours);
+    block_limits.contours.max_points = block_limits.contours.max_points.min(limits.max_points);
+    let layout = layout_text_block_hinted_a0(font_bytes, request, block_limits)
+        .map_err(map_contour_error)?;
+    cache_from_contours(
+        request.shaping.text.clone(),
+        request.angle_degrees,
+        layout.contours,
+        limits,
+    )
+}
+
 fn generate_text_render_cache_with_outline_mode(
     font_bytes: &[u8],
     request: TextLayoutRequest<'_>,
@@ -103,6 +132,20 @@ fn generate_text_render_cache_with_outline_mode(
         layout_single_line_text_a0(font_bytes, request, limits.contours)
     }
     .map_err(map_contour_error)?;
+    cache_from_contours(
+        request.shaping.text.clone(),
+        request.angle_degrees,
+        layout.contours,
+        limits,
+    )
+}
+
+fn cache_from_contours(
+    text: String,
+    angle_degrees: f64,
+    contours: Vec<TextContour>,
+    limits: TextRenderCacheLimits,
+) -> Result<TextRenderCache, TextRenderCacheError> {
     let mut topology_limits = limits.topology;
     topology_limits.max_output_polygons = topology_limits
         .max_output_polygons
@@ -110,7 +153,7 @@ fn generate_text_render_cache_with_outline_mode(
         .min(limits.max_contours);
     topology_limits.max_output_points = topology_limits.max_output_points.min(limits.max_points);
     let topology =
-        fracture_text_contours_a0(&layout.contours, topology_limits).map_err(map_contour_error)?;
+        fracture_text_contours_a0(&contours, topology_limits).map_err(map_contour_error)?;
     let polygons = topology
         .contours
         .into_iter()
@@ -119,8 +162,8 @@ fn generate_text_render_cache_with_outline_mode(
         })
         .collect();
     Ok(TextRenderCache {
-        text: request.shaping.text.clone(),
-        angle_degrees: request.angle_degrees,
+        text,
+        angle_degrees,
         polygons,
     })
 }

@@ -47,6 +47,17 @@ pub struct TextShapingOutput {
     pub units_per_em: u16,
 }
 
+/// Validated font and variation state reused by one internal multi-run operation.
+pub(crate) struct TextShapingFace<'a> {
+    font: FontRef<'a>,
+    shaper_data: ShaperData,
+    instance: ShaperInstance,
+    font_id: String,
+    font_sha256: String,
+    face_index: u32,
+    variations: Vec<(String, u64)>,
+}
+
 /// Stable failure categories for native shaping.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TextShapingErrorKind {
@@ -79,62 +90,133 @@ pub fn shape_text_a0(
     input: &ShapingInput,
     limits: TextShapingLimits,
 ) -> Result<TextShapingOutput, TextShapingError> {
-    preflight(font_bytes, input, limits)?;
-    validate_shaping_input_contract(input).map_err(|error| TextShapingError {
-        kind: TextShapingErrorKind::InvalidContract,
-        path: error.path,
-        message: error.message,
-    })?;
-    validate_font_hash(font_bytes, input)?;
+    let face = TextShapingFace::new(font_bytes, input, limits)?;
+    face.shape_validated(input, limits)
+}
 
-    let font = FontRef::from_index(font_bytes, input.face_index).map_err(|_| {
-        shaping_error(
-            TextShapingErrorKind::InvalidFont,
-            "$.face_index",
-            "font bytes or face index are invalid",
-        )
-    })?;
-    validate_variation_axes(&font, input)?;
-    let variations = variations(input)?;
-    let instance = ShaperInstance::from_variations(&font, variations);
-    let shaper_data = ShaperData::new(&font);
-    let shaper = shaper_data.shaper(&font).instance(Some(&instance)).build();
-    let features = features(input);
-    let buffer = shaping_buffer(input)?;
-    let output = shaper.shape(
-        buffer,
-        ShapeOptions::new()
-            .scale_separate(Some((input.scale_x, input.scale_y)))
-            .features(&features),
-    );
-    if output.len() > limits.max_glyphs {
-        return Err(shaping_error(
-            TextShapingErrorKind::ResourceLimit,
-            "$.glyphs",
-            "shaped glyph count exceeds the configured limit",
-        ));
-    }
-    let glyphs = output
-        .glyph_infos()
-        .iter()
-        .zip(output.glyph_positions())
-        .map(|(info, position)| ShapedGlyph {
-            glyph_id: info.glyph_id,
-            cluster: info.cluster,
-            x_advance: safe_integer(position.x_advance),
-            y_advance: safe_integer(position.y_advance),
-            x_offset: safe_integer(position.x_offset),
-            y_offset: safe_integer(position.y_offset),
-            unsafe_to_break: info.unsafe_to_break(),
-            safe_to_insert_tatweel: info.safe_to_insert_tatweel(),
-            unsafe_to_concat: info.unsafe_to_concat(),
+impl<'a> TextShapingFace<'a> {
+    pub(crate) fn new(
+        font_bytes: &'a [u8],
+        input: &ShapingInput,
+        limits: TextShapingLimits,
+    ) -> Result<Self, TextShapingError> {
+        preflight(font_bytes, input, limits)?;
+        validate_shaping_input_contract(input).map_err(|error| TextShapingError {
+            kind: TextShapingErrorKind::InvalidContract,
+            path: error.path,
+            message: error.message,
+        })?;
+        validate_font_hash(font_bytes, input)?;
+
+        let font = FontRef::from_index(font_bytes, input.face_index).map_err(|_| {
+            shaping_error(
+                TextShapingErrorKind::InvalidFont,
+                "$.face_index",
+                "font bytes or face index are invalid",
+            )
+        })?;
+        validate_variation_axes(&font, input)?;
+        let instance = ShaperInstance::from_variations(&font, variations(input)?);
+        let shaper_data = ShaperData::new(&font);
+        Ok(Self {
+            font,
+            shaper_data,
+            instance,
+            font_id: input.font_id.as_str().to_owned(),
+            font_sha256: input.font_sha256.0.clone(),
+            face_index: input.face_index,
+            variations: input
+                .variations
+                .iter()
+                .map(|variation| (variation.axis.0.clone(), variation.value.get().to_bits()))
+                .collect(),
         })
-        .collect();
-    Ok(TextShapingOutput {
-        glyphs,
-        units_per_em: u16::try_from(shaper.units_per_em())
-            .expect("HarfRust derives units per em from a u16 font field"),
-    })
+    }
+
+    pub(crate) fn shape_input(
+        &self,
+        input: &ShapingInput,
+        limits: TextShapingLimits,
+    ) -> Result<TextShapingOutput, TextShapingError> {
+        preflight_input(input, limits)?;
+        validate_shaping_input_contract(input).map_err(|error| TextShapingError {
+            kind: TextShapingErrorKind::InvalidContract,
+            path: error.path,
+            message: error.message,
+        })?;
+        self.validate_identity(input)?;
+        self.shape_validated(input, limits)
+    }
+
+    fn shape_validated(
+        &self,
+        input: &ShapingInput,
+        limits: TextShapingLimits,
+    ) -> Result<TextShapingOutput, TextShapingError> {
+        let shaper = self
+            .shaper_data
+            .shaper(&self.font)
+            .instance(Some(&self.instance))
+            .build();
+        let features = features(input);
+        let buffer = shaping_buffer(input)?;
+        let output = shaper.shape(
+            buffer,
+            ShapeOptions::new()
+                .scale_separate(Some((input.scale_x, input.scale_y)))
+                .features(&features),
+        );
+        if output.len() > limits.max_glyphs {
+            return Err(shaping_error(
+                TextShapingErrorKind::ResourceLimit,
+                "$.glyphs",
+                "shaped glyph count exceeds the configured limit",
+            ));
+        }
+        let glyphs = output
+            .glyph_infos()
+            .iter()
+            .zip(output.glyph_positions())
+            .map(|(info, position)| ShapedGlyph {
+                glyph_id: info.glyph_id,
+                cluster: info.cluster,
+                x_advance: safe_integer(position.x_advance),
+                y_advance: safe_integer(position.y_advance),
+                x_offset: safe_integer(position.x_offset),
+                y_offset: safe_integer(position.y_offset),
+                unsafe_to_break: info.unsafe_to_break(),
+                safe_to_insert_tatweel: info.safe_to_insert_tatweel(),
+                unsafe_to_concat: info.unsafe_to_concat(),
+            })
+            .collect();
+        Ok(TextShapingOutput {
+            glyphs,
+            units_per_em: u16::try_from(shaper.units_per_em())
+                .expect("HarfRust derives units per em from a u16 font field"),
+        })
+    }
+
+    fn validate_identity(&self, input: &ShapingInput) -> Result<(), TextShapingError> {
+        let variations_match =
+            input.variations.len() == self.variations.len()
+                && input.variations.iter().zip(&self.variations).all(
+                    |(variation, (axis, value))| {
+                        variation.axis.0 == *axis && variation.value.get().to_bits() == *value
+                    },
+                );
+        if input.font_id.as_str() != self.font_id
+            || input.font_sha256.0 != self.font_sha256
+            || input.face_index != self.face_index
+            || !variations_match
+        {
+            return Err(shaping_error(
+                TextShapingErrorKind::InvalidInput,
+                "$.font",
+                "shaping run does not match the reusable font face",
+            ));
+        }
+        Ok(())
+    }
 }
 
 fn validate_variation_axes(
@@ -188,8 +270,21 @@ fn preflight(
     input: &ShapingInput,
     limits: TextShapingLimits,
 ) -> Result<(), TextShapingError> {
-    let count_over = font_bytes.len() > limits.max_font_bytes
-        || input.text.len() > limits.max_text_bytes
+    if font_bytes.len() > limits.max_font_bytes {
+        return Err(shaping_error(
+            TextShapingErrorKind::ResourceLimit,
+            "$.font",
+            "font buffer exceeds the configured byte limit",
+        ));
+    }
+    preflight_input(input, limits)
+}
+
+fn preflight_input(
+    input: &ShapingInput,
+    limits: TextShapingLimits,
+) -> Result<(), TextShapingError> {
+    let count_over = input.text.len() > limits.max_text_bytes
         || input.features.len() > limits.max_features
         || input.variations.len() > limits.max_variations;
     if count_over {

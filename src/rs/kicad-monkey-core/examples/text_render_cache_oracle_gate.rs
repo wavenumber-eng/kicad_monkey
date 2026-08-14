@@ -1,7 +1,7 @@
 use kicad_monkey_contracts::generated::shaping_record::ShapingInput;
 use kicad_monkey_core::{
-    TextHorizontalAlignment, TextLayoutRequest, TextRenderCacheLimits, TextVerticalAlignment,
-    generate_text_render_cache_hinted_a0, write_text_render_cache_a0,
+    TextBlockLayoutLimits, TextBlockLayoutRequest, TextHorizontalAlignment, TextRenderCacheLimits,
+    TextVerticalAlignment, generate_text_render_cache_block_hinted_a0, write_text_render_cache_a0,
 };
 use serde::Deserialize;
 use std::{env, fs, process::ExitCode};
@@ -18,7 +18,13 @@ struct GateRequest {
     mirrored: bool,
     horizontal_alignment: String,
     vertical_alignment: String,
+    #[serde(default = "default_line_spacing")]
+    line_spacing: f64,
     max_error: f64,
+}
+
+fn default_line_spacing() -> f64 {
+    1.0
 }
 
 fn main() -> ExitCode {
@@ -61,9 +67,9 @@ fn run() -> Result<Vec<u8>, String> {
         "bottom" => TextVerticalAlignment::Bottom,
         value => return Err(format!("unknown vertical alignment: {value}")),
     };
-    let cache = generate_text_render_cache_hinted_a0(
+    let cache = generate_text_render_cache_block_hinted_a0(
         &font_bytes,
-        TextLayoutRequest {
+        TextBlockLayoutRequest {
             shaping: &request.shaping,
             size_x: request.size_x,
             size_y: request.size_y,
@@ -73,8 +79,10 @@ fn run() -> Result<Vec<u8>, String> {
             mirrored: request.mirrored,
             horizontal_alignment,
             vertical_alignment,
+            line_spacing: request.line_spacing,
             max_error: request.max_error,
         },
+        TextBlockLayoutLimits::default(),
         TextRenderCacheLimits::default(),
     )
     .map_err(|error| format!("generate cache: {error}"))?;

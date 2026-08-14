@@ -1,5 +1,6 @@
 //! Bounded composition of native shaping and outlines into positioned contours.
 
+use crate::text_shaping::TextShapingFace;
 use crate::{
     FontOutlineError, FontOutlineErrorKind, FontOutlineFace, FontOutlineFaceRequest,
     FontOutlineLimits, HintedFontOutlineFace, TextBezierError, TextBezierErrorKind,
@@ -70,9 +71,16 @@ pub struct TextContourOutput {
     pub advance_x: f64,
     pub advance_y: f64,
     pub units_per_em: u16,
+    pub glyphs: usize,
     pub outline_commands: usize,
     pub bezier_work_items: usize,
     pub peak_temporary_bezier_points: usize,
+}
+
+/// Reusable hinted shaping/outline state for one bounded internal text block.
+pub(crate) struct HintedTextContourSession<'a> {
+    shaping: TextShapingFace<'a>,
+    outline: HintedFontOutlineFace<'a>,
 }
 
 /// Stable failure categories for native contour composition.
@@ -116,6 +124,55 @@ pub fn shape_text_contours_hinted_a0(
     limits: TextContourLimits,
 ) -> Result<TextContourOutput, TextContourError> {
     shape_text_contours_with_outline_mode(font_bytes, request, limits, OutlineMode::Hinted)
+}
+
+impl<'a> HintedTextContourSession<'a> {
+    pub(crate) fn new(
+        font_bytes: &'a [u8],
+        shaping: &ShapingInput,
+        limits: TextContourLimits,
+    ) -> Result<Self, TextContourError> {
+        preflight_outline_metadata(font_bytes, shaping, limits.outline)?;
+        let shaping_face =
+            TextShapingFace::new(font_bytes, shaping, limits.shaping).map_err(map_shaping_error)?;
+        let variations = shaping
+            .variations
+            .iter()
+            .map(|variation| OutlineVariation {
+                axis: OutlineTag(variation.axis.0.clone()),
+                value: FiniteFloat::try_from(variation.value.get())
+                    .expect("shaping variation coordinates are finite"),
+            })
+            .collect::<Vec<_>>();
+        let outline = HintedFontOutlineFace::new(
+            font_bytes,
+            FontOutlineFaceRequest {
+                font_id: shaping.font_id.as_str(),
+                font_sha256: &shaping.font_sha256.0,
+                face_index: shaping.face_index,
+                variations: &variations,
+            },
+            limits.outline,
+        )
+        .map_err(map_outline_error)?;
+        Ok(Self {
+            shaping: shaping_face,
+            outline,
+        })
+    }
+
+    pub(crate) fn shape_input(
+        &self,
+        request: TextContourRequest<'_>,
+        limits: TextContourLimits,
+    ) -> Result<TextContourOutput, TextContourError> {
+        validate_request(request)?;
+        let shaped = self
+            .shaping
+            .shape_input(request.shaping, limits.shaping)
+            .map_err(map_shaping_error)?;
+        compose_shaped_contours(&self.outline, &shaped, request, limits)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -281,7 +338,12 @@ fn compose_shaped_contours(
             "text run advance is not finite",
         ));
     }
-    Ok(output.finish(advance_x, advance_y, shaped.units_per_em))
+    Ok(output.finish(
+        advance_x,
+        advance_y,
+        shaped.units_per_em,
+        shaped.glyphs.len(),
+    ))
 }
 
 #[derive(Clone, Copy)]
@@ -466,12 +528,19 @@ impl ContourBuilder {
         Ok(())
     }
 
-    fn finish(self, advance_x: f64, advance_y: f64, units_per_em: u16) -> TextContourOutput {
+    fn finish(
+        self,
+        advance_x: f64,
+        advance_y: f64,
+        units_per_em: u16,
+        glyphs: usize,
+    ) -> TextContourOutput {
         TextContourOutput {
             contours: self.contours,
             advance_x,
             advance_y,
             units_per_em,
+            glyphs,
             outline_commands: self.outline_commands,
             bezier_work_items: self.bezier_work_items,
             peak_temporary_bezier_points: self.peak_temporary_bezier_points,

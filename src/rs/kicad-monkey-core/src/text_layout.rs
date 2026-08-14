@@ -88,7 +88,7 @@ fn layout_single_line_text_with_outline_mode(
 }
 
 #[derive(Clone, Copy)]
-struct LayoutTransform {
+pub(crate) struct LayoutTransform {
     origin_x: f64,
     origin_y: f64,
     sin_angle: f64,
@@ -97,7 +97,7 @@ struct LayoutTransform {
     rotated: bool,
 }
 
-fn validated_transform(
+pub(crate) fn validated_transform(
     request: TextLayoutRequest<'_>,
 ) -> Result<LayoutTransform, TextContourError> {
     if matches!(
@@ -177,7 +177,15 @@ fn transform_output(
     translation: (f64, f64),
     transform: LayoutTransform,
 ) -> Result<(), TextContourError> {
-    for contour in &mut output.contours {
+    transform_contours(&mut output.contours, translation, transform)
+}
+
+pub(crate) fn transform_contours(
+    contours: &mut [crate::TextContour],
+    translation: (f64, f64),
+    transform: LayoutTransform,
+) -> Result<(), TextContourError> {
+    for contour in contours {
         for point in &mut contour.points {
             let mut x = point.x + translation.0;
             let mut y = point.y + translation.1;

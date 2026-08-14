@@ -372,3 +372,22 @@ secondary = [
     "Quoted text, signed zero, multiple contours, malformed forms, and nonfinite scalars are durable evidence",
     "The Python oracle generator is deterministic and the focused Rust suite passes through Rack",
 ]
+
+[[subtests]]
+id = "L0_060"
+file = "test_L0_060_native_text_block_layout.py"
+name = "Native KiCad Text Block Layout"
+description = "Require bounded multiline, tab-stop, line-spacing, alignment, and authored-origin transform parity"
+concerns = ["rust", "rendering.text", "parity", "resource-limits"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native hinted text composes KiCad multiline and tab-delimited runs without reparsing the font for each run"
+secondary = [
+    "KiCad 1.68 interline pitch, line-spacing multipliers, per-line horizontal alignment, and 2.4-em tab stops are explicit",
+    "Mirroring and clockwise rotation remain anchored at the authored block origin",
+    "Font and shaping state are reused once per block while feature ranges are rebased per UTF-8 run",
+    "Line, run, metadata, glyph, outline-command, Bezier-work, contour, and point ceilings are inclusive and fail closed",
+    "Delimiter-heavy inputs reject at the configured span ceiling without an allocation-sizing pre-scan",
+    "Focused Rust evidence passes through Rack and live Arial multiline/tab cases remain in L2_009",
+]

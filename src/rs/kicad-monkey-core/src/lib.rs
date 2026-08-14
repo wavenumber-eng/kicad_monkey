@@ -36,6 +36,7 @@ pub mod symbol_library;
 mod symbol_pin;
 pub mod symbol_plotter_ir;
 pub mod text_bezier;
+pub mod text_block_layout;
 pub mod text_contours;
 pub mod text_layout;
 pub mod text_metadata;
@@ -136,6 +137,10 @@ pub use text_bezier::{
     TextBezierError, TextBezierErrorKind, TextBezierLimits, TextBezierOutput, TextPoint,
     flatten_cubic_bezier, flatten_quadratic_bezier,
 };
+pub use text_block_layout::{
+    KICAD_TEXT_INTERLINE_FACTOR, KICAD_TEXT_TAB_WIDTH_FACTOR, TextBlockLayoutLimits,
+    TextBlockLayoutOutput, TextBlockLayoutRequest, layout_text_block_hinted_a0,
+};
 pub use text_contours::{
     KICAD_OUTLINE_FACE_SCALER, KICAD_OUTLINE_SIZE_COMPENSATION, KICAD_TEXT_BEZIER_ERROR,
     TextContour, TextContourError, TextContourErrorKind, TextContourLimits, TextContourOutput,
@@ -148,7 +153,8 @@ pub use text_layout::{
 pub use text_metadata::{KiCadColor, KiCadFont, KiCadTextEffects};
 pub use text_render_cache::{
     TextRenderCache, TextRenderCacheError, TextRenderCacheErrorKind, TextRenderCacheLimits,
-    TextRenderCachePolygon, generate_text_render_cache_a0, generate_text_render_cache_hinted_a0,
+    TextRenderCachePolygon, generate_text_render_cache_a0,
+    generate_text_render_cache_block_hinted_a0, generate_text_render_cache_hinted_a0,
     read_text_render_cache_a0, write_text_render_cache_a0,
 };
 pub use text_shaping::{
