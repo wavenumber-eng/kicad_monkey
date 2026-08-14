@@ -1,18 +1,7 @@
-use crate::{SchematicSubpartSettings, SourceBundleError, SourceBundleErrorKind, SourceFile};
-use serde::Deserialize;
-
-#[derive(Deserialize, Default)]
-#[serde(default)]
-struct ProjectDocument {
-    schematic: ProjectSchematicSettings,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(default)]
-struct ProjectSchematicSettings {
-    subpart_first_id: Option<i64>,
-    subpart_id_separator: Option<i64>,
-}
+use crate::{
+    ProjectDocument, ProjectLimits, ProjectView, SchematicSubpartSettings, SourceBundleError,
+    SourceBundleErrorKind, SourceFile,
+};
 
 pub(crate) fn project_subpart_settings(
     project: Option<&SourceFile>,
@@ -20,26 +9,55 @@ pub(crate) fn project_subpart_settings(
     let Some(project) = project else {
         return Ok(SchematicSubpartSettings::default());
     };
-    let document = serde_json::from_slice::<ProjectDocument>(project.bytes()).map_err(|error| {
+    let document = ProjectDocument::from_reader(
+        project.bytes(),
+        ProjectLimits {
+            max_source_bytes: project.bytes().len(),
+            max_output_bytes: project.bytes().len(),
+            ..ProjectLimits::default()
+        },
+    )
+    .map_err(|error| {
         SourceBundleError::new(
             SourceBundleErrorKind::Project,
             Some(project.path()),
             format!("project schematic settings are invalid: {error}"),
         )
     })?;
+    let view = document.view();
     Ok(SchematicSubpartSettings {
         first_id: setting_codepoint(
-            document.schematic.subpart_first_id,
+            setting(&view, "schematic.subpart_first_id", project)?,
             SchematicSubpartSettings::default().first_id,
             project,
             "subpart_first_id",
         )?,
         separator: setting_codepoint(
-            document.schematic.subpart_id_separator,
+            setting(&view, "schematic.subpart_id_separator", project)?,
             SchematicSubpartSettings::default().separator,
             project,
             "subpart_id_separator",
         )?,
+    })
+}
+
+fn setting(
+    view: &ProjectView<'_>,
+    path: &str,
+    project: &SourceFile,
+) -> Result<Option<i64>, SourceBundleError> {
+    let Some(value) = view.get_path(path) else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    value.as_i64().map(Some).ok_or_else(|| {
+        SourceBundleError::new(
+            SourceBundleErrorKind::Project,
+            Some(project.path()),
+            format!("{path} must be an integer"),
+        )
     })
 }
 

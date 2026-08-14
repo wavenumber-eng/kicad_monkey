@@ -501,3 +501,25 @@ secondary = [
     "Modern string-only bitmap chunks and legacy first-payload semantics match Python",
     "Lazy item diagnostics are rebased to absolute worksheet positions",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_034"
+file = "test_L1_034_rust_project_roundtrip.py"
+name = "Rust Native Project Reader/Writer"
+description = "Require full restored-corpus project JSON parity and transactional writeback"
+concerns = ["json", "rust", "project", "writeback", "native"]
+test_cases = "tests/corpus/kicad.zip:**/*.kicad_pro"
+test_case_type = "shared_corpus"
+
+[subtests.objectives]
+primary = "Every restored project has exact source writes and Python-equivalent canonical and typed semantics"
+secondary = [
+    "All 217 restored project files and 3,048,297 bytes are mandatory evidence",
+    "Text variables, variants, net settings, and board routing defaults match Python",
+    "Insertion order and authored JSON number spelling survive canonical serialization",
+    "Text-variable, variant, and dotted-path mutations match Python and preserve unknown JSON",
+    "Source, output, typed-string, and promoted collection limits fail closed",
+    "Invalid UTF-8, malformed JSON, non-object roots, conflicts, and I/O failures are structured",
+]

@@ -12,6 +12,7 @@ pub mod footprint;
 pub mod pcb;
 pub mod plotter_ir;
 pub mod plotter_types;
+pub mod project;
 pub mod schematic_bundle;
 mod schematic_bundle_indexes;
 mod schematic_bundle_limits;
@@ -61,6 +62,11 @@ pub use plotter_types::{
     ArcThreePoint, BezierCurve, FlashPadCircle, FlashPadCustom, FlashPadOval, FlashPadRect,
     FlashPadRoundRect, FlashPadTrapez, PlotterCircle, PlotterFill, PlotterLineStyle,
     PlotterOperation, PlotterPoly, PlotterRect, ThickSegment,
+};
+pub use project::{
+    ProjectBoardDesignSettings, ProjectDiffPairDimensions, ProjectDocument, ProjectError,
+    ProjectErrorKind, ProjectLimits, ProjectNetClass, ProjectNetClassPattern, ProjectNetSettings,
+    ProjectTuningDefaults, ProjectTuningSettings, ProjectVariant, ProjectView,
 };
 pub use schematic_bundle::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicDocument,

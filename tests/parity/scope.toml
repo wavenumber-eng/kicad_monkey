@@ -411,3 +411,13 @@ python_symbols = ["KiCadWorksheet", "WksSetup", "WksLine", "WksRect", "WksPolygo
 rust_symbols = ["WorksheetView", "WorksheetDocument", "WorksheetItem", "WorksheetLimits"]
 rack_cases = ["L1_033"]
 evidence = ["src/rs/kicad-monkey-core/src/worksheet.rs", "src/rs/kicad-monkey-core/tests/worksheet.rs", "src/rs/kicad-monkey-core/examples/worksheet_gate.rs", "tests/L1_parsing/test_L1_033_rust_worksheet_roundtrip.py", "docs/design/rust-worksheet-phase4-slice.html"]
+
+[[surfaces]]
+id = "project.native_reader_writer"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "review_ready"
+python_symbols = ["KiCadProject", "ProjectVariant", "KiCadProjectNetSettings", "KiCadProjectBoardDesignSettings"]
+rust_symbols = ["ProjectDocument", "ProjectView", "ProjectVariant", "ProjectNetSettings", "ProjectBoardDesignSettings", "ProjectLimits"]
+rack_cases = ["L1_034"]
+evidence = ["src/rs/kicad-monkey-core/src/project.rs", "src/rs/kicad-monkey-core/tests/project.rs", "src/rs/kicad-monkey-core/examples/project_gate.rs", "src/rs/kicad-monkey-core/examples/project_mutation_gate.rs", "tests/L1_parsing/test_L1_034_rust_project_roundtrip.py", "docs/design/rust-project-phase4-slice.html"]

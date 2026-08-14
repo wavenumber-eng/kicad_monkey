@@ -54,6 +54,8 @@ Current design notes:
   transactional placed-symbol property edits, and promoted semantic reparse.
 - `rust-worksheet-phase4-slice.html` - source-ordered modern and legacy
   worksheet semantics, bounded lazy item decoding, and exact owned writeback.
+- `rust-project-phase4-slice.html` - insertion-ordered project JSON semantics,
+  full restored-corpus parity, and transactional exact/canonical writeback.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path
