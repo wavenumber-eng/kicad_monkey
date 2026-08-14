@@ -171,6 +171,12 @@ fn parse_carrier(
         .map_err(|error| source_error(source_path, error.to_string()))?;
     match span.head.as_deref() {
         Some("wire") => {
+            require_family_capacity(
+                carriers.wires.len(),
+                limits.max_wires_per_source,
+                source_path,
+                "wire",
+            )?;
             let value = parse_polyline(
                 text,
                 "wire",
@@ -182,6 +188,12 @@ fn parse_carrier(
             carriers.wires.push(value);
         }
         Some("bus") => {
+            require_family_capacity(
+                carriers.buses.len(),
+                limits.max_buses_per_source,
+                source_path,
+                "bus",
+            )?;
             let value = parse_polyline(
                 text,
                 "bus",
@@ -193,18 +205,36 @@ fn parse_carrier(
             carriers.buses.push(value);
         }
         Some("bus_entry") => {
+            require_family_capacity(
+                carriers.bus_entries.len(),
+                limits.max_bus_entries_per_source,
+                source_path,
+                "bus-entry",
+            )?;
             add_points(point_count, 2, source_path, limits)?;
             carriers
                 .bus_entries
                 .push(parse_bus_entry(text, source_path, limits)?);
         }
         Some("junction") => {
+            require_family_capacity(
+                carriers.junctions.len(),
+                limits.max_junctions_per_source,
+                source_path,
+                "junction",
+            )?;
             add_points(point_count, 1, source_path, limits)?;
             carriers
                 .junctions
                 .push(parse_point_marker(text, "junction", source_path, limits)?);
         }
         Some("no_connect") => {
+            require_family_capacity(
+                carriers.no_connects.len(),
+                limits.max_no_connects_per_source,
+                source_path,
+                "no-connect",
+            )?;
             add_points(point_count, 1, source_path, limits)?;
             let marker = parse_point_marker(text, "no_connect", source_path, limits)?;
             carriers.no_connects.push(SchematicNoConnect {
@@ -213,6 +243,12 @@ fn parse_carrier(
             });
         }
         Some(head @ ("label" | "global_label" | "hierarchical_label")) => {
+            require_family_capacity(
+                carriers.labels.len(),
+                limits.max_labels_per_source,
+                source_path,
+                "label",
+            )?;
             add_points(point_count, 1, source_path, limits)?;
             carriers
                 .labels
@@ -221,6 +257,22 @@ fn parse_carrier(
         _ => {}
     }
     Ok(())
+}
+
+fn require_family_capacity(
+    current: usize,
+    maximum: usize,
+    source_path: &str,
+    family: &str,
+) -> Result<(), SourceBundleError> {
+    if current >= maximum {
+        Err(limit_error(
+            source_path,
+            format!("schematic {family} count exceeds its limit"),
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn remaining_points(current: usize, limits: SchematicBundleLimits) -> usize {
@@ -493,20 +545,148 @@ fn parse_point(
 }
 
 fn parse_iu(value: &str, source_path: &str) -> Result<i64, SourceBundleError> {
-    let millimetres = value.parse::<f64>().map_err(|_| {
+    let decimal = parse_decimal(value).ok_or_else(|| {
         source_error(
             source_path,
             format!("invalid schematic coordinate {value:?}"),
         )
     })?;
-    let scaled = millimetres * SCHEMATIC_IU_PER_MM as f64;
-    if !scaled.is_finite() || scaled < i64::MIN as f64 || scaled > i64::MAX as f64 {
-        return Err(source_error(
+    scaled_decimal_to_i64(&decimal).ok_or_else(|| {
+        source_error(
             source_path,
             "schematic coordinate is outside the internal-unit range",
-        ));
+        )
+    })
+}
+
+struct DecimalParts {
+    negative: bool,
+    digits: Vec<u8>,
+    scale_shift: i64,
+}
+
+fn parse_decimal(value: &str) -> Option<DecimalParts> {
+    let (negative, unsigned) = match value.as_bytes().first() {
+        Some(b'-') => (true, &value[1..]),
+        Some(b'+') => (false, &value[1..]),
+        _ => (false, value),
+    };
+    let exponent_at = unsigned.find(['e', 'E']);
+    let (mantissa, exponent_text) = exponent_at.map_or((unsigned, None), |index| {
+        (&unsigned[..index], Some(&unsigned[index + 1..]))
+    });
+    let exponent = exponent_text.map_or(Some(0), parse_exponent)?;
+    let mut digits = Vec::with_capacity(mantissa.len());
+    let mut decimal_seen = false;
+    let mut fractional_digits = 0_usize;
+    for byte in mantissa.bytes() {
+        match byte {
+            b'0'..=b'9' => {
+                digits.push(byte);
+                fractional_digits += usize::from(decimal_seen);
+            }
+            b'.' if !decimal_seen => decimal_seen = true,
+            _ => return None,
+        }
     }
-    Ok(scaled.round_ties_even() as i64)
+    if digits.is_empty()
+        || unsigned[exponent_at.unwrap_or(unsigned.len())..]
+            .matches(['e', 'E'])
+            .count()
+            > 1
+    {
+        return None;
+    }
+    let first_nonzero = digits.iter().position(|digit| *digit != b'0');
+    let digits = first_nonzero.map_or_else(Vec::new, |index| digits.split_off(index));
+    let fraction = i64::try_from(fractional_digits).unwrap_or(i64::MAX);
+    Some(DecimalParts {
+        negative,
+        digits,
+        scale_shift: exponent.saturating_sub(fraction).saturating_add(4),
+    })
+}
+
+fn parse_exponent(value: &str) -> Option<i64> {
+    let (negative, digits) = match value.as_bytes().first() {
+        Some(b'-') => (true, &value[1..]),
+        Some(b'+') => (false, &value[1..]),
+        _ => (false, value),
+    };
+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let magnitude = digits.bytes().fold(0_i64, |current, byte| {
+        current
+            .saturating_mul(10)
+            .saturating_add(i64::from(byte - b'0'))
+    });
+    Some(if negative { -magnitude } else { magnitude })
+}
+
+fn scaled_decimal_to_i64(decimal: &DecimalParts) -> Option<i64> {
+    if decimal.digits.is_empty() {
+        return Some(0);
+    }
+    let magnitude = if decimal.scale_shift >= 0 {
+        scaled_integer_magnitude(&decimal.digits, decimal.scale_shift)?
+    } else {
+        rounded_fractional_magnitude(&decimal.digits, decimal.scale_shift)?
+    };
+    signed_magnitude(magnitude, decimal.negative)
+}
+
+fn scaled_integer_magnitude(digits: &[u8], shift: i64) -> Option<u64> {
+    let shift = usize::try_from(shift).ok()?;
+    if digits.len().checked_add(shift)? > 19 {
+        return None;
+    }
+    let mut magnitude = parse_digit_magnitude(digits)?;
+    for _ in 0..shift {
+        magnitude = magnitude.checked_mul(10)?;
+    }
+    Some(magnitude)
+}
+
+fn rounded_fractional_magnitude(digits: &[u8], shift: i64) -> Option<u64> {
+    let discarded = usize::try_from(shift.unsigned_abs()).ok()?;
+    if discarded > digits.len() {
+        return Some(0);
+    }
+    let retained = digits.len() - discarded;
+    let mut magnitude = parse_digit_magnitude(&digits[..retained])?;
+    if should_round_up(&digits[retained..], magnitude) {
+        magnitude = magnitude.checked_add(1)?;
+    }
+    Some(magnitude)
+}
+
+fn parse_digit_magnitude(digits: &[u8]) -> Option<u64> {
+    digits.iter().try_fold(0_u64, |current, digit| {
+        current
+            .checked_mul(10)?
+            .checked_add(u64::from(*digit - b'0'))
+    })
+}
+
+fn should_round_up(discarded: &[u8], retained: u64) -> bool {
+    match discarded.first() {
+        Some(b'6'..=b'9') => true,
+        Some(b'5') => discarded[1..].iter().any(|digit| *digit != b'0') || retained % 2 == 1,
+        _ => false,
+    }
+}
+
+fn signed_magnitude(magnitude: u64, negative: bool) -> Option<i64> {
+    if negative {
+        if magnitude == i64::MAX as u64 + 1 {
+            Some(i64::MIN)
+        } else {
+            i64::try_from(magnitude).ok().map(|value| -value)
+        }
+    } else {
+        i64::try_from(magnitude).ok()
+    }
 }
 
 fn direct_scalars(
@@ -719,4 +899,42 @@ fn limit_error(source_path: &str, message: impl Into<String>) -> SourceBundleErr
         Some(source_path),
         message,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_iu;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct CoordinateVectors {
+        cases: Vec<CoordinateCase>,
+    }
+
+    #[derive(Deserialize)]
+    struct CoordinateCase {
+        name: String,
+        millimetres: String,
+        expected_iu: Option<String>,
+    }
+
+    #[test]
+    fn exact_decimal_coordinates_match_shared_ties_even_and_range_vectors() {
+        let vectors: CoordinateVectors = serde_json::from_str(include_str!(
+            "../../../../tests/parity/schematic_coordinate_iu_vectors.json"
+        ))
+        .expect("coordinate vectors");
+        for case in vectors.cases {
+            let actual = parse_iu(&case.millimetres, "vector");
+            match case.expected_iu {
+                Some(expected) => assert_eq!(
+                    actual.expect(&case.name).to_string(),
+                    expected,
+                    "{}",
+                    case.name
+                ),
+                None => assert!(actual.is_err(), "{} unexpectedly decoded", case.name),
+            }
+        }
+    }
 }

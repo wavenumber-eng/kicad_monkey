@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN
 from pathlib import Path
 
 from kicad_monkey import KiCadDesign
@@ -22,10 +23,33 @@ REFERENCE_CASES = (
     "real_world/speedy_processing_module",
     "real_world/jumperless_v5r7",
 )
+COORDINATE_VECTORS = PACKAGE_ROOT / "tests" / "parity" / "schematic_coordinate_iu_vectors.json"
+I64_MIN = -(2**63)
+I64_MAX = 2**63 - 1
 
 
 def _point(x_mm: float, y_mm: float) -> list[int]:
     return list(snap_mm_to_iu(x_mm, y_mm))
+
+
+def _reference_decimal_iu(value: str) -> int | None:
+    try:
+        decimal = Decimal(value)
+    except InvalidOperation:
+        return None
+    if not decimal.is_finite():
+        return None
+    rounded = int((decimal * 10_000).to_integral_value(rounding=ROUND_HALF_EVEN))
+    return rounded if I64_MIN <= rounded <= I64_MAX else None
+
+
+def test_shared_coordinate_vectors_encode_exact_python_ties_even_policy() -> None:
+    payload = json.loads(COORDINATE_VECTORS.read_text(encoding="utf-8"))
+    assert payload["schema"] == "kicad_monkey.schematic_coordinate_iu_vectors.a0"
+    for case in payload["cases"]:
+        expected = case["expected_iu"]
+        actual = _reference_decimal_iu(case["millimetres"])
+        assert actual == (None if expected is None else int(expected)), case["name"]
 
 
 def _polyline(value: object) -> dict[str, object]:

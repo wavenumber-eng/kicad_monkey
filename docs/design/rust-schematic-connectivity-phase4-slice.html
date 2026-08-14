@@ -18,10 +18,12 @@
   geometry. Labels retain their scope, text, and shape.</p>
 
   <p>Coordinates are snapped immediately to KiCad's 100-nm schematic internal-unit
-  grid and stored as signed integers. The conversion uses ties-to-even rounding,
-  matching the Python reference's <code>round(mm * 10_000)</code> behavior. Floating
-  point is therefore confined to decoding a KiCad numeric token; equality, hashing,
-  component membership, and exported evidence use exact integer coordinates.</p>
+  grid and stored as signed integers. A dependency-free decimal parser performs the
+  scale and ties-to-even rounding without conversion through binary floating point.
+  Shared vectors encode the intended Python decimal policy and cover both signed
+  <code>i64</code> boundaries, just-outside values, half-even cases, exponents,
+  malformed input, and non-finite spellings. Equality, hashing, component membership,
+  and exported evidence use exact integer coordinates without a saturating cast.</p>
 
   <h2>Connectivity semantics</h2>
   <ul>
@@ -37,26 +39,34 @@
 
   <p>The immutable result stores deterministic, sorted components and supports
   point iteration, component lookup, and connected-point queries. Construction uses
-  union by rank with path compression. Structural source scanning remains linear;
-  each selected carrier span is lexed independently and carrier spans do not overlap.</p>
+  union by rank with path compression. Structural source scanning is linear and each
+  selected carrier span is lexed independently. Per-carrier selected-span sorting and
+  deterministic final component sorting give a worst-case bound of
+  <code>O(N + sum(p_i log p_i) + P log P)</code>; there is no all-pairs or quadratic
+  connectivity scan.</p>
 
   <h2>Resource behavior</h2>
-  <p>Callers can bound connectivity objects per source, points per carrier, and total
-  carrier points per source. Point collectors check before pushing past the effective
-  per-form or remaining per-source allowance. Carrier-local structural selection is
-  also bounded from that remaining allowance. Invalid/non-finite coordinates and
-  overflowing bus-entry endpoints fail closed with the owning source path.</p>
+  <p>Callers can independently bound wires, buses, bus entries, junctions,
+  no-connect markers, and labels, as well as aggregate connectivity objects, points
+  per carrier, and total carrier points per source. Every retained-family check occurs
+  before parsing and pushing that object. Point collectors check before pushing past
+  the effective per-form or remaining per-source allowance. Carrier-local structural
+  selection is also bounded from that remaining allowance. Invalid/non-finite
+  coordinates and overflowing bus-entry endpoints fail closed with the owning source
+  path.</p>
 
   <p>The defaults are deliberately large format-safety ceilings, not product-size
-  assumptions: four million carrier objects, one million points in one carrier, and
-  eight million carrier points per schematic source. They are configurable and can
+  assumptions: four million aggregate objects and per family, one million points in
+  one carrier, and eight million carrier points per schematic source. They are
+  configurable and can
   be tightened by untrusted-input adapters without imposing small arbitrary limits on
   native KiCad projects.</p>
 
   <h2>Evidence</h2>
   <p>The focused Rust suite covers all carrier families, label scope/shape, exact
   connected and disconnected components, bus-entry non-union, absent no-connect graph
-  membership, and each new resource ceiling. Rack L3_020 compares every carrier and
+  membership, all six independent family ceilings, and each point ceiling. Shared
+  Rust/Python decimal vectors cover coordinate rounding and range. Rack L3_020 compares every carrier and
   every connectivity component with the established Python implementation across the
   four compiled-graph reference projects in one native process.</p>
 

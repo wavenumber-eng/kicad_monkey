@@ -426,3 +426,78 @@ fn connectivity_object_and_point_limits_fail_before_unbounded_realization() {
         SourceBundleErrorKind::ResourceLimit
     );
 }
+
+#[test]
+fn every_retained_connectivity_family_has_an_independent_pre_push_limit() {
+    let project = b"{}".to_vec();
+    let root = br#"(kicad_sch
+      (wire (pts (xy 0 0) (xy 1 0)))
+      (bus (pts (xy 0 1) (xy 1 1)))
+      (bus_entry (at 0 1) (size 0 -1))
+      (junction (at 0 0))
+      (no_connect (at 2 0))
+      (label "N" (at 0 0 0)))"#
+        .to_vec();
+    let bundle = SourceBundle::from_manifest(
+        manifest(vec![
+            descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
+            descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+        ]),
+        vec![project, root],
+        SourceBundleLimits::default(),
+    )
+    .expect("all connectivity families");
+    let cases = [
+        (
+            "wire",
+            SchematicBundleLimits {
+                max_wires_per_source: 0,
+                ..SchematicBundleLimits::default()
+            },
+        ),
+        (
+            "bus",
+            SchematicBundleLimits {
+                max_buses_per_source: 0,
+                ..SchematicBundleLimits::default()
+            },
+        ),
+        (
+            "bus-entry",
+            SchematicBundleLimits {
+                max_bus_entries_per_source: 0,
+                ..SchematicBundleLimits::default()
+            },
+        ),
+        (
+            "junction",
+            SchematicBundleLimits {
+                max_junctions_per_source: 0,
+                ..SchematicBundleLimits::default()
+            },
+        ),
+        (
+            "no-connect",
+            SchematicBundleLimits {
+                max_no_connects_per_source: 0,
+                ..SchematicBundleLimits::default()
+            },
+        ),
+        (
+            "label",
+            SchematicBundleLimits {
+                max_labels_per_source: 0,
+                ..SchematicBundleLimits::default()
+            },
+        ),
+    ];
+    for (family, limits) in cases {
+        let error = SchematicBundleIndex::build(&bundle, limits).expect_err(family);
+        assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit, "{family}");
+        assert!(
+            error.message.contains(family),
+            "{family}: {}",
+            error.message
+        );
+    }
+}
