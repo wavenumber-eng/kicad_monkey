@@ -50,6 +50,22 @@ fn cross_sheet_bus_members_promote_winning_names_and_preserve_stronger_drivers()
 }
 
 #[test]
+fn cross_sheet_bus_pairing_matches_exact_names_before_positional_remainders() {
+    let index = reordered_bus_hierarchy_index();
+    let design = build_schematic_scalar_design_nets(&index, 1, Default::default())
+        .expect("reordered cross-sheet bus-member design");
+    let references_by_name = design
+        .nets
+        .iter()
+        .filter(|net| matches!(net.name.as_str(), "/A" | "/B" | "/C"))
+        .map(|net| (net.name.as_str(), terminal_refs(net)))
+        .collect::<std::collections::HashMap<_, _>>();
+    assert_eq!(references_by_name["/A"], ["CA.1", "RA.1"]);
+    assert_eq!(references_by_name["/B"], ["CX.1", "RB.1"]);
+    assert_eq!(references_by_name["/C"], ["CC.1", "RC.1"]);
+}
+
+#[test]
 fn cross_sheet_bus_promotion_limits_accept_exact_and_reject_one_under() {
     let index = bus_hierarchy_index();
     let (bus_subgraphs, bus_members, bus_coords, mapping_work) = bus_design_shape(&index);
@@ -708,7 +724,7 @@ fn bus_hierarchy_index() -> SchematicBundleIndex {
       (sheet (uuid child-sheet)
         (property "Sheetname" "Child")
         (property "Sheetfile" "child.kicad_sch")
-        (pin "DATA[0..1]" input (at 0 20 0) (uuid sheet-bus)))
+        (pin "TOPBUS" input (at 0 20 0) (uuid sheet-bus)))
       (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 2 15 0) (uuid root-symbol-0)
         (property "Reference" "R0") (property "Value" "One"))
       (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 8 15 0) (uuid root-symbol-1)
@@ -721,9 +737,9 @@ fn bus_hierarchy_index() -> SchematicBundleIndex {
         (symbol "Demo:One"
           (symbol "Demo:One_1_1"
             (pin bidirectional line (at 0 0 0) (name "P") (number "1")))))
-      (hierarchical_label "DATA[0..1]" (shape bidirectional) (at 50 50 0) (uuid child-bus-name))
-      (label "DATA0" (at 0 0 0) (uuid child-member-0))
-      (label "DATA1" (at 10 0 0) (uuid child-member-1))
+      (hierarchical_label "TOPBUS" (shape bidirectional) (at 50 50 0) (uuid child-bus-name))
+      (label "TOP0" (at 0 0 0) (uuid child-member-0))
+      (label "TOP1" (at 10 0 0) (uuid child-member-1))
       (global_label "GLOBAL_WIN" (shape output) (at 10 0 0) (uuid child-global))
       (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 0 0 0) (uuid child-symbol-0)
         (property "Reference" "C0") (property "Value" "One"))
@@ -742,6 +758,81 @@ fn bus_hierarchy_index() -> SchematicBundleIndex {
             descriptor("bus-design/root.kicad_sch", SourceKind::Schematic, 1, &root),
             descriptor(
                 "bus-design/child.kicad_sch",
+                SourceKind::Schematic,
+                2,
+                &child,
+            ),
+        ],
+        vec![project, root, child],
+    )
+}
+
+fn reordered_bus_hierarchy_index() -> SchematicBundleIndex {
+    let project = b"{}".to_vec();
+    let root = br#"(kicad_sch
+      (uuid pairing-root)
+      (lib_symbols
+        (symbol "Demo:One"
+          (symbol "Demo:One_1_1"
+            (pin bidirectional line (at 0 0 0) (name "P") (number "1")))))
+      (bus (pts (xy 0 20) (xy 20 20)) (uuid root-bus))
+      (bus_entry (at 2 20) (size 0 -5) (uuid root-tap-a))
+      (bus_entry (at 10 20) (size 0 -5) (uuid root-tap-b))
+      (bus_entry (at 18 20) (size 0 -5) (uuid root-tap-c))
+      (label "{A B C}" (at 5 20 0) (uuid root-bus-name))
+      (label "A" (at 2 15 0) (uuid root-member-a))
+      (label "B" (at 10 15 0) (uuid root-member-b))
+      (label "C" (at 18 15 0) (uuid root-member-c))
+      (sheet (uuid child-sheet)
+        (property "Sheetname" "Child")
+        (property "Sheetfile" "child.kicad_sch")
+        (pin "LINK[0..2]" input (at 0 20 0) (uuid sheet-bus)))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 2 15 0) (uuid root-symbol-a)
+        (property "Reference" "RA") (property "Value" "One"))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 10 15 0) (uuid root-symbol-b)
+        (property "Reference" "RB") (property "Value" "One"))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 18 15 0) (uuid root-symbol-c)
+        (property "Reference" "RC") (property "Value" "One")))"#
+        .to_vec();
+    let child = br#"(kicad_sch
+      (uuid pairing-child)
+      (lib_symbols
+        (symbol "Demo:One"
+          (symbol "Demo:One_1_1"
+            (pin bidirectional line (at 0 0 0) (name "P") (number "1")))))
+      (bus (pts (xy 0 20) (xy 20 20)) (uuid child-bus))
+      (bus_entry (at 2 20) (size 0 -5) (uuid child-tap-c))
+      (bus_entry (at 10 20) (size 0 -5) (uuid child-tap-x))
+      (bus_entry (at 18 20) (size 0 -5) (uuid child-tap-a))
+      (hierarchical_label "LINK[0..2]" (shape bidirectional) (at 0 20 0) (uuid child-interface))
+      (label "{C X A}" (at 5 20 0) (uuid child-bus-name))
+      (label "C" (at 2 15 0) (uuid child-member-c))
+      (label "X" (at 10 15 0) (uuid child-member-x))
+      (label "A" (at 18 15 0) (uuid child-member-a))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 2 15 0) (uuid child-symbol-c)
+        (property "Reference" "CC") (property "Value" "One"))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 10 15 0) (uuid child-symbol-x)
+        (property "Reference" "CX") (property "Value" "One"))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 18 15 0) (uuid child-symbol-a)
+        (property "Reference" "CA") (property "Value" "One")))"#
+        .to_vec();
+    bundle_index(
+        "bus-pairing",
+        vec![
+            descriptor(
+                "bus-pairing/demo.kicad_pro",
+                SourceKind::Project,
+                0,
+                &project,
+            ),
+            descriptor(
+                "bus-pairing/root.kicad_sch",
+                SourceKind::Schematic,
+                1,
+                &root,
+            ),
+            descriptor(
+                "bus-pairing/child.kicad_sch",
                 SourceKind::Schematic,
                 2,
                 &child,

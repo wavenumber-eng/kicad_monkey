@@ -45,6 +45,97 @@ COORDINATE_VECTORS = PACKAGE_ROOT / "tests" / "parity" / "schematic_coordinate_i
 I64_MIN = -(2**63)
 I64_MAX = 2**63 - 1
 
+ALIAS_BUS_ROOT = """(kicad_sch
+  (uuid bus-root)
+  (bus_alias "TOPBUS" (members "OLD0" "OLD1"))
+  (lib_symbols
+    (symbol "Demo:One"
+      (symbol "Demo:One_1_1"
+        (pin bidirectional line (at 0 0 0) (name "P") (number "1")))))
+  (bus (pts (xy 0 20) (xy 10 20)) (uuid root-bus))
+  (bus_entry (at 2 20) (size 0 -5) (uuid root-tap-0))
+  (bus_entry (at 8 20) (size 0 -5) (uuid root-tap-1))
+  (label "TOPBUS" (at 5 20 0) (uuid root-bus-name))
+  (label "TOP0" (at 2 15 0) (uuid root-member-0))
+  (label "TOP1" (at 8 15 0) (uuid root-member-1))
+  (sheet (uuid child-sheet)
+    (property "Sheetname" "Child")
+    (property "Sheetfile" "child.kicad_sch")
+    (pin "TOPBUS" input (at 0 20 0) (uuid sheet-bus)))
+  (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 2 15 0)
+    (uuid root-symbol-0) (property "Reference" "R0") (property "Value" "One"))
+  (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 8 15 0)
+    (uuid root-symbol-1) (property "Reference" "R1") (property "Value" "One")))
+"""
+
+ALIAS_BUS_CHILD = """(kicad_sch
+  (uuid bus-child)
+  (bus_alias "TOPBUS" (members "TOP0" "TOP1"))
+  (lib_symbols
+    (symbol "Demo:One"
+      (symbol "Demo:One_1_1"
+        (pin bidirectional line (at 0 0 0) (name "P") (number "1")))))
+  (hierarchical_label "TOPBUS" (shape bidirectional) (at 50 50 0)
+    (uuid child-bus-name))
+  (label "TOP0" (at 0 0 0) (uuid child-member-0))
+  (label "TOP1" (at 10 0 0) (uuid child-member-1))
+  (global_label "GLOBAL_WIN" (shape output) (at 10 0 0) (uuid child-global))
+  (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 0 0 0)
+    (uuid child-symbol-0) (property "Reference" "C0") (property "Value" "One"))
+  (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 10 0 0)
+    (uuid child-symbol-1) (property "Reference" "C1") (property "Value" "One")))
+"""
+
+REORDERED_BUS_ROOT = """(kicad_sch
+  (uuid pairing-root)
+  (lib_symbols
+    (symbol "Demo:One"
+      (symbol "Demo:One_1_1"
+        (pin bidirectional line (at 0 0 0) (name "P") (number "1")))))
+  (bus (pts (xy 0 20) (xy 20 20)) (uuid root-bus))
+  (bus_entry (at 2 20) (size 0 -5) (uuid root-tap-a))
+  (bus_entry (at 10 20) (size 0 -5) (uuid root-tap-b))
+  (bus_entry (at 18 20) (size 0 -5) (uuid root-tap-c))
+  (label "{A B C}" (at 5 20 0) (uuid root-bus-name))
+  (label "A" (at 2 15 0) (uuid root-member-a))
+  (label "B" (at 10 15 0) (uuid root-member-b))
+  (label "C" (at 18 15 0) (uuid root-member-c))
+  (sheet (uuid child-sheet)
+    (property "Sheetname" "Child")
+    (property "Sheetfile" "child.kicad_sch")
+    (pin "LINK[0..2]" input (at 0 20 0) (uuid sheet-bus)))
+  (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 2 15 0)
+    (uuid root-symbol-a) (property "Reference" "RA") (property "Value" "One"))
+  (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 10 15 0)
+    (uuid root-symbol-b) (property "Reference" "RB") (property "Value" "One"))
+  (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 18 15 0)
+    (uuid root-symbol-c) (property "Reference" "RC") (property "Value" "One")))
+"""
+
+REORDERED_BUS_CHILD = """(kicad_sch
+  (uuid pairing-child)
+  (lib_symbols
+    (symbol "Demo:One"
+      (symbol "Demo:One_1_1"
+        (pin bidirectional line (at 0 0 0) (name "P") (number "1")))))
+  (bus (pts (xy 0 20) (xy 20 20)) (uuid child-bus))
+  (bus_entry (at 2 20) (size 0 -5) (uuid child-tap-c))
+  (bus_entry (at 10 20) (size 0 -5) (uuid child-tap-x))
+  (bus_entry (at 18 20) (size 0 -5) (uuid child-tap-a))
+  (hierarchical_label "LINK[0..2]" (shape bidirectional) (at 0 20 0)
+    (uuid child-interface))
+  (label "{C X A}" (at 5 20 0) (uuid child-bus-name))
+  (label "C" (at 2 15 0) (uuid child-member-c))
+  (label "X" (at 10 15 0) (uuid child-member-x))
+  (label "A" (at 18 15 0) (uuid child-member-a))
+  (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 2 15 0)
+    (uuid child-symbol-c) (property "Reference" "CC") (property "Value" "One"))
+  (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 10 15 0)
+    (uuid child-symbol-x) (property "Reference" "CX") (property "Value" "One"))
+  (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 18 15 0)
+    (uuid child-symbol-a) (property "Reference" "CA") (property "Value" "One")))
+"""
+
 
 def _point(x_mm: float, y_mm: float) -> list[int]:
     return list(snap_mm_to_iu(x_mm, y_mm))
@@ -661,10 +752,9 @@ def _scalar_design_summary(top: KiCadSchematic) -> dict[str, object]:
     }
 
 
-def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
+def _run_native_bundle_requests(requests: list[dict[str, object]]) -> list[dict[str, Any]]:
     cargo = shutil.which("cargo")
     assert cargo is not None, "cargo is required for native source-bundle validation"
-    requests_and_counts = [_request(case_id) for case_id in REFERENCE_CASES]
     completed = subprocess.run(
         [
             cargo,
@@ -678,8 +768,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         ],
         cwd=PACKAGE_ROOT,
         input="".join(
-            f"{json.dumps(request, separators=(',', ':'))}\n"
-            for request, _definitions, _occurrences, _source_models, _effective, _terminals, _wire_subgraphs, _local_nets, _scalar_design in requests_and_counts
+            f"{json.dumps(request, separators=(',', ':'))}\n" for request in requests
         ),
         capture_output=True,
         text=True,
@@ -688,7 +777,75 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         check=False,
     )
     assert completed.returncode == 0, completed.stderr
-    results = [json.loads(line) for line in completed.stdout.splitlines()]
+    return [json.loads(line) for line in completed.stdout.splitlines()]
+
+
+def _synthetic_bus_request(
+    case_root: Path, root_source: str, child_source: str
+) -> tuple[dict[str, object], dict[str, object]]:
+    case_root.mkdir()
+    project_path = case_root / "demo.kicad_pro"
+    root_path = case_root / "demo.kicad_sch"
+    child_path = case_root / "child.kicad_sch"
+    project_path.write_text("{}\n", encoding="utf-8")
+    root_path.write_text(root_source, encoding="utf-8")
+    child_path.write_text(child_source, encoding="utf-8")
+    design = KiCadDesign.from_project_file(project_path)
+    top = design.top_schematic
+    assert top is not None
+    request = {
+        "bundle_root": str(case_root.resolve()),
+        "project_path": str(project_path.resolve()),
+        "root_schematic_path": str(root_path.resolve()),
+        "schematic_paths": [str(root_path.resolve()), str(child_path.resolve())],
+    }
+    return request, _scalar_design_summary(top)
+
+
+def _terminal_refs_by_net(summary: dict[str, object]) -> dict[str, list[str]]:
+    nets = cast(list[dict[str, object]], summary["nets"])
+    return {
+        str(net["name"]): sorted(
+            f"{terminal['designator']}.{terminal['pin']}"
+            for terminal in cast(list[dict[str, object]], net["terminals"])
+        )
+        for net in nets
+    }
+
+
+def test_alias_only_and_reordered_bus_boundaries_match_native_rust(
+    tmp_path: Path,
+) -> None:
+    cases = [
+        _synthetic_bus_request(
+            tmp_path / "alias-only", ALIAS_BUS_ROOT, ALIAS_BUS_CHILD
+        ),
+        _synthetic_bus_request(
+            tmp_path / "reordered", REORDERED_BUS_ROOT, REORDERED_BUS_CHILD
+        ),
+    ]
+    results = _run_native_bundle_requests([request for request, _expected in cases])
+    assert len(results) == len(cases)
+    for result, (_request_payload, expected) in zip(results, cases, strict=True):
+        assert result["scalar_design"] == expected, _first_difference(
+            result["scalar_design"], expected
+        )
+
+    alias_refs = _terminal_refs_by_net(cases[0][1])
+    assert alias_refs["/TOP0"] == ["C0.1", "R0.1"]
+    assert alias_refs["GLOBAL_WIN"] == ["C1.1", "R1.1"]
+
+    reordered_refs = _terminal_refs_by_net(cases[1][1])
+    assert reordered_refs["/A"] == ["CA.1", "RA.1"]
+    assert reordered_refs["/B"] == ["CX.1", "RB.1"]
+    assert reordered_refs["/C"] == ["CC.1", "RC.1"]
+
+
+def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
+    requests_and_counts = [_request(case_id) for case_id in REFERENCE_CASES]
+    results = _run_native_bundle_requests(
+        [request for request, *_remaining in requests_and_counts]
+    )
     assert len(results) == len(REFERENCE_CASES)
     for result, (
         _request_payload,

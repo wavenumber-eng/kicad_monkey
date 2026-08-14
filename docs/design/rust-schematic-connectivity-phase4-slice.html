@@ -319,22 +319,27 @@
   identity, duplicate weak sheet-pin suffixes, and simultaneous exact/one-over
   output ceilings.</p>
 
-  <p>The four-project differential also disables only cross-sheet bus-member
-  promotion in the Python design compiler and compares the complete remaining
-  scalar design result: hierarchy bindings, union membership, final names,
-  driver semantics, codes, and terminals. Focused native vectors cover
+  <p>The four-project differential compares the complete scalar design result:
+  hierarchy bindings, union membership, final names, driver semantics, codes,
+  and terminals, with cross-sheet bus-member promotion enabled in both
+  implementations. Focused native vectors cover
   resolved and unresolved boundaries, global-label and global-power merging,
   local-power isolation, human versus UUID paths, exact output ceilings, merge
   keys, union work, driver fan-in, and diagnostic order. A 32-child repeated-source
   hierarchy proves UUID and UUID-less name/coordinate target lookup at exact and
   one-under index ceilings. A 24-terminal, long-reference fan-in vector proves the
-  exact temporary merged-driver byte boundary before cloning. A two-sheet bus
-  vector covers name-first and positional member pairing, parent-bus name
-  promotion, stronger global-wire precedence, design-wide last-writer alias
-  visibility, and simultaneous exact/one-under limits for every promoted bus
-  resource family. Rack L3_020 now compares the complete scalar design result with
-  Python across all four projects with bus promotion enabled; the former oracle
-  suppression is removed.</p>
+  exact temporary merged-driver byte boundary before cloning. Shared Rack
+  differential vectors prove that a plain design alias is a bus at both the
+  parent sheet-pin and child hierarchical-label boundary and remains eligible
+  to win member naming. A second vector uses reordered, partly overlapping
+  member sets to prove exact canonical names pair before the unmatched remainder
+  is paired positionally. The vectors also cover parent-bus name promotion,
+  stronger global-wire precedence, design-wide last-writer alias visibility,
+  and simultaneous exact/one-under limits for every promoted bus resource
+  family. The Python oracle and Rust use the same occurrence-wide alias policy,
+  and Rack L3_020 compares the complete scalar design across all four projects
+  plus both synthetic boundary vectors; the former oracle suppression is
+  removed.</p>
 
   <h2>Deferred work</h2>
   <p>Compiled graph row production, project-file subpart setting ingestion,

@@ -66,6 +66,7 @@ struct DesignBuilder<'a> {
     code_offset: u64,
     limits: SchematicDesignNetLimits,
     sheet_pin_targets: SheetPinTargetIndex,
+    design_bus_aliases: HashMap<&'a str, &'a [String]>,
     compiled: Vec<CompiledOccurrence>,
     flat: Vec<(usize, usize)>,
     offsets: Vec<usize>,
@@ -110,6 +111,7 @@ impl<'a> DesignBuilder<'a> {
             code_offset,
             limits,
             sheet_pin_targets,
+            design_bus_aliases,
             compiled,
             union: UnionFind::new(flat.len()),
             flat,
@@ -123,12 +125,11 @@ impl<'a> DesignBuilder<'a> {
         let hierarchy_bindings = self.bind_hierarchy()?;
         self.merge_global_labels()?;
         self.merge_global_power()?;
-        let aliases = collect_design_bus_aliases(self.index, self.limits)?;
         let promotion = promote_bus_members(
             &self.compiled,
             self.index,
             &self.offsets,
-            &aliases,
+            &self.design_bus_aliases,
             self.limits,
         )?;
         for &(left, right) in &promotion.wire_unions {
