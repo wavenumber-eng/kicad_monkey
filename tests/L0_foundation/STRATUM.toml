@@ -333,3 +333,22 @@ secondary = [
     "Transforms operate in place under the accepted contour point ceiling",
     "Nonfinite transforms fail closed and deterministic records pass through Rack",
 ]
+
+[[subtests]]
+id = "L0_058"
+file = "test_L0_058_native_text_topology.py"
+name = "Native KiCad Text Contour Topology"
+description = "Require bounded duplicate-closure normalization, contour containment, and hole-fracture parity"
+concerns = ["rust", "rendering.text", "geometry", "parity", "resource-limits"]
+test_cases = "tests/parity/text_topology_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native cache contour topology matches the Python port of KiCad-compatible hole fracture ordering"
+secondary = [
+    "Duplicate closure, degenerate contours, one hole, multiple sorted holes, disjoint exteriors, and a real shaped O outline are fixed evidence",
+    "Containment and bridge scans expose independent ceilings instead of hiding pairwise work",
+    "Input, edge-slot, output, and link-traversal ceilings are inclusive and fail closed",
+    "Nonfinite coordinates fail before topology publication",
+    "The Python oracle generator is deterministic and the focused Rust suite passes through Rack",
+]

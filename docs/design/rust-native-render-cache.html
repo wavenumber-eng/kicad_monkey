@@ -91,10 +91,20 @@
   local shaped-run metrics after the contour points are positioned, mirrored,
   and rotated.</p>
 
+  <h2>Cache contour topology</h2>
+  <p><code>fracture_text_contours_a0</code> trims one repeated closing point,
+  ignores contours with fewer than three retained points, assigns later
+  contours to the first containing exterior, and bridges holes using the
+  deterministic leftmost-edge ordering of the Python KiCad reference. The
+  pairwise containment and prior-edge bridge scans have independent work
+  ceilings; input points, edge slots, link traversal, polygons, and published
+  points are also bounded. The operation returns no partial topology on any
+  invalid input or resource-limit failure.</p>
+
   <h2>Still open</h2>
   <p>The current render-cache strata do not yet claim multiline/markup
-  behavior, fake bold/italic, cache hole fracture, cache
-  serialization, or final KiCad save-oracle parity. Those remain active parts of
+  behavior, fake bold/italic, cache serialization, or final KiCad save-oracle
+  parity. Those remain active parts of
   <code>render-cache-parity</code>, not deferred packaging work. Font discovery
   stays native-only and outside the platform-neutral byte-input core; WASM
   packaging remains in its later selected-operation phase.</p>

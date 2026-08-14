@@ -40,6 +40,7 @@ pub mod text_contours;
 pub mod text_layout;
 pub mod text_metadata;
 pub mod text_shaping;
+pub mod text_topology;
 pub mod worksheet;
 mod worksheet_preflight;
 
@@ -148,6 +149,7 @@ pub use text_shaping::{
     TEXT_SHAPING_ENGINE, TextShapingError, TextShapingErrorKind, TextShapingLimits,
     TextShapingOutput, shape_text_a0,
 };
+pub use text_topology::{TextTopologyLimits, TextTopologyOutput, fracture_text_contours_a0};
 pub use worksheet::{
     WorksheetBitmap, WorksheetColor, WorksheetCorner, WorksheetDocument, WorksheetFont,
     WorksheetFormat, WorksheetItem, WorksheetLimits, WorksheetLine, WorksheetMetadata,
