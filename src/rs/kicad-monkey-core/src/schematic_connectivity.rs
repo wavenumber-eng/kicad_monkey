@@ -1,5 +1,6 @@
 use crate::schematic_bus_connectivity::{
     SchematicConnectivityGeometry, build_schematic_bus_subgraphs_with_geometry,
+    collect_schematic_bus_aliases,
 };
 use crate::schematic_segment_index::{SchematicSegment, SchematicSegmentIndex};
 use crate::{
@@ -93,6 +94,30 @@ pub(crate) fn build_schematic_occurrence_subgraphs_with_options(
     include_off_board_symbols: bool,
     limits: SchematicOccurrenceConnectivityLimits,
 ) -> Result<Vec<SchematicWireSubgraph>, SourceBundleError> {
+    let builder = OccurrenceBuilder::new(
+        index,
+        occurrence_index,
+        subparts,
+        include_off_board_symbols,
+        limits,
+    )?;
+    let aliases = collect_schematic_bus_aliases(builder.definition, limits.bus)?;
+    Ok(builder.build_with_aliases(&aliases)?.wire_subgraphs)
+}
+
+pub(crate) struct SchematicOccurrenceDesignSubgraphs {
+    pub(crate) wire_subgraphs: Vec<SchematicWireSubgraph>,
+    pub(crate) bus_subgraphs: Vec<crate::SchematicBusSubgraph>,
+}
+
+pub(crate) fn build_schematic_occurrence_design_subgraphs<'a>(
+    index: &'a SchematicBundleIndex,
+    occurrence_index: usize,
+    subparts: SchematicSubpartSettings,
+    include_off_board_symbols: bool,
+    limits: SchematicOccurrenceConnectivityLimits,
+    aliases: &HashMap<&'a str, &'a [String]>,
+) -> Result<SchematicOccurrenceDesignSubgraphs, SourceBundleError> {
     OccurrenceBuilder::new(
         index,
         occurrence_index,
@@ -100,7 +125,7 @@ pub(crate) fn build_schematic_occurrence_subgraphs_with_options(
         include_off_board_symbols,
         limits,
     )?
-    .build()
+    .build_with_aliases(aliases)
 }
 
 struct OccurrenceBuilder<'a> {
@@ -167,11 +192,15 @@ impl<'a> OccurrenceBuilder<'a> {
         })
     }
 
-    fn build(mut self) -> Result<Vec<SchematicWireSubgraph>, SourceBundleError> {
+    fn build_with_aliases(
+        mut self,
+        aliases: &HashMap<&'a str, &'a [String]>,
+    ) -> Result<SchematicOccurrenceDesignSubgraphs, SourceBundleError> {
         let mut geometry = SchematicConnectivityGeometry::build(self.definition, self.limits.bus)?;
         let bus_subgraphs = build_schematic_bus_subgraphs_with_geometry(
             self.definition,
             self.limits.bus,
+            aliases,
             &mut geometry,
         )?;
         let entry_index = self.build_entry_index()?;
@@ -184,7 +213,11 @@ impl<'a> OccurrenceBuilder<'a> {
         self.merge_jumper_pins(&mut union, &pins)?;
         self.merge_same_sheet_names(&mut union, &labels, &pins);
         self.merge_bus_member_taps(&mut union, &labels, &bus_subgraphs)?;
-        self.realize_subgraphs(&mut union, &mut pins, &mut labels)
+        let wire_subgraphs = self.realize_subgraphs(&mut union, &mut pins, &mut labels)?;
+        Ok(SchematicOccurrenceDesignSubgraphs {
+            wire_subgraphs,
+            bus_subgraphs,
+        })
     }
 
     fn build_entry_index(&self) -> Result<SchematicSegmentIndex, SourceBundleError> {
@@ -323,7 +356,7 @@ impl<'a> OccurrenceBuilder<'a> {
         &mut self,
         union: &mut WirePointUnion,
         labels: &[SchematicLabelDriver],
-        geometry: &SchematicConnectivityGeometry<'_>,
+        geometry: &SchematicConnectivityGeometry,
         entry_index: &SchematicSegmentIndex,
     ) -> Result<(), SourceBundleError> {
         for label in labels {

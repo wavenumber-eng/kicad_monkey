@@ -76,7 +76,18 @@
   design; local-power values remain occurrence-local. The output preserves
   every resolved and unresolved hierarchy boundary, stable member references,
   human-path naming, canonical UUID-path terminals, source/render pin identity,
-  deduplicated component terminals, and sequential emitted-net codes.</p>
+  deduplicated component terminals, and sequential emitted-net codes. It also
+  promotes bus members across hierarchy boundaries: canonical same-sheet member
+  names merge, exact names pair first across parent sheet pins and child
+  hierarchical labels, unmatched members pair positionally, and the winning bus
+  driver supplies a bounded synthetic naming candidate. Global wire labels and
+  global power remain stronger than that promotion.</p>
+
+  <p>Bus aliases are collected once in realized occurrence order for design
+  compilation, with later definitions replacing earlier definitions exactly as in
+  the Python compiler. The same borrowed alias map drives both occurrence wire/bus
+  compilation and cross-sheet bus-form recognition; alias names or member strings
+  are not cloned into each occurrence.</p>
 
   <p>Off-board sheet-pin naming uses one design-wide target index keyed by exact
   parent occurrence plus source UUID, with name and coordinate used only when the
@@ -238,6 +249,14 @@
   before fan-in clone allocation. These ceilings default to broad format-safety
   values and remain caller-configurable.</p>
 
+  <p>Cross-sheet bus work independently bounds the design alias index, aggregate
+  bus subgraphs/members/coordinates, canonical mapping work bytes, member-union
+  work, promoted overrides, override references, and retained override strings.
+  Each bus's eligible winning driver is selected once, so member promotion is
+  linear in bus members plus drivers rather than rescanning all drivers for every
+  member. Override count, strings, references, and required unions are preflighted
+  before allocating the wire-reference vector or cloning the override.</p>
+
   <p>The defaults are deliberately large format-safety ceilings, not product-size
   assumptions: four million aggregate objects and per family, one million points in
   one carrier, and eight million carrier points per schematic source. They are
@@ -309,11 +328,17 @@
   keys, union work, driver fan-in, and diagnostic order. A 32-child repeated-source
   hierarchy proves UUID and UUID-less name/coordinate target lookup at exact and
   one-under index ceilings. A 24-terminal, long-reference fan-in vector proves the
-  exact temporary merged-driver byte boundary before cloning.</p>
+  exact temporary merged-driver byte boundary before cloning. A two-sheet bus
+  vector covers name-first and positional member pairing, parent-bus name
+  promotion, stronger global-wire precedence, design-wide last-writer alias
+  visibility, and simultaneous exact/one-under limits for every promoted bus
+  resource family. Rack L3_020 now compares the complete scalar design result with
+  Python across all four projects with bus promotion enabled; the former oracle
+  suppression is removed.</p>
 
   <h2>Deferred work</h2>
-  <p>Cross-sheet bus-member promotion, compiled graph row production,
-  project-file subpart setting ingestion, schematic mutation, and semantic
+  <p>Compiled graph row production, project-file subpart setting ingestion,
+  schematic mutation, and semantic
   round-trip remain in Phase 4. Browser/WASM packaging remains deferred by the
   native-first plan.</p>
 </body>

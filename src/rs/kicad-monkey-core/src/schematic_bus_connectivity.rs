@@ -102,20 +102,20 @@ pub fn build_schematic_bus_subgraphs(
     definition: &SchematicDefinition,
     limits: SchematicBusConnectivityLimits,
 ) -> Result<Vec<SchematicBusSubgraph>, SourceBundleError> {
+    let aliases = collect_schematic_bus_aliases(definition, limits)?;
     let mut geometry = SchematicConnectivityGeometry::build(definition, limits)?;
-    build_schematic_bus_subgraphs_with_geometry(definition, limits, &mut geometry)
+    build_schematic_bus_subgraphs_with_geometry(definition, limits, &aliases, &mut geometry)
 }
 
-pub(crate) struct SchematicConnectivityGeometry<'a> {
-    aliases: HashMap<&'a str, &'a [String]>,
+pub(crate) struct SchematicConnectivityGeometry {
     bus_union: PointUnion,
     bus_index: SchematicSegmentIndex,
     wire_index: SchematicSegmentIndex,
 }
 
-impl<'a> SchematicConnectivityGeometry<'a> {
+impl SchematicConnectivityGeometry {
     pub(crate) fn build(
-        definition: &'a SchematicDefinition,
+        definition: &SchematicDefinition,
         limits: SchematicBusConnectivityLimits,
     ) -> Result<Self, SourceBundleError> {
         let (bus_segments, bus_union) = collect_bus_segments(definition, limits)?;
@@ -130,18 +130,7 @@ impl<'a> SchematicConnectivityGeometry<'a> {
             .saturating_sub(bus_index.node_count());
         let wire_index =
             SchematicSegmentIndex::build(wire_segments, remaining_nodes, &definition.source_path)?;
-        if definition.bus_aliases.len() > limits.max_aliases {
-            return Err(limit_error(
-                definition,
-                "schematic bus alias index count exceeds its limit",
-            ));
-        }
-        let mut aliases = HashMap::with_capacity(definition.bus_aliases.len());
-        for alias in &definition.bus_aliases {
-            aliases.insert(alias.name.as_str(), alias.members.as_slice());
-        }
         Ok(Self {
-            aliases,
             bus_union,
             bus_index,
             wire_index,
@@ -160,9 +149,27 @@ impl<'a> SchematicConnectivityGeometry<'a> {
 pub(crate) fn build_schematic_bus_subgraphs_with_geometry<'a>(
     definition: &'a SchematicDefinition,
     limits: SchematicBusConnectivityLimits,
-    geometry: &mut SchematicConnectivityGeometry<'a>,
+    aliases: &HashMap<&'a str, &'a [String]>,
+    geometry: &mut SchematicConnectivityGeometry,
 ) -> Result<Vec<SchematicBusSubgraph>, SourceBundleError> {
-    BusBuilder::new(definition, limits, geometry)?.build()
+    BusBuilder::new(definition, limits, aliases, geometry)?.build()
+}
+
+pub(crate) fn collect_schematic_bus_aliases(
+    definition: &SchematicDefinition,
+    limits: SchematicBusConnectivityLimits,
+) -> Result<HashMap<&str, &[String]>, SourceBundleError> {
+    if definition.bus_aliases.len() > limits.max_aliases {
+        return Err(limit_error(
+            definition,
+            "schematic bus alias index count exceeds its limit",
+        ));
+    }
+    let mut aliases = HashMap::with_capacity(definition.bus_aliases.len());
+    for alias in &definition.bus_aliases {
+        aliases.insert(alias.name.as_str(), alias.members.as_slice());
+    }
+    Ok(aliases)
 }
 
 struct BusBuilder<'a, 'g> {
@@ -183,12 +190,13 @@ impl<'a, 'g> BusBuilder<'a, 'g> {
     fn new(
         definition: &'a SchematicDefinition,
         limits: SchematicBusConnectivityLimits,
-        geometry: &'g mut SchematicConnectivityGeometry<'a>,
+        aliases: &'g HashMap<&'a str, &'a [String]>,
+        geometry: &'g mut SchematicConnectivityGeometry,
     ) -> Result<Self, SourceBundleError> {
         Ok(Self {
             definition,
             limits,
-            aliases: &geometry.aliases,
+            aliases,
             bus_union: &mut geometry.bus_union,
             bus_index: &geometry.bus_index,
             wire_index: &geometry.wire_index,

@@ -1,15 +1,20 @@
-use crate::schematic_connectivity::build_schematic_occurrence_subgraphs_with_options;
 use crate::schematic_netlist::name_schematic_subgraph;
 use crate::{
     SchematicBundleIndex, SchematicDriverPriority, SchematicPinDriver, SchematicSubpartSettings,
     SchematicWireDriverKind, SchematicWireSubgraph, SourceBundleError, SourceBundleErrorKind,
 };
 use std::collections::{HashMap, HashSet};
+mod bus_promotion;
+mod driver_choice;
 mod driver_storage;
+mod occurrence_compile;
 mod sheet_pin_targets;
 mod types;
 mod union_find;
+use bus_promotion::{BusPromotion, collect_design_bus_aliases, promote_bus_members};
+use driver_choice::{DriverChoice, checked_join, consider_choice, sheet_depth};
 use driver_storage::merged_driver_shape;
+use occurrence_compile::{DesignCompilationBudget, compile_design_occurrence};
 use sheet_pin_targets::SheetPinTargetIndex;
 pub use types::{
     SchematicDesignNet, SchematicDesignNetLimits, SchematicDesignNetMember,
@@ -46,6 +51,9 @@ struct CompiledOccurrence {
     legacy_address: String,
     subgraphs: Vec<SchematicWireSubgraph>,
     coord_to_subgraph: HashMap<crate::SchematicPoint, usize>,
+    bus_subgraphs: Vec<crate::SchematicBusSubgraph>,
+    bus_coord_to_subgraph: HashMap<crate::SchematicPoint, usize>,
+    bus_member_wire_subgraphs: Vec<Vec<Option<usize>>>,
 }
 
 struct OutputShape {
@@ -74,67 +82,20 @@ impl<'a> DesignBuilder<'a> {
         limits: SchematicDesignNetLimits,
     ) -> Result<Self, SourceBundleError> {
         let sheet_pin_targets = SheetPinTargetIndex::build(index, limits)?;
+        let design_bus_aliases = collect_design_bus_aliases(index, limits)?;
         let mut compiled = Vec::with_capacity(index.occurrences().len());
-        let mut subgraph_count = 0_usize;
-        let mut indexed_coords = 0_usize;
+        let mut budget = DesignCompilationBudget::new();
         for occurrence in index.occurrences() {
-            let subgraphs = build_schematic_occurrence_subgraphs_with_options(
+            compiled.push(compile_design_occurrence(
                 index,
-                occurrence.index,
+                occurrence,
                 subparts,
-                true,
-                limits.connectivity,
-            )?;
-            subgraph_count = subgraph_count.checked_add(subgraphs.len()).ok_or_else(|| {
-                limit_error(
-                    Some(&occurrence.source_path),
-                    "design subgraph count overflows",
-                )
-            })?;
-            if subgraph_count > limits.max_subgraphs {
-                return Err(limit_error(
-                    Some(&occurrence.source_path),
-                    "design subgraph count exceeds its limit",
-                ));
-            }
-            let occurrence_coords = subgraphs.iter().try_fold(0_usize, |count, subgraph| {
-                count.checked_add(subgraph.coords.len()).ok_or_else(|| {
-                    limit_error(
-                        Some(&occurrence.source_path),
-                        "indexed coordinate count overflows",
-                    )
-                })
-            })?;
-            indexed_coords = indexed_coords
-                .checked_add(occurrence_coords)
-                .ok_or_else(|| {
-                    limit_error(
-                        Some(&occurrence.source_path),
-                        "indexed coordinate count overflows",
-                    )
-                })?;
-            if indexed_coords > limits.max_indexed_coords {
-                return Err(limit_error(
-                    Some(&occurrence.source_path),
-                    "indexed coordinate count exceeds its limit",
-                ));
-            }
-            let mut coord_to_subgraph = HashMap::with_capacity(occurrence_coords);
-            for (subgraph_index, subgraph) in subgraphs.iter().enumerate() {
-                for point in &subgraph.coords {
-                    coord_to_subgraph.entry(*point).or_insert(subgraph_index);
-                }
-            }
-            compiled.push(CompiledOccurrence {
-                occurrence_index: occurrence.index,
-                source_path: occurrence.source_path.clone(),
-                human_address: occurrence.human_address.clone(),
-                legacy_address: occurrence.legacy_address.clone(),
-                subgraphs,
-                coord_to_subgraph,
-            });
+                limits,
+                &design_bus_aliases,
+                &mut budget,
+            )?);
         }
-        let mut flat = Vec::with_capacity(subgraph_count);
+        let mut flat = Vec::with_capacity(budget.subgraph_count());
         let mut offsets = Vec::with_capacity(compiled.len() + 1);
         for (occurrence_array_index, occurrence) in compiled.iter().enumerate() {
             offsets.push(flat.len());
@@ -162,10 +123,21 @@ impl<'a> DesignBuilder<'a> {
         let hierarchy_bindings = self.bind_hierarchy()?;
         self.merge_global_labels()?;
         self.merge_global_power()?;
+        let aliases = collect_design_bus_aliases(self.index, self.limits)?;
+        let promotion = promote_bus_members(
+            &self.compiled,
+            self.index,
+            &self.offsets,
+            &aliases,
+            self.limits,
+        )?;
+        for &(left, right) in &promotion.wire_unions {
+            self.bounded_union(left, right)?;
+        }
         let groups = self.ordered_groups();
         self.preflight_output_shape(&groups)?;
         let suffix_indices = self.sheet_pin_suffix_indices()?;
-        let nets = self.materialize(groups, &suffix_indices)?;
+        let nets = self.materialize(groups, &suffix_indices, &promotion)?;
         Ok(SchematicScalarDesignNetlist {
             nets,
             hierarchy_bindings,
@@ -467,14 +439,17 @@ impl<'a> DesignBuilder<'a> {
         &mut self,
         groups: Vec<Vec<usize>>,
         suffix_indices: &HashMap<(usize, usize), usize>,
+        promotion: &BusPromotion,
     ) -> Result<Vec<SchematicDesignNet>, SourceBundleError> {
         let mut nets = Vec::new();
+        let mut seen_synthetic_sheet_pin_names = HashMap::<String, usize>::new();
+        let mut synthetic_sheet_pin_name_bytes = 0_usize;
         for group in groups {
             let terminal_refs = self.terminal_refs(&group);
             if terminal_refs.is_empty() {
                 continue;
             }
-            let (mut merged, choice) = self.merged_subgraph(&group)?;
+            let (mut merged, choice) = self.merged_subgraph(&group, promotion)?;
             let Some(choice) = choice else {
                 continue;
             };
@@ -488,20 +463,14 @@ impl<'a> DesignBuilder<'a> {
                 &merged,
                 self.limits.max_name_bytes,
             )?;
-            if let Some(key) = choice.sheet_pin_key
-                && let Some(suffix) = suffix_indices
-                    .get(&key)
-                    .copied()
-                    .filter(|value| *value != 0)
-            {
-                let suffix = format!("_{suffix}");
-                let final_bytes = name
-                    .len()
-                    .checked_add(suffix.len())
-                    .ok_or_else(|| self.limit_error("design net name bytes overflow"))?;
-                self.ensure_name_bytes(final_bytes)?;
-                name.push_str(&suffix);
-            }
+            self.apply_sheet_pin_suffix(
+                &mut name,
+                choice.kind,
+                choice.sheet_pin_key,
+                suffix_indices,
+                &mut seen_synthetic_sheet_pin_names,
+                &mut synthetic_sheet_pin_name_bytes,
+            )?;
             self.retain_output_bytes(name.len())?;
             let terminals = self.materialize_terminals(terminal_refs)?;
             let members = group
@@ -531,6 +500,52 @@ impl<'a> DesignBuilder<'a> {
             });
         }
         Ok(nets)
+    }
+
+    fn apply_sheet_pin_suffix(
+        &self,
+        name: &mut String,
+        kind: SchematicWireDriverKind,
+        sheet_pin_key: Option<(usize, usize)>,
+        suffix_indices: &HashMap<(usize, usize), usize>,
+        seen_synthetic_names: &mut HashMap<String, usize>,
+        synthetic_name_bytes: &mut usize,
+    ) -> Result<(), SourceBundleError> {
+        if kind != SchematicWireDriverKind::SheetPin {
+            return Ok(());
+        }
+        let suffix = if let Some(key) = sheet_pin_key {
+            suffix_indices
+                .get(&key)
+                .copied()
+                .filter(|value| *value != 0)
+        } else {
+            if !seen_synthetic_names.contains_key(name.as_str()) {
+                *synthetic_name_bytes = synthetic_name_bytes
+                    .checked_add(name.len())
+                    .ok_or_else(|| self.limit_error("design work string bytes overflow"))?;
+                if *synthetic_name_bytes > self.limits.max_work_string_bytes {
+                    return Err(self.limit_error("design work string bytes exceed their limit"));
+                }
+            }
+            let next = seen_synthetic_names.entry(name.clone()).or_default();
+            let suffix = (*next != 0).then_some(*next);
+            *next = next
+                .checked_add(1)
+                .ok_or_else(|| self.limit_error("sheet-pin suffix count overflows"))?;
+            suffix
+        };
+        let Some(suffix) = suffix else {
+            return Ok(());
+        };
+        let suffix = format!("_{suffix}");
+        let final_bytes = name
+            .len()
+            .checked_add(suffix.len())
+            .ok_or_else(|| self.limit_error("design net name bytes overflow"))?;
+        self.ensure_name_bytes(final_bytes)?;
+        name.push_str(&suffix);
+        Ok(())
     }
 
     fn terminal_refs(&self, group: &[usize]) -> Vec<PinLocator> {
@@ -618,8 +633,9 @@ impl<'a> DesignBuilder<'a> {
     fn merged_subgraph(
         &self,
         group: &[usize],
+        promotion: &BusPromotion,
     ) -> Result<(SchematicWireSubgraph, Option<DriverChoice>), SourceBundleError> {
-        let choice = self.choose_driver(group)?;
+        let choice = self.choose_driver(group, promotion)?;
         let choice_strings = choice.as_ref().map(|choice| {
             [
                 choice.full_name.as_str(),
@@ -668,7 +684,11 @@ impl<'a> DesignBuilder<'a> {
         Ok((merged, choice))
     }
 
-    fn choose_driver(&self, group: &[usize]) -> Result<Option<DriverChoice>, SourceBundleError> {
+    fn choose_driver(
+        &self,
+        group: &[usize],
+        promotion: &BusPromotion,
+    ) -> Result<Option<DriverChoice>, SourceBundleError> {
         let mut best = None;
         let mut order = 0_usize;
         for &flat_index in group {
@@ -682,6 +702,29 @@ impl<'a> DesignBuilder<'a> {
             for pin in &subgraph.pin_drivers {
                 consider_choice(&mut best, self.pin_choice(occurrence, pin, order)?);
                 order += 1;
+            }
+        }
+        let mut override_order = 0_usize;
+        for &flat_index in group {
+            for value in promotion.overrides_for(flat_index) {
+                consider_choice(
+                    &mut best,
+                    DriverChoice {
+                        priority: value.priority.max(SchematicDriverPriority::LocalPowerPin),
+                        depth: value.depth,
+                        shape_rank: 1,
+                        implicit: false,
+                        full_name: value.text.clone(),
+                        sheet_path: value.sheet_path.clone(),
+                        order: override_order,
+                        kind: value.kind,
+                        raw_name: value.text.clone(),
+                        sheet_pin_key: None,
+                    },
+                );
+                override_order = override_order
+                    .checked_add(1)
+                    .ok_or_else(|| self.limit_error("design bus override order overflows"))?;
             }
         }
         Ok(best)
@@ -894,65 +937,6 @@ impl PinLocator {
         &builder.compiled[self.occurrence].subgraphs[self.subgraph_index].pin_drivers
             [self.pin_index]
     }
-}
-
-struct DriverChoice {
-    priority: SchematicDriverPriority,
-    depth: usize,
-    shape_rank: usize,
-    implicit: bool,
-    full_name: String,
-    sheet_path: String,
-    order: usize,
-    kind: SchematicWireDriverKind,
-    raw_name: String,
-    sheet_pin_key: Option<(usize, usize)>,
-}
-
-impl DriverChoice {
-    fn precedes(&self, other: &Self) -> bool {
-        (
-            std::cmp::Reverse(self.priority),
-            self.depth,
-            self.shape_rank,
-            self.implicit,
-            &self.full_name,
-            &self.sheet_path,
-            self.order,
-        ) < (
-            std::cmp::Reverse(other.priority),
-            other.depth,
-            other.shape_rank,
-            other.implicit,
-            &other.full_name,
-            &other.sheet_path,
-            other.order,
-        )
-    }
-}
-
-fn consider_choice(best: &mut Option<DriverChoice>, candidate: DriverChoice) {
-    if best
-        .as_ref()
-        .is_none_or(|current| candidate.precedes(current))
-    {
-        *best = Some(candidate);
-    }
-}
-
-fn sheet_depth(path: &str) -> usize {
-    path.bytes().filter(|value| *value == b'/').count()
-}
-
-fn checked_join(left: &str, right: &str, maximum: usize) -> Option<String> {
-    let bytes = left.len().checked_add(right.len())?;
-    if bytes > maximum {
-        return None;
-    }
-    let mut value = String::with_capacity(bytes);
-    value.push_str(left);
-    value.push_str(right);
-    Some(value)
 }
 
 fn limit_error(path: Option<&str>, message: &str) -> SourceBundleError {

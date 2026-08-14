@@ -626,10 +626,6 @@ def _scalar_design_summary(top: KiCadSchematic) -> dict[str, object]:
                     and child_subgraph is not None,
                 }
             )
-    for compiled_sheet in compiled:
-        compiled_sheet.bus_subgraphs = []
-        compiled_sheet.bus_member_wire_sg = []
-        compiled_sheet.bus_aliases_design = {}
     nets = merge_design_nets(compiled)
     members_by_code: dict[int, list[list[int]]] = {}
     for occurrence_index, compiled_sheet in enumerate(compiled, start=1):

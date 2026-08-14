@@ -4,7 +4,8 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
 use kicad_monkey_core::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicDesignNetLimits, SchematicLabelDriver,
     SchematicPinDriver, SourceBundle, SourceBundleErrorKind, SourceBundleLimits,
-    build_schematic_occurrence_subgraphs, build_schematic_scalar_design_nets,
+    build_schematic_bus_subgraphs, build_schematic_occurrence_subgraphs,
+    build_schematic_scalar_design_nets, canonical_bus_member_name,
 };
 
 #[test]
@@ -14,6 +15,272 @@ fn scalar_design_merge_binds_hierarchy_globals_and_global_power_only() {
         .expect("scalar design nets");
     assert_hierarchy_bindings(&design);
     assert_scalar_nets(&design);
+}
+
+#[test]
+fn cross_sheet_bus_members_promote_winning_names_and_preserve_stronger_drivers() {
+    let index = bus_hierarchy_index();
+    let design = build_schematic_scalar_design_nets(&index, 1, Default::default())
+        .expect("cross-sheet bus-member design");
+    let top0 = design
+        .nets
+        .iter()
+        .find(|net| net.name == "/TOP0")
+        .expect("promoted parent bus member");
+    assert_eq!(terminal_refs(top0), ["C0.1", "R0.1"]);
+    assert_eq!(
+        top0.driver_priority,
+        kicad_monkey_core::SchematicDriverPriority::LocalPowerPin
+    );
+    assert_eq!(
+        top0.driver_kind,
+        Some(kicad_monkey_core::SchematicWireDriverKind::LocalLabel)
+    );
+
+    let global = design
+        .nets
+        .iter()
+        .find(|net| net.name == "GLOBAL_WIN")
+        .expect("strong global wire driver");
+    assert_eq!(terminal_refs(global), ["C1.1", "R1.1"]);
+    assert_eq!(
+        global.driver_priority,
+        kicad_monkey_core::SchematicDriverPriority::Global
+    );
+}
+
+#[test]
+fn cross_sheet_bus_promotion_limits_accept_exact_and_reject_one_under() {
+    let index = bus_hierarchy_index();
+    let (bus_subgraphs, bus_members, bus_coords, mapping_work) = bus_design_shape(&index);
+    assert_eq!((bus_subgraphs, bus_members, bus_coords), (2, 4, 5));
+    let exact = SchematicDesignNetLimits {
+        max_design_bus_aliases: 1,
+        max_bus_subgraphs: bus_subgraphs,
+        max_bus_members: bus_members,
+        max_bus_indexed_coords: bus_coords,
+        max_bus_mapping_work_bytes: mapping_work,
+        max_bus_member_union_work: 4,
+        max_bus_overrides: 2,
+        max_bus_override_refs: 4,
+        max_bus_override_string_bytes: 10,
+        ..SchematicDesignNetLimits::default()
+    };
+    build_schematic_scalar_design_nets(&index, 1, exact)
+        .expect("simultaneous exact bus-promotion limits");
+    for (limits, message) in [
+        (
+            SchematicDesignNetLimits {
+                max_design_bus_aliases: 0,
+                ..exact
+            },
+            "alias count",
+        ),
+        (
+            SchematicDesignNetLimits {
+                max_bus_subgraphs: bus_subgraphs - 1,
+                ..exact
+            },
+            "subgraph count",
+        ),
+        (
+            SchematicDesignNetLimits {
+                max_bus_members: bus_members - 1,
+                ..exact
+            },
+            "member count",
+        ),
+        (
+            SchematicDesignNetLimits {
+                max_bus_indexed_coords: bus_coords - 1,
+                ..exact
+            },
+            "indexed coordinate count",
+        ),
+        (
+            SchematicDesignNetLimits {
+                max_bus_mapping_work_bytes: mapping_work - 1,
+                ..exact
+            },
+            "mapping work bytes",
+        ),
+        (
+            SchematicDesignNetLimits {
+                max_bus_member_union_work: 3,
+                ..exact
+            },
+            "union work",
+        ),
+        (
+            SchematicDesignNetLimits {
+                max_bus_overrides: 1,
+                ..exact
+            },
+            "override count",
+        ),
+        (
+            SchematicDesignNetLimits {
+                max_bus_override_refs: 3,
+                ..exact
+            },
+            "override refs",
+        ),
+        (
+            SchematicDesignNetLimits {
+                max_bus_override_string_bytes: 9,
+                ..exact
+            },
+            "override string bytes",
+        ),
+    ] {
+        let error = match build_schematic_scalar_design_nets(&index, 1, limits) {
+            Ok(_) => panic!("one-under bus-promotion limit did not fail: {message}"),
+            Err(error) => error,
+        };
+        assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+        assert!(error.message.contains(message), "{}", error.message);
+    }
+}
+
+fn bus_design_shape(index: &SchematicBundleIndex) -> (usize, usize, usize, usize) {
+    index
+        .occurrences()
+        .map(|occurrence| {
+            occurrence_bus_design_shape(index, occurrence.index, &occurrence.source_path)
+        })
+        .fold((0, 0, 0, 0), |total, value| {
+            (
+                total.0 + value.0,
+                total.1 + value.1,
+                total.2 + value.2,
+                total.3.max(value.3),
+            )
+        })
+}
+
+fn occurrence_bus_design_shape(
+    index: &SchematicBundleIndex,
+    occurrence_index: usize,
+    source_path: &str,
+) -> (usize, usize, usize, usize) {
+    let definition = index
+        .definition(source_path)
+        .expect("occurrence definition");
+    let buses =
+        build_schematic_bus_subgraphs(definition, Default::default()).expect("bus subgraphs");
+    let wires = build_schematic_occurrence_subgraphs(index, occurrence_index, Default::default())
+        .expect("wire subgraphs");
+    (
+        buses.len(),
+        buses.iter().map(|bus| bus.members.len()).sum(),
+        buses.iter().map(|bus| bus.coords.len()).sum(),
+        mapping_work_peak(&wires, &buses),
+    )
+}
+
+fn mapping_work_peak(
+    wires: &[kicad_monkey_core::SchematicWireSubgraph],
+    buses: &[kicad_monkey_core::SchematicBusSubgraph],
+) -> usize {
+    let label_keys = wires
+        .iter()
+        .flat_map(|wire| &wire.label_drivers)
+        .filter(|label| {
+            matches!(
+                label.kind,
+                kicad_monkey_core::SchematicWireDriverKind::LocalLabel
+                    | kicad_monkey_core::SchematicWireDriverKind::HierarchicalLabel
+            ) && !label.text.is_empty()
+        })
+        .map(|label| canonical_bus_member_name(&label.text))
+        .collect::<std::collections::HashSet<_>>();
+    let coord_to_wire = wires
+        .iter()
+        .enumerate()
+        .flat_map(|(wire_index, wire)| {
+            wire.coords
+                .iter()
+                .copied()
+                .map(move |point| (point, wire_index))
+        })
+        .collect::<std::collections::HashMap<_, _>>();
+    let label_bytes = label_keys.iter().map(String::len).sum::<usize>();
+    buses
+        .iter()
+        .map(|bus| one_bus_mapping_work(bus, wires, &coord_to_wire, label_bytes))
+        .max()
+        .unwrap_or(0)
+}
+
+fn one_bus_mapping_work(
+    bus: &kicad_monkey_core::SchematicBusSubgraph,
+    wires: &[kicad_monkey_core::SchematicWireSubgraph],
+    coord_to_wire: &std::collections::HashMap<kicad_monkey_core::SchematicPoint, usize>,
+    label_bytes: usize,
+) -> usize {
+    let members = bus
+        .members
+        .iter()
+        .map(|member| canonical_bus_member_name(member))
+        .collect::<Vec<_>>();
+    let unique_member_bytes = members
+        .iter()
+        .collect::<std::collections::HashSet<_>>()
+        .iter()
+        .map(|member| member.len())
+        .sum::<usize>();
+    let positions = members
+        .iter()
+        .enumerate()
+        .map(|(position, member)| (member.as_str(), position))
+        .collect::<std::collections::HashMap<_, _>>();
+    let (mapped, tap_transient) = mapped_bus_taps(bus, wires, coord_to_wire, &positions);
+    let name_transient = members
+        .iter()
+        .enumerate()
+        .filter_map(|(position, member)| (!mapped[position]).then_some(member.len()))
+        .max()
+        .unwrap_or(0);
+    label_bytes + unique_member_bytes + tap_transient.max(name_transient)
+}
+
+fn mapped_bus_taps(
+    bus: &kicad_monkey_core::SchematicBusSubgraph,
+    wires: &[kicad_monkey_core::SchematicWireSubgraph],
+    coord_to_wire: &std::collections::HashMap<kicad_monkey_core::SchematicPoint, usize>,
+    positions: &std::collections::HashMap<&str, usize>,
+) -> (Vec<bool>, usize) {
+    let mut mapped = vec![false; bus.members.len()];
+    let mut transient = 0;
+    for tap in &bus.tap_wire_coords {
+        let Some(wire_index) = coord_to_wire.get(tap).copied() else {
+            continue;
+        };
+        let (position, bytes) = first_tap_member(&wires[wire_index], positions);
+        transient = transient.max(bytes);
+        if let Some(position) = position {
+            mapped[position] = true;
+        }
+    }
+    (mapped, transient)
+}
+
+fn first_tap_member(
+    wire: &kicad_monkey_core::SchematicWireSubgraph,
+    positions: &std::collections::HashMap<&str, usize>,
+) -> (Option<usize>, usize) {
+    let mut transient = 0;
+    for label in &wire.label_drivers {
+        if label.kind != kicad_monkey_core::SchematicWireDriverKind::LocalLabel {
+            continue;
+        }
+        let canonical = canonical_bus_member_name(&label.text);
+        transient = transient.max(canonical.len());
+        if let Some(position) = positions.get(canonical.as_str()) {
+            return (Some(*position), transient);
+        }
+    }
+    (None, transient)
 }
 
 fn assert_hierarchy_bindings(design: &kicad_monkey_core::SchematicScalarDesignNetlist) {
@@ -421,6 +688,67 @@ fn hierarchy_index() -> SchematicBundleIndex {
     )
     .expect("hierarchy source bundle");
     SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default()).expect("hierarchy index")
+}
+
+fn bus_hierarchy_index() -> SchematicBundleIndex {
+    let project = b"{}".to_vec();
+    let root = br#"(kicad_sch
+      (uuid bus-root)
+      (bus_alias "TOPBUS" (members "OLD0" "OLD1"))
+      (lib_symbols
+        (symbol "Demo:One"
+          (symbol "Demo:One_1_1"
+            (pin bidirectional line (at 0 0 0) (name "P") (number "1")))))
+      (bus (pts (xy 0 20) (xy 10 20)) (uuid root-bus))
+      (bus_entry (at 2 20) (size 0 -5) (uuid root-tap-0))
+      (bus_entry (at 8 20) (size 0 -5) (uuid root-tap-1))
+      (label "TOPBUS" (at 5 20 0) (uuid root-bus-name))
+      (label "TOP0" (at 2 15 0) (uuid root-member-0))
+      (label "TOP1" (at 8 15 0) (uuid root-member-1))
+      (sheet (uuid child-sheet)
+        (property "Sheetname" "Child")
+        (property "Sheetfile" "child.kicad_sch")
+        (pin "DATA[0..1]" input (at 0 20 0) (uuid sheet-bus)))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 2 15 0) (uuid root-symbol-0)
+        (property "Reference" "R0") (property "Value" "One"))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 8 15 0) (uuid root-symbol-1)
+        (property "Reference" "R1") (property "Value" "One")))"#
+        .to_vec();
+    let child = br#"(kicad_sch
+      (uuid bus-child)
+      (bus_alias "TOPBUS" (members "TOP0" "TOP1"))
+      (lib_symbols
+        (symbol "Demo:One"
+          (symbol "Demo:One_1_1"
+            (pin bidirectional line (at 0 0 0) (name "P") (number "1")))))
+      (hierarchical_label "DATA[0..1]" (shape bidirectional) (at 50 50 0) (uuid child-bus-name))
+      (label "DATA0" (at 0 0 0) (uuid child-member-0))
+      (label "DATA1" (at 10 0 0) (uuid child-member-1))
+      (global_label "GLOBAL_WIN" (shape output) (at 10 0 0) (uuid child-global))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 0 0 0) (uuid child-symbol-0)
+        (property "Reference" "C0") (property "Value" "One"))
+      (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 10 0 0) (uuid child-symbol-1)
+        (property "Reference" "C1") (property "Value" "One")))"#
+        .to_vec();
+    bundle_index(
+        "bus-design",
+        vec![
+            descriptor(
+                "bus-design/demo.kicad_pro",
+                SourceKind::Project,
+                0,
+                &project,
+            ),
+            descriptor("bus-design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+            descriptor(
+                "bus-design/child.kicad_sch",
+                SourceKind::Schematic,
+                2,
+                &child,
+            ),
+        ],
+        vec![project, root, child],
+    )
 }
 
 fn wide_hierarchy_index(sheet_count: usize) -> SchematicBundleIndex {
