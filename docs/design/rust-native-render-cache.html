@@ -25,9 +25,14 @@
     <code>libs/kimath/src/bezier_curves.cpp</code> before any placement
     transform. The text integration path is
     <code>common/font/outline_decomposer.cpp</code>.</li>
-    <li>Native shaping-to-contour placement and cache hole fracture will then
-    be compared against the existing Python intermediate and KiCad save-oracle
-    suites.</li>
+    <li>Rack L0_056 composes HarfRust shaping, a reusable configured
+    <code>ttf-parser</code> face, the curve kernel, cursor advances, offsets,
+    anisotropic sizing, Y inversion, and caller origin into bounded raw text-run
+    contours. Fixed uharfbuzz and FontTools records keep this placement stage
+    attributable and explicitly unhinted.</li>
+    <li>Alignment, markup, transforms, cache hole fracture, and final cache
+    serialization will then be compared against the existing Python
+    intermediate and KiCad save-oracle suites.</li>
   </ol>
 
   <h2>Curve-decomposition boundary</h2>
@@ -48,10 +53,26 @@
   is retained or processed; failures publish no output. Direct adversarial
   quadratic and high-curvature cubic exhaustion tests protect both paths.</p>
 
+  <h2>Raw contour-placement boundary</h2>
+  <p><code>FontOutlineFace</code> validates the buffer, face, variation axes,
+  and hash once, then extracts every shaped glyph without reparsing or rehashing
+  per operation. The public wrapper continues to support independent single-
+  glyph calls. <code>shape_text_contours_a0</code> keeps font bytes out of the
+  metadata request and applies KiCad's truncated 1433 face scaler and 1.4
+  outline compensation in a documented coordinate space.</p>
+
+  <p>Shaping glyph count and bytes, per-face outline commands, aggregate outline
+  commands, curve work, retained contours, and retained points are independently
+  bounded. Missing outlines such as a space contribute their shaped advance but
+  no contour. Failures return no partial output. This intermediate deliberately
+  uses unhinted OpenType design-unit outlines; final KiCad save-oracle evidence
+  remains responsible for deciding whether FreeType hinting creates material
+  drift that requires a separate native backend.</p>
+
   <h2>Still open</h2>
-  <p>This first render-cache stratum does not yet claim shaped glyph placement,
-  alignment, multiline/markup behavior, fake bold/italic, cache hole fracture,
-  or final KiCad save-oracle parity. Those remain active parts of
+  <p>The current render-cache strata do not yet claim alignment,
+  multiline/markup behavior, fake bold/italic, cache hole fracture, cache
+  serialization, or final KiCad save-oracle parity. Those remain active parts of
   <code>render-cache-parity</code>, not deferred packaging work. Font discovery
   stays native-only and outside the platform-neutral byte-input core; WASM
   packaging remains in its later selected-operation phase.</p>

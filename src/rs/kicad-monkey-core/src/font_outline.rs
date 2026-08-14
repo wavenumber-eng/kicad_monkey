@@ -43,6 +43,21 @@ pub struct FontOutlineRequest<'a> {
     pub glyph_id: u32,
 }
 
+/// Contract-aligned metadata shared by every glyph extracted from one face.
+#[derive(Clone, Copy, Debug)]
+pub struct FontOutlineFaceRequest<'a> {
+    pub font_id: &'a str,
+    pub font_sha256: &'a str,
+    pub face_index: u32,
+    pub variations: &'a [FontVariationCoordinate],
+}
+
+/// Validated, variation-configured face reusable across a bounded text run.
+pub struct FontOutlineFace<'a> {
+    face: Face<'a>,
+    max_commands: usize,
+}
+
 /// Native outline in unscaled font design units.
 #[derive(Clone, Debug)]
 pub struct FontOutlineOutput {
@@ -83,51 +98,94 @@ pub fn extract_font_outline_a0(
     request: FontOutlineRequest<'_>,
     limits: FontOutlineLimits,
 ) -> Result<FontOutlineOutput, FontOutlineError> {
-    preflight(font_bytes, request, limits)?;
-    validate_hash(font_bytes, request.font_sha256)?;
-    let mut face = Face::parse(font_bytes, request.face_index).map_err(|_| {
-        outline_error(
-            FontOutlineErrorKind::InvalidFont,
-            "$.face_index",
-            "font bytes or face index are invalid",
-        )
-    })?;
-    apply_variations(&mut face, request.variations)?;
-    let glyph_id = u16::try_from(request.glyph_id).map(GlyphId).map_err(|_| {
-        outline_error(
-            FontOutlineErrorKind::InvalidInput,
-            "$.glyph_id",
-            "glyph ID exceeds the OpenType uint16 range",
-        )
-    })?;
-    let mut builder = BoundedOutlineBuilder::new(limits.max_commands);
-    let outlined = face.outline_glyph(glyph_id, &mut builder).is_some();
-    if outlined {
-        builder.finish_open_contour();
-    }
-    if builder.exceeded {
-        return Err(outline_error(
-            FontOutlineErrorKind::ResourceLimit,
-            "$.commands",
-            "outline command count exceeds the configured limit",
-        ));
-    }
-    if !outlined {
-        return Err(outline_error(
-            FontOutlineErrorKind::MissingOutline,
-            "$.glyph_id",
-            "font does not contain an outline for the requested glyph",
-        ));
-    }
-    Ok(FontOutlineOutput {
-        commands: builder.commands,
-        units_per_em: face.units_per_em(),
-    })
+    let face = FontOutlineFace::new(
+        font_bytes,
+        FontOutlineFaceRequest {
+            font_id: request.font_id,
+            font_sha256: request.font_sha256,
+            face_index: request.face_index,
+            variations: request.variations,
+        },
+        limits,
+    )?;
+    face.extract_glyph(request.glyph_id)
 }
 
-fn preflight(
+impl<'a> FontOutlineFace<'a> {
+    /// Validate and configure one face once for reuse across many glyphs.
+    pub fn new(
+        font_bytes: &'a [u8],
+        request: FontOutlineFaceRequest<'_>,
+        limits: FontOutlineLimits,
+    ) -> Result<Self, FontOutlineError> {
+        preflight_face(font_bytes, request, limits)?;
+        validate_hash(font_bytes, request.font_sha256)?;
+        let mut face = Face::parse(font_bytes, request.face_index).map_err(|_| {
+            outline_error(
+                FontOutlineErrorKind::InvalidFont,
+                "$.face_index",
+                "font bytes or face index are invalid",
+            )
+        })?;
+        apply_variations(&mut face, request.variations)?;
+        Ok(Self {
+            face,
+            max_commands: limits.max_commands,
+        })
+    }
+
+    /// Return the face's OpenType units per em.
+    pub fn units_per_em(&self) -> u16 {
+        self.face.units_per_em()
+    }
+
+    /// Extract one glyph under the face's configured command ceiling.
+    pub fn extract_glyph(&self, glyph_id: u32) -> Result<FontOutlineOutput, FontOutlineError> {
+        self.extract_glyph_with_limit(glyph_id, self.max_commands)
+    }
+
+    /// Extract one glyph under the stricter of the face and caller ceilings.
+    pub fn extract_glyph_with_limit(
+        &self,
+        glyph_id: u32,
+        max_commands: usize,
+    ) -> Result<FontOutlineOutput, FontOutlineError> {
+        let glyph_id = u16::try_from(glyph_id).map(GlyphId).map_err(|_| {
+            outline_error(
+                FontOutlineErrorKind::InvalidInput,
+                "$.glyph_id",
+                "glyph ID exceeds the OpenType uint16 range",
+            )
+        })?;
+        let mut builder = BoundedOutlineBuilder::new(max_commands.min(self.max_commands));
+        let outlined = self.face.outline_glyph(glyph_id, &mut builder).is_some();
+        if outlined {
+            builder.finish_open_contour();
+        }
+        if builder.exceeded {
+            return Err(outline_error(
+                FontOutlineErrorKind::ResourceLimit,
+                "$.commands",
+                "outline command count exceeds the configured limit",
+            ));
+        }
+        if !outlined {
+            return Err(outline_error(
+                FontOutlineErrorKind::MissingOutline,
+                "$.glyph_id",
+                "font does not contain an outline for the requested glyph",
+            ));
+        }
+        Ok(FontOutlineOutput {
+            commands: builder.commands,
+            units_per_em: self.face.units_per_em(),
+        })
+    }
+}
+
+fn preflight_face(
     font_bytes: &[u8],
-    request: FontOutlineRequest<'_>,
+    request: FontOutlineFaceRequest<'_>,
     limits: FontOutlineLimits,
 ) -> Result<(), FontOutlineError> {
     validate_resource_limits(font_bytes, request, limits)?;
@@ -136,7 +194,7 @@ fn preflight(
 
 fn validate_resource_limits(
     font_bytes: &[u8],
-    request: FontOutlineRequest<'_>,
+    request: FontOutlineFaceRequest<'_>,
     limits: FontOutlineLimits,
 ) -> Result<(), FontOutlineError> {
     if font_bytes.len() > limits.max_font_bytes || request.variations.len() > limits.max_variations
@@ -174,7 +232,7 @@ fn validate_resource_limits(
     Ok(())
 }
 
-fn validate_request_contract(request: FontOutlineRequest<'_>) -> Result<(), FontOutlineError> {
+fn validate_request_contract(request: FontOutlineFaceRequest<'_>) -> Result<(), FontOutlineError> {
     if !valid_stable_text_id(request.font_id) || !valid_sha256(request.font_sha256) {
         return Err(outline_error(
             FontOutlineErrorKind::InvalidContract,

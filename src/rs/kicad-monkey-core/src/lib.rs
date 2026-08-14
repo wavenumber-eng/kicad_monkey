@@ -36,6 +36,7 @@ pub mod symbol_library;
 mod symbol_pin;
 pub mod symbol_plotter_ir;
 pub mod text_bezier;
+pub mod text_contours;
 pub mod text_metadata;
 pub mod text_shaping;
 pub mod worksheet;
@@ -48,8 +49,9 @@ pub use compiled_schematic_graph::{
 };
 pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
 pub use font_outline::{
-    FONT_OUTLINE_ENGINE, FontOutlineError, FontOutlineErrorKind, FontOutlineLimits,
-    FontOutlineOutput, FontOutlineRequest, extract_font_outline_a0,
+    FONT_OUTLINE_ENGINE, FontOutlineError, FontOutlineErrorKind, FontOutlineFace,
+    FontOutlineFaceRequest, FontOutlineLimits, FontOutlineOutput, FontOutlineRequest,
+    extract_font_outline_a0,
 };
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use kicad_netlist::{
@@ -130,6 +132,11 @@ pub use symbol_plotter_ir::{
 pub use text_bezier::{
     TextBezierError, TextBezierErrorKind, TextBezierLimits, TextBezierOutput, TextPoint,
     flatten_cubic_bezier, flatten_quadratic_bezier,
+};
+pub use text_contours::{
+    KICAD_OUTLINE_FACE_SCALER, KICAD_OUTLINE_SIZE_COMPENSATION, KICAD_TEXT_BEZIER_ERROR,
+    TextContour, TextContourError, TextContourErrorKind, TextContourLimits, TextContourOutput,
+    TextContourRequest, shape_text_contours_a0,
 };
 pub use text_metadata::{KiCadColor, KiCadFont, KiCadTextEffects};
 pub use text_shaping::{

@@ -292,3 +292,22 @@ secondary = [
     "Nonfinite and extreme inputs fail closed without recursive stack growth",
     "The Python oracle generator is deterministic and the focused Rust suite passes",
 ]
+
+[[subtests]]
+id = "L0_056"
+file = "test_L0_056_native_text_contours.py"
+name = "Native Shaping-to-Contour Placement"
+description = "Require bounded native composition of shaping, reusable font outlines, KiCad curve flattening, and raw text-run placement"
+concerns = ["rust", "rendering.text", "geometry", "parity"]
+test_cases = "tests/parity/text_contour_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native plain text runs match fixed uharfbuzz, FontTools, and KiCad curve intermediate contours"
+secondary = [
+    "One validated outline face is reused across every glyph in a run",
+    "Kerning, offsets, anisotropic sizing, origins, holes, and missing space outlines are observable",
+    "Aggregate outline-command, curve-work, contour, and point limits are inclusive and fail closed",
+    "Font bytes remain out of band and fixed records are deterministic",
+    "The focused Rust suite passes through Rack",
+]
