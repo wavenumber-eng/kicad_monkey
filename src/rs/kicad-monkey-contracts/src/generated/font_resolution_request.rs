@@ -89,7 +89,7 @@ pub struct FontResolutionRequestA0 {
 ///      }
 ///    },
 ///    "font_id": {
-///      "type": "string"
+///      "$ref": "#/$defs/StableTextId"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -101,5 +101,5 @@ pub struct FontResolutionRequestA0 {
 pub struct FontSelection {
     pub aliases: ::std::vec::Vec<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub font_id: ::std::option::Option<::std::string::String>,
+    pub font_id: ::std::option::Option<crate::StableTextId>,
 }

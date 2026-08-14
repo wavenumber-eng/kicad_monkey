@@ -56,7 +56,7 @@ pub mod error {
 ///      "type": "string"
 ///    },
 ///    "id": {
-///      "type": "string"
+///      "$ref": "#/$defs/StableTextId"
 ///    },
 ///    "postscript_name": {
 ///      "type": "string"
@@ -90,7 +90,7 @@ pub struct FontBundleEntry {
     pub face_index: u32,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub family: ::std::option::Option<::std::string::String>,
-    pub id: ::std::string::String,
+    pub id: crate::StableTextId,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub postscript_name: ::std::option::Option<::std::string::String>,
     pub sha256: Sha256Hex,
@@ -165,7 +165,7 @@ pub struct FontBundleManifestA0 {
 ///      "$ref": "#/$defs/OpenTypeTag"
 ///    },
 ///    "value": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -176,7 +176,7 @@ pub struct FontBundleManifestA0 {
 #[serde(deny_unknown_fields)]
 pub struct FontVariationCoordinate {
     pub axis: OpenTypeTag,
-    pub value: f64,
+    pub value: crate::FiniteFloat,
 }
 ///Four-byte OpenType variation or feature tag.
 ///

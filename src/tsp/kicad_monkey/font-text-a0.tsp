@@ -12,6 +12,10 @@ scalar Sha256Hex extends string;
 @pattern("^[ -~]{4}$")
 scalar OpenTypeTag extends string;
 
+/** Stable ASCII identifier shared by manifests and oracle cases. */
+@pattern("^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+scalar StableTextId extends string;
+
 /** Integer that remains exact through JSON and JavaScript. */
 @minValue(-9007199254740991)
 @maxValue(9007199254740991)
@@ -21,15 +25,24 @@ scalar TextSafeInteger extends safeint;
 @minValue(0)
 scalar NonNegativeFiniteFloat extends float64;
 
+/** Finite float64 value, including fractional CFF/CFF2 design coordinates. */
+@minValue(-1.7976931348623157e308)
+@maxValue(1.7976931348623157e308)
+scalar FiniteFloat extends float64;
+
+/** Positive OpenType units-per-em value. */
+@minValue(1)
+scalar PositiveUint32 extends uint32;
+
 /** One ordered OpenType variation coordinate. */
 model FontVariationCoordinate {
   axis: OpenTypeTag;
-  value: float64;
+  value: FiniteFloat;
 }
 
 /** One font face whose bytes are supplied in a separate binary slot. */
 model FontBundleEntry {
-  id: string;
+  id: StableTextId;
   slot: uint32;
   sha256: Sha256Hex;
   face_index: uint32;
@@ -42,7 +55,7 @@ model FontBundleEntry {
 
 /** Deterministic font request: explicit ID wins, otherwise aliases are matched. */
 model FontSelection {
-  font_id?: string;
+  font_id?: StableTextId;
   aliases: string[];
 }
 
@@ -108,12 +121,17 @@ model AbsoluteToleranceComparisonPolicy {
   absolute_tolerance: NonNegativeFiniteFloat;
 }
 
-union NumericComparisonPolicy {
+union CoordinateComparisonPolicy {
   ExactComparisonPolicy,
   AbsoluteToleranceComparisonPolicy,
 }
 
-/** HarfBuzz-compatible feature range over input scalar indices. */
+/**
+ * HarfBuzz-compatible feature range over half-open UTF-8 byte offsets.
+ * Non-global endpoints are UTF-8 code-point boundaries. A global range is
+ * start=0 and end=4294967295. Rustybuzz receives these values unchanged after
+ * UnicodeBuffer::push_str assigns char_indices clusters.
+ */
 model ShapingFeature {
   tag: OpenTypeTag;
   value: uint32;
@@ -123,11 +141,12 @@ model ShapingFeature {
 
 /** Complete deterministic shaping input retained with an oracle record. */
 model ShapingInput {
-  font_id: string;
+  font_id: StableTextId;
   font_sha256: Sha256Hex;
   face_index: uint32;
   variations: FontVariationCoordinate[];
   text: string;
+  text_index_unit: "utf8_byte_offset";
   scale_x: TextSafeInteger;
   scale_y: TextSafeInteger;
   direction: TextDirection;
@@ -140,6 +159,7 @@ model ShapingInput {
 /** One shaped glyph in logical buffer order. */
 model ShapedGlyph {
   glyph_id: uint32;
+  /** UTF-8 byte offset into ShapingInput.text, as assigned by push_str. */
   cluster: uint32;
   x_advance: TextSafeInteger;
   y_advance: TextSafeInteger;
@@ -158,7 +178,7 @@ model ShapingRecord {
   schema: "kicad_monkey.shaping_record.a0";
   type: "kicad_monkey.shaping_record";
   version: "a0";
-  case_id: string;
+  case_id: StableTextId;
   comparison: ExactComparisonPolicy;
   input: ShapingInput;
   glyphs: ShapedGlyph[];
@@ -166,32 +186,32 @@ model ShapingRecord {
 
 model OutlineMoveTo {
   kind: "move_to";
-  x: float64;
-  y: float64;
+  x: FiniteFloat;
+  y: FiniteFloat;
 }
 
 model OutlineLineTo {
   kind: "line_to";
-  x: float64;
-  y: float64;
+  x: FiniteFloat;
+  y: FiniteFloat;
 }
 
 model OutlineQuadTo {
   kind: "quad_to";
-  control_x: float64;
-  control_y: float64;
-  x: float64;
-  y: float64;
+  control_x: FiniteFloat;
+  control_y: FiniteFloat;
+  x: FiniteFloat;
+  y: FiniteFloat;
 }
 
 model OutlineCurveTo {
   kind: "curve_to";
-  control1_x: float64;
-  control1_y: float64;
-  control2_x: float64;
-  control2_y: float64;
-  x: float64;
-  y: float64;
+  control1_x: FiniteFloat;
+  control1_y: FiniteFloat;
+  control2_x: FiniteFloat;
+  control2_y: FiniteFloat;
+  x: FiniteFloat;
+  y: FiniteFloat;
 }
 
 model OutlineClose {
@@ -214,14 +234,14 @@ model OutlineVector {
   schema: "kicad_monkey.outline_vector.a0";
   type: "kicad_monkey.outline_vector";
   version: "a0";
-  case_id: string;
+  case_id: StableTextId;
   coordinate_format: "font_design_units_f64";
-  comparison: NumericComparisonPolicy;
-  font_id: string;
+  coordinate_comparison: CoordinateComparisonPolicy;
+  font_id: StableTextId;
   font_sha256: Sha256Hex;
   face_index: uint32;
   variations: FontVariationCoordinate[];
   glyph_id: uint32;
-  units_per_em: uint32;
+  units_per_em: PositiveUint32;
   commands: OutlineCommand[];
 }

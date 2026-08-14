@@ -138,6 +138,10 @@ function renderPython() {
       lines.push(...renderPythonSourceBundleValidation(functionName, typeName));
     } else if (typeName === "FontBundleManifestA0") {
       lines.push(...renderPythonFontBundleValidation(functionName, typeName));
+    } else if (typeName === "ShapingRecordA0") {
+      lines.push(...renderPythonShapingRecordValidation(functionName, typeName));
+    } else if (typeName === "OutlineVectorA0") {
+      lines.push(...renderPythonOutlineVectorValidation(functionName, typeName));
     } else {
       lines.push(`${functionName} = msgspec.json.Decoder(${typeName}).decode`);
     }
@@ -149,10 +153,96 @@ function renderPython() {
     "validate_footprint_plot_document_a0",
     "resolve_font_selection_a0",
     "validate_font_bundle_manifest_a0",
+    "validate_outline_vector_a0",
+    "validate_shaping_record_a0",
     "validate_symbol_plot_document_a0",
   ];
   lines.push("", "", "__all__ = (", ...exported.map((name) => `    ${pythonLiteral(name)},`), ")", "");
   return lines.join("\n");
+}
+
+function renderPythonShapingRecordValidation(functionName, typeName) {
+  return [
+    `_shaping_record_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _shaping_record_a0_decoder.decode(data)",
+    "    validate_shaping_record_a0(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_shaping_record_a0(value: ${typeName}) -> None:`,
+    '    if value.schema != "kicad_monkey.shaping_record.a0" or value.type_ != "kicad_monkey.shaping_record" or value.version != "a0":',
+    '        raise msgspec.ValidationError("unsupported_contract at $")',
+    "    if not isinstance(value.comparison, ExactComparisonPolicy):",
+    '        raise msgspec.ValidationError("invalid_comparison at $.comparison")',
+    '    if value.input.text_index_unit != "utf8_byte_offset":',
+    '        raise msgspec.ValidationError("invalid_text_index at $.input.text_index_unit")',
+    "    _validate_font_text_identity(value.case_id, '$.case_id')",
+    "    _validate_font_text_identity(value.input.font_id, '$.input.font_id')",
+    "    _validate_font_hash(value.input.font_sha256, '$.input.font_sha256')",
+    "    _validate_font_variations(value.input.variations, '$.input.variations')",
+    "    if value.input.script is not UNSET and not _font_tag_valid(value.input.script):",
+    '        raise msgspec.ValidationError("invalid_tag at $.input.script")',
+    "    boundaries = {0}",
+    "    offset = 0",
+    "    for char in value.input.text:",
+    "        offset += _font_utf8_len(char)",
+    "        boundaries.add(offset)",
+    "    for index, feature in enumerate(value.input.features):",
+    "        if not _font_tag_valid(feature.tag):",
+    '            raise msgspec.ValidationError(f"invalid_tag at $.input.features[{index}].tag")',
+    "        global_range = feature.start == 0 and feature.end == 4_294_967_295",
+    "        bounded = feature.start <= feature.end and feature.start in boundaries and feature.end in boundaries",
+    "        if not global_range and not bounded:",
+    '            raise msgspec.ValidationError(f"invalid_text_index at $.input.features[{index}]")',
+    "    for index, glyph in enumerate(value.glyphs):",
+    "        if glyph.cluster not in boundaries:",
+    '            raise msgspec.ValidationError(f"invalid_text_index at $.glyphs[{index}].cluster")',
+  ];
+}
+
+function renderPythonOutlineVectorValidation(functionName, typeName) {
+  return [
+    `_outline_vector_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _outline_vector_a0_decoder.decode(data)",
+    "    validate_outline_vector_a0(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_outline_vector_a0(value: ${typeName}) -> None:`,
+    '    if value.schema != "kicad_monkey.outline_vector.a0" or value.type_ != "kicad_monkey.outline_vector" or value.version != "a0":',
+    '        raise msgspec.ValidationError("unsupported_contract at $")',
+    '    if value.coordinate_format != "font_design_units_f64":',
+    '        raise msgspec.ValidationError("unsupported_contract at $.coordinate_format")',
+    "    _validate_font_text_identity(value.case_id, '$.case_id')",
+    "    _validate_font_text_identity(value.font_id, '$.font_id')",
+    "    _validate_font_hash(value.font_sha256, '$.font_sha256')",
+    "    _validate_font_variations(value.variations, '$.variations')",
+    "    if value.units_per_em <= 0:",
+    '        raise msgspec.ValidationError("invalid_units_per_em at $.units_per_em")',
+    "    comparison = value.coordinate_comparison",
+    "    if isinstance(comparison, AbsoluteToleranceComparisonPolicy):",
+    "        if not math.isfinite(comparison.absolute_tolerance) or comparison.absolute_tolerance < 0:",
+    '            raise msgspec.ValidationError("invalid_comparison at $.coordinate_comparison")',
+    "    elif not isinstance(comparison, ExactComparisonPolicy):",
+    '        raise msgspec.ValidationError("invalid_comparison at $.coordinate_comparison")',
+    "    for index, command in enumerate(value.commands):",
+    "        if isinstance(command, (OutlineMoveTo, OutlineLineTo)):",
+    "            coordinates = (command.x, command.y)",
+    "        elif isinstance(command, OutlineQuadTo):",
+    "            coordinates = (command.control_x, command.control_y, command.x, command.y)",
+    "        elif isinstance(command, OutlineCurveTo):",
+    "            coordinates = (command.control1_x, command.control1_y, command.control2_x, command.control2_y, command.x, command.y)",
+    "        else:",
+    "            coordinates = ()",
+    "        if any(not math.isfinite(coordinate) for coordinate in coordinates):",
+    '            raise msgspec.ValidationError(f"invalid_coordinate at $.commands[{index}]")',
+  ];
 }
 
 function renderPythonFontBundleValidation(functionName, typeName) {
@@ -201,6 +291,7 @@ function renderPythonFontBundleValidation(functionName, typeName) {
     '        path = f"$.fonts[{index}]"',
     "        if not font.id or font.id in ids:",
     '            raise msgspec.ValidationError(f"duplicate_font_id at {path}.id")',
+    "        _validate_font_text_identity(font.id, f'{path}.id')",
     "        ids.add(font.id)",
     "        id_index[font.id] = index",
     "        if font.slot in slots:",
@@ -259,6 +350,7 @@ function renderPythonFontBundleValidation(functionName, typeName) {
     "    font_id = None if request.selection.font_id is UNSET else request.selection.font_id",
     "    request_strings = [*request.selection.aliases]",
     "    if font_id is not None:",
+    "        _validate_font_text_identity(font_id, '$.selection.font_id')",
     "        request_strings.append(font_id)",
     "    if sum(_font_utf8_len(value) for value in request_strings) > max_request_string_bytes:",
     '        raise msgspec.ValidationError("resource_limit at $.selection")',
@@ -289,6 +381,30 @@ function renderPythonFontBundleValidation(functionName, typeName) {
     "        codepoint = ord(char)",
     "        total += 1 if codepoint < 0x80 else 2 if codepoint < 0x800 else 3 if codepoint < 0x10000 else 4",
     "    return total",
+    "",
+    "",
+    "def _validate_font_text_identity(value: str, path: str) -> None:",
+    "    if not value or not value[0].isascii() or not value[0].isalnum() or any(",
+    "        not char.isascii() or (not char.isalnum() and char not in '._:-') for char in value[1:]",
+    "    ):",
+    '        raise msgspec.ValidationError(f"invalid_text_id at {path}")',
+    "",
+    "",
+    "def _font_tag_valid(value: str) -> bool:",
+    "    return len(value) == 4 and all(char.isascii() and ' ' <= char <= '~' for char in value)",
+    "",
+    "",
+    "def _validate_font_hash(value: str, path: str) -> None:",
+    "    if len(value) != 64 or any(char not in '0123456789abcdef' for char in value):",
+    '        raise msgspec.ValidationError(f"invalid_hash at {path}")',
+    "",
+    "",
+    "def _validate_font_variations(value: list[FontVariationCoordinate], path: str) -> None:",
+    "    axes: set[str] = set()",
+    "    for index, variation in enumerate(value):",
+    "        if not _font_tag_valid(variation.axis) or not math.isfinite(variation.value) or variation.axis in axes:",
+    '            raise msgspec.ValidationError(f"invalid_variation at {path}[{index}]")',
+    "        axes.add(variation.axis)",
   ];
 }
 

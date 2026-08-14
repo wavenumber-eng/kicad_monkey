@@ -55,6 +55,39 @@ pub struct AbsoluteToleranceComparisonPolicy {
     pub absolute_tolerance: crate::NonNegativeFiniteFloat,
     pub mode: ::std::string::String,
 }
+///`CoordinateComparisonPolicy`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "$ref": "#/$defs/ExactComparisonPolicy"
+///    },
+///    {
+///      "$ref": "#/$defs/AbsoluteToleranceComparisonPolicy"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum CoordinateComparisonPolicy {
+    ExactComparisonPolicy(ExactComparisonPolicy),
+    AbsoluteToleranceComparisonPolicy(AbsoluteToleranceComparisonPolicy),
+}
+impl ::std::convert::From<ExactComparisonPolicy> for CoordinateComparisonPolicy {
+    fn from(value: ExactComparisonPolicy) -> Self {
+        Self::ExactComparisonPolicy(value)
+    }
+}
+impl ::std::convert::From<AbsoluteToleranceComparisonPolicy> for CoordinateComparisonPolicy {
+    fn from(value: AbsoluteToleranceComparisonPolicy) -> Self {
+        Self::AbsoluteToleranceComparisonPolicy(value)
+    }
+}
 ///`ExactComparisonPolicy`
 ///
 /// <details><summary>JSON schema</summary>
@@ -97,7 +130,7 @@ pub struct ExactComparisonPolicy {
 ///      "$ref": "#/$defs/OpenTypeTag"
 ///    },
 ///    "value": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -108,40 +141,7 @@ pub struct ExactComparisonPolicy {
 #[serde(deny_unknown_fields)]
 pub struct FontVariationCoordinate {
     pub axis: OpenTypeTag,
-    pub value: f64,
-}
-///`NumericComparisonPolicy`
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "anyOf": [
-///    {
-///      "$ref": "#/$defs/ExactComparisonPolicy"
-///    },
-///    {
-///      "$ref": "#/$defs/AbsoluteToleranceComparisonPolicy"
-///    }
-///  ]
-///}
-/// ```
-/// </details>
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(untagged)]
-pub enum NumericComparisonPolicy {
-    ExactComparisonPolicy(ExactComparisonPolicy),
-    AbsoluteToleranceComparisonPolicy(AbsoluteToleranceComparisonPolicy),
-}
-impl ::std::convert::From<ExactComparisonPolicy> for NumericComparisonPolicy {
-    fn from(value: ExactComparisonPolicy) -> Self {
-        Self::ExactComparisonPolicy(value)
-    }
-}
-impl ::std::convert::From<AbsoluteToleranceComparisonPolicy> for NumericComparisonPolicy {
-    fn from(value: AbsoluteToleranceComparisonPolicy) -> Self {
-        Self::AbsoluteToleranceComparisonPolicy(value)
-    }
+    pub value: crate::FiniteFloat,
 }
 ///Four-byte OpenType variation or feature tag.
 ///
@@ -289,26 +289,26 @@ impl ::std::convert::From<OutlineClose> for OutlineCommand {
 ///  ],
 ///  "properties": {
 ///    "control1_x": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    },
 ///    "control1_y": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    },
 ///    "control2_x": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    },
 ///    "control2_y": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    },
 ///    "kind": {
 ///      "type": "string",
 ///      "const": "curve_to"
 ///    },
 ///    "x": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    },
 ///    "y": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -318,13 +318,13 @@ impl ::std::convert::From<OutlineClose> for OutlineCommand {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct OutlineCurveTo {
-    pub control1_x: f64,
-    pub control1_y: f64,
-    pub control2_x: f64,
-    pub control2_y: f64,
+    pub control1_x: crate::FiniteFloat,
+    pub control1_y: crate::FiniteFloat,
+    pub control2_x: crate::FiniteFloat,
+    pub control2_y: crate::FiniteFloat,
     pub kind: ::std::string::String,
-    pub x: f64,
-    pub y: f64,
+    pub x: crate::FiniteFloat,
+    pub y: crate::FiniteFloat,
 }
 ///`OutlineLineTo`
 ///
@@ -344,10 +344,10 @@ pub struct OutlineCurveTo {
 ///      "const": "line_to"
 ///    },
 ///    "x": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    },
 ///    "y": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -358,8 +358,8 @@ pub struct OutlineCurveTo {
 #[serde(deny_unknown_fields)]
 pub struct OutlineLineTo {
     pub kind: ::std::string::String,
-    pub x: f64,
-    pub y: f64,
+    pub x: crate::FiniteFloat,
+    pub y: crate::FiniteFloat,
 }
 ///`OutlineMoveTo`
 ///
@@ -379,10 +379,10 @@ pub struct OutlineLineTo {
 ///      "const": "move_to"
 ///    },
 ///    "x": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    },
 ///    "y": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -393,8 +393,8 @@ pub struct OutlineLineTo {
 #[serde(deny_unknown_fields)]
 pub struct OutlineMoveTo {
     pub kind: ::std::string::String,
-    pub x: f64,
-    pub y: f64,
+    pub x: crate::FiniteFloat,
+    pub y: crate::FiniteFloat,
 }
 ///`OutlineQuadTo`
 ///
@@ -412,20 +412,20 @@ pub struct OutlineMoveTo {
 ///  ],
 ///  "properties": {
 ///    "control_x": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    },
 ///    "control_y": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    },
 ///    "kind": {
 ///      "type": "string",
 ///      "const": "quad_to"
 ///    },
 ///    "x": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    },
 ///    "y": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -435,11 +435,11 @@ pub struct OutlineMoveTo {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct OutlineQuadTo {
-    pub control_x: f64,
-    pub control_y: f64,
+    pub control_x: crate::FiniteFloat,
+    pub control_y: crate::FiniteFloat,
     pub kind: ::std::string::String,
-    pub x: f64,
-    pub y: f64,
+    pub x: crate::FiniteFloat,
+    pub y: crate::FiniteFloat,
 }
 ///Raw glyph outline oracle in font units, separate from shaping and placement.
 ///
@@ -454,7 +454,7 @@ pub struct OutlineQuadTo {
 ///  "required": [
 ///    "case_id",
 ///    "commands",
-///    "comparison",
+///    "coordinate_comparison",
 ///    "coordinate_format",
 ///    "face_index",
 ///    "font_id",
@@ -468,7 +468,7 @@ pub struct OutlineQuadTo {
 ///  ],
 ///  "properties": {
 ///    "case_id": {
-///      "type": "string"
+///      "$ref": "#/$defs/StableTextId"
 ///    },
 ///    "commands": {
 ///      "type": "array",
@@ -476,8 +476,8 @@ pub struct OutlineQuadTo {
 ///        "$ref": "#/$defs/OutlineCommand"
 ///      }
 ///    },
-///    "comparison": {
-///      "$ref": "#/$defs/NumericComparisonPolicy"
+///    "coordinate_comparison": {
+///      "$ref": "#/$defs/CoordinateComparisonPolicy"
 ///    },
 ///    "coordinate_format": {
 ///      "type": "string",
@@ -489,7 +489,7 @@ pub struct OutlineQuadTo {
 ///      "minimum": 0.0
 ///    },
 ///    "font_id": {
-///      "type": "string"
+///      "$ref": "#/$defs/StableTextId"
 ///    },
 ///    "font_sha256": {
 ///      "$ref": "#/$defs/Sha256Hex"
@@ -508,9 +508,7 @@ pub struct OutlineQuadTo {
 ///      "const": "kicad_monkey.outline_vector"
 ///    },
 ///    "units_per_em": {
-///      "type": "integer",
-///      "maximum": 4294967295.0,
-///      "minimum": 0.0
+///      "$ref": "#/$defs/PositiveUint32"
 ///    },
 ///    "variations": {
 ///      "type": "array",
@@ -530,18 +528,18 @@ pub struct OutlineQuadTo {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct OutlineVectorA0 {
-    pub case_id: ::std::string::String,
+    pub case_id: crate::StableTextId,
     pub commands: ::std::vec::Vec<OutlineCommand>,
-    pub comparison: NumericComparisonPolicy,
+    pub coordinate_comparison: CoordinateComparisonPolicy,
     pub coordinate_format: ::std::string::String,
     pub face_index: u32,
-    pub font_id: ::std::string::String,
+    pub font_id: crate::StableTextId,
     pub font_sha256: Sha256Hex,
     pub glyph_id: u32,
     pub schema: ::std::string::String,
     #[serde(rename = "type")]
     pub type_: ::std::string::String,
-    pub units_per_em: u32,
+    pub units_per_em: crate::PositiveU32,
     pub variations: ::std::vec::Vec<FontVariationCoordinate>,
     pub version: ::std::string::String,
 }

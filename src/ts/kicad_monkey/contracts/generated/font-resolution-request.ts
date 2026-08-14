@@ -1,6 +1,11 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
 /**
+ * Stable ASCII identifier shared by manifests and oracle cases.
+ */
+export type StableTextId = string;
+
+/**
  * Selection metadata paired with a FontBundle and out-of-band buffers.
  */
 export interface FontResolutionRequestA0 {
@@ -13,6 +18,6 @@ export interface FontResolutionRequestA0 {
  * Deterministic font request: explicit ID wins, otherwise aliases are matched.
  */
 export interface FontSelection {
-  font_id?: string;
+  font_id?: StableTextId;
   aliases: string[];
 }

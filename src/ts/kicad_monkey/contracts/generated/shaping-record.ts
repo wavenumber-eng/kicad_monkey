@@ -1,6 +1,10 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
 /**
+ * Stable ASCII identifier shared by manifests and oracle cases.
+ */
+export type StableTextId = string;
+/**
  * Lowercase SHA-256 digest for one out-of-band font buffer.
  */
 export type Sha256Hex = string;
@@ -8,6 +12,10 @@ export type Sha256Hex = string;
  * Four-byte OpenType variation or feature tag.
  */
 export type OpenTypeTag = string;
+/**
+ * Finite float64 value, including fractional CFF/CFF2 design coordinates.
+ */
+export type FiniteFloat = number;
 /**
  * Integer that remains exact through JSON and JavaScript.
  */
@@ -23,7 +31,7 @@ export interface ShapingRecordA0 {
   schema: "kicad_monkey.shaping_record.a0";
   type: "kicad_monkey.shaping_record";
   version: "a0";
-  case_id: string;
+  case_id: StableTextId;
   comparison: ExactComparisonPolicy;
   input: ShapingInput;
   glyphs: ShapedGlyph[];
@@ -35,11 +43,12 @@ export interface ExactComparisonPolicy {
  * Complete deterministic shaping input retained with an oracle record.
  */
 export interface ShapingInput {
-  font_id: string;
+  font_id: StableTextId;
   font_sha256: Sha256Hex;
   face_index: number;
   variations: FontVariationCoordinate[];
   text: string;
+  text_index_unit: "utf8_byte_offset";
   scale_x: TextSafeInteger;
   scale_y: TextSafeInteger;
   direction: TextDirection;
@@ -53,10 +62,13 @@ export interface ShapingInput {
  */
 export interface FontVariationCoordinate {
   axis: OpenTypeTag;
-  value: number;
+  value: FiniteFloat;
 }
 /**
- * HarfBuzz-compatible feature range over input scalar indices.
+ * HarfBuzz-compatible feature range over half-open UTF-8 byte offsets.
+ * Non-global endpoints are UTF-8 code-point boundaries. A global range is
+ * start=0 and end=4294967295. Rustybuzz receives these values unchanged after
+ * UnicodeBuffer::push_str assigns char_indices clusters.
  */
 export interface ShapingFeature {
   tag: OpenTypeTag;
@@ -81,6 +93,9 @@ export interface ShapingBufferProperties {
  */
 export interface ShapedGlyph {
   glyph_id: number;
+  /**
+   * UTF-8 byte offset into ShapingInput.text, as assigned by push_str.
+   */
   cluster: number;
   x_advance: TextSafeInteger;
   y_advance: TextSafeInteger;

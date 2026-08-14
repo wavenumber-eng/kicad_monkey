@@ -372,10 +372,7 @@ fn validate_aliases(font: &FontBundleEntry, index: usize) -> Result<(), Validati
 fn validate_variations(font: &FontBundleEntry, index: usize) -> Result<(), ValidationError> {
     let mut axes = HashSet::with_capacity(font.variations.len());
     for (variation_index, variation) in font.variations.iter().enumerate() {
-        if !valid_tag(&variation.axis.0)
-            || !variation.value.is_finite()
-            || !axes.insert(&variation.axis.0)
-        {
+        if !valid_tag(&variation.axis.0) || !axes.insert(&variation.axis.0) {
             return Err(error(
                 "invalid_variation",
                 format!("$.fonts[{index}].variations[{variation_index}]"),

@@ -1,6 +1,10 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
-export type NumericComparisonPolicy = ExactComparisonPolicy | AbsoluteToleranceComparisonPolicy;
+/**
+ * Stable ASCII identifier shared by manifests and oracle cases.
+ */
+export type StableTextId = string;
+export type CoordinateComparisonPolicy = ExactComparisonPolicy | AbsoluteToleranceComparisonPolicy;
 /**
  * Finite nonnegative tolerance transported as a JSON number.
  */
@@ -13,6 +17,14 @@ export type Sha256Hex = string;
  * Four-byte OpenType variation or feature tag.
  */
 export type OpenTypeTag = string;
+/**
+ * Finite float64 value, including fractional CFF/CFF2 design coordinates.
+ */
+export type FiniteFloat = number;
+/**
+ * Positive OpenType units-per-em value.
+ */
+export type PositiveUint32 = number;
 export type OutlineCommand = OutlineMoveTo | OutlineLineTo | OutlineQuadTo | OutlineCurveTo | OutlineClose;
 
 /**
@@ -22,15 +34,15 @@ export interface OutlineVectorA0 {
   schema: "kicad_monkey.outline_vector.a0";
   type: "kicad_monkey.outline_vector";
   version: "a0";
-  case_id: string;
+  case_id: StableTextId;
   coordinate_format: "font_design_units_f64";
-  comparison: NumericComparisonPolicy;
-  font_id: string;
+  coordinate_comparison: CoordinateComparisonPolicy;
+  font_id: StableTextId;
   font_sha256: Sha256Hex;
   face_index: number;
   variations: FontVariationCoordinate[];
   glyph_id: number;
-  units_per_em: number;
+  units_per_em: PositiveUint32;
   commands: OutlineCommand[];
 }
 export interface ExactComparisonPolicy {
@@ -48,33 +60,33 @@ export interface AbsoluteToleranceComparisonPolicy {
  */
 export interface FontVariationCoordinate {
   axis: OpenTypeTag;
-  value: number;
+  value: FiniteFloat;
 }
 export interface OutlineMoveTo {
   kind: "move_to";
-  x: number;
-  y: number;
+  x: FiniteFloat;
+  y: FiniteFloat;
 }
 export interface OutlineLineTo {
   kind: "line_to";
-  x: number;
-  y: number;
+  x: FiniteFloat;
+  y: FiniteFloat;
 }
 export interface OutlineQuadTo {
   kind: "quad_to";
-  control_x: number;
-  control_y: number;
-  x: number;
-  y: number;
+  control_x: FiniteFloat;
+  control_y: FiniteFloat;
+  x: FiniteFloat;
+  y: FiniteFloat;
 }
 export interface OutlineCurveTo {
   kind: "curve_to";
-  control1_x: number;
-  control1_y: number;
-  control2_x: number;
-  control2_y: number;
-  x: number;
-  y: number;
+  control1_x: FiniteFloat;
+  control1_y: FiniteFloat;
+  control2_x: FiniteFloat;
+  control2_y: FiniteFloat;
+  x: FiniteFloat;
+  y: FiniteFloat;
 }
 export interface OutlineClose {
   kind: "close";

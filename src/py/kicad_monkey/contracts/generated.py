@@ -448,7 +448,7 @@ CanonicalUint64Decimal = Annotated[str, Meta(pattern="^(0|[1-9][0-9]{0,19})$")]
 
 
 class FontBundleEntry(Struct, forbid_unknown_fields=True, frozen=True):
-    id: str
+    id: StableTextId
     slot: Annotated[int, Meta(ge=0, le=4294967295)]
     sha256: Sha256Hex
     face_index: Annotated[int, Meta(ge=0, le=4294967295)]
@@ -459,20 +459,26 @@ class FontBundleEntry(Struct, forbid_unknown_fields=True, frozen=True):
     postscript_name: str | UnsetType = field(default=UNSET)
 
 
+StableTextId = Annotated[str, Meta(pattern="^[A-Za-z0-9][A-Za-z0-9._:-]*$")]
+
+
 Sha256Hex = Annotated[str, Meta(pattern="^[0-9a-f]{64}$")]
 
 
 class FontVariationCoordinate(Struct, forbid_unknown_fields=True, frozen=True):
     axis: OpenTypeTag
-    value: float
+    value: FiniteFloat
 
 
 OpenTypeTag = Annotated[str, Meta(pattern="^[ -~]{4}$")]
 
 
+FiniteFloat = Annotated[float, Meta(ge=-1.7976931348623157e+308, le=1.7976931348623157e+308)]
+
+
 class FontSelection(Struct, forbid_unknown_fields=True, frozen=True):
     aliases: list[str]
-    font_id: str | UnsetType = field(default=UNSET)
+    font_id: StableTextId | UnsetType = field(default=UNSET)
 
 
 class ExactComparisonPolicy(Struct, forbid_unknown_fields=True, frozen=True, tag="exact", tag_field="mode"):
@@ -480,11 +486,12 @@ class ExactComparisonPolicy(Struct, forbid_unknown_fields=True, frozen=True, tag
 
 
 class ShapingInput(Struct, forbid_unknown_fields=True, frozen=True):
-    font_id: str
+    font_id: StableTextId
     font_sha256: Sha256Hex
     face_index: Annotated[int, Meta(ge=0, le=4294967295)]
     variations: list[FontVariationCoordinate]
     text: str
+    text_index_unit: Literal["utf8_byte_offset"]
     scale_x: TextSafeInteger
     scale_y: TextSafeInteger
     direction: TextDirection
@@ -535,7 +542,10 @@ ShapingClusterLevel = Literal["monotone_graphemes", "monotone_characters", "char
 DefaultIgnorablePolicy = Literal["normal", "preserve", "remove"]
 
 
-NumericComparisonPolicy = Union["ExactComparisonPolicy", "AbsoluteToleranceComparisonPolicy"]
+CoordinateComparisonPolicy = Union["ExactComparisonPolicy", "AbsoluteToleranceComparisonPolicy"]
+
+
+PositiveUint32 = Annotated[int, Meta(ge=1, le=4294967295)]
 
 
 OutlineCommand = Union["OutlineMoveTo", "OutlineLineTo", "OutlineQuadTo", "OutlineCurveTo", "OutlineClose"]
@@ -546,29 +556,29 @@ class AbsoluteToleranceComparisonPolicy(Struct, forbid_unknown_fields=True, froz
 
 
 class OutlineMoveTo(Struct, forbid_unknown_fields=True, frozen=True, tag="move_to", tag_field="kind"):
-    x: float
-    y: float
+    x: FiniteFloat
+    y: FiniteFloat
 
 
 class OutlineLineTo(Struct, forbid_unknown_fields=True, frozen=True, tag="line_to", tag_field="kind"):
-    x: float
-    y: float
+    x: FiniteFloat
+    y: FiniteFloat
 
 
 class OutlineQuadTo(Struct, forbid_unknown_fields=True, frozen=True, tag="quad_to", tag_field="kind"):
-    control_x: float
-    control_y: float
-    x: float
-    y: float
+    control_x: FiniteFloat
+    control_y: FiniteFloat
+    x: FiniteFloat
+    y: FiniteFloat
 
 
 class OutlineCurveTo(Struct, forbid_unknown_fields=True, frozen=True, tag="curve_to", tag_field="kind"):
-    control1_x: float
-    control1_y: float
-    control2_x: float
-    control2_y: float
-    x: float
-    y: float
+    control1_x: FiniteFloat
+    control1_y: FiniteFloat
+    control2_x: FiniteFloat
+    control2_y: FiniteFloat
+    x: FiniteFloat
+    y: FiniteFloat
 
 
 class OutlineClose(Struct, forbid_unknown_fields=True, frozen=True, tag="close", tag_field="kind"):
@@ -804,7 +814,7 @@ class ShapingRecordA0(Struct, forbid_unknown_fields=True, frozen=True):
     schema: Literal["kicad_monkey.shaping_record.a0"]
     type_: Literal["kicad_monkey.shaping_record"] = field(name="type")
     version: Literal["a0"]
-    case_id: str
+    case_id: StableTextId
     comparison: ExactComparisonPolicy
     input: ShapingInput
     glyphs: list[ShapedGlyph]
@@ -814,15 +824,15 @@ class OutlineVectorA0(Struct, forbid_unknown_fields=True, frozen=True):
     schema: Literal["kicad_monkey.outline_vector.a0"]
     type_: Literal["kicad_monkey.outline_vector"] = field(name="type")
     version: Literal["a0"]
-    case_id: str
+    case_id: StableTextId
     coordinate_format: Literal["font_design_units_f64"]
-    comparison: NumericComparisonPolicy
-    font_id: str
+    coordinate_comparison: CoordinateComparisonPolicy
+    font_id: StableTextId
     font_sha256: Sha256Hex
     face_index: Annotated[int, Meta(ge=0, le=4294967295)]
     variations: list[FontVariationCoordinate]
     glyph_id: Annotated[int, Meta(ge=0, le=4294967295)]
-    units_per_em: Annotated[int, Meta(ge=0, le=4294967295)]
+    units_per_em: PositiveUint32
     commands: list[OutlineCommand]
 
 
@@ -991,6 +1001,7 @@ def validate_font_bundle_manifest_a0(
         path = f"$.fonts[{index}]"
         if not font.id or font.id in ids:
             raise msgspec.ValidationError(f"duplicate_font_id at {path}.id")
+        _validate_font_text_identity(font.id, f'{path}.id')
         ids.add(font.id)
         id_index[font.id] = index
         if font.slot in slots:
@@ -1049,6 +1060,7 @@ def resolve_font_selection_a0(
     font_id = None if request.selection.font_id is UNSET else request.selection.font_id
     request_strings = [*request.selection.aliases]
     if font_id is not None:
+        _validate_font_text_identity(font_id, '$.selection.font_id')
         request_strings.append(font_id)
     if sum(_font_utf8_len(value) for value in request_strings) > max_request_string_bytes:
         raise msgspec.ValidationError("resource_limit at $.selection")
@@ -1079,9 +1091,105 @@ def _font_utf8_len(value: str) -> int:
         codepoint = ord(char)
         total += 1 if codepoint < 0x80 else 2 if codepoint < 0x800 else 3 if codepoint < 0x10000 else 4
     return total
+
+
+def _validate_font_text_identity(value: str, path: str) -> None:
+    if not value or not value[0].isascii() or not value[0].isalnum() or any(
+        not char.isascii() or (not char.isalnum() and char not in '._:-') for char in value[1:]
+    ):
+        raise msgspec.ValidationError(f"invalid_text_id at {path}")
+
+
+def _font_tag_valid(value: str) -> bool:
+    return len(value) == 4 and all(char.isascii() and ' ' <= char <= '~' for char in value)
+
+
+def _validate_font_hash(value: str, path: str) -> None:
+    if len(value) != 64 or any(char not in '0123456789abcdef' for char in value):
+        raise msgspec.ValidationError(f"invalid_hash at {path}")
+
+
+def _validate_font_variations(value: list[FontVariationCoordinate], path: str) -> None:
+    axes: set[str] = set()
+    for index, variation in enumerate(value):
+        if not _font_tag_valid(variation.axis) or not math.isfinite(variation.value) or variation.axis in axes:
+            raise msgspec.ValidationError(f"invalid_variation at {path}[{index}]")
+        axes.add(variation.axis)
 decode_font_resolution_request_a0 = msgspec.json.Decoder(FontResolutionRequestA0).decode
-decode_shaping_record_a0 = msgspec.json.Decoder(ShapingRecordA0).decode
-decode_outline_vector_a0 = msgspec.json.Decoder(OutlineVectorA0).decode
+_shaping_record_a0_decoder = msgspec.json.Decoder(ShapingRecordA0)
+
+
+def decode_shaping_record_a0(data: bytes) -> ShapingRecordA0:
+    value = _shaping_record_a0_decoder.decode(data)
+    validate_shaping_record_a0(value)
+    return value
+
+
+def validate_shaping_record_a0(value: ShapingRecordA0) -> None:
+    if value.schema != "kicad_monkey.shaping_record.a0" or value.type_ != "kicad_monkey.shaping_record" or value.version != "a0":
+        raise msgspec.ValidationError("unsupported_contract at $")
+    if not isinstance(value.comparison, ExactComparisonPolicy):
+        raise msgspec.ValidationError("invalid_comparison at $.comparison")
+    if value.input.text_index_unit != "utf8_byte_offset":
+        raise msgspec.ValidationError("invalid_text_index at $.input.text_index_unit")
+    _validate_font_text_identity(value.case_id, '$.case_id')
+    _validate_font_text_identity(value.input.font_id, '$.input.font_id')
+    _validate_font_hash(value.input.font_sha256, '$.input.font_sha256')
+    _validate_font_variations(value.input.variations, '$.input.variations')
+    if value.input.script is not UNSET and not _font_tag_valid(value.input.script):
+        raise msgspec.ValidationError("invalid_tag at $.input.script")
+    boundaries = {0}
+    offset = 0
+    for char in value.input.text:
+        offset += _font_utf8_len(char)
+        boundaries.add(offset)
+    for index, feature in enumerate(value.input.features):
+        if not _font_tag_valid(feature.tag):
+            raise msgspec.ValidationError(f"invalid_tag at $.input.features[{index}].tag")
+        global_range = feature.start == 0 and feature.end == 4_294_967_295
+        bounded = feature.start <= feature.end and feature.start in boundaries and feature.end in boundaries
+        if not global_range and not bounded:
+            raise msgspec.ValidationError(f"invalid_text_index at $.input.features[{index}]")
+    for index, glyph in enumerate(value.glyphs):
+        if glyph.cluster not in boundaries:
+            raise msgspec.ValidationError(f"invalid_text_index at $.glyphs[{index}].cluster")
+_outline_vector_a0_decoder = msgspec.json.Decoder(OutlineVectorA0)
+
+
+def decode_outline_vector_a0(data: bytes) -> OutlineVectorA0:
+    value = _outline_vector_a0_decoder.decode(data)
+    validate_outline_vector_a0(value)
+    return value
+
+
+def validate_outline_vector_a0(value: OutlineVectorA0) -> None:
+    if value.schema != "kicad_monkey.outline_vector.a0" or value.type_ != "kicad_monkey.outline_vector" or value.version != "a0":
+        raise msgspec.ValidationError("unsupported_contract at $")
+    if value.coordinate_format != "font_design_units_f64":
+        raise msgspec.ValidationError("unsupported_contract at $.coordinate_format")
+    _validate_font_text_identity(value.case_id, '$.case_id')
+    _validate_font_text_identity(value.font_id, '$.font_id')
+    _validate_font_hash(value.font_sha256, '$.font_sha256')
+    _validate_font_variations(value.variations, '$.variations')
+    if value.units_per_em <= 0:
+        raise msgspec.ValidationError("invalid_units_per_em at $.units_per_em")
+    comparison = value.coordinate_comparison
+    if isinstance(comparison, AbsoluteToleranceComparisonPolicy):
+        if not math.isfinite(comparison.absolute_tolerance) or comparison.absolute_tolerance < 0:
+            raise msgspec.ValidationError("invalid_comparison at $.coordinate_comparison")
+    elif not isinstance(comparison, ExactComparisonPolicy):
+        raise msgspec.ValidationError("invalid_comparison at $.coordinate_comparison")
+    for index, command in enumerate(value.commands):
+        if isinstance(command, (OutlineMoveTo, OutlineLineTo)):
+            coordinates = (command.x, command.y)
+        elif isinstance(command, OutlineQuadTo):
+            coordinates = (command.control_x, command.control_y, command.x, command.y)
+        elif isinstance(command, OutlineCurveTo):
+            coordinates = (command.control1_x, command.control1_y, command.control2_x, command.control2_y, command.x, command.y)
+        else:
+            coordinates = ()
+        if any(not math.isfinite(coordinate) for coordinate in coordinates):
+            raise msgspec.ValidationError(f"invalid_coordinate at $.commands[{index}]")
 
 
 __all__ = (
@@ -1138,9 +1246,11 @@ __all__ = (
     "SourceSlot",
     "CanonicalUint64Decimal",
     "FontBundleEntry",
+    "StableTextId",
     "Sha256Hex",
     "FontVariationCoordinate",
     "OpenTypeTag",
+    "FiniteFloat",
     "FontSelection",
     "ExactComparisonPolicy",
     "ShapingInput",
@@ -1151,7 +1261,8 @@ __all__ = (
     "ShapingBufferProperties",
     "ShapingClusterLevel",
     "DefaultIgnorablePolicy",
-    "NumericComparisonPolicy",
+    "CoordinateComparisonPolicy",
+    "PositiveUint32",
     "OutlineCommand",
     "AbsoluteToleranceComparisonPolicy",
     "OutlineMoveTo",
@@ -1211,5 +1322,7 @@ __all__ = (
     "validate_footprint_plot_document_a0",
     "resolve_font_selection_a0",
     "validate_font_bundle_manifest_a0",
+    "validate_outline_vector_a0",
+    "validate_shaping_record_a0",
     "validate_symbol_plot_document_a0",
 )

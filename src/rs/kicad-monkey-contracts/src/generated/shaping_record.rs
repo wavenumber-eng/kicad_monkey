@@ -143,7 +143,7 @@ pub struct ExactComparisonPolicy {
 ///      "$ref": "#/$defs/OpenTypeTag"
 ///    },
 ///    "value": {
-///      "type": "number"
+///      "$ref": "#/$defs/FiniteFloat"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -154,7 +154,7 @@ pub struct ExactComparisonPolicy {
 #[serde(deny_unknown_fields)]
 pub struct FontVariationCoordinate {
     pub axis: OpenTypeTag,
-    pub value: f64,
+    pub value: crate::FiniteFloat,
 }
 ///Four-byte OpenType variation or feature tag.
 ///
@@ -263,6 +263,7 @@ impl ::std::fmt::Display for Sha256Hex {
 ///  ],
 ///  "properties": {
 ///    "cluster": {
+///      "description": "UTF-8 byte offset into ShapingInput.text, as assigned by push_str.",
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
@@ -301,6 +302,7 @@ impl ::std::fmt::Display for Sha256Hex {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ShapedGlyph {
+    ///UTF-8 byte offset into ShapingInput.text, as assigned by push_str.
     pub cluster: u32,
     pub glyph_id: u32,
     pub safe_to_insert_tatweel: bool,
@@ -443,13 +445,16 @@ impl ::std::convert::TryFrom<::std::string::String> for ShapingClusterLevel {
         value.parse()
     }
 }
-///HarfBuzz-compatible feature range over input scalar indices.
+/**HarfBuzz-compatible feature range over half-open UTF-8 byte offsets.
+Non-global endpoints are UTF-8 code-point boundaries. A global range is
+start=0 and end=4294967295. Rustybuzz receives these values unchanged after
+UnicodeBuffer::push_str assigns char_indices clusters.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "HarfBuzz-compatible feature range over input scalar indices.",
+///  "description": "HarfBuzz-compatible feature range over half-open UTF-8 byte offsets.\nNon-global endpoints are UTF-8 code-point boundaries. A global range is\nstart=0 and end=4294967295. Rustybuzz receives these values unchanged after\nUnicodeBuffer::push_str assigns char_indices clusters.",
 ///  "type": "object",
 ///  "required": [
 ///    "end",
@@ -507,6 +512,7 @@ pub struct ShapingFeature {
 ///    "scale_x",
 ///    "scale_y",
 ///    "text",
+///    "text_index_unit",
 ///    "variations"
 ///  ],
 ///  "properties": {
@@ -528,7 +534,7 @@ pub struct ShapingFeature {
 ///      }
 ///    },
 ///    "font_id": {
-///      "type": "string"
+///      "$ref": "#/$defs/StableTextId"
 ///    },
 ///    "font_sha256": {
 ///      "$ref": "#/$defs/Sha256Hex"
@@ -548,6 +554,10 @@ pub struct ShapingFeature {
 ///    "text": {
 ///      "type": "string"
 ///    },
+///    "text_index_unit": {
+///      "type": "string",
+///      "const": "utf8_byte_offset"
+///    },
 ///    "variations": {
 ///      "type": "array",
 ///      "items": {
@@ -566,7 +576,7 @@ pub struct ShapingInput {
     pub direction: TextDirection,
     pub face_index: u32,
     pub features: ::std::vec::Vec<ShapingFeature>,
-    pub font_id: ::std::string::String,
+    pub font_id: crate::StableTextId,
     pub font_sha256: Sha256Hex,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub language: ::std::option::Option<::std::string::String>,
@@ -575,6 +585,7 @@ pub struct ShapingInput {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub script: ::std::option::Option<OpenTypeTag>,
     pub text: ::std::string::String,
+    pub text_index_unit: ::std::string::String,
     pub variations: ::std::vec::Vec<FontVariationCoordinate>,
 }
 ///Intermediate shaping oracle, intentionally separate from glyph outlines.
@@ -598,7 +609,7 @@ pub struct ShapingInput {
 ///  ],
 ///  "properties": {
 ///    "case_id": {
-///      "type": "string"
+///      "$ref": "#/$defs/StableTextId"
 ///    },
 ///    "comparison": {
 ///      "$ref": "#/$defs/ExactComparisonPolicy"
@@ -632,7 +643,7 @@ pub struct ShapingInput {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ShapingRecordA0 {
-    pub case_id: ::std::string::String,
+    pub case_id: crate::StableTextId,
     pub comparison: ExactComparisonPolicy,
     pub glyphs: ::std::vec::Vec<ShapedGlyph>,
     pub input: ShapingInput,

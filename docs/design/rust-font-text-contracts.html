@@ -48,12 +48,28 @@
   state, default-ignorable policy, dotted-circle policy, and requested output
   flags. No HarfBuzz buffer default remains implicit.</p>
 
+  <p>Text positions use UTF-8 byte offsets. The Rust implementation must feed
+  the complete string through <code>UnicodeBuffer::push_str</code>, whose
+  <code>char_indices</code> clusters are UTF-8 byte offsets, and pass each
+  feature's half-open <code>[start, end)</code> range to Rustybuzz unchanged.
+  Non-global endpoints must be UTF-8 code-point boundaries; the sole global
+  sentinel is <code>start=0, end=4294967295</code>. Output glyph clusters use
+  the same unit. The structural combining-mark vector contains byte offsets
+  larger than Unicode-scalar indices so implementations cannot silently
+  substitute scalar or UTF-16 units.</p>
+
   <p><code>OutlineVectorA0</code> separately freezes raw move, line, quadratic,
   cubic, and close commands in finite <code>float64</code> font design units,
-  paired with <code>units_per_em</code>, a stable case ID, and an absolute
-  tolerance in those same units. Fractional coordinates are intentional so
+  paired with positive <code>units_per_em</code>, a nonempty stable case ID,
+  and a coordinate-only absolute tolerance in those same units. Font hashes,
+  font/case IDs, glyph IDs, command kinds/order, face indices, variations, and
+  UPEM remain exact even when coordinates use a tolerance. Fractional
+  coordinates are intentional so
   TrueType, CFF, and CFF2 outlines share one a0 representation; downstream
-  KiCad scaling and rounding are not part of this record. Final render-cache
+  KiCad scaling and rounding are not part of this record. Generated Rust
+  finite-float newtypes prevent programmatic NaN/infinity construction through
+  the public fields; generated Python decoding and semantic validators enforce
+  the same finite boundary. Final render-cache
   comparison remains a third gate. Keeping all
   three layers separate makes a parity failure attributable to shaping,
   outline extraction, or placement/transformation.</p>

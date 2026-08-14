@@ -8,6 +8,7 @@
 
 mod compiled_graph_contract;
 mod font_bundle_contract;
+mod font_text_contract;
 pub mod generated;
 mod source_bundle_contract;
 
@@ -19,6 +20,7 @@ pub use font_bundle_contract::{
     FontBundleLimits, FontResolutionLimits, ValidatedFontBundle, resolve_font_selection_contract,
     validate_font_bundle_contract,
 };
+pub use font_text_contract::{validate_outline_vector_contract, validate_shaping_record_contract};
 pub use source_bundle_contract::{
     SourceBundleDecodeError, decode_source_bundle_manifest_a0,
     validate_source_bundle_manifest_contract,
@@ -144,6 +146,163 @@ impl fmt::Display for NonNegativeFiniteFloatError {
 }
 
 impl std::error::Error for NonNegativeFiniteFloatError {}
+
+/// Finite float64 value used by programmatically constructed text DTOs.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+#[serde(transparent)]
+pub struct FiniteFloat(f64);
+
+impl FiniteFloat {
+    pub const fn get(self) -> f64 {
+        self.0
+    }
+}
+
+impl TryFrom<f64> for FiniteFloat {
+    type Error = FiniteFloatError;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        if value.is_finite() {
+            Ok(Self(value))
+        } else {
+            Err(FiniteFloatError { value })
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FiniteFloat {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = f64::deserialize(deserializer)?;
+        Self::try_from(value).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FiniteFloatError {
+    value: f64,
+}
+
+impl fmt::Display for FiniteFloatError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{} is not finite", self.value)
+    }
+}
+
+impl std::error::Error for FiniteFloatError {}
+
+/// Strictly positive OpenType units-per-em transport value.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize)]
+#[serde(transparent)]
+pub struct PositiveU32(u32);
+
+impl PositiveU32 {
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+}
+
+impl TryFrom<u32> for PositiveU32 {
+    type Error = PositiveU32Error;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        if value > 0 {
+            Ok(Self(value))
+        } else {
+            Err(PositiveU32Error)
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for PositiveU32 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = u32::deserialize(deserializer)?;
+        Self::try_from(value).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PositiveU32Error;
+
+impl fmt::Display for PositiveU32Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("value must be greater than zero")
+    }
+}
+
+impl std::error::Error for PositiveU32Error {}
+
+/// Nonempty stable ASCII identifier for font entries and oracle cases.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, serde::Serialize)]
+#[serde(transparent)]
+pub struct StableTextId(String);
+
+impl StableTextId {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::ops::Deref for StableTextId {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for StableTextId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl std::str::FromStr for StableTextId {
+    type Err = StableTextIdError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if valid_stable_text_id(value) {
+            Ok(Self(value.to_owned()))
+        } else {
+            Err(StableTextIdError)
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for StableTextId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        value.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+fn valid_stable_text_id(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    bytes
+        .next()
+        .is_some_and(|byte| byte.is_ascii_alphanumeric())
+        && bytes
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'))
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StableTextIdError;
+
+impl fmt::Display for StableTextIdError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("value is not a stable text identifier")
+    }
+}
+
+impl std::error::Error for StableTextIdError {}
 
 /// Validated, payload-exclusive generic node ready for conversion by adapters.
 #[derive(Clone, Debug, PartialEq)]

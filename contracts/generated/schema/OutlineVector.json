@@ -16,17 +16,17 @@
             "const": "a0"
         },
         "case_id": {
-            "type": "string"
+            "$ref": "#/$defs/StableTextId"
         },
         "coordinate_format": {
             "type": "string",
             "const": "font_design_units_f64"
         },
-        "comparison": {
-            "$ref": "#/$defs/NumericComparisonPolicy"
+        "coordinate_comparison": {
+            "$ref": "#/$defs/CoordinateComparisonPolicy"
         },
         "font_id": {
-            "type": "string"
+            "$ref": "#/$defs/StableTextId"
         },
         "font_sha256": {
             "$ref": "#/$defs/Sha256Hex"
@@ -48,9 +48,7 @@
             "maximum": 4294967295
         },
         "units_per_em": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 4294967295
+            "$ref": "#/$defs/PositiveUint32"
         },
         "commands": {
             "type": "array",
@@ -65,7 +63,7 @@
         "version",
         "case_id",
         "coordinate_format",
-        "comparison",
+        "coordinate_comparison",
         "font_id",
         "font_sha256",
         "face_index",
@@ -80,7 +78,12 @@
     "description": "Raw glyph outline oracle in font units, separate from shaping and placement.",
     "title": "Outline vector a0",
     "$defs": {
-        "NumericComparisonPolicy": {
+        "StableTextId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "description": "Stable ASCII identifier shared by manifests and oracle cases."
+        },
+        "CoordinateComparisonPolicy": {
             "anyOf": [
                 {
                     "$ref": "#/$defs/ExactComparisonPolicy"
@@ -102,7 +105,7 @@
                     "$ref": "#/$defs/OpenTypeTag"
                 },
                 "value": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 }
             },
             "required": [
@@ -113,6 +116,12 @@
                 "not": {}
             },
             "description": "One ordered OpenType variation coordinate."
+        },
+        "PositiveUint32": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295,
+            "description": "Positive OpenType units-per-em value."
         },
         "OutlineCommand": {
             "anyOf": [
@@ -173,6 +182,12 @@
             "pattern": "^[ -~]{4}$",
             "description": "Four-byte OpenType variation or feature tag."
         },
+        "FiniteFloat": {
+            "type": "number",
+            "minimum": -1.7976931348623157e+308,
+            "maximum": 1.7976931348623157e+308,
+            "description": "Finite float64 value, including fractional CFF/CFF2 design coordinates."
+        },
         "OutlineMoveTo": {
             "type": "object",
             "properties": {
@@ -181,10 +196,10 @@
                     "const": "move_to"
                 },
                 "x": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 },
                 "y": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 }
             },
             "required": [
@@ -204,10 +219,10 @@
                     "const": "line_to"
                 },
                 "x": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 },
                 "y": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 }
             },
             "required": [
@@ -227,16 +242,16 @@
                     "const": "quad_to"
                 },
                 "control_x": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 },
                 "control_y": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 },
                 "x": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 },
                 "y": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 }
             },
             "required": [
@@ -258,22 +273,22 @@
                     "const": "curve_to"
                 },
                 "control1_x": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 },
                 "control1_y": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 },
                 "control2_x": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 },
                 "control2_y": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 },
                 "x": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 },
                 "y": {
-                    "type": "number"
+                    "$ref": "#/$defs/FiniteFloat"
                 }
             },
             "required": [

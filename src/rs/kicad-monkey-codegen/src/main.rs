@@ -112,6 +112,9 @@ fn generate(value: Value) -> Result<String> {
         "crate::NonNegativeFiniteFloat",
         [].into_iter(),
     );
+    settings.with_replacement("FiniteFloat", "crate::FiniteFloat", [].into_iter());
+    settings.with_replacement("PositiveUint32", "crate::PositiveU32", [].into_iter());
+    settings.with_replacement("StableTextId", "crate::StableTextId", [].into_iter());
     let mut type_space = TypeSpace::new(&settings);
     type_space.add_root_schema(schema)?;
     let body = type_space.to_stream().to_string();
@@ -146,7 +149,10 @@ fn project_for_typify(value: &mut Value) {
             object.remove("$schema");
             if matches!(
                 object.get("pattern").and_then(Value::as_str),
-                Some("^(0|[1-9][0-9]{0,19})$") | Some("^[0-9a-f]{64}$") | Some("^[ -~]{4}$")
+                Some("^(0|[1-9][0-9]{0,19})$")
+                    | Some("^[0-9a-f]{64}$")
+                    | Some("^[ -~]{4}$")
+                    | Some("^[A-Za-z0-9][A-Za-z0-9._:-]*$")
             ) {
                 // JSON Schema and the promoted semantic validators retain
                 // the closed string grammars. Avoid adding a regex runtime to

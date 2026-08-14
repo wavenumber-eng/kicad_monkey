@@ -35,7 +35,7 @@
             "type": "object",
             "properties": {
                 "font_id": {
-                    "type": "string"
+                    "$ref": "#/$defs/StableTextId"
                 },
                 "aliases": {
                     "type": "array",
@@ -51,6 +51,11 @@
                 "not": {}
             },
             "description": "Deterministic font request: explicit ID wins, otherwise aliases are matched."
+        },
+        "StableTextId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "description": "Stable ASCII identifier shared by manifests and oracle cases."
         }
     }
 }

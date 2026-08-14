@@ -64,6 +64,7 @@
       "face_index": 0,
       "variations": [{"axis": "wght", "value": 400.0}],
       "text": "ffi",
+      "text_index_unit": "utf8_byte_offset",
       "scale_x": 1000,
       "scale_y": 1000,
       "direction": "left_to_right",
@@ -94,13 +95,48 @@
       }
     ]
   },
+  "shaping_index_record": {
+    "schema": "kicad_monkey.shaping_record.a0",
+    "type": "kicad_monkey.shaping_record",
+    "version": "a0",
+    "case_id": "unicode_combining_utf8_offsets",
+    "comparison": {"mode": "exact"},
+    "input": {
+      "font_id": "primary",
+      "font_sha256": "44a0b3eae3f38762361e3d51bd3f954e00a9d62d7fdb87f8da4a9772236dd987",
+      "face_index": 0,
+      "variations": [],
+      "text": "Aé́B",
+      "text_index_unit": "utf8_byte_offset",
+      "scale_x": 1000,
+      "scale_y": 1000,
+      "direction": "left_to_right",
+      "script": "Latn",
+      "language": "en",
+      "features": [{"tag": "kern", "value": 0, "start": 1, "end": 5}],
+      "buffer_properties": {
+        "cluster_level": "monotone_graphemes",
+        "beginning_of_text": true,
+        "end_of_text": true,
+        "default_ignorables": "normal",
+        "do_not_insert_dotted_circle": false,
+        "produce_unsafe_to_concat": false,
+        "produce_safe_to_insert_tatweel": false
+      }
+    },
+    "glyphs": [
+      {"glyph_id": 1, "cluster": 0, "x_advance": 500, "y_advance": 0, "x_offset": 0, "y_offset": 0, "unsafe_to_break": false, "safe_to_insert_tatweel": false, "unsafe_to_concat": false},
+      {"glyph_id": 2, "cluster": 1, "x_advance": 500, "y_advance": 0, "x_offset": 0, "y_offset": 0, "unsafe_to_break": true, "safe_to_insert_tatweel": false, "unsafe_to_concat": false},
+      {"glyph_id": 3, "cluster": 5, "x_advance": 500, "y_advance": 0, "x_offset": 0, "y_offset": 0, "unsafe_to_break": false, "safe_to_insert_tatweel": false, "unsafe_to_concat": false}
+    ]
+  },
   "outline_vector": {
     "schema": "kicad_monkey.outline_vector.a0",
     "type": "kicad_monkey.outline_vector",
     "version": "a0",
     "case_id": "fractional_outline_glyph_5044",
     "coordinate_format": "font_design_units_f64",
-    "comparison": {"mode": "absolute_tolerance", "absolute_tolerance": 0.000001},
+    "coordinate_comparison": {"mode": "absolute_tolerance", "absolute_tolerance": 0.000001},
     "font_id": "primary",
     "font_sha256": "44a0b3eae3f38762361e3d51bd3f954e00a9d62d7fdb87f8da4a9772236dd987",
     "face_index": 0,
