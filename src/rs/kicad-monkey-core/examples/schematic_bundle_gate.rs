@@ -3,8 +3,9 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
 };
 use kicad_monkey_core::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicBusSubgraph, SchematicDefinition,
-    SchematicLabelScope, SchematicPlacedSymbol, SchematicPoint, SchematicSheet, SourceBundle,
-    SourceBundleLimits, build_schematic_bus_subgraphs,
+    SchematicLabelScope, SchematicOccurrenceConnectivityLimits, SchematicPlacedSymbol,
+    SchematicPoint, SchematicSheet, SchematicWireSubgraph, SourceBundle, SourceBundleLimits,
+    build_schematic_bus_subgraphs, build_schematic_occurrence_subgraphs,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -28,6 +29,7 @@ struct ResultSummary {
     occurrences: Vec<OccurrenceSummary>,
     effective_symbols: Vec<EffectiveOccurrenceSummary>,
     symbol_terminals: Vec<TerminalOccurrenceSummary>,
+    wire_subgraphs: Vec<WireOccurrenceSummary>,
     total_bytes: usize,
 }
 
@@ -214,6 +216,48 @@ struct TerminalSummary {
     at: [i64; 2],
 }
 
+#[derive(Debug, Serialize)]
+struct WireOccurrenceSummary {
+    occurrence_index: usize,
+    subgraphs: Vec<WireSubgraphSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct WireSubgraphSummary {
+    coords: Vec<[i64; 2]>,
+    pins: Vec<WirePinSummary>,
+    labels: Vec<WireLabelSummary>,
+    chosen_name: String,
+    chosen_priority: i8,
+    chosen_kind: String,
+    no_connect: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct WirePinSummary {
+    symbol_index: usize,
+    reference: String,
+    pin_number: String,
+    pin_name: String,
+    electrical_type: String,
+    at: [i64; 2],
+    priority: i8,
+    kind: String,
+    power_value: String,
+    is_power: bool,
+    is_implicit_hidden_power: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct WireLabelSummary {
+    text: String,
+    at: [i64; 2],
+    priority: i8,
+    kind: String,
+    shape: String,
+    source_uuid: String,
+}
+
 struct LoadedRequest {
     manifest: SourceBundleManifestA0,
     buffers: Vec<Vec<u8>>,
@@ -237,6 +281,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())?;
         let effective_symbols = effective_summaries(&index)?;
         let symbol_terminals = terminal_summaries(&index)?;
+        let wire_subgraphs = wire_summaries(&index)?;
         println!(
             "{}",
             serde_json::to_string(&ResultSummary {
@@ -260,6 +305,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     .collect(),
                 effective_symbols,
                 symbol_terminals,
+                wire_subgraphs,
                 total_bytes: bundle.total_bytes(),
             })?
         );
@@ -332,6 +378,68 @@ fn terminal_summaries(
             })
         })
         .collect()
+}
+
+fn wire_summaries(
+    index: &SchematicBundleIndex,
+) -> Result<Vec<WireOccurrenceSummary>, kicad_monkey_core::SourceBundleError> {
+    index
+        .occurrences()
+        .map(|occurrence| {
+            Ok(WireOccurrenceSummary {
+                occurrence_index: occurrence.index,
+                subgraphs: build_schematic_occurrence_subgraphs(
+                    index,
+                    occurrence.index,
+                    SchematicOccurrenceConnectivityLimits::default(),
+                )?
+                .iter()
+                .map(wire_subgraph_summary)
+                .collect(),
+            })
+        })
+        .collect()
+}
+
+fn wire_subgraph_summary(subgraph: &SchematicWireSubgraph) -> WireSubgraphSummary {
+    WireSubgraphSummary {
+        coords: subgraph.coords.iter().copied().map(point_pair).collect(),
+        pins: subgraph
+            .pin_drivers
+            .iter()
+            .map(|pin| WirePinSummary {
+                symbol_index: pin.symbol_index,
+                reference: pin.reference.clone(),
+                pin_number: pin.pin_number.clone(),
+                pin_name: pin.pin_name.clone(),
+                electrical_type: pin.electrical_type.clone(),
+                at: point_pair(pin.at),
+                priority: pin.priority as i8,
+                kind: pin.kind.as_str().to_owned(),
+                power_value: pin.power_value.clone(),
+                is_power: pin.is_power,
+                is_implicit_hidden_power: pin.is_implicit_hidden_power,
+            })
+            .collect(),
+        labels: subgraph
+            .label_drivers
+            .iter()
+            .map(|label| WireLabelSummary {
+                text: label.text.clone(),
+                at: point_pair(label.at),
+                priority: label.priority as i8,
+                kind: label.kind.as_str().to_owned(),
+                shape: label.shape.clone(),
+                source_uuid: label.source_uuid.clone(),
+            })
+            .collect(),
+        chosen_name: subgraph.chosen_name.clone(),
+        chosen_priority: subgraph.chosen_priority as i8,
+        chosen_kind: subgraph
+            .chosen_kind
+            .map_or_else(String::new, |kind| kind.as_str().to_owned()),
+        no_connect: subgraph.no_connect,
+    }
 }
 
 fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {

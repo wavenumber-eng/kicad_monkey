@@ -3,6 +3,7 @@ use super::{
     source_error,
 };
 use crate::schematic_bundle::SchematicBundleLimits;
+use crate::sexpr::{Lexer, Token, TokenKind, decode_quoted_with_limit};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use crate::source_bundle::SourceBundleError;
 use std::collections::BTreeSet;
@@ -13,6 +14,8 @@ pub struct SchematicLibrarySymbol {
     pub extends: Option<String>,
     pub power: bool,
     pub power_kind: Option<String>,
+    pub duplicate_pin_numbers_are_jumpers: bool,
+    pub jumper_pin_groups: Vec<Vec<String>>,
     pub subsymbols: Vec<SchematicLibrarySubsymbol>,
 }
 
@@ -78,8 +81,7 @@ pub(crate) fn parse_embedded_library_symbols(
     )
     .map_err(|error| source_error(source_path, error.to_string()))?;
     let mut symbols = Vec::new();
-    let mut subsymbol_count = 0_usize;
-    let mut pin_count = 0_usize;
+    let mut counts = LibraryParseCounts::default();
     for symbol_span in selected
         .iter()
         .filter(|span| span.depth == 1 && span.head.as_deref() == Some("symbol"))
@@ -95,8 +97,7 @@ pub(crate) fn parse_embedded_library_symbols(
             symbol_span,
             source_path,
             limits,
-            &mut subsymbol_count,
-            &mut pin_count,
+            &mut counts,
         )?);
     }
     Ok(symbols)
@@ -107,21 +108,27 @@ fn parse_library_symbol(
     span: &FormSpan,
     source_path: &str,
     limits: SchematicBundleLimits,
-    subsymbol_count: &mut usize,
-    pin_count: &mut usize,
+    counts: &mut LibraryParseCounts,
 ) -> Result<SchematicLibrarySymbol, SourceBundleError> {
     let text = span
         .text(source)
         .map_err(|error| source_error(source_path, error.to_string()))?;
     let selected = carrier_form_spans(
         text,
-        &["symbol", "extends", "power", "pin"],
+        &[
+            "symbol",
+            "extends",
+            "power",
+            "pin",
+            "duplicate_pin_numbers_are_jumpers",
+            "jumper_pin_groups",
+        ],
         source_path,
         limits,
         limits
             .max_library_subsymbols_per_source
             .saturating_add(limits.max_library_pins_per_source)
-            .saturating_add(4),
+            .saturating_add(6),
     )?;
     let root = selected
         .iter()
@@ -140,24 +147,40 @@ fn parse_library_symbol(
         .transpose()?
         .and_then(|values| values.into_iter().next())
         .filter(|value| matches!(value.as_str(), "global" | "local"));
+    let duplicate_pin_numbers_are_jumpers = child_scalar(
+        text,
+        &selected,
+        "duplicate_pin_numbers_are_jumpers",
+        source_path,
+        limits,
+    )?
+    .is_some_and(|value| matches!(value.as_str(), "yes" | "true" | "1"));
+    let jumper_pin_groups = selected
+        .iter()
+        .find(|selected| {
+            selected.depth == 1 && selected.head.as_deref() == Some("jumper_pin_groups")
+        })
+        .map(|span| parse_jumper_pin_groups(text, span, source_path, limits, counts))
+        .transpose()?
+        .unwrap_or_default();
     let mut subsymbols = Vec::new();
     for subsymbol_span in selected
         .iter()
         .filter(|selected| selected.depth == 1 && selected.head.as_deref() == Some("symbol"))
     {
-        if *subsymbol_count >= limits.max_library_subsymbols_per_source {
+        if counts.subsymbols >= limits.max_library_subsymbols_per_source {
             return Err(limit_error(
                 source_path,
                 "embedded library subsymbol count exceeds its limit",
             ));
         }
-        *subsymbol_count += 1;
+        counts.subsymbols += 1;
         subsymbols.push(parse_library_subsymbol(
             text,
             subsymbol_span,
             source_path,
             limits,
-            pin_count,
+            &mut counts.pins,
         )?);
     }
     Ok(SchematicLibrarySymbol {
@@ -165,8 +188,137 @@ fn parse_library_symbol(
         extends,
         power: power.is_some(),
         power_kind,
+        duplicate_pin_numbers_are_jumpers,
+        jumper_pin_groups,
         subsymbols,
     })
+}
+
+#[derive(Default)]
+struct LibraryParseCounts {
+    subsymbols: usize,
+    pins: usize,
+    jumper_groups: usize,
+    jumper_members: usize,
+    jumper_member_bytes: usize,
+}
+
+fn parse_jumper_pin_groups(
+    source: &str,
+    span: &FormSpan,
+    source_path: &str,
+    limits: SchematicBundleLimits,
+    counts: &mut LibraryParseCounts,
+) -> Result<Vec<Vec<String>>, SourceBundleError> {
+    let text = span
+        .text(source)
+        .map_err(|error| source_error(source_path, error.to_string()))?;
+    let mut lexer = Lexer::new(text);
+    let mut parser = JumperGroupParser::new(source_path, limits, counts);
+    while let Some(token) = lexer
+        .next()
+        .transpose()
+        .map_err(|error| source_error(source_path, error.to_string()))?
+    {
+        match token.kind {
+            TokenKind::Left => parser.open(),
+            TokenKind::Right => parser.close()?,
+            TokenKind::Atom | TokenKind::QuotedString => parser.scalar(token)?,
+            _ => {}
+        }
+    }
+    Ok(parser.groups)
+}
+
+struct JumperGroupParser<'a, 'b> {
+    source_path: &'a str,
+    limits: SchematicBundleLimits,
+    counts: &'b mut LibraryParseCounts,
+    depth: usize,
+    groups: Vec<Vec<String>>,
+    current: Vec<String>,
+}
+
+impl<'a, 'b> JumperGroupParser<'a, 'b> {
+    fn new(
+        source_path: &'a str,
+        limits: SchematicBundleLimits,
+        counts: &'b mut LibraryParseCounts,
+    ) -> Self {
+        Self {
+            source_path,
+            limits,
+            counts,
+            depth: 0,
+            groups: Vec::new(),
+            current: Vec::new(),
+        }
+    }
+
+    fn open(&mut self) {
+        self.depth = self.depth.saturating_add(1);
+        if self.depth == 2 {
+            self.current.clear();
+        }
+    }
+
+    fn close(&mut self) -> Result<(), SourceBundleError> {
+        if self.depth == 2 && !self.current.is_empty() {
+            if self.counts.jumper_groups >= self.limits.max_jumper_groups_per_source {
+                return Err(limit_error(
+                    self.source_path,
+                    "embedded jumper group count exceeds its limit",
+                ));
+            }
+            self.counts.jumper_groups += 1;
+            self.groups.push(std::mem::take(&mut self.current));
+        }
+        self.depth = self.depth.saturating_sub(1);
+        Ok(())
+    }
+
+    fn scalar(&mut self, token: Token<'_>) -> Result<(), SourceBundleError> {
+        if self.depth != 2 {
+            return Ok(());
+        }
+        if self.counts.jumper_members >= self.limits.max_jumper_members_per_source {
+            return Err(limit_error(
+                self.source_path,
+                "embedded jumper member count exceeds its limit",
+            ));
+        }
+        let remaining_bytes = self
+            .limits
+            .max_jumper_member_bytes_per_source
+            .saturating_sub(self.counts.jumper_member_bytes);
+        let value = self.decode_member(token, remaining_bytes)?;
+        self.counts.jumper_members += 1;
+        self.counts.jumper_member_bytes += value.len();
+        self.current.push(value);
+        Ok(())
+    }
+
+    fn decode_member(
+        &self,
+        token: Token<'_>,
+        remaining_bytes: usize,
+    ) -> Result<String, SourceBundleError> {
+        if token.kind == TokenKind::QuotedString {
+            return decode_quoted_with_limit(token.lexeme, remaining_bytes).ok_or_else(|| {
+                limit_error(
+                    self.source_path,
+                    "embedded jumper member bytes exceed their limit",
+                )
+            });
+        }
+        if token.lexeme.len() > remaining_bytes {
+            return Err(limit_error(
+                self.source_path,
+                "embedded jumper member bytes exceed their limit",
+            ));
+        }
+        Ok(token.lexeme.to_owned())
+    }
 }
 
 fn parse_library_subsymbol(

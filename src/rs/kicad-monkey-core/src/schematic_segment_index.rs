@@ -151,6 +151,16 @@ impl SchematicSegmentIndex {
         Ok(first)
     }
 
+    pub(crate) fn for_each_containing(
+        &self,
+        point: SchematicPoint,
+        work: &mut usize,
+        max_work: usize,
+        visitor: impl FnMut(SchematicSegment) -> bool,
+    ) -> Result<(), SourceBundleError> {
+        self.visit_containing(point, work, max_work, visitor)
+    }
+
     fn visit_containing(
         &self,
         point: SchematicPoint,

@@ -7,12 +7,14 @@ import shutil
 import subprocess
 from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN
 from pathlib import Path
+from typing import Any, cast
 
 from kicad_monkey import KiCadDesign
 from kicad_monkey.kicad_bus_connectivity import build_bus_subgraphs
 from kicad_monkey.kicad_netlist_compiler import (
     _resolve_instance_reference,
     _resolve_instance_unit,
+    compile_sheet_subgraphs,
 )
 from kicad_monkey.kicad_schematic_connectivity import (
     ConnectivityGraph,
@@ -40,6 +42,71 @@ I64_MAX = 2**63 - 1
 
 def _point(x_mm: float, y_mm: float) -> list[int]:
     return list(snap_mm_to_iu(x_mm, y_mm))
+
+
+def _first_difference(left: object, right: object, path: str = "root") -> str | None:
+    if type(left) is not type(right):
+        return f"{path}: type {type(left).__name__} != {type(right).__name__}"
+    if isinstance(left, dict) and isinstance(right, dict):
+        if left.keys() != right.keys():
+            return f"{path}: keys {list(left)} != {list(right)}"
+        for key in left:
+            difference = _first_difference(left[key], right[key], f"{path}.{key}")
+            if difference is not None:
+                return difference
+        return None
+    if isinstance(left, list) and isinstance(right, list):
+        if len(left) != len(right):
+            return f"{path}: length {len(left)} != {len(right)}"
+        for index, (left_item, right_item) in enumerate(zip(left, right, strict=True)):
+            difference = _first_difference(left_item, right_item, f"{path}[{index}]")
+            if difference is not None:
+                return difference
+        return None
+    if left != right:
+        return f"{path}: {left!r} != {right!r}"
+    return None
+
+
+def _wire_stats(occurrences: list[dict[str, Any]]) -> list[tuple[int, int, int, int]]:
+    stats = []
+    for occurrence in occurrences:
+        subgraphs = occurrence["subgraphs"]
+        assert isinstance(subgraphs, list)
+        stats.append(
+            (
+                len(subgraphs),
+                sum(len(subgraph["coords"]) for subgraph in subgraphs),
+                sum(len(subgraph["pins"]) for subgraph in subgraphs),
+                sum(len(subgraph["labels"]) for subgraph in subgraphs),
+            )
+        )
+    return stats
+
+
+def _partition_difference(
+    left: list[dict[str, Any]], right: list[dict[str, Any]]
+) -> str:
+    right_component_by_point = {
+        tuple(point): component_index
+        for component_index, subgraph in enumerate(right)
+        for point in subgraph["coords"]
+    }
+    for component_index, subgraph in enumerate(left):
+        right_components = {
+            right_component_by_point.get(tuple(point)) for point in subgraph["coords"]
+        }
+        if len(right_components) > 1:
+            right_indexes = sorted(index for index in right_components if index is not None)
+            return (
+                f"left component {component_index} joins right components "
+                f"{right_indexes} at {subgraph['coords'][:12]}; "
+                f"left chosen={subgraph['chosen_name']!r}, "
+                f"labels={[label['text'] for label in subgraph['labels']]}, "
+                f"pins={[(pin['reference'], pin['pin_number']) for pin in subgraph['pins']]}; "
+                f"right summaries={[(right[index]['coords'], right[index]['chosen_name'], [label['text'] for label in right[index]['labels']], [(pin['reference'], pin['pin_number']) for pin in right[index]['pins']]) for index in right_indexes]}"
+            )
+    return "no merged-component witness"
 
 
 def _reference_decimal_iu(value: str) -> int | None:
@@ -239,6 +306,7 @@ def _request(
     dict[str, dict[str, object]],
     list[dict[str, object]],
     list[dict[str, object]],
+    list[dict[str, object]],
 ]:
     case = get_kicad_corpus_case(case_id)
     assert case is not None
@@ -302,6 +370,7 @@ def _request(
                 legacy_units.setdefault(path, int(instance.unit or 1))
     expected_effective = []
     expected_terminals = []
+    expected_wire_subgraphs = []
     for occurrence in occurrences:
         symbols = []
         terminals = []
@@ -366,6 +435,66 @@ def _request(
         expected_terminals.append(
             {"occurrence_index": occurrence.index, "terminals": terminals}
         )
+        subgraphs = compile_sheet_subgraphs(
+            occurrence.schematic,
+            sheet_path=occurrence.sheet_path_uuids,
+            legacy_lookup=legacy_references,
+            canonical_path=occurrence.occurrence_address,
+            legacy_unit_lookup=legacy_units,
+        )
+        expected_wire_subgraphs.append(
+            {
+                "occurrence_index": occurrence.index,
+                "subgraphs": [
+                    {
+                        "coords": [list(point) for point in sorted(subgraph.coords)],
+                        "pins": [
+                            {
+                                "symbol_index": next(
+                                    index
+                                    for index, symbol in enumerate(occurrence.schematic.symbols)
+                                    if str(getattr(symbol, "uuid", "") or "")
+                                    == pin.svg_uuid
+                                ),
+                                "reference": pin.designator,
+                                "pin_number": pin.pin_number,
+                                "pin_name": pin.pin_name,
+                                "electrical_type": pin.pin_type,
+                                "at": list(pin.coord),
+                                "priority": int(pin.priority),
+                                "kind": (
+                                    "global_power_pin"
+                                    if int(pin.priority) == 6
+                                    else "local_power_pin"
+                                    if int(pin.priority) == 5
+                                    else "pin"
+                                ),
+                                "power_value": pin.power_value,
+                                "is_power": pin.is_power,
+                                "is_implicit_hidden_power": pin.is_implicit_hidden_power,
+                            }
+                            for pin in subgraph.pin_drivers
+                        ],
+                        "labels": [
+                            {
+                                "text": label.text,
+                                "at": list(label.coord),
+                                "priority": int(label.priority),
+                                "kind": str(label.kind),
+                                "shape": label.shape,
+                                "source_uuid": label.source_uuid,
+                            }
+                            for label in subgraph.label_drivers
+                        ],
+                        "chosen_name": subgraph.chosen_name,
+                        "chosen_priority": int(subgraph.chosen_priority),
+                        "chosen_kind": str(subgraph.chosen_kind),
+                        "no_connect": subgraph.no_connect,
+                    }
+                    for subgraph in subgraphs
+                ],
+            }
+        )
     return (
         request,
         expected_definitions,
@@ -373,6 +502,7 @@ def _request(
         expected_source_models,
         expected_effective,
         expected_terminals,
+        expected_wire_subgraphs,
     )
 
 
@@ -394,7 +524,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         cwd=PACKAGE_ROOT,
         input="".join(
             f"{json.dumps(request, separators=(',', ':'))}\n"
-            for request, _definitions, _occurrences, _source_models, _effective, _terminals in requests_and_counts
+            for request, _definitions, _occurrences, _source_models, _effective, _terminals, _wire_subgraphs in requests_and_counts
         ),
         capture_output=True,
         text=True,
@@ -412,6 +542,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         source_models,
         effective,
         terminals,
+        wire_subgraphs,
     ) in zip(
         results, requests_and_counts, strict=True
     ):
@@ -419,6 +550,12 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         assert result["occurrences"] == occurrences
         assert result["effective_symbols"] == effective
         assert result["symbol_terminals"] == terminals
+        difference = _first_difference(result["wire_subgraphs"], wire_subgraphs)
+        assert difference is None, (
+            f"{difference}; Rust stats={_wire_stats(result['wire_subgraphs'])}; "
+            f"Python stats={_wire_stats(wire_subgraphs)}; "
+            f"partition={_partition_difference(result['wire_subgraphs'][0]['subgraphs'], cast(list[dict[str, Any]], wire_subgraphs[0]['subgraphs']))}"
+        )
         assert {
             definition["source_path"]: definition for definition in result["definitions"]
         } == source_models

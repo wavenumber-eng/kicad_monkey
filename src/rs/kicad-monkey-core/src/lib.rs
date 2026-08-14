@@ -17,6 +17,7 @@ mod schematic_bundle_indexes;
 mod schematic_bundle_limits;
 pub mod schematic_bus;
 pub mod schematic_bus_connectivity;
+pub mod schematic_connectivity;
 mod schematic_effective;
 mod schematic_segment_index;
 mod schematic_source;
@@ -67,6 +68,10 @@ pub use schematic_bus::{
 pub use schematic_bus_connectivity::{
     SchematicBusConnectivityLimits, SchematicBusDriver, SchematicBusDriverKind,
     SchematicBusSubgraph, SchematicDriverPriority, build_schematic_bus_subgraphs,
+};
+pub use schematic_connectivity::{
+    SchematicLabelDriver, SchematicOccurrenceConnectivityLimits, SchematicPinDriver,
+    SchematicWireDriverKind, SchematicWireSubgraph, build_schematic_occurrence_subgraphs,
 };
 pub use schematic_effective::SchematicEffectiveSymbol;
 pub use schematic_source::{

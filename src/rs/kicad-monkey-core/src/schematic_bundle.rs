@@ -150,6 +150,13 @@ impl SchematicBundleIndex {
         self.occurrences.iter()
     }
 
+    pub fn occurrence(&self, occurrence_index: usize) -> Option<&SchematicOccurrence> {
+        occurrence_index
+            .checked_sub(1)
+            .and_then(|index| self.occurrences.get(index))
+            .filter(|occurrence| occurrence.index == occurrence_index)
+    }
+
     pub fn project_name(&self) -> &str {
         &self.project_name
     }

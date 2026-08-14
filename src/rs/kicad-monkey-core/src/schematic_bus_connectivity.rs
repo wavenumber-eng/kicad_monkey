@@ -102,25 +102,19 @@ pub fn build_schematic_bus_subgraphs(
     definition: &SchematicDefinition,
     limits: SchematicBusConnectivityLimits,
 ) -> Result<Vec<SchematicBusSubgraph>, SourceBundleError> {
-    BusBuilder::new(definition, limits)?.build()
+    let mut geometry = SchematicConnectivityGeometry::build(definition, limits)?;
+    build_schematic_bus_subgraphs_with_geometry(definition, limits, &mut geometry)
 }
 
-struct BusBuilder<'a> {
-    definition: &'a SchematicDefinition,
-    limits: SchematicBusConnectivityLimits,
+pub(crate) struct SchematicConnectivityGeometry<'a> {
     aliases: HashMap<&'a str, &'a [String]>,
     bus_union: PointUnion,
     bus_index: SchematicSegmentIndex,
     wire_index: SchematicSegmentIndex,
-    query_work: usize,
-    retained_points: usize,
-    retained_string_bytes: usize,
-    expanded_members: usize,
-    expanded_member_bytes: usize,
 }
 
-impl<'a> BusBuilder<'a> {
-    fn new(
+impl<'a> SchematicConnectivityGeometry<'a> {
+    pub(crate) fn build(
         definition: &'a SchematicDefinition,
         limits: SchematicBusConnectivityLimits,
     ) -> Result<Self, SourceBundleError> {
@@ -147,12 +141,57 @@ impl<'a> BusBuilder<'a> {
             aliases.insert(alias.name.as_str(), alias.members.as_slice());
         }
         Ok(Self {
-            definition,
-            limits,
             aliases,
             bus_union,
             bus_index,
             wire_index,
+        })
+    }
+
+    pub(crate) fn bus_index(&self) -> &SchematicSegmentIndex {
+        &self.bus_index
+    }
+
+    pub(crate) fn wire_index(&self) -> &SchematicSegmentIndex {
+        &self.wire_index
+    }
+}
+
+pub(crate) fn build_schematic_bus_subgraphs_with_geometry<'a>(
+    definition: &'a SchematicDefinition,
+    limits: SchematicBusConnectivityLimits,
+    geometry: &mut SchematicConnectivityGeometry<'a>,
+) -> Result<Vec<SchematicBusSubgraph>, SourceBundleError> {
+    BusBuilder::new(definition, limits, geometry)?.build()
+}
+
+struct BusBuilder<'a, 'g> {
+    definition: &'a SchematicDefinition,
+    limits: SchematicBusConnectivityLimits,
+    aliases: &'g HashMap<&'a str, &'a [String]>,
+    bus_union: &'g mut PointUnion,
+    bus_index: &'g SchematicSegmentIndex,
+    wire_index: &'g SchematicSegmentIndex,
+    query_work: usize,
+    retained_points: usize,
+    retained_string_bytes: usize,
+    expanded_members: usize,
+    expanded_member_bytes: usize,
+}
+
+impl<'a, 'g> BusBuilder<'a, 'g> {
+    fn new(
+        definition: &'a SchematicDefinition,
+        limits: SchematicBusConnectivityLimits,
+        geometry: &'g mut SchematicConnectivityGeometry<'a>,
+    ) -> Result<Self, SourceBundleError> {
+        Ok(Self {
+            definition,
+            limits,
+            aliases: &geometry.aliases,
+            bus_union: &mut geometry.bus_union,
+            bus_index: &geometry.bus_index,
+            wire_index: &geometry.wire_index,
             query_work: 0,
             retained_points: 0,
             retained_string_bytes: 0,
@@ -424,7 +463,7 @@ impl<'a> BusBuilder<'a> {
                 .saturating_sub(self.expanded_member_bytes);
             let members = expand_schematic_bus_label_from_map(
                 &chosen_name,
-                &self.aliases,
+                self.aliases,
                 SchematicBusExpansionLimits {
                     max_expanded_members: self
                         .limits

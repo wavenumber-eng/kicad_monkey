@@ -45,6 +45,27 @@
   index is built once per definition compile, so member strings are not copied
   into every subgraph.</p>
 
+  <p><code>build_schematic_occurrence_subgraphs</code> now realizes the native
+  occurrence-local wire domain. It retains every wire/bus/bus-entry coordinate,
+  unions consecutive wire points, attaches junctions and labels to exact
+  segment interiors, keeps pins exact-coordinate-only, merges same-sheet local/
+  hierarchical labels and power names, and merges canonical bus-member taps.
+  Segment endpoints deliberately do not create a bus or bus-entry edge when a
+  label lands there. Pin drivers carry occurrence reference, expanded physical
+  pin number/name, electrical type, power classification, and hidden-power
+  provenance; label drivers carry scope-derived kind/priority, shape where KiCad
+  uses it, UUID, and source order. Hidden no-connect pins parked at one library
+  coordinate receive deterministic virtual coordinates, as in the Python
+  compiler.</p>
+
+  <p>The accepted bus and wire segment indexes plus borrowed alias map are built
+  once and shared by the bus-subgraph and local-wire passes for an occurrence.
+  Custom static indexes are not rebuilt for each bus subgraph or driver. Embedded
+  library symbols also retain KiCad 9/10 duplicate-pin jumper policy and ordered
+  jumper groups. Stacked pin ranges and lists are expanded iteratively before
+  driver publication, while jumper connectivity uses indexed pin-number lookup
+  rather than pairwise pin scans.</p>
+
   <p>Each definition also exposes embedded library symbols, subsymbol unit/body-style
   identity, and connectivity-relevant pins. A bounded first-writer suffix-key index
   matches KiCad/Python full and basename library lookup without a placement-by-library
@@ -158,6 +179,15 @@
   Physical component count and retained-point limits are checked before
   component vectors are materialized.</p>
 
+  <p>Occurrence-local compilation independently bounds entry segments/index
+  nodes, aggregate segment-query work, live graph points, pin and label drivers,
+  subgraphs, retained output points/strings, stacked-pin count/bytes, and jumper
+  union work. Stacked ranges are cardinality-checked against the remaining
+  aggregate pin and driver allowances before member generation. Jumper group,
+  member, and source-byte ceilings are enforced while the embedded library form
+  is lexed. Duplicate-number and group expansion use a bounded index; repeated
+  group references cannot create unbounded hidden work.</p>
+
   <p>The defaults are deliberately large format-safety ceilings, not product-size
   assumptions: four million aggregate objects and per family, one million points in
   one carrier, and eight million carrier points per schematic source. They are
@@ -204,9 +234,16 @@
   priority/kind, and expanded member directly with Python across the same four
   real projects.</p>
 
+  <p>The occurrence-local suite covers junction and label midpoint attachment,
+  pin non-attachment at a wire midpoint, bus-entry endpoint isolation, canonical
+  slash member merging, stacked alphanumeric pin expansion, local power priority,
+  hidden no-connect isolation, jumper policies, and independent exact/one-over
+  ceilings. Rack L3_020 compares every local component coordinate, pin and label
+  driver, selected name/priority/kind, and no-connect flag with Python for every
+  occurrence in all four compiled-graph reference projects.</p>
+
   <h2>Deferred work</h2>
-  <p>Bus-member tap merging into the wire domain, local pin/label subgraphs,
-  hierarchy-terminal binding, net naming/merging, graph row production, schematic
+  <p>Hierarchy-terminal binding, final net naming/merging, graph row production, schematic
   mutation, and semantic round-trip remain in Phase 4. Browser/WASM packaging remains
   deferred by the native-first plan.</p>
 </body>

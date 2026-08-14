@@ -1214,7 +1214,7 @@ pub(crate) fn decode_quoted(lexeme: &str) -> String {
     clippy::cognitive_complexity,
     reason = "pre-standard bounded escape decoder retained under the structural ratchet"
 )]
-fn decode_quoted_with_limit(lexeme: &str, max_bytes: usize) -> Option<String> {
+pub(crate) fn decode_quoted_with_limit(lexeme: &str, max_bytes: usize) -> Option<String> {
     let body = &lexeme[1..lexeme.len() - 1];
     let mut output = String::with_capacity(body.len().min(max_bytes));
     let mut characters = body.chars().peekable();
