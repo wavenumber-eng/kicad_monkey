@@ -35,6 +35,7 @@ pub mod source_bundle;
 pub mod symbol_library;
 mod symbol_pin;
 pub mod symbol_plotter_ir;
+pub mod text_bezier;
 pub mod text_metadata;
 pub mod text_shaping;
 pub mod worksheet;
@@ -125,6 +126,10 @@ pub use symbol_library::{
 };
 pub use symbol_plotter_ir::{
     SymbolPlotDocument, SymbolPlotLimits, SymbolPlotRecord, symbol_plot_document,
+};
+pub use text_bezier::{
+    TextBezierError, TextBezierErrorKind, TextBezierLimits, TextBezierOutput, TextPoint,
+    flatten_cubic_bezier, flatten_quadratic_bezier,
 };
 pub use text_metadata::{KiCadColor, KiCadFont, KiCadTextEffects};
 pub use text_shaping::{

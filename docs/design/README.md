@@ -65,8 +65,10 @@ Current design notes:
   oracle records.
 - `rust-native-text-shaping.html` - accepted native HarfRust shaping parity,
   fixed records, resource policy, and explicit version-bound flag evidence.
-- `rust-native-font-outlines.html` - proposed bounded native TTF/gvar/CFF
+- `rust-native-font-outlines.html` - accepted bounded native TTF/gvar/CFF
   outline extraction and deterministic FontTools parity evidence.
+- `rust-native-render-cache.html` - proposed staged native shaping, outline,
+  curve decomposition, placement, and final KiCad cache-parity ladder.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

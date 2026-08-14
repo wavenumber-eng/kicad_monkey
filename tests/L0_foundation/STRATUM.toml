@@ -273,3 +273,22 @@ secondary = [
     "Unknown faces, glyphs, axes, and duplicate axes have stable failures",
     "The Python oracle generator is deterministic and the focused Rust suite passes",
 ]
+
+[[subtests]]
+id = "L0_055"
+file = "test_L0_055_native_text_bezier.py"
+name = "Native KiCad Text Bezier Decomposition"
+description = "Require bounded native parity with KiCad's quadratic and cubic outline decomposition"
+concerns = ["rust", "rendering.text", "geometry", "parity"]
+test_cases = "tests/parity/text_bezier_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native safe-Rust curve flattening matches the Python port of KiCad outline_decomposer.cpp"
+secondary = [
+    "Quadratic, collinear, fractional, cubic, and inflection paths are fixed evidence",
+    "Error-tolerance changes produce independently observable subdivision",
+    "Retained points and decomposition work have inclusive exact and one-under gates",
+    "Nonfinite and extreme inputs fail closed without recursive stack growth",
+    "The Python oracle generator is deterministic and the focused Rust suite passes",
+]

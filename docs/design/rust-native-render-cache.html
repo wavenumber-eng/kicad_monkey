@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust native text render cache</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust native text render cache</h1>
+
+  <p>Status: proposal. The active native render-cache gate composes the already
+  accepted shaping and outline boundaries into KiCad-compatible polygon
+  caches. Work is intentionally staged so a final contour mismatch remains
+  attributable to shaping, outline extraction, curve decomposition, placement,
+  or hole fracture.</p>
+
+  <h2>Evidence ladder</h2>
+  <ol>
+    <li>Accepted fixed shaping records establish glyph IDs, clusters,
+    advances, offsets, and optional flags.</li>
+    <li>Accepted fixed outline records establish raw line, quadratic, cubic,
+    composite, collection-face, gvar, CFF, and CFF2 commands.</li>
+    <li>Rack L0_055 establishes the safe-Rust port of KiCad's
+    <code>common/font/outline_decomposer.cpp</code> curve approximation before
+    any placement transform.</li>
+    <li>Native shaping-to-contour placement and cache hole fracture will then
+    be compared against the existing Python intermediate and KiCad save-oracle
+    suites.</li>
+  </ol>
+
+  <h2>Curve-decomposition boundary</h2>
+  <p><code>flatten_quadratic_bezier</code> and
+  <code>flatten_cubic_bezier</code> operate in caller-declared finite
+  coordinates and reproduce the current Python/KiCad approximation, including
+  inflection-aware cubic splitting and KiCad's nonpositive-tolerance fallback.
+  The API is independent of font parsing and placement so the same kernel can
+  consume TrueType, CFF, or future close-to-format curves.</p>
+
+  <p>Retained points and decomposition work have separate inclusive limits.
+  Quadratic segment counts are rejected before iteration when they exceed the
+  work ceiling. Cubic fallback uses an explicit bounded stack rather than
+  recursive call-stack growth. Every append and work item is charged before it
+  is retained or processed; failures publish no output.</p>
+
+  <h2>Still open</h2>
+  <p>This first render-cache stratum does not yet claim shaped glyph placement,
+  alignment, multiline/markup behavior, fake bold/italic, cache hole fracture,
+  or final KiCad save-oracle parity. Those remain active parts of
+  <code>render-cache-parity</code>, not deferred packaging work. Font discovery
+  stays native-only and outside the platform-neutral byte-input core; WASM
+  packaging remains in its later selected-operation phase.</p>
+</body>
+</html>
