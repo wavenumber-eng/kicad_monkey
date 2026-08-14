@@ -242,12 +242,114 @@ fn duplicate_sheet_pin_names_receive_stable_kicad_suffixes() {
     .expect("sheet-pin source bundle");
     let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
         .expect("sheet-pin index");
-    let names = build_schematic_occurrence_nets(&index, 1, 1, Default::default())
+    let exact = SchematicLocalNetLimits {
+        max_nets: 2,
+        max_terminals: 0,
+        max_name_bytes: 6,
+        max_retained_string_bytes: 10,
+        ..SchematicLocalNetLimits::default()
+    };
+    let names = build_schematic_occurrence_nets(&index, 1, 1, exact)
         .expect("sheet-pin nets")
         .into_iter()
         .map(|net| net.name)
         .collect::<Vec<_>>();
     assert_eq!(names, ["/OUT", "/OUT_1"]);
+    let error = build_schematic_occurrence_nets(
+        &index,
+        1,
+        1,
+        SchematicLocalNetLimits {
+            max_retained_string_bytes: 9,
+            ..exact
+        },
+    )
+    .expect_err("one byte below the retained suffixed names must fail");
+    assert!(error.message.contains("retained string bytes"));
+}
+
+#[test]
+fn losing_auto_name_candidates_are_transient_and_code_ranges_preflight() {
+    let index = index(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Pair"
+              (symbol "Demo:Pair_1_1"
+                (pin bidirectional line (at 0 0 0) (name "A") (number "1"))
+                (pin bidirectional line (at 10 0 0) (name "ZZZZZZZZZZZZZZZZ") (number "2")))))
+          (wire (pts (xy 0 0) (xy 10 0)) (uuid joined))
+          (global_label "OTHER" (shape input) (at 20 0 0) (uuid other))
+          (symbol (lib_id "Demo:Pair") (lib_name "Demo:Pair")
+            (at 0 0 0) (uuid placed)
+            (property "Reference" "U1") (property "Value" "Pair")))"#,
+    );
+    let baseline = build_schematic_occurrence_nets(&index, 1, 1, Default::default())
+        .expect("baseline candidate selection");
+    assert_eq!(baseline.len(), 2);
+    assert!(baseline.iter().any(|net| net.name == "Net-(U1-A)"));
+    let retained_bytes = baseline
+        .iter()
+        .map(|net| {
+            net.name.len()
+                + net
+                    .terminals
+                    .iter()
+                    .map(|terminal| {
+                        terminal.designator.len()
+                            + terminal.pin.len()
+                            + terminal.pin_name.len()
+                            + terminal.pin_type.len()
+                            + terminal.sheet_path.len()
+                            + terminal.source_pin_id.len()
+                            + terminal.svg_id.len()
+                    })
+                    .sum::<usize>()
+        })
+        .sum::<usize>();
+    build_schematic_occurrence_nets(
+        &index,
+        1,
+        1,
+        SchematicLocalNetLimits {
+            max_name_bytes: 64,
+            max_retained_string_bytes: retained_bytes,
+            ..SchematicLocalNetLimits::default()
+        },
+    )
+    .expect("losing candidate bytes are not retained output");
+
+    let overflow = build_schematic_occurrence_nets(
+        &index,
+        1,
+        u64::MAX,
+        SchematicLocalNetLimits {
+            max_name_bytes: 0,
+            ..SchematicLocalNetLimits::default()
+        },
+    )
+    .expect_err("code range must fail before name materialization");
+    assert!(
+        overflow.message.contains("net code"),
+        "{}",
+        overflow.message
+    );
+    let count_first = build_schematic_occurrence_nets(
+        &index,
+        1,
+        u64::MAX,
+        SchematicLocalNetLimits {
+            max_nets: 1,
+            max_name_bytes: 0,
+            ..SchematicLocalNetLimits::default()
+        },
+    )
+    .expect_err("shape limits must precede code and name validation");
+    assert!(
+        count_first.message.contains("net count"),
+        "{}",
+        count_first.message
+    );
 }
 
 fn index(root: &[u8]) -> SchematicBundleIndex {

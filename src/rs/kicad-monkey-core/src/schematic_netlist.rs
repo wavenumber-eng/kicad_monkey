@@ -90,7 +90,7 @@ pub fn build_schematic_occurrence_nets_with_settings(
         subparts,
         limits.connectivity,
     )?;
-    builder.preflight_output_shape(&subgraphs)?;
+    builder.preflight_output_shape(&subgraphs, code_offset)?;
     let mut nets = Vec::new();
     for mut subgraph in subgraphs {
         if subgraph.pin_drivers.is_empty() && subgraph.label_drivers.is_empty() {
@@ -138,6 +138,7 @@ impl NetBuilder<'_> {
     fn preflight_output_shape(
         &self,
         subgraphs: &[SchematicWireSubgraph],
+        code_offset: u64,
     ) -> Result<(), SourceBundleError> {
         let mut net_count = 0_usize;
         let mut terminal_count = 0_usize;
@@ -163,6 +164,13 @@ impl NetBuilder<'_> {
         }
         if terminal_count > self.limits.max_terminals {
             return Err(self.limit_error("local net terminal count exceeds its limit"));
+        }
+        if net_count != 0 {
+            let final_offset = u64::try_from(net_count - 1)
+                .map_err(|_| self.limit_error("local net code exceeds the platform size"))?;
+            code_offset
+                .checked_add(final_offset)
+                .ok_or_else(|| self.limit_error("local net code overflows"))?;
         }
         Ok(())
     }
@@ -403,13 +411,6 @@ impl NetBuilder<'_> {
     fn ensure_name_bytes(&self, bytes: usize) -> Result<(), SourceBundleError> {
         if bytes > self.limits.max_name_bytes {
             return Err(self.limit_error("local net name bytes exceed their limit"));
-        }
-        let retained = self
-            .retained_string_bytes
-            .checked_add(bytes)
-            .ok_or_else(|| self.limit_error("local net retained string bytes overflow"))?;
-        if retained > self.limits.max_retained_string_bytes {
-            return Err(self.limit_error("local net retained string bytes exceed their limit"));
         }
         Ok(())
     }

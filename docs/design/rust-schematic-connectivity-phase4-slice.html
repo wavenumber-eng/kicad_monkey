@@ -209,7 +209,11 @@
   the final name or cloning terminal strings. Defaults remain broad
   format-safety ceilings (millions of records and hundreds of MiB), not small
   product assumptions. Off-board terminals are filtered before pin-name indexes
-  or render identifiers are built.</p>
+  or render identifiers are built. Per-name validation applies to both chosen
+  and transient naming candidates, while aggregate retention charges only final
+  net names, emitted terminal strings, and later suffix bytes. The emitted code
+  range is checked from the preflighted net count before any name or terminal is
+  materialized.</p>
 
   <p>The defaults are deliberately large format-safety ceilings, not product-size
   assumptions: four million aggregate objects and per family, one million points in
