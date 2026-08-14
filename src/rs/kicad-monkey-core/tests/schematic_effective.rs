@@ -130,6 +130,30 @@ fn compact_suffix_index_preserves_shorter_path_and_project_scoping() {
 }
 
 #[test]
+fn empty_path_still_establishes_project_scope_before_global_suffixes() {
+    let root = br#"(kicad_sch
+      (uuid top-source)
+      (sheet (uuid sheet-a)
+        (property "Sheetname" "Page")
+        (property "Sheetfile" "child.kicad_sch")))"#
+        .to_vec();
+    let child = br#"(kicad_sch
+      (uuid child-source)
+      (symbol (lib_id "Demo:Part") (uuid child-symbol)
+        (instances
+          (project "root"
+            (path "" (reference "ROOT") (unit 3)))
+          (project "other"
+            (path "/prefix/sheet-a" (reference "WRONG") (unit 8))))))"#
+        .to_vec();
+    let index = SchematicBundleIndex::build(&bundle(root, child), SchematicBundleLimits::default())
+        .expect("empty requested-project path index");
+
+    let symbol = index.effective_symbols(2, None).expect("child symbol");
+    assert_eq!((symbol[0].reference.as_str(), symbol[0].unit), ("ROOT", 3));
+}
+
+#[test]
 fn compact_instance_indexes_enforce_the_aggregate_source_byte_budget() {
     let long_path = format!("/{}", "x".repeat(4_096));
     let short_path = "/sheet/second";

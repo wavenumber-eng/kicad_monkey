@@ -180,13 +180,11 @@ impl InstanceSuffixIndex {
             start,
             end: self.reversed_bytes.len(),
         });
+        let project_paths = self.by_project.entry(Arc::clone(project)).or_default();
         if path.is_empty() {
             return;
         }
-        self.by_project
-            .entry(Arc::clone(project))
-            .or_default()
-            .push(instance_index);
+        project_paths.push(instance_index);
         self.all.push(instance_index);
     }
 
