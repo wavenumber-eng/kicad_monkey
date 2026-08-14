@@ -37,6 +37,7 @@ mod symbol_pin;
 pub mod symbol_plotter_ir;
 pub mod text_bezier;
 pub mod text_contours;
+pub mod text_layout;
 pub mod text_metadata;
 pub mod text_shaping;
 pub mod worksheet;
@@ -137,6 +138,10 @@ pub use text_contours::{
     KICAD_OUTLINE_FACE_SCALER, KICAD_OUTLINE_SIZE_COMPENSATION, KICAD_TEXT_BEZIER_ERROR,
     TextContour, TextContourError, TextContourErrorKind, TextContourLimits, TextContourOutput,
     TextContourRequest, shape_text_contours_a0,
+};
+pub use text_layout::{
+    KICAD_TEXT_HEIGHT_FUDGE_FACTOR, TextHorizontalAlignment, TextLayoutRequest,
+    TextVerticalAlignment, layout_single_line_text_a0,
 };
 pub use text_metadata::{KiCadColor, KiCadFont, KiCadTextEffects};
 pub use text_shaping::{

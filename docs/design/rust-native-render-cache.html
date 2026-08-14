@@ -30,7 +30,10 @@
     anisotropic sizing, Y inversion, and caller origin into bounded raw text-run
     contours. Fixed uharfbuzz and FontTools records keep this placement stage
     attributable and explicitly unhinted.</li>
-    <li>Alignment, markup, transforms, cache hole fracture, and final cache
+    <li>Rack L0_057 applies single-line horizontal/vertical alignment, mirroring,
+    and clockwise rotation about the authored text origin. Fixed records invoke
+    the Python renderer's alignment and transform helpers directly.</li>
+    <li>Multiline/markup behavior, cache hole fracture, and final cache
     serialization will then be compared against the existing Python
     intermediate and KiCad save-oracle suites.</li>
   </ol>
@@ -74,9 +77,17 @@
   remains responsible for deciding whether FreeType hinting creates material
   drift that requires a separate native backend.</p>
 
+  <h2>Single-line layout boundary</h2>
+  <p><code>layout_single_line_text_a0</code> measures and renders one shaped run
+  once, applies left/center/right width offsets and top/center/bottom offsets
+  using KiCad's <code>1.17</code> height factor, then mirrors on the X axis and
+  rotates clockwise around the authored position. Transform work mutates the
+  already-bounded contour output in place and creates no second point graph.
+  Nonfinite angles, aligned positions, and transformed points fail closed.</p>
+
   <h2>Still open</h2>
-  <p>The current render-cache strata do not yet claim alignment,
-  multiline/markup behavior, fake bold/italic, cache hole fracture, cache
+  <p>The current render-cache strata do not yet claim multiline/markup
+  behavior, fake bold/italic, cache hole fracture, cache
   serialization, or final KiCad save-oracle parity. Those remain active parts of
   <code>render-cache-parity</code>, not deferred packaging work. Font discovery
   stays native-only and outside the platform-neutral byte-input core; WASM
