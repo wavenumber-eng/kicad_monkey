@@ -3,7 +3,7 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
 };
 use kicad_monkey_core::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicLabelScope,
-    SchematicPoint, SourceBundle, SourceBundleLimits,
+    SchematicPlacedSymbol, SchematicPoint, SchematicSheet, SourceBundle, SourceBundleLimits,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -32,6 +32,7 @@ struct ResultSummary {
 struct DefinitionSummary {
     source_path: String,
     sheets: Vec<SheetSummary>,
+    symbols: Vec<SymbolSummary>,
     wires: Vec<PolylineSummary>,
     buses: Vec<PolylineSummary>,
     bus_entries: Vec<BusEntrySummary>,
@@ -39,6 +40,28 @@ struct DefinitionSummary {
     no_connects: Vec<MarkerSummary>,
     labels: Vec<LabelSummary>,
     connectivity_components: Vec<Vec<[i64; 2]>>,
+}
+
+#[derive(Debug, Serialize)]
+struct SymbolSummary {
+    lib_id: String,
+    lib_name: String,
+    at: [i64; 2],
+    angle_degrees: f64,
+    mirror: Option<String>,
+    unit: i64,
+    convert: i64,
+    policy: [bool; 6],
+    uuid: String,
+    properties: Vec<[String; 2]>,
+    pins: Vec<SymbolPinSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct SymbolPinSummary {
+    number: String,
+    uuid: String,
+    alternate: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -149,23 +172,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {
     DefinitionSummary {
         source_path: definition.source_path.clone(),
-        sheets: definition
-            .sheets
-            .iter()
-            .map(|sheet| SheetSummary {
-                uuid: sheet.uuid.clone(),
-                pins: sheet
-                    .pins
-                    .iter()
-                    .map(|pin| SheetPinSummary {
-                        name: pin.name.clone(),
-                        shape: pin.shape.as_str().to_owned(),
-                        uuid: pin.uuid.clone(),
-                        at: point_pair(pin.at),
-                    })
-                    .collect(),
-            })
-            .collect(),
+        sheets: definition.sheets.iter().map(sheet_summary).collect(),
+        symbols: definition.symbols.iter().map(symbol_summary).collect(),
         wires: definition
             .wires
             .iter()
@@ -226,6 +234,57 @@ fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {
             .connectivity
             .components()
             .map(|component| component.iter().copied().map(point_pair).collect())
+            .collect(),
+    }
+}
+
+fn sheet_summary(sheet: &SchematicSheet) -> SheetSummary {
+    SheetSummary {
+        uuid: sheet.uuid.clone(),
+        pins: sheet
+            .pins
+            .iter()
+            .map(|pin| SheetPinSummary {
+                name: pin.name.clone(),
+                shape: pin.shape.as_str().to_owned(),
+                uuid: pin.uuid.clone(),
+                at: point_pair(pin.at),
+            })
+            .collect(),
+    }
+}
+
+fn symbol_summary(symbol: &SchematicPlacedSymbol) -> SymbolSummary {
+    SymbolSummary {
+        lib_id: symbol.lib_id.clone(),
+        lib_name: symbol.lib_name.clone(),
+        at: point_pair(symbol.at),
+        angle_degrees: symbol.angle_degrees,
+        mirror: symbol.mirror.clone(),
+        unit: symbol.unit,
+        convert: symbol.convert,
+        policy: [
+            symbol.exclude_from_sim,
+            symbol.in_bom,
+            symbol.on_board,
+            symbol.in_pos_files,
+            symbol.dnp,
+            symbol.fields_autoplaced,
+        ],
+        uuid: symbol.uuid.clone(),
+        properties: symbol
+            .properties
+            .iter()
+            .map(|property| [property.key.clone(), property.value.clone()])
+            .collect(),
+        pins: symbol
+            .pins
+            .iter()
+            .map(|pin| SymbolPinSummary {
+                number: pin.number.clone(),
+                uuid: pin.uuid.clone(),
+                alternate: pin.alternate.clone(),
+            })
             .collect(),
     }
 }

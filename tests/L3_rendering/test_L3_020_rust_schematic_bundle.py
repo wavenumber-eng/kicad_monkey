@@ -110,6 +110,32 @@ def _definition_summary(schematic: object, bundle_root: Path) -> dict[str, objec
             }
             for sheet in getattr(schematic, "sheets", ())
         ],
+        "symbols": [
+            {
+                "lib_id": symbol.lib_id,
+                "lib_name": symbol.lib_name,
+                "at": _point(symbol.at_x, symbol.at_y),
+                "angle_degrees": symbol.at_angle,
+                "mirror": symbol.mirror,
+                "unit": symbol.unit,
+                "convert": symbol.convert,
+                "policy": [
+                    symbol.exclude_from_sim,
+                    symbol.in_bom,
+                    symbol.on_board,
+                    symbol.in_pos_files,
+                    symbol.dnp,
+                    symbol.fields_autoplaced,
+                ],
+                "uuid": symbol.uuid,
+                "properties": [[prop.key, prop.value] for prop in symbol.properties],
+                "pins": [
+                    {"number": pin.number, "uuid": pin.uuid, "alternate": pin.alternate}
+                    for pin in symbol.pins
+                ],
+            }
+            for symbol in getattr(schematic, "symbols", ())
+        ],
         "wires": [_polyline(value) for value in getattr(schematic, "wires", ())],
         "buses": [_polyline(value) for value in getattr(schematic, "buses", ())],
         "bus_entries": [
@@ -218,6 +244,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         ),
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=300,
         check=False,
     )

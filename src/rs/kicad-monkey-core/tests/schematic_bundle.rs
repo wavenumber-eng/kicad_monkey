@@ -559,3 +559,77 @@ fn hierarchical_sheet_pins_are_typed_and_independently_bounded() {
     assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
     assert!(error.message.contains("sheet pin"));
 }
+
+#[test]
+fn placed_symbols_preserve_source_fields_children_and_independent_limits() {
+    let project = b"{}".to_vec();
+    let root = br#"(kicad_sch
+      (symbol
+        (lib_id "Device:R") (lib_name "R") (at 12.7 25.4 90) (mirror x)
+        (unit 2) (convert 2) (exclude_from_sim yes) (in_bom no)
+        (on_board no) (in_pos_files no) (dnp yes) (fields_autoplaced)
+        (uuid symbol-a)
+        (property "Reference" "R1") (property "Value" "10k")
+        (pin "1" (uuid pin-1) (alternate "ALT")) (pin "2" (uuid pin-2))))"#
+        .to_vec();
+    let bundle = SourceBundle::from_manifest(
+        manifest(vec![
+            descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
+            descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+        ]),
+        vec![project, root],
+        SourceBundleLimits::default(),
+    )
+    .expect("placed symbol bundle");
+    let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("placed symbol index");
+    let symbol = &index
+        .definition("design/root.kicad_sch")
+        .expect("root")
+        .symbols[0];
+    assert_eq!(
+        (symbol.lib_id.as_str(), symbol.lib_name.as_str()),
+        ("Device:R", "R")
+    );
+    assert_eq!(
+        symbol.at,
+        SchematicPoint {
+            x_iu: 127_000,
+            y_iu: 254_000
+        }
+    );
+    assert_eq!(
+        (symbol.angle_degrees, symbol.unit, symbol.convert),
+        (90.0, 2, 2)
+    );
+    assert_eq!(symbol.mirror.as_deref(), Some("x"));
+    assert!(symbol.exclude_from_sim && symbol.dnp && symbol.fields_autoplaced);
+    assert!(!symbol.in_bom && !symbol.on_board && !symbol.in_pos_files);
+    assert_eq!(symbol.properties[0].key, "Reference");
+    assert_eq!(symbol.properties[1].value, "10k");
+    assert_eq!(symbol.pins[0].number, "1");
+    assert_eq!(symbol.pins[0].alternate.as_deref(), Some("ALT"));
+    assert_eq!(symbol.pins[1].uuid, "pin-2");
+
+    for limits in [
+        SchematicBundleLimits {
+            max_symbols_per_source: 0,
+            ..SchematicBundleLimits::default()
+        },
+        SchematicBundleLimits {
+            max_symbol_properties_per_symbol: 1,
+            ..SchematicBundleLimits::default()
+        },
+        SchematicBundleLimits {
+            max_symbol_pins_per_symbol: 1,
+            ..SchematicBundleLimits::default()
+        },
+    ] {
+        assert_eq!(
+            SchematicBundleIndex::build(&bundle, limits)
+                .expect_err("symbol child limit")
+                .kind,
+            SourceBundleErrorKind::ResourceLimit
+        );
+    }
+}

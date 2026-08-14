@@ -54,8 +54,9 @@ pub use schematic_bundle::{
 };
 pub use schematic_source::{
     SCHEMATIC_IU_PER_MM, SchematicBusEntry, SchematicConnectivity, SchematicJunction,
-    SchematicLabel, SchematicLabelScope, SchematicNoConnect, SchematicPinShape, SchematicPoint,
-    SchematicPolyline, SchematicSheetPin,
+    SchematicLabel, SchematicLabelScope, SchematicNoConnect, SchematicPinShape,
+    SchematicPlacedSymbol, SchematicPoint, SchematicPolyline, SchematicSheetPin,
+    SchematicSymbolPin, SchematicSymbolProperty,
 };
 pub use source_bundle::{
     SourceBundle, SourceBundleError, SourceBundleErrorKind, SourceBundleLimits, SourceFile,

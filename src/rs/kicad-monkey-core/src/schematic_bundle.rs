@@ -2,8 +2,8 @@
 
 use crate::schematic_source::{
     SchematicBusEntry, SchematicConnectivity, SchematicJunction, SchematicLabel,
-    SchematicNoConnect, SchematicPolyline, SchematicSheetPin, parse_sheet_pin,
-    parse_source_carriers,
+    SchematicNoConnect, SchematicPlacedSymbol, SchematicPolyline, SchematicSheetPin,
+    parse_placed_symbols, parse_sheet_pin, parse_source_carriers,
 };
 use crate::sexpr::{Lexer, Token, TokenKind, decode_quoted};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
@@ -21,6 +21,9 @@ pub struct SchematicBundleLimits {
     pub max_sheets_per_source: usize,
     pub max_sheet_properties: usize,
     pub max_sheet_pins_per_sheet: usize,
+    pub max_symbols_per_source: usize,
+    pub max_symbol_properties_per_symbol: usize,
+    pub max_symbol_pins_per_symbol: usize,
     pub max_decoded_string_bytes: usize,
     pub max_connectivity_objects_per_source: usize,
     pub max_wires_per_source: usize,
@@ -44,6 +47,9 @@ impl Default for SchematicBundleLimits {
             max_sheets_per_source: 1_000_000,
             max_sheet_properties: 1_000_000,
             max_sheet_pins_per_sheet: 1_000_000,
+            max_symbols_per_source: 4_000_000,
+            max_symbol_properties_per_symbol: 1_000_000,
+            max_symbol_pins_per_symbol: 1_000_000,
             max_decoded_string_bytes: 64 * 1024 * 1024,
             max_connectivity_objects_per_source: 4_000_000,
             max_wires_per_source: 4_000_000,
@@ -74,7 +80,7 @@ pub struct SchematicSheet {
 }
 
 /// One schematic source definition, indexed exactly once per bundle build.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SchematicDefinition {
     pub source_path: String,
     pub version: Option<String>,
@@ -82,6 +88,7 @@ pub struct SchematicDefinition {
     pub generator_version: Option<String>,
     pub uuid: Option<String>,
     pub sheets: Vec<SchematicSheet>,
+    pub symbols: Vec<SchematicPlacedSymbol>,
     pub wires: Vec<SchematicPolyline>,
     pub buses: Vec<SchematicPolyline>,
     pub bus_entries: Vec<SchematicBusEntry>,
@@ -205,6 +212,7 @@ fn parse_schematic_definition(
         generator_version: None,
         uuid: None,
         sheets: Vec::new(),
+        symbols: Vec::new(),
         wires: Vec::new(),
         buses: Vec::new(),
         bus_entries: Vec::new(),
@@ -214,6 +222,7 @@ fn parse_schematic_definition(
         connectivity: SchematicConnectivity::default(),
     };
     populate_schematic_definition(&mut definition, text, &spans, source.path(), limits)?;
+    definition.symbols = parse_placed_symbols(text, source.path(), &spans, limits)?;
     let carriers = parse_source_carriers(text, source.path(), &spans, limits)?;
     definition.wires = carriers.wires;
     definition.buses = carriers.buses;
@@ -534,6 +543,7 @@ fn schematic_selector() -> Selector {
         &["kicad_sch", "label"],
         &["kicad_sch", "global_label"],
         &["kicad_sch", "hierarchical_label"],
+        &["kicad_sch", "symbol"],
     ]
     .into_iter()
     .map(|path| path.iter().map(|part| (*part).to_owned()).collect())

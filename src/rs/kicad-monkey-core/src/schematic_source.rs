@@ -7,6 +7,11 @@ use crate::source_bundle::{SourceBundleError, SourceBundleErrorKind};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+mod symbols;
+
+pub(crate) use symbols::parse_placed_symbols;
+pub use symbols::{SchematicPlacedSymbol, SchematicSymbolPin, SchematicSymbolProperty};
+
 /// KiCad's schematic internal-unit grid: 100 nm, or 10,000 units per millimetre.
 pub const SCHEMATIC_IU_PER_MM: i64 = 10_000;
 
