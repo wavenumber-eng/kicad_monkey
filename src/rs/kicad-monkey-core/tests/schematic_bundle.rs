@@ -625,7 +625,7 @@ fn modern_and_legacy_symbol_instance_overlays_are_typed_and_indexed() {
         ("MPN", "variant-part")
     );
     let legacy = definition
-        .legacy_symbol_instance("/legacy/symbol-a/")
+        .legacy_symbol_instance("/symbol-b/")
         .expect("normalized legacy path");
     assert_eq!(
         (
@@ -636,6 +636,38 @@ fn modern_and_legacy_symbol_instance_overlays_are_typed_and_indexed() {
         ),
         ("R9", 3, "legacy-value", "Legacy:Part")
     );
+}
+
+#[test]
+fn effective_symbols_select_modern_legacy_and_variant_overlays() {
+    let bundle = placed_symbol_bundle();
+    let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("effective symbol index");
+    assert_eq!(index.project_name(), "root");
+    let effective = index
+        .effective_symbols(1, Some("DNP"))
+        .expect("effective root symbols");
+    assert_eq!(effective.len(), 2);
+    assert_eq!(
+        (
+            effective[0].reference.as_str(),
+            effective[0].unit,
+            effective[0].value.as_str()
+        ),
+        ("R1", 2, "10k")
+    );
+    assert!(effective[0].dnp);
+    assert!(!effective[0].in_bom);
+    assert_eq!(effective[0].fields["MPN"], "variant-part");
+    assert_eq!(
+        (
+            effective[1].reference.as_str(),
+            effective[1].unit,
+            effective[1].value.as_str()
+        ),
+        ("R9", 3, "1u")
+    );
+    assert!(index.effective_symbols(0, None).is_err());
 }
 
 #[test]
@@ -699,8 +731,10 @@ fn placed_symbol_bundle() -> SourceBundle {
             (path "/root" (reference "R1") (unit 2)
               (variant (name "DNP") (dnp yes) (in_bom no)
                 (field (name "MPN") (value "variant-part")))))))
+      (symbol (lib_id "Device:C") (uuid symbol-b)
+        (property "Reference" "C") (property "Value" "1u"))
       (symbol_instances
-        (path "/legacy/symbol-a" (reference "R9") (unit 3)
+        (path "/symbol-b" (reference "R9") (unit 3)
           (value "legacy-value") (footprint "Legacy:Part"))))"#
         .to_vec();
     SourceBundle::from_manifest(

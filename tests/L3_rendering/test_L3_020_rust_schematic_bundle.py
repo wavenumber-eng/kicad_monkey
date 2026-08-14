@@ -9,6 +9,10 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN
 from pathlib import Path
 
 from kicad_monkey import KiCadDesign
+from kicad_monkey.kicad_netlist_compiler import (
+    _resolve_instance_reference,
+    _resolve_instance_unit,
+)
 from kicad_monkey.kicad_schematic_connectivity import ConnectivityGraph, snap_mm_to_iu
 from kicad_monkey.kicad_schematic_occurrence import walk_schematic_occurrences
 from kicad_monkey.testing.corpus import (
@@ -200,6 +204,7 @@ def _request(
     set[str],
     list[dict[str, object]],
     dict[str, dict[str, object]],
+    list[dict[str, object]],
 ]:
     case = get_kicad_corpus_case(case_id)
     assert case is not None
@@ -231,7 +236,8 @@ def _request(
             {
             "source_path": Path(occurrence_source).resolve().relative_to(bundle_root).as_posix(),
             "parent_index": occurrence.parent.index if occurrence.parent else None,
-            "occurrence_address": occurrence.occurrence_address,
+                "occurrence_address": occurrence.occurrence_address,
+                "legacy_address": occurrence.sheet_path_uuids,
             "effective_in_bom": occurrence.effective_in_bom,
             "effective_on_board": occurrence.effective_on_board,
             "effective_dnp": occurrence.effective_dnp,
@@ -252,7 +258,63 @@ def _request(
         source_key = summary["source_path"]
         assert isinstance(source_key, str)
         expected_source_models[source_key] = summary
-    return request, expected_definitions, expected_occurrences, expected_source_models
+    legacy_references: dict[str, str] = {}
+    legacy_units: dict[str, int] = {}
+    for schematic in schematic_by_path.values():
+        for instance in getattr(schematic, "symbol_instances", ()):
+            path = str(instance.path or "").rstrip("/")
+            if path:
+                legacy_references.setdefault(path, str(instance.reference or ""))
+                legacy_units.setdefault(path, int(instance.unit or 1))
+    expected_effective = []
+    for occurrence in occurrences:
+        symbols = []
+        for symbol_index, symbol in enumerate(getattr(occurrence.schematic, "symbols", ())):
+            fields = {
+                str(getattr(prop, "key", "")): str(getattr(prop, "value", ""))
+                for prop in getattr(symbol, "properties", ())
+            }
+            reference = _resolve_instance_reference(
+                symbol,
+                occurrence.sheet_path_uuids,
+                legacy_references,
+                occurrence.occurrence_address,
+            )
+            unit = _resolve_instance_unit(
+                symbol,
+                occurrence.sheet_path_uuids,
+                legacy_units,
+                occurrence.occurrence_address,
+            )
+            symbols.append(
+                {
+                    "symbol_index": symbol_index,
+                    "uuid": symbol.uuid,
+                    "lib_id": symbol.lib_id,
+                    "reference": reference,
+                    "value": fields.get("Value", ""),
+                    "unit": unit,
+                    "convert": symbol.convert,
+                    "policy": [
+                        occurrence.effective_dnp or symbol.dnp,
+                        occurrence.effective_exclude_from_sim or symbol.exclude_from_sim,
+                        occurrence.effective_in_bom and symbol.in_bom,
+                        occurrence.effective_on_board and symbol.on_board,
+                        symbol.in_pos_files,
+                    ],
+                    "fields": fields,
+                }
+            )
+        expected_effective.append(
+            {"occurrence_index": occurrence.index, "symbols": symbols}
+        )
+    return (
+        request,
+        expected_definitions,
+        expected_occurrences,
+        expected_source_models,
+        expected_effective,
+    )
 
 
 def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
@@ -273,7 +335,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         cwd=PACKAGE_ROOT,
         input="".join(
             f"{json.dumps(request, separators=(',', ':'))}\n"
-            for request, _definitions, _occurrences, _source_models in requests_and_counts
+            for request, _definitions, _occurrences, _source_models, _effective in requests_and_counts
         ),
         capture_output=True,
         text=True,
@@ -284,11 +346,12 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
     assert completed.returncode == 0, completed.stderr
     results = [json.loads(line) for line in completed.stdout.splitlines()]
     assert len(results) == len(REFERENCE_CASES)
-    for result, (_request_payload, definitions, occurrences, source_models) in zip(
+    for result, (_request_payload, definitions, occurrences, source_models, effective) in zip(
         results, requests_and_counts, strict=True
     ):
         assert set(result["definition_paths"]) == definitions
         assert result["occurrences"] == occurrences
+        assert result["effective_symbols"] == effective
         assert {
             definition["source_path"]: definition for definition in result["definitions"]
         } == source_models

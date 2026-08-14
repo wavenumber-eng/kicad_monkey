@@ -42,6 +42,14 @@
   retained once rather than once per child path. A modern path is accepted only when
   its selected span is structurally owned by the current project form.</p>
 
+  <p><code>SchematicBundleIndex::effective_symbols</code> resolves those source
+  records for one realized occurrence. It follows the Python compiler's canonical
+  modern path, UUID sheet path, suffix, legacy path, and source fallback chain;
+  carries occurrence-specific reference and unit; overlays optional variant flags and
+  fields; and folds the placed-sheet policy into each symbol. The index records both
+  the canonical modern address and the legacy UUID address once per occurrence, so
+  repeated symbol resolution does not reconstruct hierarchy paths.</p>
+
   <p>Coordinates are snapped immediately to KiCad's 100-nm schematic internal-unit
   grid and stored as signed integers. A dependency-free decimal parser performs the
   scale and ties-to-even rounding without conversion through binary floating point.
@@ -98,15 +106,15 @@
   four compiled-graph reference projects in one native process, including every
   hierarchical sheet pin and placed-symbol field, property, and pin mapping. The
   same corpus comparison covers modern project/path records, variant overlays, and
-  legacy schematic-level symbol-instance paths. The
+  legacy schematic-level symbol-instance paths. It also compares every effective
+  reference, unit, field map, and folded policy for every occurrence. The
   native evidence process and its Python harness explicitly use UTF-8 at the process
   boundary, so non-ASCII KiCad values such as micro and ohm symbols remain exact on
   Windows. Focused synthetic tests cover pin defaults and independent pre-push limits
   for sheet pins, symbols, symbol properties, and symbol pin mappings.</p>
 
   <h2>Deferred work</h2>
-  <p>Effective occurrence overlay resolution, library-pin geometry and placed-symbol
-  terminal transformation, bus-name expansion,
+  <p>Library-pin geometry and placed-symbol terminal transformation, bus-name expansion,
   hierarchy-terminal binding, net naming/merging, graph row production, schematic
   mutation, and semantic round-trip remain in Phase 4. Browser/WASM packaging remains
   deferred by the native-first plan.</p>

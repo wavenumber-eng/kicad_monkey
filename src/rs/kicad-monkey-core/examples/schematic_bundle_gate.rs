@@ -25,6 +25,7 @@ struct ResultSummary {
     definition_paths: Vec<String>,
     definitions: Vec<DefinitionSummary>,
     occurrences: Vec<OccurrenceSummary>,
+    effective_symbols: Vec<EffectiveOccurrenceSummary>,
     total_bytes: usize,
 }
 
@@ -138,10 +139,30 @@ struct OccurrenceSummary {
     source_path: String,
     parent_index: Option<usize>,
     occurrence_address: String,
+    legacy_address: String,
     effective_in_bom: bool,
     effective_on_board: bool,
     effective_dnp: bool,
     effective_exclude_from_sim: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct EffectiveOccurrenceSummary {
+    occurrence_index: usize,
+    symbols: Vec<EffectiveSymbolSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct EffectiveSymbolSummary {
+    symbol_index: usize,
+    uuid: String,
+    lib_id: String,
+    reference: String,
+    value: String,
+    unit: i64,
+    convert: i64,
+    policy: [bool; 5],
+    fields: std::collections::BTreeMap<String, String>,
 }
 
 struct LoadedRequest {
@@ -165,6 +186,35 @@ fn main() -> Result<(), Box<dyn Error>> {
             SourceBundleLimits::default(),
         )?;
         let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())?;
+        let effective_symbols = index
+            .occurrences()
+            .map(|occurrence| {
+                Ok(EffectiveOccurrenceSummary {
+                    occurrence_index: occurrence.index,
+                    symbols: index
+                        .effective_symbols(occurrence.index, None)?
+                        .into_iter()
+                        .map(|symbol| EffectiveSymbolSummary {
+                            symbol_index: symbol.symbol_index,
+                            uuid: symbol.uuid,
+                            lib_id: symbol.lib_id,
+                            reference: symbol.reference,
+                            value: symbol.value,
+                            unit: symbol.unit,
+                            convert: symbol.convert,
+                            policy: [
+                                symbol.dnp,
+                                symbol.exclude_from_sim,
+                                symbol.in_bom,
+                                symbol.on_board,
+                                symbol.in_pos_files,
+                            ],
+                            fields: symbol.fields,
+                        })
+                        .collect(),
+                })
+            })
+            .collect::<Result<Vec<_>, kicad_monkey_core::SourceBundleError>>()?;
         println!(
             "{}",
             serde_json::to_string(&ResultSummary {
@@ -179,12 +229,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                         source_path: occurrence.source_path.clone(),
                         parent_index: occurrence.parent_index,
                         occurrence_address: occurrence.occurrence_address.clone(),
+                        legacy_address: occurrence.legacy_address.clone(),
                         effective_in_bom: occurrence.effective_in_bom,
                         effective_on_board: occurrence.effective_on_board,
                         effective_dnp: occurrence.effective_dnp,
                         effective_exclude_from_sim: occurrence.effective_exclude_from_sim,
                     })
                     .collect(),
+                effective_symbols,
                 total_bytes: bundle.total_bytes(),
             })?
         );

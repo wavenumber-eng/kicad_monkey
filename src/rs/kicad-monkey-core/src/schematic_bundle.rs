@@ -1,5 +1,6 @@
 //! One-scan schematic inventory and hierarchy realization over [`SourceBundle`].
 
+use crate::schematic_effective::{SchematicEffectiveSymbol, resolve_effective_symbols};
 use crate::schematic_source::{
     SchematicBusEntry, SchematicConnectivity, SchematicJunction, SchematicLabel,
     SchematicLegacySymbolInstance, SchematicNoConnect, SchematicPlacedSymbol, SchematicPolyline,
@@ -129,6 +130,7 @@ pub struct SchematicOccurrence {
     pub sheet_name: String,
     pub sheet_file: String,
     pub occurrence_address: String,
+    pub legacy_address: String,
     pub effective_in_bom: bool,
     pub effective_on_board: bool,
     pub effective_dnp: bool,
@@ -138,6 +140,7 @@ pub struct SchematicOccurrence {
 /// Parsed definitions and realized occurrences ready for later connectivity work.
 #[derive(Clone, Debug)]
 pub struct SchematicBundleIndex {
+    project_name: String,
     definitions: Vec<SchematicDefinition>,
     definition_by_path: HashMap<String, usize>,
     occurrences: Vec<SchematicOccurrence>,
@@ -177,6 +180,9 @@ impl SchematicBundleIndex {
         }
         let occurrences = realize_occurrences(bundle, &definitions, &definition_by_path, limits)?;
         Ok(Self {
+            project_name: bundle
+                .project_path()
+                .map_or_else(String::new, portable_file_stem),
             definitions,
             definition_by_path,
             occurrences,
@@ -196,6 +202,45 @@ impl SchematicBundleIndex {
     pub fn occurrences(&self) -> impl ExactSizeIterator<Item = &SchematicOccurrence> {
         self.occurrences.iter()
     }
+
+    pub fn project_name(&self) -> &str {
+        &self.project_name
+    }
+
+    pub fn effective_symbols(
+        &self,
+        occurrence_index: usize,
+        variant_name: Option<&str>,
+    ) -> Result<Vec<SchematicEffectiveSymbol>, SourceBundleError> {
+        let occurrence = occurrence_index
+            .checked_sub(1)
+            .and_then(|index| self.occurrences.get(index))
+            .filter(|occurrence| occurrence.index == occurrence_index)
+            .ok_or_else(|| {
+                SourceBundleError::new(
+                    SourceBundleErrorKind::Schematic,
+                    None,
+                    "schematic occurrence index is out of range",
+                )
+            })?;
+        let definition = self.definition(&occurrence.source_path).ok_or_else(|| {
+            SourceBundleError::new(
+                SourceBundleErrorKind::MissingSource,
+                Some(&occurrence.source_path),
+                "schematic occurrence definition is missing",
+            )
+        })?;
+        resolve_effective_symbols(definition, occurrence, &self.project_name, variant_name)
+    }
+}
+
+fn portable_file_stem(path: &str) -> String {
+    path.rsplit('/')
+        .next()
+        .unwrap_or(path)
+        .strip_suffix(".kicad_pro")
+        .unwrap_or_else(|| path.rsplit('/').next().unwrap_or(path))
+        .to_owned()
 }
 
 fn parse_schematic_definition(
@@ -729,6 +774,7 @@ struct HierarchyEnter {
     parent_index: Option<usize>,
     sheet: Option<SchematicSheet>,
     parent_address: String,
+    parent_legacy_address: String,
     effective_in_bom: bool,
     effective_on_board: bool,
     effective_dnp: bool,
@@ -748,6 +794,7 @@ fn realize_occurrences(
         parent_index: None,
         sheet: None,
         parent_address: String::new(),
+        parent_legacy_address: String::new(),
         effective_in_bom: true,
         effective_on_board: true,
         effective_dnp: false,
@@ -784,6 +831,7 @@ fn realize_occurrences(
                 let index = occurrences.len() + 1;
                 let occurrence = materialize_occurrence(&enter, definition, index, limits)?;
                 let occurrence_address = occurrence.occurrence_address.clone();
+                let legacy_address = occurrence.legacy_address.clone();
                 occurrences.push(occurrence);
                 work.push(HierarchyWork::Exit(enter.source_path.clone()));
                 for child in definition.sheets.iter().rev() {
@@ -798,6 +846,7 @@ fn realize_occurrences(
                         parent_index: Some(index),
                         sheet: Some(child.clone()),
                         parent_address: occurrence_address.clone(),
+                        parent_legacy_address: legacy_address.clone(),
                         effective_in_bom: enter.effective_in_bom && child.in_bom,
                         effective_on_board: enter.effective_on_board && child.on_board,
                         effective_dnp: enter.effective_dnp || child.dnp,
@@ -834,6 +883,22 @@ fn materialize_occurrence(
     } else {
         format!("{}/{segment}", enter.parent_address.trim_end_matches('/'))
     };
+    let legacy_address = enter.sheet.as_ref().map_or_else(
+        || "/".to_owned(),
+        |sheet| {
+            let segment = if sheet.uuid.is_empty() {
+                &sheet.sheet_file
+            } else {
+                &sheet.uuid
+            };
+            let parent = enter.parent_legacy_address.trim_end_matches('/');
+            if parent.is_empty() {
+                format!("/{segment}/")
+            } else {
+                format!("{parent}/{segment}/")
+            }
+        },
+    );
     if occurrence_address.len() > limits.max_path_bytes {
         return Err(schematic_limit(
             &enter.source_path,
@@ -862,6 +927,7 @@ fn materialize_occurrence(
         sheet_name,
         sheet_file,
         occurrence_address,
+        legacy_address,
         effective_in_bom: enter.effective_in_bom,
         effective_on_board: enter.effective_on_board,
         effective_dnp: enter.effective_dnp,
