@@ -37,7 +37,10 @@
     serialization uses a bounded writer and never retains output beyond
     <code>max_output_bytes</code>. A non-allocating structural preflight bounds
     JSON value nodes and container depth before the generic Serde DOM is
-    materialized. Typed projection independently bounds text
+    materialized. The caller's depth ceiling governs through 512 nested
+    containers, the library's explicit hard safety cap; Serde's lower default
+    recursion ceiling is disabled only after that iterative preflight. Typed
+    projection independently bounds text
     variables, variants, net classes, assignments, patterns, colors,
     differential-pair presets, and aggregate copied string bytes. Outer
     netclass assignments and their nested class references have independent
@@ -46,7 +49,8 @@
     <code>serde_json</code> dependencies. The enabled <code>preserve_order</code>
     and <code>arbitrary_precision</code> features add the standard
     <code>indexmap</code>/<code>hashbrown</code> support needed for observable
-    KiCad/Python canonical parity. The structural preflight is not a JSON
+    KiCad/Python canonical parity; <code>unbounded_depth</code> lets the
+    explicitly bounded preflight own the recursion policy. The structural preflight is not a JSON
     parser: Serde remains authoritative for syntax and materialization. The
     crate continues to forbid unsafe code.</p>
     <p>Invalid UTF-8, malformed JSON, non-object roots, invalid paths, mutation

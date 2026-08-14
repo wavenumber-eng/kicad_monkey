@@ -1,4 +1,4 @@
-use super::{ProjectError, ProjectLimits, check_count, limit_error};
+use super::{PROJECT_MAX_JSON_DEPTH, ProjectError, ProjectLimits, check_count, limit_error};
 
 /// Count JSON values and container nesting without allocating the generic DOM.
 ///
@@ -63,7 +63,11 @@ impl<'a> JsonPreflight<'a> {
             .depth
             .checked_add(1)
             .ok_or_else(|| limit_error("project JSON depth overflows"))?;
-        check_count(self.depth, self.limits.max_json_depth, "project JSON depth")?;
+        check_count(
+            self.depth,
+            self.limits.max_json_depth.min(PROJECT_MAX_JSON_DEPTH),
+            "project JSON depth",
+        )?;
         self.index += 1;
         Ok(())
     }

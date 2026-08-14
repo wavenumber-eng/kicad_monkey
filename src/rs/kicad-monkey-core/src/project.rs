@@ -2,12 +2,15 @@
 
 mod json_preflight;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::fmt::{Display, Formatter};
 use std::io::{Read, Write};
 
 use json_preflight::preflight_json_structure;
+
+/// Hard safety ceiling applied after the caller's project JSON depth limit.
+pub const PROJECT_MAX_JSON_DEPTH: usize = 512;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProjectLimits {
@@ -281,8 +284,7 @@ impl ProjectDocument {
             return Err(limit_error("project source exceeds max_source_bytes"));
         }
         preflight_json_structure(&source, limits)?;
-        let value: Value = serde_json::from_str(&source)
-            .map_err(|error| ProjectError::new(ProjectErrorKind::InvalidJson, error.to_string()))?;
+        let value = deserialize_project(&source)?;
         let Value::Object(root) = value else {
             return Err(ProjectError::new(
                 ProjectErrorKind::RootNotObject,
@@ -718,6 +720,21 @@ fn variant_from_value(value: &Value) -> Option<ProjectVariant> {
             Some(value) => Some(project_string(value)),
         },
     })
+}
+
+fn deserialize_project(source: &str) -> Result<Value, ProjectError> {
+    let mut deserializer = serde_json::Deserializer::from_str(source);
+    // The iterative preflight has already enforced the caller limit and the
+    // library hard cap, so Serde's lower implicit recursion ceiling must not
+    // replace the public resource contract.
+    deserializer.disable_recursion_limit();
+    let value = Value::deserialize(&mut deserializer).map_err(json_error)?;
+    deserializer.end().map_err(json_error)?;
+    Ok(value)
+}
+
+fn json_error(error: serde_json::Error) -> ProjectError {
+    ProjectError::new(ProjectErrorKind::InvalidJson, error.to_string())
 }
 
 fn serialize_project(root: &Map<String, Value>, maximum: usize) -> Result<String, ProjectError> {

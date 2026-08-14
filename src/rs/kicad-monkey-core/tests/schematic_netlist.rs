@@ -126,6 +126,7 @@ fn project_subpart_settings_drive_default_native_compilation_and_fail_closed() {
         br#"{"schematic":{"subpart_first_id":"A"}}"#.as_slice(),
         br#"{"schematic":{"subpart_id_separator":-1}}"#.as_slice(),
         br#"{"schematic":[]}"#.as_slice(),
+        br#"{"schematic":null}"#.as_slice(),
     ] {
         let error = index_with_project(malformed, root).expect_err("invalid project setting");
         assert_eq!(error.kind, SourceBundleErrorKind::Project);

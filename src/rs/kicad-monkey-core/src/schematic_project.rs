@@ -26,7 +26,6 @@ pub(crate) fn project_subpart_settings(
     })?;
     let view = document.view();
     if let Some(schematic) = view.raw().get("schematic")
-        && !schematic.is_null()
         && !schematic.is_object()
     {
         return Err(SourceBundleError::new(

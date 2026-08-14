@@ -30,7 +30,7 @@ anyhow = "1.0.102"
 prettyplease = "0.2.37"
 schemars = "0.8.22"
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.151", features = ["arbitrary_precision", "preserve_order"] }
+serde_json = { version = "1.0.151", features = ["arbitrary_precision", "preserve_order", "unbounded_depth"] }
 sha2 = { version = "0.11.0", default-features = false }
 syn = { version = "2.0.117", features = ["full"] }
 typify = { version = "0.7.0", default-features = false }

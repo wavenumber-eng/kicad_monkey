@@ -260,6 +260,32 @@ fn json_node_and_depth_preflight_accept_exact_and_reject_one_over() {
 }
 
 #[test]
+fn configurable_json_depth_governs_valid_input_beyond_serde_default() {
+    const DEPTH: usize = 160;
+    let source = format!("{}0{}", "{\"value\":".repeat(DEPTH), "}".repeat(DEPTH));
+    ProjectDocument::parse(
+        source.clone(),
+        ProjectLimits {
+            max_json_depth: DEPTH,
+            ..ProjectLimits::default()
+        },
+    )
+    .expect("valid JSON above Serde's former implicit ceiling");
+    assert_eq!(
+        ProjectDocument::parse(
+            source,
+            ProjectLimits {
+                max_json_depth: DEPTH - 1,
+                ..ProjectLimits::default()
+            },
+        )
+        .expect_err("one over caller depth")
+        .kind,
+        ProjectErrorKind::ResourceLimit
+    );
+}
+
+#[test]
 fn netclass_assignment_and_reference_limits_are_independent() {
     let source = r#"{"net_settings":{"netclass_assignments":{"A":["One","Two"],"B":[]}}}"#;
     let exact = ProjectLimits {
