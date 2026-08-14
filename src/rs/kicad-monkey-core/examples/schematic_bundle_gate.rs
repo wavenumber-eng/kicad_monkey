@@ -3,9 +3,10 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
 };
 use kicad_monkey_core::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicBusSubgraph, SchematicDefinition,
-    SchematicLabelScope, SchematicOccurrenceConnectivityLimits, SchematicPlacedSymbol,
-    SchematicPoint, SchematicSheet, SchematicWireSubgraph, SourceBundle, SourceBundleLimits,
-    build_schematic_bus_subgraphs, build_schematic_occurrence_subgraphs,
+    SchematicLabelScope, SchematicLocalNet, SchematicOccurrenceConnectivityLimits,
+    SchematicPlacedSymbol, SchematicPoint, SchematicSheet, SchematicWireSubgraph, SourceBundle,
+    SourceBundleLimits, build_schematic_bus_subgraphs, build_schematic_occurrence_nets,
+    build_schematic_occurrence_subgraphs,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -30,6 +31,7 @@ struct ResultSummary {
     effective_symbols: Vec<EffectiveOccurrenceSummary>,
     symbol_terminals: Vec<TerminalOccurrenceSummary>,
     wire_subgraphs: Vec<WireOccurrenceSummary>,
+    local_nets: Vec<LocalNetOccurrenceSummary>,
     total_bytes: usize,
 }
 
@@ -244,8 +246,41 @@ struct WirePinSummary {
     priority: i8,
     kind: String,
     power_value: String,
+    has_multiple: bool,
+    designator_with_unit: String,
+    parent_pin_count: usize,
     is_power: bool,
     is_implicit_hidden_power: bool,
+    source_pin_uuid: String,
+    pin_svg_id: String,
+}
+
+#[derive(Debug, Serialize)]
+struct LocalNetOccurrenceSummary {
+    occurrence_index: usize,
+    nets: Vec<LocalNetSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct LocalNetSummary {
+    name: String,
+    code: u64,
+    driver_priority: i8,
+    driver_kind: String,
+    auto_named: bool,
+    terminals: Vec<LocalNetTerminalSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct LocalNetTerminalSummary {
+    symbol_index: usize,
+    designator: String,
+    pin: String,
+    pin_name: String,
+    pin_type: String,
+    sheet_path: String,
+    source_pin_id: String,
+    svg_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -282,6 +317,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let effective_symbols = effective_summaries(&index)?;
         let symbol_terminals = terminal_summaries(&index)?;
         let wire_subgraphs = wire_summaries(&index)?;
+        let local_nets = local_net_summaries(&index)?;
         println!(
             "{}",
             serde_json::to_string(&ResultSummary {
@@ -306,6 +342,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 effective_symbols,
                 symbol_terminals,
                 wire_subgraphs,
+                local_nets,
                 total_bytes: bundle.total_bytes(),
             })?
         );
@@ -315,6 +352,54 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("no source bundle requests supplied".into());
     }
     Ok(())
+}
+
+fn local_net_summaries(
+    index: &SchematicBundleIndex,
+) -> Result<Vec<LocalNetOccurrenceSummary>, kicad_monkey_core::SourceBundleError> {
+    index
+        .occurrences()
+        .map(|occurrence| {
+            Ok(LocalNetOccurrenceSummary {
+                occurrence_index: occurrence.index,
+                nets: build_schematic_occurrence_nets(
+                    index,
+                    occurrence.index,
+                    1,
+                    Default::default(),
+                )?
+                .iter()
+                .map(local_net_summary)
+                .collect(),
+            })
+        })
+        .collect()
+}
+
+fn local_net_summary(net: &SchematicLocalNet) -> LocalNetSummary {
+    LocalNetSummary {
+        name: net.name.clone(),
+        code: net.code,
+        driver_priority: net.driver_priority as i8,
+        driver_kind: net
+            .driver_kind
+            .map_or_else(String::new, |kind| kind.as_str().to_owned()),
+        auto_named: net.auto_named,
+        terminals: net
+            .terminals
+            .iter()
+            .map(|terminal| LocalNetTerminalSummary {
+                symbol_index: terminal.symbol_index,
+                designator: terminal.designator.clone(),
+                pin: terminal.pin.clone(),
+                pin_name: terminal.pin_name.clone(),
+                pin_type: terminal.pin_type.clone(),
+                sheet_path: terminal.sheet_path.clone(),
+                source_pin_id: terminal.source_pin_id.clone(),
+                svg_id: terminal.svg_id.clone(),
+            })
+            .collect(),
+    }
 }
 
 fn effective_summaries(
@@ -417,8 +502,13 @@ fn wire_subgraph_summary(subgraph: &SchematicWireSubgraph) -> WireSubgraphSummar
                 priority: pin.priority as i8,
                 kind: pin.kind.as_str().to_owned(),
                 power_value: pin.power_value.clone(),
+                has_multiple: pin.has_multiple,
+                designator_with_unit: pin.designator_with_unit.clone(),
+                parent_pin_count: pin.parent_pin_count,
                 is_power: pin.is_power,
                 is_implicit_hidden_power: pin.is_implicit_hidden_power,
+                source_pin_uuid: pin.source_pin_uuid.clone(),
+                pin_svg_id: pin.pin_svg_id.clone(),
             })
             .collect(),
         labels: subgraph

@@ -58,6 +58,17 @@
   coordinate receive deterministic virtual coordinates, as in the Python
   compiler.</p>
 
+  <p><code>build_schematic_occurrence_nets</code> now turns each accepted
+  occurrence-local wire subgraph into a deterministic native local-net record.
+  It applies KiCad's global/power/local path scoping, net-name escaping,
+  isolated/no-connect rules, high- versus low-quality pin selection, duplicate
+  shown-name disambiguation, multi-unit reference suffixes, weak sheet-pin
+  suffixing, sequential codes, and reference/pin terminal ordering. Terminals
+  retain placed-pin source identity and the same visible-pin or parent-symbol
+  render target selected by Python. A configurable subpart policy supports the
+  project-level letter, digit, and separator conventions without coupling this
+  local compiler to a generic project tree.</p>
+
   <p>The accepted bus and wire segment indexes plus borrowed alias map are built
   once and shared by the bus-subgraph and local-wire passes for an occurrence.
   Custom static indexes are not rebuilt for each bus subgraph or driver. Embedded
@@ -192,6 +203,14 @@
   is lexed. Duplicate-number and group expansion use a bounded index; repeated
   group references cannot create unbounded hidden work.</p>
 
+  <p>Local-net materialization separately bounds net count, emitted terminal
+  count, one final or candidate name, and aggregate retained output strings.
+  Escaped-name size and aggregate range costs are computed before allocating
+  the final name or cloning terminal strings. Defaults remain broad
+  format-safety ceilings (millions of records and hundreds of MiB), not small
+  product assumptions. Off-board terminals are filtered before pin-name indexes
+  or render identifiers are built.</p>
+
   <p>The defaults are deliberately large format-safety ceilings, not product-size
   assumptions: four million aggregate objects and per family, one million points in
   one carrier, and eight million carrier points per schematic source. They are
@@ -246,8 +265,16 @@
   driver, selected name/priority/kind, and no-connect flag with Python for every
   occurrence in all four compiled-graph reference projects.</p>
 
+  <p>The same Rack differential now compares every finalized occurrence-local
+  net name, code, chosen driver, auto-name flag, sorted terminal, placed-pin
+  source ID, and render target across those projects. Focused Rust evidence
+  covers scoped escaping, duplicate pin-name quality, isolated passive and
+  named multi-pin behavior, letter/digit/separator unit suffixes, source-pin
+  identity, duplicate weak sheet-pin suffixes, and simultaneous exact/one-over
+  output ceilings.</p>
+
   <h2>Deferred work</h2>
-  <p>Hierarchy-terminal binding, final net naming/merging, graph row production, schematic
+  <p>Hierarchy-terminal binding, design-wide global/power merging, graph row production, schematic
   mutation, and semantic round-trip remain in Phase 4. Browser/WASM packaging remains
   deferred by the native-first plan.</p>
 </body>

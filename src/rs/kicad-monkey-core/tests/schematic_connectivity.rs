@@ -284,7 +284,7 @@ fn pin_expansion_and_jumper_work_limits_are_independent() {
         max_pin_drivers: 3,
         max_subgraphs: 1,
         max_retained_points: 1,
-        max_retained_string_bytes: 67,
+        max_retained_string_bytes: 121,
         max_expanded_pins: 3,
         max_expanded_pin_bytes: 3,
         ..SchematicOccurrenceConnectivityLimits::default()
@@ -315,7 +315,7 @@ fn pin_expansion_and_jumper_work_limits_are_independent() {
         ),
         (
             SchematicOccurrenceConnectivityLimits {
-                max_retained_string_bytes: 66,
+                max_retained_string_bytes: 120,
                 ..exact
             },
             "retained string bytes",

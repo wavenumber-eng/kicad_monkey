@@ -9,8 +9,12 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
+mod driver_types;
+mod pin_naming;
 mod stacked_pins;
 mod wire_union;
+pub use pin_naming::SchematicSubpartSettings;
+use pin_naming::{PinNaming, build_pin_namings};
 use stacked_pins::expand_stacked_pin;
 use wire_union::WirePointUnion;
 
@@ -52,8 +56,13 @@ pub struct SchematicPinDriver {
     pub priority: SchematicDriverPriority,
     pub kind: SchematicWireDriverKind,
     pub power_value: String,
+    pub has_multiple: bool,
+    pub designator_with_unit: String,
+    pub parent_pin_count: usize,
     pub is_power: bool,
     pub is_implicit_hidden_power: bool,
+    pub source_pin_uuid: String,
+    pub pin_svg_id: String,
     pub source_order: usize,
 }
 
@@ -121,13 +130,28 @@ pub fn build_schematic_occurrence_subgraphs(
     occurrence_index: usize,
     limits: SchematicOccurrenceConnectivityLimits,
 ) -> Result<Vec<SchematicWireSubgraph>, SourceBundleError> {
-    OccurrenceBuilder::new(index, occurrence_index, limits)?.build()
+    build_schematic_occurrence_subgraphs_with_settings(
+        index,
+        occurrence_index,
+        SchematicSubpartSettings::default(),
+        limits,
+    )
+}
+
+pub fn build_schematic_occurrence_subgraphs_with_settings(
+    index: &SchematicBundleIndex,
+    occurrence_index: usize,
+    subparts: SchematicSubpartSettings,
+    limits: SchematicOccurrenceConnectivityLimits,
+) -> Result<Vec<SchematicWireSubgraph>, SourceBundleError> {
+    OccurrenceBuilder::new(index, occurrence_index, subparts, limits)?.build()
 }
 
 struct OccurrenceBuilder<'a> {
     index: &'a SchematicBundleIndex,
     definition: &'a crate::SchematicDefinition,
     occurrence_index: usize,
+    subparts: SchematicSubpartSettings,
     limits: SchematicOccurrenceConnectivityLimits,
     retained_string_bytes: usize,
     expanded_pins: usize,
@@ -154,6 +178,7 @@ impl<'a> OccurrenceBuilder<'a> {
     fn new(
         index: &'a SchematicBundleIndex,
         occurrence_index: usize,
+        subparts: SchematicSubpartSettings,
         limits: SchematicOccurrenceConnectivityLimits,
     ) -> Result<Self, SourceBundleError> {
         let occurrence = index.occurrence(occurrence_index).ok_or_else(|| {
@@ -174,6 +199,7 @@ impl<'a> OccurrenceBuilder<'a> {
             index,
             definition,
             occurrence_index,
+            subparts,
             limits,
             retained_string_bytes: 0,
             expanded_pins: 0,
@@ -376,17 +402,29 @@ impl<'a> OccurrenceBuilder<'a> {
     ) -> Result<Vec<SchematicPinDriver>, SourceBundleError> {
         let effective = self.index.effective_symbols(self.occurrence_index, None)?;
         let terminals = self.index.symbol_terminals(self.occurrence_index)?;
+        let terminals = terminals
+            .iter()
+            .filter(|terminal| {
+                effective
+                    .get(terminal.symbol_index)
+                    .is_some_and(|symbol| symbol.on_board)
+            })
+            .collect::<Vec<_>>();
+        let namings = build_pin_namings(
+            self.definition,
+            &terminals,
+            &effective,
+            self.subparts,
+            self.limits.max_retained_string_bytes,
+        )?;
         let mut out = Vec::new();
         let mut hidden_nc_sequence = 0_i64;
-        for terminal in terminals {
+        for (terminal, naming) in terminals.iter().copied().zip(&namings) {
             let Some(symbol) = effective.get(terminal.symbol_index) else {
                 continue;
             };
-            if !symbol.on_board {
-                continue;
-            }
-            let semantics = self.pin_semantics(&terminal, symbol, &mut hidden_nc_sequence)?;
-            self.push_terminal_pins(&mut out, union, terminal, semantics)?;
+            let semantics = self.pin_semantics(terminal, symbol, &mut hidden_nc_sequence)?;
+            self.push_terminal_pins(&mut out, union, terminal, semantics, naming)?;
         }
         Ok(out)
     }
@@ -439,8 +477,9 @@ impl<'a> OccurrenceBuilder<'a> {
         &mut self,
         out: &mut Vec<SchematicPinDriver>,
         union: &mut WirePointUnion,
-        terminal: crate::SchematicSymbolTerminal,
+        terminal: &crate::SchematicSymbolTerminal,
         semantics: PinSemantics,
+        naming: &PinNaming,
     ) -> Result<(), SourceBundleError> {
         let remaining_drivers = self.limits.max_pin_drivers.saturating_sub(out.len());
         let expanded = self.expand_pin_number(&terminal.pin_number, remaining_drivers)?;
@@ -468,6 +507,9 @@ impl<'a> OccurrenceBuilder<'a> {
                 pin_name.as_str(),
                 terminal.electrical_type.as_str(),
                 semantics.power_value.as_str(),
+                naming.designator_with_unit.as_str(),
+                naming.source_pin_uuid.as_str(),
+                naming.pin_svg_id.as_str(),
             ])?;
             out.push(SchematicPinDriver {
                 symbol_index: terminal.symbol_index,
@@ -481,8 +523,13 @@ impl<'a> OccurrenceBuilder<'a> {
                 priority: semantics.priority,
                 kind: pin_kind(semantics.priority),
                 power_value: semantics.power_value.clone(),
+                has_multiple: naming.has_multiple,
+                designator_with_unit: naming.designator_with_unit.clone(),
+                parent_pin_count: naming.parent_pin_count,
                 is_power: semantics.is_power,
                 is_implicit_hidden_power: semantics.implicit,
+                source_pin_uuid: naming.source_pin_uuid.clone(),
+                pin_svg_id: naming.pin_svg_id.clone(),
                 source_order: out.len(),
             });
         }
@@ -777,31 +824,6 @@ impl<'a> OccurrenceBuilder<'a> {
     }
 }
 
-fn label_type(scope: SchematicLabelScope) -> (SchematicDriverPriority, SchematicWireDriverKind) {
-    match scope {
-        SchematicLabelScope::Local => (
-            SchematicDriverPriority::LocalLabel,
-            SchematicWireDriverKind::LocalLabel,
-        ),
-        SchematicLabelScope::Global => (
-            SchematicDriverPriority::Global,
-            SchematicWireDriverKind::GlobalLabel,
-        ),
-        SchematicLabelScope::Hierarchical => (
-            SchematicDriverPriority::HierarchicalLabel,
-            SchematicWireDriverKind::HierarchicalLabel,
-        ),
-    }
-}
-
-fn pin_kind(priority: SchematicDriverPriority) -> SchematicWireDriverKind {
-    match priority {
-        SchematicDriverPriority::GlobalPowerPin => SchematicWireDriverKind::GlobalPowerPin,
-        SchematicDriverPriority::LocalPowerPin => SchematicWireDriverKind::LocalPowerPin,
-        _ => SchematicWireDriverKind::Pin,
-    }
-}
-
 fn classify_pin_power(
     terminal: &crate::SchematicSymbolTerminal,
     symbol: &crate::SchematicEffectiveSymbol,
@@ -966,3 +988,4 @@ fn candidate_precedes(candidate: &DriverChoice, current: &DriverChoice) -> bool 
                     && (candidate.name < current.name
                         || (candidate.name == current.name && candidate.order < current.order)))))
 }
+use driver_types::{label_type, pin_kind};

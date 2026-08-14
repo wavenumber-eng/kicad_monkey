@@ -15,6 +15,7 @@ from kicad_monkey.kicad_netlist_compiler import (
     _resolve_instance_reference,
     _resolve_instance_unit,
     compile_sheet_subgraphs,
+    name_net,
 )
 from kicad_monkey.kicad_schematic_connectivity import (
     ConnectivityGraph,
@@ -307,6 +308,7 @@ def _request(
     list[dict[str, object]],
     list[dict[str, object]],
     list[dict[str, object]],
+    list[dict[str, object]],
 ]:
     case = get_kicad_corpus_case(case_id)
     assert case is not None
@@ -371,6 +373,7 @@ def _request(
     expected_effective = []
     expected_terminals = []
     expected_wire_subgraphs = []
+    expected_local_nets = []
     for occurrence in occurrences:
         symbols = []
         terminals = []
@@ -470,8 +473,13 @@ def _request(
                                     else "pin"
                                 ),
                                 "power_value": pin.power_value,
+                                "has_multiple": pin.has_multiple,
+                                "designator_with_unit": pin.designator_with_unit,
+                                "parent_pin_count": pin.parent_pin_count,
                                 "is_power": pin.is_power,
                                 "is_implicit_hidden_power": pin.is_implicit_hidden_power,
+                                "source_pin_uuid": pin.source_uuid,
+                                "pin_svg_id": pin.pin_svg_uuid,
                             }
                             for pin in subgraph.pin_drivers
                         ],
@@ -495,6 +503,54 @@ def _request(
                 ],
             }
         )
+        nets: list[dict[str, object]] = []
+        sheet_pin_names: dict[str, int] = {}
+        symbol_index_by_uuid = {
+            str(getattr(symbol, "uuid", "") or ""): symbol_index
+            for symbol_index, symbol in enumerate(occurrence.schematic.symbols)
+        }
+        code = 1
+        for subgraph in subgraphs:
+            if not subgraph.pin_drivers and not subgraph.label_drivers:
+                continue
+            net_name, auto_named = name_net(
+                subgraph, sheet_path=occurrence.sheet_path_uuids
+            )
+            if str(subgraph.chosen_kind) == "sheet_pin":
+                duplicate = sheet_pin_names.get(net_name, 0)
+                sheet_pin_names[net_name] = duplicate + 1
+                if duplicate:
+                    net_name = f"{net_name}_{duplicate}"
+            nets.append(
+                {
+                    "name": net_name,
+                    "code": code,
+                    "driver_priority": int(subgraph.chosen_priority),
+                    "driver_kind": str(subgraph.chosen_kind),
+                    "auto_named": auto_named,
+                    "terminals": [
+                        {
+                            "symbol_index": symbol_index_by_uuid[pin.svg_uuid],
+                            "designator": pin.designator,
+                            "pin": pin.pin_number,
+                            "pin_name": pin.pin_name,
+                            "pin_type": pin.pin_type,
+                            "sheet_path": occurrence.sheet_path_uuids,
+                            "source_pin_id": pin.source_uuid,
+                            "svg_id": pin.pin_svg_uuid or pin.svg_uuid,
+                        }
+                        for pin in sorted(
+                            subgraph.pin_drivers,
+                            key=lambda value: (value.designator, value.pin_number),
+                        )
+                        if pin.designator
+                    ],
+                }
+            )
+            code += 1
+        expected_local_nets.append(
+            {"occurrence_index": occurrence.index, "nets": nets}
+        )
     return (
         request,
         expected_definitions,
@@ -503,6 +559,7 @@ def _request(
         expected_effective,
         expected_terminals,
         expected_wire_subgraphs,
+        expected_local_nets,
     )
 
 
@@ -524,7 +581,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         cwd=PACKAGE_ROOT,
         input="".join(
             f"{json.dumps(request, separators=(',', ':'))}\n"
-            for request, _definitions, _occurrences, _source_models, _effective, _terminals, _wire_subgraphs in requests_and_counts
+            for request, _definitions, _occurrences, _source_models, _effective, _terminals, _wire_subgraphs, _local_nets in requests_and_counts
         ),
         capture_output=True,
         text=True,
@@ -543,6 +600,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         effective,
         terminals,
         wire_subgraphs,
+        local_nets,
     ) in zip(
         results, requests_and_counts, strict=True
     ):
@@ -556,6 +614,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
             f"Python stats={_wire_stats(wire_subgraphs)}; "
             f"partition={_partition_difference(result['wire_subgraphs'][0]['subgraphs'], cast(list[dict[str, Any]], wire_subgraphs[0]['subgraphs']))}"
         )
+        assert result["local_nets"] == local_nets
         assert {
             definition["source_path"]: definition for definition in result["definitions"]
         } == source_models

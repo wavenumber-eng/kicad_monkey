@@ -19,6 +19,7 @@ pub mod schematic_bus;
 pub mod schematic_bus_connectivity;
 pub mod schematic_connectivity;
 mod schematic_effective;
+pub mod schematic_netlist;
 mod schematic_segment_index;
 mod schematic_source;
 mod schematic_terminals;
@@ -71,9 +72,14 @@ pub use schematic_bus_connectivity::{
 };
 pub use schematic_connectivity::{
     SchematicLabelDriver, SchematicOccurrenceConnectivityLimits, SchematicPinDriver,
-    SchematicWireDriverKind, SchematicWireSubgraph, build_schematic_occurrence_subgraphs,
+    SchematicSubpartSettings, SchematicWireDriverKind, SchematicWireSubgraph,
+    build_schematic_occurrence_subgraphs, build_schematic_occurrence_subgraphs_with_settings,
 };
 pub use schematic_effective::SchematicEffectiveSymbol;
+pub use schematic_netlist::{
+    SchematicLocalNet, SchematicLocalNetLimits, SchematicLocalNetTerminal,
+    build_schematic_occurrence_nets, build_schematic_occurrence_nets_with_settings,
+};
 pub use schematic_source::{
     SCHEMATIC_IU_PER_MM, SchematicBusAlias, SchematicBusEntry, SchematicConnectivity,
     SchematicJunction, SchematicLabel, SchematicLabelScope, SchematicLegacySymbolInstance,
