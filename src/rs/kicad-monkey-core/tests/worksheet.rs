@@ -202,6 +202,107 @@ fn item_polygon_bitmap_and_output_limits_fail_closed() {
 }
 
 #[test]
+fn top_level_form_and_typed_item_limits_are_independent() {
+    let unknowns = (0..17)
+        .map(|index| format!("(future_{index} keep)"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let source = format!("(kicad_wks {unknowns})");
+    let exact = WorksheetView::parse(
+        &source,
+        WorksheetLimits {
+            max_top_level_forms: 17,
+            max_items: 0,
+            ..WorksheetLimits::default()
+        },
+    )
+    .expect("exact unknown-form limit");
+    assert_eq!(exact.item_count(), 0);
+    assert_eq!(
+        WorksheetView::parse(
+            &source,
+            WorksheetLimits {
+                max_top_level_forms: 16,
+                max_items: 0,
+                ..WorksheetLimits::default()
+            },
+        )
+        .expect_err("one-over top-level forms")
+        .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let one_item = "(kicad_wks (future keep) (line))";
+    assert_eq!(
+        WorksheetView::parse(
+            one_item,
+            WorksheetLimits {
+                max_top_level_forms: 2,
+                max_items: 0,
+                ..WorksheetLimits::default()
+            },
+        )
+        .expect_err("independent item limit")
+        .kind,
+        ErrorKind::ResourceLimit
+    );
+    assert!(
+        WorksheetView::parse(
+            one_item,
+            WorksheetLimits {
+                max_top_level_forms: 2,
+                max_items: 1,
+                ..WorksheetLimits::default()
+            },
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn bitmap_modern_and_legacy_payload_selection_matches_python() {
+    let source = r#"(kicad_wks
+      (bitmap (data "a" 2 (nested "ignored") bare "b") (pngdata "unused"))
+      (bitmap (pngdata "first" "second" 3)))"#;
+    let view = WorksheetView::parse(
+        source,
+        WorksheetLimits {
+            max_bitmap_data_parts: 3,
+            max_bitmap_data_bytes: 6,
+            ..WorksheetLimits::default()
+        },
+    )
+    .expect("mixed bitmap children");
+    let items = view.items().collect::<Result<Vec<_>, _>>().expect("items");
+    let WorksheetItem::Bitmap(modern) = &items[0] else {
+        panic!("modern bitmap")
+    };
+    assert_eq!(modern.data_parts, ["a", "bare", "b"]);
+    let WorksheetItem::Bitmap(legacy) = &items[1] else {
+        panic!("legacy bitmap")
+    };
+    assert_eq!(legacy.data_parts, ["first"]);
+
+    let limited = WorksheetView::parse(
+        source,
+        WorksheetLimits {
+            max_bitmap_data_parts: 2,
+            ..WorksheetLimits::default()
+        },
+    )
+    .expect("lazy bitmap limit");
+    assert_eq!(
+        limited
+            .items()
+            .next()
+            .expect("modern bitmap")
+            .expect_err("three retained strings")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+}
+
+#[test]
 fn each_lazy_item_ceiling_has_independent_exact_or_over_evidence() {
     let cases = [
         WorksheetLimits {

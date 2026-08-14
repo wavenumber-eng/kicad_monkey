@@ -496,6 +496,8 @@ secondary = [
     "Interleaved worksheet item order and bitmap data-part boundaries are preserved",
     "The first owned write is exact and the second write is byte stable",
     "Focused setup-line-width edits preserve unknown forms and reparse transactionally",
-    "Source, item, node, polygon, bitmap, decoded-string, and output limits fail closed",
+    "Direct-root forms and typed items have independent exact/one-over limits",
+    "Source, node, polygon, bitmap, decoded-string, and output limits fail closed",
+    "Modern string-only bitmap chunks and legacy first-payload semantics match Python",
     "Lazy item diagnostics are rebased to absolute worksheet positions",
 ]

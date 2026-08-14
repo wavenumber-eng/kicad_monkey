@@ -14,6 +14,7 @@ pub struct WorksheetLimits {
     pub max_source_bytes: usize,
     pub max_output_bytes: usize,
     pub max_depth: usize,
+    pub max_top_level_forms: usize,
     pub max_items: usize,
     pub max_nodes_per_item: usize,
     pub max_decoded_string_bytes: usize,
@@ -30,6 +31,7 @@ impl Default for WorksheetLimits {
             max_source_bytes: 64 * 1024 * 1024,
             max_output_bytes: 64 * 1024 * 1024,
             max_depth: 128,
+            max_top_level_forms: 1_000_000,
             max_items: 1_000_000,
             max_nodes_per_item: 4_000_000,
             max_decoded_string_bytes: 64 * 1024 * 1024,
@@ -218,7 +220,10 @@ pub struct WorksheetView<'a> {
 
 impl<'a> WorksheetView<'a> {
     pub fn parse(source: &'a str, limits: WorksheetLimits) -> Result<Self, Error> {
-        let selected_limit = limits.max_items.checked_add(16).ok_or_else(limit_error)?;
+        let selected_limit = limits
+            .max_top_level_forms
+            .checked_add(1)
+            .ok_or_else(limit_error)?;
         let spans = scan_form_spans_with_limits(
             source,
             &Selector {
@@ -709,19 +714,14 @@ fn font(value: &Sexp) -> Result<WorksheetFont, Error> {
 fn bitmap(value: Sexp, limits: WorksheetLimits) -> Result<WorksheetBitmap, Error> {
     let mut data_parts = Vec::new();
     let mut data_bytes = 0usize;
-    let data = child(&value, "data").or_else(|| child(&value, "pngdata"));
-    if let Some(values) = data {
-        for item in &values[1..] {
-            if data_parts.len() >= limits.max_bitmap_data_parts {
-                return Err(limit_error());
-            }
-            let part = scalar(item);
-            data_bytes = data_bytes.checked_add(part.len()).ok_or_else(limit_error)?;
-            if data_bytes > limits.max_bitmap_data_bytes {
-                return Err(limit_error());
-            }
-            data_parts.push(part);
+    if let Some(values) = child(&value, "data") {
+        for part in values[1..].iter().filter_map(string_scalar) {
+            push_bitmap_part(&mut data_parts, &mut data_bytes, part, limits)?;
         }
+    } else if let Some(part) =
+        child(&value, "pngdata").and_then(|values| values[1..].iter().find_map(scalar_value))
+    {
+        push_bitmap_part(&mut data_parts, &mut data_bytes, part, limits)?;
     }
     Ok(WorksheetBitmap {
         name: child_string(&value, "name"),
@@ -732,6 +732,23 @@ fn bitmap(value: Sexp, limits: WorksheetLimits) -> Result<WorksheetBitmap, Error
         repeat: repeat(&value)?,
         data_parts,
     })
+}
+
+fn push_bitmap_part(
+    data_parts: &mut Vec<String>,
+    data_bytes: &mut usize,
+    part: String,
+    limits: WorksheetLimits,
+) -> Result<(), Error> {
+    if data_parts.len() >= limits.max_bitmap_data_parts {
+        return Err(limit_error());
+    }
+    *data_bytes = data_bytes.checked_add(part.len()).ok_or_else(limit_error)?;
+    if *data_bytes > limits.max_bitmap_data_bytes {
+        return Err(limit_error());
+    }
+    data_parts.push(part);
+    Ok(())
 }
 
 fn point(value: &Sexp, head: &str) -> Result<WorksheetPoint, Error> {
@@ -913,6 +930,17 @@ fn scalar(value: &Sexp) -> String {
         Sexp::Float(value) => value.to_string(),
         Sexp::List(_) => String::new(),
     }
+}
+
+fn string_scalar(value: &Sexp) -> Option<String> {
+    match value {
+        Sexp::Atom(value) | Sexp::Quoted(value) => Some(value.clone()),
+        _ => None,
+    }
+}
+
+fn scalar_value(value: &Sexp) -> Option<String> {
+    (!matches!(value, Sexp::List(_))).then(|| scalar(value))
 }
 
 fn rebase_error(mut error: Error, span: &FormSpan) -> Error {

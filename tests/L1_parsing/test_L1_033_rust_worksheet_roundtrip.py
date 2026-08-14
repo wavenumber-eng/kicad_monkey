@@ -92,6 +92,27 @@ def test_native_worksheet_resource_mutation_and_io_oracles_are_rack_owned() -> N
     )
 
 
+def test_native_bitmap_mixed_children_match_python(tmp_path: Path) -> None:
+    cases = {
+        "modern.kicad_wks": """(kicad_wks (version 20231118)
+  (bitmap (data \"a\" 2 (nested \"ignored\") bare \"b\")
+    (pngdata \"unused\")))""",
+        "legacy.kicad_wks": """(page_layout
+  (bitmap (pngdata \"first\" \"second\" 3)))""",
+    }
+    paths = []
+    for name, source in cases.items():
+        path = tmp_path / name
+        path.write_text(source, encoding="utf-8")
+        paths.append(path)
+    evidence = json.loads(
+        _run([str(_worksheet_executable()), *(str(path) for path in paths)]).stdout
+    )
+    assert evidence["file_count"] == 2
+    for path, actual in zip(paths, evidence["files"]):
+        assert actual == _python_projection(path)
+
+
 def _python_projection(path: Path) -> dict[str, Any]:
     worksheet = KiCadWorksheet.from_file(path)
     setup = worksheet.setup

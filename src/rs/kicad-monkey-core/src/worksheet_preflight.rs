@@ -25,7 +25,7 @@ pub(super) fn preflight_item(source: &str, limits: WorksheetLimits) -> Result<()
     for token in Lexer::new(source) {
         let token = token?;
         match token.kind {
-            TokenKind::Left => state.open(limits),
+            TokenKind::Left => state.open(),
             TokenKind::Right => state.close(limits)?,
             _ => state.scalar(token, limits)?,
         }
@@ -44,19 +44,7 @@ struct State<'a> {
 }
 
 impl<'a> State<'a> {
-    fn open(&mut self, limits: WorksheetLimits) {
-        if self.frames.len() == 2
-            && matches!(
-                self.frames.last().and_then(|frame| frame.head),
-                Some("data" | "pngdata")
-            )
-        {
-            account_bitmap_part(
-                self.frames.last_mut().expect("bitmap data frame"),
-                0,
-                limits,
-            );
-        }
+    fn open(&mut self) {
         self.frames.push(Frame::default());
     }
 
@@ -105,15 +93,31 @@ impl<'a> State<'a> {
             return Ok(());
         }
         frame.scalar_count = frame.scalar_count.saturating_add(1);
-        if depth == 2 && frame.head == Some("justify") && is_justify_token(&token) {
+        let head = frame.head;
+        self.account_justify(depth, head, &token, limits)?;
+        if depth == 2 {
+            account_bitmap_scalar(
+                self.frames.last_mut().expect("item frame"),
+                head,
+                &token,
+                limits,
+            );
+        }
+        Ok(())
+    }
+
+    fn account_justify(
+        &mut self,
+        depth: usize,
+        head: Option<&str>,
+        token: &Token<'_>,
+        limits: WorksheetLimits,
+    ) -> Result<(), Error> {
+        if depth == 2 && head == Some("justify") && is_justify_token(token) {
             self.justify = self.justify.checked_add(1).ok_or_else(limit_error)?;
             if self.justify > limits.max_justify_tokens {
                 return Err(limit_error());
             }
-        }
-        if depth == 2 && matches!(frame.head, Some("data" | "pngdata")) {
-            let decoded_bytes = decoded_scalar_bytes(&token, limits.max_bitmap_data_bytes);
-            account_bitmap_part(frame, decoded_bytes, limits);
         }
         Ok(())
     }
@@ -143,12 +147,35 @@ impl<'a> State<'a> {
     }
 }
 
+fn account_bitmap_scalar(
+    frame: &mut Frame<'_>,
+    head: Option<&str>,
+    token: &Token<'_>,
+    limits: WorksheetLimits,
+) {
+    let modern_data_string =
+        head == Some("data") && matches!(token.kind, TokenKind::Atom | TokenKind::QuotedString);
+    let first_legacy_scalar = head == Some("pngdata") && frame.data_parts == 0;
+    if modern_data_string || first_legacy_scalar {
+        let decoded_bytes = decoded_scalar_bytes(token, limits.max_bitmap_data_bytes);
+        account_bitmap_part(frame, decoded_bytes, limits);
+    }
+}
+
 fn decoded_scalar_bytes(token: &Token<'_>, maximum: usize) -> usize {
-    if token.kind == TokenKind::QuotedString {
-        decode_quoted_with_limit(token.lexeme, maximum)
-            .map_or(maximum.saturating_add(1), |value| value.len())
-    } else {
-        token.lexeme.len()
+    match token.kind {
+        TokenKind::QuotedString => decode_quoted_with_limit(token.lexeme, maximum)
+            .map_or(maximum.saturating_add(1), |value| value.len()),
+        TokenKind::Integer => token
+            .lexeme
+            .parse::<i64>()
+            .map_or(token.lexeme.len(), |value| value.to_string().len()),
+        TokenKind::Float => token
+            .lexeme
+            .parse::<f64>()
+            .map_or(token.lexeme.len(), |value| value.to_string().len()),
+        TokenKind::Atom => token.lexeme.len(),
+        TokenKind::Left | TokenKind::Right => 0,
     }
 }
 
