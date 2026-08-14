@@ -352,3 +352,23 @@ secondary = [
     "Signed-zero ordering matches Python and nonfinite input or derived coordinates fail before topology publication",
     "The Python oracle generator is deterministic and the focused Rust suite passes through Rack",
 ]
+
+[[subtests]]
+id = "L0_059"
+file = "test_L0_059_native_text_render_cache.py"
+name = "Native Typed Text Render Cache"
+description = "Require bounded native cache composition plus streaming KiCad S-expression read/write parity"
+concerns = ["rust", "rendering.text", "parity", "roundtrip", "resource-limits"]
+test_cases = "tests/parity/text_render_cache_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native horizontal text stages compose into a typed KiCad render cache with semantic S-expression round-trip"
+secondary = [
+    "Plain and transformed holed-glyph caches match fixed Python composition records",
+    "The writer shape and upstream KiCad formatRenderCache implementation are revision-pinned",
+    "The reader consumes streaming lexical tokens without allocating a generic S-expression tree",
+    "Text, source, polygon, contour, point, and output-byte ceilings are inclusive and fail closed",
+    "Quoted text, signed zero, multiple contours, malformed forms, and nonfinite scalars are durable evidence",
+    "The Python oracle generator is deterministic and the focused Rust suite passes through Rack",
+]

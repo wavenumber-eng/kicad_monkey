@@ -103,10 +103,28 @@
   distance intermediates are invalid input. The operation returns no partial
   topology on any invalid input or resource-limit failure.</p>
 
+  <h2>Typed cache and KiCad S-expression I/O</h2>
+  <p><code>generate_text_render_cache_a0</code> composes the accepted horizontal
+  layout and topology stages into a typed cache containing resolved text,
+  authored angle, polygons, contours, and points. The cache is a KiCad
+  source-model type, not a public interchange DTO, so it does not create a new
+  TypeSpec or WASM contract. <code>read_text_render_cache_a0</code> consumes the
+  lexical token stream directly and never builds a generic S-expression tree.
+  <code>write_text_render_cache_a0</code> emits escaped text and nested
+  polygon/points forms directly into a byte-bounded buffer. Read/write limits
+  separately cover source, decoded text, polygons, contours, points, and output
+  bytes, and semantic read-write-read is stable.</p>
+  <p>The shape of the writer is pinned to KiCad revision
+  <code>d6ff4c23641ee5236b7c9fac19eb6af1849294f5</code>, function
+  <code>PCB_IO_KICAD_SEXPR::formatRenderCache</code> in
+  <code>pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.cpp</code>. Fixed byte
+  formatting evidence comes from Python <code>RenderCache.to_sexp</code> plus
+  <code>build_sexp</code>; final coordinate authority remains the KiCad save
+  oracle.</p>
+
   <h2>Still open</h2>
   <p>The current render-cache strata do not yet claim multiline/markup
-  behavior, fake bold/italic, cache serialization, or final KiCad save-oracle
-  parity. Those remain active parts of
+  behavior, fake bold/italic, or final KiCad save-oracle parity. Those remain active parts of
   <code>render-cache-parity</code>, not deferred packaging work. Font discovery
   stays native-only and outside the platform-neutral byte-input core; WASM
   packaging remains in its later selected-operation phase.</p>

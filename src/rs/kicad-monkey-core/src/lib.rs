@@ -39,6 +39,7 @@ pub mod text_bezier;
 pub mod text_contours;
 pub mod text_layout;
 pub mod text_metadata;
+pub mod text_render_cache;
 pub mod text_shaping;
 pub mod text_topology;
 pub mod worksheet;
@@ -145,6 +146,11 @@ pub use text_layout::{
     TextVerticalAlignment, layout_single_line_text_a0,
 };
 pub use text_metadata::{KiCadColor, KiCadFont, KiCadTextEffects};
+pub use text_render_cache::{
+    TextRenderCache, TextRenderCacheError, TextRenderCacheErrorKind, TextRenderCacheLimits,
+    TextRenderCachePolygon, generate_text_render_cache_a0, read_text_render_cache_a0,
+    write_text_render_cache_a0,
+};
 pub use text_shaping::{
     TEXT_SHAPING_ENGINE, TextShapingError, TextShapingErrorKind, TextShapingLimits,
     TextShapingOutput, shape_text_a0,
