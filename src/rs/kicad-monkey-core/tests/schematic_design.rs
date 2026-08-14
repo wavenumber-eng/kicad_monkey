@@ -2,8 +2,9 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
     SourceBundleManifestA0, SourceBundleSource, SourceKind,
 };
 use kicad_monkey_core::{
-    SchematicBundleIndex, SchematicBundleLimits, SchematicDesignNetLimits, SourceBundle,
-    SourceBundleErrorKind, SourceBundleLimits, build_schematic_scalar_design_nets,
+    SchematicBundleIndex, SchematicBundleLimits, SchematicDesignNetLimits, SchematicLabelDriver,
+    SchematicPinDriver, SourceBundle, SourceBundleErrorKind, SourceBundleLimits,
+    build_schematic_occurrence_subgraphs, build_schematic_scalar_design_nets,
 };
 
 #[test]
@@ -97,6 +98,152 @@ fn scalar_design_limits_fail_before_codes_names_and_output_growth() {
     )
     .expect_err("code range is checked before naming");
     assert!(code_error.message.contains("net code"));
+}
+
+#[test]
+fn wide_hierarchy_target_index_has_exact_count_and_string_limits() {
+    let sheet_count = 32;
+    let index = wide_hierarchy_index(sheet_count);
+    let (target_count, target_bytes) = exact_target_index_shape(&index);
+    assert_eq!(target_count, sheet_count);
+
+    let exact = SchematicDesignNetLimits {
+        max_sheet_pin_targets: target_count,
+        max_target_index_bytes: target_bytes,
+        ..SchematicDesignNetLimits::default()
+    };
+    let design = build_schematic_scalar_design_nets(&index, 1, exact)
+        .expect("wide hierarchy at exact target limits");
+    assert_eq!(design.nets.len(), sheet_count);
+    for child in 0..sheet_count {
+        assert!(
+            design
+                .nets
+                .iter()
+                .any(|net| net.name == format!("/Child{child}/PIN")),
+            "missing indexed off-board target for Child{child}"
+        );
+    }
+
+    for (limits, message) in [
+        (
+            SchematicDesignNetLimits {
+                max_sheet_pin_targets: target_count - 1,
+                ..exact
+            },
+            "target count",
+        ),
+        (
+            SchematicDesignNetLimits {
+                max_target_index_bytes: target_bytes - 1,
+                ..exact
+            },
+            "target string bytes",
+        ),
+    ] {
+        let error = build_schematic_scalar_design_nets(&index, 1, limits)
+            .expect_err("one-under target-index limit");
+        assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+        assert!(error.message.contains(message), "{}", error.message);
+    }
+}
+
+#[test]
+fn merged_driver_clone_bytes_are_preflighted_for_long_fan_in() {
+    let symbol_count = 24;
+    let index = fan_in_index(symbol_count, 256);
+    let subgraphs = build_schematic_occurrence_subgraphs(&index, 1, Default::default())
+        .expect("fan-in occurrence subgraphs");
+    let merged = subgraphs
+        .iter()
+        .find(|subgraph| subgraph.pin_drivers.len() == symbol_count)
+        .expect("fan-in merged subgraph");
+    assert_eq!(merged.label_drivers.len(), 1);
+    let exact_bytes = exact_merged_driver_bytes(merged);
+
+    let exact = SchematicDesignNetLimits {
+        max_merged_driver_bytes: exact_bytes,
+        ..SchematicDesignNetLimits::default()
+    };
+    let design = build_schematic_scalar_design_nets(&index, 1, exact)
+        .expect("fan-in at exact merged-driver byte limit");
+    assert_eq!(design.nets.len(), 1);
+    assert_eq!(design.nets[0].name, "/NET");
+    assert_eq!(design.nets[0].terminals.len(), symbol_count);
+
+    let error = build_schematic_scalar_design_nets(
+        &index,
+        1,
+        SchematicDesignNetLimits {
+            max_merged_driver_bytes: exact_bytes - 1,
+            ..exact
+        },
+    )
+    .expect_err("one-under merged-driver byte limit");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(error.message.contains("merged design driver bytes"));
+}
+
+fn exact_target_index_shape(index: &SchematicBundleIndex) -> (usize, usize) {
+    index
+        .occurrences()
+        .filter_map(|child| {
+            let parent_index = child.parent_index?;
+            let sheet_index = child.parent_sheet_index?;
+            let parent = index.occurrence(parent_index)?;
+            let sheet = index
+                .definition(&parent.source_path)?
+                .sheets
+                .get(sheet_index)?;
+            (!sheet.on_board).then_some(
+                sheet
+                    .pins
+                    .iter()
+                    .map(|pin| {
+                        let key_bytes = if pin.uuid.is_empty() {
+                            pin.name.len()
+                        } else {
+                            pin.uuid.len()
+                        };
+                        (1_usize, key_bytes + child.human_address.len())
+                    })
+                    .fold((0_usize, 0_usize), |left, right| {
+                        (left.0 + right.0, left.1 + right.1)
+                    }),
+            )
+        })
+        .fold((0_usize, 0_usize), |left, right| {
+            (left.0 + right.0, left.1 + right.1)
+        })
+}
+
+fn exact_merged_driver_bytes(subgraph: &kicad_monkey_core::SchematicWireSubgraph) -> usize {
+    let pin_strings = subgraph
+        .pin_drivers
+        .iter()
+        .map(|pin| {
+            pin.symbol_uuid.len()
+                + pin.reference.len()
+                + pin.pin_number.len()
+                + pin.pin_name.len()
+                + pin.electrical_type.len()
+                + pin.power_value.len()
+                + pin.designator_with_unit.len()
+                + pin.source_pin_uuid.len()
+                + pin.pin_svg_id.len()
+        })
+        .sum::<usize>();
+    let label_strings = subgraph
+        .label_drivers
+        .iter()
+        .map(|label| label.text.len() + label.shape.len() + label.source_uuid.len())
+        .sum::<usize>();
+    let selected_choice_strings = "/NET".len() + "/".len() + "NET".len();
+    subgraph.pin_drivers.len() * std::mem::size_of::<SchematicPinDriver>()
+        + subgraph.label_drivers.len() * std::mem::size_of::<SchematicLabelDriver>()
+        + pin_strings
+        + label_strings
+        + selected_choice_strings
 }
 
 fn design_limit_failures(
@@ -274,6 +421,110 @@ fn hierarchy_index() -> SchematicBundleIndex {
     )
     .expect("hierarchy source bundle");
     SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default()).expect("hierarchy index")
+}
+
+fn wide_hierarchy_index(sheet_count: usize) -> SchematicBundleIndex {
+    let project = b"{}".to_vec();
+    let child = b"(kicad_sch (uuid repeated-child))".to_vec();
+    let mut sheets = String::new();
+    let mut symbols = String::new();
+    for index in 0..sheet_count {
+        let x = index * 10;
+        let pin_uuid = if index == 0 {
+            String::new()
+        } else {
+            format!(" (uuid pin-{index})")
+        };
+        sheets.push_str(&format!(
+            r#"(sheet (uuid sheet-{index})
+                 (property "Sheetname" "Child{index}")
+                 (property "Sheetfile" "child.kicad_sch")
+                 (on_board no)
+                 (pin "PIN" input (at {x} 0 0){pin_uuid}))"#
+        ));
+        symbols.push_str(&format!(
+            r#"(symbol (lib_id "Demo:One") (lib_name "Demo:One")
+                 (at {x} 0 0) (uuid symbol-{index})
+                 (property "Reference" "R{index}")
+                 (property "Value" "One"))"#
+        ));
+    }
+    let root = format!(
+        r#"(kicad_sch
+              (uuid wide-root)
+              (lib_symbols
+                (symbol "Demo:One"
+                  (symbol "Demo:One_1_1"
+                    (pin bidirectional line (at 0 0 0) (name "P") (number "1")))))
+              {sheets}
+              {symbols})"#
+    )
+    .into_bytes();
+    bundle_index(
+        "wide",
+        vec![
+            descriptor("wide/demo.kicad_pro", SourceKind::Project, 0, &project),
+            descriptor("wide/root.kicad_sch", SourceKind::Schematic, 1, &root),
+            descriptor("wide/child.kicad_sch", SourceKind::Schematic, 2, &child),
+        ],
+        vec![project, root, child],
+    )
+}
+
+fn fan_in_index(symbol_count: usize, reference_bytes: usize) -> SchematicBundleIndex {
+    let project = b"{}".to_vec();
+    let mut symbols = String::new();
+    for index in 0..symbol_count {
+        let suffix = index.to_string();
+        let reference = format!("{}{}", "R".repeat(reference_bytes - suffix.len()), suffix);
+        symbols.push_str(&format!(
+            r#"(symbol (lib_id "Demo:One") (lib_name "Demo:One")
+                 (at 0 0 0) (uuid symbol-{index})
+                 (property "Reference" "{reference}")
+                 (property "Value" "One"))"#
+        ));
+    }
+    let root = format!(
+        r#"(kicad_sch
+              (uuid fan-in-root)
+              (lib_symbols
+                (symbol "Demo:One"
+                  (symbol "Demo:One_1_1"
+                    (pin bidirectional line (at 0 0 0) (name "LONG_PIN_NAME") (number "1")))))
+              (label "NET" (at 0 0 0) (uuid fan-in-label))
+              {symbols})"#
+    )
+    .into_bytes();
+    bundle_index(
+        "fan-in",
+        vec![
+            descriptor("fan-in/demo.kicad_pro", SourceKind::Project, 0, &project),
+            descriptor("fan-in/root.kicad_sch", SourceKind::Schematic, 1, &root),
+        ],
+        vec![project, root],
+    )
+}
+
+fn bundle_index(
+    project_name: &str,
+    sources: Vec<SourceBundleSource>,
+    buffers: Vec<Vec<u8>>,
+) -> SchematicBundleIndex {
+    let bundle = SourceBundle::from_manifest(
+        SourceBundleManifestA0 {
+            project_path: Some(format!("{project_name}/demo.kicad_pro")),
+            root_schematic_path: format!("{project_name}/root.kicad_sch"),
+            schema: "kicad_monkey.source_bundle_manifest.a0".to_owned(),
+            sources,
+            type_: "kicad_monkey.source_bundle_manifest".to_owned(),
+            version: "a0".to_owned(),
+        },
+        buffers,
+        SourceBundleLimits::default(),
+    )
+    .expect("synthetic source bundle");
+    SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("synthetic schematic index")
 }
 
 fn sheet_source(prefix: &str, root: bool) -> Vec<u8> {

@@ -78,6 +78,12 @@
   human-path naming, canonical UUID-path terminals, source/render pin identity,
   deduplicated component terminals, and sequential emitted-net codes.</p>
 
+  <p>Off-board sheet-pin naming uses one design-wide target index keyed by exact
+  parent occurrence plus source UUID, with name and coordinate used only when the
+  UUID is absent. Driver selection and weak-name suffixing share that index rather
+  than rescanning child occurrences. Target count and retained key/path bytes are
+  independently bounded while the index is constructed.</p>
+
   <p>The accepted bus and wire segment indexes plus borrowed alias map are built
   once and shared by the bus-subgraph and local-wire passes for an occurrence.
   Custom static indexes are not rebuilt for each bus subgraph or driver. Embedded
@@ -224,6 +230,14 @@
   range is checked from the preflighted net count before any name or terminal is
   materialized.</p>
 
+  <p>Design-wide materialization separately bounds target-index entries and owned
+  strings, hierarchy unions and merge keys, drivers per merged net, and temporary
+  merged-driver bytes. Before driver vectors are allocated, the compiler computes
+  their exact record payload plus every cloned pin/label string and the selected
+  naming record that will coexist with them. A one-over request therefore fails
+  before fan-in clone allocation. These ceilings default to broad format-safety
+  values and remain caller-configurable.</p>
+
   <p>The defaults are deliberately large format-safety ceilings, not product-size
   assumptions: four million aggregate objects and per family, one million points in
   one carrier, and eight million carrier points per schematic source. They are
@@ -292,7 +306,10 @@
   driver semantics, codes, and terminals. Focused native vectors cover
   resolved and unresolved boundaries, global-label and global-power merging,
   local-power isolation, human versus UUID paths, exact output ceilings, merge
-  keys, union work, driver fan-in, and diagnostic order.</p>
+  keys, union work, driver fan-in, and diagnostic order. A 32-child repeated-source
+  hierarchy proves UUID and UUID-less name/coordinate target lookup at exact and
+  one-under index ceilings. A 24-terminal, long-reference fan-in vector proves the
+  exact temporary merged-driver byte boundary before cloning.</p>
 
   <h2>Deferred work</h2>
   <p>Cross-sheet bus-member promotion, compiled graph row production,

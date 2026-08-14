@@ -9,6 +9,8 @@ pub struct SchematicDesignNetLimits {
     pub max_indexed_coords: usize,
     pub max_union_work: usize,
     pub max_merge_keys: usize,
+    pub max_sheet_pin_targets: usize,
+    pub max_target_index_bytes: usize,
     pub max_hierarchy_bindings: usize,
     pub max_drivers_per_net: usize,
     pub max_nets: usize,
@@ -17,6 +19,7 @@ pub struct SchematicDesignNetLimits {
     pub max_name_bytes: usize,
     pub max_retained_string_bytes: usize,
     pub max_work_string_bytes: usize,
+    pub max_merged_driver_bytes: usize,
 }
 
 impl Default for SchematicDesignNetLimits {
@@ -27,6 +30,8 @@ impl Default for SchematicDesignNetLimits {
             max_indexed_coords: 32_000_000,
             max_union_work: 128_000_000,
             max_merge_keys: 16_000_000,
+            max_sheet_pin_targets: 8_000_000,
+            max_target_index_bytes: 1024 * 1024 * 1024,
             max_hierarchy_bindings: 8_000_000,
             max_drivers_per_net: 16_000_000,
             max_nets: 8_000_000,
@@ -35,6 +40,7 @@ impl Default for SchematicDesignNetLimits {
             max_name_bytes: 512 * 1024 * 1024,
             max_retained_string_bytes: 1024 * 1024 * 1024,
             max_work_string_bytes: 1024 * 1024 * 1024,
+            max_merged_driver_bytes: 1024 * 1024 * 1024,
         }
     }
 }

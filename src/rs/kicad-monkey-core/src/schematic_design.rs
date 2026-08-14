@@ -5,8 +5,12 @@ use crate::{
     SchematicWireDriverKind, SchematicWireSubgraph, SourceBundleError, SourceBundleErrorKind,
 };
 use std::collections::{HashMap, HashSet};
+mod driver_storage;
+mod sheet_pin_targets;
 mod types;
 mod union_find;
+use driver_storage::merged_driver_shape;
+use sheet_pin_targets::SheetPinTargetIndex;
 pub use types::{
     SchematicDesignNet, SchematicDesignNetLimits, SchematicDesignNetMember,
     SchematicDesignNetTerminal, SchematicHierarchyNetBinding, SchematicScalarDesignNetlist,
@@ -53,13 +57,13 @@ struct DesignBuilder<'a> {
     index: &'a SchematicBundleIndex,
     code_offset: u64,
     limits: SchematicDesignNetLimits,
+    sheet_pin_targets: SheetPinTargetIndex,
     compiled: Vec<CompiledOccurrence>,
     flat: Vec<(usize, usize)>,
     offsets: Vec<usize>,
     union: UnionFind,
     union_work: usize,
     retained_string_bytes: usize,
-    work_string_bytes: usize,
 }
 
 impl<'a> DesignBuilder<'a> {
@@ -69,6 +73,7 @@ impl<'a> DesignBuilder<'a> {
         subparts: SchematicSubpartSettings,
         limits: SchematicDesignNetLimits,
     ) -> Result<Self, SourceBundleError> {
+        let sheet_pin_targets = SheetPinTargetIndex::build(index, limits)?;
         let mut compiled = Vec::with_capacity(index.occurrences().len());
         let mut subgraph_count = 0_usize;
         let mut indexed_coords = 0_usize;
@@ -143,13 +148,13 @@ impl<'a> DesignBuilder<'a> {
             index,
             code_offset,
             limits,
+            sheet_pin_targets,
             compiled,
             union: UnionFind::new(flat.len()),
             flat,
             offsets,
             union_work: 0,
             retained_string_bytes: 0,
-            work_string_bytes: 0,
         })
     }
 
@@ -614,21 +619,36 @@ impl<'a> DesignBuilder<'a> {
         &self,
         group: &[usize],
     ) -> Result<(SchematicWireSubgraph, Option<DriverChoice>), SourceBundleError> {
-        let driver_count = group.iter().try_fold(0_usize, |count, flat_index| {
-            let (occurrence, subgraph) = self.flat[*flat_index];
-            let subgraph = &self.compiled[occurrence].subgraphs[subgraph];
-            count
-                .checked_add(subgraph.pin_drivers.len())
-                .and_then(|value| value.checked_add(subgraph.label_drivers.len()))
-                .ok_or_else(|| self.limit_error("merged design driver count overflows"))
-        })?;
+        let choice = self.choose_driver(group)?;
+        let choice_strings = choice.as_ref().map(|choice| {
+            [
+                choice.full_name.as_str(),
+                choice.sheet_path.as_str(),
+                choice.raw_name.as_str(),
+            ]
+        });
+        let shape = merged_driver_shape(
+            group.iter().map(|flat_index| {
+                let (occurrence, subgraph_index) = self.flat[*flat_index];
+                &self.compiled[occurrence].subgraphs[subgraph_index]
+            }),
+            choice_strings,
+        )
+        .ok_or_else(|| self.limit_error("merged design driver bytes overflow"))?;
+        let driver_count = shape
+            .pins
+            .checked_add(shape.labels)
+            .ok_or_else(|| self.limit_error("merged design driver count overflows"))?;
         if driver_count > self.limits.max_drivers_per_net {
             return Err(self.limit_error("merged design driver count exceeds its limit"));
         }
+        if shape.bytes > self.limits.max_merged_driver_bytes {
+            return Err(self.limit_error("merged design driver bytes exceed their limit"));
+        }
         let mut merged = SchematicWireSubgraph {
             coords: Vec::new(),
-            pin_drivers: Vec::new(),
-            label_drivers: Vec::new(),
+            pin_drivers: Vec::with_capacity(shape.pins),
+            label_drivers: Vec::with_capacity(shape.labels),
             chosen_name: String::new(),
             chosen_priority: SchematicDriverPriority::None,
             chosen_kind: None,
@@ -645,7 +665,7 @@ impl<'a> DesignBuilder<'a> {
                 .label_drivers
                 .extend(subgraph.label_drivers.iter().cloned());
         }
-        Ok((merged, self.choose_driver(group)?))
+        Ok((merged, choice))
     }
 
     fn choose_driver(&self, group: &[usize]) -> Result<Option<DriverChoice>, SourceBundleError> {
@@ -747,44 +767,19 @@ impl<'a> DesignBuilder<'a> {
     ) -> String {
         if label.kind == SchematicWireDriverKind::SheetPin {
             let parent_occurrence = self.compiled[occurrence_array_index].occurrence_index;
-            for child in self
-                .index
-                .occurrences()
-                .filter(|value| value.parent_index == Some(parent_occurrence))
-            {
-                let Some(sheet_index) = child.parent_sheet_index else {
-                    continue;
-                };
-                let Some(definition) = self
-                    .index
-                    .definition(&self.compiled[occurrence_array_index].source_path)
-                else {
-                    continue;
-                };
-                let Some(sheet) = definition.sheets.get(sheet_index) else {
-                    continue;
-                };
-                if !sheet.on_board
-                    && sheet.pins.iter().any(|pin| {
-                        (!label.source_uuid.is_empty() && pin.uuid == label.source_uuid)
-                            || (label.source_uuid.is_empty()
-                                && pin.name == label.text
-                                && pin.at == label.at)
-                    })
-                {
-                    return child.human_address.clone();
-                }
+            if let Some(target) = self.sheet_pin_targets.target_path(parent_occurrence, label) {
+                return target.to_owned();
             }
         }
         self.compiled[occurrence_array_index].human_address.clone()
     }
 
     fn sheet_pin_suffix_indices(
-        &mut self,
+        &self,
     ) -> Result<HashMap<(usize, usize), usize>, SourceBundleError> {
         let mut grouped = HashMap::<String, Vec<(usize, usize, (usize, usize))>>::new();
         let mut fallback = 0_usize;
-        let mut work_string_bytes = self.work_string_bytes;
+        let mut work_string_bytes = 0_usize;
         for occurrence in 0..self.compiled.len() {
             for subgraph in &self.compiled[occurrence].subgraphs {
                 for label in &subgraph.label_drivers {
@@ -831,7 +826,6 @@ impl<'a> DesignBuilder<'a> {
                 result.insert(*key, suffix);
             }
         }
-        self.work_string_bytes = work_string_bytes;
         Ok(result)
     }
 
