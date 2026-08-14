@@ -30,6 +30,13 @@ CASES: tuple[dict[str, Any], ...] = (
         ],
     },
     {
+        "case_id": "signed_zero_top_tie",
+        "contours": [
+            [[0.0, -0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]],
+            [[1.0, 1.0], [1.0, 3.0], [3.0, 3.0], [3.0, 1.0]],
+        ],
+    },
+    {
         "case_id": "two_holes_sorted_by_leftmost_point",
         "contours": [
             [[0.0, 0.0], [12.0, 0.0], [12.0, 10.0], [0.0, 10.0]],

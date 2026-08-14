@@ -349,6 +349,6 @@ secondary = [
     "Duplicate closure, degenerate contours, one hole, multiple sorted holes, disjoint exteriors, and a real shaped O outline are fixed evidence",
     "Containment and bridge scans expose independent ceilings instead of hiding pairwise work",
     "Input, edge-slot, output, and link-traversal ceilings are inclusive and fail closed",
-    "Nonfinite coordinates fail before topology publication",
+    "Signed-zero ordering matches Python and nonfinite input or derived coordinates fail before topology publication",
     "The Python oracle generator is deterministic and the focused Rust suite passes through Rack",
 ]

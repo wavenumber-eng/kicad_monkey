@@ -187,3 +187,33 @@ fn nonfinite_input_is_rejected_before_topology_publication() {
     assert_eq!(error.kind, TextContourErrorKind::InvalidInput);
     assert_eq!(error.path, "$.contours[0].points");
 }
+
+#[test]
+fn nonfinite_derived_intersections_fail_closed() {
+    let input = [
+        TextContour {
+            points: vec![
+                TextPoint {
+                    x: -1.0e308,
+                    y: -1.0,
+                },
+                TextPoint { x: 1.0e308, y: 1.0 },
+                TextPoint { x: 1.0e308, y: 2.0 },
+                TextPoint {
+                    x: -1.0e308,
+                    y: 2.0,
+                },
+            ],
+        },
+        TextContour {
+            points: vec![
+                TextPoint { x: 0.0, y: 0.0 },
+                TextPoint { x: 0.5, y: 0.5 },
+                TextPoint { x: -0.5, y: 0.5 },
+            ],
+        },
+    ];
+    let error = fracture_text_contours_a0(&input, TextTopologyLimits::default()).unwrap_err();
+    assert_eq!(error.kind, TextContourErrorKind::InvalidInput);
+    assert_eq!(error.path, "$.work.derived_coordinate");
+}

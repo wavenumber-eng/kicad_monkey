@@ -98,8 +98,10 @@
   deterministic leftmost-edge ordering of the Python KiCad reference. The
   pairwise containment and prior-edge bridge scans have independent work
   ceilings; input points, edge slots, link traversal, polygons, and published
-  points are also bounded. The operation returns no partial topology on any
-  invalid input or resource-limit failure.</p>
+  points are also bounded. Finite comparisons intentionally preserve Python's
+  signed-zero equality and stable tie ordering. Overflowed intersection or
+  distance intermediates are invalid input. The operation returns no partial
+  topology on any invalid input or resource-limit failure.</p>
 
   <h2>Still open</h2>
   <p>The current render-cache strata do not yet claim multiline/markup

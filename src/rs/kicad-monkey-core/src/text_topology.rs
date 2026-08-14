@@ -1,6 +1,7 @@
 //! Bounded KiCad-compatible contour normalization and hole fracture.
 
 use crate::{TextContour, TextContourError, TextContourErrorKind, TextPoint};
+use std::cmp::Ordering;
 
 /// Independent resource ceilings for contour topology and bridge construction.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -198,7 +199,11 @@ fn point_in_polygon(
         let p1 = polygon[index];
         let p2 = polygon[(index + 1) % polygon.len()];
         if (p1.y > point.y) != (p2.y > point.y) {
-            let intersect = (p2.x - p1.x) * (point.y - p1.y) / (p2.y - p1.y) + p1.x;
+            let delta_x = checked_derived(p2.x - p1.x)?;
+            let delta_y = checked_derived(p2.y - p1.y)?;
+            let query_delta_y = checked_derived(point.y - p1.y)?;
+            let intersect =
+                checked_derived(checked_derived(delta_x * query_delta_y)? / delta_y + p1.x)?;
             if point.x < intersect {
                 inside = !inside;
             }
@@ -224,9 +229,7 @@ fn fracture_polygon(
         .iter()
         .enumerate()
         .min_by(|(_, left), (_, right)| {
-            left.y
-                .total_cmp(&right.y)
-                .then_with(|| right.x.total_cmp(&left.x))
+            finite_cmp(left.y, right.y).then_with(|| finite_cmp(right.x, left.x))
         })
         .map(|(index, _)| index)
         .expect("normalized contours are nonempty");
@@ -240,9 +243,7 @@ fn fracture_polygon(
         infos.push(path_info(contours, hole, 0));
     }
     infos[1..].sort_by(|left, right| {
-        left.x_min
-            .total_cmp(&right.x_min)
-            .then_with(|| left.y_min.total_cmp(&right.y_min))
+        finite_cmp(left.x_min, right.x_min).then_with(|| finite_cmp(left.y_min, right.y_min))
     });
 
     let required_slots = infos.iter().try_fold(0usize, |total, info| {
@@ -293,23 +294,25 @@ fn path_info(contours: &[TextContour], contour: usize, start: usize) -> PathInfo
         .min_by(|&left, &right| {
             path_point(points, start, left)
                 .x
-                .total_cmp(&path_point(points, start, right).x)
+                .partial_cmp(&path_point(points, start, right).x)
+                .expect("validated coordinates are finite")
                 .then_with(|| {
                     path_point(points, start, left)
                         .y
-                        .total_cmp(&path_point(points, start, right).y)
+                        .partial_cmp(&path_point(points, start, right).y)
+                        .expect("validated coordinates are finite")
                 })
         })
         .expect("normalized contours are nonempty");
     let x_min = points
         .iter()
         .map(|point| point.x)
-        .min_by(f64::total_cmp)
+        .min_by(|left, right| finite_cmp(*left, *right))
         .expect("normalized contours are nonempty");
     let y_min = points
         .iter()
         .map(|point| point.y)
-        .min_by(f64::total_cmp)
+        .min_by(|left, right| finite_cmp(*left, *right))
         .expect("normalized contours are nonempty");
     PathInfo {
         contour,
@@ -346,8 +349,8 @@ fn bridge_hole(
         if !edge_matches_y(candidate.p1, candidate.p2, hole_edge.p1.y) {
             continue;
         }
-        let intersect = edge_x_intersect(candidate.p1, candidate.p2, hole_edge.p1.y);
-        let distance = hole_edge.p1.x - intersect;
+        let intersect = edge_x_intersect(candidate.p1, candidate.p2, hole_edge.p1.y)?;
+        let distance = checked_derived(hole_edge.p1.x - intersect)?;
         if distance >= 0.0 && distance < min_distance {
             min_distance = distance;
             nearest = Some((candidate_index, intersect));
@@ -427,11 +430,30 @@ fn edge_matches_y(p1: TextPoint, p2: TextPoint, y: f64) -> bool {
     (y >= p1.y || y >= p2.y) && (y <= p1.y || y <= p2.y)
 }
 
-fn edge_x_intersect(p1: TextPoint, p2: TextPoint, y: f64) -> f64 {
+fn edge_x_intersect(p1: TextPoint, p2: TextPoint, y: f64) -> Result<f64, TextContourError> {
     if p1.y == p2.y {
-        p1.x.max(p2.x)
+        Ok(if p1.x < p2.x { p2.x } else { p1.x })
     } else {
-        p1.x + (p2.x - p1.x) * (y - p1.y) / (p2.y - p1.y)
+        let delta_x = checked_derived(p2.x - p1.x)?;
+        let delta_y = checked_derived(p2.y - p1.y)?;
+        let query_delta_y = checked_derived(y - p1.y)?;
+        checked_derived(p1.x + checked_derived(delta_x * query_delta_y)? / delta_y)
+    }
+}
+
+fn finite_cmp(left: f64, right: f64) -> Ordering {
+    left.partial_cmp(&right)
+        .expect("validated coordinates are finite")
+}
+
+fn checked_derived(value: f64) -> Result<f64, TextContourError> {
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(invalid(
+            "$.work.derived_coordinate".to_owned(),
+            "contour topology produced a nonfinite derived coordinate",
+        ))
     }
 }
 

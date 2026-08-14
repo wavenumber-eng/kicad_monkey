@@ -26,6 +26,7 @@ def test_text_topology_records_are_current_and_cover_fracture_order() -> None:
     assert set(records) == {
         "duplicate_closure_and_short_contour",
         "single_square_hole",
+        "signed_zero_top_tie",
         "two_holes_sorted_by_leftmost_point",
         "disjoint_exteriors_with_holes",
         "kicad_stroke_o_outline",
