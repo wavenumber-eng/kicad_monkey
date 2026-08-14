@@ -62,9 +62,14 @@
   outline compensation in a documented coordinate space.</p>
 
   <p>Shaping glyph count and bytes, per-face outline commands, aggregate outline
-  commands, curve work, retained contours, and retained points are independently
-  bounded. Missing outlines such as a space contribute their shaped advance but
-  no contour. Failures return no partial output. This intermediate deliberately
+  commands, curve work, peak temporary curve points, retained contours, and
+  retained points are independently bounded. The temporary ceiling makes the
+  maximum live contour memory the explicit sum of retained-output and one-curve
+  scratch allowances instead of permitting every late curve another implicit
+  full output-sized allocation. Missing outlines such as a space contribute
+  their shaped advance but no contour; a backend failure after any outline
+  callback is invalid font data, never whitespace. Failures return no partial
+  output. This intermediate deliberately
   uses unhinted OpenType design-unit outlines; final KiCad save-oracle evidence
   remains responsible for deciding whether FreeType hinting creates material
   drift that requires a separate native backend.</p>

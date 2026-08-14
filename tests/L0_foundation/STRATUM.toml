@@ -307,7 +307,8 @@ primary = "Native plain text runs match fixed uharfbuzz, FontTools, and KiCad cu
 secondary = [
     "One validated outline face is reused across every glyph in a run",
     "Kerning, offsets, anisotropic sizing, origins, holes, and missing space outlines are observable",
-    "Aggregate outline-command, curve-work, contour, and point limits are inclusive and fail closed",
+    "Aggregate outline-command, curve-work, temporary-point, contour, and retained-point limits are inclusive and fail closed",
+    "Partial malformed outlines are terminal errors while genuine zero-outline spaces still advance",
     "Font bytes remain out of band and fixed records are deterministic",
     "The focused Rust suite passes through Rack",
 ]

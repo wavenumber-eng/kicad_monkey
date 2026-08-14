@@ -63,6 +63,13 @@
   exceeded, and the operation returns a resource-limit error without
   publishing partial commands.</p>
 
+  <p><code>ttf-parser</code> can invoke outline callbacks before discovering a
+  malformed glyph and returning no bounding box. The bounded builder records
+  whether any callback occurred: a zero-callback result remains a genuine
+  missing outline (for example a space), while a result after one or more
+  callbacks is an invalid-font error. Partial commands are never published or
+  silently treated as whitespace.</p>
+
   <p>Hash mismatch, invalid face, contract metadata, unsupported variation
   axis, out-of-range glyph ID, missing outline, and resource exhaustion have
   stable categories. The parser may continue walking the selected glyph after

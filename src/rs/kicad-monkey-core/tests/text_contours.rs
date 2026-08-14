@@ -264,16 +264,22 @@ fn curve_work_and_variation_preflight_are_independently_bounded() {
     )
     .unwrap();
     assert!(curved.bezier_work_items > 0);
+    assert!(curved.peak_temporary_bezier_points > 0);
     let exact_curve = render_with_bytes(
         CURVE_FONT_BYTES,
         &curve_record,
         TextContourLimits {
             max_bezier_work_items: curved.bezier_work_items,
+            max_temporary_bezier_points: curved.peak_temporary_bezier_points,
             ..TextContourLimits::default()
         },
     )
     .unwrap();
     assert_eq!(exact_curve.bezier_work_items, curved.bezier_work_items);
+    assert_eq!(
+        exact_curve.peak_temporary_bezier_points,
+        curved.peak_temporary_bezier_points
+    );
     let error = shape_text_contours_a0(
         CURVE_FONT_BYTES,
         TextContourRequest {
@@ -286,6 +292,23 @@ fn curve_work_and_variation_preflight_are_independently_bounded() {
         },
         TextContourLimits {
             max_bezier_work_items: curved.bezier_work_items - 1,
+            ..TextContourLimits::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error.kind, TextContourErrorKind::ResourceLimit);
+    let error = shape_text_contours_a0(
+        CURVE_FONT_BYTES,
+        TextContourRequest {
+            shaping: &curve_record.shaping,
+            size_x: curve_record.size_x,
+            size_y: curve_record.size_y,
+            origin_x: curve_record.origin_x,
+            origin_y: curve_record.origin_y,
+            max_error: curve_record.max_error,
+        },
+        TextContourLimits {
+            max_temporary_bezier_points: curved.peak_temporary_bezier_points - 1,
             ..TextContourLimits::default()
         },
     )

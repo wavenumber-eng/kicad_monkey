@@ -7,6 +7,7 @@ use kicad_monkey_core::{
     extract_font_outline_a0,
 };
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 const STROKE_FONT: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -283,6 +284,28 @@ fn hash_face_glyph_and_variation_failures_are_structured() {
     );
 }
 
+#[test]
+fn partial_malformed_outline_is_not_misclassified_as_missing() {
+    let mut malformed = CFF_FONT.to_vec();
+    assert_eq!(malformed[1099], 55, "fixture mutation offset drifted");
+    malformed[1099] = 11;
+    let digest = sha256(&malformed);
+    let error = extract_font_outline_a0(
+        &malformed,
+        FontOutlineRequest {
+            font_id: "outline_cff_partial_malformed",
+            font_sha256: &digest,
+            face_index: 0,
+            variations: &[],
+            glyph_id: 1,
+        },
+        FontOutlineLimits::default(),
+    )
+    .unwrap_err();
+    assert_eq!(error.kind, FontOutlineErrorKind::InvalidFont);
+    assert_eq!(error.path, "$.glyph_id");
+}
+
 fn variation(axis: &str, value: f64) -> FontVariationCoordinate {
     FontVariationCoordinate {
         axis: axis.to_owned().into(),
@@ -310,6 +333,13 @@ fn coordinate(command: &OutlineCommand, field: &str) -> f64 {
     serde_json::to_value(command).unwrap()[field]
         .as_f64()
         .unwrap()
+}
+
+fn sha256(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn compare_commands(

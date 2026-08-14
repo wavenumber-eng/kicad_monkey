@@ -170,6 +170,13 @@ impl<'a> FontOutlineFace<'a> {
             ));
         }
         if !outlined {
+            if builder.saw_callback {
+                return Err(outline_error(
+                    FontOutlineErrorKind::InvalidFont,
+                    "$.glyph_id",
+                    "font emitted a partial malformed glyph outline",
+                ));
+            }
             return Err(outline_error(
                 FontOutlineErrorKind::MissingOutline,
                 "$.glyph_id",
@@ -353,6 +360,7 @@ struct BoundedOutlineBuilder {
     commands: Vec<OutlineCommand>,
     limit: usize,
     exceeded: bool,
+    saw_callback: bool,
     contour_open: bool,
 }
 
@@ -362,11 +370,13 @@ impl BoundedOutlineBuilder {
             commands: Vec::with_capacity(limit.min(256)),
             limit,
             exceeded: false,
+            saw_callback: false,
             contour_open: false,
         }
     }
 
     fn push(&mut self, command: OutlineCommand) {
+        self.saw_callback = true;
         if self.commands.len() < self.limit {
             self.commands.push(command);
         } else {

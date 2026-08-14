@@ -38,6 +38,7 @@ pub struct TextContourLimits {
     pub outline: FontOutlineLimits,
     pub max_outline_commands: usize,
     pub max_bezier_work_items: usize,
+    pub max_temporary_bezier_points: usize,
     pub max_contours: usize,
     pub max_points: usize,
 }
@@ -49,6 +50,7 @@ impl Default for TextContourLimits {
             outline: FontOutlineLimits::default(),
             max_outline_commands: 16 * 1024 * 1024,
             max_bezier_work_items: 16 * 1024 * 1024,
+            max_temporary_bezier_points: 16 * 1024 * 1024,
             max_contours: 16 * 1024 * 1024,
             max_points: 16 * 1024 * 1024,
         }
@@ -70,6 +72,7 @@ pub struct TextContourOutput {
     pub units_per_em: u16,
     pub outline_commands: usize,
     pub bezier_work_items: usize,
+    pub peak_temporary_bezier_points: usize,
 }
 
 /// Stable failure categories for native contour composition.
@@ -216,6 +219,7 @@ struct ContourBuilder {
     retained_points: usize,
     outline_commands: usize,
     bezier_work_items: usize,
+    peak_temporary_bezier_points: usize,
 }
 
 impl ContourBuilder {
@@ -230,6 +234,7 @@ impl ContourBuilder {
             retained_points: 0,
             outline_commands: 0,
             bezier_work_items: 0,
+            peak_temporary_bezier_points: 0,
         }
     }
 
@@ -272,6 +277,9 @@ impl ContourBuilder {
                     )
                     .map_err(map_bezier_error)?;
                     self.bezier_work_items += flattened.work_items;
+                    self.peak_temporary_bezier_points = self
+                        .peak_temporary_bezier_points
+                        .max(flattened.points.len());
                     for point in flattened.points {
                         self.push_transformed(point, position_x, position_y)?;
                     }
@@ -290,6 +298,9 @@ impl ContourBuilder {
                     )
                     .map_err(map_bezier_error)?;
                     self.bezier_work_items += flattened.work_items;
+                    self.peak_temporary_bezier_points = self
+                        .peak_temporary_bezier_points
+                        .max(flattened.points.len());
                     for point in flattened.points {
                         self.push_transformed(point, position_x, position_y)?;
                     }
@@ -310,7 +321,7 @@ impl ContourBuilder {
 
     fn bezier_limits(&self) -> TextBezierLimits {
         TextBezierLimits {
-            max_points: self.limits.max_points,
+            max_points: self.limits.max_temporary_bezier_points,
             max_work_items: self
                 .limits
                 .max_bezier_work_items
@@ -377,6 +388,7 @@ impl ContourBuilder {
             units_per_em,
             outline_commands: self.outline_commands,
             bezier_work_items: self.bezier_work_items,
+            peak_temporary_bezier_points: self.peak_temporary_bezier_points,
         }
     }
 }
