@@ -9,7 +9,25 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_focused_native_text_block_layout_suite_passes() -> None:
-    completed = subprocess.run(
+    unit = subprocess.run(
+        [
+            "cargo",
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--lib",
+            "text_block_layout::tests",
+        ],
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    assert unit.returncode == 0, unit.stdout + unit.stderr
+
+    integration = subprocess.run(
         [
             "cargo",
             "test",
@@ -25,4 +43,4 @@ def test_focused_native_text_block_layout_suite_passes() -> None:
         timeout=180,
         check=False,
     )
-    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert integration.returncode == 0, integration.stdout + integration.stderr

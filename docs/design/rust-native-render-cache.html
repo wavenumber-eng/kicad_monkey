@@ -132,9 +132,12 @@
   and <code>include/font/font_metrics.h</code>.</p>
   <p>The block creates one validated HarfRust/Skrifa session and shapes each
   non-overlapping run once. Font bytes are neither rehashed nor reparsed per
-  run. UTF-8 feature ranges are intersected and rebased for each run. Line,
-  run, aggregate cloned metadata, glyph, outline-command, curve-work, contour,
-  and point ceilings are all charged before publication; delimiter-heavy input
+  run. UTF-8 feature ranges are intersected and rebased in source order for
+  each run. Aggregate feature inspections are charged before each collection
+  scan, and matching feature applications are charged before cloning. Line,
+  run, aggregate cloned metadata, feature inspection/application, glyph,
+  outline-command, curve-work, contour, and point ceilings are all charged
+  before publication; delimiter-heavy input
   stops at the configured span ceiling without a full delimiter-counting pass.
   The typed cache wrapper composes those ceilings with the existing text,
   topology, and cache-output limits.</p>

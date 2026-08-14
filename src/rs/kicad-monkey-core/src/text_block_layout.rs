@@ -37,6 +37,8 @@ pub struct TextBlockLayoutLimits {
     pub max_lines: usize,
     pub max_runs: usize,
     pub max_run_metadata_bytes: usize,
+    pub max_feature_inspections: usize,
+    pub max_feature_applications: usize,
 }
 
 impl Default for TextBlockLayoutLimits {
@@ -46,6 +48,8 @@ impl Default for TextBlockLayoutLimits {
             max_lines: 1024 * 1024,
             max_runs: 2 * 1024 * 1024,
             max_run_metadata_bytes: 128 * 1024 * 1024,
+            max_feature_inspections: 16 * 1024 * 1024,
+            max_feature_applications: 16 * 1024 * 1024,
         }
     }
 }
@@ -85,6 +89,8 @@ struct BlockMetrics {
 struct AggregateWork {
     runs: usize,
     run_metadata_bytes: usize,
+    feature_inspections: usize,
+    feature_applications: usize,
     glyphs: usize,
     outline_commands: usize,
     bezier_work_items: usize,
@@ -101,11 +107,26 @@ pub fn layout_text_block_hinted_a0(
 ) -> Result<TextBlockLayoutOutput, TextContourError> {
     validate_request(request, limits)?;
     let line_spans = delimited_spans(&request.shaping.text, '\n', limits.max_lines, "$.lines")?;
-    let session = HintedTextContourSession::new(font_bytes, request.shaping, limits.contours)?;
     let mut work = AggregateWork::default();
+    charge(
+        &mut work.feature_inspections,
+        request.shaping.features.len(),
+        limits.max_feature_inspections,
+        "$.features.inspections",
+        "aggregate feature inspection limit exceeded",
+    )?;
+    let run_metadata_bytes = shaping_metadata_bytes(request.shaping)?;
+    let session = HintedTextContourSession::new(font_bytes, request.shaping, limits.contours)?;
     let mut lines = Vec::with_capacity(line_spans.len().min(256));
     for line_span in line_spans {
-        lines.push(build_line(&session, request, limits, line_span, &mut work)?);
+        lines.push(build_line(
+            &session,
+            request,
+            limits,
+            line_span,
+            run_metadata_bytes,
+            &mut work,
+        )?);
     }
 
     let metrics = block_metrics(request, &lines)?;
@@ -191,6 +212,7 @@ fn build_line(
     request: TextBlockLayoutRequest<'_>,
     limits: TextBlockLayoutLimits,
     line_span: Range<usize>,
+    run_metadata_bytes: usize,
     work: &mut AggregateWork,
 ) -> Result<PendingLine, TextContourError> {
     let text = &request.shaping.text;
@@ -209,15 +231,14 @@ fn build_line(
             "text run limit exceeded",
         )?;
         let run_span = (line_span.start + local_span.start)..(line_span.start + local_span.end);
-        let metadata_bytes = shaping_metadata_bytes(request.shaping)?;
         charge(
             &mut work.run_metadata_bytes,
-            metadata_bytes,
+            run_metadata_bytes,
             limits.max_run_metadata_bytes,
             "$.runs.metadata",
             "aggregate text run metadata limit exceeded",
         )?;
-        let run_input = shaping_run(request.shaping, run_span.clone());
+        let run_input = shaping_run(request.shaping, run_span.clone(), limits, work)?;
         let run_limits = remaining_contour_limits(limits.contours, work);
         let output = session.shape_input(
             crate::TextContourRequest {
@@ -315,12 +336,17 @@ fn delimited_spans(
     Ok(spans)
 }
 
-fn shaping_run(base: &ShapingInput, span: Range<usize>) -> ShapingInput {
-    ShapingInput {
+fn shaping_run(
+    base: &ShapingInput,
+    span: Range<usize>,
+    limits: TextBlockLayoutLimits,
+    work: &mut AggregateWork,
+) -> Result<ShapingInput, TextContourError> {
+    Ok(ShapingInput {
         buffer_properties: base.buffer_properties.clone(),
         direction: base.direction,
         face_index: base.face_index,
-        features: rebase_features(&base.features, span.clone()),
+        features: rebase_features(&base.features, span.clone(), limits, work)?,
         font_id: base.font_id.clone(),
         font_sha256: base.font_sha256.clone(),
         language: base.language.clone(),
@@ -330,28 +356,51 @@ fn shaping_run(base: &ShapingInput, span: Range<usize>) -> ShapingInput {
         text: base.text[span].to_owned(),
         text_index_unit: base.text_index_unit.clone(),
         variations: base.variations.clone(),
-    }
+    })
 }
 
-fn rebase_features(features: &[ShapingFeature], span: Range<usize>) -> Vec<ShapingFeature> {
-    let run_start = span.start as u32;
-    let run_end = span.end as u32;
-    features
-        .iter()
-        .filter_map(|feature| {
-            if feature.end <= run_start || feature.start >= run_end {
-                return None;
-            }
-            let mut rebased = feature.clone();
-            rebased.start = feature.start.max(run_start) - run_start;
-            rebased.end = if feature.end == u32::MAX {
-                u32::MAX
-            } else {
-                feature.end.min(run_end) - run_start
-            };
-            Some(rebased)
-        })
-        .collect()
+fn rebase_features(
+    features: &[ShapingFeature],
+    span: Range<usize>,
+    limits: TextBlockLayoutLimits,
+    work: &mut AggregateWork,
+) -> Result<Vec<ShapingFeature>, TextContourError> {
+    charge(
+        &mut work.feature_inspections,
+        features.len(),
+        limits.max_feature_inspections,
+        "$.features.inspections",
+        "aggregate feature inspection limit exceeded",
+    )?;
+    let run_start = u32::try_from(span.start)
+        .map_err(|_| resource("$.features", "text feature offset exceeds uint32"))?;
+    let run_end = u32::try_from(span.end)
+        .map_err(|_| resource("$.features", "text feature offset exceeds uint32"))?;
+    let remaining = limits
+        .max_feature_applications
+        .saturating_sub(work.feature_applications);
+    let mut rebased_features = Vec::with_capacity(features.len().min(remaining).min(16));
+    for feature in features {
+        if feature.end <= run_start || feature.start >= run_end {
+            continue;
+        }
+        charge(
+            &mut work.feature_applications,
+            1,
+            limits.max_feature_applications,
+            "$.features.applications",
+            "aggregate feature application limit exceeded",
+        )?;
+        let mut rebased = feature.clone();
+        rebased.start = feature.start.max(run_start) - run_start;
+        rebased.end = if feature.end == u32::MAX {
+            u32::MAX
+        } else {
+            feature.end.min(run_end) - run_start
+        };
+        rebased_features.push(rebased);
+    }
+    Ok(rebased_features)
 }
 
 fn shaping_metadata_bytes(input: &ShapingInput) -> Result<usize, TextContourError> {
@@ -468,5 +517,86 @@ fn resource(path: &'static str, message: &'static str) -> TextContourError {
         kind: TextContourErrorKind::ResourceLimit,
         path: path.to_owned(),
         message,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kicad_monkey_contracts::generated::shaping_record::OpenTypeTag;
+
+    fn feature(tag: &str, start: u32, end: u32) -> ShapingFeature {
+        ShapingFeature {
+            end,
+            start,
+            tag: OpenTypeTag(tag.to_owned()),
+            value: 0,
+        }
+    }
+
+    #[test]
+    fn utf8_and_global_feature_ranges_rebase_in_source_order_under_exact_work() {
+        let features = vec![
+            feature("kern", 0, u32::MAX),
+            feature("liga", 0, 2),
+            feature("calt", 3, 4),
+        ];
+        let limits = TextBlockLayoutLimits {
+            max_feature_inspections: 6,
+            max_feature_applications: 4,
+            ..TextBlockLayoutLimits::default()
+        };
+        let mut work = AggregateWork::default();
+        let first = rebase_features(&features, 0..2, limits, &mut work).unwrap();
+        let second = rebase_features(&features, 3..4, limits, &mut work).unwrap();
+
+        assert_eq!(
+            first
+                .iter()
+                .map(|item| (item.tag.0.as_str(), item.start, item.end))
+                .collect::<Vec<_>>(),
+            [("kern", 0, u32::MAX), ("liga", 0, 2)]
+        );
+        assert_eq!(
+            second
+                .iter()
+                .map(|item| (item.tag.0.as_str(), item.start, item.end))
+                .collect::<Vec<_>>(),
+            [("kern", 0, u32::MAX), ("calt", 0, 1)]
+        );
+        assert_eq!(work.feature_inspections, 6);
+        assert_eq!(work.feature_applications, 4);
+    }
+
+    #[test]
+    fn feature_inspection_and_application_work_fail_one_under() {
+        let features = vec![
+            feature("kern", 0, u32::MAX),
+            feature("liga", 0, 2),
+            feature("calt", 3, 4),
+        ];
+        let mut inspection_work = AggregateWork::default();
+        let inspection_limits = TextBlockLayoutLimits {
+            max_feature_inspections: 5,
+            max_feature_applications: 4,
+            ..TextBlockLayoutLimits::default()
+        };
+        rebase_features(&features, 0..2, inspection_limits, &mut inspection_work).unwrap();
+        let error =
+            rebase_features(&features, 3..4, inspection_limits, &mut inspection_work).unwrap_err();
+        assert_eq!(error.kind, TextContourErrorKind::ResourceLimit);
+        assert_eq!(error.path, "$.features.inspections");
+
+        let mut application_work = AggregateWork::default();
+        let application_limits = TextBlockLayoutLimits {
+            max_feature_inspections: 6,
+            max_feature_applications: 3,
+            ..TextBlockLayoutLimits::default()
+        };
+        rebase_features(&features, 0..2, application_limits, &mut application_work).unwrap();
+        let error = rebase_features(&features, 3..4, application_limits, &mut application_work)
+            .unwrap_err();
+        assert_eq!(error.kind, TextContourErrorKind::ResourceLimit);
+        assert_eq!(error.path, "$.features.applications");
     }
 }

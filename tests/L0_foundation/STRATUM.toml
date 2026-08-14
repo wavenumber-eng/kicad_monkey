@@ -386,8 +386,8 @@ primary = "Native hinted text composes KiCad multiline and tab-delimited runs wi
 secondary = [
     "KiCad 1.68 interline pitch, line-spacing multipliers, per-line horizontal alignment, and 2.4-em tab stops are explicit",
     "Mirroring and clockwise rotation remain anchored at the authored block origin",
-    "Font and shaping state are reused once per block while feature ranges are rebased per UTF-8 run",
-    "Line, run, metadata, glyph, outline-command, Bezier-work, contour, and point ceilings are inclusive and fail closed",
+    "Font and shaping state are reused once per block while global and bounded feature ranges are rebased source-order per UTF-8 run",
+    "Line, run, metadata, feature-inspection/application, glyph, outline-command, Bezier-work, contour, and point ceilings are inclusive and fail closed",
     "Delimiter-heavy inputs reject at the configured span ceiling without an allocation-sizing pre-scan",
     "Focused Rust evidence passes through Rack and live Arial multiline/tab cases remain in L2_009",
 ]

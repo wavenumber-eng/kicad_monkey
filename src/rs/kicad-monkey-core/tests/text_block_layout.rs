@@ -1,4 +1,6 @@
-use kicad_monkey_contracts::generated::shaping_record::ShapingInput;
+use kicad_monkey_contracts::generated::shaping_record::{
+    OpenTypeTag, ShapingFeature, ShapingInput,
+};
 use kicad_monkey_core::{
     KICAD_TEXT_INTERLINE_FACTOR, KICAD_TEXT_TAB_WIDTH_FACTOR, TextBlockLayoutLimits,
     TextBlockLayoutRequest, TextContourErrorKind, TextContourLimits, TextHorizontalAlignment,
@@ -10,6 +12,10 @@ use serde::Deserialize;
 const FONT_BYTES: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../assets/fonts/kicad-stroke.ttf"
+));
+const CFF_FONT_BYTES: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../tests/parity/fonts/outline-cff-fixture.otf"
 ));
 
 #[derive(Deserialize)]
@@ -31,6 +37,16 @@ fn base_shaping(text: &str) -> ShapingInput {
     let mut shaping = vectors.records.into_iter().next().unwrap().shaping;
     shaping.text = text.to_owned();
     shaping.features.clear();
+    shaping
+}
+
+fn cff_shaping(text: &str) -> ShapingInput {
+    let mut shaping = base_shaping(text);
+    shaping.font_id = "outline_cff_fixture".parse().unwrap();
+    shaping.font_sha256.0 =
+        "83e67e1e0332393f5bb0c0352e8f92d705b31672e9e992589464b9426583de49".to_owned();
+    shaping.scale_x = 1000;
+    shaping.scale_y = 1000;
     shaping
 }
 
@@ -122,9 +138,9 @@ fn line_spacing_alignment_and_authored_origin_transform_compose() {
 
 #[test]
 fn aggregate_line_run_and_geometry_limits_are_inclusive_and_fail_closed() {
-    let shaping = base_shaping("S\nS");
+    let shaping = cff_shaping("C\nC");
     let baseline = layout_text_block_hinted_a0(
-        FONT_BYTES,
+        CFF_FONT_BYTES,
         request(&shaping),
         TextBlockLayoutLimits::default(),
     )
@@ -164,8 +180,10 @@ fn aggregate_line_run_and_geometry_limits_are_inclusive_and_fail_closed() {
         max_lines: 2,
         max_runs: 2,
         max_run_metadata_bytes: run_metadata_bytes * 2,
+        max_feature_inspections: TextBlockLayoutLimits::default().max_feature_inspections,
+        max_feature_applications: TextBlockLayoutLimits::default().max_feature_applications,
     };
-    layout_text_block_hinted_a0(FONT_BYTES, request(&shaping), exact)
+    layout_text_block_hinted_a0(CFF_FONT_BYTES, request(&shaping), exact)
         .expect("aggregate ceilings are inclusive");
 
     for limits in [
@@ -199,7 +217,58 @@ fn aggregate_line_run_and_geometry_limits_are_inclusive_and_fail_closed() {
             ..exact
         },
     ] {
-        let error = layout_text_block_hinted_a0(FONT_BYTES, request(&shaping), limits).unwrap_err();
+        let error =
+            layout_text_block_hinted_a0(CFF_FONT_BYTES, request(&shaping), limits).unwrap_err();
+        assert_eq!(error.kind, TextContourErrorKind::ResourceLimit);
+    }
+}
+
+#[test]
+fn aggregate_command_bezier_and_contour_limits_fail_one_under() {
+    let shaping = cff_shaping("C\nC");
+    let baseline = layout_text_block_hinted_a0(
+        CFF_FONT_BYTES,
+        request(&shaping),
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    let exact = TextBlockLayoutLimits {
+        contours: TextContourLimits {
+            max_outline_commands: baseline.outline_commands,
+            max_bezier_work_items: baseline.bezier_work_items,
+            max_contours: baseline.contours.len(),
+            ..TextContourLimits::default()
+        },
+        ..TextBlockLayoutLimits::default()
+    };
+    layout_text_block_hinted_a0(CFF_FONT_BYTES, request(&shaping), exact)
+        .expect("aggregate command, Bezier, and contour ceilings are inclusive");
+
+    for limits in [
+        TextBlockLayoutLimits {
+            contours: TextContourLimits {
+                max_outline_commands: baseline.outline_commands - 1,
+                ..exact.contours
+            },
+            ..exact
+        },
+        TextBlockLayoutLimits {
+            contours: TextContourLimits {
+                max_bezier_work_items: baseline.bezier_work_items - 1,
+                ..exact.contours
+            },
+            ..exact
+        },
+        TextBlockLayoutLimits {
+            contours: TextContourLimits {
+                max_contours: baseline.contours.len() - 1,
+                ..exact.contours
+            },
+            ..exact
+        },
+    ] {
+        let error =
+            layout_text_block_hinted_a0(CFF_FONT_BYTES, request(&shaping), limits).unwrap_err();
         assert_eq!(error.kind, TextContourErrorKind::ResourceLimit);
     }
 }
@@ -218,6 +287,53 @@ fn delimiter_limits_reject_before_processing_unbounded_tail() {
     .unwrap_err();
     assert_eq!(error.kind, TextContourErrorKind::ResourceLimit);
     assert_eq!(error.path, "$.lines");
+}
+
+#[test]
+fn aggregate_feature_work_includes_metadata_and_each_utf8_run() {
+    let mut shaping = base_shaping("é\tS");
+    shaping.features = vec![
+        ShapingFeature {
+            end: u32::MAX,
+            start: 0,
+            tag: OpenTypeTag("kern".to_owned()),
+            value: 1,
+        },
+        ShapingFeature {
+            end: 2,
+            start: 0,
+            tag: OpenTypeTag("liga".to_owned()),
+            value: 0,
+        },
+        ShapingFeature {
+            end: 4,
+            start: 3,
+            tag: OpenTypeTag("calt".to_owned()),
+            value: 0,
+        },
+    ];
+    let exact = TextBlockLayoutLimits {
+        max_feature_inspections: 9,
+        max_feature_applications: 4,
+        ..TextBlockLayoutLimits::default()
+    };
+    layout_text_block_hinted_a0(FONT_BYTES, request(&shaping), exact)
+        .expect("metadata plus two three-feature run scans are exact");
+
+    for limits in [
+        TextBlockLayoutLimits {
+            max_feature_inspections: 8,
+            ..exact
+        },
+        TextBlockLayoutLimits {
+            max_feature_applications: 3,
+            ..exact
+        },
+    ] {
+        let error = layout_text_block_hinted_a0(FONT_BYTES, request(&shaping), limits).unwrap_err();
+        assert_eq!(error.kind, TextContourErrorKind::ResourceLimit);
+        assert!(error.path.starts_with("$.features."));
+    }
 }
 
 #[test]
