@@ -67,6 +67,16 @@ def test_python_manifest_semantics_enforce_slots_hashes_and_inclusive_limits() -
     vectors = _vectors()
     manifest = _decode_manifest(vectors)
     buffers = tuple(value.encode() for value in vectors["buffers_utf8"])
+    metadata_strings: list[str] = []
+    for font in vectors["manifest"]["fonts"]:
+        metadata_strings.extend([font["id"], font["sha256"], *font["aliases"]])
+        metadata_strings.extend(variation["axis"] for variation in font["variations"])
+        metadata_strings.extend(
+            font[field]
+            for field in ("family", "style", "postscript_name")
+            if field in font
+        )
+    metadata_bytes = sum(len(value.encode()) for value in metadata_strings)
     validate_font_bundle_manifest_a0(
         manifest,
         buffers,
@@ -75,6 +85,7 @@ def test_python_manifest_semantics_enforce_slots_hashes_and_inclusive_limits() -
         max_total_font_bytes=12,
         max_aliases_per_font=2,
         max_variations_per_font=1,
+        max_metadata_string_bytes=metadata_bytes,
     )
 
     limit_cases = [
@@ -87,11 +98,23 @@ def test_python_manifest_semantics_enforce_slots_hashes_and_inclusive_limits() -
     for limits in limit_cases:
         with pytest.raises(msgspec.ValidationError, match="resource_limit"):
             validate_font_bundle_manifest_a0(manifest, buffers, **limits)
+    with pytest.raises(msgspec.ValidationError, match="resource_limit"):
+        validate_font_bundle_manifest_a0(
+            manifest,
+            buffers,
+            max_metadata_string_bytes=metadata_bytes - 1,
+        )
 
     with pytest.raises(msgspec.ValidationError, match="buffer_count_mismatch"):
         validate_font_bundle_manifest_a0(manifest, buffers[:1])
     with pytest.raises(msgspec.ValidationError, match="hash_mismatch"):
         validate_font_bundle_manifest_a0(manifest, (b"font-x", buffers[1]))
+    with pytest.raises(msgspec.ValidationError, match="resource_limit"):
+        validate_font_bundle_manifest_a0(
+            manifest,
+            (b"font-x", buffers[1]),
+            max_total_font_bytes=11,
+        )
 
     semantic_cases = [
         ("id", 1, "primary", "duplicate_font_id"),
@@ -126,10 +149,20 @@ def test_python_manifest_semantics_enforce_slots_hashes_and_inclusive_limits() -
             decode_font_bundle_manifest_a0(json.dumps(invalid_axis).encode()), buffers
         )
 
+    variation = msgspec.structs.replace(
+        manifest.fonts[0].variations[0], value=float("inf")
+    )
+    font = msgspec.structs.replace(manifest.fonts[0], variations=[variation])
+    nonfinite = msgspec.structs.replace(manifest, fonts=[font, manifest.fonts[1]])
+    with pytest.raises(msgspec.ValidationError, match="invalid_variation"):
+        validate_font_bundle_manifest_a0(nonfinite, buffers)
+
 
 def test_python_font_resolution_is_deterministic_and_fail_closed() -> None:
     vectors = _vectors()
     manifest = _decode_manifest(vectors)
+    buffers = tuple(value.encode() for value in vectors["buffers_utf8"])
+    bundle = validate_font_bundle_manifest_a0(manifest, buffers)
     requests = vectors["resolution_requests"]
     explicit = decode_font_resolution_request_a0(json.dumps(requests["explicit"]).encode())
     unique = decode_font_resolution_request_a0(json.dumps(requests["unique_alias"]).encode())
@@ -137,12 +170,20 @@ def test_python_font_resolution_is_deterministic_and_fail_closed() -> None:
         json.dumps(requests["ambiguous_alias"]).encode()
     )
     missing = decode_font_resolution_request_a0(json.dumps(requests["missing"]).encode())
-    assert resolve_font_selection_a0(manifest, explicit).id == "primary"
-    assert resolve_font_selection_a0(manifest, unique).id == "secondary"
+    assert resolve_font_selection_a0(bundle, explicit).id == "primary"
+    assert resolve_font_selection_a0(bundle, unique).id == "secondary"
     with pytest.raises(msgspec.ValidationError, match="ambiguous_font"):
-        resolve_font_selection_a0(manifest, ambiguous)
+        resolve_font_selection_a0(bundle, ambiguous)
     with pytest.raises(msgspec.ValidationError, match="missing_font"):
-        resolve_font_selection_a0(manifest, missing)
+        resolve_font_selection_a0(bundle, missing)
+    with pytest.raises(msgspec.ValidationError, match="resource_limit"):
+        resolve_font_selection_a0(bundle, unique, max_request_aliases=0)
+    with pytest.raises(msgspec.ValidationError, match="resource_limit"):
+        resolve_font_selection_a0(
+            bundle,
+            unique,
+            max_request_string_bytes=len("Secondary Sans".encode()) - 1,
+        )
 
 
 def test_intermediate_records_preserve_shaping_and_outline_separation() -> None:
@@ -152,8 +193,18 @@ def test_intermediate_records_preserve_shaping_and_outline_separation() -> None:
     assert isinstance(shaping, ShapingRecordA0)
     assert isinstance(outline, OutlineVectorA0)
     assert shaping.input.text == "ffi"
+    assert shaping.case_id == "stroke_regular_latin_ltr_ffi"
+    assert shaping.input.buffer_properties.cluster_level == "monotone_graphemes"
+    assert shaping.input.buffer_properties.produce_unsafe_to_concat is True
     assert shaping.glyphs[0].glyph_id == outline.glyph_id
     encoded_outline = json.loads(msgspec.json.encode(outline))
+    assert encoded_outline["case_id"] == "fractional_outline_glyph_5044"
+    assert encoded_outline["coordinate_format"] == "font_design_units_f64"
+    assert encoded_outline["comparison"] == {
+        "mode": "absolute_tolerance",
+        "absolute_tolerance": 0.000001,
+    }
+    assert encoded_outline["commands"][3]["control1_x"] == 75.125
     assert [command["kind"] for command in encoded_outline["commands"]] == [
         "move_to",
         "line_to",
@@ -161,6 +212,15 @@ def test_intermediate_records_preserve_shaping_and_outline_separation() -> None:
         "curve_to",
         "close",
     ]
+
+    negative_tolerance = deepcopy(vectors["outline_vector"])
+    negative_tolerance["comparison"]["absolute_tolerance"] = -0.001
+    outline_schema = json.loads(
+        (SCHEMA_ROOT / "OutlineVector.json").read_text(encoding="utf-8")
+    )
+    assert list(Draft202012Validator(outline_schema).iter_errors(negative_tolerance))
+    with pytest.raises(msgspec.ValidationError):
+        decode_outline_vector_a0(json.dumps(negative_tolerance).encode())
 
 
 def test_text_safe_integer_vectors_match_schema_and_python() -> None:

@@ -408,7 +408,7 @@ disposition = "required"
 wasm = "deferred_native_first"
 status = "review_ready"
 python_symbols = ["FontBundleManifestA0", "validate_font_bundle_manifest_a0", "resolve_font_selection_a0", "ShapingRecordA0", "OutlineVectorA0"]
-rust_symbols = ["FontBundleManifestA0", "FontBundleLimits", "validate_font_bundle_contract", "resolve_font_selection_contract", "ShapingRecordA0", "OutlineVectorA0"]
+rust_symbols = ["FontBundleManifestA0", "FontBundleLimits", "FontResolutionLimits", "ValidatedFontBundle", "validate_font_bundle_contract", "resolve_font_selection_contract", "ShapingRecordA0", "OutlineVectorA0"]
 rack_cases = ["L0_046", "L0_049", "L0_052"]
 evidence = ["src/tsp/kicad_monkey/font-text-a0.tsp", "contracts/generated/schema/FontBundleManifest.json", "contracts/generated/schema/FontResolutionRequest.json", "contracts/generated/schema/ShapingRecord.json", "contracts/generated/schema/OutlineVector.json", "tests/parity/font_text_a0_vectors.json", "src/rs/kicad-monkey-contracts/src/font_bundle_contract.rs", "tests/L0_foundation/test_L0_052_font_text_contract.py", "docs/design/rust-font-text-contracts.html"]
 

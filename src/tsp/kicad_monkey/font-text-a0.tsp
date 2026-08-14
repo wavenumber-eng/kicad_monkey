@@ -17,6 +17,10 @@ scalar OpenTypeTag extends string;
 @maxValue(9007199254740991)
 scalar TextSafeInteger extends safeint;
 
+/** Finite nonnegative tolerance transported as a JSON number. */
+@minValue(0)
+scalar NonNegativeFiniteFloat extends float64;
+
 /** One ordered OpenType variation coordinate. */
 model FontVariationCoordinate {
   axis: OpenTypeTag;
@@ -71,6 +75,44 @@ enum TextDirection {
   bottom_to_top,
 }
 
+enum ShapingClusterLevel {
+  monotone_graphemes,
+  monotone_characters,
+  characters,
+}
+
+enum DefaultIgnorablePolicy {
+  normal,
+  preserve,
+  remove,
+}
+
+/** Explicit HarfBuzz buffer state; no ambient library defaults are implied. */
+model ShapingBufferProperties {
+  cluster_level: ShapingClusterLevel;
+  beginning_of_text: boolean;
+  end_of_text: boolean;
+  default_ignorables: DefaultIgnorablePolicy;
+  do_not_insert_dotted_circle: boolean;
+  produce_unsafe_to_concat: boolean;
+  produce_safe_to_insert_tatweel: boolean;
+}
+
+model ExactComparisonPolicy {
+  mode: "exact";
+}
+
+/** Absolute tolerance in the enclosing record's declared coordinate unit. */
+model AbsoluteToleranceComparisonPolicy {
+  mode: "absolute_tolerance";
+  absolute_tolerance: NonNegativeFiniteFloat;
+}
+
+union NumericComparisonPolicy {
+  ExactComparisonPolicy,
+  AbsoluteToleranceComparisonPolicy,
+}
+
 /** HarfBuzz-compatible feature range over input scalar indices. */
 model ShapingFeature {
   tag: OpenTypeTag;
@@ -92,6 +134,7 @@ model ShapingInput {
   script?: OpenTypeTag;
   language?: string;
   features: ShapingFeature[];
+  buffer_properties: ShapingBufferProperties;
 }
 
 /** One shaped glyph in logical buffer order. */
@@ -115,38 +158,40 @@ model ShapingRecord {
   schema: "kicad_monkey.shaping_record.a0";
   type: "kicad_monkey.shaping_record";
   version: "a0";
+  case_id: string;
+  comparison: ExactComparisonPolicy;
   input: ShapingInput;
   glyphs: ShapedGlyph[];
 }
 
 model OutlineMoveTo {
   kind: "move_to";
-  x: TextSafeInteger;
-  y: TextSafeInteger;
+  x: float64;
+  y: float64;
 }
 
 model OutlineLineTo {
   kind: "line_to";
-  x: TextSafeInteger;
-  y: TextSafeInteger;
+  x: float64;
+  y: float64;
 }
 
 model OutlineQuadTo {
   kind: "quad_to";
-  control_x: TextSafeInteger;
-  control_y: TextSafeInteger;
-  x: TextSafeInteger;
-  y: TextSafeInteger;
+  control_x: float64;
+  control_y: float64;
+  x: float64;
+  y: float64;
 }
 
 model OutlineCurveTo {
   kind: "curve_to";
-  control1_x: TextSafeInteger;
-  control1_y: TextSafeInteger;
-  control2_x: TextSafeInteger;
-  control2_y: TextSafeInteger;
-  x: TextSafeInteger;
-  y: TextSafeInteger;
+  control1_x: float64;
+  control1_y: float64;
+  control2_x: float64;
+  control2_y: float64;
+  x: float64;
+  y: float64;
 }
 
 model OutlineClose {
@@ -169,6 +214,9 @@ model OutlineVector {
   schema: "kicad_monkey.outline_vector.a0";
   type: "kicad_monkey.outline_vector";
   version: "a0";
+  case_id: string;
+  coordinate_format: "font_design_units_f64";
+  comparison: NumericComparisonPolicy;
   font_id: string;
   font_sha256: Sha256Hex;
   face_index: uint32;

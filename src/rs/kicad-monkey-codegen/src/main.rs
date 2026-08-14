@@ -107,6 +107,11 @@ fn generate(value: Value) -> Result<String> {
         "crate::JavaScriptSafeInteger",
         [].into_iter(),
     );
+    settings.with_replacement(
+        "NonNegativeFiniteFloat",
+        "crate::NonNegativeFiniteFloat",
+        [].into_iter(),
+    );
     let mut type_space = TypeSpace::new(&settings);
     type_space.add_root_schema(schema)?;
     let body = type_space.to_stream().to_string();

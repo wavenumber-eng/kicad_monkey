@@ -15,6 +15,12 @@
             "type": "string",
             "const": "a0"
         },
+        "case_id": {
+            "type": "string"
+        },
+        "comparison": {
+            "$ref": "#/$defs/ExactComparisonPolicy"
+        },
         "input": {
             "$ref": "#/$defs/ShapingInput"
         },
@@ -29,6 +35,8 @@
         "schema",
         "type",
         "version",
+        "case_id",
+        "comparison",
         "input",
         "glyphs"
     ],
@@ -38,6 +46,21 @@
     "description": "Intermediate shaping oracle, intentionally separate from glyph outlines.",
     "title": "Shaping record a0",
     "$defs": {
+        "ExactComparisonPolicy": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "const": "exact"
+                }
+            },
+            "required": [
+                "mode"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
         "ShapingInput": {
             "type": "object",
             "properties": {
@@ -81,6 +104,9 @@
                     "items": {
                         "$ref": "#/$defs/ShapingFeature"
                     }
+                },
+                "buffer_properties": {
+                    "$ref": "#/$defs/ShapingBufferProperties"
                 }
             },
             "required": [
@@ -92,7 +118,8 @@
                 "scale_x",
                 "scale_y",
                 "direction",
-                "features"
+                "features",
+                "buffer_properties"
             ],
             "unevaluatedProperties": {
                 "not": {}
@@ -226,6 +253,61 @@
                 "not": {}
             },
             "description": "HarfBuzz-compatible feature range over input scalar indices."
+        },
+        "ShapingBufferProperties": {
+            "type": "object",
+            "properties": {
+                "cluster_level": {
+                    "$ref": "#/$defs/ShapingClusterLevel"
+                },
+                "beginning_of_text": {
+                    "type": "boolean"
+                },
+                "end_of_text": {
+                    "type": "boolean"
+                },
+                "default_ignorables": {
+                    "$ref": "#/$defs/DefaultIgnorablePolicy"
+                },
+                "do_not_insert_dotted_circle": {
+                    "type": "boolean"
+                },
+                "produce_unsafe_to_concat": {
+                    "type": "boolean"
+                },
+                "produce_safe_to_insert_tatweel": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "cluster_level",
+                "beginning_of_text",
+                "end_of_text",
+                "default_ignorables",
+                "do_not_insert_dotted_circle",
+                "produce_unsafe_to_concat",
+                "produce_safe_to_insert_tatweel"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Explicit HarfBuzz buffer state; no ambient library defaults are implied."
+        },
+        "ShapingClusterLevel": {
+            "type": "string",
+            "enum": [
+                "monotone_graphemes",
+                "monotone_characters",
+                "characters"
+            ]
+        },
+        "DefaultIgnorablePolicy": {
+            "type": "string",
+            "enum": [
+                "normal",
+                "preserve",
+                "remove"
+            ]
         }
     }
 }

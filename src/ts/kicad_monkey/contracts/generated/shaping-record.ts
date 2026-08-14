@@ -13,6 +13,8 @@ export type OpenTypeTag = string;
  */
 export type TextSafeInteger = number;
 export type TextDirection = "left_to_right" | "right_to_left" | "top_to_bottom" | "bottom_to_top";
+export type ShapingClusterLevel = "monotone_graphemes" | "monotone_characters" | "characters";
+export type DefaultIgnorablePolicy = "normal" | "preserve" | "remove";
 
 /**
  * Intermediate shaping oracle, intentionally separate from glyph outlines.
@@ -21,8 +23,13 @@ export interface ShapingRecordA0 {
   schema: "kicad_monkey.shaping_record.a0";
   type: "kicad_monkey.shaping_record";
   version: "a0";
+  case_id: string;
+  comparison: ExactComparisonPolicy;
   input: ShapingInput;
   glyphs: ShapedGlyph[];
+}
+export interface ExactComparisonPolicy {
+  mode: "exact";
 }
 /**
  * Complete deterministic shaping input retained with an oracle record.
@@ -39,6 +46,7 @@ export interface ShapingInput {
   script?: OpenTypeTag;
   language?: string;
   features: ShapingFeature[];
+  buffer_properties: ShapingBufferProperties;
 }
 /**
  * One ordered OpenType variation coordinate.
@@ -55,6 +63,18 @@ export interface ShapingFeature {
   value: number;
   start: number;
   end: number;
+}
+/**
+ * Explicit HarfBuzz buffer state; no ambient library defaults are implied.
+ */
+export interface ShapingBufferProperties {
+  cluster_level: ShapingClusterLevel;
+  beginning_of_text: boolean;
+  end_of_text: boolean;
+  default_ignorables: DefaultIgnorablePolicy;
+  do_not_insert_dotted_circle: boolean;
+  produce_unsafe_to_concat: boolean;
+  produce_safe_to_insert_tatweel: boolean;
 }
 /**
  * One shaped glyph in logical buffer order.

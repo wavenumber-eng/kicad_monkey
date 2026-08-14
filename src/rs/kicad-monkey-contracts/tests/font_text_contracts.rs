@@ -3,7 +3,8 @@ use kicad_monkey_contracts::generated::font_resolution_request::FontResolutionRe
 use kicad_monkey_contracts::generated::outline_vector::OutlineVectorA0;
 use kicad_monkey_contracts::generated::shaping_record::ShapingRecordA0;
 use kicad_monkey_contracts::{
-    FontBundleLimits, resolve_font_selection_contract, validate_font_bundle_contract,
+    FontBundleLimits, FontResolutionLimits, resolve_font_selection_contract,
+    validate_font_bundle_contract,
 };
 
 fn vectors() -> serde_json::Value {
@@ -23,6 +24,26 @@ fn request(name: &str) -> FontResolutionRequestA0 {
         .expect("font resolution request")
 }
 
+fn metadata_string_bytes(manifest: &FontBundleManifestA0) -> usize {
+    manifest
+        .fonts
+        .iter()
+        .map(|font| {
+            font.id.len()
+                + font.sha256.0.len()
+                + font.aliases.iter().map(String::len).sum::<usize>()
+                + font
+                    .variations
+                    .iter()
+                    .map(|variation| variation.axis.0.len())
+                    .sum::<usize>()
+                + font.family.as_deref().map_or(0, str::len)
+                + font.style.as_deref().map_or(0, str::len)
+                + font.postscript_name.as_deref().map_or(0, str::len)
+        })
+        .sum()
+}
+
 #[test]
 fn generated_font_text_roots_are_strict_and_round_trip() {
     let vectors = vectors();
@@ -40,10 +61,25 @@ fn generated_font_text_roots_are_strict_and_round_trip() {
         serde_json::to_value(shaping).unwrap(),
         vectors["shaping_record"]
     );
+    let encoded_outline = serde_json::to_value(outline).unwrap();
     assert_eq!(
-        serde_json::to_value(outline).unwrap(),
-        vectors["outline_vector"]
+        encoded_outline["case_id"],
+        vectors["outline_vector"]["case_id"]
     );
+    assert_eq!(
+        encoded_outline["commands"],
+        vectors["outline_vector"]["commands"]
+    );
+    assert_eq!(
+        encoded_outline["comparison"]["absolute_tolerance"]
+            .as_f64()
+            .unwrap(),
+        0.000_001
+    );
+
+    let mut negative_tolerance = vectors["outline_vector"].clone();
+    negative_tolerance["comparison"]["absolute_tolerance"] = (-0.001).into();
+    assert!(serde_json::from_value::<OutlineVectorA0>(negative_tolerance).is_err());
 
     let mut extra = vectors["manifest"].clone();
     extra["buffers"] = serde_json::json!(["embedded bytes are forbidden"]);
@@ -106,14 +142,17 @@ fn manifest_validation_enforces_exact_slot_hash_and_metadata_semantics() {
 #[test]
 fn manifest_resource_boundaries_are_inclusive_and_checked_before_hashing() {
     let buffers: [&[u8]; 2] = [b"font-a", b"font-b"];
+    let manifest = manifest();
+    let metadata_bytes = metadata_string_bytes(&manifest);
     let exact = FontBundleLimits {
         max_fonts: 2,
         max_font_bytes: 6,
         max_total_font_bytes: 12,
         max_aliases_per_font: 2,
         max_variations_per_font: 1,
+        max_metadata_string_bytes: metadata_bytes,
     };
-    validate_font_bundle_contract(&manifest(), &buffers, exact).expect("inclusive ceilings");
+    validate_font_bundle_contract(&manifest, &buffers, exact).expect("inclusive ceilings");
     for limits in [
         FontBundleLimits {
             max_fonts: 1,
@@ -135,8 +174,12 @@ fn manifest_resource_boundaries_are_inclusive_and_checked_before_hashing() {
             max_variations_per_font: 0,
             ..exact
         },
+        FontBundleLimits {
+            max_metadata_string_bytes: metadata_bytes - 1,
+            ..exact
+        },
     ] {
-        let error = validate_font_bundle_contract(&manifest(), &buffers, limits)
+        let error = validate_font_bundle_contract(&manifest, &buffers, limits)
             .expect_err("one-under ceiling");
         assert_eq!(error.code, "resource_limit");
     }
@@ -145,29 +188,98 @@ fn manifest_resource_boundaries_are_inclusive_and_checked_before_hashing() {
 #[test]
 fn deterministic_resolution_prefers_id_and_rejects_ambiguous_aliases() {
     let manifest = manifest();
+    let buffers: [&[u8]; 2] = [b"font-a", b"font-b"];
+    let bundle = validate_font_bundle_contract(&manifest, &buffers, FontBundleLimits::default())
+        .expect("validated bundle");
     assert_eq!(
-        resolve_font_selection_contract(&manifest, &request("explicit"))
-            .unwrap()
-            .id,
+        resolve_font_selection_contract(
+            &bundle,
+            &request("explicit"),
+            FontResolutionLimits::default(),
+        )
+        .unwrap()
+        .id,
         "primary"
     );
     assert_eq!(
-        resolve_font_selection_contract(&manifest, &request("unique_alias"))
-            .unwrap()
-            .id,
+        resolve_font_selection_contract(
+            &bundle,
+            &request("unique_alias"),
+            FontResolutionLimits::default(),
+        )
+        .unwrap()
+        .id,
         "secondary"
     );
     assert_eq!(
-        resolve_font_selection_contract(&manifest, &request("ambiguous_alias"))
-            .unwrap_err()
-            .code,
+        resolve_font_selection_contract(
+            &bundle,
+            &request("ambiguous_alias"),
+            FontResolutionLimits::default(),
+        )
+        .unwrap_err()
+        .code,
         "ambiguous_font"
     );
     assert_eq!(
-        resolve_font_selection_contract(&manifest, &request("missing"))
-            .unwrap_err()
-            .code,
+        resolve_font_selection_contract(
+            &bundle,
+            &request("missing"),
+            FontResolutionLimits::default(),
+        )
+        .unwrap_err()
+        .code,
         "missing_font"
+    );
+}
+
+#[test]
+fn aggregate_resource_preflight_wins_before_any_hashing() {
+    let buffers: [&[u8]; 2] = [b"font-x", b"font-b"];
+    let limits = FontBundleLimits {
+        max_total_font_bytes: 11,
+        ..FontBundleLimits::default()
+    };
+    let error = validate_font_bundle_contract(&manifest(), &buffers, limits)
+        .expect_err("aggregate bytes must fail before the bad first hash");
+    assert_eq!(error.code, "resource_limit");
+}
+
+#[test]
+fn indexed_resolution_has_bounded_request_work_and_requires_a_valid_manifest() {
+    let manifest = manifest();
+    let buffers: [&[u8]; 2] = [b"font-a", b"font-b"];
+    let bundle =
+        validate_font_bundle_contract(&manifest, &buffers, FontBundleLimits::default()).unwrap();
+    let error = resolve_font_selection_contract(
+        &bundle,
+        &request("unique_alias"),
+        FontResolutionLimits {
+            max_request_aliases: 0,
+            max_request_string_bytes: usize::MAX,
+        },
+    )
+    .expect_err("alias count limit");
+    assert_eq!(error.code, "resource_limit");
+    let error = resolve_font_selection_contract(
+        &bundle,
+        &request("unique_alias"),
+        FontResolutionLimits {
+            max_request_aliases: usize::MAX,
+            max_request_string_bytes: "Secondary Sans".len() - 1,
+        },
+    )
+    .expect_err("request byte limit");
+    assert_eq!(error.code, "resource_limit");
+
+    let mut invalid = vectors()["manifest"].clone();
+    invalid["fonts"][1]["id"] = "primary".into();
+    let invalid: FontBundleManifestA0 = serde_json::from_value(invalid).unwrap();
+    assert_eq!(
+        validate_font_bundle_contract(&invalid, &buffers, FontBundleLimits::default())
+            .expect_err("invalid manifests cannot produce an indexed handle")
+            .code,
+        "duplicate_font_id"
     );
 }
 

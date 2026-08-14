@@ -15,6 +15,16 @@
             "type": "string",
             "const": "a0"
         },
+        "case_id": {
+            "type": "string"
+        },
+        "coordinate_format": {
+            "type": "string",
+            "const": "font_design_units_f64"
+        },
+        "comparison": {
+            "$ref": "#/$defs/NumericComparisonPolicy"
+        },
         "font_id": {
             "type": "string"
         },
@@ -53,6 +63,9 @@
         "schema",
         "type",
         "version",
+        "case_id",
+        "coordinate_format",
+        "comparison",
         "font_id",
         "font_sha256",
         "face_index",
@@ -67,6 +80,16 @@
     "description": "Raw glyph outline oracle in font units, separate from shaping and placement.",
     "title": "Outline vector a0",
     "$defs": {
+        "NumericComparisonPolicy": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/ExactComparisonPolicy"
+                },
+                {
+                    "$ref": "#/$defs/AbsoluteToleranceComparisonPolicy"
+                }
+            ]
+        },
         "Sha256Hex": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
@@ -110,6 +133,41 @@
                 }
             ]
         },
+        "ExactComparisonPolicy": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "const": "exact"
+                }
+            },
+            "required": [
+                "mode"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "AbsoluteToleranceComparisonPolicy": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "const": "absolute_tolerance"
+                },
+                "absolute_tolerance": {
+                    "$ref": "#/$defs/NonNegativeFiniteFloat"
+                }
+            },
+            "required": [
+                "mode",
+                "absolute_tolerance"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Absolute tolerance in the enclosing record's declared coordinate unit."
+        },
         "OpenTypeTag": {
             "type": "string",
             "pattern": "^[ -~]{4}$",
@@ -123,10 +181,10 @@
                     "const": "move_to"
                 },
                 "x": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 },
                 "y": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 }
             },
             "required": [
@@ -146,10 +204,10 @@
                     "const": "line_to"
                 },
                 "x": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 },
                 "y": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 }
             },
             "required": [
@@ -169,16 +227,16 @@
                     "const": "quad_to"
                 },
                 "control_x": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 },
                 "control_y": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 },
                 "x": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 },
                 "y": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 }
             },
             "required": [
@@ -200,22 +258,22 @@
                     "const": "curve_to"
                 },
                 "control1_x": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 },
                 "control1_y": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 },
                 "control2_x": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 },
                 "control2_y": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 },
                 "x": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 },
                 "y": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "number"
                 }
             },
             "required": [
@@ -246,11 +304,10 @@
                 "not": {}
             }
         },
-        "TextSafeInteger": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991,
-            "description": "Integer that remains exact through JSON and JavaScript."
+        "NonNegativeFiniteFloat": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Finite nonnegative tolerance transported as a JSON number."
         }
     }
 }

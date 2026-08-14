@@ -21,27 +21,40 @@
   buffer, exact lowercase SHA-256 hashes, finite unique variation axes, and no
   unreferenced extra buffers.</p>
 
-  <p>Callers provide resource ceilings. Per-font and aggregate byte ceilings
-  are checked before hashing. The defaults are permissive safety ceilings, not
+  <p>Callers provide resource ceilings. Every slot, per-font size, aggregate
+  size, and metadata-string budget is preflighted before any font is hashed.
+  The defaults are permissive safety ceilings, not
   product-size claims, and operations may select lower or higher values based
   on their trust boundary. Font face existence and supported variation axes
   require parsing the actual OpenType bytes and remain implementation gates for
   the shaping slice.</p>
 
   <h2>Deterministic resolution</h2>
-  <p>An explicit font ID takes precedence over aliases. Without an ID, aliases
+  <p>Successful validation returns a private-field indexed bundle handle. An
+  explicit font ID takes precedence over aliases. Without an ID, aliases
   must select exactly one entry; zero matches report <code>missing_font</code>
   and multiple matches report <code>ambiguous_font</code>. Native and generated
-  Python validators enforce the same rule. Browser callers will receive no
+  Python resolvers use ID/alias indexes and caller-bounded request alias/string
+  budgets, rather than rescanning every manifest alias. Invalid manifests
+  cannot produce the handle. Browser callers will receive no
   system-font fallback: only embedded or caller-supplied bundle bytes are in
   scope.</p>
 
   <h2>Attributable text evidence</h2>
-  <p><code>ShapingRecordA0</code> freezes the font hash, face index, ordered
+  <p><code>ShapingRecordA0</code> gives every oracle a stable case ID and exact
+  comparison policy. It freezes the font hash, face index, ordered
   variations, scale, direction, script, language, feature ranges, glyph IDs,
-  clusters, advances, offsets, and safety flags. <code>OutlineVectorA0</code>
-  separately freezes raw move, line, quadratic, cubic, and close commands in
-  font units. Final render-cache comparison remains a third gate. Keeping all
+  clusters, advances, offsets, safety flags, cluster level, text-boundary
+  state, default-ignorable policy, dotted-circle policy, and requested output
+  flags. No HarfBuzz buffer default remains implicit.</p>
+
+  <p><code>OutlineVectorA0</code> separately freezes raw move, line, quadratic,
+  cubic, and close commands in finite <code>float64</code> font design units,
+  paired with <code>units_per_em</code>, a stable case ID, and an absolute
+  tolerance in those same units. Fractional coordinates are intentional so
+  TrueType, CFF, and CFF2 outlines share one a0 representation; downstream
+  KiCad scaling and rounding are not part of this record. Final render-cache
+  comparison remains a third gate. Keeping all
   three layers separate makes a parity failure attributable to shaping,
   outline extraction, or placement/transformation.</p>
 

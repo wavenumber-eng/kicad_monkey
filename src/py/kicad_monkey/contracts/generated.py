@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import math
+from dataclasses import dataclass
 
 from typing import Annotated, Literal, Union
 
@@ -473,6 +475,10 @@ class FontSelection(Struct, forbid_unknown_fields=True, frozen=True):
     font_id: str | UnsetType = field(default=UNSET)
 
 
+class ExactComparisonPolicy(Struct, forbid_unknown_fields=True, frozen=True, tag="exact", tag_field="mode"):
+    pass
+
+
 class ShapingInput(Struct, forbid_unknown_fields=True, frozen=True):
     font_id: str
     font_sha256: Sha256Hex
@@ -483,6 +489,7 @@ class ShapingInput(Struct, forbid_unknown_fields=True, frozen=True):
     scale_y: TextSafeInteger
     direction: TextDirection
     features: list[ShapingFeature]
+    buffer_properties: ShapingBufferProperties
     script: OpenTypeTag | UnsetType = field(default=UNSET)
     language: str | UnsetType = field(default=UNSET)
 
@@ -512,37 +519,63 @@ class ShapingFeature(Struct, forbid_unknown_fields=True, frozen=True):
     end: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
+class ShapingBufferProperties(Struct, forbid_unknown_fields=True, frozen=True):
+    cluster_level: ShapingClusterLevel
+    beginning_of_text: bool
+    end_of_text: bool
+    default_ignorables: DefaultIgnorablePolicy
+    do_not_insert_dotted_circle: bool
+    produce_unsafe_to_concat: bool
+    produce_safe_to_insert_tatweel: bool
+
+
+ShapingClusterLevel = Literal["monotone_graphemes", "monotone_characters", "characters"]
+
+
+DefaultIgnorablePolicy = Literal["normal", "preserve", "remove"]
+
+
+NumericComparisonPolicy = Union["ExactComparisonPolicy", "AbsoluteToleranceComparisonPolicy"]
+
+
 OutlineCommand = Union["OutlineMoveTo", "OutlineLineTo", "OutlineQuadTo", "OutlineCurveTo", "OutlineClose"]
 
 
+class AbsoluteToleranceComparisonPolicy(Struct, forbid_unknown_fields=True, frozen=True, tag="absolute_tolerance", tag_field="mode"):
+    absolute_tolerance: NonNegativeFiniteFloat
+
+
 class OutlineMoveTo(Struct, forbid_unknown_fields=True, frozen=True, tag="move_to", tag_field="kind"):
-    x: TextSafeInteger
-    y: TextSafeInteger
+    x: float
+    y: float
 
 
 class OutlineLineTo(Struct, forbid_unknown_fields=True, frozen=True, tag="line_to", tag_field="kind"):
-    x: TextSafeInteger
-    y: TextSafeInteger
+    x: float
+    y: float
 
 
 class OutlineQuadTo(Struct, forbid_unknown_fields=True, frozen=True, tag="quad_to", tag_field="kind"):
-    control_x: TextSafeInteger
-    control_y: TextSafeInteger
-    x: TextSafeInteger
-    y: TextSafeInteger
+    control_x: float
+    control_y: float
+    x: float
+    y: float
 
 
 class OutlineCurveTo(Struct, forbid_unknown_fields=True, frozen=True, tag="curve_to", tag_field="kind"):
-    control1_x: TextSafeInteger
-    control1_y: TextSafeInteger
-    control2_x: TextSafeInteger
-    control2_y: TextSafeInteger
-    x: TextSafeInteger
-    y: TextSafeInteger
+    control1_x: float
+    control1_y: float
+    control2_x: float
+    control2_y: float
+    x: float
+    y: float
 
 
 class OutlineClose(Struct, forbid_unknown_fields=True, frozen=True, tag="close", tag_field="kind"):
     pass
+
+
+NonNegativeFiniteFloat = Annotated[float, Meta(ge=0)]
 
 
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -771,6 +804,8 @@ class ShapingRecordA0(Struct, forbid_unknown_fields=True, frozen=True):
     schema: Literal["kicad_monkey.shaping_record.a0"]
     type_: Literal["kicad_monkey.shaping_record"] = field(name="type")
     version: Literal["a0"]
+    case_id: str
+    comparison: ExactComparisonPolicy
     input: ShapingInput
     glyphs: list[ShapedGlyph]
 
@@ -779,6 +814,9 @@ class OutlineVectorA0(Struct, forbid_unknown_fields=True, frozen=True):
     schema: Literal["kicad_monkey.outline_vector.a0"]
     type_: Literal["kicad_monkey.outline_vector"] = field(name="type")
     version: Literal["a0"]
+    case_id: str
+    coordinate_format: Literal["font_design_units_f64"]
+    comparison: NumericComparisonPolicy
     font_id: str
     font_sha256: Sha256Hex
     face_index: Annotated[int, Meta(ge=0, le=4294967295)]
@@ -909,6 +947,13 @@ def decode_source_bundle_manifest_a0(data: bytes) -> SourceBundleManifestA0:
         if int(source.source_bytes) > 18_446_744_073_709_551_615:
             raise msgspec.ValidationError("source_bytes exceeds uint64")
     return value
+@dataclass(frozen=True, slots=True)
+class _ValidatedFontBundleA0:
+    manifest: FontBundleManifestA0
+    id_index: dict[str, int]
+    alias_index: dict[str, int | None]
+
+
 _font_bundle_manifest_a0_decoder = msgspec.json.Decoder(FontBundleManifestA0)
 
 
@@ -925,10 +970,11 @@ def validate_font_bundle_manifest_a0(
     max_total_font_bytes: int = 1024 * 1024 * 1024,
     max_aliases_per_font: int = 4_096,
     max_variations_per_font: int = 4_096,
-) -> None:
+    max_metadata_string_bytes: int = 64 * 1024 * 1024,
+) -> _ValidatedFontBundleA0:
     if value.schema != "kicad_monkey.font_bundle.a0" or value.type_ != "kicad_monkey.font_bundle" or value.version != "a0":
         raise msgspec.ValidationError("unsupported_contract at $")
-    limits = (max_fonts, max_font_bytes, max_total_font_bytes, max_aliases_per_font, max_variations_per_font)
+    limits = (max_fonts, max_font_bytes, max_total_font_bytes, max_aliases_per_font, max_variations_per_font, max_metadata_string_bytes)
     if any(limit < 0 for limit in limits):
         raise msgspec.ValidationError("invalid_limit at $")
     if len(value.fonts) > max_fonts:
@@ -937,12 +983,16 @@ def validate_font_bundle_manifest_a0(
         raise msgspec.ValidationError("buffer_count_mismatch at $.fonts")
     ids: set[str] = set()
     slots: set[int] = set()
+    id_index: dict[str, int] = {}
+    alias_index: dict[str, int | None] = {}
     total_bytes = 0
+    metadata_string_bytes = 0
     for index, font in enumerate(value.fonts):
         path = f"$.fonts[{index}]"
         if not font.id or font.id in ids:
             raise msgspec.ValidationError(f"duplicate_font_id at {path}.id")
         ids.add(font.id)
+        id_index[font.id] = index
         if font.slot in slots:
             raise msgspec.ValidationError(f"duplicate_font_slot at {path}.slot")
         slots.add(font.slot)
@@ -957,37 +1007,78 @@ def validate_font_bundle_manifest_a0(
         axes: set[str] = set()
         for variation_index, variation in enumerate(font.variations):
             axis = variation.axis
-            if len(axis) != 4 or any(ord(char) < 32 or ord(char) > 126 for char in axis) or axis in axes:
+            if len(axis) != 4 or any(ord(char) < 32 or ord(char) > 126 for char in axis) or not math.isfinite(variation.value) or axis in axes:
                 raise msgspec.ValidationError(f"invalid_variation at {path}.variations[{variation_index}]")
             axes.add(axis)
+        strings = [font.id, font.sha256, *font.aliases, *(variation.axis for variation in font.variations)]
+        strings.extend(value for value in (font.family, font.style, font.postscript_name) if value is not UNSET)
+        metadata_string_bytes += sum(_font_utf8_len(value) for value in strings)
+        if metadata_string_bytes > max_metadata_string_bytes:
+            raise msgspec.ValidationError("resource_limit at $.fonts")
+        for alias in font.aliases:
+            if alias in alias_index and alias_index[alias] != index:
+                alias_index[alias] = None
+            else:
+                alias_index[alias] = index
         buffer = buffers[font.slot]
         if len(buffer) > max_font_bytes:
             raise msgspec.ValidationError(f"resource_limit at {path}.slot")
         total_bytes += len(buffer)
         if total_bytes > max_total_font_bytes:
             raise msgspec.ValidationError("resource_limit at $.fonts")
-        if hashlib.sha256(buffer).hexdigest() != font.sha256:
+    for index, font in enumerate(value.fonts):
+        if hashlib.sha256(buffers[font.slot]).hexdigest() != font.sha256:
+            path = f"$.fonts[{index}]"
             raise msgspec.ValidationError(f"hash_mismatch at {path}.sha256")
+    return _ValidatedFontBundleA0(value, id_index, alias_index)
 
 
 def resolve_font_selection_a0(
-    manifest: FontBundleManifestA0,
+    bundle: _ValidatedFontBundleA0,
     request: FontResolutionRequestA0,
+    *,
+    max_request_aliases: int = 4_096,
+    max_request_string_bytes: int = 16 * 1024 * 1024,
 ) -> FontBundleEntry:
     if request.schema != "kicad_monkey.font_resolution_request.a0" or request.type_ != "kicad_monkey.font_resolution_request" or request.version != "a0":
         raise msgspec.ValidationError("unsupported_contract at $")
-    if request.selection.font_id is not UNSET and request.selection.font_id:
-        for font in manifest.fonts:
-            if font.id == request.selection.font_id:
-                return font
+    if max_request_aliases < 0 or max_request_string_bytes < 0:
+        raise msgspec.ValidationError("invalid_limit at $.selection")
+    if len(request.selection.aliases) > max_request_aliases:
+        raise msgspec.ValidationError("resource_limit at $.selection.aliases")
+    font_id = None if request.selection.font_id is UNSET else request.selection.font_id
+    request_strings = [*request.selection.aliases]
+    if font_id is not None:
+        request_strings.append(font_id)
+    if sum(_font_utf8_len(value) for value in request_strings) > max_request_string_bytes:
+        raise msgspec.ValidationError("resource_limit at $.selection")
+    if font_id == '':
+        raise msgspec.ValidationError("invalid_selection at $.selection.font_id")
+    if any(not alias for alias in request.selection.aliases) or len(set(request.selection.aliases)) != len(request.selection.aliases):
+        raise msgspec.ValidationError("invalid_selection at $.selection.aliases")
+    if font_id is not None:
+        if font_id in bundle.id_index:
+            return bundle.manifest.fonts[bundle.id_index[font_id]]
         raise msgspec.ValidationError("missing_font at $.selection.font_id")
-    requested = set(request.selection.aliases)
-    matches = [font for font in manifest.fonts if requested.intersection(font.aliases)]
-    if not matches:
+    matched: int | None = None
+    for alias in request.selection.aliases:
+        if alias not in bundle.alias_index:
+            continue
+        target = bundle.alias_index[alias]
+        if target is None or (matched is not None and matched != target):
+            raise msgspec.ValidationError("ambiguous_font at $.selection.aliases")
+        matched = target
+    if matched is None:
         raise msgspec.ValidationError("missing_font at $.selection")
-    if len(matches) > 1:
-        raise msgspec.ValidationError("ambiguous_font at $.selection.aliases")
-    return matches[0]
+    return bundle.manifest.fonts[matched]
+
+
+def _font_utf8_len(value: str) -> int:
+    total = 0
+    for char in value:
+        codepoint = ord(char)
+        total += 1 if codepoint < 0x80 else 2 if codepoint < 0x800 else 3 if codepoint < 0x10000 else 4
+    return total
 decode_font_resolution_request_a0 = msgspec.json.Decoder(FontResolutionRequestA0).decode
 decode_shaping_record_a0 = msgspec.json.Decoder(ShapingRecordA0).decode
 decode_outline_vector_a0 = msgspec.json.Decoder(OutlineVectorA0).decode
@@ -1051,17 +1142,24 @@ __all__ = (
     "FontVariationCoordinate",
     "OpenTypeTag",
     "FontSelection",
+    "ExactComparisonPolicy",
     "ShapingInput",
     "ShapedGlyph",
     "TextSafeInteger",
     "TextDirection",
     "ShapingFeature",
+    "ShapingBufferProperties",
+    "ShapingClusterLevel",
+    "DefaultIgnorablePolicy",
+    "NumericComparisonPolicy",
     "OutlineCommand",
+    "AbsoluteToleranceComparisonPolicy",
     "OutlineMoveTo",
     "OutlineLineTo",
     "OutlineQuadTo",
     "OutlineCurveTo",
     "OutlineClose",
+    "NonNegativeFiniteFloat",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",

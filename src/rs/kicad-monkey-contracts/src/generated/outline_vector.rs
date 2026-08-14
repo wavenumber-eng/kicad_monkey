@@ -24,6 +24,62 @@ pub mod error {
         }
     }
 }
+///Absolute tolerance in the enclosing record's declared coordinate unit.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Absolute tolerance in the enclosing record's declared coordinate unit.",
+///  "type": "object",
+///  "required": [
+///    "absolute_tolerance",
+///    "mode"
+///  ],
+///  "properties": {
+///    "absolute_tolerance": {
+///      "$ref": "#/$defs/NonNegativeFiniteFloat"
+///    },
+///    "mode": {
+///      "type": "string",
+///      "const": "absolute_tolerance"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct AbsoluteToleranceComparisonPolicy {
+    pub absolute_tolerance: crate::NonNegativeFiniteFloat,
+    pub mode: ::std::string::String,
+}
+///`ExactComparisonPolicy`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "mode"
+///  ],
+///  "properties": {
+///    "mode": {
+///      "type": "string",
+///      "const": "exact"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ExactComparisonPolicy {
+    pub mode: ::std::string::String,
+}
 ///One ordered OpenType variation coordinate.
 ///
 /// <details><summary>JSON schema</summary>
@@ -53,6 +109,39 @@ pub mod error {
 pub struct FontVariationCoordinate {
     pub axis: OpenTypeTag,
     pub value: f64,
+}
+///`NumericComparisonPolicy`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "$ref": "#/$defs/ExactComparisonPolicy"
+///    },
+///    {
+///      "$ref": "#/$defs/AbsoluteToleranceComparisonPolicy"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum NumericComparisonPolicy {
+    ExactComparisonPolicy(ExactComparisonPolicy),
+    AbsoluteToleranceComparisonPolicy(AbsoluteToleranceComparisonPolicy),
+}
+impl ::std::convert::From<ExactComparisonPolicy> for NumericComparisonPolicy {
+    fn from(value: ExactComparisonPolicy) -> Self {
+        Self::ExactComparisonPolicy(value)
+    }
+}
+impl ::std::convert::From<AbsoluteToleranceComparisonPolicy> for NumericComparisonPolicy {
+    fn from(value: AbsoluteToleranceComparisonPolicy) -> Self {
+        Self::AbsoluteToleranceComparisonPolicy(value)
+    }
 }
 ///Four-byte OpenType variation or feature tag.
 ///
@@ -200,26 +289,26 @@ impl ::std::convert::From<OutlineClose> for OutlineCommand {
 ///  ],
 ///  "properties": {
 ///    "control1_x": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    },
 ///    "control1_y": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    },
 ///    "control2_x": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    },
 ///    "control2_y": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    },
 ///    "kind": {
 ///      "type": "string",
 ///      "const": "curve_to"
 ///    },
 ///    "x": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    },
 ///    "y": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -229,13 +318,13 @@ impl ::std::convert::From<OutlineClose> for OutlineCommand {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct OutlineCurveTo {
-    pub control1_x: crate::JavaScriptSafeInteger,
-    pub control1_y: crate::JavaScriptSafeInteger,
-    pub control2_x: crate::JavaScriptSafeInteger,
-    pub control2_y: crate::JavaScriptSafeInteger,
+    pub control1_x: f64,
+    pub control1_y: f64,
+    pub control2_x: f64,
+    pub control2_y: f64,
     pub kind: ::std::string::String,
-    pub x: crate::JavaScriptSafeInteger,
-    pub y: crate::JavaScriptSafeInteger,
+    pub x: f64,
+    pub y: f64,
 }
 ///`OutlineLineTo`
 ///
@@ -255,10 +344,10 @@ pub struct OutlineCurveTo {
 ///      "const": "line_to"
 ///    },
 ///    "x": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    },
 ///    "y": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -269,8 +358,8 @@ pub struct OutlineCurveTo {
 #[serde(deny_unknown_fields)]
 pub struct OutlineLineTo {
     pub kind: ::std::string::String,
-    pub x: crate::JavaScriptSafeInteger,
-    pub y: crate::JavaScriptSafeInteger,
+    pub x: f64,
+    pub y: f64,
 }
 ///`OutlineMoveTo`
 ///
@@ -290,10 +379,10 @@ pub struct OutlineLineTo {
 ///      "const": "move_to"
 ///    },
 ///    "x": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    },
 ///    "y": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -304,8 +393,8 @@ pub struct OutlineLineTo {
 #[serde(deny_unknown_fields)]
 pub struct OutlineMoveTo {
     pub kind: ::std::string::String,
-    pub x: crate::JavaScriptSafeInteger,
-    pub y: crate::JavaScriptSafeInteger,
+    pub x: f64,
+    pub y: f64,
 }
 ///`OutlineQuadTo`
 ///
@@ -323,20 +412,20 @@ pub struct OutlineMoveTo {
 ///  ],
 ///  "properties": {
 ///    "control_x": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    },
 ///    "control_y": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    },
 ///    "kind": {
 ///      "type": "string",
 ///      "const": "quad_to"
 ///    },
 ///    "x": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    },
 ///    "y": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "type": "number"
 ///    }
 ///  },
 ///  "additionalProperties": false
@@ -346,11 +435,11 @@ pub struct OutlineMoveTo {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct OutlineQuadTo {
-    pub control_x: crate::JavaScriptSafeInteger,
-    pub control_y: crate::JavaScriptSafeInteger,
+    pub control_x: f64,
+    pub control_y: f64,
     pub kind: ::std::string::String,
-    pub x: crate::JavaScriptSafeInteger,
-    pub y: crate::JavaScriptSafeInteger,
+    pub x: f64,
+    pub y: f64,
 }
 ///Raw glyph outline oracle in font units, separate from shaping and placement.
 ///
@@ -363,7 +452,10 @@ pub struct OutlineQuadTo {
 ///  "description": "Raw glyph outline oracle in font units, separate from shaping and placement.",
 ///  "type": "object",
 ///  "required": [
+///    "case_id",
 ///    "commands",
+///    "comparison",
+///    "coordinate_format",
 ///    "face_index",
 ///    "font_id",
 ///    "font_sha256",
@@ -375,11 +467,21 @@ pub struct OutlineQuadTo {
 ///    "version"
 ///  ],
 ///  "properties": {
+///    "case_id": {
+///      "type": "string"
+///    },
 ///    "commands": {
 ///      "type": "array",
 ///      "items": {
 ///        "$ref": "#/$defs/OutlineCommand"
 ///      }
+///    },
+///    "comparison": {
+///      "$ref": "#/$defs/NumericComparisonPolicy"
+///    },
+///    "coordinate_format": {
+///      "type": "string",
+///      "const": "font_design_units_f64"
 ///    },
 ///    "face_index": {
 ///      "type": "integer",
@@ -428,7 +530,10 @@ pub struct OutlineQuadTo {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct OutlineVectorA0 {
+    pub case_id: ::std::string::String,
     pub commands: ::std::vec::Vec<OutlineCommand>,
+    pub comparison: NumericComparisonPolicy,
+    pub coordinate_format: ::std::string::String,
     pub face_index: u32,
     pub font_id: ::std::string::String,
     pub font_sha256: Sha256Hex,

@@ -24,6 +24,108 @@ pub mod error {
         }
     }
 }
+///`DefaultIgnorablePolicy`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "normal",
+///    "preserve",
+///    "remove"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum DefaultIgnorablePolicy {
+    #[serde(rename = "normal")]
+    Normal,
+    #[serde(rename = "preserve")]
+    Preserve,
+    #[serde(rename = "remove")]
+    Remove,
+}
+impl ::std::fmt::Display for DefaultIgnorablePolicy {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Normal => f.write_str("normal"),
+            Self::Preserve => f.write_str("preserve"),
+            Self::Remove => f.write_str("remove"),
+        }
+    }
+}
+impl ::std::str::FromStr for DefaultIgnorablePolicy {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "normal" => Ok(Self::Normal),
+            "preserve" => Ok(Self::Preserve),
+            "remove" => Ok(Self::Remove),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for DefaultIgnorablePolicy {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for DefaultIgnorablePolicy {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for DefaultIgnorablePolicy {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`ExactComparisonPolicy`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "mode"
+///  ],
+///  "properties": {
+///    "mode": {
+///      "type": "string",
+///      "const": "exact"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ExactComparisonPolicy {
+    pub mode: ::std::string::String,
+}
 ///One ordered OpenType variation coordinate.
 ///
 /// <details><summary>JSON schema</summary>
@@ -209,6 +311,138 @@ pub struct ShapedGlyph {
     pub y_advance: crate::JavaScriptSafeInteger,
     pub y_offset: crate::JavaScriptSafeInteger,
 }
+///Explicit HarfBuzz buffer state; no ambient library defaults are implied.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Explicit HarfBuzz buffer state; no ambient library defaults are implied.",
+///  "type": "object",
+///  "required": [
+///    "beginning_of_text",
+///    "cluster_level",
+///    "default_ignorables",
+///    "do_not_insert_dotted_circle",
+///    "end_of_text",
+///    "produce_safe_to_insert_tatweel",
+///    "produce_unsafe_to_concat"
+///  ],
+///  "properties": {
+///    "beginning_of_text": {
+///      "type": "boolean"
+///    },
+///    "cluster_level": {
+///      "$ref": "#/$defs/ShapingClusterLevel"
+///    },
+///    "default_ignorables": {
+///      "$ref": "#/$defs/DefaultIgnorablePolicy"
+///    },
+///    "do_not_insert_dotted_circle": {
+///      "type": "boolean"
+///    },
+///    "end_of_text": {
+///      "type": "boolean"
+///    },
+///    "produce_safe_to_insert_tatweel": {
+///      "type": "boolean"
+///    },
+///    "produce_unsafe_to_concat": {
+///      "type": "boolean"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ShapingBufferProperties {
+    pub beginning_of_text: bool,
+    pub cluster_level: ShapingClusterLevel,
+    pub default_ignorables: DefaultIgnorablePolicy,
+    pub do_not_insert_dotted_circle: bool,
+    pub end_of_text: bool,
+    pub produce_safe_to_insert_tatweel: bool,
+    pub produce_unsafe_to_concat: bool,
+}
+///`ShapingClusterLevel`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "enum": [
+///    "monotone_graphemes",
+///    "monotone_characters",
+///    "characters"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum ShapingClusterLevel {
+    #[serde(rename = "monotone_graphemes")]
+    MonotoneGraphemes,
+    #[serde(rename = "monotone_characters")]
+    MonotoneCharacters,
+    #[serde(rename = "characters")]
+    Characters,
+}
+impl ::std::fmt::Display for ShapingClusterLevel {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::MonotoneGraphemes => f.write_str("monotone_graphemes"),
+            Self::MonotoneCharacters => f.write_str("monotone_characters"),
+            Self::Characters => f.write_str("characters"),
+        }
+    }
+}
+impl ::std::str::FromStr for ShapingClusterLevel {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "monotone_graphemes" => Ok(Self::MonotoneGraphemes),
+            "monotone_characters" => Ok(Self::MonotoneCharacters),
+            "characters" => Ok(Self::Characters),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ShapingClusterLevel {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for ShapingClusterLevel {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ShapingClusterLevel {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///HarfBuzz-compatible feature range over input scalar indices.
 ///
 /// <details><summary>JSON schema</summary>
@@ -264,6 +498,7 @@ pub struct ShapingFeature {
 ///  "description": "Complete deterministic shaping input retained with an oracle record.",
 ///  "type": "object",
 ///  "required": [
+///    "buffer_properties",
 ///    "direction",
 ///    "face_index",
 ///    "features",
@@ -275,6 +510,9 @@ pub struct ShapingFeature {
 ///    "variations"
 ///  ],
 ///  "properties": {
+///    "buffer_properties": {
+///      "$ref": "#/$defs/ShapingBufferProperties"
+///    },
 ///    "direction": {
 ///      "$ref": "#/$defs/TextDirection"
 ///    },
@@ -324,6 +562,7 @@ pub struct ShapingFeature {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ShapingInput {
+    pub buffer_properties: ShapingBufferProperties,
     pub direction: TextDirection,
     pub face_index: u32,
     pub features: ::std::vec::Vec<ShapingFeature>,
@@ -349,6 +588,8 @@ pub struct ShapingInput {
 ///  "description": "Intermediate shaping oracle, intentionally separate from glyph outlines.",
 ///  "type": "object",
 ///  "required": [
+///    "case_id",
+///    "comparison",
 ///    "glyphs",
 ///    "input",
 ///    "schema",
@@ -356,6 +597,12 @@ pub struct ShapingInput {
 ///    "version"
 ///  ],
 ///  "properties": {
+///    "case_id": {
+///      "type": "string"
+///    },
+///    "comparison": {
+///      "$ref": "#/$defs/ExactComparisonPolicy"
+///    },
 ///    "glyphs": {
 ///      "type": "array",
 ///      "items": {
@@ -385,6 +632,8 @@ pub struct ShapingInput {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ShapingRecordA0 {
+    pub case_id: ::std::string::String,
+    pub comparison: ExactComparisonPolicy,
     pub glyphs: ::std::vec::Vec<ShapedGlyph>,
     pub input: ShapingInput,
     pub schema: ::std::string::String,

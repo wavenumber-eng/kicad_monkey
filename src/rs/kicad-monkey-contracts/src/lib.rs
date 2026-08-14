@@ -16,7 +16,8 @@ pub use compiled_graph_contract::{
     validate_compiled_schematic_graph_contract,
 };
 pub use font_bundle_contract::{
-    FontBundleLimits, resolve_font_selection_contract, validate_font_bundle_contract,
+    FontBundleLimits, FontResolutionLimits, ValidatedFontBundle, resolve_font_selection_contract,
+    validate_font_bundle_contract,
 };
 pub use source_bundle_contract::{
     SourceBundleDecodeError, decode_source_bundle_manifest_a0,
@@ -93,6 +94,56 @@ impl fmt::Display for JavaScriptSafeIntegerError {
 }
 
 impl std::error::Error for JavaScriptSafeIntegerError {}
+
+/// Finite nonnegative floating-point value used for governed comparison tolerances.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+#[serde(transparent)]
+pub struct NonNegativeFiniteFloat(f64);
+
+impl NonNegativeFiniteFloat {
+    pub const fn get(self) -> f64 {
+        self.0
+    }
+}
+
+impl TryFrom<f64> for NonNegativeFiniteFloat {
+    type Error = NonNegativeFiniteFloatError;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        if value.is_finite() && value >= 0.0 {
+            Ok(Self(value))
+        } else {
+            Err(NonNegativeFiniteFloatError { value })
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for NonNegativeFiniteFloat {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = f64::deserialize(deserializer)?;
+        Self::try_from(value).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NonNegativeFiniteFloatError {
+    value: f64,
+}
+
+impl fmt::Display for NonNegativeFiniteFloatError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{} is not a finite nonnegative number",
+            self.value
+        )
+    }
+}
+
+impl std::error::Error for NonNegativeFiniteFloatError {}
 
 /// Validated, payload-exclusive generic node ready for conversion by adapters.
 #[derive(Clone, Debug, PartialEq)]
