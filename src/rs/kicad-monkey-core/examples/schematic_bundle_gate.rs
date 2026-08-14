@@ -2,8 +2,9 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
     SourceBundleManifestA0, SourceBundleSource, SourceKind,
 };
 use kicad_monkey_core::{
-    SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicLabelScope,
-    SchematicPlacedSymbol, SchematicPoint, SchematicSheet, SourceBundle, SourceBundleLimits,
+    SchematicBundleIndex, SchematicBundleLimits, SchematicBusSubgraph, SchematicDefinition,
+    SchematicLabelScope, SchematicPlacedSymbol, SchematicPoint, SchematicSheet, SourceBundle,
+    SourceBundleLimits, build_schematic_bus_subgraphs,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -44,6 +45,26 @@ struct DefinitionSummary {
     no_connects: Vec<MarkerSummary>,
     labels: Vec<LabelSummary>,
     connectivity_components: Vec<Vec<[i64; 2]>>,
+    bus_subgraphs: Vec<BusSubgraphSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct BusSubgraphSummary {
+    coords: Vec<[i64; 2]>,
+    drivers: Vec<BusDriverSummary>,
+    tap_wire_coords: Vec<[i64; 2]>,
+    chosen_name: String,
+    chosen_priority: i8,
+    chosen_kind: String,
+    members: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct BusDriverSummary {
+    text: String,
+    at: [i64; 2],
+    priority: i8,
+    kind: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -314,6 +335,16 @@ fn terminal_summaries(
 }
 
 fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {
+    let mut bus_subgraphs = build_schematic_bus_subgraphs(definition, Default::default())
+        .expect("indexed schematic definition has valid bus connectivity")
+        .iter()
+        .map(bus_subgraph_summary)
+        .collect::<Vec<_>>();
+    bus_subgraphs.sort_by(|left, right| {
+        left.chosen_name
+            .cmp(&right.chosen_name)
+            .then_with(|| left.coords.cmp(&right.coords))
+    });
     DefinitionSummary {
         source_path: definition.source_path.clone(),
         sheets: definition.sheets.iter().map(sheet_summary).collect(),
@@ -398,6 +429,35 @@ fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {
             .components()
             .map(|component| component.iter().copied().map(point_pair).collect())
             .collect(),
+        bus_subgraphs,
+    }
+}
+
+fn bus_subgraph_summary(subgraph: &SchematicBusSubgraph) -> BusSubgraphSummary {
+    BusSubgraphSummary {
+        coords: subgraph.coords.iter().copied().map(point_pair).collect(),
+        drivers: subgraph
+            .drivers
+            .iter()
+            .map(|driver| BusDriverSummary {
+                text: driver.text.clone(),
+                at: point_pair(driver.at),
+                priority: driver.priority as i8,
+                kind: driver.kind.as_str().to_owned(),
+            })
+            .collect(),
+        tap_wire_coords: subgraph
+            .tap_wire_coords
+            .iter()
+            .copied()
+            .map(point_pair)
+            .collect(),
+        chosen_name: subgraph.chosen_name.clone(),
+        chosen_priority: subgraph.chosen_priority as i8,
+        chosen_kind: subgraph
+            .chosen_kind
+            .map_or_else(String::new, |kind| kind.as_str().to_owned()),
+        members: subgraph.members.clone(),
     }
 }
 

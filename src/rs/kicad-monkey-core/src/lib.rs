@@ -16,7 +16,9 @@ pub mod schematic_bundle;
 mod schematic_bundle_indexes;
 mod schematic_bundle_limits;
 pub mod schematic_bus;
+pub mod schematic_bus_connectivity;
 mod schematic_effective;
+mod schematic_segment_index;
 mod schematic_source;
 mod schematic_terminals;
 pub mod sexpr;
@@ -61,6 +63,10 @@ pub use schematic_bus::{
     SchematicBusExpansionError, SchematicBusExpansionErrorKind, SchematicBusExpansionLimits,
     SchematicBusPattern, canonical_bus_member_name, expand_schematic_bus_label,
     is_schematic_bus_label, parse_schematic_bus_group, parse_schematic_bus_vector,
+};
+pub use schematic_bus_connectivity::{
+    SchematicBusConnectivityLimits, SchematicBusDriver, SchematicBusDriverKind,
+    SchematicBusSubgraph, SchematicDriverPriority, build_schematic_bus_subgraphs,
 };
 pub use schematic_effective::SchematicEffectiveSymbol;
 pub use schematic_source::{

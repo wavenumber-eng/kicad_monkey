@@ -9,6 +9,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN
 from pathlib import Path
 
 from kicad_monkey import KiCadDesign
+from kicad_monkey.kicad_bus_connectivity import build_bus_subgraphs
 from kicad_monkey.kicad_netlist_compiler import (
     _resolve_instance_reference,
     _resolve_instance_unit,
@@ -18,6 +19,7 @@ from kicad_monkey.kicad_schematic_connectivity import (
     iter_symbol_pins,
     snap_mm_to_iu,
 )
+from kicad_monkey.kicad_schematic import KiCadSchematic
 from kicad_monkey.kicad_schematic_occurrence import walk_schematic_occurrences
 from kicad_monkey.testing.corpus import (
     get_kicad_corpus_case,
@@ -85,7 +87,7 @@ def _label(value: object, scope: str) -> dict[str, object]:
     }
 
 
-def _definition_summary(schematic: object, bundle_root: Path) -> dict[str, object]:
+def _definition_summary(schematic: KiCadSchematic, bundle_root: Path) -> dict[str, object]:
     graph = ConnectivityGraph()
     for wire in getattr(schematic, "wires", ()):
         graph.add_wire(wire)
@@ -98,6 +100,28 @@ def _definition_summary(schematic: object, bundle_root: Path) -> dict[str, objec
         [sorted([list(point) for point in component]) for component in graph.components()]
     )
     source_path = Path(str(getattr(schematic, "source_path"))).resolve()
+    bus_subgraphs = []
+    for subgraph in build_bus_subgraphs(schematic):
+        bus_subgraphs.append(
+            {
+                "coords": [list(point) for point in sorted(subgraph.coords)],
+                "drivers": [
+                    {
+                        "text": driver.text,
+                        "at": list(driver.coord),
+                        "priority": int(driver.priority),
+                        "kind": str(driver.kind),
+                    }
+                    for driver in subgraph.drivers
+                ],
+                "tap_wire_coords": [list(point) for point in subgraph.tap_wire_coords],
+                "chosen_name": subgraph.chosen_name,
+                "chosen_priority": int(subgraph.chosen_priority),
+                "chosen_kind": str(subgraph.chosen_kind),
+                "members": list(subgraph.members),
+            }
+        )
+    bus_subgraphs.sort(key=lambda value: (value["chosen_name"], value["coords"]))
     return {
         "source_path": source_path.relative_to(bundle_root).as_posix(),
         "sheets": [
@@ -202,6 +226,7 @@ def _definition_summary(schematic: object, bundle_root: Path) -> dict[str, objec
             ],
         ],
         "connectivity_components": components,
+        "bus_subgraphs": bus_subgraphs,
     }
 
 

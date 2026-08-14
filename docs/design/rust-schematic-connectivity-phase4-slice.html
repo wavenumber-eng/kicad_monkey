@@ -35,6 +35,16 @@
   group qualification and alias recursion semantics. Expansion is iterative;
   alias cycles fail closed rather than recursing indefinitely.</p>
 
+  <p><code>build_schematic_bus_subgraphs</code> now realizes the separate KiCad
+  bus-connectivity domain. It groups physically connected bus polylines,
+  classifies each bus-entry endpoint against exact bus and wire geometry,
+  retains the wire-side taps, attaches local/global/hierarchical labels and
+  sheet pins, creates bus-form orphan groups, applies KiCad driver priority and
+  alphabetical/source-order tiebreaks, and expands the selected name. Duplicate
+  aliases deliberately use Python's last-writer visibility. A borrowed alias
+  index is built once per definition compile, so member strings are not copied
+  into every subgraph.</p>
+
   <p>Each definition also exposes embedded library symbols, subsymbol unit/body-style
   identity, and connectivity-relevant pins. A bounded first-writer suffix-key index
   matches KiCad/Python full and basename library lookup without a placement-by-library
@@ -104,6 +114,14 @@
   <code>O(N + sum(p_i log p_i) + P log P)</code>; there is no all-pairs or quadratic
   connectivity scan.</p>
 
+  <p>Bus point/segment queries use a package-owned static bounding-volume index.
+  Its median partition build is <code>O(S log S)</code>, retains each segment
+  once, and exact checked-integer collinearity is evaluated only beneath
+  containing bounding boxes. An aggregate node/candidate-visit budget bounds
+  pathological overlapping boxes; the compiler does not perform the Python
+  implementation's unconditional entry-or-driver by every-segment nested scan.
+  Cross-product overflow is reported instead of wrapping.</p>
+
   <h2>Resource behavior</h2>
   <p>Callers can independently bound wires, buses, bus entries, junctions,
   no-connect markers, and labels, as well as aggregate connectivity objects, points
@@ -131,6 +149,14 @@
   empty alias terminates without consuming a nonexistent child-depth step.
   Vector cardinality is checked before reserving or generating members, so a
   syntactically small extreme range cannot trigger proportional allocation.</p>
+
+  <p>Bus-subgraph compilation independently bounds source segments, index nodes,
+  aggregate query work, alias-index entries, live graph points, taps, drivers,
+  subgraphs, retained output points and strings, and aggregate expanded member
+  count/bytes. Exact aggregate member limits are passed into each expansion, so
+  a later subgraph fails before allocating beyond the remaining allowance.
+  Physical component count and retained-point limits are checked before
+  component vectors are materialized.</p>
 
   <p>The defaults are deliberately large format-safety ceilings, not product-size
   assumptions: four million aggregate objects and per family, one million points in
@@ -170,8 +196,17 @@
   Rust evidence. Rack L3_020 also compares every authored bus alias and member on
   the four real compiled-graph projects.</p>
 
+  <p>The bus-subgraph suite covers midpoint and endpoint attachment, two-sided
+  tap classification, source-order drivers, priority selection, orphan aliases
+  and sheet pins, duplicate-alias visibility, exact checked diagonal geometry,
+  cross-product overflow, and simultaneous exact/one-over resource ceilings.
+  Rack L3_020 compares every normalized bus subgraph, driver, tap, chosen name,
+  priority/kind, and expanded member directly with Python across the same four
+  real projects.</p>
+
   <h2>Deferred work</h2>
-  <p>Bus-subgraph construction/member-tap merging, hierarchy-terminal binding, net naming/merging, graph row production, schematic
+  <p>Bus-member tap merging into the wire domain, local pin/label subgraphs,
+  hierarchy-terminal binding, net naming/merging, graph row production, schematic
   mutation, and semantic round-trip remain in Phase 4. Browser/WASM packaging remains
   deferred by the native-first plan.</p>
 </body>

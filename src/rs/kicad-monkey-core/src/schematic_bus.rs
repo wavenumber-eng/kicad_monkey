@@ -4,20 +4,12 @@ mod contract;
 
 pub use contract::{
     SchematicBusExpansionError, SchematicBusExpansionErrorKind, SchematicBusExpansionLimits,
+    SchematicBusPattern, canonical_bus_member_name,
 };
 
+use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SchematicBusPattern {
-    pub prefix: String,
-    pub members: Vec<String>,
-}
-
-/// Normalize the escaped slash form used by KiCad net names for matching.
-pub fn canonical_bus_member_name(text: &str) -> String {
-    text.replace("{slash}", "/")
-}
+use std::hash::{BuildHasher, Hash};
 
 pub fn parse_schematic_bus_vector(
     text: &str,
@@ -113,6 +105,19 @@ pub fn expand_schematic_bus_label(
     aliases: &HashMap<String, Vec<String>>,
     limits: SchematicBusExpansionLimits,
 ) -> Result<Vec<String>, SchematicBusExpansionError> {
+    expand_schematic_bus_label_from_map(text, aliases, limits)
+}
+
+pub(crate) fn expand_schematic_bus_label_from_map<K, V, S>(
+    text: &str,
+    aliases: &HashMap<K, V, S>,
+    limits: SchematicBusExpansionLimits,
+) -> Result<Vec<String>, SchematicBusExpansionError>
+where
+    K: Borrow<str> + Eq + Hash,
+    V: AsRef<[String]>,
+    S: BuildHasher,
+{
     check_input(text, limits)?;
     ExpansionState {
         aliases,
@@ -126,8 +131,8 @@ pub fn expand_schematic_bus_label(
     .run(text)
 }
 
-struct ExpansionState<'a> {
-    aliases: &'a HashMap<String, Vec<String>>,
+struct ExpansionState<'a, K, V, S> {
+    aliases: &'a HashMap<K, V, S>,
     limits: SchematicBusExpansionLimits,
     output: Vec<String>,
     output_bytes: usize,
@@ -136,7 +141,12 @@ struct ExpansionState<'a> {
     stack: Vec<ExpansionTask<'a>>,
 }
 
-impl<'a> ExpansionState<'a> {
+impl<'a, K, V, S> ExpansionState<'a, K, V, S>
+where
+    K: Borrow<str> + Eq + Hash,
+    V: AsRef<[String]>,
+    S: BuildHasher,
+{
     fn run(mut self, text: &str) -> Result<Vec<String>, SchematicBusExpansionError> {
         self.push_borrowed_expand(text, "", 0)?;
         while let Some(task) = self.stack.pop() {
@@ -165,13 +175,15 @@ impl<'a> ExpansionState<'a> {
             return Err(resource_error("bus expansion nesting exceeds its limit"));
         }
         check_input(&text, self.limits)?;
-        if let Some((alias_name, members)) = self.aliases.get_key_value(&text) {
+        if let Some((alias_name, members)) = self.aliases.get_key_value(text.as_str()) {
+            let alias_name = alias_name.borrow();
+            let members = members.as_ref();
             if members.is_empty() {
                 return Ok(());
             }
             let child_depth = self.child_depth(depth)?;
             self.preflight_members(members, qualifier.len(), 1)?;
-            if !self.active_aliases.insert(alias_name.as_str()) {
+            if !self.active_aliases.insert(alias_name) {
                 return Err(SchematicBusExpansionError {
                     kind: SchematicBusExpansionErrorKind::AliasCycle,
                     message: format!("bus alias cycle includes {text:?}"),

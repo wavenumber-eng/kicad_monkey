@@ -47,3 +47,14 @@ impl fmt::Display for SchematicBusExpansionError {
 }
 
 impl Error for SchematicBusExpansionError {}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SchematicBusPattern {
+    pub prefix: String,
+    pub members: Vec<String>,
+}
+
+/// Normalize the escaped slash form used by KiCad net names for matching.
+pub fn canonical_bus_member_name(text: &str) -> String {
+    text.replace("{slash}", "/")
+}
