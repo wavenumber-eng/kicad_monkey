@@ -63,6 +63,10 @@ Current design notes:
 - `rust-font-text-contracts.html` - TypeSpec-owned out-of-band font bundles,
   deterministic selection, and independently attributable shaping and outline
   oracle records.
+- `rust-native-text-shaping.html` - accepted native HarfRust shaping parity,
+  fixed records, resource policy, and explicit version-bound flag evidence.
+- `rust-native-font-outlines.html` - proposed bounded native TTF/gvar/CFF
+  outline extraction and deterministic FontTools parity evidence.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

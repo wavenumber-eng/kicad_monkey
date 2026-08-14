@@ -22,6 +22,7 @@ read-fonts.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+ttf-parser.workspace = true
 unicode-casefold.workspace = true
 
 [[example]]

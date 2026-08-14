@@ -8,6 +8,7 @@
 
 pub mod compiled_schematic_graph;
 pub mod document_metadata;
+pub mod font_outline;
 pub mod footprint;
 pub mod kicad_netlist;
 pub mod pcb;
@@ -45,6 +46,10 @@ pub use compiled_schematic_graph::{
     validate_compiled_schematic_graph,
 };
 pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
+pub use font_outline::{
+    FONT_OUTLINE_ENGINE, FontOutlineError, FontOutlineErrorKind, FontOutlineLimits,
+    FontOutlineOutput, FontOutlineRequest, extract_font_outline_a0,
+};
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use kicad_netlist::{
     KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetlist, KiCadNetlistComponent,

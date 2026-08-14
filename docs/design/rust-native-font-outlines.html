@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust native font outlines</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust native font outlines</h1>
+
+  <p>Status: proposed. This slice extracts unscaled glyph outlines from
+  caller-supplied OpenType bytes. It is deliberately separate from shaping,
+  text placement, KiCad render-cache construction, system-font discovery, and
+  browser packaging.</p>
+
+  <h2>Dependency and boundary decision</h2>
+  <p>The implementation uses <code>ttf-parser 0.25.1</code> for safe,
+  read-only OpenType parsing and outline callbacks. It supports TrueType
+  <code>glyf</code>/<code>gvar</code> and PostScript
+  <code>CFF</code>/<code>CFF2</code> outlines without exposing its face,
+  glyph, tag, or builder types from <code>kicad-monkey-core</code>. The public
+  boundary remains a package-owned request, limits, stable error category, and
+  generated TypeSpec command union. The crate continues to forbid
+  package-owned unsafe code.</p>
+
+  <p>This is an appropriate mature dependency rather than an in-house font
+  parser: the security-sensitive binary-table work spans multiple OpenType
+  outline formats and variation tables. The package still owns validation,
+  resource policy, command publication, parity vectors, and all KiCad-specific
+  transforms. No shaping or rendering framework was added.</p>
+
+  <h2>Coordinate and command semantics</h2>
+  <p><code>extract_font_outline_a0</code> verifies the out-of-band font hash,
+  parses the requested face, validates unique variation tags against the
+  face's indexed axes, applies finite coordinates, and extracts one OpenType
+  <code>uint16</code> glyph ID. It returns native move, line, quadratic,
+  cubic, and close commands in unscaled font design units plus units per em.
+  It performs no Y inversion, KiCad internal-unit scaling, flattening, stroke,
+  fill, placement, or shaping.</p>
+
+  <p>The language-neutral oracle uses FontTools' atomic BasePen quadratic and
+  cubic callbacks. For TrueType <code>glyf</code>, the implicit closing edge is
+  emitted as an explicit line before close to match the parser's callback
+  stream. CFF retains its native close callback behavior. Integer records use
+  exact comparison; variation and CFF records permit only the declared small
+  absolute coordinate tolerance.</p>
+
+  <h2>Resource and failure policy</h2>
+  <p>Caller-selected font-byte, metadata-byte, variation-count, and
+  command-count ceilings are inclusive. Defaults are permissive safety
+  ceilings—256 MiB of font input and over sixteen million commands—not KiCad
+  compatibility restrictions. Font and metadata limits are checked before
+  hashing or parsing. The callback builder retains at most
+  <code>max_commands</code>; additional callbacks only mark the operation as
+  exceeded, and the operation returns a resource-limit error without
+  publishing partial commands.</p>
+
+  <p>Hash mismatch, invalid face, contract metadata, unsupported variation
+  axis, out-of-range glyph ID, missing outline, and resource exhaustion have
+  stable categories. The parser may continue walking the selected glyph after
+  the command ceiling is reached because its callback cannot cancel; retained
+  memory remains bounded by the ceiling and work remains bounded by the
+  already-preflighted font and one glyph.</p>
+
+  <h2>Evidence and deferrals</h2>
+  <p>The fixed corpus includes the tracked KiCad stroke TTF, a deterministic
+  in-house quadratic variable TTF whose <code>wght</code> coordinate changes a
+  real control point, and a deterministic cubic CFF OTF. Rack validates every
+  record through generated schema and Python decoding, verifies exact font
+  hashes and deterministic regeneration, and runs the focused Rust suite.
+  CFF2, collections with a nonzero face index, composite-glyph-specific
+  fixtures, production variable fonts, shaping-to-outline composition, final
+  render-cache parity, and WASM packaging remain separate expansion work.</p>
+</body>
+</html>

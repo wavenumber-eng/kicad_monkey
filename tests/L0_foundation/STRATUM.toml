@@ -254,3 +254,22 @@ secondary = [
     "Input and publication resource ceilings fail closed",
     "The Python oracle generator is deterministic and the focused Rust suite passes",
 ]
+
+[[subtests]]
+id = "L0_054"
+file = "test_L0_054_native_font_outlines.py"
+name = "Native Font Outline Parity"
+description = "Require bounded native TTF, variable-glyf, and CFF outline parity"
+concerns = ["rust", "rendering.text", "fonts", "parity"]
+test_cases = "tests/parity/font_outline_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native safe-Rust outline extraction matches fixed FontTools design-unit records"
+secondary = [
+    "Tracked KiCad stroke, quadratic glyf, gvar, and cubic CFF paths are behavioral evidence",
+    "Font bytes remain out of band and SHA-256 exact",
+    "Font, metadata, variation, and command ceilings fail closed",
+    "Unknown faces, glyphs, axes, and duplicate axes have stable failures",
+    "The Python oracle generator is deterministic and the focused Rust suite passes",
+]
