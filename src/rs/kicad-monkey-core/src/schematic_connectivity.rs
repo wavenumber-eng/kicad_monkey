@@ -73,7 +73,7 @@ pub fn build_schematic_occurrence_subgraphs(
     build_schematic_occurrence_subgraphs_with_settings(
         index,
         occurrence_index,
-        SchematicSubpartSettings::default(),
+        index.subpart_settings(),
         limits,
     )
 }

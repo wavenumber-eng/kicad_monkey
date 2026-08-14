@@ -2,7 +2,7 @@ use super::*;
 use crate::schematic_design::{SchematicCompiledDesign, build_schematic_compiled_design};
 use crate::{
     SchematicDesignNet, SchematicGraphicalIds, SchematicHierarchyNetBinding,
-    SchematicSubpartSettings, SchematicWireDriverKind, SchematicWireSubgraph,
+    SchematicWireDriverKind, SchematicWireSubgraph,
 };
 use kicad_monkey_contracts::generated::compiled_schematic_graph::{
     HierarchyTerminalBinding, LocalNetOccurrence, ResolutionDiagnostic, TerminalOccurrence,
@@ -86,7 +86,7 @@ impl StructuralGraphBuilder<'_> {
         } = build_schematic_compiled_design(
             self.index,
             1,
-            SchematicSubpartSettings::default(),
+            self.index.subpart_settings(),
             self.limits.design,
         )?;
         let mut net_by_member = HashMap::new();

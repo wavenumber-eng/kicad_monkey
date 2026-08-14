@@ -153,6 +153,23 @@ UUIDLESS_SHEET_PIN_CHILD = """(kicad_sch
   (uuid uuidless-child))
 """
 
+PROJECT_SUBPART_ROOT = """(kicad_sch
+  (uuid project-settings-root)
+  (lib_symbols
+    (symbol "Demo:Multi"
+      (symbol "Demo:Multi_1_1"
+        (pin bidirectional line (at 0 0 0) (name "IO") (number "1")))
+      (symbol "Demo:Multi_2_1"
+        (pin bidirectional line (at 0 0 0) (name "ALT") (number "2")))))
+  (symbol (lib_id "Demo:Multi") (lib_name "Demo:Multi")
+    (at 0 0 0) (unit 1) (uuid configured-symbol)
+    (property "Reference" "U1") (property "Value" "Multi")))
+"""
+
+PROJECT_SUBPART_SETTINGS = (
+    '{"schematic":{"subpart_first_id":49,"subpart_id_separator":45}}\n'
+)
+
 
 def _point(x_mm: float, y_mm: float) -> list[int]:
     return list(snap_mm_to_iu(x_mm, y_mm))
@@ -803,13 +820,16 @@ def _run_native_bundle_requests(requests: list[dict[str, object]]) -> list[dict[
 
 
 def _synthetic_bus_request(
-    case_root: Path, root_source: str, child_source: str
+    case_root: Path,
+    root_source: str,
+    child_source: str,
+    project_source: str = "{}\n",
 ) -> tuple[dict[str, object], dict[str, object]]:
     case_root.mkdir()
     project_path = case_root / "demo.kicad_pro"
     root_path = case_root / "demo.kicad_sch"
     child_path = case_root / "child.kicad_sch"
-    project_path.write_text("{}\n", encoding="utf-8")
+    project_path.write_text(project_source, encoding="utf-8")
     root_path.write_text(root_source, encoding="utf-8")
     child_path.write_text(child_source, encoding="utf-8")
     design = KiCadDesign.from_project_file(project_path)
@@ -825,10 +845,13 @@ def _synthetic_bus_request(
 
 
 def _synthetic_graph_request(
-    case_root: Path, root_source: str, child_source: str
+    case_root: Path,
+    root_source: str,
+    child_source: str,
+    project_source: str = "{}\n",
 ) -> tuple[dict[str, object], dict[str, object]]:
     request, _scalar_design = _synthetic_bus_request(
-        case_root, root_source, child_source
+        case_root, root_source, child_source, project_source
     )
     project_path = Path(cast(str, request["project_path"]))
     expected = build_compiled_schematic_graph(
@@ -889,6 +912,21 @@ def test_two_uuidless_sheet_pins_keep_distinct_graph_identity(tmp_path: Path) ->
     sheet_entries = [row for row in terminals if row["role"] == "sheet_entry"]
     assert len(sheet_entries) == 2
     assert len({cast(str, row["id"]) for row in sheet_entries}) == 2
+
+
+def test_project_subpart_settings_drive_complete_graph_parity(tmp_path: Path) -> None:
+    request, expected = _synthetic_graph_request(
+        tmp_path / "project-subparts",
+        PROJECT_SUBPART_ROOT,
+        "(kicad_sch (uuid unused-child))\n",
+        PROJECT_SUBPART_SETTINGS,
+    )
+    actual = cast(
+        dict[str, object], _run_native_bundle_requests([request])[0]["compiled_graph"]
+    )
+    assert actual == expected, _first_difference(actual, expected)
+    local_nets = cast(list[dict[str, object]], actual["local_net_occurrences"])
+    assert local_nets[0]["display_name"] == "unconnected-(U1-1-IO-Pad1)"
 
 
 def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:

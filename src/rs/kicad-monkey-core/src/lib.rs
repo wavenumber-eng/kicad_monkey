@@ -21,6 +21,7 @@ pub mod schematic_connectivity;
 pub mod schematic_design;
 mod schematic_effective;
 pub mod schematic_netlist;
+mod schematic_project;
 mod schematic_segment_index;
 mod schematic_source;
 mod schematic_terminals;

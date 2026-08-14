@@ -97,6 +97,41 @@ fn auto_names_use_duplicate_pin_names_units_and_source_pin_identity() {
 }
 
 #[test]
+fn project_subpart_settings_drive_default_native_compilation_and_fail_closed() {
+    let root = br#"(kicad_sch
+      (uuid root)
+      (lib_symbols
+        (symbol "Demo:Multi"
+          (symbol "Demo:Multi_1_1"
+            (pin bidirectional line (at 0 0 0) (name "IO") (number "1")))
+          (symbol "Demo:Multi_2_1"
+            (pin bidirectional line (at 0 0 0) (name "ALT") (number "2")))))
+      (symbol (lib_id "Demo:Multi") (lib_name "Demo:Multi")
+        (at 0 0 0) (unit 1) (uuid placed)
+        (property "Reference" "U1") (property "Value" "Multi")))"#;
+    let project = br#"{"schematic":{"subpart_first_id":49,"subpart_id_separator":45}}"#;
+    let index = index_with_project(project, root).expect("project-owned subpart settings");
+    assert_eq!(
+        index.subpart_settings(),
+        SchematicSubpartSettings {
+            first_id: u32::from(b'1'),
+            separator: u32::from(b'-'),
+        }
+    );
+    let nets = build_schematic_occurrence_nets(&index, 1, 1, Default::default())
+        .expect("project-configured default compilation");
+    assert_eq!(nets[0].name, "unconnected-(U1-1-IO-Pad1)");
+
+    for malformed in [
+        br#"{"schematic":{"subpart_first_id":"A"}}"#.as_slice(),
+        br#"{"schematic":{"subpart_id_separator":-1}}"#.as_slice(),
+    ] {
+        let error = index_with_project(malformed, root).expect_err("invalid project setting");
+        assert_eq!(error.kind, SourceBundleErrorKind::Project);
+    }
+}
+
+#[test]
 fn isolated_and_named_multi_pin_auto_names_follow_kicad_quality_rules() {
     let index = index(
         br#"(kicad_sch
@@ -353,7 +388,14 @@ fn losing_auto_name_candidates_are_transient_and_code_ranges_preflight() {
 }
 
 fn index(root: &[u8]) -> SchematicBundleIndex {
-    let project = b"{}".to_vec();
+    index_with_project(b"{}", root).expect("schematic bundle index")
+}
+
+fn index_with_project(
+    project: &[u8],
+    root: &[u8],
+) -> Result<SchematicBundleIndex, kicad_monkey_core::SourceBundleError> {
+    let project = project.to_vec();
     let root = root.to_vec();
     let sources = vec![
         descriptor("design/demo.kicad_pro", SourceKind::Project, 0, &project),
@@ -373,7 +415,6 @@ fn index(root: &[u8]) -> SchematicBundleIndex {
     )
     .expect("source bundle");
     SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
-        .expect("schematic bundle index")
 }
 
 fn descriptor(path: &str, kind: SourceKind, slot: u32, bytes: &[u8]) -> SourceBundleSource {

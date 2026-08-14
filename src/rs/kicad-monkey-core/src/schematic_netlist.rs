@@ -58,7 +58,7 @@ pub fn build_schematic_occurrence_nets(
         index,
         occurrence_index,
         code_offset,
-        SchematicSubpartSettings::default(),
+        index.subpart_settings(),
         limits,
     )
 }

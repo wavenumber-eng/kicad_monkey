@@ -711,7 +711,13 @@ def build_compiled_schematic_graph(
     )
     identity_allocator = SchCompiledSchematicGraphIdentityAllocator(design_scope=scope)
     graph = KiCadCompiledSchematicGraph()
-    compiled = compile_design_subgraphs(top, include_off_board=True)
+    subpart_first_id, subpart_id_separator = _design_subpart_settings(design)
+    compiled = compile_design_subgraphs(
+        top,
+        subpart_first_id=subpart_first_id,
+        subpart_id_separator=subpart_id_separator,
+        include_off_board=True,
+    )
     merge_design_nets(compiled)
     legacy_refs = _build_legacy_instance_lookup(compiled)
     legacy_units = _build_legacy_unit_lookup(compiled)
@@ -890,6 +896,21 @@ def build_compiled_schematic_graph(
     )
     validate_compiled_schematic_graph(graph.to_json())
     return graph
+
+
+def _design_subpart_settings(design: "KiCadDesign") -> tuple[int, int]:
+    first_id = ord("A")
+    separator = 0
+    project = design.project
+    if project is None:
+        return first_id, separator
+    value = project.get_path("schematic.subpart_first_id")
+    if isinstance(value, int):
+        first_id = value
+    value = project.get_path("schematic.subpart_id_separator")
+    if isinstance(value, int):
+        separator = value
+    return first_id, separator
 
 
 def _add_hierarchy_bindings(

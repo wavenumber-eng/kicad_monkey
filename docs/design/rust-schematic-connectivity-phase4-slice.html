@@ -265,6 +265,13 @@
   be tightened by untrusted-input adapters without imposing small arbitrary limits on
   native KiCad projects.</p>
 
+  <p>Default occurrence, scalar-design, and compiled-graph entry points use the
+  owning bundle's project schematic subpart settings. The project decoder streams
+  only the typed <code>schematic</code> fields through Serde and ignores unrelated
+  project sections without materializing a generic JSON tree. Missing settings use
+  KiCad's <code>A</code>/no-separator defaults; malformed types and values outside
+  <code>u32</code> fail with a project-scoped diagnostic.</p>
+
   <h2>Evidence</h2>
   <p>The focused Rust suite covers all carrier families, label scope/shape, exact
   connected and disconnected components, bus-entry non-union, absent no-connect graph
@@ -355,7 +362,7 @@
   driver is retained and when graphical ownership is emitted.</p>
 
   <h2>Deferred work</h2>
-  <p>Project-file subpart setting ingestion, schematic mutation, and semantic
+  <p>Schematic mutation and semantic
   round-trip remain in Phase 4. Browser/WASM packaging remains deferred by the
   native-first plan.</p>
 </body>

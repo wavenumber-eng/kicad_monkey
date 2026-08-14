@@ -91,6 +91,7 @@ pub struct SchematicBundleIndex {
     project_name: String,
     project_file: String,
     source_anchor: String,
+    subpart_settings: crate::SchematicSubpartSettings,
     definitions: Vec<SchematicDefinition>,
     definition_by_path: HashMap<String, usize>,
     occurrences: Vec<SchematicOccurrence>,
@@ -141,6 +142,7 @@ impl SchematicBundleIndex {
                 .map_or_else(String::new, portable_file_stem),
             project_file: portable_file_name(identity_path).to_owned(),
             source_anchor: portable_parent(identity_path).to_owned(),
+            subpart_settings: crate::schematic_project::project_subpart_settings(bundle.project())?,
             definitions,
             definition_by_path,
             occurrences,
@@ -150,6 +152,10 @@ impl SchematicBundleIndex {
 
     pub fn definitions(&self) -> impl ExactSizeIterator<Item = &SchematicDefinition> {
         self.definitions.iter()
+    }
+
+    pub fn subpart_settings(&self) -> crate::SchematicSubpartSettings {
+        self.subpart_settings
     }
 
     pub fn definition(&self, source_path: &str) -> Option<&SchematicDefinition> {

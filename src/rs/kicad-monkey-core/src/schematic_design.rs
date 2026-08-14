@@ -30,7 +30,7 @@ pub fn build_schematic_scalar_design_nets(
     build_schematic_scalar_design_nets_with_settings(
         index,
         code_offset,
-        SchematicSubpartSettings::default(),
+        index.subpart_settings(),
         limits,
     )
 }
