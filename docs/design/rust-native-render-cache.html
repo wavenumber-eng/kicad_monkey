@@ -222,7 +222,15 @@
   <p><code>fracture_text_contours_a0</code> trims one repeated closing point,
   ignores contours with fewer than three retained points, assigns later
   contours to the first containing exterior, and bridges holes using the
-  deterministic leftmost-edge ordering of the Python KiCad reference. The
+  deterministic leftmost-edge ordering of the Python KiCad reference. Holes
+  bridge in ascending (min&nbsp;x, min&nbsp;y) order, matching KiCad's
+  <code>fractureSingleCacheFriendly</code> path sort. Each hole bridges at its
+  leftmost point, tie-broken to the largest y: KiCad scans for the first
+  stored point at the strict minimum x, and <code>Fracture()</code>'s Clipper2
+  <code>Simplify()</code> emits hole rings starting just past the min-y run
+  exit, so a vertical hole left edge bridges at its bottom vertex. Live
+  double-hole (Arial <code>B</code>) and vertical-left-edge-hole (Arial
+  <code>D</code>) save-oracle cases pin this. The
   pairwise containment and prior-edge bridge scans have independent work
   ceilings; input points, edge slots, link traversal, polygons, and published
   points are also bounded. Finite comparisons intentionally preserve Python's
@@ -253,12 +261,13 @@
   <p>The current render-cache strata now establish live KiCad save-oracle
   parity for representative plain single-line, multiline, tabbed, and explicit
   line-spacing, right-aligned, kerning, whitespace, and markup Arial text,
-  plus fake bold/italic synthesis on Impact and the real-bold Arial face.
+  plus fake bold/italic synthesis on Impact and the real-bold Arial face, and
+  double-hole and vertical-left-edge hole fracture ordering.
   They do not yet claim broad font and composite-glyph
   coverage, or repository-local corpus coverage. A known gap sits in that
-  broad-glyph row: double-hole glyphs such as Arial <code>B</code> fracture
-  with a different hole-bridge order than the KiCad save oracle, so live cases
-  avoid them until the fracture ordering is aligned. Those remain active parts
+  broad-glyph row: Arial <code>%</code> disagrees with the save oracle on
+  contour point counts, pointing at unported <code>Simplify()</code> geometry
+  cleanup rather than fracture ordering. Those remain active parts
   of <code>render-cache-parity</code>, not deferred packaging work. Font
   discovery stays native-only and outside the platform-neutral byte-input
   core; WASM packaging remains in its later selected-operation phase.</p>

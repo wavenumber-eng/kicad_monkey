@@ -290,6 +290,12 @@ fn fracture_polygon(
 
 fn path_info(contours: &[TextContour], contour: usize, start: usize) -> PathInfo {
     let points = &contours[contour].points;
+    // KiCad's `fractureSingleCacheFriendly()` bridges each hole at the first
+    // stored point whose x equals the hole's minimum (strict `<` scan, no
+    // tie-break).  The stored order comes from `Fracture()`'s Clipper2
+    // `Simplify()`, whose hole rings start just past the min-y run exit,
+    // placing the bottom-left vertex first.  A vertical hole left edge
+    // therefore bridges at the leftmost point with the largest y.
     let leftmost = (0..points.len())
         .min_by(|&left, &right| {
             path_point(points, start, left)
@@ -297,9 +303,9 @@ fn path_info(contours: &[TextContour], contour: usize, start: usize) -> PathInfo
                 .partial_cmp(&path_point(points, start, right).x)
                 .expect("validated coordinates are finite")
                 .then_with(|| {
-                    path_point(points, start, left)
+                    path_point(points, start, right)
                         .y
-                        .partial_cmp(&path_point(points, start, right).y)
+                        .partial_cmp(&path_point(points, start, left).y)
                         .expect("validated coordinates are finite")
                 })
         })

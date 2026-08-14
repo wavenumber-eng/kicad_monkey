@@ -940,6 +940,7 @@ def _write_leader_dimension_text_board(
         ("TE", "straight"),
         ("S", "curved"),
         ("O", "holed"),
+        ("B", "double_holed"),
     ],
 )
 def test_python_render_cache_generator_matches_kicad_oracle_for_outline_glyphs(
@@ -1101,13 +1102,25 @@ def test_python_render_cache_generator_matches_kicad_oracle_for_outline_glyphs(
             "top",
             False,
         ),
-        # "AV" keeps this case scoped to overbar markup: double-hole glyphs
-        # such as "B" expose a separate, pre-existing fracture-order gap.
         (
             "~{AV}",
             "~{AV}",
             "",
             "markup_overbar",
+            1.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
+        ),
+        # "B" carries two holes and "D" a vertical-left-edge hole, pinning the
+        # hole-bridge order and the max-y leftmost tie-break against the oracle.
+        (
+            "BD",
+            "BD",
+            "",
+            "double_hole_fracture",
             1.0,
             0.0,
             "left top",

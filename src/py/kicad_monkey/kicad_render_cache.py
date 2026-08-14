@@ -233,7 +233,17 @@ def _rotate_exterior_for_fracture(
 
 
 def _leftmost_index(points: list[tuple[float, float]]) -> int:
-    return min(range(len(points)), key=lambda i: (points[i][0], points[i][1]))
+    """Approximate KiCad's hole bridge-vertex selection.
+
+    `fractureSingleCacheFriendly()` bridges each hole at the first stored
+    point whose x equals the hole's minimum (strict `<` scan, no tie-break).
+    The stored order comes from `Fracture()`'s Clipper2 `Simplify()`, whose
+    hole rings start just past the min-y run exit, placing the bottom-left
+    vertex first.  A vertical hole left edge therefore bridges at the
+    leftmost point with the largest y.
+    """
+
+    return min(range(len(points)), key=lambda i: (points[i][0], -points[i][1]))
 
 
 def _edge_matches_y(
