@@ -196,7 +196,7 @@ fn occurrence_connectivity_limits_fail_closed_independently() {
         max_label_drivers: 2,
         max_subgraphs: 4,
         max_retained_points: 5,
-        max_retained_string_bytes: 6,
+        max_retained_string_bytes: 12,
         max_attachment_query_work: 5,
         ..SchematicOccurrenceConnectivityLimits::default()
     };
@@ -253,7 +253,7 @@ fn occurrence_connectivity_limits_fail_closed_independently() {
         ),
         (
             SchematicOccurrenceConnectivityLimits {
-                max_retained_string_bytes: 5,
+                max_retained_string_bytes: 11,
                 ..exact
             },
             "retained string bytes",

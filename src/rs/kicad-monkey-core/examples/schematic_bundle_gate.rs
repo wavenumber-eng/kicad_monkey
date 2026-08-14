@@ -1,3 +1,4 @@
+use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
 use kicad_monkey_contracts::generated::source_bundle_manifest::{
     SourceBundleManifestA0, SourceBundleSource, SourceKind,
 };
@@ -5,9 +6,9 @@ use kicad_monkey_core::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicBusSubgraph, SchematicDefinition,
     SchematicDesignNet, SchematicLabelScope, SchematicLocalNet,
     SchematicOccurrenceConnectivityLimits, SchematicPlacedSymbol, SchematicPoint, SchematicSheet,
-    SchematicWireSubgraph, SourceBundle, SourceBundleLimits, build_schematic_bus_subgraphs,
-    build_schematic_occurrence_nets, build_schematic_occurrence_subgraphs,
-    build_schematic_scalar_design_nets,
+    SchematicWireSubgraph, SourceBundle, SourceBundleLimits, build_compiled_schematic_graph,
+    build_schematic_bus_subgraphs, build_schematic_occurrence_nets,
+    build_schematic_occurrence_subgraphs, build_schematic_scalar_design_nets,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -34,6 +35,7 @@ struct ResultSummary {
     wire_subgraphs: Vec<WireOccurrenceSummary>,
     local_nets: Vec<LocalNetOccurrenceSummary>,
     scalar_design: ScalarDesignSummary,
+    compiled_graph: CompiledSchematicGraphA0,
     total_bytes: usize,
 }
 
@@ -363,6 +365,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let wire_subgraphs = wire_summaries(&index)?;
         let local_nets = local_net_summaries(&index)?;
         let scalar_design = scalar_design_summary(&index)?;
+        let compiled_graph = build_compiled_schematic_graph(&index, Default::default())?;
         println!(
             "{}",
             serde_json::to_string(&ResultSummary {
@@ -391,6 +394,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 wire_subgraphs,
                 local_nets,
                 scalar_design,
+                compiled_graph,
                 total_bytes: bundle.total_bytes(),
             })?
         );

@@ -341,9 +341,14 @@
   plus both synthetic boundary vectors; the former oracle suppression is
   removed.</p>
 
+  <p>The same native pass now feeds <code>build_compiled_schematic_graph</code>,
+  which emits every generated <code>a0</code> graph row family. Connectivity
+  subgraphs retain their source graphical IDs so terminal and local-net drawing
+  links are attributed without reparsing source forms. Rack L3_020 compares the
+  complete graph exactly with the Python producer for all four projects.</p>
+
   <h2>Deferred work</h2>
-  <p>Compiled graph row production, project-file subpart setting ingestion,
-  schematic mutation, and semantic
+  <p>Project-file subpart setting ingestion, schematic mutation, and semantic
   round-trip remain in Phase 4. Browser/WASM packaging remains deferred by the
   native-first plan.</p>
 </body>

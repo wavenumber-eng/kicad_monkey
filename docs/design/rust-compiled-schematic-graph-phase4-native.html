@@ -8,9 +8,9 @@
 <body>
   <h1>Rust Phase 4 native compiled graph semantics</h1>
   <p>
-    Status: review ready. This vertical slice ports deterministic identity and
-    graph-wide semantic validation. It does not yet claim project-byte parsing,
-    connectivity compilation, or exact project-to-graph parity.
+    Status: review ready. This vertical slice ports deterministic identity,
+    graph-wide semantic validation, and native project-to-graph production for
+    all ten <code>a0</code> row families.
   </p>
 
   <h2>Identity allocation</h2>
@@ -45,14 +45,28 @@
     invent a second arbitrary size policy.
   </p>
 
+  <h2>Native production boundary</h2>
+  <p>
+    <code>CompiledSchematicGraphLimits</code> independently bounds every emitted
+    row family and aggregate retained string bytes. Each row check occurs before
+    publication and each retained-string charge occurs before the corresponding
+    graph allocation. Defaults are broad format-safety ceilings rather than
+    product-size assumptions; native callers can retain them while untrusted-input
+    adapters may tighten them. Source-bundle and connectivity limits separately
+    bound parsed input, compiler work, and intermediate connectivity state.
+  </p>
+
   <h2>Evidence and retained work</h2>
   <ul>
     <li>The native allocator consumes the same language-neutral vectors as Python, including Unicode canonicalization.</li>
     <li>Shared Python/Rust negative vectors cover missing, duplicate, cross-owner, and hierarchy inverse failures; a wide-owner regression protects the indexed linear path.</li>
     <li>Focused Rust tests also cover valid semantics, wrong reference types, cycles, duplicate IDs, binding roles, and graphical target types.</li>
     <li>Rack L3_018 sends all four reference-project graphs through the native strict and semantic validators in one sequential native process. The process enforces its line ceiling while reading, before retaining bytes past the bounded payload-plus-line-ending allowance.</li>
+    <li><code>build_compiled_schematic_graph</code> emits definitions, occurrences, hierarchy, components, local nets, terminals, scalar hierarchy bindings, and graphical links from one indexed bundle and one compiled connectivity pass. Rack L3_020 compares the complete serialized graph exactly with Python for Yoshi, Taillight, Speedy, and Jumperless.</li>
+    <li>A synthetic two-sheet project exercises every row family, deterministic identity, portable source ownership, semantic validation, and exact/one-under limits for every family and aggregate retained string bytes.</li>
+    <li>Production is linear apart from deterministic set/index ordering. Component and hierarchy-terminal lookup are indexed; unresolved hierarchy diagnostics do not rescan terminal rows.</li>
     <li>Package-owned unsafe code remains forbidden.</li>
-    <li>Named multi-file source bundles, schematic/project readers and writers, connectivity compilation, graph emission, and exact corpus differential output remain active Phase 4 work.</li>
+    <li>Project-file subpart settings, schematic mutation, semantic round-trip, and native CLI integration remain active Phase 4 work.</li>
   </ul>
 </body>
 </html>

@@ -10,15 +10,20 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
+mod driver_selection;
 mod driver_types;
 mod pin_naming;
+mod render_ids;
 mod stacked_pins;
 mod wire_union;
+use driver_selection::resolve_driver;
 pub use driver_types::{
-    SchematicLabelDriver, SchematicPinDriver, SchematicWireDriverKind, SchematicWireSubgraph,
+    SchematicGraphicalIds, SchematicLabelDriver, SchematicPinDriver, SchematicWireDriverKind,
+    SchematicWireSubgraph,
 };
 pub use pin_naming::SchematicSubpartSettings;
 use pin_naming::{PinNaming, build_pin_namings};
+use render_ids::schematic_sheet_pin_group_id;
 use stacked_pins::expand_stacked_pin;
 use wire_union::WirePointUnion;
 
@@ -312,6 +317,7 @@ impl<'a> OccurrenceBuilder<'a> {
                         kind,
                         shape,
                         source_uuid: label.uuid.clone(),
+                        render_id: label.uuid.clone(),
                         source_order: 0,
                     },
                 )?;
@@ -329,6 +335,7 @@ impl<'a> OccurrenceBuilder<'a> {
                         kind: SchematicWireDriverKind::SheetPin,
                         shape: pin.shape.as_str().to_owned(),
                         source_uuid: pin.uuid.clone(),
+                        render_id: schematic_sheet_pin_group_id(sheet, pin),
                         source_order: 0,
                     },
                 )?;
@@ -750,12 +757,15 @@ impl<'a> OccurrenceBuilder<'a> {
             .iter()
             .map(|marker| marker.at)
             .collect::<HashSet<_>>();
+        let mut graphical_by_root = self.index_source_graphics(union)?;
         let groups = union.groups(self.limits.max_subgraphs, self.definition)?;
         let mut out = Vec::with_capacity(groups.len());
         for (root, mut coords) in groups {
             coords.sort_unstable();
             let pin_drivers = pins_by_root.remove(&root).unwrap_or_default();
             let label_drivers = labels_by_root.remove(&root).unwrap_or_default();
+            let mut graphical = graphical_by_root.remove(&root).unwrap_or_default();
+            self.attach_driver_graphics(&mut graphical, &pin_drivers, &label_drivers)?;
             let (chosen_name, chosen_priority, chosen_kind) =
                 resolve_driver(&label_drivers, &pin_drivers);
             self.retain_strings([chosen_name.as_str()])?;
@@ -764,6 +774,7 @@ impl<'a> OccurrenceBuilder<'a> {
                 coords,
                 pin_drivers,
                 label_drivers,
+                graphical,
                 chosen_name,
                 chosen_priority,
                 chosen_kind,
@@ -779,6 +790,71 @@ impl<'a> OccurrenceBuilder<'a> {
             })
         });
         Ok(out)
+    }
+
+    fn index_source_graphics(
+        &mut self,
+        union: &mut WirePointUnion,
+    ) -> Result<HashMap<usize, SchematicGraphicalIds>, SourceBundleError> {
+        let mut by_root = HashMap::<usize, SchematicGraphicalIds>::new();
+        for wire in &self.definition.wires {
+            let Some(point) = wire.points.first().copied() else {
+                continue;
+            };
+            let Some(root) = union.root_for_point(point) else {
+                continue;
+            };
+            self.push_graphical_id(&mut by_root.entry(root).or_default().wires, &wire.uuid)?;
+        }
+        for junction in &self.definition.junctions {
+            let Some(root) = union.root_for_point(junction.at) else {
+                continue;
+            };
+            self.push_graphical_id(
+                &mut by_root.entry(root).or_default().junctions,
+                &junction.uuid,
+            )?;
+        }
+        Ok(by_root)
+    }
+
+    fn attach_driver_graphics(
+        &mut self,
+        graphical: &mut SchematicGraphicalIds,
+        pins: &[SchematicPinDriver],
+        labels: &[SchematicLabelDriver],
+    ) -> Result<(), SourceBundleError> {
+        for label in labels {
+            let bucket = match label.kind {
+                SchematicWireDriverKind::SheetPin => &mut graphical.sheet_entries,
+                SchematicWireDriverKind::HierarchicalLabel => &mut graphical.ports,
+                SchematicWireDriverKind::LocalLabel | SchematicWireDriverKind::GlobalLabel => {
+                    &mut graphical.labels
+                }
+                _ => continue,
+            };
+            self.push_graphical_id(bucket, &label.render_id)?;
+        }
+        for pin in pins
+            .iter()
+            .filter(|pin| pin.is_power && pin.reference.starts_with('#'))
+        {
+            self.push_graphical_id(&mut graphical.power_ports, &pin.symbol_uuid)?;
+        }
+        Ok(())
+    }
+
+    fn push_graphical_id(
+        &mut self,
+        bucket: &mut Vec<String>,
+        value: &str,
+    ) -> Result<(), SourceBundleError> {
+        if value.is_empty() || bucket.iter().any(|existing| existing == value) {
+            return Ok(());
+        }
+        self.retain_strings([value])?;
+        bucket.push(value.to_owned());
+        Ok(())
     }
 
     fn retain_strings<const N: usize>(
@@ -913,72 +989,4 @@ fn union_roots_bounded(
     Ok(())
 }
 
-fn resolve_driver(
-    labels: &[SchematicLabelDriver],
-    pins: &[SchematicPinDriver],
-) -> (
-    String,
-    SchematicDriverPriority,
-    Option<SchematicWireDriverKind>,
-) {
-    let mut best: Option<DriverChoice> = None;
-    for (index, label) in labels.iter().enumerate() {
-        let candidate = DriverChoice {
-            priority: label.priority,
-            implicit: false,
-            name: label.text.clone(),
-            order: index,
-            kind: label.kind,
-        };
-        if best
-            .as_ref()
-            .is_none_or(|current| candidate_precedes(&candidate, current))
-        {
-            best = Some(candidate);
-        }
-    }
-    let pin_offset = labels.len();
-    for (index, pin) in pins.iter().enumerate() {
-        let display = if pin.is_power && !pin.power_value.is_empty() {
-            pin.power_value.clone()
-        } else {
-            format!("{}-{}", pin.reference, pin.pin_number)
-        };
-        let order = pin_offset + index;
-        let candidate = DriverChoice {
-            priority: pin.priority,
-            implicit: pin.is_implicit_hidden_power,
-            name: display,
-            order,
-            kind: pin.kind,
-        };
-        if best
-            .as_ref()
-            .is_none_or(|current| candidate_precedes(&candidate, current))
-        {
-            best = Some(candidate);
-        }
-    }
-    best.map_or_else(
-        || (String::new(), SchematicDriverPriority::None, None),
-        |choice| (choice.name, choice.priority, Some(choice.kind)),
-    )
-}
-
-struct DriverChoice {
-    priority: SchematicDriverPriority,
-    implicit: bool,
-    name: String,
-    order: usize,
-    kind: SchematicWireDriverKind,
-}
-
-fn candidate_precedes(candidate: &DriverChoice, current: &DriverChoice) -> bool {
-    candidate.priority > current.priority
-        || (candidate.priority == current.priority
-            && ((!candidate.implicit && current.implicit)
-                || (candidate.implicit == current.implicit
-                    && (candidate.name < current.name
-                        || (candidate.name == current.name && candidate.order < current.order)))))
-}
 use driver_types::{label_type, pin_kind};

@@ -11,6 +11,7 @@ from typing import Any, cast
 
 from kicad_monkey import KiCadDesign
 from kicad_monkey.kicad_bus_connectivity import build_bus_subgraphs
+from kicad_monkey.kicad_compiled_schematic_graph import build_compiled_schematic_graph
 from kicad_monkey.kicad_netlist_compiler import (
     _resolve_instance_reference,
     _resolve_instance_unit,
@@ -874,6 +875,13 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         assert result["scalar_design"] == scalar_design, _first_difference(
             result["scalar_design"], scalar_design
         )
+        project_path = Path(cast(str, _request_payload["project_path"]))
+        expected_graph = build_compiled_schematic_graph(
+            KiCadDesign.from_project_file(project_path)
+        ).to_json()
+        rust_graph = cast(dict[str, object], result["compiled_graph"])
+        python_graph = expected_graph
+        assert rust_graph == python_graph, _first_difference(rust_graph, python_graph)
         assert {
             definition["source_path"]: definition for definition in result["definitions"]
         } == source_models

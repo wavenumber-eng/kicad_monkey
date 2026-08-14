@@ -56,6 +56,7 @@ pub struct SchematicLabelDriver {
     pub kind: SchematicWireDriverKind,
     pub shape: String,
     pub source_uuid: String,
+    pub render_id: String,
     pub source_order: usize,
 }
 
@@ -64,10 +65,21 @@ pub struct SchematicWireSubgraph {
     pub coords: Vec<SchematicPoint>,
     pub pin_drivers: Vec<SchematicPinDriver>,
     pub label_drivers: Vec<SchematicLabelDriver>,
+    pub graphical: SchematicGraphicalIds,
     pub chosen_name: String,
     pub chosen_priority: SchematicDriverPriority,
     pub chosen_kind: Option<SchematicWireDriverKind>,
     pub no_connect: bool,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SchematicGraphicalIds {
+    pub wires: Vec<String>,
+    pub junctions: Vec<String>,
+    pub labels: Vec<String>,
+    pub power_ports: Vec<String>,
+    pub ports: Vec<String>,
+    pub sheet_entries: Vec<String>,
 }
 
 pub(super) fn label_type(

@@ -34,8 +34,9 @@ pub mod symbol_plotter_ir;
 pub mod text_metadata;
 
 pub use compiled_schematic_graph::{
-    CompiledGraphIdentityAllocator, CompiledGraphIdentityError, IdentityMapping,
-    compiled_schematic_graph_design_scope, validate_compiled_schematic_graph,
+    CompiledGraphIdentityAllocator, CompiledGraphIdentityError, CompiledSchematicGraphLimits,
+    IdentityMapping, build_compiled_schematic_graph, compiled_schematic_graph_design_scope,
+    validate_compiled_schematic_graph,
 };
 pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
@@ -72,8 +73,8 @@ pub use schematic_bus_connectivity::{
     SchematicBusSubgraph, SchematicDriverPriority, build_schematic_bus_subgraphs,
 };
 pub use schematic_connectivity::{
-    SchematicLabelDriver, SchematicOccurrenceConnectivityLimits, SchematicPinDriver,
-    SchematicSubpartSettings, SchematicWireDriverKind, SchematicWireSubgraph,
+    SchematicGraphicalIds, SchematicLabelDriver, SchematicOccurrenceConnectivityLimits,
+    SchematicPinDriver, SchematicSubpartSettings, SchematicWireDriverKind, SchematicWireSubgraph,
     build_schematic_occurrence_subgraphs, build_schematic_occurrence_subgraphs_with_settings,
 };
 pub use schematic_design::{

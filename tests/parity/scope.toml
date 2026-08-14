@@ -353,6 +353,16 @@ rack_cases = ["L0_046", "L3_018"]
 evidence = ["src/rs/kicad-monkey-core/src/compiled_schematic_graph/validation.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_semantics.rs", "src/rs/kicad-monkey-core/examples/compiled_graph_validation_gate.rs", "tests/L3_rendering/test_L3_018_compiled_schematic_graph.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
 
 [[surfaces]]
+id = "compiled_graph.native_producer"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "review_ready"
+python_symbols = ["build_compiled_schematic_graph"]
+rust_symbols = ["build_compiled_schematic_graph", "CompiledSchematicGraphLimits"]
+rack_cases = ["L0_046", "L3_020"]
+evidence = ["src/rs/kicad-monkey-core/src/compiled_schematic_graph/producer.rs", "src/rs/kicad-monkey-core/src/compiled_schematic_graph/producer/connectivity.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_producer.rs", "src/rs/kicad-monkey-core/examples/schematic_bundle_gate.rs", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
+
+[[surfaces]]
 id = "schematic.source_bundle_contract"
 disposition = "required"
 wasm = "deferred_native_first"

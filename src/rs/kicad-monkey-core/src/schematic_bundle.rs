@@ -18,6 +18,9 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::SourceKind;
 use std::borrow::Cow;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
+mod path_helpers;
+use path_helpers::{join_occurrence_path, nonempty_or, portable_file_name, portable_parent};
+
 pub use crate::schematic_bundle_limits::SchematicBundleLimits;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -86,6 +89,8 @@ pub struct SchematicOccurrence {
 pub struct SchematicBundleIndex {
     limits: SchematicBundleLimits,
     project_name: String,
+    project_file: String,
+    source_anchor: String,
     definitions: Vec<SchematicDefinition>,
     definition_by_path: HashMap<String, usize>,
     occurrences: Vec<SchematicOccurrence>,
@@ -126,11 +131,16 @@ impl SchematicBundleIndex {
         }
         let occurrences = realize_occurrences(bundle, &definitions, &definition_by_path, limits)?;
         let legacy_symbol_instance_by_path = index_bundle_legacy_instances(&definitions);
+        let identity_path = bundle
+            .project_path()
+            .unwrap_or_else(|| bundle.root_schematic_path());
         Ok(Self {
             limits,
             project_name: bundle
                 .project_path()
                 .map_or_else(String::new, portable_file_stem),
+            project_file: portable_file_name(identity_path).to_owned(),
+            source_anchor: portable_parent(identity_path).to_owned(),
             definitions,
             definition_by_path,
             occurrences,
@@ -161,6 +171,22 @@ impl SchematicBundleIndex {
 
     pub fn project_name(&self) -> &str {
         &self.project_name
+    }
+
+    /// Portable filename used by the compiled-graph identity scope.
+    pub fn project_file(&self) -> &str {
+        &self.project_file
+    }
+
+    /// Return a source path relative to the project/top-schematic directory.
+    pub fn portable_source_path<'a>(&self, source_path: &'a str) -> &'a str {
+        if self.source_anchor.is_empty() {
+            return source_path;
+        }
+        source_path
+            .strip_prefix(&self.source_anchor)
+            .and_then(|value| value.strip_prefix('/'))
+            .unwrap_or(source_path)
     }
 
     pub fn effective_symbols(
@@ -941,34 +967,6 @@ fn occurrence_paths(
         ));
     }
     Ok((occurrence, legacy, human))
-}
-
-fn nonempty_or<'a>(preferred: &'a str, fallback: &'a str) -> &'a str {
-    if preferred.is_empty() {
-        fallback
-    } else {
-        preferred
-    }
-}
-
-fn join_occurrence_path(parent: &str, segment: &str, trailing_slash: bool) -> String {
-    let parent = parent.trim_matches('/');
-    let segment = segment.trim_matches('/');
-    let joined = match (parent.is_empty(), segment.is_empty()) {
-        (true, true) => String::new(),
-        (true, false) => segment.to_owned(),
-        (false, true) => parent.to_owned(),
-        (false, false) => format!("{parent}/{segment}"),
-    };
-    if trailing_slash {
-        if joined.is_empty() {
-            "/".to_owned()
-        } else {
-            format!("/{joined}/")
-        }
-    } else {
-        format!("/{joined}")
-    }
 }
 
 fn schematic_error(path: &str, error: crate::Error) -> SourceBundleError {

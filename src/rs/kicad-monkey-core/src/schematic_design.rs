@@ -41,15 +41,29 @@ pub fn build_schematic_scalar_design_nets_with_settings(
     subparts: SchematicSubpartSettings,
     limits: SchematicDesignNetLimits,
 ) -> Result<SchematicScalarDesignNetlist, SourceBundleError> {
+    Ok(build_schematic_compiled_design(index, code_offset, subparts, limits)?.netlist)
+}
+
+pub(crate) fn build_schematic_compiled_design(
+    index: &SchematicBundleIndex,
+    code_offset: u64,
+    subparts: SchematicSubpartSettings,
+    limits: SchematicDesignNetLimits,
+) -> Result<SchematicCompiledDesign, SourceBundleError> {
     DesignBuilder::new(index, code_offset, subparts, limits)?.build()
 }
 
-struct CompiledOccurrence {
-    occurrence_index: usize,
+pub(crate) struct SchematicCompiledDesign {
+    pub(crate) netlist: SchematicScalarDesignNetlist,
+    pub(crate) occurrences: Vec<CompiledOccurrence>,
+}
+
+pub(crate) struct CompiledOccurrence {
+    pub(crate) occurrence_index: usize,
     source_path: String,
     human_address: String,
     legacy_address: String,
-    subgraphs: Vec<SchematicWireSubgraph>,
+    pub(crate) subgraphs: Vec<SchematicWireSubgraph>,
     coord_to_subgraph: HashMap<crate::SchematicPoint, usize>,
     bus_subgraphs: Vec<crate::SchematicBusSubgraph>,
     bus_coord_to_subgraph: HashMap<crate::SchematicPoint, usize>,
@@ -121,7 +135,7 @@ impl<'a> DesignBuilder<'a> {
         })
     }
 
-    fn build(mut self) -> Result<SchematicScalarDesignNetlist, SourceBundleError> {
+    fn build(mut self) -> Result<SchematicCompiledDesign, SourceBundleError> {
         let hierarchy_bindings = self.bind_hierarchy()?;
         self.merge_global_labels()?;
         self.merge_global_power()?;
@@ -139,9 +153,12 @@ impl<'a> DesignBuilder<'a> {
         self.preflight_output_shape(&groups)?;
         let suffix_indices = self.sheet_pin_suffix_indices()?;
         let nets = self.materialize(groups, &suffix_indices, &promotion)?;
-        Ok(SchematicScalarDesignNetlist {
-            nets,
-            hierarchy_bindings,
+        Ok(SchematicCompiledDesign {
+            netlist: SchematicScalarDesignNetlist {
+                nets,
+                hierarchy_bindings,
+            },
+            occurrences: self.compiled,
         })
     }
 
@@ -666,6 +683,7 @@ impl<'a> DesignBuilder<'a> {
             coords: Vec::new(),
             pin_drivers: Vec::with_capacity(shape.pins),
             label_drivers: Vec::with_capacity(shape.labels),
+            graphical: Default::default(),
             chosen_name: String::new(),
             chosen_priority: SchematicDriverPriority::None,
             chosen_kind: None,
@@ -835,6 +853,7 @@ impl<'a> DesignBuilder<'a> {
                         coords: Vec::new(),
                         pin_drivers: Vec::new(),
                         label_drivers: Vec::new(),
+                        graphical: Default::default(),
                         chosen_name: label.text.clone(),
                         chosen_priority: label.priority,
                         chosen_kind: Some(label.kind),
