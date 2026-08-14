@@ -6,6 +6,7 @@ use kicad_monkey_core::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicLabelScope,
     SchematicPinShape, SchematicPoint, SourceBundle, SourceBundleErrorKind, SourceBundleLimits,
 };
+use std::sync::Arc;
 
 fn manifest(sources: Vec<SourceBundleSource>) -> SourceBundleManifestA0 {
     SourceBundleManifestA0 {
@@ -601,10 +602,13 @@ fn modern_and_legacy_symbol_instance_overlays_are_typed_and_indexed() {
         .expect("placed symbol index");
     let definition = index.definition("design/root.kicad_sch").expect("root");
     let symbol = &definition.symbols[0];
-    let instance = symbol.instance("/root/").expect("normalized modern path");
+    let instance = symbol
+        .unique_instance_for_path("/root/")
+        .expect("unique modern path")
+        .expect("normalized modern path");
     assert_eq!(
         (
-            instance.project.as_str(),
+            instance.project.as_ref(),
             instance.reference.as_str(),
             instance.unit
         ),
@@ -732,4 +736,103 @@ fn modern_symbol_instance_paths_require_exact_project_ownership() {
         .expect_err("foreign path must not inherit a preceding project");
     assert_eq!(error.kind, SourceBundleErrorKind::Schematic);
     assert!(error.message.contains("outside its owning project"));
+}
+
+#[test]
+fn symbol_instance_lookup_is_project_aware_and_rejects_ambiguity() {
+    let bundle = schematic_with_root(
+        br#"(kicad_sch
+          (symbol (uuid symbol-a)
+            (instances
+              (project "alpha"
+                (path "/same" (reference "A1"))
+                (path "/same/" (reference "A2")))
+              (project "beta"
+                (path "/same" (reference "B1"))
+                (path "/other" (reference "B2"))))))"#
+            .to_vec(),
+    );
+    let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("duplicate path index");
+    let symbol = &index
+        .definition("design/root.kicad_sch")
+        .expect("root")
+        .symbols[0];
+    assert_eq!(
+        symbol
+            .instance_for_project("alpha", "/same")
+            .expect_err("same-project duplicate must be ambiguous")
+            .matches,
+        2
+    );
+    assert_eq!(
+        symbol
+            .instance_for_project("beta", "/same/")
+            .expect("unique beta path")
+            .expect("beta path")
+            .reference,
+        "B1"
+    );
+    assert_eq!(
+        symbol
+            .unique_instance_for_path("/same")
+            .expect_err("cross-project path must be ambiguous")
+            .matches,
+        3
+    );
+    assert_eq!(
+        symbol
+            .unique_instance_for_path("/other/")
+            .expect("unique path")
+            .expect("other path")
+            .reference,
+        "B2"
+    );
+    assert!(
+        symbol
+            .instance_for_project("missing", "/same")
+            .expect("missing project is not ambiguous")
+            .is_none()
+    );
+}
+
+#[test]
+fn repeated_instance_paths_share_one_project_name_allocation() {
+    let project_name = "project-".to_owned() + &"x".repeat(64 * 1024);
+    let mut paths = String::new();
+    for index in 0..512 {
+        paths.push_str(&format!(
+            "(path \"/sheet/{index}\" (reference \"R{index}\") (unit 1))"
+        ));
+    }
+    let root = format!(
+        "(kicad_sch (symbol (uuid symbol-a) (instances (project \"{project_name}\" {paths}))))"
+    );
+    let bundle = schematic_with_root(root.into_bytes());
+    let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("shared project allocation index");
+    let instances = &index
+        .definition("design/root.kicad_sch")
+        .expect("root")
+        .symbols[0]
+        .instances;
+    assert_eq!(instances.len(), 512);
+    assert!(
+        instances
+            .iter()
+            .all(|instance| Arc::ptr_eq(&instances[0].project, &instance.project))
+    );
+}
+
+fn schematic_with_root(root: Vec<u8>) -> SourceBundle {
+    let project = b"{}".to_vec();
+    SourceBundle::from_manifest(
+        manifest(vec![
+            descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
+            descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+        ]),
+        vec![project, root],
+        SourceBundleLimits::default(),
+    )
+    .expect("single schematic bundle")
 }

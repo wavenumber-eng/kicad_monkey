@@ -33,9 +33,13 @@
   <code>instances/project/path</code> records retain project, path, reference, unit,
   ordered variant overlays, tri-state policy overrides, and ordered field overrides.
   Legacy schematic-level <code>symbol_instances/path</code> records retain path,
-  reference, unit, value, and footprint. Both path families have normalized,
-  first-record-wins indexes for exact lookup while their source-order vectors remain
-  available for diagnostics and round-trip work. A modern path is accepted only when
+  reference, unit, value, and footprint. Modern records have normalized,
+  ambiguity-aware indexes while the legacy normalized index deliberately preserves
+  Python's source-first lookup; both source-order vectors remain available for
+  diagnostics and round-trip work. Modern lookup is primarily keyed by project and
+  path; path-only lookup succeeds only for a unique record. Repeated paths
+  share their owning project through <code>Arc&lt;str&gt;</code>, so a long project name is
+  retained once rather than once per child path. A modern path is accepted only when
   its selected span is structurally owned by the current project form.</p>
 
   <p>Coordinates are snapped immediately to KiCad's 100-nm schematic internal-unit

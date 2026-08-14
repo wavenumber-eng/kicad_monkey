@@ -6,6 +6,8 @@ use crate::schematic_bundle::SchematicBundleLimits;
 use crate::sexpr_projection::FormSpan;
 use crate::source_bundle::SourceBundleError;
 use std::collections::HashMap;
+use std::fmt;
+use std::sync::Arc;
 
 use super::SchematicSymbolInstance;
 
@@ -28,15 +30,67 @@ pub struct SchematicPlacedSymbol {
     pub properties: Vec<SchematicSymbolProperty>,
     pub pins: Vec<SchematicSymbolPin>,
     pub instances: Vec<SchematicSymbolInstance>,
-    instance_by_path: HashMap<String, usize>,
+    instance_by_project_path: HashMap<Arc<str>, HashMap<String, InstanceIndexEntry>>,
+    instance_by_path: HashMap<String, InstanceIndexEntry>,
 }
 
 impl SchematicPlacedSymbol {
-    pub fn instance(&self, path: &str) -> Option<&SchematicSymbolInstance> {
-        self.instance_by_path
-            .get(path.trim_end_matches('/'))
-            .map(|index| &self.instances[*index])
+    pub fn instance_for_project(
+        &self,
+        project: &str,
+        path: &str,
+    ) -> Result<Option<&SchematicSymbolInstance>, SchematicSymbolInstanceLookupError> {
+        let entry = self
+            .instance_by_project_path
+            .get(project)
+            .and_then(|paths| paths.get(normalized_path(path)));
+        self.resolve_instance_entry(entry)
     }
+
+    pub fn unique_instance_for_path(
+        &self,
+        path: &str,
+    ) -> Result<Option<&SchematicSymbolInstance>, SchematicSymbolInstanceLookupError> {
+        self.resolve_instance_entry(self.instance_by_path.get(normalized_path(path)))
+    }
+
+    fn resolve_instance_entry(
+        &self,
+        entry: Option<&InstanceIndexEntry>,
+    ) -> Result<Option<&SchematicSymbolInstance>, SchematicSymbolInstanceLookupError> {
+        let Some(entry) = entry else {
+            return Ok(None);
+        };
+        if entry.matches > 1 {
+            return Err(SchematicSymbolInstanceLookupError {
+                matches: entry.matches,
+            });
+        }
+        Ok(Some(&self.instances[entry.index]))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SchematicSymbolInstanceLookupError {
+    pub matches: usize,
+}
+
+impl fmt::Display for SchematicSymbolInstanceLookupError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "symbol instance lookup is ambiguous across {} records",
+            self.matches
+        )
+    }
+}
+
+impl std::error::Error for SchematicSymbolInstanceLookupError {}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct InstanceIndexEntry {
+    index: usize,
+    matches: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -124,12 +178,19 @@ fn parse_symbol(
     })?;
     let instances =
         parse_symbol_instances(source, child(&spans, "instances"), source_path, limits)?;
+    let mut instance_by_project_path =
+        HashMap::<Arc<str>, HashMap<String, InstanceIndexEntry>>::new();
     let mut instance_by_path = HashMap::with_capacity(instances.len());
     for (index, instance) in instances.iter().enumerate() {
-        let path = instance.path.trim_end_matches('/');
-        if !path.is_empty() {
-            instance_by_path.entry(path.to_owned()).or_insert(index);
-        }
+        let path = normalized_path(&instance.path);
+        update_instance_index(
+            instance_by_project_path
+                .entry(Arc::clone(&instance.project))
+                .or_default(),
+            path,
+            index,
+        );
+        update_instance_index(&mut instance_by_path, path, index);
     }
     Ok(SchematicPlacedSymbol {
         lib_id: scalar(source, &spans, "lib_id", source_path, limits)?.unwrap_or_default(),
@@ -162,8 +223,27 @@ fn parse_symbol(
         properties: parse_properties(source, &spans, source_path, limits)?,
         pins: parse_pins(source, &spans, source_path, limits)?,
         instances,
+        instance_by_project_path,
         instance_by_path,
     })
+}
+
+fn update_instance_index(
+    index: &mut HashMap<String, InstanceIndexEntry>,
+    path: &str,
+    instance_index: usize,
+) {
+    index
+        .entry(path.to_owned())
+        .and_modify(|entry| entry.matches = entry.matches.saturating_add(1))
+        .or_insert(InstanceIndexEntry {
+            index: instance_index,
+            matches: 1,
+        });
+}
+
+fn normalized_path(path: &str) -> &str {
+    path.trim_end_matches('/')
 }
 
 fn parse_properties(

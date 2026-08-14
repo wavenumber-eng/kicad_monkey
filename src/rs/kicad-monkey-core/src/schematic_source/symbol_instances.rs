@@ -2,19 +2,24 @@ use super::{carrier_form_spans, child_scalar, direct_scalars, limit_error, sourc
 use crate::schematic_bundle::SchematicBundleLimits;
 use crate::sexpr_projection::FormSpan;
 use crate::source_bundle::SourceBundleError;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicSymbolInstance {
-    pub project: String,
+    pub project: Arc<str>,
     pub path: String,
     pub reference: String,
     pub unit: i64,
     pub variants: Vec<SchematicSymbolInstanceVariant>,
+    variant_by_name: HashMap<String, usize>,
 }
 
 impl SchematicSymbolInstance {
     pub fn variant(&self, name: &str) -> Option<&SchematicSymbolInstanceVariant> {
-        self.variants.iter().find(|variant| variant.name == name)
+        self.variant_by_name
+            .get(name)
+            .map(|index| &self.variants[*index])
     }
 }
 
@@ -79,10 +84,12 @@ pub(crate) fn parse_symbol_instances(
                 }
                 project_count += 1;
                 project = Some((
-                    direct_scalars(text, span, 1, source_path, limits)?
-                        .into_iter()
-                        .next()
-                        .unwrap_or_default(),
+                    Arc::<str>::from(
+                        direct_scalars(text, span, 1, source_path, limits)?
+                            .into_iter()
+                            .next()
+                            .unwrap_or_default(),
+                    ),
                     span.range.clone(),
                 ));
             }
@@ -151,7 +158,7 @@ pub(crate) fn parse_legacy_symbol_instances(
 fn parse_modern_path(
     source: &str,
     span: &FormSpan,
-    project: &str,
+    project: &Arc<str>,
     source_path: &str,
     limits: SchematicBundleLimits,
 ) -> Result<SchematicSymbolInstance, SourceBundleError> {
@@ -182,13 +189,18 @@ fn parse_modern_path(
         }
         variants.push(parse_variant(text, variant, source_path, limits)?);
     }
+    let mut variant_by_name = HashMap::with_capacity(variants.len());
+    for (index, variant) in variants.iter().enumerate() {
+        variant_by_name.entry(variant.name.clone()).or_insert(index);
+    }
     Ok(SchematicSymbolInstance {
-        project: project.to_owned(),
+        project: Arc::clone(project),
         path,
         reference: child_scalar(text, &spans, "reference", source_path, limits)?
             .unwrap_or_default(),
         unit: child_integer(text, &spans, "unit", source_path, limits)?,
         variants,
+        variant_by_name,
     })
 }
 

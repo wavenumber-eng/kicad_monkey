@@ -328,7 +328,7 @@ fn symbol_summary(symbol: &SchematicPlacedSymbol) -> SymbolSummary {
             .instances
             .iter()
             .map(|instance| SymbolInstanceSummary {
-                project: instance.project.clone(),
+                project: instance.project.to_string(),
                 path: instance.path.clone(),
                 reference: instance.reference.clone(),
                 unit: instance.unit,

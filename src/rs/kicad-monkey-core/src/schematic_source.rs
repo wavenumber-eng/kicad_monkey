@@ -6,18 +6,18 @@ use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_sp
 use crate::source_bundle::{SourceBundleError, SourceBundleErrorKind};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-
 mod symbol_instances;
 mod symbols;
-
 pub use symbol_instances::{
     SchematicLegacySymbolInstance, SchematicSymbolInstance, SchematicSymbolInstanceVariant,
     SchematicSymbolVariantField,
 };
 pub(crate) use symbol_instances::{parse_legacy_symbol_instances, parse_symbol_instances};
 pub(crate) use symbols::parse_placed_symbols;
-pub use symbols::{SchematicPlacedSymbol, SchematicSymbolPin, SchematicSymbolProperty};
-
+pub use symbols::{
+    SchematicPlacedSymbol, SchematicSymbolInstanceLookupError, SchematicSymbolPin,
+    SchematicSymbolProperty,
+};
 /// KiCad's schematic internal-unit grid: 100 nm, or 10,000 units per millimetre.
 pub const SCHEMATIC_IU_PER_MM: i64 = 10_000;
 
