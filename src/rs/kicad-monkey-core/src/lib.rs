@@ -13,8 +13,10 @@ pub mod pcb;
 pub mod plotter_ir;
 pub mod plotter_types;
 pub mod schematic_bundle;
+mod schematic_bundle_indexes;
 mod schematic_effective;
 mod schematic_source;
+mod schematic_terminals;
 pub mod sexpr;
 pub mod sexpr_mutation;
 pub mod sexpr_projection;
@@ -56,11 +58,13 @@ pub use schematic_bundle::{
 pub use schematic_effective::SchematicEffectiveSymbol;
 pub use schematic_source::{
     SCHEMATIC_IU_PER_MM, SchematicBusEntry, SchematicConnectivity, SchematicJunction,
-    SchematicLabel, SchematicLabelScope, SchematicLegacySymbolInstance, SchematicNoConnect,
-    SchematicPinShape, SchematicPlacedSymbol, SchematicPoint, SchematicPolyline, SchematicSheetPin,
+    SchematicLabel, SchematicLabelScope, SchematicLegacySymbolInstance, SchematicLibraryPin,
+    SchematicLibrarySubsymbol, SchematicLibrarySymbol, SchematicNoConnect, SchematicPinShape,
+    SchematicPlacedSymbol, SchematicPoint, SchematicPolyline, SchematicSheetPin,
     SchematicSymbolInstance, SchematicSymbolInstanceLookupError, SchematicSymbolInstanceVariant,
     SchematicSymbolPin, SchematicSymbolProperty, SchematicSymbolVariantField,
 };
+pub use schematic_terminals::SchematicSymbolTerminal;
 pub use source_bundle::{
     SourceBundle, SourceBundleError, SourceBundleErrorKind, SourceBundleLimits, SourceFile,
 };

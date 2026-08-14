@@ -230,4 +230,5 @@ secondary = [
     "Top-schematic legacy records resolve distinct repeated child occurrences",
     "Modern suffix compatibility and fallback resolution use bounded indexes rather than occurrence-by-instance scans",
     "Compact modern-instance indexes enforce an aggregate per-source byte allowance at the exact boundary",
+    "Embedded library pins, active unit/style selection, and transformed occurrence terminals match Python",
 ]

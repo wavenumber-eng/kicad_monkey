@@ -26,6 +26,7 @@ struct ResultSummary {
     definitions: Vec<DefinitionSummary>,
     occurrences: Vec<OccurrenceSummary>,
     effective_symbols: Vec<EffectiveOccurrenceSummary>,
+    symbol_terminals: Vec<TerminalOccurrenceSummary>,
     total_bytes: usize,
 }
 
@@ -165,6 +166,26 @@ struct EffectiveSymbolSummary {
     fields: std::collections::BTreeMap<String, String>,
 }
 
+#[derive(Debug, Serialize)]
+struct TerminalOccurrenceSummary {
+    occurrence_index: usize,
+    terminals: Vec<TerminalSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct TerminalSummary {
+    symbol_index: usize,
+    symbol_uuid: String,
+    reference: String,
+    pin_number: String,
+    pin_name: String,
+    electrical_type: String,
+    graphic_style: String,
+    hidden: bool,
+    library_at: [i64; 2],
+    at: [i64; 2],
+}
+
 struct LoadedRequest {
     manifest: SourceBundleManifestA0,
     buffers: Vec<Vec<u8>>,
@@ -186,35 +207,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             SourceBundleLimits::default(),
         )?;
         let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())?;
-        let effective_symbols = index
-            .occurrences()
-            .map(|occurrence| {
-                Ok(EffectiveOccurrenceSummary {
-                    occurrence_index: occurrence.index,
-                    symbols: index
-                        .effective_symbols(occurrence.index, None)?
-                        .into_iter()
-                        .map(|symbol| EffectiveSymbolSummary {
-                            symbol_index: symbol.symbol_index,
-                            uuid: symbol.uuid,
-                            lib_id: symbol.lib_id,
-                            reference: symbol.reference,
-                            value: symbol.value,
-                            unit: symbol.unit,
-                            convert: symbol.convert,
-                            policy: [
-                                symbol.dnp,
-                                symbol.exclude_from_sim,
-                                symbol.in_bom,
-                                symbol.on_board,
-                                symbol.in_pos_files,
-                            ],
-                            fields: symbol.fields,
-                        })
-                        .collect(),
-                })
-            })
-            .collect::<Result<Vec<_>, kicad_monkey_core::SourceBundleError>>()?;
+        let effective_symbols = effective_summaries(&index)?;
+        let symbol_terminals = terminal_summaries(&index)?;
         println!(
             "{}",
             serde_json::to_string(&ResultSummary {
@@ -237,6 +231,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     })
                     .collect(),
                 effective_symbols,
+                symbol_terminals,
                 total_bytes: bundle.total_bytes(),
             })?
         );
@@ -246,6 +241,69 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("no source bundle requests supplied".into());
     }
     Ok(())
+}
+
+fn effective_summaries(
+    index: &SchematicBundleIndex,
+) -> Result<Vec<EffectiveOccurrenceSummary>, kicad_monkey_core::SourceBundleError> {
+    index
+        .occurrences()
+        .map(|occurrence| {
+            Ok(EffectiveOccurrenceSummary {
+                occurrence_index: occurrence.index,
+                symbols: index
+                    .effective_symbols(occurrence.index, None)?
+                    .into_iter()
+                    .map(|symbol| EffectiveSymbolSummary {
+                        symbol_index: symbol.symbol_index,
+                        uuid: symbol.uuid,
+                        lib_id: symbol.lib_id,
+                        reference: symbol.reference,
+                        value: symbol.value,
+                        unit: symbol.unit,
+                        convert: symbol.convert,
+                        policy: [
+                            symbol.dnp,
+                            symbol.exclude_from_sim,
+                            symbol.in_bom,
+                            symbol.on_board,
+                            symbol.in_pos_files,
+                        ],
+                        fields: symbol.fields,
+                    })
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
+fn terminal_summaries(
+    index: &SchematicBundleIndex,
+) -> Result<Vec<TerminalOccurrenceSummary>, kicad_monkey_core::SourceBundleError> {
+    index
+        .occurrences()
+        .map(|occurrence| {
+            Ok(TerminalOccurrenceSummary {
+                occurrence_index: occurrence.index,
+                terminals: index
+                    .symbol_terminals(occurrence.index)?
+                    .into_iter()
+                    .map(|terminal| TerminalSummary {
+                        symbol_index: terminal.symbol_index,
+                        symbol_uuid: terminal.symbol_uuid,
+                        reference: terminal.reference,
+                        pin_number: terminal.pin_number,
+                        pin_name: terminal.pin_name,
+                        electrical_type: terminal.electrical_type,
+                        graphic_style: terminal.graphic_style,
+                        hidden: terminal.hidden,
+                        library_at: point_pair(terminal.library_at),
+                        at: point_pair(terminal.at),
+                    })
+                    .collect(),
+            })
+        })
+        .collect()
 }
 
 fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {

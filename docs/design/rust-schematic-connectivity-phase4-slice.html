@@ -25,9 +25,16 @@
   <p>Each source definition also exposes its ordered placed-symbol carriers. A
   carrier retains library identifiers, exact position, angle, mirror, unit, convert,
   placement/policy flags, UUID, ordered property key/value pairs, and ordered source
-  pin mappings (number, UUID, and optional alternate). This is deliberately the
-  source-model boundary: library-pin geometry and occurrence-transformed terminals
-  are resolved by the next compiler slice rather than hidden in the reader.</p>
+  pin mappings (number, UUID, and optional alternate).</p>
+
+  <p>Each definition also exposes embedded library symbols, subsymbol unit/body-style
+  identity, and connectivity-relevant pins. A bounded first-writer suffix-key index
+  matches KiCad/Python full and basename library lookup without a placement-by-library
+  scan; empty or cyclic inheritance fails closed. <code>symbol_terminals</code> selects
+  common plus effective unit/style pins, retains hidden pins for connectivity, carries
+  effective occurrence references, and transforms library Y-up coordinates through
+  exact orthogonal rotation, mirror, and placement translation on the 100-nm grid.
+  Arbitrary rotations use checked ties-to-even grid snapping.</p>
 
   <p>Placed symbols retain both generations of KiCad occurrence metadata. Modern
   <code>instances/project/path</code> records retain project, path, reference, unit,
@@ -92,8 +99,9 @@
   no-connect markers, and labels, as well as aggregate connectivity objects, points
   per carrier, total carrier points per source, placed symbols per source, properties
   per symbol, source pin mappings per symbol, modern instance projects and paths,
-  variants and their fields, and legacy instance paths. Every retained-family check occurs
-  before parsing and pushing that object. Point collectors check before pushing past
+  variants and their fields, legacy instance paths, embedded library symbols,
+  subsymbols, pins, lookup-key bytes, and emitted occurrence terminals. Every
+  retained-family check occurs before parsing and pushing that object. Point collectors check before pushing past
   the effective per-form or remaining per-source allowance. Carrier-local structural
   selection is also bounded from that remaining allowance. Invalid/non-finite
   coordinates and overflowing bus-entry endpoints fail closed with the owning source
@@ -116,15 +124,16 @@
   hierarchical sheet pin and placed-symbol field, property, and pin mapping. The
   same corpus comparison covers modern project/path records, variant overlays, and
   legacy schematic-level symbol-instance paths. It also compares every effective
-  reference, unit, field map, and folded policy for every occurrence. The
+  reference, unit, field map, and folded policy plus every active library-pin terminal
+  and transformed connection coordinate for every occurrence. The
   native evidence process and its Python harness explicitly use UTF-8 at the process
   boundary, so non-ASCII KiCad values such as micro and ohm symbols remain exact on
   Windows. Focused synthetic tests cover pin defaults and independent pre-push limits
-  for sheet pins, symbols, symbol properties, and symbol pin mappings.</p>
+  for sheet pins, symbols, symbol properties, symbol pin mappings, embedded library
+  families, terminal output, inheritance, active unit/style selection, and transforms.</p>
 
   <h2>Deferred work</h2>
-  <p>Library-pin geometry and placed-symbol terminal transformation, bus-name expansion,
-  hierarchy-terminal binding, net naming/merging, graph row production, schematic
+  <p>Bus-name expansion, hierarchy-terminal binding, net naming/merging, graph row production, schematic
   mutation, and semantic round-trip remain in Phase 4. Browser/WASM packaging remains
   deferred by the native-first plan.</p>
 </body>

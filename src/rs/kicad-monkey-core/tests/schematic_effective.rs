@@ -193,6 +193,122 @@ fn compact_instance_indexes_enforce_the_aggregate_source_byte_budget() {
     assert!(error.message.contains("instance index bytes"));
 }
 
+#[test]
+fn embedded_library_pins_select_effective_unit_and_transform_exactly() {
+    let root = br#"(kicad_sch
+      (uuid root-source)
+      (lib_symbols
+        (symbol "Namespace:Base" (power local)
+          (symbol "Namespace:Base_0_0"
+            (pin passive line (at 1 2 0) (name "COMMON") (number "0")))
+          (symbol "Namespace:Base_1_1"
+            (pin input line (at 9 9 0) (name "UNIT1") (number "1")))
+          (symbol "Namespace:Base_2_1"
+            (pin output inverted (at 0 3 90) (name "ACTIVE") (number "2")
+              (hide yes) (uuid pin-2)))
+          (symbol "Namespace:Base_2_2"
+            (pin passive line (at 8 8 0) (name "STYLE2") (number "3"))))
+        (symbol "Alias" (extends "Namespace:Base")))
+      (symbol (lib_id "Device:Alias") (lib_name "Alias")
+        (at 10 20 90) (mirror x) (unit 1) (convert 1) (uuid placed-a)
+        (property "Reference" "U")
+        (instances
+          (project "root"
+            (path "/root-source" (reference "U7") (unit 2))))))"#
+        .to_vec();
+    let index = SchematicBundleIndex::build(
+        &bundle(root, b"(kicad_sch)".to_vec()),
+        SchematicBundleLimits::default(),
+    )
+    .expect("embedded library pin index");
+    let definition = index
+        .definition("design/root.kicad_sch")
+        .expect("root definition");
+    assert_eq!(definition.library_symbols.len(), 2);
+    assert!(definition.library_symbols[0].power);
+    assert_eq!(
+        definition.library_symbols[0].power_kind.as_deref(),
+        Some("local")
+    );
+
+    let terminals = index.symbol_terminals(1).expect("placed terminals");
+    assert_eq!(terminals.len(), 2);
+    assert_eq!(
+        (
+            terminals[0].reference.as_str(),
+            terminals[0].pin_number.as_str(),
+            terminals[0].pin_name.as_str(),
+            terminals[0].at.x_iu,
+            terminals[0].at.y_iu,
+        ),
+        ("U7", "0", "COMMON", 80_000, 210_000)
+    );
+    assert_eq!(
+        (
+            terminals[1].pin_number.as_str(),
+            terminals[1].electrical_type.as_str(),
+            terminals[1].graphic_style.as_str(),
+            terminals[1].hidden,
+            terminals[1].at.x_iu,
+            terminals[1].at.y_iu,
+        ),
+        ("2", "output", "inverted", true, 70_000, 200_000)
+    );
+}
+
+#[test]
+fn embedded_library_and_terminal_limits_fail_independently() {
+    let root = br#"(kicad_sch
+      (uuid root-source)
+      (lib_symbols
+        (symbol "Demo:Part"
+          (symbol "Demo:Part_1_1"
+            (pin passive line (at 0 0 0) (name "P") (number "1")))))
+      (symbol (lib_id "Demo:Part") (uuid placed-a)))"#
+        .to_vec();
+    let source = bundle(root, b"(kicad_sch)".to_vec());
+    for limits in [
+        SchematicBundleLimits {
+            max_library_symbols_per_source: 0,
+            ..SchematicBundleLimits::default()
+        },
+        SchematicBundleLimits {
+            max_library_subsymbols_per_source: 0,
+            ..SchematicBundleLimits::default()
+        },
+        SchematicBundleLimits {
+            max_library_pins_per_source: 0,
+            ..SchematicBundleLimits::default()
+        },
+        SchematicBundleLimits {
+            max_library_lookup_key_bytes_per_source: 0,
+            ..SchematicBundleLimits::default()
+        },
+    ] {
+        assert_eq!(
+            SchematicBundleIndex::build(&source, limits)
+                .expect_err("embedded library limit")
+                .kind,
+            SourceBundleErrorKind::ResourceLimit
+        );
+    }
+    let limited = SchematicBundleIndex::build(
+        &source,
+        SchematicBundleLimits {
+            max_symbol_terminals_per_occurrence: 0,
+            ..SchematicBundleLimits::default()
+        },
+    )
+    .expect("terminal-limited index");
+    assert_eq!(
+        limited
+            .symbol_terminals(1)
+            .expect_err("terminal count limit")
+            .kind,
+        SourceBundleErrorKind::ResourceLimit
+    );
+}
+
 fn logical_instance_index_bytes(path: &str) -> usize {
     14 * size_of::<usize>() + 2 * path.trim_end_matches('/').len()
 }

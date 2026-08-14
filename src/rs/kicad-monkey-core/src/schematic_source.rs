@@ -6,8 +6,11 @@ use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_sp
 use crate::source_bundle::{SourceBundleError, SourceBundleErrorKind};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+mod library_symbols;
 mod symbol_instances;
 mod symbols;
+pub(crate) use library_symbols::parse_embedded_library_symbols;
+pub use library_symbols::{SchematicLibraryPin, SchematicLibrarySubsymbol, SchematicLibrarySymbol};
 pub use symbol_instances::{
     SchematicLegacySymbolInstance, SchematicSymbolInstance, SchematicSymbolInstanceVariant,
     SchematicSymbolVariantField,
@@ -93,7 +96,6 @@ pub struct SchematicLabel {
     pub at: SchematicPoint,
 }
 
-/// One terminal exposed on a hierarchical sheet symbol.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicSheetPin {
     pub name: String,
@@ -102,7 +104,6 @@ pub struct SchematicSheetPin {
     pub at: SchematicPoint,
 }
 
-/// Closed KiCad electrical-shape vocabulary for hierarchical sheet pins.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SchematicPinShape {
     Input,

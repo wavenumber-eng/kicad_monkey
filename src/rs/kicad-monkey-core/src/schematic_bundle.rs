@@ -1,12 +1,14 @@
-//! One-scan schematic inventory and hierarchy realization over [`SourceBundle`].
-
+use crate::schematic_bundle_indexes::{
+    index_bundle_legacy_instances, index_library_symbols, portable_file_stem,
+};
 use crate::schematic_effective::{SchematicEffectiveSymbol, resolve_effective_symbols};
 use crate::schematic_source::{
     SchematicBusEntry, SchematicConnectivity, SchematicJunction, SchematicLabel,
-    SchematicLegacySymbolInstance, SchematicNoConnect, SchematicPlacedSymbol, SchematicPolyline,
-    SchematicSheetPin, parse_legacy_symbol_instances, parse_placed_symbols, parse_sheet_pin,
-    parse_source_carriers,
+    SchematicLegacySymbolInstance, SchematicLibrarySymbol, SchematicNoConnect,
+    SchematicPlacedSymbol, SchematicPolyline, SchematicSheetPin, parse_embedded_library_symbols,
+    parse_legacy_symbol_instances, parse_placed_symbols, parse_sheet_pin, parse_source_carriers,
 };
+use crate::schematic_terminals::{SchematicSymbolTerminal, resolve_symbol_terminals};
 use crate::sexpr::{Lexer, Token, TokenKind, decode_quoted};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use crate::source_bundle::{SourceBundle, SourceBundleError, SourceBundleErrorKind};
@@ -14,7 +16,6 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::SourceKind;
 use std::borrow::Cow;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-/// Resource ceilings for schematic indexing and hierarchy realization.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SchematicBundleLimits {
     pub max_source_bytes: usize,
@@ -26,6 +27,11 @@ pub struct SchematicBundleLimits {
     pub max_symbols_per_source: usize,
     pub max_symbol_properties_per_symbol: usize,
     pub max_symbol_pins_per_symbol: usize,
+    pub max_library_symbols_per_source: usize,
+    pub max_library_subsymbols_per_source: usize,
+    pub max_library_pins_per_source: usize,
+    pub max_library_lookup_key_bytes_per_source: usize,
+    pub max_symbol_terminals_per_occurrence: usize,
     pub max_symbol_instance_projects_per_symbol: usize,
     pub max_symbol_instances_per_symbol: usize,
     pub max_symbol_instance_index_bytes_per_source: usize,
@@ -58,6 +64,11 @@ impl Default for SchematicBundleLimits {
             max_symbols_per_source: 4_000_000,
             max_symbol_properties_per_symbol: 1_000_000,
             max_symbol_pins_per_symbol: 1_000_000,
+            max_library_symbols_per_source: 1_000_000,
+            max_library_subsymbols_per_source: 4_000_000,
+            max_library_pins_per_source: 8_000_000,
+            max_library_lookup_key_bytes_per_source: 64 * 1024 * 1024,
+            max_symbol_terminals_per_occurrence: 8_000_000,
             max_symbol_instance_projects_per_symbol: 1_000_000,
             max_symbol_instances_per_symbol: 1_000_000,
             max_symbol_instance_index_bytes_per_source: 512 * 1024 * 1024,
@@ -80,7 +91,6 @@ impl Default for SchematicBundleLimits {
     }
 }
 
-/// One hierarchical sheet placement decoded from its parent schematic.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicSheet {
     pub uuid: String,
@@ -93,7 +103,6 @@ pub struct SchematicSheet {
     pub pins: Vec<SchematicSheetPin>,
 }
 
-/// One schematic source definition, indexed exactly once per bundle build.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SchematicDefinition {
     pub source_path: String,
@@ -103,6 +112,7 @@ pub struct SchematicDefinition {
     pub uuid: Option<String>,
     pub sheets: Vec<SchematicSheet>,
     pub symbols: Vec<SchematicPlacedSymbol>,
+    pub library_symbols: Vec<SchematicLibrarySymbol>,
     pub legacy_symbol_instances: Vec<SchematicLegacySymbolInstance>,
     pub wires: Vec<SchematicPolyline>,
     pub buses: Vec<SchematicPolyline>,
@@ -112,6 +122,7 @@ pub struct SchematicDefinition {
     pub labels: Vec<SchematicLabel>,
     pub connectivity: SchematicConnectivity,
     legacy_symbol_instance_by_path: HashMap<String, usize>,
+    pub(crate) library_symbol_by_key: HashMap<String, usize>,
 }
 
 impl SchematicDefinition {
@@ -122,7 +133,6 @@ impl SchematicDefinition {
     }
 }
 
-/// One root or child occurrence realized in parent-first source order.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicOccurrence {
     pub index: usize,
@@ -139,9 +149,9 @@ pub struct SchematicOccurrence {
     pub effective_exclude_from_sim: bool,
 }
 
-/// Parsed definitions and realized occurrences ready for later connectivity work.
 #[derive(Clone, Debug)]
 pub struct SchematicBundleIndex {
+    limits: SchematicBundleLimits,
     project_name: String,
     definitions: Vec<SchematicDefinition>,
     definition_by_path: HashMap<String, usize>,
@@ -184,6 +194,7 @@ impl SchematicBundleIndex {
         let occurrences = realize_occurrences(bundle, &definitions, &definition_by_path, limits)?;
         let legacy_symbol_instance_by_path = index_bundle_legacy_instances(&definitions);
         Ok(Self {
+            limits,
             project_name: bundle
                 .project_path()
                 .map_or_else(String::new, portable_file_stem),
@@ -244,32 +255,32 @@ impl SchematicBundleIndex {
             &self.legacy_symbol_instance_by_path,
         )
     }
-}
 
-fn index_bundle_legacy_instances(
-    definitions: &[SchematicDefinition],
-) -> HashMap<String, (usize, usize)> {
-    let mut index = HashMap::new();
-    for (definition_index, definition) in definitions.iter().enumerate() {
-        for (instance_index, instance) in definition.legacy_symbol_instances.iter().enumerate() {
-            let path = instance.path.trim_end_matches('/');
-            if !path.is_empty() {
-                index
-                    .entry(path.to_owned())
-                    .or_insert((definition_index, instance_index));
-            }
-        }
+    pub fn symbol_terminals(
+        &self,
+        occurrence_index: usize,
+    ) -> Result<Vec<SchematicSymbolTerminal>, SourceBundleError> {
+        let occurrence = occurrence_index
+            .checked_sub(1)
+            .and_then(|index| self.occurrences.get(index))
+            .filter(|occurrence| occurrence.index == occurrence_index)
+            .ok_or_else(|| {
+                SourceBundleError::new(
+                    SourceBundleErrorKind::Schematic,
+                    None,
+                    "schematic occurrence index is out of range",
+                )
+            })?;
+        let definition = self.definition(&occurrence.source_path).ok_or_else(|| {
+            SourceBundleError::new(
+                SourceBundleErrorKind::MissingSource,
+                Some(&occurrence.source_path),
+                "schematic occurrence definition is missing",
+            )
+        })?;
+        let effective = self.effective_symbols(occurrence_index, None)?;
+        resolve_symbol_terminals(definition, occurrence, &effective, self.limits)
     }
-    index
-}
-
-fn portable_file_stem(path: &str) -> String {
-    path.rsplit('/')
-        .next()
-        .unwrap_or(path)
-        .strip_suffix(".kicad_pro")
-        .unwrap_or_else(|| path.rsplit('/').next().unwrap_or(path))
-        .to_owned()
 }
 
 fn parse_schematic_definition(
@@ -308,6 +319,7 @@ fn parse_schematic_definition(
         uuid: None,
         sheets: Vec::new(),
         symbols: Vec::new(),
+        library_symbols: Vec::new(),
         legacy_symbol_instances: Vec::new(),
         wires: Vec::new(),
         buses: Vec::new(),
@@ -317,9 +329,17 @@ fn parse_schematic_definition(
         labels: Vec::new(),
         connectivity: SchematicConnectivity::default(),
         legacy_symbol_instance_by_path: HashMap::new(),
+        library_symbol_by_key: HashMap::new(),
     };
     populate_schematic_definition(&mut definition, text, &spans, source.path(), limits)?;
     definition.symbols = parse_placed_symbols(text, source.path(), &spans, limits)?;
+    definition.library_symbols =
+        parse_embedded_library_symbols(text, source.path(), &spans, limits)?;
+    definition.library_symbol_by_key = index_library_symbols(
+        &definition.library_symbols,
+        source.path(),
+        limits.max_library_lookup_key_bytes_per_source,
+    )?;
     definition.legacy_symbol_instances =
         parse_legacy_symbol_instances(text, source.path(), &spans, limits)?;
     for (index, instance) in definition.legacy_symbol_instances.iter().enumerate() {
@@ -652,6 +672,7 @@ fn schematic_selector() -> Selector {
         &["kicad_sch", "global_label"],
         &["kicad_sch", "hierarchical_label"],
         &["kicad_sch", "symbol"],
+        &["kicad_sch", "lib_symbols"],
         &["kicad_sch", "symbol_instances"],
     ]
     .into_iter()
