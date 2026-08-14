@@ -30,7 +30,9 @@
   <p>Each definition also exposes embedded library symbols, subsymbol unit/body-style
   identity, and connectivity-relevant pins. A bounded first-writer suffix-key index
   matches KiCad/Python full and basename library lookup without a placement-by-library
-  scan; empty or cyclic inheritance fails closed. <code>symbol_terminals</code> selects
+  scan. A linear, three-state graph pass resolves and memoizes every symbol's
+  effective pin owner once; missing or cyclic inheritance fails closed and each
+  placement thereafter performs constant-time lookup. <code>symbol_terminals</code> selects
   common plus effective unit/style pins, retains hidden pins for connectivity, carries
   effective occurrence references, and transforms library Y-up coordinates through
   exact orthogonal rotation, mirror, and placement translation on the 100-nm grid.
@@ -100,7 +102,10 @@
   per carrier, total carrier points per source, placed symbols per source, properties
   per symbol, source pin mappings per symbol, modern instance projects and paths,
   variants and their fields, legacy instance paths, embedded library symbols,
-  subsymbols, pins, lookup-key bytes, and emitted occurrence terminals. Every
+  subsymbols, pins, lookup-key bytes, emitted occurrence terminals, and aggregate
+  string bytes retained by those terminals. The byte allowance includes repeated
+  placement UUIDs and effective references for every emitted pin, preventing a long
+  symbol field from being multiplied below the terminal-count ceiling. Every
   retained-family check occurs before parsing and pushing that object. Point collectors check before pushing past
   the effective per-form or remaining per-source allowance. Carrier-local structural
   selection is also bounded from that remaining allowance. Invalid/non-finite
@@ -130,7 +135,10 @@
   boundary, so non-ASCII KiCad values such as micro and ohm symbols remain exact on
   Windows. Focused synthetic tests cover pin defaults and independent pre-push limits
   for sheet pins, symbols, symbol properties, symbol pin mappings, embedded library
-  families, terminal output, inheritance, active unit/style selection, and transforms.</p>
+  families, terminal count and retained bytes, long-chain inheritance with many
+  placements, missing/cyclic parents, active unit/style selection, arbitrary and
+  negative angles, mirror order, ties-to-even half-grid rounding, and transform and
+  translation overflow.</p>
 
   <h2>Deferred work</h2>
   <p>Bus-name expansion, hierarchy-terminal binding, net naming/merging, graph row production, schematic

@@ -25,6 +25,7 @@ pub(crate) fn resolve_symbol_terminals(
     limits: SchematicBundleLimits,
 ) -> Result<Vec<SchematicSymbolTerminal>, SourceBundleError> {
     let mut terminals = Vec::new();
+    let mut retained_string_bytes = 0_usize;
     for effective in effective_symbols {
         let Some(placed) = definition.symbols.get(effective.symbol_index) else {
             continue;
@@ -48,6 +49,22 @@ pub(crate) fn resolve_symbol_terminals(
                         "symbol terminal count exceeds its limit",
                     ));
                 }
+                let terminal_bytes =
+                    terminal_string_bytes(placed, effective, pin).ok_or_else(|| {
+                        limit_error(occurrence, "symbol terminal retained bytes overflow")
+                    })?;
+                retained_string_bytes = retained_string_bytes
+                    .checked_add(terminal_bytes)
+                    .ok_or_else(|| {
+                        limit_error(occurrence, "symbol terminal retained bytes overflow")
+                    })?;
+                if retained_string_bytes > limits.max_symbol_terminal_retained_bytes_per_occurrence
+                {
+                    return Err(limit_error(
+                        occurrence,
+                        "symbol terminal retained bytes exceed their limit",
+                    ));
+                }
                 terminals.push(SchematicSymbolTerminal {
                     symbol_index: effective.symbol_index,
                     symbol_uuid: placed.uuid.clone(),
@@ -64,6 +81,23 @@ pub(crate) fn resolve_symbol_terminals(
         }
     }
     Ok(terminals)
+}
+
+fn terminal_string_bytes(
+    placed: &SchematicPlacedSymbol,
+    effective: &SchematicEffectiveSymbol,
+    pin: &SchematicLibraryPin,
+) -> Option<usize> {
+    [
+        placed.uuid.len(),
+        effective.reference.len(),
+        pin.number.len(),
+        pin.name.len(),
+        pin.electrical_type.len(),
+        pin.graphic_style.len(),
+    ]
+    .into_iter()
+    .try_fold(0_usize, usize::checked_add)
 }
 
 fn active_subsymbol(unit: i64, style: i64, placed_unit: i64, convert: i64) -> bool {
@@ -157,4 +191,43 @@ fn limit_error(occurrence: &SchematicOccurrence, message: &str) -> SourceBundleE
         Some(&occurrence.source_path),
         message,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rounded_i64;
+    use crate::SchematicOccurrence;
+
+    #[test]
+    fn half_grid_rounding_is_ties_to_even() {
+        let occurrence = occurrence();
+        assert_eq!(rounded_i64(2.5, &occurrence), Ok(2));
+        assert_eq!(rounded_i64(3.5, &occurrence), Ok(4));
+        assert_eq!(rounded_i64(-2.5, &occurrence), Ok(-2));
+        assert_eq!(rounded_i64(-3.5, &occurrence), Ok(-4));
+    }
+
+    #[test]
+    fn arbitrary_rotation_rejects_non_finite_and_out_of_range_values() {
+        let occurrence = occurrence();
+        assert!(rounded_i64(f64::INFINITY, &occurrence).is_err());
+        assert!(rounded_i64(i64::MAX as f64, &occurrence).is_err());
+    }
+
+    fn occurrence() -> SchematicOccurrence {
+        SchematicOccurrence {
+            index: 1,
+            source_path: "test.kicad_sch".to_owned(),
+            parent_index: None,
+            sheet_uuid: None,
+            sheet_name: String::new(),
+            sheet_file: "test.kicad_sch".to_owned(),
+            occurrence_address: "/".to_owned(),
+            legacy_address: "/".to_owned(),
+            effective_in_bom: true,
+            effective_on_board: true,
+            effective_dnp: false,
+            effective_exclude_from_sim: false,
+        }
+    }
 }

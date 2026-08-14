@@ -309,6 +309,215 @@ fn embedded_library_and_terminal_limits_fail_independently() {
     );
 }
 
+#[test]
+fn inherited_pin_owners_are_resolved_once_for_long_chains_and_many_placements() {
+    const CHAIN_LENGTH: usize = 1_024;
+    const PLACEMENT_COUNT: usize = 1_024;
+
+    let mut libraries = String::new();
+    for index in 0..CHAIN_LENGTH {
+        libraries.push_str(&format!(
+            "(symbol \"Alias{index}\" (extends \"Alias{}\"))",
+            index + 1
+        ));
+    }
+    libraries.push_str(&format!(
+        "(symbol \"Alias{CHAIN_LENGTH}\" \
+         (symbol \"Alias{CHAIN_LENGTH}_1_1\" \
+           (pin passive line (at 0 0 0) (name \"P\") (number \"1\"))))"
+    ));
+    let mut placements = String::new();
+    for index in 0..PLACEMENT_COUNT {
+        placements.push_str(&format!(
+            "(symbol (lib_id \"Alias0\") (uuid \"placed-{index}\"))"
+        ));
+    }
+    let root = format!("(kicad_sch (uuid root-source) (lib_symbols {libraries}) {placements})")
+        .into_bytes();
+    let index = SchematicBundleIndex::build(
+        &bundle(root, b"(kicad_sch)".to_vec()),
+        SchematicBundleLimits::default(),
+    )
+    .expect("long inheritance chain");
+    let definition = index
+        .definition("design/root.kicad_sch")
+        .expect("root definition");
+
+    for placed in &definition.symbols {
+        assert_eq!(
+            definition
+                .library_pin_symbol_for_placement(placed)
+                .map(|symbol| symbol.name.as_str()),
+            Some("Alias1024")
+        );
+    }
+}
+
+#[test]
+fn missing_and_cyclic_library_inheritance_have_no_pin_owner() {
+    let root = br#"(kicad_sch
+      (uuid root-source)
+      (lib_symbols
+        (symbol "CycleA" (extends "CycleB"))
+        (symbol "CycleB" (extends "CycleA"))
+        (symbol "Missing" (extends "Absent")))
+      (symbol (lib_id "CycleA") (uuid cycle-a))
+      (symbol (lib_id "CycleB") (uuid cycle-b))
+      (symbol (lib_id "Missing") (uuid missing)))"#
+        .to_vec();
+    let index = SchematicBundleIndex::build(
+        &bundle(root, b"(kicad_sch)".to_vec()),
+        SchematicBundleLimits::default(),
+    )
+    .expect("invalid inheritance remains representable");
+    let definition = index
+        .definition("design/root.kicad_sch")
+        .expect("root definition");
+
+    for placed in &definition.symbols {
+        assert!(
+            definition
+                .library_pin_symbol_for_placement(placed)
+                .is_none()
+        );
+    }
+    assert!(
+        index
+            .symbol_terminals(1)
+            .expect("empty terminals")
+            .is_empty()
+    );
+}
+
+#[test]
+fn terminal_retained_byte_limit_counts_repeated_symbol_fields() {
+    let root = br#"(kicad_sch
+      (uuid root-source)
+      (lib_symbols
+        (symbol "Demo:Part"
+          (symbol "Demo:Part_1_1"
+            (pin passive line (at 0 0 0) (name "FIRST") (number "1"))
+            (pin passive line (at 1 0 0) (name "SECOND") (number "2")))))
+      (symbol (lib_id "Demo:Part") (uuid long-placed-uuid)
+        (property "Reference" "LONG-REFERENCE")))"#
+        .to_vec();
+    let source = bundle(root, b"(kicad_sch)".to_vec());
+    let baseline = SchematicBundleIndex::build(&source, SchematicBundleLimits::default())
+        .expect("baseline terminal bytes");
+    let terminals = baseline.symbol_terminals(1).expect("baseline terminals");
+    assert_eq!(terminals.len(), 2);
+    let retained_bytes = terminals
+        .iter()
+        .map(|terminal| {
+            terminal.symbol_uuid.len()
+                + terminal.reference.len()
+                + terminal.pin_number.len()
+                + terminal.pin_name.len()
+                + terminal.electrical_type.len()
+                + terminal.graphic_style.len()
+        })
+        .sum();
+
+    SchematicBundleIndex::build(
+        &source,
+        SchematicBundleLimits {
+            max_symbol_terminal_retained_bytes_per_occurrence: retained_bytes,
+            ..SchematicBundleLimits::default()
+        },
+    )
+    .expect("exact retained-byte limit")
+    .symbol_terminals(1)
+    .expect("exact retained-byte output");
+    let limited = SchematicBundleIndex::build(
+        &source,
+        SchematicBundleLimits {
+            max_symbol_terminal_retained_bytes_per_occurrence: retained_bytes - 1,
+            ..SchematicBundleLimits::default()
+        },
+    )
+    .expect("one-over retained-byte index");
+    let error = limited
+        .symbol_terminals(1)
+        .expect_err("one-over retained-byte output");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(error.message.contains("terminal retained bytes"));
+}
+
+#[test]
+fn arbitrary_negative_and_mirrored_terminal_transforms_are_deterministic() {
+    let root = br#"(kicad_sch
+      (uuid root-source)
+      (lib_symbols
+        (symbol "Demo:Part"
+          (symbol "Demo:Part_1_1"
+            (pin passive line (at 1 0 0) (name "P") (number "1")))))
+      (symbol (lib_id "Demo:Part") (at 0 0 45) (uuid arbitrary))
+      (symbol (lib_id "Demo:Part") (at 0 0 -90) (uuid negative))
+      (symbol (lib_id "Demo:Part") (at 0 0 90) (mirror x) (uuid mirrored)))"#
+        .to_vec();
+    let index = SchematicBundleIndex::build(
+        &bundle(root, b"(kicad_sch)".to_vec()),
+        SchematicBundleLimits::default(),
+    )
+    .expect("transform vectors");
+    let terminals = index.symbol_terminals(1).expect("transformed terminals");
+    let point = |uuid: &str| {
+        terminals
+            .iter()
+            .find(|terminal| terminal.symbol_uuid == uuid)
+            .map(|terminal| terminal.at)
+            .expect("terminal by UUID")
+    };
+
+    assert_eq!(
+        (point("arbitrary").x_iu, point("arbitrary").y_iu),
+        (7_071, -7_071)
+    );
+    assert_eq!(
+        (point("negative").x_iu, point("negative").y_iu),
+        (0, 10_000)
+    );
+    assert_eq!(
+        (point("mirrored").x_iu, point("mirrored").y_iu),
+        (0, 10_000)
+    );
+}
+
+#[test]
+fn terminal_transform_and_translation_overflow_fail_closed() {
+    let transform_overflow = br#"(kicad_sch
+      (lib_symbols
+        (symbol "Demo:Part"
+          (symbol "Demo:Part_1_1"
+            (pin passive line (at 0 -922337203685477.5808 0)
+              (name "P") (number "1")))))
+      (symbol (lib_id "Demo:Part") (uuid placed)))"#
+        .to_vec();
+    let translation_overflow = br#"(kicad_sch
+      (lib_symbols
+        (symbol "Demo:Part"
+          (symbol "Demo:Part_1_1"
+            (pin passive line (at 0.0001 0 0) (name "P") (number "1")))))
+      (symbol (lib_id "Demo:Part") (at 922337203685477.5807 0 0)
+        (uuid placed)))"#
+        .to_vec();
+
+    for (source, expected) in [
+        (transform_overflow, "transform overflows"),
+        (translation_overflow, "translation overflows"),
+    ] {
+        let index = SchematicBundleIndex::build(
+            &bundle(source, b"(kicad_sch)".to_vec()),
+            SchematicBundleLimits::default(),
+        )
+        .expect("overflow vector parses");
+        let error = index
+            .symbol_terminals(1)
+            .expect_err("overflow must fail closed");
+        assert!(error.message.contains(expected), "{}", error.message);
+    }
+}
+
 fn logical_instance_index_bytes(path: &str) -> usize {
     14 * size_of::<usize>() + 2 * path.trim_end_matches('/').len()
 }

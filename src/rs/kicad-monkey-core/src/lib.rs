@@ -14,6 +14,7 @@ pub mod plotter_ir;
 pub mod plotter_types;
 pub mod schematic_bundle;
 mod schematic_bundle_indexes;
+mod schematic_bundle_limits;
 mod schematic_effective;
 mod schematic_source;
 mod schematic_terminals;

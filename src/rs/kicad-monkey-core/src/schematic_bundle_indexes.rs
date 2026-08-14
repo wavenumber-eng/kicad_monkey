@@ -2,7 +2,7 @@ use crate::{
     SchematicDefinition, SchematicLibrarySymbol, SchematicPlacedSymbol, SourceBundleError,
     SourceBundleErrorKind,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 impl SchematicDefinition {
     pub fn library_symbol_for_placement(
@@ -18,30 +18,74 @@ impl SchematicDefinition {
         &self,
         symbol: &SchematicPlacedSymbol,
     ) -> Option<&SchematicLibrarySymbol> {
-        let mut index = self
+        let index = self
             .library_symbol_index_for_key(&symbol.lib_name)
             .or_else(|| self.library_symbol_index_for_key(&symbol.lib_id))?;
-        let mut visited = HashSet::new();
-        while visited.insert(index) {
-            let library = &self.library_symbols[index];
-            if !library.subsymbols.is_empty() {
-                return Some(library);
-            }
-            index = self.library_symbol_index_for_key(library.extends.as_deref()?)?;
-        }
-        None
+        self.library_pin_owner_by_symbol[index]
+            .map(|owner_index| &self.library_symbols[owner_index])
     }
 
     fn library_symbol_index_for_key(&self, key: &str) -> Option<usize> {
-        if key.is_empty() {
-            return None;
-        }
-        let direct = self.library_symbol_by_key.get(key).copied();
-        let basename = key
-            .rsplit_once(':')
-            .and_then(|(_, basename)| self.library_symbol_by_key.get(basename).copied());
-        direct.into_iter().chain(basename).min()
+        library_symbol_index_for_key(&self.library_symbol_by_key, key)
     }
+}
+
+/// Resolve the effective pin-bearing symbol for every library symbol once.
+///
+/// The inheritance graph is functional (each symbol has at most one `extends`
+/// edge), so a three-state walk resolves every edge at most once. Missing
+/// parents and cycles deliberately resolve to no pin owner.
+pub(crate) fn resolve_library_pin_owners(
+    symbols: &[SchematicLibrarySymbol],
+    index: &HashMap<String, usize>,
+) -> Vec<Option<usize>> {
+    let mut owners = vec![None; symbols.len()];
+    let mut states = vec![0_u8; symbols.len()];
+    for start in 0..symbols.len() {
+        if states[start] == 2 {
+            continue;
+        }
+        let mut path = Vec::new();
+        let mut current = start;
+        let owner = loop {
+            if states[current] == 2 {
+                break owners[current];
+            }
+            if states[current] == 1 {
+                break None;
+            }
+            states[current] = 1;
+            path.push(current);
+            let symbol = &symbols[current];
+            if !symbol.subsymbols.is_empty() {
+                break Some(current);
+            }
+            let Some(parent) = symbol
+                .extends
+                .as_deref()
+                .and_then(|key| library_symbol_index_for_key(index, key))
+            else {
+                break None;
+            };
+            current = parent;
+        };
+        for symbol_index in path.into_iter().rev() {
+            owners[symbol_index] = owner;
+            states[symbol_index] = 2;
+        }
+    }
+    owners
+}
+
+fn library_symbol_index_for_key(index: &HashMap<String, usize>, key: &str) -> Option<usize> {
+    if key.is_empty() {
+        return None;
+    }
+    let direct = index.get(key).copied();
+    let basename = key
+        .rsplit_once(':')
+        .and_then(|(_, basename)| index.get(basename).copied());
+    direct.into_iter().chain(basename).min()
 }
 
 pub(crate) fn index_bundle_legacy_instances(
