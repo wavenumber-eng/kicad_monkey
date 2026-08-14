@@ -80,7 +80,11 @@ struct Work {
 /// Normalize duplicate closure points and fracture holes into exterior paths.
 ///
 /// This mirrors the cache-oriented ordering used by the Python KiCad reference.
-/// Input contours must arrive with each exterior before any holes it contains.
+/// Input contours must arrive with each exterior before any holes it contains,
+/// and one call must cover exactly one glyph's polygon set: KiCad only runs
+/// `Fracture()` (and its Clipper2 `Simplify()` seam rewrite plus outer
+/// reordering) when the glyph set has holes, so a hole-free input keeps font
+/// order and ring starts untouched.
 /// Contours with fewer than three points after closure normalization are ignored.
 pub fn fracture_text_contours_a0(
     contours: &[TextContour],
@@ -92,10 +96,14 @@ pub fn fracture_text_contours_a0(
     let mut work = Work::default();
     let normalized = normalize_contours(contours, limits, &mut work)?;
     let polygons = classify_contours(&normalized, limits, &mut work)?;
+    let has_holes = polygons.iter().any(|polygon| !polygon.holes.is_empty());
     let mut output = Vec::with_capacity(polygons.len());
     for polygon in &polygons {
-        let points = fracture_polygon(&normalized, polygon, limits, &mut work)?;
+        let points = fracture_polygon(&normalized, polygon, has_holes, limits, &mut work)?;
         output.push(TextContour { points });
+    }
+    if has_holes {
+        sort_contours_by_simplify_order(&mut output);
     }
     Ok(TextTopologyOutput {
         contours: output,
@@ -215,24 +223,26 @@ fn point_in_polygon(
 fn fracture_polygon(
     contours: &[TextContour],
     polygon: &Polygon,
+    group_has_holes: bool,
     limits: TextTopologyLimits,
     work: &mut Work,
 ) -> Result<Vec<TextPoint>, TextContourError> {
     if polygon.holes.is_empty() {
         let exterior = &contours[polygon.exterior].points;
         charge_output(exterior.len(), limits, work)?;
-        return Ok(exterior.clone());
+        if !group_has_holes {
+            return Ok(exterior.clone());
+        }
+        // A holed glyph's `Simplify()` rewrites every ring seam, including
+        // hole-free outers sharing the glyph's polygon set.
+        let start = (top_index(exterior) + 1) % exterior.len();
+        let mut rotated = exterior[start..].to_vec();
+        rotated.extend_from_slice(&exterior[..start]);
+        return Ok(rotated);
     }
 
     let exterior = &contours[polygon.exterior].points;
-    let top = exterior
-        .iter()
-        .enumerate()
-        .min_by(|(_, left), (_, right)| {
-            finite_cmp(left.y, right.y).then_with(|| finite_cmp(right.x, left.x))
-        })
-        .map(|(index, _)| index)
-        .expect("normalized contours are nonempty");
+    let top = top_index(exterior);
     let mut infos = Vec::with_capacity(polygon.holes.len() + 1);
     infos.push(path_info(
         contours,
@@ -286,6 +296,47 @@ fn fracture_polygon(
         bridge_hole(&mut edges, *info, limits, work)?;
     }
     collect_fractured(&edges, limits, work)
+}
+
+/// Simplified-exterior seam vertex: the top-most point, ties by largest x.
+fn top_index(points: &[TextPoint]) -> usize {
+    points
+        .iter()
+        .enumerate()
+        .min_by(|(_, left), (_, right)| {
+            finite_cmp(left.y, right.y).then_with(|| finite_cmp(right.x, left.x))
+        })
+        .map(|(index, _)| index)
+        .expect("normalized contours are nonempty")
+}
+
+/// Approximate Clipper2's `LocMinSorter` outer output order within one glyph.
+///
+/// KiCad's `Fracture()` runs `Simplify()` per glyph `SHAPE_POLY_SET`, and
+/// Clipper2's sweep emits each disjoint outer at its bottom-most local
+/// minimum: bottom-most first (largest y in the y-down cache frame), ties by
+/// smallest x, otherwise stable in input order.
+fn sort_contours_by_simplify_order(contours: &mut [TextContour]) {
+    contours.sort_by(|left, right| {
+        let (left_y, left_x) = bottom_vertex_key(&left.points);
+        let (right_y, right_x) = bottom_vertex_key(&right.points);
+        finite_cmp(right_y, left_y).then_with(|| finite_cmp(left_x, right_x))
+    });
+}
+
+/// Bottom-most vertex key: the largest y and the smallest x at that y.
+fn bottom_vertex_key(points: &[TextPoint]) -> (f64, f64) {
+    let mut max_y = f64::NEG_INFINITY;
+    let mut min_x = f64::INFINITY;
+    for point in points {
+        if point.y > max_y {
+            max_y = point.y;
+            min_x = point.x;
+        } else if point.y == max_y && point.x < min_x {
+            min_x = point.x;
+        }
+    }
+    (max_y, min_x)
 }
 
 fn path_info(contours: &[TextContour], contour: usize, start: usize) -> PathInfo {

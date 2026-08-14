@@ -230,7 +230,20 @@
   <code>Simplify()</code> emits hole rings starting just past the min-y run
   exit, so a vertical hole left edge bridges at its bottom vertex. Live
   double-hole (Arial <code>B</code>) and vertical-left-edge-hole (Arial
-  <code>D</code>) save-oracle cases pin this. The
+  <code>D</code>) save-oracle cases pin this. One topology call covers
+  exactly one glyph's polygon set: KiCad's saved-cache writer fractures each
+  drawn glyph independently and only when that glyph has holes
+  (<code>if (glyph.HasHoles()) glyph.Fracture()</code>), so cache composition
+  threads per-glyph contour group sizes from layout and scopes fracture to
+  each group. Within a holed group, <code>Simplify()</code> rewrites every
+  ring seam &mdash; hole-free outers restart just past their top-most point
+  (min&nbsp;y, ties largest&nbsp;x) &mdash; and Clipper2's
+  <code>LocMinSorter</code> reorders the group's outers by bottom-most vertex
+  (largest y first, ties smallest x, otherwise stable). Hole-free groups see
+  no <code>Simplify()</code> and keep font contour order and ring seams
+  untouched. Live Arial <code>%</code> (one glyph mixing a hole-free slash
+  outer with holed rings), <code>Tp%</code>, and <code>i:j;!?</code>
+  save-oracle cases pin this scoping. The
   pairwise containment and prior-edge bridge scans have independent work
   ceilings; input points, edge slots, link traversal, polygons, and published
   points are also bounded. Finite comparisons intentionally preserve Python's
@@ -261,13 +274,16 @@
   <p>The current render-cache strata now establish live KiCad save-oracle
   parity for representative plain single-line, multiline, tabbed, and explicit
   line-spacing, right-aligned, kerning, whitespace, and markup Arial text,
-  plus fake bold/italic synthesis on Impact and the real-bold Arial face, and
-  double-hole and vertical-left-edge hole fracture ordering.
+  plus fake bold/italic synthesis on Impact and the real-bold Arial face,
+  double-hole and vertical-left-edge hole fracture ordering, and per-glyph
+  fracture scoping with Simplify seam rewrite and outer reordering (the
+  former Arial <code>%</code> gap, now closed &mdash; it was per-glyph outer
+  output ordering plus hole-free ring seam rewriting, not geometry cleanup).
   They do not yet claim broad font and composite-glyph
-  coverage, or repository-local corpus coverage. A known gap sits in that
-  broad-glyph row: Arial <code>%</code> disagrees with the save oracle on
-  contour point counts, pointing at unported <code>Simplify()</code> geometry
-  cleanup rather than fracture ordering. Those remain active parts
+  coverage, or repository-local corpus coverage. A known gap sits in the
+  Python reference (not the Rust port): its multi-glyph cursor advance drifts
+  a few microns beyond tolerance at larger x positions, while the native
+  hinted path quantizes advances exactly like KiCad. Those remain active parts
   of <code>render-cache-parity</code>, not deferred packaging work. Font
   discovery stays native-only and outside the platform-neutral byte-input
   core; WASM packaging remains in its later selected-operation phase.</p>

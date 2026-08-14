@@ -941,6 +941,9 @@ def _write_leader_dimension_text_board(
         ("S", "curved"),
         ("O", "holed"),
         ("B", "double_holed"),
+        # "%" mixes a hole-free slash outer with two holed rings in one glyph,
+        # so Simplify rewrites every ring seam and reorders the outers.
+        ("%", "percent_ordering"),
     ],
 )
 def test_python_render_cache_generator_matches_kicad_oracle_for_outline_glyphs(
@@ -1139,6 +1142,35 @@ def test_python_render_cache_generator_matches_kicad_oracle_for_outline_glyphs(
             "left",
             "top",
             True,
+        ),
+        # "%" is one glyph whose holed rings trigger Simplify, pinning the
+        # per-glyph outer reorder and the hole-free slash seam rewrite while
+        # the hole-free "T"/"p" glyphs keep font order across the string.
+        (
+            "Tp%",
+            "Tp%",
+            "",
+            "percent_outer_ordering",
+            1.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
+        ),
+        # Hole-free multi-outer glyphs never see Simplify, pinning that font
+        # contour order and ring seams survive untouched.
+        (
+            "i:j;!?",
+            "i:j;!?",
+            "",
+            "holeless_multi_outer_font_order",
+            1.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
         ),
     ],
 )

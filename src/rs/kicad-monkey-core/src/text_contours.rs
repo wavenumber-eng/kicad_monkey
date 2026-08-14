@@ -78,6 +78,10 @@ pub struct TextContour {
 #[derive(Clone, Debug)]
 pub struct TextContourOutput {
     pub contours: Vec<TextContour>,
+    /// Contiguous per-glyph contour counts in glyph order, summing to
+    /// `contours.len()`. KiCad fractures each drawn glyph's polygon set
+    /// independently, so cache composition must scope reordering per glyph.
+    pub contour_group_sizes: Vec<usize>,
     pub advance_x: f64,
     pub advance_y: f64,
     pub units_per_em: u16,
@@ -393,6 +397,7 @@ fn compose_shaped_contours(
                 cursor_y + glyph.y_offset.get() as f64 + style_offset_y,
             )?;
         }
+        output.close_group();
         cursor_x = advance_cursor(
             cursor_x,
             glyph.x_advance.get() as f64,
@@ -486,6 +491,8 @@ struct PlacementTransform {
 
 struct ContourBuilder {
     contours: Vec<TextContour>,
+    group_sizes: Vec<usize>,
+    grouped_contours: usize,
     current: Vec<TextPoint>,
     last_outline_point: TextPoint,
     limits: TextContourLimits,
@@ -501,6 +508,8 @@ impl ContourBuilder {
     fn new(limits: TextContourLimits, max_error: f64, transform: PlacementTransform) -> Self {
         Self {
             contours: Vec::with_capacity(limits.max_contours.min(256)),
+            group_sizes: Vec::new(),
+            grouped_contours: 0,
             current: Vec::new(),
             last_outline_point: TextPoint { x: 0.0, y: 0.0 },
             limits,
@@ -510,6 +519,15 @@ impl ContourBuilder {
             outline_commands: 0,
             bezier_work_items: 0,
             peak_temporary_bezier_points: 0,
+        }
+    }
+
+    /// Close the current glyph's contiguous contour group.
+    fn close_group(&mut self) {
+        let size = self.contours.len().saturating_sub(self.grouped_contours);
+        if size > 0 {
+            self.group_sizes.push(size);
+            self.grouped_contours = self.contours.len();
         }
     }
 
@@ -664,6 +682,7 @@ impl ContourBuilder {
     ) -> TextContourOutput {
         TextContourOutput {
             contours: self.contours,
+            contour_group_sizes: self.group_sizes,
             advance_x,
             advance_y,
             units_per_em,

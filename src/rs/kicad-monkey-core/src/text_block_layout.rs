@@ -70,6 +70,9 @@ impl Default for TextBlockLayoutLimits {
 #[derive(Clone, Debug)]
 pub struct TextBlockLayoutOutput {
     pub contours: Vec<TextContour>,
+    /// Contiguous per-glyph (and per-overbar) contour counts in draw order,
+    /// summing to `contours.len()`.
+    pub contour_group_sizes: Vec<usize>,
     pub line_widths: Vec<f64>,
     pub width: f64,
     pub height: f64,
@@ -198,6 +201,7 @@ fn place_lines(
     let single_request = single_line_request(request, request.shaping);
     let transform = validated_transform(single_request)?;
     let mut contours = Vec::with_capacity(work.contours.min(256));
+    let mut contour_group_sizes = Vec::new();
     for (line_index, line) in lines.into_iter().enumerate() {
         let horizontal_offset = horizontal_offset(request.horizontal_alignment, line.width);
         let line_y =
@@ -213,6 +217,7 @@ fn place_lines(
                         ));
                     }
                     transform_contours(&mut run.output.contours, translation, transform)?;
+                    contour_group_sizes.extend(run.output.contour_group_sizes);
                     contours.extend(run.output.contours);
                 }
                 PendingItem::Bar { start_x, end_x } => {
@@ -232,6 +237,7 @@ fn place_lines(
                     let points = stroke_segment_to_polygon(start, end, request.stroke_width);
                     if !points.is_empty() {
                         contours.push(TextContour { points });
+                        contour_group_sizes.push(1);
                     }
                 }
             }
@@ -239,6 +245,7 @@ fn place_lines(
     }
     Ok(TextBlockLayoutOutput {
         contours,
+        contour_group_sizes,
         line_widths: metrics.line_widths,
         width: metrics.width,
         height: metrics.height,

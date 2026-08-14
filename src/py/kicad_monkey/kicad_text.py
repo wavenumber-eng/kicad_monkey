@@ -554,6 +554,9 @@ class KiCadTextRenderer:
         self._hb_font_cache: Dict[HBFontCacheKey, Any] = {}
         # Embedded fonts: font_name -> (font_data_bytes, virtual_path)
         self._embedded_fonts: Dict[str, Tuple[bytes, str]] = {}
+        # Contiguous per-glyph (and per-overbar) contour counts recorded by
+        # the most recent _render_contours() call, in draw order.
+        self._contour_group_sizes: List[int] = []
 
     def register_embedded_font(self, font_name: str, font_data: bytes) -> str:
         """Register an embedded font from raw TTF data.
@@ -1620,6 +1623,16 @@ class KiCadTextRenderer:
         for contour in contours:
             geometry.add_contour(contour)
 
+        # add_contour() drops degenerate (<3 point) contours, so recount each
+        # glyph group against the retained contours to keep the group sizes an
+        # exact partition of geometry.contours.
+        start = 0
+        for size in self._contour_group_sizes:
+            retained = sum(1 for contour in contours[start:start + size] if len(contour) >= 3)
+            start += size
+            if retained:
+                geometry.contour_group_sizes.append(retained)
+
         return geometry
 
     def _styled_scaler_for_style(self, style: _TextStyle, scaler: int) -> int:
@@ -1860,6 +1873,7 @@ class KiCadTextRenderer:
             hb_x_offset = float(position.x_offset) * shaped.position_scale
             hb_y_offset = float(position.y_offset) * shaped.position_scale
 
+        appended_before = len(contours_out)
         for contour in self._outline_to_contours(outline):
             transformed: List[Point] = []
             for pt in contour:
@@ -1878,6 +1892,9 @@ class KiCadTextRenderer:
                 )
             if transformed:
                 contours_out.append(transformed)
+        appended = len(contours_out) - appended_before
+        if appended:
+            self._contour_group_sizes.append(appended)
 
     def _render_plain_text_contours(
         self,
@@ -2033,6 +2050,7 @@ class KiCadTextRenderer:
         )
         if bar_contour:
             contours_out.append(bar_contour)
+            self._contour_group_sizes.append(1)
 
     @staticmethod
     def _vertical_line_offset(params: TextParams, *, line_count: int, interline: float) -> float:
@@ -2056,6 +2074,7 @@ class KiCadTextRenderer:
 
     def _render_contours(self, params: TextParams) -> List[List[Point]]:
         """Internal method to render text to contour lists."""
+        self._contour_group_sizes = []
         face: Any | None = self._get_font(params.font_name, params.bold, params.italic)
         if face is None:
             return []

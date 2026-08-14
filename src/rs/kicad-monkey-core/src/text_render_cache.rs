@@ -113,6 +113,7 @@ pub fn generate_text_render_cache_block_hinted_a0(
         request.shaping.text.clone(),
         request.angle_degrees,
         layout.contours,
+        &layout.contour_group_sizes,
         limits,
     )
 }
@@ -136,6 +137,7 @@ fn generate_text_render_cache_with_outline_mode(
         request.shaping.text.clone(),
         request.angle_degrees,
         layout.contours,
+        &layout.contour_group_sizes,
         limits,
     )
 }
@@ -144,6 +146,7 @@ fn cache_from_contours(
     text: String,
     angle_degrees: f64,
     contours: Vec<TextContour>,
+    group_sizes: &[usize],
     limits: TextRenderCacheLimits,
 ) -> Result<TextRenderCache, TextRenderCacheError> {
     let mut topology_limits = limits.topology;
@@ -152,15 +155,39 @@ fn cache_from_contours(
         .min(limits.max_polygons)
         .min(limits.max_contours);
     topology_limits.max_output_points = topology_limits.max_output_points.min(limits.max_points);
-    let topology =
-        fracture_text_contours_a0(&contours, topology_limits).map_err(map_contour_error)?;
-    let polygons = topology
-        .contours
-        .into_iter()
-        .map(|contour| TextRenderCachePolygon {
+    // KiCad's saved-cache writer fractures each drawn glyph's polygon set
+    // independently, so hole fracture and the Simplify seam and outer
+    // reordering are all scoped to one glyph group; glyph draw order itself
+    // is preserved.
+    let mut polygons: Vec<TextRenderCachePolygon> = Vec::new();
+    let mut start = 0usize;
+    for &size in group_sizes {
+        let group = start
+            .checked_add(size)
+            .and_then(|end| contours.get(start..end))
+            .ok_or_else(|| {
+                invalid(
+                    "$.contours",
+                    "contour group sizes overrun the layout contours",
+                )
+            })?;
+        let topology =
+            fracture_text_contours_a0(group, topology_limits).map_err(map_contour_error)?;
+        let fractured = topology.contours;
+        if polygons.len().saturating_add(fractured.len()) > limits.max_polygons {
+            return Err(limit("$.polygons", "render-cache polygon limit exceeded"));
+        }
+        polygons.extend(fractured.into_iter().map(|contour| TextRenderCachePolygon {
             contours: vec![contour],
-        })
-        .collect();
+        }));
+        start += size;
+    }
+    if start != contours.len() {
+        return Err(invalid(
+            "$.contours",
+            "contour group sizes do not partition the layout contours",
+        ));
+    }
     Ok(TextRenderCache {
         text,
         angle_degrees,

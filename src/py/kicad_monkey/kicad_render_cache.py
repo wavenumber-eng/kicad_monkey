@@ -381,9 +381,34 @@ def _fracture_exterior_with_holes(
     return fractured
 
 
-def _fracture_render_cache_contours(
+def _clipper_simplify_order_key(
+    points: list[tuple[float, float]],
+) -> tuple[float, float]:
+    """Approximate Clipper2's `LocMinSorter` outer output order.
+
+    KiCad's `Fracture()` runs `Simplify()` per glyph `SHAPE_POLY_SET`, and
+    Clipper2's sweep emits each disjoint outer at its bottom-most local
+    minimum: bottom-most first (largest y in the y-down cache frame), ties by
+    smallest x, otherwise stable in input order.
+    """
+
+    max_y = max(point[1] for point in points)
+    min_x = min(point[0] for point in points if point[1] == max_y)
+    return (-max_y, min_x)
+
+
+def _fracture_contour_group(
     contours: list[list[tuple[float, float]]],
 ) -> list[list[tuple[float, float]]]:
+    """Fracture one glyph's contours with KiCad's holed-glyph normalization.
+
+    KiCad only calls `Fracture()` when the glyph polygon set has holes, and
+    `Fracture()` runs Clipper2 `Simplify()` over the whole set first.  A holed
+    group therefore gets every ring's seam rewritten (including hole-free
+    outers) and its outers reordered; a hole-free group keeps font order and
+    ring starts untouched.
+    """
+
     polygons: list[dict[str, Any]] = []
 
     for contour in contours:
@@ -401,15 +426,48 @@ def _fracture_render_cache_contours(
         else:
             parent["holes"].append(contour)
 
+    group_has_holes = any(polygon["holes"] for polygon in polygons)
     fractured: list[list[tuple[float, float]]] = []
     for polygon in polygons:
-        fractured.append(
-            _fracture_exterior_with_holes(
-                polygon["exterior"],
-                polygon["holes"],
+        if polygon["holes"]:
+            fractured.append(
+                _fracture_exterior_with_holes(
+                    polygon["exterior"],
+                    polygon["holes"],
+                )
             )
-        )
+        elif group_has_holes:
+            fractured.append(_rotate_exterior_for_fracture(polygon["exterior"]))
+        else:
+            fractured.append(polygon["exterior"])
 
+    if group_has_holes:
+        fractured.sort(key=_clipper_simplify_order_key)
+    return fractured
+
+
+def _fracture_render_cache_contours(
+    contours: list[list[tuple[float, float]]],
+    group_sizes: Optional[list[int]] = None,
+) -> list[list[tuple[float, float]]]:
+    """Fracture cache contours, scoped per glyph group when sizes are known.
+
+    KiCad's saved-cache writer fractures each drawn glyph's polygon set
+    independently, so hole containment, hole bridging, and the Simplify seam
+    and outer reordering are all scoped to one glyph group while glyph draw
+    order is preserved.  Without group sizes the whole input is one group.
+    """
+
+    if group_sizes is None:
+        return _fracture_contour_group(contours)
+    if sum(group_sizes) != len(contours):
+        raise ValueError("contour group sizes do not partition the contours")
+
+    fractured: list[list[tuple[float, float]]] = []
+    start = 0
+    for size in group_sizes:
+        fractured.extend(_fracture_contour_group(contours[start:start + size]))
+        start += size
     return fractured
 
 
@@ -442,7 +500,8 @@ def generate_render_cache_from_text_params(
         _trim_repeated_closing_point(list(contour.points))
         for contour in geometry.contours
     ]
-    for points in _fracture_render_cache_contours(contours):
+    group_sizes = list(getattr(geometry, "contour_group_sizes", []) or []) or None
+    for points in _fracture_render_cache_contours(contours, group_sizes):
         if len(points) >= 3:
             polygons.append(
                 RenderCachePolygon(

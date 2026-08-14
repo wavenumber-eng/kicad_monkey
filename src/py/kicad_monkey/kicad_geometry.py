@@ -256,6 +256,10 @@ class RenderedGeometry:
         };
     """
     contours: List[Contour] = field(default_factory=list)
+    #: Contiguous per-glyph (and per-overbar) contour counts in draw order,
+    #: summing to ``len(contours)``.  Empty when the producer does not track
+    #: glyph grouping.
+    contour_group_sizes: List[int] = field(default_factory=list)
     source_text: str = ""
     layer: str = ""
     is_knockout: bool = False
