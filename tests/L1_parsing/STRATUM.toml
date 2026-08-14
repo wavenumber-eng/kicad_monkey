@@ -470,6 +470,8 @@ secondary = [
     "The first owned write is exact and the second write is byte stable",
     "Promoted typed definitions compare equal after reparse",
     "Placed-symbol property create, update, and removal preserve unknown forms",
+    "Inserted properties carry KiCad's mandatory three-value placement child",
+    "Python and a schematic-capable kicad-cli accept the focused mutation output",
     "Ambiguous UUIDs and property names fail without changing owned source",
     "Source, property, decoded-scalar, and output ceilings fail closed",
     "CRLF and one-line source layouts remain valid after focused insertion",

@@ -186,15 +186,8 @@ impl SchematicDocument {
                 "symbol property count exceeds its limit",
             ));
         }
-        let form = build_with_limit(
-            &Sexp::List(vec![
-                Sexp::Atom("property".to_owned()),
-                Sexp::Quoted(name.to_owned()),
-                Sexp::Quoted(value.to_owned()),
-            ]),
-            self.limits.max_output_bytes,
-        )
-        .map_err(|error| schematic_error(&self.source_path, error))?;
+        let form =
+            inserted_property_form(name, value, self.limits.max_output_bytes, &self.source_path)?;
         let (offset, replacement) = insertion(&self.source, &symbol.span, &form);
         self.commit_patch(Patch::new(offset, offset, replacement))
     }
@@ -501,6 +494,35 @@ fn quoted(
 ) -> Result<String, SourceBundleError> {
     build_with_limit(&Sexp::Quoted(value.to_owned()), max_output_bytes)
         .map_err(|error| schematic_error(source_path, error))
+}
+
+fn inserted_property_form(
+    name: &str,
+    value: &str,
+    max_output_bytes: usize,
+    source_path: &str,
+) -> Result<String, SourceBundleError> {
+    let name = quoted(name, max_output_bytes, source_path)?;
+    let value = quoted(value, max_output_bytes, source_path)?;
+    let required = "(property   (at 0 0 0))"
+        .len()
+        .checked_add(name.len())
+        .and_then(|bytes| bytes.checked_add(value.len()))
+        .ok_or_else(|| schematic_limit(source_path, "inserted property byte count overflows"))?;
+    if required > max_output_bytes {
+        return Err(schematic_limit(
+            source_path,
+            "schematic output exceeds max_output_bytes",
+        ));
+    }
+    let mut form = String::with_capacity(required);
+    form.push_str("(property ");
+    form.push_str(&name);
+    form.push(' ');
+    form.push_str(&value);
+    form.push_str(" (at 0 0 0))");
+    debug_assert_eq!(form.len(), required);
+    Ok(form)
 }
 
 fn insertion(source: &str, symbol: &FormSpan, form: &str) -> (usize, String) {

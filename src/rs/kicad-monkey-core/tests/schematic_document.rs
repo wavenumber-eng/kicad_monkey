@@ -1,5 +1,6 @@
 use kicad_monkey_core::{
-    SchematicBundleLimits, SchematicDocument, SchematicDocumentLimits, SourceBundleErrorKind,
+    SchematicBundleLimits, SchematicDocument, SchematicDocumentLimits, Sexp, SourceBundleErrorKind,
+    parse,
 };
 use std::io::{Cursor, Write};
 
@@ -97,13 +98,39 @@ fn insertion_preserves_crlf_and_reparses_one_line_symbols() {
             .expect("insert")
     );
     assert!(document.source().contains(
-        "(symbol (lib_id \"D:R\") (uuid one)\r\n    (property \"Value\" \"10k\")\r\n  )"
+        "(symbol (lib_id \"D:R\") (uuid one)\r\n    (property \"Value\" \"10k\" (at 0 0 0))\r\n  )"
     ));
     assert!(!document.source().replace("\r\n", "").contains('\n'));
     assert_eq!(
         document.definition().expect("reparse").symbols[0].properties[0].value,
         "10k"
     );
+    let tree = parse(document.source()).expect("independent structural parse");
+    assert!(contains_inserted_property_with_complete_placement(&tree));
+}
+
+fn contains_inserted_property_with_complete_placement(value: &Sexp) -> bool {
+    let Sexp::List(items) = value else {
+        return false;
+    };
+    let is_inserted = matches!(
+        items.as_slice(),
+        [Sexp::Atom(head), Sexp::Quoted(name), Sexp::Quoted(value), rest @ ..]
+            if head == "property"
+                && name == "Value"
+                && value == "10k"
+                && rest.iter().any(|child| matches!(
+                    child,
+                    Sexp::List(at)
+                        if matches!(at.as_slice(),
+                            [Sexp::Atom(head), Sexp::Integer(0), Sexp::Integer(0), Sexp::Integer(0)]
+                            if head == "at")
+                ))
+    );
+    is_inserted
+        || items
+            .iter()
+            .any(contains_inserted_property_with_complete_placement)
 }
 
 #[test]

@@ -400,4 +400,4 @@ status = "review_ready"
 python_symbols = ["KiCadSchematic.to_text", "SchSymbol.properties"]
 rust_symbols = ["SchematicDocument", "SchematicDocumentLimits"]
 rack_cases = ["L1_032"]
-evidence = ["src/rs/kicad-monkey-core/src/schematic_bundle/document.rs", "src/rs/kicad-monkey-core/tests/schematic_document.rs", "src/rs/kicad-monkey-core/examples/schematic_roundtrip_gate.rs", "tests/L1_parsing/test_L1_032_rust_schematic_roundtrip.py", "docs/design/rust-schematic-writer-phase4-slice.html"]
+evidence = ["src/rs/kicad-monkey-core/src/schematic_bundle/document.rs", "src/rs/kicad-monkey-core/tests/schematic_document.rs", "src/rs/kicad-monkey-core/examples/schematic_roundtrip_gate.rs", "src/rs/kicad-monkey-core/examples/schematic_mutation_gate.rs", "tests/L1_parsing/test_L1_032_rust_schematic_roundtrip.py", "docs/design/rust-schematic-writer-phase4-slice.html"]

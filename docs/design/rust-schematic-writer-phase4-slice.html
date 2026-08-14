@@ -22,7 +22,10 @@
     placed symbol by its nonempty UUID and create, update, or remove an
     unambiguous property. Missing identities and duplicate UUID/property
     matches fail closed. An absent removal and a repeated write are stable
-    no-ops.</p>
+    no-ops. A newly created property includes KiCad's required three-value
+    <code>(at 0 0 0)</code> placement child; the zero placement is the
+    deterministic default until a caller-facing placement operation is
+    promoted.</p>
   </section>
 
   <section>
@@ -51,6 +54,10 @@
     transactional create/update/remove behavior, unknown-form preservation,
     escaped values, CRLF and one-line insertion, ambiguity, source/property/
     output limits, and named UTF-8/I/O diagnostics.</p>
+    <p>The mutation gate independently parses the emitted property structure
+    and reads it through the Python schematic model. When a schematic-capable
+    <code>kicad-cli</code> is resolvable, L1_032 exports a netlist from the
+    mutated schematic; KiCad 10 accepts the current evidence file.</p>
     <p>This slice does not close Phase 4. Broader schematic carrier mutation,
     symbol-library and worksheet round-trip closure, project writeback, native
     cruncher assembly, full Python/Rust corpus parity, and eventual selected
