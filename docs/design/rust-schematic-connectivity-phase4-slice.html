@@ -15,7 +15,9 @@
   <p><code>SchematicBundleIndex</code> now realizes typed, iterable source carriers
   for wires, buses, bus entries, junctions, no-connect markers, and local/global/
   hierarchical labels. Each carrier retains its KiCad UUID and connectivity-relevant
-  geometry. Labels retain their scope, text, and shape.</p>
+  geometry. Labels retain their scope, text, and shape. Hierarchical sheet definitions
+  also expose ordered pins with name, electrical shape, UUID, and exact connection
+  position.</p>
 
   <p>Coordinates are snapped immediately to KiCad's 100-nm schematic internal-unit
   grid and stored as signed integers. A dependency-free decimal parser performs the
@@ -68,10 +70,12 @@
   membership, all six independent family ceilings, and each point ceiling. Shared
   Rust/Python decimal vectors cover coordinate rounding and range. Rack L3_020 compares every carrier and
   every connectivity component with the established Python implementation across the
-  four compiled-graph reference projects in one native process.</p>
+  four compiled-graph reference projects in one native process, including every
+  hierarchical sheet pin. A focused synthetic test covers pin defaults and the
+  independent pre-push per-sheet pin ceiling.</p>
 
   <h2>Deferred work</h2>
-  <p>Placed symbols and pins, sheet pins, bus-name expansion, hierarchy-terminal
+  <p>Placed symbols and their library-pin geometry, bus-name expansion, hierarchy-terminal
   binding, net naming/merging, graph row production, schematic mutation, and semantic
   round-trip remain in Phase 4. Browser/WASM packaging remains deferred by the
   native-first plan.</p>

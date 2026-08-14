@@ -92,6 +92,24 @@ def _definition_summary(schematic: object, bundle_root: Path) -> dict[str, objec
     source_path = Path(str(getattr(schematic, "source_path"))).resolve()
     return {
         "source_path": source_path.relative_to(bundle_root).as_posix(),
+        "sheets": [
+            {
+                "uuid": str(getattr(sheet, "uuid", "") or ""),
+                "pins": [
+                    {
+                        "name": str(getattr(pin, "name", "") or ""),
+                        "shape": str(
+                            getattr(getattr(pin, "shape", ""), "value", getattr(pin, "shape", ""))
+                            or ""
+                        ),
+                        "uuid": str(getattr(pin, "uuid", "") or ""),
+                        "at": _point(pin.at_x, pin.at_y),
+                    }
+                    for pin in getattr(sheet, "pins", ())
+                ],
+            }
+            for sheet in getattr(schematic, "sheets", ())
+        ],
         "wires": [_polyline(value) for value in getattr(schematic, "wires", ())],
         "buses": [_polyline(value) for value in getattr(schematic, "buses", ())],
         "bus_entries": [

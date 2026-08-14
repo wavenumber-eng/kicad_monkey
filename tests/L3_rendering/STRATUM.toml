@@ -223,4 +223,5 @@ secondary = [
     "Wire, bus, bus-entry, junction, no-connect, and label carriers match Python",
     "Wire components match Python on KiCad's 100-nm schematic grid",
     "Shared decimal vectors fix exact ties-even and signed-IU boundary policy",
+    "Hierarchical sheet-pin name, shape, UUID, and position match Python",
 ]

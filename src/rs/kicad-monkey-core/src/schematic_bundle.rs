@@ -2,7 +2,8 @@
 
 use crate::schematic_source::{
     SchematicBusEntry, SchematicConnectivity, SchematicJunction, SchematicLabel,
-    SchematicNoConnect, SchematicPolyline, parse_source_carriers,
+    SchematicNoConnect, SchematicPolyline, SchematicSheetPin, parse_sheet_pin,
+    parse_source_carriers,
 };
 use crate::sexpr::{Lexer, Token, TokenKind, decode_quoted};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
@@ -19,6 +20,7 @@ pub struct SchematicBundleLimits {
     pub max_selected_forms_per_source: usize,
     pub max_sheets_per_source: usize,
     pub max_sheet_properties: usize,
+    pub max_sheet_pins_per_sheet: usize,
     pub max_decoded_string_bytes: usize,
     pub max_connectivity_objects_per_source: usize,
     pub max_wires_per_source: usize,
@@ -41,6 +43,7 @@ impl Default for SchematicBundleLimits {
             max_selected_forms_per_source: 4_000_000,
             max_sheets_per_source: 1_000_000,
             max_sheet_properties: 1_000_000,
+            max_sheet_pins_per_sheet: 1_000_000,
             max_decoded_string_bytes: 64 * 1024 * 1024,
             max_connectivity_objects_per_source: 4_000_000,
             max_wires_per_source: 4_000_000,
@@ -67,6 +70,7 @@ pub struct SchematicSheet {
     pub on_board: bool,
     pub dnp: bool,
     pub exclude_from_sim: bool,
+    pub pins: Vec<SchematicSheetPin>,
 }
 
 /// One schematic source definition, indexed exactly once per bundle build.
@@ -303,6 +307,7 @@ fn default_sheet() -> SchematicSheet {
         on_board: true,
         dnp: false,
         exclude_from_sim: false,
+        pins: Vec::new(),
     }
 }
 
@@ -328,6 +333,17 @@ fn parse_sheet_child(
             set_once_required_string(&mut sheet.uuid, text, span, source_path, limits)?;
         }
         Some("property") => parse_sheet_property(sheet, state, text, span, source_path, limits)?,
+        Some("pin") => {
+            if sheet.pins.len() >= limits.max_sheet_pins_per_sheet {
+                return Err(schematic_limit(
+                    source_path,
+                    "sheet pin count exceeds its limit",
+                ));
+            }
+            sheet
+                .pins
+                .push(parse_sheet_pin(text, span, source_path, limits)?);
+        }
         Some(head) => parse_sheet_flag(sheet, state, head, text, span, source_path, limits)?,
         None => {}
     }
@@ -509,6 +525,7 @@ fn schematic_selector() -> Selector {
         &["kicad_sch", "sheet", "on_board"],
         &["kicad_sch", "sheet", "dnp"],
         &["kicad_sch", "sheet", "exclude_from_sim"],
+        &["kicad_sch", "sheet", "pin"],
         &["kicad_sch", "wire"],
         &["kicad_sch", "bus"],
         &["kicad_sch", "bus_entry"],

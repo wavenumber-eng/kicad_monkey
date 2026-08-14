@@ -31,6 +31,7 @@ struct ResultSummary {
 #[derive(Debug, Serialize)]
 struct DefinitionSummary {
     source_path: String,
+    sheets: Vec<SheetSummary>,
     wires: Vec<PolylineSummary>,
     buses: Vec<PolylineSummary>,
     bus_entries: Vec<BusEntrySummary>,
@@ -38,6 +39,20 @@ struct DefinitionSummary {
     no_connects: Vec<MarkerSummary>,
     labels: Vec<LabelSummary>,
     connectivity_components: Vec<Vec<[i64; 2]>>,
+}
+
+#[derive(Debug, Serialize)]
+struct SheetSummary {
+    uuid: String,
+    pins: Vec<SheetPinSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct SheetPinSummary {
+    name: String,
+    shape: String,
+    uuid: String,
+    at: [i64; 2],
 }
 
 #[derive(Debug, Serialize)]
@@ -134,6 +149,23 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {
     DefinitionSummary {
         source_path: definition.source_path.clone(),
+        sheets: definition
+            .sheets
+            .iter()
+            .map(|sheet| SheetSummary {
+                uuid: sheet.uuid.clone(),
+                pins: sheet
+                    .pins
+                    .iter()
+                    .map(|pin| SheetPinSummary {
+                        name: pin.name.clone(),
+                        shape: pin.shape.clone(),
+                        uuid: pin.uuid.clone(),
+                        at: point_pair(pin.at),
+                    })
+                    .collect(),
+            })
+            .collect(),
         wires: definition
             .wires
             .iter()

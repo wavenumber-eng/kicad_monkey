@@ -82,6 +82,15 @@ pub struct SchematicLabel {
     pub at: SchematicPoint,
 }
 
+/// One terminal exposed on a hierarchical sheet symbol.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SchematicSheetPin {
+    pub name: String,
+    pub shape: String,
+    pub uuid: String,
+    pub at: SchematicPoint,
+}
+
 /// Deterministic connected components over wire endpoints and registered carrier points.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SchematicConnectivity {
@@ -156,6 +165,36 @@ pub(crate) fn parse_source_carriers(
     }
     carriers.connectivity = build_connectivity(&carriers, source_path)?;
     Ok(carriers)
+}
+
+pub(crate) fn parse_sheet_pin(
+    source: &str,
+    span: &FormSpan,
+    source_path: &str,
+    limits: SchematicBundleLimits,
+) -> Result<SchematicSheetPin, SourceBundleError> {
+    let text = span
+        .text(source)
+        .map_err(|error| source_error(source_path, error.to_string()))?;
+    let spans = carrier_form_spans(text, &["pin", "at", "uuid"], source_path, limits, 8)?;
+    let root = spans
+        .iter()
+        .find(|selected| selected.depth == 0 && selected.head.as_deref() == Some("pin"))
+        .ok_or_else(|| source_error(source_path, "sheet pin root is missing"))?;
+    let values = direct_scalars(text, root, 2, source_path, limits)?;
+    Ok(SchematicSheetPin {
+        name: values.first().cloned().unwrap_or_default(),
+        shape: values.get(1).cloned().unwrap_or_else(|| "input".to_owned()),
+        uuid: child_scalar(text, &spans, "uuid", source_path, limits)?.unwrap_or_default(),
+        at: child_point(
+            text,
+            &spans,
+            "at",
+            SchematicPoint { x_iu: 0, y_iu: 0 },
+            source_path,
+            limits,
+        )?,
+    })
 }
 
 fn parse_carrier(
