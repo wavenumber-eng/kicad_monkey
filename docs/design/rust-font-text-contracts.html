@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust font, shaping, and outline contracts</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust font, shaping, and outline contracts</h1>
+
+  <p>Status: review-ready proposal. This slice establishes TypeSpec-owned
+  interchange before Rustybuzz shaping or outline extraction is implemented.
+  It does not promote a browser operation or require ambient font discovery.</p>
+
+  <h2>Boundary</h2>
+  <p><code>FontBundleManifestA0</code> carries metadata only. Font files are
+  separate byte buffers indexed by numeric slots, so native callers retain
+  ownership and a future browser ABI can accept separate
+  <code>Uint8Array</code> values without base64 expansion. A valid bundle has
+  unique nonempty IDs, unique in-range slots, exactly one entry per supplied
+  buffer, exact lowercase SHA-256 hashes, finite unique variation axes, and no
+  unreferenced extra buffers.</p>
+
+  <p>Callers provide resource ceilings. Per-font and aggregate byte ceilings
+  are checked before hashing. The defaults are permissive safety ceilings, not
+  product-size claims, and operations may select lower or higher values based
+  on their trust boundary. Font face existence and supported variation axes
+  require parsing the actual OpenType bytes and remain implementation gates for
+  the shaping slice.</p>
+
+  <h2>Deterministic resolution</h2>
+  <p>An explicit font ID takes precedence over aliases. Without an ID, aliases
+  must select exactly one entry; zero matches report <code>missing_font</code>
+  and multiple matches report <code>ambiguous_font</code>. Native and generated
+  Python validators enforce the same rule. Browser callers will receive no
+  system-font fallback: only embedded or caller-supplied bundle bytes are in
+  scope.</p>
+
+  <h2>Attributable text evidence</h2>
+  <p><code>ShapingRecordA0</code> freezes the font hash, face index, ordered
+  variations, scale, direction, script, language, feature ranges, glyph IDs,
+  clusters, advances, offsets, and safety flags. <code>OutlineVectorA0</code>
+  separately freezes raw move, line, quadratic, cubic, and close commands in
+  font units. Final render-cache comparison remains a third gate. Keeping all
+  three layers separate makes a parity failure attributable to shaping,
+  outline extraction, or placement/transformation.</p>
+
+  <h2>Generation and evidence</h2>
+  <p>The four JSON Schemas plus strict Python, TypeScript, and Rust DTOs are
+  generated from <code>font-text-a0.tsp</code>. Rack <code>L0_052</code> consumes
+  one language-neutral vector file and checks strict roots, out-of-band bytes,
+  slot/hash semantics, inclusive resource limits, deterministic resolution,
+  and the independent shaping/outline records. Rack <code>L0_049</code> retains
+  reproducible generation, while <code>L0_046</code> owns the parity registry
+  and Rust hygiene gate.</p>
+
+  <h2>Retained implementation gates</h2>
+  <ul>
+    <li>Choose and pin Rustybuzz and the outline parser only with a real
+    shaping/outline oracle corpus and dependency review.</li>
+    <li>Validate face indices and requested variation axes against font bytes.</li>
+    <li>Preflight untrusted JSON collection sizes before generated DTO
+    allocation at any public operation boundary.</li>
+    <li>Close shaping-record parity, outline parity, and final render-cache
+    parity independently before text plotting promotion.</li>
+    <li>Document the native workflag and byte-buffer ABI before any optional
+    downstream WASM packaging.</li>
+  </ul>
+</body>
+</html>

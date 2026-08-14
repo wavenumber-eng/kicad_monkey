@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 from typing import Annotated, Literal, Union
 
 import msgspec
@@ -443,6 +445,106 @@ SourceSlot = Annotated[int, Meta(ge=0, le=4294967295)]
 CanonicalUint64Decimal = Annotated[str, Meta(pattern="^(0|[1-9][0-9]{0,19})$")]
 
 
+class FontBundleEntry(Struct, forbid_unknown_fields=True, frozen=True):
+    id: str
+    slot: Annotated[int, Meta(ge=0, le=4294967295)]
+    sha256: Sha256Hex
+    face_index: Annotated[int, Meta(ge=0, le=4294967295)]
+    variations: list[FontVariationCoordinate]
+    aliases: list[str]
+    family: str | UnsetType = field(default=UNSET)
+    style: str | UnsetType = field(default=UNSET)
+    postscript_name: str | UnsetType = field(default=UNSET)
+
+
+Sha256Hex = Annotated[str, Meta(pattern="^[0-9a-f]{64}$")]
+
+
+class FontVariationCoordinate(Struct, forbid_unknown_fields=True, frozen=True):
+    axis: OpenTypeTag
+    value: float
+
+
+OpenTypeTag = Annotated[str, Meta(pattern="^[ -~]{4}$")]
+
+
+class FontSelection(Struct, forbid_unknown_fields=True, frozen=True):
+    aliases: list[str]
+    font_id: str | UnsetType = field(default=UNSET)
+
+
+class ShapingInput(Struct, forbid_unknown_fields=True, frozen=True):
+    font_id: str
+    font_sha256: Sha256Hex
+    face_index: Annotated[int, Meta(ge=0, le=4294967295)]
+    variations: list[FontVariationCoordinate]
+    text: str
+    scale_x: TextSafeInteger
+    scale_y: TextSafeInteger
+    direction: TextDirection
+    features: list[ShapingFeature]
+    script: OpenTypeTag | UnsetType = field(default=UNSET)
+    language: str | UnsetType = field(default=UNSET)
+
+
+class ShapedGlyph(Struct, forbid_unknown_fields=True, frozen=True):
+    glyph_id: Annotated[int, Meta(ge=0, le=4294967295)]
+    cluster: Annotated[int, Meta(ge=0, le=4294967295)]
+    x_advance: TextSafeInteger
+    y_advance: TextSafeInteger
+    x_offset: TextSafeInteger
+    y_offset: TextSafeInteger
+    unsafe_to_break: bool
+    safe_to_insert_tatweel: bool
+    unsafe_to_concat: bool
+
+
+TextSafeInteger = Annotated[int, Meta(ge=-9007199254740991, le=9007199254740991)]
+
+
+TextDirection = Literal["left_to_right", "right_to_left", "top_to_bottom", "bottom_to_top"]
+
+
+class ShapingFeature(Struct, forbid_unknown_fields=True, frozen=True):
+    tag: OpenTypeTag
+    value: Annotated[int, Meta(ge=0, le=4294967295)]
+    start: Annotated[int, Meta(ge=0, le=4294967295)]
+    end: Annotated[int, Meta(ge=0, le=4294967295)]
+
+
+OutlineCommand = Union["OutlineMoveTo", "OutlineLineTo", "OutlineQuadTo", "OutlineCurveTo", "OutlineClose"]
+
+
+class OutlineMoveTo(Struct, forbid_unknown_fields=True, frozen=True, tag="move_to", tag_field="kind"):
+    x: TextSafeInteger
+    y: TextSafeInteger
+
+
+class OutlineLineTo(Struct, forbid_unknown_fields=True, frozen=True, tag="line_to", tag_field="kind"):
+    x: TextSafeInteger
+    y: TextSafeInteger
+
+
+class OutlineQuadTo(Struct, forbid_unknown_fields=True, frozen=True, tag="quad_to", tag_field="kind"):
+    control_x: TextSafeInteger
+    control_y: TextSafeInteger
+    x: TextSafeInteger
+    y: TextSafeInteger
+
+
+class OutlineCurveTo(Struct, forbid_unknown_fields=True, frozen=True, tag="curve_to", tag_field="kind"):
+    control1_x: TextSafeInteger
+    control1_y: TextSafeInteger
+    control2_x: TextSafeInteger
+    control2_y: TextSafeInteger
+    x: TextSafeInteger
+    y: TextSafeInteger
+
+
+class OutlineClose(Struct, forbid_unknown_fields=True, frozen=True, tag="close", tag_field="kind"):
+    pass
+
+
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.sexpr_build.request"] = field(name="type")
     version: Literal["a0"]
@@ -651,6 +753,41 @@ class SourceBundleManifestA0(Struct, forbid_unknown_fields=True, frozen=True):
     project_path: str | UnsetType = field(default=UNSET)
 
 
+class FontBundleManifestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad_monkey.font_bundle.a0"]
+    type_: Literal["kicad_monkey.font_bundle"] = field(name="type")
+    version: Literal["a0"]
+    fonts: list[FontBundleEntry]
+
+
+class FontResolutionRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad_monkey.font_resolution_request.a0"]
+    type_: Literal["kicad_monkey.font_resolution_request"] = field(name="type")
+    version: Literal["a0"]
+    selection: FontSelection
+
+
+class ShapingRecordA0(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad_monkey.shaping_record.a0"]
+    type_: Literal["kicad_monkey.shaping_record"] = field(name="type")
+    version: Literal["a0"]
+    input: ShapingInput
+    glyphs: list[ShapedGlyph]
+
+
+class OutlineVectorA0(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad_monkey.outline_vector.a0"]
+    type_: Literal["kicad_monkey.outline_vector"] = field(name="type")
+    version: Literal["a0"]
+    font_id: str
+    font_sha256: Sha256Hex
+    face_index: Annotated[int, Meta(ge=0, le=4294967295)]
+    variations: list[FontVariationCoordinate]
+    glyph_id: Annotated[int, Meta(ge=0, le=4294967295)]
+    units_per_em: Annotated[int, Meta(ge=0, le=4294967295)]
+    commands: list[OutlineCommand]
+
+
 decode_sexpr_build_request_a0 = msgspec.json.Decoder(SExpressionBuildRequestA0).decode
 decode_sexpr_build_result_a0 = msgspec.json.Decoder(SExpressionBuildResultA0).decode
 decode_sexpr_scan_request_a0 = msgspec.json.Decoder(SExpressionScanRequestA0).decode
@@ -772,6 +909,88 @@ def decode_source_bundle_manifest_a0(data: bytes) -> SourceBundleManifestA0:
         if int(source.source_bytes) > 18_446_744_073_709_551_615:
             raise msgspec.ValidationError("source_bytes exceeds uint64")
     return value
+_font_bundle_manifest_a0_decoder = msgspec.json.Decoder(FontBundleManifestA0)
+
+
+def decode_font_bundle_manifest_a0(data: bytes) -> FontBundleManifestA0:
+    return _font_bundle_manifest_a0_decoder.decode(data)
+
+
+def validate_font_bundle_manifest_a0(
+    value: FontBundleManifestA0,
+    buffers: list[bytes] | tuple[bytes, ...],
+    *,
+    max_fonts: int = 4_096,
+    max_font_bytes: int = 256 * 1024 * 1024,
+    max_total_font_bytes: int = 1024 * 1024 * 1024,
+    max_aliases_per_font: int = 4_096,
+    max_variations_per_font: int = 4_096,
+) -> None:
+    if value.schema != "kicad_monkey.font_bundle.a0" or value.type_ != "kicad_monkey.font_bundle" or value.version != "a0":
+        raise msgspec.ValidationError("unsupported_contract at $")
+    limits = (max_fonts, max_font_bytes, max_total_font_bytes, max_aliases_per_font, max_variations_per_font)
+    if any(limit < 0 for limit in limits):
+        raise msgspec.ValidationError("invalid_limit at $")
+    if len(value.fonts) > max_fonts:
+        raise msgspec.ValidationError("resource_limit at $.fonts")
+    if len(value.fonts) != len(buffers):
+        raise msgspec.ValidationError("buffer_count_mismatch at $.fonts")
+    ids: set[str] = set()
+    slots: set[int] = set()
+    total_bytes = 0
+    for index, font in enumerate(value.fonts):
+        path = f"$.fonts[{index}]"
+        if not font.id or font.id in ids:
+            raise msgspec.ValidationError(f"duplicate_font_id at {path}.id")
+        ids.add(font.id)
+        if font.slot in slots:
+            raise msgspec.ValidationError(f"duplicate_font_slot at {path}.slot")
+        slots.add(font.slot)
+        if font.slot >= len(buffers):
+            raise msgspec.ValidationError(f"invalid_slot at {path}.slot")
+        if len(font.sha256) != 64 or any(char not in '0123456789abcdef' for char in font.sha256):
+            raise msgspec.ValidationError(f"invalid_hash at {path}.sha256")
+        if len(font.aliases) > max_aliases_per_font or len(font.variations) > max_variations_per_font:
+            raise msgspec.ValidationError(f"resource_limit at {path}")
+        if any(not alias for alias in font.aliases) or len(set(font.aliases)) != len(font.aliases):
+            raise msgspec.ValidationError(f"invalid_alias at {path}.aliases")
+        axes: set[str] = set()
+        for variation_index, variation in enumerate(font.variations):
+            axis = variation.axis
+            if len(axis) != 4 or any(ord(char) < 32 or ord(char) > 126 for char in axis) or axis in axes:
+                raise msgspec.ValidationError(f"invalid_variation at {path}.variations[{variation_index}]")
+            axes.add(axis)
+        buffer = buffers[font.slot]
+        if len(buffer) > max_font_bytes:
+            raise msgspec.ValidationError(f"resource_limit at {path}.slot")
+        total_bytes += len(buffer)
+        if total_bytes > max_total_font_bytes:
+            raise msgspec.ValidationError("resource_limit at $.fonts")
+        if hashlib.sha256(buffer).hexdigest() != font.sha256:
+            raise msgspec.ValidationError(f"hash_mismatch at {path}.sha256")
+
+
+def resolve_font_selection_a0(
+    manifest: FontBundleManifestA0,
+    request: FontResolutionRequestA0,
+) -> FontBundleEntry:
+    if request.schema != "kicad_monkey.font_resolution_request.a0" or request.type_ != "kicad_monkey.font_resolution_request" or request.version != "a0":
+        raise msgspec.ValidationError("unsupported_contract at $")
+    if request.selection.font_id is not UNSET and request.selection.font_id:
+        for font in manifest.fonts:
+            if font.id == request.selection.font_id:
+                return font
+        raise msgspec.ValidationError("missing_font at $.selection.font_id")
+    requested = set(request.selection.aliases)
+    matches = [font for font in manifest.fonts if requested.intersection(font.aliases)]
+    if not matches:
+        raise msgspec.ValidationError("missing_font at $.selection")
+    if len(matches) > 1:
+        raise msgspec.ValidationError("ambiguous_font at $.selection.aliases")
+    return matches[0]
+decode_font_resolution_request_a0 = msgspec.json.Decoder(FontResolutionRequestA0).decode
+decode_shaping_record_a0 = msgspec.json.Decoder(ShapingRecordA0).decode
+decode_outline_vector_a0 = msgspec.json.Decoder(OutlineVectorA0).decode
 
 
 __all__ = (
@@ -827,6 +1046,22 @@ __all__ = (
     "SourceKind",
     "SourceSlot",
     "CanonicalUint64Decimal",
+    "FontBundleEntry",
+    "Sha256Hex",
+    "FontVariationCoordinate",
+    "OpenTypeTag",
+    "FontSelection",
+    "ShapingInput",
+    "ShapedGlyph",
+    "TextSafeInteger",
+    "TextDirection",
+    "ShapingFeature",
+    "OutlineCommand",
+    "OutlineMoveTo",
+    "OutlineLineTo",
+    "OutlineQuadTo",
+    "OutlineCurveTo",
+    "OutlineClose",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",
@@ -847,6 +1082,10 @@ __all__ = (
     "SymbolLibraryReadResultA0",
     "CompiledSchematicGraphA0",
     "SourceBundleManifestA0",
+    "FontBundleManifestA0",
+    "FontResolutionRequestA0",
+    "ShapingRecordA0",
+    "OutlineVectorA0",
     "decode_sexpr_build_request_a0",
     "decode_sexpr_build_result_a0",
     "decode_sexpr_scan_request_a0",
@@ -867,6 +1106,12 @@ __all__ = (
     "decode_symbol_library_read_result_a0",
     "decode_compiled_schematic_graph_a0",
     "decode_source_bundle_manifest_a0",
+    "decode_font_bundle_manifest_a0",
+    "decode_font_resolution_request_a0",
+    "decode_shaping_record_a0",
+    "decode_outline_vector_a0",
     "validate_footprint_plot_document_a0",
+    "resolve_font_selection_a0",
+    "validate_font_bundle_manifest_a0",
     "validate_symbol_plot_document_a0",
 )

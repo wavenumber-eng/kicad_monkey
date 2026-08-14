@@ -216,3 +216,22 @@ secondary = [
     "Unknown fields and unsupported contract literals fail closed",
     "The manifest cannot hide base64 or embedded source payloads",
 ]
+
+[[subtests]]
+id = "L0_052"
+file = "test_L0_052_font_text_contract.py"
+name = "Font and Text Interchange Contracts"
+description = "Require deterministic out-of-band font selection and separate shaping/outline oracle records"
+concerns = ["contracts", "rendering.text", "fonts"]
+test_cases = "tests/parity/font_text_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "TypeSpec owns FontBundle, shaping-record, and outline-vector interchange from the first text slice"
+secondary = [
+    "Font IDs and buffer slots are unique, complete, in range, and hash exact",
+    "Explicit font IDs win while missing and ambiguous aliases fail closed",
+    "Caller-selected resource ceilings are inclusive and enforced before hashing",
+    "Shaping evidence is independently attributable from glyph outline extraction",
+    "Python, TypeScript, JSON Schema, and Rust projections remain generated and strict",
+]

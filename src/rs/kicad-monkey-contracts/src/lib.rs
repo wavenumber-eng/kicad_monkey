@@ -7,12 +7,16 @@
 )]
 
 mod compiled_graph_contract;
+mod font_bundle_contract;
 pub mod generated;
 mod source_bundle_contract;
 
 pub use compiled_graph_contract::{
     CompiledGraphDecodeError, decode_compiled_schematic_graph_a0,
     validate_compiled_schematic_graph_contract,
+};
+pub use font_bundle_contract::{
+    FontBundleLimits, resolve_font_selection_contract, validate_font_bundle_contract,
 };
 pub use source_bundle_contract::{
     SourceBundleDecodeError, decode_source_bundle_manifest_a0,

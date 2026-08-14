@@ -5,3 +5,4 @@ import "./plotter-ir-a0.tsp";
 import "./symbol-library-a0.tsp";
 import "./compiled-schematic-graph-a0.tsp";
 import "./source-bundle-a0.tsp";
+import "./font-text-a0.tsp";

@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use typify::{TypeSpace, TypeSpaceSettings};
 
-const SCHEMAS: [(&str, &str); 20] = [
+const SCHEMAS: [(&str, &str); 24] = [
     ("BuildRequest.json", "build_request.rs"),
     ("BuildResult.json", "build_result.rs"),
     ("ScanRequest.json", "scan_request.rs"),
@@ -44,6 +44,10 @@ const SCHEMAS: [(&str, &str); 20] = [
     ),
     ("CompiledSchematicGraph.json", "compiled_schematic_graph.rs"),
     ("SourceBundleManifest.json", "source_bundle_manifest.rs"),
+    ("FontBundleManifest.json", "font_bundle_manifest.rs"),
+    ("FontResolutionRequest.json", "font_resolution_request.rs"),
+    ("ShapingRecord.json", "shaping_record.rs"),
+    ("OutlineVector.json", "outline_vector.rs"),
 ];
 
 fn main() -> Result<()> {
@@ -98,6 +102,11 @@ fn generate(value: Value) -> Result<String> {
         "crate::JavaScriptSafeInteger",
         [].into_iter(),
     );
+    settings.with_replacement(
+        "TextSafeInteger",
+        "crate::JavaScriptSafeInteger",
+        [].into_iter(),
+    );
     let mut type_space = TypeSpace::new(&settings);
     type_space.add_root_schema(schema)?;
     let body = type_space.to_stream().to_string();
@@ -130,10 +139,13 @@ fn project_for_typify(value: &mut Value) {
     match value {
         Value::Object(object) => {
             object.remove("$schema");
-            if object.get("pattern").and_then(Value::as_str) == Some("^(0|[1-9][0-9]{0,19})$") {
-                // The promoted decoder enforces canonical uint64 semantics.
-                // Avoid introducing a regex runtime into generated Rust for
-                // one closed decimal grammar.
+            if matches!(
+                object.get("pattern").and_then(Value::as_str),
+                Some("^(0|[1-9][0-9]{0,19})$") | Some("^[0-9a-f]{64}$") | Some("^[ -~]{4}$")
+            ) {
+                // JSON Schema and the promoted semantic validators retain
+                // the closed string grammars. Avoid adding a regex runtime to
+                // generated Rust merely for small fixed tags and hashes.
                 object.remove("pattern");
             }
             if object

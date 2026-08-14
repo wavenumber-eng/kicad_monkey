@@ -60,6 +60,9 @@ Current design notes:
   net-class enrichment, and bounded KiCad version-E S-expression output.
 - `rust-phase4-exit-audit.html` - explicit accepted-corpus, compiler,
   writer, malformed-graph, and netlist/compiled-graph Phase 4 exit mapping.
+- `rust-font-text-contracts.html` - TypeSpec-owned out-of-band font bundles,
+  deterministic selection, and independently attributable shaping and outline
+  oracle records.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

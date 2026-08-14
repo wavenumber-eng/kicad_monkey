@@ -1,0 +1,256 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.outline_vector:a0",
+    "type": "object",
+    "properties": {
+        "schema": {
+            "type": "string",
+            "const": "kicad_monkey.outline_vector.a0"
+        },
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.outline_vector"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "font_id": {
+            "type": "string"
+        },
+        "font_sha256": {
+            "$ref": "#/$defs/Sha256Hex"
+        },
+        "face_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "variations": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/FontVariationCoordinate"
+            }
+        },
+        "glyph_id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "units_per_em": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "commands": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/OutlineCommand"
+            }
+        }
+    },
+    "required": [
+        "schema",
+        "type",
+        "version",
+        "font_id",
+        "font_sha256",
+        "face_index",
+        "variations",
+        "glyph_id",
+        "units_per_em",
+        "commands"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Raw glyph outline oracle in font units, separate from shaping and placement.",
+    "title": "Outline vector a0",
+    "$defs": {
+        "Sha256Hex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Lowercase SHA-256 digest for one out-of-band font buffer."
+        },
+        "FontVariationCoordinate": {
+            "type": "object",
+            "properties": {
+                "axis": {
+                    "$ref": "#/$defs/OpenTypeTag"
+                },
+                "value": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "axis",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One ordered OpenType variation coordinate."
+        },
+        "OutlineCommand": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/OutlineMoveTo"
+                },
+                {
+                    "$ref": "#/$defs/OutlineLineTo"
+                },
+                {
+                    "$ref": "#/$defs/OutlineQuadTo"
+                },
+                {
+                    "$ref": "#/$defs/OutlineCurveTo"
+                },
+                {
+                    "$ref": "#/$defs/OutlineClose"
+                }
+            ]
+        },
+        "OpenTypeTag": {
+            "type": "string",
+            "pattern": "^[ -~]{4}$",
+            "description": "Four-byte OpenType variation or feature tag."
+        },
+        "OutlineMoveTo": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "move_to"
+                },
+                "x": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "x",
+                "y"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "OutlineLineTo": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "line_to"
+                },
+                "x": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "x",
+                "y"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "OutlineQuadTo": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "quad_to"
+                },
+                "control_x": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "control_y": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "x": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "control_x",
+                "control_y",
+                "x",
+                "y"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "OutlineCurveTo": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "curve_to"
+                },
+                "control1_x": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "control1_y": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "control2_x": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "control2_y": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "x": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "control1_x",
+                "control1_y",
+                "control2_x",
+                "control2_y",
+                "x",
+                "y"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "OutlineClose": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "close"
+                }
+            },
+            "required": [
+                "kind"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "TextSafeInteger": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Integer that remains exact through JSON and JavaScript."
+        }
+    }
+}

@@ -1,0 +1,231 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.shaping_record:a0",
+    "type": "object",
+    "properties": {
+        "schema": {
+            "type": "string",
+            "const": "kicad_monkey.shaping_record.a0"
+        },
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.shaping_record"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "input": {
+            "$ref": "#/$defs/ShapingInput"
+        },
+        "glyphs": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/ShapedGlyph"
+            }
+        }
+    },
+    "required": [
+        "schema",
+        "type",
+        "version",
+        "input",
+        "glyphs"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Intermediate shaping oracle, intentionally separate from glyph outlines.",
+    "title": "Shaping record a0",
+    "$defs": {
+        "ShapingInput": {
+            "type": "object",
+            "properties": {
+                "font_id": {
+                    "type": "string"
+                },
+                "font_sha256": {
+                    "$ref": "#/$defs/Sha256Hex"
+                },
+                "face_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "variations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/FontVariationCoordinate"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                },
+                "scale_x": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "scale_y": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "direction": {
+                    "$ref": "#/$defs/TextDirection"
+                },
+                "script": {
+                    "$ref": "#/$defs/OpenTypeTag"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "features": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/ShapingFeature"
+                    }
+                }
+            },
+            "required": [
+                "font_id",
+                "font_sha256",
+                "face_index",
+                "variations",
+                "text",
+                "scale_x",
+                "scale_y",
+                "direction",
+                "features"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Complete deterministic shaping input retained with an oracle record."
+        },
+        "ShapedGlyph": {
+            "type": "object",
+            "properties": {
+                "glyph_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "cluster": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x_advance": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "y_advance": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "x_offset": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "y_offset": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "unsafe_to_break": {
+                    "type": "boolean"
+                },
+                "safe_to_insert_tatweel": {
+                    "type": "boolean"
+                },
+                "unsafe_to_concat": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "glyph_id",
+                "cluster",
+                "x_advance",
+                "y_advance",
+                "x_offset",
+                "y_offset",
+                "unsafe_to_break",
+                "safe_to_insert_tatweel",
+                "unsafe_to_concat"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One shaped glyph in logical buffer order."
+        },
+        "Sha256Hex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Lowercase SHA-256 digest for one out-of-band font buffer."
+        },
+        "FontVariationCoordinate": {
+            "type": "object",
+            "properties": {
+                "axis": {
+                    "$ref": "#/$defs/OpenTypeTag"
+                },
+                "value": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "axis",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One ordered OpenType variation coordinate."
+        },
+        "TextSafeInteger": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Integer that remains exact through JSON and JavaScript."
+        },
+        "TextDirection": {
+            "type": "string",
+            "enum": [
+                "left_to_right",
+                "right_to_left",
+                "top_to_bottom",
+                "bottom_to_top"
+            ]
+        },
+        "OpenTypeTag": {
+            "type": "string",
+            "pattern": "^[ -~]{4}$",
+            "description": "Four-byte OpenType variation or feature tag."
+        },
+        "ShapingFeature": {
+            "type": "object",
+            "properties": {
+                "tag": {
+                    "$ref": "#/$defs/OpenTypeTag"
+                },
+                "value": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "end": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                }
+            },
+            "required": [
+                "tag",
+                "value",
+                "start",
+                "end"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "HarfBuzz-compatible feature range over input scalar indices."
+        }
+    }
+}

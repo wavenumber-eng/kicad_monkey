@@ -18,3 +18,7 @@ export type { SymbolLibraryReadRequestA0 } from "./symbol-library-read-request.j
 export type { SymbolLibraryReadResultA0 } from "./symbol-library-read-result.js";
 export type { CompiledSchematicGraphA0 } from "./compiled-schematic-graph.js";
 export type { SourceBundleManifestA0 } from "./source-bundle-manifest.js";
+export type { FontBundleManifestA0 } from "./font-bundle-manifest.js";
+export type { FontResolutionRequestA0 } from "./font-resolution-request.js";
+export type { ShapingRecordA0 } from "./shaping-record.js";
+export type { OutlineVectorA0 } from "./outline-vector.js";

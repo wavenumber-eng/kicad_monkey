@@ -32,6 +32,10 @@ const roots = [
   ["SymbolLibraryReadResult.json", "SymbolLibraryReadResultA0", "symbol-library-read-result.ts"],
   ["CompiledSchematicGraph.json", "CompiledSchematicGraphA0", "compiled-schematic-graph.ts"],
   ["SourceBundleManifest.json", "SourceBundleManifestA0", "source-bundle-manifest.ts"],
+  ["FontBundleManifest.json", "FontBundleManifestA0", "font-bundle-manifest.ts"],
+  ["FontResolutionRequest.json", "FontResolutionRequestA0", "font-resolution-request.ts"],
+  ["ShapingRecord.json", "ShapingRecordA0", "shaping-record.ts"],
+  ["OutlineVector.json", "OutlineVectorA0", "outline-vector.ts"],
 ];
 const schemas = new Map();
 for (const [file] of roots) {
@@ -105,6 +109,8 @@ function renderPython() {
     "",
     "from __future__ import annotations",
     "",
+    "import hashlib",
+    "",
     "from typing import Annotated, Literal, Union",
     "",
     "import msgspec",
@@ -125,6 +131,8 @@ function renderPython() {
       lines.push(...renderPythonSymbolPlotterValidation(functionName, typeName));
     } else if (typeName === "SourceBundleManifestA0") {
       lines.push(...renderPythonSourceBundleValidation(functionName, typeName));
+    } else if (typeName === "FontBundleManifestA0") {
+      lines.push(...renderPythonFontBundleValidation(functionName, typeName));
     } else {
       lines.push(`${functionName} = msgspec.json.Decoder(${typeName}).decode`);
     }
@@ -134,10 +142,96 @@ function renderPython() {
     ...roots.map(([, typeName]) => typeName),
     ...roots.map(([, typeName]) => `decode_${snakeCase(typeName.replace(/^SExpression/u, "sexpr_"))}`),
     "validate_footprint_plot_document_a0",
+    "resolve_font_selection_a0",
+    "validate_font_bundle_manifest_a0",
     "validate_symbol_plot_document_a0",
   ];
   lines.push("", "", "__all__ = (", ...exported.map((name) => `    ${pythonLiteral(name)},`), ")", "");
   return lines.join("\n");
+}
+
+function renderPythonFontBundleValidation(functionName, typeName) {
+  return [
+    `_font_bundle_manifest_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    return _font_bundle_manifest_a0_decoder.decode(data)",
+    "",
+    "",
+    `def validate_font_bundle_manifest_a0(`,
+    `    value: ${typeName},`,
+    "    buffers: list[bytes] | tuple[bytes, ...],",
+    "    *,",
+    "    max_fonts: int = 4_096,",
+    "    max_font_bytes: int = 256 * 1024 * 1024,",
+    "    max_total_font_bytes: int = 1024 * 1024 * 1024,",
+    "    max_aliases_per_font: int = 4_096,",
+    "    max_variations_per_font: int = 4_096,",
+    ") -> None:",
+    '    if value.schema != "kicad_monkey.font_bundle.a0" or value.type_ != "kicad_monkey.font_bundle" or value.version != "a0":',
+    '        raise msgspec.ValidationError("unsupported_contract at $")',
+    "    limits = (max_fonts, max_font_bytes, max_total_font_bytes, max_aliases_per_font, max_variations_per_font)",
+    "    if any(limit < 0 for limit in limits):",
+    '        raise msgspec.ValidationError("invalid_limit at $")',
+    "    if len(value.fonts) > max_fonts:",
+    '        raise msgspec.ValidationError("resource_limit at $.fonts")',
+    "    if len(value.fonts) != len(buffers):",
+    '        raise msgspec.ValidationError("buffer_count_mismatch at $.fonts")',
+    "    ids: set[str] = set()",
+    "    slots: set[int] = set()",
+    "    total_bytes = 0",
+    "    for index, font in enumerate(value.fonts):",
+    '        path = f"$.fonts[{index}]"',
+    "        if not font.id or font.id in ids:",
+    '            raise msgspec.ValidationError(f"duplicate_font_id at {path}.id")',
+    "        ids.add(font.id)",
+    "        if font.slot in slots:",
+    '            raise msgspec.ValidationError(f"duplicate_font_slot at {path}.slot")',
+    "        slots.add(font.slot)",
+    "        if font.slot >= len(buffers):",
+    '            raise msgspec.ValidationError(f"invalid_slot at {path}.slot")',
+    "        if len(font.sha256) != 64 or any(char not in '0123456789abcdef' for char in font.sha256):",
+    '            raise msgspec.ValidationError(f"invalid_hash at {path}.sha256")',
+    "        if len(font.aliases) > max_aliases_per_font or len(font.variations) > max_variations_per_font:",
+    '            raise msgspec.ValidationError(f"resource_limit at {path}")',
+    "        if any(not alias for alias in font.aliases) or len(set(font.aliases)) != len(font.aliases):",
+    '            raise msgspec.ValidationError(f"invalid_alias at {path}.aliases")',
+    "        axes: set[str] = set()",
+    "        for variation_index, variation in enumerate(font.variations):",
+    "            axis = variation.axis",
+    "            if len(axis) != 4 or any(ord(char) < 32 or ord(char) > 126 for char in axis) or axis in axes:",
+    '                raise msgspec.ValidationError(f"invalid_variation at {path}.variations[{variation_index}]")',
+    "            axes.add(axis)",
+    "        buffer = buffers[font.slot]",
+    "        if len(buffer) > max_font_bytes:",
+    '            raise msgspec.ValidationError(f"resource_limit at {path}.slot")',
+    "        total_bytes += len(buffer)",
+    "        if total_bytes > max_total_font_bytes:",
+    '            raise msgspec.ValidationError("resource_limit at $.fonts")',
+    "        if hashlib.sha256(buffer).hexdigest() != font.sha256:",
+    '            raise msgspec.ValidationError(f"hash_mismatch at {path}.sha256")',
+    "",
+    "",
+    "def resolve_font_selection_a0(",
+    `    manifest: ${typeName},`,
+    "    request: FontResolutionRequestA0,",
+    ") -> FontBundleEntry:",
+    '    if request.schema != "kicad_monkey.font_resolution_request.a0" or request.type_ != "kicad_monkey.font_resolution_request" or request.version != "a0":',
+    '        raise msgspec.ValidationError("unsupported_contract at $")',
+    "    if request.selection.font_id is not UNSET and request.selection.font_id:",
+    "        for font in manifest.fonts:",
+    "            if font.id == request.selection.font_id:",
+    "                return font",
+    '        raise msgspec.ValidationError("missing_font at $.selection.font_id")',
+    "    requested = set(request.selection.aliases)",
+    "    matches = [font for font in manifest.fonts if requested.intersection(font.aliases)]",
+    "    if not matches:",
+    '        raise msgspec.ValidationError("missing_font at $.selection")',
+    "    if len(matches) > 1:",
+    '        raise msgspec.ValidationError("ambiguous_font at $.selection.aliases")',
+    "    return matches[0]",
+  ];
 }
 
 function renderPythonSourceBundleValidation(functionName, typeName) {
