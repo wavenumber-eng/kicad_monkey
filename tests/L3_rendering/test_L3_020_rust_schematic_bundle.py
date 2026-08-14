@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 from kicad_monkey import KiCadDesign
+from kicad_monkey.kicad_schematic_connectivity import ConnectivityGraph, snap_mm_to_iu
 from kicad_monkey.kicad_schematic_occurrence import walk_schematic_occurrences
 from kicad_monkey.testing.corpus import (
     get_kicad_corpus_case,
@@ -23,7 +24,82 @@ REFERENCE_CASES = (
 )
 
 
-def _request(case_id: str) -> tuple[dict[str, object], set[str], list[dict[str, object]]]:
+def _point(x_mm: float, y_mm: float) -> list[int]:
+    return list(snap_mm_to_iu(x_mm, y_mm))
+
+
+def _polyline(value: object) -> dict[str, object]:
+    return {
+        "uuid": str(getattr(value, "uuid", "") or ""),
+        "points": [_point(x, y) for x, y in getattr(value, "points", ())],
+    }
+
+
+def _marker(value: object) -> dict[str, object]:
+    return {
+        "uuid": str(getattr(value, "uuid", "") or ""),
+        "at": _point(float(getattr(value, "at_x", 0.0)), float(getattr(value, "at_y", 0.0))),
+    }
+
+
+def _label(value: object, scope: str) -> dict[str, object]:
+    shape = getattr(value, "shape", "")
+    return {
+        "scope": scope,
+        "text": str(getattr(value, "text", "") or ""),
+        "shape": str(getattr(shape, "value", shape) or ""),
+        "uuid": str(getattr(value, "uuid", "") or ""),
+        "at": _point(float(getattr(value, "at_x", 0.0)), float(getattr(value, "at_y", 0.0))),
+    }
+
+
+def _definition_summary(schematic: object, bundle_root: Path) -> dict[str, object]:
+    graph = ConnectivityGraph()
+    for wire in getattr(schematic, "wires", ()):
+        graph.add_wire(wire)
+    for bus in getattr(schematic, "buses", ()):
+        graph.add_bus(bus)
+    for entry in getattr(schematic, "bus_entries", ()):
+        graph.add_bus_entry(entry)
+    graph.add_junctions(getattr(schematic, "junctions", ()))
+    components = sorted(
+        [sorted([list(point) for point in component]) for component in graph.components()]
+    )
+    source_path = Path(str(getattr(schematic, "source_path"))).resolve()
+    return {
+        "source_path": source_path.relative_to(bundle_root).as_posix(),
+        "wires": [_polyline(value) for value in getattr(schematic, "wires", ())],
+        "buses": [_polyline(value) for value in getattr(schematic, "buses", ())],
+        "bus_entries": [
+            {
+                "uuid": str(getattr(value, "uuid", "") or ""),
+                "at": _point(value.at_x, value.at_y),
+                "size": _point(value.size_x, value.size_y),
+            }
+            for value in getattr(schematic, "bus_entries", ())
+        ],
+        "junctions": [_marker(value) for value in getattr(schematic, "junctions", ())],
+        "no_connects": [_marker(value) for value in getattr(schematic, "no_connects", ())],
+        "labels": [
+            *[_label(value, "local") for value in getattr(schematic, "labels", ())],
+            *[_label(value, "global") for value in getattr(schematic, "global_labels", ())],
+            *[
+                _label(value, "hierarchical")
+                for value in getattr(schematic, "hierarchical_labels", ())
+            ],
+        ],
+        "connectivity_components": components,
+    }
+
+
+def _request(
+    case_id: str,
+) -> tuple[
+    dict[str, object],
+    set[str],
+    list[dict[str, object]],
+    dict[str, dict[str, object]],
+]:
     case = get_kicad_corpus_case(case_id)
     assert case is not None
     project_path = resolve_kicad_manifest_path(case, "project_file")
@@ -64,7 +140,18 @@ def _request(case_id: str) -> tuple[dict[str, object], set[str], list[dict[str, 
     expected_definitions = {
         Path(path).relative_to(bundle_root).as_posix() for path in map(Path, schematic_paths)
     }
-    return request, expected_definitions, expected_occurrences
+    schematic_by_path = {
+        str(Path(occurrence.schematic.source_path).resolve()): occurrence.schematic
+        for occurrence in occurrences
+        if occurrence.schematic.source_path is not None
+    }
+    expected_source_models: dict[str, dict[str, object]] = {}
+    for schematic in schematic_by_path.values():
+        summary = _definition_summary(schematic, bundle_root)
+        source_key = summary["source_path"]
+        assert isinstance(source_key, str)
+        expected_source_models[source_key] = summary
+    return request, expected_definitions, expected_occurrences, expected_source_models
 
 
 def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
@@ -85,7 +172,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         cwd=PACKAGE_ROOT,
         input="".join(
             f"{json.dumps(request, separators=(',', ':'))}\n"
-            for request, _definitions, _occurrences in requests_and_counts
+            for request, _definitions, _occurrences, _source_models in requests_and_counts
         ),
         capture_output=True,
         text=True,
@@ -95,9 +182,12 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
     assert completed.returncode == 0, completed.stderr
     results = [json.loads(line) for line in completed.stdout.splitlines()]
     assert len(results) == len(REFERENCE_CASES)
-    for result, (_request_payload, definitions, occurrences) in zip(
+    for result, (_request_payload, definitions, occurrences, source_models) in zip(
         results, requests_and_counts, strict=True
     ):
         assert set(result["definition_paths"]) == definitions
         assert result["occurrences"] == occurrences
+        assert {
+            definition["source_path"]: definition for definition in result["definitions"]
+        } == source_models
         assert result["total_bytes"] > 0

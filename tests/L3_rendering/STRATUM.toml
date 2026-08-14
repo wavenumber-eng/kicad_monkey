@@ -210,8 +210,8 @@ secondary = [
 id = "L3_020"
 file = "test_L3_020_rust_schematic_bundle.py"
 name = "Rust Schematic Source Bundle"
-description = "Compare native named-source hierarchy realization with Python over the compiled-graph reference projects"
-concerns = ["rust", "schematic", "source_bundle", "hierarchy"]
+description = "Compare native named-source hierarchy and connectivity carriers with Python over the compiled-graph reference projects"
+concerns = ["rust", "schematic", "source_bundle", "hierarchy", "connectivity"]
 test_case_type = "corpus"
 
 [subtests.objectives]
@@ -220,4 +220,6 @@ secondary = [
     "Every schematic source is scanned once even when a page is placed repeatedly",
     "Relative child references and inherited sheet policy are deterministic",
     "All four compiled-graph reference projects pass through one native process",
+    "Wire, bus, bus-entry, junction, no-connect, and label carriers match Python",
+    "Wire components match Python on KiCad's 100-nm schematic grid",
 ]

@@ -13,6 +13,7 @@ pub mod pcb;
 pub mod plotter_ir;
 pub mod plotter_types;
 pub mod schematic_bundle;
+mod schematic_source;
 pub mod sexpr;
 pub mod sexpr_mutation;
 pub mod sexpr_projection;
@@ -50,6 +51,10 @@ pub use plotter_types::{
 pub use schematic_bundle::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicOccurrence,
     SchematicSheet,
+};
+pub use schematic_source::{
+    SCHEMATIC_IU_PER_MM, SchematicBusEntry, SchematicConnectivity, SchematicJunction,
+    SchematicLabel, SchematicLabelScope, SchematicNoConnect, SchematicPoint, SchematicPolyline,
 };
 pub use source_bundle::{
     SourceBundle, SourceBundleError, SourceBundleErrorKind, SourceBundleLimits, SourceFile,

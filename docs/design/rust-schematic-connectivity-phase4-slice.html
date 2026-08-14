@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust schematic connectivity carrier slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust schematic connectivity carrier slice</h1>
+
+  <p>Status: implemented as a native Phase 4 foundation. This is not the complete
+  schematic compiler or compiled-graph promotion.</p>
+
+  <h2>Boundary</h2>
+  <p><code>SchematicBundleIndex</code> now realizes typed, iterable source carriers
+  for wires, buses, bus entries, junctions, no-connect markers, and local/global/
+  hierarchical labels. Each carrier retains its KiCad UUID and connectivity-relevant
+  geometry. Labels retain their scope, text, and shape.</p>
+
+  <p>Coordinates are snapped immediately to KiCad's 100-nm schematic internal-unit
+  grid and stored as signed integers. The conversion uses ties-to-even rounding,
+  matching the Python reference's <code>round(mm * 10_000)</code> behavior. Floating
+  point is therefore confined to decoding a KiCad numeric token; equality, hashing,
+  component membership, and exported evidence use exact integer coordinates.</p>
+
+  <h2>Connectivity semantics</h2>
+  <ul>
+    <li>Consecutive wire points are unioned.</li>
+    <li>Bus points are registered but are not electrically unioned.</li>
+    <li>Both bus-entry endpoints are registered but are not unioned.</li>
+    <li>Junctions register their coordinate; coincident coordinates share the
+      existing point node.</li>
+    <li>Labels and no-connect markers remain typed source carriers but do not add
+      graph nodes in this foundation, matching the Python
+      <code>ConnectivityGraph</code> construction used by the netlist compiler.</li>
+  </ul>
+
+  <p>The immutable result stores deterministic, sorted components and supports
+  point iteration, component lookup, and connected-point queries. Construction uses
+  union by rank with path compression. Structural source scanning remains linear;
+  each selected carrier span is lexed independently and carrier spans do not overlap.</p>
+
+  <h2>Resource behavior</h2>
+  <p>Callers can bound connectivity objects per source, points per carrier, and total
+  carrier points per source. Point collectors check before pushing past the effective
+  per-form or remaining per-source allowance. Carrier-local structural selection is
+  also bounded from that remaining allowance. Invalid/non-finite coordinates and
+  overflowing bus-entry endpoints fail closed with the owning source path.</p>
+
+  <p>The defaults are deliberately large format-safety ceilings, not product-size
+  assumptions: four million carrier objects, one million points in one carrier, and
+  eight million carrier points per schematic source. They are configurable and can
+  be tightened by untrusted-input adapters without imposing small arbitrary limits on
+  native KiCad projects.</p>
+
+  <h2>Evidence</h2>
+  <p>The focused Rust suite covers all carrier families, label scope/shape, exact
+  connected and disconnected components, bus-entry non-union, absent no-connect graph
+  membership, and each new resource ceiling. Rack L3_020 compares every carrier and
+  every connectivity component with the established Python implementation across the
+  four compiled-graph reference projects in one native process.</p>
+
+  <h2>Deferred work</h2>
+  <p>Placed symbols and pins, sheet pins, bus-name expansion, hierarchy-terminal
+  binding, net naming/merging, graph row production, schematic mutation, and semantic
+  round-trip remain in Phase 4. Browser/WASM packaging remains deferred by the
+  native-first plan.</p>
+</body>
+</html>

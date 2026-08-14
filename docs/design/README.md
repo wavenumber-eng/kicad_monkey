@@ -46,6 +46,10 @@ Current design notes:
   vectors for the Phase 4 schematic compiler.
 - `rust-compiled-schematic-graph-phase4-native.html` - native deterministic
   identity allocation and linear semantic graph validation over generated DTOs.
+- `rust-source-bundle-phase4-slice.html` - named byte ownership, portable path
+  validation, one-scan schematic definitions, and repeated hierarchy occurrences.
+- `rust-schematic-connectivity-phase4-slice.html` - typed schematic connection
+  carriers and deterministic 100-nm-grid wire connectivity over source bundles.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

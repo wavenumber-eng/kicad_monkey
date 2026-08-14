@@ -3,8 +3,8 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
     SourceBundleManifestA0, SourceBundleSource, SourceKind,
 };
 use kicad_monkey_core::{
-    SchematicBundleIndex, SchematicBundleLimits, SourceBundle, SourceBundleErrorKind,
-    SourceBundleLimits,
+    SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicLabelScope,
+    SchematicPoint, SourceBundle, SourceBundleErrorKind, SourceBundleLimits,
 };
 
 fn manifest(sources: Vec<SourceBundleSource>) -> SourceBundleManifestA0 {
@@ -279,5 +279,150 @@ fn hierarchy_missing_sources_cycles_and_occurrence_limits_fail_closed() {
             .expect_err("hierarchy cycle")
             .kind,
         SourceBundleErrorKind::HierarchyCycle
+    );
+}
+
+#[test]
+fn typed_connectivity_carriers_preserve_scope_and_wire_topology() {
+    let project = b"{}".to_vec();
+    let root = br#"(kicad_sch
+      (version 20250114)
+      (uuid root-uuid)
+      (wire (pts (xy 0 0) (xy 10 0)) (uuid wire-a))
+      (wire (pts (xy 10 0) (xy 20 0)) (uuid wire-b))
+      (bus (pts (xy 0 10) (xy 20 10)) (uuid bus-a))
+      (bus_entry (at 5 10) (size 0 -10) (uuid entry-a))
+      (junction (at 10 0) (uuid junction-a))
+      (no_connect (at 30 0) (uuid nc-a))
+      (label "LOCAL" (at 0 0 0) (uuid label-a))
+      (global_label "GLOBAL" (shape output) (at 20 0 0) (uuid label-b))
+      (hierarchical_label "PORT" (shape bidirectional) (at 5 0 0) (uuid label-c)))"#
+        .to_vec();
+    let bundle = SourceBundle::from_manifest(
+        manifest(vec![
+            descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
+            descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+        ]),
+        vec![project, root],
+        SourceBundleLimits::default(),
+    )
+    .expect("typed schematic bundle");
+    let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("typed schematic index");
+    let definition = index
+        .definition("design/root.kicad_sch")
+        .expect("root definition");
+
+    assert_carrier_inventory(definition);
+    assert_wire_topology(definition);
+}
+
+fn assert_carrier_inventory(definition: &SchematicDefinition) {
+    assert_eq!(definition.wires.len(), 2);
+    assert_eq!(definition.buses.len(), 1);
+    assert_eq!(definition.bus_entries.len(), 1);
+    assert_eq!(definition.junctions.len(), 1);
+    assert_eq!(definition.no_connects.len(), 1);
+    assert_eq!(definition.labels.len(), 3);
+    assert_eq!(definition.labels[0].scope, SchematicLabelScope::Local);
+    assert_eq!(definition.labels[1].scope, SchematicLabelScope::Global);
+    assert_eq!(definition.labels[1].shape, "output");
+    assert_eq!(
+        definition.labels[2].scope,
+        SchematicLabelScope::Hierarchical
+    );
+    assert_eq!(definition.labels[2].shape, "bidirectional");
+}
+
+fn assert_wire_topology(definition: &SchematicDefinition) {
+    let origin = SchematicPoint { x_iu: 0, y_iu: 0 };
+    let far_wire = SchematicPoint {
+        x_iu: 200_000,
+        y_iu: 0,
+    };
+    assert!(definition.connectivity.connected(origin, far_wire));
+    assert_eq!(
+        definition
+            .connectivity
+            .component(origin)
+            .expect("wire component"),
+        &[
+            SchematicPoint { x_iu: 0, y_iu: 0 },
+            SchematicPoint {
+                x_iu: 100_000,
+                y_iu: 0,
+            },
+            SchematicPoint {
+                x_iu: 200_000,
+                y_iu: 0,
+            },
+        ]
+    );
+    assert!(!definition.connectivity.connected(
+        SchematicPoint {
+            x_iu: 0,
+            y_iu: 100_000
+        },
+        SchematicPoint {
+            x_iu: 200_000,
+            y_iu: 100_000,
+        }
+    ));
+    assert!(
+        definition
+            .connectivity
+            .component(SchematicPoint {
+                x_iu: 300_000,
+                y_iu: 0
+            })
+            .is_none()
+    );
+}
+
+#[test]
+fn connectivity_object_and_point_limits_fail_before_unbounded_realization() {
+    let project = b"{}".to_vec();
+    let root = b"(kicad_sch (wire (pts (xy 0 0) (xy 1 0))))".to_vec();
+    let bundle = SourceBundle::from_manifest(
+        manifest(vec![
+            descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
+            descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+        ]),
+        vec![project, root],
+        SourceBundleLimits::default(),
+    )
+    .expect("bounded schematic bundle");
+
+    let point_limited = SchematicBundleLimits {
+        max_points_per_connectivity_object: 1,
+        ..SchematicBundleLimits::default()
+    };
+    assert_eq!(
+        SchematicBundleIndex::build(&bundle, point_limited)
+            .expect_err("polyline point limit")
+            .kind,
+        SourceBundleErrorKind::ResourceLimit
+    );
+
+    let source_point_limited = SchematicBundleLimits {
+        max_connectivity_points_per_source: 1,
+        ..SchematicBundleLimits::default()
+    };
+    assert_eq!(
+        SchematicBundleIndex::build(&bundle, source_point_limited)
+            .expect_err("source connectivity point limit")
+            .kind,
+        SourceBundleErrorKind::ResourceLimit
+    );
+
+    let object_limited = SchematicBundleLimits {
+        max_connectivity_objects_per_source: 0,
+        ..SchematicBundleLimits::default()
+    };
+    assert_eq!(
+        SchematicBundleIndex::build(&bundle, object_limited)
+            .expect_err("connectivity object limit")
+            .kind,
+        SourceBundleErrorKind::ResourceLimit
     );
 }

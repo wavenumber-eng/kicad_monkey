@@ -1,5 +1,9 @@
 //! One-scan schematic inventory and hierarchy realization over [`SourceBundle`].
 
+use crate::schematic_source::{
+    SchematicBusEntry, SchematicConnectivity, SchematicJunction, SchematicLabel,
+    SchematicNoConnect, SchematicPolyline, parse_source_carriers,
+};
 use crate::sexpr::{Lexer, Token, TokenKind, decode_quoted};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use crate::source_bundle::{SourceBundle, SourceBundleError, SourceBundleErrorKind};
@@ -16,6 +20,9 @@ pub struct SchematicBundleLimits {
     pub max_sheets_per_source: usize,
     pub max_sheet_properties: usize,
     pub max_decoded_string_bytes: usize,
+    pub max_connectivity_objects_per_source: usize,
+    pub max_points_per_connectivity_object: usize,
+    pub max_connectivity_points_per_source: usize,
     pub max_occurrences: usize,
     pub max_path_bytes: usize,
 }
@@ -29,6 +36,9 @@ impl Default for SchematicBundleLimits {
             max_sheets_per_source: 1_000_000,
             max_sheet_properties: 1_000_000,
             max_decoded_string_bytes: 64 * 1024 * 1024,
+            max_connectivity_objects_per_source: 4_000_000,
+            max_points_per_connectivity_object: 1_000_000,
+            max_connectivity_points_per_source: 8_000_000,
             max_occurrences: 4_000_000,
             max_path_bytes: 32 * 1024,
         }
@@ -56,6 +66,13 @@ pub struct SchematicDefinition {
     pub generator_version: Option<String>,
     pub uuid: Option<String>,
     pub sheets: Vec<SchematicSheet>,
+    pub wires: Vec<SchematicPolyline>,
+    pub buses: Vec<SchematicPolyline>,
+    pub bus_entries: Vec<SchematicBusEntry>,
+    pub junctions: Vec<SchematicJunction>,
+    pub no_connects: Vec<SchematicNoConnect>,
+    pub labels: Vec<SchematicLabel>,
+    pub connectivity: SchematicConnectivity,
 }
 
 /// One root or child occurrence realized in parent-first source order.
@@ -172,8 +189,23 @@ fn parse_schematic_definition(
         generator_version: None,
         uuid: None,
         sheets: Vec::new(),
+        wires: Vec::new(),
+        buses: Vec::new(),
+        bus_entries: Vec::new(),
+        junctions: Vec::new(),
+        no_connects: Vec::new(),
+        labels: Vec::new(),
+        connectivity: SchematicConnectivity::default(),
     };
     populate_schematic_definition(&mut definition, text, &spans, source.path(), limits)?;
+    let carriers = parse_source_carriers(text, source.path(), &spans, limits)?;
+    definition.wires = carriers.wires;
+    definition.buses = carriers.buses;
+    definition.bus_entries = carriers.bus_entries;
+    definition.junctions = carriers.junctions;
+    definition.no_connects = carriers.no_connects;
+    definition.labels = carriers.labels;
+    definition.connectivity = carriers.connectivity;
     if definition
         .sheets
         .iter()
@@ -465,6 +497,14 @@ fn schematic_selector() -> Selector {
         &["kicad_sch", "sheet", "on_board"],
         &["kicad_sch", "sheet", "dnp"],
         &["kicad_sch", "sheet", "exclude_from_sim"],
+        &["kicad_sch", "wire"],
+        &["kicad_sch", "bus"],
+        &["kicad_sch", "bus_entry"],
+        &["kicad_sch", "junction"],
+        &["kicad_sch", "no_connect"],
+        &["kicad_sch", "label"],
+        &["kicad_sch", "global_label"],
+        &["kicad_sch", "hierarchical_label"],
     ]
     .into_iter()
     .map(|path| path.iter().map(|part| (*part).to_owned()).collect())

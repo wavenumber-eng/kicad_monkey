@@ -2,7 +2,8 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
     SourceBundleManifestA0, SourceBundleSource, SourceKind,
 };
 use kicad_monkey_core::{
-    SchematicBundleIndex, SchematicBundleLimits, SourceBundle, SourceBundleLimits,
+    SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicLabelScope,
+    SchematicPoint, SourceBundle, SourceBundleLimits,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -22,8 +23,49 @@ struct Request {
 #[derive(Debug, Serialize)]
 struct ResultSummary {
     definition_paths: Vec<String>,
+    definitions: Vec<DefinitionSummary>,
     occurrences: Vec<OccurrenceSummary>,
     total_bytes: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct DefinitionSummary {
+    source_path: String,
+    wires: Vec<PolylineSummary>,
+    buses: Vec<PolylineSummary>,
+    bus_entries: Vec<BusEntrySummary>,
+    junctions: Vec<MarkerSummary>,
+    no_connects: Vec<MarkerSummary>,
+    labels: Vec<LabelSummary>,
+    connectivity_components: Vec<Vec<[i64; 2]>>,
+}
+
+#[derive(Debug, Serialize)]
+struct PolylineSummary {
+    uuid: String,
+    points: Vec<[i64; 2]>,
+}
+
+#[derive(Debug, Serialize)]
+struct BusEntrySummary {
+    uuid: String,
+    at: [i64; 2],
+    size: [i64; 2],
+}
+
+#[derive(Debug, Serialize)]
+struct MarkerSummary {
+    uuid: String,
+    at: [i64; 2],
+}
+
+#[derive(Debug, Serialize)]
+struct LabelSummary {
+    scope: &'static str,
+    text: String,
+    shape: String,
+    uuid: String,
+    at: [i64; 2],
 }
 
 #[derive(Debug, Serialize)]
@@ -65,6 +107,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     .definitions()
                     .map(|definition| definition.source_path.clone())
                     .collect(),
+                definitions: index.definitions().map(definition_summary).collect(),
                 occurrences: index
                     .occurrences()
                     .map(|occurrence| OccurrenceSummary {
@@ -86,6 +129,77 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("no source bundle requests supplied".into());
     }
     Ok(())
+}
+
+fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {
+    DefinitionSummary {
+        source_path: definition.source_path.clone(),
+        wires: definition
+            .wires
+            .iter()
+            .map(|value| PolylineSummary {
+                uuid: value.uuid.clone(),
+                points: value.points.iter().copied().map(point_pair).collect(),
+            })
+            .collect(),
+        buses: definition
+            .buses
+            .iter()
+            .map(|value| PolylineSummary {
+                uuid: value.uuid.clone(),
+                points: value.points.iter().copied().map(point_pair).collect(),
+            })
+            .collect(),
+        bus_entries: definition
+            .bus_entries
+            .iter()
+            .map(|value| BusEntrySummary {
+                uuid: value.uuid.clone(),
+                at: point_pair(value.at),
+                size: point_pair(value.size),
+            })
+            .collect(),
+        junctions: definition
+            .junctions
+            .iter()
+            .map(|value| MarkerSummary {
+                uuid: value.uuid.clone(),
+                at: point_pair(value.at),
+            })
+            .collect(),
+        no_connects: definition
+            .no_connects
+            .iter()
+            .map(|value| MarkerSummary {
+                uuid: value.uuid.clone(),
+                at: point_pair(value.at),
+            })
+            .collect(),
+        labels: definition
+            .labels
+            .iter()
+            .map(|value| LabelSummary {
+                scope: match value.scope {
+                    SchematicLabelScope::Local => "local",
+                    SchematicLabelScope::Global => "global",
+                    SchematicLabelScope::Hierarchical => "hierarchical",
+                },
+                text: value.text.clone(),
+                shape: value.shape.clone(),
+                uuid: value.uuid.clone(),
+                at: point_pair(value.at),
+            })
+            .collect(),
+        connectivity_components: definition
+            .connectivity
+            .components()
+            .map(|component| component.iter().copied().map(point_pair).collect())
+            .collect(),
+    }
+}
+
+fn point_pair(point: SchematicPoint) -> [i64; 2] {
+    [point.x_iu, point.y_iu]
 }
 
 fn load_request(request: Request) -> Result<LoadedRequest, Box<dyn Error>> {
