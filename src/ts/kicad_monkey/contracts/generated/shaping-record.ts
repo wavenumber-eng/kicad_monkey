@@ -94,7 +94,7 @@ export interface ShapingBufferProperties {
 export interface ShapedGlyph {
   glyph_id: number;
   /**
-   * UTF-8 byte offset into ShapingInput.text, as assigned by push_str.
+   * UTF-8 scalar-start byte offset into ShapingInput.text, as assigned by push_str.
    */
   cluster: number;
   x_advance: TextSafeInteger;

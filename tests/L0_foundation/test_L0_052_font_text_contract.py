@@ -256,6 +256,18 @@ def test_text_semantics_reject_invalid_indices_ids_units_and_nonfinite_programma
     with pytest.raises(msgspec.ValidationError, match="invalid_text_index"):
         decode_shaping_record_a0(json.dumps(inside_combining).encode())
 
+    terminal_cluster = deepcopy(vectors["shaping_index_record"])
+    terminal_cluster["glyphs"][2]["cluster"] = 6
+    with pytest.raises(msgspec.ValidationError, match="invalid_text_index"):
+        decode_shaping_record_a0(json.dumps(terminal_cluster).encode())
+
+    empty_text_glyph = deepcopy(vectors["shaping_record"])
+    empty_text_glyph["input"]["text"] = ""
+    empty_text_glyph["input"]["features"] = []
+    empty_text_glyph["glyphs"][0]["cluster"] = 0
+    with pytest.raises(msgspec.ValidationError, match="invalid_text_index"):
+        decode_shaping_record_a0(json.dumps(empty_text_glyph).encode())
+
     for root, field in (("shaping_record", "case_id"), ("outline_vector", "font_id")):
         invalid_id = deepcopy(vectors[root])
         invalid_id[field] = ""

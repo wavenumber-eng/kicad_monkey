@@ -54,7 +54,9 @@
   feature's half-open <code>[start, end)</code> range to Rustybuzz unchanged.
   Non-global endpoints must be UTF-8 code-point boundaries; the sole global
   sentinel is <code>start=0, end=4294967295</code>. Output glyph clusters use
-  the same unit. The structural combining-mark vector contains byte offsets
+  the same unit but only scalar-start offsets: the terminal byte length is a
+  valid feature endpoint, never a glyph cluster, and empty text admits no
+  glyphs. The structural combining-mark vector contains byte offsets
   larger than Unicode-scalar indices so implementations cannot silently
   substitute scalar or UTF-16 units.</p>
 

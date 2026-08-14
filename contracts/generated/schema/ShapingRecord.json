@@ -148,7 +148,7 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 4294967295,
-                    "description": "UTF-8 byte offset into ShapingInput.text, as assigned by push_str."
+                    "description": "UTF-8 scalar-start byte offset into ShapingInput.text, as assigned by push_str."
                 },
                 "x_advance": {
                     "$ref": "#/$defs/TextSafeInteger"

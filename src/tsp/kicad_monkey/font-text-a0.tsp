@@ -159,7 +159,7 @@ model ShapingInput {
 /** One shaped glyph in logical buffer order. */
 model ShapedGlyph {
   glyph_id: uint32;
-  /** UTF-8 byte offset into ShapingInput.text, as assigned by push_str. */
+  /** UTF-8 scalar-start byte offset into ShapingInput.text, as assigned by push_str. */
   cluster: uint32;
   x_advance: TextSafeInteger;
   y_advance: TextSafeInteger;

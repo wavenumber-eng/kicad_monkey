@@ -117,15 +117,14 @@ fn validate_text_indices(record: &ShapingRecordA0) -> Result<(), ValidationError
             "UTF-8 text length exceeds the shaping index range",
         )
     })?;
-    let mut boundaries = HashSet::with_capacity(record.input.text.chars().count() + 1);
-    boundaries.extend(
+    let mut char_starts = HashSet::with_capacity(record.input.text.chars().count());
+    char_starts.extend(
         record
             .input
             .text
             .char_indices()
             .map(|(index, _)| index as u32),
     );
-    boundaries.insert(text_bytes);
     for (index, feature) in record.input.features.iter().enumerate() {
         if !valid_tag(&feature.tag.0) {
             return Err(error(
@@ -136,8 +135,8 @@ fn validate_text_indices(record: &ShapingRecordA0) -> Result<(), ValidationError
         }
         let global = feature.start == 0 && feature.end == u32::MAX;
         let bounded = feature.start <= feature.end
-            && boundaries.contains(&feature.start)
-            && boundaries.contains(&feature.end);
+            && valid_feature_endpoint(feature.start, text_bytes, &char_starts)
+            && valid_feature_endpoint(feature.end, text_bytes, &char_starts);
         if !global && !bounded {
             return Err(error(
                 "invalid_text_index",
@@ -147,7 +146,7 @@ fn validate_text_indices(record: &ShapingRecordA0) -> Result<(), ValidationError
         }
     }
     for (index, glyph) in record.glyphs.iter().enumerate() {
-        if !boundaries.contains(&glyph.cluster) {
+        if !char_starts.contains(&glyph.cluster) {
             return Err(error(
                 "invalid_text_index",
                 format!("$.glyphs[{index}].cluster"),
@@ -156,6 +155,10 @@ fn validate_text_indices(record: &ShapingRecordA0) -> Result<(), ValidationError
         }
     }
     Ok(())
+}
+
+fn valid_feature_endpoint(value: u32, text_bytes: u32, char_starts: &HashSet<u32>) -> bool {
+    value == text_bytes || char_starts.contains(&value)
 }
 
 fn validate_variations<'a>(

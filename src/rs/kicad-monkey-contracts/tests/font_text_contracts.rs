@@ -292,6 +292,24 @@ fn shaping_indices_require_utf8_code_point_boundaries() {
         validate_shaping_record_contract(&invalid).unwrap_err().code,
         "invalid_text_index"
     );
+
+    let mut terminal_cluster = vectors["shaping_index_record"].clone();
+    terminal_cluster["glyphs"][2]["cluster"] = 6.into();
+    let invalid: ShapingRecordA0 = serde_json::from_value(terminal_cluster).unwrap();
+    assert_eq!(
+        validate_shaping_record_contract(&invalid).unwrap_err().code,
+        "invalid_text_index"
+    );
+
+    let mut empty_text_glyph = vectors["shaping_record"].clone();
+    empty_text_glyph["input"]["text"] = "".into();
+    empty_text_glyph["input"]["features"] = serde_json::json!([]);
+    empty_text_glyph["glyphs"][0]["cluster"] = 0.into();
+    let invalid: ShapingRecordA0 = serde_json::from_value(empty_text_glyph).unwrap();
+    assert_eq!(
+        validate_shaping_record_contract(&invalid).unwrap_err().code,
+        "invalid_text_index"
+    );
 }
 
 #[test]

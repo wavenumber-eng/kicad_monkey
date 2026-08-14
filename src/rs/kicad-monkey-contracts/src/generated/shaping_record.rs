@@ -263,7 +263,7 @@ impl ::std::fmt::Display for Sha256Hex {
 ///  ],
 ///  "properties": {
 ///    "cluster": {
-///      "description": "UTF-8 byte offset into ShapingInput.text, as assigned by push_str.",
+///      "description": "UTF-8 scalar-start byte offset into ShapingInput.text, as assigned by push_str.",
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
@@ -302,7 +302,7 @@ impl ::std::fmt::Display for Sha256Hex {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct ShapedGlyph {
-    ///UTF-8 byte offset into ShapingInput.text, as assigned by push_str.
+    ///UTF-8 scalar-start byte offset into ShapingInput.text, as assigned by push_str.
     pub cluster: u32,
     pub glyph_id: u32,
     pub safe_to_insert_tatweel: bool,
