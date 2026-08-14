@@ -56,6 +56,16 @@ CASES: tuple[dict[str, Any], ...] = (
         "angle_degrees": -405.0,
         "mirrored": True,
     },
+    {
+        "case_id": "right_to_left_centered",
+        "base_case_id": "right_to_left_run",
+        "position_x": 3.25,
+        "position_y": -2.5,
+        "horizontal_alignment": "center",
+        "vertical_alignment": "bottom",
+        "angle_degrees": 15.0,
+        "mirrored": False,
+    },
 )
 
 

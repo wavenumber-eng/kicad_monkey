@@ -133,6 +133,15 @@ CASES: tuple[dict[str, Any], ...] = (
         "origin_x": 1.0,
         "origin_y": 2.0,
     },
+    {
+        "case_id": "right_to_left_run",
+        "text": "AB",
+        "direction": "rtl",
+        "size_x": 1.1,
+        "size_y": 0.9,
+        "origin_x": 0.0,
+        "origin_y": 0.0,
+    },
 )
 
 
@@ -173,7 +182,8 @@ def _case(
     hb_font.scale = (upem, upem)
     buffer = HB.Buffer()
     buffer.add_utf8(str(case["text"]).encode())
-    buffer.direction = "ltr"
+    direction = str(case.get("direction", "ltr"))
+    buffer.direction = direction
     buffer.script = "Latn"
     buffer.language = "en"
     buffer.cluster_level = HB.BufferClusterLevel.MONOTONE_GRAPHEMES
@@ -221,7 +231,10 @@ def _case(
         "text_index_unit": "utf8_byte_offset",
         "scale_x": upem,
         "scale_y": upem,
-        "direction": "left_to_right",
+        "direction": {
+            "ltr": "left_to_right",
+            "rtl": "right_to_left",
+        }[direction],
         "script": "Latn",
         "language": "en",
         "features": [],

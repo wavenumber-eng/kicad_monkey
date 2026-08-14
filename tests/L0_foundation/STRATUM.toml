@@ -306,7 +306,7 @@ test_case_type = "contract"
 primary = "Native plain text runs match fixed uharfbuzz, FontTools, and KiCad curve intermediate contours"
 secondary = [
     "One validated outline face is reused across every glyph in a run",
-    "Kerning, offsets, anisotropic sizing, origins, holes, and missing space outlines are observable",
+    "Kerning, RTL placement, offsets, anisotropic sizing, origins, holes, and missing space outlines are observable",
     "Aggregate outline-command, curve-work, temporary-point, contour, and retained-point limits are inclusive and fail closed",
     "Partial malformed outlines are terminal errors while genuine zero-outline spaces still advance",
     "Font bytes remain out of band and fixed records are deterministic",
@@ -328,6 +328,8 @@ secondary = [
     "Left, center, and right horizontal alignment are fixed evidence",
     "Top, center, and bottom vertical alignment use KiCad's 1.17 height factor",
     "Positive, negative, mirrored, and quarter-turn transforms rotate around the authored origin",
+    "Right-to-left horizontal runs are fixed evidence and unsupported vertical shaping fails closed",
+    "Returned advances remain pre-layout local run metrics",
     "Transforms operate in place under the accepted contour point ceiling",
     "Nonfinite transforms fail closed and deterministic records pass through Rack",
 ]

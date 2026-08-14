@@ -83,7 +83,13 @@
   using KiCad's <code>1.17</code> height factor, then mirrors on the X axis and
   rotates clockwise around the authored position. Transform work mutates the
   already-bounded contour output in place and creates no second point graph.
-  Nonfinite angles, aligned positions, and transformed points fail closed.</p>
+  Nonfinite angles, aligned positions, and transformed points fail closed.
+  Horizontal layout supports both left-to-right and right-to-left shaped runs;
+  top-to-bottom and bottom-to-top shaping fail with a structured invalid-input
+  diagnostic until vertical-flow layout exists. Returned
+  <code>advance_x</code>/<code>advance_y</code> values remain the pre-layout
+  local shaped-run metrics after the contour points are positioned, mirrored,
+  and rotated.</p>
 
   <h2>Still open</h2>
   <p>The current render-cache strata do not yet claim multiline/markup

@@ -4,7 +4,7 @@ use crate::{
     TextContourError, TextContourErrorKind, TextContourLimits, TextContourOutput,
     TextContourRequest, shape_text_contours_a0,
 };
-use kicad_monkey_contracts::generated::shaping_record::ShapingInput;
+use kicad_monkey_contracts::generated::shaping_record::{ShapingInput, TextDirection};
 
 /// KiCad outline-text height compensation used by vertical alignment.
 pub const KICAD_TEXT_HEIGHT_FUDGE_FACTOR: f64 = 1.17;
@@ -38,7 +38,13 @@ pub struct TextLayoutRequest<'a> {
     pub max_error: f64,
 }
 
-/// Render one plain line with KiCad alignment, mirroring, and rotation order.
+/// Render one horizontal plain-text line with KiCad alignment, mirroring, and rotation order.
+///
+/// Left-to-right and right-to-left shaping are supported. Vertical shaping is
+/// rejected because its line metrics and alignment semantics are not yet
+/// implemented. The returned `advance_x` and `advance_y` remain the shaped
+/// run's pre-layout local advance; only contour points receive the authored
+/// position, mirror, and rotation transforms.
 pub fn layout_single_line_text_a0(
     font_bytes: &[u8],
     request: TextLayoutRequest<'_>,
@@ -75,6 +81,15 @@ struct LayoutTransform {
 fn validated_transform(
     request: TextLayoutRequest<'_>,
 ) -> Result<LayoutTransform, TextContourError> {
+    if matches!(
+        request.shaping.direction,
+        TextDirection::TopToBottom | TextDirection::BottomToTop
+    ) {
+        return Err(invalid_layout(
+            "$.shaping.direction",
+            "vertical shaping directions are not supported by single-line horizontal layout",
+        ));
+    }
     if [
         request.angle_degrees,
         request.position_x,

@@ -30,11 +30,13 @@ def test_text_contour_records_are_current_bounded_and_out_of_band() -> None:
         "kerning_pair_anisotropic_offset",
         "multiple_contours_hole",
         "missing_outline_space_advances",
+        "right_to_left_run",
     }
     assert len(records["multiple_contours_hole"]["contours"]) > 1
     assert records["missing_outline_space_advances"]["advance_x"] > records[
         "single_glyph_origin"
     ]["advance_x"]
+    assert records["right_to_left_run"]["shaping"]["direction"] == "right_to_left"
     assert all("font_bytes" not in record for record in records.values())
 
     completed = subprocess.run(

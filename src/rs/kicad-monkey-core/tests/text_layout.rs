@@ -1,4 +1,4 @@
-use kicad_monkey_contracts::generated::shaping_record::ShapingInput;
+use kicad_monkey_contracts::generated::shaping_record::{ShapingInput, TextDirection};
 use kicad_monkey_core::{
     TextContourErrorKind, TextContourLimits, TextHorizontalAlignment, TextLayoutRequest, TextPoint,
     TextVerticalAlignment, layout_single_line_text_a0,
@@ -163,6 +163,20 @@ fn layout_reuses_contour_limits_and_rejects_nonfinite_transforms() {
     .unwrap_err();
     assert_eq!(error.kind, TextContourErrorKind::InvalidInput);
     assert_eq!(error.path, "$.transform");
+
+    let mut vertical_shaping = record.shaping.clone();
+    vertical_shaping.direction = TextDirection::TopToBottom;
+    let error = layout_single_line_text_a0(
+        FONT_BYTES,
+        TextLayoutRequest {
+            shaping: &vertical_shaping,
+            ..request(record)
+        },
+        TextContourLimits::default(),
+    )
+    .unwrap_err();
+    assert_eq!(error.kind, TextContourErrorKind::InvalidInput);
+    assert_eq!(error.path, "$.shaping.direction");
 }
 
 fn assert_contours(

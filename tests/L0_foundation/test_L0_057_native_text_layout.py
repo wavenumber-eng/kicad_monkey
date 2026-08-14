@@ -25,6 +25,7 @@ def test_text_layout_records_are_current_and_cover_transform_order() -> None:
         "center_center_rotated",
         "right_bottom_mirrored_quarter_turn",
         "right_top_mirrored_negative_rotation",
+        "right_to_left_centered",
     }
     assert {record["horizontal_alignment"] for record in records.values()} == {
         "left",
@@ -38,6 +39,10 @@ def test_text_layout_records_are_current_and_cover_transform_order() -> None:
     }
     assert any(record["mirrored"] for record in records.values())
     assert any(record["angle_degrees"] < 0 for record in records.values())
+    assert (
+        records["right_to_left_centered"]["shaping"]["direction"]
+        == "right_to_left"
+    )
 
     completed = subprocess.run(
         [sys.executable, "scripts/generate_text_layout_vectors.py", "--check"],
