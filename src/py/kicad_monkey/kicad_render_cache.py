@@ -215,20 +215,42 @@ def _point_in_polygon(point: tuple[float, float], polygon: list[tuple[float, flo
     return inside
 
 
+def _fracture_seam_index(points: list[tuple[float, float]]) -> int:
+    """Approximate the ring seam `Fracture()`'s Clipper2 `Simplify()` stores.
+
+    Simplified rings start just past the exit of a min-y run: the maximal
+    stretch of consecutive stored points at the ring's minimum y.  When a
+    ring holds several min-y runs, the run containing the smallest-x min-y
+    point wins, matching Clipper2's local-minima sweep order.
+    """
+
+    count = len(points)
+    min_y = min(point[1] for point in points)
+    anchor = min(
+        (index for index in range(count) if points[index][1] == min_y),
+        key=lambda index: points[index][0],
+    )
+    end = anchor
+    for _ in range(count - 1):
+        following = (end + 1) % count
+        if points[following][1] != min_y:
+            break
+        end = following
+    return (end + 1) % count
+
+
 def _rotate_exterior_for_fracture(
     points: list[tuple[float, float]],
 ) -> list[tuple[float, float]]:
     """Approximate KiCad's pre-fracture simplify vertex ordering.
 
     `SHAPE_POLY_SET::Fracture()` simplifies holed glyph polygons before
-    bridging holes.  For the outline-font glyphs under test, the simplified
-    exterior starts immediately after the top-most point.
+    bridging holes, restarting every ring at its Simplify seam.
     """
 
     if not points:
         return points
-    top_index = min(range(len(points)), key=lambda i: (points[i][1], -points[i][0]))
-    start = (top_index + 1) % len(points)
+    start = _fracture_seam_index(points)
     return points[start:] + points[:start]
 
 
@@ -237,13 +259,19 @@ def _leftmost_index(points: list[tuple[float, float]]) -> int:
 
     `fractureSingleCacheFriendly()` bridges each hole at the first stored
     point whose x equals the hole's minimum (strict `<` scan, no tie-break).
-    The stored order comes from `Fracture()`'s Clipper2 `Simplify()`, whose
-    hole rings start just past the min-y run exit, placing the bottom-left
-    vertex first.  A vertical hole left edge therefore bridges at the
-    leftmost point with the largest y.
+    The stored order comes from `Fracture()`'s Clipper2 `Simplify()`, so the
+    scan starts at the ring's Simplify seam and returns the first min-x
+    point it reaches in stored traversal order.
     """
 
-    return min(range(len(points)), key=lambda i: (points[i][0], -points[i][1]))
+    count = len(points)
+    seam = _fracture_seam_index(points)
+    x_min = min(point[0] for point in points)
+    for offset in range(count):
+        index = (seam + offset) % count
+        if points[index][0] == x_min:
+            return index
+    raise AssertionError("hole ring has no min-x point")
 
 
 def _edge_matches_y(

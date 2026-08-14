@@ -224,20 +224,27 @@
   contours to the first containing exterior, and bridges holes using the
   deterministic leftmost-edge ordering of the Python KiCad reference. Holes
   bridge in ascending (min&nbsp;x, min&nbsp;y) order, matching KiCad's
-  <code>fractureSingleCacheFriendly</code> path sort. Each hole bridges at its
-  leftmost point, tie-broken to the largest y: KiCad scans for the first
-  stored point at the strict minimum x, and <code>Fracture()</code>'s Clipper2
-  <code>Simplify()</code> emits hole rings starting just past the min-y run
-  exit, so a vertical hole left edge bridges at its bottom vertex. Live
-  double-hole (Arial <code>B</code>) and vertical-left-edge-hole (Arial
-  <code>D</code>) save-oracle cases pin this. One topology call covers
+  <code>fractureSingleCacheFriendly</code> path sort. Each hole bridges at the
+  first strict-min-x point scanned cyclically from the hole's Simplify seam in
+  stored traversal order: KiCad scans stored order for the first point at the
+  strict minimum x with no tie-break, and <code>Fracture()</code>'s Clipper2
+  <code>Simplify()</code> emits every ring starting just past its min-y run
+  exit, so a vertical hole left edge bridges at its bottom vertex (Arial
+  <code>D</code>) while a hole whose seam reaches the upper min-x vertex first
+  bridges there (embedded Wavenumber <code>W</code>). Live double-hole (Arial
+  <code>B</code>), vertical-left-edge-hole (Arial <code>D</code>), and
+  corpus <code>complex_font</code> save-oracle cases pin this. One topology
+  call covers
   exactly one glyph's polygon set: KiCad's saved-cache writer fractures each
   drawn glyph independently and only when that glyph has holes
   (<code>if (glyph.HasHoles()) glyph.Fracture()</code>), so cache composition
   threads per-glyph contour group sizes from layout and scopes fracture to
   each group. Within a holed group, <code>Simplify()</code> rewrites every
-  ring seam &mdash; hole-free outers restart just past their top-most point
-  (min&nbsp;y, ties largest&nbsp;x) &mdash; and Clipper2's
+  ring seam: rings restart one past the exit of the min-y run containing the
+  smallest-x min-y point, where a run is a maximal stretch of consecutive
+  stored points at the ring's minimum y and, with several min-y runs, the
+  smallest-x run wins, matching Clipper2's local-minima sweep order &mdash;
+  and Clipper2's
   <code>LocMinSorter</code> reorders the group's outers by bottom-most vertex
   (largest y first, ties smallest x, otherwise stable). Hole-free groups see
   no <code>Simplify()</code> and keep font contour order and ring seams
@@ -280,10 +287,12 @@
   former Arial <code>%</code> gap, now closed &mdash; it was per-glyph outer
   output ordering plus hole-free ring seam rewriting, not geometry cleanup).
   They do not yet claim broad font and composite-glyph
-  coverage, or repository-local corpus coverage. A known gap sits in the
-  Python reference (not the Rust port): its multi-glyph cursor advance drifts
-  a few microns beyond tolerance at larger x positions, while the native
-  hinted path quantizes advances exactly like KiCad. Those remain active parts
+  coverage, or repository-local corpus coverage. One known limitation sits in
+  the Python reference (not the Rust port): without a provisioned
+  <code>KICAD_HARFBUZZ_DLL</code> its pure-uharfbuzz fallback shaping drifts a
+  few microns per glyph at larger x positions; with the hb_ft path it matches
+  the oracle, and the native hinted path always quantizes advances like
+  KiCad. Those remain active parts
   of <code>render-cache-parity</code>, not deferred packaging work. Font
   discovery stays native-only and outside the platform-neutral byte-input
   core; WASM packaging remains in its later selected-operation phase.</p>

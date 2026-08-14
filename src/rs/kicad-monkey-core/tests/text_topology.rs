@@ -172,6 +172,64 @@ fn every_topology_limit_is_inclusive_and_fails_closed_one_under() {
 }
 
 #[test]
+fn simplify_seam_picks_smallest_x_min_y_run_and_scans_hole_bridge_from_seam() {
+    // The exterior carries TWO min-y runs at y=0; the seam sits one past the
+    // exit of the run holding the smallest-x min-y point, so the fractured
+    // ring starts at (1.5, 1) and not after the (2,0)-(3,0) run. The hole's
+    // stored order reaches its min-x UPPER vertex (1,2) first when scanned
+    // from its own Simplify seam (one past (1.5,1.9)), pinning the
+    // Wavenumber-style bridge that the old largest-y tie-break missed.
+    // Expected output fixed against the Python reference fracture helpers.
+    let input = [
+        TextContour {
+            points: [
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (1.5, 1.0),
+                (2.0, 0.0),
+                (3.0, 0.0),
+                (3.0, 5.0),
+                (0.0, 5.0),
+            ]
+            .map(|(x, y)| TextPoint { x, y })
+            .to_vec(),
+        },
+        TextContour {
+            points: [(1.0, 2.0), (1.0, 3.0), (2.0, 3.0), (2.0, 2.0), (1.5, 1.9)]
+                .map(|(x, y)| TextPoint { x, y })
+                .to_vec(),
+        },
+    ];
+    let output = fracture_text_contours_a0(&input, TextTopologyLimits::default()).unwrap();
+    let actual: Vec<(f64, f64)> = output.contours[0]
+        .points
+        .iter()
+        .map(|point| (point.x, point.y))
+        .collect();
+    assert_eq!(output.contours.len(), 1);
+    assert_eq!(
+        actual,
+        [
+            (1.5, 1.0),
+            (2.0, 0.0),
+            (3.0, 0.0),
+            (3.0, 5.0),
+            (0.0, 5.0),
+            (0.0, 2.0),
+            (1.0, 2.0),
+            (1.0, 3.0),
+            (2.0, 3.0),
+            (2.0, 2.0),
+            (1.5, 1.9),
+            (1.0, 2.0),
+            (0.0, 2.0),
+            (0.0, 0.0),
+            (1.0, 0.0),
+        ]
+    );
+}
+
+#[test]
 fn nonfinite_input_is_rejected_before_topology_publication() {
     let input = [TextContour {
         points: vec![

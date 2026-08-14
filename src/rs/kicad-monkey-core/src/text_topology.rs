@@ -235,20 +235,15 @@ fn fracture_polygon(
         }
         // A holed glyph's `Simplify()` rewrites every ring seam, including
         // hole-free outers sharing the glyph's polygon set.
-        let start = (top_index(exterior) + 1) % exterior.len();
+        let start = seam_index(exterior);
         let mut rotated = exterior[start..].to_vec();
         rotated.extend_from_slice(&exterior[..start]);
         return Ok(rotated);
     }
 
     let exterior = &contours[polygon.exterior].points;
-    let top = top_index(exterior);
     let mut infos = Vec::with_capacity(polygon.holes.len() + 1);
-    infos.push(path_info(
-        contours,
-        polygon.exterior,
-        (top + 1) % exterior.len(),
-    ));
+    infos.push(path_info(contours, polygon.exterior, seam_index(exterior)));
     for &hole in &polygon.holes {
         infos.push(path_info(contours, hole, 0));
     }
@@ -298,16 +293,34 @@ fn fracture_polygon(
     collect_fractured(&edges, limits, work)
 }
 
-/// Simplified-exterior seam vertex: the top-most point, ties by largest x.
-fn top_index(points: &[TextPoint]) -> usize {
-    points
+/// Ring seam stored by `Fracture()`'s Clipper2 `Simplify()` rewrite: one past
+/// the exit of the min-y run holding the smallest-x min-y point.
+///
+/// A "run" is a maximal stretch of consecutive stored points at the ring's
+/// minimum y. When several min-y runs exist, the run containing the
+/// smallest-x min-y point wins, matching Clipper2's local-minima sweep order.
+fn seam_index(points: &[TextPoint]) -> usize {
+    let min_y = points
+        .iter()
+        .map(|point| point.y)
+        .min_by(|left, right| finite_cmp(*left, *right))
+        .expect("normalized contours are nonempty");
+    let anchor = points
         .iter()
         .enumerate()
-        .min_by(|(_, left), (_, right)| {
-            finite_cmp(left.y, right.y).then_with(|| finite_cmp(right.x, left.x))
-        })
+        .filter(|(_, point)| point.y == min_y)
+        .min_by(|(_, left), (_, right)| finite_cmp(left.x, right.x))
         .map(|(index, _)| index)
-        .expect("normalized contours are nonempty")
+        .expect("normalized contours are nonempty");
+    let mut end = anchor;
+    for _ in 1..points.len() {
+        let following = (end + 1) % points.len();
+        if points[following].y != min_y {
+            break;
+        }
+        end = following;
+    }
+    (end + 1) % points.len()
 }
 
 /// Approximate Clipper2's `LocMinSorter` outer output order within one glyph.
@@ -341,31 +354,25 @@ fn bottom_vertex_key(points: &[TextPoint]) -> (f64, f64) {
 
 fn path_info(contours: &[TextContour], contour: usize, start: usize) -> PathInfo {
     let points = &contours[contour].points;
-    // KiCad's `fractureSingleCacheFriendly()` bridges each hole at the first
-    // stored point whose x equals the hole's minimum (strict `<` scan, no
-    // tie-break).  The stored order comes from `Fracture()`'s Clipper2
-    // `Simplify()`, whose hole rings start just past the min-y run exit,
-    // placing the bottom-left vertex first.  A vertical hole left edge
-    // therefore bridges at the leftmost point with the largest y.
-    let leftmost = (0..points.len())
-        .min_by(|&left, &right| {
-            path_point(points, start, left)
-                .x
-                .partial_cmp(&path_point(points, start, right).x)
-                .expect("validated coordinates are finite")
-                .then_with(|| {
-                    path_point(points, start, right)
-                        .y
-                        .partial_cmp(&path_point(points, start, left).y)
-                        .expect("validated coordinates are finite")
-                })
-        })
-        .expect("normalized contours are nonempty");
+    let count = points.len();
     let x_min = points
         .iter()
         .map(|point| point.x)
         .min_by(|left, right| finite_cmp(*left, *right))
         .expect("normalized contours are nonempty");
+    // KiCad's `fractureSingleCacheFriendly()` bridges each hole at the first
+    // stored point whose x equals the hole's minimum (strict `<` scan, no
+    // tie-break).  The stored order comes from `Fracture()`'s Clipper2
+    // `Simplify()`, so the scan starts at the ring's Simplify seam and takes
+    // the first min-x point reached in stored traversal order.
+    let seam = seam_index(points);
+    let leftmost_raw = (0..count)
+        .map(|offset| (seam + offset) % count)
+        .find(|&index| points[index].x == x_min)
+        .expect("normalized contours are nonempty");
+    // Edge slots view the ring rotated by `start`; express the bridge vertex
+    // in that view.
+    let leftmost = (leftmost_raw + count - start) % count;
     let y_min = points
         .iter()
         .map(|point| point.y)
