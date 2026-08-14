@@ -99,6 +99,10 @@ pub enum SchematicPinShape {
     Bidirectional,
     TriState,
     Passive,
+    Dot,
+    Round,
+    Diamond,
+    Rectangle,
 }
 
 impl SchematicPinShape {
@@ -109,6 +113,10 @@ impl SchematicPinShape {
             Self::Bidirectional => "bidirectional",
             Self::TriState => "tri_state",
             Self::Passive => "passive",
+            Self::Dot => "dot",
+            Self::Round => "round",
+            Self::Diamond => "diamond",
+            Self::Rectangle => "rectangle",
         }
     }
 
@@ -118,6 +126,10 @@ impl SchematicPinShape {
             Some("bidirectional") => Self::Bidirectional,
             Some("tri_state") => Self::TriState,
             Some("passive") => Self::Passive,
+            Some("dot") => Self::Dot,
+            Some("round") => Self::Round,
+            Some("diamond") => Self::Diamond,
+            Some("rectangle") => Self::Rectangle,
             _ => Self::Input,
         }
     }

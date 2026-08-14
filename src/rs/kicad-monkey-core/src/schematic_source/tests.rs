@@ -1,4 +1,4 @@
-use super::parse_iu;
+use super::{SchematicPinShape, parse_iu};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -31,4 +31,31 @@ fn exact_decimal_coordinates_match_shared_ties_even_and_range_vectors() {
             None => assert!(actual.is_err(), "{} unexpectedly decoded", case.name),
         }
     }
+}
+
+#[test]
+fn sheet_pin_shapes_cover_the_complete_python_label_shape_vocabulary() {
+    let cases = [
+        ("input", SchematicPinShape::Input),
+        ("output", SchematicPinShape::Output),
+        ("bidirectional", SchematicPinShape::Bidirectional),
+        ("tri_state", SchematicPinShape::TriState),
+        ("passive", SchematicPinShape::Passive),
+        ("dot", SchematicPinShape::Dot),
+        ("round", SchematicPinShape::Round),
+        ("diamond", SchematicPinShape::Diamond),
+        ("rectangle", SchematicPinShape::Rectangle),
+    ];
+    for (source, expected) in cases {
+        assert_eq!(SchematicPinShape::from_source(Some(source)), expected);
+        assert_eq!(expected.as_str(), source);
+    }
+    assert_eq!(
+        SchematicPinShape::from_source(None),
+        SchematicPinShape::Input
+    );
+    assert_eq!(
+        SchematicPinShape::from_source(Some("bogus")),
+        SchematicPinShape::Input
+    );
 }

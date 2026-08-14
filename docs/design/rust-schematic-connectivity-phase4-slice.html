@@ -17,8 +17,10 @@
   hierarchical labels. Each carrier retains its KiCad UUID and connectivity-relevant
   geometry. Labels retain their scope, text, and shape. Hierarchical sheet definitions
   also expose ordered pins with name, electrical shape, UUID, and exact connection
-  position. Electrical shape is a closed Rust enum; missing or unknown source tokens
-  normalize to <code>input</code>, matching the Python source model.</p>
+  position. Electrical shape is a closed Rust enum covering the complete Python
+  <code>LabelShape</code> vocabulary: input, output, bidirectional, tri_state, passive,
+  dot, round, diamond, and rectangle. Missing or unknown source tokens normalize to
+  <code>input</code>, matching the Python source model.</p>
 
   <p>Coordinates are snapped immediately to KiCad's 100-nm schematic internal-unit
   grid and stored as signed integers. A dependency-free decimal parser performs the
