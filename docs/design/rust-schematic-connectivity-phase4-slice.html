@@ -27,6 +27,14 @@
   placement/policy flags, UUID, ordered property key/value pairs, and ordered source
   pin mappings (number, UUID, and optional alternate).</p>
 
+  <p>Top-level <code>bus_alias</code> declarations are typed in source order with
+  their member order preserved. The native bus-expression module parses vectors,
+  groups, qualified groups, and recursive aliases. It retains current KiCad
+  formatting, quoted-name, escaped-space, slash-escape, ascending-vector, and
+  suffix behavior while preserving the established Python compiler's dotted
+  group qualification and alias recursion semantics. Expansion is iterative;
+  alias cycles fail closed rather than recursing indefinitely.</p>
+
   <p>Each definition also exposes embedded library symbols, subsymbol unit/body-style
   identity, and connectivity-relevant pins. A bounded first-writer suffix-key index
   matches KiCad/Python full and basename library lookup without a placement-by-library
@@ -112,6 +120,12 @@
   coordinates and overflowing bus-entry endpoints fail closed with the owning source
   path.</p>
 
+  <p>Bus aliases and their aggregate source members have separate parsing
+  ceilings. Bus expressions independently bound input bytes, direct group
+  members, expanded members, retained output/work bytes, and nesting depth.
+  Vector cardinality is checked before reserving or generating members, so a
+  syntactically small extreme range cannot trigger proportional allocation.</p>
+
   <p>The defaults are deliberately large format-safety ceilings, not product-size
   assumptions: four million aggregate objects and per family, one million points in
   one carrier, and eight million carrier points per schematic source. They are
@@ -140,8 +154,16 @@
   negative angles, mirror order, ties-to-even half-grid rounding, and transform and
   translation overflow.</p>
 
+  <p>Native bus tests mirror the established Python vector/group/alias corpus and
+  add current KiCad C++ regression vectors for formatted ranges, overbar/
+  superscript/subscript names, quoted and escaped spaces, and formatted members.
+  Exact/one-over cardinality and byte tests, huge-range rejection, iterative
+  alias ordering, cycle detection, nesting, and work-item ceilings are durable
+  Rust evidence. Rack L3_020 also compares every authored bus alias and member on
+  the four real compiled-graph projects.</p>
+
   <h2>Deferred work</h2>
-  <p>Bus-name expansion, hierarchy-terminal binding, net naming/merging, graph row production, schematic
+  <p>Bus-subgraph construction/member-tap merging, hierarchy-terminal binding, net naming/merging, graph row production, schematic
   mutation, and semantic round-trip remain in Phase 4. Browser/WASM packaging remains
   deferred by the native-first plan.</p>
 </body>

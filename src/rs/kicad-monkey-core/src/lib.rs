@@ -15,6 +15,7 @@ pub mod plotter_types;
 pub mod schematic_bundle;
 mod schematic_bundle_indexes;
 mod schematic_bundle_limits;
+pub mod schematic_bus;
 mod schematic_effective;
 mod schematic_source;
 mod schematic_terminals;
@@ -56,12 +57,17 @@ pub use schematic_bundle::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicOccurrence,
     SchematicSheet,
 };
+pub use schematic_bus::{
+    SchematicBusExpansionError, SchematicBusExpansionErrorKind, SchematicBusExpansionLimits,
+    SchematicBusPattern, canonical_bus_member_name, expand_schematic_bus_label,
+    is_schematic_bus_label, parse_schematic_bus_group, parse_schematic_bus_vector,
+};
 pub use schematic_effective::SchematicEffectiveSymbol;
 pub use schematic_source::{
-    SCHEMATIC_IU_PER_MM, SchematicBusEntry, SchematicConnectivity, SchematicJunction,
-    SchematicLabel, SchematicLabelScope, SchematicLegacySymbolInstance, SchematicLibraryPin,
-    SchematicLibrarySubsymbol, SchematicLibrarySymbol, SchematicNoConnect, SchematicPinShape,
-    SchematicPlacedSymbol, SchematicPoint, SchematicPolyline, SchematicSheetPin,
+    SCHEMATIC_IU_PER_MM, SchematicBusAlias, SchematicBusEntry, SchematicConnectivity,
+    SchematicJunction, SchematicLabel, SchematicLabelScope, SchematicLegacySymbolInstance,
+    SchematicLibraryPin, SchematicLibrarySubsymbol, SchematicLibrarySymbol, SchematicNoConnect,
+    SchematicPinShape, SchematicPlacedSymbol, SchematicPoint, SchematicPolyline, SchematicSheetPin,
     SchematicSymbolInstance, SchematicSymbolInstanceLookupError, SchematicSymbolInstanceVariant,
     SchematicSymbolPin, SchematicSymbolProperty, SchematicSymbolVariantField,
 };

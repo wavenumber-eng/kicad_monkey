@@ -1,14 +1,15 @@
-//! Typed schematic connectivity carriers and deterministic point connectivity.
-
 use crate::schematic_bundle::SchematicBundleLimits;
 use crate::sexpr::{Lexer, Token, TokenKind, decode_quoted};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use crate::source_bundle::{SourceBundleError, SourceBundleErrorKind};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+mod bus_aliases;
 mod library_symbols;
 mod symbol_instances;
 mod symbols;
+pub use bus_aliases::SchematicBusAlias;
+pub(crate) use bus_aliases::parse_bus_aliases;
 pub(crate) use library_symbols::parse_embedded_library_symbols;
 pub use library_symbols::{SchematicLibraryPin, SchematicLibrarySubsymbol, SchematicLibrarySymbol};
 pub use symbol_instances::{
@@ -21,7 +22,6 @@ pub use symbols::{
     SchematicPlacedSymbol, SchematicSymbolInstanceLookupError, SchematicSymbolPin,
     SchematicSymbolProperty,
 };
-/// KiCad's schematic internal-unit grid: 100 nm, or 10,000 units per millimetre.
 pub const SCHEMATIC_IU_PER_MM: i64 = 10_000;
 
 /// Exact schematic-grid coordinate used by connectivity rather than floating point.

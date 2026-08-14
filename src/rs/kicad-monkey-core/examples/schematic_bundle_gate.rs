@@ -39,10 +39,17 @@ struct DefinitionSummary {
     wires: Vec<PolylineSummary>,
     buses: Vec<PolylineSummary>,
     bus_entries: Vec<BusEntrySummary>,
+    bus_aliases: Vec<BusAliasSummary>,
     junctions: Vec<MarkerSummary>,
     no_connects: Vec<MarkerSummary>,
     labels: Vec<LabelSummary>,
     connectivity_components: Vec<Vec<[i64; 2]>>,
+}
+
+#[derive(Debug, Serialize)]
+struct BusAliasSummary {
+    name: String,
+    members: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -345,6 +352,14 @@ fn definition_summary(definition: &SchematicDefinition) -> DefinitionSummary {
                 uuid: value.uuid.clone(),
                 at: point_pair(value.at),
                 size: point_pair(value.size),
+            })
+            .collect(),
+        bus_aliases: definition
+            .bus_aliases
+            .iter()
+            .map(|alias| BusAliasSummary {
+                name: alias.name.clone(),
+                members: alias.members.clone(),
             })
             .collect(),
         junctions: definition

@@ -4,10 +4,11 @@ use crate::schematic_bundle_indexes::{
 };
 use crate::schematic_effective::{SchematicEffectiveSymbol, resolve_effective_symbols};
 use crate::schematic_source::{
-    SchematicBusEntry, SchematicConnectivity, SchematicJunction, SchematicLabel,
+    SchematicBusAlias, SchematicBusEntry, SchematicConnectivity, SchematicJunction, SchematicLabel,
     SchematicLegacySymbolInstance, SchematicLibrarySymbol, SchematicNoConnect,
-    SchematicPlacedSymbol, SchematicPolyline, SchematicSheetPin, parse_embedded_library_symbols,
-    parse_legacy_symbol_instances, parse_placed_symbols, parse_sheet_pin, parse_source_carriers,
+    SchematicPlacedSymbol, SchematicPolyline, SchematicSheetPin, parse_bus_aliases,
+    parse_embedded_library_symbols, parse_legacy_symbol_instances, parse_placed_symbols,
+    parse_sheet_pin, parse_source_carriers,
 };
 use crate::schematic_terminals::{SchematicSymbolTerminal, resolve_symbol_terminals};
 use crate::sexpr::{Lexer, Token, TokenKind, decode_quoted};
@@ -45,6 +46,7 @@ pub struct SchematicDefinition {
     pub wires: Vec<SchematicPolyline>,
     pub buses: Vec<SchematicPolyline>,
     pub bus_entries: Vec<SchematicBusEntry>,
+    pub bus_aliases: Vec<SchematicBusAlias>,
     pub junctions: Vec<SchematicJunction>,
     pub no_connects: Vec<SchematicNoConnect>,
     pub labels: Vec<SchematicLabel>,
@@ -253,6 +255,7 @@ fn parse_schematic_definition(
         wires: Vec::new(),
         buses: Vec::new(),
         bus_entries: Vec::new(),
+        bus_aliases: Vec::new(),
         junctions: Vec::new(),
         no_connects: Vec::new(),
         labels: Vec::new(),
@@ -274,6 +277,7 @@ fn parse_schematic_definition(
         &definition.library_symbols,
         &definition.library_symbol_by_key,
     );
+    definition.bus_aliases = parse_bus_aliases(text, source.path(), &spans, limits)?;
     definition.legacy_symbol_instances =
         parse_legacy_symbol_instances(text, source.path(), &spans, limits)?;
     for (index, instance) in definition.legacy_symbol_instances.iter().enumerate() {
@@ -600,6 +604,7 @@ fn schematic_selector() -> Selector {
         &["kicad_sch", "wire"],
         &["kicad_sch", "bus"],
         &["kicad_sch", "bus_entry"],
+        &["kicad_sch", "bus_alias"],
         &["kicad_sch", "junction"],
         &["kicad_sch", "no_connect"],
         &["kicad_sch", "label"],

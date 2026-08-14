@@ -187,6 +187,10 @@ def _definition_summary(schematic: object, bundle_root: Path) -> dict[str, objec
             }
             for value in getattr(schematic, "bus_entries", ())
         ],
+        "bus_aliases": [
+            {"name": alias.name, "members": list(alias.members)}
+            for alias in getattr(schematic, "bus_aliases", ())
+        ],
         "junctions": [_marker(value) for value in getattr(schematic, "junctions", ())],
         "no_connects": [_marker(value) for value in getattr(schematic, "no_connects", ())],
         "labels": [
