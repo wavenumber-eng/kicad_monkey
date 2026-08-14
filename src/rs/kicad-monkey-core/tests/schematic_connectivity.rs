@@ -393,6 +393,34 @@ fn jumper_metadata_limits_fail_before_publication() {
     }
 }
 
+#[test]
+fn jumper_group_capacity_wins_before_member_decoding() {
+    let source = source_bundle(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Jumper"
+              (jumper_pin_groups ("a deliberately long member")))))
+        "#,
+    );
+    let error = SchematicBundleIndex::build(
+        &source,
+        SchematicBundleLimits {
+            max_jumper_groups_per_source: 0,
+            max_jumper_members_per_source: 0,
+            max_jumper_member_bytes_per_source: 0,
+            ..SchematicBundleLimits::default()
+        },
+    )
+    .expect_err("group capacity must be checked before any member");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(
+        error.message.contains("jumper group count"),
+        "{}",
+        error.message
+    );
+}
+
 fn jumper_source() -> &'static [u8] {
     br#"(kicad_sch
       (uuid root)

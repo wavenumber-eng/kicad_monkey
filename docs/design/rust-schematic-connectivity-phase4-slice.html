@@ -63,7 +63,10 @@
   Custom static indexes are not rebuilt for each bus subgraph or driver. Embedded
   library symbols also retain KiCad 9/10 duplicate-pin jumper policy and ordered
   jumper groups. Stacked pin ranges and lists are expanded iteratively before
-  driver publication, while jumper connectivity uses indexed pin-number lookup
+  driver publication. Aggregate range byte cost is preflighted in logarithmic
+  time before any generated member string is retained. Jumper group capacity is
+  likewise checked when each group opens, before member decoding, while jumper
+  connectivity uses indexed pin-number lookup
   rather than pairwise pin scans.</p>
 
   <p>Each definition also exposes embedded library symbols, subsymbol unit/body-style

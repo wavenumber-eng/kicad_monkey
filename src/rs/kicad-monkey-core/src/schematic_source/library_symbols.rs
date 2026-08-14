@@ -221,7 +221,7 @@ fn parse_jumper_pin_groups(
         .map_err(|error| source_error(source_path, error.to_string()))?
     {
         match token.kind {
-            TokenKind::Left => parser.open(),
+            TokenKind::Left => parser.open()?,
             TokenKind::Right => parser.close()?,
             TokenKind::Atom | TokenKind::QuotedString => parser.scalar(token)?,
             _ => {}
@@ -255,21 +255,22 @@ impl<'a, 'b> JumperGroupParser<'a, 'b> {
         }
     }
 
-    fn open(&mut self) {
+    fn open(&mut self) -> Result<(), SourceBundleError> {
         self.depth = self.depth.saturating_add(1);
         if self.depth == 2 {
-            self.current.clear();
-        }
-    }
-
-    fn close(&mut self) -> Result<(), SourceBundleError> {
-        if self.depth == 2 && !self.current.is_empty() {
             if self.counts.jumper_groups >= self.limits.max_jumper_groups_per_source {
                 return Err(limit_error(
                     self.source_path,
                     "embedded jumper group count exceeds its limit",
                 ));
             }
+            self.current.clear();
+        }
+        Ok(())
+    }
+
+    fn close(&mut self) -> Result<(), SourceBundleError> {
+        if self.depth == 2 && !self.current.is_empty() {
             self.counts.jumper_groups += 1;
             self.groups.push(std::mem::take(&mut self.current));
         }

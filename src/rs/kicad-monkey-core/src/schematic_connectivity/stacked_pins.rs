@@ -79,19 +79,43 @@ fn push_range(
             "stacked pin range exceeds platform size",
         )
     })?;
-    ensure_capacity(usage, count, 0, budget)?;
+    let total_bytes = range_byte_count(left_prefix.len(), left_value, right_value)
+        .ok_or_else(|| limit_error(budget.source_path, "expanded pin bytes overflow"))?;
+    ensure_capacity(usage, count, total_bytes, budget)?;
     for number in left_value..=right_value {
         let number_digits = number.to_string();
         let member_bytes = left_prefix
             .len()
             .checked_add(number_digits.len())
             .ok_or_else(|| limit_error(budget.source_path, "expanded pin bytes overflow"))?;
-        ensure_capacity(usage, 1, member_bytes, budget)?;
         out.push(format!("{left_prefix}{number_digits}"));
         usage.count += 1;
         usage.bytes += member_bytes;
     }
     Ok(true)
+}
+
+fn range_byte_count(prefix_bytes: usize, first: u64, last: u64) -> Option<usize> {
+    let count = u128::from(last.checked_sub(first)?.checked_add(1)?);
+    let prefix_total = (prefix_bytes as u128).checked_mul(count)?;
+    let mut digit_total = 0_u128;
+    let first = u128::from(first);
+    let last = u128::from(last);
+    let mut lower = 0_u128;
+    let mut next_power = 10_u128;
+    let mut digits = 1_u128;
+    while lower <= last {
+        let upper = last.min(next_power - 1);
+        if upper >= first {
+            let band_first = first.max(lower);
+            let band_count = upper.checked_sub(band_first)?.checked_add(1)?;
+            digit_total = digit_total.checked_add(band_count.checked_mul(digits)?)?;
+        }
+        lower = next_power;
+        next_power = next_power.checked_mul(10)?;
+        digits = digits.checked_add(1)?;
+    }
+    usize::try_from(prefix_total.checked_add(digit_total)?).ok()
 }
 
 fn ensure_capacity(
@@ -143,4 +167,35 @@ fn limit_error(source_path: &str, message: &str) -> SourceBundleError {
         Some(source_path),
         message,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{expand_stacked_pin, range_byte_count};
+    use crate::SourceBundleErrorKind;
+
+    #[test]
+    fn range_bytes_cover_decimal_boundaries_without_enumeration() {
+        assert_eq!(range_byte_count(2, 0, 0), Some(3));
+        assert_eq!(range_byte_count(2, 8, 12), Some(18));
+        assert_eq!(range_byte_count(0, 98, 102), Some(13));
+        assert_eq!(range_byte_count(1, u64::MAX - 1, u64::MAX), Some(42));
+    }
+
+    #[test]
+    fn range_bytes_are_rejected_before_member_generation() {
+        let value = "[LONGPREFIX99990-LONGPREFIX100010]";
+        let exact_bytes =
+            range_byte_count("LONGPREFIX".len(), 99_990, 100_010).expect("range byte count");
+        let expanded = expand_stacked_pin(value, 21, exact_bytes, "design/root.kicad_sch", "count")
+            .expect("exact aggregate byte limit");
+        assert_eq!(expanded.len(), 21);
+        assert_eq!(expanded.iter().map(String::len).sum::<usize>(), exact_bytes);
+
+        let error =
+            expand_stacked_pin(value, 21, exact_bytes - 1, "design/root.kicad_sch", "count")
+                .expect_err("one-under aggregate byte limit");
+        assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+        assert!(error.message.contains("expanded pin bytes"));
+    }
 }
