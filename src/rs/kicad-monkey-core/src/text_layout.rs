@@ -76,6 +76,8 @@ fn layout_single_line_text_with_outline_mode(
         origin_x: 0.0,
         origin_y: 0.0,
         max_error: request.max_error,
+        fake_bold: false,
+        fake_italic: false,
     };
     let mut output = if hinted {
         shape_text_contours_hinted_a0(font_bytes, contour_request, limits)?

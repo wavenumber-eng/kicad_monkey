@@ -66,6 +66,8 @@ fn request(shaping: &ShapingInput) -> TextBlockLayoutRequest<'_> {
         line_spacing: 1.0,
         stroke_width: 0.0,
         max_error: 2.0,
+        fake_bold: false,
+        fake_italic: false,
     }
 }
 
@@ -533,6 +535,129 @@ fn overbar_appends_reference_oval_polygon_after_children() {
     )
     .unwrap();
     assert_eq!(without_bar.contours.len(), plain.contours.len());
+}
+
+#[test]
+fn fake_italic_applies_the_truncated_freetype_shear_to_glyph_points() {
+    let shaping = base_shaping("S");
+    let plain = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        request(&shaping),
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    let italic = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        TextBlockLayoutRequest {
+            fake_italic: true,
+            ..request(&shaping)
+        },
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    // The shear runs after shaping, so advances and block metrics are equal.
+    assert_eq!(italic.width, plain.width);
+    assert_eq!(italic.height, plain.height);
+    assert_eq!(italic.contours.len(), plain.contours.len());
+
+    // `FT_Set_Transform` with `yx = 0`, `yy = 0x10000` leaves y untouched, so
+    // curve flattening subdivides identically and points pair up one-to-one.
+    let plain_points: Vec<_> = plain
+        .contours
+        .iter()
+        .flat_map(|contour| &contour.points)
+        .collect();
+    let italic_points: Vec<_> = italic
+        .contours
+        .iter()
+        .flat_map(|contour| &contour.points)
+        .collect();
+    assert_eq!(plain_points.len(), italic_points.len());
+    for (plain_point, italic_point) in plain_points.iter().zip(&italic_points) {
+        assert_eq!(italic_point.y, plain_point.y);
+    }
+
+    // Between any two points of the same glyph the shear displacement obeys
+    // `x' = x cos 12 + y sin 12` up to per-point 26.6 rounding: final y grows
+    // downward, so higher points (smaller y) lean further right.
+    let angle = 12.0_f64.to_radians();
+    let (sin_tilt, cos_tilt) = angle.sin_cos();
+    let base_plain = plain_points[0];
+    let base_shift = italic_points[0].x - base_plain.x;
+    // One 26.6 step per rounded term, in millimetres.
+    let rounding = 2.0 / 1433.0 * 1.4 / 16.0 * 2.0;
+    for (plain_point, italic_point) in plain_points.iter().zip(&italic_points) {
+        let shift = italic_point.x - plain_point.x;
+        let expected = base_shift + (cos_tilt - 1.0) * (plain_point.x - base_plain.x)
+            - sin_tilt * (plain_point.y - base_plain.y);
+        assert!(
+            (shift - expected).abs() <= rounding,
+            "shear delta {shift} != {expected} at ({}, {})",
+            plain_point.x,
+            plain_point.y
+        );
+    }
+    assert!(
+        plain_points
+            .iter()
+            .zip(&italic_points)
+            .any(|(plain_point, italic_point)| italic_point.x != plain_point.x),
+        "the shear must move at least one point"
+    );
+}
+
+#[test]
+fn fake_bold_grows_the_glyph_by_the_freetype_embolden_strength() {
+    let shaping = base_shaping("S");
+    let plain = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        request(&shaping),
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    let bold = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        TextBlockLayoutRequest {
+            fake_bold: true,
+            ..request(&shaping)
+        },
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    // Embolden does not touch advances, so block metrics stay equal.
+    assert_eq!(bold.width, plain.width);
+    assert_eq!(bold.contours.len(), plain.contours.len());
+
+    let bounds = |contours: &[kicad_monkey_core::TextContour]| {
+        let mut min_x = f64::MAX;
+        let mut max_x = f64::MIN;
+        let mut min_y = f64::MAX;
+        let mut max_y = f64::MIN;
+        for point in contours.iter().flat_map(|contour| &contour.points) {
+            min_x = min_x.min(point.x);
+            max_x = max_x.max(point.x);
+            min_y = min_y.min(point.y);
+            max_y = max_y.max(point.y);
+        }
+        (min_x, max_x, min_y, max_y)
+    };
+    let (plain_min_x, plain_max_x, plain_min_y, plain_max_y) = bounds(&plain.contours);
+    let (bold_min_x, bold_max_x, bold_min_y, bold_max_y) = bounds(&bold.contours);
+    // `FT_Outline_Embolden(outline, 1 << 6)` grows the outline by about one
+    // hinted pixel (4 internal units) toward +x and glyph-up (-y here).
+    let pixel = 4.0 * 2.0 / 1433.0 * 1.4;
+    let growth_x = (bold_max_x - bold_min_x) - (plain_max_x - plain_min_x);
+    let growth_y = (bold_max_y - bold_min_y) - (plain_max_y - plain_min_y);
+    assert!(
+        growth_x > 0.25 * pixel && growth_x < 3.0 * pixel,
+        "x growth {growth_x} outside the embolden band around {pixel}"
+    );
+    assert!(
+        growth_y > 0.25 * pixel && growth_y < 3.0 * pixel,
+        "y growth {growth_y} outside the embolden band around {pixel}"
+    );
+    assert!(bold_min_y < plain_min_y, "bold must grow glyph-up");
+    assert!(bold_max_x > plain_max_x, "bold must grow to the right");
 }
 
 #[test]

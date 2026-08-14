@@ -23,6 +23,10 @@ struct GateRequest {
     #[serde(default)]
     stroke_width: f64,
     max_error: f64,
+    #[serde(default)]
+    fake_bold: bool,
+    #[serde(default)]
+    fake_italic: bool,
 }
 
 fn default_line_spacing() -> f64 {
@@ -84,6 +88,8 @@ fn run() -> Result<Vec<u8>, String> {
             line_spacing: request.line_spacing,
             stroke_width: request.stroke_width,
             max_error: request.max_error,
+            fake_bold: request.fake_bold,
+            fake_italic: request.fake_italic,
         },
         TextBlockLayoutLimits::default(),
         TextRenderCacheLimits::default(),

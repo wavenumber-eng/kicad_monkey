@@ -34,6 +34,8 @@ from kicad_monkey.kicad_sexpr import parse_sexp
 _CLI = resolve_kicad_cli(required_capability="pcb_svg")
 _CONSOLAS = Path("C:/Windows/Fonts/consola.ttf")
 _ARIAL = Path("C:/Windows/Fonts/arial.ttf")
+_ARIAL_BOLD = Path("C:/Windows/Fonts/arialbd.ttf")
+_IMPACT = Path("C:/Windows/Fonts/impact.ttf")
 
 
 def _find_wavenumber_font() -> Path | None:
@@ -1214,6 +1216,157 @@ def test_native_render_cache_matches_kicad_save_oracle_for_outline_glyphs(
             "text_render_cache_oracle_gate",
             "--",
             str(_ARIAL),
+            str(request_path),
+        ],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=180,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    native_cache = RenderCache.from_sexp(parse_sexp(f"(holder {completed.stdout})"))
+    assert native_cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        native_cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(
+    not (_IMPACT.exists() and _ARIAL_BOLD.exists()),
+    reason="Impact/Arial Bold fonts not installed",
+)
+@pytest.mark.parametrize(
+    (
+        "case_name",
+        "font_face",
+        "font_style",
+        "font_path",
+        "font_id",
+        "fake_bold",
+        "fake_italic",
+    ),
+    [
+        # Impact ships no bold or italic faces, so KiCad synthesizes both
+        # from the regular face.
+        (
+            "impact_fake_bold",
+            "Impact",
+            "(bold yes)",
+            _IMPACT,
+            "windows_impact_regular",
+            True,
+            False,
+        ),
+        (
+            "impact_fake_italic",
+            "Impact",
+            "(italic yes)",
+            _IMPACT,
+            "windows_impact_regular",
+            False,
+            True,
+        ),
+        # Arial bold+italic resolves to the real bold face and fakes only
+        # the italic shear.
+        (
+            "arial_bold_fake_italic",
+            "Arial",
+            "(bold yes) (italic yes)",
+            _ARIAL_BOLD,
+            "windows_arial_bold",
+            False,
+            True,
+        ),
+    ],
+)
+def test_native_render_cache_matches_kicad_save_oracle_for_fake_styles(
+    tmp_path: Path,
+    case_name: str,
+    font_face: str,
+    font_style: str,
+    font_path: Path,
+    font_id: str,
+    fake_bold: bool,
+    fake_italic: bool,
+):
+    source = tmp_path / f"render_cache_native_{case_name}.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        "TS",
+        font_style=font_style,
+        font_face=font_face,
+    )
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_native",
+    )
+
+    font_bytes = font_path.read_bytes()
+    # Impact and both Arial faces use 2048 head-table units per em.
+    units_per_em = 2048
+    request_path = tmp_path / "native_request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "shaping": {
+                    "font_id": font_id,
+                    "font_sha256": hashlib.sha256(font_bytes).hexdigest(),
+                    "face_index": 0,
+                    "variations": [],
+                    "text": "TS",
+                    "text_index_unit": "utf8_byte_offset",
+                    "scale_x": units_per_em,
+                    "scale_y": units_per_em,
+                    "direction": "left_to_right",
+                    "script": "Latn",
+                    "language": "en",
+                    "features": [],
+                    "buffer_properties": {
+                        "cluster_level": "monotone_graphemes",
+                        "beginning_of_text": True,
+                        "end_of_text": True,
+                        "default_ignorables": "normal",
+                        "do_not_insert_dotted_circle": False,
+                        "produce_unsafe_to_concat": False,
+                        "produce_safe_to_insert_tatweel": False,
+                    },
+                },
+                "size_x": 2.0,
+                "size_y": 2.0,
+                "position_x": 10.0,
+                "position_y": 10.0,
+                "angle_degrees": 0.0,
+                "mirrored": False,
+                "horizontal_alignment": "left",
+                "vertical_alignment": "top",
+                "line_spacing": 1.0,
+                "stroke_width": 0.2,
+                "max_error": 2.0,
+                "fake_bold": fake_bold,
+                "fake_italic": fake_italic,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--quiet",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--example",
+            "text_render_cache_oracle_gate",
+            "--",
+            str(font_path),
             str(request_path),
         ],
         cwd=Path(__file__).resolve().parents[2],

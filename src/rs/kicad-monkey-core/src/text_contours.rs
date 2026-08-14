@@ -38,6 +38,8 @@ pub struct TextContourRequest<'a> {
     pub origin_x: f64,
     pub origin_y: f64,
     pub max_error: f64,
+    pub fake_bold: bool,
+    pub fake_italic: bool,
 }
 
 /// Independent limits for one shaping-to-contour operation.
@@ -381,17 +383,15 @@ fn compose_shaped_contours(
         let remaining_commands = limits
             .max_outline_commands
             .saturating_sub(output.outline_commands);
-        match face.extract_glyph_with_limit(glyph.glyph_id, remaining_commands) {
-            Ok(outline) => {
-                output.charge_commands(outline.commands.len())?;
-                output.append_outline(
-                    &outline.commands,
-                    cursor_x + glyph.x_offset.get() as f64,
-                    cursor_y + glyph.y_offset.get() as f64 + style_offset_y,
-                )?;
-            }
-            Err(error) if error.kind == FontOutlineErrorKind::MissingOutline => {}
-            Err(error) => return Err(map_outline_error(error)),
+        if let Some(outline) =
+            extract_styled_outline(face, glyph.glyph_id, remaining_commands, request)?
+        {
+            output.charge_commands(outline.commands.len())?;
+            output.append_outline(
+                &outline.commands,
+                cursor_x + glyph.x_offset.get() as f64,
+                cursor_y + glyph.y_offset.get() as f64 + style_offset_y,
+            )?;
         }
         cursor_x = advance_cursor(
             cursor_x,
@@ -428,6 +428,40 @@ fn compose_shaped_contours(
         shaped.units_per_em,
         shaped.glyphs.len(),
     ))
+}
+
+/// Extract one glyph outline and apply any requested fake bold/italic pass.
+///
+/// A missing outline (for example whitespace) yields `Ok(None)`. Fake styles
+/// are defined on FreeType's hinted 26.6 grid, so the unhinted design-unit
+/// path rejects them.
+fn extract_styled_outline(
+    face: &impl ContourOutlineFace,
+    glyph_id: u32,
+    max_commands: usize,
+    request: TextContourRequest<'_>,
+) -> Result<Option<crate::FontOutlineOutput>, TextContourError> {
+    match face.extract_glyph_with_limit(glyph_id, max_commands) {
+        Ok(mut outline) => {
+            if request.fake_bold || request.fake_italic {
+                if !face.quantizes_cursor_to_internal_units() {
+                    return Err(contour_error(
+                        TextContourErrorKind::InvalidInput,
+                        "$.fake_style",
+                        "fake bold/italic synthesis requires the hinted outline path",
+                    ));
+                }
+                crate::fake_style::apply_fake_style(
+                    &mut outline.commands,
+                    request.fake_bold,
+                    request.fake_italic,
+                )?;
+            }
+            Ok(Some(outline))
+        }
+        Err(error) if error.kind == FontOutlineErrorKind::MissingOutline => Ok(None),
+        Err(error) => Err(map_outline_error(error)),
+    }
 }
 
 fn advance_cursor(current: f64, advance: f64, to_internal: f64, quantize: bool) -> f64 {

@@ -183,6 +183,41 @@
   <p>Live native evidence covers Arial subscript, superscript, plain overbar,
   and rotated mirrored overbar blocks at tolerance <code>0.002</code>.</p>
 
+  <h2>Fake bold and italic boundary</h2>
+  <p>When the resolved face lacks a real bold or italic variant, KiCad
+  synthesizes the style in FreeType: fake italic installs a
+  <code>FT_Set_Transform</code> shear of <code>-12</code> degrees with
+  <code>xx = cos</code>, <code>xy = sin</code> truncated to 16.16 fixed point
+  and identity <code>y</code>, applied after hinting and after shaping, so
+  advances never change; fake bold then runs
+  <code>FT_Outline_Embolden(outline, 1 &lt;&lt; 6)</code> on the glyph's 26.6
+  control points with its return code ignored. The Rust port recovers each
+  hinted outline command onto the exact 26.6 grid
+  (<code>round(value * 16)</code> is exact because hinted values sit on the
+  1/64-pixel grid), then executes exact 32-bit integer ports of
+  <code>FT_MulFix</code>, <code>FT_MulDiv</code>,
+  <code>FT_Vector_NormLen</code>, <code>FT_Outline_Get_Orientation</code>, and
+  <code>FT_Outline_EmboldenXY</code> from the pinned FreeType 2.13.3 sources,
+  including their deliberate wrap-around arithmetic, with <code>FT_Long</code>
+  fixed at 32 bits to match the Windows ABI KiCad ships. Indeterminate
+  orientation leaves the outline unchanged, mirroring the ignored FreeType
+  error before any point has moved.</p>
+  <p>Two representational differences from FreeType's raw point array are
+  deliberate and bounded: the pen stream materializes implied on-curve
+  midpoints, which are collinear with their neighbouring controls and receive
+  the same lateral shift up to fixed-point normalization rounding, and the
+  pen's closing return-to-start point is folded back onto the contour's first
+  point before the integer pass so cyclic anchor walking sees FreeType's point
+  count. Which style is faked is resolved by the caller against the actual
+  face; the Rust request takes explicit <code>fake_bold</code> and
+  <code>fake_italic</code> flags, and the unhinted design-unit path rejects
+  them because the synthesis is defined on hinted 26.6 coordinates. The
+  collected point pass is bounded by the existing outline-command ceiling, and
+  out-of-range 26.6 coordinates fail closed.</p>
+  <p>Live native evidence covers Impact fake bold, Impact fake italic, and
+  Arial bold-italic resolving to the real bold face with only the italic
+  shear faked, all at tolerance <code>0.002</code>.</p>
+
   <h2>Cache contour topology</h2>
   <p><code>fracture_text_contours_a0</code> trims one repeated closing point,
   ignores contours with fewer than three retained points, assigns later
@@ -217,8 +252,9 @@
   <h2>Still open</h2>
   <p>The current render-cache strata now establish live KiCad save-oracle
   parity for representative plain single-line, multiline, tabbed, and explicit
-  line-spacing, right-aligned, kerning, whitespace, and markup Arial text.
-  They do not yet claim fake bold/italic, broad font and composite-glyph
+  line-spacing, right-aligned, kerning, whitespace, and markup Arial text,
+  plus fake bold/italic synthesis on Impact and the real-bold Arial face.
+  They do not yet claim broad font and composite-glyph
   coverage, or repository-local corpus coverage. A known gap sits in that
   broad-glyph row: double-hole glyphs such as Arial <code>B</code> fracture
   with a different hole-bridge order than the KiCad save oracle, so live cases

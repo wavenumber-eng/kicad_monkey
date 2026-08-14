@@ -21,7 +21,7 @@ const OVERBAR_TRIM_RATIO: f64 = 0.1;
 // `CALLBACK_GAL::DrawGlyph()` strokes ovals with error `strokeWidth / 180`.
 const OVERBAR_STROKE_ERROR_DIVISOR: f64 = 180.0;
 
-/// One multiline text request before fake bold/italic synthesis.
+/// One multiline text request including fake bold/italic synthesis flags.
 #[derive(Clone, Copy, Debug)]
 pub struct TextBlockLayoutRequest<'a> {
     pub shaping: &'a ShapingInput,
@@ -36,6 +36,8 @@ pub struct TextBlockLayoutRequest<'a> {
     pub line_spacing: f64,
     pub stroke_width: f64,
     pub max_error: f64,
+    pub fake_bold: bool,
+    pub fake_italic: bool,
 }
 
 /// Aggregate ceilings for one multiline layout operation.
@@ -392,6 +394,8 @@ fn build_text_runs(
                 origin_x: 0.0,
                 origin_y: 0.0,
                 max_error: request.max_error,
+                fake_bold: request.fake_bold,
+                fake_italic: request.fake_italic,
             },
             run_limits,
             style,

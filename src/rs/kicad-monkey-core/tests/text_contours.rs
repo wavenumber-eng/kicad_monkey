@@ -88,6 +88,8 @@ fn render_with_bytes(
             origin_x: record.origin_x,
             origin_y: record.origin_y,
             max_error: record.max_error,
+            fake_bold: false,
+            fake_italic: false,
         },
         limits,
     )
@@ -239,6 +241,8 @@ fn aggregate_contour_limits_are_inclusive_and_fail_closed_one_under() {
                 origin_x: record.origin_x,
                 origin_y: record.origin_y,
                 max_error: record.max_error,
+                fake_bold: false,
+                fake_italic: false,
             },
             one_under,
         )
@@ -289,6 +293,8 @@ fn curve_work_and_variation_preflight_are_independently_bounded() {
             origin_x: curve_record.origin_x,
             origin_y: curve_record.origin_y,
             max_error: curve_record.max_error,
+            fake_bold: false,
+            fake_italic: false,
         },
         TextContourLimits {
             max_bezier_work_items: curved.bezier_work_items - 1,
@@ -306,6 +312,8 @@ fn curve_work_and_variation_preflight_are_independently_bounded() {
             origin_x: curve_record.origin_x,
             origin_y: curve_record.origin_y,
             max_error: curve_record.max_error,
+            fake_bold: false,
+            fake_italic: false,
         },
         TextContourLimits {
             max_temporary_bezier_points: curved.peak_temporary_bezier_points - 1,
@@ -323,6 +331,8 @@ fn curve_work_and_variation_preflight_are_independently_bounded() {
             origin_x: curve_record.origin_x,
             origin_y: curve_record.origin_y,
             max_error: curve_record.max_error,
+            fake_bold: false,
+            fake_italic: false,
         },
         TextContourLimits {
             outline: FontOutlineLimits {
@@ -334,6 +344,31 @@ fn curve_work_and_variation_preflight_are_independently_bounded() {
     )
     .unwrap_err();
     assert_eq!(error.kind, TextContourErrorKind::ResourceLimit);
+}
+
+#[test]
+fn fake_styles_require_the_hinted_outline_path() {
+    let vectors = vectors();
+    let record = &vectors.records[0];
+    for (fake_bold, fake_italic) in [(true, false), (false, true)] {
+        let error = shape_text_contours_a0(
+            FONT_BYTES,
+            TextContourRequest {
+                shaping: &record.shaping,
+                size_x: record.size_x,
+                size_y: record.size_y,
+                origin_x: record.origin_x,
+                origin_y: record.origin_y,
+                max_error: record.max_error,
+                fake_bold,
+                fake_italic,
+            },
+            TextContourLimits::default(),
+        )
+        .unwrap_err();
+        assert_eq!(error.kind, TextContourErrorKind::InvalidInput);
+        assert_eq!(error.path, "$.fake_style");
+    }
 }
 
 #[test]
@@ -349,6 +384,8 @@ fn invalid_geometry_inputs_fail_before_font_work() {
             origin_x: record.origin_x,
             origin_y: record.origin_y,
             max_error: record.max_error,
+            fake_bold: false,
+            fake_italic: false,
         },
         TextContourLimits::default(),
     )

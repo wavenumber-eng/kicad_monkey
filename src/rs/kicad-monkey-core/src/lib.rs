@@ -8,6 +8,7 @@
 
 pub mod compiled_schematic_graph;
 pub mod document_metadata;
+mod fake_style;
 pub mod font_outline;
 pub mod footprint;
 pub mod kicad_netlist;
