@@ -90,12 +90,7 @@ impl GlobPattern {
         work: &mut GlobWorkBudget,
     ) -> Result<bool, SourceBundleError> {
         let character_count = value.chars().count();
-        let operation_count = self
-            .tokens
-            .len()
-            .checked_mul(character_count.saturating_add(2))
-            .ok_or_else(|| limit_error("KiCad netlist wildcard match work overflows"))?;
-        work.reserve(operation_count)?;
+        work.reserve(self.required_work(character_count)?)?;
         let mut active = vec![false; self.tokens.len() + 1];
         active[0] = true;
         close_stars(&self.tokens, &mut active);
@@ -122,6 +117,28 @@ impl GlobPattern {
         }
         close_stars(&self.tokens, &mut active);
         Ok(active[self.tokens.len()])
+    }
+
+    fn required_work(&self, character_count: usize) -> Result<usize, SourceBundleError> {
+        let class_membership_work = self.tokens.iter().try_fold(0usize, |total, token| {
+            let Token::Class(class) = token else {
+                return Ok(total);
+            };
+            total
+                .checked_add(class.literals.len())
+                .and_then(|total| total.checked_add(class.ranges.len()))
+                .ok_or_else(|| limit_error("KiCad netlist wildcard match work overflows"))
+        })?;
+        let per_character = self
+            .tokens
+            .len()
+            .checked_add(class_membership_work)
+            .and_then(|work| work.checked_add(1))
+            .ok_or_else(|| limit_error("KiCad netlist wildcard match work overflows"))?;
+        per_character
+            .checked_mul(character_count)
+            .and_then(|work| work.checked_add(self.tokens.len().checked_mul(2)?))
+            .ok_or_else(|| limit_error("KiCad netlist wildcard match work overflows"))
     }
 }
 
@@ -218,7 +235,9 @@ mod tests {
     #[test]
     fn aggregate_match_work_accepts_exact_limit_and_rejects_one_under() {
         let pattern = GlobPattern::compile("BUS[0-7]*");
-        let required = pattern.tokens.len() * ("BUS0123".chars().count() + 2);
+        let required = pattern
+            .required_work("BUS0123".chars().count())
+            .expect("work size");
         let mut exact = GlobWorkBudget::new(required);
         assert!(pattern.matches("BUS0123", &mut exact).expect("exact limit"));
 
@@ -226,6 +245,29 @@ mod tests {
         assert_eq!(
             pattern
                 .matches("BUS0123", &mut one_under)
+                .expect_err("one under")
+                .kind,
+            SourceBundleErrorKind::ResourceLimit
+        );
+    }
+
+    #[test]
+    fn starred_large_class_membership_is_fully_charged_before_matching() {
+        let source = format!("*[{}]", "a".repeat(2_048));
+        let value = "z".repeat(1_024);
+        let pattern = GlobPattern::compile(&source);
+        let required = pattern
+            .required_work(value.chars().count())
+            .expect("work size");
+        assert!(required > 2_000_000);
+
+        let mut exact = GlobWorkBudget::new(required);
+        assert!(!pattern.matches(&value, &mut exact).expect("exact limit"));
+
+        let mut one_under = GlobWorkBudget::new(required - 1);
+        assert_eq!(
+            pattern
+                .matches(&value, &mut one_under)
                 .expect_err("one under")
                 .kind,
             SourceBundleErrorKind::ResourceLimit
