@@ -191,6 +191,52 @@ fn bus_compiler_output_limits_fail_closed_before_growth() {
     );
 }
 
+#[test]
+fn same_name_orphans_use_indexed_dedup_and_charge_only_unique_points() {
+    const DISTINCT_POINTS: usize = 2_048;
+    let mut root = String::from("(kicad_sch (version 20250114) (uuid root)");
+    for point in (0..DISTINCT_POINTS).rev() {
+        for duplicate in 0..2 {
+            root.push_str(&format!(
+                " (hierarchical_label \"DATA[0..1]\" (shape bidirectional) (at {point} 0 0) (uuid orphan-{point}-{duplicate}))"
+            ));
+        }
+    }
+    root.push(')');
+    let index = index_from_root(root.as_bytes());
+    let definition = index
+        .definition("design/root.kicad_sch")
+        .expect("root definition");
+    let limits = SchematicBusConnectivityLimits {
+        max_drivers: DISTINCT_POINTS * 2,
+        max_retained_points: DISTINCT_POINTS,
+        ..SchematicBusConnectivityLimits::default()
+    };
+    let subgraphs = build_schematic_bus_subgraphs(definition, limits)
+        .expect("exact unique orphan point allowance");
+    assert_eq!(subgraphs.len(), 1);
+    assert_eq!(subgraphs[0].drivers.len(), DISTINCT_POINTS * 2);
+    assert_eq!(subgraphs[0].coords.len(), DISTINCT_POINTS);
+    assert!(subgraphs[0].coords.is_sorted());
+    assert_eq!(subgraphs[0].coords[0].x_iu, 0);
+    assert_eq!(
+        subgraphs[0].coords[DISTINCT_POINTS - 1].x_iu,
+        (DISTINCT_POINTS as i64 - 1) * 10_000
+    );
+
+    let error = build_schematic_bus_subgraphs(
+        definition,
+        SchematicBusConnectivityLimits {
+            max_drivers: DISTINCT_POINTS * 2,
+            max_retained_points: DISTINCT_POINTS - 1,
+            ..SchematicBusConnectivityLimits::default()
+        },
+    )
+    .expect_err("one-under unique orphan point allowance");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(error.message.contains("retained points"));
+}
+
 fn exact_limits() -> SchematicBusConnectivityLimits {
     SchematicBusConnectivityLimits {
         max_segments: 3,
@@ -222,7 +268,6 @@ fn assert_limit_failures<const N: usize>(
 }
 
 fn index() -> SchematicBundleIndex {
-    let project = b"{}".to_vec();
     let root = br#"(kicad_sch
       (version 20250114)
       (uuid root)
@@ -244,6 +289,12 @@ fn index() -> SchematicBundleIndex {
         (property "Sheetfile" "child.kicad_sch")
         (pin "QQ[0..1]" input (at 30 30 0) (uuid sheet-bus))))"#
         .to_vec();
+    index_from_root(&root)
+}
+
+fn index_from_root(root: &[u8]) -> SchematicBundleIndex {
+    let project = b"{}".to_vec();
+    let root = root.to_vec();
     let child = b"(kicad_sch (version 20250114) (uuid child))".to_vec();
     let sources = vec![
         descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),

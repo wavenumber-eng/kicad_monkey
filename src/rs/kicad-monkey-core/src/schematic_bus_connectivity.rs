@@ -5,7 +5,7 @@ use crate::{
     SchematicLabelScope, SchematicPoint, SourceBundleError, SourceBundleErrorKind,
     is_schematic_bus_label,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(i8)]
@@ -354,10 +354,20 @@ impl<'a> BusBuilder<'a> {
         out: &mut Vec<SchematicBusSubgraph>,
         orphans: Vec<SchematicBusDriver>,
     ) -> Result<(), SourceBundleError> {
-        let mut by_text = HashMap::<String, usize>::new();
+        struct OrphanGroup {
+            output_index: usize,
+            coords: HashSet<SchematicPoint>,
+        }
+
+        let mut by_text = HashMap::<String, OrphanGroup>::new();
         for driver in orphans {
-            let index = if let Some(index) = by_text.get(&driver.text) {
-                *index
+            let index = if let Some(group) = by_text.get_mut(&driver.text) {
+                if !group.coords.contains(&driver.at) {
+                    self.retain_points(1)?;
+                    group.coords.insert(driver.at);
+                    out[group.output_index].coords.push(driver.at);
+                }
+                group.output_index
             } else {
                 if out.len() >= self.limits.max_subgraphs {
                     return Err(limit_error(
@@ -368,16 +378,20 @@ impl<'a> BusBuilder<'a> {
                 self.retain_points(1)?;
                 self.retain_string_bytes(driver.text.len())?;
                 let index = out.len();
-                by_text.insert(driver.text.clone(), index);
+                by_text.insert(
+                    driver.text.clone(),
+                    OrphanGroup {
+                        output_index: index,
+                        coords: HashSet::from([driver.at]),
+                    },
+                );
                 out.push(empty_subgraph(vec![driver.at]));
                 index
             };
-            if !out[index].coords.contains(&driver.at) {
-                self.retain_points(1)?;
-                out[index].coords.push(driver.at);
-                out[index].coords.sort_unstable();
-            }
             out[index].drivers.push(driver);
+        }
+        for group in by_text.values() {
+            out[group.output_index].coords.sort_unstable();
         }
         Ok(())
     }
