@@ -1,7 +1,7 @@
 use crate::generated::outline_vector::{
     CoordinateComparisonPolicy, OutlineCommand, OutlineVectorA0,
 };
-use crate::generated::shaping_record::ShapingRecordA0;
+use crate::generated::shaping_record::{ShapedGlyph, ShapingInput, ShapingRecordA0};
 use crate::{ValidationError, validation_error};
 use std::collections::HashSet;
 
@@ -11,7 +11,6 @@ pub fn validate_shaping_record_contract(record: &ShapingRecordA0) -> Result<(), 
         || record.type_ != "kicad_monkey.shaping_record"
         || record.version != "a0"
         || record.comparison.mode != "exact"
-        || record.input.text_index_unit != "utf8_byte_offset"
     {
         return Err(error(
             "unsupported_contract",
@@ -19,28 +18,55 @@ pub fn validate_shaping_record_contract(record: &ShapingRecordA0) -> Result<(), 
             "unsupported shaping record identity or index policy",
         ));
     }
-    validate_hash(&record.input.font_sha256.0, "$.input.font_sha256")?;
+    validate_shaping_input_contract(&record.input).map_err(rebase_input_error)?;
+    validate_glyph_clusters(&record.input.text, &record.glyphs)
+}
+
+fn rebase_input_error(mut error: ValidationError) -> ValidationError {
+    error.path = if error.path == "$" {
+        "$.input".to_owned()
+    } else {
+        format!("$.input{}", &error.path[1..])
+    };
+    error
+}
+
+/// Validate one shaping input before a shaper consumes caller-supplied font bytes.
+pub fn validate_shaping_input_contract(input: &ShapingInput) -> Result<(), ValidationError> {
+    if input.text_index_unit != "utf8_byte_offset" {
+        return Err(error(
+            "unsupported_contract",
+            "$.text_index_unit",
+            "shaping indices must use UTF-8 byte offsets",
+        ));
+    }
+    validate_hash(&input.font_sha256.0, "$.font_sha256")?;
     validate_variations(
-        record
-            .input
+        input
             .variations
             .iter()
             .map(|variation| variation.axis.0.as_str()),
-        "$.input.variations",
+        "$.variations",
     )?;
-    if record
-        .input
+    if input
         .script
         .as_ref()
         .is_some_and(|script| !valid_tag(&script.0))
     {
         return Err(error(
             "invalid_tag",
-            "$.input.script",
+            "$.script",
             "script must be a printable four-byte OpenType tag",
         ));
     }
-    validate_text_indices(record)
+    if input.language.as_ref().is_some_and(String::is_empty) {
+        return Err(error(
+            "invalid_language",
+            "$.language",
+            "language must be nonempty when supplied",
+        ));
+    }
+    validate_feature_indices(input)
 }
 
 /// Enforce exact outline metadata and coordinate-only comparison semantics.
@@ -109,27 +135,21 @@ fn validate_outline_commands(commands: &[OutlineCommand]) -> Result<(), Validati
     Ok(())
 }
 
-fn validate_text_indices(record: &ShapingRecordA0) -> Result<(), ValidationError> {
-    let text_bytes = u32::try_from(record.input.text.len()).map_err(|_| {
+fn validate_feature_indices(input: &ShapingInput) -> Result<(), ValidationError> {
+    let text_bytes = u32::try_from(input.text.len()).map_err(|_| {
         error(
             "resource_limit",
-            "$.input.text",
+            "$.text",
             "UTF-8 text length exceeds the shaping index range",
         )
     })?;
-    let mut char_starts = HashSet::with_capacity(record.input.text.chars().count());
-    char_starts.extend(
-        record
-            .input
-            .text
-            .char_indices()
-            .map(|(index, _)| index as u32),
-    );
-    for (index, feature) in record.input.features.iter().enumerate() {
+    let mut char_starts = HashSet::with_capacity(input.text.chars().count());
+    char_starts.extend(input.text.char_indices().map(|(index, _)| index as u32));
+    for (index, feature) in input.features.iter().enumerate() {
         if !valid_tag(&feature.tag.0) {
             return Err(error(
                 "invalid_tag",
-                format!("$.input.features[{index}].tag"),
+                format!("$.features[{index}].tag"),
                 "feature must use a printable four-byte OpenType tag",
             ));
         }
@@ -140,12 +160,20 @@ fn validate_text_indices(record: &ShapingRecordA0) -> Result<(), ValidationError
         if !global && !bounded {
             return Err(error(
                 "invalid_text_index",
-                format!("$.input.features[{index}]"),
+                format!("$.features[{index}]"),
                 "feature range must use half-open UTF-8 code-point boundaries",
             ));
         }
     }
-    for (index, glyph) in record.glyphs.iter().enumerate() {
+    Ok(())
+}
+
+fn validate_glyph_clusters(text: &str, glyphs: &[ShapedGlyph]) -> Result<(), ValidationError> {
+    let char_starts = text
+        .char_indices()
+        .map(|(index, _)| index as u32)
+        .collect::<HashSet<_>>();
+    for (index, glyph) in glyphs.iter().enumerate() {
         if !char_starts.contains(&glyph.cluster) {
             return Err(error(
                 "invalid_text_index",

@@ -27,6 +27,7 @@ too_many_lines = "deny"
 
 [workspace.dependencies]
 anyhow = "1.0.102"
+harfrust = "0.13.0"
 prettyplease = "0.2.37"
 schemars = "0.8.22"
 serde = { version = "1.0.228", features = ["derive"] }

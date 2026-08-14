@@ -492,13 +492,13 @@ class ShapingInput(Struct, forbid_unknown_fields=True, frozen=True):
     variations: list[FontVariationCoordinate]
     text: str
     text_index_unit: Literal["utf8_byte_offset"]
-    scale_x: TextSafeInteger
-    scale_y: TextSafeInteger
+    scale_x: Annotated[int, Meta(ge=-2147483648, le=2147483647)]
+    scale_y: Annotated[int, Meta(ge=-2147483648, le=2147483647)]
     direction: TextDirection
     features: list[ShapingFeature]
     buffer_properties: ShapingBufferProperties
     script: OpenTypeTag | UnsetType = field(default=UNSET)
-    language: str | UnsetType = field(default=UNSET)
+    language: NonEmptyText | UnsetType = field(default=UNSET)
 
 
 class ShapedGlyph(Struct, forbid_unknown_fields=True, frozen=True):
@@ -513,10 +513,10 @@ class ShapedGlyph(Struct, forbid_unknown_fields=True, frozen=True):
     unsafe_to_concat: bool
 
 
-TextSafeInteger = Annotated[int, Meta(ge=-9007199254740991, le=9007199254740991)]
-
-
 TextDirection = Literal["left_to_right", "right_to_left", "top_to_bottom", "bottom_to_top"]
+
+
+NonEmptyText = Annotated[str, Meta(min_length=1)]
 
 
 class ShapingFeature(Struct, forbid_unknown_fields=True, frozen=True):
@@ -534,6 +534,9 @@ class ShapingBufferProperties(Struct, forbid_unknown_fields=True, frozen=True):
     do_not_insert_dotted_circle: bool
     produce_unsafe_to_concat: bool
     produce_safe_to_insert_tatweel: bool
+
+
+TextSafeInteger = Annotated[int, Meta(ge=-9007199254740991, le=9007199254740991)]
 
 
 ShapingClusterLevel = Literal["monotone_graphemes", "monotone_characters", "characters"]
@@ -1138,6 +1141,8 @@ def validate_shaping_record_a0(value: ShapingRecordA0) -> None:
     _validate_font_variations(value.input.variations, '$.input.variations')
     if value.input.script is not UNSET and not _font_tag_valid(value.input.script):
         raise msgspec.ValidationError("invalid_tag at $.input.script")
+    if value.input.language is not UNSET and not value.input.language:
+        raise msgspec.ValidationError("invalid_language at $.input.language")
     char_starts: set[int] = set()
     offset = 0
     for char in value.input.text:
@@ -1256,10 +1261,11 @@ __all__ = (
     "ExactComparisonPolicy",
     "ShapingInput",
     "ShapedGlyph",
-    "TextSafeInteger",
     "TextDirection",
+    "NonEmptyText",
     "ShapingFeature",
     "ShapingBufferProperties",
+    "TextSafeInteger",
     "ShapingClusterLevel",
     "DefaultIgnorablePolicy",
     "CoordinateComparisonPolicy",

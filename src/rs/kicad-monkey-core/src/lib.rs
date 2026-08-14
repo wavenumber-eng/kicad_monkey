@@ -35,6 +35,7 @@ pub mod symbol_library;
 mod symbol_pin;
 pub mod symbol_plotter_ir;
 pub mod text_metadata;
+pub mod text_shaping;
 pub mod worksheet;
 mod worksheet_preflight;
 
@@ -121,6 +122,10 @@ pub use symbol_plotter_ir::{
     SymbolPlotDocument, SymbolPlotLimits, SymbolPlotRecord, symbol_plot_document,
 };
 pub use text_metadata::{KiCadColor, KiCadFont, KiCadTextEffects};
+pub use text_shaping::{
+    TEXT_SHAPING_ENGINE, TextShapingError, TextShapingErrorKind, TextShapingLimits,
+    TextShapingOutput, shape_text_a0,
+};
 pub use worksheet::{
     WorksheetBitmap, WorksheetColor, WorksheetCorner, WorksheetDocument, WorksheetFont,
     WorksheetFormat, WorksheetItem, WorksheetLimits, WorksheetLine, WorksheetMetadata,

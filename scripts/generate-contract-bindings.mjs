@@ -185,6 +185,8 @@ function renderPythonShapingRecordValidation(functionName, typeName) {
     "    _validate_font_variations(value.input.variations, '$.input.variations')",
     "    if value.input.script is not UNSET and not _font_tag_valid(value.input.script):",
     '        raise msgspec.ValidationError("invalid_tag at $.input.script")',
+    "    if value.input.language is not UNSET and not value.input.language:",
+    '        raise msgspec.ValidationError("invalid_language at $.input.language")',
     "    char_starts: set[int] = set()",
     "    offset = 0",
     "    for char in value.input.text:",
@@ -550,8 +552,14 @@ function renderPythonDeclaration(name, schema, tag = undefined) {
     return [`${name} = Annotated[float, Meta(${constraints.join(", ")})]`];
   }
   if (schema.type === "string") {
-    assert(typeof schema.pattern === "string", `${name}: unconstrained string alias`);
-    return [`${name} = Annotated[str, Meta(pattern=${pythonLiteral(schema.pattern)})]`];
+    const constraints = [];
+    if (typeof schema.pattern === "string") {
+      constraints.push(`pattern=${pythonLiteral(schema.pattern)}`);
+    }
+    if (Number.isSafeInteger(schema.minLength)) constraints.push(`min_length=${schema.minLength}`);
+    if (Number.isSafeInteger(schema.maxLength)) constraints.push(`max_length=${schema.maxLength}`);
+    assert(constraints.length > 0, `${name}: unconstrained string alias`);
+    return [`${name} = Annotated[str, Meta(${constraints.join(", ")})]`];
   }
   if (schema.type === "array") {
     const itemType = pythonType(schema.items);
@@ -604,8 +612,14 @@ function pythonType(schema) {
   if (typeof schema.$ref === "string") return schema.$ref.split("/").at(-1);
   if ("const" in schema) return `Literal[${pythonLiteral(schema.const)}]`;
   if (schema.type === "string") {
-    return typeof schema.pattern === "string"
-      ? `Annotated[str, Meta(pattern=${pythonLiteral(schema.pattern)})]`
+    const constraints = [];
+    if (typeof schema.pattern === "string") {
+      constraints.push(`pattern=${pythonLiteral(schema.pattern)}`);
+    }
+    if (Number.isSafeInteger(schema.minLength)) constraints.push(`min_length=${schema.minLength}`);
+    if (Number.isSafeInteger(schema.maxLength)) constraints.push(`max_length=${schema.maxLength}`);
+    return constraints.length > 0
+      ? `Annotated[str, Meta(${constraints.join(", ")})]`
       : "str";
   }
   if (schema.type === "number") {

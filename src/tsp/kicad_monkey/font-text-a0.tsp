@@ -16,6 +16,10 @@ scalar OpenTypeTag extends string;
 @pattern("^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 scalar StableTextId extends string;
 
+/** Nonempty text token whose detailed grammar is owned by the consumer API. */
+@minLength(1)
+scalar NonEmptyText extends string;
+
 /** Integer that remains exact through JSON and JavaScript. */
 @minValue(-9007199254740991)
 @maxValue(9007199254740991)
@@ -147,11 +151,13 @@ model ShapingInput {
   variations: FontVariationCoordinate[];
   text: string;
   text_index_unit: "utf8_byte_offset";
-  scale_x: TextSafeInteger;
-  scale_y: TextSafeInteger;
+  /** HarfBuzz hb_font_set_scale x value. */
+  scale_x: int32;
+  /** HarfBuzz hb_font_set_scale y value. */
+  scale_y: int32;
   direction: TextDirection;
   script?: OpenTypeTag;
-  language?: string;
+  language?: NonEmptyText;
   features: ShapingFeature[];
   buffer_properties: ShapingBufferProperties;
 }

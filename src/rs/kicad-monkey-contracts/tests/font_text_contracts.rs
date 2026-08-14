@@ -381,4 +381,15 @@ fn text_safe_integer_vectors_match_generated_rust_boundaries() {
         };
         assert_eq!(valid, case["valid"].as_bool().unwrap(), "{}", case["id"]);
     }
+
+    for case in vectors["scale_integer_cases"].as_array().unwrap() {
+        let mut candidate = vectors["shaping_record"].clone();
+        candidate["input"]["scale_x"] = case["value"].clone();
+        assert_eq!(
+            serde_json::from_value::<ShapingRecordA0>(candidate).is_ok(),
+            case["valid"].as_bool().unwrap(),
+            "{}",
+            case["id"]
+        );
+    }
 }

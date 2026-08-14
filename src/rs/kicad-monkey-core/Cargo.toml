@@ -16,6 +16,7 @@ workspace = true
 measurement = []
 
 [dependencies]
+harfrust.workspace = true
 kicad-monkey-contracts = { path = "../kicad-monkey-contracts" }
 serde.workspace = true
 serde_json.workspace = true

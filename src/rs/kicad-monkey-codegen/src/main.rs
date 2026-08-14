@@ -115,6 +115,7 @@ fn generate(value: Value) -> Result<String> {
     settings.with_replacement("FiniteFloat", "crate::FiniteFloat", [].into_iter());
     settings.with_replacement("PositiveUint32", "crate::PositiveU32", [].into_iter());
     settings.with_replacement("StableTextId", "crate::StableTextId", [].into_iter());
+    settings.with_replacement("NonEmptyText", "::std::string::String", [].into_iter());
     let mut type_space = TypeSpace::new(&settings);
     type_space.add_root_schema(schema)?;
     let body = type_space.to_stream().to_string();

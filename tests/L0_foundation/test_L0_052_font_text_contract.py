@@ -268,6 +268,11 @@ def test_text_semantics_reject_invalid_indices_ids_units_and_nonfinite_programma
     with pytest.raises(msgspec.ValidationError, match="invalid_text_index"):
         decode_shaping_record_a0(json.dumps(empty_text_glyph).encode())
 
+    empty_language = deepcopy(vectors["shaping_record"])
+    empty_language["input"]["language"] = ""
+    with pytest.raises(msgspec.ValidationError):
+        decode_shaping_record_a0(json.dumps(empty_language).encode())
+
     for root, field in (("shaping_record", "case_id"), ("outline_vector", "font_id")):
         invalid_id = deepcopy(vectors[root])
         invalid_id[field] = ""
@@ -335,6 +340,20 @@ def test_text_safe_integer_vectors_match_schema_and_python() -> None:
         else:
             with pytest.raises(msgspec.ValidationError):
                 decoder(json.dumps(candidate).encode())
+
+    shaping_schema = Draft202012Validator(
+        json.loads((SCHEMA_ROOT / "ShapingRecord.json").read_text(encoding="utf-8"))
+    )
+    for case in vectors["scale_integer_cases"]:
+        candidate = deepcopy(vectors["shaping_record"])
+        candidate["input"]["scale_x"] = case["value"]
+        schema_valid = not list(shaping_schema.iter_errors(candidate))
+        assert schema_valid is case["valid"], case["id"]
+        if case["valid"]:
+            decode_shaping_record_a0(json.dumps(candidate).encode())
+        else:
+            with pytest.raises(msgspec.ValidationError):
+                decode_shaping_record_a0(json.dumps(candidate).encode())
 
 
 def test_focused_native_contract_suite_passes() -> None:

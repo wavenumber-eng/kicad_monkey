@@ -152,9 +152,13 @@
     ]
   },
   "safe_integer_cases": [
-    {"id": "shaping_scale_max", "root": "shaping_record", "pointer": "/input/scale_x", "value": 9007199254740991, "valid": true},
-    {"id": "shaping_scale_above", "root": "shaping_record", "pointer": "/input/scale_x", "value": 9007199254740992, "valid": false},
     {"id": "glyph_offset_min", "root": "shaping_record", "pointer": "/glyphs/0/x_offset", "value": -9007199254740991, "valid": true},
     {"id": "glyph_offset_below", "root": "shaping_record", "pointer": "/glyphs/0/x_offset", "value": -9007199254740992, "valid": false}
+  ],
+  "scale_integer_cases": [
+    {"id": "scale_min", "value": -2147483648, "valid": true},
+    {"id": "scale_below", "value": -2147483649, "valid": false},
+    {"id": "scale_max", "value": 2147483647, "valid": true},
+    {"id": "scale_above", "value": 2147483648, "valid": false}
   ]
 }

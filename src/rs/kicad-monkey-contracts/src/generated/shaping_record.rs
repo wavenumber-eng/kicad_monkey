@@ -540,13 +540,19 @@ pub struct ShapingFeature {
 ///      "$ref": "#/$defs/Sha256Hex"
 ///    },
 ///    "language": {
-///      "type": "string"
+///      "$ref": "#/$defs/NonEmptyText"
 ///    },
 ///    "scale_x": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "description": "HarfBuzz hb_font_set_scale x value.",
+///      "type": "integer",
+///      "maximum": 2147483647.0,
+///      "minimum": -2147483648.0
 ///    },
 ///    "scale_y": {
-///      "$ref": "#/$defs/TextSafeInteger"
+///      "description": "HarfBuzz hb_font_set_scale y value.",
+///      "type": "integer",
+///      "maximum": 2147483647.0,
+///      "minimum": -2147483648.0
 ///    },
 ///    "script": {
 ///      "$ref": "#/$defs/OpenTypeTag"
@@ -580,8 +586,10 @@ pub struct ShapingInput {
     pub font_sha256: Sha256Hex,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub language: ::std::option::Option<::std::string::String>,
-    pub scale_x: crate::JavaScriptSafeInteger,
-    pub scale_y: crate::JavaScriptSafeInteger,
+    ///HarfBuzz hb_font_set_scale x value.
+    pub scale_x: i32,
+    ///HarfBuzz hb_font_set_scale y value.
+    pub scale_y: i32,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub script: ::std::option::Option<OpenTypeTag>,
     pub text: ::std::string::String,

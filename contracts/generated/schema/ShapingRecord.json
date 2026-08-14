@@ -94,10 +94,16 @@
                     "const": "utf8_byte_offset"
                 },
                 "scale_x": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "integer",
+                    "minimum": -2147483648,
+                    "maximum": 2147483647,
+                    "description": "HarfBuzz hb_font_set_scale x value."
                 },
                 "scale_y": {
-                    "$ref": "#/$defs/TextSafeInteger"
+                    "type": "integer",
+                    "minimum": -2147483648,
+                    "maximum": 2147483647,
+                    "description": "HarfBuzz hb_font_set_scale y value."
                 },
                 "direction": {
                     "$ref": "#/$defs/TextDirection"
@@ -106,7 +112,7 @@
                     "$ref": "#/$defs/OpenTypeTag"
                 },
                 "language": {
-                    "type": "string"
+                    "$ref": "#/$defs/NonEmptyText"
                 },
                 "features": {
                     "type": "array",
@@ -212,12 +218,6 @@
             },
             "description": "One ordered OpenType variation coordinate."
         },
-        "TextSafeInteger": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991,
-            "description": "Integer that remains exact through JSON and JavaScript."
-        },
         "TextDirection": {
             "type": "string",
             "enum": [
@@ -231,6 +231,11 @@
             "type": "string",
             "pattern": "^[ -~]{4}$",
             "description": "Four-byte OpenType variation or feature tag."
+        },
+        "NonEmptyText": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Nonempty text token whose detailed grammar is owned by the consumer API."
         },
         "ShapingFeature": {
             "type": "object",
@@ -303,6 +308,12 @@
                 "not": {}
             },
             "description": "Explicit HarfBuzz buffer state; no ambient library defaults are implied."
+        },
+        "TextSafeInteger": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Integer that remains exact through JSON and JavaScript."
         },
         "FiniteFloat": {
             "type": "number",

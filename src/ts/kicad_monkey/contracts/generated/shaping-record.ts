@@ -16,13 +16,17 @@ export type OpenTypeTag = string;
  * Finite float64 value, including fractional CFF/CFF2 design coordinates.
  */
 export type FiniteFloat = number;
+export type TextDirection = "left_to_right" | "right_to_left" | "top_to_bottom" | "bottom_to_top";
+/**
+ * Nonempty text token whose detailed grammar is owned by the consumer API.
+ */
+export type NonEmptyText = string;
+export type ShapingClusterLevel = "monotone_graphemes" | "monotone_characters" | "characters";
+export type DefaultIgnorablePolicy = "normal" | "preserve" | "remove";
 /**
  * Integer that remains exact through JSON and JavaScript.
  */
 export type TextSafeInteger = number;
-export type TextDirection = "left_to_right" | "right_to_left" | "top_to_bottom" | "bottom_to_top";
-export type ShapingClusterLevel = "monotone_graphemes" | "monotone_characters" | "characters";
-export type DefaultIgnorablePolicy = "normal" | "preserve" | "remove";
 
 /**
  * Intermediate shaping oracle, intentionally separate from glyph outlines.
@@ -49,11 +53,17 @@ export interface ShapingInput {
   variations: FontVariationCoordinate[];
   text: string;
   text_index_unit: "utf8_byte_offset";
-  scale_x: TextSafeInteger;
-  scale_y: TextSafeInteger;
+  /**
+   * HarfBuzz hb_font_set_scale x value.
+   */
+  scale_x: number;
+  /**
+   * HarfBuzz hb_font_set_scale y value.
+   */
+  scale_y: number;
   direction: TextDirection;
   script?: OpenTypeTag;
-  language?: string;
+  language?: NonEmptyText;
   features: ShapingFeature[];
   buffer_properties: ShapingBufferProperties;
 }

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust native text shaping</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust native text shaping</h1>
+
+  <p>Status: review-ready proposal. This slice implements native, fixed-font
+  shaping records. It does not extract outlines, build render caches, discover
+  system fonts, or expose a browser operation.</p>
+
+  <h2>Dependency decision</h2>
+  <p>The implementation uses <code>harfrust 0.13.0</code>, the maintained
+  official successor fork of Rustybuzz. HarfRust tracks HarfBuzz 14.3.0,
+  forbids unsafe code in its library, exposes all three glyph safety flags, and
+  assigns distinct buffer bits to unsafe-to-concat and safe-to-insert-tatweel.
+  Rustybuzz 0.20.1 is archived, tracks HarfBuzz 10.0.1, exposes only
+  unsafe-to-break, and aliases the two optional output-flag bits. Those gaps
+  prevent it from implementing the accepted a0 shaping record without a fork
+  or an encoded-string workaround.</p>
+
+  <p>The committed oracle uses uharfbuzz/HarfBuzz 14.2.0. Exact agreement on
+  the fixed corpus is required despite the one-minor upstream difference.
+  Expanding scripts or font technologies requires adding pinned records rather
+  than assuming blanket equivalence.</p>
+
+  <h2>Native boundary</h2>
+  <p><code>shape_text_a0</code> consumes a generated
+  <code>ShapingInput</code> and a separate caller-owned font byte slice. It
+  verifies the exact SHA-256 and face index, applies ordered variations,
+  separate signed 32-bit HarfBuzz x/y scales, direction, script, language,
+  feature ranges, cluster level, text-boundary state, default-ignorable policy,
+  dotted-circle policy, and both optional glyph-flag requests. The result is a
+  generated <code>ShapedGlyph</code> list plus units per em. Outline extraction
+  remains the next independent gate.</p>
+
+  <p>Text enters both engines through their UTF-8 APIs:
+  <code>hb_buffer_add_utf8</code> in the Python oracle and
+  <code>UnicodeBuffer::push_str</code> in HarfRust. Clusters therefore retain
+  UTF-8 byte offsets. The corpus includes a combining sequence whose terminal
+  cluster cannot be confused with a scalar or UTF-16 index, scaled RTL output,
+  global features, and remove/preserve default-ignorable behavior.</p>
+
+  <h2>Resource and failure policy</h2>
+  <p>Caller-selected font, text, metadata, feature, and variation ceilings are
+  checked before hashing or parsing. Defaults are permissive safety ceilings,
+  not KiCad file-size restrictions. Font hash mismatch, invalid face, invalid
+  contract input, HarfRust-incompatible variation values, and resource limits
+  have stable native categories and publish no glyphs.</p>
+
+  <p>HarfRust owns its internal shaping allocation and has no caller allocation
+  hook. <code>max_glyphs</code> is consequently a post-shape publication gate;
+  internal work remains bounded indirectly by the already-preflighted font and
+  UTF-8 input sizes. If hostile-font profiling shows unacceptable expansion,
+  a process boundary or a shaper-level allocation hook is required rather than
+  claiming the publication limit prevents the allocation.</p>
+
+  <h2>Evidence and deferrals</h2>
+  <p><code>scripts/generate_font_shaping_vectors.py</code> regenerates the
+  fixed uharfbuzz records from the tracked KiCad stroke TTF and has a
+  deterministic check mode. Rack validates every record against the generated
+  schema and decoder, then runs the focused native Rust suite. System-font
+  discovery, CFF/variable-font expansion, broad script coverage, outline
+  extraction, final render-cache parity, and WASM packaging remain separate
+  plan steps.</p>
+</body>
+</html>

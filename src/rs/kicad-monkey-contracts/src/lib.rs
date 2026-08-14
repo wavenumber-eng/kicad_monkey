@@ -20,7 +20,10 @@ pub use font_bundle_contract::{
     FontBundleLimits, FontResolutionLimits, ValidatedFontBundle, resolve_font_selection_contract,
     validate_font_bundle_contract,
 };
-pub use font_text_contract::{validate_outline_vector_contract, validate_shaping_record_contract};
+pub use font_text_contract::{
+    validate_outline_vector_contract, validate_shaping_input_contract,
+    validate_shaping_record_contract,
+};
 pub use source_bundle_contract::{
     SourceBundleDecodeError, decode_source_bundle_manifest_a0,
     validate_source_bundle_manifest_contract,
