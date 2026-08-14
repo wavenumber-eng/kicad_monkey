@@ -39,6 +39,7 @@ pub mod text_bezier;
 pub mod text_block_layout;
 pub mod text_contours;
 pub mod text_layout;
+mod text_markup;
 pub mod text_metadata;
 pub mod text_render_cache;
 pub mod text_shaping;
@@ -138,12 +139,15 @@ pub use text_bezier::{
     flatten_cubic_bezier, flatten_quadratic_bezier,
 };
 pub use text_block_layout::{
-    KICAD_TEXT_INTERLINE_FACTOR, KICAD_TEXT_TAB_WIDTH_FACTOR, TextBlockLayoutLimits,
-    TextBlockLayoutOutput, TextBlockLayoutRequest, layout_text_block_hinted_a0,
+    KICAD_TEXT_INTERLINE_FACTOR, KICAD_TEXT_OVERBAR_HEIGHT_RATIO, KICAD_TEXT_TAB_WIDTH_FACTOR,
+    TextBlockLayoutLimits, TextBlockLayoutOutput, TextBlockLayoutRequest,
+    layout_text_block_hinted_a0,
 };
 pub use text_contours::{
-    KICAD_OUTLINE_FACE_SCALER, KICAD_OUTLINE_SIZE_COMPENSATION, KICAD_TEXT_BEZIER_ERROR,
-    TextContour, TextContourError, TextContourErrorKind, TextContourLimits, TextContourOutput,
+    KICAD_OUTLINE_FACE_SCALER, KICAD_OUTLINE_SIZE_COMPENSATION, KICAD_SUBSCRIPT_FACE_SCALER,
+    KICAD_SUBSCRIPT_SUPERSCRIPT_SIZE_RATIO, KICAD_SUBSCRIPT_VERTICAL_OFFSET_RATIO,
+    KICAD_SUPERSCRIPT_VERTICAL_OFFSET_RATIO, KICAD_TEXT_BEZIER_ERROR, TextContour,
+    TextContourError, TextContourErrorKind, TextContourLimits, TextContourOutput,
     TextContourRequest, shape_text_contours_a0, shape_text_contours_hinted_a0,
 };
 pub use text_layout::{

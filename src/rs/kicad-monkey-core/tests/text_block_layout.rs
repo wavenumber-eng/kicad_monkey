@@ -2,10 +2,12 @@ use kicad_monkey_contracts::generated::shaping_record::{
     OpenTypeTag, ShapingFeature, ShapingInput,
 };
 use kicad_monkey_core::{
-    KICAD_TEXT_INTERLINE_FACTOR, KICAD_TEXT_TAB_WIDTH_FACTOR, TextBlockLayoutLimits,
-    TextBlockLayoutRequest, TextContourErrorKind, TextContourLimits, TextHorizontalAlignment,
-    TextRenderCacheErrorKind, TextRenderCacheLimits, TextVerticalAlignment,
-    generate_text_render_cache_block_hinted_a0, layout_text_block_hinted_a0,
+    KICAD_OUTLINE_FACE_SCALER, KICAD_OUTLINE_SIZE_COMPENSATION, KICAD_SUBSCRIPT_FACE_SCALER,
+    KICAD_SUBSCRIPT_VERTICAL_OFFSET_RATIO, KICAD_SUPERSCRIPT_VERTICAL_OFFSET_RATIO,
+    KICAD_TEXT_INTERLINE_FACTOR, KICAD_TEXT_OVERBAR_HEIGHT_RATIO, KICAD_TEXT_TAB_WIDTH_FACTOR,
+    TextBlockLayoutLimits, TextBlockLayoutRequest, TextContourErrorKind, TextContourLimits,
+    TextHorizontalAlignment, TextRenderCacheErrorKind, TextRenderCacheLimits,
+    TextVerticalAlignment, generate_text_render_cache_block_hinted_a0, layout_text_block_hinted_a0,
 };
 use serde::Deserialize;
 
@@ -62,6 +64,7 @@ fn request(shaping: &ShapingInput) -> TextBlockLayoutRequest<'_> {
         horizontal_alignment: TextHorizontalAlignment::Left,
         vertical_alignment: TextVerticalAlignment::Top,
         line_spacing: 1.0,
+        stroke_width: 0.0,
         max_error: 2.0,
     }
 }
@@ -182,6 +185,7 @@ fn aggregate_line_run_and_geometry_limits_are_inclusive_and_fail_closed() {
         max_run_metadata_bytes: run_metadata_bytes * 2,
         max_feature_inspections: TextBlockLayoutLimits::default().max_feature_inspections,
         max_feature_applications: TextBlockLayoutLimits::default().max_feature_applications,
+        max_markup_nodes: TextBlockLayoutLimits::default().max_markup_nodes,
     };
     layout_text_block_hinted_a0(CFF_FONT_BYTES, request(&shaping), exact)
         .expect("aggregate ceilings are inclusive");
@@ -364,6 +368,227 @@ fn block_cache_composition_preserves_text_and_composes_output_limits() {
     .unwrap_err();
     assert_eq!(error.kind, TextRenderCacheErrorKind::ResourceLimit);
     assert_eq!(error.path, "$.text");
+}
+
+#[test]
+fn markup_markers_are_consumed_and_styled_runs_shrink() {
+    let plain_shaping = base_shaping("VIN");
+    let plain = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        request(&plain_shaping),
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+
+    let subscript_shaping = base_shaping("V_{IN}");
+    let subscript = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        request(&subscript_shaping),
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    // The marker and braces shape no glyphs of their own.
+    assert_eq!(subscript.glyphs, plain.glyphs);
+    // The styled run advances on the 917-unit face, so the line narrows.
+    assert!(subscript.width < plain.width);
+    assert!(subscript.width > plain.width * 0.5);
+}
+
+#[test]
+fn subscript_and_superscript_offsets_match_reference_ratios_exactly() {
+    let subscript_shaping = base_shaping("_{S}");
+    let subscript = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        request(&subscript_shaping),
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    let superscript_shaping = base_shaping("^{S}");
+    let superscript = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        request(&superscript_shaping),
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    // Both styles reuse the same styled outline, so every point differs by
+    // exactly the two baseline offsets on the shared 917-unit face.
+    let internal_to_y = 2.0 / KICAD_OUTLINE_FACE_SCALER * KICAD_OUTLINE_SIZE_COMPENSATION;
+    let expected_delta = (KICAD_SUPERSCRIPT_VERTICAL_OFFSET_RATIO
+        - KICAD_SUBSCRIPT_VERTICAL_OFFSET_RATIO)
+        * KICAD_SUBSCRIPT_FACE_SCALER
+        * internal_to_y;
+    assert_eq!(subscript.contours.len(), superscript.contours.len());
+    assert!(!subscript.contours.is_empty());
+    for (subscript_contour, superscript_contour) in
+        subscript.contours.iter().zip(&superscript.contours)
+    {
+        assert_eq!(
+            subscript_contour.points.len(),
+            superscript_contour.points.len()
+        );
+        for (subscript_point, superscript_point) in subscript_contour
+            .points
+            .iter()
+            .zip(&superscript_contour.points)
+        {
+            assert_close(subscript_point.x, superscript_point.x);
+            assert_close(subscript_point.y - superscript_point.y, expected_delta);
+        }
+    }
+}
+
+#[test]
+fn nested_superscript_markers_keep_subscript_precedence() {
+    // `_{^{S}}` keeps the subscript flag set, so the nested superscript marker
+    // must not lift the run back up.
+    let nested_shaping = base_shaping("_{^{S}}");
+    let nested = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        request(&nested_shaping),
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    let subscript_shaping = base_shaping("_{S}");
+    let subscript = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        request(&subscript_shaping),
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    assert_eq!(nested.contours.len(), subscript.contours.len());
+    for (nested_contour, subscript_contour) in nested.contours.iter().zip(&subscript.contours) {
+        for (nested_point, subscript_point) in
+            nested_contour.points.iter().zip(&subscript_contour.points)
+        {
+            assert_close(nested_point.x, subscript_point.x);
+            assert_close(nested_point.y, subscript_point.y);
+        }
+    }
+}
+
+#[test]
+fn overbar_appends_reference_oval_polygon_after_children() {
+    let overbar_shaping = base_shaping("~{S}");
+    let stroked_request = TextBlockLayoutRequest {
+        stroke_width: 0.3,
+        ..request(&overbar_shaping)
+    };
+    let with_bar = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        stroked_request,
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    let plain_shaping = base_shaping("S");
+    let plain = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        TextBlockLayoutRequest {
+            stroke_width: 0.3,
+            ..request(&plain_shaping)
+        },
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    // The bar advances nothing and is appended after the group's children.
+    assert_close(with_bar.width, plain.width);
+    assert_eq!(with_bar.contours.len(), plain.contours.len() + 1);
+    let bar = with_bar.contours.last().unwrap();
+    // strokeWidth / 180 error yields KiCad's constant 24-segment oval.
+    assert_eq!(bar.points.len(), 28);
+    let radius = 0.3 / 2.0;
+    let trim = 2.0 * 0.1;
+    let bar_y = 20.0 + 2.0 - 2.0 * KICAD_TEXT_OVERBAR_HEIGHT_RATIO;
+    let min_x = bar
+        .points
+        .iter()
+        .map(|point| point.x)
+        .fold(f64::MAX, f64::min);
+    let max_x = bar
+        .points
+        .iter()
+        .map(|point| point.x)
+        .fold(f64::MIN, f64::max);
+    let min_y = bar
+        .points
+        .iter()
+        .map(|point| point.y)
+        .fold(f64::MAX, f64::min);
+    let max_y = bar
+        .points
+        .iter()
+        .map(|point| point.y)
+        .fold(f64::MIN, f64::max);
+    // With 24 segments the cap vertices closest to the axis sit at 82.5°.
+    let cap_reach = radius * 82.5_f64.to_radians().sin();
+    assert_close(min_x, 10.0 + trim - cap_reach);
+    assert_close(max_x, 10.0 + plain.width - trim + cap_reach);
+    assert_close(min_y, bar_y - radius);
+    assert_close(max_y, bar_y + radius);
+
+    // A non-positive stroke width suppresses the bar entirely.
+    let without_bar = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        request(&overbar_shaping),
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+    assert_eq!(without_bar.contours.len(), plain.contours.len());
+}
+
+#[test]
+fn markup_node_and_overbar_geometry_ceilings_are_inclusive_and_fail_closed() {
+    let shaping = base_shaping("~{S}\n_{S}");
+    let stroked = |limits| {
+        layout_text_block_hinted_a0(
+            FONT_BYTES,
+            TextBlockLayoutRequest {
+                stroke_width: 0.3,
+                ..request(&shaping)
+            },
+            limits,
+        )
+    };
+    let baseline = stroked(TextBlockLayoutLimits::default()).unwrap();
+    let points = baseline
+        .contours
+        .iter()
+        .map(|contour| contour.points.len())
+        .sum::<usize>();
+    // Each line retains one group node plus one inner text node.
+    let exact = TextBlockLayoutLimits {
+        contours: TextContourLimits {
+            max_contours: baseline.contours.len(),
+            max_points: points,
+            ..TextContourLimits::default()
+        },
+        max_markup_nodes: 4,
+        ..TextBlockLayoutLimits::default()
+    };
+    stroked(exact).expect("markup and overbar geometry ceilings are inclusive");
+
+    for limits in [
+        TextBlockLayoutLimits {
+            max_markup_nodes: 3,
+            ..exact
+        },
+        TextBlockLayoutLimits {
+            contours: TextContourLimits {
+                max_contours: baseline.contours.len() - 1,
+                ..exact.contours
+            },
+            ..exact
+        },
+        TextBlockLayoutLimits {
+            contours: TextContourLimits {
+                max_points: points - 1,
+                ..exact.contours
+            },
+            ..exact
+        },
+    ] {
+        let error = stroked(limits).unwrap_err();
+        assert_eq!(error.kind, TextContourErrorKind::ResourceLimit);
+    }
 }
 
 fn assert_close(actual: f64, expected: f64) {

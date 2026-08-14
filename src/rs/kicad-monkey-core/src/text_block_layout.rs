@@ -1,10 +1,11 @@
-//! Bounded KiCad multiline and tabbed outline-text layout.
+//! Bounded KiCad multiline, tabbed, and markup outline-text layout.
 
-use crate::text_contours::HintedTextContourSession;
-use crate::text_layout::{transform_contours, validated_transform};
+use crate::text_contours::{HintedTextContourSession, TextRunStyle};
+use crate::text_layout::{transform_contours, transform_point, validated_transform};
+use crate::text_markup::{TextMarkupMarker, TextMarkupNode, parse_text_markup};
 use crate::{
     TextContour, TextContourError, TextContourErrorKind, TextContourLimits, TextContourOutput,
-    TextHorizontalAlignment, TextLayoutRequest, TextVerticalAlignment,
+    TextHorizontalAlignment, TextLayoutRequest, TextPoint, TextVerticalAlignment,
 };
 use kicad_monkey_contracts::generated::shaping_record::{ShapingFeature, ShapingInput};
 use std::ops::Range;
@@ -13,8 +14,14 @@ use std::ops::Range;
 pub const KICAD_TEXT_INTERLINE_FACTOR: f64 = 1.68;
 /// KiCad's four-character tab stop using an average character width of 0.6.
 pub const KICAD_TEXT_TAB_WIDTH_FACTOR: f64 = 2.4;
+/// KiCad's overbar baseline offset as a fraction of the character height.
+pub const KICAD_TEXT_OVERBAR_HEIGHT_RATIO: f64 = 1.23;
+// KiCad trims the overbar by one tenth of the character width at each end.
+const OVERBAR_TRIM_RATIO: f64 = 0.1;
+// `CALLBACK_GAL::DrawGlyph()` strokes ovals with error `strokeWidth / 180`.
+const OVERBAR_STROKE_ERROR_DIVISOR: f64 = 180.0;
 
-/// One plain multiline text request before markup and fake-style synthesis.
+/// One multiline text request before fake bold/italic synthesis.
 #[derive(Clone, Copy, Debug)]
 pub struct TextBlockLayoutRequest<'a> {
     pub shaping: &'a ShapingInput,
@@ -27,6 +34,7 @@ pub struct TextBlockLayoutRequest<'a> {
     pub horizontal_alignment: TextHorizontalAlignment,
     pub vertical_alignment: TextVerticalAlignment,
     pub line_spacing: f64,
+    pub stroke_width: f64,
     pub max_error: f64,
 }
 
@@ -39,6 +47,7 @@ pub struct TextBlockLayoutLimits {
     pub max_run_metadata_bytes: usize,
     pub max_feature_inspections: usize,
     pub max_feature_applications: usize,
+    pub max_markup_nodes: usize,
 }
 
 impl Default for TextBlockLayoutLimits {
@@ -50,6 +59,7 @@ impl Default for TextBlockLayoutLimits {
             max_run_metadata_bytes: 128 * 1024 * 1024,
             max_feature_inspections: 16 * 1024 * 1024,
             max_feature_applications: 16 * 1024 * 1024,
+            max_markup_nodes: 1024 * 1024,
         }
     }
 }
@@ -72,8 +82,18 @@ struct PendingRun {
     output: TextContourOutput,
 }
 
+/// One line item retained in markup source order for deferred placement.
+enum PendingItem {
+    Run(PendingRun),
+    /// Overbar endpoints in unaligned line-local x coordinates.
+    Bar {
+        start_x: f64,
+        end_x: f64,
+    },
+}
+
 struct PendingLine {
-    runs: Vec<PendingRun>,
+    items: Vec<PendingItem>,
     width: f64,
 }
 
@@ -99,7 +119,7 @@ struct AggregateWork {
     peak_temporary_bezier_points: usize,
 }
 
-/// Render plain multiline/tabbed text with one reusable shaping and hinted face.
+/// Render multiline/tabbed/markup text with one reusable shaping and hinted face.
 pub fn layout_text_block_hinted_a0(
     font_bytes: &[u8],
     request: TextBlockLayoutRequest<'_>,
@@ -117,14 +137,19 @@ pub fn layout_text_block_hinted_a0(
     )?;
     let run_metadata_bytes = shaping_metadata_bytes(request.shaping)?;
     let session = HintedTextContourSession::new(font_bytes, request.shaping, limits.contours)?;
+    let inputs = LineBuildInputs {
+        session: &session,
+        request,
+        limits,
+        run_metadata_bytes,
+    };
+    let mut markup_budget = 0usize;
     let mut lines = Vec::with_capacity(line_spans.len().min(256));
     for line_span in line_spans {
         lines.push(build_line(
-            &session,
-            request,
-            limits,
+            &inputs,
             line_span,
-            run_metadata_bytes,
+            &mut markup_budget,
             &mut work,
         )?);
     }
@@ -175,16 +200,39 @@ fn place_lines(
         let horizontal_offset = horizontal_offset(request.horizontal_alignment, line.width);
         let line_y =
             request.position_y + metrics.vertical_offset + line_index as f64 * metrics.interline;
-        for mut run in line.runs {
-            let translation = (request.position_x + horizontal_offset + run.x, line_y);
-            if !translation.0.is_finite() || !translation.1.is_finite() {
-                return Err(invalid(
-                    "$.position",
-                    "aligned text run position is not finite",
-                ));
+        for item in line.items {
+            match item {
+                PendingItem::Run(mut run) => {
+                    let translation = (request.position_x + horizontal_offset + run.x, line_y);
+                    if !translation.0.is_finite() || !translation.1.is_finite() {
+                        return Err(invalid(
+                            "$.position",
+                            "aligned text run position is not finite",
+                        ));
+                    }
+                    transform_contours(&mut run.output.contours, translation, transform)?;
+                    contours.extend(run.output.contours);
+                }
+                PendingItem::Bar { start_x, end_x } => {
+                    // The reference transforms the bar endpoints and then
+                    // strokes the oval in final coordinates, so mirrored bars
+                    // keep the reference's normalized point order.
+                    let bar_y = line_y - request.size_y * KICAD_TEXT_OVERBAR_HEIGHT_RATIO;
+                    let bar_x = request.position_x + horizontal_offset;
+                    if !(bar_x + start_x).is_finite() || !(bar_x + end_x).is_finite() {
+                        return Err(invalid(
+                            "$.position",
+                            "aligned overbar position is not finite",
+                        ));
+                    }
+                    let start = transform_point(bar_x + start_x, bar_y, transform)?;
+                    let end = transform_point(bar_x + end_x, bar_y, transform)?;
+                    let points = stroke_segment_to_polygon(start, end, request.stroke_width);
+                    if !points.is_empty() {
+                        contours.push(TextContour { points });
+                    }
+                }
             }
-            transform_contours(&mut run.output.contours, translation, transform)?;
-            contours.extend(run.output.contours);
         }
     }
     Ok(TextBlockLayoutOutput {
@@ -207,21 +255,117 @@ fn horizontal_offset(alignment: TextHorizontalAlignment, width: f64) -> f64 {
     }
 }
 
-fn build_line(
-    session: &HintedTextContourSession<'_>,
-    request: TextBlockLayoutRequest<'_>,
+/// Shared read-only inputs threaded through one block layout.
+struct LineBuildInputs<'a> {
+    session: &'a HintedTextContourSession<'a>,
+    request: TextBlockLayoutRequest<'a>,
     limits: TextBlockLayoutLimits,
-    line_span: Range<usize>,
     run_metadata_bytes: usize,
+}
+
+/// One open markup group on the explicit walk stack.
+struct MarkupFrame<'a> {
+    nodes: &'a [TextMarkupNode],
+    index: usize,
+    marker: Option<TextMarkupMarker>,
+    bar_start: f64,
+    style: TextRunStyle,
+}
+
+fn build_line(
+    inputs: &LineBuildInputs<'_>,
+    line_span: Range<usize>,
+    markup_budget: &mut usize,
     work: &mut AggregateWork,
 ) -> Result<PendingLine, TextContourError> {
-    let text = &request.shaping.text;
-    let run_spans = delimited_spans(&text[line_span.clone()], '\t', limits.max_runs, "$.runs")?;
-    let tab_width = request.size_x * KICAD_TEXT_TAB_WIDTH_FACTOR;
+    let text = &inputs.request.shaping.text;
+    let nodes = parse_text_markup(
+        &text[line_span.clone()],
+        markup_budget,
+        inputs.limits.max_markup_nodes,
+    )?;
     let mut line = PendingLine {
-        runs: Vec::with_capacity(run_spans.len().min(32)),
+        items: Vec::with_capacity(nodes.len().min(32)),
         width: 0.0,
     };
+    // Group frames were already charged one markup node each by the parser, so
+    // this explicit stack cannot outgrow the shared markup ceiling.
+    let mut frames = vec![MarkupFrame {
+        nodes: &nodes,
+        index: 0,
+        marker: None,
+        bar_start: 0.0,
+        style: TextRunStyle::Normal,
+    }];
+    while let Some(frame) = frames.last_mut() {
+        let Some(node) = frame.nodes.get(frame.index) else {
+            let closed = frames.pop().expect("frame presence was checked");
+            if closed.marker == Some(TextMarkupMarker::Overbar) {
+                append_overbar(
+                    inputs.request,
+                    inputs.limits,
+                    closed.bar_start,
+                    &mut line,
+                    work,
+                )?;
+            }
+            continue;
+        };
+        frame.index += 1;
+        match node {
+            TextMarkupNode::Text(span) => {
+                let style = frame.style;
+                let text_span = (line_span.start + span.start)..(line_span.start + span.end);
+                build_text_runs(inputs, text_span, style, &mut line, work)?;
+            }
+            TextMarkupNode::Group { marker, children } => {
+                let style = child_style(frame.style, *marker);
+                frames.push(MarkupFrame {
+                    nodes: children,
+                    index: 0,
+                    marker: Some(*marker),
+                    bar_start: line.width,
+                    style,
+                });
+            }
+        }
+    }
+    Ok(line)
+}
+
+/// Combine one parent style with a group marker exactly like the reference's
+/// subscript/superscript flag pair: subscript wins once set, an overbar keeps
+/// the surrounding style, and offsets never accumulate across nesting.
+fn child_style(style: TextRunStyle, marker: TextMarkupMarker) -> TextRunStyle {
+    match marker {
+        TextMarkupMarker::Overbar => style,
+        TextMarkupMarker::Subscript => TextRunStyle::Subscript,
+        TextMarkupMarker::Superscript => {
+            if style == TextRunStyle::Subscript {
+                TextRunStyle::Subscript
+            } else {
+                TextRunStyle::Superscript
+            }
+        }
+    }
+}
+
+fn build_text_runs(
+    inputs: &LineBuildInputs<'_>,
+    text_span: Range<usize>,
+    style: TextRunStyle,
+    line: &mut PendingLine,
+    work: &mut AggregateWork,
+) -> Result<(), TextContourError> {
+    let LineBuildInputs {
+        session,
+        request,
+        limits,
+        run_metadata_bytes,
+    } = *inputs;
+    let text = &request.shaping.text;
+    let run_spans = delimited_spans(&text[text_span.clone()], '\t', limits.max_runs, "$.runs")?;
+    let tab_width = request.size_x * KICAD_TEXT_TAB_WIDTH_FACTOR;
     for (run_index, local_span) in run_spans.iter().enumerate() {
         charge(
             &mut work.runs,
@@ -230,7 +374,7 @@ fn build_line(
             "$.runs",
             "text run limit exceeded",
         )?;
-        let run_span = (line_span.start + local_span.start)..(line_span.start + local_span.end);
+        let run_span = (text_span.start + local_span.start)..(text_span.start + local_span.end);
         charge(
             &mut work.run_metadata_bytes,
             run_metadata_bytes,
@@ -240,7 +384,7 @@ fn build_line(
         )?;
         let run_input = shaping_run(request.shaping, run_span.clone(), limits, work)?;
         let run_limits = remaining_contour_limits(limits.contours, work);
-        let output = session.shape_input(
+        let output = session.shape_input_styled(
             crate::TextContourRequest {
                 shaping: &run_input,
                 size_x: request.size_x,
@@ -250,13 +394,14 @@ fn build_line(
                 max_error: request.max_error,
             },
             run_limits,
+            style,
         )?;
         charge_output(work, &output, limits.contours)?;
         let advance = output.advance_x;
-        line.runs.push(PendingRun {
+        line.items.push(PendingItem::Run(PendingRun {
             x: line.width,
             output,
-        });
+        }));
         line.width += advance;
         if run_index + 1 < run_spans.len() {
             let intrusion = line.width.rem_euclid(tab_width);
@@ -266,7 +411,118 @@ fn build_line(
             return Err(invalid("$.runs", "derived tabbed line width is not finite"));
         }
     }
-    Ok(line)
+    Ok(())
+}
+
+fn append_overbar(
+    request: TextBlockLayoutRequest<'_>,
+    limits: TextBlockLayoutLimits,
+    bar_start: f64,
+    line: &mut PendingLine,
+    work: &mut AggregateWork,
+) -> Result<(), TextContourError> {
+    if request.stroke_width <= 0.0 {
+        return Ok(());
+    }
+    let trim = request.size_x * OVERBAR_TRIM_RATIO;
+    let start_x = bar_start + trim;
+    let end_x = line.width - trim;
+    if !start_x.is_finite() || !end_x.is_finite() {
+        return Err(invalid("$.markup", "derived overbar span is not finite"));
+    }
+    charge(
+        &mut work.contours,
+        1,
+        limits.contours.max_contours,
+        "$.contours",
+        "aggregate contour limit exceeded",
+    )?;
+    charge(
+        &mut work.points,
+        oval_polygon_point_count(request.stroke_width),
+        limits.contours.max_points,
+        "$.points",
+        "aggregate point limit exceeded",
+    )?;
+    line.items.push(PendingItem::Bar { start_x, end_x });
+    Ok(())
+}
+
+/// Port of the reference `_round_to_int`, KiCad's `KiROUND` for finite input.
+fn round_to_int(value: f64) -> i64 {
+    (value + 0.5).floor() as i64
+}
+
+/// Port of the reference `_arc_segment_count` for one full circle.
+fn arc_segment_count(radius: f64, error: f64) -> i64 {
+    let radius = radius.max(1e-9);
+    let error = error.max(1e-9);
+    let relative_error = error / radius;
+    let arc_increment =
+        (180.0 / std::f64::consts::PI * (1.0 - relative_error).max(-1.0).acos() * 2.0)
+            .min(360.0 / 8.0);
+    round_to_int(360.0 / arc_increment).max(2)
+}
+
+/// Full-circle segment count for one stroked oval of the given width.
+fn oval_segment_count(width: f64) -> usize {
+    let segments = arc_segment_count(width / 2.0, width / OVERBAR_STROKE_ERROR_DIVISOR).max(8);
+    usize::try_from(segments)
+        .expect("segment count is positive")
+        .div_ceil(8)
+        * 8
+}
+
+/// Retained point count for one positive-width stroked oval polygon.
+fn oval_polygon_point_count(width: f64) -> usize {
+    oval_segment_count(width) + 4
+}
+
+/// Port KiCad's ERROR_INSIDE `TransformOvalToPolygon()` point order.
+fn stroke_segment_to_polygon(start: (f64, f64), end: (f64, f64), width: f64) -> Vec<TextPoint> {
+    if width <= 0.0 {
+        return Vec::new();
+    }
+    let (mut start_x, mut start_y) = start;
+    let (mut end_x, mut end_y) = end;
+    let mut delta_x = end_x - start_x;
+    let mut delta_y = end_y - start_y;
+    if delta_x < 0.0 {
+        std::mem::swap(&mut start_x, &mut end_x);
+        std::mem::swap(&mut start_y, &mut end_y);
+        delta_x = end_x - start_x;
+        delta_y = end_y - start_y;
+    }
+    let segment_length = delta_x.hypot(delta_y);
+    let radius = width / 2.0;
+    let segments = oval_segment_count(width);
+    let delta = std::f64::consts::PI * 2.0 / segments as f64;
+    let (unit_x, unit_y) = if segment_length > 1e-12 {
+        (delta_x / segment_length, delta_y / segment_length)
+    } else {
+        (1.0, 0.0)
+    };
+    let place = |local_x: f64, local_y: f64| TextPoint {
+        x: start_x + local_x * unit_x - local_y * unit_y,
+        y: start_y + local_x * unit_y + local_y * unit_x,
+    };
+    let mut points = Vec::with_capacity(segments + 4);
+    for index in 0..segments / 2 {
+        let angle = delta / 2.0 + index as f64 * delta;
+        points.push(place(
+            segment_length + radius * angle.sin(),
+            -radius * angle.cos(),
+        ));
+    }
+    points.push(place(segment_length, radius));
+    points.push(place(0.0, radius));
+    for index in 0..segments / 2 {
+        let angle = delta / 2.0 + index as f64 * delta;
+        points.push(place(-radius * angle.sin(), radius * angle.cos()));
+    }
+    points.push(place(0.0, -radius));
+    points.push(place(segment_length, -radius));
+    points
 }
 
 fn single_line_request<'a>(
@@ -306,6 +562,9 @@ fn validate_request(
             "$.size_x",
             "derived tab width must be positive and finite",
         ));
+    }
+    if !request.stroke_width.is_finite() {
+        return Err(invalid("$.stroke_width", "stroke width must be finite"));
     }
     Ok(())
 }

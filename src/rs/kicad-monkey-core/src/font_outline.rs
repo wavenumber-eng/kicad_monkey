@@ -20,6 +20,9 @@ pub const FONT_OUTLINE_ENGINE: &str = "ttf-parser-0.25.1";
 /// Safe-Rust hinted outline backend used for final KiCad cache parity.
 pub const HINTED_FONT_OUTLINE_ENGINE: &str = "skrifa-0.46.0";
 const KICAD_HINTED_PPEM: f32 = 358.25;
+// KiCad's rounded subscript/superscript face size 917 over the same four
+// internal units per pixel: `917 / 4`.
+const KICAD_SUBSCRIPT_HINTED_PPEM: f32 = 229.25;
 // Skrifa emits pixel coordinates. KiCad's FreeType path emits 26.6 values and
 // then applies 72 / 1152, leaving the equivalent four internal units per pixel.
 const KICAD_HIGH_RESOLUTION_SCALE: f32 = 4.0;
@@ -219,6 +222,24 @@ impl<'a> HintedFontOutlineFace<'a> {
         request: FontOutlineFaceRequest<'_>,
         limits: FontOutlineLimits,
     ) -> Result<Self, FontOutlineError> {
+        Self::new_with_ppem(font_bytes, request, limits, KICAD_HINTED_PPEM)
+    }
+
+    /// Build a hinted face at KiCad's subscript/superscript run size.
+    pub(crate) fn new_subscript(
+        font_bytes: &'a [u8],
+        request: FontOutlineFaceRequest<'_>,
+        limits: FontOutlineLimits,
+    ) -> Result<Self, FontOutlineError> {
+        Self::new_with_ppem(font_bytes, request, limits, KICAD_SUBSCRIPT_HINTED_PPEM)
+    }
+
+    fn new_with_ppem(
+        font_bytes: &'a [u8],
+        request: FontOutlineFaceRequest<'_>,
+        limits: FontOutlineLimits,
+        ppem: f32,
+    ) -> Result<Self, FontOutlineError> {
         preflight_face(font_bytes, request, limits)?;
         validate_hash(font_bytes, request.font_sha256)?;
         if !request.variations.is_empty() {
@@ -247,7 +268,7 @@ impl<'a> HintedFontOutlineFace<'a> {
         let outlines = font.outline_glyphs();
         let hinting = HintingInstance::new(
             &outlines,
-            Size::new(KICAD_HINTED_PPEM),
+            Size::new(ppem),
             LocationRef::default(),
             skrifa::outline::HintingOptions::default(),
         )

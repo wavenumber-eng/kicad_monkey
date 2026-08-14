@@ -149,6 +149,40 @@
   truncated toward zero before the next glyph. This closes the prior Arial
   <code>SS</code> alignment gap without widening the comparison tolerance.</p>
 
+  <h2>Markup styling boundary</h2>
+  <p>Each line is parsed into KiCad's <code>^{}</code>, <code>_{}</code>, and
+  <code>~{}</code> markup tree with the accepted Python
+  <code>_parse_markup</code> semantics: a marker immediately followed by
+  <code>{</code> opens a group, <code>}</code> closes the innermost group, a
+  bare marker or unmatched <code>}</code> is literal, and unterminated groups
+  extend to the end of the line. Every retained text or group node is charged
+  against one block-wide markup-node ceiling before creation, and both the
+  parser and the layout walk use explicit heap stacks so nesting depth is
+  bounded by that same ceiling.</p>
+  <p>Subscript and superscript runs shape and hint on KiCad's rounded styled
+  face size <code>round(1433 * 0.64) = 917</code>; the hinted session builds
+  the second Skrifa hinting instance at <code>229.25</code> ppem only when the
+  block text contains a styled marker. Styled positions convert through the
+  <code>917</code> scaler while the millimeter conversion stays on the base
+  <code>1433</code> scale, which yields the <code>0.64</code> visual ratio.
+  Baseline offsets are <code>-0.25</code> and <code>+0.45</code> of the styled
+  scaler; the subscript flag wins for nested markers and offsets never
+  accumulate across nesting. Cursor quantization uses the styled
+  internal-unit scale.</p>
+  <p>An overbar group appends one stroke polygon after its children: the bar
+  runs from the group's start to its end advance, trimmed by
+  <code>0.1 * size_x</code> at each end, at <code>1.23 * size_y</code> above
+  the baseline, stroked with the authored font thickness. Matching
+  <code>CALLBACK_GAL::DrawGlyph()</code>, the endpoints are transformed into
+  final coordinates first and the ERROR_INSIDE
+  <code>TransformOvalToPolygon()</code> port then strokes there with error
+  <code>strokeWidth / 180</code>, giving the constant 24-segment, 28-point
+  oval and preserving the reference point order under mirroring. A
+  non-positive stroke width suppresses the bar; retained bars are charged
+  against the aggregate contour and point ceilings before deferral.</p>
+  <p>Live native evidence covers Arial subscript, superscript, plain overbar,
+  and rotated mirrored overbar blocks at tolerance <code>0.002</code>.</p>
+
   <h2>Cache contour topology</h2>
   <p><code>fracture_text_contours_a0</code> trims one repeated closing point,
   ignores contours with fewer than three retained points, assigns later
@@ -183,11 +217,14 @@
   <h2>Still open</h2>
   <p>The current render-cache strata now establish live KiCad save-oracle
   parity for representative plain single-line, multiline, tabbed, and explicit
-  line-spacing, right-aligned, kerning, and whitespace Arial text. They do not
-  yet claim markup behavior, fake bold/italic, broad font and composite-glyph
-  coverage, or repository-local corpus coverage. Those remain active parts of
-  <code>render-cache-parity</code>, not deferred packaging work. Font discovery
-  stays native-only and outside the platform-neutral byte-input core; WASM
-  packaging remains in its later selected-operation phase.</p>
+  line-spacing, right-aligned, kerning, whitespace, and markup Arial text.
+  They do not yet claim fake bold/italic, broad font and composite-glyph
+  coverage, or repository-local corpus coverage. A known gap sits in that
+  broad-glyph row: double-hole glyphs such as Arial <code>B</code> fracture
+  with a different hole-bridge order than the KiCad save oracle, so live cases
+  avoid them until the fracture ordering is aligned. Those remain active parts
+  of <code>render-cache-parity</code>, not deferred packaging work. Font
+  discovery stays native-only and outside the platform-neutral byte-input
+  core; WASM packaging remains in its later selected-operation phase.</p>
 </body>
 </html>

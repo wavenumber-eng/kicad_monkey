@@ -20,6 +20,8 @@ struct GateRequest {
     vertical_alignment: String,
     #[serde(default = "default_line_spacing")]
     line_spacing: f64,
+    #[serde(default)]
+    stroke_width: f64,
     max_error: f64,
 }
 
@@ -80,6 +82,7 @@ fn run() -> Result<Vec<u8>, String> {
             horizontal_alignment,
             vertical_alignment,
             line_spacing: request.line_spacing,
+            stroke_width: request.stroke_width,
             max_error: request.max_error,
         },
         TextBlockLayoutLimits::default(),

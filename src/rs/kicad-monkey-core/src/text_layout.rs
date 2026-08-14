@@ -187,31 +187,39 @@ pub(crate) fn transform_contours(
 ) -> Result<(), TextContourError> {
     for contour in contours {
         for point in &mut contour.points {
-            let mut x = point.x + translation.0;
-            let mut y = point.y + translation.1;
-            if transform.mirrored {
-                x = transform.origin_x - (x - transform.origin_x);
-            }
-            if transform.rotated {
-                let delta_x = x - transform.origin_x;
-                let delta_y = y - transform.origin_y;
-                x = transform.origin_x
-                    + delta_x * transform.cos_angle
-                    + delta_y * transform.sin_angle;
-                y = transform.origin_y + delta_y * transform.cos_angle
-                    - delta_x * transform.sin_angle;
-            }
-            if [x, y].into_iter().any(|value| !value.is_finite()) {
-                return Err(invalid_layout(
-                    "$.contours",
-                    "transformed text coordinate is not finite",
-                ));
-            }
+            let (x, y) =
+                transform_point(point.x + translation.0, point.y + translation.1, transform)?;
             point.x = x;
             point.y = y;
         }
     }
     Ok(())
+}
+
+/// Mirror and rotate one already-translated point about the authored origin.
+pub(crate) fn transform_point(
+    x: f64,
+    y: f64,
+    transform: LayoutTransform,
+) -> Result<(f64, f64), TextContourError> {
+    let mut x = x;
+    let mut y = y;
+    if transform.mirrored {
+        x = transform.origin_x - (x - transform.origin_x);
+    }
+    if transform.rotated {
+        let delta_x = x - transform.origin_x;
+        let delta_y = y - transform.origin_y;
+        x = transform.origin_x + delta_x * transform.cos_angle + delta_y * transform.sin_angle;
+        y = transform.origin_y + delta_y * transform.cos_angle - delta_x * transform.sin_angle;
+    }
+    if [x, y].into_iter().any(|value| !value.is_finite()) {
+        return Err(invalid_layout(
+            "$.contours",
+            "transformed text coordinate is not finite",
+        ));
+    }
+    Ok((x, y))
 }
 
 fn invalid_layout(path: &'static str, message: &'static str) -> TextContourError {

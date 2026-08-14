@@ -20,6 +20,14 @@ pub const KICAD_OUTLINE_FACE_SCALER: f64 = 1433.0;
 pub const KICAD_OUTLINE_SIZE_COMPENSATION: f64 = 1.4;
 /// KiCad's default curve error in outline-face coordinate units.
 pub const KICAD_TEXT_BEZIER_ERROR: f64 = 2.0;
+/// KiCad's subscript/superscript glyph size ratio from `outline_font.h`.
+pub const KICAD_SUBSCRIPT_SUPERSCRIPT_SIZE_RATIO: f64 = 0.64;
+/// KiCad's rounded subscript/superscript face size: `round(1433 * 0.64)`.
+pub const KICAD_SUBSCRIPT_FACE_SCALER: f64 = 917.0;
+/// KiCad's subscript baseline offset as a fraction of the styled face size.
+pub const KICAD_SUBSCRIPT_VERTICAL_OFFSET_RATIO: f64 = -0.25;
+/// KiCad's superscript baseline offset as a fraction of the styled face size.
+pub const KICAD_SUPERSCRIPT_VERTICAL_OFFSET_RATIO: f64 = 0.45;
 
 /// One raw text run before alignment, markup, mirroring, or rotation.
 #[derive(Clone, Copy, Debug)]
@@ -81,6 +89,34 @@ pub struct TextContourOutput {
 pub(crate) struct HintedTextContourSession<'a> {
     shaping: TextShapingFace<'a>,
     outline: HintedFontOutlineFace<'a>,
+    subscript_outline: Option<HintedFontOutlineFace<'a>>,
+}
+
+/// KiCad text-run style selecting the face scaler and baseline offset.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum TextRunStyle {
+    Normal,
+    Subscript,
+    Superscript,
+}
+
+impl TextRunStyle {
+    /// Internal-unit face scaler used for cursor and offset conversion.
+    fn face_scaler(self) -> f64 {
+        match self {
+            Self::Normal => KICAD_OUTLINE_FACE_SCALER,
+            Self::Subscript | Self::Superscript => KICAD_SUBSCRIPT_FACE_SCALER,
+        }
+    }
+
+    /// Baseline offset as a fraction of the styled face scaler.
+    fn vertical_offset_ratio(self) -> f64 {
+        match self {
+            Self::Normal => 0.0,
+            Self::Subscript => KICAD_SUBSCRIPT_VERTICAL_OFFSET_RATIO,
+            Self::Superscript => KICAD_SUPERSCRIPT_VERTICAL_OFFSET_RATIO,
+        }
+    }
 }
 
 /// Stable failure categories for native contour composition.
@@ -144,34 +180,55 @@ impl<'a> HintedTextContourSession<'a> {
                     .expect("shaping variation coordinates are finite"),
             })
             .collect::<Vec<_>>();
-        let outline = HintedFontOutlineFace::new(
-            font_bytes,
-            FontOutlineFaceRequest {
-                font_id: shaping.font_id.as_str(),
-                font_sha256: &shaping.font_sha256.0,
-                face_index: shaping.face_index,
-                variations: &variations,
-            },
-            limits.outline,
-        )
-        .map_err(map_outline_error)?;
+        let face_request = FontOutlineFaceRequest {
+            font_id: shaping.font_id.as_str(),
+            font_sha256: &shaping.font_sha256.0,
+            face_index: shaping.face_index,
+            variations: &variations,
+        };
+        let outline = HintedFontOutlineFace::new(font_bytes, face_request, limits.outline)
+            .map_err(map_outline_error)?;
+        // The styled face is built only when the block can request styled runs,
+        // so plain blocks keep exactly one hinting instance.
+        let subscript_outline = if shaping.text.contains("_{") || shaping.text.contains("^{") {
+            Some(
+                HintedFontOutlineFace::new_subscript(font_bytes, face_request, limits.outline)
+                    .map_err(map_outline_error)?,
+            )
+        } else {
+            None
+        };
         Ok(Self {
             shaping: shaping_face,
             outline,
+            subscript_outline,
         })
     }
 
-    pub(crate) fn shape_input(
+    pub(crate) fn shape_input_styled(
         &self,
         request: TextContourRequest<'_>,
         limits: TextContourLimits,
+        style: TextRunStyle,
     ) -> Result<TextContourOutput, TextContourError> {
         validate_request(request)?;
         let shaped = self
             .shaping
             .shape_input(request.shaping, limits.shaping)
             .map_err(map_shaping_error)?;
-        compose_shaped_contours(&self.outline, &shaped, request, limits)
+        let face = match style {
+            TextRunStyle::Normal => &self.outline,
+            TextRunStyle::Subscript | TextRunStyle::Superscript => {
+                self.subscript_outline.as_ref().ok_or_else(|| {
+                    contour_error(
+                        TextContourErrorKind::InvalidInput,
+                        "$.markup",
+                        "styled run requested without a styled outline face",
+                    )
+                })?
+            }
+        };
+        compose_shaped_contours(face, &shaped, request, limits, style)
     }
 }
 
@@ -269,12 +326,12 @@ fn shape_text_contours_with_outline_mode(
         OutlineMode::Unhinted => {
             let face = FontOutlineFace::new(font_bytes, face_request, limits.outline)
                 .map_err(map_outline_error)?;
-            compose_shaped_contours(&face, &shaped, request, limits)
+            compose_shaped_contours(&face, &shaped, request, limits, TextRunStyle::Normal)
         }
         OutlineMode::Hinted => {
             let face = HintedFontOutlineFace::new(font_bytes, face_request, limits.outline)
                 .map_err(map_outline_error)?;
-            compose_shaped_contours(&face, &shaped, request, limits)
+            compose_shaped_contours(&face, &shaped, request, limits, TextRunStyle::Normal)
         }
     }
 }
@@ -284,6 +341,7 @@ fn compose_shaped_contours(
     shaped: &TextShapingOutput,
     request: TextContourRequest<'_>,
     limits: TextContourLimits,
+    style: TextRunStyle,
 ) -> Result<TextContourOutput, TextContourError> {
     if face.units_per_em() != shaped.units_per_em {
         return Err(contour_error(
@@ -294,8 +352,14 @@ fn compose_shaped_contours(
     }
 
     let outline_to_internal = face.outline_to_internal();
-    let position_x_to_internal = KICAD_OUTLINE_FACE_SCALER / f64::from(request.shaping.scale_x);
-    let position_y_to_internal = KICAD_OUTLINE_FACE_SCALER / f64::from(request.shaping.scale_y);
+    // Styled runs live on KiCad's rounded 917-unit face, so shaped positions
+    // convert through the styled scaler while the mm conversion below stays on
+    // the base 1433-unit scale, yielding the 0.64 visual size ratio.
+    let position_x_to_internal = style.face_scaler() / f64::from(request.shaping.scale_x);
+    let position_y_to_internal = style.face_scaler() / f64::from(request.shaping.scale_y);
+    // `ratio * face_scaler` internal units divided by `face_scaler / scale_y`
+    // internal units per position unit leaves `ratio * scale_y` position units.
+    let style_offset_y = style.vertical_offset_ratio() * f64::from(request.shaping.scale_y);
     let internal_to_x =
         request.size_x / KICAD_OUTLINE_FACE_SCALER * KICAD_OUTLINE_SIZE_COMPENSATION;
     let internal_to_y =
@@ -323,7 +387,7 @@ fn compose_shaped_contours(
                 output.append_outline(
                     &outline.commands,
                     cursor_x + glyph.x_offset.get() as f64,
-                    cursor_y + glyph.y_offset.get() as f64,
+                    cursor_y + glyph.y_offset.get() as f64 + style_offset_y,
                 )?;
             }
             Err(error) if error.kind == FontOutlineErrorKind::MissingOutline => {}
