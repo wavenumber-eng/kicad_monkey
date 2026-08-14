@@ -32,9 +32,14 @@ pub(super) fn merged_driver_shape<'a>(
             .try_fold(string_bytes, usize::checked_add)?;
         }
         for label in &subgraph.label_drivers {
-            string_bytes = [label.text.len(), label.shape.len(), label.source_uuid.len()]
-                .into_iter()
-                .try_fold(string_bytes, usize::checked_add)?;
+            string_bytes = [
+                label.text.len(),
+                label.shape.len(),
+                label.source_uuid.len(),
+                label.render_id.len(),
+            ]
+            .into_iter()
+            .try_fold(string_bytes, usize::checked_add)?;
         }
     }
     if let Some(choice_strings) = choice_strings {

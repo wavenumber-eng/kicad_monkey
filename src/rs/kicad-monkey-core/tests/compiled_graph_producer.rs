@@ -1,3 +1,4 @@
+use kicad_monkey_contracts::generated::compiled_schematic_graph::TerminalRole;
 use kicad_monkey_contracts::generated::source_bundle_manifest::{
     SourceBundleManifestA0, SourceBundleSource, SourceKind,
 };
@@ -37,10 +38,17 @@ fn assert_graph_shape(
     assert_eq!(graph.page_occurrences.len(), 2);
     assert_eq!(graph.hierarchy_occurrences.len(), 1);
     assert_eq!(graph.component_occurrences.len(), 2);
-    assert_eq!(graph.local_net_occurrences.len(), 4);
-    assert_eq!(graph.terminal_occurrences.len(), 4);
-    assert_eq!(graph.hierarchy_terminal_bindings.len(), 1);
-    assert_eq!(graph.graphical_artifact_links.len(), 9);
+    assert_eq!(graph.local_net_occurrences.len(), 8);
+    assert_eq!(graph.terminal_occurrences.len(), 8);
+    assert_eq!(graph.hierarchy_terminal_bindings.len(), 3);
+    assert_eq!(graph.graphical_artifact_links.len(), 13);
+    let sheet_entry_ids = graph
+        .terminal_occurrences
+        .iter()
+        .filter(|row| row.role == TerminalRole::SheetEntry)
+        .map(|row| row.id.as_str())
+        .collect::<std::collections::HashSet<_>>();
+    assert_eq!(sheet_entry_ids.len(), 3);
 }
 
 fn assert_source_ownership(
@@ -89,10 +97,10 @@ fn every_structural_row_family_fails_before_one_over_publication() {
         max_page_occurrences: 2,
         max_hierarchy_occurrences: 1,
         max_component_occurrences: 2,
-        max_local_net_occurrences: 4,
-        max_terminal_occurrences: 4,
-        max_hierarchy_terminal_bindings: 1,
-        max_graphical_artifact_links: 9,
+        max_local_net_occurrences: 8,
+        max_terminal_occurrences: 8,
+        max_hierarchy_terminal_bindings: 3,
+        max_graphical_artifact_links: 13,
         max_retained_string_bytes: retained_string_bytes,
     };
     build_compiled_schematic_graph(&index, exact).expect("exact structural row limits");
@@ -122,19 +130,19 @@ fn every_structural_row_family_fails_before_one_over_publication() {
             ..exact
         },
         CompiledSchematicGraphLimits {
-            max_local_net_occurrences: 3,
+            max_local_net_occurrences: 7,
             ..exact
         },
         CompiledSchematicGraphLimits {
-            max_terminal_occurrences: 3,
+            max_terminal_occurrences: 7,
             ..exact
         },
         CompiledSchematicGraphLimits {
-            max_hierarchy_terminal_bindings: 0,
+            max_hierarchy_terminal_bindings: 2,
             ..exact
         },
         CompiledSchematicGraphLimits {
-            max_graphical_artifact_links: 8,
+            max_graphical_artifact_links: 12,
             ..exact
         },
         CompiledSchematicGraphLimits {
@@ -194,7 +202,9 @@ fn structural_index() -> SchematicBundleIndex {
       (sheet (uuid child-sheet)
         (property "Sheetname" "Child")
         (property "Sheetfile" "child.kicad_sch")
-        (pin "SIG" input (at 20 0 180) (uuid sheet-pin)))
+        (pin "SIG" input (at 20 0 180) (uuid sheet-pin))
+        (pin "LEFT" input (at 30 0 180))
+        (pin "RIGHT" output (at 40 0 180)))
       (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 0 0 0) (uuid root-symbol)
         (property "Reference" "R1") (property "Value" "One")))"#
         .to_vec();
@@ -205,6 +215,8 @@ fn structural_index() -> SchematicBundleIndex {
           (symbol "Demo:One_1_1"
             (pin passive line (at 0 0 0) (name "P") (number "1")))))
       (hierarchical_label "SIG" (shape input) (at 20 0 0) (uuid child-port))
+      (hierarchical_label "LEFT" (shape output) (at 30 0 0) (uuid child-left))
+      (hierarchical_label "RIGHT" (shape input) (at 40 0 0) (uuid child-right))
       (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 0 0 0) (uuid child-symbol)
         (property "Reference" "C1") (property "Value" "One")))"#
         .to_vec();

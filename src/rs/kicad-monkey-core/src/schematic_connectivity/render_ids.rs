@@ -1,6 +1,6 @@
 use crate::{SchematicSheet, SchematicSheetPin};
 
-pub(super) fn schematic_sheet_pin_group_id(
+pub(crate) fn schematic_sheet_pin_group_id(
     sheet: &SchematicSheet,
     pin: &SchematicSheetPin,
 ) -> String {

@@ -23,6 +23,7 @@ from kicad_monkey.kicad_netlist_design import (
     merge_design_nets,
 )
 from kicad_monkey.kicad_netlist_model import KiCadDriverKind
+from kicad_monkey.kicad_schematic_ids import schematic_sheet_pin_group_id
 from kicad_monkey.kicad_schematic_connectivity import (
     ConnectivityGraph,
     iter_symbol_pins,
@@ -135,6 +136,21 @@ REORDERED_BUS_CHILD = """(kicad_sch
     (uuid child-symbol-x) (property "Reference" "CX") (property "Value" "One"))
   (symbol (lib_id "Demo:One") (lib_name "Demo:One") (at 18 15 0)
     (uuid child-symbol-a) (property "Reference" "CA") (property "Value" "One")))
+"""
+
+UUIDLESS_SHEET_PIN_ROOT = """(kicad_sch
+  (uuid uuidless-root)
+  (global_label "LEFT_NET" (shape bidirectional) (at 0 0 0) (uuid root-left-net))
+  (global_label "RIGHT_NET" (shape bidirectional) (at 10 0 0) (uuid root-right-net))
+  (sheet (uuid child-sheet)
+    (property "Sheetname" "Child")
+    (property "Sheetfile" "child.kicad_sch")
+    (pin "LEFT" input (at 0 0 0))
+    (pin "RIGHT" output (at 10 0 0))))
+"""
+
+UUIDLESS_SHEET_PIN_CHILD = """(kicad_sch
+  (uuid uuidless-child))
 """
 
 
@@ -698,6 +714,11 @@ def _scalar_design_summary(top: KiCadSchematic) -> dict[str, object]:
                         label.text, (subgraph_index, label.source_uuid)
                     )
         for pin in sheet.pins:
+            pin_id = schematic_sheet_pin_group_id(
+                sheet_uuid=str(sheet.uuid or ""),
+                pin_name=str(pin.name or ""),
+                source_pin_uuid=str(pin.uuid or ""),
+            )
             parent_subgraph = parent.coord_to_sg.get(
                 snap_mm_to_iu(pin.at_x, pin.at_y)
             )
@@ -708,7 +729,7 @@ def _scalar_design_summary(top: KiCadSchematic) -> dict[str, object]:
                     "parent_occurrence_index": parent_index + 1,
                     "child_occurrence_index": child_index + 1,
                     "sheet_pin_name": pin.name,
-                    "sheet_pin_uuid": pin.uuid,
+                    "sheet_pin_uuid": pin_id,
                     "hierarchical_label_uuid": (
                         child_match[1] if child_match is not None else None
                     ),
@@ -803,6 +824,19 @@ def _synthetic_bus_request(
     return request, _scalar_design_summary(top)
 
 
+def _synthetic_graph_request(
+    case_root: Path, root_source: str, child_source: str
+) -> tuple[dict[str, object], dict[str, object]]:
+    request, _scalar_design = _synthetic_bus_request(
+        case_root, root_source, child_source
+    )
+    project_path = Path(cast(str, request["project_path"]))
+    expected = build_compiled_schematic_graph(
+        KiCadDesign.from_project_file(project_path)
+    ).to_json()
+    return request, expected
+
+
 def _terminal_refs_by_net(summary: dict[str, object]) -> dict[str, list[str]]:
     nets = cast(list[dict[str, object]], summary["nets"])
     return {
@@ -840,6 +874,21 @@ def test_alias_only_and_reordered_bus_boundaries_match_native_rust(
     assert reordered_refs["/A"] == ["CA.1", "RA.1"]
     assert reordered_refs["/B"] == ["CX.1", "RB.1"]
     assert reordered_refs["/C"] == ["CC.1", "RC.1"]
+
+
+def test_two_uuidless_sheet_pins_keep_distinct_graph_identity(tmp_path: Path) -> None:
+    request, expected = _synthetic_graph_request(
+        tmp_path / "uuidless-sheet-pins",
+        UUIDLESS_SHEET_PIN_ROOT,
+        UUIDLESS_SHEET_PIN_CHILD,
+    )
+    result = _run_native_bundle_requests([request])[0]
+    actual = cast(dict[str, object], result["compiled_graph"])
+    assert actual == expected, _first_difference(actual, expected)
+    terminals = cast(list[dict[str, object]], actual["terminal_occurrences"])
+    sheet_entries = [row for row in terminals if row["role"] == "sheet_entry"]
+    assert len(sheet_entries) == 2
+    assert len({cast(str, row["id"]) for row in sheet_entries}) == 2
 
 
 def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:

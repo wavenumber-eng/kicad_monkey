@@ -240,10 +240,12 @@ impl<'a> DesignBuilder<'a> {
                 unions,
             )?;
             let child_uuid = child_match.map(|(_, uuid)| uuid);
+            let sheet_pin_id =
+                crate::schematic_connectivity::schematic_sheet_pin_group_id(sheet, pin);
             let added = pin
                 .name
                 .len()
-                .checked_add(pin.uuid.len())
+                .checked_add(sheet_pin_id.len())
                 .and_then(|bytes| bytes.checked_add(child_uuid.unwrap_or_default().len()))
                 .ok_or_else(|| self.limit_error("design retained string bytes overflow"))?;
             *binding_string_bytes = binding_string_bytes
@@ -254,7 +256,7 @@ impl<'a> DesignBuilder<'a> {
                 parent_occurrence_index: parent_index,
                 child_occurrence_index: occurrence_index,
                 sheet_pin_name: pin.name.clone(),
-                sheet_pin_uuid: pin.uuid.clone(),
+                sheet_pin_uuid: sheet_pin_id,
                 hierarchical_label_uuid: child_uuid.map(str::to_owned),
                 parent_subgraph_index: parent_subgraph,
                 child_subgraph_index: child_match.map(|(subgraph, _)| subgraph),

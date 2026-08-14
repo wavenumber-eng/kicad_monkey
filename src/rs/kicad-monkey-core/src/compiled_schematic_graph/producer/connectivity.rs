@@ -272,10 +272,15 @@ impl StructuralGraphBuilder<'_> {
                 SchematicWireDriverKind::SheetPin => (TerminalRole::SheetEntry, false),
                 _ => continue,
             };
+            let source_uuid = if label.source_uuid.is_empty() {
+                label.render_id.as_str()
+            } else {
+                label.source_uuid.as_str()
+            };
             self.add_terminal(
                 TerminalInput {
                     role,
-                    source_uuid: &label.source_uuid,
+                    source_uuid,
                     source_subobject: "",
                     name: &label.text,
                     pin_designator: "",

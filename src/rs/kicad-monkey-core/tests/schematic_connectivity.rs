@@ -196,7 +196,7 @@ fn occurrence_connectivity_limits_fail_closed_independently() {
         max_label_drivers: 2,
         max_subgraphs: 4,
         max_retained_points: 5,
-        max_retained_string_bytes: 12,
+        max_retained_string_bytes: 14,
         max_attachment_query_work: 5,
         ..SchematicOccurrenceConnectivityLimits::default()
     };
@@ -253,7 +253,7 @@ fn occurrence_connectivity_limits_fail_closed_independently() {
         ),
         (
             SchematicOccurrenceConnectivityLimits {
-                max_retained_string_bytes: 11,
+                max_retained_string_bytes: 13,
                 ..exact
             },
             "retained string bytes",
@@ -264,6 +264,78 @@ fn occurrence_connectivity_limits_fail_closed_independently() {
         assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
         assert!(error.message.contains(message), "{}", error.message);
     }
+}
+
+#[test]
+fn wide_graphical_ids_are_batched_deduplicated_and_exactly_bounded() {
+    let wire_count = 2_048;
+    let ids = (0..wire_count)
+        .map(|ordinal| format!("wire-{ordinal:04}"))
+        .collect::<Vec<_>>();
+    let wires = ids
+        .iter()
+        .map(|id| format!("(wire (pts (xy 0 0) (xy 10 0)) (uuid {id}))"))
+        .collect::<String>();
+    let source = format!("(kicad_sch (uuid root) {wires})");
+    let index = index(source.as_bytes());
+    let exact_bytes = ids.iter().map(String::len).sum::<usize>();
+    let exact = SchematicOccurrenceConnectivityLimits {
+        max_retained_string_bytes: exact_bytes,
+        ..Default::default()
+    };
+    let subgraphs = build_schematic_occurrence_subgraphs(&index, 1, exact)
+        .expect("wide graphical IDs at exact retained-string limit");
+    assert_eq!(subgraphs.len(), 1);
+    assert_eq!(subgraphs[0].graphical.wires, ids);
+
+    let error = build_schematic_occurrence_subgraphs(
+        &index,
+        1,
+        SchematicOccurrenceConnectivityLimits {
+            max_retained_string_bytes: exact_bytes - 1,
+            ..exact
+        },
+    )
+    .expect_err("wide graphical IDs one byte above their allowance");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(error.message.contains("retained string bytes"));
+}
+
+#[test]
+fn uuidless_sheet_pin_render_id_is_owned_and_exactly_bounded() {
+    let sheet_uuid = "s".repeat(256);
+    let pin_name = "PIN".repeat(64);
+    let root = format!(
+        r#"(kicad_sch
+          (uuid root)
+          (sheet (uuid {sheet_uuid})
+            (property "Sheetname" "Child")
+            (property "Sheetfile" "child.kicad_sch")
+            (pin "{pin_name}" input (at 0 0 0))))"#
+    );
+    let index = two_sheet_index(root.into_bytes(), b"(kicad_sch (uuid child))".to_vec());
+    let render_id = format!("{sheet_uuid}__sheet_pin__{pin_name}");
+    let exact_bytes = pin_name.len() * 2 + "input".len() + render_id.len() * 2;
+    let exact = SchematicOccurrenceConnectivityLimits {
+        max_retained_string_bytes: exact_bytes,
+        ..Default::default()
+    };
+    let subgraphs = build_schematic_occurrence_subgraphs(&index, 1, exact)
+        .expect("UUID-less sheet pin at exact retained-string limit");
+    assert_eq!(subgraphs[0].label_drivers[0].render_id, render_id);
+    assert_eq!(subgraphs[0].graphical.sheet_entries, [render_id]);
+
+    let error = build_schematic_occurrence_subgraphs(
+        &index,
+        1,
+        SchematicOccurrenceConnectivityLimits {
+            max_retained_string_bytes: exact_bytes - 1,
+            ..exact
+        },
+    )
+    .expect_err("UUID-less sheet-pin render ID one byte above its allowance");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(error.message.contains("retained string bytes"));
 }
 
 #[test]
@@ -498,6 +570,30 @@ fn source_bundle(root: &[u8]) -> SourceBundle {
         SourceBundleLimits::default(),
     )
     .expect("source bundle")
+}
+
+fn two_sheet_index(root: Vec<u8>, child: Vec<u8>) -> SchematicBundleIndex {
+    let project = b"{}".to_vec();
+    let sources = vec![
+        descriptor("design/demo.kicad_pro", SourceKind::Project, 0, &project),
+        descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+        descriptor("design/child.kicad_sch", SourceKind::Schematic, 2, &child),
+    ];
+    let bundle = SourceBundle::from_manifest(
+        SourceBundleManifestA0 {
+            project_path: Some("design/demo.kicad_pro".to_owned()),
+            root_schematic_path: "design/root.kicad_sch".to_owned(),
+            schema: "kicad_monkey.source_bundle_manifest.a0".to_owned(),
+            sources,
+            type_: "kicad_monkey.source_bundle_manifest".to_owned(),
+            version: "a0".to_owned(),
+        },
+        vec![project, root, child],
+        SourceBundleLimits::default(),
+    )
+    .expect("two-sheet source bundle");
+    SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("two-sheet schematic index")
 }
 
 fn descriptor(path: &str, kind: SourceKind, slot: u32, bytes: &[u8]) -> SourceBundleSource {

@@ -63,8 +63,9 @@
     <li>Focused Rust tests also cover valid semantics, wrong reference types, cycles, duplicate IDs, binding roles, and graphical target types.</li>
     <li>Rack L3_018 sends all four reference-project graphs through the native strict and semantic validators in one sequential native process. The process enforces its line ceiling while reading, before retaining bytes past the bounded payload-plus-line-ending allowance.</li>
     <li><code>build_compiled_schematic_graph</code> emits definitions, occurrences, hierarchy, components, local nets, terminals, scalar hierarchy bindings, and graphical links from one indexed bundle and one compiled connectivity pass. Rack L3_020 compares the complete serialized graph exactly with Python for Yoshi, Taillight, Speedy, and Jumperless.</li>
+    <li>A shared two-sheet differential proves two UUID-less sheet pins receive distinct deterministic render/source identities and hierarchy bindings; the fallback participates consistently in Python and Rust terminal and binding identity.</li>
     <li>A synthetic two-sheet project exercises every row family, deterministic identity, portable source ownership, semantic validation, and exact/one-under limits for every family and aggregate retained string bytes.</li>
-    <li>Production is linear apart from deterministic set/index ordering. Component and hierarchy-terminal lookup are indexed; unresolved hierarchy diagnostics do not rescan terminal rows.</li>
+    <li>Production is linear apart from deterministic set/index ordering. Component and hierarchy-terminal lookup are indexed; unresolved hierarchy diagnostics do not rescan terminal rows. Graphical IDs use per-family borrowed indexes while retaining source order, avoiding per-push scans of a growing output vector.</li>
     <li>Package-owned unsafe code remains forbidden.</li>
     <li>Project-file subpart settings, schematic mutation, semantic round-trip, and native CLI integration remain active Phase 4 work.</li>
   </ul>

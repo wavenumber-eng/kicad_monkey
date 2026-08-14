@@ -12,6 +12,7 @@ use std::collections::{HashMap, HashSet};
 
 mod driver_selection;
 mod driver_types;
+mod graphical_ids;
 mod pin_naming;
 mod render_ids;
 mod stacked_pins;
@@ -23,7 +24,7 @@ pub use driver_types::{
 };
 pub use pin_naming::SchematicSubpartSettings;
 use pin_naming::{PinNaming, build_pin_namings};
-use render_ids::schematic_sheet_pin_group_id;
+pub(crate) use render_ids::schematic_sheet_pin_group_id;
 use stacked_pins::expand_stacked_pin;
 use wire_union::WirePointUnion;
 
@@ -353,7 +354,12 @@ impl<'a> OccurrenceBuilder<'a> {
         if out.len() >= self.limits.max_label_drivers {
             return Err(self.limit_error("schematic label driver count exceeds its limit"));
         }
-        self.retain_strings([&driver.text, &driver.shape, &driver.source_uuid])?;
+        self.retain_strings([
+            &driver.text,
+            &driver.shape,
+            &driver.source_uuid,
+            &driver.render_id,
+        ])?;
         driver.source_order = out.len();
         out.push(driver);
         Ok(())
@@ -792,71 +798,6 @@ impl<'a> OccurrenceBuilder<'a> {
         Ok(out)
     }
 
-    fn index_source_graphics(
-        &mut self,
-        union: &mut WirePointUnion,
-    ) -> Result<HashMap<usize, SchematicGraphicalIds>, SourceBundleError> {
-        let mut by_root = HashMap::<usize, SchematicGraphicalIds>::new();
-        for wire in &self.definition.wires {
-            let Some(point) = wire.points.first().copied() else {
-                continue;
-            };
-            let Some(root) = union.root_for_point(point) else {
-                continue;
-            };
-            self.push_graphical_id(&mut by_root.entry(root).or_default().wires, &wire.uuid)?;
-        }
-        for junction in &self.definition.junctions {
-            let Some(root) = union.root_for_point(junction.at) else {
-                continue;
-            };
-            self.push_graphical_id(
-                &mut by_root.entry(root).or_default().junctions,
-                &junction.uuid,
-            )?;
-        }
-        Ok(by_root)
-    }
-
-    fn attach_driver_graphics(
-        &mut self,
-        graphical: &mut SchematicGraphicalIds,
-        pins: &[SchematicPinDriver],
-        labels: &[SchematicLabelDriver],
-    ) -> Result<(), SourceBundleError> {
-        for label in labels {
-            let bucket = match label.kind {
-                SchematicWireDriverKind::SheetPin => &mut graphical.sheet_entries,
-                SchematicWireDriverKind::HierarchicalLabel => &mut graphical.ports,
-                SchematicWireDriverKind::LocalLabel | SchematicWireDriverKind::GlobalLabel => {
-                    &mut graphical.labels
-                }
-                _ => continue,
-            };
-            self.push_graphical_id(bucket, &label.render_id)?;
-        }
-        for pin in pins
-            .iter()
-            .filter(|pin| pin.is_power && pin.reference.starts_with('#'))
-        {
-            self.push_graphical_id(&mut graphical.power_ports, &pin.symbol_uuid)?;
-        }
-        Ok(())
-    }
-
-    fn push_graphical_id(
-        &mut self,
-        bucket: &mut Vec<String>,
-        value: &str,
-    ) -> Result<(), SourceBundleError> {
-        if value.is_empty() || bucket.iter().any(|existing| existing == value) {
-            return Ok(());
-        }
-        self.retain_strings([value])?;
-        bucket.push(value.to_owned());
-        Ok(())
-    }
-
     fn retain_strings<const N: usize>(
         &mut self,
         values: [&str; N],
@@ -866,6 +807,10 @@ impl<'a> OccurrenceBuilder<'a> {
                 .checked_add(value.len())
                 .ok_or_else(|| self.limit_error("connectivity retained string bytes overflow"))
         })?;
+        self.retain_string_bytes(bytes)
+    }
+
+    fn retain_string_bytes(&mut self, bytes: usize) -> Result<(), SourceBundleError> {
         self.retained_string_bytes = self
             .retained_string_bytes
             .checked_add(bytes)

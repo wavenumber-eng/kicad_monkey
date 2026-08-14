@@ -443,7 +443,6 @@ fn merged_driver_clone_bytes_are_preflighted_for_long_fan_in() {
         .expect("fan-in merged subgraph");
     assert_eq!(merged.label_drivers.len(), 1);
     let exact_bytes = exact_merged_driver_bytes(merged);
-
     let exact = SchematicDesignNetLimits {
         max_merged_driver_bytes: exact_bytes,
         ..SchematicDesignNetLimits::default()
@@ -453,7 +452,6 @@ fn merged_driver_clone_bytes_are_preflighted_for_long_fan_in() {
     assert_eq!(design.nets.len(), 1);
     assert_eq!(design.nets[0].name, "/NET");
     assert_eq!(design.nets[0].terminals.len(), symbol_count);
-
     let error = build_schematic_scalar_design_nets(
         &index,
         1,
@@ -466,7 +464,6 @@ fn merged_driver_clone_bytes_are_preflighted_for_long_fan_in() {
     assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
     assert!(error.message.contains("merged design driver bytes"));
 }
-
 fn exact_target_index_shape(index: &SchematicBundleIndex) -> (usize, usize) {
     index
         .occurrences()
@@ -519,7 +516,9 @@ fn exact_merged_driver_bytes(subgraph: &kicad_monkey_core::SchematicWireSubgraph
     let label_strings = subgraph
         .label_drivers
         .iter()
-        .map(|label| label.text.len() + label.shape.len() + label.source_uuid.len())
+        .map(|label| {
+            label.text.len() + label.shape.len() + label.source_uuid.len() + label.render_id.len()
+        })
         .sum::<usize>();
     let selected_choice_strings = "/NET".len() + "/".len() + "NET".len();
     subgraph.pin_drivers.len() * std::mem::size_of::<SchematicPinDriver>()
@@ -903,6 +902,7 @@ fn fan_in_index(symbol_count: usize, reference_bytes: usize) -> SchematicBundleI
                  (property "Value" "One"))"#
         ));
     }
+    let label_id = "L".repeat(reference_bytes);
     let root = format!(
         r#"(kicad_sch
               (uuid fan-in-root)
@@ -910,7 +910,7 @@ fn fan_in_index(symbol_count: usize, reference_bytes: usize) -> SchematicBundleI
                 (symbol "Demo:One"
                   (symbol "Demo:One_1_1"
                     (pin bidirectional line (at 0 0 0) (name "LONG_PIN_NAME") (number "1")))))
-              (label "NET" (at 0 0 0) (uuid fan-in-label))
+              (label "NET" (at 0 0 0) (uuid {label_id}))
               {symbols})"#
     )
     .into_bytes();

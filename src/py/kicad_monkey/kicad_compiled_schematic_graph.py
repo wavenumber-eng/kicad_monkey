@@ -27,6 +27,7 @@ from .kicad_netlist_design import (
     merge_design_nets,
 )
 from .kicad_netlist_model import KiCadDriverKind
+from .kicad_schematic_ids import schematic_sheet_pin_group_id
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .kicad_design import KiCadDesign
@@ -937,8 +938,13 @@ def _add_hierarchy_bindings(
                         child_ports.setdefault(str(driver.name), ref)
         bound_child_refs: set[str] = set()
         for pin in sheet_symbol.pins:
+            pin_id = schematic_sheet_pin_group_id(
+                sheet_uuid=str(sheet_symbol.uuid or ""),
+                pin_name=str(pin.name or ""),
+                source_pin_uuid=str(pin.uuid or ""),
+            )
             parent_ref = terminal_by_source.get(
-                (parent.sheet_path, "sheet_entry", str(pin.uuid or ""))
+                (parent.sheet_path, "sheet_entry", pin_id)
             )
             child_ref = child_ports.get(str(pin.name))
             if not parent_ref or not child_ref:
@@ -960,7 +966,7 @@ def _add_hierarchy_bindings(
                     child_terminal_occurrence_ref=child_ref,
                     source_identity=_source_identity(
                         **{
-                            "sch.source_key.source_uuid": pin.uuid,
+                            "sch.source_key.source_uuid": pin_id,
                             "sch.source_key.source_subobject": pin.name,
                         }
                     ),

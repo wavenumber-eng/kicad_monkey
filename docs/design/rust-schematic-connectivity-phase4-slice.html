@@ -245,7 +245,8 @@
   strings, hierarchy unions and merge keys, drivers per merged net, and temporary
   merged-driver bytes. Before driver vectors are allocated, the compiler computes
   their exact record payload plus every cloned pin/label string and the selected
-  naming record that will coexist with them. A one-over request therefore fails
+  naming record that will coexist with them. Label accounting includes both
+  authored source UUID and deterministic render ID. A one-over request therefore fails
   before fan-in clone allocation. These ceilings default to broad format-safety
   values and remain caller-configurable.</p>
 
@@ -346,6 +347,12 @@
   subgraphs retain their source graphical IDs so terminal and local-net drawing
   links are attributed without reparsing source forms. Rack L3_020 compares the
   complete graph exactly with the Python producer for all four projects.</p>
+
+  <p>Wide synthetic evidence places 2,048 uniquely identified wires in one
+  connected component and proves source-ordered indexed deduplication plus the
+  exact/one-under retained-string boundary. A long UUID-less sheet-pin vector
+  separately proves its generated render ID is charged both when the label
+  driver is retained and when graphical ownership is emitted.</p>
 
   <h2>Deferred work</h2>
   <p>Project-file subpart setting ingestion, schematic mutation, and semantic
