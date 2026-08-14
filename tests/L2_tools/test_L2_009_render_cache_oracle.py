@@ -348,10 +348,13 @@ def _write_footprint_outline_text_board(
     footprint_layer: str = "F.Cu",
     text_layer: str = "F.SilkS",
     justify: str = "left top",
+    text_angle: float = 0.0,
+    unlocked: bool = False,
 ) -> None:
+    unlocked_expr = "\n\t\t\t(unlocked yes)" if unlocked else ""
     if object_kind == "fp_text":
         text_body = f'''\t\t(fp_text user "{text}"
-\t\t\t(at 10 10 0)
+\t\t\t(at 10 10 {text_angle:g}){unlocked_expr}
 \t\t\t(layer "{text_layer}")
 \t\t\t(uuid "11111111-1111-1111-1111-111111111111")
 \t\t\t(effects
@@ -361,7 +364,7 @@ def _write_footprint_outline_text_board(
 \t\t)'''
     elif object_kind == "property":
         text_body = f'''\t\t(property "Label" "{text}"
-\t\t\t(at 10 10 0)
+\t\t\t(at 10 10 {text_angle:g}){unlocked_expr}
 \t\t\t(layer "{text_layer}")
 \t\t\t(uuid "11111111-1111-1111-1111-111111111111")
 \t\t\t(effects
@@ -2047,6 +2050,69 @@ def test_python_render_cache_generator_matches_footprint_text_oracle(
     else:
         request = render_cache_request_for_footprint_text_box(
             footprint.fp_text_boxes[0],
+            footprint,
+            include_text_params=True,
+        )
+
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.parametrize("object_kind", ["fp_text", "property"])
+@pytest.mark.parametrize(
+    ("text_angle", "unlocked", "case_name"),
+    [
+        # Locked footprint text keeps itself upright: the absolute angle is
+        # folded into (-90, 90] in half-turn steps before rendering, and the
+        # oracle cache stores the folded (possibly negative) value.
+        (180.0, False, "locked_half_turn"),
+        (91.0, False, "locked_fold_negative"),
+        # `(unlocked yes)` disables keep-upright: the angle passes through.
+        (180.0, True, "unlocked_half_turn"),
+    ],
+)
+def test_python_render_cache_generator_matches_keep_upright_oracle(
+    tmp_path: Path,
+    object_kind: str,
+    text_angle: float,
+    unlocked: bool,
+    case_name: str,
+):
+    source = tmp_path / f"render_cache_keep_upright_{object_kind}_{case_name}.kicad_pcb"
+    _write_footprint_outline_text_board(
+        source,
+        object_kind,
+        "S",
+        footprint_at=(30.0, 40.0, 30.0),
+        text_angle=text_angle,
+        unlocked=unlocked,
+    )
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / f"oracle_{object_kind}",
+    )
+    pcb = KiCadPcb.from_file(source)
+    footprint = pcb.footprints[0]
+
+    if object_kind == "fp_text":
+        request = render_cache_request_for_footprint_text(
+            footprint.fp_texts[0],
+            footprint,
+            include_text_params=True,
+        )
+    else:
+        request = render_cache_request_for_footprint_property(
+            footprint.properties[0],
             footprint,
             include_text_params=True,
         )

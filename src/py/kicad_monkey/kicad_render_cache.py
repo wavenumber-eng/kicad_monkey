@@ -662,9 +662,9 @@ def render_cache_request_for_footprint_text(
 ) -> RenderCacheRequest:
     """Build a render-cache request for footprint `fp_text`.
 
-    Footprint-local angle exactness is deliberately left unknown until the
-    request builder models flipped footprints and KiCad's property angle
-    normalization.
+    Locked (keep-upright) text folds its absolute angle into (-90, 90] inside
+    `to_text_params` via `keep_upright_draw_angle`; `(unlocked yes)` passes
+    the angle through unchanged.
     """
 
     variables = footprint_text_variables(footprint)
