@@ -12,6 +12,7 @@ pub mod footprint_read_request;
 pub mod footprint_read_result;
 pub mod scan_request;
 pub mod scan_result;
+pub mod source_bundle_manifest;
 pub mod symbol_library_edit_request;
 pub mod symbol_library_edit_result;
 pub mod symbol_library_read_request;

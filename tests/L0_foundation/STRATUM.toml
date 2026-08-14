@@ -198,3 +198,20 @@ secondary = [
     "Project scope normalization and selector precedence are portable across path separators, case, and whitespace",
     "The Python authority rejects missing, invalid, and duplicate identities and emits RFC 4122 UUIDv7 values ready for the native compiler",
 ]
+
+[[subtests]]
+id = "L0_051"
+file = "test_L0_051_source_bundle_contract.py"
+name = "Source Bundle Manifest Contract"
+description = "Require a strict generated multi-file inventory with separate deterministic byte slots"
+concerns = ["contracts", "schematic", "source_bundle"]
+test_cases = "tests/parity/source_bundle_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "TypeSpec owns the named source inventory while file bytes remain out of band"
+secondary = [
+    "Source paths, kinds, byte sizes, and slots have strict generated projections",
+    "Unknown fields and unsupported contract literals fail closed",
+    "The manifest cannot hide base64 or embedded source payloads",
+]

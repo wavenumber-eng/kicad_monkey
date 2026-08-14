@@ -31,6 +31,7 @@ const roots = [
   ["SymbolLibraryReadRequest.json", "SymbolLibraryReadRequestA0", "symbol-library-read-request.ts"],
   ["SymbolLibraryReadResult.json", "SymbolLibraryReadResultA0", "symbol-library-read-result.ts"],
   ["CompiledSchematicGraph.json", "CompiledSchematicGraphA0", "compiled-schematic-graph.ts"],
+  ["SourceBundleManifest.json", "SourceBundleManifestA0", "source-bundle-manifest.ts"],
 ];
 const schemas = new Map();
 for (const [file] of roots) {

@@ -17,6 +17,7 @@ measurement = []
 
 [dependencies]
 kicad-monkey-contracts = { path = "../kicad-monkey-contracts" }
+serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 unicode-casefold.workspace = true

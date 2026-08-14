@@ -1,0 +1,27 @@
+{
+  "manifest": {
+    "schema": "kicad_monkey.source_bundle_manifest.a0",
+    "type": "kicad_monkey.source_bundle_manifest",
+    "version": "a0",
+    "root_schematic_path": "design/root.kicad_sch",
+    "project_path": "design/root.kicad_pro",
+    "sources": [
+      {
+        "path": "design/root.kicad_pro",
+        "kind": "project",
+        "slot": 0,
+        "source_bytes": "2"
+      },
+      {
+        "path": "design/root.kicad_sch",
+        "kind": "schematic",
+        "slot": 1,
+        "source_bytes": "45"
+      }
+    ]
+  },
+  "buffers_utf8": [
+    "{}",
+    "(kicad_sch (version 20250114) (uuid root-id))"
+  ]
+}

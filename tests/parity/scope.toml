@@ -351,3 +351,23 @@ python_symbols = ["validate_compiled_schematic_graph"]
 rust_symbols = ["validate_compiled_schematic_graph", "compiled_graph_validation_gate"]
 rack_cases = ["L0_046", "L3_018"]
 evidence = ["src/rs/kicad-monkey-core/src/compiled_schematic_graph/validation.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_semantics.rs", "src/rs/kicad-monkey-core/examples/compiled_graph_validation_gate.rs", "tests/L3_rendering/test_L3_018_compiled_schematic_graph.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
+
+[[surfaces]]
+id = "schematic.source_bundle_contract"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "review_ready"
+python_symbols = ["SourceBundleManifestA0"]
+rust_symbols = ["SourceBundleManifestA0", "SourceBundle", "SourceBundleLimits"]
+rack_cases = ["L0_046", "L0_049", "L0_051", "L3_020"]
+evidence = ["src/tsp/kicad_monkey/source-bundle-a0.tsp", "contracts/generated/schema/SourceBundleManifest.json", "tests/parity/source_bundle_a0_vectors.json", "src/rs/kicad-monkey-contracts/src/source_bundle_contract.rs", "src/rs/kicad-monkey-core/src/source_bundle.rs", "tests/L0_foundation/test_L0_051_source_bundle_contract.py", "docs/design/rust-source-bundle-phase4-slice.html"]
+
+[[surfaces]]
+id = "schematic.native_hierarchy_foundation"
+disposition = "required"
+wasm = "deferred_native_first"
+status = "review_ready"
+python_symbols = ["KiCadSchematic", "walk_schematic_occurrences"]
+rust_symbols = ["SchematicBundleIndex", "SchematicDefinition", "SchematicSheet", "SchematicOccurrence"]
+rack_cases = ["L3_020"]
+evidence = ["src/rs/kicad-monkey-core/src/schematic_bundle.rs", "src/rs/kicad-monkey-core/tests/schematic_bundle.rs", "src/rs/kicad-monkey-core/examples/schematic_bundle_gate.rs", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "docs/design/rust-source-bundle-phase4-slice.html"]

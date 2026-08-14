@@ -12,9 +12,11 @@ pub mod footprint;
 pub mod pcb;
 pub mod plotter_ir;
 pub mod plotter_types;
+pub mod schematic_bundle;
 pub mod sexpr;
 pub mod sexpr_mutation;
 pub mod sexpr_projection;
+pub mod source_bundle;
 pub mod symbol_library;
 mod symbol_pin;
 pub mod symbol_plotter_ir;
@@ -44,6 +46,13 @@ pub use plotter_types::{
     ArcThreePoint, BezierCurve, FlashPadCircle, FlashPadCustom, FlashPadOval, FlashPadRect,
     FlashPadRoundRect, FlashPadTrapez, PlotterCircle, PlotterFill, PlotterLineStyle,
     PlotterOperation, PlotterPoly, PlotterRect, ThickSegment,
+};
+pub use schematic_bundle::{
+    SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicOccurrence,
+    SchematicSheet,
+};
+pub use source_bundle::{
+    SourceBundle, SourceBundleError, SourceBundleErrorKind, SourceBundleLimits, SourceFile,
 };
 pub use symbol_library::{
     SymbolBooleanField, SymbolLibraryEdit, SymbolLibraryLimits, SymbolLibraryView, SymbolSummary,

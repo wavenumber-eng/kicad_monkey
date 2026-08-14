@@ -427,6 +427,16 @@ ResolutionDiagnostic = Literal["logical_pin_unresolved", "component_occurrence_u
 GraphicalTargetType = Literal["sch.component_occurrence", "sch.hierarchy_occurrence", "sch.terminal_occurrence", "sch.local_net_occurrence", "sch.page_occurrence"]
 
 
+class SourceBundleSource(Struct, forbid_unknown_fields=True, frozen=True):
+    path: str
+    kind: SourceKind
+    slot: int
+    source_bytes: str
+
+
+SourceKind = Literal["project", "schematic", "symbol_library", "symbol_table", "worksheet", "other"]
+
+
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.sexpr_build.request"] = field(name="type")
     version: Literal["a0"]
@@ -626,6 +636,15 @@ class CompiledSchematicGraphA0(Struct, forbid_unknown_fields=True, frozen=True):
     graphical_artifact_links: list[GraphicalArtifactLink]
 
 
+class SourceBundleManifestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad_monkey.source_bundle_manifest.a0"]
+    type_: Literal["kicad_monkey.source_bundle_manifest"] = field(name="type")
+    version: Literal["a0"]
+    root_schematic_path: str
+    sources: list[SourceBundleSource]
+    project_path: str | UnsetType = field(default=UNSET)
+
+
 decode_sexpr_build_request_a0 = msgspec.json.Decoder(SExpressionBuildRequestA0).decode
 decode_sexpr_build_result_a0 = msgspec.json.Decoder(SExpressionBuildResultA0).decode
 decode_sexpr_scan_request_a0 = msgspec.json.Decoder(SExpressionScanRequestA0).decode
@@ -738,6 +757,7 @@ decode_symbol_library_edit_result_a0 = msgspec.json.Decoder(SymbolLibraryEditRes
 decode_symbol_library_read_request_a0 = msgspec.json.Decoder(SymbolLibraryReadRequestA0).decode
 decode_symbol_library_read_result_a0 = msgspec.json.Decoder(SymbolLibraryReadResultA0).decode
 decode_compiled_schematic_graph_a0 = msgspec.json.Decoder(CompiledSchematicGraphA0).decode
+decode_source_bundle_manifest_a0 = msgspec.json.Decoder(SourceBundleManifestA0).decode
 
 
 __all__ = (
@@ -789,6 +809,8 @@ __all__ = (
     "TerminalRole",
     "ResolutionDiagnostic",
     "GraphicalTargetType",
+    "SourceBundleSource",
+    "SourceKind",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",
@@ -808,6 +830,7 @@ __all__ = (
     "SymbolLibraryReadRequestA0",
     "SymbolLibraryReadResultA0",
     "CompiledSchematicGraphA0",
+    "SourceBundleManifestA0",
     "decode_sexpr_build_request_a0",
     "decode_sexpr_build_result_a0",
     "decode_sexpr_scan_request_a0",
@@ -827,6 +850,7 @@ __all__ = (
     "decode_symbol_library_read_request_a0",
     "decode_symbol_library_read_result_a0",
     "decode_compiled_schematic_graph_a0",
+    "decode_source_bundle_manifest_a0",
     "validate_footprint_plot_document_a0",
     "validate_symbol_plot_document_a0",
 )

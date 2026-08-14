@@ -206,3 +206,18 @@ secondary = [
     "Real-world board smoke coverage",
     "Comparison in pcb internal units"
 ]
+[[subtests]]
+id = "L3_020"
+file = "test_L3_020_rust_schematic_bundle.py"
+name = "Rust Schematic Source Bundle"
+description = "Compare native named-source hierarchy realization with Python over the compiled-graph reference projects"
+concerns = ["rust", "schematic", "source_bundle", "hierarchy"]
+test_case_type = "corpus"
+
+[subtests.objectives]
+primary = "Native Rust realizes the same schematic definitions and occurrences from named project bytes"
+secondary = [
+    "Every schematic source is scanned once even when a page is placed repeatedly",
+    "Relative child references and inherited sheet policy are deterministic",
+    "All four compiled-graph reference projects pass through one native process",
+]

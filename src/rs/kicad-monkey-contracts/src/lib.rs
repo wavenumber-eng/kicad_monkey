@@ -8,10 +8,15 @@
 
 mod compiled_graph_contract;
 pub mod generated;
+mod source_bundle_contract;
 
 pub use compiled_graph_contract::{
     CompiledGraphDecodeError, decode_compiled_schematic_graph_a0,
     validate_compiled_schematic_graph_contract,
+};
+pub use source_bundle_contract::{
+    SourceBundleDecodeError, decode_source_bundle_manifest_a0,
+    validate_source_bundle_manifest_contract,
 };
 
 use generated::build_request::{Node, NodeKind, SExpressionBuildRequestA0};
