@@ -1057,7 +1057,7 @@ fn remaining_operations(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum StrokeStyle {
+pub(crate) enum StrokeStyle {
     Default,
     Solid,
     Dash,
@@ -1138,7 +1138,7 @@ fn stroke_pattern(style: StrokeStyle, width_nm: i64) -> Result<(Vec<f64>, usize)
     }
 }
 
-fn decompose_segment(
+pub(crate) fn decompose_segment(
     start_x: i64,
     start_y: i64,
     end_x: i64,
@@ -1192,7 +1192,7 @@ fn decompose_segment(
     Ok(output)
 }
 
-fn decompose_arc(
+pub(crate) fn decompose_arc(
     start: [i64; 2],
     mid: [i64; 2],
     end: [i64; 2],
@@ -1439,7 +1439,7 @@ fn parse_span(source: &str, span: &FormSpan) -> Result<Sexp, Error> {
     parse(span.text(source)?).map_err(|error| rebase_error(error, span))
 }
 
-fn child<'a>(form: &'a Sexp, head: &str) -> Option<&'a Sexp> {
+pub(crate) fn child<'a>(form: &'a Sexp, head: &str) -> Option<&'a Sexp> {
     list(form)?.iter().find(|candidate| {
         list(candidate)
             .and_then(|values| values.first())
@@ -1462,11 +1462,11 @@ fn sexp_text(value: &Sexp) -> Option<&str> {
     }
 }
 
-fn value_at(form: &Sexp, index: usize) -> Option<&str> {
+pub(crate) fn value_at(form: &Sexp, index: usize) -> Option<&str> {
     list(form)?.get(index).and_then(sexp_text)
 }
 
-fn numeric_at(form: &Sexp, index: usize, position: Position) -> Result<f64, Error> {
+pub(crate) fn numeric_at(form: &Sexp, index: usize, position: Position) -> Result<f64, Error> {
     let value = list(form)
         .and_then(|values| values.get(index))
         .ok_or_else(|| model_error("Expected numeric coordinate", position))?;
@@ -1510,7 +1510,7 @@ fn finite_number(value: f64, position: Position) -> Result<f64, Error> {
     }
 }
 
-fn mm_to_nm(value: f64) -> Result<i64, Error> {
+pub(crate) fn mm_to_nm(value: f64) -> Result<i64, Error> {
     let scaled = value * 1_000_000.0;
     if !scaled.is_finite()
         || scaled < JAVASCRIPT_SAFE_INTEGER_MIN as f64
@@ -1524,12 +1524,12 @@ fn mm_to_nm(value: f64) -> Result<i64, Error> {
     Ok(scaled.round_ties_even() as i64)
 }
 
-fn ensure_javascript_safe_integer(value: i64) -> Result<i64, Error> {
+pub(crate) fn ensure_javascript_safe_integer(value: i64) -> Result<i64, Error> {
     if (JAVASCRIPT_SAFE_INTEGER_MIN..=JAVASCRIPT_SAFE_INTEGER_MAX).contains(&value) {
         Ok(value)
     } else {
         Err(model_error(
-            "Footprint version exceeds JavaScript safe-integer range",
+            "Document version exceeds JavaScript safe-integer range",
             Position::START,
         ))
     }
@@ -1572,7 +1572,7 @@ fn rebase_error(mut error: Error, span: &FormSpan) -> Error {
     error
 }
 
-fn model_error(message: &'static str, position: Position) -> Error {
+pub(crate) fn model_error(message: &'static str, position: Position) -> Error {
     Error::at(
         ErrorPhase::Tree,
         ErrorKind::UnexpectedToken,

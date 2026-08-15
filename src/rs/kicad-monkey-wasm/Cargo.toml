@@ -16,10 +16,11 @@ crate-type = ["cdylib", "rlib"]
 workspace = true
 
 [features]
-default = ["sexpr", "footprint", "symbol"]
+default = ["sexpr", "footprint", "symbol", "board"]
 sexpr = []
 footprint = []
 symbol = []
+board = []
 
 [dependencies]
 kicad-monkey-contracts = { path = "../kicad-monkey-contracts" }

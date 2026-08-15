@@ -1,5 +1,8 @@
 //! TypeSpec-generated modules. Regenerate; do not edit module contents.
 
+pub mod board_plot_document;
+pub mod board_plot_request;
+pub mod board_plot_result;
 pub mod build_request;
 pub mod build_result;
 pub mod compiled_schematic_graph;

@@ -6,6 +6,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod board_plotter_ir;
 pub mod compiled_schematic_graph;
 pub mod document_metadata;
 mod fake_style;
@@ -48,6 +49,9 @@ pub mod text_topology;
 pub mod worksheet;
 mod worksheet_preflight;
 
+pub use board_plotter_ir::{
+    BoardPlotDocument, BoardPlotLimits, BoardPlotRecord, BoardPlotRecordKind, board_plot_document,
+};
 pub use compiled_schematic_graph::{
     CompiledGraphIdentityAllocator, CompiledGraphIdentityError, CompiledSchematicGraphLimits,
     IdentityMapping, build_compiled_schematic_graph, compiled_schematic_graph_design_scope,

@@ -11,7 +11,10 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use typify::{TypeSpace, TypeSpaceSettings};
 
-const SCHEMAS: [(&str, &str); 24] = [
+const SCHEMAS: [(&str, &str); 27] = [
+    ("BoardPlotDocument.json", "board_plot_document.rs"),
+    ("BoardPlotRequest.json", "board_plot_request.rs"),
+    ("BoardPlotResult.json", "board_plot_result.rs"),
     ("BuildRequest.json", "build_request.rs"),
     ("BuildResult.json", "build_result.rs"),
     ("ScanRequest.json", "scan_request.rs"),

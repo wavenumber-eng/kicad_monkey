@@ -23,6 +23,9 @@ const roots = [
   ["FootprintPlotDocument.json", "FootprintPlotDocumentA0", "footprint-plot-document.ts"],
   ["FootprintPlotRequest.json", "FootprintPlotRequestA0", "footprint-plot-request.ts"],
   ["FootprintPlotResult.json", "FootprintPlotResultA0", "footprint-plot-result.ts"],
+  ["BoardPlotDocument.json", "BoardPlotDocumentA0", "board-plot-document.ts"],
+  ["BoardPlotRequest.json", "BoardPlotRequestA0", "board-plot-request.ts"],
+  ["BoardPlotResult.json", "BoardPlotResultA0", "board-plot-result.ts"],
   ["SymbolPlotDocument.json", "SymbolPlotDocumentA0", "symbol-plot-document.ts"],
   ["SymbolPlotRequest.json", "SymbolPlotRequestA0", "symbol-plot-request.ts"],
   ["SymbolPlotResult.json", "SymbolPlotResultA0", "symbol-plot-result.ts"],
@@ -615,6 +618,12 @@ function renderPythonDeclaration(name, schema, tag = undefined) {
 function pythonType(schema) {
   if (typeof schema.$ref === "string") return schema.$ref.split("/").at(-1);
   if ("const" in schema) return `Literal[${pythonLiteral(schema.const)}]`;
+  if (Array.isArray(schema.anyOf) && Object.keys(schema).length === 1) {
+    const nullArm = schema.anyOf.findIndex((arm) => arm?.type === "null");
+    if (nullArm !== -1 && schema.anyOf.length === 2) {
+      return `${pythonType(schema.anyOf[1 - nullArm])} | None`;
+    }
+  }
   if (schema.type === "string") {
     const constraints = [];
     if (typeof schema.pattern === "string") {

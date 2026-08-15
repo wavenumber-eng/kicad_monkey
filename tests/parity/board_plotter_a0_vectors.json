@@ -1,0 +1,2920 @@
+{
+ "schema": "kicad_monkey.board_plotter_parity.a0",
+ "vectors": [
+  {
+   "id": "board-metadata-and-category-ordered-graphics",
+   "source": "(kicad_pcb\n  (version 20240108)\n  (generator pcbnew)\n  (generator_version \"8.0\")\n  (general (thickness 2.4))\n  (paper \"A3\")\n  (gr_curve (pts (xy 0 0) (xy 0.5 1) (xy 1.5 1) (xy 2 1)) (stroke (width 0.12) (type solid)) (layer \"F.SilkS\") (uuid \"curve-uuid\"))\n  (gr_poly (pts (xy 0 0) (xy 2 0) (xy 1 1.5)) (stroke (width 0.1) (type solid)) (fill solid) (layer \"B.Fab\") (uuid \"poly-uuid\"))\n  (gr_rect (start -2 -1) (end -1 1) (stroke (width 0.05) (type solid)) (fill no) (layer \"F.Fab\") (uuid \"rect-uuid\"))\n  (gr_circle (center 2 2) (end 2 3.5) (stroke (width 0.15) (type solid)) (fill yes) (layer \"B.SilkS\") (uuid \"circle-uuid\"))\n  (gr_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.1) (type solid)) (layer \"F.SilkS\") (uuid \"arc-uuid\"))\n  (gr_line (start 0 0) (end 1.5 -2) (stroke (width 0.2) (type solid)) (layer \"Edge.Cuts\") (uuid \"line-uuid\")))",
+   "source_path": "mixed.kicad_pcb",
+   "document_id": "fixture-mixed",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "PCB",
+    "total_operations": 6,
+    "records": [
+     {
+      "uuid": "line-uuid",
+      "kind": "gr_line",
+      "object_id": "gr_line",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 0,
+        "end_x": 1500000,
+        "end_y": -2000000,
+        "width_nm": 200000
+       }
+      ],
+      "layer": "Edge.Cuts"
+     },
+     {
+      "uuid": "arc-uuid",
+      "kind": "gr_arc",
+      "object_id": "gr_arc",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "ArcThreePoint",
+        "index": 0,
+        "start_x": 1000000,
+        "start_y": 0,
+        "mid_x": 0,
+        "mid_y": 1000000,
+        "end_x": -1000000,
+        "end_y": 0,
+        "fill": "NO_FILL",
+        "width_nm": 100000
+       }
+      ],
+      "layer": "F.SilkS"
+     },
+     {
+      "uuid": "circle-uuid",
+      "kind": "gr_circle",
+      "object_id": "gr_circle",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Circle",
+        "index": 0,
+        "cx": 2000000,
+        "cy": 2000000,
+        "diameter_nm": 3000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 150000
+       }
+      ],
+      "layer": "B.SilkS"
+     },
+     {
+      "uuid": "rect-uuid",
+      "kind": "gr_rect",
+      "object_id": "gr_rect",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": -2000000,
+        "y1": -1000000,
+        "x2": -1000000,
+        "y2": 1000000,
+        "fill": "NO_FILL",
+        "width_nm": 50000,
+        "corner_radius_nm": 0
+       }
+      ],
+      "layer": "F.Fab"
+     },
+     {
+      "uuid": "poly-uuid",
+      "kind": "gr_poly",
+      "object_id": "gr_poly",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          0,
+          0
+         ],
+         [
+          2000000,
+          0
+         ],
+         [
+          1000000,
+          1500000
+         ]
+        ],
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100000
+       }
+      ],
+      "layer": "B.Fab"
+     },
+     {
+      "uuid": "curve-uuid",
+      "kind": "gr_curve",
+      "object_id": "gr_curve",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "BezierCurve",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 0,
+        "ctrl1_x": 500000,
+        "ctrl1_y": 1000000,
+        "ctrl2_x": 1500000,
+        "ctrl2_y": 1000000,
+        "end_x": 2000000,
+        "end_y": 1000000,
+        "tolerance_nm": 0,
+        "width_nm": 120000
+       }
+      ],
+      "layer": "F.SilkS"
+     }
+    ],
+    "source_path": "mixed.kicad_pcb",
+    "document_id": "fixture-mixed",
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    },
+    "version": 20240108,
+    "generator": "pcbnew",
+    "generator_version": "8.0",
+    "thickness_mm": 2.4,
+    "paper": "A3"
+   }
+  },
+  {
+   "id": "python-defaults-and-unclamped-stroke-widths",
+   "source": "(kicad_pcb\n  (gr_line (start 0 0) (end 1 0) (stroke (width 0.05) (type solid)))\n  (gr_line (start 0 1) (end 1 1) (stroke (type solid)))\n  (gr_line (start 0 2) (end 1 2) (width 0.3))\n  (gr_line (start 0 3) (end 1 3) (width 0.3) (stroke (type solid))))",
+   "source_path": "defaults.kicad_pcb",
+   "document_id": "fixture-defaults",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "PCB",
+    "total_operations": 4,
+    "records": [
+     {
+      "uuid": "",
+      "kind": "gr_line",
+      "object_id": "gr_line",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 0,
+        "end_x": 1000000,
+        "end_y": 0,
+        "width_nm": 50000
+       }
+      ],
+      "layer": "Edge.Cuts"
+     },
+     {
+      "uuid": "",
+      "kind": "gr_line",
+      "object_id": "gr_line",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 1000000,
+        "end_x": 1000000,
+        "end_y": 1000000,
+        "width_nm": 0
+       }
+      ],
+      "layer": "Edge.Cuts"
+     },
+     {
+      "uuid": "",
+      "kind": "gr_line",
+      "object_id": "gr_line",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 2000000,
+        "end_x": 1000000,
+        "end_y": 2000000,
+        "width_nm": 300000
+       }
+      ],
+      "layer": "Edge.Cuts"
+     },
+     {
+      "uuid": "",
+      "kind": "gr_line",
+      "object_id": "gr_line",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 3000000,
+        "end_x": 1000000,
+        "end_y": 3000000,
+        "width_nm": 0
+       }
+      ],
+      "layer": "Edge.Cuts"
+     }
+    ],
+    "source_path": "defaults.kicad_pcb",
+    "document_id": "fixture-defaults",
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    },
+    "version": 20260206,
+    "generator": "pcbnew",
+    "generator_version": "10.0",
+    "thickness_mm": 1.6,
+    "paper": "A4"
+   }
+  },
+  {
+   "id": "patterned-stroke-decomposition",
+   "source": "(kicad_pcb\n  (version 20240108)\n  (general (thickness 1.2))\n  (gr_line (start 0 0) (end 1.5 -2) (stroke (width 0.2) (type dash)) (layer \"Edge.Cuts\") (uuid \"dash-line\"))\n  (gr_line (start 0 1) (end 2 1) (stroke (width 0.1) (type dot)) (uuid \"dot-line\"))\n  (gr_line (start 0 2) (end 2 2) (stroke (width 0.1) (type dash_dot)) (uuid \"dash-dot-line\"))\n  (gr_line (start 0 3) (end 2 3) (stroke (width 0.1) (type dash_dot_dot)) (uuid \"dash-dot-dot-line\"))\n  (gr_arc (start 1 0) (mid 0 1) (end -1 0) (stroke (width 0.1) (type dash)) (uuid \"dash-arc\")))",
+   "source_path": "patterned.kicad_pcb",
+   "document_id": "fixture-patterned",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "PCB",
+    "total_operations": 283,
+    "records": [
+     {
+      "uuid": "dash-line",
+      "kind": "gr_line",
+      "object_id": "gr_line",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 0,
+        "end_x": 1320000,
+        "end_y": -1760000,
+        "width_nm": 200000
+       }
+      ],
+      "layer": "Edge.Cuts"
+     },
+     {
+      "uuid": "dot-line",
+      "kind": "gr_line",
+      "object_id": "gr_line",
+      "operation_count": 5,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 1000000,
+        "end_x": 20000,
+        "end_y": 1000000,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 1,
+        "start_x": 420000,
+        "start_y": 1000000,
+        "end_x": 440000,
+        "end_y": 1000000,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 2,
+        "start_x": 840000,
+        "start_y": 1000000,
+        "end_x": 860000,
+        "end_y": 1000000,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 3,
+        "start_x": 1260000,
+        "start_y": 1000000,
+        "end_x": 1280000,
+        "end_y": 1000000,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 4,
+        "start_x": 1680000,
+        "start_y": 1000000,
+        "end_x": 1700000,
+        "end_y": 1000000,
+        "width_nm": 100000
+       }
+      ],
+      "layer": "Edge.Cuts"
+     },
+     {
+      "uuid": "dash-dot-line",
+      "kind": "gr_line",
+      "object_id": "gr_line",
+      "operation_count": 3,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 2000000,
+        "end_x": 1100000,
+        "end_y": 2000000,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 1,
+        "start_x": 1500000,
+        "start_y": 2000000,
+        "end_x": 1520000,
+        "end_y": 2000000,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 2,
+        "start_x": 1920000,
+        "start_y": 2000000,
+        "end_x": 2000000,
+        "end_y": 2000000,
+        "width_nm": 100000
+       }
+      ],
+      "layer": "Edge.Cuts"
+     },
+     {
+      "uuid": "dash-dot-dot-line",
+      "kind": "gr_line",
+      "object_id": "gr_line",
+      "operation_count": 3,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 3000000,
+        "end_x": 1100000,
+        "end_y": 3000000,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 1,
+        "start_x": 1500000,
+        "start_y": 3000000,
+        "end_x": 1520000,
+        "end_y": 3000000,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 2,
+        "start_x": 1920000,
+        "start_y": 3000000,
+        "end_x": 1940000,
+        "end_y": 3000000,
+        "width_nm": 100000
+       }
+      ],
+      "layer": "Edge.Cuts"
+     },
+     {
+      "uuid": "dash-arc",
+      "kind": "gr_arc",
+      "object_id": "gr_arc",
+      "operation_count": 271,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 1000000,
+        "start_y": 0,
+        "end_x": 999962,
+        "end_y": 8727,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 1,
+        "start_x": 999962,
+        "start_y": 8727,
+        "end_x": 999848,
+        "end_y": 17452,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 2,
+        "start_x": 999848,
+        "start_y": 17452,
+        "end_x": 999657,
+        "end_y": 26177,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 3,
+        "start_x": 999657,
+        "start_y": 26177,
+        "end_x": 999391,
+        "end_y": 34899,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 4,
+        "start_x": 999391,
+        "start_y": 34899,
+        "end_x": 999048,
+        "end_y": 43619,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 5,
+        "start_x": 999048,
+        "start_y": 43619,
+        "end_x": 998630,
+        "end_y": 52336,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 6,
+        "start_x": 998630,
+        "start_y": 52336,
+        "end_x": 998135,
+        "end_y": 61049,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 7,
+        "start_x": 998135,
+        "start_y": 61049,
+        "end_x": 997564,
+        "end_y": 69756,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 8,
+        "start_x": 997564,
+        "start_y": 69756,
+        "end_x": 996917,
+        "end_y": 78459,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 9,
+        "start_x": 996917,
+        "start_y": 78459,
+        "end_x": 996195,
+        "end_y": 87156,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 10,
+        "start_x": 996195,
+        "start_y": 87156,
+        "end_x": 995396,
+        "end_y": 95846,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 11,
+        "start_x": 995396,
+        "start_y": 95846,
+        "end_x": 994522,
+        "end_y": 104528,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 12,
+        "start_x": 994522,
+        "start_y": 104528,
+        "end_x": 993572,
+        "end_y": 113203,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 13,
+        "start_x": 993572,
+        "start_y": 113203,
+        "end_x": 992546,
+        "end_y": 121869,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 14,
+        "start_x": 992546,
+        "start_y": 121869,
+        "end_x": 991445,
+        "end_y": 130526,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 15,
+        "start_x": 991445,
+        "start_y": 130526,
+        "end_x": 990268,
+        "end_y": 139173,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 16,
+        "start_x": 990268,
+        "start_y": 139173,
+        "end_x": 989016,
+        "end_y": 147809,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 17,
+        "start_x": 989016,
+        "start_y": 147809,
+        "end_x": 987688,
+        "end_y": 156434,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 18,
+        "start_x": 987688,
+        "start_y": 156434,
+        "end_x": 986286,
+        "end_y": 165048,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 19,
+        "start_x": 986286,
+        "start_y": 165048,
+        "end_x": 984808,
+        "end_y": 173648,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 20,
+        "start_x": 984808,
+        "start_y": 173648,
+        "end_x": 983255,
+        "end_y": 182236,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 21,
+        "start_x": 983255,
+        "start_y": 182236,
+        "end_x": 981627,
+        "end_y": 190809,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 22,
+        "start_x": 981627,
+        "start_y": 190809,
+        "end_x": 979925,
+        "end_y": 199368,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 23,
+        "start_x": 979925,
+        "start_y": 199368,
+        "end_x": 978148,
+        "end_y": 207912,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 24,
+        "start_x": 978148,
+        "start_y": 207912,
+        "end_x": 976296,
+        "end_y": 216440,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 25,
+        "start_x": 976296,
+        "start_y": 216440,
+        "end_x": 974370,
+        "end_y": 224951,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 26,
+        "start_x": 974370,
+        "start_y": 224951,
+        "end_x": 972370,
+        "end_y": 233445,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 27,
+        "start_x": 972370,
+        "start_y": 233445,
+        "end_x": 970296,
+        "end_y": 241922,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 28,
+        "start_x": 970296,
+        "start_y": 241922,
+        "end_x": 968148,
+        "end_y": 250380,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 29,
+        "start_x": 968148,
+        "start_y": 250380,
+        "end_x": 965926,
+        "end_y": 258819,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 30,
+        "start_x": 965926,
+        "start_y": 258819,
+        "end_x": 963630,
+        "end_y": 267238,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 31,
+        "start_x": 963630,
+        "start_y": 267238,
+        "end_x": 961262,
+        "end_y": 275637,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 32,
+        "start_x": 961262,
+        "start_y": 275637,
+        "end_x": 958820,
+        "end_y": 284015,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 33,
+        "start_x": 958820,
+        "start_y": 284015,
+        "end_x": 956305,
+        "end_y": 292372,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 34,
+        "start_x": 956305,
+        "start_y": 292372,
+        "end_x": 953717,
+        "end_y": 300706,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 35,
+        "start_x": 953717,
+        "start_y": 300706,
+        "end_x": 951057,
+        "end_y": 309017,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 36,
+        "start_x": 951057,
+        "start_y": 309017,
+        "end_x": 948324,
+        "end_y": 317305,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 37,
+        "start_x": 948324,
+        "start_y": 317305,
+        "end_x": 945519,
+        "end_y": 325568,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 38,
+        "start_x": 945519,
+        "start_y": 325568,
+        "end_x": 942641,
+        "end_y": 333807,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 39,
+        "start_x": 942641,
+        "start_y": 333807,
+        "end_x": 939693,
+        "end_y": 342020,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 40,
+        "start_x": 939693,
+        "start_y": 342020,
+        "end_x": 936672,
+        "end_y": 350207,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 41,
+        "start_x": 936672,
+        "start_y": 350207,
+        "end_x": 933580,
+        "end_y": 358368,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 42,
+        "start_x": 933580,
+        "start_y": 358368,
+        "end_x": 930418,
+        "end_y": 366501,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 43,
+        "start_x": 930418,
+        "start_y": 366501,
+        "end_x": 927184,
+        "end_y": 374607,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 44,
+        "start_x": 927184,
+        "start_y": 374607,
+        "end_x": 923880,
+        "end_y": 382683,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 45,
+        "start_x": 923880,
+        "start_y": 382683,
+        "end_x": 920505,
+        "end_y": 390731,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 46,
+        "start_x": 920505,
+        "start_y": 390731,
+        "end_x": 917060,
+        "end_y": 398749,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 47,
+        "start_x": 917060,
+        "start_y": 398749,
+        "end_x": 913545,
+        "end_y": 406737,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 48,
+        "start_x": 913545,
+        "start_y": 406737,
+        "end_x": 909961,
+        "end_y": 414693,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 49,
+        "start_x": 909961,
+        "start_y": 414693,
+        "end_x": 906308,
+        "end_y": 422618,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 50,
+        "start_x": 906308,
+        "start_y": 422618,
+        "end_x": 902585,
+        "end_y": 430511,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 51,
+        "start_x": 902585,
+        "start_y": 430511,
+        "end_x": 898794,
+        "end_y": 438371,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 52,
+        "start_x": 898794,
+        "start_y": 438371,
+        "end_x": 894934,
+        "end_y": 446198,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 53,
+        "start_x": 894934,
+        "start_y": 446198,
+        "end_x": 891007,
+        "end_y": 453990,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 54,
+        "start_x": 891007,
+        "start_y": 453990,
+        "end_x": 887011,
+        "end_y": 461749,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 55,
+        "start_x": 887011,
+        "start_y": 461749,
+        "end_x": 882948,
+        "end_y": 469472,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 56,
+        "start_x": 882948,
+        "start_y": 469472,
+        "end_x": 878817,
+        "end_y": 477159,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 57,
+        "start_x": 878817,
+        "start_y": 477159,
+        "end_x": 874620,
+        "end_y": 484810,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 58,
+        "start_x": 874620,
+        "start_y": 484810,
+        "end_x": 870356,
+        "end_y": 492424,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 59,
+        "start_x": 870356,
+        "start_y": 492424,
+        "end_x": 866025,
+        "end_y": 500000,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 60,
+        "start_x": 866025,
+        "start_y": 500000,
+        "end_x": 861629,
+        "end_y": 507538,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 61,
+        "start_x": 861629,
+        "start_y": 507538,
+        "end_x": 857167,
+        "end_y": 515038,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 62,
+        "start_x": 857167,
+        "start_y": 515038,
+        "end_x": 852640,
+        "end_y": 522499,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 63,
+        "start_x": 852640,
+        "start_y": 522499,
+        "end_x": 848048,
+        "end_y": 529919,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 64,
+        "start_x": 848048,
+        "start_y": 529919,
+        "end_x": 843391,
+        "end_y": 537300,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 65,
+        "start_x": 843391,
+        "start_y": 537300,
+        "end_x": 838671,
+        "end_y": 544639,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 66,
+        "start_x": 838671,
+        "start_y": 544639,
+        "end_x": 833886,
+        "end_y": 551937,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 67,
+        "start_x": 833886,
+        "start_y": 551937,
+        "end_x": 829038,
+        "end_y": 559193,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 68,
+        "start_x": 829038,
+        "start_y": 559193,
+        "end_x": 824126,
+        "end_y": 566406,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 69,
+        "start_x": 824126,
+        "start_y": 566406,
+        "end_x": 819152,
+        "end_y": 573576,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 70,
+        "start_x": 819152,
+        "start_y": 573576,
+        "end_x": 814116,
+        "end_y": 580703,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 71,
+        "start_x": 814116,
+        "start_y": 580703,
+        "end_x": 809017,
+        "end_y": 587785,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 72,
+        "start_x": 809017,
+        "start_y": 587785,
+        "end_x": 803857,
+        "end_y": 594823,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 73,
+        "start_x": 803857,
+        "start_y": 594823,
+        "end_x": 798636,
+        "end_y": 601815,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 74,
+        "start_x": 798636,
+        "start_y": 601815,
+        "end_x": 793353,
+        "end_y": 608761,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 75,
+        "start_x": 793353,
+        "start_y": 608761,
+        "end_x": 788011,
+        "end_y": 615661,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 76,
+        "start_x": 788011,
+        "start_y": 615661,
+        "end_x": 782608,
+        "end_y": 622515,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 77,
+        "start_x": 782608,
+        "start_y": 622515,
+        "end_x": 777146,
+        "end_y": 629320,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 78,
+        "start_x": 777146,
+        "start_y": 629320,
+        "end_x": 771625,
+        "end_y": 636078,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 79,
+        "start_x": 771625,
+        "start_y": 636078,
+        "end_x": 766044,
+        "end_y": 642788,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 80,
+        "start_x": 766044,
+        "start_y": 642788,
+        "end_x": 760406,
+        "end_y": 649448,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 81,
+        "start_x": 760406,
+        "start_y": 649448,
+        "end_x": 754710,
+        "end_y": 656059,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 82,
+        "start_x": 754710,
+        "start_y": 656059,
+        "end_x": 748956,
+        "end_y": 662620,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 83,
+        "start_x": 748956,
+        "start_y": 662620,
+        "end_x": 743145,
+        "end_y": 669131,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 84,
+        "start_x": 743145,
+        "start_y": 669131,
+        "end_x": 737277,
+        "end_y": 675590,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 85,
+        "start_x": 737277,
+        "start_y": 675590,
+        "end_x": 731354,
+        "end_y": 681998,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 86,
+        "start_x": 731354,
+        "start_y": 681998,
+        "end_x": 725374,
+        "end_y": 688355,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 87,
+        "start_x": 725374,
+        "start_y": 688355,
+        "end_x": 719340,
+        "end_y": 694658,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 88,
+        "start_x": 719340,
+        "start_y": 694658,
+        "end_x": 713250,
+        "end_y": 700909,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 89,
+        "start_x": 713250,
+        "start_y": 700909,
+        "end_x": 707107,
+        "end_y": 707107,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 90,
+        "start_x": 707107,
+        "start_y": 707107,
+        "end_x": 700909,
+        "end_y": 713250,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 91,
+        "start_x": 700909,
+        "start_y": 713250,
+        "end_x": 694658,
+        "end_y": 719340,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 92,
+        "start_x": 694658,
+        "start_y": 719340,
+        "end_x": 688355,
+        "end_y": 725374,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 93,
+        "start_x": 688355,
+        "start_y": 725374,
+        "end_x": 681998,
+        "end_y": 731354,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 94,
+        "start_x": 681998,
+        "start_y": 731354,
+        "end_x": 675590,
+        "end_y": 737277,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 95,
+        "start_x": 675590,
+        "start_y": 737277,
+        "end_x": 669131,
+        "end_y": 743145,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 96,
+        "start_x": 669131,
+        "start_y": 743145,
+        "end_x": 662620,
+        "end_y": 748956,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 97,
+        "start_x": 662620,
+        "start_y": 748956,
+        "end_x": 656059,
+        "end_y": 754710,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 98,
+        "start_x": 656059,
+        "start_y": 754710,
+        "end_x": 649448,
+        "end_y": 760406,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 99,
+        "start_x": 649448,
+        "start_y": 760406,
+        "end_x": 642788,
+        "end_y": 766044,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 100,
+        "start_x": 642788,
+        "start_y": 766044,
+        "end_x": 636078,
+        "end_y": 771625,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 101,
+        "start_x": 636078,
+        "start_y": 771625,
+        "end_x": 629320,
+        "end_y": 777146,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 102,
+        "start_x": 629320,
+        "start_y": 777146,
+        "end_x": 622515,
+        "end_y": 782608,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 103,
+        "start_x": 622515,
+        "start_y": 782608,
+        "end_x": 615661,
+        "end_y": 788011,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 104,
+        "start_x": 615661,
+        "start_y": 788011,
+        "end_x": 608761,
+        "end_y": 793353,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 105,
+        "start_x": 608761,
+        "start_y": 793353,
+        "end_x": 601815,
+        "end_y": 798636,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 106,
+        "start_x": 601815,
+        "start_y": 798636,
+        "end_x": 594823,
+        "end_y": 803857,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 107,
+        "start_x": 594823,
+        "start_y": 803857,
+        "end_x": 587785,
+        "end_y": 809017,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 108,
+        "start_x": 587785,
+        "start_y": 809017,
+        "end_x": 580703,
+        "end_y": 814116,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 109,
+        "start_x": 580703,
+        "start_y": 814116,
+        "end_x": 573576,
+        "end_y": 819152,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 110,
+        "start_x": 573576,
+        "start_y": 819152,
+        "end_x": 566406,
+        "end_y": 824126,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 111,
+        "start_x": 566406,
+        "start_y": 824126,
+        "end_x": 559193,
+        "end_y": 829038,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 112,
+        "start_x": 559193,
+        "start_y": 829038,
+        "end_x": 551937,
+        "end_y": 833886,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 113,
+        "start_x": 551937,
+        "start_y": 833886,
+        "end_x": 544639,
+        "end_y": 838671,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 114,
+        "start_x": 544639,
+        "start_y": 838671,
+        "end_x": 537300,
+        "end_y": 843391,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 115,
+        "start_x": 537300,
+        "start_y": 843391,
+        "end_x": 529919,
+        "end_y": 848048,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 116,
+        "start_x": 529919,
+        "start_y": 848048,
+        "end_x": 522499,
+        "end_y": 852640,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 117,
+        "start_x": 522499,
+        "start_y": 852640,
+        "end_x": 515038,
+        "end_y": 857167,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 118,
+        "start_x": 515038,
+        "start_y": 857167,
+        "end_x": 507538,
+        "end_y": 861629,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 119,
+        "start_x": 507538,
+        "start_y": 861629,
+        "end_x": 500000,
+        "end_y": 866025,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 120,
+        "start_x": 500000,
+        "start_y": 866025,
+        "end_x": 492424,
+        "end_y": 870356,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 121,
+        "start_x": 492424,
+        "start_y": 870356,
+        "end_x": 484810,
+        "end_y": 874620,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 122,
+        "start_x": 484810,
+        "start_y": 874620,
+        "end_x": 477159,
+        "end_y": 878817,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 123,
+        "start_x": 477159,
+        "start_y": 878817,
+        "end_x": 469472,
+        "end_y": 882948,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 124,
+        "start_x": 469472,
+        "start_y": 882948,
+        "end_x": 461749,
+        "end_y": 887011,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 125,
+        "start_x": 461749,
+        "start_y": 887011,
+        "end_x": 453990,
+        "end_y": 891007,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 126,
+        "start_x": 453990,
+        "start_y": 891007,
+        "end_x": 453596,
+        "end_y": 891207,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 127,
+        "start_x": 70737,
+        "start_y": 997495,
+        "end_x": 62030,
+        "end_y": 998074,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 128,
+        "start_x": 62030,
+        "start_y": 998074,
+        "end_x": 53318,
+        "end_y": 998578,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 129,
+        "start_x": 53318,
+        "start_y": 998578,
+        "end_x": 44602,
+        "end_y": 999005,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 130,
+        "start_x": 44602,
+        "start_y": 999005,
+        "end_x": 35882,
+        "end_y": 999356,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 131,
+        "start_x": 35882,
+        "start_y": 999356,
+        "end_x": 27160,
+        "end_y": 999631,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 132,
+        "start_x": 27160,
+        "start_y": 999631,
+        "end_x": 18435,
+        "end_y": 999830,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 133,
+        "start_x": 18435,
+        "start_y": 999830,
+        "end_x": 9710,
+        "end_y": 999953,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 134,
+        "start_x": 9710,
+        "start_y": 999953,
+        "end_x": 983,
+        "end_y": 1000000,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 135,
+        "start_x": 983,
+        "start_y": 1000000,
+        "end_x": -7743,
+        "end_y": 999970,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 136,
+        "start_x": -7743,
+        "start_y": 999970,
+        "end_x": -16469,
+        "end_y": 999864,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 137,
+        "start_x": -16469,
+        "start_y": 999864,
+        "end_x": -25194,
+        "end_y": 999683,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 138,
+        "start_x": -25194,
+        "start_y": 999683,
+        "end_x": -33917,
+        "end_y": 999425,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 139,
+        "start_x": -33917,
+        "start_y": 999425,
+        "end_x": -42637,
+        "end_y": 999091,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 140,
+        "start_x": -42637,
+        "start_y": 999091,
+        "end_x": -51354,
+        "end_y": 998681,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 141,
+        "start_x": -51354,
+        "start_y": 998681,
+        "end_x": -60067,
+        "end_y": 998194,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 142,
+        "start_x": -60067,
+        "start_y": 998194,
+        "end_x": -68776,
+        "end_y": 997632,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 143,
+        "start_x": -68776,
+        "start_y": 997632,
+        "end_x": -77479,
+        "end_y": 996994,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 144,
+        "start_x": -77479,
+        "start_y": 996994,
+        "end_x": -86176,
+        "end_y": 996280,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 145,
+        "start_x": -86176,
+        "start_y": 996280,
+        "end_x": -94867,
+        "end_y": 995490,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 146,
+        "start_x": -94867,
+        "start_y": 995490,
+        "end_x": -103551,
+        "end_y": 994624,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 147,
+        "start_x": -103551,
+        "start_y": 994624,
+        "end_x": -112226,
+        "end_y": 993683,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 148,
+        "start_x": -112226,
+        "start_y": 993683,
+        "end_x": -120893,
+        "end_y": 992665,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 149,
+        "start_x": -120893,
+        "start_y": 992665,
+        "end_x": -129551,
+        "end_y": 991573,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 150,
+        "start_x": -129551,
+        "start_y": 991573,
+        "end_x": -138199,
+        "end_y": 990404,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 151,
+        "start_x": -138199,
+        "start_y": 990404,
+        "end_x": -146837,
+        "end_y": 989161,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 152,
+        "start_x": -146837,
+        "start_y": 989161,
+        "end_x": -155463,
+        "end_y": 987842,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 153,
+        "start_x": -155463,
+        "start_y": 987842,
+        "end_x": -164078,
+        "end_y": 986447,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 154,
+        "start_x": -164078,
+        "start_y": 986447,
+        "end_x": -172680,
+        "end_y": 984978,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 155,
+        "start_x": -172680,
+        "start_y": 984978,
+        "end_x": -181269,
+        "end_y": 983434,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 156,
+        "start_x": -181269,
+        "start_y": 983434,
+        "end_x": -189844,
+        "end_y": 981814,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 157,
+        "start_x": -189844,
+        "start_y": 981814,
+        "end_x": -198404,
+        "end_y": 980120,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 158,
+        "start_x": -198404,
+        "start_y": 980120,
+        "end_x": -206950,
+        "end_y": 978352,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 159,
+        "start_x": -206950,
+        "start_y": 978352,
+        "end_x": -215480,
+        "end_y": 976508,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 160,
+        "start_x": -215480,
+        "start_y": 976508,
+        "end_x": -223993,
+        "end_y": 974591,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 161,
+        "start_x": -223993,
+        "start_y": 974591,
+        "end_x": -232489,
+        "end_y": 972599,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 162,
+        "start_x": -232489,
+        "start_y": 972599,
+        "end_x": -240968,
+        "end_y": 970533,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 163,
+        "start_x": -240968,
+        "start_y": 970533,
+        "end_x": -249428,
+        "end_y": 968393,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 164,
+        "start_x": -249428,
+        "start_y": 968393,
+        "end_x": -257869,
+        "end_y": 966180,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 165,
+        "start_x": -257869,
+        "start_y": 966180,
+        "end_x": -266291,
+        "end_y": 963893,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 166,
+        "start_x": -266291,
+        "start_y": 963893,
+        "end_x": -274692,
+        "end_y": 961532,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 167,
+        "start_x": -274692,
+        "start_y": 961532,
+        "end_x": -283073,
+        "end_y": 959099,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 168,
+        "start_x": -283073,
+        "start_y": 959099,
+        "end_x": -291431,
+        "end_y": 956592,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 169,
+        "start_x": -291431,
+        "start_y": 956592,
+        "end_x": -299768,
+        "end_y": 954012,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 170,
+        "start_x": -299768,
+        "start_y": 954012,
+        "end_x": -308082,
+        "end_y": 951360,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 171,
+        "start_x": -308082,
+        "start_y": 951360,
+        "end_x": -316372,
+        "end_y": 948635,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 172,
+        "start_x": -316372,
+        "start_y": 948635,
+        "end_x": -324638,
+        "end_y": 945838,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 173,
+        "start_x": -324638,
+        "start_y": 945838,
+        "end_x": -332880,
+        "end_y": 942969,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 174,
+        "start_x": -332880,
+        "start_y": 942969,
+        "end_x": -341096,
+        "end_y": 940028,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 175,
+        "start_x": -341096,
+        "start_y": 940028,
+        "end_x": -349286,
+        "end_y": 937016,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 176,
+        "start_x": -349286,
+        "start_y": 937016,
+        "end_x": -357450,
+        "end_y": 933932,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 177,
+        "start_x": -357450,
+        "start_y": 933932,
+        "end_x": -365586,
+        "end_y": 930777,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 178,
+        "start_x": -365586,
+        "start_y": 930777,
+        "end_x": -373695,
+        "end_y": 927552,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 179,
+        "start_x": -373695,
+        "start_y": 927552,
+        "end_x": -381775,
+        "end_y": 924255,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 180,
+        "start_x": -381775,
+        "start_y": 924255,
+        "end_x": -389826,
+        "end_y": 920889,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 181,
+        "start_x": -389826,
+        "start_y": 920889,
+        "end_x": -397847,
+        "end_y": 917452,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 182,
+        "start_x": -397847,
+        "start_y": 917452,
+        "end_x": -405838,
+        "end_y": 913945,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 183,
+        "start_x": -405838,
+        "start_y": 913945,
+        "end_x": -413798,
+        "end_y": 910369,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 184,
+        "start_x": -413798,
+        "start_y": 910369,
+        "end_x": -421727,
+        "end_y": 906723,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 185,
+        "start_x": -421727,
+        "start_y": 906723,
+        "end_x": -429624,
+        "end_y": 903008,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 186,
+        "start_x": -429624,
+        "start_y": 903008,
+        "end_x": -437487,
+        "end_y": 899225,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 187,
+        "start_x": -437487,
+        "start_y": 899225,
+        "end_x": -445318,
+        "end_y": 895373,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 188,
+        "start_x": -445318,
+        "start_y": 895373,
+        "end_x": -453114,
+        "end_y": 891452,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 189,
+        "start_x": -453114,
+        "start_y": 891452,
+        "end_x": -460876,
+        "end_y": 887464,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 190,
+        "start_x": -460876,
+        "start_y": 887464,
+        "end_x": -468603,
+        "end_y": 883409,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 191,
+        "start_x": -468603,
+        "start_y": 883409,
+        "end_x": -476295,
+        "end_y": 879286,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 192,
+        "start_x": -476295,
+        "start_y": 879286,
+        "end_x": -483949,
+        "end_y": 875096,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 193,
+        "start_x": -483949,
+        "start_y": 875096,
+        "end_x": -491568,
+        "end_y": 870839,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 194,
+        "start_x": -491568,
+        "start_y": 870839,
+        "end_x": -499148,
+        "end_y": 866517,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 195,
+        "start_x": -499148,
+        "start_y": 866517,
+        "end_x": -506691,
+        "end_y": 862128,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 196,
+        "start_x": -506691,
+        "start_y": 862128,
+        "end_x": -514195,
+        "end_y": 857673,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 197,
+        "start_x": -514195,
+        "start_y": 857673,
+        "end_x": -521660,
+        "end_y": 853153,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 198,
+        "start_x": -521660,
+        "start_y": 853153,
+        "end_x": -529085,
+        "end_y": 848569,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 199,
+        "start_x": -529085,
+        "start_y": 848569,
+        "end_x": -536470,
+        "end_y": 843919,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 200,
+        "start_x": -536470,
+        "start_y": 843919,
+        "end_x": -543814,
+        "end_y": 839206,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 201,
+        "start_x": -543814,
+        "start_y": 839206,
+        "end_x": -551117,
+        "end_y": 834428,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 202,
+        "start_x": -551117,
+        "start_y": 834428,
+        "end_x": -558378,
+        "end_y": 829587,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 203,
+        "start_x": -558378,
+        "start_y": 829587,
+        "end_x": -565596,
+        "end_y": 824683,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 204,
+        "start_x": -565596,
+        "start_y": 824683,
+        "end_x": -572771,
+        "end_y": 819716,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 205,
+        "start_x": -572771,
+        "start_y": 819716,
+        "end_x": -579902,
+        "end_y": 814686,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 206,
+        "start_x": -579902,
+        "start_y": 814686,
+        "end_x": -586990,
+        "end_y": 809594,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 207,
+        "start_x": -586990,
+        "start_y": 809594,
+        "end_x": -594032,
+        "end_y": 804441,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 208,
+        "start_x": -594032,
+        "start_y": 804441,
+        "end_x": -601030,
+        "end_y": 799227,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 209,
+        "start_x": -601030,
+        "start_y": 799227,
+        "end_x": -607981,
+        "end_y": 793951,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 210,
+        "start_x": -607981,
+        "start_y": 793951,
+        "end_x": -614886,
+        "end_y": 788616,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 211,
+        "start_x": -614886,
+        "start_y": 788616,
+        "end_x": -621745,
+        "end_y": 783220,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 212,
+        "start_x": -621745,
+        "start_y": 783220,
+        "end_x": -628556,
+        "end_y": 777764,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 213,
+        "start_x": -628556,
+        "start_y": 777764,
+        "end_x": -635319,
+        "end_y": 772250,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 214,
+        "start_x": -635319,
+        "start_y": 772250,
+        "end_x": -642034,
+        "end_y": 766676,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 215,
+        "start_x": -642034,
+        "start_y": 766676,
+        "end_x": -648700,
+        "end_y": 761044,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 216,
+        "start_x": -648700,
+        "start_y": 761044,
+        "end_x": -655317,
+        "end_y": 755354,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 217,
+        "start_x": -655317,
+        "start_y": 755354,
+        "end_x": -661883,
+        "end_y": 749607,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 218,
+        "start_x": -661883,
+        "start_y": 749607,
+        "end_x": -668400,
+        "end_y": 743802,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 219,
+        "start_x": -668400,
+        "start_y": 743802,
+        "end_x": -674865,
+        "end_y": 737941,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 220,
+        "start_x": -674865,
+        "start_y": 737941,
+        "end_x": -681279,
+        "end_y": 732024,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 221,
+        "start_x": -681279,
+        "start_y": 732024,
+        "end_x": -687641,
+        "end_y": 726051,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 222,
+        "start_x": -687641,
+        "start_y": 726051,
+        "end_x": -693951,
+        "end_y": 720022,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 223,
+        "start_x": -693951,
+        "start_y": 720022,
+        "end_x": -700208,
+        "end_y": 713939,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 224,
+        "start_x": -700208,
+        "start_y": 713939,
+        "end_x": -706411,
+        "end_y": 707802,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 225,
+        "start_x": -706411,
+        "start_y": 707802,
+        "end_x": -712561,
+        "end_y": 701610,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 226,
+        "start_x": -712561,
+        "start_y": 701610,
+        "end_x": -718656,
+        "end_y": 695365,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 227,
+        "start_x": -718656,
+        "start_y": 695365,
+        "end_x": -724697,
+        "end_y": 689067,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 228,
+        "start_x": -724697,
+        "start_y": 689067,
+        "end_x": -730683,
+        "end_y": 682717,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 229,
+        "start_x": -730683,
+        "start_y": 682717,
+        "end_x": -736613,
+        "end_y": 676315,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 230,
+        "start_x": -736613,
+        "start_y": 676315,
+        "end_x": -742487,
+        "end_y": 669861,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 231,
+        "start_x": -742487,
+        "start_y": 669861,
+        "end_x": -748304,
+        "end_y": 663356,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 232,
+        "start_x": -748304,
+        "start_y": 663356,
+        "end_x": -754064,
+        "end_y": 656801,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 233,
+        "start_x": -754064,
+        "start_y": 656801,
+        "end_x": -759767,
+        "end_y": 650195,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 234,
+        "start_x": -759767,
+        "start_y": 650195,
+        "end_x": -765412,
+        "end_y": 643540,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 235,
+        "start_x": -765412,
+        "start_y": 643540,
+        "end_x": -770999,
+        "end_y": 636837,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 236,
+        "start_x": -770999,
+        "start_y": 636837,
+        "end_x": -776527,
+        "end_y": 630084,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 237,
+        "start_x": -776527,
+        "start_y": 630084,
+        "end_x": -781996,
+        "end_y": 623284,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 238,
+        "start_x": -781996,
+        "start_y": 623284,
+        "end_x": -787405,
+        "end_y": 616436,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 239,
+        "start_x": -787405,
+        "start_y": 616436,
+        "end_x": -792754,
+        "end_y": 609541,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 240,
+        "start_x": -792754,
+        "start_y": 609541,
+        "end_x": -798043,
+        "end_y": 602600,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 241,
+        "start_x": -798043,
+        "start_y": 602600,
+        "end_x": -803272,
+        "end_y": 595613,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 242,
+        "start_x": -803272,
+        "start_y": 595613,
+        "end_x": -808439,
+        "end_y": 588580,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 243,
+        "start_x": -808439,
+        "start_y": 588580,
+        "end_x": -813544,
+        "end_y": 581503,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 244,
+        "start_x": -813544,
+        "start_y": 581503,
+        "end_x": -818588,
+        "end_y": 574382,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 245,
+        "start_x": -818588,
+        "start_y": 574382,
+        "end_x": -823569,
+        "end_y": 567216,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 246,
+        "start_x": -823569,
+        "start_y": 567216,
+        "end_x": -828487,
+        "end_y": 560008,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 247,
+        "start_x": -828487,
+        "start_y": 560008,
+        "end_x": -833343,
+        "end_y": 552757,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 248,
+        "start_x": -833343,
+        "start_y": 552757,
+        "end_x": -838135,
+        "end_y": 545463,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 249,
+        "start_x": -838135,
+        "start_y": 545463,
+        "end_x": -842863,
+        "end_y": 538129,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 250,
+        "start_x": -842863,
+        "start_y": 538129,
+        "end_x": -847527,
+        "end_y": 530753,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 251,
+        "start_x": -847527,
+        "start_y": 530753,
+        "end_x": -852126,
+        "end_y": 523337,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 252,
+        "start_x": -852126,
+        "start_y": 523337,
+        "end_x": -856661,
+        "end_y": 515881,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 253,
+        "start_x": -856661,
+        "start_y": 515881,
+        "end_x": -856889,
+        "end_y": 515501,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 254,
+        "start_x": -989992,
+        "start_y": 141120,
+        "end_x": -991186,
+        "end_y": 132475,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 255,
+        "start_x": -991186,
+        "start_y": 132475,
+        "end_x": -992305,
+        "end_y": 123821,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 256,
+        "start_x": -992305,
+        "start_y": 123821,
+        "end_x": -993347,
+        "end_y": 115157,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 257,
+        "start_x": -993347,
+        "start_y": 115157,
+        "end_x": -994314,
+        "end_y": 106484,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 258,
+        "start_x": -994314,
+        "start_y": 106484,
+        "end_x": -995206,
+        "end_y": 97803,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 259,
+        "start_x": -995206,
+        "start_y": 97803,
+        "end_x": -996021,
+        "end_y": 89114,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 260,
+        "start_x": -996021,
+        "start_y": 89114,
+        "end_x": -996761,
+        "end_y": 80419,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 261,
+        "start_x": -996761,
+        "start_y": 80419,
+        "end_x": -997425,
+        "end_y": 71718,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 262,
+        "start_x": -997425,
+        "start_y": 71718,
+        "end_x": -998013,
+        "end_y": 63011,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 263,
+        "start_x": -998013,
+        "start_y": 63011,
+        "end_x": -998525,
+        "end_y": 54299,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 264,
+        "start_x": -998525,
+        "start_y": 54299,
+        "end_x": -998961,
+        "end_y": 45584,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 265,
+        "start_x": -998961,
+        "start_y": 45584,
+        "end_x": -999320,
+        "end_y": 36865,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 266,
+        "start_x": -999320,
+        "start_y": 36865,
+        "end_x": -999604,
+        "end_y": 28143,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 267,
+        "start_x": -999604,
+        "start_y": 28143,
+        "end_x": -999811,
+        "end_y": 19418,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 268,
+        "start_x": -999811,
+        "start_y": 19418,
+        "end_x": -999943,
+        "end_y": 10693,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 269,
+        "start_x": -999943,
+        "start_y": 10693,
+        "end_x": -999998,
+        "end_y": 1966,
+        "width_nm": 100000
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 270,
+        "start_x": -999998,
+        "start_y": 1966,
+        "end_x": -1000000,
+        "end_y": 0,
+        "width_nm": 100000
+       }
+      ],
+      "layer": "Edge.Cuts"
+     }
+    ],
+    "source_path": "patterned.kicad_pcb",
+    "document_id": "fixture-patterned",
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    },
+    "version": 20240108,
+    "generator": "pcbnew",
+    "generator_version": "10.0",
+    "thickness_mm": 1.2,
+    "paper": "A4"
+   }
+  },
+  {
+   "id": "lenient-fills-and-malformed-curves",
+   "source": "(kicad_pcb\n  (gr_circle (center 0 0) (end 1 0) (stroke (width 0.1) (type solid)) (fill hatch) (uuid \"lenient-circle\"))\n  (gr_curve (pts (xy 0 0) (xy 1 0) (xy 1 1)) (stroke (width 0.1) (type solid)) (uuid \"short-curve\")))",
+   "source_path": "lenient.kicad_pcb",
+   "document_id": "fixture-lenient",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "PCB",
+    "total_operations": 1,
+    "records": [
+     {
+      "uuid": "lenient-circle",
+      "kind": "gr_circle",
+      "object_id": "gr_circle",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Circle",
+        "index": 0,
+        "cx": 0,
+        "cy": 0,
+        "diameter_nm": 2000000,
+        "fill": "NO_FILL",
+        "width_nm": 100000
+       }
+      ],
+      "layer": "Edge.Cuts"
+     },
+     {
+      "uuid": "short-curve",
+      "kind": "gr_curve",
+      "object_id": "gr_curve",
+      "operation_count": 0,
+      "operations": [],
+      "layer": "F.SilkS"
+     }
+    ],
+    "source_path": "lenient.kicad_pcb",
+    "document_id": "fixture-lenient",
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    },
+    "version": 20260206,
+    "generator": "pcbnew",
+    "generator_version": "10.0",
+    "thickness_mm": 1.6,
+    "paper": "A4"
+   }
+  }
+ ]
+}

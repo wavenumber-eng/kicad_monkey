@@ -265,6 +265,18 @@ PlotterPoint = Annotated[list[JavaScriptSafeInteger], Meta(min_length=2, max_len
 PlotterQuad = Annotated[list[PlotterPoint], Meta(min_length=4, max_length=4)]
 
 
+class BoardGraphicPlotRecord(Struct, forbid_unknown_fields=True, frozen=True):
+    uuid: str
+    kind: BoardGraphicRecordKind
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layer: str | None
+
+
+BoardGraphicRecordKind = Literal["gr_line", "gr_arc", "gr_circle", "gr_rect", "gr_poly", "gr_curve"]
+
+
 SymbolPlotRecord = Union["SymbolHeaderPlotRecord", "LibSubsymbolPlotRecord"]
 
 
@@ -697,6 +709,42 @@ class FootprintPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
     diagnostics: list[Diagnostic]
 
 
+class BoardPlotDocumentA0(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad.plotter_ir.a0"]
+    source_kind: Literal["PCB"]
+    total_operations: Annotated[int, Meta(ge=0, le=4294967295)]
+    records: list[BoardGraphicPlotRecord]
+    document_id: str
+    coordinate_space: PlotterCoordinateSpace
+    version: JavaScriptSafeInteger
+    generator: str
+    generator_version: str
+    thickness_mm: float
+    paper: str
+    source_path: str | UnsetType = field(default=UNSET)
+
+
+class BoardPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.board_plot.request"] = field(name="type")
+    version: Literal["a0"]
+    max_source_bytes: str
+    max_output_bytes: str
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_graphics: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_operations: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_points: Annotated[int, Meta(ge=0, le=4294967295)]
+    source_path: str | UnsetType = field(default=UNSET)
+    document_id: str | UnsetType = field(default=UNSET)
+
+
+class BoardPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.board_plot.result"] = field(name="type")
+    version: Literal["a0"]
+    output_bytes: str
+    total_operations: Annotated[int, Meta(ge=0, le=4294967295)]
+    diagnostics: list[Diagnostic]
+
+
 class SymbolPlotDocumentA0(Struct, forbid_unknown_fields=True, frozen=True):
     schema: Literal["kicad.plotter_ir.a0"]
     source_kind: Literal["SYM"]
@@ -911,6 +959,9 @@ def _validate_shared_graphic_or_drill(operation: ThickSegmentOperation | CircleO
         raise msgspec.ValidationError(f"conflicting_plotter_fields at {path}")
 decode_footprint_plot_request_a0 = msgspec.json.Decoder(FootprintPlotRequestA0).decode
 decode_footprint_plot_result_a0 = msgspec.json.Decoder(FootprintPlotResultA0).decode
+decode_board_plot_document_a0 = msgspec.json.Decoder(BoardPlotDocumentA0).decode
+decode_board_plot_request_a0 = msgspec.json.Decoder(BoardPlotRequestA0).decode
+decode_board_plot_result_a0 = msgspec.json.Decoder(BoardPlotResultA0).decode
 _symbol_plot_document_a0_decoder = msgspec.json.Decoder(SymbolPlotDocumentA0)
 
 
@@ -1232,6 +1283,8 @@ __all__ = (
     "PlotterLineStyle",
     "PlotterPoint",
     "PlotterQuad",
+    "BoardGraphicPlotRecord",
+    "BoardGraphicRecordKind",
     "SymbolPlotRecord",
     "SymbolHeaderPlotRecord",
     "LibSubsymbolPlotRecord",
@@ -1293,6 +1346,9 @@ __all__ = (
     "FootprintPlotDocumentA0",
     "FootprintPlotRequestA0",
     "FootprintPlotResultA0",
+    "BoardPlotDocumentA0",
+    "BoardPlotRequestA0",
+    "BoardPlotResultA0",
     "SymbolPlotDocumentA0",
     "SymbolPlotRequestA0",
     "SymbolPlotResultA0",
@@ -1317,6 +1373,9 @@ __all__ = (
     "decode_footprint_plot_document_a0",
     "decode_footprint_plot_request_a0",
     "decode_footprint_plot_result_a0",
+    "decode_board_plot_document_a0",
+    "decode_board_plot_request_a0",
+    "decode_board_plot_result_a0",
     "decode_symbol_plot_document_a0",
     "decode_symbol_plot_request_a0",
     "decode_symbol_plot_result_a0",

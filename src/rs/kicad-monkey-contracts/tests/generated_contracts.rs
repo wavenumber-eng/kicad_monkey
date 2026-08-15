@@ -1,11 +1,13 @@
+use kicad_monkey_contracts::generated::board_plot_document::BoardPlotDocumentA0;
 use kicad_monkey_contracts::generated::build_request::SExpressionBuildRequestA0;
 use kicad_monkey_contracts::generated::footprint_plot_document::FootprintPlotDocumentA0;
 use kicad_monkey_contracts::generated::scan_request::SExpressionScanRequestA0;
 use kicad_monkey_contracts::generated::symbol_plot_document::SymbolPlotDocumentA0;
 use kicad_monkey_contracts::{
     JAVASCRIPT_SAFE_INTEGER_MAX, JAVASCRIPT_SAFE_INTEGER_MIN, JavaScriptSafeInteger, ValidatedNode,
-    decode_compiled_schematic_graph_a0, decode_source_bundle_manifest_a0, validate_build_request,
-    validate_footprint_plot_document, validate_symbol_plot_document,
+    decode_compiled_schematic_graph_a0, decode_source_bundle_manifest_a0,
+    validate_board_plot_document, validate_build_request, validate_footprint_plot_document,
+    validate_symbol_plot_document,
 };
 
 #[test]
@@ -175,6 +177,71 @@ fn symbol_plotter_contract_enforces_record_and_domain_semantics() {
             .expect_err("symbol body must be layer-free")
             .code,
         "invalid_symbol_operation"
+    );
+}
+
+#[test]
+fn board_plotter_contract_enforces_layerless_graphic_state_and_counts() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/board_plotter_a0_vectors.json"
+    )))
+    .expect("board vectors");
+    let expected = vectors["vectors"][0]["expected"].clone();
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(expected.clone()).expect("board transport document");
+    validate_board_plot_document(&document).expect("valid board semantics");
+
+    let mut layered = expected.clone();
+    layered["records"][0]["operations"][0]["layer"] = serde_json::json!("Edge.Cuts");
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(layered).expect("structurally valid layered graphic");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("board graphic operations must stay layerless")
+            .code,
+        "invalid_board_operation"
+    );
+
+    let mut flashed = expected.clone();
+    flashed["records"][0]["operations"][0] = serde_json::json!({
+        "kind": "FlashPadCircle",
+        "index": 0,
+        "x": 0,
+        "y": 0,
+        "diameter_nm": 1_000_000,
+        "mask_margin_nm": 0,
+        "layers": ["F.Cu"]
+    });
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(flashed).expect("structurally valid flash payload");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("pad flashes belong to later slices")
+            .code,
+        "invalid_board_operation"
+    );
+
+    let mut miscounted_record = expected.clone();
+    miscounted_record["records"][0]["operation_count"] = serde_json::json!(2);
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(miscounted_record).expect("structurally valid miscount");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("record counts must match")
+            .code,
+        "operation_count_mismatch"
+    );
+
+    let mut miscounted_document = expected;
+    miscounted_document["total_operations"] = serde_json::json!(0);
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(miscounted_document).expect("structurally valid total miscount");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("document totals must match")
+            .code,
+        "operation_count_mismatch"
     );
 }
 

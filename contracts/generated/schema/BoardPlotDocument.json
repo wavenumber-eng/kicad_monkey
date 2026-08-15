@@ -1,0 +1,960 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.board_plot.document:a0",
+    "type": "object",
+    "properties": {
+        "schema": {
+            "type": "string",
+            "const": "kicad.plotter_ir.a0"
+        },
+        "source_kind": {
+            "type": "string",
+            "const": "PCB"
+        },
+        "total_operations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "records": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/BoardGraphicPlotRecord"
+            }
+        },
+        "source_path": {
+            "type": "string"
+        },
+        "document_id": {
+            "type": "string"
+        },
+        "coordinate_space": {
+            "$ref": "#/$defs/PlotterCoordinateSpace"
+        },
+        "version": {
+            "$ref": "#/$defs/JavaScriptSafeInteger"
+        },
+        "generator": {
+            "type": "string"
+        },
+        "generator_version": {
+            "type": "string"
+        },
+        "thickness_mm": {
+            "type": "number"
+        },
+        "paper": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "schema",
+        "source_kind",
+        "total_operations",
+        "records",
+        "document_id",
+        "coordinate_space",
+        "version",
+        "generator",
+        "generator_version",
+        "thickness_mm",
+        "paper"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Strict board-graphics subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
+    "title": "Board plot document a0",
+    "$defs": {
+        "BoardGraphicPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/$defs/BoardGraphicRecordKind"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "layer": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "layer"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One board-level graphic record. The carrier layer travels on the record;\nthe contained operations are layerless graphic-state operations."
+        },
+        "PlotterCoordinateSpace": {
+            "type": "object",
+            "properties": {
+                "unit": {
+                    "type": "string",
+                    "const": "nm"
+                },
+                "y_axis": {
+                    "type": "string",
+                    "const": "down"
+                }
+            },
+            "required": [
+                "unit",
+                "y_axis"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Coordinate convention for the footprint plotter slice."
+        },
+        "JavaScriptSafeInteger": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Integer that remains exact when decoded as a JavaScript number."
+        },
+        "BoardGraphicRecordKind": {
+            "type": "string",
+            "enum": [
+                "gr_line",
+                "gr_arc",
+                "gr_circle",
+                "gr_rect",
+                "gr_poly",
+                "gr_curve"
+            ],
+            "description": "Board graphic record kinds promoted in the first board slice."
+        },
+        "PlotterOperation": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/ThickSegmentOperation"
+                },
+                {
+                    "$ref": "#/$defs/ArcThreePointOperation"
+                },
+                {
+                    "$ref": "#/$defs/CircleOperation"
+                },
+                {
+                    "$ref": "#/$defs/RectOperation"
+                },
+                {
+                    "$ref": "#/$defs/PlotPolyOperation"
+                },
+                {
+                    "$ref": "#/$defs/BezierCurveOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadCircleOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadOvalOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadRectOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadRoundRectOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadCustomOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadTrapezOperation"
+                }
+            ],
+            "description": "Shared plotter operation vocabulary promoted across source producers."
+        },
+        "ThickSegmentOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "ThickSegment"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "start_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/$defs/PlotterDrillRole"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "start_x",
+                "start_y",
+                "end_x",
+                "end_y",
+                "width_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Solid or decomposed segment shared by PCB, footprint, and drill producers.\nGraphic state requires only layer. Drill state requires role plus layers;\nNPTH drill state additionally requires all mask and pad-size hints. The\ngenerated semantic validator enforces these mutually exclusive states."
+        },
+        "ArcThreePointOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "ArcThreePoint"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "start_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "mid_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "mid_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "stroke_color": {
+                    "type": "string"
+                },
+                "fill_color": {
+                    "type": "string"
+                },
+                "line_style": {
+                    "$ref": "#/$defs/PlotterLineStyle"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "start_x",
+                "start_y",
+                "mid_x",
+                "mid_y",
+                "end_x",
+                "end_y",
+                "fill",
+                "width_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Solid three-point arc."
+        },
+        "CircleOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "Circle"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "cx": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "cy": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "diameter_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/$defs/PlotterDrillRole"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "stroke_color": {
+                    "type": "string"
+                },
+                "fill_color": {
+                    "type": "string"
+                },
+                "line_style": {
+                    "$ref": "#/$defs/PlotterLineStyle"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "cx",
+                "cy",
+                "diameter_nm",
+                "fill",
+                "width_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Circle shared by graphical and drill producers. Graphic state requires only\nlayer. Drill state requires role plus layers; NPTH state additionally\nrequires all mask and pad-size hints. The generated semantic validator\nenforces these mutually exclusive states."
+        },
+        "RectOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "Rect"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x1": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y1": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "x2": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y2": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "corner_radius_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "stroke_color": {
+                    "type": "string"
+                },
+                "fill_color": {
+                    "type": "string"
+                },
+                "line_style": {
+                    "$ref": "#/$defs/PlotterLineStyle"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "fill",
+                "width_nm",
+                "corner_radius_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Rectangle with square corners."
+        },
+        "PlotPolyOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "PlotPoly"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "points": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterPoint"
+                    }
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "stroke_color": {
+                    "type": "string"
+                },
+                "fill_color": {
+                    "type": "string"
+                },
+                "line_style": {
+                    "$ref": "#/$defs/PlotterLineStyle"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "points",
+                "fill",
+                "width_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Filled or outlined polygon operation."
+        },
+        "BezierCurveOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "BezierCurve"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "start_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "ctrl1_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "ctrl1_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "ctrl2_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "ctrl2_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "tolerance_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "stroke_color": {
+                    "type": "string"
+                },
+                "line_style": {
+                    "$ref": "#/$defs/PlotterLineStyle"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "start_x",
+                "start_y",
+                "ctrl1_x",
+                "ctrl1_y",
+                "ctrl2_x",
+                "ctrl2_y",
+                "end_x",
+                "end_y",
+                "width_nm",
+                "tolerance_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Cubic Bézier shared by symbol and schematic producers."
+        },
+        "FlashPadCircleOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadCircle"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "diameter_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "diameter_nm",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Circular pad flash shared by footprint and PCB producers."
+        },
+        "FlashPadOvalOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadOval"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Oval pad flash shared by footprint and PCB producers."
+        },
+        "FlashPadRectOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadRect"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Rectangular pad flash shared by footprint and PCB producers."
+        },
+        "FlashPadRoundRectOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadRoundRect"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "corner_radius_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "corner_radius_nm",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Rounded-rectangle pad flash shared by footprint and PCB producers."
+        },
+        "FlashPadCustomOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadCustom"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "polygons": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/PlotterPoint"
+                        }
+                    }
+                },
+                "polygon_widths_nm": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/JavaScriptSafeInteger"
+                    }
+                },
+                "anchor_shape": {
+                    "type": "string"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "orient_deg",
+                "polygons",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Custom pad flash shared by footprint and PCB producers. Polygon coordinates\nare pad-local. A non-empty polygon_widths_nm has one entry per polygon;\ngenerated semantic validation enforces that relationship. An empty array is\nequivalent to omission for generated Rust transport bindings."
+        },
+        "FlashPadTrapezOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadTrapez"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "corners": {
+                    "$ref": "#/$defs/PlotterQuad"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "corners",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Trapezoid pad flash shared by footprint and PCB producers."
+        },
+        "PlotterDrillRole": {
+            "type": "string",
+            "enum": [
+                "pad_drill",
+                "npth_hole"
+            ],
+            "description": "Semantic roles allowed on shared circle and segment drill operations."
+        },
+        "PlotterFill": {
+            "type": "string",
+            "enum": [
+                "NO_FILL",
+                "FILLED_SHAPE",
+                "FILLED_WITH_BG_BODYCOLOR",
+                "FILLED_WITH_COLOR",
+                "HATCH",
+                "REVERSE_HATCH",
+                "CROSS_HATCH"
+            ],
+            "description": "Fill values shared by plotter operation producers."
+        },
+        "PlotterLineStyle": {
+            "type": "string",
+            "enum": [
+                "DEFAULT",
+                "SOLID",
+                "DASH",
+                "DOT",
+                "DASH_DOT",
+                "DASH_DOT_DOT"
+            ],
+            "description": "KiCad stroke styles carried without producer-specific decomposition."
+        },
+        "PlotterPoint": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/JavaScriptSafeInteger"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "Plotter point encoded as an exact coordinate pair."
+        },
+        "PlotterQuad": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/PlotterPoint"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "Four pad-local trapezoid corners."
+        }
+    }
+}

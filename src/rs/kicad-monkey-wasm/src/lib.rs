@@ -2,13 +2,17 @@
 
 #![forbid(unsafe_code)]
 
-#[cfg(any(feature = "footprint", feature = "symbol"))]
+#[cfg(feature = "board")]
+mod board_plot;
+#[cfg(any(feature = "footprint", feature = "symbol", feature = "board"))]
 mod plotter_contract;
 #[cfg(feature = "symbol")]
 mod symbol_library;
 #[cfg(feature = "symbol")]
 mod symbol_plot;
 
+#[cfg(feature = "board")]
+pub use board_plot::{BoardPlotOutput, plot_board_ir};
 #[cfg(feature = "symbol")]
 pub use symbol_library::{
     SymbolLibraryEditOutput, edit_symbol_library_boolean, read_symbol_library,
@@ -71,7 +75,7 @@ use plotter_contract::contract_plotter_operation;
 use std::collections::BTreeSet;
 #[cfg(feature = "sexpr")]
 use std::io::Cursor;
-#[cfg(any(feature = "footprint", feature = "symbol"))]
+#[cfg(any(feature = "footprint", feature = "symbol", feature = "board"))]
 use std::io::Write;
 #[cfg(any(feature = "sexpr", feature = "footprint"))]
 use wasm_bindgen::prelude::*;
@@ -405,14 +409,14 @@ fn footprint_plot_limits(request: &FootprintPlotRequestA0) -> Result<FootprintPl
     })
 }
 
-#[cfg(any(feature = "footprint", feature = "symbol"))]
+#[cfg(any(feature = "footprint", feature = "symbol", feature = "board"))]
 fn decimal_usize(value: &str, field: &str) -> Result<usize, String> {
     value
         .parse::<usize>()
         .map_err(|_| format!("{field} must be a platform-sized decimal string"))
 }
 
-#[cfg(any(feature = "footprint", feature = "symbol"))]
+#[cfg(any(feature = "footprint", feature = "symbol", feature = "board"))]
 pub(crate) fn serialize_bounded<T: serde::Serialize>(
     value: &T,
     max_output_bytes: usize,
@@ -425,14 +429,14 @@ pub(crate) fn serialize_bounded<T: serde::Serialize>(
     }
 }
 
-#[cfg(any(feature = "footprint", feature = "symbol"))]
+#[cfg(any(feature = "footprint", feature = "symbol", feature = "board"))]
 struct BoundedWriter {
     bytes: Vec<u8>,
     max_bytes: usize,
     exceeded: bool,
 }
 
-#[cfg(any(feature = "footprint", feature = "symbol"))]
+#[cfg(any(feature = "footprint", feature = "symbol", feature = "board"))]
 impl BoundedWriter {
     fn new(max_bytes: usize) -> Self {
         Self {
@@ -443,7 +447,7 @@ impl BoundedWriter {
     }
 }
 
-#[cfg(any(feature = "footprint", feature = "symbol"))]
+#[cfg(any(feature = "footprint", feature = "symbol", feature = "board"))]
 impl Write for BoundedWriter {
     fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
         if buffer.len() > self.max_bytes.saturating_sub(self.bytes.len()) {
@@ -485,7 +489,7 @@ fn footprint_limits(
     })
 }
 
-#[cfg(any(feature = "footprint", feature = "symbol"))]
+#[cfg(any(feature = "footprint", feature = "symbol", feature = "board"))]
 fn validate_identity(type_: &str, version: &str, expected: &str) -> Result<(), String> {
     if type_ != expected || version != "a0" {
         return Err(format!("Unsupported contract identity: {type_}:{version}"));

@@ -333,6 +333,80 @@ model FootprintPlotDocument {
   generator_version: string;
 }
 
+/** Resource-bounded board plotter operation. Source bytes are out of band. */
+@jsonSchema
+@id("urn:wavenumber:schema:kicad_monkey.board_plot.request:a0")
+@extension("title", "Board plot request a0")
+model BoardPlotRequest {
+  type: "kicad_monkey.board_plot.request";
+  version: "a0";
+  source_path?: string;
+  document_id?: string;
+  max_source_bytes: uint64;
+  max_output_bytes: uint64;
+  max_depth: uint32;
+  max_graphics: uint32;
+  max_operations: uint32;
+  max_points: uint32;
+}
+
+/** Metadata paired with a separate board plotter-IR JSON byte buffer. */
+@jsonSchema
+@id("urn:wavenumber:schema:kicad_monkey.board_plot.result:a0")
+@extension("title", "Board plot result a0")
+model BoardPlotResult {
+  type: "kicad_monkey.board_plot.result";
+  version: "a0";
+  output_bytes: uint64;
+  total_operations: uint32;
+  diagnostics: Diagnostic[];
+}
+
+/** Board graphic record kinds promoted in the first board slice. */
+enum BoardGraphicRecordKind {
+  grLine: "gr_line",
+  grArc: "gr_arc",
+  grCircle: "gr_circle",
+  grRect: "gr_rect",
+  grPoly: "gr_poly",
+  grCurve: "gr_curve",
+}
+
+/**
+ * One board-level graphic record. The carrier layer travels on the record;
+ * the contained operations are layerless graphic-state operations.
+ */
+model BoardGraphicPlotRecord {
+  uuid: string;
+  kind: BoardGraphicRecordKind;
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  layer: string | null;
+}
+
+/**
+ * Strict board-graphics subset of kicad.plotter_ir.a0. Producers and
+ * consumers must run generated semantic validation after structural decoding.
+ */
+@jsonSchema
+@id("urn:wavenumber:schema:kicad_monkey.board_plot.document:a0")
+@extension("title", "Board plot document a0")
+model BoardPlotDocument {
+  schema: "kicad.plotter_ir.a0";
+  source_kind: "PCB";
+  total_operations: uint32;
+  records: BoardGraphicPlotRecord[];
+  source_path?: string;
+  document_id: string;
+  coordinate_space: PlotterCoordinateSpace;
+  version: JavaScriptSafeInteger;
+  generator: string;
+  generator_version: string;
+  thickness_mm: float64;
+  paper: string;
+}
+
 /** Resource-bounded library-symbol plot operation. Source bytes are out of band. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.symbol_plot.request:a0")
