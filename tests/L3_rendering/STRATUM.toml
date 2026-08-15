@@ -233,3 +233,26 @@ secondary = [
     "Embedded library pins, active unit/style selection, and transformed occurrence terminals match Python",
     "Typed bus aliases match Python and bounded native vector/group/alias expansion covers current KiCad syntax",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L3_021"
+file = "test_L3_021_render_cache_corpus.py"
+name = "Render Cache Corpus Audit"
+description = "Every corpus render_cache entry matches the kicad-cli save oracle through the Python reference pipeline"
+test_cases = "${WN_TEST_CORPUS}/kicad"
+test_case_type = "oracle"
+concerns = ["rendering.text", "parity"]
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_render_cache"
+
+[subtests.objectives]
+primary = "Full repo-corpus render-cache closure against the KiCad save oracle"
+secondary = [
+    "Every oracle entry is covered by a collected request",
+    "Deduplicated corpus boards audited board-by-board",
+    "Polygon comparison at 0.002 mm tolerance",
+    "Empty-text objects carry polygon-less caches",
+]
