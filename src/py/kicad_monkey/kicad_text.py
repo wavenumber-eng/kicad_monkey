@@ -2224,6 +2224,11 @@ class KiCadTextRenderer:
         sin_a: float = math.sin(rad)
 
         lines = params.text.split("\n")
+        # KiCad's `getLinePositions` splits with `wxStringSplit`, which never
+        # emits a trailing empty segment: text ending in '\n' contributes no
+        # extra line to the count used for vertical alignment.
+        if lines and lines[-1] == "":
+            lines.pop()
         line_widths = [
             self._measure_line_width_for_face(
                 face,

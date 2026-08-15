@@ -111,6 +111,51 @@ fn multiline_and_tabs_follow_kicad_block_metrics() {
 }
 
 #[test]
+fn trailing_newline_adds_no_line_like_wx_string_split() {
+    // KiCad's `getLinePositions` splits with `wxStringSplit`, which never
+    // emits a trailing empty segment, so "S\n" aligns exactly like "S".
+    // Bottom alignment makes a phantom second line observable as a full
+    // interline offset.
+    let single_shaping = base_shaping("S");
+    let single = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        TextBlockLayoutRequest {
+            vertical_alignment: TextVerticalAlignment::Bottom,
+            ..request(&single_shaping)
+        },
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+
+    let trailing_shaping = base_shaping("S\n");
+    let trailing = layout_text_block_hinted_a0(
+        FONT_BYTES,
+        TextBlockLayoutRequest {
+            vertical_alignment: TextVerticalAlignment::Bottom,
+            ..request(&trailing_shaping)
+        },
+        TextBlockLayoutLimits::default(),
+    )
+    .unwrap();
+
+    assert_eq!(trailing.line_widths, single.line_widths);
+    assert_close(trailing.height, single.height);
+    let points = |contours: &[kicad_monkey_core::TextContour]| {
+        contours
+            .iter()
+            .map(|contour| {
+                contour
+                    .points
+                    .iter()
+                    .map(|point| (point.x, point.y))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(points(&trailing.contours), points(&single.contours));
+}
+
+#[test]
 fn line_spacing_alignment_and_authored_origin_transform_compose() {
     let shaping = base_shaping("S\nSS");
     let baseline = layout_text_block_hinted_a0(

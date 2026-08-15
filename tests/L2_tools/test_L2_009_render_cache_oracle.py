@@ -1659,6 +1659,42 @@ def test_python_render_cache_generator_matches_holed_substituted_glyph_oracle(
 
 
 @pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+def test_python_render_cache_generator_matches_trailing_newline_oracle(
+    tmp_path: Path,
+):
+    # KiCad's `getLinePositions` splits with `wxStringSplit`, which never
+    # emits a trailing empty segment: "S1\n" aligns as one line, not two.
+    # icepi's bottom-aligned 'Icepi Zero v1.3\n' sat exactly one interline
+    # pitch (1.68 * size) off before this rule.
+    source = tmp_path / "render_cache_trailing_newline.kicad_pcb"
+    _write_outline_text_board(source, "S1\\n", justify="left bottom")
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_trailing_newline",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert request.text_params is not None
+    assert request.text_params.text.endswith("\n")
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
 def test_python_render_cache_generator_matches_nonsquare_size_oracle(
     tmp_path: Path,
 ):

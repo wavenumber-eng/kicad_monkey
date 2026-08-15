@@ -131,7 +131,13 @@ pub fn layout_text_block_hinted_a0(
     limits: TextBlockLayoutLimits,
 ) -> Result<TextBlockLayoutOutput, TextContourError> {
     validate_request(request, limits)?;
-    let line_spans = delimited_spans(&request.shaping.text, '\n', limits.max_lines, "$.lines")?;
+    let mut line_spans = delimited_spans(&request.shaping.text, '\n', limits.max_lines, "$.lines")?;
+    // KiCad's `getLinePositions` splits with `wxStringSplit`, which never
+    // emits a trailing empty segment: text ending in '\n' contributes no
+    // extra line to the count used for vertical alignment.
+    if line_spans.last().is_some_and(|span| span.is_empty()) {
+        line_spans.pop();
+    }
     let mut work = AggregateWork::default();
     charge(
         &mut work.feature_inspections,
