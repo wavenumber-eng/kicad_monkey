@@ -435,7 +435,9 @@ struct NetResolver {
 
 impl NetResolver {
     fn resolve(&self, mut net: PcbNetRef) -> PcbNetRef {
-        if net.name.is_none()
+        // Python's `NetRef.resolve_name` fills any falsy name, so a
+        // present-but-empty `(net_name "")` still resolves from the table.
+        if net.name.as_deref().is_none_or(str::is_empty)
             && let Some(name) = net
                 .ordinal
                 .and_then(|ordinal| self.name_by_ordinal.get(&ordinal))

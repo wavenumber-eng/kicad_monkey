@@ -1,14 +1,15 @@
 //! Board-level plotter IR producer over selected PCB families.
 //!
-//! Mirrors the Python `pcb_to_ir` gr_*/segment/track_arc/via record subset:
-//! layerless graphic-state operations, per-category record ordering, PCB
-//! stroke widths without the footprint pen-width clamps, dash/dot
-//! decomposition parity, reversed track-arc endpoints, and via aperture/
-//! drill/mask-hint operation sequences.
+//! Mirrors the Python `pcb_to_ir` gr_*/segment/track_arc/via/zone record
+//! subset: layerless graphic-state operations, per-category record ordering,
+//! PCB stroke widths without the footprint pen-width clamps, dash/dot
+//! decomposition parity, reversed track-arc endpoints, via aperture/
+//! drill/mask-hint operation sequences, zone fill rings, and project
+//! sidecar net-class extras.
 
 use crate::pcb::{
     PcbFamily, PcbGraphic, PcbGraphicKind, PcbLimits, PcbNetRef, PcbPoint, PcbRoutingArc,
-    PcbSegment, PcbSelection, PcbVia, PcbView,
+    PcbSegment, PcbSelection, PcbVia, PcbView, PcbZone,
 };
 use crate::plotter_ir::{
     StrokeStyle, child, decompose_arc, decompose_segment, ensure_javascript_safe_integer, mm_to_nm,
@@ -19,6 +20,7 @@ use crate::plotter_types::{
     PlotterRect, ThickSegment,
 };
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position, parse};
+use std::collections::BTreeMap;
 
 /// Python `EDGE_CUTS_LAYER` default carried by gr_line/arc/circle/rect/poly.
 const DEFAULT_GRAPHIC_LAYER: &str = "Edge.Cuts";
@@ -80,6 +82,13 @@ pub struct BoardGraphicRecord {
     pub operations: Vec<PlotterOperation>,
 }
 
+/// Python `_with_net_class_extras`: optional exact-match sidecar classes.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct BoardNetClassExtras {
+    pub net_class: Option<String>,
+    pub net_classes: Vec<String>,
+}
+
 /// One `(segment ...)` track record; Python emits exactly one thick segment.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoardSegmentRecord {
@@ -88,6 +97,7 @@ pub struct BoardSegmentRecord {
     pub locked: bool,
     pub net_id: Option<i64>,
     pub net_name: Option<String>,
+    pub net_classes: BoardNetClassExtras,
     pub operations: Vec<PlotterOperation>,
 }
 
@@ -99,6 +109,7 @@ pub struct BoardTrackArcRecord {
     pub layer: String,
     pub net_id: Option<i64>,
     pub net_name: Option<String>,
+    pub net_classes: BoardNetClassExtras,
     pub operations: Vec<PlotterOperation>,
 }
 
@@ -183,7 +194,21 @@ pub struct BoardViaRecord {
     pub fabrication: BoardViaFabrication,
     pub net_id: Option<i64>,
     pub net_name: Option<String>,
+    pub net_classes: BoardNetClassExtras,
     pub operations: Vec<BoardViaOperation>,
+}
+
+/// One `(zone ...)` record bundling every `filled_polygon` fill ring.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoardZoneRecord {
+    pub uuid: String,
+    pub layers: Vec<String>,
+    pub fill_layers: Vec<String>,
+    pub fill_island: Vec<bool>,
+    pub net_id: Option<i64>,
+    pub net_name: Option<String>,
+    pub net_classes: BoardNetClassExtras,
+    pub operations: Vec<PlotterOperation>,
 }
 
 /// One record of the promoted board plotter subset in Python emission order.
@@ -193,6 +218,7 @@ pub enum BoardPlotRecord {
     Segment(BoardSegmentRecord),
     TrackArc(BoardTrackArcRecord),
     Via(BoardViaRecord),
+    Zone(BoardZoneRecord),
 }
 
 impl BoardPlotRecord {
@@ -202,6 +228,7 @@ impl BoardPlotRecord {
             Self::Segment(record) => record.operations.len(),
             Self::TrackArc(record) => record.operations.len(),
             Self::Via(record) => record.operations.len(),
+            Self::Zone(record) => record.operations.len(),
         }
     }
 }
@@ -215,6 +242,55 @@ pub struct BoardPlotDocument {
     pub thickness_mm: f64,
     pub paper: String,
     pub records: Vec<BoardPlotRecord>,
+}
+
+/// Exact net-name to net-class assignments from the project sidecar.
+///
+/// Mirrors Python `project_net_name_to_classes`: empty net names are
+/// skipped, empty class strings are dropped, and later duplicate names
+/// overwrite earlier ones.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct BoardNetClassAssignments {
+    by_net_name: BTreeMap<String, Vec<String>>,
+}
+
+impl BoardNetClassAssignments {
+    pub fn from_entries<N, C>(entries: impl IntoIterator<Item = (N, Vec<C>)>) -> Self
+    where
+        N: Into<String>,
+        C: Into<String>,
+    {
+        let mut by_net_name = BTreeMap::new();
+        for (net_name, classes) in entries {
+            let net_name = net_name.into();
+            if net_name.is_empty() {
+                continue;
+            }
+            let classes: Vec<String> = classes
+                .into_iter()
+                .map(Into::into)
+                .filter(|class| !class.is_empty())
+                .collect();
+            by_net_name.insert(net_name, classes);
+        }
+        Self { by_net_name }
+    }
+
+    /// Python `_with_net_class_extras`: extras appear only for truthy net
+    /// names with a non-empty class list; the first class is `net_class`.
+    pub fn extras_for(&self, net_name: Option<&str>) -> BoardNetClassExtras {
+        let classes = net_name
+            .filter(|name| !name.is_empty())
+            .and_then(|name| self.by_net_name.get(name))
+            .filter(|classes| !classes.is_empty());
+        match classes {
+            Some(classes) => BoardNetClassExtras {
+                net_class: classes.first().cloned(),
+                net_classes: classes.clone(),
+            },
+            None => BoardNetClassExtras::default(),
+        }
+    }
 }
 
 /// Track record-level operation and point budgets fail-closed.
@@ -246,10 +322,20 @@ impl BudgetTracker {
     }
 }
 
-/// Read supported board graphics, tracks, and vias into plotter records.
+/// Read supported board families into plotter records without sidecar extras.
 pub fn board_plot_document(
     source: &str,
     limits: BoardPlotLimits,
+) -> Result<BoardPlotDocument, Error> {
+    board_plot_document_with_net_classes(source, limits, &BoardNetClassAssignments::default())
+}
+
+/// Read supported board graphics, tracks, vias, and zones into plotter
+/// records, attaching project-sidecar net-class extras by exact net name.
+pub fn board_plot_document_with_net_classes(
+    source: &str,
+    limits: BoardPlotLimits,
+    net_classes: &BoardNetClassAssignments,
 ) -> Result<BoardPlotDocument, Error> {
     let pcb_limits = PcbLimits {
         max_source_bytes: limits.max_source_bytes,
@@ -259,12 +345,14 @@ pub fn board_plot_document(
         max_segments: limits.max_graphics,
         max_vias: limits.max_graphics,
         max_arcs: limits.max_graphics,
+        max_zones: limits.max_graphics,
         ..PcbLimits::default()
     };
     let selection = PcbSelection::only(PcbFamily::Graphics)
         .with(PcbFamily::Segments)
         .with(PcbFamily::Arcs)
-        .with(PcbFamily::Vias);
+        .with(PcbFamily::Vias)
+        .with(PcbFamily::Zones);
     let view = PcbView::parse_selected(source, pcb_limits, selection)?;
     let metadata = view.metadata()?;
     ensure_javascript_safe_integer(metadata.version)?;
@@ -277,20 +365,28 @@ pub fn board_plot_document(
     };
     let mut records = graphic_records(source, &view, &mut budget)?;
     for segment in view.segments() {
-        let record = segment_record(segment?)?;
+        let record = segment_record(segment?, net_classes)?;
         budget.charge(record.operations.len(), 0)?;
         records.push(BoardPlotRecord::Segment(record));
     }
     for arc in view.arcs() {
-        let record = track_arc_record(arc?)?;
+        let record = track_arc_record(arc?, net_classes)?;
         budget.charge(record.operations.len(), 0)?;
         records.push(BoardPlotRecord::TrackArc(record));
     }
     let mask_clearance = metadata.pad_to_mask_clearance;
     for via in view.vias() {
-        let record = via_record(via?, mask_clearance)?;
+        let record = via_record(via?, mask_clearance, net_classes)?;
         budget.charge(record.operations.len(), 0)?;
         records.push(BoardPlotRecord::Via(record));
+    }
+    for zone in view.zones() {
+        let record = zone_record(zone?, net_classes)?;
+        budget.charge(
+            record.operations.len(),
+            poly_point_total(&record.operations),
+        )?;
+        records.push(BoardPlotRecord::Zone(record));
     }
 
     Ok(BoardPlotDocument {
@@ -342,10 +438,16 @@ fn graphic_records(
 /// Python `_net_extras`: `net_id` follows the resolved ordinal and
 /// `net_name` only appears for truthy resolved names.
 fn net_parts(net: &PcbNetRef) -> (Option<i64>, Option<String>) {
-    (net.ordinal, net.name.clone())
+    (
+        net.ordinal,
+        net.name.clone().filter(|name| !name.is_empty()),
+    )
 }
 
-fn segment_record(segment: PcbSegment) -> Result<BoardSegmentRecord, Error> {
+fn segment_record(
+    segment: PcbSegment,
+    net_classes: &BoardNetClassAssignments,
+) -> Result<BoardSegmentRecord, Error> {
     let (net_id, net_name) = net_parts(&segment.net);
     // Track widths are emitted verbatim (negative values included), unlike
     // the non-positive -> 0 normalization applied to graphic strokes.
@@ -359,13 +461,17 @@ fn segment_record(segment: PcbSegment) -> Result<BoardSegmentRecord, Error> {
         uuid: segment.uuid.unwrap_or_default(),
         layer: segment.layer.unwrap_or_default(),
         locked: segment.locked,
+        net_classes: net_classes.extras_for(net_name.as_deref()),
         net_id,
         net_name,
         operations: vec![operation],
     })
 }
 
-fn track_arc_record(arc: PcbRoutingArc) -> Result<BoardTrackArcRecord, Error> {
+fn track_arc_record(
+    arc: PcbRoutingArc,
+    net_classes: &BoardNetClassAssignments,
+) -> Result<BoardTrackArcRecord, Error> {
     let (net_id, net_name) = net_parts(&arc.net);
     // The Python serializer plots routing arcs from the file-order end point
     // back to the start point.
@@ -386,6 +492,7 @@ fn track_arc_record(arc: PcbRoutingArc) -> Result<BoardTrackArcRecord, Error> {
     Ok(BoardTrackArcRecord {
         uuid: arc.uuid.unwrap_or_default(),
         layer: arc.layer.unwrap_or_default(),
+        net_classes: net_classes.extras_for(net_name.as_deref()),
         net_id,
         net_name,
         operations: vec![operation],
@@ -411,7 +518,11 @@ fn exposed_mask_layers(via: &PcbVia) -> Vec<&'static str> {
         .collect()
 }
 
-fn via_record(via: PcbVia, mask_clearance: f64) -> Result<BoardViaRecord, Error> {
+fn via_record(
+    via: PcbVia,
+    mask_clearance: f64,
+    net_classes: &BoardNetClassAssignments,
+) -> Result<BoardViaRecord, Error> {
     let (net_id, net_name) = net_parts(&via.net);
     let x = mm_to_nm(via.at_x)?;
     let y = mm_to_nm(via.at_y)?;
@@ -478,6 +589,47 @@ fn via_record(via: PcbVia, mask_clearance: f64) -> Result<BoardViaRecord, Error>
             capping: via.capping,
             filling: via.filling,
         },
+        net_classes: net_classes.extras_for(net_name.as_deref()),
+        net_id,
+        net_name,
+        operations,
+    })
+}
+
+fn zone_record(
+    zone: PcbZone,
+    net_classes: &BoardNetClassAssignments,
+) -> Result<BoardZoneRecord, Error> {
+    let (net_id, net_name) = net_parts(&zone.net);
+    let mut operations = Vec::with_capacity(zone.filled_polygons.len());
+    let mut fill_layers = Vec::with_capacity(zone.filled_polygons.len());
+    let mut fill_island = Vec::with_capacity(zone.filled_polygons.len());
+    for filled in &zone.filled_polygons {
+        // Python emits one filled zero-width poly per `filled_polygon`
+        // ring, empty point lists included.
+        let points = filled
+            .points
+            .iter()
+            .map(|point| Ok([mm_to_nm(point.x)?, mm_to_nm(point.y)?]))
+            .collect::<Result<Vec<_>, Error>>()?;
+        operations.push(PlotterOperation::PlotPoly(PlotterPoly {
+            points,
+            fill: PlotterFill::FilledShape,
+            width_nm: 0,
+            layer: None,
+            stroke_color: None,
+            fill_color: None,
+            line_style: None,
+        }));
+        fill_layers.push(filled.layer.clone());
+        fill_island.push(filled.island);
+    }
+    Ok(BoardZoneRecord {
+        uuid: zone.uuid.clone().unwrap_or_default(),
+        layers: zone.layers.clone(),
+        fill_layers,
+        fill_island,
+        net_classes: net_classes.extras_for(net_name.as_deref()),
         net_id,
         net_name,
         operations,

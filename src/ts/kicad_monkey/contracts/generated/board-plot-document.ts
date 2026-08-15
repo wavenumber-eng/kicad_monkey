@@ -1,6 +1,7 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
-export type BoardPlotRecord = BoardGraphicPlotRecord | TrackSegmentPlotRecord | TrackArcPlotRecord | ViaPlotRecord;
+export type BoardPlotRecord =
+  BoardGraphicPlotRecord | TrackSegmentPlotRecord | TrackArcPlotRecord | ViaPlotRecord | ZoneFillPlotRecord;
 /**
  * Board graphic record kinds promoted in the first board slice.
  */
@@ -322,6 +323,8 @@ export interface TrackSegmentPlotRecord {
   locked: boolean;
   net_id?: JavaScriptSafeInteger;
   net_name?: string;
+  net_class?: string;
+  net_classes?: string[];
 }
 /**
  * One board track arc record with its net attribution.
@@ -335,6 +338,8 @@ export interface TrackArcPlotRecord {
   layer: string;
   net_id?: JavaScriptSafeInteger;
   net_name?: string;
+  net_class?: string;
+  net_classes?: string[];
 }
 /**
  * One board via record: copper aperture, synthetic drill, and per-side mask
@@ -365,6 +370,27 @@ export interface ViaPlotRecord {
   ipc4761_metadata?: "true";
   net_id?: JavaScriptSafeInteger;
   net_name?: string;
+  net_class?: string;
+  net_classes?: string[];
+}
+/**
+ * One zone fill record bundling every `filled_polygon` ring. The parallel
+ * `fill_layers`/`fill_island` arrays annotate the rings so consumers can
+ * split or colour-key without re-walking the source zone.
+ */
+export interface ZoneFillPlotRecord {
+  uuid: string;
+  kind: "zone_fill";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  layers: string[];
+  fill_layers: string[];
+  fill_island: boolean[];
+  net_id?: JavaScriptSafeInteger;
+  net_name?: string;
+  net_class?: string;
+  net_classes?: string[];
 }
 /**
  * Coordinate convention for the footprint plotter slice.

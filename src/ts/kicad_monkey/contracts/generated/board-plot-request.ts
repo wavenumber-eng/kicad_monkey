@@ -14,4 +14,13 @@ export interface BoardPlotRequestA0 {
   max_graphics: number;
   max_operations: number;
   max_points: number;
+  net_class_assignments?: BoardNetClassAssignment[];
+}
+/**
+ * One exact net-name to ordered net-class assignment mirrored from the
+ * project sidecar's `net_settings.netclass_assignments` entries.
+ */
+export interface BoardNetClassAssignment {
+  net_name: string;
+  classes: string[];
 }

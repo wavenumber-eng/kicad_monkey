@@ -28,6 +28,10 @@ pub fn validate_board_plot_document(document: &BoardPlotDocumentA0) -> Result<()
                 validate_via_operations(&record.operations, record_index)?;
                 (record.operation_count, &record.operations)
             }
+            BoardPlotRecord::ZoneFillPlotRecord(record) => {
+                validate_zone_fill_operations(record, record_index)?;
+                (record.operation_count, &record.operations)
+            }
         };
         if declared as usize != operations.len() {
             return Err(validation_error(
@@ -89,6 +93,36 @@ fn validate_track_arc_operations(
         format!("$.records[{record_index}].operations"),
         "track arc records carry exactly one layerless three-point arc",
     ))
+}
+
+fn validate_zone_fill_operations(
+    record: &crate::generated::board_plot_document::ZoneFillPlotRecord,
+    record_index: usize,
+) -> Result<(), ValidationError> {
+    // One filled ring per operation: the fill_layers/fill_island arrays
+    // annotate the rings positionally in the established serializer.
+    let rings = record.operations.len();
+    if record.fill_layers.len() != rings || record.fill_island.len() != rings {
+        return Err(validation_error(
+            "invalid_board_operation",
+            format!("$.records[{record_index}].fill_layers"),
+            "zone fill ring annotations must match the operation count",
+        ));
+    }
+    for (operation_index, operation) in record.operations.iter().enumerate() {
+        let valid = matches!(
+            operation,
+            BoardOperation::PlotPolyOperation(value) if value.layer.is_none()
+        );
+        if !valid {
+            return Err(validation_error(
+                "invalid_board_operation",
+                format!("$.records[{record_index}].operations[{operation_index}]"),
+                "zone fill records carry only layerless filled polygons",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn validate_via_operations(

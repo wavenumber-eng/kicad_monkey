@@ -24,6 +24,40 @@ pub mod error {
         }
     }
 }
+/**One exact net-name to ordered net-class assignment mirrored from the
+project sidecar's `net_settings.netclass_assignments` entries.*/
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One exact net-name to ordered net-class assignment mirrored from the\nproject sidecar's `net_settings.netclass_assignments` entries.",
+///  "type": "object",
+///  "required": [
+///    "classes",
+///    "net_name"
+///  ],
+///  "properties": {
+///    "classes": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "net_name": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardNetClassAssignment {
+    pub classes: ::std::vec::Vec<::std::string::String>,
+    pub net_name: ::std::string::String,
+}
 ///Resource-bounded board plotter operation. Source bytes are out of band.
 ///
 /// <details><summary>JSON schema</summary>
@@ -74,6 +108,12 @@ pub mod error {
 ///    "max_source_bytes": {
 ///      "type": "string"
 ///    },
+///    "net_class_assignments": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/BoardNetClassAssignment"
+///      }
+///    },
 ///    "source_path": {
 ///      "type": "string"
 ///    },
@@ -101,6 +141,8 @@ pub struct BoardPlotRequestA0 {
     pub max_output_bytes: ::std::string::String,
     pub max_points: u32,
     pub max_source_bytes: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub net_class_assignments: ::std::vec::Vec<BoardNetClassAssignment>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub source_path: ::std::option::Option<::std::string::String>,
     #[serde(rename = "type")]

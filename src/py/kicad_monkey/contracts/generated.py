@@ -269,7 +269,7 @@ PlotterViaFlashRole = Literal["via_aperture", "via_mask_opening"]
 PlotterQuad = Annotated[list[PlotterPoint], Meta(min_length=4, max_length=4)]
 
 
-BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord"]
+BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord", "ZoneFillPlotRecord"]
 
 
 class BoardGraphicPlotRecordGrLine(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_line", tag_field="kind"):
@@ -332,6 +332,8 @@ class TrackSegmentPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, ta
     locked: bool
     net_id: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     net_name: str | UnsetType = field(default=UNSET)
+    net_class: str | UnsetType = field(default=UNSET)
+    net_classes: list[str] | UnsetType = field(default=UNSET)
 
 
 class TrackArcPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="track_arc", tag_field="kind"):
@@ -342,6 +344,8 @@ class TrackArcPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="t
     layer: str
     net_id: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     net_name: str | UnsetType = field(default=UNSET)
+    net_class: str | UnsetType = field(default=UNSET)
+    net_classes: list[str] | UnsetType = field(default=UNSET)
 
 
 class ViaPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="via", tag_field="kind"):
@@ -367,6 +371,22 @@ class ViaPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="via", 
     ipc4761_metadata: Literal["true"] | UnsetType = field(default=UNSET)
     net_id: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     net_name: str | UnsetType = field(default=UNSET)
+    net_class: str | UnsetType = field(default=UNSET)
+    net_classes: list[str] | UnsetType = field(default=UNSET)
+
+
+class ZoneFillPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="zone_fill", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layers: list[str]
+    fill_layers: list[str]
+    fill_island: list[bool]
+    net_id: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    net_name: str | UnsetType = field(default=UNSET)
+    net_class: str | UnsetType = field(default=UNSET)
+    net_classes: list[str] | UnsetType = field(default=UNSET)
 
 
 BoardGraphicRecordKind = Literal["gr_line", "gr_arc", "gr_circle", "gr_rect", "gr_poly", "gr_curve"]
@@ -376,6 +396,11 @@ BoardViaType = Literal["through", "blind", "buried", "micro"]
 
 
 PlotterStringBool = Literal["true", "false"]
+
+
+class BoardNetClassAssignment(Struct, forbid_unknown_fields=True, frozen=True):
+    net_name: str
+    classes: list[str]
 
 
 SymbolPlotRecord = Union["SymbolHeaderPlotRecord", "LibSubsymbolPlotRecord"]
@@ -836,6 +861,7 @@ class BoardPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     max_points: Annotated[int, Meta(ge=0, le=4294967295)]
     source_path: str | UnsetType = field(default=UNSET)
     document_id: str | UnsetType = field(default=UNSET)
+    net_class_assignments: list[BoardNetClassAssignment] | UnsetType = field(default=UNSET)
 
 
 class BoardPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -1390,9 +1416,11 @@ __all__ = (
     "TrackSegmentPlotRecord",
     "TrackArcPlotRecord",
     "ViaPlotRecord",
+    "ZoneFillPlotRecord",
     "BoardGraphicRecordKind",
     "BoardViaType",
     "PlotterStringBool",
+    "BoardNetClassAssignment",
     "SymbolPlotRecord",
     "SymbolHeaderPlotRecord",
     "LibSubsymbolPlotRecord",

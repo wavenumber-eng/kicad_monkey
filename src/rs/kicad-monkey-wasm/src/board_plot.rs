@@ -1,4 +1,4 @@
-//! Browser adapter for the source-selected board gr_* graphics producer.
+//! Browser adapter for the source-selected board plotter-IR producer.
 
 use crate::{plotter_contract::contract_plotter_operation, serialize_bounded};
 use kicad_monkey_contracts::JavaScriptSafeInteger;
@@ -6,7 +6,7 @@ use kicad_monkey_contracts::generated::board_plot_document::{
     BoardGraphicPlotRecord, BoardGraphicRecordKind, BoardPlotDocumentA0, BoardPlotRecord,
     BoardViaType, CircleOperation, FlashPadCircleOperation, PlotterCoordinateSpace,
     PlotterDrillRole, PlotterFill, PlotterOperation, PlotterStringBool, PlotterViaFlashRole,
-    TrackArcPlotRecord, TrackSegmentPlotRecord, ViaPlotRecord,
+    TrackArcPlotRecord, TrackSegmentPlotRecord, ViaPlotRecord, ZoneFillPlotRecord,
 };
 use kicad_monkey_contracts::generated::board_plot_request::BoardPlotRequestA0;
 use kicad_monkey_contracts::generated::board_plot_result::{
@@ -14,9 +14,9 @@ use kicad_monkey_contracts::generated::board_plot_result::{
 };
 use kicad_monkey_contracts::validate_board_plot_document;
 use kicad_monkey_core::{
-    BoardGraphicRecordKind as CoreGraphicRecordKind, BoardPlotLimits,
+    BoardGraphicRecordKind as CoreGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
     BoardPlotRecord as CoreBoardPlotRecord, BoardViaOperation, BoardViaOperationKind,
-    BoardViaRecord, Error, ErrorPhase, board_plot_document, utf8_text,
+    BoardViaRecord, Error, ErrorPhase, board_plot_document_with_net_classes, utf8_text,
 };
 use wasm_bindgen::prelude::*;
 
@@ -62,9 +62,15 @@ fn plot_board_ir_impl(source: &[u8], request_json: &[u8]) -> Result<BoardPlotOut
     }
     let max_source_bytes = decimal_usize(&request.max_source_bytes, "max_source_bytes")?;
     let max_output_bytes = decimal_usize(&request.max_output_bytes, "max_output_bytes")?;
+    let net_classes = BoardNetClassAssignments::from_entries(
+        request
+            .net_class_assignments
+            .iter()
+            .map(|assignment| (assignment.net_name.clone(), assignment.classes.clone())),
+    );
     let operation = (|| {
         let text = utf8_text(source)?;
-        board_plot_document(
+        board_plot_document_with_net_classes(
             text,
             BoardPlotLimits {
                 max_source_bytes,
@@ -73,6 +79,7 @@ fn plot_board_ir_impl(source: &[u8], request_json: &[u8]) -> Result<BoardPlotOut
                 max_operations: request.max_operations as usize,
                 max_points: request.max_points as usize,
             },
+            &net_classes,
         )
     })();
     let (result, output_bytes) = match operation {
@@ -149,6 +156,8 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
             kind: "segment".to_owned(),
             layer: record.layer,
             locked: record.locked,
+            net_class: record.net_classes.net_class,
+            net_classes: record.net_classes.net_classes,
             net_id: optional_safe_integer(record.net_id)?,
             net_name: record.net_name,
             object_id: "segment".to_owned(),
@@ -160,6 +169,8 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
         CoreBoardPlotRecord::TrackArc(record) => TrackArcPlotRecord {
             kind: "track_arc".to_owned(),
             layer: record.layer,
+            net_class: record.net_classes.net_class,
+            net_classes: record.net_classes.net_classes,
             net_id: optional_safe_integer(record.net_id)?,
             net_name: record.net_name,
             object_id: "track_arc".to_owned(),
@@ -169,6 +180,21 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
         }
         .into(),
         CoreBoardPlotRecord::Via(record) => contract_via_record(record)?.into(),
+        CoreBoardPlotRecord::Zone(record) => ZoneFillPlotRecord {
+            fill_island: record.fill_island,
+            fill_layers: record.fill_layers,
+            kind: "zone_fill".to_owned(),
+            layers: record.layers,
+            net_class: record.net_classes.net_class,
+            net_classes: record.net_classes.net_classes,
+            net_id: optional_safe_integer(record.net_id)?,
+            net_name: record.net_name,
+            object_id: "zone".to_owned(),
+            operation_count: contract_count(record.operations.len()),
+            operations: shared_operations(record.operations)?,
+            uuid: record.uuid,
+        }
+        .into(),
     })
 }
 
@@ -205,6 +231,8 @@ fn contract_via_record(record: BoardViaRecord) -> Result<ViaPlotRecord, String> 
         ipc4761_tenting_front: string_bool(fabrication.tenting_front),
         kind: "via".to_owned(),
         layers: record.layers,
+        net_class: record.net_classes.net_class,
+        net_classes: record.net_classes.net_classes,
         net_id: optional_safe_integer(record.net_id)?,
         net_name: record.net_name,
         object_id: "via".to_owned(),
@@ -364,7 +392,7 @@ mod tests {
     use serde_json::Value;
 
     fn board_plot_request(vector: &Value, max_output: &str, max_operations: u32) -> Vec<u8> {
-        serde_json::to_vec(&serde_json::json!({
+        let mut request = serde_json::json!({
             "type": "kicad_monkey.board_plot.request",
             "version": "a0",
             "source_path": vector["source_path"],
@@ -375,8 +403,16 @@ mod tests {
             "max_graphics": 1000,
             "max_operations": max_operations,
             "max_points": 10000
-        }))
-        .expect("request JSON")
+        });
+        if let Some(assignments) = vector["net_class_assignments"].as_object() {
+            request["net_class_assignments"] = assignments
+                .iter()
+                .map(|(net_name, classes)| {
+                    serde_json::json!({ "net_name": net_name, "classes": classes })
+                })
+                .collect();
+        }
+        serde_json::to_vec(&request).expect("request JSON")
     }
 
     #[test]

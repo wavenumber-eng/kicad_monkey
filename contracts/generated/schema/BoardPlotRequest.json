@@ -42,6 +42,12 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 4294967295
+        },
+        "net_class_assignments": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/BoardNetClassAssignment"
+            }
         }
     },
     "required": [
@@ -58,5 +64,29 @@
         "not": {}
     },
     "description": "Resource-bounded board plotter operation. Source bytes are out of band.",
-    "title": "Board plot request a0"
+    "title": "Board plot request a0",
+    "$defs": {
+        "BoardNetClassAssignment": {
+            "type": "object",
+            "properties": {
+                "net_name": {
+                    "type": "string"
+                },
+                "classes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "net_name",
+                "classes"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One exact net-name to ordered net-class assignment mirrored from the\nproject sidecar's `net_settings.netclass_assignments` entries."
+        }
+    }
 }

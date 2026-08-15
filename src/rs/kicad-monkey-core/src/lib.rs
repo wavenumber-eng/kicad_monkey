@@ -50,9 +50,10 @@ pub mod worksheet;
 mod worksheet_preflight;
 
 pub use board_plotter_ir::{
-    BoardGraphicRecord, BoardGraphicRecordKind, BoardPlotDocument, BoardPlotLimits,
-    BoardPlotRecord, BoardSegmentRecord, BoardTrackArcRecord, BoardViaFabrication,
-    BoardViaOperation, BoardViaOperationKind, BoardViaRecord, BoardViaType, board_plot_document,
+    BoardGraphicRecord, BoardGraphicRecordKind, BoardNetClassAssignments, BoardNetClassExtras,
+    BoardPlotDocument, BoardPlotLimits, BoardPlotRecord, BoardSegmentRecord, BoardTrackArcRecord,
+    BoardViaFabrication, BoardViaOperation, BoardViaOperationKind, BoardViaRecord, BoardViaType,
+    BoardZoneRecord, board_plot_document, board_plot_document_with_net_classes,
 };
 pub use compiled_schematic_graph::{
     CompiledGraphIdentityAllocator, CompiledGraphIdentityError, CompiledSchematicGraphLimits,

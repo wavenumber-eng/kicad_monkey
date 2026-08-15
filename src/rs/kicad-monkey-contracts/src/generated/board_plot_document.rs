@@ -479,6 +479,9 @@ pub struct BoardPlotDocumentA0 {
 ///    },
 ///    {
 ///      "$ref": "#/$defs/ViaPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/ZoneFillPlotRecord"
 ///    }
 ///  ]
 ///}
@@ -491,6 +494,7 @@ pub enum BoardPlotRecord {
     TrackSegmentPlotRecord(TrackSegmentPlotRecord),
     TrackArcPlotRecord(TrackArcPlotRecord),
     ViaPlotRecord(ViaPlotRecord),
+    ZoneFillPlotRecord(ZoneFillPlotRecord),
 }
 impl ::std::convert::From<BoardGraphicPlotRecord> for BoardPlotRecord {
     fn from(value: BoardGraphicPlotRecord) -> Self {
@@ -510,6 +514,11 @@ impl ::std::convert::From<TrackArcPlotRecord> for BoardPlotRecord {
 impl ::std::convert::From<ViaPlotRecord> for BoardPlotRecord {
     fn from(value: ViaPlotRecord) -> Self {
         Self::ViaPlotRecord(value)
+    }
+}
+impl ::std::convert::From<ZoneFillPlotRecord> for BoardPlotRecord {
+    fn from(value: ZoneFillPlotRecord) -> Self {
+        Self::ZoneFillPlotRecord(value)
     }
 }
 ///Via construction kinds mirrored from the established producer.
@@ -2081,6 +2090,15 @@ pub struct ThickSegmentOperation {
 ///    "layer": {
 ///      "type": "string"
 ///    },
+///    "net_class": {
+///      "type": "string"
+///    },
+///    "net_classes": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
 ///    "net_id": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
@@ -2114,6 +2132,10 @@ pub struct ThickSegmentOperation {
 pub struct TrackArcPlotRecord {
     pub kind: ::std::string::String,
     pub layer: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_class: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub net_classes: ::std::vec::Vec<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub net_id: ::std::option::Option<crate::JavaScriptSafeInteger>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -2151,6 +2173,15 @@ pub struct TrackArcPlotRecord {
 ///    "locked": {
 ///      "type": "boolean"
 ///    },
+///    "net_class": {
+///      "type": "string"
+///    },
+///    "net_classes": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
 ///    "net_id": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
@@ -2185,6 +2216,10 @@ pub struct TrackSegmentPlotRecord {
     pub kind: ::std::string::String,
     pub layer: ::std::string::String,
     pub locked: bool,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_class: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub net_classes: ::std::vec::Vec<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub net_id: ::std::option::Option<crate::JavaScriptSafeInteger>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -2272,6 +2307,15 @@ fabrication metadata mirrors the established stringified booleans.*/
 ///        "type": "string"
 ///      }
 ///    },
+///    "net_class": {
+///      "type": "string"
+///    },
+///    "net_classes": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
 ///    "net_id": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
@@ -2334,6 +2378,10 @@ pub struct ViaPlotRecord {
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_class: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub net_classes: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub net_id: ::std::option::Option<crate::JavaScriptSafeInteger>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub net_name: ::std::option::Option<::std::string::String>,
@@ -2343,4 +2391,104 @@ pub struct ViaPlotRecord {
     pub size: f64,
     pub uuid: ::std::string::String,
     pub via_type: BoardViaType,
+}
+/**One zone fill record bundling every `filled_polygon` ring. The parallel
+`fill_layers`/`fill_island` arrays annotate the rings so consumers can
+split or colour-key without re-walking the source zone.*/
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One zone fill record bundling every `filled_polygon` ring. The parallel\n`fill_layers`/`fill_island` arrays annotate the rings so consumers can\nsplit or colour-key without re-walking the source zone.",
+///  "type": "object",
+///  "required": [
+///    "fill_island",
+///    "fill_layers",
+///    "kind",
+///    "layers",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "fill_island": {
+///      "type": "array",
+///      "items": {
+///        "type": "boolean"
+///      }
+///    },
+///    "fill_layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "zone_fill"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "net_class": {
+///      "type": "string"
+///    },
+///    "net_classes": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "net_id": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "net_name": {
+///      "type": "string"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ZoneFillPlotRecord {
+    pub fill_island: ::std::vec::Vec<bool>,
+    pub fill_layers: ::std::vec::Vec<::std::string::String>,
+    pub kind: ::std::string::String,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_class: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub net_classes: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_id: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_name: ::std::option::Option<::std::string::String>,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
 }

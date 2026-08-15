@@ -328,6 +328,69 @@ fn board_plotter_contract_enforces_track_and_via_record_states() {
 }
 
 #[test]
+fn board_plotter_contract_enforces_zone_fill_ring_states() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/board_plotter_a0_vectors.json"
+    )))
+    .expect("board vectors");
+    let zones = vectors["vectors"][6]["expected"].clone();
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(zones.clone()).expect("zone transport document");
+    validate_board_plot_document(&document).expect("valid zone semantics");
+    let net_classes = vectors["vectors"][7]["expected"].clone();
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(net_classes).expect("net-class transport document");
+    validate_board_plot_document(&document).expect("valid net-class semantics");
+
+    // Vector 6 record layout: zone-single (two rings), zone-multi,
+    // zone-keepout (no rings), zone-empty-name.
+    let mut mismatched = zones.clone();
+    mismatched["records"][0]["fill_layers"]
+        .as_array_mut()
+        .expect("fill layers")
+        .pop();
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(mismatched).expect("structurally valid mismatched annotations");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("ring annotations must match the operation count")
+            .code,
+        "invalid_board_operation"
+    );
+
+    let mut layered = zones.clone();
+    layered["records"][0]["operations"][0]["layer"] = serde_json::json!("F.Cu");
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(layered).expect("structurally valid layered ring");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("zone fill operations must stay layerless")
+            .code,
+        "invalid_board_operation"
+    );
+
+    let mut stroked = zones;
+    stroked["records"][0]["operations"][0] = serde_json::json!({
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 0,
+        "end_x": 1,
+        "end_y": 0,
+        "width_nm": 0
+    });
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(stroked).expect("structurally valid stroked zone");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("zone fills carry only filled polygons")
+            .code,
+        "invalid_board_operation"
+    );
+}
+
+#[test]
 fn footprint_flash_circles_require_pad_state_not_via_state() {
     let vectors: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../tests/parity/footprint_plotter_a0_vectors.json"

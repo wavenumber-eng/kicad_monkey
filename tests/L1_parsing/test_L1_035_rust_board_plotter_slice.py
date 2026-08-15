@@ -17,6 +17,7 @@ from kicad_monkey.contracts.generated import (
 )
 from kicad_monkey.kicad_pcb import KiCadPcb
 from kicad_monkey.kicad_pcb_to_ir import pcb_to_ir
+from kicad_monkey.kicad_project import KiCadProject
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -59,6 +60,11 @@ def test_shared_board_vectors_match_python_generated_types_and_both_schemas() ->
 
     for vector in payload["vectors"]:
         pcb = KiCadPcb.from_string(vector["source"])
+        assignments = vector.get("net_class_assignments")
+        if assignments is not None:
+            pcb.project = KiCadProject.from_json_dict(
+                {"net_settings": {"netclass_assignments": assignments}}
+            )
         actual = pcb_to_ir(
             pcb,
             source_path=vector["source_path"],
@@ -141,6 +147,40 @@ def test_shared_board_vectors_match_python_generated_types_and_both_schemas() ->
     del missing_via_type["records"][6]["via_type"]
     with pytest.raises(msgspec.ValidationError):
         decode_board_plot_document_a0(json.dumps(missing_via_type).encode("utf-8"))
+
+    zones = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "zones-bundle-fill-rings-and-annotations"
+    )
+
+    # Vector record layout: zone-single (two rings), zone-multi,
+    # zone-keepout (no rings), zone-empty-name.
+    missing_fill_layers = json.loads(json.dumps(zones))
+    del missing_fill_layers["records"][0]["fill_layers"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_fill_layers).encode("utf-8"))
+
+    non_boolean_island = json.loads(json.dumps(zones))
+    non_boolean_island["records"][0]["fill_island"][0] = "no"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(non_boolean_island).encode("utf-8"))
+
+    unknown_zone_kind = json.loads(json.dumps(zones))
+    unknown_zone_kind["records"][0]["kind"] = "zone_outline"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(unknown_zone_kind).encode("utf-8"))
+
+    net_class_extras = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "net-class-extras-follow-project-assignments"
+    )
+
+    non_array_classes = json.loads(json.dumps(net_class_extras))
+    non_array_classes["records"][1]["net_classes"] = "Power"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(non_array_classes).encode("utf-8"))
 
 
 def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:

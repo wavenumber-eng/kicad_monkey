@@ -1,7 +1,8 @@
 use kicad_monkey_core::{
-    BoardGraphicRecord, BoardGraphicRecordKind, BoardPlotLimits, BoardPlotRecord,
-    BoardSegmentRecord, BoardTrackArcRecord, BoardViaOperationKind, BoardViaRecord, BoardViaType,
-    ErrorKind, PlotterFill, PlotterOperation, board_plot_document,
+    BoardGraphicRecord, BoardGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
+    BoardPlotRecord, BoardSegmentRecord, BoardTrackArcRecord, BoardViaOperationKind,
+    BoardViaRecord, BoardViaType, BoardZoneRecord, ErrorKind, PlotterFill, PlotterOperation,
+    board_plot_document, board_plot_document_with_net_classes,
 };
 
 fn graphic(record: &BoardPlotRecord) -> &BoardGraphicRecord {
@@ -29,6 +30,13 @@ fn via(record: &BoardPlotRecord) -> &BoardViaRecord {
     match record {
         BoardPlotRecord::Via(record) => record,
         other => panic!("expected via record, got {other:?}"),
+    }
+}
+
+fn zone(record: &BoardPlotRecord) -> &BoardZoneRecord {
+    match record {
+        BoardPlotRecord::Zone(record) => record,
+        other => panic!("expected zone record, got {other:?}"),
     }
 }
 
@@ -633,6 +641,232 @@ fn track_and_via_records_observe_request_budgets() {
     assert_eq!(
         board_plot_document(two_segments, limited)
             .expect_err("the record budget bounds every promoted family")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+}
+
+#[test]
+#[allow(
+    clippy::cognitive_complexity,
+    reason = "single parity assertion test intentionally verifies the full zone record"
+)]
+fn zone_records_serialize_fill_rings_with_parallel_annotations() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (net 1 "GND")
+      (zone (net 1) (net_name "GND") (layer "F.Cu") (uuid "z1") (hatch edge 0.5)
+        (polygon (pts (xy 0 0) (xy 10 0) (xy 10 10) (xy 0 10)))
+        (filled_polygon (layer "F.Cu") (pts (xy 0.1 0.1) (xy 9.9 0.1) (xy 9.9 9.9)))
+        (filled_polygon (layer "F.Cu") (island) (pts (xy 1 1) (xy 2 1) (xy 2 2))))
+      (zone (net 0) (layers "F.Cu" "B.Cu") (uuid "z2") (hatch edge 0.5)
+        (filled_polygon (layer "B.Cu") (pts))))"#;
+    let document = board_plot_document(source, BoardPlotLimits::default()).expect("zone records");
+    assert_eq!(document.records.len(), 2);
+
+    let filled = zone(&document.records[0]);
+    assert_eq!(filled.uuid, "z1");
+    assert_eq!(
+        filled.layers,
+        ["F.Cu"],
+        "singular layer folds into the list"
+    );
+    assert_eq!(filled.fill_layers, ["F.Cu", "F.Cu"]);
+    assert_eq!(filled.fill_island, [false, true]);
+    assert_eq!(filled.net_id, Some(1));
+    assert_eq!(filled.net_name.as_deref(), Some("GND"));
+    assert_eq!(
+        filled.operations.len(),
+        2,
+        "the zone (polygon ...) outline is never serialized"
+    );
+    for operation in &filled.operations {
+        let PlotterOperation::PlotPoly(poly) = operation else {
+            panic!("zone fills emit polygon operations only");
+        };
+        assert_eq!(poly.fill, PlotterFill::FilledShape);
+        assert_eq!(poly.width_nm, 0);
+        assert_eq!(poly.layer, None, "zone fill operations are layerless");
+    }
+    let PlotterOperation::PlotPoly(ring) = &filled.operations[0] else {
+        panic!("expected polygon operation");
+    };
+    assert_eq!(
+        ring.points,
+        [
+            [100_000, 100_000],
+            [9_900_000, 100_000],
+            [9_900_000, 9_900_000]
+        ]
+    );
+
+    let empty = zone(&document.records[1]);
+    assert_eq!(empty.layers, ["F.Cu", "B.Cu"]);
+    assert_eq!(empty.net_id, Some(0));
+    assert_eq!(empty.net_name, None, "empty net names are omitted");
+    assert_eq!(empty.fill_layers, ["B.Cu"]);
+    assert_eq!(empty.fill_island, [false]);
+    let PlotterOperation::PlotPoly(poly) = &empty.operations[0] else {
+        panic!("expected polygon operation");
+    };
+    assert!(poly.points.is_empty(), "empty pts lists survive verbatim");
+}
+
+#[test]
+fn keepout_zones_and_empty_net_names_follow_the_python_serializer() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (net 1 "GND")
+      (zone (net 0) (layers "*.Cu") (uuid "keepout") (hatch edge 0.5)
+        (keepout (tracks not_allowed) (vias not_allowed) (pads allowed)
+          (copperpour not_allowed) (footprints allowed))
+        (polygon (pts (xy 5 5) (xy 6 5) (xy 6 6))))
+      (zone (net 1) (net_name "") (uuid "blank") (hatch edge 0.5)
+        (filled_polygon (layer "In1.Cu") (pts))))"#;
+    let document = board_plot_document(source, BoardPlotLimits::default()).expect("zone edges");
+
+    let keepout = zone(&document.records[0]);
+    assert_eq!(keepout.uuid, "keepout");
+    assert!(
+        keepout.operations.is_empty(),
+        "keepout zones still emit records with zero fill operations"
+    );
+    assert!(keepout.fill_layers.is_empty());
+    assert!(keepout.fill_island.is_empty());
+
+    let blank = zone(&document.records[1]);
+    assert_eq!(
+        blank.net_name.as_deref(),
+        Some("GND"),
+        "present-but-empty net_name still resolves from the net table"
+    );
+    assert!(blank.layers.is_empty(), "missing layers stay empty");
+}
+
+#[test]
+#[allow(
+    clippy::cognitive_complexity,
+    reason = "single parity assertion test intentionally verifies every assignment rule"
+)]
+fn net_class_extras_follow_normalized_project_assignments() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (net 1 "GND")
+      (net 2 "/rail/+3V3")
+      (gr_line (start 0 0) (end 1 0) (stroke (width 0.2) (type solid)))
+      (segment (start 1 2) (end 3 4) (net 1) (uuid "seg-gnd"))
+      (arc (start 5 0) (mid 5.5 0.5) (end 6 0) (net 2) (uuid "arc-rail"))
+      (via (at 7 8) (size 0.5) (drill 0.3) (net 1) (uuid "via-gnd"))
+      (zone (net 1) (net_name "CUSTOM") (layer "B.Cu") (uuid "zone-custom") (hatch edge 0.5))
+      (zone (net 0) (layer "B.Cu") (uuid "zone-anon") (hatch edge 0.5)))"#;
+    let net_classes = BoardNetClassAssignments::from_entries([
+        ("GND", vec!["Power", "Default"]),
+        ("/rail/+3V3", vec!["Rail"]),
+        ("", vec!["ShouldNotAppear"]),
+        ("CUSTOM", vec!["CustomClass", ""]),
+        ("Unused", vec![]),
+    ]);
+    let document =
+        board_plot_document_with_net_classes(source, BoardPlotLimits::default(), &net_classes)
+            .expect("net class extras");
+
+    assert!(matches!(document.records[0], BoardPlotRecord::Graphic(_)));
+    let seg = segment(&document.records[1]);
+    assert_eq!(
+        seg.net_classes.net_class.as_deref(),
+        Some("Power"),
+        "the first class wins the singular extra"
+    );
+    assert_eq!(seg.net_classes.net_classes, ["Power", "Default"]);
+    let arc = track_arc(&document.records[2]);
+    assert_eq!(arc.net_classes.net_class.as_deref(), Some("Rail"));
+    assert_eq!(arc.net_classes.net_classes, ["Rail"]);
+    let gnd_via = via(&document.records[3]);
+    assert_eq!(gnd_via.net_classes.net_classes, ["Power", "Default"]);
+
+    let custom = zone(&document.records[4]);
+    assert_eq!(
+        custom.net_name.as_deref(),
+        Some("CUSTOM"),
+        "explicit net_name wins over the board table"
+    );
+    assert_eq!(custom.net_classes.net_class.as_deref(), Some("CustomClass"));
+    assert_eq!(
+        custom.net_classes.net_classes,
+        ["CustomClass"],
+        "empty class strings are filtered out"
+    );
+
+    let anon = zone(&document.records[5]);
+    assert_eq!(
+        anon.net_classes.net_class, None,
+        "records without truthy net names never gain extras"
+    );
+    assert!(anon.net_classes.net_classes.is_empty());
+}
+
+#[test]
+fn net_class_assignments_normalize_like_the_python_project_reader() {
+    let net_classes = BoardNetClassAssignments::from_entries([
+        ("GND", vec!["First"]),
+        ("GND", vec!["Second"]),
+        ("Empty", vec!["", ""]),
+    ]);
+    let extras = net_classes.extras_for(Some("GND"));
+    assert_eq!(
+        extras.net_class.as_deref(),
+        Some("Second"),
+        "later duplicate assignments overwrite earlier ones"
+    );
+    let empty = net_classes.extras_for(Some("Empty"));
+    assert_eq!(
+        empty.net_class, None,
+        "all-empty class lists produce no extras"
+    );
+    assert!(empty.net_classes.is_empty());
+    let unknown = net_classes.extras_for(Some("Missing"));
+    assert_eq!(unknown.net_class, None, "lookups are exact-match only");
+    assert_eq!(net_classes.extras_for(None).net_class, None);
+}
+
+#[test]
+fn zone_records_observe_request_budgets() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (zone (net 0) (layer "F.Cu") (uuid "z") (hatch edge 0.5)
+        (filled_polygon (layer "F.Cu") (pts (xy 0 0) (xy 1 0) (xy 1 1)))))"#;
+
+    let limited = BoardPlotLimits {
+        max_operations: 0,
+        ..BoardPlotLimits::default()
+    };
+    assert_eq!(
+        board_plot_document(source, limited)
+            .expect_err("zone rings charge the shared operation budget")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let limited = BoardPlotLimits {
+        max_points: 2,
+        ..BoardPlotLimits::default()
+    };
+    let error =
+        board_plot_document(source, limited).expect_err("zone ring points observe max_points");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+    assert!(error.message.contains("max_points"));
+
+    let two_zones = r#"(kicad_pcb
+      (net 0 "")
+      (zone (net 0) (layer "F.Cu") (uuid "z1") (hatch edge 0.5))
+      (zone (net 0) (layer "F.Cu") (uuid "z2") (hatch edge 0.5)))"#;
+    let limited = BoardPlotLimits {
+        max_graphics: 1,
+        ..BoardPlotLimits::default()
+    };
+    assert_eq!(
+        board_plot_document(two_zones, limited)
+            .expect_err("the record budget bounds zone records")
             .kind,
         ErrorKind::ResourceLimit
     );

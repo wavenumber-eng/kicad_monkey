@@ -347,6 +347,15 @@ model FootprintPlotDocument {
   generator_version: string;
 }
 
+/**
+ * One exact net-name to ordered net-class assignment mirrored from the
+ * project sidecar's `net_settings.netclass_assignments` entries.
+ */
+model BoardNetClassAssignment {
+  net_name: string;
+  classes: string[];
+}
+
 /** Resource-bounded board plotter operation. Source bytes are out of band. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.board_plot.request:a0")
@@ -362,6 +371,7 @@ model BoardPlotRequest {
   max_graphics: uint32;
   max_operations: uint32;
   max_points: uint32;
+  net_class_assignments?: BoardNetClassAssignment[];
 }
 
 /** Metadata paired with a separate board plotter-IR JSON byte buffer. */
@@ -410,6 +420,8 @@ model TrackSegmentPlotRecord {
   locked: boolean;
   net_id?: JavaScriptSafeInteger;
   net_name?: string;
+  net_class?: string;
+  net_classes?: string[];
 }
 
 /** One board track arc record with its net attribution. */
@@ -422,6 +434,8 @@ model TrackArcPlotRecord {
   layer: string;
   net_id?: JavaScriptSafeInteger;
   net_name?: string;
+  net_class?: string;
+  net_classes?: string[];
 }
 
 /** Via construction kinds mirrored from the established producer. */
@@ -467,6 +481,28 @@ model ViaPlotRecord {
   ipc4761_metadata?: "true";
   net_id?: JavaScriptSafeInteger;
   net_name?: string;
+  net_class?: string;
+  net_classes?: string[];
+}
+
+/**
+ * One zone fill record bundling every `filled_polygon` ring. The parallel
+ * `fill_layers`/`fill_island` arrays annotate the rings so consumers can
+ * split or colour-key without re-walking the source zone.
+ */
+model ZoneFillPlotRecord {
+  uuid: string;
+  kind: "zone_fill";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  layers: string[];
+  fill_layers: string[];
+  fill_island: boolean[];
+  net_id?: JavaScriptSafeInteger;
+  net_name?: string;
+  net_class?: string;
+  net_classes?: string[];
 }
 
 union BoardPlotRecord {
@@ -474,6 +510,7 @@ union BoardPlotRecord {
   segment: TrackSegmentPlotRecord,
   trackArc: TrackArcPlotRecord,
   via: ViaPlotRecord,
+  zoneFill: ZoneFillPlotRecord,
 }
 
 /**

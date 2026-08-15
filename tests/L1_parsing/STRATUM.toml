@@ -530,13 +530,13 @@ secondary = [
 id = "L1_035"
 file = "test_L1_035_rust_board_plotter_slice.py"
 name = "Rust Board Plotter-IR Slice"
-description = "Prove promoted board graphics, tracks, and vias from KiCad bytes to shared kicad.plotter_ir.a0 operations"
+description = "Prove promoted board graphics, tracks, vias, and zone fills from KiCad bytes to shared kicad.plotter_ir.a0 operations"
 concerns = ["sexpr", "rust", "pcb", "plotter_ir", "wasm"]
 test_cases = "tests/parity/board_plotter_a0_vectors.json"
 test_case_type = "contract"
 
 [subtests.objectives]
-primary = "Rust and Python emit the same established plotter-IR document for promoted board graphics, tracks, and vias"
+primary = "Rust and Python emit the same established plotter-IR document for promoted board graphics, tracks, vias, and zone fills"
 secondary = [
     "The TypeSpec board slice remains a strict valid subset of the established plotter-IR contract",
     "Board documents carry version, generator, thickness, and paper metadata with Python defaults",
@@ -554,4 +554,8 @@ secondary = [
     "Via drills fall back to half the pad size only for non-positive diameters while extras stay raw",
     "Via fabrication flags surface as ipc4761 string extras only when authored",
     "Track and via records observe the shared operation and per-family record budgets",
+    "Zone records serialize filled-polygon rings with parallel fill-layer and island annotations and layerless filled operations",
+    "Keepout zones keep zero-operation records, zone outlines never serialize, and present-but-empty net names resolve from the net table",
+    "Net-class extras follow normalized exact-match project assignments carried on the request for tracks, arcs, vias, and zones",
+    "Zone rings observe the shared operation, point, and per-family record budgets",
 ]
