@@ -229,24 +229,53 @@ def _fracture_seam_index(points: list[tuple[float, float]]) -> int:
     """Approximate the ring seam `Fracture()`'s Clipper2 `Simplify()` stores.
 
     Simplified rings start just past the exit of a min-y run: the maximal
-    stretch of consecutive stored points at the ring's minimum y.  When a
-    ring holds several min-y runs, the run containing the smallest-x min-y
-    point wins, matching Clipper2's local-minima sweep order.
+    stretch of consecutive stored points at the ring's minimum y.  The seam
+    lands at the min-y top that closes the ring LAST in Clipper2's sweep:
+    `DoTopOfScanbeam` handles single-point maxima left-to-right but defers
+    horizontal maxima onto a LIFO stack processed right-to-left afterwards.
+    So a multi-point (horizontal) run always closes after every single-point
+    run, and among horizontal runs the leftmost closes last (Wavenumber 'W'),
+    while among single-point runs the rightmost closes last (tiny_tapeout
+    FreeMono 'P').
     """
 
     count = len(points)
     min_y = min(point[1] for point in points)
-    anchor = min(
-        (index for index in range(count) if points[index][1] == min_y),
-        key=lambda index: points[index][0],
-    )
-    end = anchor
-    for _ in range(count - 1):
-        following = (end + 1) % count
-        if points[following][1] != min_y:
-            break
-        end = following
-    return (end + 1) % count
+    runs = _min_y_runs(points, min_y)
+    if not runs:
+        # Every stored point sits at min y; keep the smallest-x anchor.
+        return min(range(count), key=lambda index: points[index][0])
+    def run_min_x(run: tuple[int, int]) -> float:
+        index, x = run[0], points[run[0]][0]
+        while index != run[1]:
+            index = (index + 1) % count
+            x = min(x, points[index][0])
+        return x
+
+    horizontal = [run for run in runs if run[1] != run[0]]
+    if horizontal:
+        chosen = min(horizontal, key=run_min_x)
+    else:
+        chosen = max(runs, key=lambda run: points[run[0]][0])
+    return (chosen[1] + 1) % count
+
+
+def _min_y_runs(
+    points: list[tuple[float, float]],
+    min_y: float,
+) -> list[tuple[int, int]]:
+    """Maximal cyclic (start, end) stretches of consecutive min-y points."""
+
+    count = len(points)
+    runs: list[tuple[int, int]] = []
+    for index in range(count):
+        if points[index][1] != min_y or points[(index - 1) % count][1] == min_y:
+            continue
+        end = index
+        while points[(end + 1) % count][1] == min_y:
+            end = (end + 1) % count
+        runs.append((index, end))
+    return runs
 
 
 def _rotate_exterior_for_fracture(

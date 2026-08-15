@@ -173,10 +173,13 @@ fn every_topology_limit_is_inclusive_and_fails_closed_one_under() {
 }
 
 #[test]
-fn simplify_seam_picks_smallest_x_min_y_run_and_scans_hole_bridge_from_seam() {
-    // The exterior carries TWO min-y runs at y=0; the seam sits one past the
-    // exit of the run holding the smallest-x min-y point, so the fractured
-    // ring starts at (1.5, 1) and not after the (2,0)-(3,0) run. The hole's
+fn simplify_seam_picks_leftmost_horizontal_min_y_run_and_scans_hole_bridge() {
+    // The exterior carries TWO horizontal min-y runs at y=0. Clipper2 defers
+    // horizontal maxima onto a LIFO stack while sweeping actives
+    // left-to-right, so horizontal tops are processed right-to-left and the
+    // LEFTMOST horizontal run closes the ring last, storing the Simplify
+    // seam: the fractured ring starts at (1.5, 1), one past the (0,0)-(1,0)
+    // run (Wavenumber 'W' pinned this against the KiCad oracle). The hole's
     // stored order reaches its min-x UPPER vertex (1,2) first when scanned
     // from its own Simplify seam (one past (1.5,1.9)), pinning the
     // Wavenumber-style bridge that the old largest-y tie-break missed.

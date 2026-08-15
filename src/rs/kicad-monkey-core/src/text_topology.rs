@@ -384,33 +384,70 @@ fn signed_area(points: &[TextPoint]) -> Result<f64, TextContourError> {
 }
 
 /// Ring seam stored by `Fracture()`'s Clipper2 `Simplify()` rewrite: one past
-/// the exit of the min-y run holding the smallest-x min-y point.
+/// the exit of the min-y run whose top closes the ring last in the sweep.
 ///
 /// A "run" is a maximal stretch of consecutive stored points at the ring's
-/// minimum y. When several min-y runs exist, the run containing the
-/// smallest-x min-y point wins, matching Clipper2's local-minima sweep order.
+/// minimum y. Clipper2's `DoTopOfScanbeam` handles single-point maxima
+/// left-to-right but defers horizontal maxima onto a LIFO stack processed
+/// right-to-left afterwards, so a multi-point (horizontal) run always closes
+/// after every single-point run, the leftmost horizontal run closes last,
+/// and with only single-point runs the rightmost closes last.
 fn seam_index(points: &[TextPoint]) -> usize {
     let min_y = points
         .iter()
         .map(|point| point.y)
         .min_by(|left, right| finite_cmp(*left, *right))
         .expect("normalized contours are nonempty");
-    let anchor = points
+    let runs = min_y_runs(points, min_y);
+    let Some(first) = runs.first() else {
+        // Every stored point sits at min y; keep the smallest-x anchor.
+        return points
+            .iter()
+            .enumerate()
+            .min_by(|(_, left), (_, right)| finite_cmp(left.x, right.x))
+            .map(|(index, _)| index)
+            .expect("normalized contours are nonempty");
+    };
+    let chosen = runs
         .iter()
-        .enumerate()
-        .filter(|(_, point)| point.y == min_y)
-        .min_by(|(_, left), (_, right)| finite_cmp(left.x, right.x))
-        .map(|(index, _)| index)
-        .expect("normalized contours are nonempty");
-    let mut end = anchor;
-    for _ in 1..points.len() {
-        let following = (end + 1) % points.len();
-        if points[following].y != min_y {
-            break;
+        .filter(|(start, end)| start != end)
+        .min_by(|left, right| finite_cmp(run_min_x(points, **left), run_min_x(points, **right)))
+        .or_else(|| {
+            runs.iter()
+                .max_by(|(left, _), (right, _)| finite_cmp(points[*left].x, points[*right].x))
+        })
+        .unwrap_or(first);
+    (chosen.1 + 1) % points.len()
+}
+
+/// Maximal cyclic `(start, end)` stretches of consecutive min-y points.
+fn min_y_runs(points: &[TextPoint], min_y: f64) -> Vec<(usize, usize)> {
+    let count = points.len();
+    let mut runs = Vec::new();
+    for index in 0..count {
+        if points[index].y != min_y || points[(index + count - 1) % count].y == min_y {
+            continue;
         }
-        end = following;
+        let mut end = index;
+        while points[(end + 1) % count].y == min_y {
+            end = (end + 1) % count;
+        }
+        runs.push((index, end));
     }
-    (end + 1) % points.len()
+    runs
+}
+
+/// Smallest x among a cyclic min-y run's stored points.
+fn run_min_x(points: &[TextPoint], run: (usize, usize)) -> f64 {
+    let mut index = run.0;
+    let mut x = points[run.0].x;
+    while index != run.1 {
+        index = (index + 1) % points.len();
+        if points[index].x < x {
+            x = points[index].x;
+        }
+    }
+    x
 }
 
 /// Approximate Clipper2's `LocMinSorter` outer output order within one glyph.

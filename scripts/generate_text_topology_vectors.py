@@ -35,6 +35,43 @@ CASES: tuple[dict[str, Any], ...] = (
         ],
     },
     {
+        # Two horizontal min-y runs at equal y: Clipper2's DoTopOfScanbeam
+        # defers horizontal maxima onto a LIFO stack processed right-to-left,
+        # so the LEFTMOST run closes last and stores the Simplify seam
+        # (Wavenumber 'W').
+        "case_id": "two_horizontal_min_y_runs_seam_tie",
+        "contours": [
+            [
+                [0.0, 0.0],
+                [2.0, 0.0],
+                [2.0, 4.0],
+                [6.0, 4.0],
+                [6.0, 0.0],
+                [8.0, 0.0],
+                [8.0, 10.0],
+                [0.0, 10.0],
+            ],
+            [[3.0, 6.0], [5.0, 6.0], [5.0, 8.0], [3.0, 8.0]],
+        ],
+    },
+    {
+        # Two single-point min-y feet at equal y: non-horizontal maxima are
+        # processed inline left-to-right, so the RIGHTMOST (largest-x) foot
+        # closes last and stores the seam (tiny_tapeout FreeMono 'P').
+        "case_id": "two_point_min_y_feet_seam_tie",
+        "contours": [
+            [
+                [1.0, 0.0],
+                [2.0, 4.0],
+                [6.0, 4.0],
+                [7.0, 0.0],
+                [8.0, 10.0],
+                [0.0, 10.0],
+            ],
+            [[3.0, 6.0], [5.0, 6.0], [5.0, 8.0], [3.0, 8.0]],
+        ],
+    },
+    {
         "case_id": "single_square_hole",
         "contours": [
             [[0.0, 0.0], [8.0, 0.0], [8.0, 8.0], [0.0, 8.0]],
