@@ -1615,6 +1615,40 @@ def test_python_render_cache_generator_matches_fontconfig_substitution_oracle(
 
 
 @pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+def test_python_render_cache_generator_matches_nonsquare_size_oracle(
+    tmp_path: Path,
+):
+    # KiCad serializes text size as (size height width): parseEDA_TEXT reads
+    # height then width into TEXT_ATTRIBUTES x=width/y=height. A non-square
+    # size pins the axis order for board text; royalblue's 0.8x0.7 labels
+    # regressed exactly this (generated width tracked the height value).
+    source = tmp_path / "render_cache_python_generator_nonsquare.kicad_pcb"
+    _write_outline_text_board(source, "I2", font_size="0.8 0.7", font_style="(bold yes)")
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_nonsquare",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
 @pytest.mark.skipif(_WAVENUMBER_FONT is None, reason="Wavenumber font asset not present")
 def test_python_render_cache_generator_matches_embedded_font_oracle(
     tmp_path: Path,
