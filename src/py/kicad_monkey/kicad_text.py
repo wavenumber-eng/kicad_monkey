@@ -1180,8 +1180,15 @@ class KiCadTextRenderer:
                 markup_runs.append((token, self.measure_markup_width(params, token)))
                 continue
 
-            for token in re.findall(r" +|[^ ]+", part.text):
-                measured = token.strip() or token
+            # KiCad tokenizes with `wxTOKEN_RET_DELIMS`: each word keeps ONE
+            # trailing space and extra spaces become lone " " tokens.  The
+            # measured width right-trims the token, so an attached space is
+            # never counted here -- it enters the overflow check later as
+            # pending-space width.  Counting it in the word width too made
+            # lines measure one space wider per word and wrapped one word
+            # early (cm0 text box).
+            for token in re.findall(r"[^ ]* |[^ ]+", part.text):
+                measured = token.rstrip(" ") or token
                 markup_runs.append((token, self.measure_markup_width(params, measured)))
 
         words: List[Tuple[str, float]] = []

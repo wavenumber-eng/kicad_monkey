@@ -1926,6 +1926,45 @@ def test_python_render_cache_generator_matches_markup_text_box_wrap_oracle(
 
 
 @pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+def test_python_render_cache_generator_matches_multiword_text_box_wrap_oracle(
+    tmp_path: Path,
+):
+    # KiCad's linebreaker measures each word WITHOUT its trailing space
+    # (`wxTOKEN_RET_DELIMS` tokens are width-measured trimmed); the space
+    # enters the overflow check only as pending-space width.  Double-counting
+    # it inflated lines by one space per word and wrapped one word early
+    # (cm0 text box).  The width here puts the true rule's break after "and"
+    # while the inflated rule broke before it.
+    source = tmp_path / "render_cache_python_generator_text_box_multiword_wrap.kicad_pcb"
+    _write_outline_text_box_board(
+        source, "50ohm 0.15 coplanar impedance on L1 and L4", end_x=59.84
+    )
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_text_box_multiword_wrap",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_text_boxes[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    assert generated.cache.text == "50ohm 0.15 coplanar impedance on L1 and\nL4"
+    assert oracle.entries[0].cache.text == generated.cache.text
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
 def test_python_render_cache_generator_matches_polygon_board_text_box_oracle(
     tmp_path: Path,
 ):
