@@ -423,6 +423,16 @@ rack_cases = ["L1_033"]
 evidence = ["src/rs/kicad-monkey-core/src/worksheet.rs", "src/rs/kicad-monkey-core/tests/worksheet.rs", "src/rs/kicad-monkey-core/examples/worksheet_gate.rs", "tests/L1_parsing/test_L1_033_rust_worksheet_roundtrip.py", "docs/design/rust-worksheet-phase4-slice.html"]
 
 [[surfaces]]
+id = "geometry.planar_kernel_bridge"
+disposition = "deferred_geometer_service"
+wasm = "not_applicable_deferred"
+status = "deferred"
+python_symbols = ["kicad_zone_utils.PolygonSet", "kicad_zone_filler.ZoneFiller", "_apply_synthetic_knockout_to_text_box_op", "_custom_pad_cli_rings"]
+rust_symbols = []
+rack_cases = []
+evidence = ["docs/design/rust-geometer-bridge-disposition.html", "src/rs/kicad-monkey-core/src/text_topology.rs", "src/py/kicad_monkey/kicad_zone_utils.py", "src/py/kicad_monkey/kicad_pcb_to_ir.py"]
+
+[[surfaces]]
 id = "project.native_reader_writer"
 disposition = "required"
 wasm = "deferred_native_first"
