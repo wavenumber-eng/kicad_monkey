@@ -231,6 +231,20 @@ def _font_style_flags(family: str, style: str) -> Tuple[bool, bool]:
     return bold, italic
 
 
+def _font_name_forces_bold(font_name: str) -> bool:
+    """Mirror KiCad ``FONTCONFIG::FindFont``'s name-token bold forcing.
+
+    KiCad treats the request as bold whenever the requested font NAME
+    contains one of these substrings, regardless of the requested style
+    flag. The check is a case-insensitive substring match, so it also
+    catches "SemiBold"/"UltraBold"/"ExtraBlack" style suffixes.
+    """
+    lowered = font_name.casefold()
+    return any(
+        token in lowered for token in ("bold", "heavy", "black", "thick", "dark")
+    )
+
+
 def _font_style_lookup_order(
     key: str,
     *,
@@ -725,6 +739,9 @@ class KiCadTextRenderer:
         First checks embedded fonts, then known local files, system font
         indexes, fontconfig, and finally the Windows Arial fallback.
         """
+        # KiCad forces the bold flag before any matching when the requested
+        # name carries a weight token (bold/heavy/black/thick/dark).
+        bold = bold or _font_name_forces_bold(font_name)
         # Check embedded fonts first
         base_name: str = font_name.lower()
         if base_name in self._embedded_fonts:
@@ -802,6 +819,7 @@ class KiCadTextRenderer:
         italic: bool = False
     ) -> Any | None:
         """Get or load a FreeType font face."""
+        bold = bold or _font_name_forces_bold(font_name)
         cache_key: FontCacheKey = (font_name, bold, italic)
         if cache_key in self._font_cache:
             return self._font_cache[cache_key]
@@ -2217,7 +2235,10 @@ class KiCadTextRenderer:
         hb_font: Any = self._get_hb_font(font_path, upem)
         scale_x: float = params.size_x / float(scaler) * OUTLINE_FONT_SIZE_COMPENSATION
         scale_y: float = params.size_y / float(scaler) * OUTLINE_FONT_SIZE_COMPENSATION
-        fake_bold: bool = params.bold and not self._face_has_bold(face)
+        # KiCad's FindFont forces the bold request when the font NAME carries
+        # a weight token, so the fake-bold decision sees the forced flag too.
+        effective_bold: bool = params.bold or _font_name_forces_bold(params.font_name)
+        fake_bold: bool = effective_bold and not self._face_has_bold(face)
         fake_italic: bool = params.italic and not self._face_has_italic(face)
 
         rad: float = math.radians(params.angle)

@@ -1741,6 +1741,52 @@ def test_python_render_cache_generator_matches_degenerate_ring_oracle(
 
 
 @pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(
+    not os.environ.get("KICAD_FONTCONFIG_DLL"),
+    reason="KiCad fontconfig DLL not provisioned",
+)
+def test_python_render_cache_generator_matches_weight_token_bold_oracle(
+    tmp_path: Path,
+):
+    # KiCad's FONTCONFIG::FindFont forces the bold flag whenever the
+    # requested font NAME contains bold/heavy/black/thick/dark (substring,
+    # case-insensitive - "SemiBold" contains "bold"), regardless of the
+    # board's style flag. cm0's 'Fira Code SemiBold' texts save with the
+    # bold substituted face while the board carries no (bold yes).
+    source = tmp_path / "render_cache_weight_token_bold.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        "PWR",
+        font_face="Fira Code SemiBold",
+        font_size="1.5 1.5",
+    )
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_weight_token_bold",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert request.text_params is not None
+    assert not request.text_params.bold
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
 def test_python_render_cache_generator_matches_nonsquare_size_oracle(
     tmp_path: Path,
 ):
