@@ -193,6 +193,16 @@ rack_cases = ["L0_046", "L0_049", "L1_035"]
 evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/board_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/board_plotter_ir.rs", "src/rs/kicad-monkey-core/tests/board_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/lib.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
 
 [[surfaces]]
+id = "plotter_ir.board_tracks_vias"
+disposition = "required"
+wasm = "required"
+status = "review_ready"
+python_symbols = ["track_segment_to_op", "track_arc_to_op", "via_to_op", "via_drill_to_op", "via_mask_opening_to_op", "via_mask_drill_to_op", "_net_extras"]
+rust_symbols = ["BoardSegmentRecord", "BoardTrackArcRecord", "BoardViaRecord", "board_plot_document", "validate_board_plot_document", "kicad-monkey-wasm.plotBoardIr"]
+rack_cases = ["L0_046", "L0_049", "L1_035"]
+evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/board_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/board_plotter_ir.rs", "src/rs/kicad-monkey-core/tests/board_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/lib.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
+
+[[surfaces]]
 id = "pcb.native_setup_stackup"
 disposition = "required"
 wasm = "deferred_native_first"

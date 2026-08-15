@@ -530,13 +530,13 @@ secondary = [
 id = "L1_035"
 file = "test_L1_035_rust_board_plotter_slice.py"
 name = "Rust Board Plotter-IR Slice"
-description = "Prove promoted board gr_* graphics from KiCad bytes to shared kicad.plotter_ir.a0 operations"
+description = "Prove promoted board graphics, tracks, and vias from KiCad bytes to shared kicad.plotter_ir.a0 operations"
 concerns = ["sexpr", "rust", "pcb", "plotter_ir", "wasm"]
 test_cases = "tests/parity/board_plotter_a0_vectors.json"
 test_case_type = "contract"
 
 [subtests.objectives]
-primary = "Rust and Python emit the same established plotter-IR document for promoted board graphics"
+primary = "Rust and Python emit the same established plotter-IR document for promoted board graphics, tracks, and vias"
 secondary = [
     "The TypeSpec board slice remains a strict valid subset of the established plotter-IR contract",
     "Board documents carry version, generator, thickness, and paper metadata with Python defaults",
@@ -548,4 +548,10 @@ secondary = [
     "Pattern step caps, zero-progress strokes, and polygon point budgets fail without partial geometry",
     "The WASM boundary accepts source bytes and returns bounded out-of-band JSON bytes",
     "Text carriers are excluded pending the board-text slice",
+    "Track records follow graphics with bare locked flags, verbatim widths, and truthy net-name extras",
+    "Track arcs plot from the file end point back to the start with no lock state",
+    "Via records emit an aperture/drill pair then mask pairs gated by explicit untenting on outer copper",
+    "Via drills fall back to half the pad size only for non-positive diameters while extras stay raw",
+    "Via fabrication flags surface as ipc4761 string extras only when authored",
+    "Track and via records observe the shared operation and per-family record budgets",
 ]

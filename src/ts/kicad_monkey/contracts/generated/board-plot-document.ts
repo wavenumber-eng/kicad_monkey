@@ -1,5 +1,6 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
+export type BoardPlotRecord = BoardGraphicPlotRecord | TrackSegmentPlotRecord | TrackArcPlotRecord | ViaPlotRecord;
 /**
  * Board graphic record kinds promoted in the first board slice.
  */
@@ -27,7 +28,7 @@ export type JavaScriptSafeInteger = number;
 /**
  * Semantic roles allowed on shared circle and segment drill operations.
  */
-export type PlotterDrillRole = "pad_drill" | "npth_hole";
+export type PlotterDrillRole = "pad_drill" | "npth_hole" | "via_drill" | "via_mask_drill";
 /**
  * Fill values shared by plotter operation producers.
  */
@@ -51,22 +52,34 @@ export type PlotterLineStyle = "DEFAULT" | "SOLID" | "DASH" | "DOT" | "DASH_DOT"
  */
 export type PlotterPoint = [JavaScriptSafeInteger, JavaScriptSafeInteger];
 /**
+ * Semantic roles allowed on board via flash operations.
+ */
+export type PlotterViaFlashRole = "via_aperture" | "via_mask_opening";
+/**
  * Four pad-local trapezoid corners.
  *
  * @minItems 4
  * @maxItems 4
  */
 export type PlotterQuad = [PlotterPoint, PlotterPoint, PlotterPoint, PlotterPoint];
+/**
+ * Via construction kinds mirrored from the established producer.
+ */
+export type BoardViaType = "through" | "blind" | "buried" | "micro";
+/**
+ * Stringified boolean metadata mirrored from the established producer.
+ */
+export type PlotterStringBool = "true" | "false";
 
 /**
- * Strict board-graphics subset of kicad.plotter_ir.a0. Producers and
+ * Strict board graphics/tracks/vias subset of kicad.plotter_ir.a0. Producers and
  * consumers must run generated semantic validation after structural decoding.
  */
 export interface BoardPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
   source_kind: "PCB";
   total_operations: number;
-  records: BoardGraphicPlotRecord[];
+  records: BoardPlotRecord[];
   source_path?: string;
   document_id: string;
   coordinate_space: PlotterCoordinateSpace;
@@ -205,7 +218,10 @@ export interface BezierCurveOperation {
   line_style?: PlotterLineStyle;
 }
 /**
- * Circular pad flash shared by footprint and PCB producers.
+ * Circular pad flash shared by footprint and PCB producers. Footprint pad
+ * state requires mask_margin_nm and forbids role. Board via state requires
+ * role and forbids mask_margin_nm. The generated semantic validator enforces
+ * these mutually exclusive states.
  */
 export interface FlashPadCircleOperation {
   kind: "FlashPadCircle";
@@ -214,7 +230,8 @@ export interface FlashPadCircleOperation {
   y: JavaScriptSafeInteger;
   diameter_nm: JavaScriptSafeInteger;
   layers: string[];
-  mask_margin_nm: JavaScriptSafeInteger;
+  mask_margin_nm?: JavaScriptSafeInteger;
+  role?: PlotterViaFlashRole;
 }
 /**
  * Oval pad flash shared by footprint and PCB producers.
@@ -291,6 +308,63 @@ export interface FlashPadTrapezOperation {
   orient_deg: number;
   layers: string[];
   mask_margin_nm: JavaScriptSafeInteger;
+}
+/**
+ * One board track segment record with its net attribution.
+ */
+export interface TrackSegmentPlotRecord {
+  uuid: string;
+  kind: "segment";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  layer: string;
+  locked: boolean;
+  net_id?: JavaScriptSafeInteger;
+  net_name?: string;
+}
+/**
+ * One board track arc record with its net attribution.
+ */
+export interface TrackArcPlotRecord {
+  uuid: string;
+  kind: "track_arc";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  layer: string;
+  net_id?: JavaScriptSafeInteger;
+  net_name?: string;
+}
+/**
+ * One board via record: copper aperture, synthetic drill, and per-side mask
+ * opening/drill pairs when tenting explicitly exposes that side. IPC-4761
+ * fabrication metadata mirrors the established stringified booleans.
+ */
+export interface ViaPlotRecord {
+  uuid: string;
+  kind: "via";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  layers: string[];
+  drill: number;
+  size: number;
+  via_type: BoardViaType;
+  hole_kind: "round";
+  hole_plating: "plated";
+  hole_render: "drill";
+  ipc4761_tenting_front?: PlotterStringBool;
+  ipc4761_tenting_back?: PlotterStringBool;
+  ipc4761_covering_front?: PlotterStringBool;
+  ipc4761_covering_back?: PlotterStringBool;
+  ipc4761_plugging_front?: PlotterStringBool;
+  ipc4761_plugging_back?: PlotterStringBool;
+  ipc4761_capping?: PlotterStringBool;
+  ipc4761_filling?: PlotterStringBool;
+  ipc4761_metadata?: "true";
+  net_id?: JavaScriptSafeInteger;
+  net_name?: string;
 }
 /**
  * Coordinate convention for the footprint plotter slice.

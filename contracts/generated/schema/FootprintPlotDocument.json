@@ -606,6 +606,9 @@
                 },
                 "mask_margin_nm": {
                     "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "role": {
+                    "$ref": "#/$defs/PlotterViaFlashRole"
                 }
             },
             "required": [
@@ -614,13 +617,12 @@
                 "x",
                 "y",
                 "diameter_nm",
-                "layers",
-                "mask_margin_nm"
+                "layers"
             ],
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Circular pad flash shared by footprint and PCB producers."
+            "description": "Circular pad flash shared by footprint and PCB producers. Footprint pad\nstate requires mask_margin_nm and forbids role. Board via state requires\nrole and forbids mask_margin_nm. The generated semantic validator enforces\nthese mutually exclusive states."
         },
         "FlashPadOvalOperation": {
             "type": "object",
@@ -910,7 +912,9 @@
             "type": "string",
             "enum": [
                 "pad_drill",
-                "npth_hole"
+                "npth_hole",
+                "via_drill",
+                "via_mask_drill"
             ],
             "description": "Semantic roles allowed on shared circle and segment drill operations."
         },
@@ -947,6 +951,14 @@
             "minItems": 2,
             "maxItems": 2,
             "description": "Plotter point encoded as an exact coordinate pair."
+        },
+        "PlotterViaFlashRole": {
+            "type": "string",
+            "enum": [
+                "via_aperture",
+                "via_mask_opening"
+            ],
+            "description": "Semantic roles allowed on board via flash operations."
         },
         "PlotterQuad": {
             "type": "array",

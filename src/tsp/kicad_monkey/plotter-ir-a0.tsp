@@ -71,6 +71,14 @@ enum PlotterLineStyle {
 enum PlotterDrillRole {
   padDrill: "pad_drill",
   npthHole: "npth_hole",
+  viaDrill: "via_drill",
+  viaMaskDrill: "via_mask_drill",
+}
+
+/** Semantic roles allowed on board via flash operations. */
+enum PlotterViaFlashRole {
+  viaAperture: "via_aperture",
+  viaMaskOpening: "via_mask_opening",
 }
 
 /**
@@ -192,7 +200,12 @@ model BezierCurveOperation {
   line_style?: PlotterLineStyle;
 }
 
-/** Circular pad flash shared by footprint and PCB producers. */
+/**
+ * Circular pad flash shared by footprint and PCB producers. Footprint pad
+ * state requires mask_margin_nm and forbids role. Board via state requires
+ * role and forbids mask_margin_nm. The generated semantic validator enforces
+ * these mutually exclusive states.
+ */
 model FlashPadCircleOperation {
   kind: "FlashPadCircle";
   index: uint32;
@@ -200,7 +213,8 @@ model FlashPadCircleOperation {
   y: JavaScriptSafeInteger;
   diameter_nm: JavaScriptSafeInteger;
   layers: string[];
-  mask_margin_nm: JavaScriptSafeInteger;
+  mask_margin_nm?: JavaScriptSafeInteger;
+  role?: PlotterViaFlashRole;
 }
 
 /** Oval pad flash shared by footprint and PCB producers. */
@@ -385,8 +399,85 @@ model BoardGraphicPlotRecord {
   layer: string | null;
 }
 
+/** One board track segment record with its net attribution. */
+model TrackSegmentPlotRecord {
+  uuid: string;
+  kind: "segment";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  layer: string;
+  locked: boolean;
+  net_id?: JavaScriptSafeInteger;
+  net_name?: string;
+}
+
+/** One board track arc record with its net attribution. */
+model TrackArcPlotRecord {
+  uuid: string;
+  kind: "track_arc";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  layer: string;
+  net_id?: JavaScriptSafeInteger;
+  net_name?: string;
+}
+
+/** Via construction kinds mirrored from the established producer. */
+enum BoardViaType {
+  through: "through",
+  blind: "blind",
+  buried: "buried",
+  micro: "micro",
+}
+
+/** Stringified boolean metadata mirrored from the established producer. */
+enum PlotterStringBool {
+  yes: "true",
+  no: "false",
+}
+
 /**
- * Strict board-graphics subset of kicad.plotter_ir.a0. Producers and
+ * One board via record: copper aperture, synthetic drill, and per-side mask
+ * opening/drill pairs when tenting explicitly exposes that side. IPC-4761
+ * fabrication metadata mirrors the established stringified booleans.
+ */
+model ViaPlotRecord {
+  uuid: string;
+  kind: "via";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  layers: string[];
+  drill: float64;
+  size: float64;
+  via_type: BoardViaType;
+  hole_kind: "round";
+  hole_plating: "plated";
+  hole_render: "drill";
+  ipc4761_tenting_front?: PlotterStringBool;
+  ipc4761_tenting_back?: PlotterStringBool;
+  ipc4761_covering_front?: PlotterStringBool;
+  ipc4761_covering_back?: PlotterStringBool;
+  ipc4761_plugging_front?: PlotterStringBool;
+  ipc4761_plugging_back?: PlotterStringBool;
+  ipc4761_capping?: PlotterStringBool;
+  ipc4761_filling?: PlotterStringBool;
+  ipc4761_metadata?: "true";
+  net_id?: JavaScriptSafeInteger;
+  net_name?: string;
+}
+
+union BoardPlotRecord {
+  graphic: BoardGraphicPlotRecord,
+  segment: TrackSegmentPlotRecord,
+  trackArc: TrackArcPlotRecord,
+  via: ViaPlotRecord,
+}
+
+/**
+ * Strict board graphics/tracks/vias subset of kicad.plotter_ir.a0. Producers and
  * consumers must run generated semantic validation after structural decoding.
  */
 @jsonSchema
@@ -396,7 +487,7 @@ model BoardPlotDocument {
   schema: "kicad.plotter_ir.a0";
   source_kind: "PCB";
   total_operations: uint32;
-  records: BoardGraphicPlotRecord[];
+  records: BoardPlotRecord[];
   source_path?: string;
   document_id: string;
   coordinate_space: PlotterCoordinateSpace;

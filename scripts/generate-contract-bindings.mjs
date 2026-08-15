@@ -106,6 +106,23 @@ function renderPython() {
       const tag = tagField === undefined ? undefined : target.properties[tagField].const;
       if (typeof name === "string" && typeof tagField === "string" && typeof tag === "string") {
         taggedStructs.set(name, { field: tagField, value: tag });
+        continue;
+      }
+      // msgspec cannot give one struct several tag values, so union members
+      // whose discriminator is an enum expand to one tagged struct per value
+      // beneath a Union alias that keeps the published member name.
+      const enumField = ["kind", "mode"].find(
+        (field) => typeof target?.properties?.[field]?.$ref === "string",
+      );
+      const enumName = target?.properties?.[enumField]?.$ref?.split("/").at(-1);
+      const values = definitions.get(enumName)?.schema?.enum;
+      if (
+        typeof name === "string" &&
+        typeof enumField === "string" &&
+        Array.isArray(values) &&
+        values.every((value) => typeof value === "string")
+      ) {
+        taggedStructs.set(name, { field: enumField, values });
       }
     }
   }
@@ -581,6 +598,17 @@ function renderPythonDeclaration(name, schema, tag = undefined) {
     ];
   }
   assert(schema.type === "object", `${name}: expected object or enum`);
+  if (Array.isArray(tag?.values)) {
+    const lines = [];
+    const members = [];
+    for (const value of tag.values) {
+      const member = `${name}${pascalCase(value)}`;
+      members.push(member);
+      if (lines.length > 0) lines.push("", "");
+      lines.push(...renderPythonDeclaration(member, schema, { field: tag.field, value }));
+    }
+    return [...lines, "", "", `${name} = Union[${members.join(", ")}]`];
+  }
   const required = new Set(schema.required ?? []);
   const properties = Object.entries(schema.properties ?? {}).filter(
     ([property]) => property !== tag?.field,
@@ -693,6 +721,14 @@ function pythonLiteral(value) {
   if (typeof value === "string") return JSON.stringify(value);
   if (value === null) return "None";
   return String(value);
+}
+
+function pascalCase(value) {
+  return value
+    .split(/[^a-zA-Z0-9]+/u)
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join("");
 }
 
 function snakeCase(value) {

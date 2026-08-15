@@ -67,6 +67,8 @@ fn main() -> Result<()> {
             &fs::read(&schema_path).with_context(|| format!("read {}", schema_path.display()))?,
         )?;
         project_for_typify(&mut schema);
+        promote_disjoint_record_unions(&mut schema);
+        project_tri_state_via_drill_layers(&mut schema);
         let generated = generate(schema)?;
         expected.insert(output_root.join(output_name), generated);
         modules.push(output_name.trim_end_matches(".rs"));
@@ -145,6 +147,41 @@ fn rustfmt(source: &str) -> Result<String> {
         bail!("rustfmt rejected generated contract source");
     }
     String::from_utf8(output.stdout).context("rustfmt output was not UTF-8")
+}
+
+fn promote_disjoint_record_unions(schema: &mut Value) {
+    // TypeSpec emits record unions as `anyOf`. The board record variants are
+    // value-disjoint on their `kind` discriminators, but typify's structural
+    // exclusivity check cannot see const/enum property values (graphic and
+    // track_arc records share the same required property names), so it
+    // degrades the union to an unusable `subtype_N` option struct. Carrying
+    // the disjointness assertion as `oneOf` in the Rust projection yields a
+    // proper enum; the published schema keeps `anyOf` alongside the other
+    // record unions.
+    if let Some(record) = schema
+        .pointer_mut("/$defs/BoardPlotRecord")
+        .and_then(Value::as_object_mut)
+        && let Some(members) = record.remove("anyOf")
+    {
+        record.insert("oneOf".to_owned(), members);
+    }
+}
+
+fn project_tri_state_via_drill_layers(schema: &mut Value) {
+    // The established board serializer distinguishes an absent `layers` key
+    // (layerless graphic circles) from a present-but-empty `layers` array
+    // (drill circles of unrouted vias). typify folds optional arrays into
+    // `Vec` with `skip_serializing_if(is_empty)`, which cannot express the
+    // present-but-empty state, so the Rust projection widens the board
+    // circle's `layers` to a nullable array and gains `Option<Vec<String>>`.
+    // The published schema keeps the plain optional array.
+    if schema.pointer("/$defs/BoardPlotRecord").is_some()
+        && let Some(layers) = schema
+            .pointer_mut("/$defs/CircleOperation/properties/layers")
+            .and_then(Value::as_object_mut)
+    {
+        layers.insert("type".to_owned(), serde_json::json!(["array", "null"]));
+    }
 }
 
 fn project_for_typify(value: &mut Value) {

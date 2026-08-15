@@ -371,7 +371,7 @@ impl ::std::convert::TryFrom<::std::string::String> for BoardGraphicRecordKind {
         value.parse()
     }
 }
-/**Strict board-graphics subset of kicad.plotter_ir.a0. Producers and
+/**Strict board graphics/tracks/vias subset of kicad.plotter_ir.a0. Producers and
 consumers must run generated semantic validation after structural decoding.*/
 ///
 /// <details><summary>JSON schema</summary>
@@ -380,7 +380,7 @@ consumers must run generated semantic validation after structural decoding.*/
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.board_plot.document:a0",
 ///  "title": "Board plot document a0",
-///  "description": "Strict board-graphics subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
+///  "description": "Strict board graphics/tracks/vias subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
 ///  "type": "object",
 ///  "required": [
 ///    "coordinate_space",
@@ -414,7 +414,7 @@ consumers must run generated semantic validation after structural decoding.*/
 ///    "records": {
 ///      "type": "array",
 ///      "items": {
-///        "$ref": "#/$defs/BoardGraphicPlotRecord"
+///        "$ref": "#/$defs/BoardPlotRecord"
 ///      }
 ///    },
 ///    "schema": {
@@ -452,7 +452,7 @@ pub struct BoardPlotDocumentA0 {
     pub generator: ::std::string::String,
     pub generator_version: ::std::string::String,
     pub paper: ::std::string::String,
-    pub records: ::std::vec::Vec<BoardGraphicPlotRecord>,
+    pub records: ::std::vec::Vec<BoardPlotRecord>,
     pub schema: ::std::string::String,
     pub source_kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -460,6 +460,140 @@ pub struct BoardPlotDocumentA0 {
     pub thickness_mm: f64,
     pub total_operations: u32,
     pub version: crate::JavaScriptSafeInteger,
+}
+///`BoardPlotRecord`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "oneOf": [
+///    {
+///      "$ref": "#/$defs/BoardGraphicPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/TrackSegmentPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/TrackArcPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/ViaPlotRecord"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum BoardPlotRecord {
+    BoardGraphicPlotRecord(BoardGraphicPlotRecord),
+    TrackSegmentPlotRecord(TrackSegmentPlotRecord),
+    TrackArcPlotRecord(TrackArcPlotRecord),
+    ViaPlotRecord(ViaPlotRecord),
+}
+impl ::std::convert::From<BoardGraphicPlotRecord> for BoardPlotRecord {
+    fn from(value: BoardGraphicPlotRecord) -> Self {
+        Self::BoardGraphicPlotRecord(value)
+    }
+}
+impl ::std::convert::From<TrackSegmentPlotRecord> for BoardPlotRecord {
+    fn from(value: TrackSegmentPlotRecord) -> Self {
+        Self::TrackSegmentPlotRecord(value)
+    }
+}
+impl ::std::convert::From<TrackArcPlotRecord> for BoardPlotRecord {
+    fn from(value: TrackArcPlotRecord) -> Self {
+        Self::TrackArcPlotRecord(value)
+    }
+}
+impl ::std::convert::From<ViaPlotRecord> for BoardPlotRecord {
+    fn from(value: ViaPlotRecord) -> Self {
+        Self::ViaPlotRecord(value)
+    }
+}
+///Via construction kinds mirrored from the established producer.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Via construction kinds mirrored from the established producer.",
+///  "type": "string",
+///  "enum": [
+///    "through",
+///    "blind",
+///    "buried",
+///    "micro"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardViaType {
+    #[serde(rename = "through")]
+    Through,
+    #[serde(rename = "blind")]
+    Blind,
+    #[serde(rename = "buried")]
+    Buried,
+    #[serde(rename = "micro")]
+    Micro,
+}
+impl ::std::fmt::Display for BoardViaType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Through => f.write_str("through"),
+            Self::Blind => f.write_str("blind"),
+            Self::Buried => f.write_str("buried"),
+            Self::Micro => f.write_str("micro"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardViaType {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "through" => Ok(Self::Through),
+            "blind" => Ok(Self::Blind),
+            "buried" => Ok(Self::Buried),
+            "micro" => Ok(Self::Micro),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardViaType {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BoardViaType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BoardViaType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 /**Circle shared by graphical and drill producers. Graphic state requires only
 layer. Drill state requires role plus layers; NPTH state additionally
@@ -510,7 +644,10 @@ enforces these mutually exclusive states.*/
 ///      "type": "string"
 ///    },
 ///    "layers": {
-///      "type": "array",
+///      "type": [
+///        "array",
+///        "null"
+///      ],
 ///      "items": {
 ///        "type": "string"
 ///      }
@@ -554,8 +691,8 @@ pub struct CircleOperation {
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
-    pub layers: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layers: ::std::option::Option<::std::vec::Vec<::std::string::String>>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub line_style: ::std::option::Option<PlotterLineStyle>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -570,20 +707,22 @@ pub struct CircleOperation {
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
-///Circular pad flash shared by footprint and PCB producers.
+/**Circular pad flash shared by footprint and PCB producers. Footprint pad
+state requires mask_margin_nm and forbids role. Board via state requires
+role and forbids mask_margin_nm. The generated semantic validator enforces
+these mutually exclusive states.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Circular pad flash shared by footprint and PCB producers.",
+///  "description": "Circular pad flash shared by footprint and PCB producers. Footprint pad\nstate requires mask_margin_nm and forbids role. Board via state requires\nrole and forbids mask_margin_nm. The generated semantic validator enforces\nthese mutually exclusive states.",
 ///  "type": "object",
 ///  "required": [
 ///    "diameter_nm",
 ///    "index",
 ///    "kind",
 ///    "layers",
-///    "mask_margin_nm",
 ///    "x",
 ///    "y"
 ///  ],
@@ -609,6 +748,9 @@ pub struct CircleOperation {
 ///    "mask_margin_nm": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
+///    "role": {
+///      "$ref": "#/$defs/PlotterViaFlashRole"
+///    },
 ///    "x": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
@@ -627,7 +769,10 @@ pub struct FlashPadCircleOperation {
     pub index: u32,
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
-    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub mask_margin_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub role: ::std::option::Option<PlotterViaFlashRole>,
     pub x: crate::JavaScriptSafeInteger,
     pub y: crate::JavaScriptSafeInteger,
 }
@@ -1126,7 +1271,9 @@ pub struct PlotterCoordinateSpace {
 ///  "type": "string",
 ///  "enum": [
 ///    "pad_drill",
-///    "npth_hole"
+///    "npth_hole",
+///    "via_drill",
+///    "via_mask_drill"
 ///  ]
 ///}
 /// ```
@@ -1148,12 +1295,18 @@ pub enum PlotterDrillRole {
     PadDrill,
     #[serde(rename = "npth_hole")]
     NpthHole,
+    #[serde(rename = "via_drill")]
+    ViaDrill,
+    #[serde(rename = "via_mask_drill")]
+    ViaMaskDrill,
 }
 impl ::std::fmt::Display for PlotterDrillRole {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::PadDrill => f.write_str("pad_drill"),
             Self::NpthHole => f.write_str("npth_hole"),
+            Self::ViaDrill => f.write_str("via_drill"),
+            Self::ViaMaskDrill => f.write_str("via_mask_drill"),
         }
     }
 }
@@ -1163,6 +1316,8 @@ impl ::std::str::FromStr for PlotterDrillRole {
         match value {
             "pad_drill" => Ok(Self::PadDrill),
             "npth_hole" => Ok(Self::NpthHole),
+            "via_drill" => Ok(Self::ViaDrill),
+            "via_mask_drill" => Ok(Self::ViaMaskDrill),
             _ => Err("invalid value".into()),
         }
     }
@@ -1574,6 +1729,152 @@ impl ::std::convert::From<[PlotterPoint; 4usize]> for PlotterQuad {
         Self(value)
     }
 }
+///Stringified boolean metadata mirrored from the established producer.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Stringified boolean metadata mirrored from the established producer.",
+///  "type": "string",
+///  "enum": [
+///    "true",
+///    "false"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlotterStringBool {
+    #[serde(rename = "true")]
+    True,
+    #[serde(rename = "false")]
+    False,
+}
+impl ::std::fmt::Display for PlotterStringBool {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::True => f.write_str("true"),
+            Self::False => f.write_str("false"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlotterStringBool {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "true" => Ok(Self::True),
+            "false" => Ok(Self::False),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterStringBool {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterStringBool {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterStringBool {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Semantic roles allowed on board via flash operations.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Semantic roles allowed on board via flash operations.",
+///  "type": "string",
+///  "enum": [
+///    "via_aperture",
+///    "via_mask_opening"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlotterViaFlashRole {
+    #[serde(rename = "via_aperture")]
+    ViaAperture,
+    #[serde(rename = "via_mask_opening")]
+    ViaMaskOpening,
+}
+impl ::std::fmt::Display for PlotterViaFlashRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::ViaAperture => f.write_str("via_aperture"),
+            Self::ViaMaskOpening => f.write_str("via_mask_opening"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlotterViaFlashRole {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "via_aperture" => Ok(Self::ViaAperture),
+            "via_mask_opening" => Ok(Self::ViaMaskOpening),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterViaFlashRole {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterViaFlashRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterViaFlashRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Rectangle with square corners.
 ///
 /// <details><summary>JSON schema</summary>
@@ -1755,4 +2056,291 @@ pub struct ThickSegmentOperation {
     pub start_x: crate::JavaScriptSafeInteger,
     pub start_y: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,
+}
+///One board track arc record with its net attribution.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One board track arc record with its net attribution.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "layer",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "track_arc"
+///    },
+///    "layer": {
+///      "type": "string"
+///    },
+///    "net_id": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "net_name": {
+///      "type": "string"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TrackArcPlotRecord {
+    pub kind: ::std::string::String,
+    pub layer: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_id: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_name: ::std::option::Option<::std::string::String>,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
+///One board track segment record with its net attribution.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One board track segment record with its net attribution.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "layer",
+///    "locked",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "segment"
+///    },
+///    "layer": {
+///      "type": "string"
+///    },
+///    "locked": {
+///      "type": "boolean"
+///    },
+///    "net_id": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "net_name": {
+///      "type": "string"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TrackSegmentPlotRecord {
+    pub kind: ::std::string::String,
+    pub layer: ::std::string::String,
+    pub locked: bool,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_id: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_name: ::std::option::Option<::std::string::String>,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
+/**One board via record: copper aperture, synthetic drill, and per-side mask
+opening/drill pairs when tenting explicitly exposes that side. IPC-4761
+fabrication metadata mirrors the established stringified booleans.*/
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One board via record: copper aperture, synthetic drill, and per-side mask\nopening/drill pairs when tenting explicitly exposes that side. IPC-4761\nfabrication metadata mirrors the established stringified booleans.",
+///  "type": "object",
+///  "required": [
+///    "drill",
+///    "hole_kind",
+///    "hole_plating",
+///    "hole_render",
+///    "kind",
+///    "layers",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "size",
+///    "uuid",
+///    "via_type"
+///  ],
+///  "properties": {
+///    "drill": {
+///      "type": "number"
+///    },
+///    "hole_kind": {
+///      "type": "string",
+///      "const": "round"
+///    },
+///    "hole_plating": {
+///      "type": "string",
+///      "const": "plated"
+///    },
+///    "hole_render": {
+///      "type": "string",
+///      "const": "drill"
+///    },
+///    "ipc4761_capping": {
+///      "$ref": "#/$defs/PlotterStringBool"
+///    },
+///    "ipc4761_covering_back": {
+///      "$ref": "#/$defs/PlotterStringBool"
+///    },
+///    "ipc4761_covering_front": {
+///      "$ref": "#/$defs/PlotterStringBool"
+///    },
+///    "ipc4761_filling": {
+///      "$ref": "#/$defs/PlotterStringBool"
+///    },
+///    "ipc4761_metadata": {
+///      "type": "string",
+///      "const": "true"
+///    },
+///    "ipc4761_plugging_back": {
+///      "$ref": "#/$defs/PlotterStringBool"
+///    },
+///    "ipc4761_plugging_front": {
+///      "$ref": "#/$defs/PlotterStringBool"
+///    },
+///    "ipc4761_tenting_back": {
+///      "$ref": "#/$defs/PlotterStringBool"
+///    },
+///    "ipc4761_tenting_front": {
+///      "$ref": "#/$defs/PlotterStringBool"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "via"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "net_id": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "net_name": {
+///      "type": "string"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "size": {
+///      "type": "number"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    },
+///    "via_type": {
+///      "$ref": "#/$defs/BoardViaType"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct ViaPlotRecord {
+    pub drill: f64,
+    pub hole_kind: ::std::string::String,
+    pub hole_plating: ::std::string::String,
+    pub hole_render: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub ipc4761_capping: ::std::option::Option<PlotterStringBool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub ipc4761_covering_back: ::std::option::Option<PlotterStringBool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub ipc4761_covering_front: ::std::option::Option<PlotterStringBool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub ipc4761_filling: ::std::option::Option<PlotterStringBool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub ipc4761_metadata: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub ipc4761_plugging_back: ::std::option::Option<PlotterStringBool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub ipc4761_plugging_front: ::std::option::Option<PlotterStringBool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub ipc4761_tenting_back: ::std::option::Option<PlotterStringBool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub ipc4761_tenting_front: ::std::option::Option<PlotterStringBool>,
+    pub kind: ::std::string::String,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_id: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_name: ::std::option::Option<::std::string::String>,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub size: f64,
+    pub uuid: ::std::string::String,
+    pub via_type: BoardViaType,
 }

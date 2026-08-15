@@ -3,8 +3,10 @@
 use crate::{plotter_contract::contract_plotter_operation, serialize_bounded};
 use kicad_monkey_contracts::JavaScriptSafeInteger;
 use kicad_monkey_contracts::generated::board_plot_document::{
-    BoardGraphicPlotRecord, BoardGraphicRecordKind, BoardPlotDocumentA0, PlotterCoordinateSpace,
-    PlotterOperation,
+    BoardGraphicPlotRecord, BoardGraphicRecordKind, BoardPlotDocumentA0, BoardPlotRecord,
+    BoardViaType, CircleOperation, FlashPadCircleOperation, PlotterCoordinateSpace,
+    PlotterDrillRole, PlotterFill, PlotterOperation, PlotterStringBool, PlotterViaFlashRole,
+    TrackArcPlotRecord, TrackSegmentPlotRecord, ViaPlotRecord,
 };
 use kicad_monkey_contracts::generated::board_plot_request::BoardPlotRequestA0;
 use kicad_monkey_contracts::generated::board_plot_result::{
@@ -12,7 +14,9 @@ use kicad_monkey_contracts::generated::board_plot_result::{
 };
 use kicad_monkey_contracts::validate_board_plot_document;
 use kicad_monkey_core::{
-    BoardPlotLimits, BoardPlotRecordKind, Error, ErrorPhase, board_plot_document, utf8_text,
+    BoardGraphicRecordKind as CoreGraphicRecordKind, BoardPlotLimits,
+    BoardPlotRecord as CoreBoardPlotRecord, BoardViaOperation, BoardViaOperationKind,
+    BoardViaRecord, Error, ErrorPhase, board_plot_document, utf8_text,
 };
 use wasm_bindgen::prelude::*;
 
@@ -89,30 +93,12 @@ fn success(
     let total = document
         .records
         .iter()
-        .map(|record| record.operations.len())
+        .map(kicad_monkey_core::BoardPlotRecord::operation_count)
         .sum::<usize>();
     let total_operations = u32::try_from(total).unwrap_or(u32::MAX);
     let mut records = Vec::with_capacity(document.records.len());
     for record in document.records {
-        let operation_count = u32::try_from(record.operations.len()).unwrap_or(u32::MAX);
-        let mut operations = Vec::with_capacity(record.operations.len());
-        // The established Python serializer numbers operations per record.
-        for (index, operation) in record.operations.into_iter().enumerate() {
-            let shared = contract_plotter_operation(index, operation)?;
-            let value = serde_json::to_value(shared).map_err(|error| error.to_string())?;
-            operations.push(
-                serde_json::from_value::<PlotterOperation>(value)
-                    .map_err(|error| error.to_string())?,
-            );
-        }
-        records.push(BoardGraphicPlotRecord {
-            kind: contract_record_kind(record.kind),
-            layer: Some(record.layer),
-            object_id: record.kind.as_str().to_owned(),
-            operation_count,
-            operations,
-            uuid: record.uuid,
-        });
+        records.push(contract_record(record)?);
     }
     let contract = BoardPlotDocumentA0 {
         coordinate_space: PlotterCoordinateSpace {
@@ -148,14 +134,180 @@ fn success(
     ))
 }
 
-fn contract_record_kind(kind: BoardPlotRecordKind) -> BoardGraphicRecordKind {
+fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, String> {
+    Ok(match record {
+        CoreBoardPlotRecord::Graphic(record) => BoardGraphicPlotRecord {
+            kind: contract_record_kind(record.kind),
+            layer: Some(record.layer),
+            object_id: record.kind.as_str().to_owned(),
+            operation_count: contract_count(record.operations.len()),
+            operations: shared_operations(record.operations)?,
+            uuid: record.uuid,
+        }
+        .into(),
+        CoreBoardPlotRecord::Segment(record) => TrackSegmentPlotRecord {
+            kind: "segment".to_owned(),
+            layer: record.layer,
+            locked: record.locked,
+            net_id: optional_safe_integer(record.net_id)?,
+            net_name: record.net_name,
+            object_id: "segment".to_owned(),
+            operation_count: contract_count(record.operations.len()),
+            operations: shared_operations(record.operations)?,
+            uuid: record.uuid,
+        }
+        .into(),
+        CoreBoardPlotRecord::TrackArc(record) => TrackArcPlotRecord {
+            kind: "track_arc".to_owned(),
+            layer: record.layer,
+            net_id: optional_safe_integer(record.net_id)?,
+            net_name: record.net_name,
+            object_id: "track_arc".to_owned(),
+            operation_count: contract_count(record.operations.len()),
+            operations: shared_operations(record.operations)?,
+            uuid: record.uuid,
+        }
+        .into(),
+        CoreBoardPlotRecord::Via(record) => contract_via_record(record)?.into(),
+    })
+}
+
+fn contract_via_record(record: BoardViaRecord) -> Result<ViaPlotRecord, String> {
+    let string_bool = |value: Option<bool>| {
+        value.map(|value| {
+            if value {
+                PlotterStringBool::True
+            } else {
+                PlotterStringBool::False
+            }
+        })
+    };
+    let fabrication = record.fabrication;
+    let operations = record
+        .operations
+        .into_iter()
+        .enumerate()
+        .map(|(index, operation)| contract_via_operation(index, operation))
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok(ViaPlotRecord {
+        drill: record.drill,
+        hole_kind: "round".to_owned(),
+        hole_plating: "plated".to_owned(),
+        hole_render: "drill".to_owned(),
+        ipc4761_capping: string_bool(fabrication.capping),
+        ipc4761_covering_back: string_bool(fabrication.covering_back),
+        ipc4761_covering_front: string_bool(fabrication.covering_front),
+        ipc4761_filling: string_bool(fabrication.filling),
+        ipc4761_metadata: fabrication.any().then(|| "true".to_owned()),
+        ipc4761_plugging_back: string_bool(fabrication.plugging_back),
+        ipc4761_plugging_front: string_bool(fabrication.plugging_front),
+        ipc4761_tenting_back: string_bool(fabrication.tenting_back),
+        ipc4761_tenting_front: string_bool(fabrication.tenting_front),
+        kind: "via".to_owned(),
+        layers: record.layers,
+        net_id: optional_safe_integer(record.net_id)?,
+        net_name: record.net_name,
+        object_id: "via".to_owned(),
+        operation_count: contract_count(operations.len()),
+        operations,
+        size: record.size,
+        uuid: record.uuid,
+        via_type: match record.via_type {
+            kicad_monkey_core::BoardViaType::Through => BoardViaType::Through,
+            kicad_monkey_core::BoardViaType::Blind => BoardViaType::Blind,
+            kicad_monkey_core::BoardViaType::Buried => BoardViaType::Buried,
+            kicad_monkey_core::BoardViaType::Micro => BoardViaType::Micro,
+        },
+    })
+}
+
+fn contract_via_operation(
+    index: usize,
+    operation: BoardViaOperation,
+) -> Result<PlotterOperation, String> {
+    let index = u32::try_from(index).unwrap_or(u32::MAX);
+    let x = safe_integer(operation.x)?;
+    let y = safe_integer(operation.y)?;
+    let diameter_nm = safe_integer(operation.diameter_nm)?;
+    Ok(match operation.kind {
+        BoardViaOperationKind::Aperture | BoardViaOperationKind::MaskOpening => {
+            FlashPadCircleOperation {
+                diameter_nm,
+                index,
+                kind: "FlashPadCircle".to_owned(),
+                layers: operation.layers,
+                mask_margin_nm: None,
+                role: Some(match operation.kind {
+                    BoardViaOperationKind::Aperture => PlotterViaFlashRole::ViaAperture,
+                    _ => PlotterViaFlashRole::ViaMaskOpening,
+                }),
+                x,
+                y,
+            }
+            .into()
+        }
+        BoardViaOperationKind::Drill | BoardViaOperationKind::MaskDrill => CircleOperation {
+            cx: x,
+            cy: y,
+            diameter_nm,
+            fill: PlotterFill::FilledShape,
+            fill_color: None,
+            index,
+            kind: "Circle".to_owned(),
+            layer: None,
+            // Present-but-empty layers match the established serializer's
+            // verbatim via layer list, including unrouted vias.
+            layers: Some(operation.layers),
+            line_style: None,
+            mask_margin_nm: None,
+            pad_size_x_nm: None,
+            pad_size_y_nm: None,
+            role: Some(match operation.kind {
+                BoardViaOperationKind::Drill => PlotterDrillRole::ViaDrill,
+                _ => PlotterDrillRole::ViaMaskDrill,
+            }),
+            stroke_color: None,
+            width_nm: JavaScriptSafeInteger::try_from(0).map_err(|error| error.to_string())?,
+        }
+        .into(),
+    })
+}
+
+fn shared_operations(
+    operations: Vec<kicad_monkey_core::PlotterOperation>,
+) -> Result<Vec<PlotterOperation>, String> {
+    // The established Python serializer numbers operations per record.
+    operations
+        .into_iter()
+        .enumerate()
+        .map(|(index, operation)| {
+            let shared = contract_plotter_operation(index, operation)?;
+            let value = serde_json::to_value(shared).map_err(|error| error.to_string())?;
+            serde_json::from_value::<PlotterOperation>(value).map_err(|error| error.to_string())
+        })
+        .collect()
+}
+
+fn contract_count(count: usize) -> u32 {
+    u32::try_from(count).unwrap_or(u32::MAX)
+}
+
+fn safe_integer(value: i64) -> Result<JavaScriptSafeInteger, String> {
+    JavaScriptSafeInteger::try_from(value).map_err(|error| error.to_string())
+}
+
+fn optional_safe_integer(value: Option<i64>) -> Result<Option<JavaScriptSafeInteger>, String> {
+    value.map(safe_integer).transpose()
+}
+
+fn contract_record_kind(kind: CoreGraphicRecordKind) -> BoardGraphicRecordKind {
     match kind {
-        BoardPlotRecordKind::GrLine => BoardGraphicRecordKind::GrLine,
-        BoardPlotRecordKind::GrArc => BoardGraphicRecordKind::GrArc,
-        BoardPlotRecordKind::GrCircle => BoardGraphicRecordKind::GrCircle,
-        BoardPlotRecordKind::GrRect => BoardGraphicRecordKind::GrRect,
-        BoardPlotRecordKind::GrPoly => BoardGraphicRecordKind::GrPoly,
-        BoardPlotRecordKind::GrCurve => BoardGraphicRecordKind::GrCurve,
+        CoreGraphicRecordKind::GrLine => BoardGraphicRecordKind::GrLine,
+        CoreGraphicRecordKind::GrArc => BoardGraphicRecordKind::GrArc,
+        CoreGraphicRecordKind::GrCircle => BoardGraphicRecordKind::GrCircle,
+        CoreGraphicRecordKind::GrRect => BoardGraphicRecordKind::GrRect,
+        CoreGraphicRecordKind::GrPoly => BoardGraphicRecordKind::GrPoly,
+        CoreGraphicRecordKind::GrCurve => BoardGraphicRecordKind::GrCurve,
     }
 }
 

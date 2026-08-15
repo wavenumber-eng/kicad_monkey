@@ -245,6 +245,125 @@ fn board_plotter_contract_enforces_layerless_graphic_state_and_counts() {
     );
 }
 
+#[test]
+#[allow(
+    clippy::cognitive_complexity,
+    reason = "single semantics test intentionally walks every track and via rejection"
+)]
+fn board_plotter_contract_enforces_track_and_via_record_states() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/board_plotter_a0_vectors.json"
+    )))
+    .expect("board vectors");
+    let tracks = vectors["vectors"][4]["expected"].clone();
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(tracks.clone()).expect("track transport document");
+    validate_board_plot_document(&document).expect("valid track semantics");
+    let vias = vectors["vectors"][5]["expected"].clone();
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(vias).expect("via transport document");
+    validate_board_plot_document(&document).expect("valid via semantics");
+
+    // Vector 4 record layout: gr_line, three segments, two arcs, one via.
+    let mut layered_segment = tracks.clone();
+    layered_segment["records"][1]["operations"][0]["layer"] = serde_json::json!("F.Cu");
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(layered_segment).expect("structurally valid layered segment");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("segment operations must stay layerless")
+            .code,
+        "invalid_board_operation"
+    );
+
+    let mut layered_arc = tracks.clone();
+    layered_arc["records"][4]["operations"][0]["layer"] = serde_json::json!("F.Cu");
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(layered_arc).expect("structurally valid layered arc");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("track arc operations must stay layerless")
+            .code,
+        "invalid_board_operation"
+    );
+
+    let mut misordered_via = tracks.clone();
+    misordered_via["records"][6]["operations"][0]["role"] = serde_json::json!("via_mask_opening");
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(misordered_via).expect("structurally valid misordered via");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("via records lead with the aperture flash")
+            .code,
+        "invalid_board_operation"
+    );
+
+    let mut odd_via = tracks.clone();
+    odd_via["records"][6]["operations"]
+        .as_array_mut()
+        .expect("via operations")
+        .pop();
+    odd_via["records"][6]["operation_count"] = serde_json::json!(3);
+    odd_via["total_operations"] = serde_json::json!(9);
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(odd_via).expect("structurally valid odd via");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("mask openings and drills arrive in pairs")
+            .code,
+        "invalid_board_operation"
+    );
+
+    let mut margined_drill = tracks;
+    margined_drill["records"][6]["operations"][1]["mask_margin_nm"] = serde_json::json!(0);
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(margined_drill).expect("structurally valid margined drill");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("via drills reject pad-only fields")
+            .code,
+        "invalid_board_operation"
+    );
+}
+
+#[test]
+fn footprint_flash_circles_require_pad_state_not_via_state() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/footprint_plotter_a0_vectors.json"
+    ))
+    .expect("footprint vectors");
+    let pads = vectors["vectors"][2]["expected"].clone();
+    let document: FootprintPlotDocumentA0 =
+        serde_json::from_value(pads.clone()).expect("pad transport document");
+    validate_footprint_plot_document(&document).expect("valid pad semantics");
+
+    let mut via_role = pads.clone();
+    via_role["records"][0]["operations"][0]["role"] = serde_json::json!("via_aperture");
+    let document: FootprintPlotDocumentA0 =
+        serde_json::from_value(via_role).expect("structurally valid via-role flash");
+    assert_eq!(
+        validate_footprint_plot_document(&document)
+            .expect_err("footprint flashes reject via roles")
+            .code,
+        "invalid_pad_operation"
+    );
+
+    let mut unmargined = pads;
+    unmargined["records"][0]["operations"][0]
+        .as_object_mut()
+        .expect("flash operation")
+        .remove("mask_margin_nm");
+    let document: FootprintPlotDocumentA0 =
+        serde_json::from_value(unmargined).expect("structurally valid unmargined flash");
+    assert_eq!(
+        validate_footprint_plot_document(&document)
+            .expect_err("footprint flashes require mask_margin_nm")
+            .code,
+        "invalid_pad_operation"
+    );
+}
+
 fn build_request(root: &str, max_depth: u32, max_nodes: u32) -> SExpressionBuildRequestA0 {
     serde_json::from_str(&format!(
         r#"{{"type":"kicad_monkey.sexpr_build.request","version":"a0","root":{root},"max_output_bytes":"1024","max_depth":{max_depth},"max_nodes":{max_nodes}}}"#

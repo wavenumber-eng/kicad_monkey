@@ -6,12 +6,14 @@
     reason = "Typify emits explicit schema defaults in committed generated modules"
 )]
 
+mod board_plot_contract;
 mod compiled_graph_contract;
 mod font_bundle_contract;
 mod font_text_contract;
 pub mod generated;
 mod source_bundle_contract;
 
+pub use board_plot_contract::validate_board_plot_document;
 pub use compiled_graph_contract::{
     CompiledGraphDecodeError, decode_compiled_schematic_graph_a0,
     validate_compiled_schematic_graph_contract,
@@ -29,7 +31,6 @@ pub use source_bundle_contract::{
     validate_source_bundle_manifest_contract,
 };
 
-use generated::board_plot_document::{BoardPlotDocumentA0, PlotterOperation as BoardOperation};
 use generated::build_request::{Node, NodeKind, SExpressionBuildRequestA0};
 use generated::footprint_plot_document::{
     CircleOperation, FlashPadCustomOperation, FootprintPlotDocumentA0, PlotterDrillRole,
@@ -456,7 +457,18 @@ fn validate_footprint_pad_operation(
     path: String,
 ) -> Result<(), ValidationError> {
     match operation {
-        PlotterOperation::FlashPadCircleOperation(value) => require_layers(&value.layers, path),
+        PlotterOperation::FlashPadCircleOperation(value) => {
+            // The shared flash-circle model carries optional via roles for the
+            // board document; footprint pads keep the pad-margin state.
+            if value.mask_margin_nm.is_none() || value.role.is_some() {
+                return Err(validation_error(
+                    "invalid_pad_operation",
+                    path,
+                    "footprint flash circles require mask_margin_nm and no via role",
+                ));
+            }
+            require_layers(&value.layers, path)
+        }
         PlotterOperation::FlashPadOvalOperation(value) => require_layers(&value.layers, path),
         PlotterOperation::FlashPadRectOperation(value) => require_layers(&value.layers, path),
         PlotterOperation::FlashPadRoundRectOperation(value) => require_layers(&value.layers, path),
@@ -464,77 +476,6 @@ fn validate_footprint_pad_operation(
         PlotterOperation::FlashPadTrapezOperation(value) => require_layers(&value.layers, path),
         _ => Ok(()),
     }
-}
-
-/// Enforce record counts and layerless graphic-state operations for board graphics.
-pub fn validate_board_plot_document(document: &BoardPlotDocumentA0) -> Result<(), ValidationError> {
-    let mut total_operations = 0usize;
-    for (record_index, record) in document.records.iter().enumerate() {
-        if record.operation_count as usize != record.operations.len() {
-            return Err(validation_error(
-                "operation_count_mismatch",
-                format!("$.records[{record_index}].operation_count"),
-                "operation_count must equal the operation array length",
-            ));
-        }
-        total_operations = total_operations.saturating_add(record.operations.len());
-        for (operation_index, operation) in record.operations.iter().enumerate() {
-            let path = format!("$.records[{record_index}].operations[{operation_index}]");
-            validate_board_operation(operation, path)?;
-        }
-    }
-    if document.total_operations as usize != total_operations {
-        return Err(validation_error(
-            "operation_count_mismatch",
-            "$.total_operations",
-            "total_operations must equal all record operation counts",
-        ));
-    }
-    Ok(())
-}
-
-fn validate_board_operation(
-    operation: &BoardOperation,
-    path: String,
-) -> Result<(), ValidationError> {
-    let valid = match operation {
-        BoardOperation::ThickSegmentOperation(value) => board_segment_is_layer_free(value),
-        BoardOperation::CircleOperation(value) => board_circle_is_layer_free(value),
-        BoardOperation::ArcThreePointOperation(value) => value.layer.is_none(),
-        BoardOperation::RectOperation(value) => value.layer.is_none(),
-        BoardOperation::PlotPolyOperation(value) => value.layer.is_none(),
-        BoardOperation::BezierCurveOperation(value) => value.layer.is_none(),
-        _ => false,
-    };
-    if valid {
-        Ok(())
-    } else {
-        Err(validation_error(
-            "invalid_board_operation",
-            path,
-            "board graphic records accept only layerless graphic-state geometry",
-        ))
-    }
-}
-
-fn board_segment_is_layer_free(
-    value: &generated::board_plot_document::ThickSegmentOperation,
-) -> bool {
-    value.layer.is_none()
-        && value.role.is_none()
-        && value.layers.is_empty()
-        && value.mask_margin_nm.is_none()
-        && value.pad_size_x_nm.is_none()
-        && value.pad_size_y_nm.is_none()
-}
-
-fn board_circle_is_layer_free(value: &generated::board_plot_document::CircleOperation) -> bool {
-    value.layer.is_none()
-        && value.role.is_none()
-        && value.layers.is_empty()
-        && value.mask_margin_nm.is_none()
-        && value.pad_size_x_nm.is_none()
-        && value.pad_size_y_nm.is_none()
 }
 
 /// Enforce record counts and producer-specific states for symbol geometry.

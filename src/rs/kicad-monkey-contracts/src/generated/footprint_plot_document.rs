@@ -324,20 +324,22 @@ pub struct CircleOperation {
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
-///Circular pad flash shared by footprint and PCB producers.
+/**Circular pad flash shared by footprint and PCB producers. Footprint pad
+state requires mask_margin_nm and forbids role. Board via state requires
+role and forbids mask_margin_nm. The generated semantic validator enforces
+these mutually exclusive states.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Circular pad flash shared by footprint and PCB producers.",
+///  "description": "Circular pad flash shared by footprint and PCB producers. Footprint pad\nstate requires mask_margin_nm and forbids role. Board via state requires\nrole and forbids mask_margin_nm. The generated semantic validator enforces\nthese mutually exclusive states.",
 ///  "type": "object",
 ///  "required": [
 ///    "diameter_nm",
 ///    "index",
 ///    "kind",
 ///    "layers",
-///    "mask_margin_nm",
 ///    "x",
 ///    "y"
 ///  ],
@@ -363,6 +365,9 @@ pub struct CircleOperation {
 ///    "mask_margin_nm": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
+///    "role": {
+///      "$ref": "#/$defs/PlotterViaFlashRole"
+///    },
 ///    "x": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
@@ -381,7 +386,10 @@ pub struct FlashPadCircleOperation {
     pub index: u32,
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
-    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub mask_margin_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub role: ::std::option::Option<PlotterViaFlashRole>,
     pub x: crate::JavaScriptSafeInteger,
     pub y: crate::JavaScriptSafeInteger,
 }
@@ -1049,7 +1057,9 @@ pub struct PlotterCoordinateSpace {
 ///  "type": "string",
 ///  "enum": [
 ///    "pad_drill",
-///    "npth_hole"
+///    "npth_hole",
+///    "via_drill",
+///    "via_mask_drill"
 ///  ]
 ///}
 /// ```
@@ -1071,12 +1081,18 @@ pub enum PlotterDrillRole {
     PadDrill,
     #[serde(rename = "npth_hole")]
     NpthHole,
+    #[serde(rename = "via_drill")]
+    ViaDrill,
+    #[serde(rename = "via_mask_drill")]
+    ViaMaskDrill,
 }
 impl ::std::fmt::Display for PlotterDrillRole {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         match *self {
             Self::PadDrill => f.write_str("pad_drill"),
             Self::NpthHole => f.write_str("npth_hole"),
+            Self::ViaDrill => f.write_str("via_drill"),
+            Self::ViaMaskDrill => f.write_str("via_mask_drill"),
         }
     }
 }
@@ -1086,6 +1102,8 @@ impl ::std::str::FromStr for PlotterDrillRole {
         match value {
             "pad_drill" => Ok(Self::PadDrill),
             "npth_hole" => Ok(Self::NpthHole),
+            "via_drill" => Ok(Self::ViaDrill),
+            "via_mask_drill" => Ok(Self::ViaMaskDrill),
             _ => Err("invalid value".into()),
         }
     }
@@ -1495,6 +1513,79 @@ impl ::std::convert::From<PlotterQuad> for [PlotterPoint; 4usize] {
 impl ::std::convert::From<[PlotterPoint; 4usize]> for PlotterQuad {
     fn from(value: [PlotterPoint; 4usize]) -> Self {
         Self(value)
+    }
+}
+///Semantic roles allowed on board via flash operations.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Semantic roles allowed on board via flash operations.",
+///  "type": "string",
+///  "enum": [
+///    "via_aperture",
+///    "via_mask_opening"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlotterViaFlashRole {
+    #[serde(rename = "via_aperture")]
+    ViaAperture,
+    #[serde(rename = "via_mask_opening")]
+    ViaMaskOpening,
+}
+impl ::std::fmt::Display for PlotterViaFlashRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::ViaAperture => f.write_str("via_aperture"),
+            Self::ViaMaskOpening => f.write_str("via_mask_opening"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlotterViaFlashRole {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "via_aperture" => Ok(Self::ViaAperture),
+            "via_mask_opening" => Ok(Self::ViaMaskOpening),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterViaFlashRole {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterViaFlashRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterViaFlashRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///Rectangle with square corners.

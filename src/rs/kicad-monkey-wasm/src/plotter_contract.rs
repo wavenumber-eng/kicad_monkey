@@ -119,7 +119,8 @@ macro_rules! project_plotter_operation {
                 index,
                 kind: "FlashPadCircle".to_owned(),
                 layers: operation.layers,
-                mask_margin_nm: safe_integer(operation.mask_margin_nm)?,
+                mask_margin_nm: Some(safe_integer(operation.mask_margin_nm)?),
+                role: None,
                 x: safe_integer(operation.x)?,
                 y: safe_integer(operation.y)?,
             }

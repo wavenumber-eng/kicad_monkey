@@ -105,6 +105,43 @@ def test_shared_board_vectors_match_python_generated_types_and_both_schemas() ->
     with pytest.raises(msgspec.ValidationError):
         decode_board_plot_document_a0(json.dumps(malformed_point).encode("utf-8"))
 
+    tracks = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "tracks-follow-graphics-with-net-extras"
+    )
+
+    # Vector record layout: gr_line, three segments, two arcs, one via.
+    missing_lock = json.loads(json.dumps(tracks))
+    del missing_lock["records"][1]["locked"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_lock).encode("utf-8"))
+
+    non_boolean_lock = json.loads(json.dumps(tracks))
+    non_boolean_lock["records"][1]["locked"] = "yes"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(non_boolean_lock).encode("utf-8"))
+
+    locked_arc = json.loads(json.dumps(tracks))
+    locked_arc["records"][4]["locked"] = True
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(locked_arc).encode("utf-8"))
+
+    unknown_via_role = json.loads(json.dumps(tracks))
+    unknown_via_role["records"][6]["operations"][0]["role"] = "Unknown"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(unknown_via_role).encode("utf-8"))
+
+    unknown_via_type = json.loads(json.dumps(tracks))
+    unknown_via_type["records"][6]["via_type"] = "half"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(unknown_via_type).encode("utf-8"))
+
+    missing_via_type = json.loads(json.dumps(tracks))
+    del missing_via_type["records"][6]["via_type"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_via_type).encode("utf-8"))
+
 
 def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:
     cargo = shutil.which("cargo")

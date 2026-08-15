@@ -1,11 +1,14 @@
-//! Board-level plotter IR producer over the selected PCB graphics family.
+//! Board-level plotter IR producer over selected PCB families.
 //!
-//! Mirrors the Python `pcb_to_ir` gr_* record subset: layerless graphic-state
-//! operations, per-category record ordering, PCB stroke widths without the
-//! footprint pen-width clamps, and dash/dot decomposition parity.
+//! Mirrors the Python `pcb_to_ir` gr_*/segment/track_arc/via record subset:
+//! layerless graphic-state operations, per-category record ordering, PCB
+//! stroke widths without the footprint pen-width clamps, dash/dot
+//! decomposition parity, reversed track-arc endpoints, and via aperture/
+//! drill/mask-hint operation sequences.
 
 use crate::pcb::{
-    PcbFamily, PcbGraphic, PcbGraphicKind, PcbLimits, PcbPoint, PcbSelection, PcbView,
+    PcbFamily, PcbGraphic, PcbGraphicKind, PcbLimits, PcbNetRef, PcbPoint, PcbRoutingArc,
+    PcbSegment, PcbSelection, PcbVia, PcbView,
 };
 use crate::plotter_ir::{
     StrokeStyle, child, decompose_arc, decompose_segment, ensure_javascript_safe_integer, mm_to_nm,
@@ -46,7 +49,7 @@ impl Default for BoardPlotLimits {
 
 /// Board graphic record kinds promoted in the first board slice.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum BoardPlotRecordKind {
+pub enum BoardGraphicRecordKind {
     GrLine,
     GrArc,
     GrCircle,
@@ -55,7 +58,7 @@ pub enum BoardPlotRecordKind {
     GrCurve,
 }
 
-impl BoardPlotRecordKind {
+impl BoardGraphicRecordKind {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::GrLine => "gr_line",
@@ -70,11 +73,137 @@ impl BoardPlotRecordKind {
 
 /// One board-level graphic record; the carrier layer travels on the record.
 #[derive(Clone, Debug, PartialEq)]
-pub struct BoardPlotRecord {
+pub struct BoardGraphicRecord {
     pub uuid: String,
-    pub kind: BoardPlotRecordKind,
+    pub kind: BoardGraphicRecordKind,
     pub layer: String,
     pub operations: Vec<PlotterOperation>,
+}
+
+/// One `(segment ...)` track record; Python emits exactly one thick segment.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoardSegmentRecord {
+    pub uuid: String,
+    pub layer: String,
+    pub locked: bool,
+    pub net_id: Option<i64>,
+    pub net_name: Option<String>,
+    pub operations: Vec<PlotterOperation>,
+}
+
+/// One `(arc ...)` routing record; the Python serializer reverses the
+/// file-order endpoints so the arc plots end-to-start.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoardTrackArcRecord {
+    pub uuid: String,
+    pub layer: String,
+    pub net_id: Option<i64>,
+    pub net_name: Option<String>,
+    pub operations: Vec<PlotterOperation>,
+}
+
+/// Python via types serialized in the `via_type` extra.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BoardViaType {
+    Through,
+    Blind,
+    Buried,
+    Micro,
+}
+
+impl BoardViaType {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Through => "through",
+            Self::Blind => "blind",
+            Self::Buried => "buried",
+            Self::Micro => "micro",
+        }
+    }
+}
+
+/// The role of one operation inside a via record's fixed sequence.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BoardViaOperationKind {
+    /// `FlashPadCircle` with role `via_aperture` on the via copper layers.
+    Aperture,
+    /// Filled `Circle` with role `via_drill` on the via copper layers.
+    Drill,
+    /// `FlashPadCircle` with role `via_mask_opening` on one mask layer.
+    MaskOpening,
+    /// Filled `Circle` with role `via_mask_drill` on one mask layer.
+    MaskDrill,
+}
+
+/// One via operation; flashes and drills share the circular payload.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoardViaOperation {
+    pub kind: BoardViaOperationKind,
+    pub x: i64,
+    pub y: i64,
+    pub diameter_nm: i64,
+    pub layers: Vec<String>,
+}
+
+/// Front/back optional fabrication metadata mirrored from the via carrier.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct BoardViaFabrication {
+    pub tenting_front: Option<bool>,
+    pub tenting_back: Option<bool>,
+    pub covering_front: Option<bool>,
+    pub covering_back: Option<bool>,
+    pub plugging_front: Option<bool>,
+    pub plugging_back: Option<bool>,
+    pub capping: Option<bool>,
+    pub filling: Option<bool>,
+}
+
+impl BoardViaFabrication {
+    /// Python emits `ipc4761_metadata` only when any ipc key is present.
+    pub const fn any(self) -> bool {
+        self.tenting_front.is_some()
+            || self.tenting_back.is_some()
+            || self.covering_front.is_some()
+            || self.covering_back.is_some()
+            || self.plugging_front.is_some()
+            || self.plugging_back.is_some()
+            || self.capping.is_some()
+            || self.filling.is_some()
+    }
+}
+
+/// One `(via ...)` record with its raw-mm extras and operation sequence.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoardViaRecord {
+    pub uuid: String,
+    pub layers: Vec<String>,
+    pub drill: f64,
+    pub size: f64,
+    pub via_type: BoardViaType,
+    pub fabrication: BoardViaFabrication,
+    pub net_id: Option<i64>,
+    pub net_name: Option<String>,
+    pub operations: Vec<BoardViaOperation>,
+}
+
+/// One record of the promoted board plotter subset in Python emission order.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BoardPlotRecord {
+    Graphic(BoardGraphicRecord),
+    Segment(BoardSegmentRecord),
+    TrackArc(BoardTrackArcRecord),
+    Via(BoardViaRecord),
+}
+
+impl BoardPlotRecord {
+    pub fn operation_count(&self) -> usize {
+        match self {
+            Self::Graphic(record) => record.operations.len(),
+            Self::Segment(record) => record.operations.len(),
+            Self::TrackArc(record) => record.operations.len(),
+            Self::Via(record) => record.operations.len(),
+        }
+    }
 }
 
 /// Typed facts needed to serialize the promoted board plotter subset.
@@ -88,7 +217,36 @@ pub struct BoardPlotDocument {
     pub records: Vec<BoardPlotRecord>,
 }
 
-/// Read supported board graphics into per-category plotter records.
+/// Track record-level operation and point budgets fail-closed.
+struct BudgetTracker {
+    max_operations: usize,
+    max_points: usize,
+    operation_count: usize,
+    point_count: usize,
+}
+
+impl BudgetTracker {
+    fn remaining_operations(&self) -> Result<usize, Error> {
+        self.max_operations
+            .checked_sub(self.operation_count)
+            .filter(|remaining| *remaining > 0)
+            .ok_or_else(limit_error)
+    }
+
+    fn charge(&mut self, operations: usize, points: usize) -> Result<(), Error> {
+        self.operation_count = self.operation_count.saturating_add(operations);
+        if self.operation_count > self.max_operations {
+            return Err(limit_error());
+        }
+        self.point_count = self.point_count.saturating_add(points);
+        if self.point_count > self.max_points {
+            return Err(point_limit_error());
+        }
+        Ok(())
+    }
+}
+
+/// Read supported board graphics, tracks, and vias into plotter records.
 pub fn board_plot_document(
     source: &str,
     limits: BoardPlotLimits,
@@ -97,13 +255,59 @@ pub fn board_plot_document(
         max_source_bytes: limits.max_source_bytes,
         max_depth: limits.max_depth,
         max_graphics: limits.max_graphics,
+        // The request-level record budget bounds every promoted family.
+        max_segments: limits.max_graphics,
+        max_vias: limits.max_graphics,
+        max_arcs: limits.max_graphics,
         ..PcbLimits::default()
     };
-    let view =
-        PcbView::parse_selected(source, pcb_limits, PcbSelection::only(PcbFamily::Graphics))?;
+    let selection = PcbSelection::only(PcbFamily::Graphics)
+        .with(PcbFamily::Segments)
+        .with(PcbFamily::Arcs)
+        .with(PcbFamily::Vias);
+    let view = PcbView::parse_selected(source, pcb_limits, selection)?;
     let metadata = view.metadata()?;
     ensure_javascript_safe_integer(metadata.version)?;
 
+    let mut budget = BudgetTracker {
+        max_operations: limits.max_operations,
+        max_points: limits.max_points,
+        operation_count: 0,
+        point_count: 0,
+    };
+    let mut records = graphic_records(source, &view, &mut budget)?;
+    for segment in view.segments() {
+        let record = segment_record(segment?)?;
+        budget.charge(record.operations.len(), 0)?;
+        records.push(BoardPlotRecord::Segment(record));
+    }
+    for arc in view.arcs() {
+        let record = track_arc_record(arc?)?;
+        budget.charge(record.operations.len(), 0)?;
+        records.push(BoardPlotRecord::TrackArc(record));
+    }
+    let mask_clearance = metadata.pad_to_mask_clearance;
+    for via in view.vias() {
+        let record = via_record(via?, mask_clearance)?;
+        budget.charge(record.operations.len(), 0)?;
+        records.push(BoardPlotRecord::Via(record));
+    }
+
+    Ok(BoardPlotDocument {
+        version: metadata.version,
+        generator: metadata.generator,
+        generator_version: metadata.generator_version,
+        thickness_mm: metadata.thickness,
+        paper: metadata.paper,
+        records,
+    })
+}
+
+fn graphic_records(
+    source: &str,
+    view: &PcbView<'_>,
+    budget: &mut BudgetTracker,
+) -> Result<Vec<BoardPlotRecord>, Error> {
     let mut buckets: [Vec<PcbGraphic>; 6] = Default::default();
     for graphic in view.graphics() {
         let graphic = graphic?;
@@ -114,43 +318,169 @@ pub fn board_plot_document(
     }
 
     let kinds = [
-        BoardPlotRecordKind::GrLine,
-        BoardPlotRecordKind::GrArc,
-        BoardPlotRecordKind::GrCircle,
-        BoardPlotRecordKind::GrRect,
-        BoardPlotRecordKind::GrPoly,
-        BoardPlotRecordKind::GrCurve,
+        BoardGraphicRecordKind::GrLine,
+        BoardGraphicRecordKind::GrArc,
+        BoardGraphicRecordKind::GrCircle,
+        BoardGraphicRecordKind::GrRect,
+        BoardGraphicRecordKind::GrPoly,
+        BoardGraphicRecordKind::GrCurve,
     ];
     let mut records = Vec::new();
-    let mut operation_count = 0usize;
-    let mut point_count = 0usize;
     for (kind, bucket) in kinds.into_iter().zip(buckets) {
         for graphic in bucket {
-            let remaining = limits
-                .max_operations
-                .checked_sub(operation_count)
-                .filter(|remaining| *remaining > 0)
-                .ok_or_else(limit_error)?;
+            let remaining = budget.remaining_operations()?;
             let operations = graphic_operations(source, kind, &graphic, remaining)?;
-            operation_count = operation_count.saturating_add(operations.len());
-            if operation_count > limits.max_operations {
-                return Err(limit_error());
-            }
-            point_count = point_count.saturating_add(poly_point_total(&operations));
-            if point_count > limits.max_points {
-                return Err(point_limit_error());
-            }
-            records.push(graphic_record(kind, &graphic, operations));
+            budget.charge(operations.len(), poly_point_total(&operations))?;
+            records.push(BoardPlotRecord::Graphic(graphic_record(
+                kind, &graphic, operations,
+            )));
         }
     }
+    Ok(records)
+}
 
-    Ok(BoardPlotDocument {
-        version: metadata.version,
-        generator: metadata.generator,
-        generator_version: metadata.generator_version,
-        thickness_mm: metadata.thickness,
-        paper: metadata.paper,
-        records,
+/// Python `_net_extras`: `net_id` follows the resolved ordinal and
+/// `net_name` only appears for truthy resolved names.
+fn net_parts(net: &PcbNetRef) -> (Option<i64>, Option<String>) {
+    (net.ordinal, net.name.clone())
+}
+
+fn segment_record(segment: PcbSegment) -> Result<BoardSegmentRecord, Error> {
+    let (net_id, net_name) = net_parts(&segment.net);
+    // Track widths are emitted verbatim (negative values included), unlike
+    // the non-positive -> 0 normalization applied to graphic strokes.
+    let width_nm = mm_to_nm(segment.width.unwrap_or(0.0))?;
+    let operation = layerless_segment(
+        [mm_to_nm(segment.start_x)?, mm_to_nm(segment.start_y)?],
+        [mm_to_nm(segment.end_x)?, mm_to_nm(segment.end_y)?],
+        width_nm,
+    );
+    Ok(BoardSegmentRecord {
+        uuid: segment.uuid.unwrap_or_default(),
+        layer: segment.layer.unwrap_or_default(),
+        locked: segment.locked,
+        net_id,
+        net_name,
+        operations: vec![operation],
+    })
+}
+
+fn track_arc_record(arc: PcbRoutingArc) -> Result<BoardTrackArcRecord, Error> {
+    let (net_id, net_name) = net_parts(&arc.net);
+    // The Python serializer plots routing arcs from the file-order end point
+    // back to the start point.
+    let operation = PlotterOperation::ArcThreePoint(ArcThreePoint {
+        start_x: mm_to_nm(arc.end.x)?,
+        start_y: mm_to_nm(arc.end.y)?,
+        mid_x: mm_to_nm(arc.mid.x)?,
+        mid_y: mm_to_nm(arc.mid.y)?,
+        end_x: mm_to_nm(arc.start.x)?,
+        end_y: mm_to_nm(arc.start.y)?,
+        fill: PlotterFill::NoFill,
+        width_nm: mm_to_nm(arc.width.unwrap_or(0.0))?,
+        layer: None,
+        stroke_color: None,
+        fill_color: None,
+        line_style: None,
+    });
+    Ok(BoardTrackArcRecord {
+        uuid: arc.uuid.unwrap_or_default(),
+        layer: arc.layer.unwrap_or_default(),
+        net_id,
+        net_name,
+        operations: vec![operation],
+    })
+}
+
+/// Python `_via_exposed_mask_layers`: a side is exposed only when its
+/// tenting option is explicitly `no` and the via reaches outer copper.
+fn exposed_mask_layers(via: &PcbVia) -> Vec<&'static str> {
+    let reaches_outer = |outer: &str| {
+        via.layers
+            .iter()
+            .any(|layer| layer == outer || layer == "*.Cu")
+    };
+    let side = |tented: Option<bool>, outer: &str, mask: &'static str| {
+        (tented == Some(false) && reaches_outer(outer)).then_some(mask)
+    };
+    let tenting_front = via.tenting.as_ref().and_then(|tenting| tenting.front);
+    let tenting_back = via.tenting.as_ref().and_then(|tenting| tenting.back);
+    side(tenting_front, "F.Cu", "F.Mask")
+        .into_iter()
+        .chain(side(tenting_back, "B.Cu", "B.Mask"))
+        .collect()
+}
+
+fn via_record(via: PcbVia, mask_clearance: f64) -> Result<BoardViaRecord, Error> {
+    let (net_id, net_name) = net_parts(&via.net);
+    let x = mm_to_nm(via.at_x)?;
+    let y = mm_to_nm(via.at_y)?;
+    let size_nm = mm_to_nm(via.size)?;
+    // Python falls back to half the pad size for missing or non-positive
+    // drill diameters.
+    let drill_mm = if via.drill > 0.0 {
+        via.drill
+    } else {
+        via.size * 0.5
+    };
+    let drill_nm = mm_to_nm(drill_mm)?;
+    let mut operations = vec![
+        BoardViaOperation {
+            kind: BoardViaOperationKind::Aperture,
+            x,
+            y,
+            diameter_nm: size_nm,
+            layers: via.layers.clone(),
+        },
+        BoardViaOperation {
+            kind: BoardViaOperationKind::Drill,
+            x,
+            y,
+            diameter_nm: drill_nm,
+            layers: via.layers.clone(),
+        },
+    ];
+    let opening_nm = mm_to_nm(via.size + 2.0 * mask_clearance)?;
+    for mask in exposed_mask_layers(&via) {
+        operations.push(BoardViaOperation {
+            kind: BoardViaOperationKind::MaskOpening,
+            x,
+            y,
+            diameter_nm: opening_nm,
+            layers: vec![mask.to_owned()],
+        });
+        operations.push(BoardViaOperation {
+            kind: BoardViaOperationKind::MaskDrill,
+            x,
+            y,
+            diameter_nm: drill_nm,
+            layers: vec![mask.to_owned()],
+        });
+    }
+    Ok(BoardViaRecord {
+        uuid: via.uuid.clone().unwrap_or_default(),
+        layers: via.layers.clone(),
+        drill: via.drill,
+        size: via.size,
+        via_type: match via.via_type.as_deref() {
+            Some("blind") => BoardViaType::Blind,
+            Some("buried") => BoardViaType::Buried,
+            Some("micro") => BoardViaType::Micro,
+            _ => BoardViaType::Through,
+        },
+        fabrication: BoardViaFabrication {
+            tenting_front: via.tenting.as_ref().and_then(|value| value.front),
+            tenting_back: via.tenting.as_ref().and_then(|value| value.back),
+            covering_front: via.covering.as_ref().and_then(|value| value.front),
+            covering_back: via.covering.as_ref().and_then(|value| value.back),
+            plugging_front: via.plugging.as_ref().and_then(|value| value.front),
+            plugging_back: via.plugging.as_ref().and_then(|value| value.back),
+            capping: via.capping,
+            filling: via.filling,
+        },
+        net_id,
+        net_name,
+        operations,
     })
 }
 
@@ -170,17 +500,17 @@ fn category_slot(kind: PcbGraphicKind) -> Option<usize> {
 
 fn graphic_operations(
     source: &str,
-    kind: BoardPlotRecordKind,
+    kind: BoardGraphicRecordKind,
     graphic: &PcbGraphic,
     remaining: usize,
 ) -> Result<Vec<PlotterOperation>, Error> {
     match kind {
-        BoardPlotRecordKind::GrLine => line_operations(source, graphic, remaining),
-        BoardPlotRecordKind::GrArc => arc_operations(source, graphic, remaining),
-        BoardPlotRecordKind::GrCircle => Ok(vec![circle_operation(source, graphic)?]),
-        BoardPlotRecordKind::GrRect => Ok(vec![rect_operation(source, graphic)?]),
-        BoardPlotRecordKind::GrPoly => Ok(vec![poly_operation(source, graphic)?]),
-        BoardPlotRecordKind::GrCurve => curve_operations(source, graphic),
+        BoardGraphicRecordKind::GrLine => line_operations(source, graphic, remaining),
+        BoardGraphicRecordKind::GrArc => arc_operations(source, graphic, remaining),
+        BoardGraphicRecordKind::GrCircle => Ok(vec![circle_operation(source, graphic)?]),
+        BoardGraphicRecordKind::GrRect => Ok(vec![rect_operation(source, graphic)?]),
+        BoardGraphicRecordKind::GrPoly => Ok(vec![poly_operation(source, graphic)?]),
+        BoardGraphicRecordKind::GrCurve => curve_operations(source, graphic),
     }
 }
 
@@ -195,16 +525,16 @@ fn poly_point_total(operations: &[PlotterOperation]) -> usize {
 }
 
 fn graphic_record(
-    kind: BoardPlotRecordKind,
+    kind: BoardGraphicRecordKind,
     graphic: &PcbGraphic,
     operations: Vec<PlotterOperation>,
-) -> BoardPlotRecord {
-    let default_layer = if kind == BoardPlotRecordKind::GrCurve {
+) -> BoardGraphicRecord {
+    let default_layer = if kind == BoardGraphicRecordKind::GrCurve {
         DEFAULT_CURVE_LAYER
     } else {
         DEFAULT_GRAPHIC_LAYER
     };
-    BoardPlotRecord {
+    BoardGraphicRecord {
         uuid: graphic.uuid.clone().unwrap_or_default(),
         kind,
         layer: graphic

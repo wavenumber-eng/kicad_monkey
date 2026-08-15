@@ -189,7 +189,8 @@ class FlashPadCircleOperation(Struct, forbid_unknown_fields=True, frozen=True, t
     y: JavaScriptSafeInteger
     diameter_nm: JavaScriptSafeInteger
     layers: list[str]
-    mask_margin_nm: JavaScriptSafeInteger
+    mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    role: PlotterViaFlashRole | UnsetType = field(default=UNSET)
 
 
 class FlashPadOvalOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadOval", tag_field="kind"):
@@ -250,7 +251,7 @@ class FlashPadTrapezOperation(Struct, forbid_unknown_fields=True, frozen=True, t
     mask_margin_nm: JavaScriptSafeInteger
 
 
-PlotterDrillRole = Literal["pad_drill", "npth_hole"]
+PlotterDrillRole = Literal["pad_drill", "npth_hole", "via_drill", "via_mask_drill"]
 
 
 PlotterFill = Literal["NO_FILL", "FILLED_SHAPE", "FILLED_WITH_BG_BODYCOLOR", "FILLED_WITH_COLOR", "HATCH", "REVERSE_HATCH", "CROSS_HATCH"]
@@ -262,19 +263,119 @@ PlotterLineStyle = Literal["DEFAULT", "SOLID", "DASH", "DOT", "DASH_DOT", "DASH_
 PlotterPoint = Annotated[list[JavaScriptSafeInteger], Meta(min_length=2, max_length=2)]
 
 
+PlotterViaFlashRole = Literal["via_aperture", "via_mask_opening"]
+
+
 PlotterQuad = Annotated[list[PlotterPoint], Meta(min_length=4, max_length=4)]
 
 
-class BoardGraphicPlotRecord(Struct, forbid_unknown_fields=True, frozen=True):
+BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord"]
+
+
+class BoardGraphicPlotRecordGrLine(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_line", tag_field="kind"):
     uuid: str
-    kind: BoardGraphicRecordKind
     object_id: str
     operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
     operations: list[PlotterOperation]
     layer: str | None
 
 
+class BoardGraphicPlotRecordGrArc(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_arc", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layer: str | None
+
+
+class BoardGraphicPlotRecordGrCircle(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_circle", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layer: str | None
+
+
+class BoardGraphicPlotRecordGrRect(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_rect", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layer: str | None
+
+
+class BoardGraphicPlotRecordGrPoly(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_poly", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layer: str | None
+
+
+class BoardGraphicPlotRecordGrCurve(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_curve", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layer: str | None
+
+
+BoardGraphicPlotRecord = Union[BoardGraphicPlotRecordGrLine, BoardGraphicPlotRecordGrArc, BoardGraphicPlotRecordGrCircle, BoardGraphicPlotRecordGrRect, BoardGraphicPlotRecordGrPoly, BoardGraphicPlotRecordGrCurve]
+
+
+class TrackSegmentPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="segment", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layer: str
+    locked: bool
+    net_id: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    net_name: str | UnsetType = field(default=UNSET)
+
+
+class TrackArcPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="track_arc", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layer: str
+    net_id: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    net_name: str | UnsetType = field(default=UNSET)
+
+
+class ViaPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="via", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layers: list[str]
+    drill: float
+    size: float
+    via_type: BoardViaType
+    hole_kind: Literal["round"]
+    hole_plating: Literal["plated"]
+    hole_render: Literal["drill"]
+    ipc4761_tenting_front: PlotterStringBool | UnsetType = field(default=UNSET)
+    ipc4761_tenting_back: PlotterStringBool | UnsetType = field(default=UNSET)
+    ipc4761_covering_front: PlotterStringBool | UnsetType = field(default=UNSET)
+    ipc4761_covering_back: PlotterStringBool | UnsetType = field(default=UNSET)
+    ipc4761_plugging_front: PlotterStringBool | UnsetType = field(default=UNSET)
+    ipc4761_plugging_back: PlotterStringBool | UnsetType = field(default=UNSET)
+    ipc4761_capping: PlotterStringBool | UnsetType = field(default=UNSET)
+    ipc4761_filling: PlotterStringBool | UnsetType = field(default=UNSET)
+    ipc4761_metadata: Literal["true"] | UnsetType = field(default=UNSET)
+    net_id: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    net_name: str | UnsetType = field(default=UNSET)
+
+
 BoardGraphicRecordKind = Literal["gr_line", "gr_arc", "gr_circle", "gr_rect", "gr_poly", "gr_curve"]
+
+
+BoardViaType = Literal["through", "blind", "buried", "micro"]
+
+
+PlotterStringBool = Literal["true", "false"]
 
 
 SymbolPlotRecord = Union["SymbolHeaderPlotRecord", "LibSubsymbolPlotRecord"]
@@ -713,7 +814,7 @@ class BoardPlotDocumentA0(Struct, forbid_unknown_fields=True, frozen=True):
     schema: Literal["kicad.plotter_ir.a0"]
     source_kind: Literal["PCB"]
     total_operations: Annotated[int, Meta(ge=0, le=4294967295)]
-    records: list[BoardGraphicPlotRecord]
+    records: list[BoardPlotRecord]
     document_id: str
     coordinate_space: PlotterCoordinateSpace
     version: JavaScriptSafeInteger
@@ -1282,9 +1383,16 @@ __all__ = (
     "PlotterFill",
     "PlotterLineStyle",
     "PlotterPoint",
+    "PlotterViaFlashRole",
     "PlotterQuad",
+    "BoardPlotRecord",
     "BoardGraphicPlotRecord",
+    "TrackSegmentPlotRecord",
+    "TrackArcPlotRecord",
+    "ViaPlotRecord",
     "BoardGraphicRecordKind",
+    "BoardViaType",
+    "PlotterStringBool",
     "SymbolPlotRecord",
     "SymbolHeaderPlotRecord",
     "LibSubsymbolPlotRecord",

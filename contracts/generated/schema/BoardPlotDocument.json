@@ -19,7 +19,7 @@
         "records": {
             "type": "array",
             "items": {
-                "$ref": "#/$defs/BoardGraphicPlotRecord"
+                "$ref": "#/$defs/BoardPlotRecord"
             }
         },
         "source_path": {
@@ -63,9 +63,52 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict board-graphics subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
+    "description": "Strict board graphics/tracks/vias subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
     "title": "Board plot document a0",
     "$defs": {
+        "BoardPlotRecord": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/BoardGraphicPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/TrackSegmentPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/TrackArcPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/ViaPlotRecord"
+                }
+            ]
+        },
+        "PlotterCoordinateSpace": {
+            "type": "object",
+            "properties": {
+                "unit": {
+                    "type": "string",
+                    "const": "nm"
+                },
+                "y_axis": {
+                    "type": "string",
+                    "const": "down"
+                }
+            },
+            "required": [
+                "unit",
+                "y_axis"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Coordinate convention for the footprint plotter slice."
+        },
+        "JavaScriptSafeInteger": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Integer that remains exact when decoded as a JavaScript number."
+        },
         "BoardGraphicPlotRecord": {
             "type": "object",
             "properties": {
@@ -113,32 +156,208 @@
             },
             "description": "One board-level graphic record. The carrier layer travels on the record;\nthe contained operations are layerless graphic-state operations."
         },
-        "PlotterCoordinateSpace": {
+        "TrackSegmentPlotRecord": {
             "type": "object",
             "properties": {
-                "unit": {
-                    "type": "string",
-                    "const": "nm"
+                "uuid": {
+                    "type": "string"
                 },
-                "y_axis": {
+                "kind": {
                     "type": "string",
-                    "const": "down"
+                    "const": "segment"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "locked": {
+                    "type": "boolean"
+                },
+                "net_id": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "net_name": {
+                    "type": "string"
                 }
             },
             "required": [
-                "unit",
-                "y_axis"
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "layer",
+                "locked"
             ],
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Coordinate convention for the footprint plotter slice."
+            "description": "One board track segment record with its net attribution."
         },
-        "JavaScriptSafeInteger": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991,
-            "description": "Integer that remains exact when decoded as a JavaScript number."
+        "TrackArcPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "track_arc"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "net_id": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "net_name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "layer"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One board track arc record with its net attribution."
+        },
+        "ViaPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "via"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "drill": {
+                    "type": "number"
+                },
+                "size": {
+                    "type": "number"
+                },
+                "via_type": {
+                    "$ref": "#/$defs/BoardViaType"
+                },
+                "hole_kind": {
+                    "type": "string",
+                    "const": "round"
+                },
+                "hole_plating": {
+                    "type": "string",
+                    "const": "plated"
+                },
+                "hole_render": {
+                    "type": "string",
+                    "const": "drill"
+                },
+                "ipc4761_tenting_front": {
+                    "$ref": "#/$defs/PlotterStringBool"
+                },
+                "ipc4761_tenting_back": {
+                    "$ref": "#/$defs/PlotterStringBool"
+                },
+                "ipc4761_covering_front": {
+                    "$ref": "#/$defs/PlotterStringBool"
+                },
+                "ipc4761_covering_back": {
+                    "$ref": "#/$defs/PlotterStringBool"
+                },
+                "ipc4761_plugging_front": {
+                    "$ref": "#/$defs/PlotterStringBool"
+                },
+                "ipc4761_plugging_back": {
+                    "$ref": "#/$defs/PlotterStringBool"
+                },
+                "ipc4761_capping": {
+                    "$ref": "#/$defs/PlotterStringBool"
+                },
+                "ipc4761_filling": {
+                    "$ref": "#/$defs/PlotterStringBool"
+                },
+                "ipc4761_metadata": {
+                    "type": "string",
+                    "const": "true"
+                },
+                "net_id": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "net_name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "layers",
+                "drill",
+                "size",
+                "via_type",
+                "hole_kind",
+                "hole_plating",
+                "hole_render"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One board via record: copper aperture, synthetic drill, and per-side mask\nopening/drill pairs when tenting explicitly exposes that side. IPC-4761\nfabrication metadata mirrors the established stringified booleans."
         },
         "BoardGraphicRecordKind": {
             "type": "string",
@@ -192,6 +411,24 @@
                 }
             ],
             "description": "Shared plotter operation vocabulary promoted across source producers."
+        },
+        "BoardViaType": {
+            "type": "string",
+            "enum": [
+                "through",
+                "blind",
+                "buried",
+                "micro"
+            ],
+            "description": "Via construction kinds mirrored from the established producer."
+        },
+        "PlotterStringBool": {
+            "type": "string",
+            "enum": [
+                "true",
+                "false"
+            ],
+            "description": "Stringified boolean metadata mirrored from the established producer."
         },
         "ThickSegmentOperation": {
             "type": "object",
@@ -605,6 +842,9 @@
                 },
                 "mask_margin_nm": {
                     "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "role": {
+                    "$ref": "#/$defs/PlotterViaFlashRole"
                 }
             },
             "required": [
@@ -613,13 +853,12 @@
                 "x",
                 "y",
                 "diameter_nm",
-                "layers",
-                "mask_margin_nm"
+                "layers"
             ],
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Circular pad flash shared by footprint and PCB producers."
+            "description": "Circular pad flash shared by footprint and PCB producers. Footprint pad\nstate requires mask_margin_nm and forbids role. Board via state requires\nrole and forbids mask_margin_nm. The generated semantic validator enforces\nthese mutually exclusive states."
         },
         "FlashPadOvalOperation": {
             "type": "object",
@@ -909,7 +1148,9 @@
             "type": "string",
             "enum": [
                 "pad_drill",
-                "npth_hole"
+                "npth_hole",
+                "via_drill",
+                "via_mask_drill"
             ],
             "description": "Semantic roles allowed on shared circle and segment drill operations."
         },
@@ -946,6 +1187,14 @@
             "minItems": 2,
             "maxItems": 2,
             "description": "Plotter point encoded as an exact coordinate pair."
+        },
+        "PlotterViaFlashRole": {
+            "type": "string",
+            "enum": [
+                "via_aperture",
+                "via_mask_opening"
+            ],
+            "description": "Semantic roles allowed on board via flash operations."
         },
         "PlotterQuad": {
             "type": "array",

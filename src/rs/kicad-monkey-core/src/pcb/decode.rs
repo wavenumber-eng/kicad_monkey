@@ -237,6 +237,7 @@ pub(super) fn segment_from_span(
     span: &FormSpan,
     limits: PcbLimits,
 ) -> Result<PcbSegment, Error> {
+    let header = scalar_values(source, span)?;
     let children = direct_children(source, span, limits.max_object_children, limits)?;
     let start = required_xy(source, &children, "start", span)?;
     let end = required_xy(source, &children, "end", span)?;
@@ -247,6 +248,7 @@ pub(super) fn segment_from_span(
         end_y: end.1,
         width: optional_child_f64(source, &children, "width")?,
         layer: optional_child_string(source, &children, "layer")?,
+        locked: has_flag(&header, "locked"),
         net: child_net_ref_or_zero(source, &children)?,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),

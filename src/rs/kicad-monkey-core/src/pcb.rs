@@ -304,6 +304,9 @@ pub struct PcbSegment {
     pub end_y: f64,
     pub width: Option<f64>,
     pub layer: Option<String>,
+    /// Bare `locked` header flag only; the Python oracle's `has_flag` does
+    /// not honor the `(locked yes)` child form on segments.
+    pub locked: bool,
     pub net: PcbNetRef,
     pub uuid: Option<String>,
     pub source_range: Range<usize>,

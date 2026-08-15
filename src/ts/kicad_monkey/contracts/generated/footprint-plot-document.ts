@@ -23,7 +23,7 @@ export type JavaScriptSafeInteger = number;
 /**
  * Semantic roles allowed on shared circle and segment drill operations.
  */
-export type PlotterDrillRole = "pad_drill" | "npth_hole";
+export type PlotterDrillRole = "pad_drill" | "npth_hole" | "via_drill" | "via_mask_drill";
 /**
  * Fill values shared by plotter operation producers.
  */
@@ -46,6 +46,10 @@ export type PlotterLineStyle = "DEFAULT" | "SOLID" | "DASH" | "DOT" | "DASH_DOT"
  * @maxItems 2
  */
 export type PlotterPoint = [JavaScriptSafeInteger, JavaScriptSafeInteger];
+/**
+ * Semantic roles allowed on board via flash operations.
+ */
+export type PlotterViaFlashRole = "via_aperture" | "via_mask_opening";
 /**
  * Four pad-local trapezoid corners.
  *
@@ -204,7 +208,10 @@ export interface BezierCurveOperation {
   line_style?: PlotterLineStyle;
 }
 /**
- * Circular pad flash shared by footprint and PCB producers.
+ * Circular pad flash shared by footprint and PCB producers. Footprint pad
+ * state requires mask_margin_nm and forbids role. Board via state requires
+ * role and forbids mask_margin_nm. The generated semantic validator enforces
+ * these mutually exclusive states.
  */
 export interface FlashPadCircleOperation {
   kind: "FlashPadCircle";
@@ -213,7 +220,8 @@ export interface FlashPadCircleOperation {
   y: JavaScriptSafeInteger;
   diameter_nm: JavaScriptSafeInteger;
   layers: string[];
-  mask_margin_nm: JavaScriptSafeInteger;
+  mask_margin_nm?: JavaScriptSafeInteger;
+  role?: PlotterViaFlashRole;
 }
 /**
  * Oval pad flash shared by footprint and PCB producers.

@@ -1,7 +1,36 @@
 use kicad_monkey_core::{
-    BoardPlotLimits, BoardPlotRecordKind, ErrorKind, PlotterFill, PlotterOperation,
-    board_plot_document,
+    BoardGraphicRecord, BoardGraphicRecordKind, BoardPlotLimits, BoardPlotRecord,
+    BoardSegmentRecord, BoardTrackArcRecord, BoardViaOperationKind, BoardViaRecord, BoardViaType,
+    ErrorKind, PlotterFill, PlotterOperation, board_plot_document,
 };
+
+fn graphic(record: &BoardPlotRecord) -> &BoardGraphicRecord {
+    match record {
+        BoardPlotRecord::Graphic(record) => record,
+        other => panic!("expected graphic record, got {other:?}"),
+    }
+}
+
+fn segment(record: &BoardPlotRecord) -> &BoardSegmentRecord {
+    match record {
+        BoardPlotRecord::Segment(record) => record,
+        other => panic!("expected segment record, got {other:?}"),
+    }
+}
+
+fn track_arc(record: &BoardPlotRecord) -> &BoardTrackArcRecord {
+    match record {
+        BoardPlotRecord::TrackArc(record) => record,
+        other => panic!("expected track arc record, got {other:?}"),
+    }
+}
+
+fn via(record: &BoardPlotRecord) -> &BoardViaRecord {
+    match record {
+        BoardPlotRecord::Via(record) => record,
+        other => panic!("expected via record, got {other:?}"),
+    }
+}
 
 const LINE_BOARD: &str = r#"(kicad_pcb
   (version 20240108)
@@ -31,8 +60,8 @@ fn board_plotter_reads_metadata_and_solid_lines_with_record_level_layers() {
     assert_eq!(document.thickness_mm, 2.4);
     assert_eq!(document.paper, "A3");
     assert_eq!(document.records.len(), 1);
-    let record = &document.records[0];
-    assert_eq!(record.kind, BoardPlotRecordKind::GrLine);
+    let record = graphic(&document.records[0]);
+    assert_eq!(record.kind, BoardGraphicRecordKind::GrLine);
     assert_eq!(record.uuid, "line-uuid");
     assert_eq!(record.layer, "Edge.Cuts");
     assert_eq!(record.operations.len(), 1);
@@ -65,14 +94,14 @@ fn board_plotter_defaults_match_python_without_footprint_pen_clamps() {
     let thin = r#"(kicad_pcb
       (gr_line (start 0 0) (end 1 0) (stroke (width 0.05) (type solid))))"#;
     let document = board_plot_document(thin, BoardPlotLimits::default()).expect("thin stroke");
-    let PlotterOperation::ThickSegment(line) = &document.records[0].operations[0] else {
+    let PlotterOperation::ThickSegment(line) = &graphic(&document.records[0]).operations[0] else {
         panic!("expected thick segment");
     };
     assert_eq!(line.width_nm, 50_000);
 
     let zero = r#"(kicad_pcb (gr_line (start 0 0) (end 1 0) (stroke (type solid))))"#;
     let document = board_plot_document(zero, BoardPlotLimits::default()).expect("zero stroke");
-    let PlotterOperation::ThickSegment(line) = &document.records[0].operations[0] else {
+    let PlotterOperation::ThickSegment(line) = &graphic(&document.records[0]).operations[0] else {
         panic!("expected thick segment");
     };
     assert_eq!(line.width_nm, 0);
@@ -82,7 +111,7 @@ fn board_plotter_defaults_match_python_without_footprint_pen_clamps() {
 fn legacy_width_applies_only_without_a_stroke_form() {
     let legacy = r#"(kicad_pcb (gr_line (start 0 0) (end 1 0) (width 0.3)))"#;
     let document = board_plot_document(legacy, BoardPlotLimits::default()).expect("legacy width");
-    let PlotterOperation::ThickSegment(line) = &document.records[0].operations[0] else {
+    let PlotterOperation::ThickSegment(line) = &graphic(&document.records[0]).operations[0] else {
         panic!("expected thick segment");
     };
     assert_eq!(line.width_nm, 300_000);
@@ -92,7 +121,7 @@ fn legacy_width_applies_only_without_a_stroke_form() {
         r#"(kicad_pcb (gr_line (start 0 0) (end 1 0) (width 0.3) (stroke (type solid))))"#;
     let document =
         board_plot_document(shadowed, BoardPlotLimits::default()).expect("shadowed legacy width");
-    let PlotterOperation::ThickSegment(line) = &document.records[0].operations[0] else {
+    let PlotterOperation::ThickSegment(line) = &graphic(&document.records[0]).operations[0] else {
         panic!("expected thick segment");
     };
     assert_eq!(line.width_nm, 0);
@@ -104,7 +133,7 @@ fn dashed_board_lines_expand_inside_one_record_and_fail_closed_on_unknown_styles
     let document =
         board_plot_document(&source, BoardPlotLimits::default()).expect("dashed decomposition");
     assert_eq!(document.records.len(), 1);
-    let record = &document.records[0];
+    let record = graphic(&document.records[0]);
     assert_eq!(record.operations.len(), 1);
     let PlotterOperation::ThickSegment(segment) = &record.operations[0] else {
         panic!("dash decomposition emits thick segments");
@@ -116,9 +145,12 @@ fn dashed_board_lines_expand_inside_one_record_and_fail_closed_on_unknown_styles
         let patterned = LINE_BOARD.replace("(type solid)", &format!("(type {style})"));
         let document = board_plot_document(&patterned, BoardPlotLimits::default())
             .expect("supported patterned stroke");
-        assert!(!document.records[0].operations.is_empty(), "{style}");
         assert!(
-            document.records[0]
+            !graphic(&document.records[0]).operations.is_empty(),
+            "{style}"
+        );
+        assert!(
+            graphic(&document.records[0])
                 .operations
                 .iter()
                 .all(|operation| matches!(operation, PlotterOperation::ThickSegment(_))),
@@ -191,21 +223,26 @@ fn records_follow_python_category_order_with_python_layer_defaults() {
       (gr_line (start 0 1) (end 3 1) (stroke (width 0.1) (type solid))))"#;
     let document =
         board_plot_document(source, BoardPlotLimits::default()).expect("category grouping");
-    let kinds: Vec<_> = document.records.iter().map(|record| record.kind).collect();
+    let kinds: Vec<_> = document
+        .records
+        .iter()
+        .map(|record| graphic(record).kind)
+        .collect();
     assert_eq!(
         kinds,
         [
-            BoardPlotRecordKind::GrLine,
-            BoardPlotRecordKind::GrArc,
-            BoardPlotRecordKind::GrCircle,
-            BoardPlotRecordKind::GrRect,
-            BoardPlotRecordKind::GrPoly,
-            BoardPlotRecordKind::GrCurve,
+            BoardGraphicRecordKind::GrLine,
+            BoardGraphicRecordKind::GrArc,
+            BoardGraphicRecordKind::GrCircle,
+            BoardGraphicRecordKind::GrRect,
+            BoardGraphicRecordKind::GrPoly,
+            BoardGraphicRecordKind::GrCurve,
         ],
         "gr_text is deferred to the board-text slice and records group by category"
     );
     for record in &document.records {
-        let expected_layer = if record.kind == BoardPlotRecordKind::GrCurve {
+        let record = graphic(record);
+        let expected_layer = if record.kind == BoardGraphicRecordKind::GrCurve {
             "F.SilkS"
         } else {
             "Edge.Cuts"
@@ -214,22 +251,22 @@ fn records_follow_python_category_order_with_python_layer_defaults() {
         assert_eq!(record.uuid, "");
     }
 
-    let PlotterOperation::ArcThreePoint(arc) = &document.records[1].operations[0] else {
+    let PlotterOperation::ArcThreePoint(arc) = &graphic(&document.records[1]).operations[0] else {
         panic!("expected solid arc three-point operation");
     };
     assert_eq!(arc.fill, PlotterFill::NoFill);
-    let PlotterOperation::Circle(circle) = &document.records[2].operations[0] else {
+    let PlotterOperation::Circle(circle) = &graphic(&document.records[2]).operations[0] else {
         panic!("expected circle operation");
     };
     assert_eq!((circle.cx, circle.cy), (2_000_000, 2_000_000));
     assert_eq!(circle.diameter_nm, 3_000_000);
     assert_eq!(circle.fill, PlotterFill::FilledShape);
-    let PlotterOperation::Rect(rect) = &document.records[3].operations[0] else {
+    let PlotterOperation::Rect(rect) = &graphic(&document.records[3]).operations[0] else {
         panic!("expected rect operation");
     };
     assert_eq!(rect.fill, PlotterFill::NoFill);
     assert_eq!(rect.corner_radius_nm, 0);
-    let PlotterOperation::PlotPoly(poly) = &document.records[4].operations[0] else {
+    let PlotterOperation::PlotPoly(poly) = &graphic(&document.records[4]).operations[0] else {
         panic!("expected polygon operation");
     };
     assert_eq!(
@@ -237,7 +274,7 @@ fn records_follow_python_category_order_with_python_layer_defaults() {
         [[0, 0], [2_000_000, 0], [1_000_000, 1_500_000]]
     );
     assert_eq!(poly.fill, PlotterFill::FilledShape);
-    let PlotterOperation::BezierCurve(curve) = &document.records[5].operations[0] else {
+    let PlotterOperation::BezierCurve(curve) = &graphic(&document.records[5]).operations[0] else {
         panic!("expected bezier operation");
     };
     assert_eq!(curve.tolerance_nm, 0);
@@ -249,7 +286,7 @@ fn unknown_fills_stay_unfilled_like_the_lenient_python_parser() {
     let source = r#"(kicad_pcb
       (gr_circle (center 0 0) (end 1 0) (stroke (width 0.1)) (fill hatch)))"#;
     let document = board_plot_document(source, BoardPlotLimits::default()).expect("lenient fill");
-    let PlotterOperation::Circle(circle) = &document.records[0].operations[0] else {
+    let PlotterOperation::Circle(circle) = &graphic(&document.records[0]).operations[0] else {
         panic!("expected circle operation");
     };
     assert_eq!(circle.fill, PlotterFill::NoFill);
@@ -262,9 +299,12 @@ fn malformed_curves_produce_empty_records_but_still_validate_strokes() {
     let document =
         board_plot_document(source, BoardPlotLimits::default()).expect("malformed curve");
     assert_eq!(document.records.len(), 1);
-    assert_eq!(document.records[0].kind, BoardPlotRecordKind::GrCurve);
-    assert_eq!(document.records[0].uuid, "short");
-    assert!(document.records[0].operations.is_empty());
+    assert_eq!(
+        graphic(&document.records[0]).kind,
+        BoardGraphicRecordKind::GrCurve
+    );
+    assert_eq!(graphic(&document.records[0]).uuid, "short");
+    assert!(graphic(&document.records[0]).operations.is_empty());
 
     let invalid = source.replace("(stroke (width 0.1))", "(stroke (width 0.1) (type wavy))");
     let error = board_plot_document(&invalid, BoardPlotLimits::default())
@@ -318,4 +358,282 @@ fn plotter_outputs_stay_inside_the_javascript_safe_integer_range() {
         board_plot_document(outside, BoardPlotLimits::default()).expect_err("unsafe coordinate");
     assert_eq!(error.kind, ErrorKind::UnexpectedToken);
     assert!(error.message.contains("safe-integer"));
+}
+
+#[test]
+fn tracks_and_vias_follow_graphics_in_python_family_order() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (via (at 1 1) (size 0.5) (drill 0.2) (net 0) (uuid "via-first"))
+      (arc (start 5 0) (mid 5.5 0.5) (end 6 0) (net 0) (uuid "arc-early"))
+      (segment (start 0 0) (end 1 0) (net 0) (uuid "segment-early"))
+      (gr_line (start 0 0) (end 1 0) (stroke (width 0.2) (type solid))))"#;
+    let document =
+        board_plot_document(source, BoardPlotLimits::default()).expect("family ordering");
+    assert!(matches!(document.records[0], BoardPlotRecord::Graphic(_)));
+    assert!(matches!(document.records[1], BoardPlotRecord::Segment(_)));
+    assert!(matches!(document.records[2], BoardPlotRecord::TrackArc(_)));
+    assert!(matches!(document.records[3], BoardPlotRecord::Via(_)));
+}
+
+#[test]
+#[allow(
+    clippy::cognitive_complexity,
+    reason = "single parity assertion test intentionally verifies both segment states"
+)]
+fn segment_records_pin_bare_locked_flags_and_verbatim_widths() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (net 7 "GND")
+      (segment (start 1 2) (end 3 4) (width -0.25) (layer "F.Cu") locked (net 7) (uuid "s1"))
+      (segment (start 0 0) (end 1 0) (locked yes) (net 0) (uuid "s2")))"#;
+    let document =
+        board_plot_document(source, BoardPlotLimits::default()).expect("segment records");
+
+    let locked = segment(&document.records[0]);
+    assert!(locked.locked, "bare locked atoms set the Python has_flag");
+    assert_eq!(locked.layer, "F.Cu");
+    assert_eq!(locked.net_id, Some(7));
+    assert_eq!(locked.net_name.as_deref(), Some("GND"));
+    let PlotterOperation::ThickSegment(line) = &locked.operations[0] else {
+        panic!("expected thick segment");
+    };
+    assert_eq!(
+        line.width_nm, -250_000,
+        "track widths are emitted verbatim, negatives included"
+    );
+    assert_eq!((line.start_x, line.start_y), (1_000_000, 2_000_000));
+    assert_eq!((line.end_x, line.end_y), (3_000_000, 4_000_000));
+    assert_eq!(line.layer, None, "track operations are layerless");
+    assert!(line.layers.is_empty());
+
+    let bare = segment(&document.records[1]);
+    assert!(
+        !bare.locked,
+        "the (locked yes) child form is not the bare flag Python honors"
+    );
+    assert_eq!(bare.layer, "", "missing layers default to the empty string");
+    assert_eq!(bare.net_id, Some(0));
+    assert_eq!(bare.net_name, None, "empty net names are omitted");
+    let PlotterOperation::ThickSegment(line) = &bare.operations[0] else {
+        panic!("expected thick segment");
+    };
+    assert_eq!(line.width_nm, 0, "missing widths stay zero");
+}
+
+#[test]
+fn track_arc_records_reverse_endpoints_and_carry_no_lock_state() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (arc (start 5 0) (mid 5.5 0.5) (end 6 0) (width 0.3) (layer "F.Cu") (net 0) (uuid "a1")))"#;
+    let document =
+        board_plot_document(source, BoardPlotLimits::default()).expect("track arc record");
+    let record = track_arc(&document.records[0]);
+    assert_eq!(record.uuid, "a1");
+    assert_eq!(record.layer, "F.Cu");
+    let PlotterOperation::ArcThreePoint(arc) = &record.operations[0] else {
+        panic!("expected arc three-point operation");
+    };
+    assert_eq!(
+        (arc.start_x, arc.start_y),
+        (6_000_000, 0),
+        "the serializer plots from the file end point"
+    );
+    assert_eq!((arc.mid_x, arc.mid_y), (5_500_000, 500_000));
+    assert_eq!(
+        (arc.end_x, arc.end_y),
+        (5_000_000, 0),
+        "back to the file start point"
+    );
+    assert_eq!(arc.fill, PlotterFill::NoFill);
+    assert_eq!(arc.width_nm, 300_000);
+    assert_eq!(arc.layer, None, "track operations are layerless");
+}
+
+#[test]
+#[allow(
+    clippy::cognitive_complexity,
+    reason = "single parity assertion test intentionally verifies the full via sequence"
+)]
+fn via_records_emit_aperture_drill_then_exposed_mask_pairs() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (setup (pad_to_mask_clearance 0.051))
+      (via (at 7 8) (size 0.5) (drill 0.3) (layers "F.Cu" "B.Cu") (net 0) (uuid "v1")
+        (tenting (front no) (back yes))))"#;
+    let document = board_plot_document(source, BoardPlotLimits::default()).expect("via record");
+    let record = via(&document.records[0]);
+    assert_eq!(record.via_type, BoardViaType::Through);
+    assert_eq!(record.drill, 0.3);
+    assert_eq!(record.size, 0.5);
+    assert_eq!(record.fabrication.tenting_front, Some(false));
+    assert_eq!(record.fabrication.tenting_back, Some(true));
+    assert!(record.fabrication.any());
+
+    let kinds: Vec<_> = record
+        .operations
+        .iter()
+        .map(|operation| operation.kind)
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            BoardViaOperationKind::Aperture,
+            BoardViaOperationKind::Drill,
+            BoardViaOperationKind::MaskOpening,
+            BoardViaOperationKind::MaskDrill,
+        ],
+        "back tenting yes suppresses the B.Mask pair"
+    );
+    assert_eq!(record.operations[0].diameter_nm, 500_000);
+    assert_eq!(record.operations[0].layers, ["F.Cu", "B.Cu"]);
+    assert_eq!(record.operations[1].diameter_nm, 300_000);
+    assert_eq!(record.operations[1].layers, ["F.Cu", "B.Cu"]);
+    assert_eq!(
+        record.operations[2].diameter_nm, 602_000,
+        "mask openings widen by twice the setup pad_to_mask_clearance"
+    );
+    assert_eq!(record.operations[2].layers, ["F.Mask"]);
+    assert_eq!(record.operations[3].diameter_nm, 300_000);
+    assert_eq!(record.operations[3].layers, ["F.Mask"]);
+    for operation in &record.operations {
+        assert_eq!((operation.x, operation.y), (7_000_000, 8_000_000));
+    }
+}
+
+#[test]
+fn via_drills_fall_back_to_half_size_only_when_non_positive() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (via (at 1 1) (size 0.5) (drill -0.3) (layers "F.Cu" "B.Cu") (net 0) (uuid "negative"))
+      (via (at 2 2) (size 0.6) (layers "F.Cu" "B.Cu") (net 0) (uuid "missing")))"#;
+    let document = board_plot_document(source, BoardPlotLimits::default()).expect("via drills");
+
+    let negative = via(&document.records[0]);
+    assert_eq!(negative.drill, -0.3, "the raw drill extra is preserved");
+    assert_eq!(negative.operations[1].diameter_nm, 250_000);
+
+    let missing = via(&document.records[1]);
+    assert_eq!(missing.drill, 0.0);
+    assert_eq!(missing.operations[1].diameter_nm, 300_000);
+}
+
+#[test]
+#[allow(
+    clippy::cognitive_complexity,
+    reason = "single parity assertion test intentionally verifies every mask gate"
+)]
+fn via_mask_exposure_requires_untented_sides_reaching_outer_copper() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (via (at 1 1) (size 0.5) (drill 0.2) (layers "*.Cu") (net 0) (uuid "wildcard")
+        (tenting (front no) (back no)))
+      (via (at 2 2) (size 0.5) (drill 0.2) (layers "In1.Cu" "In2.Cu") (net 0) (uuid "inner")
+        (tenting (front no)))
+      (via (at 3 3) (size 0.5) (drill 0.2) (layers "F.Cu" "B.Cu") (net 0) (uuid "tented"))
+      (via (at 4 4) (size 0.5) (drill 0.2) (net 0) (uuid "unrouted")))"#;
+    let document = board_plot_document(source, BoardPlotLimits::default()).expect("mask gating");
+
+    let wildcard = via(&document.records[0]);
+    assert_eq!(
+        wildcard.operations.len(),
+        6,
+        "*.Cu reaches both outer sides"
+    );
+    assert_eq!(wildcard.operations[2].layers, ["F.Mask"]);
+    assert_eq!(wildcard.operations[4].layers, ["B.Mask"]);
+
+    let inner = via(&document.records[1]);
+    assert_eq!(
+        inner.operations.len(),
+        2,
+        "untented sides expose no mask without outer copper"
+    );
+    assert!(inner.fabrication.any(), "the ipc extras still serialize");
+
+    let tented = via(&document.records[2]);
+    assert_eq!(
+        tented.operations.len(),
+        2,
+        "absent tenting never exposes mask openings"
+    );
+    assert!(!tented.fabrication.any());
+
+    let unrouted = via(&document.records[3]);
+    assert!(unrouted.layers.is_empty());
+    for operation in &unrouted.operations {
+        assert!(
+            operation.layers.is_empty(),
+            "unrouted vias keep their empty layer list verbatim"
+        );
+    }
+}
+
+#[test]
+fn via_types_and_fabrication_mirror_header_flags() {
+    let source = r#"(kicad_pcb
+      (net 0 "")
+      (via micro (at 1 1) (size 0.4) (drill 0.1) (layers "F.Cu" "In1.Cu") (net 0) (uuid "m")
+        (covering (front yes)) (plugging (back no)) (capping yes) (filling no))
+      (via blind (at 2 2) (size 0.6) (layers "In1.Cu" "B.Cu") (net 0) (uuid "b"))
+      (via buried (at 3 3) (size 0.7) (drill 0.35) (layers "In1.Cu" "In2.Cu") (net 0) (uuid "u")))"#;
+    let document = board_plot_document(source, BoardPlotLimits::default()).expect("via types");
+
+    let micro = via(&document.records[0]);
+    assert_eq!(micro.via_type, BoardViaType::Micro);
+    assert_eq!(micro.fabrication.covering_front, Some(true));
+    assert_eq!(micro.fabrication.plugging_back, Some(false));
+    assert_eq!(micro.fabrication.capping, Some(true));
+    assert_eq!(micro.fabrication.filling, Some(false));
+    assert_eq!(micro.fabrication.tenting_front, None);
+
+    assert_eq!(via(&document.records[1]).via_type, BoardViaType::Blind);
+    assert_eq!(via(&document.records[2]).via_type, BoardViaType::Buried);
+}
+
+#[test]
+fn track_and_via_records_observe_request_budgets() {
+    let tracks = r#"(kicad_pcb
+      (net 0 "")
+      (gr_line (start 0 0) (end 1 0) (stroke (width 0.2) (type solid)))
+      (segment (start 0 0) (end 1 0) (net 0)))"#;
+    let limited = BoardPlotLimits {
+        max_operations: 1,
+        ..BoardPlotLimits::default()
+    };
+    assert_eq!(
+        board_plot_document(tracks, limited)
+            .expect_err("segment operations charge the shared budget")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let vias = r#"(kicad_pcb
+      (net 0 "")
+      (via (at 1 1) (size 0.5) (drill 0.2) (net 0)))"#;
+    let limited = BoardPlotLimits {
+        max_operations: 1,
+        ..BoardPlotLimits::default()
+    };
+    assert_eq!(
+        board_plot_document(vias, limited)
+            .expect_err("via operations charge the shared budget")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let two_segments = r#"(kicad_pcb
+      (net 0 "")
+      (segment (start 0 0) (end 1 0) (net 0))
+      (segment (start 0 1) (end 1 1) (net 0)))"#;
+    let limited = BoardPlotLimits {
+        max_graphics: 1,
+        ..BoardPlotLimits::default()
+    };
+    assert_eq!(
+        board_plot_document(two_segments, limited)
+            .expect_err("the record budget bounds every promoted family")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
 }
