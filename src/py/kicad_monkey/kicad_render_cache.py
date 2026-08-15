@@ -451,34 +451,39 @@ def _fracture_contour_group(
     ring starts untouched.
     """
 
-    retained = [contour for contour in contours if len(contour) >= 3]
+    retained = [contour for contour in contours if contour]
 
     # KiCad's `Fracture()` classifies rings by containment, not storage order:
     # Noto faces store a glyph's hole contours before the exterior that owns
     # them.  Containment-depth parity reproduces that order-independently:
     # even depth = exterior, odd depth = hole, and a hole's parent is its
-    # first stored containing exterior one level up.
+    # first stored containing exterior one level up.  Degenerate (<3 point)
+    # rings — contours collapsed by cache-frame quantization — are standalone:
+    # they never contain, never count as holes, and stay at their stored
+    # position among the exteriors.
     containers: list[list[int]] = []
     for index, contour in enumerate(retained):
         containers.append(
             [
                 other_index
                 for other_index, other in enumerate(retained)
-                if other_index != index and _point_in_polygon(contour[0], other)
+                if other_index != index
+                and len(other) >= 3
+                and _point_in_polygon(contour[0], other)
             ]
         )
 
     polygons: list[dict[str, Any]] = []
     polygon_by_contour: dict[int, dict[str, Any]] = {}
     for index, contour in enumerate(retained):
-        if len(containers[index]) % 2 == 0:
+        if len(contour) < 3 or len(containers[index]) % 2 == 0:
             polygon: dict[str, Any] = {"exterior": contour, "holes": []}
             polygons.append(polygon)
             polygon_by_contour[index] = polygon
 
     for index, contour in enumerate(retained):
         depth = len(containers[index])
-        if depth % 2 == 0:
+        if len(contour) < 3 or depth % 2 == 0:
             continue
         parent = next(
             (
@@ -517,7 +522,10 @@ def _fracture_contour_group(
                 )
             )
         elif group_has_holes:
-            fractured.append(_rotate_exterior_for_fracture(polygon["exterior"]))
+            # `Fracture()`'s Clipper2 `Simplify()` drops degenerate rings, so
+            # they only survive in hole-free groups that skip `Fracture()`.
+            if len(polygon["exterior"]) >= 3:
+                fractured.append(_rotate_exterior_for_fracture(polygon["exterior"]))
         else:
             fractured.append(polygon["exterior"])
 
@@ -582,7 +590,9 @@ def generate_render_cache_from_text_params(
     ]
     group_sizes = list(getattr(geometry, "contour_group_sizes", []) or []) or None
     for points in _fracture_render_cache_contours(contours, group_sizes):
-        if len(points) >= 3:
+        # KiCad's saved-cache writer publishes degenerate (collapsed) rings
+        # as their own polygons, so keep every non-empty fractured contour.
+        if points:
             polygons.append(
                 RenderCachePolygon(
                     contours=[RenderCacheContour(points=points)],

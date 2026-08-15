@@ -1745,12 +1745,13 @@ class KiCadTextRenderer:
         for contour in contours:
             geometry.add_contour(contour)
 
-        # add_contour() drops degenerate (<3 point) contours, so recount each
-        # glyph group against the retained contours to keep the group sizes an
-        # exact partition of geometry.contours.
+        # add_contour() drops empty contours, so recount each glyph group
+        # against the retained contours to keep the group sizes an exact
+        # partition of geometry.contours.  Degenerate (<3 point) contours are
+        # kept: KiCad publishes collapsed rings in the saved render cache.
         start = 0
         for size in self._contour_group_sizes:
-            retained = sum(1 for contour in contours[start:start + size] if len(contour) >= 3)
+            retained = sum(1 for contour in contours[start:start + size] if contour)
             start += size
             if retained:
                 geometry.contour_group_sizes.append(retained)

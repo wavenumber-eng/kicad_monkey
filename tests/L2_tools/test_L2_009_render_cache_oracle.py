@@ -1695,6 +1695,52 @@ def test_python_render_cache_generator_matches_trailing_newline_oracle(
 
 
 @pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(
+    not os.environ.get("KICAD_FONTCONFIG_DLL"),
+    reason="KiCad fontconfig DLL not provisioned",
+)
+def test_python_render_cache_generator_matches_degenerate_ring_oracle(
+    tmp_path: Path,
+):
+    # KiCad keeps glyph rings that cache-frame quantization collapses below
+    # three points and publishes them as standalone one-point polygons when
+    # the glyph set is hole-free (jumperless '-' oracle [4, 1], royalblue
+    # apostrophe [4, 1, 1]); dropping them loses whole cache polygons.
+    source = tmp_path / "render_cache_degenerate_ring.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        "-",
+        font_face="Eurostile Extended",
+        font_size="0.4 0.4",
+    )
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_degenerate_ring",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+    # The substituted face's hyphen collapses only on hosts resolving the
+    # same face KiCad does; when it does, parity must include the 1-point
+    # polygon, and polygon counts must agree either way (asserted above).
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
 def test_python_render_cache_generator_matches_nonsquare_size_oracle(
     tmp_path: Path,
 ):

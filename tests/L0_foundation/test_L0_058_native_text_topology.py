@@ -20,11 +20,13 @@ def test_text_topology_records_are_current_and_cover_fracture_order() -> None:
             "trim_one_duplicate_closure",
             "containment_depth_parity",
             "leftmost_hole_bridge",
+            "degenerate_rings_standalone_unless_holed",
         ],
     }
     records = {record["case_id"]: record for record in vectors["records"]}
     assert set(records) == {
         "duplicate_closure_and_short_contour",
+        "degenerate_in_holed_group",
         "single_square_hole",
         "hole_before_exterior",
         "signed_zero_top_tie",
@@ -33,6 +35,14 @@ def test_text_topology_records_are_current_and_cover_fracture_order() -> None:
         "kicad_stroke_o_outline",
     }
     assert len(records["single_square_hole"]["fractured"]) == 1
+    # KiCad keeps collapsed rings as standalone outlines in hole-free sets and
+    # loses them to Clipper2 `Simplify()` when the set fractures.
+    assert records["duplicate_closure_and_short_contour"]["fractured"][1] == (
+        [[9.0, 9.0], [10.0, 10.0]]
+    )
+    assert records["degenerate_in_holed_group"]["fractured"] == (
+        records["single_square_hole"]["fractured"]
+    )
     # Storage order must not change classification: the hole-first layout of
     # Noto faces fractures identically to the exterior-first layout.
     assert records["hole_before_exterior"]["fractured"] == (

@@ -16,10 +16,22 @@ CONTOUR_PATH = ROOT / "tests/parity/text_contour_vectors.json"
 
 CASES: tuple[dict[str, Any], ...] = (
     {
+        # KiCad keeps rings collapsed below three points as standalone
+        # outlines at their stored position when the set is hole-free.
         "case_id": "duplicate_closure_and_short_contour",
         "contours": [
             [[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0], [0.0, 0.0]],
             [[9.0, 9.0], [10.0, 10.0]],
+        ],
+    },
+    {
+        # `Fracture()`'s Clipper2 `Simplify()` drops degenerate rings, so
+        # they only survive in hole-free sets that skip `Fracture()`.
+        "case_id": "degenerate_in_holed_group",
+        "contours": [
+            [[0.0, 0.0], [8.0, 0.0], [8.0, 8.0], [0.0, 8.0]],
+            [[2.0, 2.0], [2.0, 6.0], [6.0, 6.0], [6.0, 2.0]],
+            [[9.0, 9.0]],
         ],
     },
     {
@@ -109,6 +121,7 @@ def generate_vectors() -> dict[str, Any]:
                 "trim_one_duplicate_closure",
                 "containment_depth_parity",
                 "leftmost_hole_bridge",
+                "degenerate_rings_standalone_unless_holed",
             ],
         },
         "records": records,

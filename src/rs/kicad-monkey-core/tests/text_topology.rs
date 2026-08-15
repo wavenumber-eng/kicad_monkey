@@ -64,6 +64,7 @@ fn native_topology_matches_fixed_python_fracture_records() {
             "trim_one_duplicate_closure",
             "containment_depth_parity",
             "leftmost_hole_bridge",
+            "degenerate_rings_standalone_unless_holed",
         ]
     );
     for record in vectors.records {

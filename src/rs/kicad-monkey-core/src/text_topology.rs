@@ -87,7 +87,9 @@ struct Work {
 /// `Fracture()` (and its Clipper2 `Simplify()` seam rewrite plus outer
 /// reordering) when the glyph set has holes, so a hole-free input keeps font
 /// order and ring starts untouched.
-/// Contours with fewer than three points after closure normalization are ignored.
+/// Degenerate (<3 point) contours are standalone exteriors published at their
+/// stored position in hole-free inputs and dropped from holed inputs, matching
+/// Clipper2 `Simplify()` eating degenerate rings during `Fracture()`.
 pub fn fracture_text_contours_a0(
     contours: &[TextContour],
     limits: TextTopologyLimits,
@@ -104,6 +106,11 @@ pub fn fracture_text_contours_a0(
     }
     let mut output = Vec::with_capacity(polygons.len());
     for polygon in &polygons {
+        // `Fracture()`'s Clipper2 `Simplify()` drops degenerate rings, so
+        // they only survive in hole-free groups that skip `Fracture()`.
+        if has_holes && normalized[polygon.exterior].points.len() < 3 {
+            continue;
+        }
         let points = fracture_polygon(&normalized, polygon, has_holes, limits, &mut work)?;
         output.push(TextContour { points });
     }
@@ -151,7 +158,9 @@ fn normalize_contours(
             } else {
                 &contour.points
             };
-        if retained.len() >= 3 {
+        // Degenerate (<3 point) rings are kept: KiCad publishes contours
+        // collapsed by cache-frame quantization in the saved render cache.
+        if !retained.is_empty() {
             normalized.push(TextContour {
                 points: retained.to_vec(),
             });
@@ -168,18 +177,22 @@ fn classify_contours(
     // Containment-depth parity: even depth = exterior, odd depth = hole, and
     // a hole's parent is its first stored containing exterior one level up.
     // This is order-independent: Noto faces store holes before exteriors.
+    // Degenerate (<3 point) rings are standalone: they never contain, never
+    // count as holes, and stay at their stored position among the exteriors.
     let containers = containment_containers(contours, limits, work)?;
     let mut polygons: Vec<Polygon> = Vec::new();
     let mut polygon_of = vec![usize::MAX; contours.len()];
     for contour_index in 0..contours.len() {
-        if containers[contour_index].len().is_multiple_of(2) {
+        if contours[contour_index].points.len() < 3
+            || containers[contour_index].len().is_multiple_of(2)
+        {
             polygon_of[contour_index] = polygons.len();
             push_polygon(&mut polygons, contour_index, limits)?;
         }
     }
     for contour_index in 0..contours.len() {
         let depth = containers[contour_index].len();
-        if depth.is_multiple_of(2) {
+        if contours[contour_index].points.len() < 3 || depth.is_multiple_of(2) {
             continue;
         }
         let parent = containers[contour_index]
@@ -207,6 +220,7 @@ fn containment_containers(
         let mut containing = Vec::new();
         for (other_index, other) in contours.iter().enumerate() {
             if other_index != contour_index
+                && other.points.len() >= 3
                 && point_in_polygon(contour.points[0], &other.points, limits, work)?
             {
                 containing.push(other_index);
