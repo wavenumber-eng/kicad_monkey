@@ -24,6 +24,7 @@ from kicad_monkey.kicad_render_cache import (
     render_cache_request_for_table_cell,
 )
 from kicad_monkey.kicad_render_cache_oracle import (
+    collect_render_cache_requests_from_pcb,
     compare_render_caches,
     compare_render_cache_entry_sets,
     run_kicad_pcb_render_cache_save_oracle,
@@ -2409,6 +2410,44 @@ def test_python_render_cache_generator_matches_footprint_text_oracle(
 
     assert generated.usable
     assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+def test_python_render_cache_generator_matches_empty_footprint_text_oracle(
+    tmp_path: Path,
+):
+    # KiCad saves a polygon-less render_cache for empty outline-font texts
+    # (blank fp_text placeholders and Datasheet properties in the corpus),
+    # so the collector must emit requests for empty texts and the resolver
+    # must accept the empty generated cache, preserving the resolved angle.
+    source = tmp_path / "render_cache_python_generator_fp_text_empty.kicad_pcb"
+    _write_footprint_outline_text_board(source, "fp_text", "", text_angle=90.0)
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_fp_text_empty",
+    )
+    pcb = KiCadPcb.from_file(source)
+    requests = [
+        request
+        for request in collect_render_cache_requests_from_pcb(pcb)
+        if request.object_path.endswith("/fp_text[0]")
+    ]
+    assert len(requests) == 1
+
+    generated = RenderCacheResolver().ensure_cache(requests[0])
+
+    assert generated.usable
+    assert generated.cache is not None
+    assert not generated.cache.polygons
+    assert len(oracle.entries) == 1
+    assert not oracle.entries[0].cache.polygons
     comparison = compare_render_caches(
         oracle.entries[0].cache,
         generated.cache,

@@ -99,7 +99,9 @@ class RenderCacheResolver:
         elif not isclose(cache.angle, request.angle, abs_tol=request.angle_tolerance):
             reasons.append("angle_mismatch")
 
-        if not cache.polygons:
+        # KiCad saves polygon-less caches for empty resolved text, so an
+        # empty cache is only stale when the text is nonempty.
+        if not cache.polygons and request.text:
             reasons.append("empty_cache")
 
         for index, polygon in enumerate(cache.polygons):
@@ -172,7 +174,7 @@ class RenderCacheResolver:
         )
         reasons: list[str] = []
         warnings = ["python_generated_cache_not_kicad_exact"]
-        if not cache.polygons:
+        if not cache.polygons and request.text:
             reasons.append("empty_cache")
         if cache.text != request.text:
             reasons.append("resolved_text_mismatch")

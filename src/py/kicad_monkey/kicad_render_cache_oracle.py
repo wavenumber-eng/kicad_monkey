@@ -332,34 +332,34 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
 
     requests: list[RenderCacheRequest] = []
 
+    # Empty-text objects are collected too: KiCad saves a polygon-less
+    # render_cache for empty outline-font texts (fp_text "" reference
+    # placeholders, blank Datasheet properties), so parity requires a
+    # request for every text object regardless of resolved content.
     for index, text in enumerate(getattr(pcb, "gr_texts", []) or []):
-        if getattr(text, "text", ""):
-            requests.append(
-                render_cache_request_for_board_text(
-                    text,
-                    pcb,
-                    object_type="gr_text",
-                    object_path=f"gr_text[{index}]",
-                    include_text_params=_has_outline_font(text),
-                )
+        requests.append(
+            render_cache_request_for_board_text(
+                text,
+                pcb,
+                object_type="gr_text",
+                object_path=f"gr_text[{index}]",
+                include_text_params=_has_outline_font(text),
             )
+        )
 
     for index, text_box in enumerate(getattr(pcb, "gr_text_boxes", []) or []):
-        if getattr(text_box, "text", ""):
-            requests.append(
-                render_cache_request_for_board_text(
-                    text_box,
-                    pcb,
-                    object_type="gr_text_box",
-                    object_path=f"gr_text_box[{index}]",
-                    include_text_params=_has_outline_font(text_box),
-                )
+        requests.append(
+            render_cache_request_for_board_text(
+                text_box,
+                pcb,
+                object_type="gr_text_box",
+                object_path=f"gr_text_box[{index}]",
+                include_text_params=_has_outline_font(text_box),
             )
+        )
 
     for table_index, table in enumerate(getattr(pcb, "tables", []) or []):
         for cell_index, cell in enumerate(getattr(table, "cells", []) or []):
-            if not getattr(cell, "text", ""):
-                continue
             requests.append(
                 render_cache_request_for_table_cell(
                     cell,
@@ -376,7 +376,7 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
             if hasattr(dimension, "resolved_gr_text")
             else getattr(dimension, "gr_text", None)
         )
-        if text is None or not getattr(text, "text", ""):
+        if text is None:
             continue
         requests.append(
             render_cache_request_for_dimension_text(
@@ -396,8 +396,6 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
         footprint_path = f"footprint[{footprint_index}:{footprint_id}]"
 
         for text_index, text in enumerate(getattr(footprint, "fp_texts", []) or []):
-            if not getattr(text, "text", ""):
-                continue
             requests.append(
                 render_cache_request_for_footprint_text(
                     text,
@@ -408,8 +406,6 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
             )
 
         for prop_index, prop in enumerate(getattr(footprint, "properties", []) or []):
-            if not getattr(prop, "value", ""):
-                continue
             requests.append(
                 render_cache_request_for_footprint_property(
                     prop,
@@ -420,8 +416,6 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
             )
 
         for box_index, text_box in enumerate(getattr(footprint, "fp_text_boxes", []) or []):
-            if not getattr(text_box, "text", ""):
-                continue
             requests.append(
                 render_cache_request_for_footprint_text_box(
                     text_box,
@@ -433,8 +427,6 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
 
         for table_index, table in enumerate(getattr(footprint, "tables", []) or []):
             for cell_index, cell in enumerate(getattr(table, "cells", []) or []):
-                if not getattr(cell, "text", ""):
-                    continue
                 requests.append(
                     render_cache_request_for_table_cell(
                         cell,
@@ -447,7 +439,7 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
 
         for dimension_index, dimension in enumerate(getattr(footprint, "dimensions", []) or []):
             text = getattr(dimension, "gr_text", None)
-            if text is None or not getattr(text, "text", ""):
+            if text is None:
                 continue
             requests.append(
                 render_cache_request_for_dimension_text(
