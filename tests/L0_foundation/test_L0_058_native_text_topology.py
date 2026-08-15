@@ -18,7 +18,7 @@ def test_text_topology_records_are_current_and_cover_fracture_order() -> None:
         "outline_source": "tests/parity/text_contour_vectors.json",
         "semantics": [
             "trim_one_duplicate_closure",
-            "first_containing_exterior",
+            "containment_depth_parity",
             "leftmost_hole_bridge",
         ],
     }
@@ -26,12 +26,18 @@ def test_text_topology_records_are_current_and_cover_fracture_order() -> None:
     assert set(records) == {
         "duplicate_closure_and_short_contour",
         "single_square_hole",
+        "hole_before_exterior",
         "signed_zero_top_tie",
         "two_holes_sorted_by_leftmost_point",
         "disjoint_exteriors_with_holes",
         "kicad_stroke_o_outline",
     }
     assert len(records["single_square_hole"]["fractured"]) == 1
+    # Storage order must not change classification: the hole-first layout of
+    # Noto faces fractures identically to the exterior-first layout.
+    assert records["hole_before_exterior"]["fractured"] == (
+        records["single_square_hole"]["fractured"]
+    )
     assert len(records["two_holes_sorted_by_leftmost_point"]["fractured"][0]) > 12
     assert len(records["disjoint_exteriors_with_holes"]["fractured"]) == 2
     assert records["kicad_stroke_o_outline"]["source_case_id"] == (

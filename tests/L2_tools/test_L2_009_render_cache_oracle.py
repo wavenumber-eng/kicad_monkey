@@ -1615,6 +1615,50 @@ def test_python_render_cache_generator_matches_fontconfig_substitution_oracle(
 
 
 @pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(
+    not os.environ.get("KICAD_FONTCONFIG_DLL"),
+    reason="KiCad fontconfig DLL not provisioned",
+)
+def test_python_render_cache_generator_matches_holed_substituted_glyph_oracle(
+    tmp_path: Path,
+):
+    # Noto Sans (the substitution target for absent faces) stores a glyph's
+    # hole contours before the owning exterior. The fracture classifier must
+    # be storage-order independent or every holed substituted glyph stays
+    # unfractured (icepi/royalblue polygon_count mismatches like 'e'
+    # [13, 42] vs oracle [58]).
+    source = tmp_path / "render_cache_holed_substituted.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        "Re",
+        font_style="(bold yes)",
+        font_face="Ubuntu Sans",
+    )
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_holed_substituted",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
 def test_python_render_cache_generator_matches_nonsquare_size_oracle(
     tmp_path: Path,
 ):

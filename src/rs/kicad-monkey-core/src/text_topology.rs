@@ -80,8 +80,10 @@ struct Work {
 /// Normalize duplicate closure points and fracture holes into exterior paths.
 ///
 /// This mirrors the cache-oriented ordering used by the Python KiCad reference.
-/// Input contours must arrive with each exterior before any holes it contains,
-/// and one call must cover exactly one glyph's polygon set: KiCad only runs
+/// Contours are classified by containment-depth parity (even depth = exterior,
+/// odd depth = hole), so holes may arrive before or after their exterior (Noto
+/// faces store holes first). One call must cover exactly one glyph's polygon
+/// set: KiCad only runs
 /// `Fracture()` (and its Clipper2 `Simplify()` seam rewrite plus outer
 /// reordering) when the glyph set has holes, so a hole-free input keeps font
 /// order and ring starts untouched.
@@ -163,33 +165,71 @@ fn classify_contours(
     limits: TextTopologyLimits,
     work: &mut Work,
 ) -> Result<Vec<Polygon>, TextContourError> {
+    // Containment-depth parity: even depth = exterior, odd depth = hole, and
+    // a hole's parent is its first stored containing exterior one level up.
+    // This is order-independent: Noto faces store holes before exteriors.
+    let containers = containment_containers(contours, limits, work)?;
     let mut polygons: Vec<Polygon> = Vec::new();
-    for (contour_index, contour) in contours.iter().enumerate() {
-        let mut parent = None;
-        for (polygon_index, candidate) in polygons.iter().enumerate() {
-            if point_in_polygon(
-                contour.points[0],
-                &contours[candidate.exterior].points,
-                limits,
-                work,
-            )? {
-                parent = Some(polygon_index);
-                break;
-            }
+    let mut polygon_of = vec![usize::MAX; contours.len()];
+    for contour_index in 0..contours.len() {
+        if containers[contour_index].len().is_multiple_of(2) {
+            polygon_of[contour_index] = polygons.len();
+            push_polygon(&mut polygons, contour_index, limits)?;
         }
-        if let Some(parent) = parent {
-            polygons[parent].holes.push(contour_index);
-        } else {
-            if polygons.len() >= limits.max_output_polygons {
-                return Err(limit("$.polygons", "output polygon limit exceeded"));
-            }
-            polygons.push(Polygon {
-                exterior: contour_index,
-                holes: Vec::new(),
-            });
+    }
+    for contour_index in 0..contours.len() {
+        let depth = containers[contour_index].len();
+        if depth.is_multiple_of(2) {
+            continue;
+        }
+        let parent = containers[contour_index]
+            .iter()
+            .copied()
+            .find(|&other_index| containers[other_index].len() + 1 == depth)
+            .map(|other_index| polygon_of[other_index]);
+        match parent {
+            Some(polygon_index) => polygons[polygon_index].holes.push(contour_index),
+            None => push_polygon(&mut polygons, contour_index, limits)?,
         }
     }
     Ok(polygons)
+}
+
+/// For each contour, the stored-order indices of contours containing its
+/// first point; the list length is the contour's containment depth.
+fn containment_containers(
+    contours: &[TextContour],
+    limits: TextTopologyLimits,
+    work: &mut Work,
+) -> Result<Vec<Vec<usize>>, TextContourError> {
+    let mut containers = Vec::with_capacity(contours.len());
+    for (contour_index, contour) in contours.iter().enumerate() {
+        let mut containing = Vec::new();
+        for (other_index, other) in contours.iter().enumerate() {
+            if other_index != contour_index
+                && point_in_polygon(contour.points[0], &other.points, limits, work)?
+            {
+                containing.push(other_index);
+            }
+        }
+        containers.push(containing);
+    }
+    Ok(containers)
+}
+
+fn push_polygon(
+    polygons: &mut Vec<Polygon>,
+    exterior: usize,
+    limits: TextTopologyLimits,
+) -> Result<(), TextContourError> {
+    if polygons.len() >= limits.max_output_polygons {
+        return Err(limit("$.polygons", "output polygon limit exceeded"));
+    }
+    polygons.push(Polygon {
+        exterior,
+        holes: Vec::new(),
+    });
+    Ok(())
 }
 
 fn point_in_polygon(

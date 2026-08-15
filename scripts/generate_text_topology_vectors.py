@@ -30,6 +30,15 @@ CASES: tuple[dict[str, Any], ...] = (
         ],
     },
     {
+        # Noto faces store a glyph's holes before the owning exterior; the
+        # classifier must not depend on storage order.
+        "case_id": "hole_before_exterior",
+        "contours": [
+            [[2.0, 2.0], [2.0, 6.0], [6.0, 6.0], [6.0, 2.0]],
+            [[0.0, 0.0], [8.0, 0.0], [8.0, 8.0], [0.0, 8.0]],
+        ],
+    },
+    {
         "case_id": "signed_zero_top_tie",
         "contours": [
             [[0.0, -0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]],
@@ -98,7 +107,7 @@ def generate_vectors() -> dict[str, Any]:
             "outline_source": "tests/parity/text_contour_vectors.json",
             "semantics": [
                 "trim_one_duplicate_closure",
-                "first_containing_exterior",
+                "containment_depth_parity",
                 "leftmost_hole_bridge",
             ],
         },

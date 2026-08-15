@@ -62,7 +62,7 @@ fn native_topology_matches_fixed_python_fracture_records() {
         vectors.oracle.semantics,
         [
             "trim_one_duplicate_closure",
-            "first_containing_exterior",
+            "containment_depth_parity",
             "leftmost_hole_bridge",
         ]
     );

@@ -451,18 +451,43 @@ def _fracture_contour_group(
     ring starts untouched.
     """
 
+    retained = [contour for contour in contours if len(contour) >= 3]
+
+    # KiCad's `Fracture()` classifies rings by containment, not storage order:
+    # Noto faces store a glyph's hole contours before the exterior that owns
+    # them.  Containment-depth parity reproduces that order-independently:
+    # even depth = exterior, odd depth = hole, and a hole's parent is its
+    # first stored containing exterior one level up.
+    containers: list[list[int]] = []
+    for index, contour in enumerate(retained):
+        containers.append(
+            [
+                other_index
+                for other_index, other in enumerate(retained)
+                if other_index != index and _point_in_polygon(contour[0], other)
+            ]
+        )
+
     polygons: list[dict[str, Any]] = []
+    polygon_by_contour: dict[int, dict[str, Any]] = {}
+    for index, contour in enumerate(retained):
+        if len(containers[index]) % 2 == 0:
+            polygon: dict[str, Any] = {"exterior": contour, "holes": []}
+            polygons.append(polygon)
+            polygon_by_contour[index] = polygon
 
-    for contour in contours:
-        if len(contour) < 3:
+    for index, contour in enumerate(retained):
+        depth = len(containers[index])
+        if depth % 2 == 0:
             continue
-
-        parent = None
-        for candidate in polygons:
-            if _point_in_polygon(contour[0], candidate["exterior"]):
-                parent = candidate
-                break
-
+        parent = next(
+            (
+                polygon_by_contour[other_index]
+                for other_index in containers[index]
+                if len(containers[other_index]) == depth - 1
+            ),
+            None,
+        )
         if parent is None:
             polygons.append({"exterior": contour, "holes": []})
         else:
