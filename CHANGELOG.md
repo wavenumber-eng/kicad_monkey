@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 2026.8.16
+
+- Speed up S-expression lexing and ordinary tree construction while preserving
+  frozen ``SexpToken`` constructor compatibility, lexed ``separator`` whitespace
+  for token-level spacing round-trip, and CR-only whole-line ``#`` comment
+  skipping.
+- Match KiCad's insertion ordering for non-primary multi-unit component
+  timestamps.
+- Refresh compiled-graph corpus counts for the power-port drawing links restored
+  in 2026.8.10.1.
+
 ## 2026.8.11.1
 
 - Add an import-specific footprint cleanup pipeline that removes Fab/User

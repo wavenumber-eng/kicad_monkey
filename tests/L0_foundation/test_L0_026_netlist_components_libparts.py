@@ -263,13 +263,13 @@ def test_collect_components_collapses_multi_unit_reference():
     assert comps[0].instance_uuids == ["u1-unit2", "u1-unit1"]
 
 
-def test_collect_components_reverses_non_primary_multi_unit_tstamps():
+def test_collect_components_preserves_non_primary_multi_unit_tstamp_order():
     libU = _libsym("Device:U", _pin(0.0, 0.0, number="1"))
     sch = KiCadSchematic()
     sch.uuid = "root"
     sch.lib_symbols.append(libU)
     # The lexical-lowest UUID is KiCad's primary and remains last. Other
-    # unit UUIDs are prepended as encountered, giving unit 2 then unit 1.
+    # unit UUIDs retain insertion order.
     sch.symbols.extend(
         [
             _placed("Device:U", reference="U1", uuid="1-unit3", unit=3),
@@ -281,7 +281,7 @@ def test_collect_components_reverses_non_primary_multi_unit_tstamps():
     [component] = collect_design_components(compile_design_subgraphs(sch))
 
     assert component.instance_uuid == "1-unit3"
-    assert component.instance_uuids == ["3-unit2", "2-unit1", "1-unit3"]
+    assert component.instance_uuids == ["2-unit1", "3-unit2", "1-unit3"]
 
 
 def test_collect_components_suppresses_later_cross_sheet_multi_unit_rows():

@@ -1545,11 +1545,9 @@ def _component_primary_and_tstamps(
             extras.append(candidate)
 
     uuids: List[str] = []
-    # KiCad keeps the primary (lowest UUID) unit last and prepends each
-    # additional unit as it encounters it.  That detail is observable for
-    # symbols with three or more units: the non-primary UUIDs are therefore
-    # emitted in reverse schematic order.
-    for candidate in reversed(extras):
+    # KiCad keeps the primary (lowest UUID) unit last. Its equivalent-key
+    # multiset retains the other units in insertion order.
+    for candidate in extras:
         uid = candidate.component.instance_uuid
         if uid and uid not in uuids:
             uuids.append(uid)
