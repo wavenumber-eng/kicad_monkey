@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust board plotter Phase 5 slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust board plotter Phase 5 slice</h1>
+
+  <p>Status: proposal, review ready. This slice extends the native board
+  plotter producer from graphics, routing, vias, authored zone fills, and net
+  metadata to board-level <code>gr_text</code> and
+  <code>gr_text_box</code> records. It is a bounded Phase 5 increment, not the
+  complete schematic/PCB plotter exit gate.</p>
+
+  <h2>Promoted behavior</h2>
+  <p>The producer matches the established Python record ordering and text
+  payload for effects, size, alignment, mirroring, text variables, border
+  operations, authored render-cache validation, and cached knockout
+  restructuring. Project text variables are case-expanded and board
+  properties overlay them. Records retain source UUID, layer, resolved text,
+  and optional border state. The TypeSpec-owned document and request project
+  through Rust, Python, TypeScript, JSON Schema, and the maintained WASM
+  feasibility adapter.</p>
+
+  <h2>Resource and complexity boundary</h2>
+  <p>Source, parse depth, selected graphic count, operation count, render-cache
+  point count, and serialized output bytes have independent request limits.
+  Authored cache points are rejected while parsing once the remaining
+  aggregate point budget is exhausted; no unbounded intermediate cache is
+  published. Source families are scanned a constant number of times, text
+  spans are parsed once, cache contours are traversed linearly, and variable
+  lookup is logarithmic in the number of sidecar variables. The slice has no
+  nested all-record or all-point comparison.</p>
+
+  <h2>Explicitly deferred behavior</h2>
+  <p>When an authored cache is missing or stale, outline-font cache generation
+  remains owned by the accepted native text pipeline and is not yet connected
+  to the board producer. Stroke-font text-box wrapping and the optional
+  Shapely synthetic knockout fallback also remain deferred. The parity vector
+  pins the established no-Shapely fallback. These exclusions must be resolved
+  or explicitly accepted when the complete Phase 5 plotter gate is reviewed.</p>
+
+  <h2>Evidence</h2>
+  <p>Rack <code>L1_035</code> regenerates every board vector from the Python
+  authority, validates the generated board schema and the established Plotter
+  IR schema, and executes both the native core and host-side WASM adapter.
+  Core tests cover inclusive aggregate cache-point and shared-operation limits.
+  <code>L0_046</code> and <code>L0_049</code> retain workspace and generated
+  contract signoff.</p>
+</body>
+</html>

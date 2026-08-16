@@ -17,10 +17,10 @@ use kicad_monkey_contracts::generated::board_plot_result::{
 use kicad_monkey_contracts::validate_board_plot_document;
 use kicad_monkey_core::{
     BoardGraphicRecordKind as CoreGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
-    BoardPlotRecord as CoreBoardPlotRecord, BoardTextBoxOperation, BoardTextHAlign,
-    BoardTextOperation, BoardTextVAlign, BoardTextVariables, BoardViaOperation,
-    BoardViaOperationKind, BoardViaRecord, Error, ErrorPhase, board_plot_document_with_sidecars,
-    utf8_text,
+    BoardPlotRecord as CoreBoardPlotRecord, BoardTextBoxOperation, BoardTextBoxRecord,
+    BoardTextHAlign, BoardTextOperation, BoardTextRecord, BoardTextVAlign, BoardTextVariables,
+    BoardViaOperation, BoardViaOperationKind, BoardViaRecord, Error, ErrorPhase,
+    board_plot_document_with_sidecars, utf8_text,
 };
 use wasm_bindgen::prelude::*;
 
@@ -190,53 +190,8 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
             uuid: record.uuid,
         }
         .into(),
-        CoreBoardPlotRecord::Text(record) => BoardTextPlotRecord {
-            // Board gr_text carriers have no hide attribute upstream, so the
-            // established serializer's getattr default is always false.
-            hide: false,
-            kind: "gr_text".to_owned(),
-            layer: record.layer,
-            object_id: "gr_text".to_owned(),
-            operation_count: contract_count(record.operations.len()),
-            operations: record
-                .operations
-                .into_iter()
-                .enumerate()
-                .map(|(index, operation)| {
-                    contract_text_operation(index, operation).map(PlotterOperation::from)
-                })
-                .collect::<Result<Vec<_>, String>>()?,
-            text: record.text,
-            uuid: record.uuid,
-        }
-        .into(),
-        CoreBoardPlotRecord::TextBox(record) => BoardTextBoxPlotRecord {
-            border: record.border,
-            kind: "gr_text_box".to_owned(),
-            layer: record.layer,
-            object_id: "gr_text_box".to_owned(),
-            operation_count: contract_count(record.operations.len()),
-            operations: record
-                .operations
-                .into_iter()
-                .enumerate()
-                .map(|(index, operation)| match operation {
-                    BoardTextBoxOperation::Border(operation) => {
-                        let shared = contract_plotter_operation(index, operation)?;
-                        let value =
-                            serde_json::to_value(shared).map_err(|error| error.to_string())?;
-                        serde_json::from_value::<PlotterOperation>(value)
-                            .map_err(|error| error.to_string())
-                    }
-                    BoardTextBoxOperation::Text(operation) => {
-                        contract_text_operation(index, operation).map(PlotterOperation::from)
-                    }
-                })
-                .collect::<Result<Vec<_>, String>>()?,
-            text: record.text,
-            uuid: record.uuid,
-        }
-        .into(),
+        CoreBoardPlotRecord::Text(record) => contract_text_record(record)?,
+        CoreBoardPlotRecord::TextBox(record) => contract_text_box_record(record)?,
         CoreBoardPlotRecord::Via(record) => contract_via_record(record)?.into(),
         CoreBoardPlotRecord::Zone(record) => ZoneFillPlotRecord {
             fill_island: record.fill_island,
@@ -254,6 +209,66 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
         }
         .into(),
     })
+}
+
+fn contract_text_record(record: BoardTextRecord) -> Result<BoardPlotRecord, String> {
+    let operations = record
+        .operations
+        .into_iter()
+        .enumerate()
+        .map(|(index, operation)| {
+            contract_text_operation(index, operation).map(PlotterOperation::from)
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok(BoardTextPlotRecord {
+        // Board gr_text carriers have no hide attribute upstream, so the
+        // established serializer's getattr default is always false.
+        hide: false,
+        kind: "gr_text".to_owned(),
+        layer: record.layer,
+        object_id: "gr_text".to_owned(),
+        operation_count: contract_count(operations.len()),
+        operations,
+        text: record.text,
+        uuid: record.uuid,
+    }
+    .into())
+}
+
+fn contract_text_box_record(record: BoardTextBoxRecord) -> Result<BoardPlotRecord, String> {
+    let operations = record
+        .operations
+        .into_iter()
+        .enumerate()
+        .map(|(index, operation)| contract_text_box_operation(index, operation))
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok(BoardTextBoxPlotRecord {
+        border: record.border,
+        kind: "gr_text_box".to_owned(),
+        layer: record.layer,
+        object_id: "gr_text_box".to_owned(),
+        operation_count: contract_count(operations.len()),
+        operations,
+        text: record.text,
+        uuid: record.uuid,
+    }
+    .into())
+}
+
+fn contract_text_box_operation(
+    index: usize,
+    operation: BoardTextBoxOperation,
+) -> Result<PlotterOperation, String> {
+    match operation {
+        BoardTextBoxOperation::Border(operation) => {
+            let shared = contract_plotter_operation(index, operation)?;
+            let value = serde_json::to_value(shared).map_err(|error| error.to_string())?;
+            serde_json::from_value(value).map_err(|error| error.to_string())
+        }
+        BoardTextBoxOperation::Text(operation) => {
+            contract_text_operation(index, operation).map(PlotterOperation::from)
+        }
+    }
 }
 
 fn contract_points(points: Vec<[i64; 2]>) -> Result<Vec<PlotterPoint>, String> {

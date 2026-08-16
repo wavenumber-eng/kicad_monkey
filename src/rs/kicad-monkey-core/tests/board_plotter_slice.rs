@@ -1,8 +1,9 @@
 use kicad_monkey_core::{
     BoardGraphicRecord, BoardGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
-    BoardPlotRecord, BoardSegmentRecord, BoardTrackArcRecord, BoardViaOperationKind,
-    BoardViaRecord, BoardViaType, BoardZoneRecord, ErrorKind, PlotterFill, PlotterOperation,
-    board_plot_document, board_plot_document_with_net_classes,
+    BoardPlotRecord, BoardSegmentRecord, BoardTextVariables, BoardTrackArcRecord,
+    BoardViaOperationKind, BoardViaRecord, BoardViaType, BoardZoneRecord, ErrorKind, PlotterFill,
+    PlotterOperation, board_plot_document, board_plot_document_with_net_classes,
+    board_plot_document_with_sidecars,
 };
 
 fn graphic(record: &BoardPlotRecord) -> &BoardGraphicRecord {
@@ -871,6 +872,63 @@ fn zone_records_observe_request_budgets() {
     assert_eq!(
         board_plot_document(two_zones, limited)
             .expect_err("the record budget bounds zone records")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+}
+
+#[test]
+fn board_text_resolves_sidecars_and_board_properties_in_one_linear_pass() {
+    let source = r#"(kicad_pcb
+      (property "Revision" "board-rev")
+      (gr_text "${PROJECT}:${Revision}:${missing}" (at 1 2) (uuid "text")))"#;
+    let variables =
+        BoardTextVariables::from_entries([("project", "monkey"), ("Revision", "project-rev")]);
+    let document = board_plot_document_with_sidecars(
+        source,
+        BoardPlotLimits::default(),
+        &BoardNetClassAssignments::default(),
+        &variables,
+    )
+    .expect("board text sidecars");
+    let BoardPlotRecord::Text(record) = &document.records[0] else {
+        panic!("expected board text record");
+    };
+    assert_eq!(record.text, "monkey:board-rev:${missing}");
+    assert_eq!(record.operations[0].text, record.text);
+}
+
+#[test]
+fn board_text_render_cache_points_observe_the_aggregate_limit() {
+    let source = r#"(kicad_pcb
+      (gr_poly (pts (xy 0 0) (xy 1 0) (xy 1 1))
+        (stroke (width 0.1) (type solid)) (fill none))
+      (gr_text "cached" (at 0 0)
+        (render_cache "cached" 0
+          (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1))))))"#;
+
+    let exact = BoardPlotLimits {
+        max_points: 6,
+        ..BoardPlotLimits::default()
+    };
+    board_plot_document(source, exact).expect("the exact aggregate point limit is inclusive");
+
+    let limited = BoardPlotLimits {
+        max_points: 5,
+        ..BoardPlotLimits::default()
+    };
+    let error = board_plot_document(source, limited)
+        .expect_err("authored cache parsing observes remaining aggregate points");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+    assert!(error.message.contains("max_points"));
+
+    let no_operations = BoardPlotLimits {
+        max_operations: 1,
+        ..BoardPlotLimits::default()
+    };
+    assert_eq!(
+        board_plot_document(source, no_operations)
+            .expect_err("graphic and text operations share one budget")
             .kind,
         ErrorKind::ResourceLimit
     );

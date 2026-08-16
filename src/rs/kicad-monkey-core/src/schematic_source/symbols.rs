@@ -65,12 +65,7 @@ impl SchematicPlacedSymbol {
             .suffix_index
             .by_project
             .get(project)
-            .and_then(|ordered| {
-                self.suffix_index
-                    .prefixes_by_project
-                    .get(project)
-                    .map(|prefixes| (ordered, prefixes))
-            })
+            .zip(self.suffix_index.prefixes_by_project.get(project))
             .unwrap_or((&self.suffix_index.all, &self.suffix_index.prefixes_all));
         let entry = self.suffix_index.query(path, ordered, prefixes);
         self.resolve_instance_entry(entry.as_ref())

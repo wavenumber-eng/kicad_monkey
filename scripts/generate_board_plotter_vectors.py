@@ -1,17 +1,20 @@
-"""Temp: regenerate board plotter parity vectors + add slice-4 text vectors."""
+"""Regenerate the bounded board plotter parity vectors from Python."""
 
 from __future__ import annotations
 
+import argparse
+from contextlib import contextmanager
 import json
 import sys
 from pathlib import Path
+from typing import Any, Iterator
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src" / "py"))
 
-from kicad_monkey.kicad_pcb import KiCadPcb
-from kicad_monkey.kicad_pcb_to_ir import pcb_to_ir
-from kicad_monkey.kicad_project import KiCadProject
+from kicad_monkey.kicad_pcb import KiCadPcb  # noqa: E402
+from kicad_monkey.kicad_pcb_to_ir import pcb_to_ir  # noqa: E402
+from kicad_monkey.kicad_project import KiCadProject  # noqa: E402
 
 VECTOR_PATH = ROOT / "tests" / "parity" / "board_plotter_a0_vectors.json"
 
@@ -19,25 +22,23 @@ VECTOR_PATH = ROOT / "tests" / "parity" / "board_plotter_a0_vectors.json"
 FLOAT_KEYS = {"thickness_mm", "drill", "size", "orient_deg", "angle"}
 
 
-class BlockShapely:
-    """Pin the no-Shapely synthetic-knockout baseline during oracle runs."""
-
-    def __enter__(self):
-        self.saved = {
-            name: sys.modules.pop(name)
-            for name in list(sys.modules)
-            if name == "shapely" or name.startswith("shapely.")
-        }
-        sys.modules["shapely"] = None
-        return self
-
-    def __exit__(self, *exc):
+@contextmanager
+def without_shapely() -> Iterator[None]:
+    """Pin the governed no-Shapely synthetic-knockout baseline."""
+    saved = {
+        name: sys.modules.pop(name)
+        for name in list(sys.modules)
+        if name == "shapely" or name.startswith("shapely.")
+    }
+    sys.modules["shapely"] = None
+    try:
+        yield
+    finally:
         del sys.modules["shapely"]
-        sys.modules.update(self.saved)
-        return False
+        sys.modules.update(saved)
 
 
-def norm(value, key=None):
+def norm(value: Any, key: str | None = None) -> Any:
     if isinstance(value, dict):
         return {k: norm(v, k) for k, v in value.items()}
     if isinstance(value, list):
@@ -47,7 +48,7 @@ def norm(value, key=None):
     return value
 
 
-def expected_for(vector):
+def expected_for(vector: dict[str, Any]) -> dict[str, Any]:
     pcb = KiCadPcb.from_string(vector["source"])
     project_raw = {}
     if vector.get("net_class_assignments") is not None:
@@ -58,7 +59,7 @@ def expected_for(vector):
         project_raw["text_variables"] = vector["text_variables"]
     if project_raw:
         pcb.project = KiCadProject.from_json_dict(project_raw)
-    with BlockShapely():
+    with without_shapely():
         document = pcb_to_ir(
             pcb,
             source_path=vector["source_path"],
@@ -121,10 +122,11 @@ NEW_VECTORS = [
 ]
 
 
-def main() -> None:
+def generate_vectors() -> dict[str, Any]:
     payload = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))
-    drift = []
-    vectors = [v for v in payload["vectors"] if v["id"] not in {n["id"] for n in NEW_VECTORS}]
+    drift: list[str] = []
+    new_ids = {str(vector["id"]) for vector in NEW_VECTORS}
+    vectors = [vector for vector in payload["vectors"] if vector["id"] not in new_ids]
     for vector in vectors:
         regenerated = expected_for(vector)
         if regenerated != vector["expected"]:
@@ -137,10 +139,21 @@ def main() -> None:
         vector["expected"] = expected_for(vector)
         vectors.append(vector)
     payload["vectors"] = vectors
-    with VECTOR_PATH.open("w", encoding="utf-8", newline="\n") as handle:
-        json.dump(payload, handle, indent=1)
-        handle.write("\n")
-    print("ok:", [v["id"] for v in vectors])
+    return payload
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args()
+    payload = generate_vectors()
+    encoded = (json.dumps(payload, indent=1) + "\n").encode()
+    if args.check:
+        if VECTOR_PATH.read_bytes() != encoded:
+            raise SystemExit(f"stale board plotter vectors: {VECTOR_PATH}")
+        return
+    VECTOR_PATH.write_bytes(encoded)
+    print("ok:", [vector["id"] for vector in payload["vectors"]])
 
 
 if __name__ == "__main__":

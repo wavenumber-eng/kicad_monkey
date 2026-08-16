@@ -9,7 +9,7 @@
 //! the native path deterministically emits the unwrapped resolved text
 //! and leaves ops without cache keys where Python would generate one.
 
-use super::{BoardPlotRecord, BudgetTracker};
+use super::{BoardPlotRecord, BudgetTracker, point_limit_error};
 use crate::pcb::{PcbGraphic, PcbGraphicKind, PcbPoint, PcbProperty, PcbView};
 use crate::plotter_ir::{child, mm_to_nm, model_error, numeric_at, value_at};
 use crate::plotter_types::{PlotterFill, PlotterOperation, PlotterRect};
@@ -239,7 +239,7 @@ pub(super) fn text_records(
     }
     let mut records = Vec::new();
     for graphic in texts {
-        let record = text_record(source, &graphic, variables)?;
+        let record = text_record(source, &graphic, variables, budget.remaining_points()?)?;
         budget.charge(
             record.operations.len(),
             text_point_total(&record.operations),
@@ -247,16 +247,11 @@ pub(super) fn text_records(
         records.push(BoardPlotRecord::Text(record));
     }
     for graphic in text_boxes {
-        let record = text_box_record(source, &graphic, variables)?;
-        let text_operations = record
-            .operations
-            .iter()
-            .filter_map(|operation| match operation {
-                BoardTextBoxOperation::Text(value) => Some(value.clone()),
-                BoardTextBoxOperation::Border(_) => None,
-            })
-            .collect::<Vec<_>>();
-        budget.charge(record.operations.len(), text_point_total(&text_operations))?;
+        let record = text_box_record(source, &graphic, variables, budget.remaining_points()?)?;
+        budget.charge(
+            record.operations.len(),
+            text_box_point_total(&record.operations),
+        )?;
         records.push(BoardPlotRecord::TextBox(record));
     }
     Ok(records)
@@ -268,8 +263,20 @@ fn text_point_total(operations: &[BoardTextOperation]) -> usize {
         .filter_map(|operation| operation.render_cache.as_ref())
         .flat_map(|cache| cache.polygons.iter())
         .flat_map(|contours| contours.iter())
-        .map(|contour| contour.len())
-        .sum()
+        .fold(0, |total, contour| total.saturating_add(contour.len()))
+}
+
+fn text_box_point_total(operations: &[BoardTextBoxOperation]) -> usize {
+    operations
+        .iter()
+        .filter_map(|operation| match operation {
+            BoardTextBoxOperation::Text(value) => Some(value),
+            BoardTextBoxOperation::Border(_) => None,
+        })
+        .filter_map(|operation| operation.render_cache.as_ref())
+        .flat_map(|cache| cache.polygons.iter())
+        .flat_map(|contours| contours.iter())
+        .fold(0, |total, contour| total.saturating_add(contour.len()))
 }
 
 /// Python `Effects`/`Font` facts consumed by the board text producers.
@@ -456,7 +463,10 @@ fn alignments(justify: &[String]) -> (Option<BoardTextHAlign>, Option<BoardTextV
 }
 
 /// Python `RenderCache.from_sexp`: `None` below three header values.
-fn parse_render_cache(form: &Sexp) -> Result<Option<AuthoredRenderCache>, Error> {
+fn parse_render_cache(
+    form: &Sexp,
+    max_points: usize,
+) -> Result<Option<AuthoredRenderCache>, Error> {
     let Some(cache) = child(form, "render_cache") else {
         return Ok(None);
     };
@@ -471,6 +481,7 @@ fn parse_render_cache(form: &Sexp) -> Result<Option<AuthoredRenderCache>, Error>
     };
     let angle = numeric_at(cache, 2, Position::START)?;
     let mut polygons = Vec::new();
+    let mut point_count = 0_usize;
     for polygon in children(cache, "polygon") {
         let mut contours = Vec::new();
         for points in children(polygon, "pts") {
@@ -478,6 +489,10 @@ fn parse_render_cache(form: &Sexp) -> Result<Option<AuthoredRenderCache>, Error>
             for point in children(points, "xy") {
                 // Python skips xy forms without both coordinates.
                 if list_values(point).is_some_and(|values| values.len() >= 3) {
+                    point_count = point_count
+                        .checked_add(1)
+                        .filter(|count| *count <= max_points)
+                        .ok_or_else(point_limit_error)?;
                     contour.push([
                         numeric_at(point, 1, Position::START)?,
                         numeric_at(point, 2, Position::START)?,
@@ -609,11 +624,12 @@ fn text_record(
     source: &str,
     graphic: &PcbGraphic,
     variables: &BoardTextVariables,
+    max_cache_points: usize,
 ) -> Result<BoardTextRecord, Error> {
     let form = parse_graphic_span(source, graphic)?;
     let effects = text_effects(&form)?;
     let angle = numeric_or(child(&form, "at"), 3, 0.0)?;
-    let cache = parse_render_cache(&form)?;
+    let cache = parse_render_cache(&form, max_cache_points)?;
     let knockout = child(&form, "layer").is_some_and(|value| has_flag(value, "knockout"));
     let layer = graphic
         .layer
@@ -807,10 +823,11 @@ fn text_box_record(
     source: &str,
     graphic: &PcbGraphic,
     variables: &BoardTextVariables,
+    max_cache_points: usize,
 ) -> Result<BoardTextBoxRecord, Error> {
     let form = parse_graphic_span(source, graphic)?;
     let effects = text_effects(&form)?;
-    let cache = parse_render_cache(&form)?;
+    let cache = parse_render_cache(&form, max_cache_points)?;
     let angle = numeric_or(child(&form, "angle"), 1, 0.0)?;
     let border = maybe_absent_bool(&form, "border");
     let stroke_width = match child(&form, "stroke").and_then(|value| child(value, "width")) {

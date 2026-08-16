@@ -177,7 +177,19 @@ fn validate_board_text_box_operations(
     record: &BoardTextBoxPlotRecord,
     record_index: usize,
 ) -> Result<(), ValidationError> {
-    let (rect, text) = match record.operations.as_slice() {
+    let (rect, text) = text_box_operation_parts(record, record_index)?;
+    validate_text_box_border(record, record_index, rect)?;
+    if let Some(value) = text {
+        validate_text_box_text(value, record_index, rect.is_some())?;
+    }
+    Ok(())
+}
+
+fn text_box_operation_parts(
+    record: &BoardTextBoxPlotRecord,
+    record_index: usize,
+) -> Result<(Option<&RectOperation>, Option<&TextOperation>), ValidationError> {
+    let parts = match record.operations.as_slice() {
         [] => (None, None),
         [BoardOperation::TextOperation(value)] => (None, Some(value)),
         [BoardOperation::RectOperation(rect)] => (Some(rect), None),
@@ -193,6 +205,14 @@ fn validate_board_text_box_operations(
             ));
         }
     };
+    Ok(parts)
+}
+
+fn validate_text_box_border(
+    record: &BoardTextBoxPlotRecord,
+    record_index: usize,
+    rect: Option<&RectOperation>,
+) -> Result<(), ValidationError> {
     // The border flag and the leading rect operation travel together.
     if record.border != rect.is_some() {
         return Err(validation_error(
@@ -212,18 +232,24 @@ fn validate_board_text_box_operations(
             "gr_text_box borders are layerless unfilled square-corner rects",
         ));
     }
-    if let Some(value) = text {
-        let operation_index = usize::from(rect.is_some());
-        let path = format!("$.records[{record_index}].operations[{operation_index}]");
-        validate_text_payload(value, &path)?;
-        // Text boxes never emit the mirror or polyline markers.
-        if value.mirror.is_some() || value.polyline_per_segment.is_some() {
-            return Err(validation_error(
-                "invalid_board_operation",
-                path,
-                "gr_text_box text operations omit mirror and polyline markers",
-            ));
-        }
+    Ok(())
+}
+
+fn validate_text_box_text(
+    value: &TextOperation,
+    record_index: usize,
+    has_border: bool,
+) -> Result<(), ValidationError> {
+    let operation_index = usize::from(has_border);
+    let path = format!("$.records[{record_index}].operations[{operation_index}]");
+    validate_text_payload(value, &path)?;
+    // Text boxes never emit the mirror or polyline markers.
+    if value.mirror.is_some() || value.polyline_per_segment.is_some() {
+        return Err(validation_error(
+            "invalid_board_operation",
+            path,
+            "gr_text_box text operations omit mirror and polyline markers",
+        ));
     }
     Ok(())
 }
@@ -234,6 +260,11 @@ fn text_box_rect_is_square(rect: &RectOperation) -> bool {
 
 /// Marker-key and render-cache states shared by both board text records.
 fn validate_text_payload(value: &TextOperation, path: &str) -> Result<(), ValidationError> {
+    validate_text_markers(value, path)?;
+    validate_text_cache(value, path)
+}
+
+fn validate_text_markers(value: &TextOperation, path: &str) -> Result<(), ValidationError> {
     let markers_true = [
         value.mirror,
         value.text_as_polygons,
@@ -257,6 +288,10 @@ fn validate_text_payload(value: &TextOperation, path: &str) -> Result<(), Valida
             "text_as_polygons appears exactly when no font face is set",
         ));
     }
+    Ok(())
+}
+
+fn validate_text_cache(value: &TextOperation, path: &str) -> Result<(), ValidationError> {
     let has_cache = value.render_cache.is_some();
     let coherent = has_cache == value.render_cache_source.is_some()
         && has_cache == value.render_cache_exact.is_some()
@@ -268,27 +303,22 @@ fn validate_text_payload(value: &TextOperation, path: &str) -> Result<(), Valida
             "render-cache keys must appear together",
         ));
     }
-    match &value.render_cache {
-        Some(cache) => {
-            if value.render_cache_exact != Some(cache.exact)
-                || (value.knockout.is_some() && cache.knockout != Some(true))
-            {
-                return Err(validation_error(
-                    "invalid_board_operation",
-                    path.to_owned(),
-                    "render-cache payload must agree with the operation markers",
-                ));
-            }
-        }
-        None => {
-            if value.knockout.is_some() {
-                return Err(validation_error(
-                    "invalid_board_operation",
-                    path.to_owned(),
-                    "knockout text operations require a restructured render cache",
-                ));
-            }
-        }
+    if let Some(cache) = &value.render_cache
+        && (value.render_cache_exact != Some(cache.exact)
+            || (value.knockout.is_some() && cache.knockout != Some(true)))
+    {
+        return Err(validation_error(
+            "invalid_board_operation",
+            path.to_owned(),
+            "render-cache payload must agree with the operation markers",
+        ));
+    }
+    if value.render_cache.is_none() && value.knockout.is_some() {
+        return Err(validation_error(
+            "invalid_board_operation",
+            path.to_owned(),
+            "knockout text operations require a restructured render cache",
+        ));
     }
     Ok(())
 }

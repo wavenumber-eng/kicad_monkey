@@ -321,6 +321,12 @@ impl BudgetTracker {
         }
         Ok(())
     }
+
+    fn remaining_points(&self) -> Result<usize, Error> {
+        self.max_points
+            .checked_sub(self.point_count)
+            .ok_or_else(point_limit_error)
+    }
 }
 
 /// Read supported board families into plotter records without sidecar extras.

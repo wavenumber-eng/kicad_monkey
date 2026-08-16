@@ -88,8 +88,9 @@ export type BoardViaType = "through" | "blind" | "buried" | "micro";
 export type PlotterStringBool = "true" | "false";
 
 /**
- * Strict board graphics/tracks/vias subset of kicad.plotter_ir.a0. Producers and
- * consumers must run generated semantic validation after structural decoding.
+ * Strict board graphics, text, tracks, vias, and authored-zone-fill subset of
+ * kicad.plotter_ir.a0. Producers and consumers must run generated semantic
+ * validation after structural decoding.
  */
 export interface BoardPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";

@@ -371,8 +371,9 @@ impl ::std::convert::TryFrom<::std::string::String> for BoardGraphicRecordKind {
         value.parse()
     }
 }
-/**Strict board graphics/tracks/vias subset of kicad.plotter_ir.a0. Producers and
-consumers must run generated semantic validation after structural decoding.*/
+/**Strict board graphics, text, tracks, vias, and authored-zone-fill subset of
+kicad.plotter_ir.a0. Producers and consumers must run generated semantic
+validation after structural decoding.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -380,7 +381,7 @@ consumers must run generated semantic validation after structural decoding.*/
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.board_plot.document:a0",
 ///  "title": "Board plot document a0",
-///  "description": "Strict board graphics/tracks/vias subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
+///  "description": "Strict board graphics, text, tracks, vias, and authored-zone-fill subset of\nkicad.plotter_ir.a0. Producers and consumers must run generated semantic\nvalidation after structural decoding.",
 ///  "type": "object",
 ///  "required": [
 ///    "coordinate_space",
