@@ -635,7 +635,7 @@ dev = [
 
 [[package]]
 name = "kicad-monkey"
-version = "2026.8.11.1"
+version = "2026.8.16"
 source = { editable = "." }
 dependencies = [
     { name = "colorama" },
