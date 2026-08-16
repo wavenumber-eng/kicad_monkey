@@ -9,6 +9,7 @@
 
 mod copper;
 mod graphics;
+mod text;
 
 use crate::pcb::{PcbFamily, PcbLimits, PcbNetRef, PcbSelection, PcbView};
 use crate::plotter_ir::ensure_javascript_safe_integer;
@@ -18,6 +19,10 @@ use std::collections::BTreeMap;
 
 use copper::{segment_record, track_arc_record, via_record, zone_record};
 use graphics::graphic_records;
+pub use text::{
+    BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
+    BoardTextRecord, BoardTextRenderCache, BoardTextVAlign, BoardTextVariables,
+};
 
 /// Limits for one board plotter conversion.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -207,6 +212,8 @@ pub struct BoardZoneRecord {
 #[derive(Clone, Debug, PartialEq)]
 pub enum BoardPlotRecord {
     Graphic(BoardGraphicRecord),
+    Text(BoardTextRecord),
+    TextBox(BoardTextBoxRecord),
     Segment(BoardSegmentRecord),
     TrackArc(BoardTrackArcRecord),
     Via(BoardViaRecord),
@@ -217,6 +224,8 @@ impl BoardPlotRecord {
     pub fn operation_count(&self) -> usize {
         match self {
             Self::Graphic(record) => record.operations.len(),
+            Self::Text(record) => record.operations.len(),
+            Self::TextBox(record) => record.operations.len(),
             Self::Segment(record) => record.operations.len(),
             Self::TrackArc(record) => record.operations.len(),
             Self::Via(record) => record.operations.len(),
@@ -329,6 +338,18 @@ pub fn board_plot_document_with_net_classes(
     limits: BoardPlotLimits,
     net_classes: &BoardNetClassAssignments,
 ) -> Result<BoardPlotDocument, Error> {
+    board_plot_document_with_sidecars(source, limits, net_classes, &BoardTextVariables::default())
+}
+
+/// Read the supported board families into plotter records with both project
+/// sidecar inputs: net-class extras and `${NAME}` text variables (which the
+/// board `(property ...)` entries overlay key-by-key).
+pub fn board_plot_document_with_sidecars(
+    source: &str,
+    limits: BoardPlotLimits,
+    net_classes: &BoardNetClassAssignments,
+    text_variables: &BoardTextVariables,
+) -> Result<BoardPlotDocument, Error> {
     let pcb_limits = PcbLimits {
         max_source_bytes: limits.max_source_bytes,
         max_depth: limits.max_depth,
@@ -341,6 +362,7 @@ pub fn board_plot_document_with_net_classes(
         ..PcbLimits::default()
     };
     let selection = PcbSelection::only(PcbFamily::Graphics)
+        .with(PcbFamily::Properties)
         .with(PcbFamily::Segments)
         .with(PcbFamily::Arcs)
         .with(PcbFamily::Vias)
@@ -356,6 +378,8 @@ pub fn board_plot_document_with_net_classes(
         point_count: 0,
     };
     let mut records = graphic_records(source, &view, &mut budget)?;
+    let variables = text::board_variables(&view, text_variables)?;
+    records.extend(text::text_records(source, &view, &mut budget, &variables)?);
     for segment in view.segments() {
         let record = segment_record(segment?, net_classes)?;
         budget.charge(record.operations.len(), 0)?;

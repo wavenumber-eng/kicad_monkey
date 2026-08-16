@@ -278,6 +278,77 @@ model FlashPadCustomOperation {
   mask_margin_nm: JavaScriptSafeInteger;
 }
 
+/** Horizontal text alignments emitted by the board producers. */
+enum PlotterTextHAlign {
+  left: "GR_TEXT_H_ALIGN_LEFT",
+  center: "GR_TEXT_H_ALIGN_CENTER",
+  right: "GR_TEXT_H_ALIGN_RIGHT",
+}
+
+/** Vertical text alignments emitted by the board producers. */
+enum PlotterTextVAlign {
+  top: "GR_TEXT_V_ALIGN_TOP",
+  center: "GR_TEXT_V_ALIGN_CENTER",
+  bottom: "GR_TEXT_V_ALIGN_BOTTOM",
+}
+
+/** One render-cache polygon as ordered contours, exterior ring first. */
+model TextRenderCachePolygon {
+  contours: PlotterPoint[][];
+}
+
+/**
+ * Typed authored render cache mirrored from `(render_cache ...)` forms. The
+ * promoted producers only forward file caches, so `source` is pinned to
+ * `existing_file_cache`; `knockout` appears when the knockout background
+ * restructure replaced the polygons.
+ */
+model TextRenderCache {
+  schema: "kicad.render_cache.v1";
+  unit: "nm";
+  coordinate_space: "board";
+  text: string;
+  angle: float64;
+  source: "existing_file_cache";
+  exact: boolean;
+  polygons: TextRenderCachePolygon[];
+  knockout?: boolean;
+}
+
+/**
+ * Stroke or cached text operation. Boolean marker keys (`mirror`,
+ * `text_as_polygons`, `polyline_per_segment`, `knockout`) are present-only
+ * -when-true, matching the established Python emitter. Render-cache keys
+ * appear together when an authored cache resolves; `render_cache_polygons`
+ * carries the exterior rings in nanometres.
+ */
+model TextOperation {
+  kind: "Text";
+  index: uint32;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  text: string;
+  color: string;
+  orient_deg: float64;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  h_align: PlotterTextHAlign;
+  v_align: PlotterTextVAlign;
+  pen_width_nm: JavaScriptSafeInteger;
+  italic: boolean;
+  bold: boolean;
+  multiline: boolean;
+  font_face: string;
+  mirror?: boolean;
+  text_as_polygons?: boolean;
+  polyline_per_segment?: boolean;
+  knockout?: boolean;
+  render_cache_polygons?: PlotterPoint[][];
+  render_cache?: TextRenderCache;
+  render_cache_source?: "existing_file_cache";
+  render_cache_exact?: boolean;
+}
+
 /** Four pad-local trapezoid corners. */
 @minItems(4)
 @maxItems(4)
@@ -303,6 +374,7 @@ union PlotterOperation {
   rect: RectOperation,
   plotPoly: PlotPolyOperation,
   bezierCurve: BezierCurveOperation,
+  text: TextOperation,
   flashPadCircle: FlashPadCircleOperation,
   flashPadOval: FlashPadOvalOperation,
   flashPadRect: FlashPadRectOperation,
@@ -356,6 +428,16 @@ model BoardNetClassAssignment {
   classes: string[];
 }
 
+/**
+ * One project-sidecar text variable. The producer case-expands names to
+ * original/lower/upper aliases and overlays board `(property ...)` values,
+ * matching the established `board_text_variables` merge.
+ */
+model BoardTextVariable {
+  name: string;
+  value: string;
+}
+
 /** Resource-bounded board plotter operation. Source bytes are out of band. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.board_plot.request:a0")
@@ -372,6 +454,7 @@ model BoardPlotRequest {
   max_operations: uint32;
   max_points: uint32;
   net_class_assignments?: BoardNetClassAssignment[];
+  text_variables?: BoardTextVariable[];
 }
 
 /** Metadata paired with a separate board plotter-IR JSON byte buffer. */
@@ -505,12 +588,44 @@ model ZoneFillPlotRecord {
   net_classes?: string[];
 }
 
+/**
+ * One board free-text record. `hide` mirrors the established serializer's
+ * getattr default and is always false for board gr_text carriers.
+ */
+model BoardTextPlotRecord {
+  uuid: string;
+  kind: "gr_text";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  layer: string;
+  text: string;
+  hide: boolean;
+}
+
+/**
+ * One board text-box record. A visible border contributes a leading Rect
+ * operation; empty resolved text drops the Text operation.
+ */
+model BoardTextBoxPlotRecord {
+  uuid: string;
+  kind: "gr_text_box";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  layer: string;
+  text: string;
+  border: boolean;
+}
+
 union BoardPlotRecord {
   graphic: BoardGraphicPlotRecord,
   segment: TrackSegmentPlotRecord,
   trackArc: TrackArcPlotRecord,
   via: ViaPlotRecord,
   zoneFill: ZoneFillPlotRecord,
+  text: BoardTextPlotRecord,
+  textBox: BoardTextBoxPlotRecord,
 }
 
 /**

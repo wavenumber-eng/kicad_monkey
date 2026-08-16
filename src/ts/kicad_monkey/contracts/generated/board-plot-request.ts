@@ -15,6 +15,7 @@ export interface BoardPlotRequestA0 {
   max_operations: number;
   max_points: number;
   net_class_assignments?: BoardNetClassAssignment[];
+  text_variables?: BoardTextVariable[];
 }
 /**
  * One exact net-name to ordered net-class assignment mirrored from the
@@ -23,4 +24,13 @@ export interface BoardPlotRequestA0 {
 export interface BoardNetClassAssignment {
   net_name: string;
   classes: string[];
+}
+/**
+ * One project-sidecar text variable. The producer case-expands names to
+ * original/lower/upper aliases and overlays board `(property ...)` values,
+ * matching the established `board_text_variables` merge.
+ */
+export interface BoardTextVariable {
+  name: string;
+  value: string;
 }

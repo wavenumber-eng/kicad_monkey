@@ -3857,6 +3857,824 @@
     "thickness_mm": 1.6,
     "paper": "A4"
    }
+  },
+  {
+   "id": "board-text-follows-python-serializer",
+   "source": "(kicad_pcb\n  (version 20240108)\n  (generator pcbnew)\n  (generator_version \"8.0\")\n  (general (thickness 1.6))\n  (paper \"A4\")\n  (property \"Revision\" \"rev-C\")\n  (gr_text \"plain\" (at 1 2) (layer \"F.SilkS\") (uuid \"text-plain\"))\n  (gr_text \"styled\" (at 3 4 90) (layer \"B.SilkS\") (effects (font (size 2 1.5) (thickness 0.3) bold (italic yes)) (justify right top mirror)) (uuid \"text-styled\"))\n  (gr_text \"\" (at 0 0) (uuid \"text-empty\"))\n  (gr_text \"Rev ${Revision} of ${project} ${TITLE}\" (at 5 6) (uuid \"text-vars\"))\n  (gr_text \"cached\" (at 7 8 45) (effects (font (size 1 1))) (render_cache \"cached\" 45 (polygon (pts (xy 7 8) (xy 8 8) (xy 8 9)))) (uuid \"text-cache\"))\n  (gr_text \"cached\" (at 7 8) (render_cache \"stale\" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1)))) (uuid \"text-cache-stale\"))\n  (gr_text \"KO\" (at 1 1) (layer \"F.SilkS\" knockout) (effects (font (size 1.8 1.8) (thickness 0.2))) (render_cache \"KO\" 0 (polygon (pts (xy 0.5 0.5) (xy 1.5 0.5) (xy 1.5 1.2)) (pts (xy 0.7 0.7) (xy 1.2 0.7) (xy 1.2 1)))) (uuid \"text-knockout\"))\n  (gr_text \"faced\" (at 2 3) (effects (font (face \"Arial\") (size 1.27 1.27))) (render_cache \"faced\" 0 (polygon (pts (xy 2 3) (xy 3 3) (xy 3 4)))) (uuid \"text-face-cache\"))\n)",
+   "source_path": "boards/text.kicad_pcb",
+   "document_id": "board-text",
+   "text_variables": {
+    "Revision": "rev-B",
+    "PROJECT": "monkey"
+   },
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "PCB",
+    "total_operations": 7,
+    "records": [
+     {
+      "uuid": "text-plain",
+      "kind": "gr_text",
+      "object_id": "gr_text",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 1000000,
+        "y": 2000000,
+        "text": "plain",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true,
+        "polyline_per_segment": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "plain",
+      "hide": false
+     },
+     {
+      "uuid": "text-styled",
+      "kind": "gr_text",
+      "object_id": "gr_text",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 3000000,
+        "y": 4000000,
+        "text": "styled",
+        "color": "#000000",
+        "orient_deg": 90.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 2000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_TOP",
+        "pen_width_nm": 300000,
+        "italic": true,
+        "bold": true,
+        "multiline": false,
+        "font_face": "",
+        "mirror": true,
+        "text_as_polygons": true,
+        "polyline_per_segment": true
+       }
+      ],
+      "layer": "B.SilkS",
+      "text": "styled",
+      "hide": false
+     },
+     {
+      "uuid": "text-empty",
+      "kind": "gr_text",
+      "object_id": "gr_text",
+      "operation_count": 0,
+      "operations": [],
+      "layer": "F.SilkS",
+      "text": "",
+      "hide": false
+     },
+     {
+      "uuid": "text-vars",
+      "kind": "gr_text",
+      "object_id": "gr_text",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 5000000,
+        "y": 6000000,
+        "text": "Rev rev-C of monkey ${TITLE}",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true,
+        "polyline_per_segment": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "Rev rev-C of monkey ${TITLE}",
+      "hide": false
+     },
+     {
+      "uuid": "text-cache",
+      "kind": "gr_text",
+      "object_id": "gr_text",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 7000000,
+        "y": 8000000,
+        "text": "cached",
+        "color": "#000000",
+        "orient_deg": 45.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true,
+        "polyline_per_segment": true,
+        "render_cache_polygons": [
+         [
+          [
+           7000000,
+           8000000
+          ],
+          [
+           8000000,
+           8000000
+          ],
+          [
+           8000000,
+           9000000
+          ]
+         ]
+        ],
+        "render_cache": {
+         "schema": "kicad.render_cache.v1",
+         "unit": "nm",
+         "coordinate_space": "board",
+         "text": "cached",
+         "angle": 45.0,
+         "source": "existing_file_cache",
+         "exact": true,
+         "polygons": [
+          {
+           "contours": [
+            [
+             [
+              7000000,
+              8000000
+             ],
+             [
+              8000000,
+              8000000
+             ],
+             [
+              8000000,
+              9000000
+             ]
+            ]
+           ]
+          }
+         ]
+        },
+        "render_cache_source": "existing_file_cache",
+        "render_cache_exact": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "cached",
+      "hide": false
+     },
+     {
+      "uuid": "text-cache-stale",
+      "kind": "gr_text",
+      "object_id": "gr_text",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 7000000,
+        "y": 8000000,
+        "text": "cached",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true,
+        "polyline_per_segment": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "cached",
+      "hide": false
+     },
+     {
+      "uuid": "text-knockout",
+      "kind": "gr_text",
+      "object_id": "gr_text",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 1000000,
+        "y": 1000000,
+        "text": "KO",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1800000,
+        "size_y_nm": 1800000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 200000,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true,
+        "polyline_per_segment": true,
+        "render_cache_polygons": [
+         [
+          [
+           300000,
+           300000
+          ],
+          [
+           1700000,
+           300000
+          ],
+          [
+           1700000,
+           1400000
+          ],
+          [
+           300000,
+           1400000
+          ]
+         ]
+        ],
+        "render_cache": {
+         "schema": "kicad.render_cache.v1",
+         "unit": "nm",
+         "coordinate_space": "board",
+         "text": "KO",
+         "angle": 0.0,
+         "source": "existing_file_cache",
+         "exact": true,
+         "polygons": [
+          {
+           "contours": [
+            [
+             [
+              300000,
+              300000
+             ],
+             [
+              1700000,
+              300000
+             ],
+             [
+              1700000,
+              1400000
+             ],
+             [
+              300000,
+              1400000
+             ]
+            ],
+            [
+             [
+              500000,
+              500000
+             ],
+             [
+              1500000,
+              500000
+             ],
+             [
+              1500000,
+              1200000
+             ]
+            ],
+            [
+             [
+              700000,
+              700000
+             ],
+             [
+              1200000,
+              700000
+             ],
+             [
+              1200000,
+              1000000
+             ]
+            ]
+           ]
+          }
+         ],
+         "knockout": true
+        },
+        "render_cache_source": "existing_file_cache",
+        "render_cache_exact": true,
+        "knockout": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "KO",
+      "hide": false
+     },
+     {
+      "uuid": "text-face-cache",
+      "kind": "gr_text",
+      "object_id": "gr_text",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 2000000,
+        "y": 3000000,
+        "text": "faced",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial",
+        "render_cache_polygons": [
+         [
+          [
+           2000000,
+           3000000
+          ],
+          [
+           3000000,
+           3000000
+          ],
+          [
+           3000000,
+           4000000
+          ]
+         ]
+        ],
+        "render_cache": {
+         "schema": "kicad.render_cache.v1",
+         "unit": "nm",
+         "coordinate_space": "board",
+         "text": "faced",
+         "angle": 0.0,
+         "source": "existing_file_cache",
+         "exact": false,
+         "polygons": [
+          {
+           "contours": [
+            [
+             [
+              2000000,
+              3000000
+             ],
+             [
+              3000000,
+              3000000
+             ],
+             [
+              3000000,
+              4000000
+             ]
+            ]
+           ]
+          }
+         ]
+        },
+        "render_cache_source": "existing_file_cache",
+        "render_cache_exact": false
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "faced",
+      "hide": false
+     }
+    ],
+    "source_path": "boards/text.kicad_pcb",
+    "document_id": "board-text",
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    },
+    "version": 20240108,
+    "generator": "pcbnew",
+    "generator_version": "8.0",
+    "thickness_mm": 1.6,
+    "paper": "A4"
+   }
+  },
+  {
+   "id": "text-boxes-bundle-border-and-alignment",
+   "source": "(kicad_pcb\n  (version 20240108)\n  (generator pcbnew)\n  (generator_version \"8.0\")\n  (general (thickness 1.6))\n  (paper \"A4\")\n  (gr_text_box \"\" (start 0 0) (end 10 5) (border yes) (stroke (width -1) (type solid)) (layer \"F.SilkS\") (uuid \"tb-neg\"))\n  (gr_text_box \"zero\" (start 0 0) (end 4 2) (border yes) (layer \"Cmts.User\") (uuid \"tb-zero\"))\n  (gr_text_box \"thin\" (start 0 0) (end 4 2) (border yes) (stroke (width 0.05) (type dash)) (uuid \"tb-thin\"))\n  (gr_text_box \"RB\" (start 0 0) (end 6 3) (margins 0.5 0.25 0.75 0.4) (effects (justify right bottom)) (uuid \"tb-margins-rb\"))\n  (gr_text_box \"LT\" (start 2 1) (end 8 4) (margins 0.5 0.25 0.75 0.4) (effects (justify left top)) (uuid \"tb-margins-lt\"))\n  (gr_text_box \"rot\" (start 0 0) (end 3 2) (angle 90) (uuid \"tb-angle\"))\n  (gr_text_box \"mirrored\" (start 0 0) (end 3 2) (effects (justify mirror)) (uuid \"tb-mirror\"))\n  (gr_text_box \"L1\nL2\" (start 0 0) (end 5 3) (uuid \"tb-multiline\"))\n  (gr_text_box \"pts\" (pts (xy 1 1) (xy 6 1) (xy 6 4) (xy 1 4)) (uuid \"tb-pts\"))\n  (gr_text_box \"KOB\" (start 0 0) (end 4 2) (knockout yes) (effects (font (size 1 1) (thickness 0.2))) (render_cache \"KOB\" 0 (polygon (pts (xy 1 1) (xy 3 1) (xy 3 1.5)))) (uuid \"tb-knockout-cache\"))\n)",
+   "source_path": "boards/text_boxes.kicad_pcb",
+   "document_id": "board-text-boxes",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "PCB",
+    "total_operations": 12,
+    "records": [
+     {
+      "uuid": "tb-neg",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 10000000,
+        "y2": 5000000,
+        "fill": "NO_FILL",
+        "width_nm": 0,
+        "corner_radius_nm": 0
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "",
+      "border": true
+     },
+     {
+      "uuid": "tb-zero",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 4000000,
+        "y2": 2000000,
+        "fill": "NO_FILL",
+        "width_nm": 200000,
+        "corner_radius_nm": 0
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 2000000,
+        "y": 1000000,
+        "text": "zero",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "Cmts.User",
+      "text": "zero",
+      "border": true
+     },
+     {
+      "uuid": "tb-thin",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 4000000,
+        "y2": 2000000,
+        "fill": "NO_FILL",
+        "width_nm": 84700,
+        "corner_radius_nm": 0
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 2000000,
+        "y": 1000000,
+        "text": "thin",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "thin",
+      "border": true
+     },
+     {
+      "uuid": "tb-margins-rb",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 5250000,
+        "y": 2600000,
+        "text": "RB",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "RB",
+      "border": false
+     },
+     {
+      "uuid": "tb-margins-lt",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 2500000,
+        "y": 1250000,
+        "text": "LT",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_TOP",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "LT",
+      "border": false
+     },
+     {
+      "uuid": "tb-angle",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 1500000,
+        "y": 1000000,
+        "text": "rot",
+        "color": "#000000",
+        "orient_deg": 90.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "rot",
+      "border": false
+     },
+     {
+      "uuid": "tb-mirror",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 1500000,
+        "y": 1000000,
+        "text": "mirrored",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "mirrored",
+      "border": false
+     },
+     {
+      "uuid": "tb-multiline",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 2500000,
+        "y": 1500000,
+        "text": "L1\nL2",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": true,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "L1\nL2",
+      "border": false
+     },
+     {
+      "uuid": "tb-pts",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 3500000,
+        "y": 2500000,
+        "text": "pts",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "pts",
+      "border": false
+     },
+     {
+      "uuid": "tb-knockout-cache",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 2000000,
+        "y": 1000000,
+        "text": "KOB",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 200000,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true,
+        "render_cache_polygons": [
+         [
+          [
+           1000000,
+           1000000
+          ],
+          [
+           3000000,
+           1000000
+          ],
+          [
+           3000000,
+           1500000
+          ]
+         ]
+        ],
+        "render_cache": {
+         "schema": "kicad.render_cache.v1",
+         "unit": "nm",
+         "coordinate_space": "board",
+         "text": "KOB",
+         "angle": 0.0,
+         "source": "existing_file_cache",
+         "exact": true,
+         "polygons": [
+          {
+           "contours": [
+            [
+             [
+              1000000,
+              1000000
+             ],
+             [
+              3000000,
+              1000000
+             ],
+             [
+              3000000,
+              1500000
+             ]
+            ]
+           ]
+          }
+         ]
+        },
+        "render_cache_source": "existing_file_cache",
+        "render_cache_exact": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "KOB",
+      "border": false
+     }
+    ],
+    "source_path": "boards/text_boxes.kicad_pcb",
+    "document_id": "board-text-boxes",
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    },
+    "version": 20240108,
+    "generator": "pcbnew",
+    "generator_version": "8.0",
+    "thickness_mm": 1.6,
+    "paper": "A4"
+   }
   }
  ]
 }

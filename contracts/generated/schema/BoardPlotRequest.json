@@ -48,6 +48,12 @@
             "items": {
                 "$ref": "#/$defs/BoardNetClassAssignment"
             }
+        },
+        "text_variables": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/BoardTextVariable"
+            }
         }
     },
     "required": [
@@ -87,6 +93,25 @@
                 "not": {}
             },
             "description": "One exact net-name to ordered net-class assignment mirrored from the\nproject sidecar's `net_settings.netclass_assignments` entries."
+        },
+        "BoardTextVariable": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One project-sidecar text variable. The producer case-expands names to\noriginal/lower/upper aliases and overlays board `(property ...)` values,\nmatching the established `board_text_variables` merge."
         }
     }
 }

@@ -88,7 +88,7 @@ class PlotterCoordinateSpace(Struct, forbid_unknown_fields=True, frozen=True):
 JavaScriptSafeInteger = Annotated[int, Meta(ge=-9007199254740991, le=9007199254740991)]
 
 
-PlotterOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "BezierCurveOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadCustomOperation", "FlashPadTrapezOperation"]
+PlotterOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "BezierCurveOperation", "TextOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadCustomOperation", "FlashPadTrapezOperation"]
 
 
 class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ThickSegment", tag_field="kind"):
@@ -183,6 +183,32 @@ class BezierCurveOperation(Struct, forbid_unknown_fields=True, frozen=True, tag=
     line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
 
 
+class TextOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Text", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    text: str
+    color: str
+    orient_deg: float
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    h_align: PlotterTextHAlign
+    v_align: PlotterTextVAlign
+    pen_width_nm: JavaScriptSafeInteger
+    italic: bool
+    bold: bool
+    multiline: bool
+    font_face: str
+    mirror: bool | UnsetType = field(default=UNSET)
+    text_as_polygons: bool | UnsetType = field(default=UNSET)
+    polyline_per_segment: bool | UnsetType = field(default=UNSET)
+    knockout: bool | UnsetType = field(default=UNSET)
+    render_cache_polygons: list[list[PlotterPoint]] | UnsetType = field(default=UNSET)
+    render_cache: TextRenderCache | UnsetType = field(default=UNSET)
+    render_cache_source: Literal["existing_file_cache"] | UnsetType = field(default=UNSET)
+    render_cache_exact: bool | UnsetType = field(default=UNSET)
+
+
 class FlashPadCircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadCircle", tag_field="kind"):
     index: Annotated[int, Meta(ge=0, le=4294967295)]
     x: JavaScriptSafeInteger
@@ -263,13 +289,35 @@ PlotterLineStyle = Literal["DEFAULT", "SOLID", "DASH", "DOT", "DASH_DOT", "DASH_
 PlotterPoint = Annotated[list[JavaScriptSafeInteger], Meta(min_length=2, max_length=2)]
 
 
+PlotterTextHAlign = Literal["GR_TEXT_H_ALIGN_LEFT", "GR_TEXT_H_ALIGN_CENTER", "GR_TEXT_H_ALIGN_RIGHT"]
+
+
+PlotterTextVAlign = Literal["GR_TEXT_V_ALIGN_TOP", "GR_TEXT_V_ALIGN_CENTER", "GR_TEXT_V_ALIGN_BOTTOM"]
+
+
+class TextRenderCache(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad.render_cache.v1"]
+    unit: Literal["nm"]
+    coordinate_space: Literal["board"]
+    text: str
+    angle: float
+    source: Literal["existing_file_cache"]
+    exact: bool
+    polygons: list[TextRenderCachePolygon]
+    knockout: bool | UnsetType = field(default=UNSET)
+
+
 PlotterViaFlashRole = Literal["via_aperture", "via_mask_opening"]
 
 
 PlotterQuad = Annotated[list[PlotterPoint], Meta(min_length=4, max_length=4)]
 
 
-BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord", "ZoneFillPlotRecord"]
+class TextRenderCachePolygon(Struct, forbid_unknown_fields=True, frozen=True):
+    contours: list[list[PlotterPoint]]
+
+
+BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord", "ZoneFillPlotRecord", "BoardTextPlotRecord", "BoardTextBoxPlotRecord"]
 
 
 class BoardGraphicPlotRecordGrLine(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_line", tag_field="kind"):
@@ -389,6 +437,26 @@ class ZoneFillPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="z
     net_classes: list[str] | UnsetType = field(default=UNSET)
 
 
+class BoardTextPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_text", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layer: str
+    text: str
+    hide: bool
+
+
+class BoardTextBoxPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_text_box", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layer: str
+    text: str
+    border: bool
+
+
 BoardGraphicRecordKind = Literal["gr_line", "gr_arc", "gr_circle", "gr_rect", "gr_poly", "gr_curve"]
 
 
@@ -401,6 +469,11 @@ PlotterStringBool = Literal["true", "false"]
 class BoardNetClassAssignment(Struct, forbid_unknown_fields=True, frozen=True):
     net_name: str
     classes: list[str]
+
+
+class BoardTextVariable(Struct, forbid_unknown_fields=True, frozen=True):
+    name: str
+    value: str
 
 
 SymbolPlotRecord = Union["SymbolHeaderPlotRecord", "LibSubsymbolPlotRecord"]
@@ -862,6 +935,7 @@ class BoardPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     source_path: str | UnsetType = field(default=UNSET)
     document_id: str | UnsetType = field(default=UNSET)
     net_class_assignments: list[BoardNetClassAssignment] | UnsetType = field(default=UNSET)
+    text_variables: list[BoardTextVariable] | UnsetType = field(default=UNSET)
 
 
 class BoardPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -1399,6 +1473,7 @@ __all__ = (
     "RectOperation",
     "PlotPolyOperation",
     "BezierCurveOperation",
+    "TextOperation",
     "FlashPadCircleOperation",
     "FlashPadOvalOperation",
     "FlashPadRectOperation",
@@ -1409,18 +1484,25 @@ __all__ = (
     "PlotterFill",
     "PlotterLineStyle",
     "PlotterPoint",
+    "PlotterTextHAlign",
+    "PlotterTextVAlign",
+    "TextRenderCache",
     "PlotterViaFlashRole",
     "PlotterQuad",
+    "TextRenderCachePolygon",
     "BoardPlotRecord",
     "BoardGraphicPlotRecord",
     "TrackSegmentPlotRecord",
     "TrackArcPlotRecord",
     "ViaPlotRecord",
     "ZoneFillPlotRecord",
+    "BoardTextPlotRecord",
+    "BoardTextBoxPlotRecord",
     "BoardGraphicRecordKind",
     "BoardViaType",
     "PlotterStringBool",
     "BoardNetClassAssignment",
+    "BoardTextVariable",
     "SymbolPlotRecord",
     "SymbolHeaderPlotRecord",
     "LibSubsymbolPlotRecord",

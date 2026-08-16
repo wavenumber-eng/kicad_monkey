@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 from jsonschema import Draft202012Validator
 import msgspec
@@ -46,6 +48,29 @@ def _run(command: list[str]) -> None:
     )
 
 
+@contextlib.contextmanager
+def _without_shapely():
+    """Pin the governed no-Shapely synthetic-knockout baseline.
+
+    The Rust producer ports the established serializer's behavior when
+    Shapely is unavailable: text-box knockout leaves the text operation
+    unchanged. Blocking the import keeps the oracle on that baseline even
+    in environments where Shapely is installed.
+    """
+
+    saved = {
+        name: sys.modules.pop(name)
+        for name in list(sys.modules)
+        if name == "shapely" or name.startswith("shapely.")
+    }
+    sys.modules["shapely"] = None
+    try:
+        yield
+    finally:
+        del sys.modules["shapely"]
+        sys.modules.update(saved)
+
+
 def test_shared_board_vectors_match_python_generated_types_and_both_schemas() -> None:
     payload = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))
     assert payload["schema"] == "kicad_monkey.board_plotter_parity.a0"
@@ -60,16 +85,21 @@ def test_shared_board_vectors_match_python_generated_types_and_both_schemas() ->
 
     for vector in payload["vectors"]:
         pcb = KiCadPcb.from_string(vector["source"])
+        project_raw: dict = {}
         assignments = vector.get("net_class_assignments")
         if assignments is not None:
-            pcb.project = KiCadProject.from_json_dict(
-                {"net_settings": {"netclass_assignments": assignments}}
-            )
-        actual = pcb_to_ir(
-            pcb,
-            source_path=vector["source_path"],
-            document_id=vector["document_id"],
-        ).to_dict()
+            project_raw["net_settings"] = {"netclass_assignments": assignments}
+        variables = vector.get("text_variables")
+        if variables is not None:
+            project_raw["text_variables"] = variables
+        if project_raw:
+            pcb.project = KiCadProject.from_json_dict(project_raw)
+        with _without_shapely():
+            actual = pcb_to_ir(
+                pcb,
+                source_path=vector["source_path"],
+                document_id=vector["document_id"],
+            ).to_dict()
         assert actual == vector["expected"], vector["id"]
         Draft202012Validator(slice_schema).validate(actual)
         Draft202012Validator(established_schema).validate(actual)
@@ -181,6 +211,46 @@ def test_shared_board_vectors_match_python_generated_types_and_both_schemas() ->
     non_array_classes["records"][1]["net_classes"] = "Power"
     with pytest.raises(msgspec.ValidationError):
         decode_board_plot_document_a0(json.dumps(non_array_classes).encode("utf-8"))
+
+    texts = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "board-text-follows-python-serializer"
+    )
+
+    # Vector record layout: plain, styled, empty, vars, cache, stale-cache,
+    # knockout, face-cache.
+    missing_hide = json.loads(json.dumps(texts))
+    del missing_hide["records"][0]["hide"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_hide).encode("utf-8"))
+
+    unknown_alignment = json.loads(json.dumps(texts))
+    unknown_alignment["records"][0]["operations"][0]["h_align"] = "GR_TEXT_H_ALIGN_JUSTIFY"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(unknown_alignment).encode("utf-8"))
+
+    missing_cache_schema = json.loads(json.dumps(texts))
+    del missing_cache_schema["records"][4]["operations"][0]["render_cache"]["schema"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_cache_schema).encode("utf-8"))
+
+    malformed_cache_point = json.loads(json.dumps(texts))
+    cache = malformed_cache_point["records"][4]["operations"][0]["render_cache"]
+    cache["polygons"][0]["contours"][0][0] = [0]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(malformed_cache_point).encode("utf-8"))
+
+    text_boxes = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "text-boxes-bundle-border-and-alignment"
+    )
+
+    missing_border = json.loads(json.dumps(text_boxes))
+    del missing_border["records"][0]["border"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_border).encode("utf-8"))
 
 
 def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:

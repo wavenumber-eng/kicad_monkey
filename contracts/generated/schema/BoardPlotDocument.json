@@ -82,6 +82,12 @@
                 },
                 {
                     "$ref": "#/$defs/ZoneFillPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/BoardTextPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/BoardTextBoxPlotRecord"
                 }
             ]
         },
@@ -462,6 +468,104 @@
             },
             "description": "One zone fill record bundling every `filled_polygon` ring. The parallel\n`fill_layers`/`fill_island` arrays annotate the rings so consumers can\nsplit or colour-key without re-walking the source zone."
         },
+        "BoardTextPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "gr_text"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "hide": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "layer",
+                "text",
+                "hide"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One board free-text record. `hide` mirrors the established serializer's\ngetattr default and is always false for board gr_text carriers."
+        },
+        "BoardTextBoxPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "gr_text_box"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "border": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "layer",
+                "text",
+                "border"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One board text-box record. A visible border contributes a leading Rect\noperation; empty resolved text drops the Text operation."
+        },
         "BoardGraphicRecordKind": {
             "type": "string",
             "enum": [
@@ -493,6 +597,9 @@
                 },
                 {
                     "$ref": "#/$defs/BezierCurveOperation"
+                },
+                {
+                    "$ref": "#/$defs/TextOperation"
                 },
                 {
                     "$ref": "#/$defs/FlashPadCircleOperation"
@@ -916,6 +1023,115 @@
             },
             "description": "Cubic Bézier shared by symbol and schematic producers."
         },
+        "TextOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "Text"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "h_align": {
+                    "$ref": "#/$defs/PlotterTextHAlign"
+                },
+                "v_align": {
+                    "$ref": "#/$defs/PlotterTextVAlign"
+                },
+                "pen_width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "italic": {
+                    "type": "boolean"
+                },
+                "bold": {
+                    "type": "boolean"
+                },
+                "multiline": {
+                    "type": "boolean"
+                },
+                "font_face": {
+                    "type": "string"
+                },
+                "mirror": {
+                    "type": "boolean"
+                },
+                "text_as_polygons": {
+                    "type": "boolean"
+                },
+                "polyline_per_segment": {
+                    "type": "boolean"
+                },
+                "knockout": {
+                    "type": "boolean"
+                },
+                "render_cache_polygons": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/PlotterPoint"
+                        }
+                    }
+                },
+                "render_cache": {
+                    "$ref": "#/$defs/TextRenderCache"
+                },
+                "render_cache_source": {
+                    "type": "string",
+                    "const": "existing_file_cache"
+                },
+                "render_cache_exact": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "text",
+                "color",
+                "orient_deg",
+                "size_x_nm",
+                "size_y_nm",
+                "h_align",
+                "v_align",
+                "pen_width_nm",
+                "italic",
+                "bold",
+                "multiline",
+                "font_face"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Stroke or cached text operation. Boolean marker keys (`mirror`,\n`text_as_polygons`, `polyline_per_segment`, `knockout`) are present-only\n-when-true, matching the established Python emitter. Render-cache keys\nappear together when an authored cache resolves; `render_cache_polygons`\ncarries the exterior rings in nanometres."
+        },
         "FlashPadCircleOperation": {
             "type": "object",
             "properties": {
@@ -1291,6 +1507,77 @@
             "maxItems": 2,
             "description": "Plotter point encoded as an exact coordinate pair."
         },
+        "PlotterTextHAlign": {
+            "type": "string",
+            "enum": [
+                "GR_TEXT_H_ALIGN_LEFT",
+                "GR_TEXT_H_ALIGN_CENTER",
+                "GR_TEXT_H_ALIGN_RIGHT"
+            ],
+            "description": "Horizontal text alignments emitted by the board producers."
+        },
+        "PlotterTextVAlign": {
+            "type": "string",
+            "enum": [
+                "GR_TEXT_V_ALIGN_TOP",
+                "GR_TEXT_V_ALIGN_CENTER",
+                "GR_TEXT_V_ALIGN_BOTTOM"
+            ],
+            "description": "Vertical text alignments emitted by the board producers."
+        },
+        "TextRenderCache": {
+            "type": "object",
+            "properties": {
+                "schema": {
+                    "type": "string",
+                    "const": "kicad.render_cache.v1"
+                },
+                "unit": {
+                    "type": "string",
+                    "const": "nm"
+                },
+                "coordinate_space": {
+                    "type": "string",
+                    "const": "board"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "angle": {
+                    "type": "number"
+                },
+                "source": {
+                    "type": "string",
+                    "const": "existing_file_cache"
+                },
+                "exact": {
+                    "type": "boolean"
+                },
+                "polygons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/TextRenderCachePolygon"
+                    }
+                },
+                "knockout": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "schema",
+                "unit",
+                "coordinate_space",
+                "text",
+                "angle",
+                "source",
+                "exact",
+                "polygons"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Typed authored render cache mirrored from `(render_cache ...)` forms. The\npromoted producers only forward file caches, so `source` is pinned to\n`existing_file_cache`; `knockout` appears when the knockout background\nrestructure replaced the polygons."
+        },
         "PlotterViaFlashRole": {
             "type": "string",
             "enum": [
@@ -1307,6 +1594,27 @@
             "minItems": 4,
             "maxItems": 4,
             "description": "Four pad-local trapezoid corners."
+        },
+        "TextRenderCachePolygon": {
+            "type": "object",
+            "properties": {
+                "contours": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/PlotterPoint"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "contours"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One render-cache polygon as ordered contours, exterior ring first."
         }
     }
 }

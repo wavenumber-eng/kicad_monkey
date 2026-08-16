@@ -1245,6 +1245,9 @@ impl ::std::convert::TryFrom<::std::string::String> for PlotterLineStyle {
 ///      "$ref": "#/$defs/BezierCurveOperation"
 ///    },
 ///    {
+///      "$ref": "#/$defs/TextOperation"
+///    },
+///    {
 ///      "$ref": "#/$defs/FlashPadCircleOperation"
 ///    },
 ///    {
@@ -1275,6 +1278,7 @@ pub enum PlotterOperation {
     RectOperation(RectOperation),
     PlotPolyOperation(PlotPolyOperation),
     BezierCurveOperation(BezierCurveOperation),
+    TextOperation(TextOperation),
     FlashPadCircleOperation(FlashPadCircleOperation),
     FlashPadOvalOperation(FlashPadOvalOperation),
     FlashPadRectOperation(FlashPadRectOperation),
@@ -1310,6 +1314,11 @@ impl ::std::convert::From<PlotPolyOperation> for PlotterOperation {
 impl ::std::convert::From<BezierCurveOperation> for PlotterOperation {
     fn from(value: BezierCurveOperation) -> Self {
         Self::BezierCurveOperation(value)
+    }
+}
+impl ::std::convert::From<TextOperation> for PlotterOperation {
+    fn from(value: TextOperation) -> Self {
+        Self::TextOperation(value)
     }
 }
 impl ::std::convert::From<FlashPadCircleOperation> for PlotterOperation {
@@ -1410,6 +1419,162 @@ impl ::std::convert::From<PlotterQuad> for [PlotterPoint; 4usize] {
 impl ::std::convert::From<[PlotterPoint; 4usize]> for PlotterQuad {
     fn from(value: [PlotterPoint; 4usize]) -> Self {
         Self(value)
+    }
+}
+///Horizontal text alignments emitted by the board producers.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Horizontal text alignments emitted by the board producers.",
+///  "type": "string",
+///  "enum": [
+///    "GR_TEXT_H_ALIGN_LEFT",
+///    "GR_TEXT_H_ALIGN_CENTER",
+///    "GR_TEXT_H_ALIGN_RIGHT"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlotterTextHAlign {
+    #[serde(rename = "GR_TEXT_H_ALIGN_LEFT")]
+    GrTextHAlignLeft,
+    #[serde(rename = "GR_TEXT_H_ALIGN_CENTER")]
+    GrTextHAlignCenter,
+    #[serde(rename = "GR_TEXT_H_ALIGN_RIGHT")]
+    GrTextHAlignRight,
+}
+impl ::std::fmt::Display for PlotterTextHAlign {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::GrTextHAlignLeft => f.write_str("GR_TEXT_H_ALIGN_LEFT"),
+            Self::GrTextHAlignCenter => f.write_str("GR_TEXT_H_ALIGN_CENTER"),
+            Self::GrTextHAlignRight => f.write_str("GR_TEXT_H_ALIGN_RIGHT"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlotterTextHAlign {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "GR_TEXT_H_ALIGN_LEFT" => Ok(Self::GrTextHAlignLeft),
+            "GR_TEXT_H_ALIGN_CENTER" => Ok(Self::GrTextHAlignCenter),
+            "GR_TEXT_H_ALIGN_RIGHT" => Ok(Self::GrTextHAlignRight),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterTextHAlign {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterTextHAlign {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterTextHAlign {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Vertical text alignments emitted by the board producers.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Vertical text alignments emitted by the board producers.",
+///  "type": "string",
+///  "enum": [
+///    "GR_TEXT_V_ALIGN_TOP",
+///    "GR_TEXT_V_ALIGN_CENTER",
+///    "GR_TEXT_V_ALIGN_BOTTOM"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlotterTextVAlign {
+    #[serde(rename = "GR_TEXT_V_ALIGN_TOP")]
+    GrTextVAlignTop,
+    #[serde(rename = "GR_TEXT_V_ALIGN_CENTER")]
+    GrTextVAlignCenter,
+    #[serde(rename = "GR_TEXT_V_ALIGN_BOTTOM")]
+    GrTextVAlignBottom,
+}
+impl ::std::fmt::Display for PlotterTextVAlign {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::GrTextVAlignTop => f.write_str("GR_TEXT_V_ALIGN_TOP"),
+            Self::GrTextVAlignCenter => f.write_str("GR_TEXT_V_ALIGN_CENTER"),
+            Self::GrTextVAlignBottom => f.write_str("GR_TEXT_V_ALIGN_BOTTOM"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlotterTextVAlign {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "GR_TEXT_V_ALIGN_TOP" => Ok(Self::GrTextVAlignTop),
+            "GR_TEXT_V_ALIGN_CENTER" => Ok(Self::GrTextVAlignCenter),
+            "GR_TEXT_V_ALIGN_BOTTOM" => Ok(Self::GrTextVAlignBottom),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterTextVAlign {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterTextVAlign {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterTextVAlign {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///Semantic roles allowed on board via flash operations.
@@ -1760,6 +1925,266 @@ impl ::std::convert::From<LibSubsymbolPlotRecord> for SymbolPlotRecord {
     fn from(value: LibSubsymbolPlotRecord) -> Self {
         Self::LibSubsymbolPlotRecord(value)
     }
+}
+/**Stroke or cached text operation. Boolean marker keys (`mirror`,
+`text_as_polygons`, `polyline_per_segment`, `knockout`) are present-only
+-when-true, matching the established Python emitter. Render-cache keys
+appear together when an authored cache resolves; `render_cache_polygons`
+carries the exterior rings in nanometres.*/
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Stroke or cached text operation. Boolean marker keys (`mirror`,\n`text_as_polygons`, `polyline_per_segment`, `knockout`) are present-only\n-when-true, matching the established Python emitter. Render-cache keys\nappear together when an authored cache resolves; `render_cache_polygons`\ncarries the exterior rings in nanometres.",
+///  "type": "object",
+///  "required": [
+///    "bold",
+///    "color",
+///    "font_face",
+///    "h_align",
+///    "index",
+///    "italic",
+///    "kind",
+///    "multiline",
+///    "orient_deg",
+///    "pen_width_nm",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "text",
+///    "v_align",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "bold": {
+///      "type": "boolean"
+///    },
+///    "color": {
+///      "type": "string"
+///    },
+///    "font_face": {
+///      "type": "string"
+///    },
+///    "h_align": {
+///      "$ref": "#/$defs/PlotterTextHAlign"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "italic": {
+///      "type": "boolean"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "Text"
+///    },
+///    "knockout": {
+///      "type": "boolean"
+///    },
+///    "mirror": {
+///      "type": "boolean"
+///    },
+///    "multiline": {
+///      "type": "boolean"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "pen_width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "polyline_per_segment": {
+///      "type": "boolean"
+///    },
+///    "render_cache": {
+///      "$ref": "#/$defs/TextRenderCache"
+///    },
+///    "render_cache_exact": {
+///      "type": "boolean"
+///    },
+///    "render_cache_polygons": {
+///      "type": "array",
+///      "items": {
+///        "type": "array",
+///        "items": {
+///          "$ref": "#/$defs/PlotterPoint"
+///        }
+///      }
+///    },
+///    "render_cache_source": {
+///      "type": "string",
+///      "const": "existing_file_cache"
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "text": {
+///      "type": "string"
+///    },
+///    "text_as_polygons": {
+///      "type": "boolean"
+///    },
+///    "v_align": {
+///      "$ref": "#/$defs/PlotterTextVAlign"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TextOperation {
+    pub bold: bool,
+    pub color: ::std::string::String,
+    pub font_face: ::std::string::String,
+    pub h_align: PlotterTextHAlign,
+    pub index: u32,
+    pub italic: bool,
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub knockout: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub mirror: ::std::option::Option<bool>,
+    pub multiline: bool,
+    pub orient_deg: f64,
+    pub pen_width_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub polyline_per_segment: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub render_cache: ::std::option::Option<TextRenderCache>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub render_cache_exact: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub render_cache_source: ::std::option::Option<::std::string::String>,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub text: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub text_as_polygons: ::std::option::Option<bool>,
+    pub v_align: PlotterTextVAlign,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
+}
+/**Typed authored render cache mirrored from `(render_cache ...)` forms. The
+promoted producers only forward file caches, so `source` is pinned to
+`existing_file_cache`; `knockout` appears when the knockout background
+restructure replaced the polygons.*/
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Typed authored render cache mirrored from `(render_cache ...)` forms. The\npromoted producers only forward file caches, so `source` is pinned to\n`existing_file_cache`; `knockout` appears when the knockout background\nrestructure replaced the polygons.",
+///  "type": "object",
+///  "required": [
+///    "angle",
+///    "coordinate_space",
+///    "exact",
+///    "polygons",
+///    "schema",
+///    "source",
+///    "text",
+///    "unit"
+///  ],
+///  "properties": {
+///    "angle": {
+///      "type": "number"
+///    },
+///    "coordinate_space": {
+///      "type": "string",
+///      "const": "board"
+///    },
+///    "exact": {
+///      "type": "boolean"
+///    },
+///    "knockout": {
+///      "type": "boolean"
+///    },
+///    "polygons": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/TextRenderCachePolygon"
+///      }
+///    },
+///    "schema": {
+///      "type": "string",
+///      "const": "kicad.render_cache.v1"
+///    },
+///    "source": {
+///      "type": "string",
+///      "const": "existing_file_cache"
+///    },
+///    "text": {
+///      "type": "string"
+///    },
+///    "unit": {
+///      "type": "string",
+///      "const": "nm"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TextRenderCache {
+    pub angle: f64,
+    pub coordinate_space: ::std::string::String,
+    pub exact: bool,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub knockout: ::std::option::Option<bool>,
+    pub polygons: ::std::vec::Vec<TextRenderCachePolygon>,
+    pub schema: ::std::string::String,
+    pub source: ::std::string::String,
+    pub text: ::std::string::String,
+    pub unit: ::std::string::String,
+}
+///One render-cache polygon as ordered contours, exterior ring first.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One render-cache polygon as ordered contours, exterior ring first.",
+///  "type": "object",
+///  "required": [
+///    "contours"
+///  ],
+///  "properties": {
+///    "contours": {
+///      "type": "array",
+///      "items": {
+///        "type": "array",
+///        "items": {
+///          "$ref": "#/$defs/PlotterPoint"
+///        }
+///      }
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TextRenderCachePolygon {
+    pub contours: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,
 }
 /**Solid or decomposed segment shared by PCB, footprint, and drill producers.
 Graphic state requires only layer. Drill state requires role plus layers;

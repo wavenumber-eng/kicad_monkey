@@ -11,6 +11,7 @@ export type PlotterOperation =
   | RectOperation
   | PlotPolyOperation
   | BezierCurveOperation
+  | TextOperation
   | FlashPadCircleOperation
   | FlashPadOvalOperation
   | FlashPadRectOperation
@@ -47,6 +48,14 @@ export type PlotterLineStyle = "DEFAULT" | "SOLID" | "DASH" | "DOT" | "DASH_DOT"
  * @maxItems 2
  */
 export type PlotterPoint = [JavaScriptSafeInteger, JavaScriptSafeInteger];
+/**
+ * Horizontal text alignments emitted by the board producers.
+ */
+export type PlotterTextHAlign = "GR_TEXT_H_ALIGN_LEFT" | "GR_TEXT_H_ALIGN_CENTER" | "GR_TEXT_H_ALIGN_RIGHT";
+/**
+ * Vertical text alignments emitted by the board producers.
+ */
+export type PlotterTextVAlign = "GR_TEXT_V_ALIGN_TOP" | "GR_TEXT_V_ALIGN_CENTER" | "GR_TEXT_V_ALIGN_BOTTOM";
 /**
  * Semantic roles allowed on board via flash operations.
  */
@@ -203,6 +212,62 @@ export interface BezierCurveOperation {
   layer?: string;
   stroke_color?: string;
   line_style?: PlotterLineStyle;
+}
+/**
+ * Stroke or cached text operation. Boolean marker keys (`mirror`,
+ * `text_as_polygons`, `polyline_per_segment`, `knockout`) are present-only
+ * -when-true, matching the established Python emitter. Render-cache keys
+ * appear together when an authored cache resolves; `render_cache_polygons`
+ * carries the exterior rings in nanometres.
+ */
+export interface TextOperation {
+  kind: "Text";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  text: string;
+  color: string;
+  orient_deg: number;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  h_align: PlotterTextHAlign;
+  v_align: PlotterTextVAlign;
+  pen_width_nm: JavaScriptSafeInteger;
+  italic: boolean;
+  bold: boolean;
+  multiline: boolean;
+  font_face: string;
+  mirror?: boolean;
+  text_as_polygons?: boolean;
+  polyline_per_segment?: boolean;
+  knockout?: boolean;
+  render_cache_polygons?: PlotterPoint[][];
+  render_cache?: TextRenderCache;
+  render_cache_source?: "existing_file_cache";
+  render_cache_exact?: boolean;
+}
+/**
+ * Typed authored render cache mirrored from `(render_cache ...)` forms. The
+ * promoted producers only forward file caches, so `source` is pinned to
+ * `existing_file_cache`; `knockout` appears when the knockout background
+ * restructure replaced the polygons.
+ */
+export interface TextRenderCache {
+  schema: "kicad.render_cache.v1";
+  unit: "nm";
+  coordinate_space: "board";
+  text: string;
+  angle: number;
+  source: "existing_file_cache";
+  exact: boolean;
+  polygons: TextRenderCachePolygon[];
+  knockout?: boolean;
+}
+/**
+ * One render-cache polygon as ordered contours, exterior ring first.
+ */
+export interface TextRenderCachePolygon {
+  contours: PlotterPoint[][];
 }
 /**
  * Circular pad flash shared by footprint and PCB producers. Footprint pad

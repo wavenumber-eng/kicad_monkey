@@ -4,8 +4,10 @@ use crate::{plotter_contract::contract_plotter_operation, serialize_bounded};
 use kicad_monkey_contracts::JavaScriptSafeInteger;
 use kicad_monkey_contracts::generated::board_plot_document::{
     BoardGraphicPlotRecord, BoardGraphicRecordKind, BoardPlotDocumentA0, BoardPlotRecord,
-    BoardViaType, CircleOperation, FlashPadCircleOperation, PlotterCoordinateSpace,
-    PlotterDrillRole, PlotterFill, PlotterOperation, PlotterStringBool, PlotterViaFlashRole,
+    BoardTextBoxPlotRecord, BoardTextPlotRecord, BoardViaType, CircleOperation,
+    FlashPadCircleOperation, PlotterCoordinateSpace, PlotterDrillRole, PlotterFill,
+    PlotterOperation, PlotterPoint, PlotterStringBool, PlotterTextHAlign, PlotterTextVAlign,
+    PlotterViaFlashRole, TextOperation, TextRenderCache, TextRenderCachePolygon,
     TrackArcPlotRecord, TrackSegmentPlotRecord, ViaPlotRecord, ZoneFillPlotRecord,
 };
 use kicad_monkey_contracts::generated::board_plot_request::BoardPlotRequestA0;
@@ -15,8 +17,10 @@ use kicad_monkey_contracts::generated::board_plot_result::{
 use kicad_monkey_contracts::validate_board_plot_document;
 use kicad_monkey_core::{
     BoardGraphicRecordKind as CoreGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
-    BoardPlotRecord as CoreBoardPlotRecord, BoardViaOperation, BoardViaOperationKind,
-    BoardViaRecord, Error, ErrorPhase, board_plot_document_with_net_classes, utf8_text,
+    BoardPlotRecord as CoreBoardPlotRecord, BoardTextBoxOperation, BoardTextHAlign,
+    BoardTextOperation, BoardTextVAlign, BoardTextVariables, BoardViaOperation,
+    BoardViaOperationKind, BoardViaRecord, Error, ErrorPhase, board_plot_document_with_sidecars,
+    utf8_text,
 };
 use wasm_bindgen::prelude::*;
 
@@ -68,9 +72,15 @@ fn plot_board_ir_impl(source: &[u8], request_json: &[u8]) -> Result<BoardPlotOut
             .iter()
             .map(|assignment| (assignment.net_name.clone(), assignment.classes.clone())),
     );
+    let text_variables = BoardTextVariables::from_entries(
+        request
+            .text_variables
+            .iter()
+            .map(|variable| (variable.name.clone(), variable.value.clone())),
+    );
     let operation = (|| {
         let text = utf8_text(source)?;
-        board_plot_document_with_net_classes(
+        board_plot_document_with_sidecars(
             text,
             BoardPlotLimits {
                 max_source_bytes,
@@ -80,6 +90,7 @@ fn plot_board_ir_impl(source: &[u8], request_json: &[u8]) -> Result<BoardPlotOut
                 max_points: request.max_points as usize,
             },
             &net_classes,
+            &text_variables,
         )
     })();
     let (result, output_bytes) = match operation {
@@ -179,6 +190,53 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
             uuid: record.uuid,
         }
         .into(),
+        CoreBoardPlotRecord::Text(record) => BoardTextPlotRecord {
+            // Board gr_text carriers have no hide attribute upstream, so the
+            // established serializer's getattr default is always false.
+            hide: false,
+            kind: "gr_text".to_owned(),
+            layer: record.layer,
+            object_id: "gr_text".to_owned(),
+            operation_count: contract_count(record.operations.len()),
+            operations: record
+                .operations
+                .into_iter()
+                .enumerate()
+                .map(|(index, operation)| {
+                    contract_text_operation(index, operation).map(PlotterOperation::from)
+                })
+                .collect::<Result<Vec<_>, String>>()?,
+            text: record.text,
+            uuid: record.uuid,
+        }
+        .into(),
+        CoreBoardPlotRecord::TextBox(record) => BoardTextBoxPlotRecord {
+            border: record.border,
+            kind: "gr_text_box".to_owned(),
+            layer: record.layer,
+            object_id: "gr_text_box".to_owned(),
+            operation_count: contract_count(record.operations.len()),
+            operations: record
+                .operations
+                .into_iter()
+                .enumerate()
+                .map(|(index, operation)| match operation {
+                    BoardTextBoxOperation::Border(operation) => {
+                        let shared = contract_plotter_operation(index, operation)?;
+                        let value =
+                            serde_json::to_value(shared).map_err(|error| error.to_string())?;
+                        serde_json::from_value::<PlotterOperation>(value)
+                            .map_err(|error| error.to_string())
+                    }
+                    BoardTextBoxOperation::Text(operation) => {
+                        contract_text_operation(index, operation).map(PlotterOperation::from)
+                    }
+                })
+                .collect::<Result<Vec<_>, String>>()?,
+            text: record.text,
+            uuid: record.uuid,
+        }
+        .into(),
         CoreBoardPlotRecord::Via(record) => contract_via_record(record)?.into(),
         CoreBoardPlotRecord::Zone(record) => ZoneFillPlotRecord {
             fill_island: record.fill_island,
@@ -195,6 +253,93 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
             uuid: record.uuid,
         }
         .into(),
+    })
+}
+
+fn contract_points(points: Vec<[i64; 2]>) -> Result<Vec<PlotterPoint>, String> {
+    points
+        .into_iter()
+        .map(|[x, y]| Ok(PlotterPoint([safe_integer(x)?, safe_integer(y)?])))
+        .collect()
+}
+
+fn contract_text_operation(
+    index: usize,
+    operation: BoardTextOperation,
+) -> Result<TextOperation, String> {
+    // The established emitter serializes marker keys only when true.
+    let marker = |value: bool| value.then_some(true);
+    let render_cache = operation
+        .render_cache
+        .map(|cache| -> Result<TextRenderCache, String> {
+            Ok(TextRenderCache {
+                angle: cache.angle,
+                coordinate_space: "board".to_owned(),
+                exact: cache.exact,
+                knockout: marker(cache.knockout),
+                polygons: cache
+                    .polygons
+                    .into_iter()
+                    .map(|contours| {
+                        Ok(TextRenderCachePolygon {
+                            contours: contours.into_iter().map(contract_points).collect::<Result<
+                                Vec<_>,
+                                String,
+                            >>(
+                            )?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, String>>()?,
+                schema: "kicad.render_cache.v1".to_owned(),
+                source: "existing_file_cache".to_owned(),
+                text: cache.text,
+                unit: "nm".to_owned(),
+            })
+        })
+        .transpose()?;
+    let render_cache_exact = render_cache.as_ref().map(|cache| cache.exact);
+    let render_cache_source = render_cache
+        .as_ref()
+        .map(|_| "existing_file_cache".to_owned());
+    Ok(TextOperation {
+        bold: operation.bold,
+        // PCB fonts carry no color attribute, so the established emitter
+        // always falls back to the black default.
+        color: "#000000".to_owned(),
+        font_face: operation.font_face,
+        h_align: match operation.h_align {
+            BoardTextHAlign::Left => PlotterTextHAlign::GrTextHAlignLeft,
+            BoardTextHAlign::Center => PlotterTextHAlign::GrTextHAlignCenter,
+            BoardTextHAlign::Right => PlotterTextHAlign::GrTextHAlignRight,
+        },
+        index: contract_count(index),
+        italic: operation.italic,
+        kind: "Text".to_owned(),
+        knockout: marker(operation.knockout),
+        mirror: marker(operation.mirror),
+        multiline: operation.multiline,
+        orient_deg: operation.orient_deg,
+        pen_width_nm: safe_integer(operation.pen_width_nm)?,
+        polyline_per_segment: marker(operation.polyline_per_segment),
+        render_cache,
+        render_cache_exact,
+        render_cache_polygons: operation
+            .render_cache_polygons
+            .into_iter()
+            .map(contract_points)
+            .collect::<Result<Vec<_>, String>>()?,
+        render_cache_source,
+        size_x_nm: safe_integer(operation.size_x_nm)?,
+        size_y_nm: safe_integer(operation.size_y_nm)?,
+        text: operation.text,
+        text_as_polygons: marker(operation.text_as_polygons),
+        v_align: match operation.v_align {
+            BoardTextVAlign::Top => PlotterTextVAlign::GrTextVAlignTop,
+            BoardTextVAlign::Center => PlotterTextVAlign::GrTextVAlignCenter,
+            BoardTextVAlign::Bottom => PlotterTextVAlign::GrTextVAlignBottom,
+        },
+        x: safe_integer(operation.x)?,
+        y: safe_integer(operation.y)?,
     })
 }
 
@@ -410,6 +555,12 @@ mod tests {
                 .map(|(net_name, classes)| {
                     serde_json::json!({ "net_name": net_name, "classes": classes })
                 })
+                .collect();
+        }
+        if let Some(variables) = vector["text_variables"].as_object() {
+            request["text_variables"] = variables
+                .iter()
+                .map(|(name, value)| serde_json::json!({ "name": name, "value": value }))
                 .collect();
         }
         serde_json::to_vec(&request).expect("request JSON")

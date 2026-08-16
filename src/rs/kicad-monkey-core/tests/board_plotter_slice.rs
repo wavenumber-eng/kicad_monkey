@@ -231,8 +231,7 @@ fn records_follow_python_category_order_with_python_layer_defaults() {
       (gr_line (start 0 1) (end 3 1) (stroke (width 0.1) (type solid))))"#;
     let document =
         board_plot_document(source, BoardPlotLimits::default()).expect("category grouping");
-    let kinds: Vec<_> = document
-        .records
+    let kinds: Vec<_> = document.records[..6]
         .iter()
         .map(|record| graphic(record).kind)
         .collect();
@@ -246,9 +245,14 @@ fn records_follow_python_category_order_with_python_layer_defaults() {
             BoardGraphicRecordKind::GrPoly,
             BoardGraphicRecordKind::GrCurve,
         ],
-        "gr_text is deferred to the board-text slice and records group by category"
+        "records group by category with gr_text emitted after the curves"
     );
-    for record in &document.records {
+    assert_eq!(document.records.len(), 7);
+    let BoardPlotRecord::Text(text) = &document.records[6] else {
+        panic!("expected the gr_text record after the graphic categories");
+    };
+    assert_eq!(text.text, "skipped");
+    for record in &document.records[..6] {
         let record = graphic(record);
         let expected_layer = if record.kind == BoardGraphicRecordKind::GrCurve {
             "F.SilkS"

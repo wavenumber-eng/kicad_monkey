@@ -117,6 +117,12 @@ pub struct BoardNetClassAssignment {
 ///    "source_path": {
 ///      "type": "string"
 ///    },
+///    "text_variables": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/BoardTextVariable"
+///      }
+///    },
 ///    "type": {
 ///      "type": "string",
 ///      "const": "kicad_monkey.board_plot.request"
@@ -145,7 +151,41 @@ pub struct BoardPlotRequestA0 {
     pub net_class_assignments: ::std::vec::Vec<BoardNetClassAssignment>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub source_path: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub text_variables: ::std::vec::Vec<BoardTextVariable>,
     #[serde(rename = "type")]
     pub type_: ::std::string::String,
     pub version: ::std::string::String,
+}
+/**One project-sidecar text variable. The producer case-expands names to
+original/lower/upper aliases and overlays board `(property ...)` values,
+matching the established `board_text_variables` merge.*/
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One project-sidecar text variable. The producer case-expands names to\noriginal/lower/upper aliases and overlays board `(property ...)` values,\nmatching the established `board_text_variables` merge.",
+///  "type": "object",
+///  "required": [
+///    "name",
+///    "value"
+///  ],
+///  "properties": {
+///    "name": {
+///      "type": "string"
+///    },
+///    "value": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardTextVariable {
+    pub name: ::std::string::String,
+    pub value: ::std::string::String,
 }
