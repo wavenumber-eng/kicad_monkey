@@ -3860,7 +3860,7 @@
   },
   {
    "id": "board-text-follows-python-serializer",
-   "source": "(kicad_pcb\n  (version 20240108)\n  (generator pcbnew)\n  (generator_version \"8.0\")\n  (general (thickness 1.6))\n  (paper \"A4\")\n  (property \"Revision\" \"rev-C\")\n  (gr_text \"plain\" (at 1 2) (layer \"F.SilkS\") (uuid \"text-plain\"))\n  (gr_text \"styled\" (at 3 4 90) (layer \"B.SilkS\") (effects (font (size 2 1.5) (thickness 0.3) bold (italic yes)) (justify right top mirror)) (uuid \"text-styled\"))\n  (gr_text \"\" (at 0 0) (uuid \"text-empty\"))\n  (gr_text \"Rev ${Revision} of ${project} ${TITLE}\" (at 5 6) (uuid \"text-vars\"))\n  (gr_text \"cached\" (at 7 8 45) (effects (font (size 1 1))) (render_cache \"cached\" 45 (polygon (pts (xy 7 8) (xy 8 8) (xy 8 9)))) (uuid \"text-cache\"))\n  (gr_text \"cached\" (at 7 8) (render_cache \"stale\" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1)))) (uuid \"text-cache-stale\"))\n  (gr_text \"KO\" (at 1 1) (layer \"F.SilkS\" knockout) (effects (font (size 1.8 1.8) (thickness 0.2))) (render_cache \"KO\" 0 (polygon (pts (xy 0.5 0.5) (xy 1.5 0.5) (xy 1.5 1.2)) (pts (xy 0.7 0.7) (xy 1.2 0.7) (xy 1.2 1)))) (uuid \"text-knockout\"))\n  (gr_text \"faced\" (at 2 3) (effects (font (face \"Arial\") (size 1.27 1.27))) (render_cache \"faced\" 0 (polygon (pts (xy 2 3) (xy 3 3) (xy 3 4)))) (uuid \"text-face-cache\"))\n)",
+   "source": "(kicad_pcb\n  (version 20240108)\n  (generator pcbnew)\n  (generator_version \"8.0\")\n  (general (thickness 1.6))\n  (paper \"A4\")\n  (property \"Revision\" \"rev-C\")\n  (gr_text \"plain\" (at 1 2) (layer \"F.SilkS\") (uuid \"text-plain\"))\n  (gr_text \"styled\" (at 3 4 90) (layer \"B.SilkS\") (effects (font (size 2 1.5) (thickness 0.3) bold (italic yes)) (justify right top mirror)) (uuid \"text-styled\"))\n  (gr_text \"\" (at 0 0) (uuid \"text-empty\"))\n  (gr_text \"Rev ${Revision} of ${project} ${TITLE}\" (at 5 6) (uuid \"text-vars\"))\n  (gr_text \"cached\" (at 7 8 45) (effects (font (size 1 1))) (render_cache \"cached\" 45 (polygon (pts (xy 7 8) (xy 8 8) (xy 8 9)))) (uuid \"text-cache\"))\n  (gr_text \"cached\" (at 7 8) (render_cache \"stale\" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1)))) (uuid \"text-cache-stale\"))\n  (gr_text \"KO\" (at 1 1) (layer \"F.SilkS\" knockout) (effects (font (size 1.8 1.8) (thickness 0.2))) (render_cache \"KO\" 0 (polygon (pts (xy 0.5 0.5) (xy 1.5 0.5) (xy 1.5 1.2)) (pts (xy 0.7 0.7) (xy 1.2 0.7) (xy 1.2 1)))) (uuid \"text-knockout\"))\n  (gr_text \"faced\" (at 2 3) (effects (font (face \"Arial\") (size 1.27 1.27))) (render_cache \"faced\" 0 (polygon (pts (xy 2 3) (xy 3 3) (xy 3 4)))) (uuid \"text-face-cache\"))\n  (gr_text \"colored\" (at 0 0) (effects (font (color 10 20 30 0.3))) (uuid \"text-color-ignored\"))\n)",
    "source_path": "boards/text.kicad_pcb",
    "document_id": "board-text",
    "text_variables": {
@@ -3870,7 +3870,7 @@
    "expected": {
     "schema": "kicad.plotter_ir.a0",
     "source_kind": "PCB",
-    "total_operations": 7,
+    "total_operations": 8,
     "records": [
      {
       "uuid": "text-plain",
@@ -4276,6 +4276,37 @@
       "layer": "F.SilkS",
       "text": "faced",
       "hide": false
+     },
+     {
+      "uuid": "text-color-ignored",
+      "kind": "gr_text",
+      "object_id": "gr_text",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 0,
+        "y": 0,
+        "text": "colored",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true,
+        "polyline_per_segment": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "colored",
+      "hide": false
      }
     ],
     "source_path": "boards/text.kicad_pcb",
@@ -4293,13 +4324,17 @@
   },
   {
    "id": "text-boxes-bundle-border-and-alignment",
-   "source": "(kicad_pcb\n  (version 20240108)\n  (generator pcbnew)\n  (generator_version \"8.0\")\n  (general (thickness 1.6))\n  (paper \"A4\")\n  (gr_text_box \"\" (start 0 0) (end 10 5) (border yes) (stroke (width -1) (type solid)) (layer \"F.SilkS\") (uuid \"tb-neg\"))\n  (gr_text_box \"zero\" (start 0 0) (end 4 2) (border yes) (layer \"Cmts.User\") (uuid \"tb-zero\"))\n  (gr_text_box \"thin\" (start 0 0) (end 4 2) (border yes) (stroke (width 0.05) (type dash)) (uuid \"tb-thin\"))\n  (gr_text_box \"RB\" (start 0 0) (end 6 3) (margins 0.5 0.25 0.75 0.4) (effects (justify right bottom)) (uuid \"tb-margins-rb\"))\n  (gr_text_box \"LT\" (start 2 1) (end 8 4) (margins 0.5 0.25 0.75 0.4) (effects (justify left top)) (uuid \"tb-margins-lt\"))\n  (gr_text_box \"rot\" (start 0 0) (end 3 2) (angle 90) (uuid \"tb-angle\"))\n  (gr_text_box \"mirrored\" (start 0 0) (end 3 2) (effects (justify mirror)) (uuid \"tb-mirror\"))\n  (gr_text_box \"L1\nL2\" (start 0 0) (end 5 3) (uuid \"tb-multiline\"))\n  (gr_text_box \"pts\" (pts (xy 1 1) (xy 6 1) (xy 6 4) (xy 1 4)) (uuid \"tb-pts\"))\n  (gr_text_box \"KOB\" (start 0 0) (end 4 2) (knockout yes) (effects (font (size 1 1) (thickness 0.2))) (render_cache \"KOB\" 0 (polygon (pts (xy 1 1) (xy 3 1) (xy 3 1.5)))) (uuid \"tb-knockout-cache\"))\n)",
+   "source": "(kicad_pcb\n  (version 20240108)\n  (generator pcbnew)\n  (generator_version \"8.0\")\n  (general (thickness 1.6))\n  (paper \"A4\")\n  (gr_text_box \"\" (start 0 0) (end 10 5) (border yes) (stroke (width -1) (type solid)) (layer \"F.SilkS\") (uuid \"tb-neg\"))\n  (gr_text_box \"zero\" (start 0 0) (end 4 2) (border yes) (layer \"Cmts.User\") (uuid \"tb-zero\"))\n  (gr_text_box \"thin\" (start 0 0) (end 4 2) (border yes) (stroke (width 0.05) (type dash)) (uuid \"tb-thin\"))\n  (gr_text_box \"RB\" (start 0 0) (end 6 3) (margins 0.5 0.25 0.75 0.4) (effects (justify right bottom)) (uuid \"tb-margins-rb\"))\n  (gr_text_box \"LT\" (start 2 1) (end 8 4) (margins 0.5 0.25 0.75 0.4) (effects (justify left top)) (uuid \"tb-margins-lt\"))\n  (gr_text_box \"rot\" (start 0 0) (end 3 2) (angle 90) (uuid \"tb-angle\"))\n  (gr_text_box \"mirrored\" (start 0 0) (end 3 2) (effects (justify mirror)) (uuid \"tb-mirror\"))\n  (gr_text_box \"L1\nL2\" (start 0 0) (end 5 3) (uuid \"tb-multiline\"))\n  (gr_text_box \"pts\" (pts (xy 1 1) (xy 6 1) (xy 6 4) (xy 1 4)) (uuid \"tb-pts\"))\n  (gr_text_box \"KOB\" (start 0 0) (end 4 2) (knockout yes) (effects (font (size 1 1) (thickness 0.2))) (render_cache \"KOB\" 0 (polygon (pts (xy 1 1) (xy 3 1) (xy 3 1.5)))) (uuid \"tb-knockout-cache\"))\n  (gr_text_box \"A A\" (start 0 0) (end 5.2 2) (effects (font (size 1 2.1))) (uuid \"tb-wrap-exact\"))\n  (gr_text_box \"A A\" (start 0 0) (end 5.19 2) (effects (font (size 1 2.1))) (uuid \"tb-wrap-over\"))\n  (gr_text_box \"A A\nA A\" (start 0 0) (end 5.19 3) (effects (font (size 1 2.1))) (uuid \"tb-wrap-paragraphs\"))\n  (gr_text_box \"A A\" (start 0 0) (end 6.19 2) (margins 0.5 0 0.5 0) (effects (font (size 1 2.1))) (uuid \"tb-wrap-margins\"))\n  (gr_text_box \"A A\" (start 0 0) (end 5.19 2) (angle 90) (effects (font (size 1 2.1))) (uuid \"tb-wrap-angle\"))\n  (gr_text_box \"${WRAP}\" (start 0 0) (end 5.19 2) (effects (font (size 1 2.1))) (uuid \"tb-wrap-variable\"))\n  (gr_text_box \"A _{A A}\" (start 0 0) (end 7 2) (effects (font (size 1 2.1))) (uuid \"tb-wrap-markup\"))\n  (gr_text_box \"opaque\" (start 0 0) (end 20 2) (effects (font (color 10 20 30 1))) (uuid \"tb-color-opaque\"))\n  (gr_text_box \"fractional\" (start 0 0) (end 20 2) (effects (font (color 40 50 60 0.3))) (uuid \"tb-color-fractional\"))\n  (gr_text_box \"clear\" (start 0 0) (end 20 2) (effects (font (color 70 80 90 0))) (uuid \"tb-color-clear\"))\n)",
    "source_path": "boards/text_boxes.kicad_pcb",
    "document_id": "board-text-boxes",
+   "text_variables": {
+    "WRAP": "A A"
+   },
+   "oracle_mode": "without_shapely",
    "expected": {
     "schema": "kicad.plotter_ir.a0",
     "source_kind": "PCB",
-    "total_operations": 12,
+    "total_operations": 22,
     "records": [
      {
       "uuid": "tb-neg",
@@ -4660,6 +4695,306 @@
       ],
       "layer": "F.SilkS",
       "text": "KOB",
+      "border": false
+     },
+     {
+      "uuid": "tb-wrap-exact",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 2600000,
+        "y": 1000000,
+        "text": "A A",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 2100000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "A A",
+      "border": false
+     },
+     {
+      "uuid": "tb-wrap-over",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 2595000,
+        "y": 1000000,
+        "text": "A\nA",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 2100000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": true,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "A\nA",
+      "border": false
+     },
+     {
+      "uuid": "tb-wrap-paragraphs",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 2595000,
+        "y": 1500000,
+        "text": "A\nA\nA\nA",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 2100000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": true,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "A\nA\nA\nA",
+      "border": false
+     },
+     {
+      "uuid": "tb-wrap-margins",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 3095000,
+        "y": 1000000,
+        "text": "A\nA",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 2100000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": true,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "A\nA",
+      "border": false
+     },
+     {
+      "uuid": "tb-wrap-angle",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 2595000,
+        "y": 1000000,
+        "text": "A\nA",
+        "color": "#000000",
+        "orient_deg": 90.0,
+        "size_x_nm": 2100000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": true,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "A\nA",
+      "border": false
+     },
+     {
+      "uuid": "tb-wrap-variable",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 2595000,
+        "y": 1000000,
+        "text": "A\nA",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 2100000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": true,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "A\nA",
+      "border": false
+     },
+     {
+      "uuid": "tb-wrap-markup",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 3500000,
+        "y": 1000000,
+        "text": "A _{A\nA}",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 2100000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": true,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "A _{A\nA}",
+      "border": false
+     },
+     {
+      "uuid": "tb-color-opaque",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 10000000,
+        "y": 1000000,
+        "text": "opaque",
+        "color": "#0A141EFF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "opaque",
+      "border": false
+     },
+     {
+      "uuid": "tb-color-fractional",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 10000000,
+        "y": 1000000,
+        "text": "fractional",
+        "color": "#28323C4C",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "fractional",
+      "border": false
+     },
+     {
+      "uuid": "tb-color-clear",
+      "kind": "gr_text_box",
+      "object_id": "gr_text_box",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 10000000,
+        "y": 1000000,
+        "text": "clear",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1270000,
+        "size_y_nm": 1270000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "",
+        "text_as_polygons": true
+       }
+      ],
+      "layer": "F.SilkS",
+      "text": "clear",
       "border": false
      }
     ],

@@ -245,7 +245,12 @@ fn ensure_polygon_capacity(result: &ZoneCollections, limits: PcbLimits) -> Resul
         .saturating_add(result.filled_polygons.len())
         >= limits.max_zone_polygons
     {
-        Err(limit_error())
+        Err(Error::at(
+            ErrorPhase::Tree,
+            ErrorKind::ResourceLimit,
+            "PCB zone polygons exceed max_zone_polygons",
+            Position::START,
+        ))
     } else {
         Ok(())
     }
@@ -369,7 +374,18 @@ fn polygon_points_from_children(
         return Ok(Vec::new());
     };
     let remaining = limits.max_zone_points.saturating_sub(*total);
-    let point_spans = direct_children(source, points, remaining, limits)?;
+    let point_spans = direct_children(source, points, remaining, limits).map_err(|error| {
+        if error.kind == ErrorKind::ResourceLimit {
+            Error::at(
+                ErrorPhase::Tree,
+                ErrorKind::ResourceLimit,
+                "PCB zone points exceed max_zone_points",
+                error.position.unwrap_or(Position::START),
+            )
+        } else {
+            error
+        }
+    })?;
     let mut decoded = Vec::with_capacity(point_spans.len());
     for point in point_spans {
         if point.head.as_deref() != Some("xy") {

@@ -18,35 +18,58 @@
   <p>The producer matches the established Python record ordering and text
   payload for effects, size, alignment, mirroring, text variables, border
   operations, authored render-cache validation, and cached knockout
-  restructuring. Project text variables are case-expanded and board
+  restructuring. Ordinary Newstroke text boxes wrap incrementally with the
+  same glyph advances, markup scaling, ASCII-space rules, and strict width
+  boundary as Python. Text-box font colors retain opaque or fractional alpha,
+  while a zero-alpha color falls back to the established black default;
+  ordinary <code>gr_text</code> remains black like the Python source model. Project text
+  variables are case-expanded and board
   properties overlay them. Records retain source UUID, layer, resolved text,
   and optional border state. The TypeSpec-owned document and request project
   through Rust, Python, TypeScript, JSON Schema, and the maintained WASM
   feasibility adapter.</p>
 
   <h2>Resource and complexity boundary</h2>
-  <p>Source, parse depth, selected graphic count, operation count, render-cache
-  point count, and serialized output bytes have independent request limits.
-  Authored cache points are rejected while parsing once the remaining
-  aggregate point budget is exhausted; no unbounded intermediate cache is
-  published. Source families are scanned a constant number of times, text
-  spans are parsed once, cache contours are traversed linearly, and variable
-  lookup is logarithmic in the number of sidecar variables. The slice has no
-  nested all-record or all-point comparison.</p>
+  <p>Source, parse depth, selected graphic count, operation count, resolved
+  retained text occurrences, parse nodes, decoded input polygons and points,
+  cache polygons, cache contours, cache points, and serialized output bytes
+  have independent request limits. Core conversion also bounds retained
+  net-class storage; WASM derives that ceiling from the output limit and a
+  fixed 16 MiB cap. The WASM
+  boundary also fixes request-byte, text-variable-count, and text-variable-byte
+  ceilings before case expansion and reports post-request violations through
+  the result diagnostic envelope. Board properties retain a separate fixed
+  structural ceiling and do not consume <code>max_graphics</code>. Variable substitution checks the resolved
+  byte ceiling before every append and copies an unterminated placeholder tail
+  once. Text wrapping streams each scalar at most twice and uses a generated
+  compact Newstroke advance table; it never remeasures growing prefixes.
+  Authored cache structure is rejected during parsing before an unbounded
+  intermediate cache can be retained.</p>
 
   <h2>Explicitly deferred behavior</h2>
   <p>When an authored cache is missing or stale, outline-font cache generation
   remains owned by the accepted native text pipeline and is not yet connected
-  to the board producer. Stroke-font text-box wrapping and the optional
-  Shapely synthetic knockout fallback also remain deferred. The parity vector
-  pins the established no-Shapely fallback. These exclusions must be resolved
+  to the board producer. The outline-font linebreaker used by font-face and
+  cache requests is distinct from ordinary Newstroke wrapping and remains part
+  of that connection. Authored text-box caches are promoted only when their
+  resolved text has no ASCII wrapping spaces and the cache text is unchanged;
+  every potentially wrapping cache is rejected with a stable
+  <code>unsupported_feature</code> diagnostic until the outline bridge lands. The optional
+  Shapely synthetic knockout fallback also
+  remains deferred. Only the vector that exercises that fallback declares
+  <code>oracle_mode: without_shapely</code>; other vectors run against the
+  installed Python environment. These exclusions must be resolved
   or explicitly accepted when the complete Phase 5 plotter gate is reviewed.</p>
 
   <h2>Evidence</h2>
   <p>Rack <code>L1_035</code> regenerates every board vector from the Python
   authority, validates the generated board schema and the established Plotter
   IR schema, and executes both the native core and host-side WASM adapter.
-  Core tests cover inclusive aggregate cache-point and shared-operation limits.
+  Core tests cover inclusive aggregate cache-point and shared-operation limits,
+  bounded variable amplification and malformed placeholders, independent
+  cache-structure/tree ceilings, exact wrapping edges, and generated font-width
+  drift. Semantic contract tests mutate render-cache identity and mirror fields and
+  reject board-only text operations in footprint documents.
   <code>L0_046</code> and <code>L0_049</code> retain workspace and generated
   contract signoff.</p>
 </body>

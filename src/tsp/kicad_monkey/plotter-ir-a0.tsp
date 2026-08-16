@@ -453,6 +453,12 @@ model BoardPlotRequest {
   max_graphics: uint32;
   max_operations: uint32;
   max_points: uint32;
+  max_text_bytes: uint64;
+  max_parse_nodes: uint32;
+  max_input_points: uint32;
+  max_input_polygons: uint32;
+  max_cache_polygons: uint32;
+  max_cache_contours: uint32;
   net_class_assignments?: BoardNetClassAssignment[];
   text_variables?: BoardTextVariable[];
 }

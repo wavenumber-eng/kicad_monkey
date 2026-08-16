@@ -14,6 +14,12 @@ export interface BoardPlotRequestA0 {
   max_graphics: number;
   max_operations: number;
   max_points: number;
+  max_text_bytes: string;
+  max_parse_nodes: number;
+  max_input_points: number;
+  max_input_polygons: number;
+  max_cache_polygons: number;
+  max_cache_contours: number;
   net_class_assignments?: BoardNetClassAssignment[];
   text_variables?: BoardTextVariable[];
 }

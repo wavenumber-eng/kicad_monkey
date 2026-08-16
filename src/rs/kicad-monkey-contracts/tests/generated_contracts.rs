@@ -12,10 +12,9 @@ use kicad_monkey_contracts::{
 
 #[test]
 fn source_bundle_integer_transport_matches_shared_boundaries_and_failures() {
-    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../tests/parity/source_bundle_a0_vectors.json"
-    )))
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/source_bundle_a0_vectors.json"
+    ))
     .expect("source bundle vectors");
     for case in vectors["transport_cases"]
         .as_array()
@@ -55,10 +54,9 @@ fn generated_scan_request_is_strict_and_round_trips_wire_names() {
 
 #[test]
 fn compiled_schematic_graph_vector_decodes_strictly_in_rust() {
-    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../tests/parity/compiled_schematic_graph_a0_vectors.json"
-    )))
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/compiled_schematic_graph_a0_vectors.json"
+    ))
     .expect("compiled graph vectors");
     let graph = vectors["graph"].clone();
     let encoded = serde_json::to_vec(&graph).expect("compiled graph vector JSON");
@@ -112,10 +110,9 @@ fn assert_uuid_v7(value: &str) {
 
 #[test]
 fn strict_compiled_graph_boundary_rejects_every_literal_mismatch() {
-    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../tests/parity/compiled_schematic_graph_a0_vectors.json"
-    )))
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/compiled_schematic_graph_a0_vectors.json"
+    ))
     .expect("compiled graph vectors");
     let paths = [
         "/schema",
@@ -144,10 +141,9 @@ fn strict_compiled_graph_boundary_rejects_every_literal_mismatch() {
 
 #[test]
 fn symbol_plotter_contract_enforces_record_and_domain_semantics() {
-    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../tests/parity/symbol_plotter_a0_vectors.json"
-    )))
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/symbol_plotter_a0_vectors.json"
+    ))
     .expect("symbol vectors");
     let expected = vectors["vectors"][0]["expected"].clone();
     let document: SymbolPlotDocumentA0 =
@@ -182,15 +178,29 @@ fn symbol_plotter_contract_enforces_record_and_domain_semantics() {
 
 #[test]
 fn board_plotter_contract_enforces_layerless_graphic_state_and_counts() {
-    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../tests/parity/board_plotter_a0_vectors.json"
-    )))
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/board_plotter_a0_vectors.json"
+    ))
     .expect("board vectors");
     let expected = vectors["vectors"][0]["expected"].clone();
     let document: BoardPlotDocumentA0 =
         serde_json::from_value(expected.clone()).expect("board transport document");
     validate_board_plot_document(&document).expect("valid board semantics");
+
+    for (path, replacement) in [
+        ("schema", serde_json::json!("wrong")),
+        ("source_kind", serde_json::json!("MOD")),
+    ] {
+        let mut identity = expected.clone();
+        identity[path] = replacement;
+        let document: BoardPlotDocumentA0 = serde_json::from_value(identity).expect("shape");
+        assert_eq!(
+            validate_board_plot_document(&document)
+                .expect_err("document identity is semantic")
+                .code,
+            "unsupported_contract"
+        );
+    }
 
     let mut layered = expected.clone();
     layered["records"][0]["operations"][0]["layer"] = serde_json::json!("Edge.Cuts");
@@ -391,6 +401,89 @@ fn board_plotter_contract_enforces_zone_fill_ring_states() {
 }
 
 #[test]
+fn board_text_contract_rejects_redundant_field_and_cache_drift() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/board_plotter_a0_vectors.json"
+    )))
+    .expect("board vectors");
+    let text = vectors["vectors"][8]["expected"].clone();
+
+    let mut empty_with_text = text.clone();
+    empty_with_text["records"][2]["text"] = serde_json::json!("drift");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(empty_with_text).expect("shape");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("zero-op text must be empty")
+            .code,
+        "invalid_board_operation"
+    );
+
+    let mutation_paths = [
+        ("text", serde_json::json!("wrong")),
+        ("angle", serde_json::json!(44.0)),
+        ("schema", serde_json::json!("wrong")),
+        ("unit", serde_json::json!("mm")),
+        ("coordinate_space", serde_json::json!("local")),
+        ("source", serde_json::json!("generated")),
+    ];
+    for (field, replacement) in mutation_paths {
+        let mut drift = text.clone();
+        drift["records"][4]["operations"][0]["render_cache"][field] = replacement;
+        let document: BoardPlotDocumentA0 = serde_json::from_value(drift).expect("shape");
+        assert_eq!(
+            validate_board_plot_document(&document)
+                .expect_err("cache redundancy must be exact")
+                .code,
+            "invalid_board_operation",
+            "{field}"
+        );
+    }
+
+    let mut exterior = text.clone();
+    exterior["records"][4]["operations"][0]["render_cache_polygons"][0][0][0] =
+        serde_json::json!(123);
+    let document: BoardPlotDocumentA0 = serde_json::from_value(exterior).expect("shape");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("cache exterior mirror must match")
+            .code,
+        "invalid_board_operation"
+    );
+
+    let mut knockout = text;
+    knockout["records"][6]["operations"][0]["render_cache"]
+        .as_object_mut()
+        .expect("cache")
+        .remove("knockout");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(knockout).expect("shape");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("knockout markers are bidirectional")
+            .code,
+        "invalid_board_operation"
+    );
+}
+
+#[test]
+fn board_text_box_record_text_must_match_its_text_operation() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/board_plotter_a0_vectors.json"
+    )))
+    .expect("board vectors");
+    let mut text_boxes = vectors["vectors"][9]["expected"].clone();
+    text_boxes["records"][3]["text"] = serde_json::json!("wrong");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(text_boxes).expect("shape");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("record text must match")
+            .code,
+        "invalid_board_operation"
+    );
+}
+
+#[test]
 fn footprint_flash_circles_require_pad_state_not_via_state() {
     let vectors: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../tests/parity/footprint_plotter_a0_vectors.json"
@@ -424,6 +517,28 @@ fn footprint_flash_circles_require_pad_state_not_via_state() {
             .expect_err("footprint flashes require mask_margin_nm")
             .code,
         "invalid_pad_operation"
+    );
+}
+
+#[test]
+fn footprint_semantics_reject_board_text_operations_from_the_shared_union() {
+    let footprint_vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/footprint_plotter_a0_vectors.json"
+    ))
+    .expect("footprint vectors");
+    let board_vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/board_plotter_a0_vectors.json"
+    ))
+    .expect("board vectors");
+    let mut footprint = footprint_vectors["vectors"][0]["expected"].clone();
+    footprint["records"][0]["operations"][0] =
+        board_vectors["vectors"][8]["expected"]["records"][0]["operations"][0].clone();
+    let document: FootprintPlotDocumentA0 = serde_json::from_value(footprint).expect("shape");
+    assert_eq!(
+        validate_footprint_plot_document(&document)
+            .expect_err("board text is outside footprint semantics")
+            .code,
+        "invalid_footprint_operation"
     );
 }
 

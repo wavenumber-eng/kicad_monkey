@@ -412,7 +412,9 @@ def _effects_to_text_kwargs(effects: Any | None) -> dict:
         out["pen_width_nm"] = mm_to_nm(font.thickness)
     font_color = getattr(font, "color", None)
     if font_color is not None:
-        out["color"] = rgba_to_hex(font_color)
+        explicit_color = rgba_to_hex(font_color)
+        if explicit_color is not None:
+            out["color"] = explicit_color
     if effects.justify:
         h_map = {
             "left": KiCadHorizAlign.LEFT,

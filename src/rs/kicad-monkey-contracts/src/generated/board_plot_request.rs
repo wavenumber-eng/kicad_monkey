@@ -69,12 +69,18 @@ pub struct BoardNetClassAssignment {
 ///  "description": "Resource-bounded board plotter operation. Source bytes are out of band.",
 ///  "type": "object",
 ///  "required": [
+///    "max_cache_contours",
+///    "max_cache_polygons",
 ///    "max_depth",
 ///    "max_graphics",
+///    "max_input_points",
+///    "max_input_polygons",
 ///    "max_operations",
 ///    "max_output_bytes",
+///    "max_parse_nodes",
 ///    "max_points",
 ///    "max_source_bytes",
+///    "max_text_bytes",
 ///    "type",
 ///    "version"
 ///  ],
@@ -82,12 +88,32 @@ pub struct BoardNetClassAssignment {
 ///    "document_id": {
 ///      "type": "string"
 ///    },
+///    "max_cache_contours": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_cache_polygons": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
 ///    "max_depth": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
 ///    },
 ///    "max_graphics": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_input_points": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_input_polygons": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
@@ -100,12 +126,20 @@ pub struct BoardNetClassAssignment {
 ///    "max_output_bytes": {
 ///      "type": "string"
 ///    },
+///    "max_parse_nodes": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
 ///    "max_points": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
 ///    },
 ///    "max_source_bytes": {
+///      "type": "string"
+///    },
+///    "max_text_bytes": {
 ///      "type": "string"
 ///    },
 ///    "net_class_assignments": {
@@ -141,12 +175,18 @@ pub struct BoardNetClassAssignment {
 pub struct BoardPlotRequestA0 {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub document_id: ::std::option::Option<::std::string::String>,
+    pub max_cache_contours: u32,
+    pub max_cache_polygons: u32,
     pub max_depth: u32,
     pub max_graphics: u32,
+    pub max_input_points: u32,
+    pub max_input_polygons: u32,
     pub max_operations: u32,
     pub max_output_bytes: ::std::string::String,
+    pub max_parse_nodes: u32,
     pub max_points: u32,
     pub max_source_bytes: ::std::string::String,
+    pub max_text_bytes: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub net_class_assignments: ::std::vec::Vec<BoardNetClassAssignment>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]

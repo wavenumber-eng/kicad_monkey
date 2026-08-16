@@ -24,6 +24,11 @@ use kicad_monkey_core::{
 };
 use wasm_bindgen::prelude::*;
 
+const MAX_BOARD_PLOT_REQUEST_BYTES: usize = 1024 * 1024;
+const MAX_BOARD_TEXT_VARIABLES: usize = 16_384;
+const MAX_BOARD_TEXT_VARIABLE_SIDECAR_BYTES: usize = 512 * 1024;
+const MAX_BOARD_RETAINED_NET_CLASS_BYTES: usize = 16 * 1024 * 1024;
+
 /// Paired metadata and out-of-band board plotter-IR JSON bytes.
 #[wasm_bindgen]
 pub struct BoardPlotOutput {
@@ -59,6 +64,9 @@ pub fn plot_board_ir(source: &[u8], request_json: &[u8]) -> Result<BoardPlotOutp
 }
 
 fn plot_board_ir_impl(source: &[u8], request_json: &[u8]) -> Result<BoardPlotOutput, String> {
+    if request_json.len() > MAX_BOARD_PLOT_REQUEST_BYTES {
+        return Err("board plot request exceeds the fixed 1 MiB transport limit".to_owned());
+    }
     let request: BoardPlotRequestA0 =
         serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
     if request.type_ != "kicad_monkey.board_plot.request" || request.version != "a0" {
@@ -66,6 +74,30 @@ fn plot_board_ir_impl(source: &[u8], request_json: &[u8]) -> Result<BoardPlotOut
     }
     let max_source_bytes = decimal_usize(&request.max_source_bytes, "max_source_bytes")?;
     let max_output_bytes = decimal_usize(&request.max_output_bytes, "max_output_bytes")?;
+    let max_text_bytes = decimal_usize(&request.max_text_bytes, "max_text_bytes")?;
+    if source.len() > max_source_bytes {
+        return diagnostic_output(source_limit_diagnostic());
+    }
+    if request.text_variables.len() > MAX_BOARD_TEXT_VARIABLES {
+        return diagnostic_output(sidecar_limit_diagnostic(
+            "text_variables exceeds the fixed entry limit",
+        ));
+    }
+    let text_variable_bytes = request
+        .text_variables
+        .iter()
+        .try_fold(0usize, |total, variable| {
+            total
+                .checked_add(variable.name.len())
+                .and_then(|value| value.checked_add(variable.value.len()))
+                .filter(|value| *value <= MAX_BOARD_TEXT_VARIABLE_SIDECAR_BYTES)
+        });
+    let Some(text_variable_bytes) = text_variable_bytes else {
+        return diagnostic_output(sidecar_limit_diagnostic(
+            "text_variables exceeds the fixed byte limit",
+        ));
+    };
+    debug_assert!(text_variable_bytes <= MAX_BOARD_TEXT_VARIABLE_SIDECAR_BYTES);
     let net_classes = BoardNetClassAssignments::from_entries(
         request
             .net_class_assignments
@@ -76,7 +108,7 @@ fn plot_board_ir_impl(source: &[u8], request_json: &[u8]) -> Result<BoardPlotOut
         request
             .text_variables
             .iter()
-            .map(|variable| (variable.name.clone(), variable.value.clone())),
+            .map(|variable| (variable.name.as_str(), variable.value.as_str())),
     );
     let operation = (|| {
         let text = utf8_text(source)?;
@@ -88,6 +120,13 @@ fn plot_board_ir_impl(source: &[u8], request_json: &[u8]) -> Result<BoardPlotOut
                 max_graphics: request.max_graphics as usize,
                 max_operations: request.max_operations as usize,
                 max_points: request.max_points as usize,
+                max_text_bytes,
+                max_net_class_bytes: max_output_bytes.min(MAX_BOARD_RETAINED_NET_CLASS_BYTES),
+                max_parse_nodes: request.max_parse_nodes as usize,
+                max_input_points: request.max_input_points as usize,
+                max_input_polygons: request.max_input_polygons as usize,
+                max_cache_polygons: request.max_cache_polygons as usize,
+                max_cache_contours: request.max_cache_contours as usize,
             },
             &net_classes,
             &text_variables,
@@ -318,9 +357,7 @@ fn contract_text_operation(
         .map(|_| "existing_file_cache".to_owned());
     Ok(TextOperation {
         bold: operation.bold,
-        // PCB fonts carry no color attribute, so the established emitter
-        // always falls back to the black default.
-        color: "#000000".to_owned(),
+        color: operation.color,
         font_face: operation.font_face,
         h_align: match operation.h_align {
             BoardTextHAlign::Left => PlotterTextHAlign::GrTextHAlignLeft,
@@ -512,9 +549,26 @@ fn failure(diagnostic: Diagnostic) -> (BoardPlotResultA0, Vec<u8>) {
     )
 }
 
+fn diagnostic_output(diagnostic: Diagnostic) -> Result<BoardPlotOutput, String> {
+    let (result, output_bytes) = failure(diagnostic);
+    Ok(BoardPlotOutput {
+        result_json: serde_json::to_vec(&result).map_err(|error| error.to_string())?,
+        output_bytes,
+    })
+}
+
 fn board_diagnostic(error: Error) -> Diagnostic {
+    let code = if error.kind == kicad_monkey_core::ErrorKind::InvalidBuildValue
+        && error
+            .message
+            .contains("render-cache wrapping requires the outline-font bridge")
+    {
+        "unsupported_feature"
+    } else {
+        crate::error_code(error.kind)
+    };
     Diagnostic {
-        code: crate::error_code(error.kind).to_owned(),
+        code: code.to_owned(),
         message: error.message.into_owned(),
         phase: match error.phase {
             ErrorPhase::Lex => DiagnosticPhase::Lex,
@@ -535,6 +589,26 @@ fn limit_diagnostic() -> Diagnostic {
         code: "resource_limit".to_owned(),
         message: "Serialized output exceeds max_output_bytes".to_owned(),
         phase: DiagnosticPhase::Build,
+        position: None,
+        token: None,
+    }
+}
+
+fn source_limit_diagnostic() -> Diagnostic {
+    Diagnostic {
+        code: "resource_limit".to_owned(),
+        message: "Source bytes exceed max_source_bytes".to_owned(),
+        phase: DiagnosticPhase::Lex,
+        position: None,
+        token: None,
+    }
+}
+
+fn sidecar_limit_diagnostic(message: &str) -> Diagnostic {
+    Diagnostic {
+        code: "resource_limit".to_owned(),
+        message: message.to_owned(),
+        phase: DiagnosticPhase::Tree,
         position: None,
         token: None,
     }
@@ -563,6 +637,12 @@ mod tests {
             "max_graphics": 1000,
             "max_operations": max_operations,
             "max_points": 10000
+            ,"max_text_bytes": "65536"
+            ,"max_parse_nodes": 10000
+            ,"max_input_points": 10000
+            ,"max_input_polygons": 1000
+            ,"max_cache_polygons": 1000
+            ,"max_cache_contours": 10000
         });
         if let Some(assignments) = vector["net_class_assignments"].as_object() {
             request["net_class_assignments"] = assignments
@@ -628,6 +708,82 @@ mod tests {
         assert!(output.output_bytes.is_empty());
         let result: BoardPlotResultA0 =
             serde_json::from_slice(&output.result_json).expect("result contract");
+        assert_eq!(result.diagnostics[0].code, "resource_limit");
+    }
+
+    #[test]
+    fn deferred_text_box_cache_wrapping_uses_a_stable_diagnostic() {
+        let vectors: Value = serde_json::from_str(include_str!(
+            "../../../../tests/parity/board_plotter_a0_vectors.json"
+        ))
+        .expect("shared board vectors");
+        let vector = &vectors["vectors"][0];
+        let request = board_plot_request(vector, "65536", 10_000);
+        let source = br#"(kicad_pcb
+          (gr_text_box "A A" (start 0 0) (end 4 2)
+            (effects (font (size 1 2.1)))
+            (render_cache "A A" 0
+              (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1))))))"#;
+        let output = plot_board_ir_impl(source, &request).expect("diagnostic envelope");
+        assert!(output.output_bytes.is_empty());
+        let result: BoardPlotResultA0 =
+            serde_json::from_slice(&output.result_json).expect("result contract");
+        assert_eq!(result.diagnostics[0].code, "unsupported_feature");
+    }
+
+    #[test]
+    fn board_request_and_text_variable_sidecars_are_bounded_before_expansion() {
+        let oversized_request = vec![b' '; MAX_BOARD_PLOT_REQUEST_BYTES + 1];
+        assert!(
+            plot_board_ir_impl(b"(kicad_pcb)", &oversized_request)
+                .err()
+                .expect("request transport ceiling")
+                .contains("1 MiB")
+        );
+
+        let vectors: Value = serde_json::from_str(include_str!(
+            "../../../../tests/parity/board_plotter_a0_vectors.json"
+        ))
+        .expect("shared board vectors");
+        let vector = &vectors["vectors"][0];
+        let mut request: Value =
+            serde_json::from_slice(&board_plot_request(vector, "65536", 10_000))
+                .expect("request value");
+        let mut source_limited = request.clone();
+        source_limited["max_source_bytes"] = serde_json::json!("1");
+        let output = plot_board_ir_impl(
+            &vec![b'a'; 1024 * 1024],
+            &serde_json::to_vec(&source_limited).expect("source-limited request"),
+        )
+        .expect("source limit uses the diagnostic envelope");
+        let result: BoardPlotResultA0 =
+            serde_json::from_slice(&output.result_json).expect("source limit result");
+        assert_eq!(result.diagnostics[0].code, "resource_limit");
+
+        request["text_variables"] = serde_json::json!([{
+            "name": "A",
+            "value": "x".repeat(MAX_BOARD_TEXT_VARIABLE_SIDECAR_BYTES)
+        }]);
+        let encoded = serde_json::to_vec(&request).expect("large sidecar request");
+        assert!(encoded.len() < MAX_BOARD_PLOT_REQUEST_BYTES);
+        let output = plot_board_ir_impl(b"(kicad_pcb)", &encoded)
+            .expect("sidecar byte ceiling uses the diagnostic envelope");
+        let result: BoardPlotResultA0 =
+            serde_json::from_slice(&output.result_json).expect("sidecar byte result");
+        assert_eq!(result.diagnostics[0].code, "resource_limit");
+        assert!(result.diagnostics[0].message.contains("text_variables"));
+
+        request["text_variables"] = serde_json::json!(
+            (0..=MAX_BOARD_TEXT_VARIABLES)
+                .map(|_| serde_json::json!({ "name": "", "value": "" }))
+                .collect::<Vec<_>>()
+        );
+        let encoded = serde_json::to_vec(&request).expect("many sidecars request");
+        assert!(encoded.len() < MAX_BOARD_PLOT_REQUEST_BYTES);
+        let output = plot_board_ir_impl(b"(kicad_pcb)", &encoded)
+            .expect("sidecar count ceiling uses the diagnostic envelope");
+        let result: BoardPlotResultA0 =
+            serde_json::from_slice(&output.result_json).expect("sidecar count result");
         assert_eq!(result.diagnostics[0].code, "resource_limit");
     }
 }

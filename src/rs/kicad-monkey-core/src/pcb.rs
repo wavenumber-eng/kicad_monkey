@@ -345,6 +345,8 @@ pub struct PcbGraphic {
     pub stroke_width: Option<f64>,
     pub stroke_kind: Option<String>,
     pub fill: Option<String>,
+    /// Optional `gr_text_box` border state, including bare/empty forms.
+    pub border: Option<bool>,
     pub uuid: Option<String>,
     pub source_range: Range<usize>,
 }

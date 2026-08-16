@@ -5,16 +5,19 @@
 //! variables (project sidecar overlaid by board properties), authored
 //! `render_cache` validation and attachment, and gr_text knockout
 //! restructuring. Python-generated font-face caches, Shapely synthetic
-//! text-box knockout, and stroke-font text-box wrapping are deferred:
-//! the native path deterministically emits the unwrapped resolved text
-//! and leaves ops without cache keys where Python would generate one.
+//! text-box knockout is deferred. Ordinary stroke-font text-box wrapping is
+//! native; generated outline-font caches remain deferred.
 
-use super::{BoardPlotRecord, BudgetTracker, point_limit_error};
-use crate::pcb::{PcbGraphic, PcbGraphicKind, PcbPoint, PcbProperty, PcbView};
+use super::text_cache::{
+    AuthoredRenderCache, apply_knockout, attach_authored_cache, cache_is_valid, parse_render_cache,
+};
+use super::text_variables::BoardTextVariables;
+use super::text_wrap::wrap_text_box;
+use super::{BoardPlotLimits, BoardPlotRecord, BudgetTracker, text_limit_error};
+use crate::pcb::{PcbGraphic, PcbGraphicKind, PcbPoint, PcbView};
 use crate::plotter_ir::{child, mm_to_nm, model_error, numeric_at, value_at};
 use crate::plotter_types::{PlotterFill, PlotterOperation, PlotterRect};
-use crate::sexpr::{Error, Position, Sexp, parse};
-use std::collections::BTreeMap;
+use crate::sexpr::{Error, ErrorKind, ErrorPhase, Limits, Position, Sexp, parse_with_limits};
 
 /// Python `FRONT_SILKSCREEN_LAYER` default carried by gr_text/gr_text_box.
 const FRONT_SILKSCREEN_LAYER: &str = "F.SilkS";
@@ -74,13 +77,14 @@ pub struct BoardTextRenderCache {
     pub polygons: Vec<Vec<Vec<[i64; 2]>>>,
 }
 
-/// One `Text` operation payload; the serialized `color` is always the
-/// Python `#000000` default because PCB fonts carry no color attribute.
+/// One `Text` operation payload. Ordinary `gr_text` remains black; the
+/// text-box source model can carry an RGBA font color.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoardTextOperation {
     pub x: i64,
     pub y: i64,
     pub text: String,
+    pub color: String,
     pub orient_deg: f64,
     pub size_x_nm: i64,
     pub size_y_nm: i64,
@@ -129,108 +133,39 @@ pub struct BoardTextBoxRecord {
     pub operations: Vec<BoardTextBoxOperation>,
 }
 
-/// Case-expanded `${NAME}` variables mirroring Python
-/// `kicad_text_variables.normalize_text_variables`.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct BoardTextVariables {
-    by_name: BTreeMap<String, String>,
-}
-
-impl BoardTextVariables {
-    /// Python `_add_variable` per entry: the exact, lowercase, and
-    /// uppercase keys are written in that order, empty names are skipped,
-    /// and later entries overwrite earlier ones key-by-key.
-    pub fn from_entries<N, V>(entries: impl IntoIterator<Item = (N, V)>) -> Self
-    where
-        N: Into<String>,
-        V: Into<String>,
-    {
-        let mut variables = Self::default();
-        for (name, value) in entries {
-            variables.insert(&name.into(), &value.into());
-        }
-        variables
-    }
-
-    fn insert(&mut self, name: &str, value: &str) {
-        if name.is_empty() {
-            return;
-        }
-        self.by_name.insert(name.to_owned(), value.to_owned());
-        self.by_name.insert(name.to_lowercase(), value.to_owned());
-        self.by_name.insert(name.to_uppercase(), value.to_owned());
-    }
-
-    /// Python `board_text_variables`: board `(property ...)` entries
-    /// overlay the project sidecar variables.
-    pub(super) fn with_board_properties<'a>(
-        &self,
-        properties: impl IntoIterator<Item = &'a PcbProperty>,
-    ) -> Self {
-        let mut variables = self.clone();
-        for property in properties {
-            variables.insert(&property.name, &property.value);
-        }
-        variables
-    }
-
-    /// Python `substitute_text_variables`: regex `\$\{([^}]+)\}` with
-    /// unresolved placeholders kept verbatim.
-    pub fn substitute(&self, text: &str) -> String {
-        if !text.contains("${") {
-            return text.to_owned();
-        }
-        let mut result = String::with_capacity(text.len());
-        let mut rest = text;
-        while let Some(start) = rest.find("${") {
-            let after = &rest[start + 2..];
-            // The name group requires at least one non-`}` character, so an
-            // empty or unterminated placeholder never matches; the regex
-            // scan then resumes after the failed `$`.
-            match after.find('}') {
-                Some(end) if end > 0 => {
-                    let name = &after[..end];
-                    result.push_str(&rest[..start]);
-                    match self.by_name.get(name) {
-                        Some(value) => result.push_str(value),
-                        None => {
-                            result.push_str("${");
-                            result.push_str(name);
-                            result.push('}');
-                        }
-                    }
-                    rest = &after[end..];
-                    rest = &rest[1..];
-                }
-                _ => {
-                    result.push_str(&rest[..=start]);
-                    rest = &rest[start + 1..];
-                }
-            }
-        }
-        result.push_str(rest);
-        result
-    }
-}
-
 pub(super) fn board_variables(
     view: &PcbView<'_>,
+    graphics: &[PcbGraphic],
     project_variables: &BoardTextVariables,
 ) -> Result<BoardTextVariables, Error> {
-    let properties = view.properties().collect::<Result<Vec<_>, Error>>()?;
-    Ok(project_variables.with_board_properties(&properties))
+    let needs_variables = graphics.iter().any(|graphic| {
+        matches!(graphic.kind, PcbGraphicKind::Text | PcbGraphicKind::TextBox)
+            && graphic
+                .text
+                .as_deref()
+                .is_some_and(|text| text.contains("${"))
+    });
+    if !needs_variables {
+        return Ok(project_variables.clone());
+    }
+    let mut variables = project_variables.clone();
+    for property in view.properties() {
+        let property = property?;
+        variables.insert(&property.name, &property.value);
+    }
+    Ok(variables)
 }
 
 pub(super) fn text_records(
     source: &str,
-    view: &PcbView<'_>,
+    graphics: &[PcbGraphic],
     budget: &mut BudgetTracker,
     variables: &BoardTextVariables,
+    limits: BoardPlotLimits,
 ) -> Result<Vec<BoardPlotRecord>, Error> {
     let mut texts = Vec::new();
     let mut text_boxes = Vec::new();
-    for graphic in view.graphics() {
-        let graphic = graphic?;
+    for graphic in graphics {
         match graphic.kind {
             PcbGraphicKind::Text => texts.push(graphic),
             PcbGraphicKind::TextBox => text_boxes.push(graphic),
@@ -239,31 +174,90 @@ pub(super) fn text_records(
     }
     let mut records = Vec::new();
     for graphic in texts {
-        let record = text_record(source, &graphic, variables, budget.remaining_points()?)?;
+        let record = text_record(
+            source,
+            graphic,
+            variables,
+            budget.remaining_points()?,
+            budget.remaining_text_bytes()?,
+            budget.remaining_operations().unwrap_or(0),
+            limits,
+        )?;
         budget.charge(
             record.operations.len(),
             text_point_total(&record.operations),
         )?;
+        budget.charge_text(text_retained_bytes(&record))?;
         records.push(BoardPlotRecord::Text(record));
     }
     for graphic in text_boxes {
-        let record = text_box_record(source, &graphic, variables, budget.remaining_points()?)?;
+        let record = text_box_record(
+            source,
+            graphic,
+            variables,
+            budget.remaining_points()?,
+            budget.remaining_text_bytes()?,
+            budget.remaining_operations().unwrap_or(0),
+            limits,
+        )?;
         budget.charge(
             record.operations.len(),
             text_box_point_total(&record.operations),
         )?;
+        budget.charge_text(text_box_retained_bytes(&record))?;
         records.push(BoardPlotRecord::TextBox(record));
     }
     Ok(records)
 }
 
 fn text_point_total(operations: &[BoardTextOperation]) -> usize {
-    operations
+    operations.iter().fold(0, |total, operation| {
+        let cache_points = operation
+            .render_cache
+            .as_ref()
+            .into_iter()
+            .flat_map(|cache| cache.polygons.iter())
+            .flat_map(|contours| contours.iter())
+            .fold(0usize, |count, contour| count.saturating_add(contour.len()));
+        let exterior_points = operation
+            .render_cache_polygons
+            .iter()
+            .fold(0usize, |count, polygon| count.saturating_add(polygon.len()));
+        total
+            .saturating_add(cache_points)
+            .saturating_add(exterior_points)
+    })
+}
+
+fn operation_text_bytes(operation: &BoardTextOperation) -> usize {
+    operation.text.len().saturating_add(
+        operation
+            .render_cache
+            .as_ref()
+            .map_or(0, |cache| cache.text.len()),
+    )
+}
+
+fn text_retained_bytes(record: &BoardTextRecord) -> usize {
+    record
+        .operations
         .iter()
-        .filter_map(|operation| operation.render_cache.as_ref())
-        .flat_map(|cache| cache.polygons.iter())
-        .flat_map(|contours| contours.iter())
-        .fold(0, |total, contour| total.saturating_add(contour.len()))
+        .fold(record.text.len(), |total, operation| {
+            total.saturating_add(operation_text_bytes(operation))
+        })
+}
+
+fn text_box_retained_bytes(record: &BoardTextBoxRecord) -> usize {
+    record
+        .operations
+        .iter()
+        .filter_map(|operation| match operation {
+            BoardTextBoxOperation::Text(value) => Some(value),
+            BoardTextBoxOperation::Border(_) => None,
+        })
+        .fold(record.text.len(), |total, operation| {
+            total.saturating_add(operation_text_bytes(operation))
+        })
 }
 
 fn text_box_point_total(operations: &[BoardTextBoxOperation]) -> usize {
@@ -273,10 +267,9 @@ fn text_box_point_total(operations: &[BoardTextBoxOperation]) -> usize {
             BoardTextBoxOperation::Text(value) => Some(value),
             BoardTextBoxOperation::Border(_) => None,
         })
-        .filter_map(|operation| operation.render_cache.as_ref())
-        .flat_map(|cache| cache.polygons.iter())
-        .flat_map(|contours| contours.iter())
-        .fold(0, |total, contour| total.saturating_add(contour.len()))
+        .fold(0, |total, operation| {
+            total.saturating_add(text_point_total(std::slice::from_ref(operation)))
+        })
 }
 
 /// Python `Effects`/`Font` facts consumed by the board text producers.
@@ -288,6 +281,13 @@ struct TextEffects {
     bold: bool,
     italic: bool,
     justify: Vec<String>,
+    color: String,
+}
+
+#[derive(Clone, Copy)]
+struct TextOperationLimits {
+    cache_points: usize,
+    text_bytes: usize,
 }
 
 impl TextEffects {
@@ -322,16 +322,6 @@ impl TextEffects {
     }
 }
 
-/// Authored `(render_cache "text" angle (polygon (pts ...) ...) ...)` facts
-/// in raw mm coordinates.
-struct AuthoredRenderCache {
-    /// `None` marks a non-string cache text token, which can never match a
-    /// resolved request text.
-    text: Option<String>,
-    angle: f64,
-    polygons: Vec<Vec<Vec<[f64; 2]>>>,
-}
-
 fn list_values(form: &Sexp) -> Option<&[Sexp]> {
     match form {
         Sexp::List(values) => Some(values),
@@ -344,18 +334,6 @@ fn text_value(value: &Sexp) -> Option<&str> {
         Sexp::Atom(value) | Sexp::Quoted(value) => Some(value),
         _ => None,
     }
-}
-
-fn children<'a>(form: &'a Sexp, head: &'a str) -> impl Iterator<Item = &'a Sexp> + 'a {
-    list_values(form)
-        .into_iter()
-        .flatten()
-        .filter(move |value| {
-            list_values(value)
-                .and_then(|values| values.first())
-                .and_then(text_value)
-                == Some(head)
-        })
 }
 
 /// Python `has_flag`: a bare token among the form's direct values.
@@ -389,11 +367,61 @@ fn numeric_or(form: Option<&Sexp>, index: usize, default: f64) -> Result<f64, Er
     }
 }
 
-fn parse_graphic_span(source: &str, graphic: &PcbGraphic) -> Result<Sexp, Error> {
+fn resource_limit_error(message: &'static str) -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        message,
+        Position::START,
+    )
+}
+
+fn parse_graphic_span(
+    source: &str,
+    graphic: &PcbGraphic,
+    limits: BoardPlotLimits,
+) -> Result<Sexp, Error> {
     let text = source
         .get(graphic.source_range.clone())
         .ok_or_else(|| model_error("Board text span is out of range", Position::START))?;
-    parse(text)
+    parse_with_limits(
+        text,
+        Limits {
+            max_source_bytes: text.len(),
+            max_depth: limits.max_depth,
+            max_nodes: limits.max_parse_nodes,
+            max_decoded_string_bytes: limits.max_source_bytes,
+        },
+    )
+}
+
+fn rgba_color(font: Option<&Sexp>) -> Result<String, Error> {
+    let Some(color) = font.and_then(|value| child(value, "color")) else {
+        return Ok("#000000".to_owned());
+    };
+    let Some(_) = list_values(color).filter(|values| values.len() >= 5) else {
+        return Ok("#000000".to_owned());
+    };
+    let channel = |index| -> Result<i64, Error> {
+        let value = numeric_at(color, index, Position::START)?;
+        Ok((value as i64).clamp(0, 255))
+    };
+    let alpha = numeric_at(color, 4, Position::START)?;
+    if alpha <= 0.0 {
+        return Ok("#000000".to_owned());
+    }
+    let alpha = if alpha <= 1.0 {
+        (alpha * 255.0).round_ties_even()
+    } else {
+        alpha.round_ties_even()
+    };
+    Ok(format!(
+        "#{:02X}{:02X}{:02X}{:02X}",
+        channel(1)?,
+        channel(2)?,
+        channel(3)?,
+        (alpha as i64).clamp(0, 255)
+    ))
 }
 
 /// Python `Effects.from_sexp`/`Font.from_sexp` over one text carrier form.
@@ -433,6 +461,7 @@ fn text_effects(form: &Sexp) -> Result<TextEffects, Error> {
                 .collect()
         })
         .unwrap_or_default();
+    let color = rgba_color(font)?;
     Ok(TextEffects {
         face,
         size_x,
@@ -441,6 +470,7 @@ fn text_effects(form: &Sexp) -> Result<TextEffects, Error> {
         bold: flag_or_yes("bold"),
         italic: flag_or_yes("italic"),
         justify,
+        color,
     })
 }
 
@@ -462,181 +492,45 @@ fn alignments(justify: &[String]) -> (Option<BoardTextHAlign>, Option<BoardTextV
     (h_align, v_align)
 }
 
-/// Python `RenderCache.from_sexp`: `None` below three header values.
-fn parse_render_cache(
-    form: &Sexp,
-    max_points: usize,
-) -> Result<Option<AuthoredRenderCache>, Error> {
-    let Some(cache) = child(form, "render_cache") else {
-        return Ok(None);
-    };
-    let Some(values) = list_values(cache).filter(|values| values.len() >= 3) else {
-        return Ok(None);
-    };
-    let text = match &values[1] {
-        Sexp::Atom(value) | Sexp::Quoted(value) => Some(value.clone()),
-        // Python `unquote_string` stringifies scalar tokens.
-        Sexp::Integer(value) => Some(value.to_string()),
-        _ => None,
-    };
-    let angle = numeric_at(cache, 2, Position::START)?;
-    let mut polygons = Vec::new();
-    let mut point_count = 0_usize;
-    for polygon in children(cache, "polygon") {
-        let mut contours = Vec::new();
-        for points in children(polygon, "pts") {
-            let mut contour = Vec::new();
-            for point in children(points, "xy") {
-                // Python skips xy forms without both coordinates.
-                if list_values(point).is_some_and(|values| values.len() >= 3) {
-                    point_count = point_count
-                        .checked_add(1)
-                        .filter(|count| *count <= max_points)
-                        .ok_or_else(point_limit_error)?;
-                    contour.push([
-                        numeric_at(point, 1, Position::START)?,
-                        numeric_at(point, 2, Position::START)?,
-                    ]);
-                }
-            }
-            contours.push(contour);
-        }
-        polygons.push(contours);
-    }
-    Ok(Some(AuthoredRenderCache {
-        text,
-        angle,
-        polygons,
-    }))
-}
-
-/// Python `math.isclose` with the default 1e-9 relative and absolute
-/// tolerances used by `RenderCacheRequest`.
-fn python_isclose(left: f64, right: f64) -> bool {
-    let tolerance = (1e-9 * left.abs().max(right.abs())).max(1e-9);
-    (left - right).abs() <= tolerance
-}
-
-/// Python `RenderCacheResolver.validate_cache` reasons for board requests,
-/// which always carry an angle and never a mirror/offset context.
-fn cache_is_valid(cache: &AuthoredRenderCache, request_text: &str, request_angle: f64) -> bool {
-    cache.text.as_deref() == Some(request_text)
-        && python_isclose(cache.angle, request_angle)
-        // Python: empty polygons invalidate the cache for nonempty text.
-        && (request_text.is_empty() || !cache.polygons.is_empty())
-        && cache.polygons.iter().all(|contours| {
-            contours.first().is_some_and(|exterior| exterior.len() >= 3)
-                && contours.iter().skip(1).all(|hole| hole.len() >= 3)
-        })
-}
-
-/// Python `_render_cache_polygons_nm` + `_op_with_render_cache_payload`
-/// for a valid authored cache; `exact` is false only under the font-face
-/// warning because board requests always provide an angle.
-fn attach_authored_cache(
-    operation: &mut BoardTextOperation,
-    cache: &AuthoredRenderCache,
-    exact: bool,
-) -> Result<(), Error> {
-    let mut typed = Vec::new();
-    let mut exteriors = Vec::new();
-    for polygon in &cache.polygons {
-        let mut contours = Vec::new();
-        for contour in polygon {
-            if contour.len() < 3 {
-                continue;
-            }
-            let points = contour
-                .iter()
-                .map(|[x, y]| Ok([mm_to_nm(*x)?, mm_to_nm(*y)?]))
-                .collect::<Result<Vec<_>, Error>>()?;
-            contours.push(points);
-        }
-        if contours.is_empty() {
-            continue;
-        }
-        exteriors.push(contours[0].clone());
-        typed.push(contours);
-    }
-    if typed.is_empty() {
-        return Ok(());
-    }
-    operation.render_cache_polygons = exteriors;
-    operation.render_cache = Some(BoardTextRenderCache {
-        text: cache.text.clone().unwrap_or_default(),
-        angle: cache.angle,
-        exact,
-        knockout: false,
-        polygons: typed,
-    });
-    Ok(())
-}
-
-/// Python `_apply_knockout_to_text_op`: coalesce every glyph contour under
-/// one polygon whose first contour is the margin-inflated background rect.
-fn apply_knockout(operation: &mut BoardTextOperation, margin_nm: i64) {
-    let Some(cache) = operation.render_cache.as_mut() else {
-        return;
-    };
-    if cache.polygons.is_empty() {
-        return;
-    }
-    let mut glyph_contours: Vec<Vec<[i64; 2]>> = Vec::new();
-    let mut bounds: Option<[i64; 4]> = None;
-    for polygon in &cache.polygons {
-        for contour in polygon {
-            if contour.len() < 3 {
-                continue;
-            }
-            for point in contour {
-                bounds = Some(match bounds {
-                    None => [point[0], point[1], point[0], point[1]],
-                    Some([min_x, min_y, max_x, max_y]) => [
-                        min_x.min(point[0]),
-                        min_y.min(point[1]),
-                        max_x.max(point[0]),
-                        max_y.max(point[1]),
-                    ],
-                });
-            }
-            glyph_contours.push(contour.clone());
-        }
-    }
-    let Some([min_x, min_y, max_x, max_y]) = bounds else {
-        return;
-    };
-    let background = vec![
-        [min_x - margin_nm, min_y - margin_nm],
-        [max_x + margin_nm, min_y - margin_nm],
-        [max_x + margin_nm, max_y + margin_nm],
-        [min_x - margin_nm, max_y + margin_nm],
-    ];
-    let mut contours = vec![background.clone()];
-    contours.extend(glyph_contours);
-    cache.polygons = vec![contours];
-    cache.knockout = true;
-    operation.knockout = true;
-    operation.render_cache_polygons = vec![background];
-}
-
 /// Python `gr_text_to_record`.
 fn text_record(
     source: &str,
     graphic: &PcbGraphic,
     variables: &BoardTextVariables,
     max_cache_points: usize,
+    max_text_bytes: usize,
+    max_operations: usize,
+    limits: BoardPlotLimits,
 ) -> Result<BoardTextRecord, Error> {
-    let form = parse_graphic_span(source, graphic)?;
+    let raw_text = graphic.text.clone().unwrap_or_default();
+    if !raw_text.is_empty() && max_operations < 1 {
+        return Err(resource_limit_error(
+            "Board plotter operation exceeds configured limits",
+        ));
+    }
+    let resolved = if raw_text.is_empty() {
+        None
+    } else {
+        Some(variables.substitute_bounded(&raw_text, max_text_bytes)?)
+    };
+    if let Some(resolved) = &resolved {
+        ensure_retained_text_bytes(resolved.len(), 2, max_text_bytes)?;
+    }
+    let form = parse_graphic_span(source, graphic, limits)?;
     let effects = text_effects(&form)?;
     let angle = numeric_or(child(&form, "at"), 3, 0.0)?;
-    let cache = parse_render_cache(&form, max_cache_points)?;
+    let cache = parse_render_cache(
+        &form,
+        max_cache_points,
+        limits.max_cache_polygons,
+        limits.max_cache_contours,
+    )?;
     let knockout = child(&form, "layer").is_some_and(|value| has_flag(value, "knockout"));
     let layer = graphic
         .layer
         .clone()
         .unwrap_or_else(|| FRONT_SILKSCREEN_LAYER.to_owned());
     let uuid = graphic.uuid.clone().unwrap_or_default();
-    let raw_text = graphic.text.clone().unwrap_or_default();
     // Python `gr_text_to_op` skips empty text before building the op.
     if raw_text.is_empty() {
         return Ok(BoardTextRecord {
@@ -647,13 +541,96 @@ fn text_record(
         });
     }
     let at = graphic.at.unwrap_or(PcbPoint { x: 0.0, y: 0.0 });
-    let resolved = variables.substitute(&raw_text);
+    let resolved = resolved.expect("nonempty board text was resolved before parsing");
+    let face_present = effects.face.is_some();
+    let valid_cache = cache
+        .as_ref()
+        .filter(|value| cache_is_valid(value, &resolved, angle));
+    preflight_knockout(
+        valid_cache,
+        knockout,
+        max_cache_points,
+        limits.max_cache_contours,
+    )?;
+    ensure_retained_text_bytes(
+        resolved.len(),
+        2 + usize::from(valid_cache.is_some()),
+        max_text_bytes,
+    )?;
+    let mut operation = gr_text_operation(&effects, at, resolved, angle)?;
+    if cache.is_some() || face_present {
+        // The gr_text request text equals the resolved text: GrText has no
+        // `render_cache_text` wrapping hook.
+        if let Some(cache) = valid_cache {
+            attach_authored_cache(
+                &mut operation,
+                cache,
+                !face_present,
+                max_cache_points,
+                knockout,
+            )?;
+        }
+        // Missing or stale caches with a font face take the Python
+        // generation path, deferred with the outline-font bridge; the op
+        // then carries no cache keys.
+    }
+    if knockout {
+        let margin_nm = mm_to_nm(effects.knockout_margin_mm())?;
+        apply_knockout(
+            &mut operation,
+            margin_nm,
+            max_cache_points,
+            limits.max_cache_contours,
+        )?;
+    }
+    let text = operation.text.clone();
+    Ok(BoardTextRecord {
+        uuid,
+        layer,
+        text,
+        operations: vec![operation],
+    })
+}
+
+fn ensure_retained_text_bytes(
+    text_bytes: usize,
+    occurrences: usize,
+    max_text_bytes: usize,
+) -> Result<(), Error> {
+    text_bytes
+        .checked_mul(occurrences)
+        .filter(|bytes| *bytes <= max_text_bytes)
+        .map(|_| ())
+        .ok_or_else(text_limit_error)
+}
+
+fn preflight_knockout(
+    cache: Option<&AuthoredRenderCache>,
+    knockout: bool,
+    max_points: usize,
+    max_contours: usize,
+) -> Result<(), Error> {
+    if let (true, Some(cache)) = (knockout, cache) {
+        cache.ensure_knockout_limits(max_points, max_contours)?;
+    }
+    Ok(())
+}
+
+fn gr_text_operation(
+    effects: &TextEffects,
+    at: PcbPoint,
+    text: String,
+    angle: f64,
+) -> Result<BoardTextOperation, Error> {
     let face_present = effects.face.is_some();
     let (h_align, v_align) = alignments(&effects.justify);
-    let mut operation = BoardTextOperation {
+    Ok(BoardTextOperation {
         x: mm_to_nm(at.x)?,
         y: mm_to_nm(at.y)?,
-        text: resolved.clone(),
+        text,
+        // The board gr_text parser has no font-color field; color is a
+        // gr_text_box-only extension in the established Python model.
+        color: "#000000".to_owned(),
         orient_deg: angle,
         size_x_nm: mm_to_nm(effects.size_x)?,
         size_y_nm: mm_to_nm(effects.size_y)?,
@@ -674,30 +651,6 @@ fn text_record(
         knockout: false,
         render_cache_polygons: Vec::new(),
         render_cache: None,
-    };
-    if cache.is_some() || face_present {
-        // The gr_text request text equals the resolved text: GrText has no
-        // `render_cache_text` wrapping hook.
-        if let Some(cache) = cache
-            .as_ref()
-            .filter(|value| cache_is_valid(value, &resolved, angle))
-        {
-            attach_authored_cache(&mut operation, cache, !face_present)?;
-        }
-        // Missing or stale caches with a font face take the Python
-        // generation path, deferred with the outline-font bridge; the op
-        // then carries no cache keys.
-    }
-    if knockout {
-        let margin_nm = mm_to_nm(effects.knockout_margin_mm())?;
-        apply_knockout(&mut operation, margin_nm);
-    }
-    let text = operation.text.clone();
-    Ok(BoardTextRecord {
-        uuid,
-        layer,
-        text,
-        operations: vec![operation],
     })
 }
 
@@ -750,6 +703,21 @@ fn text_box_corners(graphic: &PcbGraphic) -> (f64, f64, f64, f64) {
     }
 }
 
+fn text_box_margins(form: &Sexp) -> Result<[f64; 4], Error> {
+    let Some(margins) = child(form, "margins") else {
+        return Ok([0.0; 4]);
+    };
+    if list_values(margins).is_none_or(|values| values.len() < 5) {
+        return Ok([0.0; 4]);
+    }
+    Ok([
+        numeric_at(margins, 1, Position::START)?,
+        numeric_at(margins, 2, Position::START)?,
+        numeric_at(margins, 3, Position::START)?,
+        numeric_at(margins, 4, Position::START)?,
+    ])
+}
+
 /// Python `fp_text_box_to_ops` text placement over the normalized box with
 /// per-side margins applied by the effective alignment.
 fn text_box_text_operation(
@@ -759,6 +727,7 @@ fn text_box_text_operation(
     corners: (f64, f64, f64, f64),
     margins: [f64; 4],
     resolved: &str,
+    limits: TextOperationLimits,
 ) -> Result<BoardTextOperation, Error> {
     let face_present = effects.face.is_some();
     let (h_align, v_align) = alignments(&effects.justify);
@@ -780,15 +749,39 @@ fn text_box_text_operation(
         BoardTextVAlign::Center => (y1 + y2) / 2.0,
         BoardTextVAlign::Top => y1 + margin_top,
     };
-    // Stroke-font wrapping is deferred: the native path always emits
-    // the unwrapped resolved text, matching Python whenever the box
-    // text has no space or no positive wrap width.
+    let size_x_nm = mm_to_nm(effects.size_x)?;
+    let wrap_size_x_nm = if size_x_nm == 0 { 1_270_000 } else { size_x_nm };
+    let wrapped = wrap_text_box(
+        resolved,
+        ((x2 - x1) - margin_left - margin_right).max(0.0),
+        wrap_size_x_nm,
+    );
+    ensure_cache_request_text_unchanged(cache, resolved)?;
+    let multiline = wrapped.contains('\n');
+    // Python replaces the ordinary Newstroke payload with the outline-cache
+    // request text whenever a cache or face is present. Until the full outline
+    // linebreaker lands, authored caches are supported only when that request
+    // text is unchanged; changed cache text is rejected above rather than
+    // silently accepting or discarding a semantically different cache.
+    let operation_text = if cache.is_some() || face_present {
+        resolved
+    } else {
+        &wrapped
+    };
+    let valid_cache = cache.filter(|value| cache_is_valid(value, operation_text, angle));
+    ensure_retained_text_bytes(
+        operation_text.len(),
+        2 + usize::from(valid_cache.is_some()),
+        limits.text_bytes,
+    )?;
+    let operation_text = operation_text.to_owned();
     let mut operation = BoardTextOperation {
         x: mm_to_nm(x)?,
         y: mm_to_nm(y)?,
-        text: resolved.to_owned(),
+        text: operation_text.clone(),
+        color: effects.color.clone(),
         orient_deg: angle,
-        size_x_nm: mm_to_nm(effects.size_x)?,
+        size_x_nm,
         size_y_nm: mm_to_nm(effects.size_y)?,
         h_align,
         v_align,
@@ -798,7 +791,7 @@ fn text_box_text_operation(
         },
         italic: effects.italic,
         bold: effects.bold,
-        multiline: resolved.contains('\n'),
+        multiline,
         font_face: effects.face.clone().unwrap_or_default(),
         // Text boxes never emit the mirror or per-segment markers.
         mirror: false,
@@ -810,12 +803,34 @@ fn text_box_text_operation(
     };
     // Python's Shapely synthetic knockout is deferred: without Shapely
     // the oracle leaves the op unchanged, which is the pinned baseline.
-    // The request text is the resolved text: FreeType `render_cache_text`
-    // line wrapping is deferred.
-    if let Some(cache) = cache.filter(|value| cache_is_valid(value, resolved, angle)) {
-        attach_authored_cache(&mut operation, cache, !face_present)?;
+    if let Some(cache) = valid_cache {
+        attach_authored_cache(
+            &mut operation,
+            cache,
+            !face_present,
+            limits.cache_points,
+            false,
+        )?;
     }
     Ok(operation)
+}
+
+fn ensure_cache_request_text_unchanged(
+    cache: Option<&AuthoredRenderCache>,
+    resolved: &str,
+) -> Result<(), Error> {
+    let Some(cache) = cache else {
+        return Ok(());
+    };
+    if !resolved.contains(' ') && cache.text() == Some(resolved) {
+        return Ok(());
+    }
+    Err(Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::InvalidBuildValue,
+        "Board text-box render-cache wrapping requires the outline-font bridge",
+        Position::START,
+    ))
 }
 
 /// Python `gr_text_box_to_record`.
@@ -824,10 +839,31 @@ fn text_box_record(
     graphic: &PcbGraphic,
     variables: &BoardTextVariables,
     max_cache_points: usize,
+    max_text_bytes: usize,
+    max_operations: usize,
+    limits: BoardPlotLimits,
 ) -> Result<BoardTextBoxRecord, Error> {
-    let form = parse_graphic_span(source, graphic)?;
+    let raw_text = graphic.text.clone().unwrap_or_default();
+    let required_operations =
+        usize::from(graphic.border == Some(true)) + usize::from(!raw_text.is_empty());
+    if required_operations > max_operations {
+        return Err(resource_limit_error(
+            "Board plotter operation exceeds configured limits",
+        ));
+    }
+    let resolved = if raw_text.is_empty() {
+        None
+    } else {
+        Some(variables.substitute_bounded(&raw_text, max_text_bytes)?)
+    };
+    let form = parse_graphic_span(source, graphic, limits)?;
     let effects = text_effects(&form)?;
-    let cache = parse_render_cache(&form, max_cache_points)?;
+    let cache = parse_render_cache(
+        &form,
+        max_cache_points,
+        limits.max_cache_polygons,
+        limits.max_cache_contours,
+    )?;
     let angle = numeric_or(child(&form, "angle"), 1, 0.0)?;
     let border = maybe_absent_bool(&form, "border");
     let stroke_width = match child(&form, "stroke").and_then(|value| child(value, "width")) {
@@ -835,20 +871,7 @@ fn text_box_record(
         None => None,
     };
     validate_stroke_type(&form)?;
-    let margins_form = child(&form, "margins");
-    let margins = if margins_form
-        .and_then(list_values)
-        .is_some_and(|values| values.len() >= 5)
-    {
-        [
-            numeric_at(margins_form.unwrap_or(&form), 1, Position::START)?,
-            numeric_at(margins_form.unwrap_or(&form), 2, Position::START)?,
-            numeric_at(margins_form.unwrap_or(&form), 3, Position::START)?,
-            numeric_at(margins_form.unwrap_or(&form), 4, Position::START)?,
-        ]
-    } else {
-        [0.0; 4]
-    };
+    let margins = text_box_margins(&form)?;
     let corners = text_box_corners(graphic);
     let (start_x, start_y, end_x, end_y) = corners;
     let layer = graphic
@@ -856,8 +879,6 @@ fn text_box_record(
         .clone()
         .unwrap_or_else(|| FRONT_SILKSCREEN_LAYER.to_owned());
     let uuid = graphic.uuid.clone().unwrap_or_default();
-    let raw_text = graphic.text.clone().unwrap_or_default();
-
     let mut operations = Vec::new();
     if border == Some(true) {
         operations.push(BoardTextBoxOperation::Border(PlotterOperation::Rect(
@@ -877,9 +898,19 @@ fn text_box_record(
         )));
     }
     if !raw_text.is_empty() {
-        let resolved = variables.substitute(&raw_text);
-        let operation =
-            text_box_text_operation(&effects, cache.as_ref(), angle, corners, margins, &resolved)?;
+        let resolved = resolved.expect("nonempty text box was resolved before parsing");
+        let operation = text_box_text_operation(
+            &effects,
+            cache.as_ref(),
+            angle,
+            corners,
+            margins,
+            &resolved,
+            TextOperationLimits {
+                cache_points: max_cache_points,
+                text_bytes: max_text_bytes,
+            },
+        )?;
         operations.push(BoardTextBoxOperation::Text(operation));
     }
     let text = operations

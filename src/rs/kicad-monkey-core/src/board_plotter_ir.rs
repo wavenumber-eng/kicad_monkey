@@ -9,20 +9,25 @@
 
 mod copper;
 mod graphics;
+mod stroke_font_widths;
 mod text;
+mod text_cache;
+mod text_variables;
+mod text_wrap;
 
-use crate::pcb::{PcbFamily, PcbLimits, PcbNetRef, PcbSelection, PcbView};
+use crate::pcb::{PcbFamily, PcbGraphic, PcbLimits, PcbNetRef, PcbSelection, PcbView};
 use crate::plotter_ir::ensure_javascript_safe_integer;
 use crate::plotter_types::{PlotterOperation, ThickSegment};
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position};
 use std::collections::BTreeMap;
 
-use copper::{segment_record, track_arc_record, via_record, zone_record};
+use copper::{segment_record, track_arc_record, via_operation_count, via_record, zone_record};
 use graphics::graphic_records;
 pub use text::{
     BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
-    BoardTextRecord, BoardTextRenderCache, BoardTextVAlign, BoardTextVariables,
+    BoardTextRecord, BoardTextRenderCache, BoardTextVAlign,
 };
+pub use text_variables::BoardTextVariables;
 
 /// Limits for one board plotter conversion.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -32,6 +37,20 @@ pub struct BoardPlotLimits {
     pub max_graphics: usize,
     pub max_operations: usize,
     pub max_points: usize,
+    /// Aggregate bytes of resolved text retained in records.
+    pub max_text_bytes: usize,
+    /// Aggregate net-class string bytes retained across emitted records.
+    pub max_net_class_bytes: usize,
+    /// Maximum generic S-expression nodes or direct children in one carrier.
+    pub max_parse_nodes: usize,
+    /// Aggregate decoded input points retained before operation conversion.
+    pub max_input_points: usize,
+    /// Aggregate decoded input polygons retained before operation conversion.
+    pub max_input_polygons: usize,
+    /// Maximum authored render-cache polygons in one text carrier.
+    pub max_cache_polygons: usize,
+    /// Maximum authored render-cache contours in one text carrier.
+    pub max_cache_contours: usize,
 }
 
 impl Default for BoardPlotLimits {
@@ -42,6 +61,13 @@ impl Default for BoardPlotLimits {
             max_graphics: 100_000,
             max_operations: 100_000,
             max_points: 1_000_000,
+            max_text_bytes: 16 * 1024 * 1024,
+            max_net_class_bytes: 16 * 1024 * 1024,
+            max_parse_nodes: 1_000_000,
+            max_input_points: 1_000_000,
+            max_input_polygons: 100_000,
+            max_cache_polygons: 100_000,
+            max_cache_contours: 1_000_000,
         }
     }
 }
@@ -292,6 +318,39 @@ impl BoardNetClassAssignments {
             None => BoardNetClassExtras::default(),
         }
     }
+
+    fn extras_for_bounded(
+        &self,
+        net_name: Option<&str>,
+        budget: &mut BudgetTracker,
+    ) -> Result<BoardNetClassExtras, Error> {
+        let classes = net_name
+            .filter(|name| !name.is_empty())
+            .and_then(|name| self.by_net_name.get(name))
+            .filter(|classes| !classes.is_empty());
+        let Some(classes) = classes else {
+            return Ok(BoardNetClassExtras::default());
+        };
+        let payload_bytes = classes
+            .iter()
+            .try_fold(classes[0].len(), |total, class| {
+                total.checked_add(class.len())
+            })
+            .ok_or_else(net_class_limit_error)?;
+        let structural_bytes = classes
+            .len()
+            .checked_add(1)
+            .and_then(|count| count.checked_mul(std::mem::size_of::<String>()))
+            .ok_or_else(net_class_limit_error)?;
+        let retained_bytes = payload_bytes
+            .checked_add(structural_bytes)
+            .ok_or_else(net_class_limit_error)?;
+        budget.charge_net_class(retained_bytes)?;
+        Ok(BoardNetClassExtras {
+            net_class: classes.first().cloned(),
+            net_classes: classes.clone(),
+        })
+    }
 }
 
 /// Track record-level operation and point budgets fail-closed.
@@ -300,6 +359,10 @@ struct BudgetTracker {
     max_points: usize,
     operation_count: usize,
     point_count: usize,
+    max_text_bytes: usize,
+    text_bytes: usize,
+    max_net_class_bytes: usize,
+    net_class_bytes: usize,
 }
 
 impl BudgetTracker {
@@ -322,10 +385,45 @@ impl BudgetTracker {
         Ok(())
     }
 
+    fn ensure_capacity(&self, operations: usize, points: usize) -> Result<(), Error> {
+        self.operation_count
+            .checked_add(operations)
+            .filter(|total| *total <= self.max_operations)
+            .ok_or_else(limit_error)?;
+        self.point_count
+            .checked_add(points)
+            .filter(|total| *total <= self.max_points)
+            .ok_or_else(point_limit_error)?;
+        Ok(())
+    }
+
     fn remaining_points(&self) -> Result<usize, Error> {
         self.max_points
             .checked_sub(self.point_count)
             .ok_or_else(point_limit_error)
+    }
+
+    fn remaining_text_bytes(&self) -> Result<usize, Error> {
+        self.max_text_bytes
+            .checked_sub(self.text_bytes)
+            .ok_or_else(text_limit_error)
+    }
+
+    fn charge_text(&mut self, bytes: usize) -> Result<(), Error> {
+        self.text_bytes = self.text_bytes.saturating_add(bytes);
+        if self.text_bytes > self.max_text_bytes {
+            return Err(text_limit_error());
+        }
+        Ok(())
+    }
+
+    fn charge_net_class(&mut self, bytes: usize) -> Result<(), Error> {
+        self.net_class_bytes = self
+            .net_class_bytes
+            .checked_add(bytes)
+            .filter(|total| *total <= self.max_net_class_bytes)
+            .ok_or_else(net_class_limit_error)?;
+        Ok(())
     }
 }
 
@@ -356,24 +454,7 @@ pub fn board_plot_document_with_sidecars(
     net_classes: &BoardNetClassAssignments,
     text_variables: &BoardTextVariables,
 ) -> Result<BoardPlotDocument, Error> {
-    let pcb_limits = PcbLimits {
-        max_source_bytes: limits.max_source_bytes,
-        max_depth: limits.max_depth,
-        max_graphics: limits.max_graphics,
-        // The request-level record budget bounds every promoted family.
-        max_segments: limits.max_graphics,
-        max_vias: limits.max_graphics,
-        max_arcs: limits.max_graphics,
-        max_zones: limits.max_graphics,
-        ..PcbLimits::default()
-    };
-    let selection = PcbSelection::only(PcbFamily::Graphics)
-        .with(PcbFamily::Properties)
-        .with(PcbFamily::Segments)
-        .with(PcbFamily::Arcs)
-        .with(PcbFamily::Vias)
-        .with(PcbFamily::Zones);
-    let view = PcbView::parse_selected(source, pcb_limits, selection)?;
+    let view = PcbView::parse_selected(source, board_pcb_limits(limits), board_selection())?;
     let metadata = view.metadata()?;
     ensure_javascript_safe_integer(metadata.version)?;
 
@@ -382,35 +463,82 @@ pub fn board_plot_document_with_sidecars(
         max_points: limits.max_points,
         operation_count: 0,
         point_count: 0,
+        max_text_bytes: limits.max_text_bytes,
+        text_bytes: 0,
+        max_net_class_bytes: limits.max_net_class_bytes,
+        net_class_bytes: 0,
     };
-    let mut records = graphic_records(source, &view, &mut budget)?;
-    let variables = text::board_variables(&view, text_variables)?;
-    records.extend(text::text_records(source, &view, &mut budget, &variables)?);
+    // Decode the shared graphics family once, then partition borrowed carriers
+    // into the Python category order for geometry and text producers.
+    let (graphics, decoded_graphic_points) = decoded_graphics(&view, limits)?;
+    let mut records = graphic_records(source, &graphics, &mut budget, limits)?;
+    let variables = text::board_variables(&view, &graphics, text_variables)?;
+    records.extend(text::text_records(
+        source,
+        &graphics,
+        &mut budget,
+        &variables,
+        limits,
+    )?);
     for segment in view.segments() {
-        let record = segment_record(segment?, net_classes)?;
+        budget.ensure_capacity(1, 0)?;
+        let record = segment_record(segment?, net_classes, &mut budget)?;
         budget.charge(record.operations.len(), 0)?;
         records.push(BoardPlotRecord::Segment(record));
     }
     for arc in view.arcs() {
-        let record = track_arc_record(arc?, net_classes)?;
+        budget.ensure_capacity(1, 0)?;
+        let record = track_arc_record(arc?, net_classes, &mut budget)?;
         budget.charge(record.operations.len(), 0)?;
         records.push(BoardPlotRecord::TrackArc(record));
     }
     let mask_clearance = metadata.pad_to_mask_clearance;
     for via in view.vias() {
-        let record = via_record(via?, mask_clearance, net_classes)?;
+        let via = via?;
+        budget.ensure_capacity(via_operation_count(&via), 0)?;
+        let record = via_record(via, mask_clearance, net_classes, &mut budget)?;
         budget.charge(record.operations.len(), 0)?;
         records.push(BoardPlotRecord::Via(record));
     }
+    let mut decoded_input_points = decoded_graphic_points;
+    let mut decoded_input_polygons = 0usize;
     for zone in view.zones() {
-        let record = zone_record(zone?, net_classes)?;
+        let zone = zone.map_err(normalize_input_limit_error)?;
+        let zone_polygons = zone
+            .polygons
+            .len()
+            .saturating_add(zone.filled_polygons.len());
+        decoded_input_polygons = decoded_input_polygons
+            .checked_add(zone_polygons)
+            .filter(|count| *count <= limits.max_input_polygons)
+            .ok_or_else(input_polygon_limit_error)?;
+        let zone_points = zone
+            .polygons
+            .iter()
+            .map(|polygon| polygon.points.len())
+            .chain(
+                zone.filled_polygons
+                    .iter()
+                    .map(|polygon| polygon.points.len()),
+            )
+            .fold(0usize, usize::saturating_add);
+        decoded_input_points = decoded_input_points
+            .checked_add(zone_points)
+            .filter(|count| *count <= limits.max_input_points)
+            .ok_or_else(input_point_limit_error)?;
+        let output_points = zone
+            .filled_polygons
+            .iter()
+            .map(|polygon| polygon.points.len())
+            .fold(0usize, usize::saturating_add);
+        budget.ensure_capacity(zone.filled_polygons.len(), output_points)?;
+        let record = zone_record(zone, net_classes, &mut budget)?;
         budget.charge(
             record.operations.len(),
             poly_point_total(&record.operations),
         )?;
         records.push(BoardPlotRecord::Zone(record));
     }
-
     Ok(BoardPlotDocument {
         version: metadata.version,
         generator: metadata.generator,
@@ -419,6 +547,50 @@ pub fn board_plot_document_with_sidecars(
         paper: metadata.paper,
         records,
     })
+}
+
+fn board_pcb_limits(limits: BoardPlotLimits) -> PcbLimits {
+    PcbLimits {
+        max_source_bytes: limits.max_source_bytes,
+        max_depth: limits.max_depth,
+        max_graphics: limits.max_graphics,
+        max_graphic_points: limits.max_input_points,
+        // The request-level record budget bounds every promoted family.
+        max_segments: limits.max_graphics,
+        max_vias: limits.max_graphics,
+        max_arcs: limits.max_graphics,
+        max_zones: limits.max_graphics,
+        max_zone_polygons: limits.max_input_polygons,
+        max_zone_points: limits.max_input_points,
+        max_object_children: limits.max_parse_nodes,
+        ..PcbLimits::default()
+    }
+}
+
+fn decoded_graphics(
+    view: &PcbView<'_>,
+    limits: BoardPlotLimits,
+) -> Result<(Vec<PcbGraphic>, usize), Error> {
+    let mut graphics = Vec::new();
+    let mut point_count = 0usize;
+    for graphic in view.graphics() {
+        let graphic = graphic.map_err(normalize_input_limit_error)?;
+        point_count = point_count
+            .checked_add(graphic.points.len())
+            .filter(|count| *count <= limits.max_input_points)
+            .ok_or_else(input_point_limit_error)?;
+        graphics.push(graphic);
+    }
+    Ok((graphics, point_count))
+}
+
+fn board_selection() -> PcbSelection {
+    PcbSelection::only(PcbFamily::Graphics)
+        .with(PcbFamily::Properties)
+        .with(PcbFamily::Segments)
+        .with(PcbFamily::Arcs)
+        .with(PcbFamily::Vias)
+        .with(PcbFamily::Zones)
 }
 
 /// Python `_net_extras`: `net_id` follows the resolved ordinal and
@@ -470,6 +642,54 @@ fn point_limit_error() -> Error {
         ErrorPhase::Tree,
         ErrorKind::ResourceLimit,
         "Board plotter geometry exceeds max_points",
+        Position::START,
+    )
+}
+
+fn input_point_limit_error() -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        "Board plotter decoded points exceed max_input_points",
+        Position::START,
+    )
+}
+
+fn input_polygon_limit_error() -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        "Board plotter decoded polygons exceed max_input_polygons",
+        Position::START,
+    )
+}
+
+fn normalize_input_limit_error(error: Error) -> Error {
+    if error.message.contains("max_zone_polygons") {
+        input_polygon_limit_error()
+    } else if error.message.contains("max_zone_points")
+        || error.message.contains("max_graphic_points")
+    {
+        input_point_limit_error()
+    } else {
+        error
+    }
+}
+
+fn text_limit_error() -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        "Board plotter retained text exceeds max_text_bytes",
+        Position::START,
+    )
+}
+
+fn net_class_limit_error() -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        "Board plotter retained net-class strings exceed max_net_class_bytes",
         Position::START,
     )
 }

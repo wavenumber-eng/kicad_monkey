@@ -216,7 +216,19 @@ pub(super) fn points_from_span(
     span: &FormSpan,
     limits: PcbLimits,
 ) -> Result<Vec<PcbPoint>, Error> {
-    direct_children(source, span, limits.max_graphic_points, limits)?
+    direct_children(source, span, limits.max_graphic_points, limits)
+        .map_err(|error| {
+            if error.kind == ErrorKind::ResourceLimit {
+                Error::at(
+                    ErrorPhase::Tree,
+                    ErrorKind::ResourceLimit,
+                    "PCB graphic points exceed max_graphic_points",
+                    error.position.unwrap_or(Position::START),
+                )
+            } else {
+                error
+            }
+        })?
         .into_iter()
         .filter(|point| point.head.as_deref() == Some("xy"))
         .map(|point| {

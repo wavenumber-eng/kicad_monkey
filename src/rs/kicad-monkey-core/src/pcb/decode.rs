@@ -280,6 +280,13 @@ pub(super) fn graphic_from_span(
     } else {
         (None, None)
     };
+    let border = if has_flag(&header, "border") {
+        Some(true)
+    } else if let Some(field) = child(&children, "border") {
+        Some(first_string(source, field)?.is_none_or(|value| value == "yes"))
+    } else {
+        None
+    };
     Ok(PcbGraphic {
         kind,
         text: matches!(kind, PcbGraphicKind::Text | PcbGraphicKind::TextBox)
@@ -295,6 +302,7 @@ pub(super) fn graphic_from_span(
         stroke_width,
         stroke_kind,
         fill: optional_child_string(source, &children, "fill")?,
+        border,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),
     })

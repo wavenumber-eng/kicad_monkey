@@ -94,7 +94,14 @@ def test_shared_board_vectors_match_python_generated_types_and_both_schemas() ->
             project_raw["text_variables"] = variables
         if project_raw:
             pcb.project = KiCadProject.from_json_dict(project_raw)
-        with _without_shapely():
+        oracle_mode = vector.get("oracle_mode")
+        assert oracle_mode in (None, "without_shapely")
+        oracle = (
+            _without_shapely()
+            if oracle_mode == "without_shapely"
+            else contextlib.nullcontext()
+        )
+        with oracle:
             actual = pcb_to_ir(
                 pcb,
                 source_path=vector["source_path"],
@@ -254,6 +261,8 @@ def test_shared_board_vectors_match_python_generated_types_and_both_schemas() ->
 
 
 def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:
+    _run([sys.executable, "scripts/generate_board_plotter_vectors.py", "--check"])
+    _run([sys.executable, "scripts/generate_stroke_font_widths.py", "--check"])
     cargo = shutil.which("cargo")
     assert cargo is not None, "cargo is required for the Rust plotter-IR gate"
     _run(
@@ -265,6 +274,17 @@ def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:
             "kicad-monkey-core",
             "--test",
             "board_plotter_slice",
+        ]
+    )
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "board_plotter_resource_limits",
         ]
     )
     _run([cargo, "test", "--locked", "--package", "kicad-monkey-wasm"])
@@ -280,11 +300,26 @@ def test_board_plot_request_requires_explicit_graphic_and_point_budgets() -> Non
         "max_graphics": 1000,
         "max_operations": 1000,
         "max_points": 10000,
+        "max_text_bytes": "65536",
+        "max_parse_nodes": 10000,
+        "max_input_points": 10000,
+        "max_input_polygons": 1000,
+        "max_cache_polygons": 1000,
+        "max_cache_contours": 10000,
     }
     decoded = decode_board_plot_request_a0(json.dumps(request).encode())
     assert decoded.max_graphics == 1000
     assert decoded.max_points == 10000
-    for budget in ("max_graphics", "max_points"):
+    for budget in (
+        "max_graphics",
+        "max_points",
+        "max_text_bytes",
+        "max_parse_nodes",
+        "max_input_points",
+        "max_input_polygons",
+        "max_cache_polygons",
+        "max_cache_contours",
+    ):
         trimmed = dict(request)
         del trimmed[budget]
         with pytest.raises(msgspec.ValidationError):

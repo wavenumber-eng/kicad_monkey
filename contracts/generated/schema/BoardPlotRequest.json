@@ -43,6 +43,34 @@
             "minimum": 0,
             "maximum": 4294967295
         },
+        "max_text_bytes": {
+            "type": "string"
+        },
+        "max_parse_nodes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_input_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_input_polygons": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_cache_polygons": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_cache_contours": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
         "net_class_assignments": {
             "type": "array",
             "items": {
@@ -64,7 +92,13 @@
         "max_depth",
         "max_graphics",
         "max_operations",
-        "max_points"
+        "max_points",
+        "max_text_bytes",
+        "max_parse_nodes",
+        "max_input_points",
+        "max_input_polygons",
+        "max_cache_polygons",
+        "max_cache_contours"
     ],
     "unevaluatedProperties": {
         "not": {}

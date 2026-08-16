@@ -10,39 +10,21 @@ use crate::{ValidationError, validation_error};
 
 /// Enforce record counts and record-kind-specific operation states for boards.
 pub fn validate_board_plot_document(document: &BoardPlotDocumentA0) -> Result<(), ValidationError> {
+    if document.schema != "kicad.plotter_ir.a0"
+        || document.source_kind != "PCB"
+        || document.coordinate_space.unit != "nm"
+        || document.coordinate_space.y_axis != "down"
+    {
+        return Err(validation_error(
+            "unsupported_contract",
+            "$",
+            "board plot document identity and coordinate space must match a0",
+        ));
+    }
     let mut total_operations = 0usize;
     for (record_index, record) in document.records.iter().enumerate() {
-        let (declared, operations) = match record {
-            BoardPlotRecord::BoardGraphicPlotRecord(record) => {
-                validate_board_graphic_operations(&record.operations, record_index)?;
-                (record.operation_count, &record.operations)
-            }
-            BoardPlotRecord::TrackSegmentPlotRecord(record) => {
-                validate_track_segment_operations(&record.operations, record_index)?;
-                (record.operation_count, &record.operations)
-            }
-            BoardPlotRecord::TrackArcPlotRecord(record) => {
-                validate_track_arc_operations(&record.operations, record_index)?;
-                (record.operation_count, &record.operations)
-            }
-            BoardPlotRecord::ViaPlotRecord(record) => {
-                validate_via_operations(&record.operations, record_index)?;
-                (record.operation_count, &record.operations)
-            }
-            BoardPlotRecord::ZoneFillPlotRecord(record) => {
-                validate_zone_fill_operations(record, record_index)?;
-                (record.operation_count, &record.operations)
-            }
-            BoardPlotRecord::BoardTextPlotRecord(record) => {
-                validate_board_text_operations(record, record_index)?;
-                (record.operation_count, &record.operations)
-            }
-            BoardPlotRecord::BoardTextBoxPlotRecord(record) => {
-                validate_board_text_box_operations(record, record_index)?;
-                (record.operation_count, &record.operations)
-            }
-        };
-        if declared as usize != operations.len() {
+        let (declared, operations) = validate_board_record(record, record_index)?;
+        if declared != operations.len() {
             return Err(validation_error(
                 "operation_count_mismatch",
                 format!("$.records[{record_index}].operation_count"),
@@ -59,6 +41,43 @@ pub fn validate_board_plot_document(document: &BoardPlotDocumentA0) -> Result<()
         ));
     }
     Ok(())
+}
+
+fn validate_board_record(
+    record: &BoardPlotRecord,
+    record_index: usize,
+) -> Result<(usize, &[BoardOperation]), ValidationError> {
+    let (declared, operations) = match record {
+        BoardPlotRecord::BoardGraphicPlotRecord(value) => {
+            validate_board_graphic_operations(&value.operations, record_index)?;
+            (value.operation_count, &value.operations)
+        }
+        BoardPlotRecord::TrackSegmentPlotRecord(value) => {
+            validate_track_segment_operations(&value.operations, record_index)?;
+            (value.operation_count, &value.operations)
+        }
+        BoardPlotRecord::TrackArcPlotRecord(value) => {
+            validate_track_arc_operations(&value.operations, record_index)?;
+            (value.operation_count, &value.operations)
+        }
+        BoardPlotRecord::ViaPlotRecord(value) => {
+            validate_via_operations(&value.operations, record_index)?;
+            (value.operation_count, &value.operations)
+        }
+        BoardPlotRecord::ZoneFillPlotRecord(value) => {
+            validate_zone_fill_operations(value, record_index)?;
+            (value.operation_count, &value.operations)
+        }
+        BoardPlotRecord::BoardTextPlotRecord(value) => {
+            validate_board_text_operations(value, record_index)?;
+            (value.operation_count, &value.operations)
+        }
+        BoardPlotRecord::BoardTextBoxPlotRecord(value) => {
+            validate_board_text_box_operations(value, record_index)?;
+            (value.operation_count, &value.operations)
+        }
+    };
+    Ok((declared as usize, operations))
 }
 
 fn validate_board_graphic_operations(
@@ -138,6 +157,13 @@ fn validate_board_text_operations(
     record: &BoardTextPlotRecord,
     record_index: usize,
 ) -> Result<(), ValidationError> {
+    if record.kind != "gr_text" || record.object_id != "gr_text" {
+        return Err(validation_error(
+            "invalid_board_operation",
+            format!("$.records[{record_index}]"),
+            "board text record identity must be gr_text",
+        ));
+    }
     // The established serializer never suppresses board gr_text via hide.
     if record.hide {
         return Err(validation_error(
@@ -148,7 +174,7 @@ fn validate_board_text_operations(
     }
     match record.operations.as_slice() {
         // Empty resolved text emits a zero-operation record.
-        [] => Ok(()),
+        [] if record.text.is_empty() => Ok(()),
         [BoardOperation::TextOperation(value)] => {
             let path = format!("$.records[{record_index}].operations[0]");
             validate_text_payload(value, &path)?;
@@ -177,10 +203,30 @@ fn validate_board_text_box_operations(
     record: &BoardTextBoxPlotRecord,
     record_index: usize,
 ) -> Result<(), ValidationError> {
+    if record.kind != "gr_text_box" || record.object_id != "gr_text_box" {
+        return Err(validation_error(
+            "invalid_board_operation",
+            format!("$.records[{record_index}]"),
+            "board text-box record identity must be gr_text_box",
+        ));
+    }
     let (rect, text) = text_box_operation_parts(record, record_index)?;
     validate_text_box_border(record, record_index, rect)?;
     if let Some(value) = text {
         validate_text_box_text(value, record_index, rect.is_some())?;
+        if record.text != value.text {
+            return Err(validation_error(
+                "invalid_board_operation",
+                format!("$.records[{record_index}].text"),
+                "gr_text_box record text must match its text operation",
+            ));
+        }
+    } else if !record.text.is_empty() {
+        return Err(validation_error(
+            "invalid_board_operation",
+            format!("$.records[{record_index}].text"),
+            "gr_text_box records without text operations carry empty text",
+        ));
     }
     Ok(())
 }
@@ -260,6 +306,13 @@ fn text_box_rect_is_square(rect: &RectOperation) -> bool {
 
 /// Marker-key and render-cache states shared by both board text records.
 fn validate_text_payload(value: &TextOperation, path: &str) -> Result<(), ValidationError> {
+    if value.kind != "Text" {
+        return Err(validation_error(
+            "invalid_board_operation",
+            path.to_owned(),
+            "board text operation kind must be Text",
+        ));
+    }
     validate_text_markers(value, path)?;
     validate_text_cache(value, path)
 }
@@ -292,6 +345,21 @@ fn validate_text_markers(value: &TextOperation, path: &str) -> Result<(), Valida
 }
 
 fn validate_text_cache(value: &TextOperation, path: &str) -> Result<(), ValidationError> {
+    validate_text_cache_keys(value, path)?;
+    if let Some(cache) = &value.render_cache {
+        validate_text_cache_payload(value, cache, path)?;
+    }
+    if value.render_cache.is_none() && value.knockout.is_some() {
+        return Err(validation_error(
+            "invalid_board_operation",
+            path.to_owned(),
+            "knockout text operations require a restructured render cache",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_text_cache_keys(value: &TextOperation, path: &str) -> Result<(), ValidationError> {
     let has_cache = value.render_cache.is_some();
     let coherent = has_cache == value.render_cache_source.is_some()
         && has_cache == value.render_cache_exact.is_some()
@@ -303,24 +371,71 @@ fn validate_text_cache(value: &TextOperation, path: &str) -> Result<(), Validati
             "render-cache keys must appear together",
         ));
     }
-    if let Some(cache) = &value.render_cache
-        && (value.render_cache_exact != Some(cache.exact)
-            || (value.knockout.is_some() && cache.knockout != Some(true)))
-    {
+    Ok(())
+}
+
+fn validate_text_cache_payload(
+    value: &TextOperation,
+    cache: &crate::generated::board_plot_document::TextRenderCache,
+    path: &str,
+) -> Result<(), ValidationError> {
+    if !cache_identities_match(value, cache) || !cache_payload_matches(value, cache) {
         return Err(validation_error(
             "invalid_board_operation",
             path.to_owned(),
-            "render-cache payload must agree with the operation markers",
-        ));
-    }
-    if value.render_cache.is_none() && value.knockout.is_some() {
-        return Err(validation_error(
-            "invalid_board_operation",
-            path.to_owned(),
-            "knockout text operations require a restructured render cache",
+            "render-cache payload must agree with text, angle, markers, polygons, and identities",
         ));
     }
     Ok(())
+}
+
+fn cache_identities_match(
+    value: &TextOperation,
+    cache: &crate::generated::board_plot_document::TextRenderCache,
+) -> bool {
+    cache.schema == "kicad.render_cache.v1"
+        && cache.unit == "nm"
+        && cache.coordinate_space == "board"
+        && cache.source == "existing_file_cache"
+        && value.render_cache_source.as_deref() == Some("existing_file_cache")
+}
+
+fn cache_payload_matches(
+    value: &TextOperation,
+    cache: &crate::generated::board_plot_document::TextRenderCache,
+) -> bool {
+    let knockout = value.knockout == cache.knockout && !matches!(cache.knockout, Some(false));
+    value.render_cache_exact == Some(cache.exact)
+        && cache.text == value.text
+        && cache.angle == value.orient_deg
+        && knockout
+        && cache_polygons_match(value, cache)
+}
+
+fn cache_polygons_match(
+    value: &TextOperation,
+    cache: &crate::generated::board_plot_document::TextRenderCache,
+) -> bool {
+    cache.polygons.len() == value.render_cache_polygons.len()
+        && cache
+            .polygons
+            .iter()
+            .zip(&value.render_cache_polygons)
+            .all(|(polygon, exterior)| {
+                !polygon.contours.is_empty()
+                    && polygon.contours.iter().all(|contour| contour.len() >= 3)
+                    && points_equal(&polygon.contours[0], exterior)
+            })
+}
+
+fn points_equal(
+    left: &[crate::generated::board_plot_document::PlotterPoint],
+    right: &[crate::generated::board_plot_document::PlotterPoint],
+) -> bool {
+    left.len() == right.len()
+        && left.iter().zip(right).all(|(left, right)| {
+            left.0[0].get() == right.0[0].get() && left.0[1].get() == right.0[1].get()
+        })
 }
 
 fn validate_via_operations(

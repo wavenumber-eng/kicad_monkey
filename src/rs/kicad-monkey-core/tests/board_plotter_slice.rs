@@ -908,13 +908,13 @@ fn board_text_render_cache_points_observe_the_aggregate_limit() {
           (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1))))))"#;
 
     let exact = BoardPlotLimits {
-        max_points: 6,
+        max_points: 9,
         ..BoardPlotLimits::default()
     };
     board_plot_document(source, exact).expect("the exact aggregate point limit is inclusive");
 
     let limited = BoardPlotLimits {
-        max_points: 5,
+        max_points: 8,
         ..BoardPlotLimits::default()
     };
     let error = board_plot_document(source, limited)
@@ -932,4 +932,63 @@ fn board_text_render_cache_points_observe_the_aggregate_limit() {
             .kind,
         ErrorKind::ResourceLimit
     );
+}
+
+#[test]
+fn board_text_expansion_and_cache_structure_observe_independent_limits() {
+    let expanded = r#"(kicad_pcb
+      (property "A" "1234567890")
+      (gr_text "${A}${A}" (at 0 0)))"#;
+    board_plot_document(
+        expanded,
+        BoardPlotLimits {
+            max_text_bytes: 40,
+            ..BoardPlotLimits::default()
+        },
+    )
+    .expect("exact resolved text budget is inclusive");
+    let error = board_plot_document(
+        expanded,
+        BoardPlotLimits {
+            max_text_bytes: 39,
+            ..BoardPlotLimits::default()
+        },
+    )
+    .expect_err("substitution must stop before retaining oversized text");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+    assert!(error.message.contains("max_text_bytes"));
+
+    let cache = r#"(kicad_pcb
+      (gr_text "cached" (at 0 0)
+        (render_cache "cached" 0 (polygon (pts)))))"#;
+    for limits in [
+        BoardPlotLimits {
+            max_cache_polygons: 0,
+            ..BoardPlotLimits::default()
+        },
+        BoardPlotLimits {
+            max_cache_contours: 0,
+            ..BoardPlotLimits::default()
+        },
+        BoardPlotLimits {
+            max_parse_nodes: 1,
+            ..BoardPlotLimits::default()
+        },
+    ] {
+        assert_eq!(
+            board_plot_document(cache, limits)
+                .expect_err("independent cache/tree limit")
+                .kind,
+            ErrorKind::ResourceLimit
+        );
+    }
+
+    let operation_first = BoardPlotLimits {
+        max_operations: 0,
+        max_cache_polygons: 0,
+        ..BoardPlotLimits::default()
+    };
+    let error = board_plot_document(cache, operation_first)
+        .expect_err("operation budget is preflighted before cache construction");
+    assert!(error.message.contains("operation"));
 }

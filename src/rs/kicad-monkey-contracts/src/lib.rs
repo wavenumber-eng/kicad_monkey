@@ -427,6 +427,11 @@ fn validate_footprint_operation(
     path: String,
 ) -> Result<(), ValidationError> {
     match operation {
+        PlotterOperation::TextOperation(_) => Err(validation_error(
+            "invalid_footprint_operation",
+            path,
+            "footprint plot documents do not yet support shared Text operations",
+        )),
         PlotterOperation::ThickSegmentOperation(operation) => {
             validate_shared_segment(operation, path)
         }

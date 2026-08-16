@@ -932,6 +932,12 @@ class BoardPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     max_graphics: Annotated[int, Meta(ge=0, le=4294967295)]
     max_operations: Annotated[int, Meta(ge=0, le=4294967295)]
     max_points: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_text_bytes: str
+    max_parse_nodes: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_input_points: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_input_polygons: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_cache_polygons: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_cache_contours: Annotated[int, Meta(ge=0, le=4294967295)]
     source_path: str | UnsetType = field(default=UNSET)
     document_id: str | UnsetType = field(default=UNSET)
     net_class_assignments: list[BoardNetClassAssignment] | UnsetType = field(default=UNSET)

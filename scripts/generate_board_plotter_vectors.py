@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import json
 import sys
 from pathlib import Path
@@ -59,7 +59,11 @@ def expected_for(vector: dict[str, Any]) -> dict[str, Any]:
         project_raw["text_variables"] = vector["text_variables"]
     if project_raw:
         pcb.project = KiCadProject.from_json_dict(project_raw)
-    with without_shapely():
+    oracle_mode = vector.get("oracle_mode")
+    if oracle_mode not in (None, "without_shapely"):
+        raise ValueError(f"unknown oracle mode: {oracle_mode}")
+    oracle = without_shapely() if oracle_mode == "without_shapely" else nullcontext()
+    with oracle:
         document = pcb_to_ir(
             pcb,
             source_path=vector["source_path"],
@@ -87,6 +91,7 @@ TEXT_SOURCE = (
   (gr_text "cached" (at 7 8) (render_cache "stale" 0 (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1)))) (uuid "text-cache-stale"))
   (gr_text "KO" (at 1 1) (layer "F.SilkS" knockout) (effects (font (size 1.8 1.8) (thickness 0.2))) (render_cache "KO" 0 (polygon (pts (xy 0.5 0.5) (xy 1.5 0.5) (xy 1.5 1.2)) (pts (xy 0.7 0.7) (xy 1.2 0.7) (xy 1.2 1)))) (uuid "text-knockout"))
   (gr_text "faced" (at 2 3) (effects (font (face "Arial") (size 1.27 1.27))) (render_cache "faced" 0 (polygon (pts (xy 2 3) (xy 3 3) (xy 3 4)))) (uuid "text-face-cache"))
+  (gr_text "colored" (at 0 0) (effects (font (color 10 20 30 0.3))) (uuid "text-color-ignored"))
 )"""
 )
 
@@ -102,6 +107,16 @@ TEXT_BOX_SOURCE = (
   (gr_text_box "L1\nL2" (start 0 0) (end 5 3) (uuid "tb-multiline"))
   (gr_text_box "pts" (pts (xy 1 1) (xy 6 1) (xy 6 4) (xy 1 4)) (uuid "tb-pts"))
   (gr_text_box "KOB" (start 0 0) (end 4 2) (knockout yes) (effects (font (size 1 1) (thickness 0.2))) (render_cache "KOB" 0 (polygon (pts (xy 1 1) (xy 3 1) (xy 3 1.5)))) (uuid "tb-knockout-cache"))
+  (gr_text_box "A A" (start 0 0) (end 5.2 2) (effects (font (size 1 2.1))) (uuid "tb-wrap-exact"))
+  (gr_text_box "A A" (start 0 0) (end 5.19 2) (effects (font (size 1 2.1))) (uuid "tb-wrap-over"))
+  (gr_text_box "A A\nA A" (start 0 0) (end 5.19 3) (effects (font (size 1 2.1))) (uuid "tb-wrap-paragraphs"))
+  (gr_text_box "A A" (start 0 0) (end 6.19 2) (margins 0.5 0 0.5 0) (effects (font (size 1 2.1))) (uuid "tb-wrap-margins"))
+  (gr_text_box "A A" (start 0 0) (end 5.19 2) (angle 90) (effects (font (size 1 2.1))) (uuid "tb-wrap-angle"))
+  (gr_text_box "${WRAP}" (start 0 0) (end 5.19 2) (effects (font (size 1 2.1))) (uuid "tb-wrap-variable"))
+  (gr_text_box "A _{A A}" (start 0 0) (end 7 2) (effects (font (size 1 2.1))) (uuid "tb-wrap-markup"))
+  (gr_text_box "opaque" (start 0 0) (end 20 2) (effects (font (color 10 20 30 1))) (uuid "tb-color-opaque"))
+  (gr_text_box "fractional" (start 0 0) (end 20 2) (effects (font (color 40 50 60 0.3))) (uuid "tb-color-fractional"))
+  (gr_text_box "clear" (start 0 0) (end 20 2) (effects (font (color 70 80 90 0))) (uuid "tb-color-clear"))
 )"""
 )
 
@@ -118,6 +133,8 @@ NEW_VECTORS = [
         "source": TEXT_BOX_SOURCE,
         "source_path": "boards/text_boxes.kicad_pcb",
         "document_id": "board-text-boxes",
+        "text_variables": {"WRAP": "A A"},
+        "oracle_mode": "without_shapely",
     },
 ]
 

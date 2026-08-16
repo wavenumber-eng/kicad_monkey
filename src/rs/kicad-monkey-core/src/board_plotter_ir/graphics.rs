@@ -1,10 +1,10 @@
 //! Board gr_line/gr_arc/gr_circle/gr_rect/gr_poly/gr_curve record emission.
 
 use super::{
-    BoardGraphicRecord, BoardGraphicRecordKind, BoardPlotRecord, BudgetTracker, layerless_segment,
-    poly_point_total,
+    BoardGraphicRecord, BoardGraphicRecordKind, BoardPlotLimits, BoardPlotRecord, BudgetTracker,
+    layerless_segment, poly_point_total,
 };
-use crate::pcb::{PcbGraphic, PcbGraphicKind, PcbPoint, PcbView};
+use crate::pcb::{PcbGraphic, PcbGraphicKind, PcbPoint};
 use crate::plotter_ir::{
     StrokeStyle, child, decompose_arc, decompose_segment, mm_to_nm, model_error, numeric_at,
     value_at,
@@ -13,7 +13,7 @@ use crate::plotter_types::{
     ArcThreePoint, BezierCurve, PlotterCircle, PlotterFill, PlotterOperation, PlotterPoly,
     PlotterRect,
 };
-use crate::sexpr::{Error, Position, parse};
+use crate::sexpr::{Error, Limits, Position, parse_with_limits};
 
 /// Python `EDGE_CUTS_LAYER` default carried by gr_line/arc/circle/rect/poly.
 const DEFAULT_GRAPHIC_LAYER: &str = "Edge.Cuts";
@@ -22,12 +22,12 @@ const DEFAULT_CURVE_LAYER: &str = "F.SilkS";
 
 pub(super) fn graphic_records(
     source: &str,
-    view: &PcbView<'_>,
+    graphics: &[PcbGraphic],
     budget: &mut BudgetTracker,
+    limits: BoardPlotLimits,
 ) -> Result<Vec<BoardPlotRecord>, Error> {
-    let mut buckets: [Vec<PcbGraphic>; 6] = Default::default();
-    for graphic in view.graphics() {
-        let graphic = graphic?;
+    let mut buckets: [Vec<&PcbGraphic>; 6] = Default::default();
+    for graphic in graphics {
         // Text carriers are produced by the later board-text slice.
         if let Some(slot) = category_slot(graphic.kind) {
             buckets[slot].push(graphic);
@@ -46,10 +46,13 @@ pub(super) fn graphic_records(
     for (kind, bucket) in kinds.into_iter().zip(buckets) {
         for graphic in bucket {
             let remaining = budget.remaining_operations()?;
-            let operations = graphic_operations(source, kind, &graphic, remaining)?;
+            if kind == BoardGraphicRecordKind::GrPoly {
+                budget.ensure_capacity(1, graphic.points.len())?;
+            }
+            let operations = graphic_operations(source, kind, graphic, remaining, limits)?;
             budget.charge(operations.len(), poly_point_total(&operations))?;
             records.push(BoardPlotRecord::Graphic(graphic_record(
-                kind, &graphic, operations,
+                kind, graphic, operations,
             )));
         }
     }
@@ -75,14 +78,15 @@ fn graphic_operations(
     kind: BoardGraphicRecordKind,
     graphic: &PcbGraphic,
     remaining: usize,
+    limits: BoardPlotLimits,
 ) -> Result<Vec<PlotterOperation>, Error> {
     match kind {
-        BoardGraphicRecordKind::GrLine => line_operations(source, graphic, remaining),
-        BoardGraphicRecordKind::GrArc => arc_operations(source, graphic, remaining),
-        BoardGraphicRecordKind::GrCircle => Ok(vec![circle_operation(source, graphic)?]),
-        BoardGraphicRecordKind::GrRect => Ok(vec![rect_operation(source, graphic)?]),
-        BoardGraphicRecordKind::GrPoly => Ok(vec![poly_operation(source, graphic)?]),
-        BoardGraphicRecordKind::GrCurve => curve_operations(source, graphic),
+        BoardGraphicRecordKind::GrLine => line_operations(source, graphic, remaining, limits),
+        BoardGraphicRecordKind::GrArc => arc_operations(source, graphic, remaining, limits),
+        BoardGraphicRecordKind::GrCircle => Ok(vec![circle_operation(source, graphic, limits)?]),
+        BoardGraphicRecordKind::GrRect => Ok(vec![rect_operation(source, graphic, limits)?]),
+        BoardGraphicRecordKind::GrPoly => Ok(vec![poly_operation(source, graphic, limits)?]),
+        BoardGraphicRecordKind::GrCurve => curve_operations(source, graphic, limits),
     }
 }
 
@@ -116,11 +120,23 @@ struct BoardStroke {
 /// Resolve the Python `Stroke` semantics: a `stroke` form wins entirely;
 /// without one, the legacy top-level `(width ...)` scalar applies with the
 /// default style. PCB widths are unclamped, and non-positive widths plot as 0.
-fn resolve_stroke(source: &str, graphic: &PcbGraphic) -> Result<BoardStroke, Error> {
+fn resolve_stroke(
+    source: &str,
+    graphic: &PcbGraphic,
+    limits: BoardPlotLimits,
+) -> Result<BoardStroke, Error> {
     let text = source
         .get(graphic.source_range.clone())
         .ok_or_else(|| model_error("Board graphic span is out of range", Position::START))?;
-    let form = parse(text)?;
+    let form = parse_with_limits(
+        text,
+        Limits {
+            max_source_bytes: text.len(),
+            max_depth: limits.max_depth,
+            max_nodes: limits.max_parse_nodes,
+            max_decoded_string_bytes: limits.max_source_bytes,
+        },
+    )?;
     let (width_mm, style_name) = if let Some(stroke) = child(&form, "stroke") {
         let width = match child(stroke, "width") {
             Some(value) => numeric_at(value, 1, Position::START)?,
@@ -179,8 +195,9 @@ fn line_operations(
     source: &str,
     graphic: &PcbGraphic,
     max_operations: usize,
+    limits: BoardPlotLimits,
 ) -> Result<Vec<PlotterOperation>, Error> {
-    let stroke = resolve_stroke(source, graphic)?;
+    let stroke = resolve_stroke(source, graphic, limits)?;
     let start = point_nm(graphic.start)?;
     let end = point_nm(graphic.end)?;
     if matches!(stroke.style, StrokeStyle::Default | StrokeStyle::Solid) {
@@ -210,8 +227,9 @@ fn arc_operations(
     source: &str,
     graphic: &PcbGraphic,
     max_operations: usize,
+    limits: BoardPlotLimits,
 ) -> Result<Vec<PlotterOperation>, Error> {
-    let stroke = resolve_stroke(source, graphic)?;
+    let stroke = resolve_stroke(source, graphic, limits)?;
     let start = point_nm(graphic.start)?;
     let mid = point_nm(graphic.mid)?;
     let end = point_nm(graphic.end)?;
@@ -251,8 +269,12 @@ fn arc_operations(
         .collect())
 }
 
-fn circle_operation(source: &str, graphic: &PcbGraphic) -> Result<PlotterOperation, Error> {
-    let stroke = resolve_stroke(source, graphic)?;
+fn circle_operation(
+    source: &str,
+    graphic: &PcbGraphic,
+    limits: BoardPlotLimits,
+) -> Result<PlotterOperation, Error> {
+    let stroke = resolve_stroke(source, graphic, limits)?;
     let center = graphic.center.unwrap_or(PcbPoint { x: 0.0, y: 0.0 });
     let end = graphic.end.unwrap_or(PcbPoint { x: 0.0, y: 0.0 });
     Ok(PlotterOperation::Circle(PlotterCircle {
@@ -273,8 +295,12 @@ fn circle_operation(source: &str, graphic: &PcbGraphic) -> Result<PlotterOperati
     }))
 }
 
-fn rect_operation(source: &str, graphic: &PcbGraphic) -> Result<PlotterOperation, Error> {
-    let stroke = resolve_stroke(source, graphic)?;
+fn rect_operation(
+    source: &str,
+    graphic: &PcbGraphic,
+    limits: BoardPlotLimits,
+) -> Result<PlotterOperation, Error> {
+    let stroke = resolve_stroke(source, graphic, limits)?;
     let start = point_nm(graphic.start)?;
     let end = point_nm(graphic.end)?;
     Ok(PlotterOperation::Rect(PlotterRect {
@@ -292,8 +318,12 @@ fn rect_operation(source: &str, graphic: &PcbGraphic) -> Result<PlotterOperation
     }))
 }
 
-fn poly_operation(source: &str, graphic: &PcbGraphic) -> Result<PlotterOperation, Error> {
-    let stroke = resolve_stroke(source, graphic)?;
+fn poly_operation(
+    source: &str,
+    graphic: &PcbGraphic,
+    limits: BoardPlotLimits,
+) -> Result<PlotterOperation, Error> {
+    let stroke = resolve_stroke(source, graphic, limits)?;
     let points = graphic
         .points
         .iter()
@@ -310,10 +340,14 @@ fn poly_operation(source: &str, graphic: &PcbGraphic) -> Result<PlotterOperation
     }))
 }
 
-fn curve_operations(source: &str, graphic: &PcbGraphic) -> Result<Vec<PlotterOperation>, Error> {
+fn curve_operations(
+    source: &str,
+    graphic: &PcbGraphic,
+    limits: BoardPlotLimits,
+) -> Result<Vec<PlotterOperation>, Error> {
     // The stroke is validated before the point-count check because the Python
     // parser rejects unknown stroke types even on malformed curves.
-    let stroke = resolve_stroke(source, graphic)?;
+    let stroke = resolve_stroke(source, graphic, limits)?;
     // Python tolerates malformed curves: fewer than four control points
     // produce an empty-operation record.
     if graphic.points.len() < 4 {

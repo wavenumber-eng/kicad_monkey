@@ -3,7 +3,7 @@
 use super::{
     BoardNetClassAssignments, BoardSegmentRecord, BoardTrackArcRecord, BoardViaFabrication,
     BoardViaOperation, BoardViaOperationKind, BoardViaRecord, BoardViaType, BoardZoneRecord,
-    layerless_segment, net_parts,
+    BudgetTracker, layerless_segment, net_parts,
 };
 use crate::pcb::{PcbRoutingArc, PcbSegment, PcbVia, PcbZone};
 use crate::plotter_ir::mm_to_nm;
@@ -13,8 +13,10 @@ use crate::sexpr::Error;
 pub(super) fn segment_record(
     segment: PcbSegment,
     net_classes: &BoardNetClassAssignments,
+    budget: &mut BudgetTracker,
 ) -> Result<BoardSegmentRecord, Error> {
     let (net_id, net_name) = net_parts(&segment.net);
+    let extras = net_classes.extras_for_bounded(net_name.as_deref(), budget)?;
     // Track widths are emitted verbatim (negative values included), unlike
     // the non-positive -> 0 normalization applied to graphic strokes.
     let width_nm = mm_to_nm(segment.width.unwrap_or(0.0))?;
@@ -27,7 +29,7 @@ pub(super) fn segment_record(
         uuid: segment.uuid.unwrap_or_default(),
         layer: segment.layer.unwrap_or_default(),
         locked: segment.locked,
-        net_classes: net_classes.extras_for(net_name.as_deref()),
+        net_classes: extras,
         net_id,
         net_name,
         operations: vec![operation],
@@ -37,8 +39,10 @@ pub(super) fn segment_record(
 pub(super) fn track_arc_record(
     arc: PcbRoutingArc,
     net_classes: &BoardNetClassAssignments,
+    budget: &mut BudgetTracker,
 ) -> Result<BoardTrackArcRecord, Error> {
     let (net_id, net_name) = net_parts(&arc.net);
+    let extras = net_classes.extras_for_bounded(net_name.as_deref(), budget)?;
     // The Python serializer plots routing arcs from the file-order end point
     // back to the start point.
     let operation = PlotterOperation::ArcThreePoint(ArcThreePoint {
@@ -58,7 +62,7 @@ pub(super) fn track_arc_record(
     Ok(BoardTrackArcRecord {
         uuid: arc.uuid.unwrap_or_default(),
         layer: arc.layer.unwrap_or_default(),
-        net_classes: net_classes.extras_for(net_name.as_deref()),
+        net_classes: extras,
         net_id,
         net_name,
         operations: vec![operation],
@@ -84,12 +88,18 @@ fn exposed_mask_layers(via: &PcbVia) -> Vec<&'static str> {
         .collect()
 }
 
+pub(super) fn via_operation_count(via: &PcbVia) -> usize {
+    2 + 2 * exposed_mask_layers(via).len()
+}
+
 pub(super) fn via_record(
     via: PcbVia,
     mask_clearance: f64,
     net_classes: &BoardNetClassAssignments,
+    budget: &mut BudgetTracker,
 ) -> Result<BoardViaRecord, Error> {
     let (net_id, net_name) = net_parts(&via.net);
+    let extras = net_classes.extras_for_bounded(net_name.as_deref(), budget)?;
     let x = mm_to_nm(via.at_x)?;
     let y = mm_to_nm(via.at_y)?;
     let size_nm = mm_to_nm(via.size)?;
@@ -155,7 +165,7 @@ pub(super) fn via_record(
             capping: via.capping,
             filling: via.filling,
         },
-        net_classes: net_classes.extras_for(net_name.as_deref()),
+        net_classes: extras,
         net_id,
         net_name,
         operations,
@@ -165,8 +175,10 @@ pub(super) fn via_record(
 pub(super) fn zone_record(
     zone: PcbZone,
     net_classes: &BoardNetClassAssignments,
+    budget: &mut BudgetTracker,
 ) -> Result<BoardZoneRecord, Error> {
     let (net_id, net_name) = net_parts(&zone.net);
+    let extras = net_classes.extras_for_bounded(net_name.as_deref(), budget)?;
     let mut operations = Vec::with_capacity(zone.filled_polygons.len());
     let mut fill_layers = Vec::with_capacity(zone.filled_polygons.len());
     let mut fill_island = Vec::with_capacity(zone.filled_polygons.len());
@@ -195,7 +207,7 @@ pub(super) fn zone_record(
         layers: zone.layers.clone(),
         fill_layers,
         fill_island,
-        net_classes: net_classes.extras_for(net_name.as_deref()),
+        net_classes: extras,
         net_id,
         net_name,
         operations,
