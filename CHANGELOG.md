@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2026.8.16.1
+
+- Build one immutable board-net snapshot and one project netclass lookup per
+  complete PCB Plotter-IR conversion, eliminating repeated whole-table scans
+  while preserving exact record and pad metadata.
+- Add the public <code>NetTable</code> snapshot for caller-owned bulk net
+  resolution without hiding stale caches on mutable board models.
+
 ## 2026.8.16
 
 - Speed up S-expression lexing and ordinary tree construction while preserving

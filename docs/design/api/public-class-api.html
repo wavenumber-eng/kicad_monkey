@@ -434,6 +434,23 @@
   </section>
 
   <section
+    data-interface="NetTable"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_045_net_table.py"
+    data-test-target="test_net_table_is_an_immutable_explicit_snapshot"
+  >
+    <h2>NetTable</h2>
+    <h3>Rationale</h3>
+    <p>Whole-board consumers must resolve thousands of net references without rebuilding the board net maps for every element.</p>
+    <h3>Purpose</h3>
+    <p>Provide an immutable, caller-owned snapshot for constant-time name and ordinal lookup during one bulk operation.</p>
+    <h3>Test Requirements</h3>
+    <p>Tests must cover both lookup directions, unknown and empty nets, board-equivalent resolution, immutability, and explicit stale-snapshot behavior after board mutation.</p>
+    <h3>Working Definition</h3>
+    <p>The snapshot is public when bulk callers can reuse it deliberately while one-off board resolution remains behaviorally unchanged.</p>
+  </section>
+
+  <section
     data-interface="Layer"
     data-rack-stratum="L0_foundation"
     data-test-file="tests/L0_foundation/test_L0_038_public_api_contract.py"

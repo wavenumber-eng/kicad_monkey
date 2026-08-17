@@ -98,6 +98,7 @@ PUBLIC_API_EXPORTS: tuple[PublicApiExport, ...] = (
     PublicApiExport("GrText", PublicApiStratum.PCB),
     PublicApiExport("GrTextBox", PublicApiStratum.PCB),
     PublicApiExport("Net", PublicApiStratum.PCB),
+    PublicApiExport("NetTable", PublicApiStratum.PCB),
     PublicApiExport("Layer", PublicApiStratum.PCB),
     # Project and design-level aggregate facades.
     PublicApiExport("KiCadProject", PublicApiStratum.PROJECT, requires_marker=True),

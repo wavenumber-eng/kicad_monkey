@@ -13,7 +13,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 OLD_CRUNCHER_VERSION = "2026.8.11"
 NEW_CRUNCHER_VERSION = "2026.8.11.1"
 OLD_MONKEY_VERSION = "2026.8.11.1"
-NEW_MONKEY_VERSION = "2026.8.16"
+NEW_MONKEY_VERSION = "2026.8.16.1"
 
 
 def _latest_wheel(dist_dir: Path, prefix: str) -> Path:

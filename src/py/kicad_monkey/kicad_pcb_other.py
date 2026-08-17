@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
 if TYPE_CHECKING:
     from .kicad_footprint import KiCadFootprint
@@ -81,6 +82,43 @@ class Net:
 
 
 @dataclass(frozen=True)
+class NetTable:
+    """Immutable snapshot of a board net table for repeated lookup.
+
+    Board models are mutable, so callers choose the snapshot lifetime and
+    rebuild it after changing ``KiCadPcb.nets``. This keeps bulk resolution
+    linear without hiding a potentially stale cache on the board.
+    """
+
+    name_by_ordinal: Mapping[int, str]
+    ordinal_by_name: Mapping[str, int] = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Detach, normalize, and freeze both lookup directions."""
+        names = {
+            int(ordinal): str(name or '')
+            for ordinal, name in self.name_by_ordinal.items()
+        }
+        ordinals = {name: ordinal for ordinal, name in names.items() if name}
+        object.__setattr__(self, 'name_by_ordinal', MappingProxyType(names))
+        object.__setattr__(self, 'ordinal_by_name', MappingProxyType(ordinals))
+
+    @classmethod
+    def from_name_by_ordinal(cls, name_by_ordinal: Mapping[int, str]) -> 'NetTable':
+        return cls(name_by_ordinal)
+
+    def resolve(self, net_ref: Optional['NetRef']) -> 'NetRef':
+        """Resolve a reference through this snapshot."""
+        if net_ref is None:
+            return NetRef()
+        return net_ref.resolve_name(self.name_by_ordinal).resolve_ordinal(self.ordinal_by_name)
+
+    def name_of(self, net_ref: Optional['NetRef']) -> str:
+        """Return the resolved net name, or an empty string."""
+        return str(self.resolve(net_ref).name or '')
+
+
+@dataclass(frozen=True)
 class NetRef:
     """Reference to a net as carried on KiCad board elements."""
 
@@ -116,7 +154,7 @@ class NetRef:
     def with_name(self, name: str) -> 'NetRef':
         return NetRef(ordinal=self.ordinal, name=str(name or ""))
 
-    def resolve_ordinal(self, ordinal_by_name: Dict[str, int]) -> 'NetRef':
+    def resolve_ordinal(self, ordinal_by_name: Mapping[str, int]) -> 'NetRef':
         if self.ordinal is not None or not self.name:
             return self
         ordinal = ordinal_by_name.get(self.name)
@@ -124,7 +162,7 @@ class NetRef:
             return self
         return self.with_ordinal(int(ordinal))
 
-    def resolve_name(self, name_by_ordinal: Dict[int, str]) -> 'NetRef':
+    def resolve_name(self, name_by_ordinal: Mapping[int, str]) -> 'NetRef':
         if self.name or self.ordinal is None:
             return self
         name = name_by_ordinal.get(int(self.ordinal), "")
@@ -1679,6 +1717,7 @@ __all__ = [
     'Layer',
     'Net',
     'NetRef',
+    'NetTable',
     'OutlineCarrier',
     'BarcodeMargins',
     'Barcode',

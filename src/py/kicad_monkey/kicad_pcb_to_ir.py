@@ -43,8 +43,10 @@ net later.
 from __future__ import annotations
 
 import copy
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 import math
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, cast
 
 from .kicad_footprint_to_ir import (
@@ -103,6 +105,7 @@ if TYPE_CHECKING:
     from .kicad_pcb_gr_rect import GrRect
     from .kicad_pcb_gr_text import GrText
     from .kicad_pcb_graphics import GrTextBox
+    from .kicad_pcb_other import NetTable
     from .kicad_pcb_routing import Arc as TrackArc
     from .kicad_pcb_routing import Segment, Via
     from .kicad_pcb_zone import FilledPolygon, Zone
@@ -805,37 +808,59 @@ def _enum_text(value: object) -> str:
     return str(raw or "")
 
 
-def _net_classes_for_name(board: "KiCadPcb | None", net_name: str) -> list[str]:
-    if board is None or not net_name:
-        return []
-    return project_net_name_to_classes(board).get(net_name, [])
+def _net_classes_for_name(
+    net_name_to_classes: Mapping[str, Sequence[str]],
+    net_name: str,
+) -> Sequence[str]:
+    if not net_name:
+        return ()
+    return net_name_to_classes.get(net_name, ())
+
+
+def _net_class_snapshot(board: "KiCadPcb") -> Mapping[str, Sequence[str]]:
+    """Build one detached immutable project-netclass lookup."""
+    return MappingProxyType(
+        {
+            name: tuple(classes)
+            for name, classes in project_net_name_to_classes(board).items()
+        }
+    )
 
 
 def _with_net_class_extras(
     extras: dict[str, Any],
-    board: "KiCadPcb | None",
+    net_name_to_classes: Mapping[str, Sequence[str]],
 ) -> dict[str, Any]:
     out = dict(extras)
     net_name = str(out.get("net_name", "") or "")
-    classes = _net_classes_for_name(board, net_name)
+    classes = _net_classes_for_name(net_name_to_classes, net_name)
     if classes:
         out["net_class"] = classes[0]
-        out["net_classes"] = classes
+        out["net_classes"] = list(classes)
     return out
 
 
 def _records_with_net_class_extras(
     records: list[KiCadPlotterRecord],
-    board: "KiCadPcb",
+    net_name_to_classes: Mapping[str, Sequence[str]],
 ) -> list[KiCadPlotterRecord]:
     return [
-        replace(record, extras=_with_net_class_extras(record.extras or {}, board))
+        replace(
+            record,
+            extras=_with_net_class_extras(record.extras or {}, net_name_to_classes),
+        )
         for record in records
     ]
 
 
-def _pad_resolved_net(pad: Any, board: "KiCadPcb | None") -> Any:
+def _pad_resolved_net(
+    pad: Any,
+    board: "KiCadPcb | None",
+    net_table: "NetTable | None",
+) -> Any:
     net = getattr(pad, "net", None)
+    if net_table is not None:
+        return net_table.resolve(net)
     resolver = getattr(board, "resolve_net_ref", None)
     if callable(resolver):
         return resolver(net)
@@ -892,6 +917,8 @@ def _pad_block_extra_attrs(
     pad: Any,
     footprint: "Footprint",
     board: "KiCadPcb | None",
+    net_table: "NetTable | None",
+    net_name_to_classes: Mapping[str, Sequence[str]],
     *,
     primitive: str,
     pad_index: int,
@@ -912,7 +939,7 @@ def _pad_block_extra_attrs(
         "layer_names": ",".join(str(layer) for layer in getattr(pad, "layers", []) or []),
     }
 
-    net = _pad_resolved_net(pad, board)
+    net = _pad_resolved_net(pad, board, net_table)
     net_id = getattr(net, "ordinal", None)
     net_name = str(getattr(net, "name", "") or "")
     if net_id is not None:
@@ -920,7 +947,7 @@ def _pad_block_extra_attrs(
         attrs["net_id"] = net_id
     if net_name:
         attrs["net"] = net_name
-    classes = _net_classes_for_name(board, net_name)
+    classes = _net_classes_for_name(net_name_to_classes, net_name)
     if classes:
         attrs["net_class"] = classes[0]
         attrs["net_classes"] = ",".join(classes)
@@ -943,6 +970,8 @@ def _pad_block_ops(
     pad: Any,
     footprint: "Footprint",
     board: "KiCadPcb | None",
+    net_table: "NetTable | None",
+    net_name_to_classes: Mapping[str, Sequence[str]],
     *,
     pad_index: int,
     pad_orient_offset: float,
@@ -976,7 +1005,13 @@ def _pad_block_ops(
                 data_ref="pad",
                 object_id=str(getattr(pad, "number", "") or "pad"),
                 extra_attrs=_pad_block_extra_attrs(
-                    pad, footprint, board, primitive="pad", pad_index=pad_index
+                    pad,
+                    footprint,
+                    board,
+                    net_table,
+                    net_name_to_classes,
+                    primitive="pad",
+                    pad_index=pad_index,
                 ),
                 layers=layers,
             )
@@ -995,7 +1030,13 @@ def _pad_block_ops(
                 data_ref="pad_hole",
                 object_id=str(getattr(pad, "number", "") or "pad"),
                 extra_attrs=_pad_block_extra_attrs(
-                    pad, footprint, board, primitive="pad-hole", pad_index=pad_index
+                    pad,
+                    footprint,
+                    board,
+                    net_table,
+                    net_name_to_classes,
+                    primitive="pad-hole",
+                    pad_index=pad_index,
                 ),
                 layers=hole_layers,
             )
@@ -2257,6 +2298,8 @@ def pcb_footprint_to_record(
     footprint: "Footprint",
     *,
     board: "KiCadPcb | None" = None,
+    net_table: "NetTable | None" = None,
+    net_name_to_classes: Mapping[str, Sequence[str]] | None = None,
 ) -> KiCadPlotterRecord:
     """
     Convert a PCB-embedded :class:`Footprint` to a :class:`KiCadPlotterRecord`.
@@ -2275,6 +2318,13 @@ def pcb_footprint_to_record(
         properties → fp_texts → fp_lines → fp_arcs → fp_circles →
         fp_rects → fp_polys → pads
     """
+    if board is not None:
+        if net_table is None:
+            net_table = board.net_table()
+        if net_name_to_classes is None:
+            net_name_to_classes = _net_class_snapshot(board)
+    resolved_net_name_to_classes = net_name_to_classes or {}
+
     ops: list[KiCadPlotterOp] = []
 
     # Reference + Value first (matches to_sexp ordering), then others.
@@ -2470,6 +2520,8 @@ def pcb_footprint_to_record(
                 pad,
                 footprint,
                 board,
+                net_table,
+                resolved_net_name_to_classes,
                 pad_index=pad_index,
                 pad_orient_offset=pad_orient_offset,
             )
@@ -2529,6 +2581,8 @@ def pcb_to_ir(
     fp_texts / graphics / pads in canonical footprint order.
     """
     records: list[KiCadPlotterRecord] = []
+    net_table = pcb.net_table()
+    net_name_to_classes = _net_class_snapshot(pcb)
 
     for line in pcb.gr_lines:
         records.append(gr_line_to_record(line))
@@ -2565,10 +2619,17 @@ def pcb_to_ir(
         records.append(zone_to_record(zone))
 
     for footprint in pcb.footprints:
-        records.append(pcb_footprint_to_record(footprint, board=pcb))
+        records.append(
+            pcb_footprint_to_record(
+                footprint,
+                board=pcb,
+                net_table=net_table,
+                net_name_to_classes=net_name_to_classes,
+            )
+        )
 
     return KiCadPlotterDocument(
-        records=_records_with_net_class_extras(records, pcb),
+        records=_records_with_net_class_extras(records, net_name_to_classes),
         source_path=source_path,
         source_kind="PCB",
         document_id=document_id,

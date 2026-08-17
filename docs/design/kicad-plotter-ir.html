@@ -133,6 +133,33 @@
   </section>
 
   <section>
+    <h2>Board Net And Netclass Enrichment</h2>
+    <p>
+      One complete <code>pcb_to_ir</code> conversion snapshots the mutable board
+      net table and project net-name-to-class assignments once. Track, via,
+      zone, record, and footprint-pad enrichment reuse those caller-owned
+      snapshots for the duration of that conversion. This makes bulk lookup
+      linear in board elements plus net assignments instead of rebuilding a
+      complete lookup for every element.
+    </p>
+    <p>
+      <code>KiCadPcb.net_table()</code> returns an immutable
+      <code>NetTable</code> snapshot. It is deliberately not an invisible board
+      cache: callers that mutate <code>KiCadPcb.nets</code> must request a new
+      snapshot. One-off <code>resolve_net_ref</code> and
+      <code>resolve_net_name</code> calls retain their existing behavior by
+      creating a fresh snapshot. Standalone footprint conversion builds at
+      most one snapshot of each lookup for that footprint.
+    </p>
+    <p>
+      Enrichment ordering and serialized values are unchanged. The first
+      project class remains <code>net_class</code>, the complete ordered list
+      remains <code>net_classes</code>, and missing project settings add no
+      class fields.
+    </p>
+  </section>
+
+  <section>
     <h2>Operations</h2>
     <p>
       An operation is a flat object whose required <code>kind</code> is the

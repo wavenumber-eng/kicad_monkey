@@ -26,10 +26,12 @@ import pytest
 
 from kicad_monkey import (
     KiCadFillType,
+    KiCadProject,
     KiCadPlotterDocument,
     KiCadPlotterOpKind,
     KiCadPlotterRecord,
     KiCadSvgRenderOptions,
+    Net,
     gr_arc_to_op,
     gr_circle_to_op,
     gr_curve_to_op,
@@ -1362,6 +1364,100 @@ def test_pcb_to_ir_empty_board():
     assert doc.source_kind == "PCB"
     assert doc.coordinate_space == {"unit": "nm", "y_axis": "down"}
     assert doc.extras["version"] == 20240101
+
+
+def test_pcb_to_ir_builds_net_and_netclass_snapshots_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib
+
+    converter = importlib.import_module("kicad_monkey.kicad_pcb_to_ir")
+    calls = {"net_table": 0, "net_classes": 0}
+    original_net_table = KiCadPcb.net_table
+    original_net_classes = converter.project_net_name_to_classes
+
+    def counted_net_table(board: KiCadPcb):
+        calls["net_table"] += 1
+        return original_net_table(board)
+
+    def counted_net_classes(board: KiCadPcb):
+        calls["net_classes"] += 1
+        return original_net_classes(board)
+
+    monkeypatch.setattr(KiCadPcb, "net_table", counted_net_table)
+    monkeypatch.setattr(converter, "project_net_name_to_classes", counted_net_classes)
+
+    pad = Pad(
+        number="1",
+        pad_type="smd",
+        shape=PadShape.CIRCLE,
+        at_x=0.0,
+        at_y=0.0,
+        net=NetRef(ordinal=1),
+        size_x=1.0,
+        size_y=1.0,
+    )
+    footprint = Footprint(library_link="Test:R", pads=[pad])
+    pcb = _empty_pcb(
+        nets=[Net(ordinal=0, name=""), Net(ordinal=1, name="GND")],
+        segments=[
+            Segment(
+                start_x=0.0,
+                start_y=0.0,
+                end_x=1.0,
+                end_y=0.0,
+                width=0.2,
+                layer="F.Cu",
+                net=NetRef(ordinal=1, name="GND"),
+            )
+        ],
+        footprints=[footprint],
+    )
+    pcb.project = KiCadProject.from_json_dict(
+        {
+            "net_settings": {
+                "netclass_assignments": {"GND": ["Power", "HighCurrent"]}
+            }
+        }
+    )
+
+    document = pcb_to_ir(pcb)
+
+    assert calls == {"net_table": 1, "net_classes": 1}
+    segment = next(record for record in document.records if record.kind == "segment")
+    assert segment.extras["net_class"] == "Power"
+    assert segment.extras["net_classes"] == ["Power", "HighCurrent"]
+    assert segment.extras["layer"] == "F.Cu"
+    footprint_record = next(record for record in document.records if record.kind == "footprint")
+    pad_block = next(
+        operation
+        for operation in footprint_record.operations
+        if operation.kind == KiCadPlotterOpKind.START_BLOCK
+    )
+    assert pad_block.payload["extra_attrs"]["net"] == "GND"
+    assert pad_block.payload["extra_attrs"]["net_class"] == "Power"
+
+
+def test_pcb_to_ir_omits_netclass_metadata_when_project_settings_are_missing() -> None:
+    pcb = _empty_pcb(
+        segments=[
+            Segment(
+                start_x=0.0,
+                start_y=0.0,
+                end_x=1.0,
+                end_y=0.0,
+                width=0.2,
+                layer="F.Cu",
+                net=NetRef(ordinal=1, name="GND"),
+            )
+        ]
+    )
+
+    segment = pcb_to_ir(pcb).records[0]
+
+    assert segment.extras["net_name"] == "GND"
+    assert "net_class" not in segment.extras
+    assert "net_classes" not in segment.extras
 
 
 def test_pcb_to_ir_emits_records_in_canonical_order():
