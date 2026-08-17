@@ -104,6 +104,7 @@ pub struct ArcThreePointOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_arc_three_point_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
@@ -203,6 +204,7 @@ pub struct BezierCurveOperation {
     pub end_x: crate::JavaScriptSafeInteger,
     pub end_y: crate::JavaScriptSafeInteger,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_bezier_curve_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
@@ -214,6 +216,94 @@ pub struct BezierCurveOperation {
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub tolerance_nm: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,
+}
+///Board dimension construction styles supported by KiCad's PCB plotter.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Board dimension construction styles supported by KiCad's PCB plotter.",
+///  "type": "string",
+///  "enum": [
+///    "aligned",
+///    "orthogonal",
+///    "radial",
+///    "leader",
+///    "center"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardDimensionType {
+    #[serde(rename = "aligned")]
+    Aligned,
+    #[serde(rename = "orthogonal")]
+    Orthogonal,
+    #[serde(rename = "radial")]
+    Radial,
+    #[serde(rename = "leader")]
+    Leader,
+    #[serde(rename = "center")]
+    Center,
+}
+impl ::std::fmt::Display for BoardDimensionType {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Aligned => f.write_str("aligned"),
+            Self::Orthogonal => f.write_str("orthogonal"),
+            Self::Radial => f.write_str("radial"),
+            Self::Leader => f.write_str("leader"),
+            Self::Center => f.write_str("center"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardDimensionType {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "aligned" => Ok(Self::Aligned),
+            "orthogonal" => Ok(Self::Orthogonal),
+            "radial" => Ok(Self::Radial),
+            "leader" => Ok(Self::Leader),
+            "center" => Ok(Self::Center),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardDimensionType {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BoardDimensionType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BoardDimensionType {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 /**One board-level graphic record. The carrier layer travels on the record;
 the contained operations are layerless graphic-state operations.*/
@@ -371,9 +461,9 @@ impl ::std::convert::TryFrom<::std::string::String> for BoardGraphicRecordKind {
         value.parse()
     }
 }
-/**Strict board graphics, text, tracks, vias, and authored-zone-fill subset of
-kicad.plotter_ir.a0. Producers and consumers must run generated semantic
-validation after structural decoding.*/
+/**Strict board graphics, text, tracks, vias, tables, dimensions, and authored
+zone-fill subset of kicad.plotter_ir.a0. Producers and consumers must run
+generated semantic validation after structural decoding.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -381,7 +471,7 @@ validation after structural decoding.*/
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.board_plot.document:a0",
 ///  "title": "Board plot document a0",
-///  "description": "Strict board graphics, text, tracks, vias, and authored-zone-fill subset of\nkicad.plotter_ir.a0. Producers and consumers must run generated semantic\nvalidation after structural decoding.",
+///  "description": "Strict board graphics, text, tracks, vias, tables, dimensions, and authored\nzone-fill subset of kicad.plotter_ir.a0. Producers and consumers must run\ngenerated semantic validation after structural decoding.",
 ///  "type": "object",
 ///  "required": [
 ///    "coordinate_space",
@@ -485,6 +575,9 @@ pub struct BoardPlotDocumentA0 {
 ///      "$ref": "#/$defs/TablePlotRecord"
 ///    },
 ///    {
+///      "$ref": "#/$defs/DimensionPlotRecord"
+///    },
+///    {
 ///      "$ref": "#/$defs/ZoneFillPlotRecord"
 ///    },
 ///    {
@@ -505,6 +598,7 @@ pub enum BoardPlotRecord {
     TrackArcPlotRecord(TrackArcPlotRecord),
     ViaPlotRecord(ViaPlotRecord),
     TablePlotRecord(TablePlotRecord),
+    DimensionPlotRecord(DimensionPlotRecord),
     ZoneFillPlotRecord(ZoneFillPlotRecord),
     BoardTextPlotRecord(BoardTextPlotRecord),
     BoardTextBoxPlotRecord(BoardTextBoxPlotRecord),
@@ -532,6 +626,11 @@ impl ::std::convert::From<ViaPlotRecord> for BoardPlotRecord {
 impl ::std::convert::From<TablePlotRecord> for BoardPlotRecord {
     fn from(value: TablePlotRecord) -> Self {
         Self::TablePlotRecord(value)
+    }
+}
+impl ::std::convert::From<DimensionPlotRecord> for BoardPlotRecord {
+    fn from(value: DimensionPlotRecord) -> Self {
+        Self::DimensionPlotRecord(value)
     }
 }
 impl ::std::convert::From<ZoneFillPlotRecord> for BoardPlotRecord {
@@ -859,6 +958,7 @@ pub struct CircleOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_circle_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
@@ -877,6 +977,80 @@ pub struct CircleOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
+}
+///Dimension text (when present) followed by layered construction geometry.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Dimension text (when present) followed by layered construction geometry.",
+///  "type": "object",
+///  "required": [
+///    "dimension_type",
+///    "kind",
+///    "layers",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "dimension_type": {
+///      "$ref": "#/$defs/BoardDimensionType"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "dimension"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "object_id": {
+///      "type": "string",
+///      "const": "dimension"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "text": {
+///      "type": "string"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct DimensionPlotRecord {
+    pub dimension_type: BoardDimensionType,
+    pub kind: ::std::string::String,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_optional_string",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub text: ::std::option::Option<::std::string::String>,
+    pub uuid: ::std::string::String,
 }
 /**Circular pad flash shared by footprint and PCB producers. Footprint pad
 state requires mask_margin_nm and forbids role. Board via state requires
@@ -938,6 +1112,7 @@ these mutually exclusive states.*/
 pub struct FlashPadCircleOperation {
     pub diameter_nm: crate::JavaScriptSafeInteger,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_circle_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -1033,6 +1208,7 @@ pub struct FlashPadCustomOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub anchor_shape: ::std::option::Option<::std::string::String>,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_custom_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     pub mask_margin_nm: crate::JavaScriptSafeInteger,
@@ -1107,6 +1283,7 @@ pub struct FlashPadCustomOperation {
 #[serde(deny_unknown_fields)]
 pub struct FlashPadOvalOperation {
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_oval_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     pub mask_margin_nm: crate::JavaScriptSafeInteger,
@@ -1178,6 +1355,7 @@ pub struct FlashPadOvalOperation {
 #[serde(deny_unknown_fields)]
 pub struct FlashPadRectOperation {
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_rect_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     pub mask_margin_nm: crate::JavaScriptSafeInteger,
@@ -1254,6 +1432,7 @@ pub struct FlashPadRectOperation {
 pub struct FlashPadRoundRectOperation {
     pub corner_radius_nm: crate::JavaScriptSafeInteger,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_round_rect_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     pub mask_margin_nm: crate::JavaScriptSafeInteger,
@@ -1322,6 +1501,7 @@ pub struct FlashPadRoundRectOperation {
 pub struct FlashPadTrapezOperation {
     pub corners: PlotterQuad,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_trapez_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     pub mask_margin_nm: crate::JavaScriptSafeInteger,
@@ -1390,6 +1570,7 @@ pub struct PlotPolyOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_plot_poly_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
@@ -2364,6 +2545,7 @@ pub struct RectOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_rect_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
@@ -2573,6 +2755,7 @@ pub struct TextOperation {
     pub h_align: PlotterTextHAlign,
     pub index: u32,
     pub italic: bool,
+    #[serde(deserialize_with = "crate::deserialize_text_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub knockout: ::std::option::Option<bool>,
@@ -2783,6 +2966,7 @@ pub struct ThickSegmentOperation {
     pub end_x: crate::JavaScriptSafeInteger,
     pub end_y: crate::JavaScriptSafeInteger,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_thick_segment_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,

@@ -553,13 +553,13 @@ secondary = [
 id = "L1_035"
 file = "test_L1_035_rust_board_plotter_slice.py"
 name = "Rust Board Plotter-IR Slice"
-description = "Prove promoted board graphics, text, routing, tables, and zone fills from KiCad bytes to shared kicad.plotter_ir.a0 operations"
+description = "Prove promoted board graphics, text, routing, tables, dimensions, and zone fills from KiCad bytes to shared kicad.plotter_ir.a0 operations"
 concerns = ["sexpr", "rust", "pcb", "plotter_ir", "wasm"]
 test_cases = "tests/parity/board_plotter_a0_vectors.json"
 test_case_type = "contract"
 
 [subtests.objectives]
-primary = "Rust and Python emit the same established plotter-IR document for promoted board graphics, text, tracks, vias, tables, and zone fills"
+primary = "Rust and Python emit the same established plotter-IR document for promoted board graphics, text, tracks, vias, tables, dimensions, and zone fills"
 secondary = [
     "The TypeSpec board slice remains a strict valid subset of the established plotter-IR contract",
     "Board documents carry version, generator, thickness, and paper metadata with Python defaults",
@@ -587,4 +587,8 @@ secondary = [
     "Net-class extras follow normalized exact-match project assignments carried on the request for tracks, arcs, vias, and zones",
     "Zone rings observe the shared operation, point, and per-family record budgets",
     "Tables preserve grid-before-text ordering, cell variables and layers, authored/native cache behavior, and aggregate resource limits",
+    "Aligned, orthogonal, radial, leader, and center dimensions preserve Python text-before-shape operation order between tables and zones",
+    "Dimension formatting, Newstroke markup, faced text variables, leader frames, arrows, markers, layers, UUIDs, and authored/native caches match Python",
+    "Dimension records and generated operations reject noncanonical identities, kinds, local indexes, layers, cache markers, null optional text, and duplicate orthogonal markers",
+    "Dimension carriers observe fixed precision, record, input-point, parse-node, operation, cache, retained-text, safe-integer, and serialized-output ceilings without partial IR",
 ]

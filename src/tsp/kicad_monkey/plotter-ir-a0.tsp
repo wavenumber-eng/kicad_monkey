@@ -601,6 +601,27 @@ model TablePlotRecord {
   cell_count: uint32;
 }
 
+/** Board dimension construction styles supported by KiCad's PCB plotter. */
+enum BoardDimensionType {
+  aligned: "aligned",
+  orthogonal: "orthogonal",
+  radial: "radial",
+  leader: "leader",
+  center: "center",
+}
+
+/** Dimension text (when present) followed by layered construction geometry. */
+model DimensionPlotRecord {
+  uuid: string;
+  kind: "dimension";
+  object_id: "dimension";
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  layers: string[];
+  text?: string;
+  dimension_type: BoardDimensionType;
+}
+
 /**
  * One zone fill record bundling every `filled_polygon` ring. The parallel
  * `fill_layers`/`fill_island` arrays annotate the rings so consumers can
@@ -657,15 +678,16 @@ union BoardPlotRecord {
   trackArc: TrackArcPlotRecord,
   via: ViaPlotRecord,
   table: TablePlotRecord,
+  dimension: DimensionPlotRecord,
   zoneFill: ZoneFillPlotRecord,
   text: BoardTextPlotRecord,
   textBox: BoardTextBoxPlotRecord,
 }
 
 /**
- * Strict board graphics, text, tracks, vias, and authored-zone-fill subset of
- * kicad.plotter_ir.a0. Producers and consumers must run generated semantic
- * validation after structural decoding.
+ * Strict board graphics, text, tracks, vias, tables, dimensions, and authored
+ * zone-fill subset of kicad.plotter_ir.a0. Producers and consumers must run
+ * generated semantic validation after structural decoding.
  */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.board_plot.document:a0")

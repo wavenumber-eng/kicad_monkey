@@ -276,6 +276,89 @@ def test_shared_board_vectors_match_python_generated_types_and_both_schemas() ->
     with pytest.raises(msgspec.ValidationError):
         decode_board_plot_document_a0(json.dumps(missing_border).encode("utf-8"))
 
+    dimensions = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "dimensions-follow-tables-and-precede-zones"
+    )
+
+    dimension_mutations = []
+    for layers in ([], ["Dwgs.User", "Dwgs.User"], ["F.SilkS", "Dwgs.User"]):
+        mutation = json.loads(json.dumps(dimensions))
+        mutation["records"][1]["layers"] = layers
+        dimension_mutations.append(mutation)
+
+    wrong_index = json.loads(json.dumps(dimensions))
+    wrong_index["records"][1]["operations"][0]["index"] = 1
+    dimension_mutations.append(wrong_index)
+
+    wrong_count = json.loads(json.dumps(dimensions))
+    wrong_count["records"][1]["operation_count"] -= 1
+    dimension_mutations.append(wrong_count)
+
+    undeclared_layer = json.loads(json.dumps(dimensions))
+    undeclared_layer["records"][1]["operations"][0]["layer"] = "B.Cu"
+    dimension_mutations.append(undeclared_layer)
+
+    impossible_segment = json.loads(json.dumps(dimensions))
+    impossible_segment["records"][1]["operations"][0]["role"] = "via_drill"
+    dimension_mutations.append(impossible_segment)
+
+    nonleading_text = json.loads(json.dumps(dimensions))
+    nonleading_text["records"][3]["operations"][0:2] = reversed(
+        nonleading_text["records"][3]["operations"][0:2]
+    )
+    for index, operation in enumerate(nonleading_text["records"][3]["operations"]):
+        operation["index"] = index
+    dimension_mutations.append(nonleading_text)
+
+    duplicate_marker = json.loads(json.dumps(dimensions))
+    marker = json.loads(json.dumps(duplicate_marker["records"][2]["operations"][1]))
+    duplicate_marker["records"][2]["operations"].insert(2, marker)
+    for index, operation in enumerate(duplicate_marker["records"][2]["operations"]):
+        operation["index"] = index
+    duplicate_marker["records"][2]["operation_count"] += 1
+    duplicate_marker["total_operations"] += 1
+    dimension_mutations.append(duplicate_marker)
+
+    for field, value in (
+        ("mirror", False),
+        ("text_as_polygons", True),
+        ("polyline_per_segment", False),
+        ("knockout", False),
+    ):
+        mutation = json.loads(json.dumps(dimensions))
+        mutation["records"][3]["operations"][0][field] = value
+        dimension_mutations.append(mutation)
+
+    missing_text_layer = json.loads(json.dumps(dimensions))
+    del missing_text_layer["records"][3]["operations"][0]["layer"]
+    dimension_mutations.append(missing_text_layer)
+
+    mismatched_cache = json.loads(json.dumps(dimensions))
+    mismatched_cache["records"][3]["operations"][0][
+        "render_cache_source"
+    ] = "native_generated_cache"
+    dimension_mutations.append(mismatched_cache)
+
+    for mutation in dimension_mutations:
+        with pytest.raises(msgspec.ValidationError):
+            decode_board_plot_document_a0(json.dumps(mutation).encode("utf-8"))
+
+    wrong_dimension_kind = json.loads(json.dumps(dimensions))
+    wrong_dimension_kind["records"][1]["operations"][0]["kind"] = "Circle"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(wrong_dimension_kind).encode("utf-8"))
+
+    null_dimension_text = json.loads(json.dumps(dimensions))
+    null_dimension_text["records"][2]["text"] = None
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(null_dimension_text).encode("utf-8"))
+
+    empty_dimension_text = json.loads(json.dumps(dimensions))
+    empty_dimension_text["records"][2]["text"] = ""
+    decode_board_plot_document_a0(json.dumps(empty_dimension_text).encode("utf-8"))
+
 
 def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:
     _run([sys.executable, "scripts/generate_board_plotter_vectors.py", "--check"])
@@ -302,6 +385,17 @@ def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:
             "kicad-monkey-core",
             "--test",
             "board_plotter_resource_limits",
+        ]
+    )
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "board_dimension_slice",
         ]
     )
     _run(

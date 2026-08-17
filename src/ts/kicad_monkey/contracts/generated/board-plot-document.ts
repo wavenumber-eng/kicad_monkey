@@ -6,6 +6,7 @@ export type BoardPlotRecord =
   | TrackArcPlotRecord
   | ViaPlotRecord
   | TablePlotRecord
+  | DimensionPlotRecord
   | ZoneFillPlotRecord
   | BoardTextPlotRecord
   | BoardTextBoxPlotRecord;
@@ -91,11 +92,15 @@ export type BoardViaType = "through" | "blind" | "buried" | "micro";
  * Stringified boolean metadata mirrored from the established producer.
  */
 export type PlotterStringBool = "true" | "false";
+/**
+ * Board dimension construction styles supported by KiCad's PCB plotter.
+ */
+export type BoardDimensionType = "aligned" | "orthogonal" | "radial" | "leader" | "center";
 
 /**
- * Strict board graphics, text, tracks, vias, and authored-zone-fill subset of
- * kicad.plotter_ir.a0. Producers and consumers must run generated semantic
- * validation after structural decoding.
+ * Strict board graphics, text, tracks, vias, tables, dimensions, and authored
+ * zone-fill subset of kicad.plotter_ir.a0. Producers and consumers must run
+ * generated semantic validation after structural decoding.
  */
 export interface BoardPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
@@ -461,6 +466,19 @@ export interface TablePlotRecord {
   operations: PlotterOperation[];
   layers: string[];
   cell_count: number;
+}
+/**
+ * Dimension text (when present) followed by layered construction geometry.
+ */
+export interface DimensionPlotRecord {
+  uuid: string;
+  kind: "dimension";
+  object_id: "dimension";
+  operation_count: number;
+  operations: PlotterOperation[];
+  layers: string[];
+  text?: string;
+  dimension_type: BoardDimensionType;
 }
 /**
  * One zone fill record bundling every `filled_polygon` ring. The parallel

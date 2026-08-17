@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add bounded native board-dimension Plotter-IR for aligned, orthogonal,
+  radial, leader, and center carriers, including Python-compatible formatting,
+  Newstroke markup, faced text/cache projection, strict generated contracts,
+  and native, host-WASM, and shared-oracle evidence.
+
 - Add native library-symbol body text and pin number/name Plotter-IR emission
   with Python-compatible styling and placement, exact-case project variables,
   inherited pin settings, bounded text resources, strict cache-free contracts,

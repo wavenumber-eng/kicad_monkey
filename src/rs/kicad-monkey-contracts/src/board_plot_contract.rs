@@ -1,10 +1,11 @@
 //! Record-state validation for the board plotter IR document contract.
 
 use crate::generated::board_plot_document::{
-    BoardPlotDocumentA0, BoardPlotRecord, BoardTextBoxPlotRecord, BoardTextPlotRecord,
-    CircleOperation, FlashPadCircleOperation, PlotterDrillRole as BoardDrillRole,
-    PlotterFill as BoardFill, PlotterOperation as BoardOperation, PlotterViaFlashRole,
-    RectOperation, TablePlotRecord, TextOperation, ThickSegmentOperation,
+    BoardDimensionType, BoardPlotDocumentA0, BoardPlotRecord, BoardTextBoxPlotRecord,
+    BoardTextPlotRecord, CircleOperation, DimensionPlotRecord, FlashPadCircleOperation,
+    PlotterDrillRole as BoardDrillRole, PlotterFill as BoardFill,
+    PlotterOperation as BoardOperation, PlotterViaFlashRole, RectOperation, TablePlotRecord,
+    TextOperation, ThickSegmentOperation,
 };
 use crate::{ValidationError, validation_error};
 
@@ -68,6 +69,10 @@ fn validate_board_record(
             validate_table_operations(value, record_index)?;
             (value.operation_count, &value.operations)
         }
+        BoardPlotRecord::DimensionPlotRecord(value) => {
+            validate_dimension_operations(value, record_index)?;
+            (value.operation_count, &value.operations)
+        }
         BoardPlotRecord::ZoneFillPlotRecord(value) => {
             validate_zone_fill_operations(value, record_index)?;
             (value.operation_count, &value.operations)
@@ -82,6 +87,109 @@ fn validate_board_record(
         }
     };
     Ok((declared as usize, operations))
+}
+
+fn validate_dimension_operations(
+    record: &DimensionPlotRecord,
+    record_index: usize,
+) -> Result<(), ValidationError> {
+    if record.kind != "dimension"
+        || record.object_id != "dimension"
+        || record.layers.is_empty()
+        || !record.layers.windows(2).all(|pair| pair[0] < pair[1])
+    {
+        return Err(invalid_dimension(
+            format!("$.records[{record_index}]"),
+            "dimension identity must be canonical and layers must be nonempty, sorted, and unique",
+        ));
+    }
+    let mut saw_text = false;
+    let mut marker_count = 0usize;
+    for (operation_index, operation) in record.operations.iter().enumerate() {
+        let path = format!("$.records[{record_index}].operations[{operation_index}]");
+        match operation {
+            BoardOperation::TextOperation(value) => {
+                if operation_index != 0 || saw_text || value.index as usize != operation_index {
+                    return Err(invalid_dimension(
+                        path,
+                        "dimension faced text appears at most once and first",
+                    ));
+                }
+                saw_text = true;
+                validate_text_payload(value, &path)?;
+                let layer_is_declared = value
+                    .layer
+                    .as_ref()
+                    .is_some_and(|layer| record.layers.binary_search(layer).is_ok());
+                if value.font_face.is_empty() || !layer_is_declared {
+                    return Err(invalid_dimension(
+                        path,
+                        "dimension Text must be faced and use one declared layer",
+                    ));
+                }
+            }
+            BoardOperation::ThickSegmentOperation(value) => {
+                if value.index as usize != operation_index
+                    || value.kind != "ThickSegment"
+                    || !dimension_layer_is_declared(value.layer.as_deref(), &record.layers)
+                    || !table_segment_has_graphic_state(value)
+                {
+                    return Err(invalid_dimension(
+                        path,
+                        "dimension segments require exact kind/index and one declared layer",
+                    ));
+                }
+            }
+            BoardOperation::CircleOperation(value) => {
+                marker_count += 1;
+                if value.index as usize != operation_index
+                    || record.dimension_type != BoardDimensionType::Orthogonal
+                    || marker_count > 1
+                    || value.kind != "Circle"
+                    || !dimension_layer_is_declared(value.layer.as_deref(), &record.layers)
+                    || !dimension_marker_state(value)
+                {
+                    return Err(invalid_dimension(
+                        path,
+                        "only orthogonal dimensions admit the canonical declared-layer marker circle",
+                    ));
+                }
+            }
+            _ => {
+                return Err(invalid_dimension(
+                    path,
+                    "dimension records admit only layered ThickSegment, marker Circle, and leading faced Text operations",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn dimension_layer_is_declared(layer: Option<&str>, layers: &[String]) -> bool {
+    layer.is_some_and(|layer| {
+        layers
+            .binary_search_by(|value| value.as_str().cmp(layer))
+            .is_ok()
+    })
+}
+
+fn dimension_marker_state(value: &CircleOperation) -> bool {
+    value.fill == BoardFill::FilledShape
+        && value.diameter_nm.get() == 200_000
+        && value.width_nm.get() == 0
+        && value.role.is_none()
+        && value.layers.as_ref().is_none_or(Vec::is_empty)
+        && value.mask_margin_nm.is_none()
+        && value.pad_size_x_nm.is_none()
+        && value.pad_size_y_nm.is_none()
+        && value.stroke_color.is_none()
+        && value.fill_color.is_none()
+        && value.line_style.is_none()
+}
+
+fn invalid_dimension(path: String, message: &'static str) -> ValidationError {
+    validation_error("invalid_board_operation", path, message)
 }
 
 fn validate_board_graphic_operations(

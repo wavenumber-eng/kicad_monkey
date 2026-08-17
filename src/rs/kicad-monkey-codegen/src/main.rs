@@ -158,7 +158,7 @@ fn main() -> Result<()> {
 fn validate_plotter_operation_kinds(schema_name: &str, schema: &Value) -> Result<()> {
     if !matches!(
         schema_name,
-        "FootprintPlotDocument.json" | "SymbolPlotDocument.json"
+        "BoardPlotDocument.json" | "FootprintPlotDocument.json" | "SymbolPlotDocument.json"
     ) {
         return Ok(());
     }
@@ -196,26 +196,61 @@ fn validate_plotter_operation_kinds(schema_name: &str, schema: &Value) -> Result
 fn project_generated_presence(schema_name: &str, source: String) -> Result<String> {
     if !matches!(
         schema_name,
-        "FootprintPlotDocument.json" | "SymbolPlotDocument.json"
+        "BoardPlotDocument.json" | "FootprintPlotDocument.json" | "SymbolPlotDocument.json"
     ) {
         return Ok(source);
     }
-    let original = r#"    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    let mut projected = source;
+    if matches!(
+        schema_name,
+        "FootprintPlotDocument.json" | "SymbolPlotDocument.json"
+    ) {
+        let original = r#"    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,"#;
-    let replacement = r#"    #[serde(
+        let replacement = r#"    #[serde(
         default,
         deserialize_with = "crate::reject_present_render_cache_polygons",
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,"#;
-    if !source.contains(original) {
-        bail!("{schema_name} Text render-cache polygon projection changed");
+        if !projected.contains(original) {
+            bail!("{schema_name} Text render-cache polygon projection changed");
+        }
+        projected = projected.replace(original, replacement);
     }
-    let mut projected = source.replace(original, replacement);
     for (structure, _, deserializer) in PLOTTER_OPERATION_KINDS {
         projected = project_kind_deserializer(projected, structure, deserializer)?;
     }
+    if schema_name == "BoardPlotDocument.json" {
+        projected = project_dimension_text_presence(projected)?;
+    }
     Ok(projected)
+}
+
+fn project_dimension_text_presence(mut source: String) -> Result<String> {
+    let structure = "DimensionPlotRecord";
+    let structure_marker = format!("pub struct {structure} {{");
+    let structure_start = source
+        .find(&structure_marker)
+        .with_context(|| format!("missing generated {structure}"))?;
+    let structure_end = source[structure_start..]
+        .find("\n}")
+        .map(|offset| structure_start + offset)
+        .with_context(|| format!("unterminated generated {structure}"))?;
+    let field = r#"    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub text: ::std::option::Option<::std::string::String>,"#;
+    let field_offset = source[structure_start..structure_end]
+        .find(field)
+        .map(|offset| structure_start + offset)
+        .with_context(|| format!("missing generated {structure}.text"))?;
+    let replacement = r#"    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_optional_string",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub text: ::std::option::Option<::std::string::String>,"#;
+    source.replace_range(field_offset..field_offset + field.len(), replacement);
+    Ok(source)
 }
 
 fn project_kind_deserializer(

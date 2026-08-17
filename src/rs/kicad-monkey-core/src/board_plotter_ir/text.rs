@@ -377,7 +377,7 @@ fn text_value(value: &Sexp) -> Option<&str> {
 }
 
 /// Python `has_flag`: a bare token among the form's direct values.
-fn has_flag(form: &Sexp, name: &str) -> bool {
+pub(super) fn has_flag(form: &Sexp, name: &str) -> bool {
     list_values(form)
         .into_iter()
         .flatten()
@@ -416,7 +416,7 @@ fn resource_limit_error(message: &'static str) -> Error {
     )
 }
 
-fn parse_graphic_span(
+pub(super) fn parse_graphic_span(
     source: &str,
     graphic: &PcbGraphic,
     limits: BoardPlotLimits,
@@ -619,7 +619,7 @@ fn text_record(
     })
 }
 
-fn attach_gr_text_cache(
+pub(super) fn attach_gr_text_cache(
     operation: &mut BoardTextOperation,
     effects: &TextEffects,
     cache: Option<&AuthoredRenderCache>,
@@ -685,7 +685,7 @@ fn preflight_knockout(
     Ok(())
 }
 
-fn gr_text_operation(
+pub(super) fn gr_text_operation(
     effects: &TextEffects,
     at: PcbPoint,
     text: String,

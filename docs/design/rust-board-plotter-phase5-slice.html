@@ -12,7 +12,8 @@
   plotter producer from graphics, routing, vias, authored zone fills, and net
   metadata to board-level <code>gr_text</code> and
   <code>gr_text_box</code> records plus board <code>table</code> grid, border,
-  and faced cell-text records. They are bounded Phase 5 increments, not the
+  faced cell-text records, and aligned, orthogonal, radial, leader, and center
+  <code>dimension</code> records. They are bounded Phase 5 increments, not the
   complete schematic/PCB plotter exit gate.</p>
 
   <p>The carrier-text bridge adds an opt-in, caller-supplied
@@ -57,6 +58,26 @@
   caches remain preferred when they match the resulting wrapped request text;
   missing or stale caches regenerate from the same request.</p>
 
+  <p>Dimensions retain Python's category boundary after tables and before
+  zones. Resolved dimension text precedes every shape operation: Newstroke
+  text becomes one layered thick segment per glyph segment, including bounded
+  subscript, superscript, and overbar markup; faced text uses the same authored
+  or caller-supplied cache bridge as other board carriers. The record retains
+  the formatted pre-substitution value while faced Text operations apply board
+  and project variables, matching the established Python asymmetry. Formatting
+  preserves unit, precision-remapping, zero suppression, override, prefix, and
+  suffix behavior behind a fixed precision-allocation guard.</p>
+
+  <p>Aligned and orthogonal dimensions preserve extension, crossbar, inward
+  and outward arrow ordering, including the canonical orthogonal marker.
+  Radial and leader connectors intersect the logical axis-aligned text box;
+  leader frames draw that same box, and center dimensions emit the two full
+  crossing arms. Participating dimension and nested-text layers are sorted and
+  unique, UUID ownership prefers the dimension carrier, and the strict
+  contract admits only layered segments, one canonical orthogonal marker, and
+  at most one leading faced Text operation. Unknown future dimension types are
+  intentionally rejected at this bounded five-style contract boundary.</p>
+
   <h2>Resource and complexity boundary</h2>
   <p>Source, parse depth, selected graphic count, operation count, resolved
   retained text occurrences, parse nodes, decoded input polygons and points,
@@ -76,7 +97,13 @@
   bounded; each decoded cell charges two structural input points. Cartesian
   separator counts and the external border are preflighted against the shared
   operation allowance before allocation or emission, and faced cell operations
-  are preflighted before cache materialization.</p>
+  are preflighted before cache materialization. Dimension counts share the
+  caller's graphic-record ceiling; complete source points charge the aggregate
+  input-point budget. Fixed shape demand and retained record/operation/cache
+  text occurrences are checked before faced cache materialization, while glyph
+  segments, cache contours and duplicated exterior points charge the shared
+  output ceilings. Every derived dimension coordinate and width passes through
+  JavaScript-safe nanometer conversion.</p>
 
   <p>The optional font sidecar independently bounds selection count and bytes,
   font bytes, shaping metadata, variations and features, linebreak tokens and
@@ -119,6 +146,21 @@
   deferral diagnostics. Contract mutations reject identity drift, empty or
   duplicate layers, phase violations, undeclared cell layers, impossible
   shared segment state, and exact table-cache claims.
+  The dimension oracle places a table, all five dimension styles, and a zone
+  in one document; it covers stroke and faced text, markup, rotated leader
+  frames, inward and outward arrows, an orthogonal marker, authored cache
+  reuse, participating layers, and exact operation ordering. Focused native
+  tests cover parser defaults and malformed scalars, incomplete points,
+  formatting edge cases, zero-operation records, fixed precision, markup,
+  operation/input/cache/text ceilings, unknown-style narrowing, and derived
+  safe-integer failure. Rust and generated-Python mutation tables reject bad
+  counts, local indexes, sorted/unique layers, undeclared layers, wrong kinds,
+  impossible marker/text states, duplicate markers, and explicit null text.
+  Host and real-WASM tests prove raw record versus expanded faced-operation
+  text and diagnostic-only unsafe-coordinate failure. The shared font sidecar
+  vector additionally regenerates stale and missing faced dimension caches
+  with native provenance. Independent core and contract/WASM re-reviews found
+  no remaining dimension-slice blocker.
   The carrier bridge suite generates text, wrapped text-box, and wrapped table
   caches from the bundled deterministic font; compares rotated, mirrored,
   stroked text-box and default table-cell cache geometry to the authoritative

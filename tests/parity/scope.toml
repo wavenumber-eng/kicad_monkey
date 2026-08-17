@@ -280,15 +280,15 @@ semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/symbol_plotter_sli
 [[surfaces]]
 id = "plotter_ir.board_dimensions"
 disposition = "required_bounded_slice"
-wasm = "deferred_native_first"
-status = "planned"
+wasm = "maintained_feasibility_adapter"
+status = "closed"
 python_symbols = ["dimension_shape_ops", "dimension_text_to_record", "render_cache_request_for_dimension_text"]
-rust_symbols = ["PcbDimension", "BoardPlotDocument"]
-rack_cases = []
-evidence = ["docs/design/rust-phase5-exit-audit.html"]
-vector_evidence = []
-implementation_evidence = []
-semantic_resource_evidence = []
+rust_symbols = ["PcbDimension", "PcbDimensionFormat", "PcbDimensionStyle", "BoardDimensionRecord", "DimensionPlotRecord", "BoardPlotDocument", "kicad-monkey-wasm.plotBoardIr"]
+rack_cases = ["L1_035"]
+evidence = ["docs/design/rust-board-plotter-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "src/rs/kicad-monkey-core/tests/board_dimension_slice.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
+vector_evidence = ["tests/parity/board_plotter_a0_vectors.json", "tests/parity/board_text_cache_sidecar_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/pcb.rs", "src/rs/kicad-monkey-core/src/pcb/decode.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir/dimension.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/board_dimension_slice.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
 
 [[surfaces]]
 id = "plotter_ir.board_footprints"

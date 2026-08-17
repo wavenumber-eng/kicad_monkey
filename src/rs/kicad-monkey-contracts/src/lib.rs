@@ -50,6 +50,16 @@ where
     ))
 }
 
+#[doc(hidden)]
+pub fn deserialize_present_optional_string<'de, D>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    <String as serde::Deserialize>::deserialize(deserializer).map(Some)
+}
+
 macro_rules! literal_kind_deserializer {
     ($name:ident, $expected:literal) => {
         #[doc(hidden)]

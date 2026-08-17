@@ -8,6 +8,7 @@
 //! sidecar net-class extras.
 
 mod copper;
+mod dimension;
 mod graphics;
 mod stroke_font_widths;
 mod table;
@@ -17,7 +18,9 @@ mod text_native;
 mod text_variables;
 pub(crate) mod text_wrap;
 
-use crate::pcb::{PcbFamily, PcbGraphic, PcbLimits, PcbNetRef, PcbSelection, PcbView};
+use crate::pcb::{
+    PcbDimension, PcbFamily, PcbGraphic, PcbLimits, PcbNetRef, PcbSelection, PcbView,
+};
 use crate::plotter_ir::ensure_javascript_safe_integer;
 use crate::plotter_text_cache::{PlotterTextCacheResources, PlotterTextCacheSession};
 use crate::plotter_types::{PlotterOperation, ThickSegment};
@@ -48,6 +51,25 @@ pub struct BoardTableRecord {
     pub layers: Vec<String>,
     pub cell_count: usize,
     pub operations: Vec<BoardTableOperation>,
+}
+
+/// One board dimension operation. Stroke-font text and dimension geometry use
+/// shared layered geometry operations; faced text retains the board cache
+/// payload used by ordinary board text.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BoardDimensionOperation {
+    Geometry(PlotterOperation),
+    Text(BoardTextOperation),
+}
+
+/// One `(dimension ...)` record in Python text-before-shape order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoardDimensionRecord {
+    pub uuid: String,
+    pub layers: Vec<String>,
+    pub dimension_type: String,
+    pub text: Option<String>,
+    pub operations: Vec<BoardDimensionOperation>,
 }
 
 /// Limits for one board plotter conversion.
@@ -265,6 +287,7 @@ pub enum BoardPlotRecord {
     TrackArc(BoardTrackArcRecord),
     Via(BoardViaRecord),
     Table(BoardTableRecord),
+    Dimension(BoardDimensionRecord),
     Zone(BoardZoneRecord),
 }
 
@@ -278,6 +301,7 @@ impl BoardPlotRecord {
             Self::TrackArc(record) => record.operations.len(),
             Self::Via(record) => record.operations.len(),
             Self::Table(record) => record.operations.len(),
+            Self::Dimension(record) => record.operations.len(),
             Self::Zone(record) => record.operations.len(),
         }
     }
@@ -392,7 +416,6 @@ impl BudgetTracker {
     fn remaining_operations(&self) -> Result<usize, Error> {
         self.max_operations
             .checked_sub(self.operation_count)
-            .filter(|remaining| *remaining > 0)
             .ok_or_else(limit_error)
     }
 
@@ -513,11 +536,22 @@ pub fn board_plot_document_with_text_cache_sidecar(
         .ok_or_else(input_point_limit_error)?;
     let (tables, table_cells, decoded_table_points) =
         table::decoded_tables(&view, remaining_input_points)?;
+    let remaining_input_points = remaining_input_points
+        .checked_sub(decoded_table_points)
+        .ok_or_else(input_point_limit_error)?;
+    let (dimensions, decoded_dimension_points) = decoded_dimensions(&view, remaining_input_points)?;
     let mut records = graphic_records(source, &graphics, &mut budget, limits)?;
+    let dimension_variables = dimensions.iter().try_fold(false, |needed, dimension| {
+        if needed {
+            Ok(true)
+        } else {
+            dimension::needs_variables(source, dimension, limits)
+        }
+    })?;
     let variables = text::board_variables(
         &view,
         &graphics,
-        table_cells.iter().any(|cell| cell.text.contains("${")),
+        table_cells.iter().any(|cell| cell.text.contains("${")) || dimension_variables,
         text_variables,
     )?;
     records.extend(text::text_records(
@@ -544,8 +578,18 @@ pub fn board_plot_document_with_text_cache_sidecar(
         text_cache.as_ref(),
         limits,
     )?);
+    append_dimension_records(
+        source,
+        &dimensions,
+        &variables,
+        &mut budget,
+        text_cache.as_ref(),
+        limits,
+        &mut records,
+    )?;
     let mut decoded_input_points = decoded_graphic_points
         .checked_add(decoded_table_points)
+        .and_then(|count| count.checked_add(decoded_dimension_points))
         .filter(|count| *count <= limits.max_input_points)
         .ok_or_else(input_point_limit_error)?;
     append_zone_records(
@@ -564,6 +608,29 @@ pub fn board_plot_document_with_text_cache_sidecar(
         paper: metadata.paper,
         records,
     })
+}
+
+fn append_dimension_records(
+    source: &str,
+    dimensions: &[PcbDimension],
+    variables: &BoardTextVariables,
+    budget: &mut BudgetTracker,
+    text_cache: Option<&PlotterTextCacheSession<'_>>,
+    limits: BoardPlotLimits,
+    records: &mut Vec<BoardPlotRecord>,
+) -> Result<(), Error> {
+    for dimension in dimensions {
+        budget.ensure_capacity(0, 0)?;
+        let record =
+            dimension::dimension_record(source, dimension, variables, budget, text_cache, limits)?;
+        budget.charge(
+            record.operations.len(),
+            dimension::cache_point_total(&record),
+        )?;
+        budget.charge_text(dimension::retained_text_bytes(&record))?;
+        records.push(BoardPlotRecord::Dimension(record));
+    }
+    Ok(())
 }
 
 fn append_zone_records(
@@ -655,6 +722,7 @@ fn board_pcb_limits(limits: BoardPlotLimits) -> PcbLimits {
         max_vias: limits.max_graphics,
         max_arcs: limits.max_graphics,
         max_zones: limits.max_graphics,
+        max_dimensions: limits.max_graphics,
         max_tables: limits.max_graphics,
         max_table_cells: limits.max_parse_nodes,
         max_table_values: limits.max_parse_nodes,
@@ -682,6 +750,23 @@ fn decoded_graphics(
     Ok((graphics, point_count))
 }
 
+fn decoded_dimensions(
+    view: &PcbView<'_>,
+    maximum_points: usize,
+) -> Result<(Vec<PcbDimension>, usize), Error> {
+    let mut dimensions = Vec::new();
+    let mut point_count = 0usize;
+    for dimension in view.dimensions() {
+        let dimension = dimension.map_err(normalize_input_limit_error)?;
+        point_count = point_count
+            .checked_add(dimension.points.len())
+            .filter(|count| *count <= maximum_points)
+            .ok_or_else(input_point_limit_error)?;
+        dimensions.push(dimension);
+    }
+    Ok((dimensions, point_count))
+}
+
 fn board_selection() -> PcbSelection {
     PcbSelection::only(PcbFamily::Graphics)
         .with(PcbFamily::Properties)
@@ -689,6 +774,7 @@ fn board_selection() -> PcbSelection {
         .with(PcbFamily::Arcs)
         .with(PcbFamily::Vias)
         .with(PcbFamily::Tables)
+        .with(PcbFamily::Dimensions)
         .with(PcbFamily::Zones)
 }
 

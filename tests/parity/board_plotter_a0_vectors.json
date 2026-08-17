@@ -5474,6 +5474,1083 @@
     "thickness_mm": 1.6,
     "paper": "A4"
    }
+  },
+  {
+   "id": "dimensions-follow-tables-and-precede-zones",
+   "source": "(kicad_pcb\n  (version 20240108)\n  (generator pcbnew)\n  (generator_version \"8.0\")\n  (general (thickness 1.6))\n  (paper \"A4\")\n  (table (column_count 0) (layer \"Dwgs.User\")\n    (border (external no)) (separators (rows no) (cols no)) (uuid \"table-before-dimensions\"))\n  (dimension (type aligned) (layer \"Dwgs.User\") (pts (xy 0 0) (xy 10 0)) (height 3)\n    (format (override_value \"1\") (units_format 0))\n    (style (thickness 0.2) (arrow_length 1) (arrow_direction outward) (extension_height 0.5))\n    (gr_text \"authored\" (at 5 3) (layer \"F.SilkS\") (effects (font (size 1 1))) (uuid \"aligned-text\"))\n    (uuid \"dimension-aligned\"))\n  (dimension (type orthogonal) (layer \"Cmts.User\") (pts (xy 0 0) (xy 5 2)) (height 2) (orientation 0)\n    (style (thickness 0.15) (arrow_length 0.8) (arrow_direction inward) (extension_height 0.3))\n    (uuid \"dimension-orthogonal\"))\n  (dimension (type radial) (layer \"Dwgs.User\") (pts (xy 20 0) (xy 22 0)) (leader_length 2)\n    (format (override_value \"R\") (units_format 0))\n    (style (thickness 0.1) (arrow_length 0.5) (keep_text_aligned no))\n    (gr_text \"authored\" (at 25 0) (layer \"B.SilkS\")\n      (effects (font (face \"Arial\") (size 1 1)))\n      (render_cache \"R\" 0 (polygon (pts (xy 24.5 -0.5) (xy 25.5 -0.5) (xy 25.5 0.5))))\n      (uuid \"radial-text\"))\n    (uuid \"dimension-radial\"))\n  (dimension (type leader) (layer \"Cmts.User\") (pts (xy 30 0) (xy 32 1))\n    (format (override_value \"L\") (units_format 0))\n    (style (thickness 0.1) (arrow_length 0.5) (extension_offset 0.2) (text_frame 1))\n    (gr_text \"authored\" (at 35 1 30) (effects (font (size 1 1))) (uuid \"leader-text\"))\n    (uuid \"dimension-leader\"))\n  (dimension (type center) (layer \"Dwgs.User\") (pts (xy 40 0) (xy 41 0))\n    (format (override_value \"A_{B}^{C}~{D}\") (units_format 0))\n    (style (thickness 0.1) (arrow_length 0.5))\n    (gr_text \"authored\" (at 40 0) (effects (font (size 1 1))) (uuid \"center-text\"))\n    (uuid \"dimension-center\"))\n  (zone (net 0) (net_name \"\") (layers \"F.Cu\")\n    (filled_polygon (layer \"F.Cu\") (pts (xy 0 20) (xy 2 20) (xy 2 22)))\n    (uuid \"zone-after-dimensions\"))\n)",
+   "source_path": "boards/dimensions.kicad_pcb",
+   "document_id": "board-dimensions",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "PCB",
+    "total_operations": 89,
+    "records": [
+     {
+      "uuid": "table-before-dimensions",
+      "kind": "table",
+      "object_id": "table",
+      "operation_count": 0,
+      "operations": [],
+      "layers": [
+       "Dwgs.User"
+      ],
+      "cell_count": 0
+     },
+     {
+      "uuid": "dimension-aligned",
+      "kind": "dimension",
+      "object_id": "dimension",
+      "operation_count": 12,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 5285714,
+        "start_y": 2329781,
+        "end_x": 4714286,
+        "end_y": 2329781,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 1,
+        "start_x": 5000000,
+        "start_y": 2329781,
+        "end_x": 5000000,
+        "end_y": 1329781,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 2,
+        "start_x": 5000000,
+        "start_y": 1329781,
+        "end_x": 4904762,
+        "end_y": 1472638,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 3,
+        "start_x": 4904762,
+        "start_y": 1472638,
+        "end_x": 4809524,
+        "end_y": 1567876,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 4,
+        "start_x": 4809524,
+        "start_y": 1567876,
+        "end_x": 4714286,
+        "end_y": 1615495,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 5,
+        "start_x": 0,
+        "start_y": 0,
+        "end_x": 0,
+        "end_y": 3500000,
+        "width_nm": 200000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 6,
+        "start_x": 10000000,
+        "start_y": 0,
+        "end_x": 10000000,
+        "end_y": 3500000,
+        "width_nm": 200000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 7,
+        "start_x": 0,
+        "start_y": 3000000,
+        "end_x": 10000000,
+        "end_y": 3000000,
+        "width_nm": 200000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 8,
+        "start_x": 0,
+        "start_y": 3000000,
+        "end_x": 887011,
+        "end_y": 2538251,
+        "width_nm": 200000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 9,
+        "start_x": 0,
+        "start_y": 3000000,
+        "end_x": 887011,
+        "end_y": 3461749,
+        "width_nm": 200000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 10,
+        "start_x": 10000000,
+        "start_y": 3000000,
+        "end_x": 9112989,
+        "end_y": 3461749,
+        "width_nm": 200000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 11,
+        "start_x": 10000000,
+        "start_y": 3000000,
+        "end_x": 9112989,
+        "end_y": 2538251,
+        "width_nm": 200000,
+        "layer": "Dwgs.User"
+       }
+      ],
+      "layers": [
+       "Dwgs.User",
+       "F.SilkS"
+      ],
+      "text": "1",
+      "dimension_type": "aligned"
+     },
+     {
+      "uuid": "dimension-orthogonal",
+      "kind": "dimension",
+      "object_id": "dimension",
+      "operation_count": 9,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 0,
+        "start_y": 0,
+        "end_x": 0,
+        "end_y": 2300000,
+        "width_nm": 150000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "Circle",
+        "index": 1,
+        "cx": 5000000,
+        "cy": 2000000,
+        "diameter_nm": 200000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 2,
+        "start_x": 0,
+        "start_y": 2000000,
+        "end_x": 5000000,
+        "end_y": 2000000,
+        "width_nm": 150000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 3,
+        "start_x": 0,
+        "start_y": 2000000,
+        "end_x": -1600000,
+        "end_y": 2000000,
+        "width_nm": 150000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 4,
+        "start_x": 0,
+        "start_y": 2000000,
+        "end_x": -709609,
+        "end_y": 2369399,
+        "width_nm": 150000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 5,
+        "start_x": 0,
+        "start_y": 2000000,
+        "end_x": -709609,
+        "end_y": 1630601,
+        "width_nm": 150000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 6,
+        "start_x": 5000000,
+        "start_y": 2000000,
+        "end_x": 6600000,
+        "end_y": 2000000,
+        "width_nm": 150000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 7,
+        "start_x": 5000000,
+        "start_y": 2000000,
+        "end_x": 5709609,
+        "end_y": 1630601,
+        "width_nm": 150000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 8,
+        "start_x": 5000000,
+        "start_y": 2000000,
+        "end_x": 5709609,
+        "end_y": 2369399,
+        "width_nm": 150000,
+        "layer": "Cmts.User"
+       }
+      ],
+      "layers": [
+       "Cmts.User"
+      ],
+      "dimension_type": "orthogonal"
+     },
+     {
+      "uuid": "dimension-radial",
+      "kind": "dimension",
+      "object_id": "dimension",
+      "operation_count": 6,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 25000000,
+        "y": 0,
+        "text": "R",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial",
+        "render_cache_polygons": [
+         [
+          [
+           24500000,
+           -500000
+          ],
+          [
+           25500000,
+           -500000
+          ],
+          [
+           25500000,
+           500000
+          ]
+         ]
+        ],
+        "render_cache": {
+         "schema": "kicad.render_cache.v1",
+         "unit": "nm",
+         "coordinate_space": "board",
+         "text": "R",
+         "angle": 0.0,
+         "source": "existing_file_cache",
+         "exact": false,
+         "polygons": [
+          {
+           "contours": [
+            [
+             [
+              24500000,
+              -500000
+             ],
+             [
+              25500000,
+              -500000
+             ],
+             [
+              25500000,
+              500000
+             ]
+            ]
+           ]
+          }
+         ]
+        },
+        "render_cache_source": "existing_file_cache",
+        "render_cache_exact": false,
+        "layer": "B.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 1,
+        "start_x": 20000000,
+        "start_y": -500000,
+        "end_x": 20000000,
+        "end_y": 500000,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 2,
+        "start_x": 20500000,
+        "start_y": 0,
+        "end_x": 19500000,
+        "end_y": 0,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 3,
+        "start_x": 22000000,
+        "start_y": 0,
+        "end_x": 23875000,
+        "end_y": 0,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 4,
+        "start_x": 22000000,
+        "start_y": 0,
+        "end_x": 22443505,
+        "end_y": -230874,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 5,
+        "start_x": 22000000,
+        "start_y": 0,
+        "end_x": 22443505,
+        "end_y": 230874,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       }
+      ],
+      "layers": [
+       "B.SilkS",
+       "Dwgs.User"
+      ],
+      "text": "R",
+      "dimension_type": "radial"
+     },
+     {
+      "uuid": "dimension-leader",
+      "kind": "dimension",
+      "object_id": "dimension",
+      "operation_count": 10,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 35495446,
+        "start_y": 1239090,
+        "end_x": 35083053,
+        "end_y": 1477185,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 1,
+        "start_x": 35083053,
+        "start_y": 1477185,
+        "end_x": 34583053,
+        "end_y": 611160,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 2,
+        "start_x": 30178885,
+        "start_y": 89443,
+        "end_x": 32000000,
+        "end_y": 1000000,
+        "width_nm": 100000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 3,
+        "start_x": 30178885,
+        "start_y": 89443,
+        "end_x": 30678819,
+        "end_y": 81284,
+        "width_nm": 100000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 4,
+        "start_x": 30178885,
+        "start_y": 89443,
+        "end_x": 30472319,
+        "end_y": 494285,
+        "width_nm": 100000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 5,
+        "start_x": 33533795,
+        "start_y": -509779,
+        "end_x": 33533795,
+        "end_y": 2509779,
+        "width_nm": 100000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 6,
+        "start_x": 33533795,
+        "start_y": 2509779,
+        "end_x": 36466205,
+        "end_y": 2509779,
+        "width_nm": 100000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 7,
+        "start_x": 36466205,
+        "start_y": 2509779,
+        "end_x": 36466205,
+        "end_y": -509779,
+        "width_nm": 100000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 8,
+        "start_x": 36466205,
+        "start_y": -509779,
+        "end_x": 33533795,
+        "end_y": -509779,
+        "width_nm": 100000,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 9,
+        "start_x": 32000000,
+        "start_y": 1000000,
+        "end_x": 33533795,
+        "end_y": 1000000,
+        "width_nm": 100000,
+        "layer": "Cmts.User"
+       }
+      ],
+      "layers": [
+       "Cmts.User",
+       "F.SilkS"
+      ],
+      "text": "L",
+      "dimension_type": "leader"
+     },
+     {
+      "uuid": "dimension-center",
+      "kind": "dimension",
+      "object_id": "dimension",
+      "operation_count": 51,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 38461905,
+        "start_y": 169067,
+        "end_x": 38938095,
+        "end_y": 169067,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 1,
+        "start_x": 38366667,
+        "start_y": 454781,
+        "end_x": 38700000,
+        "end_y": -545219,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 2,
+        "start_x": 38700000,
+        "start_y": -545219,
+        "end_x": 39033333,
+        "end_y": 454781,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 3,
+        "start_x": 39585714,
+        "start_y": 146210,
+        "end_x": 39700000,
+        "end_y": 184305,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 4,
+        "start_x": 39700000,
+        "start_y": 184305,
+        "end_x": 39738095,
+        "end_y": 222400,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 5,
+        "start_x": 39738095,
+        "start_y": 222400,
+        "end_x": 39776190,
+        "end_y": 298590,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 6,
+        "start_x": 39776190,
+        "start_y": 298590,
+        "end_x": 39776190,
+        "end_y": 412876,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 7,
+        "start_x": 39776190,
+        "start_y": 412876,
+        "end_x": 39738095,
+        "end_y": 489067,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 8,
+        "start_x": 39738095,
+        "start_y": 489067,
+        "end_x": 39700000,
+        "end_y": 527162,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 9,
+        "start_x": 39700000,
+        "start_y": 527162,
+        "end_x": 39623810,
+        "end_y": 565257,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 10,
+        "start_x": 39623810,
+        "start_y": 565257,
+        "end_x": 39319048,
+        "end_y": 565257,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 11,
+        "start_x": 39319048,
+        "start_y": 565257,
+        "end_x": 39319048,
+        "end_y": -234743,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 12,
+        "start_x": 39319048,
+        "start_y": -234743,
+        "end_x": 39585714,
+        "end_y": -234743,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 13,
+        "start_x": 39585714,
+        "start_y": -234743,
+        "end_x": 39661905,
+        "end_y": -196648,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 14,
+        "start_x": 39661905,
+        "start_y": -196648,
+        "end_x": 39700000,
+        "end_y": -158552,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 15,
+        "start_x": 39700000,
+        "start_y": -158552,
+        "end_x": 39738095,
+        "end_y": -82362,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 16,
+        "start_x": 39738095,
+        "start_y": -82362,
+        "end_x": 39738095,
+        "end_y": -6171,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 17,
+        "start_x": 39738095,
+        "start_y": -6171,
+        "end_x": 39700000,
+        "end_y": 70019,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 18,
+        "start_x": 39700000,
+        "start_y": 70019,
+        "end_x": 39661905,
+        "end_y": 108114,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 19,
+        "start_x": 39661905,
+        "start_y": 108114,
+        "end_x": 39585714,
+        "end_y": 146210,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 20,
+        "start_x": 39585714,
+        "start_y": 146210,
+        "end_x": 39319048,
+        "end_y": 146210,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 21,
+        "start_x": 40576190,
+        "start_y": 89067,
+        "end_x": 40538095,
+        "end_y": 127162,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 22,
+        "start_x": 40538095,
+        "start_y": 127162,
+        "end_x": 40423810,
+        "end_y": 165257,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 23,
+        "start_x": 40423810,
+        "start_y": 165257,
+        "end_x": 40347619,
+        "end_y": 165257,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 24,
+        "start_x": 40347619,
+        "start_y": 165257,
+        "end_x": 40233333,
+        "end_y": 127162,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 25,
+        "start_x": 40233333,
+        "start_y": 127162,
+        "end_x": 40157143,
+        "end_y": 50971,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 26,
+        "start_x": 40157143,
+        "start_y": 50971,
+        "end_x": 40119048,
+        "end_y": -25219,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 27,
+        "start_x": 40119048,
+        "start_y": -25219,
+        "end_x": 40080952,
+        "end_y": -177600,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 28,
+        "start_x": 40080952,
+        "start_y": -177600,
+        "end_x": 40080952,
+        "end_y": -291886,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 29,
+        "start_x": 40080952,
+        "start_y": -291886,
+        "end_x": 40119048,
+        "end_y": -444267,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 30,
+        "start_x": 40119048,
+        "start_y": -444267,
+        "end_x": 40157143,
+        "end_y": -520457,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 31,
+        "start_x": 40157143,
+        "start_y": -520457,
+        "end_x": 40233333,
+        "end_y": -596648,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 32,
+        "start_x": 40233333,
+        "start_y": -596648,
+        "end_x": 40347619,
+        "end_y": -634743,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 33,
+        "start_x": 40347619,
+        "start_y": -634743,
+        "end_x": 40423810,
+        "end_y": -634743,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 34,
+        "start_x": 40423810,
+        "start_y": -634743,
+        "end_x": 40538095,
+        "end_y": -596648,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 35,
+        "start_x": 40538095,
+        "start_y": -596648,
+        "end_x": 40576190,
+        "end_y": -558552,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 36,
+        "start_x": 40966667,
+        "start_y": 454781,
+        "end_x": 40966667,
+        "end_y": -545219,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 37,
+        "start_x": 40966667,
+        "start_y": -545219,
+        "end_x": 41204762,
+        "end_y": -545219,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 38,
+        "start_x": 41204762,
+        "start_y": -545219,
+        "end_x": 41347619,
+        "end_y": -497600,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 39,
+        "start_x": 41347619,
+        "start_y": -497600,
+        "end_x": 41442857,
+        "end_y": -402362,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 40,
+        "start_x": 41442857,
+        "start_y": -402362,
+        "end_x": 41490476,
+        "end_y": -307124,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 41,
+        "start_x": 41490476,
+        "start_y": -307124,
+        "end_x": 41538095,
+        "end_y": -116648,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 42,
+        "start_x": 41538095,
+        "start_y": -116648,
+        "end_x": 41538095,
+        "end_y": 26210,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 43,
+        "start_x": 41538095,
+        "start_y": 26210,
+        "end_x": 41490476,
+        "end_y": 216686,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 44,
+        "start_x": 41490476,
+        "start_y": 216686,
+        "end_x": 41442857,
+        "end_y": 311924,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 45,
+        "start_x": 41442857,
+        "start_y": 311924,
+        "end_x": 41347619,
+        "end_y": 407162,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 46,
+        "start_x": 41347619,
+        "start_y": 407162,
+        "end_x": 41204762,
+        "end_y": 454781,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 47,
+        "start_x": 41204762,
+        "start_y": 454781,
+        "end_x": 40966667,
+        "end_y": 454781,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 48,
+        "start_x": 40828571,
+        "start_y": -822838,
+        "end_x": 41628571,
+        "end_y": -822838,
+        "width_nm": 125000,
+        "layer": "F.SilkS"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 49,
+        "start_x": 39000000,
+        "start_y": 0,
+        "end_x": 41000000,
+        "end_y": 0,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 50,
+        "start_x": 40000000,
+        "start_y": -1000000,
+        "end_x": 40000000,
+        "end_y": 1000000,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       }
+      ],
+      "layers": [
+       "Dwgs.User",
+       "F.SilkS"
+      ],
+      "text": "A_{B}^{C}~{D}",
+      "dimension_type": "center"
+     },
+     {
+      "uuid": "zone-after-dimensions",
+      "kind": "zone_fill",
+      "object_id": "zone",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          0,
+          20000000
+         ],
+         [
+          2000000,
+          20000000
+         ],
+         [
+          2000000,
+          22000000
+         ]
+        ],
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0
+       }
+      ],
+      "layers": [
+       "F.Cu"
+      ],
+      "fill_layers": [
+       "F.Cu"
+      ],
+      "fill_island": [
+       false
+      ],
+      "net_id": 0
+     }
+    ],
+    "source_path": "boards/dimensions.kicad_pcb",
+    "document_id": "board-dimensions",
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    },
+    "version": 20240108,
+    "generator": "pcbnew",
+    "generator_version": "8.0",
+    "thickness_mm": 1.6,
+    "paper": "A4"
+   }
   }
  ]
 }

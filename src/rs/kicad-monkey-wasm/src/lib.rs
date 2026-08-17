@@ -709,7 +709,7 @@ fn js_error(error: Error) -> JsValue {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_sexpr, build_sexpr_impl, canonicalize_sexpr, edit_footprint_property,
+        build_sexpr, build_sexpr_impl, canonicalize_sexpr, edit_footprint_property, plot_board_ir,
         plot_footprint_ir, plot_footprint_ir_impl, plot_symbol_ir, read_footprint, scan_sexpr,
         scan_sexpr_impl,
     };
@@ -1046,6 +1046,39 @@ mod tests {
             );
             assert!(output.output_bytes().is_empty());
         }
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_board_dimensions_expand_faced_text_and_fail_closed_on_unsafe_geometry() {
+        let request = br#"{"type":"kicad_monkey.board_plot.request","version":"a0","source_path":"dimensions.kicad_pcb","document_id":"dimensions","max_source_bytes":"4096","max_output_bytes":"65536","max_depth":32,"max_graphics":10,"max_operations":100,"max_points":1000,"max_text_bytes":"4096","max_parse_nodes":1000,"max_input_points":100,"max_input_polygons":10,"max_cache_polygons":10,"max_cache_contours":100,"text_variables":[{"name":"PROJECT","value":"demo"}]}"#;
+        let source = br#"(kicad_pcb
+          (dimension (type center) (pts (xy 0 0) (xy 1 0))
+            (format (override_value "${PROJECT}") (units_format 0))
+            (gr_text "authored" (at 0 0) (effects (font (face "Arial") (size 1 1))))))"#;
+        let output = plot_board_ir(source, request).expect("WASM dimension output");
+        let metadata: Value =
+            serde_json::from_slice(&output.result_json()).expect("dimension metadata JSON");
+        let document: Value =
+            serde_json::from_slice(&output.output_bytes()).expect("dimension document JSON");
+        assert_eq!(metadata["diagnostics"], serde_json::json!([]));
+        assert_eq!(document["records"][0]["text"], "${PROJECT}");
+        assert_eq!(document["records"][0]["operations"][0]["text"], "demo");
+
+        let unsafe_source = br#"(kicad_pcb
+          (dimension (type center)
+            (pts (xy 9007199254.740991 0) (xy 9007199254.740991 1))))"#;
+        let unsafe_output =
+            plot_board_ir(unsafe_source, request).expect("WASM unsafe dimension diagnostic");
+        let unsafe_metadata: Value = serde_json::from_slice(&unsafe_output.result_json())
+            .expect("unsafe dimension metadata JSON");
+        assert!(
+            !unsafe_metadata["diagnostics"]
+                .as_array()
+                .expect("diagnostics")
+                .is_empty()
+        );
+        assert_eq!(unsafe_metadata["total_operations"], 0);
+        assert!(unsafe_output.output_bytes().is_empty());
     }
 
     #[wasm_bindgen_test]

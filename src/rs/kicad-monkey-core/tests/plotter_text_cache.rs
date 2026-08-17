@@ -1,11 +1,11 @@
 use kicad_monkey_contracts::generated::shaping_record::ShapingInput;
 use kicad_monkey_core::{
-    BoardPlotLimits, BoardPlotRecord, BoardTableOperation, BoardTextBoxOperation,
-    BoardTextRenderCacheSource, BoardTextVariables, ErrorKind, PlotterTextCacheLimits,
-    PlotterTextCacheResources, PlotterTextFont, TextBlockLayoutRequest, TextHorizontalAlignment,
-    TextRenderCache, TextVerticalAlignment, board_plot_document_with_sidecars,
-    board_plot_document_with_text_cache_sidecar, generate_text_render_cache_block_hinted_a0,
-    linebreak_text_block_hinted_a0,
+    BoardDimensionOperation, BoardPlotLimits, BoardPlotRecord, BoardTableOperation,
+    BoardTextBoxOperation, BoardTextRenderCacheSource, BoardTextVariables, ErrorKind,
+    PlotterTextCacheLimits, PlotterTextCacheResources, PlotterTextFont, TextBlockLayoutRequest,
+    TextHorizontalAlignment, TextRenderCache, TextVerticalAlignment,
+    board_plot_document_with_sidecars, board_plot_document_with_text_cache_sidecar,
+    generate_text_render_cache_block_hinted_a0, linebreak_text_block_hinted_a0,
 };
 use serde::Deserialize;
 
@@ -213,6 +213,17 @@ fn carrier_bridge_prefers_matching_and_regenerates_stale_or_missing_caches() {
                         BoardTableOperation::Segment(_) => None,
                     })
                     .expect("table cache")
+                    .source
+            }
+            BoardPlotRecord::Dimension(dimension) => {
+                dimension
+                    .operations
+                    .iter()
+                    .find_map(|operation| match operation {
+                        BoardDimensionOperation::Text(text) => text.render_cache.as_ref(),
+                        BoardDimensionOperation::Geometry(_) => None,
+                    })
+                    .expect("dimension cache")
                     .source
             }
             _ => panic!("expected text carrier record"),

@@ -222,11 +222,21 @@ pub(super) fn net_resolver_from_spans(
     spans: &[FormSpan],
 ) -> Result<NetResolver, Error> {
     let mut resolver = NetResolver::default();
+    let mut ordinal_order = Vec::with_capacity(spans.len());
     for span in spans {
         let net = net_from_span(source, span)?;
-        resolver.name_by_ordinal.insert(net.code, net.name.clone());
-        if !net.name.is_empty() {
-            resolver.ordinal_by_name.insert(net.name, net.code);
+        if !resolver.name_by_ordinal.contains_key(&net.code) {
+            ordinal_order.push(net.code);
+        }
+        resolver.name_by_ordinal.insert(net.code, net.name);
+    }
+    // Match Python's NetTable snapshot: finalize ordinal ownership first,
+    // then derive the reverse map in first-seen ordinal order. This prevents
+    // an overwritten duplicate ordinal from retaining its stale old name.
+    for ordinal in ordinal_order {
+        let name = &resolver.name_by_ordinal[&ordinal];
+        if !name.is_empty() {
+            resolver.ordinal_by_name.insert(name.clone(), ordinal);
         }
     }
     Ok(resolver)
@@ -331,12 +341,16 @@ pub(super) fn dimension_from_span(
     span: &FormSpan,
     limits: PcbLimits,
 ) -> Result<PcbDimension, Error> {
-    let header = scalar_values(source, span)?;
     let children = direct_children(source, span, limits.max_object_children, limits)?;
     let points = child(&children, "pts")
-        .map(|points| points_from_span(source, points, limits))
+        .map(|points| dimension_points_from_span(source, points, limits))
         .transpose()?
         .unwrap_or_default();
+    let format = dimension_format(source, &children, limits)?;
+    let style = dimension_style(source, &children, limits)?;
+    let text = child(&children, "gr_text")
+        .map(|text| dimension_text_from_span(source, text, limits))
+        .transpose()?;
     Ok(PcbDimension {
         kind: optional_child_string(source, &children, "type")?
             .unwrap_or_else(|| "aligned".to_owned()),
@@ -346,10 +360,140 @@ pub(super) fn dimension_from_span(
         height: optional_child_f64(source, &children, "height")?.unwrap_or(0.0),
         leader_length: optional_child_f64(source, &children, "leader_length")?,
         orientation: optional_child_i64(source, &children, "orientation")?,
-        locked: has_flag(&header, "locked") || child_bool(source, &children, "locked")?,
+        format,
+        style,
+        text,
+        locked: dimension_bool(source, &children, "locked", false)?,
         uuid: optional_uuid(source, &children)?,
         source_range: span.range.clone(),
     })
+}
+
+fn dimension_points_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<Vec<PcbPoint>, Error> {
+    let mut result = Vec::new();
+    for point in direct_children(source, span, limits.max_graphic_points, limits)? {
+        if point.head.as_deref() != Some("xy") {
+            continue;
+        }
+        let values = scalar_values(source, &point)?;
+        if values.len() < 2 {
+            continue;
+        }
+        result.push(PcbPoint {
+            x: required_f64(values.first(), "Expected point x", &point)?,
+            y: required_f64(values.get(1), "Expected point y", &point)?,
+        });
+    }
+    Ok(result)
+}
+
+fn dimension_format(
+    source: &str,
+    children: &[FormSpan],
+    limits: PcbLimits,
+) -> Result<PcbDimensionFormat, Error> {
+    let Some(format) = child(children, "format") else {
+        return Ok(PcbDimensionFormat::default());
+    };
+    let fields = direct_children(source, format, limits.max_object_children, limits)?;
+    Ok(PcbDimensionFormat {
+        prefix: optional_child_string(source, &fields, "prefix")?.unwrap_or_default(),
+        suffix: optional_child_string(source, &fields, "suffix")?.unwrap_or_default(),
+        units: optional_child_i64(source, &fields, "units")?.unwrap_or(2),
+        units_format: optional_child_i64(source, &fields, "units_format")?.unwrap_or(1),
+        precision: optional_child_i64(source, &fields, "precision")?.unwrap_or(4),
+        override_value: optional_child_string(source, &fields, "override_value")?
+            .filter(|value| !value.is_empty()),
+        suppress_zeroes: dimension_bool(source, &fields, "suppress_zeroes", false)?,
+    })
+}
+
+fn dimension_style(
+    source: &str,
+    children: &[FormSpan],
+    limits: PcbLimits,
+) -> Result<PcbDimensionStyle, Error> {
+    let Some(style) = child(children, "style") else {
+        return Ok(PcbDimensionStyle::default());
+    };
+    let fields = direct_children(source, style, limits.max_object_children, limits)?;
+    Ok(PcbDimensionStyle {
+        thickness: optional_child_f64(source, &fields, "thickness")?.unwrap_or(0.2),
+        arrow_length: optional_child_f64(source, &fields, "arrow_length")?.unwrap_or(1.27),
+        text_position_mode: optional_child_i64(source, &fields, "text_position_mode")?.unwrap_or(0),
+        arrow_direction: optional_child_string(source, &fields, "arrow_direction")?
+            .unwrap_or_else(|| "outward".to_owned()),
+        extension_height: optional_child_f64(source, &fields, "extension_height")?
+            .unwrap_or(0.58642),
+        extension_offset: optional_child_f64(source, &fields, "extension_offset")?.unwrap_or(0.0),
+        keep_text_aligned: dimension_bool(source, &fields, "keep_text_aligned", false)?,
+        text_frame: optional_child_i64(source, &fields, "text_frame")?,
+    })
+}
+
+fn dimension_text_from_span(
+    source: &str,
+    span: &FormSpan,
+    limits: PcbLimits,
+) -> Result<PcbGraphic, Error> {
+    let header = scalar_values(source, span)?;
+    let children = direct_children(source, span, limits.max_object_children, limits)?;
+    let at = child(&children, "at")
+        .map(|at| {
+            let values = scalar_values(source, at)?;
+            Ok(PcbPoint {
+                x: optional_f64(values.first(), at)?.unwrap_or(0.0),
+                y: optional_f64(values.get(1), at)?.unwrap_or(0.0),
+            })
+        })
+        .transpose()?
+        .unwrap_or(PcbPoint { x: 0.0, y: 0.0 });
+    Ok(PcbGraphic {
+        kind: PcbGraphicKind::Text,
+        text: Some(required_string(
+            header.first(),
+            "Expected dimension text",
+            span,
+        )?),
+        at: Some(at),
+        start: None,
+        mid: None,
+        end: None,
+        center: None,
+        points: Vec::new(),
+        layer: Some(
+            optional_child_string(source, &children, "layer")?
+                .unwrap_or_else(|| "F.SilkS".to_owned()),
+        ),
+        stroke_width: None,
+        stroke_kind: None,
+        fill: None,
+        border: None,
+        uuid: optional_uuid(source, &children)?,
+        source_range: span.range.clone(),
+    })
+}
+
+fn dimension_bool(
+    source: &str,
+    children: &[FormSpan],
+    head: &str,
+    default: bool,
+) -> Result<bool, Error> {
+    let Some(span) = child(children, head) else {
+        return Ok(default);
+    };
+    let values = scalar_values(source, span)?;
+    Ok(values.first().is_none_or(|value| {
+        matches!(
+            token_string(value).to_ascii_lowercase().as_str(),
+            "yes" | "true" | "1"
+        )
+    }))
 }
 
 pub(super) fn group_from_span(

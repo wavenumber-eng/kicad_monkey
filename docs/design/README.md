@@ -72,8 +72,8 @@ Current design notes:
 - `rust-native-render-cache.html` - proposed staged native shaping, outline,
   curve decomposition, placement, and final KiCad cache-parity ladder.
 - `rust-board-plotter-phase5-slice.html` - accepted bounded native board
-  text, text-box, and table Plotter-IR parity with explicit outline-bridge
-  deferrals and independent resource ceilings.
+  text, text-box, table, and five-style dimension Plotter-IR parity with
+  explicit outline-bridge deferrals and independent resource ceilings.
 - `rust-phase5-exit-audit.html` - accepted inventory and bounded closure order
   for the remaining native text, footprint, symbol, board, and schematic
   Plotter-IR surfaces before the native application phase.

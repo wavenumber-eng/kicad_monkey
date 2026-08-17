@@ -394,6 +394,25 @@ fn board_net_table_resolves_ordinal_name_unknown_and_empty_references_once() {
 }
 
 #[test]
+fn board_net_table_derives_reverse_lookup_after_duplicate_ordinals_settle() {
+    let source = r#"(kicad_pcb
+  (net 1 "OLD")
+  (net 1 "NEW")
+  (net 2 "SHARED")
+  (net 3 "SHARED")
+  (footprint "Demo"
+    (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net "OLD"))
+    (pad "2" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net "NEW"))
+    (pad "3" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net "SHARED"))))"#;
+    let view = PcbView::parse(source, PcbLimits::default()).expect("board view");
+    let pads = view.pads().collect::<Result<Vec<_>, _>>().expect("pads");
+
+    assert_eq!(pads[0].net.ordinal, None);
+    assert_eq!(pads[1].net.ordinal, Some(1));
+    assert_eq!(pads[2].net.ordinal, Some(3));
+}
+
+#[test]
 fn absent_routing_and_zone_nets_match_python_net_zero_defaults() {
     let source = r#"(kicad_pcb
   (segment (start 0 0) (end 1 0) (width 0.1) (layer "F.Cu"))

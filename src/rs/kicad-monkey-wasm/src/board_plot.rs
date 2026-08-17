@@ -3,10 +3,10 @@
 use crate::{plotter_contract::contract_plotter_operation, serialize_bounded};
 use kicad_monkey_contracts::JavaScriptSafeInteger;
 use kicad_monkey_contracts::generated::board_plot_document::{
-    BoardGraphicPlotRecord, BoardGraphicRecordKind, BoardPlotDocumentA0, BoardPlotRecord,
-    BoardTextBoxPlotRecord, BoardTextPlotRecord, BoardViaType, CircleOperation,
-    FlashPadCircleOperation, PlotterCoordinateSpace, PlotterDrillRole, PlotterFill,
-    PlotterOperation, PlotterPoint, PlotterStringBool, PlotterTextHAlign,
+    BoardDimensionType, BoardGraphicPlotRecord, BoardGraphicRecordKind, BoardPlotDocumentA0,
+    BoardPlotRecord, BoardTextBoxPlotRecord, BoardTextPlotRecord, BoardViaType, CircleOperation,
+    DimensionPlotRecord, FlashPadCircleOperation, PlotterCoordinateSpace, PlotterDrillRole,
+    PlotterFill, PlotterOperation, PlotterPoint, PlotterStringBool, PlotterTextHAlign,
     PlotterTextRenderCacheSource, PlotterTextVAlign, PlotterViaFlashRole, TablePlotRecord,
     TextOperation, TextRenderCache, TextRenderCachePolygon, TrackArcPlotRecord,
     TrackSegmentPlotRecord, ViaPlotRecord, ZoneFillPlotRecord,
@@ -17,12 +17,12 @@ use kicad_monkey_contracts::generated::board_plot_result::{
 };
 use kicad_monkey_contracts::validate_board_plot_document;
 use kicad_monkey_core::{
-    BoardGraphicRecordKind as CoreGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
-    BoardPlotRecord as CoreBoardPlotRecord, BoardTableOperation, BoardTableRecord,
-    BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
-    BoardTextRecord, BoardTextRenderCacheSource, BoardTextVAlign, BoardTextVariables,
-    BoardViaOperation, BoardViaOperationKind, BoardViaRecord, Error, ErrorPhase,
-    board_plot_document_with_sidecars, utf8_text,
+    BoardDimensionOperation, BoardDimensionRecord, BoardGraphicRecordKind as CoreGraphicRecordKind,
+    BoardNetClassAssignments, BoardPlotLimits, BoardPlotRecord as CoreBoardPlotRecord,
+    BoardTableOperation, BoardTableRecord, BoardTextBoxOperation, BoardTextBoxRecord,
+    BoardTextHAlign, BoardTextOperation, BoardTextRecord, BoardTextRenderCacheSource,
+    BoardTextVAlign, BoardTextVariables, BoardViaOperation, BoardViaOperationKind, BoardViaRecord,
+    Error, ErrorPhase, board_plot_document_with_sidecars, utf8_text,
 };
 use wasm_bindgen::prelude::*;
 
@@ -255,6 +255,7 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
         CoreBoardPlotRecord::TextBox(record) => contract_text_box_record(record)?,
         CoreBoardPlotRecord::Via(record) => contract_via_record(record)?.into(),
         CoreBoardPlotRecord::Table(record) => contract_table_record(record)?.into(),
+        CoreBoardPlotRecord::Dimension(record) => contract_dimension_record(record)?.into(),
         CoreBoardPlotRecord::Zone(record) => ZoneFillPlotRecord {
             fill_island: record.fill_island,
             fill_layers: record.fill_layers,
@@ -270,6 +271,41 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
             uuid: record.uuid,
         }
         .into(),
+    })
+}
+
+fn contract_dimension_record(record: BoardDimensionRecord) -> Result<DimensionPlotRecord, String> {
+    let operations = record
+        .operations
+        .into_iter()
+        .enumerate()
+        .map(|(index, operation)| match operation {
+            BoardDimensionOperation::Geometry(operation) => {
+                let shared = contract_plotter_operation(index, operation)?;
+                let value = serde_json::to_value(shared).map_err(|error| error.to_string())?;
+                serde_json::from_value(value).map_err(|error| error.to_string())
+            }
+            BoardDimensionOperation::Text(operation) => {
+                contract_text_operation(index, operation).map(PlotterOperation::from)
+            }
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok(DimensionPlotRecord {
+        dimension_type: match record.dimension_type.as_str() {
+            "aligned" => BoardDimensionType::Aligned,
+            "orthogonal" => BoardDimensionType::Orthogonal,
+            "radial" => BoardDimensionType::Radial,
+            "leader" => BoardDimensionType::Leader,
+            "center" => BoardDimensionType::Center,
+            _ => return Err("unsupported board dimension type".to_owned()),
+        },
+        kind: "dimension".to_owned(),
+        layers: record.layers,
+        object_id: "dimension".to_owned(),
+        operation_count: contract_count(operations.len()),
+        operations,
+        text: record.text,
+        uuid: record.uuid,
     })
 }
 
@@ -764,6 +800,39 @@ mod tests {
         let result: BoardPlotResultA0 =
             serde_json::from_slice(&output.result_json).expect("result contract");
         assert_eq!(result.diagnostics[0].code, "resource_limit");
+    }
+
+    #[test]
+    fn dimension_variables_and_safe_integer_failures_stay_in_the_result_envelope() {
+        let request = br#"{"type":"kicad_monkey.board_plot.request","version":"a0","source_path":"dimensions.kicad_pcb","document_id":"dimensions","max_source_bytes":"4096","max_output_bytes":"65536","max_depth":32,"max_graphics":10,"max_operations":100,"max_points":1000,"max_text_bytes":"4096","max_parse_nodes":1000,"max_input_points":100,"max_input_polygons":10,"max_cache_polygons":10,"max_cache_contours":100,"text_variables":[{"name":"PROJECT","value":"demo"}]}"#;
+        let source = br#"(kicad_pcb
+          (dimension (type center) (pts (xy 0 0) (xy 1 0))
+            (format (override_value "${PROJECT}") (units_format 0))
+            (gr_text "authored" (at 0 0) (effects (font (face "Arial") (size 1 1))))))"#;
+        let output = plot_board_ir_impl(source, request).expect("dimension variable output");
+        let metadata: Value =
+            serde_json::from_slice(&output.result_json).expect("dimension metadata");
+        let document: Value =
+            serde_json::from_slice(&output.output_bytes).expect("dimension document");
+        assert_eq!(metadata["diagnostics"], serde_json::json!([]));
+        assert_eq!(document["records"][0]["text"], "${PROJECT}");
+        assert_eq!(document["records"][0]["operations"][0]["text"], "demo");
+
+        let unsafe_source = br#"(kicad_pcb
+          (dimension (type center)
+            (pts (xy 9007199254.740991 0) (xy 9007199254.740991 1))))"#;
+        let output =
+            plot_board_ir_impl(unsafe_source, request).expect("safe-integer diagnostic envelope");
+        let metadata: Value =
+            serde_json::from_slice(&output.result_json).expect("unsafe dimension metadata");
+        assert!(
+            !metadata["diagnostics"]
+                .as_array()
+                .expect("diagnostics")
+                .is_empty()
+        );
+        assert_eq!(metadata["total_operations"], 0);
+        assert!(output.output_bytes.is_empty());
     }
 
     #[test]

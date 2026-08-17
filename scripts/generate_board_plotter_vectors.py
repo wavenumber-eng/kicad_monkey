@@ -170,6 +170,42 @@ TABLE_SOURCE = (
 )"""
 )
 
+DIMENSION_SOURCE = (
+    HEADER
+    + """  (table (column_count 0) (layer "Dwgs.User")
+    (border (external no)) (separators (rows no) (cols no)) (uuid "table-before-dimensions"))
+  (dimension (type aligned) (layer "Dwgs.User") (pts (xy 0 0) (xy 10 0)) (height 3)
+    (format (override_value "1") (units_format 0))
+    (style (thickness 0.2) (arrow_length 1) (arrow_direction outward) (extension_height 0.5))
+    (gr_text "authored" (at 5 3) (layer "F.SilkS") (effects (font (size 1 1))) (uuid "aligned-text"))
+    (uuid "dimension-aligned"))
+  (dimension (type orthogonal) (layer "Cmts.User") (pts (xy 0 0) (xy 5 2)) (height 2) (orientation 0)
+    (style (thickness 0.15) (arrow_length 0.8) (arrow_direction inward) (extension_height 0.3))
+    (uuid "dimension-orthogonal"))
+  (dimension (type radial) (layer "Dwgs.User") (pts (xy 20 0) (xy 22 0)) (leader_length 2)
+    (format (override_value "R") (units_format 0))
+    (style (thickness 0.1) (arrow_length 0.5) (keep_text_aligned no))
+    (gr_text "authored" (at 25 0) (layer "B.SilkS")
+      (effects (font (face "Arial") (size 1 1)))
+      (render_cache "R" 0 (polygon (pts (xy 24.5 -0.5) (xy 25.5 -0.5) (xy 25.5 0.5))))
+      (uuid "radial-text"))
+    (uuid "dimension-radial"))
+  (dimension (type leader) (layer "Cmts.User") (pts (xy 30 0) (xy 32 1))
+    (format (override_value "L") (units_format 0))
+    (style (thickness 0.1) (arrow_length 0.5) (extension_offset 0.2) (text_frame 1))
+    (gr_text "authored" (at 35 1 30) (effects (font (size 1 1))) (uuid "leader-text"))
+    (uuid "dimension-leader"))
+  (dimension (type center) (layer "Dwgs.User") (pts (xy 40 0) (xy 41 0))
+    (format (override_value "A_{B}^{C}~{D}") (units_format 0))
+    (style (thickness 0.1) (arrow_length 0.5))
+    (gr_text "authored" (at 40 0) (effects (font (size 1 1))) (uuid "center-text"))
+    (uuid "dimension-center"))
+  (zone (net 0) (net_name "") (layers "F.Cu")
+    (filled_polygon (layer "F.Cu") (pts (xy 0 20) (xy 2 20) (xy 2 22)))
+    (uuid "zone-after-dimensions"))
+)"""
+)
+
 NEW_VECTORS = [
     {
         "id": "board-text-follows-python-serializer",
@@ -192,6 +228,12 @@ NEW_VECTORS = [
         "source_path": "boards/tables.kicad_pcb",
         "document_id": "board-tables",
         "text_variables": {"PROJECT": "sidecar-project", "EMPTY": ""},
+    },
+    {
+        "id": "dimensions-follow-tables-and-precede-zones",
+        "source": DIMENSION_SOURCE,
+        "source_path": "boards/dimensions.kicad_pcb",
+        "document_id": "board-dimensions",
     },
 ]
 

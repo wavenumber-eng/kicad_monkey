@@ -364,6 +364,58 @@ pub struct PcbRoutingArc {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct PcbDimensionFormat {
+    pub prefix: String,
+    pub suffix: String,
+    pub units: i64,
+    pub units_format: i64,
+    pub precision: i64,
+    pub override_value: Option<String>,
+    pub suppress_zeroes: bool,
+}
+
+impl Default for PcbDimensionFormat {
+    fn default() -> Self {
+        Self {
+            prefix: String::new(),
+            suffix: String::new(),
+            units: 2,
+            units_format: 1,
+            precision: 4,
+            override_value: None,
+            suppress_zeroes: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PcbDimensionStyle {
+    pub thickness: f64,
+    pub arrow_length: f64,
+    pub text_position_mode: i64,
+    pub arrow_direction: String,
+    pub extension_height: f64,
+    pub extension_offset: f64,
+    pub keep_text_aligned: bool,
+    pub text_frame: Option<i64>,
+}
+
+impl Default for PcbDimensionStyle {
+    fn default() -> Self {
+        Self {
+            thickness: 0.2,
+            arrow_length: 1.27,
+            text_position_mode: 0,
+            arrow_direction: "outward".to_owned(),
+            extension_height: 0.58642,
+            extension_offset: 0.0,
+            keep_text_aligned: true,
+            text_frame: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct PcbDimension {
     pub kind: String,
     pub layer: String,
@@ -371,6 +423,9 @@ pub struct PcbDimension {
     pub height: f64,
     pub leader_length: Option<f64>,
     pub orientation: Option<i64>,
+    pub format: PcbDimensionFormat,
+    pub style: PcbDimensionStyle,
+    pub text: Option<PcbGraphic>,
     pub locked: bool,
     pub uuid: Option<String>,
     pub source_range: Range<usize>,

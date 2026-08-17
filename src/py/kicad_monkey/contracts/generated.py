@@ -321,7 +321,7 @@ class TextRenderCachePolygon(Struct, forbid_unknown_fields=True, frozen=True):
     contours: list[list[PlotterPoint]]
 
 
-BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord", "TablePlotRecord", "ZoneFillPlotRecord", "BoardTextPlotRecord", "BoardTextBoxPlotRecord"]
+BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord", "TablePlotRecord", "DimensionPlotRecord", "ZoneFillPlotRecord", "BoardTextPlotRecord", "BoardTextBoxPlotRecord"]
 
 
 class BoardGraphicPlotRecordGrLine(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_line", tag_field="kind"):
@@ -436,6 +436,16 @@ class TablePlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="tabl
     cell_count: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
+class DimensionPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="dimension", tag_field="kind"):
+    uuid: str
+    object_id: Literal["dimension"]
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layers: list[str]
+    dimension_type: BoardDimensionType
+    text: str | UnsetType = field(default=UNSET)
+
+
 class ZoneFillPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="zone_fill", tag_field="kind"):
     uuid: str
     object_id: str
@@ -477,6 +487,9 @@ BoardViaType = Literal["through", "blind", "buried", "micro"]
 
 
 PlotterStringBool = Literal["true", "false"]
+
+
+BoardDimensionType = Literal["aligned", "orthogonal", "radial", "leader", "center"]
 
 
 class BoardNetClassAssignment(Struct, forbid_unknown_fields=True, frozen=True):
@@ -1219,7 +1232,86 @@ def _validate_shared_graphic_or_drill(operation: ThickSegmentOperation | CircleO
         raise msgspec.ValidationError(f"conflicting_plotter_fields at {path}")
 decode_footprint_plot_request_a0 = msgspec.json.Decoder(FootprintPlotRequestA0).decode
 decode_footprint_plot_result_a0 = msgspec.json.Decoder(FootprintPlotResultA0).decode
-decode_board_plot_document_a0 = msgspec.json.Decoder(BoardPlotDocumentA0).decode
+_board_plot_document_a0_decoder = msgspec.json.Decoder(BoardPlotDocumentA0)
+
+
+def decode_board_plot_document_a0(data: bytes) -> BoardPlotDocumentA0:
+    value = _board_plot_document_a0_decoder.decode(data)
+    validate_board_plot_document_a0(value)
+    return value
+
+
+def validate_board_plot_document_a0(value: BoardPlotDocumentA0) -> None:
+    if value.schema != "kicad.plotter_ir.a0" or value.source_kind != "PCB" or value.coordinate_space.unit != "nm" or value.coordinate_space.y_axis != "down":
+        raise msgspec.ValidationError("invalid_board_document at $")
+    total_operations = 0
+    for record_index, record in enumerate(value.records):
+        path = f'$.records[{record_index}]'
+        if record.operation_count != len(record.operations):
+            raise msgspec.ValidationError(f"operation_count_mismatch at {path}.operation_count")
+        total_operations += len(record.operations)
+        if isinstance(record, DimensionPlotRecord):
+            _validate_dimension_plot_record(record, path)
+    if value.total_operations != total_operations:
+        raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
+
+
+def _validate_dimension_plot_record(record: DimensionPlotRecord, path: str) -> None:
+    if not record.layers or record.layers != sorted(set(record.layers)):
+        raise msgspec.ValidationError(f"invalid_dimension at {path}.layers")
+    saw_text = False
+    marker_count = 0
+    for operation_index, operation in enumerate(record.operations):
+        operation_path = f'{path}.operations[{operation_index}]'
+        if operation.index != operation_index:
+            raise msgspec.ValidationError(f"operation_index_mismatch at {operation_path}.index")
+        if isinstance(operation, TextOperation):
+            if operation_index != 0 or saw_text:
+                raise msgspec.ValidationError(f"invalid_dimension at {operation_path}")
+            saw_text = True
+            layer = None if operation.layer is UNSET else operation.layer
+            if not operation.font_face or layer not in record.layers:
+                raise msgspec.ValidationError(f"invalid_dimension at {operation_path}")
+            _validate_board_text_payload(operation, operation_path)
+        elif isinstance(operation, ThickSegmentOperation):
+            layer = None if operation.layer is UNSET else operation.layer
+            layers = [] if operation.layers is UNSET else operation.layers
+            forbidden = (operation.role is not UNSET, bool(layers), operation.mask_margin_nm is not UNSET, operation.pad_size_x_nm is not UNSET, operation.pad_size_y_nm is not UNSET)
+            if layer not in record.layers or any(forbidden):
+                raise msgspec.ValidationError(f"invalid_dimension at {operation_path}")
+        elif isinstance(operation, CircleOperation):
+            marker_count += 1
+            layer = None if operation.layer is UNSET else operation.layer
+            layers = [] if operation.layers is UNSET else operation.layers
+            forbidden = (operation.role is not UNSET, bool(layers), operation.mask_margin_nm is not UNSET, operation.pad_size_x_nm is not UNSET, operation.pad_size_y_nm is not UNSET, operation.stroke_color is not UNSET, operation.fill_color is not UNSET, operation.line_style is not UNSET)
+            if record.dimension_type != "orthogonal" or marker_count > 1 or layer not in record.layers or operation.fill != "FILLED_SHAPE" or operation.diameter_nm != 200_000 or operation.width_nm != 0 or any(forbidden):
+                raise msgspec.ValidationError(f"invalid_dimension at {operation_path}")
+        else:
+            raise msgspec.ValidationError(f"invalid_dimension at {operation_path}")
+
+
+def _validate_board_text_payload(operation: TextOperation, path: str) -> None:
+    markers = (operation.mirror, operation.text_as_polygons, operation.polyline_per_segment, operation.knockout)
+    if any(marker is not UNSET and marker is not True for marker in markers):
+        raise msgspec.ValidationError(f"invalid_board_text at {path}")
+    if (operation.text_as_polygons is not UNSET) != (not operation.font_face):
+        raise msgspec.ValidationError(f"invalid_board_text at {path}")
+    has_cache = operation.render_cache is not UNSET
+    polygons = [] if operation.render_cache_polygons is UNSET else operation.render_cache_polygons
+    if has_cache != (operation.render_cache_source is not UNSET) or has_cache != (operation.render_cache_exact is not UNSET) or has_cache == (not polygons):
+        raise msgspec.ValidationError(f"invalid_board_text at {path}")
+    if not has_cache:
+        if operation.knockout is not UNSET:
+            raise msgspec.ValidationError(f"invalid_board_text at {path}")
+        return
+    cache = operation.render_cache
+    if cache.schema != "kicad.render_cache.v1" or cache.unit != "nm" or cache.coordinate_space != "board" or cache.source != operation.render_cache_source or cache.text != operation.text or cache.angle != operation.orient_deg or cache.exact != operation.render_cache_exact or cache.knockout != operation.knockout:
+        raise msgspec.ValidationError(f"invalid_board_text at {path}")
+    if len(cache.polygons) != len(polygons):
+        raise msgspec.ValidationError(f"invalid_board_text at {path}")
+    for polygon, exterior in zip(cache.polygons, polygons):
+        if not polygon.contours or any(len(contour) < 3 for contour in polygon.contours) or polygon.contours[0] != exterior:
+            raise msgspec.ValidationError(f"invalid_board_text at {path}")
 decode_board_plot_request_a0 = msgspec.json.Decoder(BoardPlotRequestA0).decode
 decode_board_plot_result_a0 = msgspec.json.Decoder(BoardPlotResultA0).decode
 _symbol_plot_document_a0_decoder = msgspec.json.Decoder(SymbolPlotDocumentA0)
@@ -1576,12 +1668,14 @@ __all__ = (
     "TrackArcPlotRecord",
     "ViaPlotRecord",
     "TablePlotRecord",
+    "DimensionPlotRecord",
     "ZoneFillPlotRecord",
     "BoardTextPlotRecord",
     "BoardTextBoxPlotRecord",
     "BoardGraphicRecordKind",
     "BoardViaType",
     "PlotterStringBool",
+    "BoardDimensionType",
     "BoardNetClassAssignment",
     "BoardTextVariable",
     "SymbolPlotRecord",
@@ -1690,6 +1784,7 @@ __all__ = (
     "decode_shaping_record_a0",
     "decode_outline_vector_a0",
     "validate_footprint_plot_document_a0",
+    "validate_board_plot_document_a0",
     "resolve_font_selection_a0",
     "validate_font_bundle_manifest_a0",
     "validate_outline_vector_a0",

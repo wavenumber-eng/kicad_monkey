@@ -10,6 +10,116 @@ fn board_table_vector() -> serde_json::Value {
     vectors["vectors"][10]["expected"].clone()
 }
 
+fn board_dimension_vector() -> serde_json::Value {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/board_plotter_a0_vectors.json"
+    )))
+    .expect("board vectors");
+    vectors["vectors"][11]["expected"].clone()
+}
+
+#[test]
+fn board_dimension_contract_enforces_identity_layers_indices_and_counts() {
+    let dimensions = board_dimension_vector();
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(dimensions.clone()).expect("dimension transport document");
+    validate_board_plot_document(&document).expect("canonical dimension document");
+
+    for layers in [
+        serde_json::json!([]),
+        serde_json::json!(["Dwgs.User", "Dwgs.User"]),
+        serde_json::json!(["F.SilkS", "Dwgs.User"]),
+    ] {
+        let mut mutation = dimensions.clone();
+        mutation["records"][1]["layers"] = layers;
+        let document: BoardPlotDocumentA0 = serde_json::from_value(mutation).expect("shape");
+        assert!(validate_board_plot_document(&document).is_err());
+    }
+
+    let mut wrong_index = dimensions.clone();
+    wrong_index["records"][1]["operations"][0]["index"] = serde_json::json!(1);
+    let document: BoardPlotDocumentA0 = serde_json::from_value(wrong_index).expect("shape");
+    assert!(validate_board_plot_document(&document).is_err());
+
+    let mut wrong_count = dimensions.clone();
+    wrong_count["records"][1]["operation_count"] = serde_json::json!(11);
+    let document: BoardPlotDocumentA0 = serde_json::from_value(wrong_count).expect("shape");
+    assert!(validate_board_plot_document(&document).is_err());
+
+    let mut undeclared_layer = dimensions;
+    undeclared_layer["records"][1]["operations"][0]["layer"] = serde_json::json!("B.Cu");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(undeclared_layer).expect("shape");
+    assert!(validate_board_plot_document(&document).is_err());
+}
+
+#[test]
+fn board_dimension_contract_rejects_wrong_kinds_duplicate_markers_and_null_text() {
+    let dimensions = board_dimension_vector();
+
+    let mut wrong_kind = dimensions.clone();
+    wrong_kind["records"][1]["operations"][0]["kind"] = serde_json::json!("Circle");
+    assert!(serde_json::from_value::<BoardPlotDocumentA0>(wrong_kind).is_err());
+
+    let mut duplicate_marker = dimensions.clone();
+    let marker = duplicate_marker["records"][2]["operations"][1].clone();
+    let operations = duplicate_marker["records"][2]["operations"]
+        .as_array_mut()
+        .expect("operations");
+    operations.insert(2, marker);
+    for (index, operation) in operations.iter_mut().enumerate() {
+        operation["index"] = serde_json::json!(index);
+    }
+    duplicate_marker["records"][2]["operation_count"] = serde_json::json!(10);
+    duplicate_marker["total_operations"] = serde_json::json!(
+        duplicate_marker["total_operations"]
+            .as_u64()
+            .expect("total")
+            + 1
+    );
+    let document: BoardPlotDocumentA0 = serde_json::from_value(duplicate_marker).expect("shape");
+    assert!(validate_board_plot_document(&document).is_err());
+
+    let mut null_text = dimensions.clone();
+    null_text["records"][2]["text"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<BoardPlotDocumentA0>(null_text).is_err());
+
+    let mut empty_text = dimensions;
+    empty_text["records"][2]["text"] = serde_json::json!("");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(empty_text).expect("empty text");
+    validate_board_plot_document(&document).expect("empty dimension record text is explicit");
+}
+
+#[test]
+fn board_dimension_contract_rejects_noncanonical_faced_text_state() {
+    let dimensions = board_dimension_vector();
+    for (field, value) in [
+        ("mirror", serde_json::json!(false)),
+        ("text_as_polygons", serde_json::json!(true)),
+        ("polyline_per_segment", serde_json::json!(false)),
+        ("knockout", serde_json::json!(false)),
+    ] {
+        let mut mutation = dimensions.clone();
+        mutation["records"][3]["operations"][0][field] = value;
+        let document: BoardPlotDocumentA0 = serde_json::from_value(mutation).expect("shape");
+        assert!(validate_board_plot_document(&document).is_err(), "{field}");
+    }
+
+    let mut missing_layer = dimensions.clone();
+    missing_layer["records"][3]["operations"][0]
+        .as_object_mut()
+        .expect("Text operation")
+        .remove("layer");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(missing_layer).expect("shape");
+    assert!(validate_board_plot_document(&document).is_err());
+
+    let mut mismatched_cache = dimensions;
+    mismatched_cache["records"][3]["operations"][0]["render_cache_source"] =
+        serde_json::json!("native_generated_cache");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(mismatched_cache).expect("shape");
+    assert!(validate_board_plot_document(&document).is_err());
+}
+
 #[test]
 fn board_table_contract_enforces_identity_and_layers() {
     let tables = board_table_vector();
