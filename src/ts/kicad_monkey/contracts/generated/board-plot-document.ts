@@ -5,6 +5,7 @@ export type BoardPlotRecord =
   | TrackSegmentPlotRecord
   | TrackArcPlotRecord
   | ViaPlotRecord
+  | TablePlotRecord
   | ZoneFillPlotRecord
   | BoardTextPlotRecord
   | BoardTextBoxPlotRecord;
@@ -258,6 +259,7 @@ export interface TextOperation {
   bold: boolean;
   multiline: boolean;
   font_face: string;
+  layer?: string;
   mirror?: boolean;
   text_as_polygons?: boolean;
   polyline_per_segment?: boolean;
@@ -444,6 +446,18 @@ export interface ViaPlotRecord {
   net_name?: string;
   net_class?: string;
   net_classes?: string[];
+}
+/**
+ * Board table grid/border segments followed by optional faced cell text.
+ */
+export interface TablePlotRecord {
+  uuid: string;
+  kind: "table";
+  object_id: "table";
+  operation_count: number;
+  operations: PlotterOperation[];
+  layers: string[];
+  cell_count: number;
 }
 /**
  * One zone fill record bundling every `filled_polygon` ring. The parallel

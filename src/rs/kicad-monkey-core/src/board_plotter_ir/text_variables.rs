@@ -40,6 +40,17 @@ impl BoardTextVariables {
     /// Resolve variables while checking the byte ceiling before every append.
     /// Unterminated placeholder tails are copied once, never repeatedly rescanned.
     pub fn substitute_bounded(&self, text: &str, max_bytes: usize) -> Result<String, Error> {
+        self.substitute_bounded_with_local(text, &[], max_bytes)
+    }
+
+    /// Resolve with a constant-size carrier-local overlay. This avoids
+    /// cloning the complete board/project map for every table cell.
+    pub(super) fn substitute_bounded_with_local(
+        &self,
+        text: &str,
+        local: &[(&str, &str)],
+        max_bytes: usize,
+    ) -> Result<String, Error> {
         if !text.contains("${") {
             if text.len() > max_bytes {
                 return Err(text_limit_error());
@@ -62,8 +73,16 @@ impl BoardTextVariables {
             match after.find('}') {
                 Some(end) if end > 0 => {
                     push(&mut result, &rest[..start])?;
-                    match self.by_name.get(&after[..end]) {
+                    let name = &after[..end];
+                    match local
+                        .iter()
+                        .rev()
+                        .find_map(|(key, value)| (*key == name).then_some(*value))
+                    {
                         Some(value) => push(&mut result, value)?,
+                        None if self.by_name.contains_key(name) => {
+                            push(&mut result, &self.by_name[name])?
+                        }
                         None => push(&mut result, &rest[start..start + end + 3])?,
                     }
                     rest = &after[end + 1..];

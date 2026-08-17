@@ -199,6 +199,7 @@ class TextOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Text",
     bold: bool
     multiline: bool
     font_face: str
+    layer: str | UnsetType = field(default=UNSET)
     mirror: bool | UnsetType = field(default=UNSET)
     text_as_polygons: bool | UnsetType = field(default=UNSET)
     polyline_per_segment: bool | UnsetType = field(default=UNSET)
@@ -317,7 +318,7 @@ class TextRenderCachePolygon(Struct, forbid_unknown_fields=True, frozen=True):
     contours: list[list[PlotterPoint]]
 
 
-BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord", "ZoneFillPlotRecord", "BoardTextPlotRecord", "BoardTextBoxPlotRecord"]
+BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord", "TablePlotRecord", "ZoneFillPlotRecord", "BoardTextPlotRecord", "BoardTextBoxPlotRecord"]
 
 
 class BoardGraphicPlotRecordGrLine(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_line", tag_field="kind"):
@@ -421,6 +422,15 @@ class ViaPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="via", 
     net_name: str | UnsetType = field(default=UNSET)
     net_class: str | UnsetType = field(default=UNSET)
     net_classes: list[str] | UnsetType = field(default=UNSET)
+
+
+class TablePlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="table", tag_field="kind"):
+    uuid: str
+    object_id: Literal["table"]
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    layers: list[str]
+    cell_count: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
 class ZoneFillPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="zone_fill", tag_field="kind"):
@@ -1501,6 +1511,7 @@ __all__ = (
     "TrackSegmentPlotRecord",
     "TrackArcPlotRecord",
     "ViaPlotRecord",
+    "TablePlotRecord",
     "ZoneFillPlotRecord",
     "BoardTextPlotRecord",
     "BoardTextBoxPlotRecord",

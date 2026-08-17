@@ -120,6 +120,56 @@ TEXT_BOX_SOURCE = (
 )"""
 )
 
+TABLE_SOURCE = (
+    HEADER
+    + """  (property "PROJECT" "board-project")
+  (via (at -1 -1) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (uuid "via-before-table"))
+  (image (at 1 1) (layer "F.SilkS") (data "YWJj") (uuid "ignored-image"))
+  (barcode (at 2 2) (layer "F.SilkS") (size 4 2) (text "IGNORED") (uuid "ignored-barcode"))
+  (group "Ignored" (id "ignored-group") (members "table-grid"))
+  (generated (id "ignored-generated") (type tuned_delay) (name "Ignored") (layer "F.Cu"))
+  (table (column_count 2) (layer "Dwgs.User")
+    (border (external yes) (header yes) (stroke (width 0.3) (type dash) (color 1 2 3 1)))
+    (separators (rows yes) (cols yes) (stroke (width 0.1) (type dot)))
+    (cells
+      (table_cell "plain" (start 0 0) (end 10 5) (layer "Dwgs.User"))
+      (table_cell "silent-cache" (start 10 0) (end 20 5) (layer "B.SilkS")
+        (effects (font (size 1 1)))
+        (render_cache "silent-cache" 0 (polygon (pts (xy 10 1) (xy 11 1) (xy 11 2)))))
+      (table_cell "reversed" (start 10 10) (end 0 5) (span 2 1) (layer "Dwgs.User"))
+      (table_cell "${ADDR}-${ROW}-${COL}-${LAYER}-${PROJECT}" (start 20 10) (end 10 5)
+        (margins 0.5 0.25 0.75 0.4) (angle 90) (layer "F.SilkS")
+        (effects (font (face "Arial") (size 1.2 1.5) (thickness 0.2) bold italic (color 10 20 30 0.3))
+          (justify right top mirror))
+        (render_cache "B2-2-2-F.SilkS-board-project" 37
+          (polygon (pts (xy 12 6) (xy 14 6) (xy 14 7)))))
+    )
+    (uuid "table-grid"))
+  (table (column_count 1) (layer "F.Cu") (border (external no)) (separators (rows no) (cols no)) (uuid "table-empty"))
+  (table (column_count 0) (layer "Cmts.User")
+    (border (external no)) (separators (rows no) (cols no))
+    (cells
+      (table_cell "${EMPTY}" (start 30 0) (end 40 5) (layer "Cmts.User")
+        (effects (font (face "Arial") (size 1 1))))
+      (table_cell "${EMPTY}" (start 30 5) (end 40 10) (layer "Cmts.User")
+        (effects (font (face "Arial") (size 1 1)))
+        (render_cache "stale" 0
+          (polygon (pts (xy 30 5) (xy 31 5) (xy 31 6)))))
+      (table_cell "${EMPTY}" (start 30 10) (end 40 15) (layer "Cmts.User")
+        (effects (font (face "Arial") (size 1 1)))
+        (render_cache "" 37
+          (polygon (pts (xy 30 10) (xy 31 10) (xy 31 11)))))
+      (table_cell "${ROW}-${COL}-${ADDR}" (start 30 15) (end 40 20) (layer "Cmts.User")
+        (effects (font (face "Arial") (size 1 1)))
+        (render_cache "${ROW}-${COL}-${ADDR}" 0
+          (polygon (pts (xy 30 15) (xy 31 15) (xy 31 16))))))
+    (uuid "table-empty-resolved"))
+  (zone (net 0) (net_name "") (layers "F.Cu")
+    (filled_polygon (layer "F.Cu") (pts (xy 0 20) (xy 2 20) (xy 2 22)))
+    (uuid "zone-after-table"))
+)"""
+)
+
 NEW_VECTORS = [
     {
         "id": "board-text-follows-python-serializer",
@@ -135,6 +185,13 @@ NEW_VECTORS = [
         "document_id": "board-text-boxes",
         "text_variables": {"WRAP": "A A"},
         "oracle_mode": "without_shapely",
+    },
+    {
+        "id": "tables-precede-zones-and-bound-cached-cells",
+        "source": TABLE_SOURCE,
+        "source_path": "boards/tables.kicad_pcb",
+        "document_id": "board-tables",
+        "text_variables": {"PROJECT": "sidecar-project", "EMPTY": ""},
     },
 ]
 

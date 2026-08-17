@@ -10,6 +10,7 @@
 mod copper;
 mod graphics;
 mod stroke_font_widths;
+mod table;
 mod text;
 mod text_cache;
 mod text_variables;
@@ -28,6 +29,24 @@ pub use text::{
     BoardTextRecord, BoardTextRenderCache, BoardTextVAlign,
 };
 pub use text_variables::BoardTextVariables;
+
+/// One operation within a table record. Grid/border segments precede cached
+/// cell text, matching the established Python producer.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BoardTableOperation {
+    Segment(PlotterOperation),
+    Text(BoardTextOperation),
+}
+
+/// One `(table ...)` record with its source cell count and participating
+/// layers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoardTableRecord {
+    pub uuid: String,
+    pub layers: Vec<String>,
+    pub cell_count: usize,
+    pub operations: Vec<BoardTableOperation>,
+}
 
 /// Limits for one board plotter conversion.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -243,6 +262,7 @@ pub enum BoardPlotRecord {
     Segment(BoardSegmentRecord),
     TrackArc(BoardTrackArcRecord),
     Via(BoardViaRecord),
+    Table(BoardTableRecord),
     Zone(BoardZoneRecord),
 }
 
@@ -255,6 +275,7 @@ impl BoardPlotRecord {
             Self::Segment(record) => record.operations.len(),
             Self::TrackArc(record) => record.operations.len(),
             Self::Via(record) => record.operations.len(),
+            Self::Table(record) => record.operations.len(),
             Self::Zone(record) => record.operations.len(),
         }
     }
@@ -471,8 +492,19 @@ pub fn board_plot_document_with_sidecars(
     // Decode the shared graphics family once, then partition borrowed carriers
     // into the Python category order for geometry and text producers.
     let (graphics, decoded_graphic_points) = decoded_graphics(&view, limits)?;
+    let remaining_input_points = limits
+        .max_input_points
+        .checked_sub(decoded_graphic_points)
+        .ok_or_else(input_point_limit_error)?;
+    let (tables, table_cells, decoded_table_points) =
+        table::decoded_tables(&view, remaining_input_points)?;
     let mut records = graphic_records(source, &graphics, &mut budget, limits)?;
-    let variables = text::board_variables(&view, &graphics, text_variables)?;
+    let variables = text::board_variables(
+        &view,
+        &graphics,
+        table_cells.iter().any(|cell| cell.text.contains("${")),
+        text_variables,
+    )?;
     records.extend(text::text_records(
         source,
         &graphics,
@@ -480,27 +512,51 @@ pub fn board_plot_document_with_sidecars(
         &variables,
         limits,
     )?);
-    for segment in view.segments() {
-        budget.ensure_capacity(1, 0)?;
-        let record = segment_record(segment?, net_classes, &mut budget)?;
-        budget.charge(record.operations.len(), 0)?;
-        records.push(BoardPlotRecord::Segment(record));
-    }
-    for arc in view.arcs() {
-        budget.ensure_capacity(1, 0)?;
-        let record = track_arc_record(arc?, net_classes, &mut budget)?;
-        budget.charge(record.operations.len(), 0)?;
-        records.push(BoardPlotRecord::TrackArc(record));
-    }
-    let mask_clearance = metadata.pad_to_mask_clearance;
-    for via in view.vias() {
-        let via = via?;
-        budget.ensure_capacity(via_operation_count(&via), 0)?;
-        let record = via_record(via, mask_clearance, net_classes, &mut budget)?;
-        budget.charge(record.operations.len(), 0)?;
-        records.push(BoardPlotRecord::Via(record));
-    }
-    let mut decoded_input_points = decoded_graphic_points;
+    append_copper_records(
+        &view,
+        metadata.pad_to_mask_clearance,
+        net_classes,
+        &mut budget,
+        &mut records,
+    )?;
+    records.extend(table::table_records(
+        source,
+        &tables,
+        &table_cells,
+        &variables,
+        &mut budget,
+        limits,
+    )?);
+    let mut decoded_input_points = decoded_graphic_points
+        .checked_add(decoded_table_points)
+        .filter(|count| *count <= limits.max_input_points)
+        .ok_or_else(input_point_limit_error)?;
+    append_zone_records(
+        &view,
+        net_classes,
+        &mut budget,
+        limits,
+        &mut decoded_input_points,
+        &mut records,
+    )?;
+    Ok(BoardPlotDocument {
+        version: metadata.version,
+        generator: metadata.generator,
+        generator_version: metadata.generator_version,
+        thickness_mm: metadata.thickness,
+        paper: metadata.paper,
+        records,
+    })
+}
+
+fn append_zone_records(
+    view: &PcbView<'_>,
+    net_classes: &BoardNetClassAssignments,
+    budget: &mut BudgetTracker,
+    limits: BoardPlotLimits,
+    decoded_input_points: &mut usize,
+    records: &mut Vec<BoardPlotRecord>,
+) -> Result<(), Error> {
     let mut decoded_input_polygons = 0usize;
     for zone in view.zones() {
         let zone = zone.map_err(normalize_input_limit_error)?;
@@ -522,7 +578,7 @@ pub fn board_plot_document_with_sidecars(
                     .map(|polygon| polygon.points.len()),
             )
             .fold(0usize, usize::saturating_add);
-        decoded_input_points = decoded_input_points
+        *decoded_input_points = decoded_input_points
             .checked_add(zone_points)
             .filter(|count| *count <= limits.max_input_points)
             .ok_or_else(input_point_limit_error)?;
@@ -532,21 +588,43 @@ pub fn board_plot_document_with_sidecars(
             .map(|polygon| polygon.points.len())
             .fold(0usize, usize::saturating_add);
         budget.ensure_capacity(zone.filled_polygons.len(), output_points)?;
-        let record = zone_record(zone, net_classes, &mut budget)?;
+        let record = zone_record(zone, net_classes, budget)?;
         budget.charge(
             record.operations.len(),
             poly_point_total(&record.operations),
         )?;
         records.push(BoardPlotRecord::Zone(record));
     }
-    Ok(BoardPlotDocument {
-        version: metadata.version,
-        generator: metadata.generator,
-        generator_version: metadata.generator_version,
-        thickness_mm: metadata.thickness,
-        paper: metadata.paper,
-        records,
-    })
+    Ok(())
+}
+
+fn append_copper_records(
+    view: &PcbView<'_>,
+    mask_clearance: f64,
+    net_classes: &BoardNetClassAssignments,
+    budget: &mut BudgetTracker,
+    records: &mut Vec<BoardPlotRecord>,
+) -> Result<(), Error> {
+    for segment in view.segments() {
+        budget.ensure_capacity(1, 0)?;
+        let record = segment_record(segment?, net_classes, budget)?;
+        budget.charge(record.operations.len(), 0)?;
+        records.push(BoardPlotRecord::Segment(record));
+    }
+    for arc in view.arcs() {
+        budget.ensure_capacity(1, 0)?;
+        let record = track_arc_record(arc?, net_classes, budget)?;
+        budget.charge(record.operations.len(), 0)?;
+        records.push(BoardPlotRecord::TrackArc(record));
+    }
+    for via in view.vias() {
+        let via = via?;
+        budget.ensure_capacity(via_operation_count(&via), 0)?;
+        let record = via_record(via, mask_clearance, net_classes, budget)?;
+        budget.charge(record.operations.len(), 0)?;
+        records.push(BoardPlotRecord::Via(record));
+    }
+    Ok(())
 }
 
 fn board_pcb_limits(limits: BoardPlotLimits) -> PcbLimits {
@@ -560,6 +638,9 @@ fn board_pcb_limits(limits: BoardPlotLimits) -> PcbLimits {
         max_vias: limits.max_graphics,
         max_arcs: limits.max_graphics,
         max_zones: limits.max_graphics,
+        max_tables: limits.max_graphics,
+        max_table_cells: limits.max_parse_nodes,
+        max_table_values: limits.max_parse_nodes,
         max_zone_polygons: limits.max_input_polygons,
         max_zone_points: limits.max_input_points,
         max_object_children: limits.max_parse_nodes,
@@ -590,6 +671,7 @@ fn board_selection() -> PcbSelection {
         .with(PcbFamily::Segments)
         .with(PcbFamily::Arcs)
         .with(PcbFamily::Vias)
+        .with(PcbFamily::Tables)
         .with(PcbFamily::Zones)
 }
 

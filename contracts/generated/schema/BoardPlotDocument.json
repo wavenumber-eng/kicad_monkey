@@ -81,6 +81,9 @@
                     "$ref": "#/$defs/ViaPlotRecord"
                 },
                 {
+                    "$ref": "#/$defs/TablePlotRecord"
+                },
+                {
                     "$ref": "#/$defs/ZoneFillPlotRecord"
                 },
                 {
@@ -394,6 +397,57 @@
                 "not": {}
             },
             "description": "One board via record: copper aperture, synthetic drill, and per-side mask\nopening/drill pairs when tenting explicitly exposes that side. IPC-4761\nfabrication metadata mirrors the established stringified booleans."
+        },
+        "TablePlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "table"
+                },
+                "object_id": {
+                    "type": "string",
+                    "const": "table"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "cell_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "layers",
+                "cell_count"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Board table grid/border segments followed by optional faced cell text."
         },
         "ZoneFillPlotRecord": {
             "type": "object",
@@ -1075,6 +1129,9 @@
                     "type": "boolean"
                 },
                 "font_face": {
+                    "type": "string"
+                },
+                "layer": {
                     "type": "string"
                 },
                 "mirror": {

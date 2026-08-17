@@ -240,6 +240,7 @@ export interface TextOperation {
   bold: boolean;
   multiline: boolean;
   font_face: string;
+  layer?: string;
   mirror?: boolean;
   text_as_polygons?: boolean;
   polyline_per_segment?: boolean;

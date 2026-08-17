@@ -7,7 +7,7 @@ use kicad_monkey_contracts::generated::board_plot_document::{
     BoardTextBoxPlotRecord, BoardTextPlotRecord, BoardViaType, CircleOperation,
     FlashPadCircleOperation, PlotterCoordinateSpace, PlotterDrillRole, PlotterFill,
     PlotterOperation, PlotterPoint, PlotterStringBool, PlotterTextHAlign, PlotterTextVAlign,
-    PlotterViaFlashRole, TextOperation, TextRenderCache, TextRenderCachePolygon,
+    PlotterViaFlashRole, TablePlotRecord, TextOperation, TextRenderCache, TextRenderCachePolygon,
     TrackArcPlotRecord, TrackSegmentPlotRecord, ViaPlotRecord, ZoneFillPlotRecord,
 };
 use kicad_monkey_contracts::generated::board_plot_request::BoardPlotRequestA0;
@@ -17,10 +17,10 @@ use kicad_monkey_contracts::generated::board_plot_result::{
 use kicad_monkey_contracts::validate_board_plot_document;
 use kicad_monkey_core::{
     BoardGraphicRecordKind as CoreGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
-    BoardPlotRecord as CoreBoardPlotRecord, BoardTextBoxOperation, BoardTextBoxRecord,
-    BoardTextHAlign, BoardTextOperation, BoardTextRecord, BoardTextVAlign, BoardTextVariables,
-    BoardViaOperation, BoardViaOperationKind, BoardViaRecord, Error, ErrorPhase,
-    board_plot_document_with_sidecars, utf8_text,
+    BoardPlotRecord as CoreBoardPlotRecord, BoardTableOperation, BoardTableRecord,
+    BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
+    BoardTextRecord, BoardTextVAlign, BoardTextVariables, BoardViaOperation, BoardViaOperationKind,
+    BoardViaRecord, Error, ErrorPhase, board_plot_document_with_sidecars, utf8_text,
 };
 use wasm_bindgen::prelude::*;
 
@@ -232,6 +232,7 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
         CoreBoardPlotRecord::Text(record) => contract_text_record(record)?,
         CoreBoardPlotRecord::TextBox(record) => contract_text_box_record(record)?,
         CoreBoardPlotRecord::Via(record) => contract_via_record(record)?.into(),
+        CoreBoardPlotRecord::Table(record) => contract_table_record(record)?.into(),
         CoreBoardPlotRecord::Zone(record) => ZoneFillPlotRecord {
             fill_island: record.fill_island,
             fill_layers: record.fill_layers,
@@ -247,6 +248,33 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
             uuid: record.uuid,
         }
         .into(),
+    })
+}
+
+fn contract_table_record(record: BoardTableRecord) -> Result<TablePlotRecord, String> {
+    let operations = record
+        .operations
+        .into_iter()
+        .enumerate()
+        .map(|(index, operation)| match operation {
+            BoardTableOperation::Segment(operation) => {
+                let shared = contract_plotter_operation(index, operation)?;
+                let value = serde_json::to_value(shared).map_err(|error| error.to_string())?;
+                serde_json::from_value(value).map_err(|error| error.to_string())
+            }
+            BoardTableOperation::Text(operation) => {
+                contract_text_operation(index, operation).map(PlotterOperation::from)
+            }
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok(TablePlotRecord {
+        cell_count: contract_count(record.cell_count),
+        kind: "table".to_owned(),
+        layers: record.layers,
+        object_id: "table".to_owned(),
+        operation_count: contract_count(operations.len()),
+        operations,
+        uuid: record.uuid,
     })
 }
 
@@ -367,6 +395,7 @@ fn contract_text_operation(
         index: contract_count(index),
         italic: operation.italic,
         kind: "Text".to_owned(),
+        layer: operation.layer,
         knockout: marker(operation.knockout),
         mirror: marker(operation.mirror),
         multiline: operation.multiline,
@@ -559,9 +588,7 @@ fn diagnostic_output(diagnostic: Diagnostic) -> Result<BoardPlotOutput, String> 
 
 fn board_diagnostic(error: Error) -> Diagnostic {
     let code = if error.kind == kicad_monkey_core::ErrorKind::InvalidBuildValue
-        && error
-            .message
-            .contains("render-cache wrapping requires the outline-font bridge")
+        && error.message.contains("outline-font bridge")
     {
         "unsupported_feature"
     } else {

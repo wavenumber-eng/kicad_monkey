@@ -676,6 +676,9 @@
                 "font_face": {
                     "type": "string"
                 },
+                "layer": {
+                    "type": "string"
+                },
                 "mirror": {
                     "type": "boolean"
                 },

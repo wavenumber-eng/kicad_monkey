@@ -4,7 +4,7 @@ use crate::generated::board_plot_document::{
     BoardPlotDocumentA0, BoardPlotRecord, BoardTextBoxPlotRecord, BoardTextPlotRecord,
     CircleOperation, FlashPadCircleOperation, PlotterDrillRole as BoardDrillRole,
     PlotterFill as BoardFill, PlotterOperation as BoardOperation, PlotterViaFlashRole,
-    RectOperation, TextOperation, ThickSegmentOperation,
+    RectOperation, TablePlotRecord, TextOperation, ThickSegmentOperation,
 };
 use crate::{ValidationError, validation_error};
 
@@ -62,6 +62,10 @@ fn validate_board_record(
         }
         BoardPlotRecord::ViaPlotRecord(value) => {
             validate_via_operations(&value.operations, record_index)?;
+            (value.operation_count, &value.operations)
+        }
+        BoardPlotRecord::TablePlotRecord(value) => {
+            validate_table_operations(value, record_index)?;
             (value.operation_count, &value.operations)
         }
         BoardPlotRecord::ZoneFillPlotRecord(value) => {
@@ -180,7 +184,8 @@ fn validate_board_text_operations(
             validate_text_payload(value, &path)?;
             // gr_text is single-line and pairs polyline_per_segment with
             // text_as_polygons for stroke-font payloads.
-            let valid = !value.multiline
+            let valid = value.layer.is_none()
+                && !value.multiline
                 && value.polyline_per_segment.is_some() == value.font_face.is_empty()
                 && record.text == value.text;
             if valid {
@@ -290,7 +295,7 @@ fn validate_text_box_text(
     let path = format!("$.records[{record_index}].operations[{operation_index}]");
     validate_text_payload(value, &path)?;
     // Text boxes never emit the mirror or polyline markers.
-    if value.mirror.is_some() || value.polyline_per_segment.is_some() {
+    if value.layer.is_some() || value.mirror.is_some() || value.polyline_per_segment.is_some() {
         return Err(validation_error(
             "invalid_board_operation",
             path,
@@ -300,12 +305,153 @@ fn validate_text_box_text(
     Ok(())
 }
 
+fn validate_table_operations(
+    record: &TablePlotRecord,
+    record_index: usize,
+) -> Result<(), ValidationError> {
+    if !table_identity_and_layers_are_valid(record) {
+        return Err(validation_error(
+            "invalid_board_operation",
+            format!("$.records[{record_index}]"),
+            "table identity must be canonical and layers must be nonempty, sorted, and unique",
+        ));
+    }
+    let mut saw_text = false;
+    let mut grid_layer: Option<String> = None;
+    for (operation_index, operation) in record.operations.iter().enumerate() {
+        let path = format!("$.records[{record_index}].operations[{operation_index}]");
+        match operation {
+            BoardOperation::ThickSegmentOperation(value) => {
+                if saw_text {
+                    return Err(invalid_table_phase(path));
+                }
+                validate_table_segment(value, record, &mut grid_layer, path)?;
+            }
+            BoardOperation::TextOperation(value) => {
+                saw_text = true;
+                validate_table_text(value, record, path)?;
+            }
+            _ => return Err(invalid_table_phase(path)),
+        }
+    }
+    Ok(())
+}
+
+fn table_identity_and_layers_are_valid(record: &TablePlotRecord) -> bool {
+    record.kind == "table"
+        && record.object_id == "table"
+        && !record.layers.is_empty()
+        && record.layers.windows(2).all(|pair| pair[0] < pair[1])
+}
+
+fn validate_table_segment(
+    value: &ThickSegmentOperation,
+    record: &TablePlotRecord,
+    grid_layer: &mut Option<String>,
+    path: String,
+) -> Result<(), ValidationError> {
+    let Some(layer) = value.layer.as_deref() else {
+        return Err(invalid_table_segment(path));
+    };
+    if !table_segment_has_graphic_state(value)
+        || record
+            .layers
+            .binary_search_by(|candidate| candidate.as_str().cmp(layer))
+            .is_err()
+        || grid_layer.as_deref().is_some_and(|grid| grid != layer)
+    {
+        return Err(invalid_table_segment(path));
+    }
+    if grid_layer.is_none() {
+        *grid_layer = Some(layer.to_owned());
+    }
+    Ok(())
+}
+
+fn validate_table_text(
+    value: &TextOperation,
+    record: &TablePlotRecord,
+    path: String,
+) -> Result<(), ValidationError> {
+    let layer_is_declared = value
+        .layer
+        .as_ref()
+        .is_some_and(|layer| record.layers.binary_search(layer).is_ok());
+    if !layer_is_declared {
+        return Err(invalid_table_text(path));
+    }
+    validate_text_payload_without_cache_angle(value, &path)?;
+    if !table_text_has_required_state(value) {
+        return Err(invalid_table_text(path));
+    }
+    Ok(())
+}
+
+fn table_text_has_required_state(value: &TextOperation) -> bool {
+    let cache_state = match value.render_cache.as_ref() {
+        Some(_) => value.render_cache_exact == Some(false),
+        None => value.text.is_empty(),
+    };
+    !value.font_face.is_empty()
+        && cache_state
+        && value.mirror.is_none()
+        && value.polyline_per_segment.is_none()
+}
+
+fn invalid_table_segment(path: String) -> ValidationError {
+    validation_error(
+        "invalid_board_operation",
+        path,
+        "table grid segments share one declared graphic-state layer",
+    )
+}
+
+fn invalid_table_text(path: String) -> ValidationError {
+    validation_error(
+        "invalid_board_operation",
+        path,
+        "table text requires a faced cached payload on a declared layer",
+    )
+}
+
+fn invalid_table_phase(path: String) -> ValidationError {
+    validation_error(
+        "invalid_board_operation",
+        path,
+        "table records carry grid segments followed by faced cached text",
+    )
+}
+
+fn table_segment_has_graphic_state(value: &ThickSegmentOperation) -> bool {
+    value.kind == "ThickSegment"
+        && value.role.is_none()
+        && value.layers.is_empty()
+        && value.mask_margin_nm.is_none()
+        && value.pad_size_x_nm.is_none()
+        && value.pad_size_y_nm.is_none()
+}
+
 fn text_box_rect_is_square(rect: &RectOperation) -> bool {
     i64::from(rect.corner_radius_nm) == 0
 }
 
 /// Marker-key and render-cache states shared by both board text records.
 fn validate_text_payload(value: &TextOperation, path: &str) -> Result<(), ValidationError> {
+    validate_text_payload_with_cache_angle(value, path, true)
+}
+
+fn validate_text_payload_without_cache_angle(
+    value: &TextOperation,
+    path: &str,
+) -> Result<(), ValidationError> {
+    validate_text_payload_with_cache_angle(value, path, false)
+}
+
+fn validate_text_payload_with_cache_angle(
+    value: &TextOperation,
+    path: &str,
+    require_cache_angle: bool,
+) -> Result<(), ValidationError> {
     if value.kind != "Text" {
         return Err(validation_error(
             "invalid_board_operation",
@@ -314,7 +460,7 @@ fn validate_text_payload(value: &TextOperation, path: &str) -> Result<(), Valida
         ));
     }
     validate_text_markers(value, path)?;
-    validate_text_cache(value, path)
+    validate_text_cache(value, path, require_cache_angle)
 }
 
 fn validate_text_markers(value: &TextOperation, path: &str) -> Result<(), ValidationError> {
@@ -344,10 +490,14 @@ fn validate_text_markers(value: &TextOperation, path: &str) -> Result<(), Valida
     Ok(())
 }
 
-fn validate_text_cache(value: &TextOperation, path: &str) -> Result<(), ValidationError> {
+fn validate_text_cache(
+    value: &TextOperation,
+    path: &str,
+    require_cache_angle: bool,
+) -> Result<(), ValidationError> {
     validate_text_cache_keys(value, path)?;
     if let Some(cache) = &value.render_cache {
-        validate_text_cache_payload(value, cache, path)?;
+        validate_text_cache_payload(value, cache, path, require_cache_angle)?;
     }
     if value.render_cache.is_none() && value.knockout.is_some() {
         return Err(validation_error(
@@ -378,8 +528,11 @@ fn validate_text_cache_payload(
     value: &TextOperation,
     cache: &crate::generated::board_plot_document::TextRenderCache,
     path: &str,
+    require_cache_angle: bool,
 ) -> Result<(), ValidationError> {
-    if !cache_identities_match(value, cache) || !cache_payload_matches(value, cache) {
+    if !cache_identities_match(value, cache)
+        || !cache_payload_matches(value, cache, require_cache_angle)
+    {
         return Err(validation_error(
             "invalid_board_operation",
             path.to_owned(),
@@ -403,11 +556,12 @@ fn cache_identities_match(
 fn cache_payload_matches(
     value: &TextOperation,
     cache: &crate::generated::board_plot_document::TextRenderCache,
+    require_cache_angle: bool,
 ) -> bool {
     let knockout = value.knockout == cache.knockout && !matches!(cache.knockout, Some(false));
     value.render_cache_exact == Some(cache.exact)
         && cache.text == value.text
-        && cache.angle == value.orient_deg
+        && (!require_cache_angle || cache.angle == value.orient_deg)
         && knockout
         && cache_polygons_match(value, cache)
 }

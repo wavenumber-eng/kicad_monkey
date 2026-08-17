@@ -71,6 +71,9 @@ Current design notes:
   outline extraction and deterministic FontTools parity evidence.
 - `rust-native-render-cache.html` - proposed staged native shaping, outline,
   curve decomposition, placement, and final KiCad cache-parity ladder.
+- `rust-board-plotter-phase5-slice.html` - accepted bounded native board
+  text, text-box, and table Plotter-IR parity with explicit outline-bridge
+  deferrals and independent resource ceilings.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

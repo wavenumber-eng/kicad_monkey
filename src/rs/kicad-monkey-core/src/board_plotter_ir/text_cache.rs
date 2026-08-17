@@ -167,6 +167,20 @@ pub(super) fn cache_is_valid(
         })
 }
 
+/// Table-cell cache requests intentionally omit angle context. Python accepts
+/// any authored cache angle in that case and marks the attachment inexact.
+pub(super) fn cache_is_valid_without_angle(
+    cache: &AuthoredRenderCache,
+    request_text: &str,
+) -> bool {
+    cache.text.as_deref() == Some(request_text)
+        && (request_text.is_empty() || !cache.polygons.is_empty())
+        && cache.polygons.iter().all(|contours| {
+            contours.first().is_some_and(|exterior| exterior.len() >= 3)
+                && contours.iter().skip(1).all(|hole| hole.len() >= 3)
+        })
+}
+
 /// Python `_render_cache_polygons_nm` + `_op_with_render_cache_payload`
 /// for a valid authored cache; `exact` is false only under the font-face
 /// warning because board requests always provide an angle.

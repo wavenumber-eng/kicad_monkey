@@ -51,11 +51,12 @@ mod worksheet_preflight;
 
 pub use board_plotter_ir::{
     BoardGraphicRecord, BoardGraphicRecordKind, BoardNetClassAssignments, BoardNetClassExtras,
-    BoardPlotDocument, BoardPlotLimits, BoardPlotRecord, BoardSegmentRecord, BoardTextBoxOperation,
-    BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation, BoardTextRecord, BoardTextRenderCache,
-    BoardTextVAlign, BoardTextVariables, BoardTrackArcRecord, BoardViaFabrication,
-    BoardViaOperation, BoardViaOperationKind, BoardViaRecord, BoardViaType, BoardZoneRecord,
-    board_plot_document, board_plot_document_with_net_classes, board_plot_document_with_sidecars,
+    BoardPlotDocument, BoardPlotLimits, BoardPlotRecord, BoardSegmentRecord, BoardTableOperation,
+    BoardTableRecord, BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign,
+    BoardTextOperation, BoardTextRecord, BoardTextRenderCache, BoardTextVAlign, BoardTextVariables,
+    BoardTrackArcRecord, BoardViaFabrication, BoardViaOperation, BoardViaOperationKind,
+    BoardViaRecord, BoardViaType, BoardZoneRecord, board_plot_document,
+    board_plot_document_with_net_classes, board_plot_document_with_sidecars,
 };
 pub use compiled_schematic_graph::{
     CompiledGraphIdentityAllocator, CompiledGraphIdentityError, CompiledSchematicGraphLimits,

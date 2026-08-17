@@ -1984,6 +1984,9 @@ carries the exterior rings in nanometres.*/
 ///    "knockout": {
 ///      "type": "boolean"
 ///    },
+///    "layer": {
+///      "type": "string"
+///    },
 ///    "mirror": {
 ///      "type": "boolean"
 ///    },
@@ -2056,6 +2059,8 @@ pub struct TextOperation {
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub knockout: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub mirror: ::std::option::Option<bool>,
     pub multiline: bool,

@@ -482,6 +482,9 @@ pub struct BoardPlotDocumentA0 {
 ///      "$ref": "#/$defs/ViaPlotRecord"
 ///    },
 ///    {
+///      "$ref": "#/$defs/TablePlotRecord"
+///    },
+///    {
 ///      "$ref": "#/$defs/ZoneFillPlotRecord"
 ///    },
 ///    {
@@ -501,6 +504,7 @@ pub enum BoardPlotRecord {
     TrackSegmentPlotRecord(TrackSegmentPlotRecord),
     TrackArcPlotRecord(TrackArcPlotRecord),
     ViaPlotRecord(ViaPlotRecord),
+    TablePlotRecord(TablePlotRecord),
     ZoneFillPlotRecord(ZoneFillPlotRecord),
     BoardTextPlotRecord(BoardTextPlotRecord),
     BoardTextBoxPlotRecord(BoardTextBoxPlotRecord),
@@ -523,6 +527,11 @@ impl ::std::convert::From<TrackArcPlotRecord> for BoardPlotRecord {
 impl ::std::convert::From<ViaPlotRecord> for BoardPlotRecord {
     fn from(value: ViaPlotRecord) -> Self {
         Self::ViaPlotRecord(value)
+    }
+}
+impl ::std::convert::From<TablePlotRecord> for BoardPlotRecord {
+    fn from(value: TablePlotRecord) -> Self {
+        Self::TablePlotRecord(value)
     }
 }
 impl ::std::convert::From<ZoneFillPlotRecord> for BoardPlotRecord {
@@ -2290,6 +2299,73 @@ pub struct RectOperation {
     pub y1: crate::JavaScriptSafeInteger,
     pub y2: crate::JavaScriptSafeInteger,
 }
+///Board table grid/border segments followed by optional faced cell text.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Board table grid/border segments followed by optional faced cell text.",
+///  "type": "object",
+///  "required": [
+///    "cell_count",
+///    "kind",
+///    "layers",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "cell_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "table"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "object_id": {
+///      "type": "string",
+///      "const": "table"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct TablePlotRecord {
+    pub cell_count: u32,
+    pub kind: ::std::string::String,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
 /**Stroke or cached text operation. Boolean marker keys (`mirror`,
 `text_as_polygons`, `polyline_per_segment`, `knockout`) are present-only
 -when-true, matching the established Python emitter. Render-cache keys
@@ -2347,6 +2423,9 @@ carries the exterior rings in nanometres.*/
 ///    },
 ///    "knockout": {
 ///      "type": "boolean"
+///    },
+///    "layer": {
+///      "type": "string"
 ///    },
 ///    "mirror": {
 ///      "type": "boolean"
@@ -2420,6 +2499,8 @@ pub struct TextOperation {
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub knockout: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub mirror: ::std::option::Option<bool>,
     pub multiline: bool,

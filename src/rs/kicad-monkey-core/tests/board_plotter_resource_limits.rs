@@ -1,6 +1,6 @@
 use kicad_monkey_core::{
-    BoardNetClassAssignments, BoardPlotLimits, ErrorKind, board_plot_document,
-    board_plot_document_with_net_classes,
+    BoardNetClassAssignments, BoardPlotLimits, BoardTextVariables, ErrorKind, board_plot_document,
+    board_plot_document_with_net_classes, board_plot_document_with_sidecars,
 };
 
 #[test]
@@ -192,4 +192,154 @@ fn knockout_final_point_shape_is_preflighted_from_the_raw_cache() {
         },
     )
     .expect("knockout skips transient authored exterior mirrors");
+}
+
+#[test]
+fn table_cartesian_separator_count_is_preflighted_and_input_points_are_independent() {
+    let source = r#"(kicad_pcb
+      (table (column_count 3) (layer "Dwgs.User")
+        (border (external yes)) (separators (rows yes) (cols yes))
+        (cells
+          (table_cell "" (start 0 0) (end 1 1))
+          (table_cell "" (start 2 2) (end 3 3))
+          (table_cell "" (start 4 4) (end 5 5)))))"#;
+    let document = board_plot_document(
+        source,
+        BoardPlotLimits {
+            // (6 - 2) * (6 - 1) for each separator axis, plus four borders.
+            max_operations: 44,
+            max_points: 0,
+            max_input_points: 6,
+            ..BoardPlotLimits::default()
+        },
+    )
+    .expect("exact Cartesian table operation ceiling is inclusive");
+    assert_eq!(document.records[0].operation_count(), 44);
+
+    let operation_error = board_plot_document(
+        source,
+        BoardPlotLimits {
+            max_operations: 43,
+            max_points: 0,
+            max_input_points: 6,
+            ..BoardPlotLimits::default()
+        },
+    )
+    .expect_err("quadratic separator output is rejected before emission");
+    assert!(operation_error.message.contains("operation"));
+
+    let input_error = board_plot_document(
+        source,
+        BoardPlotLimits {
+            max_operations: 44,
+            max_points: 0,
+            max_input_points: 5,
+            ..BoardPlotLimits::default()
+        },
+    )
+    .expect_err("each table cell contributes two decoded endpoints");
+    assert!(input_error.message.contains("max_input_points"));
+}
+
+#[test]
+fn table_cache_only_cells_are_silent_and_outline_generation_fails_closed() {
+    let cache_only = r#"(kicad_pcb
+      (table (border (external no)) (separators (rows no) (cols no))
+        (cells (table_cell "cached" (start 0 0) (end 1 1)
+          (effects (font (size 1 1)))
+          (render_cache "cached" 99
+            (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1))))))))"#;
+    let document = board_plot_document(cache_only, BoardPlotLimits::default())
+        .expect("Python emits no operation without a font face");
+    assert_eq!(document.records[0].operation_count(), 0);
+
+    let missing_cache = r#"(kicad_pcb
+      (table (border (external no)) (separators (rows no) (cols no))
+        (cells (table_cell "faced" (start 0 0) (end 1 1)
+          (effects (font (face "Arial") (size 1 1)))))))"#;
+    let error = board_plot_document(missing_cache, BoardPlotLimits::default())
+        .expect_err("Python-generated outline caches remain deferred");
+    assert_eq!(error.kind, ErrorKind::InvalidBuildValue);
+    assert!(error.message.contains("outline-font bridge"));
+
+    let wrapping_cache = r#"(kicad_pcb
+      (table (border (external no)) (separators (rows no) (cols no))
+        (cells (table_cell "A A" (start 0 0) (end 1 1)
+          (effects (font (face "Arial") (size 1 1)))
+          (render_cache "A A" 0
+            (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1))))))))"#;
+    let error = board_plot_document(wrapping_cache, BoardPlotLimits::default())
+        .expect_err("outline-specific table wrapping is deferred");
+    assert_eq!(error.kind, ErrorKind::InvalidBuildValue);
+}
+
+#[test]
+fn table_column_counts_do_not_truncate_or_divide_by_zero() {
+    for column_count in [0_i64, i64::from(u32::MAX) + 1] {
+        let source = format!(
+            r#"(kicad_pcb
+              (table (column_count {column_count})
+                (border (external no)) (separators (rows no) (cols no))
+                (cells (table_cell "literal" (start 0 0) (end 1 1)
+                  (effects (font (face "Arial") (size 1 1)))
+                  (render_cache "literal" 0
+                    (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1))))))))"#
+        );
+        let document = board_plot_document(&source, BoardPlotLimits::default())
+            .expect("nonpositive and wide column counts remain panic-free");
+        assert_eq!(document.records[0].operation_count(), 1);
+    }
+}
+
+#[test]
+fn table_input_and_operation_limits_preflight_before_retained_output() {
+    let source = r#"(kicad_pcb
+      (gr_poly (pts (xy 0 0) (xy 1 0) (xy 1 1))
+        (stroke (width 0.1)) (fill none) (layer "Dwgs.User"))
+      (table (border (external no)) (separators (rows no) (cols no))
+        (cells (table_cell "faced" (start 0 0) (end 1 1)
+          (effects (font (face "Arial") (size 1 1)))
+          (render_cache "faced" 0
+            (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1))))))))"#;
+    let point_error = board_plot_document(
+        source,
+        BoardPlotLimits {
+            max_input_points: 4,
+            ..BoardPlotLimits::default()
+        },
+    )
+    .expect_err("graphic and table-cell input points share one aggregate ceiling");
+    assert!(point_error.message.contains("max_input_points"));
+
+    let operation_error = board_plot_document(
+        source,
+        BoardPlotLimits {
+            max_operations: 1,
+            ..BoardPlotLimits::default()
+        },
+    )
+    .expect_err("faced cell cache materialization is preflighted by the operation ceiling");
+    assert!(operation_error.message.contains("operation"));
+}
+
+#[test]
+fn empty_resolved_table_text_still_enforces_authored_cache_structure_limits() {
+    let source = r#"(kicad_pcb
+      (table (border (external no)) (separators (rows no) (cols no))
+        (cells (table_cell "${EMPTY}" (start 0 0) (end 1 1)
+          (effects (font (face "Arial") (size 1 1)))
+          (render_cache "stale" 0
+            (polygon (pts (xy 0 0) (xy 1 0) (xy 1 1))))))))"#;
+    let error = board_plot_document_with_sidecars(
+        source,
+        BoardPlotLimits {
+            max_cache_polygons: 0,
+            ..BoardPlotLimits::default()
+        },
+        &BoardNetClassAssignments::default(),
+        &BoardTextVariables::from_entries([("EMPTY", "")]),
+    )
+    .expect_err("ignored stale cache payloads remain structurally bounded");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+    assert!(error.message.contains("max_cache_polygons"));
 }

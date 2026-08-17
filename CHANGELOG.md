@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Extend the native Rust board Plotter-IR producer with bounded table grids,
+  borders, layer-aware faced cell text, local table variables, generated
+  cross-language contracts, and Python-oracle parity evidence.
+
 ## 2026.8.17
 
 - Build one immutable board-net snapshot and one project netclass lookup per

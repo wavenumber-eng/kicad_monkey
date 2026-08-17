@@ -95,6 +95,9 @@ pub struct BoardTextOperation {
     pub bold: bool,
     pub multiline: bool,
     pub font_face: String,
+    /// Table-cell text carries its cell layer on the operation; board text
+    /// keeps layer attribution at record level.
+    pub layer: Option<String>,
     /// Python marker keys serialize only when true.
     pub mirror: bool,
     pub text_as_polygons: bool,
@@ -136,15 +139,17 @@ pub struct BoardTextBoxRecord {
 pub(super) fn board_variables(
     view: &PcbView<'_>,
     graphics: &[PcbGraphic],
+    additional_text_needs_variables: bool,
     project_variables: &BoardTextVariables,
 ) -> Result<BoardTextVariables, Error> {
-    let needs_variables = graphics.iter().any(|graphic| {
-        matches!(graphic.kind, PcbGraphicKind::Text | PcbGraphicKind::TextBox)
-            && graphic
-                .text
-                .as_deref()
-                .is_some_and(|text| text.contains("${"))
-    });
+    let needs_variables = additional_text_needs_variables
+        || graphics.iter().any(|graphic| {
+            matches!(graphic.kind, PcbGraphicKind::Text | PcbGraphicKind::TextBox)
+                && graphic
+                    .text
+                    .as_deref()
+                    .is_some_and(|text| text.contains("${"))
+        });
     if !needs_variables {
         return Ok(project_variables.clone());
     }
@@ -210,7 +215,7 @@ pub(super) fn text_records(
     Ok(records)
 }
 
-fn text_point_total(operations: &[BoardTextOperation]) -> usize {
+pub(super) fn text_point_total(operations: &[BoardTextOperation]) -> usize {
     operations.iter().fold(0, |total, operation| {
         let cache_points = operation
             .render_cache
@@ -229,7 +234,7 @@ fn text_point_total(operations: &[BoardTextOperation]) -> usize {
     })
 }
 
-fn operation_text_bytes(operation: &BoardTextOperation) -> usize {
+pub(super) fn operation_text_bytes(operation: &BoardTextOperation) -> usize {
     operation.text.len().saturating_add(
         operation
             .render_cache
@@ -273,15 +278,15 @@ fn text_box_point_total(operations: &[BoardTextBoxOperation]) -> usize {
 }
 
 /// Python `Effects`/`Font` facts consumed by the board text producers.
-struct TextEffects {
-    face: Option<String>,
-    size_x: f64,
-    size_y: f64,
-    thickness: Option<f64>,
-    bold: bool,
-    italic: bool,
-    justify: Vec<String>,
-    color: String,
+pub(super) struct TextEffects {
+    pub(super) face: Option<String>,
+    pub(super) size_x: f64,
+    pub(super) size_y: f64,
+    pub(super) thickness: Option<f64>,
+    pub(super) bold: bool,
+    pub(super) italic: bool,
+    pub(super) justify: Vec<String>,
+    pub(super) color: String,
 }
 
 #[derive(Clone, Copy)]
@@ -358,7 +363,7 @@ fn maybe_absent_bool(form: &Sexp, name: &str) -> Option<bool> {
 }
 
 /// Numeric slot with a Python-style per-index default when absent.
-fn numeric_or(form: Option<&Sexp>, index: usize, default: f64) -> Result<f64, Error> {
+pub(super) fn numeric_or(form: Option<&Sexp>, index: usize, default: f64) -> Result<f64, Error> {
     match form {
         Some(value) if list_values(value).is_some_and(|values| values.len() > index) => {
             numeric_at(value, index, Position::START)
@@ -425,7 +430,7 @@ fn rgba_color(font: Option<&Sexp>) -> Result<String, Error> {
 }
 
 /// Python `Effects.from_sexp`/`Font.from_sexp` over one text carrier form.
-fn text_effects(form: &Sexp) -> Result<TextEffects, Error> {
+pub(super) fn text_effects(form: &Sexp) -> Result<TextEffects, Error> {
     let effects = child(form, "effects");
     let font = effects.and_then(|value| child(value, "font"));
     let size = font.and_then(|value| child(value, "size"));
@@ -476,7 +481,7 @@ fn text_effects(form: &Sexp) -> Result<TextEffects, Error> {
 
 /// Python `_effects_to_text_kwargs` justify loop: `center` binds to the
 /// horizontal axis first, and the last token per axis wins.
-fn alignments(justify: &[String]) -> (Option<BoardTextHAlign>, Option<BoardTextVAlign>) {
+pub(super) fn alignments(justify: &[String]) -> (Option<BoardTextHAlign>, Option<BoardTextVAlign>) {
     let mut h_align = None;
     let mut v_align = None;
     for token in justify {
@@ -592,7 +597,7 @@ fn text_record(
     })
 }
 
-fn ensure_retained_text_bytes(
+pub(super) fn ensure_retained_text_bytes(
     text_bytes: usize,
     occurrences: usize,
     max_text_bytes: usize,
@@ -645,6 +650,7 @@ fn gr_text_operation(
         // Python `gr_text_to_op` never passes the multiline kwarg.
         multiline: false,
         font_face: effects.face.clone().unwrap_or_default(),
+        layer: None,
         mirror: effects.justify.iter().any(|token| token == "mirror"),
         text_as_polygons: !face_present,
         polyline_per_segment: !face_present,
@@ -793,6 +799,7 @@ fn text_box_text_operation(
         bold: effects.bold,
         multiline,
         font_face: effects.face.clone().unwrap_or_default(),
+        layer: None,
         // Text boxes never emit the mirror or per-segment markers.
         mirror: false,
         text_as_polygons: !face_present,

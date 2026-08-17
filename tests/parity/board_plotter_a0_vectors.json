@@ -5010,6 +5010,470 @@
     "thickness_mm": 1.6,
     "paper": "A4"
    }
+  },
+  {
+   "id": "tables-precede-zones-and-bound-cached-cells",
+   "source": "(kicad_pcb\n  (version 20240108)\n  (generator pcbnew)\n  (generator_version \"8.0\")\n  (general (thickness 1.6))\n  (paper \"A4\")\n  (property \"PROJECT\" \"board-project\")\n  (via (at -1 -1) (size 0.8) (drill 0.4) (layers \"F.Cu\" \"B.Cu\") (uuid \"via-before-table\"))\n  (image (at 1 1) (layer \"F.SilkS\") (data \"YWJj\") (uuid \"ignored-image\"))\n  (barcode (at 2 2) (layer \"F.SilkS\") (size 4 2) (text \"IGNORED\") (uuid \"ignored-barcode\"))\n  (group \"Ignored\" (id \"ignored-group\") (members \"table-grid\"))\n  (generated (id \"ignored-generated\") (type tuned_delay) (name \"Ignored\") (layer \"F.Cu\"))\n  (table (column_count 2) (layer \"Dwgs.User\")\n    (border (external yes) (header yes) (stroke (width 0.3) (type dash) (color 1 2 3 1)))\n    (separators (rows yes) (cols yes) (stroke (width 0.1) (type dot)))\n    (cells\n      (table_cell \"plain\" (start 0 0) (end 10 5) (layer \"Dwgs.User\"))\n      (table_cell \"silent-cache\" (start 10 0) (end 20 5) (layer \"B.SilkS\")\n        (effects (font (size 1 1)))\n        (render_cache \"silent-cache\" 0 (polygon (pts (xy 10 1) (xy 11 1) (xy 11 2)))))\n      (table_cell \"reversed\" (start 10 10) (end 0 5) (span 2 1) (layer \"Dwgs.User\"))\n      (table_cell \"${ADDR}-${ROW}-${COL}-${LAYER}-${PROJECT}\" (start 20 10) (end 10 5)\n        (margins 0.5 0.25 0.75 0.4) (angle 90) (layer \"F.SilkS\")\n        (effects (font (face \"Arial\") (size 1.2 1.5) (thickness 0.2) bold italic (color 10 20 30 0.3))\n          (justify right top mirror))\n        (render_cache \"B2-2-2-F.SilkS-board-project\" 37\n          (polygon (pts (xy 12 6) (xy 14 6) (xy 14 7)))))\n    )\n    (uuid \"table-grid\"))\n  (table (column_count 1) (layer \"F.Cu\") (border (external no)) (separators (rows no) (cols no)) (uuid \"table-empty\"))\n  (table (column_count 0) (layer \"Cmts.User\")\n    (border (external no)) (separators (rows no) (cols no))\n    (cells\n      (table_cell \"${EMPTY}\" (start 30 0) (end 40 5) (layer \"Cmts.User\")\n        (effects (font (face \"Arial\") (size 1 1))))\n      (table_cell \"${EMPTY}\" (start 30 5) (end 40 10) (layer \"Cmts.User\")\n        (effects (font (face \"Arial\") (size 1 1)))\n        (render_cache \"stale\" 0\n          (polygon (pts (xy 30 5) (xy 31 5) (xy 31 6)))))\n      (table_cell \"${EMPTY}\" (start 30 10) (end 40 15) (layer \"Cmts.User\")\n        (effects (font (face \"Arial\") (size 1 1)))\n        (render_cache \"\" 37\n          (polygon (pts (xy 30 10) (xy 31 10) (xy 31 11)))))\n      (table_cell \"${ROW}-${COL}-${ADDR}\" (start 30 15) (end 40 20) (layer \"Cmts.User\")\n        (effects (font (face \"Arial\") (size 1 1)))\n        (render_cache \"${ROW}-${COL}-${ADDR}\" 0\n          (polygon (pts (xy 30 15) (xy 31 15) (xy 31 16))))))\n    (uuid \"table-empty-resolved\"))\n  (zone (net 0) (net_name \"\") (layers \"F.Cu\")\n    (filled_polygon (layer \"F.Cu\") (pts (xy 0 20) (xy 2 20) (xy 2 22)))\n    (uuid \"zone-after-table\"))\n)",
+   "source_path": "boards/tables.kicad_pcb",
+   "document_id": "board-tables",
+   "text_variables": {
+    "PROJECT": "sidecar-project",
+    "EMPTY": ""
+   },
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "PCB",
+    "total_operations": 16,
+    "records": [
+     {
+      "uuid": "via-before-table",
+      "kind": "via",
+      "object_id": "via",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "FlashPadCircle",
+        "index": 0,
+        "x": -1000000,
+        "y": -1000000,
+        "diameter_nm": 800000,
+        "role": "via_aperture",
+        "layers": [
+         "F.Cu",
+         "B.Cu"
+        ]
+       },
+       {
+        "kind": "Circle",
+        "index": 1,
+        "cx": -1000000,
+        "cy": -1000000,
+        "diameter_nm": 400000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0,
+        "role": "via_drill",
+        "layers": [
+         "F.Cu",
+         "B.Cu"
+        ]
+       }
+      ],
+      "layers": [
+       "F.Cu",
+       "B.Cu"
+      ],
+      "drill": 0.4,
+      "size": 0.8,
+      "via_type": "through",
+      "hole_kind": "round",
+      "hole_plating": "plated",
+      "hole_render": "drill",
+      "net_id": 0
+     },
+     {
+      "uuid": "table-grid",
+      "kind": "table",
+      "object_id": "table",
+      "operation_count": 9,
+      "operations": [
+       {
+        "kind": "ThickSegment",
+        "index": 0,
+        "start_x": 10000000,
+        "start_y": 0,
+        "end_x": 10000000,
+        "end_y": 5000000,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 1,
+        "start_x": 10000000,
+        "start_y": 5000000,
+        "end_x": 10000000,
+        "end_y": 10000000,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 2,
+        "start_x": 10000000,
+        "start_y": 5000000,
+        "end_x": 0,
+        "end_y": 5000000,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 3,
+        "start_x": 20000000,
+        "start_y": 5000000,
+        "end_x": 10000000,
+        "end_y": 5000000,
+        "width_nm": 100000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 4,
+        "start_x": 0,
+        "start_y": 0,
+        "end_x": 20000000,
+        "end_y": 0,
+        "width_nm": 300000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 5,
+        "start_x": 20000000,
+        "start_y": 0,
+        "end_x": 20000000,
+        "end_y": 10000000,
+        "width_nm": 300000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 6,
+        "start_x": 20000000,
+        "start_y": 10000000,
+        "end_x": 0,
+        "end_y": 10000000,
+        "width_nm": 300000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "ThickSegment",
+        "index": 7,
+        "start_x": 0,
+        "start_y": 10000000,
+        "end_x": 0,
+        "end_y": 0,
+        "width_nm": 300000,
+        "layer": "Dwgs.User"
+       },
+       {
+        "kind": "Text",
+        "index": 8,
+        "x": 10250000,
+        "y": 9500000,
+        "text": "B2-2-2-F.SilkS-board-project",
+        "color": "#0A141E4C",
+        "orient_deg": 90.0,
+        "size_x_nm": 1500000,
+        "size_y_nm": 1200000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_TOP",
+        "pen_width_nm": 200000,
+        "italic": true,
+        "bold": true,
+        "multiline": false,
+        "font_face": "Arial",
+        "render_cache_polygons": [
+         [
+          [
+           12000000,
+           6000000
+          ],
+          [
+           14000000,
+           6000000
+          ],
+          [
+           14000000,
+           7000000
+          ]
+         ]
+        ],
+        "render_cache": {
+         "schema": "kicad.render_cache.v1",
+         "unit": "nm",
+         "coordinate_space": "board",
+         "text": "B2-2-2-F.SilkS-board-project",
+         "angle": 37.0,
+         "source": "existing_file_cache",
+         "exact": false,
+         "polygons": [
+          {
+           "contours": [
+            [
+             [
+              12000000,
+              6000000
+             ],
+             [
+              14000000,
+              6000000
+             ],
+             [
+              14000000,
+              7000000
+             ]
+            ]
+           ]
+          }
+         ]
+        },
+        "render_cache_source": "existing_file_cache",
+        "render_cache_exact": false,
+        "layer": "F.SilkS"
+       }
+      ],
+      "layers": [
+       "B.SilkS",
+       "Dwgs.User",
+       "F.SilkS"
+      ],
+      "cell_count": 4
+     },
+     {
+      "uuid": "table-empty",
+      "kind": "table",
+      "object_id": "table",
+      "operation_count": 0,
+      "operations": [],
+      "layers": [
+       "F.Cu"
+      ],
+      "cell_count": 0
+     },
+     {
+      "uuid": "table-empty-resolved",
+      "kind": "table",
+      "object_id": "table",
+      "operation_count": 4,
+      "operations": [
+       {
+        "kind": "Text",
+        "index": 0,
+        "x": 35000000,
+        "y": 2500000,
+        "text": "",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial",
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 35000000,
+        "y": 7500000,
+        "text": "",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial",
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "Text",
+        "index": 2,
+        "x": 35000000,
+        "y": 12500000,
+        "text": "",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial",
+        "render_cache_polygons": [
+         [
+          [
+           30000000,
+           10000000
+          ],
+          [
+           31000000,
+           10000000
+          ],
+          [
+           31000000,
+           11000000
+          ]
+         ]
+        ],
+        "render_cache": {
+         "schema": "kicad.render_cache.v1",
+         "unit": "nm",
+         "coordinate_space": "board",
+         "text": "",
+         "angle": 37.0,
+         "source": "existing_file_cache",
+         "exact": false,
+         "polygons": [
+          {
+           "contours": [
+            [
+             [
+              30000000,
+              10000000
+             ],
+             [
+              31000000,
+              10000000
+             ],
+             [
+              31000000,
+              11000000
+             ]
+            ]
+           ]
+          }
+         ]
+        },
+        "render_cache_source": "existing_file_cache",
+        "render_cache_exact": false,
+        "layer": "Cmts.User"
+       },
+       {
+        "kind": "Text",
+        "index": 3,
+        "x": 35000000,
+        "y": 17500000,
+        "text": "${ROW}-${COL}-${ADDR}",
+        "color": "#000000",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 0,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial",
+        "render_cache_polygons": [
+         [
+          [
+           30000000,
+           15000000
+          ],
+          [
+           31000000,
+           15000000
+          ],
+          [
+           31000000,
+           16000000
+          ]
+         ]
+        ],
+        "render_cache": {
+         "schema": "kicad.render_cache.v1",
+         "unit": "nm",
+         "coordinate_space": "board",
+         "text": "${ROW}-${COL}-${ADDR}",
+         "angle": 0.0,
+         "source": "existing_file_cache",
+         "exact": false,
+         "polygons": [
+          {
+           "contours": [
+            [
+             [
+              30000000,
+              15000000
+             ],
+             [
+              31000000,
+              15000000
+             ],
+             [
+              31000000,
+              16000000
+             ]
+            ]
+           ]
+          }
+         ]
+        },
+        "render_cache_source": "existing_file_cache",
+        "render_cache_exact": false,
+        "layer": "Cmts.User"
+       }
+      ],
+      "layers": [
+       "Cmts.User"
+      ],
+      "cell_count": 4
+     },
+     {
+      "uuid": "zone-after-table",
+      "kind": "zone_fill",
+      "object_id": "zone",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          0,
+          20000000
+         ],
+         [
+          2000000,
+          20000000
+         ],
+         [
+          2000000,
+          22000000
+         ]
+        ],
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0
+       }
+      ],
+      "layers": [
+       "F.Cu"
+      ],
+      "fill_layers": [
+       "F.Cu"
+      ],
+      "fill_island": [
+       false
+      ],
+      "net_id": 0
+     }
+    ],
+    "source_path": "boards/tables.kicad_pcb",
+    "document_id": "board-tables",
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    },
+    "version": 20240108,
+    "generator": "pcbnew",
+    "generator_version": "8.0",
+    "thickness_mm": 1.6,
+    "paper": "A4"
+   }
   }
  ]
 }
