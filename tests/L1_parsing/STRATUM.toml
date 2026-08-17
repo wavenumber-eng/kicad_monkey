@@ -361,7 +361,7 @@ secondary = [
 id = "L1_027"
 file = "test_L1_027_rust_symbol_plotter_slice.py"
 name = "Rust Symbol Plotter-IR Slice"
-description = "Prove shared non-text library-symbol body and pin operations from KiCad bytes"
+description = "Prove shared library-symbol body geometry/text and pin geometry/label operations from KiCad bytes"
 concerns = ["sexpr", "rust", "symbol", "plotter_ir", "wasm"]
 test_cases = "tests/parity/symbol_plotter_a0_vectors.json"
 test_case_type = "contract"
@@ -369,10 +369,11 @@ test_case_type = "contract"
 [subtests.objectives]
 primary = "Rust and Python emit the same established plotter-IR operations for the promoted symbol subset"
 secondary = [
-    "Body geometry and all nine non-text pin graphic styles match Python",
+    "Body geometry/text and all nine pin graphic styles plus number/name labels match Python",
+    "Exact-case project variables, text defaults/styles, inheritance settings, and operation order match Python",
     "Shared operations remain producer-neutral across symbol and footprint inputs",
     "TypeSpec, schema, Python, Rust, and TypeScript projections stay strict",
-    "Operation and geometry-point limits fail closed in native and WASM paths",
+    "Operation, geometry-point, text-carrier, text-byte, sidecar, and output limits fail closed in native and WASM paths",
 ]
 
 # -----------------------------------------------------------------------------

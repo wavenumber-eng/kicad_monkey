@@ -60,6 +60,21 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 4294967295
+        },
+        "max_text_carriers": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_bytes": {
+            "type": "string"
+        },
+        "text_variables": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/SymbolTextVariable"
+            },
+            "description": "Exact-case project variables used only by library-symbol body text."
         }
     },
     "required": [
@@ -79,5 +94,26 @@
         "not": {}
     },
     "description": "Resource-bounded library-symbol plot operation. Source bytes are out of band.",
-    "title": "Symbol plot request a0"
+    "title": "Symbol plot request a0",
+    "$defs": {
+        "SymbolTextVariable": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One exact-case project-sidecar variable for library-symbol body text."
+        }
+    }
 }

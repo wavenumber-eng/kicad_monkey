@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head>
   <meta charset="utf-8">
   <title>Rust Phase 2 Symbol Plotter-IR Slice</title>
@@ -11,13 +11,13 @@
   <section>
     <h2>Decision</h2>
     <p>
-      Library-symbol bytes now produce the non-text body subset of
+      Library-symbol bytes now produce the cache-free geometry and text subset of
       <code>kicad.plotter_ir.a0</code>. Rectangles, circles, three-point arcs,
       polylines, and cubic Béziers reuse the same producer-neutral operations
       as footprints and future PCB and schematic readers. Pin shafts and all
-      nine non-text pin decorations share those operations as well. Text and
-      pin labels remain outside this slice so shaping can close through its own
-      parity gate.
+      nine non-text pin decorations share those operations as well. Body text,
+      pin numbers, and pin names emit canonical layer-free <code>Text</code>
+      operations; outline shaping and render-cache generation remain separate.
     </p>
   </section>
 
@@ -42,9 +42,17 @@
         and fill-first/deferred-outline ordering match the Python producer.
       </li>
       <li>
+        Body text preserves face, size, colour, bold/italic state, justification,
+        tenths-degree orientation, pen clamping, exact-case project-variable
+        substitution, and one-trailing-newline normalization.
+      </li>
+      <li>
         Pin geometry covers line, inverted, clock, inverted-clock, input-low,
         clock-low, output-low, edge-clock-high, and non-logic styles. Hidden
         pins emit no operations, and arbitrary rotations remain deterministic.
+        Visible pin number/name labels follow authored pin direction, parent
+        hide/offset settings, Python midpoint rounding, and their distinct
+        colour and pen-width rules.
       </li>
       <li>
         A child with no body resolves its <code>extends</code> chain to the
@@ -62,13 +70,17 @@
       style fields, expanded fill vocabulary, and Bézier operation. Generated
       Rust, Python/msgspec, and TypeScript projections are committed. Semantic
       validation requires the <code>lib_symbol</code> header first and permits
-      only layer-free body geometry in <code>lib_subsymbol</code> records;
+      only canonical layer-free geometry and cache-free <code>Text</code> in
+      <code>lib_subsymbol</code> records. Operation kinds and global indices are
+      exact, and any cache/marker/layer state on symbol text is rejected;
       footprint graphics still require a layer and pad/drill states cannot
       cross into symbol output.
     </p>
     <p>
       Source bytes, depth, library symbol count, subsymbol count, operation
-      count, geometry point count, and output bytes are independently bounded.
+      count, geometry point count, source text-carrier count, retained UTF-8
+      text bytes, project-variable entry/byte sidecars, and output bytes are
+      independently bounded.
       Every failure returns diagnostics with empty output. Browser callers use
       <code>plotSymbolIr</code> with separate source and request byte arrays.
     </p>
@@ -77,19 +89,20 @@
   <section>
     <h2>Evidence And Retained Work</h2>
     <p>
-      Rack L1_027 compares the exact body and all-style pin operation streams
+      Rack L1_027 compares the exact body, body-text, pin-label, and all-style pin operation streams
       with the Python oracle, validates both the generated strict schema and
       established IR schema, and orchestrates native and host-adapter Rust
-      tests. The real WASM suite covers successful pin geometry and fail-closed
-      point limits.
+      tests. The real WASM suite covers successful exact-case text plus
+      fail-closed text-carrier, safe-integer, and geometry limits.
       Rustfmt, warnings-denied Clippy, the wn-dev-std structural ratchet, the
       complete Cargo workspace, and deterministic contract generation pass.
     </p>
     <p>
-      Pin names and numbers follow through the HarfRust shaping and outline
-      extraction gate. The inheritance slice resolves render geometry only;
-      broader inherited source-model fields remain part of future typed model
-      expansion.
+      Native font shaping, outline extraction, and render-cache generation for
+      symbol text remain later rendering work. Inheritance resolves base geometry
+      and base pin visibility/offset settings while retaining requested-child
+      header metadata; broader inherited source-model fields remain future typed
+      model expansion.
     </p>
   </section>
 </body>

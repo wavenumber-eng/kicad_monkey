@@ -43,7 +43,7 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict non-text library-symbol subset of kicad.plotter_ir.a0.",
+    "description": "Strict cache-free library-symbol geometry and text subset of kicad.plotter_ir.a0.",
     "title": "Symbol plot document a0",
     "$defs": {
         "SymbolPlotRecord": {

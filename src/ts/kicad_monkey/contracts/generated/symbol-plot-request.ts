@@ -18,4 +18,17 @@ export interface SymbolPlotRequestA0 {
   max_subsymbols: number;
   max_operations: number;
   max_points: number;
+  max_text_carriers?: number;
+  max_text_bytes?: string;
+  /**
+   * Exact-case project variables used only by library-symbol body text.
+   */
+  text_variables?: SymbolTextVariable[];
+}
+/**
+ * One exact-case project-sidecar variable for library-symbol body text.
+ */
+export interface SymbolTextVariable {
+  name: string;
+  value: string;
 }

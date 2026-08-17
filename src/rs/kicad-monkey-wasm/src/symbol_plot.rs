@@ -1,4 +1,4 @@
-//! Browser adapter for the source-selected non-text symbol producer.
+//! Browser adapter for the source-selected symbol geometry and text producer.
 
 use crate::{plotter_contract::contract_plotter_operation, serialize_bounded};
 use kicad_monkey_contracts::generated::symbol_plot_document::{
@@ -11,9 +11,14 @@ use kicad_monkey_contracts::generated::symbol_plot_result::{
 };
 use kicad_monkey_contracts::validate_symbol_plot_document;
 use kicad_monkey_core::{
-    Error, ErrorKind, ErrorPhase, SymbolPlotLimits, symbol_plot_document, utf8_text,
+    Error, ErrorKind, ErrorPhase, SymbolPlotLimits, SymbolTextVariables,
+    symbol_plot_document_with_text_variables, utf8_text,
 };
 use wasm_bindgen::prelude::*;
+
+const MAX_SYMBOL_PLOT_REQUEST_BYTES: usize = 1024 * 1024;
+const MAX_SYMBOL_TEXT_VARIABLES: usize = 16_384;
+const MAX_SYMBOL_TEXT_VARIABLE_BYTES: usize = 512 * 1024;
 
 /// Paired metadata and out-of-band symbol plotter-IR JSON bytes.
 #[wasm_bindgen]
@@ -43,13 +48,16 @@ impl SymbolPlotOutput {
     }
 }
 
-/// Convert one selected library symbol to non-text plotter-IR JSON bytes.
+/// Convert one selected library symbol to plotter-IR geometry and text JSON bytes.
 #[wasm_bindgen(js_name = plotSymbolIr)]
 pub fn plot_symbol_ir(source: &[u8], request_json: &[u8]) -> Result<SymbolPlotOutput, JsValue> {
     plot_symbol_ir_impl(source, request_json).map_err(|message| JsValue::from_str(&message))
 }
 
 fn plot_symbol_ir_impl(source: &[u8], request_json: &[u8]) -> Result<SymbolPlotOutput, String> {
+    if request_json.len() > MAX_SYMBOL_PLOT_REQUEST_BYTES {
+        return Err("symbol plot request exceeds the fixed 1 MiB transport limit".to_owned());
+    }
     let request: SymbolPlotRequestA0 =
         serde_json::from_slice(request_json).map_err(|error| error.to_string())?;
     if request.type_ != "kicad_monkey.symbol_plot.request" || request.version != "a0" {
@@ -57,9 +65,28 @@ fn plot_symbol_ir_impl(source: &[u8], request_json: &[u8]) -> Result<SymbolPlotO
     }
     let max_source_bytes = decimal_usize(&request.max_source_bytes, "max_source_bytes")?;
     let max_output_bytes = decimal_usize(&request.max_output_bytes, "max_output_bytes")?;
+    let defaults = SymbolPlotLimits::default();
+    let max_text_carriers = request
+        .max_text_carriers
+        .map_or(defaults.max_text_carriers, |value| value as usize);
+    let max_text_bytes = request
+        .max_text_bytes
+        .as_deref()
+        .map(|value| decimal_usize(value, "max_text_bytes"))
+        .transpose()?
+        .unwrap_or(defaults.max_text_bytes);
+    if let Err(diagnostic) = validate_text_variables(&request) {
+        return diagnostic_output(*diagnostic);
+    }
+    let text_variables = SymbolTextVariables::from_entries(
+        request
+            .text_variables
+            .iter()
+            .map(|variable| (variable.name.clone(), variable.value.clone())),
+    );
     let operation = (|| {
         let text = utf8_text(source)?;
-        symbol_plot_document(
+        symbol_plot_document_with_text_variables(
             text,
             &request.symbol_name,
             request.unit,
@@ -71,7 +98,10 @@ fn plot_symbol_ir_impl(source: &[u8], request_json: &[u8]) -> Result<SymbolPlotO
                 max_subsymbols: request.max_subsymbols as usize,
                 max_operations: request.max_operations as usize,
                 max_points: request.max_points as usize,
+                max_text_carriers,
+                max_text_bytes,
             },
+            &text_variables,
         )
     })();
     let (result, output_bytes) = match operation {
@@ -82,6 +112,29 @@ fn plot_symbol_ir_impl(source: &[u8], request_json: &[u8]) -> Result<SymbolPlotO
         result_json: serde_json::to_vec(&result).map_err(|error| error.to_string())?,
         output_bytes,
     })
+}
+
+fn validate_text_variables(request: &SymbolPlotRequestA0) -> Result<(), Box<Diagnostic>> {
+    if request.text_variables.len() > MAX_SYMBOL_TEXT_VARIABLES {
+        return Err(Box::new(sidecar_limit_diagnostic(
+            "symbol text_variables exceeds the fixed entry limit",
+        )));
+    }
+    request
+        .text_variables
+        .iter()
+        .try_fold(0usize, |total, variable| {
+            total
+                .checked_add(variable.name.len())
+                .and_then(|value| value.checked_add(variable.value.len()))
+                .filter(|value| *value <= MAX_SYMBOL_TEXT_VARIABLE_BYTES)
+        })
+        .map(|_| ())
+        .ok_or_else(|| {
+            Box::new(sidecar_limit_diagnostic(
+                "symbol text_variables exceeds the fixed byte limit",
+            ))
+        })
 }
 
 fn success(
@@ -177,6 +230,14 @@ fn failure(diagnostic: Diagnostic) -> (SymbolPlotResultA0, Vec<u8>) {
     )
 }
 
+fn diagnostic_output(diagnostic: Diagnostic) -> Result<SymbolPlotOutput, String> {
+    let (result, output_bytes) = failure(diagnostic);
+    Ok(SymbolPlotOutput {
+        result_json: serde_json::to_vec(&result).map_err(|error| error.to_string())?,
+        output_bytes,
+    })
+}
+
 fn symbol_diagnostic(error: Error) -> Diagnostic {
     Diagnostic {
         code: error_code(error.kind).to_owned(),
@@ -219,6 +280,16 @@ fn limit_diagnostic() -> Diagnostic {
     }
 }
 
+fn sidecar_limit_diagnostic(message: &str) -> Diagnostic {
+    Diagnostic {
+        code: "resource_limit".to_owned(),
+        message: message.to_owned(),
+        phase: DiagnosticPhase::Build,
+        position: None,
+        token: None,
+    }
+}
+
 fn decimal_usize(value: &str, field: &str) -> Result<usize, String> {
     value
         .parse::<usize>()
@@ -228,6 +299,7 @@ fn decimal_usize(value: &str, field: &str) -> Result<usize, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     const LIBRARY: &str = r#"(kicad_symbol_lib (version 20241209)
       (symbol "Demo" (in_bom yes) (on_board yes)
@@ -252,6 +324,152 @@ mod tests {
     fn host_symbol_adapter_fails_closed_on_limits() {
         let request = br#"{"type":"kicad_monkey.symbol_plot.request","version":"a0","symbol_name":"Demo","style":0,"max_source_bytes":"1","max_output_bytes":"65536","max_depth":32,"max_symbols":10,"max_subsymbols":10,"max_operations":10,"max_points":100}"#;
         let output = plot_symbol_ir_impl(LIBRARY.as_bytes(), request).expect("host operation");
+        assert!(output.output_bytes.is_empty());
+        let result: SymbolPlotResultA0 =
+            serde_json::from_slice(&output.result_json).expect("result contract");
+        assert_eq!(result.diagnostics[0].code, "resource_limit");
+    }
+
+    #[test]
+    fn host_symbol_adapter_matches_every_shared_vector() {
+        let vectors: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/parity/symbol_plotter_a0_vectors.json"
+        ))
+        .expect("symbol vectors");
+        for vector in vectors["vectors"].as_array().expect("vector array") {
+            let text_variables = vector
+                .get("text_variables")
+                .and_then(serde_json::Value::as_object)
+                .map(|variables| {
+                    variables
+                        .iter()
+                        .map(|(name, value)| json!({"name": name, "value": value}))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let request = json!({
+                "type": "kicad_monkey.symbol_plot.request",
+                "version": "a0",
+                "symbol_name": vector["symbol_name"],
+                "unit": vector["unit"],
+                "style": vector["style"],
+                "source_path": vector["source_path"],
+                "document_id": vector["document_id"],
+                "max_source_bytes": "65536",
+                "max_output_bytes": "65536",
+                "max_depth": 64,
+                "max_symbols": 100,
+                "max_subsymbols": 100,
+                "max_operations": 100,
+                "max_points": 1000,
+                "max_text_carriers": 100,
+                "max_text_bytes": "65536",
+                "text_variables": text_variables,
+            });
+            let output = plot_symbol_ir_impl(
+                vector["source"].as_str().expect("source").as_bytes(),
+                &serde_json::to_vec(&request).expect("request"),
+            )
+            .expect("host vector");
+            let actual: serde_json::Value =
+                serde_json::from_slice(&output.output_bytes).expect("document bytes");
+            assert_eq!(actual, vector["expected"], "{}", vector["id"]);
+        }
+    }
+
+    #[test]
+    fn host_symbol_text_limits_return_diagnostics_without_partial_ir() {
+        let source = br#"(kicad_symbol_lib (symbol "D" (symbol "D_1_1"
+          (text "${V}")
+          (pin passive line (at 9007199252.200991 0 0) (length 2.54)
+            (name "N") (number "")))))"#;
+        let base = json!({
+            "type": "kicad_monkey.symbol_plot.request",
+            "version": "a0",
+            "symbol_name": "D",
+            "style": 0,
+            "max_source_bytes": "4096",
+            "max_output_bytes": "65536",
+            "max_depth": 32,
+            "max_symbols": 10,
+            "max_subsymbols": 10,
+            "max_operations": 10,
+            "max_points": 100,
+            "max_text_carriers": 10,
+            "max_text_bytes": "2",
+            "text_variables": [{"name": "V", "value": "é"}],
+        });
+        for mutation in [
+            ("max_text_carriers", json!(0)),
+            ("max_text_bytes", json!("1")),
+        ] {
+            let mut request = base.clone();
+            request[mutation.0] = mutation.1;
+            let output =
+                plot_symbol_ir_impl(source, &serde_json::to_vec(&request).expect("request"))
+                    .expect("diagnostic result");
+            assert!(output.output_bytes.is_empty());
+            let result: SymbolPlotResultA0 =
+                serde_json::from_slice(&output.result_json).expect("result contract");
+            assert_eq!(result.diagnostics[0].code, "resource_limit");
+        }
+
+        let output = plot_symbol_ir_impl(source, &serde_json::to_vec(&base).expect("request"))
+            .expect("coordinate diagnostic");
+        assert!(output.output_bytes.is_empty());
+        let result: SymbolPlotResultA0 =
+            serde_json::from_slice(&output.result_json).expect("result contract");
+        assert_eq!(result.diagnostics[0].code, "invalid_symbol_model");
+    }
+
+    #[test]
+    fn symbol_text_variable_sidecar_boundaries_are_diagnostic_only() {
+        fn request(text_variables: serde_json::Value) -> Vec<u8> {
+            serde_json::to_vec(&json!({
+                "type": "kicad_monkey.symbol_plot.request",
+                "version": "a0",
+                "symbol_name": "Demo",
+                "unit": 1,
+                "style": 0,
+                "max_source_bytes": "4096",
+                "max_output_bytes": "65536",
+                "max_depth": 32,
+                "max_symbols": 10,
+                "max_subsymbols": 10,
+                "max_operations": 10,
+                "max_points": 100,
+                "text_variables": text_variables,
+            }))
+            .expect("request")
+        }
+
+        let exact_entries = vec![json!({"name": "", "value": ""}); MAX_SYMBOL_TEXT_VARIABLES];
+        let output = plot_symbol_ir_impl(LIBRARY.as_bytes(), &request(json!(exact_entries)))
+            .expect("exact entry boundary");
+        assert!(!output.output_bytes.is_empty());
+
+        let too_many = vec![json!({"name": "", "value": ""}); MAX_SYMBOL_TEXT_VARIABLES + 1];
+        let output = plot_symbol_ir_impl(LIBRARY.as_bytes(), &request(json!(too_many)))
+            .expect("entry limit diagnostic");
+        assert!(output.output_bytes.is_empty());
+        let result: SymbolPlotResultA0 =
+            serde_json::from_slice(&output.result_json).expect("result contract");
+        assert_eq!(result.diagnostics[0].code, "resource_limit");
+
+        let exact_bytes = json!([{
+            "name": "",
+            "value": "x".repeat(MAX_SYMBOL_TEXT_VARIABLE_BYTES),
+        }]);
+        let output = plot_symbol_ir_impl(LIBRARY.as_bytes(), &request(exact_bytes))
+            .expect("exact byte boundary");
+        assert!(!output.output_bytes.is_empty());
+
+        let too_many_bytes = json!([{
+            "name": "",
+            "value": "x".repeat(MAX_SYMBOL_TEXT_VARIABLE_BYTES + 1),
+        }]);
+        let output = plot_symbol_ir_impl(LIBRARY.as_bytes(), &request(too_many_bytes))
+            .expect("byte limit diagnostic");
         assert!(output.output_bytes.is_empty());
         let result: SymbolPlotResultA0 =
             serde_json::from_slice(&output.result_json).expect("result contract");

@@ -1,6 +1,7 @@
 use kicad_monkey_core::{
-    ErrorKind, PlotterFill, PlotterLineStyle, PlotterOperation, SymbolPlotLimits,
-    symbol_plot_document,
+    ErrorKind, PlotterFill, PlotterLineStyle, PlotterOperation, PlotterTextHAlign,
+    PlotterTextVAlign, SymbolPlotLimits, SymbolTextVariables, symbol_plot_document,
+    symbol_plot_document_with_text_variables,
 };
 
 const LIBRARY: &str = r##"(kicad_symbol_lib
@@ -34,7 +35,7 @@ const LIBRARY: &str = r##"(kicad_symbol_lib
         (stroke (width 0.1) (type solid)) (fill (type none))))))"##;
 
 #[test]
-fn selected_symbol_geometry_matches_python_non_text_semantics() {
+fn selected_symbol_geometry_and_text_match_python_ordering() {
     let document = symbol_plot_document(LIBRARY, "Demo", Some(2), 0, SymbolPlotLimits::default())
         .expect("selected symbol");
     assert_eq!(document.name, "Demo");
@@ -44,12 +45,16 @@ fn selected_symbol_geometry_matches_python_non_text_semantics() {
     assert_eq!(document.records.len(), 2);
     assert_eq!(document.records[0].name, "Demo_0_0");
     assert_eq!(document.records[1].name, "Demo_2_1");
-    assert_eq!(document.records[0].operations.len(), 6);
+    assert_eq!(document.records[0].operations.len(), 7);
 
     assert_fill_rectangle(&document.records[0].operations[0]);
     assert_circle(&document.records[0].operations[1]);
     assert_bezier(&document.records[0].operations[4]);
-    assert_outline_rectangle(&document.records[0].operations[5]);
+    let PlotterOperation::Text(text) = &document.records[0].operations[5] else {
+        panic!("body text precedes deferred outlines")
+    };
+    assert_eq!(text.text, "deferred");
+    assert_outline_rectangle(&document.records[0].operations[6]);
 }
 
 fn assert_fill_rectangle(operation: &PlotterOperation) {
@@ -334,4 +339,253 @@ fn missing_and_cyclic_inheritance_match_python_empty_geometry_behavior() {
     let document = symbol_plot_document(cyclic, "A", Some(1), 0, SymbolPlotLimits::default())
         .expect("cycle is bounded and non-fatal");
     assert!(document.records.is_empty());
+}
+
+#[test]
+fn styled_body_and_pin_text_match_python_semantics() {
+    let source = r##"(kicad_symbol_lib
+      (symbol "TextDemo" (pin_names (offset 0.508))
+        (symbol "TextDemo_1_1"
+          (rectangle (start -3 2) (end 3 -2)
+            (stroke (width 0.2) (type solid)) (fill (type background)))
+          (text "Body ${PROJECT}\n" (at 1 2 900)
+            (effects (font (face "KiCad Font") (size 1.5 2.0) (thickness 0.3)
+              (bold yes) (italic yes) (color 1 2 3 0.5)) (justify left top)))
+          (text "hidden" (effects (hide yes)))
+          (pin input line (at -5 0 0) (length 2.54)
+            (name "IN" (effects (font (size 1.27 1.27))))
+            (number "1" (effects (font (size 1.0 1.0)))))
+          (pin output line (at 0 -4 90) (length 2.54)
+            (name "OUT" (effects (font (size 1.27 1.27) (bold yes))))
+            (number "2" (effects (font (size 1.27 1.27) (thickness 0.2))))))))"##;
+    let variables = SymbolTextVariables::from_entries([("PROJECT", "Expanded")]);
+    let document = symbol_plot_document_with_text_variables(
+        source,
+        "TextDemo",
+        Some(1),
+        0,
+        SymbolPlotLimits::default(),
+        &variables,
+    )
+    .expect("styled text symbol");
+    let operations = &document.records[0].operations;
+    assert_eq!(operations.len(), 9);
+    assert!(matches!(operations[0], PlotterOperation::Rect(_)));
+    assert_text(
+        &operations[1],
+        "Body Expanded",
+        (1_000_000, -2_000_000),
+        (2_000_000, 1_500_000, 300_000),
+        (PlotterTextHAlign::Left, PlotterTextVAlign::Top),
+    );
+    assert_text(
+        &operations[3],
+        "1",
+        (-3_730_000, -301_600),
+        (1_000_000, 1_000_000, 200_000),
+        (PlotterTextHAlign::Center, PlotterTextVAlign::Bottom),
+    );
+    assert_text(
+        &operations[4],
+        "IN",
+        (-1_952_000, 0),
+        (1_270_000, 1_270_000, 152_400),
+        (PlotterTextHAlign::Left, PlotterTextVAlign::Center),
+    );
+    assert_text(
+        &operations[6],
+        "2",
+        (-301_600, 2_730_000),
+        (1_270_000, 1_270_000, 200_000),
+        (PlotterTextHAlign::Center, PlotterTextVAlign::Bottom),
+    );
+    assert_text(
+        &operations[7],
+        "OUT",
+        (0, 952_000),
+        (1_270_000, 1_270_000, 254_000),
+        (PlotterTextHAlign::Left, PlotterTextVAlign::Center),
+    );
+    let PlotterOperation::Text(body) = &operations[1] else {
+        unreachable!()
+    };
+    assert_eq!(body.color, "#01020380");
+    assert_eq!(body.font_face, "KiCad Font");
+    assert_eq!(body.orient_deg, 90.0);
+    assert!(body.bold && body.italic && !body.multiline);
+    assert!(matches!(operations[8], PlotterOperation::Rect(_)));
+}
+
+fn assert_text(
+    operation: &PlotterOperation,
+    expected: &str,
+    position: (i64, i64),
+    size_and_pen: (i64, i64, i64),
+    alignment: (PlotterTextHAlign, PlotterTextVAlign),
+) {
+    let PlotterOperation::Text(text) = operation else {
+        panic!("text operation")
+    };
+    assert_eq!(text.text, expected);
+    assert_eq!((text.x, text.y), position);
+    assert_eq!(
+        (text.size_x_nm, text.size_y_nm, text.pen_width_nm),
+        size_and_pen
+    );
+    assert_eq!((text.h_align, text.v_align), alignment);
+    assert!(text.layer.is_none());
+}
+
+#[test]
+fn text_variables_defaults_and_resource_limits_are_exact() {
+    let source = r##"(kicad_symbol_lib (symbol "D" (symbol "D_1_1"
+      (text "${Foo}|${FOO}|${}|${MISS}|${Foo}\n\n" (at 0 2 nope))
+      (text "hidden payload" hide)
+      (pin passive line
+        (name "N" (effects (font (size 1.000003 1.000003))))
+        (number "1" (effects (font (size 1.000003 1.000003))))))))"##;
+    let variables = SymbolTextVariables::from_entries([
+        ("", "wrong"),
+        ("Foo", "${BAR}"),
+        ("FOO", "UP"),
+        ("BAR", "recursive"),
+    ]);
+    let document = symbol_plot_document_with_text_variables(
+        source,
+        "D",
+        None,
+        0,
+        SymbolPlotLimits::default(),
+        &variables,
+    )
+    .expect("defaults and exact variables");
+    let operations = &document.records[0].operations;
+    assert_eq!(operations.len(), 4);
+    let PlotterOperation::Text(body) = &operations[0] else {
+        panic!("body text")
+    };
+    assert_eq!(body.text, "${BAR}|UP|${}|${MISS}|${BAR}\n");
+    assert_eq!((body.x, body.y, body.orient_deg), (0, -2_000_000, 0.0));
+    assert!(body.multiline);
+    let PlotterOperation::Text(number) = &operations[2] else {
+        panic!("pin number")
+    };
+    assert_eq!(number.pen_width_nm, 200_001);
+
+    let carrier_limited = SymbolPlotLimits {
+        max_text_carriers: 3,
+        ..SymbolPlotLimits::default()
+    };
+    assert_eq!(
+        symbol_plot_document_with_text_variables(
+            source,
+            "D",
+            None,
+            0,
+            carrier_limited,
+            &variables,
+        )
+        .expect_err("two body and two pin forms exceed three even when hidden")
+        .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let byte_source = r#"(kicad_symbol_lib (symbol "D" (symbol "D_1_1"
+      (text "large hidden payload" hide) (text "x"))))"#;
+    let byte_limited = SymbolPlotLimits {
+        max_text_bytes: 1,
+        ..SymbolPlotLimits::default()
+    };
+    assert!(symbol_plot_document(byte_source, "D", None, 0, byte_limited).is_ok());
+
+    for invalid in [
+        r#"(kicad_symbol_lib (symbol "D" (symbol "D_1_1" (text "x" (at nope 0 0)))))"#,
+        r#"(kicad_symbol_lib (symbol "D" (symbol "D_1_1" (pin passive line (at nope 0 0)))))"#,
+        r#"(kicad_symbol_lib (symbol "D" (symbol "D_1_1" (pin passive line (length nope)))))"#,
+        r#"(kicad_symbol_lib (symbol "D" (pin_names (offset nope)) (symbol "D_1_1")))"#,
+    ] {
+        assert_eq!(
+            symbol_plot_document(invalid, "D", None, 0, SymbolPlotLimits::default())
+                .expect_err("invalid non-angle numeric must remain strict")
+                .kind,
+            ErrorKind::UnexpectedToken
+        );
+    }
+}
+
+#[test]
+fn inherited_pin_settings_and_derived_coordinate_limits_are_fail_closed() {
+    let inherited = r#"(kicad_symbol_lib
+      (symbol "Base" (pin_names (offset 1))
+        (symbol "Base_1_1" (pin passive line (at 0 0 0) (length 2.54)
+          (name "N") (number "1"))))
+      (symbol "Child" (extends "Base") (pin_names hide) (pin_numbers hide)))"#;
+    let document = symbol_plot_document(inherited, "Child", None, 0, SymbolPlotLimits::default())
+        .expect("base settings govern inherited pins");
+    assert_eq!(document.records[0].operations.len(), 3);
+    let PlotterOperation::Text(name) = &document.records[0].operations[2] else {
+        panic!("inherited pin name")
+    };
+    assert_eq!((name.text.as_str(), name.x, name.y), ("N", 3_540_000, 0));
+
+    let overflow = r#"(kicad_symbol_lib (symbol "D" (pin_names (offset 0.508))
+      (symbol "D_1_1" (pin passive line (at 9007199252.200991 0 0) (length 2.54)
+        (name "N") (number "")))))"#;
+    assert_eq!(
+        symbol_plot_document(overflow, "D", None, 0, SymbolPlotLimits::default())
+            .expect_err("derived name coordinate exceeds safe integer")
+            .kind,
+        ErrorKind::UnexpectedToken
+    );
+}
+
+#[test]
+fn subnanometre_pin_rounding_and_malformed_effect_defaults_match_python() {
+    let source = r#"(kicad_symbol_lib (symbol "D" (symbol "D_1_1"
+      (text "body" (effects (font (thickness) (line_spacing) (color 1 2 3)
+        (bold) (italic)) (hide)))
+      (pin passive line (at 0.0000006 0 0) (length 0.0000006)
+        (name "") (number "1")))))"#;
+    let document = symbol_plot_document(source, "D", None, 0, SymbolPlotLimits::default())
+        .expect("Python-compatible defaults and rounding");
+    let operations = &document.records[0].operations;
+    let PlotterOperation::Text(body) = &operations[0] else {
+        panic!("empty-list hide remains false")
+    };
+    assert!(!body.bold && !body.italic);
+    assert_eq!(body.pen_width_nm, 152_400);
+    let PlotterOperation::PlotPoly(pin) = &operations[1] else {
+        panic!("pin geometry")
+    };
+    assert_eq!(pin.points, [[2, 0], [1, 0]]);
+    let PlotterOperation::Text(number) = &operations[2] else {
+        panic!("pin number")
+    };
+    assert_eq!(number.x, 1);
+}
+
+#[test]
+fn duplicate_carriers_and_decorated_pin_overflow_are_bounded() {
+    let duplicate = r#"(kicad_symbol_lib (symbol "D" (symbol "D_1_1"
+      (pin passive line (name "first") (name "two") (name "three") (name "four")))))"#;
+    let limits = SymbolPlotLimits {
+        max_text_carriers: 3,
+        ..SymbolPlotLimits::default()
+    };
+    assert_eq!(
+        symbol_plot_document(duplicate, "D", None, 0, limits)
+            .expect_err("duplicate carrier forms count toward the ceiling")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let decorated = r#"(kicad_symbol_lib (symbol "D" (symbol "D_1_1"
+      (pin passive clock (at 0 -9007199254.740991 0) (length 0)
+        (name "") (number "")))))"#;
+    assert_eq!(
+        symbol_plot_document(decorated, "D", None, 0, SymbolPlotLimits::default())
+            .expect_err("derived decoration exceeds safe integer")
+            .kind,
+        ErrorKind::UnexpectedToken
+    );
 }

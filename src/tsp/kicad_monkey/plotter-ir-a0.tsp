@@ -448,6 +448,12 @@ model BoardTextVariable {
   value: string;
 }
 
+/** One exact-case project-sidecar variable for library-symbol body text. */
+model SymbolTextVariable {
+  name: string;
+  value: string;
+}
+
 /** Resource-bounded board plotter operation. Source bytes are out of band. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.board_plot.request:a0")
@@ -698,6 +704,10 @@ model SymbolPlotRequest {
   max_subsymbols: uint32;
   max_operations: uint32;
   max_points: uint32;
+  max_text_carriers?: uint32;
+  max_text_bytes?: uint64;
+  /** Exact-case project variables used only by library-symbol body text. */
+  text_variables?: SymbolTextVariable[];
 }
 
 /** Metadata paired with a separate symbol plotter-IR JSON byte buffer. */
@@ -744,7 +754,7 @@ union SymbolPlotRecord {
   subsymbol: LibSubsymbolPlotRecord,
 }
 
-/** Strict non-text library-symbol subset of kicad.plotter_ir.a0. */
+/** Strict cache-free library-symbol geometry and text subset of kicad.plotter_ir.a0. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.symbol_plot.document:a0")
 @extension("title", "Symbol plot document a0")

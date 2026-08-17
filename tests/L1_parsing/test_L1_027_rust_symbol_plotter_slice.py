@@ -1,4 +1,4 @@
-"""Rack ownership for the non-text Rust library-symbol plotter slice."""
+"""Rack ownership for the Rust library-symbol geometry and text plotter slice."""
 
 from __future__ import annotations
 
@@ -86,6 +86,7 @@ def test_symbol_vector_matches_python_and_typespec_contract() -> None:
             style=vector["style"],
             source_path=vector["source_path"],
             document_id=vector["document_id"],
+            project_vars=vector.get("text_variables"),
         ).to_dict()
         projected = _contract_projection(actual)
         assert projected == vector["expected"], vector["id"]
@@ -96,7 +97,8 @@ def test_symbol_vector_matches_python_and_typespec_contract() -> None:
 
 
 def test_symbol_semantic_validator_rejects_cross_domain_states() -> None:
-    expected = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))["vectors"][0]["expected"]
+    vectors = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))["vectors"]
+    expected = vectors[0]["expected"]
     missing_header = json.loads(json.dumps(expected))
     missing_header["records"] = missing_header["records"][1:]
     with pytest.raises(msgspec.ValidationError, match="missing_symbol_header"):
@@ -119,6 +121,46 @@ def test_symbol_semantic_validator_rejects_cross_domain_states() -> None:
     }
     with pytest.raises(msgspec.ValidationError, match="invalid_symbol_operation"):
         decode_symbol_plot_document_a0(json.dumps(pad).encode())
+
+    text_expected = vectors[1]["expected"]
+    for field, value in (
+        ("layer", "F.SilkS"),
+        ("mirror", False),
+        ("text_as_polygons", True),
+        ("polyline_per_segment", False),
+        ("knockout", False),
+        ("render_cache_exact", False),
+        ("render_cache_source", "existing_file_cache"),
+        ("render_cache_polygons", []),
+        ("render_cache_polygons", [[[0, 0], [1, 0], [0, 1]]]),
+        (
+            "render_cache",
+            {
+                "schema": "kicad.render_cache.v1",
+                "unit": "nm",
+                "coordinate_space": "board",
+                "text": "Body Expanded",
+                "angle": 90.0,
+                "source": "existing_file_cache",
+                "exact": False,
+                "polygons": [],
+            },
+        ),
+    ):
+        mutation = json.loads(json.dumps(text_expected))
+        mutation["records"][1]["operations"][1][field] = value
+        with pytest.raises(msgspec.ValidationError, match="invalid_symbol_text"):
+            decode_symbol_plot_document_a0(json.dumps(mutation).encode())
+
+    wrong_index = json.loads(json.dumps(text_expected))
+    wrong_index["records"][1]["operations"][1]["index"] = 0
+    with pytest.raises(msgspec.ValidationError, match="operation_index_mismatch"):
+        decode_symbol_plot_document_a0(json.dumps(wrong_index).encode())
+
+    wrong_kind = json.loads(json.dumps(text_expected))
+    wrong_kind["records"][1]["operations"][1]["kind"] = "Rect"
+    with pytest.raises(msgspec.ValidationError):
+        decode_symbol_plot_document_a0(json.dumps(wrong_kind).encode())
 
 
 def _pin_style_source() -> str:

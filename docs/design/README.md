@@ -34,8 +34,8 @@ Current design notes:
 - `rust-footprint-plotter-phase2-slice.html` - review-ready shared plotter
   operation vocabulary plus non-text footprint graphics, standard pads,
   patterned strokes, drills, generated contracts, native, and WASM boundary.
-- `rust-symbol-plotter-phase2-slice.html` - non-text library-symbol body and
-  pin geometry using the shared plotter operation vocabulary.
+- `rust-symbol-plotter-phase2-slice.html` - library-symbol body geometry, body
+  text, and pin geometry/labels using the shared plotter operation vocabulary.
 - `rust-symbol-library-phase2-slice.html` - typed symbol-library iteration and
   source-preserving write-back boundary.
 - `rust-phase2-boundary-review.html` - review packet for the first typed native

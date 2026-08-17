@@ -53,7 +53,7 @@ const SCHEMAS: [(&str, &str); 27] = [
     ("OutlineVector.json", "outline_vector.rs"),
 ];
 
-const FOOTPRINT_OPERATION_KINDS: [(&str, &str, &str); 13] = [
+const PLOTTER_OPERATION_KINDS: [(&str, &str, &str); 13] = [
     (
         "ThickSegmentOperation",
         "ThickSegment",
@@ -122,7 +122,7 @@ fn main() -> Result<()> {
         let mut schema: Value = serde_json::from_slice(
             &fs::read(&schema_path).with_context(|| format!("read {}", schema_path.display()))?,
         )?;
-        validate_footprint_operation_kinds(schema_name, &schema)?;
+        validate_plotter_operation_kinds(schema_name, &schema)?;
         project_for_typify(&mut schema);
         promote_disjoint_record_unions(&mut schema);
         project_tri_state_via_drill_layers(&mut schema);
@@ -155,43 +155,49 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn validate_footprint_operation_kinds(schema_name: &str, schema: &Value) -> Result<()> {
-    if schema_name != "FootprintPlotDocument.json" {
+fn validate_plotter_operation_kinds(schema_name: &str, schema: &Value) -> Result<()> {
+    if !matches!(
+        schema_name,
+        "FootprintPlotDocument.json" | "SymbolPlotDocument.json"
+    ) {
         return Ok(());
     }
     let members = schema
         .pointer("/$defs/PlotterOperation/anyOf")
         .and_then(Value::as_array)
-        .context("missing footprint PlotterOperation union")?;
+        .with_context(|| format!("missing {schema_name} PlotterOperation union"))?;
     let mut actual = BTreeMap::new();
     for member in members {
         let reference = member
             .get("$ref")
             .and_then(Value::as_str)
-            .context("footprint PlotterOperation member is not a reference")?;
+            .with_context(|| format!("{schema_name} PlotterOperation member is not a reference"))?;
         let structure = reference
             .strip_prefix("#/$defs/")
-            .context("footprint PlotterOperation reference leaves $defs")?;
+            .with_context(|| format!("{schema_name} PlotterOperation reference leaves $defs"))?;
         let kind = schema
             .pointer(&format!("/$defs/{structure}/properties/kind/const"))
             .and_then(Value::as_str)
             .with_context(|| format!("missing literal kind for {structure}"))?;
         if actual.insert(structure, kind).is_some() {
-            bail!("duplicate footprint PlotterOperation member {structure}");
+            bail!("duplicate {schema_name} PlotterOperation member {structure}");
         }
     }
-    let expected = FOOTPRINT_OPERATION_KINDS
+    let expected = PLOTTER_OPERATION_KINDS
         .iter()
         .map(|(structure, kind, _)| (*structure, *kind))
         .collect::<BTreeMap<_, _>>();
     if actual != expected {
-        bail!("footprint PlotterOperation union changed; update exact-kind projection");
+        bail!("{schema_name} PlotterOperation union changed; update exact-kind projection");
     }
     Ok(())
 }
 
 fn project_generated_presence(schema_name: &str, source: String) -> Result<String> {
-    if schema_name != "FootprintPlotDocument.json" {
+    if !matches!(
+        schema_name,
+        "FootprintPlotDocument.json" | "SymbolPlotDocument.json"
+    ) {
         return Ok(source);
     }
     let original = r#"    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
@@ -203,10 +209,10 @@ fn project_generated_presence(schema_name: &str, source: String) -> Result<Strin
     )]
     pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,"#;
     if !source.contains(original) {
-        bail!("footprint Text render-cache polygon projection changed");
+        bail!("{schema_name} Text render-cache polygon projection changed");
     }
     let mut projected = source.replace(original, replacement);
-    for (structure, _, deserializer) in FOOTPRINT_OPERATION_KINDS {
+    for (structure, _, deserializer) in PLOTTER_OPERATION_KINDS {
         projected = project_kind_deserializer(projected, structure, deserializer)?;
     }
     Ok(projected)

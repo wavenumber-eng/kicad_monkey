@@ -73,7 +73,7 @@ export type PlotterViaFlashRole = "via_aperture" | "via_mask_opening";
 export type PlotterQuad = [PlotterPoint, PlotterPoint, PlotterPoint, PlotterPoint];
 
 /**
- * Strict non-text library-symbol subset of kicad.plotter_ir.a0.
+ * Strict cache-free library-symbol geometry and text subset of kicad.plotter_ir.a0.
  */
 export interface SymbolPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";

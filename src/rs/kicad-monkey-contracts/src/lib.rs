@@ -46,7 +46,7 @@ where
     D: serde::Deserializer<'de>,
 {
     Err(serde::de::Error::custom(
-        "standalone footprint text forbids render_cache_polygons",
+        "cache-free producer text forbids render_cache_polygons",
     ))
 }
 
@@ -638,10 +638,21 @@ fn validate_footprint_pad_operation(
     }
 }
 
-/// Enforce record counts and producer-specific states for symbol geometry.
+/// Enforce identity, record counts, indices, and producer-specific symbol states.
 pub fn validate_symbol_plot_document(
     document: &SymbolPlotDocumentA0,
 ) -> Result<(), ValidationError> {
+    if document.schema != "kicad.plotter_ir.a0"
+        || document.source_kind != "SYM"
+        || document.coordinate_space.unit != "nm"
+        || document.coordinate_space.y_axis != "down"
+    {
+        return Err(validation_error(
+            "invalid_symbol_document",
+            "$",
+            "symbol plot documents require canonical identity and coordinates",
+        ));
+    }
     if !matches!(
         document.records.first(),
         Some(SymbolPlotRecord::SymbolHeaderPlotRecord(_))
@@ -656,7 +667,11 @@ pub fn validate_symbol_plot_document(
     for (record_index, record) in document.records.iter().enumerate() {
         let (declared, operations) = match record {
             SymbolPlotRecord::SymbolHeaderPlotRecord(record) => {
-                if record_index != 0 || record.operation_count != 0 || !record.operations.is_empty()
+                if record_index != 0
+                    || record.kind != "lib_symbol"
+                    || record.object_id != record.name
+                    || record.operation_count != 0
+                    || !record.operations.is_empty()
                 {
                     return Err(validation_error(
                         "invalid_symbol_header",
@@ -667,6 +682,13 @@ pub fn validate_symbol_plot_document(
                 (record.operation_count, &record.operations)
             }
             SymbolPlotRecord::LibSubsymbolPlotRecord(record) => {
+                if record.kind != "lib_subsymbol" || record.object_id.is_empty() {
+                    return Err(validation_error(
+                        "invalid_symbol_record",
+                        format!("$.records[{record_index}]"),
+                        "subsymbol records require kind=lib_subsymbol and an object_id",
+                    ));
+                }
                 (record.operation_count, &record.operations)
             }
         };
@@ -680,7 +702,19 @@ pub fn validate_symbol_plot_document(
         total_operations = total_operations.saturating_add(operations.len());
         for (operation_index, operation) in operations.iter().enumerate() {
             let path = format!("$.records[{record_index}].operations[{operation_index}]");
-            validate_symbol_operation(operation, path)?;
+            let expected_index = u32::try_from(
+                total_operations
+                    .saturating_sub(operations.len())
+                    .saturating_add(operation_index),
+            )
+            .map_err(|_| {
+                validation_error(
+                    "operation_index_mismatch",
+                    format!("{path}.index"),
+                    "operation index exceeds the contract range",
+                )
+            })?;
+            validate_symbol_operation(operation, expected_index, path)?;
         }
     }
     if document.total_operations as usize != total_operations {
@@ -695,25 +729,115 @@ pub fn validate_symbol_plot_document(
 
 fn validate_symbol_operation(
     operation: &SymbolOperation,
+    expected_index: u32,
     path: String,
 ) -> Result<(), ValidationError> {
-    let valid = match operation {
-        SymbolOperation::ArcThreePointOperation(value) => value.layer.is_none(),
-        SymbolOperation::RectOperation(value) => value.layer.is_none(),
-        SymbolOperation::PlotPolyOperation(value) => value.layer.is_none(),
-        SymbolOperation::BezierCurveOperation(value) => value.layer.is_none(),
-        SymbolOperation::CircleOperation(value) => symbol_circle_is_layer_free(value),
-        _ => false,
-    };
-    if valid {
+    macro_rules! require_header {
+        ($value:expr, $kind:literal) => {
+            validate_symbol_operation_header(
+                $value.index,
+                &$value.kind,
+                expected_index,
+                $kind,
+                &path,
+            )?
+        };
+    }
+    match operation {
+        SymbolOperation::ArcThreePointOperation(value) => {
+            require_header!(value, "ArcThreePoint");
+            require_symbol_layer_free(value.layer.as_deref(), path)
+        }
+        SymbolOperation::RectOperation(value) => {
+            require_header!(value, "Rect");
+            require_symbol_layer_free(value.layer.as_deref(), path)
+        }
+        SymbolOperation::PlotPolyOperation(value) => {
+            require_header!(value, "PlotPoly");
+            require_symbol_layer_free(value.layer.as_deref(), path)
+        }
+        SymbolOperation::BezierCurveOperation(value) => {
+            require_header!(value, "BezierCurve");
+            require_symbol_layer_free(value.layer.as_deref(), path)
+        }
+        SymbolOperation::CircleOperation(value) => {
+            require_header!(value, "Circle");
+            if symbol_circle_is_layer_free(value) {
+                Ok(())
+            } else {
+                invalid_symbol_operation(path)
+            }
+        }
+        SymbolOperation::TextOperation(value) => {
+            require_header!(value, "Text");
+            validate_symbol_text(value, path)
+        }
+        _ => invalid_symbol_operation(path),
+    }
+}
+
+fn validate_symbol_operation_header(
+    actual_index: u32,
+    actual_kind: &str,
+    expected_index: u32,
+    expected_kind: &str,
+    path: &str,
+) -> Result<(), ValidationError> {
+    if actual_kind != expected_kind {
+        return Err(validation_error(
+            "invalid_symbol_operation",
+            format!("{path}.kind"),
+            "operation kind must match its structural variant",
+        ));
+    }
+    if actual_index != expected_index {
+        return Err(validation_error(
+            "operation_index_mismatch",
+            format!("{path}.index"),
+            "operation index must equal its global position",
+        ));
+    }
+    Ok(())
+}
+
+fn require_symbol_layer_free(layer: Option<&str>, path: String) -> Result<(), ValidationError> {
+    if layer.is_none() {
+        Ok(())
+    } else {
+        invalid_symbol_operation(path)
+    }
+}
+
+fn validate_symbol_text(
+    operation: &generated::symbol_plot_document::TextOperation,
+    path: String,
+) -> Result<(), ValidationError> {
+    if operation.layer.is_none()
+        && operation.mirror.is_none()
+        && operation.text_as_polygons.is_none()
+        && operation.polyline_per_segment.is_none()
+        && operation.knockout.is_none()
+        && operation.render_cache_polygons.is_empty()
+        && operation.render_cache.is_none()
+        && operation.render_cache_source.is_none()
+        && operation.render_cache_exact.is_none()
+    {
         Ok(())
     } else {
         Err(validation_error(
-            "invalid_symbol_operation",
+            "invalid_symbol_text",
             path,
-            "symbol records accept only layer-free body geometry",
+            "symbol Text operations require layer-free, cache-free canonical state",
         ))
     }
+}
+
+fn invalid_symbol_operation(path: String) -> Result<(), ValidationError> {
+    Err(validation_error(
+        "invalid_symbol_operation",
+        path,
+        "symbol records accept only canonical layer-free geometry and Text",
+    ))
 }
 
 fn symbol_circle_is_layer_free(value: &generated::symbol_plot_document::CircleOperation) -> bool {

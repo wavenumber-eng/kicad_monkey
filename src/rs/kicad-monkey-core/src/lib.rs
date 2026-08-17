@@ -40,6 +40,7 @@ pub mod source_bundle;
 pub mod symbol_library;
 mod symbol_pin;
 pub mod symbol_plotter_ir;
+mod symbol_text;
 pub mod text_bezier;
 pub mod text_block_layout;
 pub mod text_contours;
@@ -152,7 +153,9 @@ pub use symbol_library::{
 };
 pub use symbol_plotter_ir::{
     SymbolPlotDocument, SymbolPlotLimits, SymbolPlotRecord, symbol_plot_document,
+    symbol_plot_document_with_text_variables,
 };
+pub use symbol_text::SymbolTextVariables;
 pub use text_bezier::{
     TextBezierError, TextBezierErrorKind, TextBezierLimits, TextBezierOutput, TextPoint,
     flatten_cubic_bezier, flatten_quadratic_bezier,

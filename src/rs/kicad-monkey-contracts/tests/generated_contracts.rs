@@ -174,6 +174,103 @@ fn symbol_plotter_contract_enforces_record_and_domain_semantics() {
             .code,
         "invalid_symbol_operation"
     );
+
+    let text_expected = vectors["vectors"][1]["expected"].clone();
+    let text_document: SymbolPlotDocumentA0 =
+        serde_json::from_value(text_expected.clone()).expect("text symbol transport document");
+    validate_symbol_plot_document(&text_document).expect("valid text symbol semantics");
+
+    for (field, replacement) in [
+        ("layer", serde_json::json!("F.SilkS")),
+        ("mirror", serde_json::json!(false)),
+        ("text_as_polygons", serde_json::json!(true)),
+        ("polyline_per_segment", serde_json::json!(false)),
+        ("knockout", serde_json::json!(false)),
+        ("render_cache_exact", serde_json::json!(false)),
+        (
+            "render_cache_source",
+            serde_json::json!("existing_file_cache"),
+        ),
+        (
+            "render_cache",
+            serde_json::json!({
+                "schema": "kicad.render_cache.v1",
+                "unit": "nm",
+                "coordinate_space": "board",
+                "text": "Body Expanded",
+                "angle": 90.0,
+                "source": "existing_file_cache",
+                "exact": false,
+                "polygons": []
+            }),
+        ),
+    ] {
+        let mut mutation = text_expected.clone();
+        mutation["records"][1]["operations"][1][field] = replacement;
+        let document: SymbolPlotDocumentA0 =
+            serde_json::from_value(mutation).expect("structurally valid text mutation");
+        assert_eq!(
+            validate_symbol_plot_document(&document)
+                .expect_err("symbol Text must remain canonical")
+                .code,
+            "invalid_symbol_text"
+        );
+    }
+
+    let mut wrong_index = text_expected.clone();
+    wrong_index["records"][1]["operations"][1]["index"] = serde_json::json!(0);
+    let document: SymbolPlotDocumentA0 =
+        serde_json::from_value(wrong_index).expect("structurally valid index mutation");
+    assert_eq!(
+        validate_symbol_plot_document(&document)
+            .expect_err("symbol indices are global and sequential")
+            .code,
+        "operation_index_mismatch"
+    );
+
+    for (field, replacement) in [
+        ("render_cache_polygons", serde_json::json!([])),
+        (
+            "render_cache_polygons",
+            serde_json::json!([[[0, 0], [1, 0], [0, 1]]]),
+        ),
+        ("kind", serde_json::json!("Rect")),
+    ] {
+        let mut mutation = text_expected.clone();
+        mutation["records"][1]["operations"][1][field] = replacement;
+        assert!(
+            serde_json::from_value::<SymbolPlotDocumentA0>(mutation).is_err(),
+            "{field} must fail during exact structural decoding"
+        );
+    }
+}
+
+#[test]
+fn symbol_text_safe_integer_fields_reject_precision_loss() {
+    let vectors: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/symbol_plotter_a0_vectors.json"
+    ))
+    .expect("symbol vectors");
+    let valid = vectors["vectors"][1]["expected"].clone();
+    for field in ["x", "y", "size_x_nm", "size_y_nm", "pen_width_nm"] {
+        for value in [JAVASCRIPT_SAFE_INTEGER_MIN, JAVASCRIPT_SAFE_INTEGER_MAX] {
+            let mut document = valid.clone();
+            document["records"][1]["operations"][1][field] = value.into();
+            serde_json::from_value::<SymbolPlotDocumentA0>(document)
+                .unwrap_or_else(|error| panic!("{field} rejected safe boundary: {error}"));
+        }
+        for value in [
+            JAVASCRIPT_SAFE_INTEGER_MIN - 1,
+            JAVASCRIPT_SAFE_INTEGER_MAX + 1,
+        ] {
+            let mut document = valid.clone();
+            document["records"][1]["operations"][1][field] = value.into();
+            assert!(
+                serde_json::from_value::<SymbolPlotDocumentA0>(document).is_err(),
+                "{field} accepted precision-losing value"
+            );
+        }
+    }
 }
 
 #[test]

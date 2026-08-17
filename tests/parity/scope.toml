@@ -268,14 +268,14 @@ semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/footprint_plotter_
 id = "plotter_ir.symbol_text"
 disposition = "required_bounded_slice"
 wasm = "maintained_feasibility_adapter"
-status = "planned"
+status = "closed"
 python_symbols = ["text_to_op", "pin_to_ops", "subsymbol_to_record", "lib_symbol_to_ir"]
-rust_symbols = ["SymbolPlotDocument", "SymbolPlotRecord", "symbol_plot_document"]
-rack_cases = []
-evidence = ["docs/design/rust-symbol-plotter-phase2-slice.html", "docs/design/rust-phase5-exit-audit.html"]
-vector_evidence = []
-implementation_evidence = []
-semantic_resource_evidence = []
+rust_symbols = ["SymbolPlotDocument", "SymbolPlotRecord", "SymbolTextVariables", "symbol_plot_document_with_text_variables", "kicad-monkey-wasm.plotSymbolIr"]
+rack_cases = ["L1_027"]
+evidence = ["docs/design/rust-symbol-plotter-phase2-slice.html", "docs/design/rust-phase5-exit-audit.html", "src/rs/kicad-monkey-core/src/symbol_text.rs", "src/rs/kicad-monkey-core/tests/symbol_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/generated_contracts.rs", "src/rs/kicad-monkey-wasm/src/symbol_plot.rs", "tests/L1_parsing/test_L1_027_rust_symbol_plotter_slice.py"]
+vector_evidence = ["tests/parity/symbol_plotter_a0_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/symbol_text.rs", "src/rs/kicad-monkey-core/src/symbol_plotter_ir.rs", "src/rs/kicad-monkey-wasm/src/symbol_plot.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/symbol_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/generated_contracts.rs", "src/rs/kicad-monkey-wasm/src/symbol_plot.rs"]
 
 [[surfaces]]
 id = "plotter_ir.board_dimensions"

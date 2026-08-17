@@ -120,6 +120,111 @@
         "document_id": "demo-doc",
         "coordinate_space": {"unit": "nm", "y_axis": "down"}
       }
+    },
+    {
+      "id": "styled-body-and-pin-text",
+      "source_path": "text-demo.kicad_sym",
+      "document_id": "text-demo-doc",
+      "symbol_name": "TextDemo",
+      "unit": 1,
+      "style": 0,
+      "text_variables": {"PROJECT": "Expanded"},
+      "source": "(kicad_symbol_lib (symbol \"TextDemo\" (pin_names (offset 0.508)) (symbol \"TextDemo_1_1\" (rectangle (start -3 2) (end 3 -2) (stroke (width 0.2) (type solid)) (fill (type background))) (text \"Body ${PROJECT}\\n\" (at 1 2 900) (effects (font (face \"KiCad Font\") (size 1.5 2.0) (thickness 0.3) (bold yes) (italic yes) (color 1 2 3 0.5)) (justify left top))) (text \"hidden\" (effects (hide yes))) (pin input line (at -5 0 0) (length 2.54) (name \"IN\" (effects (font (size 1.27 1.27)))) (number \"1\" (effects (font (size 1.0 1.0))))) (pin output line (at 0 -4 90) (length 2.54) (name \"OUT\" (effects (font (size 1.27 1.27) (bold yes)))) (number \"2\" (effects (font (size 1.27 1.27) (thickness 0.2))))))))",
+      "expected": {
+        "schema": "kicad.plotter_ir.a0",
+        "source_kind": "SYM",
+        "total_operations": 9,
+        "records": [
+          {
+            "uuid": "",
+            "kind": "lib_symbol",
+            "object_id": "TextDemo",
+            "operation_count": 0,
+            "operations": [],
+            "name": "TextDemo",
+            "unit": 1,
+            "style": 0,
+            "in_bom": true,
+            "on_board": true,
+            "power": false
+          },
+          {
+            "uuid": "",
+            "kind": "lib_subsymbol",
+            "object_id": "TextDemo_1_1",
+            "operation_count": 9,
+            "operations": [
+              {
+                "kind": "Rect", "index": 0,
+                "x1": -3000000, "y1": -2000000, "x2": 3000000, "y2": 2000000,
+                "fill": "FILLED_WITH_BG_BODYCOLOR", "width_nm": 0, "corner_radius_nm": 0,
+                "stroke_color": "#FFFFC2FF", "fill_color": "#FFFFC2FF", "line_style": "SOLID"
+              },
+              {
+                "kind": "Text", "index": 1, "x": 1000000, "y": -2000000,
+                "text": "Body Expanded", "color": "#01020380", "orient_deg": 90.0,
+                "size_x_nm": 2000000, "size_y_nm": 1500000,
+                "h_align": "GR_TEXT_H_ALIGN_LEFT", "v_align": "GR_TEXT_V_ALIGN_TOP",
+                "pen_width_nm": 300000, "italic": true, "bold": true,
+                "multiline": false, "font_face": "KiCad Font"
+              },
+              {
+                "kind": "PlotPoly", "index": 2,
+                "points": [[-2460000, 0], [-5000000, 0]],
+                "fill": "NO_FILL", "width_nm": 152400, "stroke_color": "#840000FF"
+              },
+              {
+                "kind": "Text", "index": 3, "x": -3730000, "y": -301600,
+                "text": "1", "color": "#A90000FF", "orient_deg": 0.0,
+                "size_x_nm": 1000000, "size_y_nm": 1000000,
+                "h_align": "GR_TEXT_H_ALIGN_CENTER", "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+                "pen_width_nm": 200000, "italic": false, "bold": false,
+                "multiline": false, "font_face": "Arial"
+              },
+              {
+                "kind": "Text", "index": 4, "x": -1952000, "y": 0,
+                "text": "IN", "color": "#006464FF", "orient_deg": 0.0,
+                "size_x_nm": 1270000, "size_y_nm": 1270000,
+                "h_align": "GR_TEXT_H_ALIGN_LEFT", "v_align": "GR_TEXT_V_ALIGN_CENTER",
+                "pen_width_nm": 152400, "italic": false, "bold": false,
+                "multiline": false, "font_face": "Arial"
+              },
+              {
+                "kind": "PlotPoly", "index": 5,
+                "points": [[0, 1460000], [0, 4000000]],
+                "fill": "NO_FILL", "width_nm": 152400, "stroke_color": "#840000FF"
+              },
+              {
+                "kind": "Text", "index": 6, "x": -301600, "y": 2730000,
+                "text": "2", "color": "#A90000FF", "orient_deg": 90.0,
+                "size_x_nm": 1270000, "size_y_nm": 1270000,
+                "h_align": "GR_TEXT_H_ALIGN_CENTER", "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+                "pen_width_nm": 200000, "italic": false, "bold": false,
+                "multiline": false, "font_face": "Arial"
+              },
+              {
+                "kind": "Text", "index": 7, "x": 0, "y": 952000,
+                "text": "OUT", "color": "#006464FF", "orient_deg": 90.0,
+                "size_x_nm": 1270000, "size_y_nm": 1270000,
+                "h_align": "GR_TEXT_H_ALIGN_LEFT", "v_align": "GR_TEXT_V_ALIGN_CENTER",
+                "pen_width_nm": 254000, "italic": false, "bold": true,
+                "multiline": false, "font_face": "Arial"
+              },
+              {
+                "kind": "Rect", "index": 8,
+                "x1": -3000000, "y1": -2000000, "x2": 3000000, "y2": 2000000,
+                "fill": "NO_FILL", "width_nm": 200000, "corner_radius_nm": 0,
+                "stroke_color": "#840000FF", "line_style": "SOLID"
+              }
+            ],
+            "unit": 1,
+            "style": 1
+          }
+        ],
+        "source_path": "text-demo.kicad_sym",
+        "document_id": "text-demo-doc",
+        "coordinate_space": {"unit": "nm", "y_axis": "down"}
+      }
     }
   ]
 }

@@ -1,12 +1,11 @@
 //! Standalone-footprint property and text carrier decoding.
 
+use crate::KiCadTextEffects;
 use crate::footprint::{FootprintLimits, FootprintView, rebase_error};
 use crate::plotter_ir::{child, model_error, numeric_at as parse_numeric_at, value_at};
 use crate::sexpr::{Error, Limits, Position, Sexp, parse_with_limits};
-use crate::{KiCadColor, KiCadFont, KiCadTextEffects};
+use crate::text_metadata::parse_text_effects;
 use std::ops::Range;
-
-const DEFAULT_TEXT_SIZE_MM: f64 = 1.27;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FootprintGraphicalProperty {
@@ -65,7 +64,7 @@ impl FootprintView<'_> {
         self.properties.iter().map(|span| {
             let form = parse_span(self.source, span, self.limits)?;
             (|| {
-                let effects = text_effects(&form)?.unwrap_or_default();
+                let effects = parse_text_effects(&form)?.unwrap_or_default();
                 let at = vector3(child(&form, "at"), [0.0, 0.0, 0.0])?;
                 let layer = child(&form, "layer");
                 Ok(FootprintGraphicalProperty {
@@ -94,7 +93,7 @@ impl FootprintView<'_> {
         self.texts.iter().map(|span| {
             let form = parse_span(self.source, span, self.limits)?;
             (|| {
-                let effects = text_effects(&form)?.unwrap_or_default();
+                let effects = parse_text_effects(&form)?.unwrap_or_default();
                 let at = vector3(child(&form, "at"), [0.0, 0.0, 0.0])?;
                 let layer_form = child(&form, "layer");
                 Ok(FootprintText {
@@ -159,7 +158,7 @@ impl FootprintView<'_> {
                         .unwrap_or("F.SilkS")
                         .to_owned(),
                     locked: named_bool(&form, "locked").unwrap_or(false),
-                    effects: text_effects(&form)?,
+                    effects: parse_text_effects(&form)?,
                     stroke_width: stroke
                         .and_then(|value| child(value, "width"))
                         .map(|value| numeric_at(value, 1, Position::START))
@@ -208,65 +207,6 @@ fn numeric_at(form: &Sexp, index: usize, position: Position) -> Result<f64, Erro
             position,
         ))
     }
-}
-
-fn text_effects(form: &Sexp) -> Result<Option<KiCadTextEffects>, Error> {
-    let Some(effects) = child(form, "effects") else {
-        return Ok(None);
-    };
-    let font_form = child(effects, "font");
-    let size = font_form.and_then(|font| child(font, "size"));
-    let font = KiCadFont {
-        face: font_form
-            .and_then(|font| child(font, "face"))
-            .and_then(|value| value_at(value, 1))
-            .filter(|value| !value.is_empty())
-            .map(str::to_owned),
-        size_y: numeric_or(size, 1, DEFAULT_TEXT_SIZE_MM)?,
-        size_x: numeric_or(size, 2, DEFAULT_TEXT_SIZE_MM)?,
-        thickness: font_form
-            .and_then(|font| child(font, "thickness"))
-            .map(|value| numeric_at(value, 1, Position::START))
-            .transpose()?,
-        bold: font_form.is_some_and(|font| named_bool(font, "bold").unwrap_or(false)),
-        italic: font_form.is_some_and(|font| named_bool(font, "italic").unwrap_or(false)),
-        line_spacing: font_form
-            .and_then(|font| child(font, "line_spacing"))
-            .map(|value| numeric_at(value, 1, Position::START))
-            .transpose()?,
-        color: font_form
-            .and_then(|font| child(font, "color"))
-            .map(color)
-            .transpose()?,
-    };
-    let justify = child(effects, "justify")
-        .and_then(list_values)
-        .map(|values| {
-            values[1..]
-                .iter()
-                .filter_map(text_value)
-                .map(str::to_owned)
-                .collect()
-        })
-        .unwrap_or_default();
-    Ok(Some(KiCadTextEffects {
-        font,
-        justify,
-        hidden: named_bool(effects, "hide").unwrap_or(false),
-        href: child(effects, "href")
-            .and_then(|value| value_at(value, 1))
-            .map(str::to_owned),
-        source_range: None,
-    }))
-}
-
-fn color(form: &Sexp) -> Result<KiCadColor, Error> {
-    Ok(KiCadColor {
-        red: numeric_at(form, 1, Position::START)? as i64,
-        green: numeric_at(form, 2, Position::START)? as i64,
-        blue: numeric_at(form, 3, Position::START)? as i64,
-        alpha: numeric_at(form, 4, Position::START)?,
-    })
 }
 
 fn points(form: Option<&Sexp>) -> Result<Vec<[f64; 2]>, Error> {

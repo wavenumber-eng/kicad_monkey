@@ -1070,7 +1070,7 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn wasm_symbol_plotter_returns_selected_non_text_ir_bytes() {
+    fn wasm_symbol_plotter_returns_selected_geometry_ir_bytes() {
         let request = br#"{"type":"kicad_monkey.symbol_plot.request","version":"a0","symbol_name":"Demo","unit":1,"style":0,"max_source_bytes":"4096","max_output_bytes":"65536","max_depth":32,"max_symbols":10,"max_subsymbols":10,"max_operations":10,"max_points":100}"#;
         let output = plot_symbol_ir(SYMBOL_LIBRARY, request).expect("WASM symbol plot operation");
         let metadata: Value =
@@ -1090,6 +1090,43 @@ mod tests {
         assert_eq!(document["records"][1]["operations"][2]["kind"], "PlotPoly");
         assert_eq!(document["records"][1]["operations"][3]["kind"], "PlotPoly");
         assert_eq!(document["records"][1]["operations"][4]["kind"], "Rect");
+    }
+
+    #[wasm_bindgen_test]
+    fn wasm_symbol_plotter_emits_bounded_exact_case_text() {
+        let source = br#"(kicad_symbol_lib (symbol "Demo" (symbol "Demo_1_1"
+          (text "${Name}|${NAME}|${}" (at 1 2 900)))))"#;
+        let request = r#"{"type":"kicad_monkey.symbol_plot.request","version":"a0","symbol_name":"Demo","unit":1,"style":0,"max_source_bytes":"4096","max_output_bytes":"65536","max_depth":32,"max_symbols":10,"max_subsymbols":10,"max_operations":10,"max_points":100,"max_text_carriers":1,"max_text_bytes":"64","text_variables":[{"name":"Name","value":"é"},{"name":"NAME","value":"UP"},{"name":"","value":"wrong"}]}"#.as_bytes();
+        let output = plot_symbol_ir(source, request).expect("WASM symbol text operation");
+        let document: Value =
+            serde_json::from_slice(&output.output_bytes()).expect("symbol document JSON");
+        let text = &document["records"][1]["operations"][0];
+        assert_eq!(text["kind"], "Text");
+        assert_eq!(text["text"], "é|UP|${}");
+        assert_eq!(text["x"], 1_000_000);
+        assert_eq!(text["y"], -2_000_000);
+        assert_eq!(text["orient_deg"], 90.0);
+
+        let limited_request = br#"{"type":"kicad_monkey.symbol_plot.request","version":"a0","symbol_name":"Demo","unit":1,"style":0,"max_source_bytes":"4096","max_output_bytes":"65536","max_depth":32,"max_symbols":10,"max_subsymbols":10,"max_operations":10,"max_points":100,"max_text_carriers":0,"max_text_bytes":"64"}"#;
+        let limited = plot_symbol_ir(source, limited_request).expect("WASM symbol text limit");
+        let metadata: Value =
+            serde_json::from_slice(&limited.result_json()).expect("result metadata JSON");
+        assert_eq!(metadata["diagnostics"][0]["code"], "resource_limit");
+        assert_eq!(metadata["total_operations"], 0);
+        assert!(limited.output_bytes().is_empty());
+
+        let unsafe_source = br#"(kicad_symbol_lib (symbol "Demo" (symbol "Demo_1_1"
+          (text "unsafe" (at 9007199255 0 0)))))"#;
+        let unsafe_output =
+            plot_symbol_ir(unsafe_source, request).expect("WASM unsafe text diagnostic");
+        let unsafe_metadata: Value = serde_json::from_slice(&unsafe_output.result_json())
+            .expect("unsafe result metadata JSON");
+        assert_eq!(
+            unsafe_metadata["diagnostics"][0]["code"],
+            "invalid_symbol_model"
+        );
+        assert_eq!(unsafe_metadata["total_operations"], 0);
+        assert!(unsafe_output.output_bytes().is_empty());
     }
 
     #[wasm_bindgen_test]

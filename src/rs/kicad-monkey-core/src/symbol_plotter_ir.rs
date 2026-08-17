@@ -1,4 +1,4 @@
-//! Source-selected non-text library-symbol plotter producer.
+//! Source-selected library-symbol geometry and text plotter producer.
 
 use crate::plotter_ir::{
     ArcThreePoint, BezierCurve, PlotterCircle, PlotterFill, PlotterLineStyle, PlotterOperation,
@@ -10,6 +10,10 @@ use crate::sexpr::{
 };
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use crate::symbol_pin::pin_operations;
+use crate::symbol_text::{
+    SymbolTextBudget, SymbolTextSettings, SymbolTextVariables, body_text_operation,
+    pin_text_operations,
+};
 use std::collections::{BTreeMap, BTreeSet};
 
 const DEFAULT_BODY_WIDTH_NM: i64 = 152_400;
@@ -28,6 +32,8 @@ pub struct SymbolPlotLimits {
     pub max_subsymbols: usize,
     pub max_operations: usize,
     pub max_points: usize,
+    pub max_text_carriers: usize,
+    pub max_text_bytes: usize,
 }
 
 impl Default for SymbolPlotLimits {
@@ -39,6 +45,8 @@ impl Default for SymbolPlotLimits {
             max_subsymbols: 1_024,
             max_operations: 100_000,
             max_points: 1_000_000,
+            max_text_carriers: 100_000,
+            max_text_bytes: 16 * 1024 * 1024,
         }
     }
 }
@@ -52,7 +60,7 @@ pub struct SymbolPlotRecord {
     pub operations: Vec<PlotterOperation>,
 }
 
-/// Typed facts needed to serialize the non-text symbol plotter subset.
+/// Typed facts needed to serialize the symbol geometry and text plotter subset.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SymbolPlotDocument {
     pub name: String,
@@ -79,6 +87,25 @@ pub fn symbol_plot_document(
     style: u32,
     limits: SymbolPlotLimits,
 ) -> Result<SymbolPlotDocument, Error> {
+    symbol_plot_document_with_text_variables(
+        source,
+        symbol_name,
+        unit,
+        style,
+        limits,
+        &SymbolTextVariables::default(),
+    )
+}
+
+/// Select and convert one symbol with bounded caller-supplied project text variables.
+pub fn symbol_plot_document_with_text_variables(
+    source: &str,
+    symbol_name: &str,
+    unit: Option<u32>,
+    style: u32,
+    limits: SymbolPlotLimits,
+    text_variables: &SymbolTextVariables,
+) -> Result<SymbolPlotDocument, Error> {
     validate_limits(source, symbol_name, limits)?;
     validate_library_root(source, limits)?;
     let spans = select_symbol_spans(source, limits)?;
@@ -91,11 +118,14 @@ pub fn symbol_plot_document(
     build_document(
         &form,
         geometry,
-        symbol_name,
-        unit,
-        style,
         limits,
-        span.start,
+        SymbolBuildContext {
+            symbol_name,
+            unit,
+            style,
+            position: span.start,
+            text_variables,
+        },
     )
 }
 
@@ -266,20 +296,35 @@ fn parse_selected_symbol(
     .map_err(|error| rebase_error(error, span))
 }
 
+#[derive(Clone, Copy)]
+struct SymbolBuildContext<'a> {
+    symbol_name: &'a str,
+    unit: Option<u32>,
+    style: u32,
+    position: Position,
+    text_variables: &'a SymbolTextVariables,
+}
+
 fn build_document(
     header: &Sexp,
     geometry: &Sexp,
-    symbol_name: &str,
-    unit: Option<u32>,
-    style: u32,
     limits: SymbolPlotLimits,
-    position: Position,
+    context: SymbolBuildContext<'_>,
 ) -> Result<SymbolPlotDocument, Error> {
+    let SymbolBuildContext {
+        symbol_name,
+        unit,
+        style,
+        position,
+        text_variables,
+    } = context;
     let forms = list(header).ok_or_else(|| model_error("Expected symbol list", position))?;
     let mut point_count = 0usize;
     let mut records = Vec::new();
     let mut subsymbol_count = 0usize;
     let mut operation_count = 0usize;
+    let settings = SymbolTextSettings::from_header(geometry, position)?;
+    let mut text_budget = SymbolTextBudget::new(limits);
     for subsymbol in children(geometry, "symbol") {
         subsymbol_count = subsymbol_count.saturating_add(1);
         if subsymbol_count > limits.max_subsymbols {
@@ -294,10 +339,15 @@ fn build_document(
         let remaining_operations = limits.max_operations.saturating_sub(operation_count);
         let operations = convert_subsymbol(
             subsymbol,
-            remaining_operations,
-            limits.max_points,
+            SubsymbolContext {
+                max_operations: remaining_operations,
+                max_points: limits.max_points,
+                position,
+                settings,
+                text_variables,
+            },
             &mut point_count,
-            position,
+            &mut text_budget,
         )?;
         operation_count = operation_count.saturating_add(operations.len());
         records.push(SymbolPlotRecord {
@@ -338,13 +388,28 @@ fn subsymbol_identity(name: &str) -> (u32, u32) {
     }
 }
 
-fn convert_subsymbol(
-    form: &Sexp,
+#[derive(Clone, Copy)]
+struct SubsymbolContext<'a> {
     max_operations: usize,
     max_points: usize,
-    point_count: &mut usize,
     position: Position,
+    settings: SymbolTextSettings,
+    text_variables: &'a SymbolTextVariables,
+}
+
+fn convert_subsymbol(
+    form: &Sexp,
+    context: SubsymbolContext<'_>,
+    point_count: &mut usize,
+    text_budget: &mut SymbolTextBudget,
 ) -> Result<Vec<PlotterOperation>, Error> {
+    let SubsymbolContext {
+        max_operations,
+        max_points,
+        position,
+        settings,
+        text_variables,
+    } = context;
     let mut fills = Vec::new();
     let mut outlines = Vec::new();
     for head in ["rectangle", "circle", "arc", "polyline", "bezier"] {
@@ -358,8 +423,16 @@ fn convert_subsymbol(
             }
         }
     }
+    for text in children(form, "text") {
+        if let Some(operation) = body_text_operation(text, text_variables, text_budget, position)? {
+            push_operation(&mut fills, operation, max_operations)?;
+        }
+    }
     for pin in children(form, "pin") {
         for operation in pin_operations(pin, max_points, point_count, position)? {
+            push_operation(&mut fills, operation, max_operations)?;
+        }
+        for operation in pin_text_operations(pin, settings, text_budget, position)? {
             push_operation(&mut fills, operation, max_operations)?;
         }
     }

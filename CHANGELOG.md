@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add native library-symbol body text and pin number/name Plotter-IR emission
+  with Python-compatible styling and placement, exact-case project variables,
+  inherited pin settings, bounded text resources, strict cache-free contracts,
+  and shared native/host/WASM parity evidence.
+
 - Complete native standalone-footprint property, text, and text-box Plotter-IR
   emission with dedicated source-backed ownership types, canonical ordering,
   local property variables, bounded text wrapping, strict semantic validation,

@@ -515,6 +515,11 @@ class LibSubsymbolPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, ta
     style: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
+class SymbolTextVariable(Struct, forbid_unknown_fields=True, frozen=True):
+    name: str
+    value: str
+
+
 SymbolBooleanField = Literal["in_bom", "on_board"]
 
 
@@ -992,6 +997,9 @@ class SymbolPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     unit: Annotated[int, Meta(ge=0, le=4294967295)] | UnsetType = field(default=UNSET)
     source_path: str | UnsetType = field(default=UNSET)
     document_id: str | UnsetType = field(default=UNSET)
+    max_text_carriers: Annotated[int, Meta(ge=0, le=4294967295)] | UnsetType = field(default=UNSET)
+    max_text_bytes: str | UnsetType = field(default=UNSET)
+    text_variables: list[SymbolTextVariable] | UnsetType = field(default=UNSET)
 
 
 class SymbolPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -1224,27 +1232,47 @@ def decode_symbol_plot_document_a0(data: bytes) -> SymbolPlotDocumentA0:
 
 
 def validate_symbol_plot_document_a0(value: SymbolPlotDocumentA0) -> None:
+    if value.schema != "kicad.plotter_ir.a0" or value.source_kind != "SYM" or value.coordinate_space.unit != "nm" or value.coordinate_space.y_axis != "down":
+        raise msgspec.ValidationError("invalid_symbol_document at $")
     if not value.records or not isinstance(value.records[0], SymbolHeaderPlotRecord):
         raise msgspec.ValidationError("missing_symbol_header at $.records[0]")
     total_operations = 0
     for record_index, record in enumerate(value.records):
         if isinstance(record, SymbolHeaderPlotRecord):
-            if record_index != 0 or record.operation_count != 0 or record.operations:
+            if record_index != 0 or record.object_id != record.name or record.operation_count != 0 or record.operations:
                 raise msgspec.ValidationError(f"invalid_symbol_header at $.records[{record_index}]")
-        elif record.operation_count != len(record.operations):
+        elif not record.object_id:
+            raise msgspec.ValidationError(f"invalid_symbol_record at $.records[{record_index}]")
+        if record.operation_count != len(record.operations):
             raise msgspec.ValidationError(f"operation_count_mismatch at $.records[{record_index}].operation_count")
         total_operations += len(record.operations)
         for operation_index, operation in enumerate(record.operations):
             path = f"$.records[{record_index}].operations[{operation_index}]"
-            allowed = isinstance(operation, (ArcThreePointOperation, CircleOperation, RectOperation, PlotPolyOperation, BezierCurveOperation))
+            if operation.index != total_operations - len(record.operations) + operation_index:
+                raise msgspec.ValidationError(f"operation_index_mismatch at {path}.index")
+            allowed = isinstance(operation, (ArcThreePointOperation, CircleOperation, RectOperation, PlotPolyOperation, BezierCurveOperation, TextOperation))
             layer = None if not hasattr(operation, 'layer') or operation.layer is UNSET else operation.layer
-            if not allowed or layer is not None:
+            if not allowed or (not isinstance(operation, TextOperation) and layer is not None):
                 raise msgspec.ValidationError(f"invalid_symbol_operation at {path}")
             if isinstance(operation, CircleOperation):
                 role = None if operation.role is UNSET else operation.role
                 layers = [] if operation.layers is UNSET else operation.layers
                 if role is not None or layers or operation.mask_margin_nm is not UNSET or operation.pad_size_x_nm is not UNSET or operation.pad_size_y_nm is not UNSET:
                     raise msgspec.ValidationError(f"invalid_symbol_operation at {path}")
+            if isinstance(operation, TextOperation):
+                forbidden = (
+                    layer is not None,
+                    operation.mirror is not UNSET,
+                    operation.text_as_polygons is not UNSET,
+                    operation.polyline_per_segment is not UNSET,
+                    operation.knockout is not UNSET,
+                    operation.render_cache_polygons is not UNSET,
+                    operation.render_cache is not UNSET,
+                    operation.render_cache_source is not UNSET,
+                    operation.render_cache_exact is not UNSET,
+                )
+                if any(forbidden):
+                    raise msgspec.ValidationError(f"invalid_symbol_text at {path}")
     if value.total_operations != total_operations:
         raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
 decode_symbol_plot_request_a0 = msgspec.json.Decoder(SymbolPlotRequestA0).decode
@@ -1559,6 +1587,7 @@ __all__ = (
     "SymbolPlotRecord",
     "SymbolHeaderPlotRecord",
     "LibSubsymbolPlotRecord",
+    "SymbolTextVariable",
     "SymbolBooleanField",
     "SymbolSummary",
     "UnitDefinition",
