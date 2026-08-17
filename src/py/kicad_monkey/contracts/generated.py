@@ -299,7 +299,7 @@ PlotterTextVAlign = Literal["GR_TEXT_V_ALIGN_TOP", "GR_TEXT_V_ALIGN_CENTER", "GR
 class TextRenderCache(Struct, forbid_unknown_fields=True, frozen=True):
     schema: Literal["kicad.render_cache.v1"]
     unit: Literal["nm"]
-    coordinate_space: Literal["board"]
+    coordinate_space: PlotterTextRenderCacheCoordinateSpace
     text: str
     angle: float
     source: PlotterTextRenderCacheSource
@@ -317,11 +317,14 @@ PlotterViaFlashRole = Literal["via_aperture", "via_mask_opening"]
 PlotterQuad = Annotated[list[PlotterPoint], Meta(min_length=4, max_length=4)]
 
 
+PlotterTextRenderCacheCoordinateSpace = Literal["board", "footprint_local"]
+
+
 class TextRenderCachePolygon(Struct, forbid_unknown_fields=True, frozen=True):
     contours: list[list[PlotterPoint]]
 
 
-BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord", "TablePlotRecord", "DimensionPlotRecord", "ZoneFillPlotRecord", "BoardTextPlotRecord", "BoardTextBoxPlotRecord"]
+BoardPlotRecord = Union["BoardGraphicPlotRecord", "TrackSegmentPlotRecord", "TrackArcPlotRecord", "ViaPlotRecord", "TablePlotRecord", "DimensionPlotRecord", "ZoneFillPlotRecord", "BoardTextPlotRecord", "BoardTextBoxPlotRecord", "BoardFootprintPlotRecord"]
 
 
 class BoardGraphicPlotRecordGrLine(Struct, forbid_unknown_fields=True, frozen=True, tag="gr_line", tag_field="kind"):
@@ -480,6 +483,22 @@ class BoardTextBoxPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, ta
     border: bool
 
 
+class BoardFootprintPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="footprint", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[BoardFootprintOperation]
+    library_link: str
+    reference: str
+    value: str
+    layer: str
+    locked: bool
+    descr: str
+    tags: str
+    attr: list[str]
+    placement: BoardFootprintPlacement
+
+
 BoardGraphicRecordKind = Literal["gr_line", "gr_arc", "gr_circle", "gr_rect", "gr_poly", "gr_curve"]
 
 
@@ -490,6 +509,329 @@ PlotterStringBool = Literal["true", "false"]
 
 
 BoardDimensionType = Literal["aligned", "orthogonal", "radial", "leader", "center"]
+
+
+BoardFootprintOperation = Union["BoardFootprintThickSegmentOperation", "BoardFootprintArcThreePointOperation", "BoardFootprintCircleOperation", "BoardFootprintRectOperation", "BoardFootprintPlotPolyOperation", "BoardFootprintBezierCurveOperation", "BoardFootprintTextOperation", "BoardFootprintFlashPadCircleOperation", "BoardFootprintFlashPadOvalOperation", "BoardFootprintFlashPadRectOperation", "BoardFootprintFlashPadRoundRectOperation", "BoardFootprintFlashPadCustomOperation", "BoardFootprintFlashPadTrapezOperation", "BoardFootprintStartBlockOperation", "BoardFootprintEndBlockOperation"]
+
+
+class BoardFootprintPlacement(Struct, forbid_unknown_fields=True, frozen=True):
+    x_nm: JavaScriptSafeInteger
+    y_nm: JavaScriptSafeInteger
+    angle_deg: float
+
+
+class BoardFootprintThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ThickSegment", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    start_x: JavaScriptSafeInteger
+    start_y: JavaScriptSafeInteger
+    end_x: JavaScriptSafeInteger
+    end_y: JavaScriptSafeInteger
+    width_nm: JavaScriptSafeInteger
+    layer: str | UnsetType = field(default=UNSET)
+    role: PlotterDrillRole | UnsetType = field(default=UNSET)
+    layers: list[str] | UnsetType = field(default=UNSET)
+    mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    pad_size_x_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    pad_size_y_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintArcThreePointOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ArcThreePoint", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    start_x: JavaScriptSafeInteger
+    start_y: JavaScriptSafeInteger
+    mid_x: JavaScriptSafeInteger
+    mid_y: JavaScriptSafeInteger
+    end_x: JavaScriptSafeInteger
+    end_y: JavaScriptSafeInteger
+    fill: PlotterFill
+    width_nm: JavaScriptSafeInteger
+    layer: str | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
+    fill_color: str | UnsetType = field(default=UNSET)
+    line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintCircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Circle", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    cx: JavaScriptSafeInteger
+    cy: JavaScriptSafeInteger
+    diameter_nm: JavaScriptSafeInteger
+    fill: PlotterFill
+    width_nm: JavaScriptSafeInteger
+    layer: str | UnsetType = field(default=UNSET)
+    role: PlotterDrillRole | UnsetType = field(default=UNSET)
+    layers: list[str] | UnsetType = field(default=UNSET)
+    mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    pad_size_x_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    pad_size_y_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
+    fill_color: str | UnsetType = field(default=UNSET)
+    line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintRectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Rect", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    x1: JavaScriptSafeInteger
+    y1: JavaScriptSafeInteger
+    x2: JavaScriptSafeInteger
+    y2: JavaScriptSafeInteger
+    fill: PlotterFill
+    width_nm: JavaScriptSafeInteger
+    corner_radius_nm: JavaScriptSafeInteger
+    layer: str | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
+    fill_color: str | UnsetType = field(default=UNSET)
+    line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintPlotPolyOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="PlotPoly", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    points: list[PlotterPoint]
+    fill: PlotterFill
+    width_nm: JavaScriptSafeInteger
+    layer: str | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
+    fill_color: str | UnsetType = field(default=UNSET)
+    line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintBezierCurveOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="BezierCurve", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    start_x: JavaScriptSafeInteger
+    start_y: JavaScriptSafeInteger
+    ctrl1_x: JavaScriptSafeInteger
+    ctrl1_y: JavaScriptSafeInteger
+    ctrl2_x: JavaScriptSafeInteger
+    ctrl2_y: JavaScriptSafeInteger
+    end_x: JavaScriptSafeInteger
+    end_y: JavaScriptSafeInteger
+    width_nm: JavaScriptSafeInteger
+    tolerance_nm: JavaScriptSafeInteger
+    layer: str | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
+    line_style: PlotterLineStyle | UnsetType = field(default=UNSET)
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintTextOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Text", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    text: str
+    color: str
+    orient_deg: float
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    h_align: PlotterTextHAlign
+    v_align: PlotterTextVAlign
+    pen_width_nm: JavaScriptSafeInteger
+    italic: bool
+    bold: bool
+    multiline: bool
+    font_face: str
+    layer: str | UnsetType = field(default=UNSET)
+    mirror: bool | UnsetType = field(default=UNSET)
+    text_as_polygons: bool | UnsetType = field(default=UNSET)
+    polyline_per_segment: bool | UnsetType = field(default=UNSET)
+    knockout: bool | UnsetType = field(default=UNSET)
+    render_cache_polygons: list[list[PlotterPoint]] | UnsetType = field(default=UNSET)
+    render_cache: TextRenderCache | UnsetType = field(default=UNSET)
+    render_cache_source: PlotterTextRenderCacheSource | UnsetType = field(default=UNSET)
+    render_cache_exact: bool | UnsetType = field(default=UNSET)
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintFlashPadCircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadCircle", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    diameter_nm: JavaScriptSafeInteger
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    role: PlotterViaFlashRole | UnsetType = field(default=UNSET)
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintFlashPadOvalOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadOval", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    orient_deg: float
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintFlashPadRectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadRect", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    orient_deg: float
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintFlashPadRoundRectOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadRoundRect", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    corner_radius_nm: JavaScriptSafeInteger
+    orient_deg: float
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintFlashPadCustomOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadCustom", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    orient_deg: float
+    polygons: list[list[PlotterPoint]]
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+    polygon_widths_nm: list[JavaScriptSafeInteger] | UnsetType = field(default=UNSET)
+    anchor_shape: str | UnsetType = field(default=UNSET)
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintFlashPadTrapezOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadTrapez", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    corners: PlotterQuad
+    orient_deg: float
+    layers: list[str]
+    mask_margin_nm: JavaScriptSafeInteger
+    label: str | UnsetType = field(default=UNSET)
+    data_uuid: str | UnsetType = field(default=UNSET)
+    data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
+    object_id: str | UnsetType = field(default=UNSET)
+    extra_attrs: BoardFootprintChildAttrs | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintStartBlockOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="StartBlock", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    label: str
+    data_uuid: str
+    data_ref: Union[Literal["pad"], Literal["pad_hole"]]
+    object_id: str
+    extra_attrs: BoardFootprintPadBlockAttrs
+    layers: list[str] | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintEndBlockOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="EndBlock", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+
+
+BoardFootprintChildRef = Literal["property", "fp_text", "fp_text_box", "fp_line", "fp_arc", "fp_circle", "fp_rect", "fp_poly"]
+
+
+class BoardFootprintChildAttrs(Struct, forbid_unknown_fields=True, frozen=True):
+    component: str
+    component_uid: str
+    component_uuid: str
+    footprint: str
+    primitive: Union[Literal["footprint-text"], Literal["footprint-graphic"]]
+    footprint_primitive: BoardFootprintChildRef
+    footprint_object_index: Annotated[int, Meta(ge=0, le=4294967295)]
+    layer_name: str | UnsetType = field(default=UNSET)
+    layer_role: BoardFootprintLayerRole | UnsetType = field(default=UNSET)
+    footprint_subop_index: Annotated[int, Meta(ge=0, le=4294967295)] | UnsetType = field(default=UNSET)
+    footprint_text_role: Union[Literal["designator"], Literal["value"], Literal["property"], Literal["user"]] | UnsetType = field(default=UNSET)
+    property_name: str | UnsetType = field(default=UNSET)
+    fp_text_type: str | UnsetType = field(default=UNSET)
+    footprint_graphic_kind: Union[Literal["text-box-border"], Literal["line"], Literal["arc"], Literal["circle"], Literal["rect"], Literal["poly"]] | UnsetType = field(default=UNSET)
+
+
+class BoardFootprintPadBlockAttrs(Struct, forbid_unknown_fields=True, frozen=True):
+    primitive: Union[Literal["pad"], Literal["pad-hole"]]
+    component: str | UnsetType = field(default=UNSET)
+    component_uid: str | UnsetType = field(default=UNSET)
+    component_uuid: str | UnsetType = field(default=UNSET)
+    footprint: str | UnsetType = field(default=UNSET)
+    pad_number: str | UnsetType = field(default=UNSET)
+    pad_designator: str | UnsetType = field(default=UNSET)
+    pad_type: str | UnsetType = field(default=UNSET)
+    pad_shape: str | UnsetType = field(default=UNSET)
+    layer_names: str | UnsetType = field(default=UNSET)
+    net_index: str | UnsetType = field(default=UNSET)
+    net_id: str | UnsetType = field(default=UNSET)
+    net: str | UnsetType = field(default=UNSET)
+    net_class: str | UnsetType = field(default=UNSET)
+    net_classes: str | UnsetType = field(default=UNSET)
+    hole_owner: str | UnsetType = field(default=UNSET)
+    hole_kind: Union[Literal["round"], Literal["slot"]] | UnsetType = field(default=UNSET)
+    hole_plating: Union[Literal["plated"], Literal["non_plated"]] | UnsetType = field(default=UNSET)
+    hole_render: Literal["drill"] | UnsetType = field(default=UNSET)
+    hole_width_mm: str | UnsetType = field(default=UNSET)
+    hole_height_mm: str | UnsetType = field(default=UNSET)
+    hole_diameter_mm: str | UnsetType = field(default=UNSET)
+
+
+BoardFootprintLayerRole = Literal["copper", "silkscreen", "soldermask", "paste", "fab", "courtyard", "board-outline", "drill", "user", "other"]
 
 
 class BoardNetClassAssignment(Struct, forbid_unknown_fields=True, frozen=True):
@@ -1245,8 +1587,14 @@ def validate_board_plot_document_a0(value: BoardPlotDocumentA0) -> None:
     if value.schema != "kicad.plotter_ir.a0" or value.source_kind != "PCB" or value.coordinate_space.unit != "nm" or value.coordinate_space.y_axis != "down":
         raise msgspec.ValidationError("invalid_board_document at $")
     total_operations = 0
+    saw_footprint = False
     for record_index, record in enumerate(value.records):
         path = f'$.records[{record_index}]'
+        if isinstance(record, BoardFootprintPlotRecord):
+            saw_footprint = True
+            _validate_board_footprint_plot_record(record, path)
+        elif saw_footprint:
+            raise msgspec.ValidationError(f"invalid_board_record_order at {path}")
         if record.operation_count != len(record.operations):
             raise msgspec.ValidationError(f"operation_count_mismatch at {path}.operation_count")
         total_operations += len(record.operations)
@@ -1312,6 +1660,150 @@ def _validate_board_text_payload(operation: TextOperation, path: str) -> None:
     for polygon, exterior in zip(cache.polygons, polygons):
         if not polygon.contours or any(len(contour) < 3 for contour in polygon.contours) or polygon.contours[0] != exterior:
             raise msgspec.ValidationError(f"invalid_board_text at {path}")
+
+
+def _validate_board_footprint_plot_record(record: BoardFootprintPlotRecord, path: str) -> None:
+    if record.object_id != record.library_link or not math.isfinite(record.placement.angle_deg):
+        raise msgspec.ValidationError(f"invalid_board_footprint at {path}")
+    operation_index = 0
+    pad_phase = False
+    last_key = None
+    while operation_index < len(record.operations):
+        operation = record.operations[operation_index]
+        operation_path = f'{path}.operations[{operation_index}]'
+        if isinstance(operation, BoardFootprintStartBlockOperation):
+            pad_phase = True
+            if operation_index + 2 >= len(record.operations) or not isinstance(record.operations[operation_index + 2], BoardFootprintEndBlockOperation):
+                raise msgspec.ValidationError(f"invalid_board_footprint at {operation_path}")
+            inner = record.operations[operation_index + 1]
+            end = record.operations[operation_index + 2]
+            _validate_board_footprint_header(operation, operation_index, 'StartBlock', operation_path)
+            _validate_board_footprint_header(inner, operation_index + 1, _board_footprint_expected_kind(inner), f'{path}.operations[{operation_index + 1}]')
+            _validate_board_footprint_header(end, operation_index + 2, 'EndBlock', f'{path}.operations[{operation_index + 2}]')
+            _validate_board_footprint_pad_block(record, operation, inner, operation_path)
+            operation_index += 3
+            continue
+        if pad_phase or isinstance(operation, BoardFootprintEndBlockOperation):
+            raise msgspec.ValidationError(f"invalid_board_footprint at {operation_path}")
+        key = _validate_board_footprint_child(record, operation, operation_index, operation_path)
+        if last_key is not None and last_key >= key:
+            raise msgspec.ValidationError(f"invalid_board_footprint_order at {operation_path}")
+        last_key = key
+        operation_index += 1
+
+
+def _validate_board_footprint_header(operation: object, index: int, kind: str, path: str) -> None:
+    if operation.index != index:
+        raise msgspec.ValidationError(f"invalid_board_footprint_header at {path}")
+
+
+def _board_footprint_expected_kind(operation: object) -> str:
+    kinds = ((BoardFootprintThickSegmentOperation, 'ThickSegment'), (BoardFootprintArcThreePointOperation, 'ArcThreePoint'), (BoardFootprintCircleOperation, 'Circle'), (BoardFootprintRectOperation, 'Rect'), (BoardFootprintPlotPolyOperation, 'PlotPoly'), (BoardFootprintBezierCurveOperation, 'BezierCurve'), (BoardFootprintTextOperation, 'Text'), (BoardFootprintFlashPadCircleOperation, 'FlashPadCircle'), (BoardFootprintFlashPadOvalOperation, 'FlashPadOval'), (BoardFootprintFlashPadRectOperation, 'FlashPadRect'), (BoardFootprintFlashPadRoundRectOperation, 'FlashPadRoundRect'), (BoardFootprintFlashPadCustomOperation, 'FlashPadCustom'), (BoardFootprintFlashPadTrapezOperation, 'FlashPadTrapez'), (BoardFootprintStartBlockOperation, 'StartBlock'), (BoardFootprintEndBlockOperation, 'EndBlock'))
+    for operation_type, kind in kinds:
+        if isinstance(operation, operation_type):
+            return kind
+    raise msgspec.ValidationError("invalid_board_footprint_operation")
+
+
+def _validate_board_footprint_child(record: BoardFootprintPlotRecord, operation: object, index: int, path: str) -> tuple[int, int, int]:
+    allowed = (BoardFootprintThickSegmentOperation, BoardFootprintArcThreePointOperation, BoardFootprintCircleOperation, BoardFootprintRectOperation, BoardFootprintPlotPolyOperation, BoardFootprintTextOperation)
+    if not isinstance(operation, allowed):
+        raise msgspec.ValidationError(f"invalid_board_footprint_child at {path}")
+    _validate_board_footprint_header(operation, index, _board_footprint_expected_kind(operation), path)
+    metadata = (operation.label, operation.data_uuid, operation.data_ref, operation.object_id, operation.extra_attrs)
+    if any(value is UNSET for value in metadata):
+        raise msgspec.ValidationError(f"invalid_board_footprint_metadata at {path}")
+    attrs = operation.extra_attrs
+    layer = None if operation.layer is UNSET else operation.layer
+    layer_name = None if attrs.layer_name is UNSET else attrs.layer_name
+    if not operation.label or not operation.data_uuid or not operation.object_id or operation.data_ref != attrs.footprint_primitive or attrs.component != record.reference or attrs.component_uid != record.uuid or attrs.component_uuid != record.uuid or attrs.footprint != record.library_link or layer_name != layer or (attrs.layer_name is UNSET) != (attrs.layer_role is UNSET) or (layer is not None and attrs.layer_role != _board_footprint_layer_role(layer)):
+        raise msgspec.ValidationError(f"invalid_board_footprint_metadata at {path}")
+    _validate_board_footprint_child_shape(operation, attrs, path)
+    phases = {'property': 0, 'fp_text': 1, 'fp_text_box': 2, 'fp_line': 3, 'fp_arc': 4, 'fp_circle': 5, 'fp_rect': 6, 'fp_poly': 7}
+    sub_index = 0 if attrs.footprint_subop_index is UNSET else attrs.footprint_subop_index
+    return (phases[operation.data_ref], attrs.footprint_object_index, sub_index)
+
+
+def _validate_board_footprint_child_shape(operation: object, attrs: BoardFootprintChildAttrs, path: str) -> None:
+    data_ref = operation.data_ref
+    if isinstance(operation, BoardFootprintTextOperation):
+        valid_ref = data_ref in ('property', 'fp_text', 'fp_text_box')
+        valid_attrs = attrs.primitive == 'footprint-text' and attrs.footprint_text_role is not UNSET and attrs.footprint_graphic_kind is UNSET and ((data_ref == 'property') == (attrs.property_name is not UNSET)) and ((data_ref == 'fp_text') == (attrs.fp_text_type is not UNSET))
+        _validate_board_footprint_text(operation, path)
+    else:
+        expected = None
+        if isinstance(operation, BoardFootprintThickSegmentOperation): expected = 'text-box-border' if data_ref == 'fp_text_box' else 'line'
+        elif isinstance(operation, BoardFootprintArcThreePointOperation): expected = 'arc'
+        elif isinstance(operation, BoardFootprintCircleOperation): expected = 'circle'
+        elif isinstance(operation, BoardFootprintRectOperation): expected = 'text-box-border' if data_ref == 'fp_text_box' else 'rect'
+        elif isinstance(operation, BoardFootprintPlotPolyOperation): expected = 'poly'
+        valid_refs = {BoardFootprintThickSegmentOperation: ('fp_text_box', 'fp_line'), BoardFootprintArcThreePointOperation: ('fp_arc',), BoardFootprintCircleOperation: ('fp_circle',), BoardFootprintRectOperation: ('fp_text_box', 'fp_rect'), BoardFootprintPlotPolyOperation: ('fp_poly',)}
+        valid_ref = data_ref in valid_refs[type(operation)]
+        valid_attrs = attrs.primitive == 'footprint-graphic' and attrs.footprint_text_role is UNSET and attrs.property_name is UNSET and attrs.fp_text_type is UNSET and attrs.footprint_graphic_kind == expected
+    subop_required = data_ref in ('fp_text_box', 'fp_line', 'fp_arc')
+    if not valid_ref or not valid_attrs or ((attrs.footprint_subop_index is not UNSET) != subop_required):
+        raise msgspec.ValidationError(f"invalid_board_footprint_shape at {path}")
+
+
+def _board_footprint_layer_role(layer: str) -> str:
+    if layer.endswith('.Cu') or layer in ('*.Cu', 'F&B.Cu'): return 'copper'
+    if layer.endswith('.SilkS'): return 'silkscreen'
+    if layer.endswith('.Mask') or layer == '*.Mask': return 'soldermask'
+    if layer.endswith('.Paste'): return 'paste'
+    if layer.endswith('.Fab'): return 'fab'
+    if layer.endswith('.Courtyard'): return 'courtyard'
+    if layer == 'Edge.Cuts': return 'board-outline'
+    if layer == 'DRILLS': return 'drill'
+    if layer.endswith('.User') or layer.startswith('User.'): return 'user'
+    return 'other'
+
+
+def _validate_board_footprint_text(operation: BoardFootprintTextOperation, path: str) -> None:
+    if not math.isfinite(operation.orient_deg) or operation.mirror is not UNSET or operation.text_as_polygons is not UNSET or operation.polyline_per_segment is not UNSET or operation.knockout is False:
+        raise msgspec.ValidationError(f"invalid_board_footprint_cache at {path}")
+    has_cache = operation.render_cache is not UNSET
+    polygons = [] if operation.render_cache_polygons is UNSET else operation.render_cache_polygons
+    if has_cache != (operation.render_cache_source is not UNSET) or has_cache != (operation.render_cache_exact is not UNSET) or has_cache == (not polygons):
+        raise msgspec.ValidationError(f"invalid_board_footprint_cache at {path}")
+    if not has_cache:
+        if operation.knockout is not UNSET: raise msgspec.ValidationError(f'invalid_board_footprint_cache at {path}')
+        return
+    cache = operation.render_cache
+    if cache.schema != 'kicad.render_cache.v1' or cache.unit != 'nm' or cache.coordinate_space != 'footprint_local' or cache.source != operation.render_cache_source or cache.text != operation.text or not math.isfinite(cache.angle) or cache.exact != operation.render_cache_exact or cache.knockout != operation.knockout or len(cache.polygons) != len(polygons):
+        raise msgspec.ValidationError(f"invalid_board_footprint_cache at {path}")
+    for polygon, exterior in zip(cache.polygons, polygons):
+        if not polygon.contours or any(len(contour) < 3 for contour in polygon.contours) or polygon.contours[0] != exterior:
+            raise msgspec.ValidationError(f"invalid_board_footprint_cache at {path}")
+
+
+def _validate_board_footprint_pad_block(record: BoardFootprintPlotRecord, start: BoardFootprintStartBlockOperation, inner: object, path: str) -> None:
+    attrs = start.extra_attrs
+    expected_component = record.reference if record.reference else UNSET
+    expected_uuid = record.uuid if record.uuid else UNSET
+    expected_footprint = record.library_link if record.library_link else UNSET
+    pad_number_valid = (attrs.pad_number == start.object_id) if attrs.pad_number is not UNSET else start.object_id == 'pad'
+    expected_designator = UNSET if attrs.pad_number is UNSET else (f'{record.reference}-{attrs.pad_number}' if record.reference else attrs.pad_number)
+    inner_layers_value = getattr(inner, 'layers', UNSET)
+    inner_layers = [] if inner_layers_value is UNSET else inner_layers_value
+    expected_layer_names = ','.join(inner_layers) if inner_layers else UNSET
+    common = attrs.component == expected_component and attrs.component_uid == expected_uuid and attrs.component_uuid == expected_uuid and attrs.footprint == expected_footprint and pad_number_valid and attrs.pad_designator == expected_designator and (attrs.pad_type is UNSET or bool(attrs.pad_type)) and (attrs.pad_shape is UNSET or bool(attrs.pad_shape)) and attrs.layer_names == expected_layer_names and start.label == start.data_uuid
+    metadata = tuple(getattr(inner, name, UNSET) for name in ('label', 'data_uuid', 'data_ref', 'object_id', 'extra_attrs'))
+    if not common or any(value is not UNSET for value in metadata):
+        raise msgspec.ValidationError(f"invalid_board_footprint_pad at {path}")
+    if start.data_ref == 'pad':
+        hole_names = ('hole_owner', 'hole_kind', 'hole_plating', 'hole_render', 'hole_width_mm', 'hole_height_mm', 'hole_diameter_mm')
+        layers = [] if start.layers is UNSET else start.layers
+        valid = attrs.primitive == 'pad' and all(getattr(attrs, name) is UNSET for name in hole_names) and bool(layers) and isinstance(inner, (BoardFootprintFlashPadCircleOperation, BoardFootprintFlashPadOvalOperation, BoardFootprintFlashPadRectOperation, BoardFootprintFlashPadRoundRectOperation, BoardFootprintFlashPadCustomOperation, BoardFootprintFlashPadTrapezOperation)) and inner.layers == layers
+        if isinstance(inner, BoardFootprintFlashPadCircleOperation): valid = valid and inner.mask_margin_nm is not UNSET and inner.role is UNSET
+        if isinstance(inner, BoardFootprintFlashPadCustomOperation): valid = valid and (inner.polygon_widths_nm is UNSET or not inner.polygon_widths_nm or len(inner.polygon_widths_nm) == len(inner.polygons))
+    else:
+        round_hole = attrs.hole_kind == 'round' and attrs.hole_diameter_mm is not UNSET and attrs.hole_width_mm is UNSET and attrs.hole_height_mm is UNSET
+        slot_hole = attrs.hole_kind == 'slot' and attrs.hole_diameter_mm is UNSET and attrs.hole_width_mm is not UNSET and attrs.hole_height_mm is not UNSET
+        valid = attrs.primitive == 'pad-hole' and start.label.endswith(':hole') and attrs.hole_owner == start.label[:-5] and attrs.hole_plating in ('plated', 'non_plated') and attrs.hole_render == 'drill' and (round_hole or slot_hole) and isinstance(inner, (BoardFootprintCircleOperation, BoardFootprintThickSegmentOperation)) and inner.layer is UNSET and bool(inner.layers)
+        if valid and attrs.hole_plating == 'plated': valid = inner.role == 'pad_drill' and inner.mask_margin_nm is UNSET and inner.pad_size_x_nm is UNSET and inner.pad_size_y_nm is UNSET
+        elif valid: valid = inner.role == 'npth_hole' and inner.mask_margin_nm is not UNSET and inner.pad_size_x_nm is not UNSET and inner.pad_size_y_nm is not UNSET
+    if not valid:
+        raise msgspec.ValidationError(f"invalid_board_footprint_pad at {path}")
 decode_board_plot_request_a0 = msgspec.json.Decoder(BoardPlotRequestA0).decode
 decode_board_plot_result_a0 = msgspec.json.Decoder(BoardPlotResultA0).decode
 _symbol_plot_document_a0_decoder = msgspec.json.Decoder(SymbolPlotDocumentA0)
@@ -1661,6 +2153,7 @@ __all__ = (
     "PlotterTextRenderCacheSource",
     "PlotterViaFlashRole",
     "PlotterQuad",
+    "PlotterTextRenderCacheCoordinateSpace",
     "TextRenderCachePolygon",
     "BoardPlotRecord",
     "BoardGraphicPlotRecord",
@@ -1672,10 +2165,32 @@ __all__ = (
     "ZoneFillPlotRecord",
     "BoardTextPlotRecord",
     "BoardTextBoxPlotRecord",
+    "BoardFootprintPlotRecord",
     "BoardGraphicRecordKind",
     "BoardViaType",
     "PlotterStringBool",
     "BoardDimensionType",
+    "BoardFootprintOperation",
+    "BoardFootprintPlacement",
+    "BoardFootprintThickSegmentOperation",
+    "BoardFootprintArcThreePointOperation",
+    "BoardFootprintCircleOperation",
+    "BoardFootprintRectOperation",
+    "BoardFootprintPlotPolyOperation",
+    "BoardFootprintBezierCurveOperation",
+    "BoardFootprintTextOperation",
+    "BoardFootprintFlashPadCircleOperation",
+    "BoardFootprintFlashPadOvalOperation",
+    "BoardFootprintFlashPadRectOperation",
+    "BoardFootprintFlashPadRoundRectOperation",
+    "BoardFootprintFlashPadCustomOperation",
+    "BoardFootprintFlashPadTrapezOperation",
+    "BoardFootprintStartBlockOperation",
+    "BoardFootprintEndBlockOperation",
+    "BoardFootprintChildRef",
+    "BoardFootprintChildAttrs",
+    "BoardFootprintPadBlockAttrs",
+    "BoardFootprintLayerRole",
     "BoardNetClassAssignment",
     "BoardTextVariable",
     "SymbolPlotRecord",

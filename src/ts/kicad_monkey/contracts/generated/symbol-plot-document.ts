@@ -57,6 +57,10 @@ export type PlotterTextHAlign = "GR_TEXT_H_ALIGN_LEFT" | "GR_TEXT_H_ALIGN_CENTER
  */
 export type PlotterTextVAlign = "GR_TEXT_V_ALIGN_TOP" | "GR_TEXT_V_ALIGN_CENTER" | "GR_TEXT_V_ALIGN_BOTTOM";
 /**
+ * Coordinate space carried by one typed text render cache.
+ */
+export type PlotterTextRenderCacheCoordinateSpace = "board" | "footprint_local";
+/**
  * Provenance of one attached text render cache.
  */
 export type PlotterTextRenderCacheSource = "existing_file_cache" | "python_generated_cache" | "native_generated_cache";
@@ -259,7 +263,7 @@ export interface TextOperation {
 export interface TextRenderCache {
   schema: "kicad.render_cache.v1";
   unit: "nm";
-  coordinate_space: "board";
+  coordinate_space: PlotterTextRenderCacheCoordinateSpace;
   text: string;
   angle: number;
   source: PlotterTextRenderCacheSource;

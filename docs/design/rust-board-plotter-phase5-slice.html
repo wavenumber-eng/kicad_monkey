@@ -12,8 +12,8 @@
   plotter producer from graphics, routing, vias, authored zone fills, and net
   metadata to board-level <code>gr_text</code> and
   <code>gr_text_box</code> records plus board <code>table</code> grid, border,
-  faced cell-text records, and aligned, orthogonal, radial, leader, and center
-  <code>dimension</code> records. They are bounded Phase 5 increments, not the
+  faced cell-text records, aligned, orthogonal, radial, leader, and center
+  <code>dimension</code> records, and PCB-embedded footprint records. They are bounded Phase 5 increments, not the
   complete schematic/PCB plotter exit gate.</p>
 
   <p>The carrier-text bridge adds an opt-in, caller-supplied
@@ -78,6 +78,15 @@
   at most one leading faced Text operation. Unknown future dimension types are
   intentionally rejected at this bounded five-style contract boundary.</p>
 
+  <p>Embedded footprints are the terminal board-record phase after zones.
+  Each record retains its library identity, component fields, attributes, and
+  board placement while its operations stay footprint-local. Child operations
+  follow the Python property, text, text-box, graphic-family, and pad order and
+  carry closed typed ownership metadata. Pad flashes and drills are enclosed
+  by balanced StartBlock/EndBlock triples; authored or caller-generated faced
+  text caches are inverse-transformed from board space into the explicit
+  <code>footprint_local</code> cache coordinate space.</p>
+
   <h2>Resource and complexity boundary</h2>
   <p>Source, parse depth, selected graphic count, operation count, resolved
   retained text occurrences, parse nodes, decoded input polygons and points,
@@ -104,6 +113,13 @@
   segments, cache contours and duplicated exterior points charge the shared
   output ceilings. Every derived dimension coordinate and width passes through
   JavaScript-safe nanometer conversion.</p>
+
+  <p>Embedded footprint counts and every selected child family share the
+  caller's structural ceilings. Input polygons and points, block wrappers,
+  operation points, duplicated cache exteriors, resolved/cache text, net-class
+  strings, and retained ownership metadata are charged before document output.
+  The host adapter derives the metadata ceiling from the serialized-output
+  allowance and a fixed 16 MiB cap without adding a required request field.</p>
 
   <p>The optional font sidecar independently bounds selection count and bytes,
   font bytes, shaping metadata, variations and features, linebreak tokens and
@@ -161,6 +177,18 @@
   vector additionally regenerates stale and missing faced dimension caches
   with native provenance. Independent core and contract/WASM re-reviews found
   no remaining dimension-slice blocker.
+  The embedded-footprint oracle places a rich rotated B-side footprint and an
+  empty default footprint after a zone. It covers canonical regrouping,
+  placement, property variables, text-box suboperations, local cache
+  conversion, pad and plated-slot blocks, net classes, mask clamping, and
+  exact typed metadata. Focused native tests cover defaults, duplicate
+  Reference/Value behavior, NPTH fallback, and exact/one-under operation,
+  input-point, input-polygon, cache-point, retained-text, and metadata limits.
+  Rust and generated-Python mutation suites reject record-order, identity,
+  placement, metadata, cache-space, marker, block-balance, and string-typing
+  drift; the host adapter matches every shared board vector exactly. The
+  focused warm <code>L1_035</code> Rack gate passed all four tests in 24.19
+  seconds, below the Phase 5 two-minute policy.
   The carrier bridge suite generates text, wrapped text-box, and wrapped table
   caches from the bundled deterministic font; compares rotated, mirrored,
   stroked text-box and default table-cell cache geometry to the authoritative

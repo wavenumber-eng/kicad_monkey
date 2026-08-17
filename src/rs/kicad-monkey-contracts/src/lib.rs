@@ -93,6 +93,8 @@ literal_kind_deserializer!(deserialize_flash_pad_rect_kind, "FlashPadRect");
 literal_kind_deserializer!(deserialize_flash_pad_round_rect_kind, "FlashPadRoundRect");
 literal_kind_deserializer!(deserialize_flash_pad_custom_kind, "FlashPadCustom");
 literal_kind_deserializer!(deserialize_flash_pad_trapez_kind, "FlashPadTrapez");
+literal_kind_deserializer!(deserialize_start_block_kind, "StartBlock");
+literal_kind_deserializer!(deserialize_end_block_kind, "EndBlock");
 use std::fmt;
 
 /// Largest integer represented exactly by JavaScript's IEEE-754 `number`.

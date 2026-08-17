@@ -302,6 +302,12 @@ enum PlotterTextRenderCacheSource {
   nativeGenerated: "native_generated_cache",
 }
 
+/** Coordinate space carried by one typed text render cache. */
+enum PlotterTextRenderCacheCoordinateSpace {
+  board: "board",
+  footprintLocal: "footprint_local",
+}
+
 /** One render-cache polygon as ordered contours, exterior ring first. */
 model TextRenderCachePolygon {
   contours: PlotterPoint[][];
@@ -315,7 +321,7 @@ model TextRenderCachePolygon {
 model TextRenderCache {
   schema: "kicad.render_cache.v1";
   unit: "nm";
-  coordinate_space: "board";
+  coordinate_space: PlotterTextRenderCacheCoordinateSpace;
   text: string;
   angle: float64;
   source: PlotterTextRenderCacheSource;
@@ -672,6 +678,212 @@ model BoardTextBoxPlotRecord {
   border: boolean;
 }
 
+/** Normalized PCB layer roles mirrored by enriched footprint-child metadata. */
+enum BoardFootprintLayerRole {
+  copper: "copper",
+  silkscreen: "silkscreen",
+  soldermask: "soldermask",
+  paste: "paste",
+  fab: "fab",
+  courtyard: "courtyard",
+  boardOutline: "board-outline",
+  drill: "drill",
+  user: "user",
+  other: "other",
+}
+
+/** Source child kinds emitted directly on embedded-footprint drawing operations. */
+enum BoardFootprintChildRef {
+  property: "property",
+  fpText: "fp_text",
+  fpTextBox: "fp_text_box",
+  fpLine: "fp_line",
+  fpArc: "fp_arc",
+  fpCircle: "fp_circle",
+  fpRect: "fp_rect",
+  fpPoly: "fp_poly",
+}
+
+/** SVG-enrichment metadata retained on one embedded-footprint child operation. */
+model BoardFootprintChildAttrs {
+  component: string;
+  component_uid: string;
+  component_uuid: string;
+  footprint: string;
+  layer_name?: string;
+  layer_role?: BoardFootprintLayerRole;
+  primitive: "footprint-text" | "footprint-graphic";
+  footprint_primitive: BoardFootprintChildRef;
+  footprint_object_index: uint32;
+  footprint_subop_index?: uint32;
+  footprint_text_role?: "designator" | "value" | "property" | "user";
+  property_name?: string;
+  fp_text_type?: string;
+  footprint_graphic_kind?: "text-box-border" | "line" | "arc" | "circle" | "rect" | "poly";
+}
+
+/** Optional all-or-none metadata fields on an embedded-footprint operation. */
+model BoardFootprintOperationMetadata {
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+
+model BoardFootprintThickSegmentOperation {
+  ...ThickSegmentOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintArcThreePointOperation {
+  ...ArcThreePointOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintCircleOperation {
+  ...CircleOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintRectOperation {
+  ...RectOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintPlotPolyOperation {
+  ...PlotPolyOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintBezierCurveOperation {
+  ...BezierCurveOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintTextOperation {
+  ...TextOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintFlashPadCircleOperation {
+  ...FlashPadCircleOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintFlashPadOvalOperation {
+  ...FlashPadOvalOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintFlashPadRectOperation {
+  ...FlashPadRectOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintFlashPadRoundRectOperation {
+  ...FlashPadRoundRectOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintFlashPadCustomOperation {
+  ...FlashPadCustomOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+model BoardFootprintFlashPadTrapezOperation {
+  ...FlashPadTrapezOperation;
+  ...BoardFootprintOperationMetadata;
+}
+
+/** Stringified SVG-enrichment attributes on an embedded pad block. */
+model BoardFootprintPadBlockAttrs {
+  primitive: "pad" | "pad-hole";
+  component?: string;
+  component_uid?: string;
+  component_uuid?: string;
+  footprint?: string;
+  pad_number?: string;
+  pad_designator?: string;
+  pad_type?: string;
+  pad_shape?: string;
+  layer_names?: string;
+  net_index?: string;
+  net_id?: string;
+  net?: string;
+  net_class?: string;
+  net_classes?: string;
+  hole_owner?: string;
+  hole_kind?: "round" | "slot";
+  hole_plating?: "plated" | "non_plated";
+  hole_render?: "drill";
+  hole_width_mm?: string;
+  hole_height_mm?: string;
+  hole_diameter_mm?: string;
+}
+
+/** Opening operation for one embedded pad or drill SVG group. */
+model BoardFootprintStartBlockOperation {
+  kind: "StartBlock";
+  index: uint32;
+  label: string;
+  data_uuid: string;
+  data_ref: "pad" | "pad_hole";
+  object_id: string;
+  extra_attrs: BoardFootprintPadBlockAttrs;
+  layers?: string[];
+}
+
+/** Closing operation for one embedded pad or drill SVG group. */
+model BoardFootprintEndBlockOperation {
+  kind: "EndBlock";
+  index: uint32;
+}
+
+/** Strict operation vocabulary for one board-embedded footprint record. */
+union BoardFootprintOperation {
+  thickSegment: BoardFootprintThickSegmentOperation,
+  arcThreePoint: BoardFootprintArcThreePointOperation,
+  circle: BoardFootprintCircleOperation,
+  rect: BoardFootprintRectOperation,
+  plotPoly: BoardFootprintPlotPolyOperation,
+  bezierCurve: BoardFootprintBezierCurveOperation,
+  text: BoardFootprintTextOperation,
+  flashPadCircle: BoardFootprintFlashPadCircleOperation,
+  flashPadOval: BoardFootprintFlashPadOvalOperation,
+  flashPadRect: BoardFootprintFlashPadRectOperation,
+  flashPadRoundRect: BoardFootprintFlashPadRoundRectOperation,
+  flashPadCustom: BoardFootprintFlashPadCustomOperation,
+  flashPadTrapez: BoardFootprintFlashPadTrapezOperation,
+  startBlock: BoardFootprintStartBlockOperation,
+  endBlock: BoardFootprintEndBlockOperation,
+}
+
+/** Footprint-local placement applied by board renderers. */
+model BoardFootprintPlacement {
+  x_nm: JavaScriptSafeInteger;
+  y_nm: JavaScriptSafeInteger;
+  angle_deg: float64;
+}
+
+/** One board-embedded footprint in canonical child and pad-block order. */
+model BoardFootprintPlotRecord {
+  uuid: string;
+  kind: "footprint";
+  object_id: string;
+  operation_count: uint32;
+  operations: BoardFootprintOperation[];
+  library_link: string;
+  reference: string;
+  value: string;
+  layer: string;
+  locked: boolean;
+  descr: string;
+  tags: string;
+  attr: string[];
+  placement: BoardFootprintPlacement;
+}
+
 union BoardPlotRecord {
   graphic: BoardGraphicPlotRecord,
   segment: TrackSegmentPlotRecord,
@@ -682,12 +894,13 @@ union BoardPlotRecord {
   zoneFill: ZoneFillPlotRecord,
   text: BoardTextPlotRecord,
   textBox: BoardTextBoxPlotRecord,
+  footprint: BoardFootprintPlotRecord,
 }
 
 /**
- * Strict board graphics, text, tracks, vias, tables, dimensions, and authored
- * zone-fill subset of kicad.plotter_ir.a0. Producers and consumers must run
- * generated semantic validation after structural decoding.
+ * Strict board graphics, text, tracks, vias, tables, dimensions, authored
+ * zone fills, and embedded footprints subset of kicad.plotter_ir.a0. Producers
+ * and consumers must run generated semantic validation after structural decoding.
  */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.board_plot.document:a0")

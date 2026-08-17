@@ -63,7 +63,7 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict board graphics, text, tracks, vias, tables, dimensions, and authored\nzone-fill subset of kicad.plotter_ir.a0. Producers and consumers must run\ngenerated semantic validation after structural decoding.",
+    "description": "Strict board graphics, text, tracks, vias, tables, dimensions, authored\nzone fills, and embedded footprints subset of kicad.plotter_ir.a0. Producers\nand consumers must run generated semantic validation after structural decoding.",
     "title": "Board plot document a0",
     "$defs": {
         "BoardPlotRecord": {
@@ -94,6 +94,9 @@
                 },
                 {
                     "$ref": "#/$defs/BoardTextBoxPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintPlotRecord"
                 }
             ]
         },
@@ -675,6 +678,82 @@
             },
             "description": "One board text-box record. A visible border contributes a leading Rect\noperation; empty resolved text drops the Text operation."
         },
+        "BoardFootprintPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "footprint"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/BoardFootprintOperation"
+                    }
+                },
+                "library_link": {
+                    "type": "string"
+                },
+                "reference": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "locked": {
+                    "type": "boolean"
+                },
+                "descr": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "string"
+                },
+                "attr": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "placement": {
+                    "$ref": "#/$defs/BoardFootprintPlacement"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "library_link",
+                "reference",
+                "value",
+                "layer",
+                "locked",
+                "descr",
+                "tags",
+                "attr",
+                "placement"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One board-embedded footprint in canonical child and pad-block order."
+        },
         "BoardGraphicRecordKind": {
             "type": "string",
             "enum": [
@@ -759,6 +838,79 @@
                 "center"
             ],
             "description": "Board dimension construction styles supported by KiCad's PCB plotter."
+        },
+        "BoardFootprintOperation": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/BoardFootprintThickSegmentOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintArcThreePointOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintCircleOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintRectOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintPlotPolyOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintBezierCurveOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintTextOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintFlashPadCircleOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintFlashPadOvalOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintFlashPadRectOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintFlashPadRoundRectOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintFlashPadCustomOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintFlashPadTrapezOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintStartBlockOperation"
+                },
+                {
+                    "$ref": "#/$defs/BoardFootprintEndBlockOperation"
+                }
+            ],
+            "description": "Strict operation vocabulary for one board-embedded footprint record."
+        },
+        "BoardFootprintPlacement": {
+            "type": "object",
+            "properties": {
+                "x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "angle_deg": {
+                    "type": "number"
+                }
+            },
+            "required": [
+                "x_nm",
+                "y_nm",
+                "angle_deg"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Footprint-local placement applied by board renderers."
         },
         "ThickSegmentOperation": {
             "type": "object",
@@ -1585,6 +1737,1092 @@
             },
             "description": "Trapezoid pad flash shared by footprint and PCB producers."
         },
+        "BoardFootprintThickSegmentOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "ThickSegment"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "start_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/$defs/PlotterDrillRole"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "start_x",
+                "start_y",
+                "end_x",
+                "end_y",
+                "width_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintArcThreePointOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "ArcThreePoint"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "start_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "mid_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "mid_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "stroke_color": {
+                    "type": "string"
+                },
+                "fill_color": {
+                    "type": "string"
+                },
+                "line_style": {
+                    "$ref": "#/$defs/PlotterLineStyle"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "start_x",
+                "start_y",
+                "mid_x",
+                "mid_y",
+                "end_x",
+                "end_y",
+                "fill",
+                "width_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintCircleOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "Circle"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "cx": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "cy": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "diameter_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/$defs/PlotterDrillRole"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "pad_size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "stroke_color": {
+                    "type": "string"
+                },
+                "fill_color": {
+                    "type": "string"
+                },
+                "line_style": {
+                    "$ref": "#/$defs/PlotterLineStyle"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "cx",
+                "cy",
+                "diameter_nm",
+                "fill",
+                "width_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintRectOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "Rect"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x1": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y1": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "x2": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y2": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "corner_radius_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "stroke_color": {
+                    "type": "string"
+                },
+                "fill_color": {
+                    "type": "string"
+                },
+                "line_style": {
+                    "$ref": "#/$defs/PlotterLineStyle"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "fill",
+                "width_nm",
+                "corner_radius_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintPlotPolyOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "PlotPoly"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "points": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterPoint"
+                    }
+                },
+                "fill": {
+                    "$ref": "#/$defs/PlotterFill"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "stroke_color": {
+                    "type": "string"
+                },
+                "fill_color": {
+                    "type": "string"
+                },
+                "line_style": {
+                    "$ref": "#/$defs/PlotterLineStyle"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "points",
+                "fill",
+                "width_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintBezierCurveOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "BezierCurve"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "start_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "ctrl1_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "ctrl1_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "ctrl2_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "ctrl2_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "end_y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "tolerance_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "stroke_color": {
+                    "type": "string"
+                },
+                "line_style": {
+                    "$ref": "#/$defs/PlotterLineStyle"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "start_x",
+                "start_y",
+                "ctrl1_x",
+                "ctrl1_y",
+                "ctrl2_x",
+                "ctrl2_y",
+                "end_x",
+                "end_y",
+                "width_nm",
+                "tolerance_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintTextOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "Text"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "h_align": {
+                    "$ref": "#/$defs/PlotterTextHAlign"
+                },
+                "v_align": {
+                    "$ref": "#/$defs/PlotterTextVAlign"
+                },
+                "pen_width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "italic": {
+                    "type": "boolean"
+                },
+                "bold": {
+                    "type": "boolean"
+                },
+                "multiline": {
+                    "type": "boolean"
+                },
+                "font_face": {
+                    "type": "string"
+                },
+                "layer": {
+                    "type": "string"
+                },
+                "mirror": {
+                    "type": "boolean"
+                },
+                "text_as_polygons": {
+                    "type": "boolean"
+                },
+                "polyline_per_segment": {
+                    "type": "boolean"
+                },
+                "knockout": {
+                    "type": "boolean"
+                },
+                "render_cache_polygons": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/PlotterPoint"
+                        }
+                    }
+                },
+                "render_cache": {
+                    "$ref": "#/$defs/TextRenderCache"
+                },
+                "render_cache_source": {
+                    "$ref": "#/$defs/PlotterTextRenderCacheSource"
+                },
+                "render_cache_exact": {
+                    "type": "boolean"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "text",
+                "color",
+                "orient_deg",
+                "size_x_nm",
+                "size_y_nm",
+                "h_align",
+                "v_align",
+                "pen_width_nm",
+                "italic",
+                "bold",
+                "multiline",
+                "font_face"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintFlashPadCircleOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadCircle"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "diameter_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "role": {
+                    "$ref": "#/$defs/PlotterViaFlashRole"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "diameter_nm",
+                "layers"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintFlashPadOvalOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadOval"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintFlashPadRectOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadRect"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintFlashPadRoundRectOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadRoundRect"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "corner_radius_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "corner_radius_nm",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintFlashPadCustomOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadCustom"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "polygons": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/PlotterPoint"
+                        }
+                    }
+                },
+                "polygon_widths_nm": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/JavaScriptSafeInteger"
+                    }
+                },
+                "anchor_shape": {
+                    "type": "string"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "size_x_nm",
+                "size_y_nm",
+                "orient_deg",
+                "polygons",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintFlashPadTrapezOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "FlashPadTrapez"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "corners": {
+                    "$ref": "#/$defs/PlotterQuad"
+                },
+                "orient_deg": {
+                    "type": "number"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mask_margin_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintChildAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "corners",
+                "orient_deg",
+                "layers",
+                "mask_margin_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "BoardFootprintStartBlockOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "StartBlock"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "const": "pad"
+                        },
+                        {
+                            "type": "string",
+                            "const": "pad_hole"
+                        }
+                    ]
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/BoardFootprintPadBlockAttrs"
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "label",
+                "data_uuid",
+                "data_ref",
+                "object_id",
+                "extra_attrs"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Opening operation for one embedded pad or drill SVG group."
+        },
+        "BoardFootprintEndBlockOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "EndBlock"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                }
+            },
+            "required": [
+                "kind",
+                "index"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Closing operation for one embedded pad or drill SVG group."
+        },
         "PlotterDrillRole": {
             "type": "string",
             "enum": [
@@ -1659,8 +2897,7 @@
                     "const": "nm"
                 },
                 "coordinate_space": {
-                    "type": "string",
-                    "const": "board"
+                    "$ref": "#/$defs/PlotterTextRenderCacheCoordinateSpace"
                 },
                 "text": {
                     "type": "string"
@@ -1725,6 +2962,249 @@
             "maxItems": 4,
             "description": "Four pad-local trapezoid corners."
         },
+        "BoardFootprintChildRef": {
+            "type": "string",
+            "enum": [
+                "property",
+                "fp_text",
+                "fp_text_box",
+                "fp_line",
+                "fp_arc",
+                "fp_circle",
+                "fp_rect",
+                "fp_poly"
+            ],
+            "description": "Source child kinds emitted directly on embedded-footprint drawing operations."
+        },
+        "BoardFootprintChildAttrs": {
+            "type": "object",
+            "properties": {
+                "component": {
+                    "type": "string"
+                },
+                "component_uid": {
+                    "type": "string"
+                },
+                "component_uuid": {
+                    "type": "string"
+                },
+                "footprint": {
+                    "type": "string"
+                },
+                "layer_name": {
+                    "type": "string"
+                },
+                "layer_role": {
+                    "$ref": "#/$defs/BoardFootprintLayerRole"
+                },
+                "primitive": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "const": "footprint-text"
+                        },
+                        {
+                            "type": "string",
+                            "const": "footprint-graphic"
+                        }
+                    ]
+                },
+                "footprint_primitive": {
+                    "$ref": "#/$defs/BoardFootprintChildRef"
+                },
+                "footprint_object_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "footprint_subop_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "footprint_text_role": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "const": "designator"
+                        },
+                        {
+                            "type": "string",
+                            "const": "value"
+                        },
+                        {
+                            "type": "string",
+                            "const": "property"
+                        },
+                        {
+                            "type": "string",
+                            "const": "user"
+                        }
+                    ]
+                },
+                "property_name": {
+                    "type": "string"
+                },
+                "fp_text_type": {
+                    "type": "string"
+                },
+                "footprint_graphic_kind": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "const": "text-box-border"
+                        },
+                        {
+                            "type": "string",
+                            "const": "line"
+                        },
+                        {
+                            "type": "string",
+                            "const": "arc"
+                        },
+                        {
+                            "type": "string",
+                            "const": "circle"
+                        },
+                        {
+                            "type": "string",
+                            "const": "rect"
+                        },
+                        {
+                            "type": "string",
+                            "const": "poly"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "component",
+                "component_uid",
+                "component_uuid",
+                "footprint",
+                "primitive",
+                "footprint_primitive",
+                "footprint_object_index"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "SVG-enrichment metadata retained on one embedded-footprint child operation."
+        },
+        "BoardFootprintPadBlockAttrs": {
+            "type": "object",
+            "properties": {
+                "primitive": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "const": "pad"
+                        },
+                        {
+                            "type": "string",
+                            "const": "pad-hole"
+                        }
+                    ]
+                },
+                "component": {
+                    "type": "string"
+                },
+                "component_uid": {
+                    "type": "string"
+                },
+                "component_uuid": {
+                    "type": "string"
+                },
+                "footprint": {
+                    "type": "string"
+                },
+                "pad_number": {
+                    "type": "string"
+                },
+                "pad_designator": {
+                    "type": "string"
+                },
+                "pad_type": {
+                    "type": "string"
+                },
+                "pad_shape": {
+                    "type": "string"
+                },
+                "layer_names": {
+                    "type": "string"
+                },
+                "net_index": {
+                    "type": "string"
+                },
+                "net_id": {
+                    "type": "string"
+                },
+                "net": {
+                    "type": "string"
+                },
+                "net_class": {
+                    "type": "string"
+                },
+                "net_classes": {
+                    "type": "string"
+                },
+                "hole_owner": {
+                    "type": "string"
+                },
+                "hole_kind": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "const": "round"
+                        },
+                        {
+                            "type": "string",
+                            "const": "slot"
+                        }
+                    ]
+                },
+                "hole_plating": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "const": "plated"
+                        },
+                        {
+                            "type": "string",
+                            "const": "non_plated"
+                        }
+                    ]
+                },
+                "hole_render": {
+                    "type": "string",
+                    "const": "drill"
+                },
+                "hole_width_mm": {
+                    "type": "string"
+                },
+                "hole_height_mm": {
+                    "type": "string"
+                },
+                "hole_diameter_mm": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "primitive"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Stringified SVG-enrichment attributes on an embedded pad block."
+        },
+        "PlotterTextRenderCacheCoordinateSpace": {
+            "type": "string",
+            "enum": [
+                "board",
+                "footprint_local"
+            ],
+            "description": "Coordinate space carried by one typed text render cache."
+        },
         "TextRenderCachePolygon": {
             "type": "object",
             "properties": {
@@ -1745,6 +3225,22 @@
                 "not": {}
             },
             "description": "One render-cache polygon as ordered contours, exterior ring first."
+        },
+        "BoardFootprintLayerRole": {
+            "type": "string",
+            "enum": [
+                "copper",
+                "silkscreen",
+                "soldermask",
+                "paste",
+                "fab",
+                "courtyard",
+                "board-outline",
+                "drill",
+                "user",
+                "other"
+            ],
+            "description": "Normalized PCB layer roles mirrored by enriched footprint-child metadata."
         }
     }
 }

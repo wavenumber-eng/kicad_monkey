@@ -3,13 +3,15 @@
 use crate::{plotter_contract::contract_plotter_operation, serialize_bounded};
 use kicad_monkey_contracts::JavaScriptSafeInteger;
 use kicad_monkey_contracts::generated::board_plot_document::{
-    BoardDimensionType, BoardGraphicPlotRecord, BoardGraphicRecordKind, BoardPlotDocumentA0,
-    BoardPlotRecord, BoardTextBoxPlotRecord, BoardTextPlotRecord, BoardViaType, CircleOperation,
+    BoardDimensionType, BoardFootprintOperation as ContractBoardFootprintOperation,
+    BoardFootprintPlacement as ContractBoardFootprintPlacement, BoardFootprintPlotRecord,
+    BoardGraphicPlotRecord, BoardGraphicRecordKind, BoardPlotDocumentA0, BoardPlotRecord,
+    BoardTextBoxPlotRecord, BoardTextPlotRecord, BoardViaType, CircleOperation,
     DimensionPlotRecord, FlashPadCircleOperation, PlotterCoordinateSpace, PlotterDrillRole,
     PlotterFill, PlotterOperation, PlotterPoint, PlotterStringBool, PlotterTextHAlign,
-    PlotterTextRenderCacheSource, PlotterTextVAlign, PlotterViaFlashRole, TablePlotRecord,
-    TextOperation, TextRenderCache, TextRenderCachePolygon, TrackArcPlotRecord,
-    TrackSegmentPlotRecord, ViaPlotRecord, ZoneFillPlotRecord,
+    PlotterTextRenderCacheCoordinateSpace, PlotterTextRenderCacheSource, PlotterTextVAlign,
+    PlotterViaFlashRole, TablePlotRecord, TextOperation, TextRenderCache, TextRenderCachePolygon,
+    TrackArcPlotRecord, TrackSegmentPlotRecord, ViaPlotRecord, ZoneFillPlotRecord,
 };
 use kicad_monkey_contracts::generated::board_plot_request::BoardPlotRequestA0;
 use kicad_monkey_contracts::generated::board_plot_result::{
@@ -17,12 +19,15 @@ use kicad_monkey_contracts::generated::board_plot_result::{
 };
 use kicad_monkey_contracts::validate_board_plot_document;
 use kicad_monkey_core::{
-    BoardDimensionOperation, BoardDimensionRecord, BoardGraphicRecordKind as CoreGraphicRecordKind,
-    BoardNetClassAssignments, BoardPlotLimits, BoardPlotRecord as CoreBoardPlotRecord,
-    BoardTableOperation, BoardTableRecord, BoardTextBoxOperation, BoardTextBoxRecord,
-    BoardTextHAlign, BoardTextOperation, BoardTextRecord, BoardTextRenderCacheSource,
-    BoardTextVAlign, BoardTextVariables, BoardViaOperation, BoardViaOperationKind, BoardViaRecord,
-    Error, ErrorPhase, board_plot_document_with_sidecars, utf8_text,
+    BoardDimensionOperation, BoardDimensionRecord, BoardFootprintChildMetadata,
+    BoardFootprintOperation as CoreBoardFootprintOperation, BoardFootprintRecord,
+    BoardGraphicRecordKind as CoreGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
+    BoardPlotRecord as CoreBoardPlotRecord, BoardTableOperation, BoardTableRecord,
+    BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
+    BoardTextRecord, BoardTextRenderCacheCoordinateSpace as CoreTextRenderCacheCoordinateSpace,
+    BoardTextRenderCacheSource, BoardTextVAlign, BoardTextVariables, BoardViaOperation,
+    BoardViaOperationKind, BoardViaRecord, Error, ErrorPhase, board_plot_document_with_sidecars,
+    utf8_text,
 };
 use wasm_bindgen::prelude::*;
 
@@ -30,6 +35,7 @@ const MAX_BOARD_PLOT_REQUEST_BYTES: usize = 1024 * 1024;
 const MAX_BOARD_TEXT_VARIABLES: usize = 16_384;
 const MAX_BOARD_TEXT_VARIABLE_SIDECAR_BYTES: usize = 512 * 1024;
 const MAX_BOARD_RETAINED_NET_CLASS_BYTES: usize = 16 * 1024 * 1024;
+const MAX_BOARD_RETAINED_METADATA_BYTES: usize = 16 * 1024 * 1024;
 
 /// Paired metadata and out-of-band board plotter-IR JSON bytes.
 #[wasm_bindgen]
@@ -124,6 +130,7 @@ fn plot_board_ir_impl(source: &[u8], request_json: &[u8]) -> Result<BoardPlotOut
                 max_points: request.max_points as usize,
                 max_text_bytes,
                 max_net_class_bytes: max_output_bytes.min(MAX_BOARD_RETAINED_NET_CLASS_BYTES),
+                max_metadata_bytes: max_output_bytes.min(MAX_BOARD_RETAINED_METADATA_BYTES),
                 max_parse_nodes: request.max_parse_nodes as usize,
                 max_input_points: request.max_input_points as usize,
                 max_input_polygons: request.max_input_polygons as usize,
@@ -256,6 +263,7 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
         CoreBoardPlotRecord::Via(record) => contract_via_record(record)?.into(),
         CoreBoardPlotRecord::Table(record) => contract_table_record(record)?.into(),
         CoreBoardPlotRecord::Dimension(record) => contract_dimension_record(record)?.into(),
+        CoreBoardPlotRecord::Footprint(record) => contract_footprint_record(record)?.into(),
         CoreBoardPlotRecord::Zone(record) => ZoneFillPlotRecord {
             fill_island: record.fill_island,
             fill_layers: record.fill_layers,
@@ -272,6 +280,149 @@ fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, Strin
         }
         .into(),
     })
+}
+
+fn contract_footprint_record(
+    record: BoardFootprintRecord,
+) -> Result<BoardFootprintPlotRecord, String> {
+    let operation_count = contract_count(record.operations.len());
+    let operations = record
+        .operations
+        .into_iter()
+        .enumerate()
+        .map(|(index, operation)| contract_footprint_operation(index, operation))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(BoardFootprintPlotRecord {
+        attr: record.attr,
+        descr: record.descr,
+        kind: "footprint".to_owned(),
+        layer: record.layer,
+        library_link: record.library_link.clone(),
+        locked: record.locked,
+        object_id: record.library_link,
+        operation_count,
+        operations,
+        placement: ContractBoardFootprintPlacement {
+            angle_deg: record.placement.angle_deg,
+            x_nm: safe_integer(record.placement.x_nm)?,
+            y_nm: safe_integer(record.placement.y_nm)?,
+        },
+        reference: record.reference,
+        tags: record.tags,
+        uuid: record.uuid,
+        value: record.value,
+    })
+}
+
+fn contract_footprint_operation(
+    index: usize,
+    operation: CoreBoardFootprintOperation,
+) -> Result<ContractBoardFootprintOperation, String> {
+    let value = match operation {
+        CoreBoardFootprintOperation::Geometry {
+            operation,
+            metadata,
+        } => {
+            let shared = contract_plotter_operation(index, operation)?;
+            operation_with_footprint_metadata(shared, metadata)?
+        }
+        CoreBoardFootprintOperation::Text {
+            operation,
+            metadata,
+        } => {
+            let text = contract_text_operation(index, operation)?;
+            operation_with_footprint_metadata(text, metadata)?
+        }
+        CoreBoardFootprintOperation::Pad(operation) => {
+            let shared = contract_plotter_operation(index, operation)?;
+            serde_json::to_value(shared).map_err(|error| error.to_string())?
+        }
+        CoreBoardFootprintOperation::StartBlock(block) => serde_json::json!({
+            "kind": "StartBlock",
+            "index": contract_count(index),
+            "label": block.label,
+            "data_uuid": block.data_uuid,
+            "data_ref": block.data_ref,
+            "object_id": block.object_id,
+            "layers": block.layers,
+            "extra_attrs": {
+                "primitive": block.extra_attrs.primitive,
+                "component": block.extra_attrs.component,
+                "component_uid": block.extra_attrs.component_uid,
+                "component_uuid": block.extra_attrs.component_uuid,
+                "footprint": block.extra_attrs.footprint,
+                "pad_number": block.extra_attrs.pad_number,
+                "pad_designator": block.extra_attrs.pad_designator,
+                "pad_type": block.extra_attrs.pad_type,
+                "pad_shape": block.extra_attrs.pad_shape,
+                "layer_names": block.extra_attrs.layer_names,
+                "net_index": block.extra_attrs.net_index,
+                "net_id": block.extra_attrs.net_id,
+                "net": block.extra_attrs.net,
+                "net_class": block.extra_attrs.net_class,
+                "net_classes": block.extra_attrs.net_classes,
+                "hole_owner": block.extra_attrs.hole_owner,
+                "hole_kind": block.extra_attrs.hole_kind,
+                "hole_plating": block.extra_attrs.hole_plating,
+                "hole_render": block.extra_attrs.hole_render,
+                "hole_diameter_mm": block.extra_attrs.hole_diameter_mm,
+                "hole_width_mm": block.extra_attrs.hole_width_mm,
+                "hole_height_mm": block.extra_attrs.hole_height_mm,
+            },
+        }),
+        CoreBoardFootprintOperation::EndBlock => serde_json::json!({
+            "kind": "EndBlock",
+            "index": contract_count(index),
+        }),
+    };
+    serde_json::from_value(value).map_err(|error| error.to_string())
+}
+
+fn operation_with_footprint_metadata<T: serde::Serialize>(
+    operation: T,
+    metadata: BoardFootprintChildMetadata,
+) -> Result<serde_json::Value, String> {
+    let mut value = serde_json::to_value(operation).map_err(|error| error.to_string())?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| "projected plotter operation is not an object".to_owned())?;
+    object.insert(
+        "label".to_owned(),
+        serde_json::Value::String(metadata.label),
+    );
+    object.insert(
+        "data_uuid".to_owned(),
+        serde_json::Value::String(metadata.data_uuid),
+    );
+    object.insert(
+        "data_ref".to_owned(),
+        serde_json::Value::String(metadata.data_ref),
+    );
+    object.insert(
+        "object_id".to_owned(),
+        serde_json::Value::String(metadata.object_id),
+    );
+    let attrs = metadata.extra_attrs;
+    object.insert(
+        "extra_attrs".to_owned(),
+        serde_json::json!({
+            "component": attrs.component,
+            "component_uid": attrs.component_uid,
+            "component_uuid": attrs.component_uuid,
+            "footprint": attrs.footprint,
+            "layer_name": attrs.layer_name,
+            "layer_role": attrs.layer_role,
+            "primitive": attrs.primitive,
+            "footprint_primitive": attrs.footprint_primitive,
+            "footprint_object_index": contract_count(attrs.footprint_object_index),
+            "footprint_subop_index": attrs.footprint_subop_index.map(contract_count),
+            "footprint_text_role": attrs.footprint_text_role,
+            "property_name": attrs.property_name,
+            "fp_text_type": attrs.fp_text_type,
+            "footprint_graphic_kind": attrs.footprint_graphic_kind,
+        }),
+    );
+    Ok(value)
 }
 
 fn contract_dimension_record(record: BoardDimensionRecord) -> Result<DimensionPlotRecord, String> {
@@ -422,7 +573,14 @@ fn contract_text_operation(
             };
             Ok(TextRenderCache {
                 angle: cache.angle,
-                coordinate_space: "board".to_owned(),
+                coordinate_space: match cache.coordinate_space {
+                    CoreTextRenderCacheCoordinateSpace::Board => {
+                        PlotterTextRenderCacheCoordinateSpace::Board
+                    }
+                    CoreTextRenderCacheCoordinateSpace::FootprintLocal => {
+                        PlotterTextRenderCacheCoordinateSpace::FootprintLocal
+                    }
+                },
                 exact: cache.exact,
                 knockout: marker(cache.knockout),
                 polygons: cache

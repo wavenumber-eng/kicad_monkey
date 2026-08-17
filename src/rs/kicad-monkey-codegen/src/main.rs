@@ -109,6 +109,84 @@ const PLOTTER_OPERATION_KINDS: [(&str, &str, &str); 13] = [
     ),
 ];
 
+const BOARD_FOOTPRINT_OPERATION_KINDS: [(&str, &str, &str); 15] = [
+    (
+        "BoardFootprintThickSegmentOperation",
+        "ThickSegment",
+        "deserialize_thick_segment_kind",
+    ),
+    (
+        "BoardFootprintArcThreePointOperation",
+        "ArcThreePoint",
+        "deserialize_arc_three_point_kind",
+    ),
+    (
+        "BoardFootprintCircleOperation",
+        "Circle",
+        "deserialize_circle_kind",
+    ),
+    (
+        "BoardFootprintRectOperation",
+        "Rect",
+        "deserialize_rect_kind",
+    ),
+    (
+        "BoardFootprintPlotPolyOperation",
+        "PlotPoly",
+        "deserialize_plot_poly_kind",
+    ),
+    (
+        "BoardFootprintBezierCurveOperation",
+        "BezierCurve",
+        "deserialize_bezier_curve_kind",
+    ),
+    (
+        "BoardFootprintTextOperation",
+        "Text",
+        "deserialize_text_kind",
+    ),
+    (
+        "BoardFootprintFlashPadCircleOperation",
+        "FlashPadCircle",
+        "deserialize_flash_pad_circle_kind",
+    ),
+    (
+        "BoardFootprintFlashPadOvalOperation",
+        "FlashPadOval",
+        "deserialize_flash_pad_oval_kind",
+    ),
+    (
+        "BoardFootprintFlashPadRectOperation",
+        "FlashPadRect",
+        "deserialize_flash_pad_rect_kind",
+    ),
+    (
+        "BoardFootprintFlashPadRoundRectOperation",
+        "FlashPadRoundRect",
+        "deserialize_flash_pad_round_rect_kind",
+    ),
+    (
+        "BoardFootprintFlashPadCustomOperation",
+        "FlashPadCustom",
+        "deserialize_flash_pad_custom_kind",
+    ),
+    (
+        "BoardFootprintFlashPadTrapezOperation",
+        "FlashPadTrapez",
+        "deserialize_flash_pad_trapez_kind",
+    ),
+    (
+        "BoardFootprintStartBlockOperation",
+        "StartBlock",
+        "deserialize_start_block_kind",
+    ),
+    (
+        "BoardFootprintEndBlockOperation",
+        "EndBlock",
+        "deserialize_end_block_kind",
+    ),
+];
+
 fn main() -> Result<()> {
     let check = env::args().skip(1).any(|argument| argument == "--check");
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
@@ -123,6 +201,7 @@ fn main() -> Result<()> {
             &fs::read(&schema_path).with_context(|| format!("read {}", schema_path.display()))?,
         )?;
         validate_plotter_operation_kinds(schema_name, &schema)?;
+        flatten_board_footprint_operation_extensions(schema_name, &mut schema)?;
         project_for_typify(&mut schema);
         promote_disjoint_record_unions(&mut schema);
         project_tri_state_via_drill_layers(&mut schema);
@@ -155,6 +234,54 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn flatten_board_footprint_operation_extensions(
+    schema_name: &str,
+    schema: &mut Value,
+) -> Result<()> {
+    if schema_name != "BoardPlotDocument.json" {
+        return Ok(());
+    }
+    for (structure, _, _) in BOARD_FOOTPRINT_OPERATION_KINDS.iter().take(13) {
+        if schema
+            .pointer(&format!("/$defs/{structure}/allOf"))
+            .is_none()
+        {
+            continue;
+        }
+        let base_reference = schema
+            .pointer(&format!("/$defs/{structure}/allOf/0/$ref"))
+            .and_then(Value::as_str)
+            .with_context(|| format!("missing generated {structure} base reference"))?;
+        let base = base_reference
+            .strip_prefix("#/$defs/")
+            .with_context(|| format!("{structure} base reference leaves $defs"))?;
+        let base_properties = schema
+            .pointer(&format!("/$defs/{base}/properties"))
+            .and_then(Value::as_object)
+            .with_context(|| format!("missing generated {base} properties"))?
+            .clone();
+        let base_required = schema.pointer(&format!("/$defs/{base}/required")).cloned();
+        let extension = schema
+            .pointer_mut(&format!("/$defs/{structure}"))
+            .and_then(Value::as_object_mut)
+            .with_context(|| format!("missing generated {structure}"))?;
+        extension.remove("allOf");
+        let properties = extension
+            .get_mut("properties")
+            .and_then(Value::as_object_mut)
+            .with_context(|| format!("missing generated {structure} properties"))?;
+        for (name, property) in base_properties {
+            if properties.insert(name.clone(), property).is_some() {
+                bail!("{structure} unexpectedly redeclared base property {name}");
+            }
+        }
+        if let Some(required) = base_required {
+            extension.insert("required".to_owned(), required);
+        }
+    }
+    Ok(())
+}
+
 fn validate_plotter_operation_kinds(schema_name: &str, schema: &Value) -> Result<()> {
     if !matches!(
         schema_name,
@@ -162,35 +289,75 @@ fn validate_plotter_operation_kinds(schema_name: &str, schema: &Value) -> Result
     ) {
         return Ok(());
     }
+    validate_operation_union(
+        schema_name,
+        schema,
+        "PlotterOperation",
+        &PLOTTER_OPERATION_KINDS,
+    )?;
+    if schema_name == "BoardPlotDocument.json" {
+        validate_operation_union(
+            schema_name,
+            schema,
+            "BoardFootprintOperation",
+            &BOARD_FOOTPRINT_OPERATION_KINDS,
+        )?;
+    }
+    Ok(())
+}
+
+fn validate_operation_union(
+    schema_name: &str,
+    schema: &Value,
+    union: &str,
+    expected_kinds: &[(&str, &str, &str)],
+) -> Result<()> {
     let members = schema
-        .pointer("/$defs/PlotterOperation/anyOf")
+        .pointer(&format!("/$defs/{union}/anyOf"))
         .and_then(Value::as_array)
-        .with_context(|| format!("missing {schema_name} PlotterOperation union"))?;
+        .with_context(|| format!("missing {schema_name} {union} union"))?;
     let mut actual = BTreeMap::new();
     for member in members {
         let reference = member
             .get("$ref")
             .and_then(Value::as_str)
-            .with_context(|| format!("{schema_name} PlotterOperation member is not a reference"))?;
+            .with_context(|| format!("{schema_name} {union} member is not a reference"))?;
         let structure = reference
             .strip_prefix("#/$defs/")
-            .with_context(|| format!("{schema_name} PlotterOperation reference leaves $defs"))?;
-        let kind = schema
-            .pointer(&format!("/$defs/{structure}/properties/kind/const"))
-            .and_then(Value::as_str)
-            .with_context(|| format!("missing literal kind for {structure}"))?;
+            .with_context(|| format!("{schema_name} {union} reference leaves $defs"))?;
+        let kind = literal_kind_for_structure(schema, structure)?;
         if actual.insert(structure, kind).is_some() {
-            bail!("duplicate {schema_name} PlotterOperation member {structure}");
+            bail!("duplicate {schema_name} {union} member {structure}");
         }
     }
-    let expected = PLOTTER_OPERATION_KINDS
+    let expected = expected_kinds
         .iter()
         .map(|(structure, kind, _)| (*structure, *kind))
         .collect::<BTreeMap<_, _>>();
     if actual != expected {
-        bail!("{schema_name} PlotterOperation union changed; update exact-kind projection");
+        bail!("{schema_name} {union} union changed; update exact-kind projection");
     }
     Ok(())
+}
+
+fn literal_kind_for_structure<'a>(schema: &'a Value, structure: &str) -> Result<&'a str> {
+    if let Some(kind) = schema
+        .pointer(&format!("/$defs/{structure}/properties/kind/const"))
+        .and_then(Value::as_str)
+    {
+        return Ok(kind);
+    }
+    let reference = schema
+        .pointer(&format!("/$defs/{structure}/allOf/0/$ref"))
+        .and_then(Value::as_str)
+        .with_context(|| format!("missing literal kind or base operation for {structure}"))?;
+    let base = reference
+        .strip_prefix("#/$defs/")
+        .with_context(|| format!("{structure} base operation reference leaves $defs"))?;
+    schema
+        .pointer(&format!("/$defs/{base}/properties/kind/const"))
+        .and_then(Value::as_str)
+        .with_context(|| format!("missing literal kind for {structure} base {base}"))
 }
 
 fn project_generated_presence(schema_name: &str, source: String) -> Result<String> {
@@ -222,6 +389,9 @@ fn project_generated_presence(schema_name: &str, source: String) -> Result<Strin
         projected = project_kind_deserializer(projected, structure, deserializer)?;
     }
     if schema_name == "BoardPlotDocument.json" {
+        for (structure, _, deserializer) in BOARD_FOOTPRINT_OPERATION_KINDS {
+            projected = project_kind_deserializer(projected, structure, deserializer)?;
+        }
         projected = project_dimension_text_presence(projected)?;
     }
     Ok(projected)
@@ -337,12 +507,12 @@ fn promote_disjoint_record_unions(schema: &mut Value) {
     // the disjointness assertion as `oneOf` in the Rust projection yields a
     // proper enum; the published schema keeps `anyOf` alongside the other
     // record unions.
-    if let Some(record) = schema
-        .pointer_mut("/$defs/BoardPlotRecord")
-        .and_then(Value::as_object_mut)
-        && let Some(members) = record.remove("anyOf")
-    {
-        record.insert("oneOf".to_owned(), members);
+    for pointer in ["/$defs/BoardPlotRecord", "/$defs/BoardFootprintOperation"] {
+        if let Some(record) = schema.pointer_mut(pointer).and_then(Value::as_object_mut)
+            && let Some(members) = record.remove("anyOf")
+        {
+            record.insert("oneOf".to_owned(), members);
+        }
     }
 }
 

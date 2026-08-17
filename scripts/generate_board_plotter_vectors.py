@@ -19,7 +19,7 @@ from kicad_monkey.kicad_project import KiCadProject  # noqa: E402
 VECTOR_PATH = ROOT / "tests" / "parity" / "board_plotter_a0_vectors.json"
 
 # Keys whose values the Rust serializer emits as floats.
-FLOAT_KEYS = {"thickness_mm", "drill", "size", "orient_deg", "angle"}
+FLOAT_KEYS = {"thickness_mm", "drill", "size", "orient_deg", "angle", "angle_deg"}
 
 
 @contextmanager
@@ -206,6 +206,63 @@ DIMENSION_SOURCE = (
 )"""
 )
 
+FOOTPRINT_SOURCE = (
+    HEADER
+    + """  (net 0 \"\")
+  (net 1 \"GND\")
+  (zone (net 0) (net_name \"\") (layers \"F.Cu\")
+    (filled_polygon (layer \"F.Cu\") (pts (xy 0 30) (xy 2 30) (xy 2 32)))
+    (uuid \"zone-before-footprints\"))
+  (footprint \"Demo:Rich\" locked
+    (layer \"B.Cu\")
+    (at 10 20 90)
+    (descr \"Rich embedded footprint\")
+    (tags \"oracle b-side\")
+    (attr through_hole board_only)
+    (uuid \"footprint-rich\")
+    (pad \"1\" thru_hole oval (at 1 2 135) (size 2 1.5)
+      (drill oval 0.6 1.0 (offset 0.1 0.2))
+      (layers \"*.Cu\" \"*.Mask\")
+      (solder_mask_margin -2)
+      (net 1 \"GND\")
+      (uuid \"pad-rich\"))
+    (fp_poly (pts (xy -1 -1) (xy 1 -1) (xy 0 1))
+      (stroke (width 0.1) (type solid)) (fill solid)
+      (layer \"B.Fab\") (uuid \"poly-rich\"))
+    (property \"Value\" \"VAL\" (at 0 1 90) (layer \"B.Fab\")
+      (effects (font (size 1 1))) (uuid \"property-value\"))
+    (fp_circle (center 2 2) (end 2 2.5)
+      (stroke (width 0.1) (type solid)) (fill none)
+      (layer \"B.SilkS\") (uuid \"circle-rich\"))
+    (fp_text user \"${Reference}-${Value}\" (at 0 2 90) (layer \"B.SilkS\")
+      (effects (font (size 1 1)) (justify right top mirror))
+      (uuid \"text-rich\"))
+    (fp_rect (start -2 -1) (end -1 1)
+      (stroke (width 0.1) (type solid)) (fill none)
+      (layer \"B.Fab\") (uuid \"rect-rich\"))
+    (property \"Reference\" \"U1\" (at 0 0 90) (layer \"B.SilkS\")
+      (effects (font (size 1 1)))
+      (render_cache \"U1\" 90
+        (polygon (pts (xy 10 20) (xy 10 21) (xy 9 21))))
+      (uuid \"property-reference\"))
+    (fp_arc (start 1 0) (mid 0 1) (end -1 0)
+      (stroke (width 0.1) (type solid))
+      (layer \"B.SilkS\") (uuid \"arc-rich\"))
+    (property \"Datasheet\" \"doc.pdf\" (at 0 3) (layer \"B.Fab\")
+      (effects (font (size 0.8 0.8))) (uuid \"property-other\"))
+    (fp_text_box \"${Value}\" (start -1 -2) (end 3 -1)
+      (margins 0.1 0.2 0.3 0.4) (angle 90)
+      (layer \"B.Fab\") (border yes)
+      (stroke (width 0.15) (type solid))
+      (effects (font (size 0.8 0.8)) (justify right bottom))
+      (uuid \"text-box-rich\"))
+    (fp_line (start 0 0) (end 2 0)
+      (stroke (width 0.2) (type solid))
+      (layer \"B.SilkS\") (uuid \"line-rich\")))
+  (footprint \"Demo:Empty\" (uuid \"footprint-empty\"))
+)"""
+)
+
 NEW_VECTORS = [
     {
         "id": "board-text-follows-python-serializer",
@@ -234,6 +291,13 @@ NEW_VECTORS = [
         "source": DIMENSION_SOURCE,
         "source_path": "boards/dimensions.kicad_pcb",
         "document_id": "board-dimensions",
+    },
+    {
+        "id": "embedded-footprints-follow-zones-and-keep-local-ownership",
+        "source": FOOTPRINT_SOURCE,
+        "source_path": "boards/embedded_footprints.kicad_pcb",
+        "document_id": "board-embedded-footprints",
+        "net_class_assignments": {"GND": ["Power", "HighCurrent"]},
     },
 ]
 

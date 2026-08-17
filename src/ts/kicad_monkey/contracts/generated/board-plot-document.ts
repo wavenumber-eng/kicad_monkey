@@ -9,7 +9,8 @@ export type BoardPlotRecord =
   | DimensionPlotRecord
   | ZoneFillPlotRecord
   | BoardTextPlotRecord
-  | BoardTextBoxPlotRecord;
+  | BoardTextBoxPlotRecord
+  | BoardFootprintPlotRecord;
 /**
  * Board graphic record kinds promoted in the first board slice.
  */
@@ -70,6 +71,10 @@ export type PlotterTextHAlign = "GR_TEXT_H_ALIGN_LEFT" | "GR_TEXT_H_ALIGN_CENTER
  */
 export type PlotterTextVAlign = "GR_TEXT_V_ALIGN_TOP" | "GR_TEXT_V_ALIGN_CENTER" | "GR_TEXT_V_ALIGN_BOTTOM";
 /**
+ * Coordinate space carried by one typed text render cache.
+ */
+export type PlotterTextRenderCacheCoordinateSpace = "board" | "footprint_local";
+/**
  * Provenance of one attached text render cache.
  */
 export type PlotterTextRenderCacheSource = "existing_file_cache" | "python_generated_cache" | "native_generated_cache";
@@ -96,11 +101,40 @@ export type PlotterStringBool = "true" | "false";
  * Board dimension construction styles supported by KiCad's PCB plotter.
  */
 export type BoardDimensionType = "aligned" | "orthogonal" | "radial" | "leader" | "center";
+/**
+ * Strict operation vocabulary for one board-embedded footprint record.
+ */
+export type BoardFootprintOperation =
+  | BoardFootprintThickSegmentOperation
+  | BoardFootprintArcThreePointOperation
+  | BoardFootprintCircleOperation
+  | BoardFootprintRectOperation
+  | BoardFootprintPlotPolyOperation
+  | BoardFootprintBezierCurveOperation
+  | BoardFootprintTextOperation
+  | BoardFootprintFlashPadCircleOperation
+  | BoardFootprintFlashPadOvalOperation
+  | BoardFootprintFlashPadRectOperation
+  | BoardFootprintFlashPadRoundRectOperation
+  | BoardFootprintFlashPadCustomOperation
+  | BoardFootprintFlashPadTrapezOperation
+  | BoardFootprintStartBlockOperation
+  | BoardFootprintEndBlockOperation;
+/**
+ * Source child kinds emitted directly on embedded-footprint drawing operations.
+ */
+export type BoardFootprintChildRef =
+  "property" | "fp_text" | "fp_text_box" | "fp_line" | "fp_arc" | "fp_circle" | "fp_rect" | "fp_poly";
+/**
+ * Normalized PCB layer roles mirrored by enriched footprint-child metadata.
+ */
+export type BoardFootprintLayerRole =
+  "copper" | "silkscreen" | "soldermask" | "paste" | "fab" | "courtyard" | "board-outline" | "drill" | "user" | "other";
 
 /**
- * Strict board graphics, text, tracks, vias, tables, dimensions, and authored
- * zone-fill subset of kicad.plotter_ir.a0. Producers and consumers must run
- * generated semantic validation after structural decoding.
+ * Strict board graphics, text, tracks, vias, tables, dimensions, authored
+ * zone fills, and embedded footprints subset of kicad.plotter_ir.a0. Producers
+ * and consumers must run generated semantic validation after structural decoding.
  */
 export interface BoardPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
@@ -286,7 +320,7 @@ export interface TextOperation {
 export interface TextRenderCache {
   schema: "kicad.render_cache.v1";
   unit: "nm";
-  coordinate_space: "board";
+  coordinate_space: PlotterTextRenderCacheCoordinateSpace;
   text: string;
   angle: number;
   source: PlotterTextRenderCacheSource;
@@ -526,6 +560,351 @@ export interface BoardTextBoxPlotRecord {
   layer: string;
   text: string;
   border: boolean;
+}
+/**
+ * One board-embedded footprint in canonical child and pad-block order.
+ */
+export interface BoardFootprintPlotRecord {
+  uuid: string;
+  kind: "footprint";
+  object_id: string;
+  operation_count: number;
+  operations: BoardFootprintOperation[];
+  library_link: string;
+  reference: string;
+  value: string;
+  layer: string;
+  locked: boolean;
+  descr: string;
+  tags: string;
+  attr: string[];
+  placement: BoardFootprintPlacement;
+}
+export interface BoardFootprintThickSegmentOperation {
+  kind: "ThickSegment";
+  index: number;
+  start_x: JavaScriptSafeInteger;
+  start_y: JavaScriptSafeInteger;
+  end_x: JavaScriptSafeInteger;
+  end_y: JavaScriptSafeInteger;
+  width_nm: JavaScriptSafeInteger;
+  layer?: string;
+  role?: PlotterDrillRole;
+  layers?: string[];
+  mask_margin_nm?: JavaScriptSafeInteger;
+  pad_size_x_nm?: JavaScriptSafeInteger;
+  pad_size_y_nm?: JavaScriptSafeInteger;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+/**
+ * SVG-enrichment metadata retained on one embedded-footprint child operation.
+ */
+export interface BoardFootprintChildAttrs {
+  component: string;
+  component_uid: string;
+  component_uuid: string;
+  footprint: string;
+  layer_name?: string;
+  layer_role?: BoardFootprintLayerRole;
+  primitive: "footprint-text" | "footprint-graphic";
+  footprint_primitive: BoardFootprintChildRef;
+  footprint_object_index: number;
+  footprint_subop_index?: number;
+  footprint_text_role?: "designator" | "value" | "property" | "user";
+  property_name?: string;
+  fp_text_type?: string;
+  footprint_graphic_kind?: "text-box-border" | "line" | "arc" | "circle" | "rect" | "poly";
+}
+export interface BoardFootprintArcThreePointOperation {
+  kind: "ArcThreePoint";
+  index: number;
+  start_x: JavaScriptSafeInteger;
+  start_y: JavaScriptSafeInteger;
+  mid_x: JavaScriptSafeInteger;
+  mid_y: JavaScriptSafeInteger;
+  end_x: JavaScriptSafeInteger;
+  end_y: JavaScriptSafeInteger;
+  fill: PlotterFill;
+  width_nm: JavaScriptSafeInteger;
+  layer?: string;
+  stroke_color?: string;
+  fill_color?: string;
+  line_style?: PlotterLineStyle;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintCircleOperation {
+  kind: "Circle";
+  index: number;
+  cx: JavaScriptSafeInteger;
+  cy: JavaScriptSafeInteger;
+  diameter_nm: JavaScriptSafeInteger;
+  fill: PlotterFill;
+  width_nm: JavaScriptSafeInteger;
+  layer?: string;
+  role?: PlotterDrillRole;
+  layers?: string[];
+  mask_margin_nm?: JavaScriptSafeInteger;
+  pad_size_x_nm?: JavaScriptSafeInteger;
+  pad_size_y_nm?: JavaScriptSafeInteger;
+  stroke_color?: string;
+  fill_color?: string;
+  line_style?: PlotterLineStyle;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintRectOperation {
+  kind: "Rect";
+  index: number;
+  x1: JavaScriptSafeInteger;
+  y1: JavaScriptSafeInteger;
+  x2: JavaScriptSafeInteger;
+  y2: JavaScriptSafeInteger;
+  fill: PlotterFill;
+  width_nm: JavaScriptSafeInteger;
+  corner_radius_nm: JavaScriptSafeInteger;
+  layer?: string;
+  stroke_color?: string;
+  fill_color?: string;
+  line_style?: PlotterLineStyle;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintPlotPolyOperation {
+  kind: "PlotPoly";
+  index: number;
+  points: PlotterPoint[];
+  fill: PlotterFill;
+  width_nm: JavaScriptSafeInteger;
+  layer?: string;
+  stroke_color?: string;
+  fill_color?: string;
+  line_style?: PlotterLineStyle;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintBezierCurveOperation {
+  kind: "BezierCurve";
+  index: number;
+  start_x: JavaScriptSafeInteger;
+  start_y: JavaScriptSafeInteger;
+  ctrl1_x: JavaScriptSafeInteger;
+  ctrl1_y: JavaScriptSafeInteger;
+  ctrl2_x: JavaScriptSafeInteger;
+  ctrl2_y: JavaScriptSafeInteger;
+  end_x: JavaScriptSafeInteger;
+  end_y: JavaScriptSafeInteger;
+  width_nm: JavaScriptSafeInteger;
+  tolerance_nm: JavaScriptSafeInteger;
+  layer?: string;
+  stroke_color?: string;
+  line_style?: PlotterLineStyle;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintTextOperation {
+  kind: "Text";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  text: string;
+  color: string;
+  orient_deg: number;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  h_align: PlotterTextHAlign;
+  v_align: PlotterTextVAlign;
+  pen_width_nm: JavaScriptSafeInteger;
+  italic: boolean;
+  bold: boolean;
+  multiline: boolean;
+  font_face: string;
+  layer?: string;
+  mirror?: boolean;
+  text_as_polygons?: boolean;
+  polyline_per_segment?: boolean;
+  knockout?: boolean;
+  render_cache_polygons?: PlotterPoint[][];
+  render_cache?: TextRenderCache;
+  render_cache_source?: PlotterTextRenderCacheSource;
+  render_cache_exact?: boolean;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintFlashPadCircleOperation {
+  kind: "FlashPadCircle";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  diameter_nm: JavaScriptSafeInteger;
+  layers: string[];
+  mask_margin_nm?: JavaScriptSafeInteger;
+  role?: PlotterViaFlashRole;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintFlashPadOvalOperation {
+  kind: "FlashPadOval";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  orient_deg: number;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintFlashPadRectOperation {
+  kind: "FlashPadRect";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  orient_deg: number;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintFlashPadRoundRectOperation {
+  kind: "FlashPadRoundRect";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  corner_radius_nm: JavaScriptSafeInteger;
+  orient_deg: number;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintFlashPadCustomOperation {
+  kind: "FlashPadCustom";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  orient_deg: number;
+  polygons: PlotterPoint[][];
+  polygon_widths_nm?: JavaScriptSafeInteger[];
+  anchor_shape?: string;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+export interface BoardFootprintFlashPadTrapezOperation {
+  kind: "FlashPadTrapez";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  corners: PlotterQuad;
+  orient_deg: number;
+  layers: string[];
+  mask_margin_nm: JavaScriptSafeInteger;
+  label?: string;
+  data_uuid?: string;
+  data_ref?: BoardFootprintChildRef;
+  object_id?: string;
+  extra_attrs?: BoardFootprintChildAttrs;
+}
+/**
+ * Opening operation for one embedded pad or drill SVG group.
+ */
+export interface BoardFootprintStartBlockOperation {
+  kind: "StartBlock";
+  index: number;
+  label: string;
+  data_uuid: string;
+  data_ref: "pad" | "pad_hole";
+  object_id: string;
+  extra_attrs: BoardFootprintPadBlockAttrs;
+  layers?: string[];
+}
+/**
+ * Stringified SVG-enrichment attributes on an embedded pad block.
+ */
+export interface BoardFootprintPadBlockAttrs {
+  primitive: "pad" | "pad-hole";
+  component?: string;
+  component_uid?: string;
+  component_uuid?: string;
+  footprint?: string;
+  pad_number?: string;
+  pad_designator?: string;
+  pad_type?: string;
+  pad_shape?: string;
+  layer_names?: string;
+  net_index?: string;
+  net_id?: string;
+  net?: string;
+  net_class?: string;
+  net_classes?: string;
+  hole_owner?: string;
+  hole_kind?: "round" | "slot";
+  hole_plating?: "plated" | "non_plated";
+  hole_render?: "drill";
+  hole_width_mm?: string;
+  hole_height_mm?: string;
+  hole_diameter_mm?: string;
+}
+/**
+ * Closing operation for one embedded pad or drill SVG group.
+ */
+export interface BoardFootprintEndBlockOperation {
+  kind: "EndBlock";
+  index: number;
+}
+/**
+ * Footprint-local placement applied by board renderers.
+ */
+export interface BoardFootprintPlacement {
+  x_nm: JavaScriptSafeInteger;
+  y_nm: JavaScriptSafeInteger;
+  angle_deg: number;
 }
 /**
  * Coordinate convention for the footprint plotter slice.

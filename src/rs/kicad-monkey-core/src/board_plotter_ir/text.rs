@@ -75,8 +75,16 @@ pub struct BoardTextRenderCache {
     pub exact: bool,
     pub knockout: bool,
     pub source: BoardTextRenderCacheSource,
+    pub coordinate_space: BoardTextRenderCacheCoordinateSpace,
     /// polygons -> contours -> points; the first contour is the exterior.
     pub polygons: Vec<Vec<Vec<[i64; 2]>>>,
+}
+
+/// Coordinate space retained by the typed cache payload.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BoardTextRenderCacheCoordinateSpace {
+    Board,
+    FootprintLocal,
 }
 
 /// Provenance serialized with an attached board text render cache.

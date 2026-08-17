@@ -55,15 +55,17 @@ pub mod worksheet;
 mod worksheet_preflight;
 
 pub use board_plotter_ir::{
-    BoardDimensionOperation, BoardDimensionRecord, BoardGraphicRecord, BoardGraphicRecordKind,
-    BoardNetClassAssignments, BoardNetClassExtras, BoardPlotDocument, BoardPlotLimits,
-    BoardPlotRecord, BoardSegmentRecord, BoardTableOperation, BoardTableRecord,
+    BoardDimensionOperation, BoardDimensionRecord, BoardFootprintBlock,
+    BoardFootprintBlockAttributes, BoardFootprintChildAttributes, BoardFootprintChildMetadata,
+    BoardFootprintOperation, BoardFootprintPlacement, BoardFootprintRecord, BoardGraphicRecord,
+    BoardGraphicRecordKind, BoardNetClassAssignments, BoardNetClassExtras, BoardPlotDocument,
+    BoardPlotLimits, BoardPlotRecord, BoardSegmentRecord, BoardTableOperation, BoardTableRecord,
     BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
-    BoardTextRecord, BoardTextRenderCache, BoardTextRenderCacheSource, BoardTextVAlign,
-    BoardTextVariables, BoardTrackArcRecord, BoardViaFabrication, BoardViaOperation,
-    BoardViaOperationKind, BoardViaRecord, BoardViaType, BoardZoneRecord, board_plot_document,
-    board_plot_document_with_net_classes, board_plot_document_with_sidecars,
-    board_plot_document_with_text_cache_sidecar,
+    BoardTextRecord, BoardTextRenderCache, BoardTextRenderCacheCoordinateSpace,
+    BoardTextRenderCacheSource, BoardTextVAlign, BoardTextVariables, BoardTrackArcRecord,
+    BoardViaFabrication, BoardViaOperation, BoardViaOperationKind, BoardViaRecord, BoardViaType,
+    BoardZoneRecord, board_plot_document, board_plot_document_with_net_classes,
+    board_plot_document_with_sidecars, board_plot_document_with_text_cache_sidecar,
 };
 pub use compiled_schematic_graph::{
     CompiledGraphIdentityAllocator, CompiledGraphIdentityError, CompiledSchematicGraphLimits,

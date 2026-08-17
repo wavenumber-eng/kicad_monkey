@@ -72,7 +72,8 @@ if (generateTypeScript) {
       format: true,
       unknownAny: false,
     });
-    assert(!/(?:[:<]\s*any\b|\bany\[\])/u.test(source), `${outputName}: forbidden any`);
+    const forbiddenAny = source.match(/.{0,80}(?:[:<]\s*any\b|\bany\[\]).{0,80}/u)?.[0];
+    assert(!forbiddenAny, `${outputName}: forbidden any near ${JSON.stringify(forbiddenAny)}`);
     await emit(path.join(outputRoot, outputName), source);
     exports.push(
       `export type { ${typeName} } from "./${outputName.replace(/\.ts$/u, ".js")}";`,
@@ -86,11 +87,12 @@ function renderPython() {
   for (const [file] of roots) {
     const schema = schemas.get(file);
     for (const [name, definition] of Object.entries(schema.$defs ?? {})) {
-      const encoded = JSON.stringify(definition);
+      const projected = flattenPythonObjectExtension(definition, schema.$defs ?? {});
+      const encoded = JSON.stringify(projected);
       if (definitions.has(name)) {
         assert(definitions.get(name).encoded === encoded, `${name}: conflicting definitions`);
       } else {
-        definitions.set(name, { encoded, schema: definition });
+        definitions.set(name, { encoded, schema: projected });
       }
     }
   }
@@ -184,6 +186,19 @@ function renderPython() {
   return lines.join("\n");
 }
 
+function flattenPythonObjectExtension(definition, definitions) {
+  const projected = structuredClone(definition);
+  if (!Array.isArray(projected.allOf) || projected.allOf.length !== 1) return projected;
+  const reference = projected.allOf[0]?.$ref;
+  const baseName = typeof reference === "string" ? reference.split("/").at(-1) : undefined;
+  const base = definitions[baseName];
+  assert(base?.type === "object", `${baseName}: unsupported Python object extension base`);
+  projected.properties = { ...(base.properties ?? {}), ...(projected.properties ?? {}) };
+  projected.required = [...new Set([...(base.required ?? []), ...(projected.required ?? [])])];
+  delete projected.allOf;
+  return projected;
+}
+
 function renderPythonBoardPlotterValidation(functionName, typeName) {
   return [
     `_board_plot_document_a0_decoder = msgspec.json.Decoder(${typeName})`,
@@ -199,8 +214,14 @@ function renderPythonBoardPlotterValidation(functionName, typeName) {
     '    if value.schema != "kicad.plotter_ir.a0" or value.source_kind != "PCB" or value.coordinate_space.unit != "nm" or value.coordinate_space.y_axis != "down":',
     '        raise msgspec.ValidationError("invalid_board_document at $")',
     "    total_operations = 0",
+    "    saw_footprint = False",
     "    for record_index, record in enumerate(value.records):",
     "        path = f'$.records[{record_index}]'",
+    "        if isinstance(record, BoardFootprintPlotRecord):",
+    "            saw_footprint = True",
+    "            _validate_board_footprint_plot_record(record, path)",
+    "        elif saw_footprint:",
+    '            raise msgspec.ValidationError(f"invalid_board_record_order at {path}")',
     "        if record.operation_count != len(record.operations):",
     '            raise msgspec.ValidationError(f"operation_count_mismatch at {path}.operation_count")',
     "        total_operations += len(record.operations)",
@@ -266,6 +287,156 @@ function renderPythonBoardPlotterValidation(functionName, typeName) {
     "    for polygon, exterior in zip(cache.polygons, polygons):",
     "        if not polygon.contours or any(len(contour) < 3 for contour in polygon.contours) or polygon.contours[0] != exterior:",
     '            raise msgspec.ValidationError(f"invalid_board_text at {path}")',
+    ...renderPythonBoardFootprintValidation(),
+  ];
+}
+
+function renderPythonBoardFootprintValidation() {
+  return [
+    "",
+    "",
+    "def _validate_board_footprint_plot_record(record: BoardFootprintPlotRecord, path: str) -> None:",
+    '    if record.object_id != record.library_link or not math.isfinite(record.placement.angle_deg):',
+    '        raise msgspec.ValidationError(f"invalid_board_footprint at {path}")',
+    "    operation_index = 0",
+    "    pad_phase = False",
+    "    last_key = None",
+    "    while operation_index < len(record.operations):",
+    "        operation = record.operations[operation_index]",
+    "        operation_path = f'{path}.operations[{operation_index}]'",
+    "        if isinstance(operation, BoardFootprintStartBlockOperation):",
+    "            pad_phase = True",
+    "            if operation_index + 2 >= len(record.operations) or not isinstance(record.operations[operation_index + 2], BoardFootprintEndBlockOperation):",
+    '                raise msgspec.ValidationError(f"invalid_board_footprint at {operation_path}")',
+    "            inner = record.operations[operation_index + 1]",
+    "            end = record.operations[operation_index + 2]",
+    "            _validate_board_footprint_header(operation, operation_index, 'StartBlock', operation_path)",
+    "            _validate_board_footprint_header(inner, operation_index + 1, _board_footprint_expected_kind(inner), f'{path}.operations[{operation_index + 1}]')",
+    "            _validate_board_footprint_header(end, operation_index + 2, 'EndBlock', f'{path}.operations[{operation_index + 2}]')",
+    "            _validate_board_footprint_pad_block(record, operation, inner, operation_path)",
+    "            operation_index += 3",
+    "            continue",
+    "        if pad_phase or isinstance(operation, BoardFootprintEndBlockOperation):",
+    '            raise msgspec.ValidationError(f"invalid_board_footprint at {operation_path}")',
+    "        key = _validate_board_footprint_child(record, operation, operation_index, operation_path)",
+    "        if last_key is not None and last_key >= key:",
+    '            raise msgspec.ValidationError(f"invalid_board_footprint_order at {operation_path}")',
+    "        last_key = key",
+    "        operation_index += 1",
+    "",
+    "",
+    "def _validate_board_footprint_header(operation: object, index: int, kind: str, path: str) -> None:",
+    "    if operation.index != index:",
+    '        raise msgspec.ValidationError(f"invalid_board_footprint_header at {path}")',
+    "",
+    "",
+    "def _board_footprint_expected_kind(operation: object) -> str:",
+    "    kinds = ((BoardFootprintThickSegmentOperation, 'ThickSegment'), (BoardFootprintArcThreePointOperation, 'ArcThreePoint'), (BoardFootprintCircleOperation, 'Circle'), (BoardFootprintRectOperation, 'Rect'), (BoardFootprintPlotPolyOperation, 'PlotPoly'), (BoardFootprintBezierCurveOperation, 'BezierCurve'), (BoardFootprintTextOperation, 'Text'), (BoardFootprintFlashPadCircleOperation, 'FlashPadCircle'), (BoardFootprintFlashPadOvalOperation, 'FlashPadOval'), (BoardFootprintFlashPadRectOperation, 'FlashPadRect'), (BoardFootprintFlashPadRoundRectOperation, 'FlashPadRoundRect'), (BoardFootprintFlashPadCustomOperation, 'FlashPadCustom'), (BoardFootprintFlashPadTrapezOperation, 'FlashPadTrapez'), (BoardFootprintStartBlockOperation, 'StartBlock'), (BoardFootprintEndBlockOperation, 'EndBlock'))",
+    "    for operation_type, kind in kinds:",
+    "        if isinstance(operation, operation_type):",
+    "            return kind",
+    '    raise msgspec.ValidationError("invalid_board_footprint_operation")',
+    "",
+    "",
+    "def _validate_board_footprint_child(record: BoardFootprintPlotRecord, operation: object, index: int, path: str) -> tuple[int, int, int]:",
+    "    allowed = (BoardFootprintThickSegmentOperation, BoardFootprintArcThreePointOperation, BoardFootprintCircleOperation, BoardFootprintRectOperation, BoardFootprintPlotPolyOperation, BoardFootprintTextOperation)",
+    "    if not isinstance(operation, allowed):",
+    '        raise msgspec.ValidationError(f"invalid_board_footprint_child at {path}")',
+    "    _validate_board_footprint_header(operation, index, _board_footprint_expected_kind(operation), path)",
+    "    metadata = (operation.label, operation.data_uuid, operation.data_ref, operation.object_id, operation.extra_attrs)",
+    "    if any(value is UNSET for value in metadata):",
+    '        raise msgspec.ValidationError(f"invalid_board_footprint_metadata at {path}")',
+    "    attrs = operation.extra_attrs",
+    "    layer = None if operation.layer is UNSET else operation.layer",
+    "    layer_name = None if attrs.layer_name is UNSET else attrs.layer_name",
+    "    if not operation.label or not operation.data_uuid or not operation.object_id or operation.data_ref != attrs.footprint_primitive or attrs.component != record.reference or attrs.component_uid != record.uuid or attrs.component_uuid != record.uuid or attrs.footprint != record.library_link or layer_name != layer or (attrs.layer_name is UNSET) != (attrs.layer_role is UNSET) or (layer is not None and attrs.layer_role != _board_footprint_layer_role(layer)):",
+    '        raise msgspec.ValidationError(f"invalid_board_footprint_metadata at {path}")',
+    "    _validate_board_footprint_child_shape(operation, attrs, path)",
+    "    phases = {'property': 0, 'fp_text': 1, 'fp_text_box': 2, 'fp_line': 3, 'fp_arc': 4, 'fp_circle': 5, 'fp_rect': 6, 'fp_poly': 7}",
+    "    sub_index = 0 if attrs.footprint_subop_index is UNSET else attrs.footprint_subop_index",
+    "    return (phases[operation.data_ref], attrs.footprint_object_index, sub_index)",
+    "",
+    "",
+    "def _validate_board_footprint_child_shape(operation: object, attrs: BoardFootprintChildAttrs, path: str) -> None:",
+    "    data_ref = operation.data_ref",
+    "    if isinstance(operation, BoardFootprintTextOperation):",
+    "        valid_ref = data_ref in ('property', 'fp_text', 'fp_text_box')",
+    "        valid_attrs = attrs.primitive == 'footprint-text' and attrs.footprint_text_role is not UNSET and attrs.footprint_graphic_kind is UNSET and ((data_ref == 'property') == (attrs.property_name is not UNSET)) and ((data_ref == 'fp_text') == (attrs.fp_text_type is not UNSET))",
+    "        _validate_board_footprint_text(operation, path)",
+    "    else:",
+    "        expected = None",
+    "        if isinstance(operation, BoardFootprintThickSegmentOperation): expected = 'text-box-border' if data_ref == 'fp_text_box' else 'line'",
+    "        elif isinstance(operation, BoardFootprintArcThreePointOperation): expected = 'arc'",
+    "        elif isinstance(operation, BoardFootprintCircleOperation): expected = 'circle'",
+    "        elif isinstance(operation, BoardFootprintRectOperation): expected = 'text-box-border' if data_ref == 'fp_text_box' else 'rect'",
+    "        elif isinstance(operation, BoardFootprintPlotPolyOperation): expected = 'poly'",
+    "        valid_refs = {BoardFootprintThickSegmentOperation: ('fp_text_box', 'fp_line'), BoardFootprintArcThreePointOperation: ('fp_arc',), BoardFootprintCircleOperation: ('fp_circle',), BoardFootprintRectOperation: ('fp_text_box', 'fp_rect'), BoardFootprintPlotPolyOperation: ('fp_poly',)}",
+    "        valid_ref = data_ref in valid_refs[type(operation)]",
+    "        valid_attrs = attrs.primitive == 'footprint-graphic' and attrs.footprint_text_role is UNSET and attrs.property_name is UNSET and attrs.fp_text_type is UNSET and attrs.footprint_graphic_kind == expected",
+    "    subop_required = data_ref in ('fp_text_box', 'fp_line', 'fp_arc')",
+    "    if not valid_ref or not valid_attrs or ((attrs.footprint_subop_index is not UNSET) != subop_required):",
+    '        raise msgspec.ValidationError(f"invalid_board_footprint_shape at {path}")',
+    "",
+    "",
+    "def _board_footprint_layer_role(layer: str) -> str:",
+    "    if layer.endswith('.Cu') or layer in ('*.Cu', 'F&B.Cu'): return 'copper'",
+    "    if layer.endswith('.SilkS'): return 'silkscreen'",
+    "    if layer.endswith('.Mask') or layer == '*.Mask': return 'soldermask'",
+    "    if layer.endswith('.Paste'): return 'paste'",
+    "    if layer.endswith('.Fab'): return 'fab'",
+    "    if layer.endswith('.Courtyard'): return 'courtyard'",
+    "    if layer == 'Edge.Cuts': return 'board-outline'",
+    "    if layer == 'DRILLS': return 'drill'",
+    "    if layer.endswith('.User') or layer.startswith('User.'): return 'user'",
+    "    return 'other'",
+    "",
+    "",
+    "def _validate_board_footprint_text(operation: BoardFootprintTextOperation, path: str) -> None:",
+    "    if not math.isfinite(operation.orient_deg) or operation.mirror is not UNSET or operation.text_as_polygons is not UNSET or operation.polyline_per_segment is not UNSET or operation.knockout is False:",
+    '        raise msgspec.ValidationError(f"invalid_board_footprint_cache at {path}")',
+    "    has_cache = operation.render_cache is not UNSET",
+    "    polygons = [] if operation.render_cache_polygons is UNSET else operation.render_cache_polygons",
+    "    if has_cache != (operation.render_cache_source is not UNSET) or has_cache != (operation.render_cache_exact is not UNSET) or has_cache == (not polygons):",
+    '        raise msgspec.ValidationError(f"invalid_board_footprint_cache at {path}")',
+    "    if not has_cache:",
+    "        if operation.knockout is not UNSET: raise msgspec.ValidationError(f'invalid_board_footprint_cache at {path}')",
+    "        return",
+    "    cache = operation.render_cache",
+    "    if cache.schema != 'kicad.render_cache.v1' or cache.unit != 'nm' or cache.coordinate_space != 'footprint_local' or cache.source != operation.render_cache_source or cache.text != operation.text or not math.isfinite(cache.angle) or cache.exact != operation.render_cache_exact or cache.knockout != operation.knockout or len(cache.polygons) != len(polygons):",
+    '        raise msgspec.ValidationError(f"invalid_board_footprint_cache at {path}")',
+    "    for polygon, exterior in zip(cache.polygons, polygons):",
+    "        if not polygon.contours or any(len(contour) < 3 for contour in polygon.contours) or polygon.contours[0] != exterior:",
+    '            raise msgspec.ValidationError(f"invalid_board_footprint_cache at {path}")',
+    "",
+    "",
+    "def _validate_board_footprint_pad_block(record: BoardFootprintPlotRecord, start: BoardFootprintStartBlockOperation, inner: object, path: str) -> None:",
+    "    attrs = start.extra_attrs",
+    "    expected_component = record.reference if record.reference else UNSET",
+    "    expected_uuid = record.uuid if record.uuid else UNSET",
+    "    expected_footprint = record.library_link if record.library_link else UNSET",
+    "    pad_number_valid = (attrs.pad_number == start.object_id) if attrs.pad_number is not UNSET else start.object_id == 'pad'",
+    "    expected_designator = UNSET if attrs.pad_number is UNSET else (f'{record.reference}-{attrs.pad_number}' if record.reference else attrs.pad_number)",
+    "    inner_layers_value = getattr(inner, 'layers', UNSET)",
+    "    inner_layers = [] if inner_layers_value is UNSET else inner_layers_value",
+    "    expected_layer_names = ','.join(inner_layers) if inner_layers else UNSET",
+    "    common = attrs.component == expected_component and attrs.component_uid == expected_uuid and attrs.component_uuid == expected_uuid and attrs.footprint == expected_footprint and pad_number_valid and attrs.pad_designator == expected_designator and (attrs.pad_type is UNSET or bool(attrs.pad_type)) and (attrs.pad_shape is UNSET or bool(attrs.pad_shape)) and attrs.layer_names == expected_layer_names and start.label == start.data_uuid",
+    "    metadata = tuple(getattr(inner, name, UNSET) for name in ('label', 'data_uuid', 'data_ref', 'object_id', 'extra_attrs'))",
+    "    if not common or any(value is not UNSET for value in metadata):",
+    '        raise msgspec.ValidationError(f"invalid_board_footprint_pad at {path}")',
+    "    if start.data_ref == 'pad':",
+    "        hole_names = ('hole_owner', 'hole_kind', 'hole_plating', 'hole_render', 'hole_width_mm', 'hole_height_mm', 'hole_diameter_mm')",
+    "        layers = [] if start.layers is UNSET else start.layers",
+    "        valid = attrs.primitive == 'pad' and all(getattr(attrs, name) is UNSET for name in hole_names) and bool(layers) and isinstance(inner, (BoardFootprintFlashPadCircleOperation, BoardFootprintFlashPadOvalOperation, BoardFootprintFlashPadRectOperation, BoardFootprintFlashPadRoundRectOperation, BoardFootprintFlashPadCustomOperation, BoardFootprintFlashPadTrapezOperation)) and inner.layers == layers",
+    "        if isinstance(inner, BoardFootprintFlashPadCircleOperation): valid = valid and inner.mask_margin_nm is not UNSET and inner.role is UNSET",
+    "        if isinstance(inner, BoardFootprintFlashPadCustomOperation): valid = valid and (inner.polygon_widths_nm is UNSET or not inner.polygon_widths_nm or len(inner.polygon_widths_nm) == len(inner.polygons))",
+    "    else:",
+    "        round_hole = attrs.hole_kind == 'round' and attrs.hole_diameter_mm is not UNSET and attrs.hole_width_mm is UNSET and attrs.hole_height_mm is UNSET",
+    "        slot_hole = attrs.hole_kind == 'slot' and attrs.hole_diameter_mm is UNSET and attrs.hole_width_mm is not UNSET and attrs.hole_height_mm is not UNSET",
+    "        valid = attrs.primitive == 'pad-hole' and start.label.endswith(':hole') and attrs.hole_owner == start.label[:-5] and attrs.hole_plating in ('plated', 'non_plated') and attrs.hole_render == 'drill' and (round_hole or slot_hole) and isinstance(inner, (BoardFootprintCircleOperation, BoardFootprintThickSegmentOperation)) and inner.layer is UNSET and bool(inner.layers)",
+    "        if valid and attrs.hole_plating == 'plated': valid = inner.role == 'pad_drill' and inner.mask_margin_nm is UNSET and inner.pad_size_x_nm is UNSET and inner.pad_size_y_nm is UNSET",
+    "        elif valid: valid = inner.role == 'npth_hole' and inner.mask_margin_nm is not UNSET and inner.pad_size_x_nm is not UNSET and inner.pad_size_y_nm is not UNSET",
+    "    if not valid:",
+    '        raise msgspec.ValidationError(f"invalid_board_footprint_pad at {path}")',
   ];
 }
 
@@ -789,6 +960,7 @@ function pythonType(schema) {
     if (nullArm !== -1 && schema.anyOf.length === 2) {
       return `${pythonType(schema.anyOf[1 - nullArm])} | None`;
     }
+    return `Union[${schema.anyOf.map(pythonType).join(", ")}]`;
   }
   if (schema.type === "string") {
     const constraints = [];

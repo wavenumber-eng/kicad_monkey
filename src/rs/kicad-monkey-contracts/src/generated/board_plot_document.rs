@@ -305,6 +305,2982 @@ impl ::std::convert::TryFrom<::std::string::String> for BoardDimensionType {
         value.parse()
     }
 }
+///`BoardFootprintArcThreePointOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "end_x",
+///    "end_y",
+///    "fill",
+///    "index",
+///    "kind",
+///    "mid_x",
+///    "mid_y",
+///    "start_x",
+///    "start_y",
+///    "width_nm"
+///  ],
+///  "properties": {
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "end_x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "end_y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "fill": {
+///      "$ref": "#/$defs/PlotterFill"
+///    },
+///    "fill_color": {
+///      "type": "string"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "ArcThreePoint"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layer": {
+///      "type": "string"
+///    },
+///    "line_style": {
+///      "$ref": "#/$defs/PlotterLineStyle"
+///    },
+///    "mid_x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "mid_y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "start_x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "start_y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "stroke_color": {
+///      "type": "string"
+///    },
+///    "width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintArcThreePointOperation {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    pub end_x: crate::JavaScriptSafeInteger,
+    pub end_y: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub fill: PlotterFill,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub fill_color: ::std::option::Option<::std::string::String>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_arc_three_point_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub line_style: ::std::option::Option<PlotterLineStyle>,
+    pub mid_x: crate::JavaScriptSafeInteger,
+    pub mid_y: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    pub start_x: crate::JavaScriptSafeInteger,
+    pub start_y: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub stroke_color: ::std::option::Option<::std::string::String>,
+    pub width_nm: crate::JavaScriptSafeInteger,
+}
+///`BoardFootprintBezierCurveOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "ctrl1_x",
+///    "ctrl1_y",
+///    "ctrl2_x",
+///    "ctrl2_y",
+///    "end_x",
+///    "end_y",
+///    "index",
+///    "kind",
+///    "start_x",
+///    "start_y",
+///    "tolerance_nm",
+///    "width_nm"
+///  ],
+///  "properties": {
+///    "ctrl1_x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "ctrl1_y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "ctrl2_x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "ctrl2_y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "end_x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "end_y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "BezierCurve"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layer": {
+///      "type": "string"
+///    },
+///    "line_style": {
+///      "$ref": "#/$defs/PlotterLineStyle"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "start_x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "start_y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "stroke_color": {
+///      "type": "string"
+///    },
+///    "tolerance_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintBezierCurveOperation {
+    pub ctrl1_x: crate::JavaScriptSafeInteger,
+    pub ctrl1_y: crate::JavaScriptSafeInteger,
+    pub ctrl2_x: crate::JavaScriptSafeInteger,
+    pub ctrl2_y: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    pub end_x: crate::JavaScriptSafeInteger,
+    pub end_y: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_bezier_curve_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub line_style: ::std::option::Option<PlotterLineStyle>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    pub start_x: crate::JavaScriptSafeInteger,
+    pub start_y: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub stroke_color: ::std::option::Option<::std::string::String>,
+    pub tolerance_nm: crate::JavaScriptSafeInteger,
+    pub width_nm: crate::JavaScriptSafeInteger,
+}
+///SVG-enrichment metadata retained on one embedded-footprint child operation.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "SVG-enrichment metadata retained on one embedded-footprint child operation.",
+///  "type": "object",
+///  "required": [
+///    "component",
+///    "component_uid",
+///    "component_uuid",
+///    "footprint",
+///    "footprint_object_index",
+///    "footprint_primitive",
+///    "primitive"
+///  ],
+///  "properties": {
+///    "component": {
+///      "type": "string"
+///    },
+///    "component_uid": {
+///      "type": "string"
+///    },
+///    "component_uuid": {
+///      "type": "string"
+///    },
+///    "footprint": {
+///      "type": "string"
+///    },
+///    "footprint_graphic_kind": {
+///      "anyOf": [
+///        {
+///          "type": "string",
+///          "const": "text-box-border"
+///        },
+///        {
+///          "type": "string",
+///          "const": "line"
+///        },
+///        {
+///          "type": "string",
+///          "const": "arc"
+///        },
+///        {
+///          "type": "string",
+///          "const": "circle"
+///        },
+///        {
+///          "type": "string",
+///          "const": "rect"
+///        },
+///        {
+///          "type": "string",
+///          "const": "poly"
+///        }
+///      ]
+///    },
+///    "footprint_object_index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "footprint_primitive": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "footprint_subop_index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "footprint_text_role": {
+///      "anyOf": [
+///        {
+///          "type": "string",
+///          "const": "designator"
+///        },
+///        {
+///          "type": "string",
+///          "const": "value"
+///        },
+///        {
+///          "type": "string",
+///          "const": "property"
+///        },
+///        {
+///          "type": "string",
+///          "const": "user"
+///        }
+///      ]
+///    },
+///    "fp_text_type": {
+///      "type": "string"
+///    },
+///    "layer_name": {
+///      "type": "string"
+///    },
+///    "layer_role": {
+///      "$ref": "#/$defs/BoardFootprintLayerRole"
+///    },
+///    "primitive": {
+///      "anyOf": [
+///        {
+///          "type": "string",
+///          "const": "footprint-text"
+///        },
+///        {
+///          "type": "string",
+///          "const": "footprint-graphic"
+///        }
+///      ]
+///    },
+///    "property_name": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintChildAttrs {
+    pub component: ::std::string::String,
+    pub component_uid: ::std::string::String,
+    pub component_uuid: ::std::string::String,
+    pub footprint: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub footprint_graphic_kind: ::std::option::Option<BoardFootprintChildAttrsFootprintGraphicKind>,
+    pub footprint_object_index: u32,
+    pub footprint_primitive: BoardFootprintChildRef,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub footprint_subop_index: ::std::option::Option<u32>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub footprint_text_role: ::std::option::Option<BoardFootprintChildAttrsFootprintTextRole>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub fp_text_type: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer_name: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer_role: ::std::option::Option<BoardFootprintLayerRole>,
+    pub primitive: BoardFootprintChildAttrsPrimitive,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub property_name: ::std::option::Option<::std::string::String>,
+}
+///`BoardFootprintChildAttrsFootprintGraphicKind`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "type": "string",
+///      "const": "text-box-border"
+///    },
+///    {
+///      "type": "string",
+///      "const": "line"
+///    },
+///    {
+///      "type": "string",
+///      "const": "arc"
+///    },
+///    {
+///      "type": "string",
+///      "const": "circle"
+///    },
+///    {
+///      "type": "string",
+///      "const": "rect"
+///    },
+///    {
+///      "type": "string",
+///      "const": "poly"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardFootprintChildAttrsFootprintGraphicKind {
+    #[serde(rename = "text-box-border")]
+    TextBoxBorder,
+    #[serde(rename = "line")]
+    Line,
+    #[serde(rename = "arc")]
+    Arc,
+    #[serde(rename = "circle")]
+    Circle,
+    #[serde(rename = "rect")]
+    Rect,
+    #[serde(rename = "poly")]
+    Poly,
+}
+impl ::std::fmt::Display for BoardFootprintChildAttrsFootprintGraphicKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::TextBoxBorder => f.write_str("text-box-border"),
+            Self::Line => f.write_str("line"),
+            Self::Arc => f.write_str("arc"),
+            Self::Circle => f.write_str("circle"),
+            Self::Rect => f.write_str("rect"),
+            Self::Poly => f.write_str("poly"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardFootprintChildAttrsFootprintGraphicKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "text-box-border" => Ok(Self::TextBoxBorder),
+            "line" => Ok(Self::Line),
+            "arc" => Ok(Self::Arc),
+            "circle" => Ok(Self::Circle),
+            "rect" => Ok(Self::Rect),
+            "poly" => Ok(Self::Poly),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardFootprintChildAttrsFootprintGraphicKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String>
+    for BoardFootprintChildAttrsFootprintGraphicKind
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String>
+    for BoardFootprintChildAttrsFootprintGraphicKind
+{
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BoardFootprintChildAttrsFootprintTextRole`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "type": "string",
+///      "const": "designator"
+///    },
+///    {
+///      "type": "string",
+///      "const": "value"
+///    },
+///    {
+///      "type": "string",
+///      "const": "property"
+///    },
+///    {
+///      "type": "string",
+///      "const": "user"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardFootprintChildAttrsFootprintTextRole {
+    #[serde(rename = "designator")]
+    Designator,
+    #[serde(rename = "value")]
+    Value,
+    #[serde(rename = "property")]
+    Property,
+    #[serde(rename = "user")]
+    User,
+}
+impl ::std::fmt::Display for BoardFootprintChildAttrsFootprintTextRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Designator => f.write_str("designator"),
+            Self::Value => f.write_str("value"),
+            Self::Property => f.write_str("property"),
+            Self::User => f.write_str("user"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardFootprintChildAttrsFootprintTextRole {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "designator" => Ok(Self::Designator),
+            "value" => Ok(Self::Value),
+            "property" => Ok(Self::Property),
+            "user" => Ok(Self::User),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardFootprintChildAttrsFootprintTextRole {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BoardFootprintChildAttrsFootprintTextRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BoardFootprintChildAttrsFootprintTextRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BoardFootprintChildAttrsPrimitive`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "type": "string",
+///      "const": "footprint-text"
+///    },
+///    {
+///      "type": "string",
+///      "const": "footprint-graphic"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardFootprintChildAttrsPrimitive {
+    #[serde(rename = "footprint-text")]
+    FootprintText,
+    #[serde(rename = "footprint-graphic")]
+    FootprintGraphic,
+}
+impl ::std::fmt::Display for BoardFootprintChildAttrsPrimitive {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::FootprintText => f.write_str("footprint-text"),
+            Self::FootprintGraphic => f.write_str("footprint-graphic"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardFootprintChildAttrsPrimitive {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "footprint-text" => Ok(Self::FootprintText),
+            "footprint-graphic" => Ok(Self::FootprintGraphic),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardFootprintChildAttrsPrimitive {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BoardFootprintChildAttrsPrimitive {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BoardFootprintChildAttrsPrimitive {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Source child kinds emitted directly on embedded-footprint drawing operations.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Source child kinds emitted directly on embedded-footprint drawing operations.",
+///  "type": "string",
+///  "enum": [
+///    "property",
+///    "fp_text",
+///    "fp_text_box",
+///    "fp_line",
+///    "fp_arc",
+///    "fp_circle",
+///    "fp_rect",
+///    "fp_poly"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardFootprintChildRef {
+    #[serde(rename = "property")]
+    Property,
+    #[serde(rename = "fp_text")]
+    FpText,
+    #[serde(rename = "fp_text_box")]
+    FpTextBox,
+    #[serde(rename = "fp_line")]
+    FpLine,
+    #[serde(rename = "fp_arc")]
+    FpArc,
+    #[serde(rename = "fp_circle")]
+    FpCircle,
+    #[serde(rename = "fp_rect")]
+    FpRect,
+    #[serde(rename = "fp_poly")]
+    FpPoly,
+}
+impl ::std::fmt::Display for BoardFootprintChildRef {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Property => f.write_str("property"),
+            Self::FpText => f.write_str("fp_text"),
+            Self::FpTextBox => f.write_str("fp_text_box"),
+            Self::FpLine => f.write_str("fp_line"),
+            Self::FpArc => f.write_str("fp_arc"),
+            Self::FpCircle => f.write_str("fp_circle"),
+            Self::FpRect => f.write_str("fp_rect"),
+            Self::FpPoly => f.write_str("fp_poly"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardFootprintChildRef {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "property" => Ok(Self::Property),
+            "fp_text" => Ok(Self::FpText),
+            "fp_text_box" => Ok(Self::FpTextBox),
+            "fp_line" => Ok(Self::FpLine),
+            "fp_arc" => Ok(Self::FpArc),
+            "fp_circle" => Ok(Self::FpCircle),
+            "fp_rect" => Ok(Self::FpRect),
+            "fp_poly" => Ok(Self::FpPoly),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardFootprintChildRef {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BoardFootprintChildRef {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BoardFootprintChildRef {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BoardFootprintCircleOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "cx",
+///    "cy",
+///    "diameter_nm",
+///    "fill",
+///    "index",
+///    "kind",
+///    "width_nm"
+///  ],
+///  "properties": {
+///    "cx": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "cy": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "diameter_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "fill": {
+///      "$ref": "#/$defs/PlotterFill"
+///    },
+///    "fill_color": {
+///      "type": "string"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "Circle"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layer": {
+///      "type": "string"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "line_style": {
+///      "$ref": "#/$defs/PlotterLineStyle"
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "pad_size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "pad_size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "role": {
+///      "$ref": "#/$defs/PlotterDrillRole"
+///    },
+///    "stroke_color": {
+///      "type": "string"
+///    },
+///    "width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintCircleOperation {
+    pub cx: crate::JavaScriptSafeInteger,
+    pub cy: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    pub diameter_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub fill: PlotterFill,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub fill_color: ::std::option::Option<::std::string::String>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_circle_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub line_style: ::std::option::Option<PlotterLineStyle>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub mask_margin_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_size_x_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_size_y_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub role: ::std::option::Option<PlotterDrillRole>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub stroke_color: ::std::option::Option<::std::string::String>,
+    pub width_nm: crate::JavaScriptSafeInteger,
+}
+///Closing operation for one embedded pad or drill SVG group.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Closing operation for one embedded pad or drill SVG group.",
+///  "type": "object",
+///  "required": [
+///    "index",
+///    "kind"
+///  ],
+///  "properties": {
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "EndBlock"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintEndBlockOperation {
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_end_block_kind")]
+    pub kind: ::std::string::String,
+}
+///`BoardFootprintFlashPadCircleOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "diameter_nm",
+///    "index",
+///    "kind",
+///    "layers",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "diameter_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadCircle"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "role": {
+///      "$ref": "#/$defs/PlotterViaFlashRole"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintFlashPadCircleOperation {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    pub diameter_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_circle_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub mask_margin_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub role: ::std::option::Option<PlotterViaFlashRole>,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
+}
+///`BoardFootprintFlashPadCustomOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "orient_deg",
+///    "polygons",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "anchor_shape": {
+///      "type": "string"
+///    },
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadCustom"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "polygon_widths_nm": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/JavaScriptSafeInteger"
+///      }
+///    },
+///    "polygons": {
+///      "type": "array",
+///      "items": {
+///        "type": "array",
+///        "items": {
+///          "$ref": "#/$defs/PlotterPoint"
+///        }
+///      }
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintFlashPadCustomOperation {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub anchor_shape: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_custom_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    pub orient_deg: f64,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub polygon_widths_nm: ::std::vec::Vec<crate::JavaScriptSafeInteger>,
+    pub polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
+}
+///`BoardFootprintFlashPadOvalOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "orient_deg",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadOval"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintFlashPadOvalOperation {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_oval_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    pub orient_deg: f64,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
+}
+///`BoardFootprintFlashPadRectOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "orient_deg",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadRect"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintFlashPadRectOperation {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_rect_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    pub orient_deg: f64,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
+}
+///`BoardFootprintFlashPadRoundRectOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "corner_radius_nm",
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "orient_deg",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "corner_radius_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadRoundRect"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintFlashPadRoundRectOperation {
+    pub corner_radius_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_round_rect_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    pub orient_deg: f64,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
+}
+///`BoardFootprintFlashPadTrapezOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "corners",
+///    "index",
+///    "kind",
+///    "layers",
+///    "mask_margin_nm",
+///    "orient_deg",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "corners": {
+///      "$ref": "#/$defs/PlotterQuad"
+///    },
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "FlashPadTrapez"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintFlashPadTrapezOperation {
+    pub corners: PlotterQuad,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_trapez_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub mask_margin_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    pub orient_deg: f64,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
+}
+///Normalized PCB layer roles mirrored by enriched footprint-child metadata.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Normalized PCB layer roles mirrored by enriched footprint-child metadata.",
+///  "type": "string",
+///  "enum": [
+///    "copper",
+///    "silkscreen",
+///    "soldermask",
+///    "paste",
+///    "fab",
+///    "courtyard",
+///    "board-outline",
+///    "drill",
+///    "user",
+///    "other"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardFootprintLayerRole {
+    #[serde(rename = "copper")]
+    Copper,
+    #[serde(rename = "silkscreen")]
+    Silkscreen,
+    #[serde(rename = "soldermask")]
+    Soldermask,
+    #[serde(rename = "paste")]
+    Paste,
+    #[serde(rename = "fab")]
+    Fab,
+    #[serde(rename = "courtyard")]
+    Courtyard,
+    #[serde(rename = "board-outline")]
+    BoardOutline,
+    #[serde(rename = "drill")]
+    Drill,
+    #[serde(rename = "user")]
+    User,
+    #[serde(rename = "other")]
+    Other,
+}
+impl ::std::fmt::Display for BoardFootprintLayerRole {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Copper => f.write_str("copper"),
+            Self::Silkscreen => f.write_str("silkscreen"),
+            Self::Soldermask => f.write_str("soldermask"),
+            Self::Paste => f.write_str("paste"),
+            Self::Fab => f.write_str("fab"),
+            Self::Courtyard => f.write_str("courtyard"),
+            Self::BoardOutline => f.write_str("board-outline"),
+            Self::Drill => f.write_str("drill"),
+            Self::User => f.write_str("user"),
+            Self::Other => f.write_str("other"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardFootprintLayerRole {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "copper" => Ok(Self::Copper),
+            "silkscreen" => Ok(Self::Silkscreen),
+            "soldermask" => Ok(Self::Soldermask),
+            "paste" => Ok(Self::Paste),
+            "fab" => Ok(Self::Fab),
+            "courtyard" => Ok(Self::Courtyard),
+            "board-outline" => Ok(Self::BoardOutline),
+            "drill" => Ok(Self::Drill),
+            "user" => Ok(Self::User),
+            "other" => Ok(Self::Other),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardFootprintLayerRole {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BoardFootprintLayerRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BoardFootprintLayerRole {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Strict operation vocabulary for one board-embedded footprint record.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Strict operation vocabulary for one board-embedded footprint record.",
+///  "oneOf": [
+///    {
+///      "$ref": "#/$defs/BoardFootprintThickSegmentOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintArcThreePointOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintCircleOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintRectOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintPlotPolyOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintBezierCurveOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintTextOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintFlashPadCircleOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintFlashPadOvalOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintFlashPadRectOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintFlashPadRoundRectOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintFlashPadCustomOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintFlashPadTrapezOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintStartBlockOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintEndBlockOperation"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum BoardFootprintOperation {
+    ThickSegmentOperation(BoardFootprintThickSegmentOperation),
+    ArcThreePointOperation(BoardFootprintArcThreePointOperation),
+    CircleOperation(BoardFootprintCircleOperation),
+    RectOperation(BoardFootprintRectOperation),
+    PlotPolyOperation(BoardFootprintPlotPolyOperation),
+    BezierCurveOperation(BoardFootprintBezierCurveOperation),
+    TextOperation(BoardFootprintTextOperation),
+    FlashPadCircleOperation(BoardFootprintFlashPadCircleOperation),
+    FlashPadOvalOperation(BoardFootprintFlashPadOvalOperation),
+    FlashPadRectOperation(BoardFootprintFlashPadRectOperation),
+    FlashPadRoundRectOperation(BoardFootprintFlashPadRoundRectOperation),
+    FlashPadCustomOperation(BoardFootprintFlashPadCustomOperation),
+    FlashPadTrapezOperation(BoardFootprintFlashPadTrapezOperation),
+    StartBlockOperation(BoardFootprintStartBlockOperation),
+    EndBlockOperation(BoardFootprintEndBlockOperation),
+}
+impl ::std::convert::From<BoardFootprintThickSegmentOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintThickSegmentOperation) -> Self {
+        Self::ThickSegmentOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintArcThreePointOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintArcThreePointOperation) -> Self {
+        Self::ArcThreePointOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintCircleOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintCircleOperation) -> Self {
+        Self::CircleOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintRectOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintRectOperation) -> Self {
+        Self::RectOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintPlotPolyOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintPlotPolyOperation) -> Self {
+        Self::PlotPolyOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintBezierCurveOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintBezierCurveOperation) -> Self {
+        Self::BezierCurveOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintTextOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintTextOperation) -> Self {
+        Self::TextOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintFlashPadCircleOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintFlashPadCircleOperation) -> Self {
+        Self::FlashPadCircleOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintFlashPadOvalOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintFlashPadOvalOperation) -> Self {
+        Self::FlashPadOvalOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintFlashPadRectOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintFlashPadRectOperation) -> Self {
+        Self::FlashPadRectOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintFlashPadRoundRectOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintFlashPadRoundRectOperation) -> Self {
+        Self::FlashPadRoundRectOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintFlashPadCustomOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintFlashPadCustomOperation) -> Self {
+        Self::FlashPadCustomOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintFlashPadTrapezOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintFlashPadTrapezOperation) -> Self {
+        Self::FlashPadTrapezOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintStartBlockOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintStartBlockOperation) -> Self {
+        Self::StartBlockOperation(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintEndBlockOperation> for BoardFootprintOperation {
+    fn from(value: BoardFootprintEndBlockOperation) -> Self {
+        Self::EndBlockOperation(value)
+    }
+}
+///Stringified SVG-enrichment attributes on an embedded pad block.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Stringified SVG-enrichment attributes on an embedded pad block.",
+///  "type": "object",
+///  "required": [
+///    "primitive"
+///  ],
+///  "properties": {
+///    "component": {
+///      "type": "string"
+///    },
+///    "component_uid": {
+///      "type": "string"
+///    },
+///    "component_uuid": {
+///      "type": "string"
+///    },
+///    "footprint": {
+///      "type": "string"
+///    },
+///    "hole_diameter_mm": {
+///      "type": "string"
+///    },
+///    "hole_height_mm": {
+///      "type": "string"
+///    },
+///    "hole_kind": {
+///      "anyOf": [
+///        {
+///          "type": "string",
+///          "const": "round"
+///        },
+///        {
+///          "type": "string",
+///          "const": "slot"
+///        }
+///      ]
+///    },
+///    "hole_owner": {
+///      "type": "string"
+///    },
+///    "hole_plating": {
+///      "anyOf": [
+///        {
+///          "type": "string",
+///          "const": "plated"
+///        },
+///        {
+///          "type": "string",
+///          "const": "non_plated"
+///        }
+///      ]
+///    },
+///    "hole_render": {
+///      "type": "string",
+///      "const": "drill"
+///    },
+///    "hole_width_mm": {
+///      "type": "string"
+///    },
+///    "layer_names": {
+///      "type": "string"
+///    },
+///    "net": {
+///      "type": "string"
+///    },
+///    "net_class": {
+///      "type": "string"
+///    },
+///    "net_classes": {
+///      "type": "string"
+///    },
+///    "net_id": {
+///      "type": "string"
+///    },
+///    "net_index": {
+///      "type": "string"
+///    },
+///    "pad_designator": {
+///      "type": "string"
+///    },
+///    "pad_number": {
+///      "type": "string"
+///    },
+///    "pad_shape": {
+///      "type": "string"
+///    },
+///    "pad_type": {
+///      "type": "string"
+///    },
+///    "primitive": {
+///      "anyOf": [
+///        {
+///          "type": "string",
+///          "const": "pad"
+///        },
+///        {
+///          "type": "string",
+///          "const": "pad-hole"
+///        }
+///      ]
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintPadBlockAttrs {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub component: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub component_uid: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub component_uuid: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub footprint: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub hole_diameter_mm: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub hole_height_mm: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub hole_kind: ::std::option::Option<BoardFootprintPadBlockAttrsHoleKind>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub hole_owner: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub hole_plating: ::std::option::Option<BoardFootprintPadBlockAttrsHolePlating>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub hole_render: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub hole_width_mm: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer_names: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_class: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_classes: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_id: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub net_index: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_designator: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_number: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_shape: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_type: ::std::option::Option<::std::string::String>,
+    pub primitive: BoardFootprintPadBlockAttrsPrimitive,
+}
+///`BoardFootprintPadBlockAttrsHoleKind`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "type": "string",
+///      "const": "round"
+///    },
+///    {
+///      "type": "string",
+///      "const": "slot"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardFootprintPadBlockAttrsHoleKind {
+    #[serde(rename = "round")]
+    Round,
+    #[serde(rename = "slot")]
+    Slot,
+}
+impl ::std::fmt::Display for BoardFootprintPadBlockAttrsHoleKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Round => f.write_str("round"),
+            Self::Slot => f.write_str("slot"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardFootprintPadBlockAttrsHoleKind {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "round" => Ok(Self::Round),
+            "slot" => Ok(Self::Slot),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardFootprintPadBlockAttrsHoleKind {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BoardFootprintPadBlockAttrsHoleKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BoardFootprintPadBlockAttrsHoleKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BoardFootprintPadBlockAttrsHolePlating`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "type": "string",
+///      "const": "plated"
+///    },
+///    {
+///      "type": "string",
+///      "const": "non_plated"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardFootprintPadBlockAttrsHolePlating {
+    #[serde(rename = "plated")]
+    Plated,
+    #[serde(rename = "non_plated")]
+    NonPlated,
+}
+impl ::std::fmt::Display for BoardFootprintPadBlockAttrsHolePlating {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Plated => f.write_str("plated"),
+            Self::NonPlated => f.write_str("non_plated"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardFootprintPadBlockAttrsHolePlating {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "plated" => Ok(Self::Plated),
+            "non_plated" => Ok(Self::NonPlated),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardFootprintPadBlockAttrsHolePlating {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BoardFootprintPadBlockAttrsHolePlating {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BoardFootprintPadBlockAttrsHolePlating {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BoardFootprintPadBlockAttrsPrimitive`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "type": "string",
+///      "const": "pad"
+///    },
+///    {
+///      "type": "string",
+///      "const": "pad-hole"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardFootprintPadBlockAttrsPrimitive {
+    #[serde(rename = "pad")]
+    Pad,
+    #[serde(rename = "pad-hole")]
+    PadHole,
+}
+impl ::std::fmt::Display for BoardFootprintPadBlockAttrsPrimitive {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Pad => f.write_str("pad"),
+            Self::PadHole => f.write_str("pad-hole"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardFootprintPadBlockAttrsPrimitive {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "pad" => Ok(Self::Pad),
+            "pad-hole" => Ok(Self::PadHole),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardFootprintPadBlockAttrsPrimitive {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BoardFootprintPadBlockAttrsPrimitive {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BoardFootprintPadBlockAttrsPrimitive {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///Footprint-local placement applied by board renderers.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Footprint-local placement applied by board renderers.",
+///  "type": "object",
+///  "required": [
+///    "angle_deg",
+///    "x_nm",
+///    "y_nm"
+///  ],
+///  "properties": {
+///    "angle_deg": {
+///      "type": "number"
+///    },
+///    "x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintPlacement {
+    pub angle_deg: f64,
+    pub x_nm: crate::JavaScriptSafeInteger,
+    pub y_nm: crate::JavaScriptSafeInteger,
+}
+///`BoardFootprintPlotPolyOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "fill",
+///    "index",
+///    "kind",
+///    "points",
+///    "width_nm"
+///  ],
+///  "properties": {
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "fill": {
+///      "$ref": "#/$defs/PlotterFill"
+///    },
+///    "fill_color": {
+///      "type": "string"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "PlotPoly"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layer": {
+///      "type": "string"
+///    },
+///    "line_style": {
+///      "$ref": "#/$defs/PlotterLineStyle"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "points": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterPoint"
+///      }
+///    },
+///    "stroke_color": {
+///      "type": "string"
+///    },
+///    "width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintPlotPolyOperation {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub fill: PlotterFill,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub fill_color: ::std::option::Option<::std::string::String>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_plot_poly_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub line_style: ::std::option::Option<PlotterLineStyle>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    pub points: ::std::vec::Vec<PlotterPoint>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub stroke_color: ::std::option::Option<::std::string::String>,
+    pub width_nm: crate::JavaScriptSafeInteger,
+}
+///One board-embedded footprint in canonical child and pad-block order.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One board-embedded footprint in canonical child and pad-block order.",
+///  "type": "object",
+///  "required": [
+///    "attr",
+///    "descr",
+///    "kind",
+///    "layer",
+///    "library_link",
+///    "locked",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "placement",
+///    "reference",
+///    "tags",
+///    "uuid",
+///    "value"
+///  ],
+///  "properties": {
+///    "attr": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "descr": {
+///      "type": "string"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "footprint"
+///    },
+///    "layer": {
+///      "type": "string"
+///    },
+///    "library_link": {
+///      "type": "string"
+///    },
+///    "locked": {
+///      "type": "boolean"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/BoardFootprintOperation"
+///      }
+///    },
+///    "placement": {
+///      "$ref": "#/$defs/BoardFootprintPlacement"
+///    },
+///    "reference": {
+///      "type": "string"
+///    },
+///    "tags": {
+///      "type": "string"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    },
+///    "value": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintPlotRecord {
+    pub attr: ::std::vec::Vec<::std::string::String>,
+    pub descr: ::std::string::String,
+    pub kind: ::std::string::String,
+    pub layer: ::std::string::String,
+    pub library_link: ::std::string::String,
+    pub locked: bool,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<BoardFootprintOperation>,
+    pub placement: BoardFootprintPlacement,
+    pub reference: ::std::string::String,
+    pub tags: ::std::string::String,
+    pub uuid: ::std::string::String,
+    pub value: ::std::string::String,
+}
+///`BoardFootprintRectOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "corner_radius_nm",
+///    "fill",
+///    "index",
+///    "kind",
+///    "width_nm",
+///    "x1",
+///    "x2",
+///    "y1",
+///    "y2"
+///  ],
+///  "properties": {
+///    "corner_radius_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "fill": {
+///      "$ref": "#/$defs/PlotterFill"
+///    },
+///    "fill_color": {
+///      "type": "string"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "Rect"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layer": {
+///      "type": "string"
+///    },
+///    "line_style": {
+///      "$ref": "#/$defs/PlotterLineStyle"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "stroke_color": {
+///      "type": "string"
+///    },
+///    "width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x1": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x2": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y1": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y2": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintRectOperation {
+    pub corner_radius_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub fill: PlotterFill,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub fill_color: ::std::option::Option<::std::string::String>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_rect_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub line_style: ::std::option::Option<PlotterLineStyle>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub stroke_color: ::std::option::Option<::std::string::String>,
+    pub width_nm: crate::JavaScriptSafeInteger,
+    pub x1: crate::JavaScriptSafeInteger,
+    pub x2: crate::JavaScriptSafeInteger,
+    pub y1: crate::JavaScriptSafeInteger,
+    pub y2: crate::JavaScriptSafeInteger,
+}
+///Opening operation for one embedded pad or drill SVG group.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Opening operation for one embedded pad or drill SVG group.",
+///  "type": "object",
+///  "required": [
+///    "data_ref",
+///    "data_uuid",
+///    "extra_attrs",
+///    "index",
+///    "kind",
+///    "label",
+///    "object_id"
+///  ],
+///  "properties": {
+///    "data_ref": {
+///      "anyOf": [
+///        {
+///          "type": "string",
+///          "const": "pad"
+///        },
+///        {
+///          "type": "string",
+///          "const": "pad_hole"
+///        }
+///      ]
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintPadBlockAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "StartBlock"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "object_id": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintStartBlockOperation {
+    pub data_ref: BoardFootprintStartBlockOperationDataRef,
+    pub data_uuid: ::std::string::String,
+    pub extra_attrs: BoardFootprintPadBlockAttrs,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_start_block_kind")]
+    pub kind: ::std::string::String,
+    pub label: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    pub object_id: ::std::string::String,
+}
+///`BoardFootprintStartBlockOperationDataRef`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "anyOf": [
+///    {
+///      "type": "string",
+///      "const": "pad"
+///    },
+///    {
+///      "type": "string",
+///      "const": "pad_hole"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum BoardFootprintStartBlockOperationDataRef {
+    #[serde(rename = "pad")]
+    Pad,
+    #[serde(rename = "pad_hole")]
+    PadHole,
+}
+impl ::std::fmt::Display for BoardFootprintStartBlockOperationDataRef {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Pad => f.write_str("pad"),
+            Self::PadHole => f.write_str("pad_hole"),
+        }
+    }
+}
+impl ::std::str::FromStr for BoardFootprintStartBlockOperationDataRef {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "pad" => Ok(Self::Pad),
+            "pad_hole" => Ok(Self::PadHole),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for BoardFootprintStartBlockOperationDataRef {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for BoardFootprintStartBlockOperationDataRef {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for BoardFootprintStartBlockOperationDataRef {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`BoardFootprintTextOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "bold",
+///    "color",
+///    "font_face",
+///    "h_align",
+///    "index",
+///    "italic",
+///    "kind",
+///    "multiline",
+///    "orient_deg",
+///    "pen_width_nm",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "text",
+///    "v_align",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "bold": {
+///      "type": "boolean"
+///    },
+///    "color": {
+///      "type": "string"
+///    },
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "font_face": {
+///      "type": "string"
+///    },
+///    "h_align": {
+///      "$ref": "#/$defs/PlotterTextHAlign"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "italic": {
+///      "type": "boolean"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "Text"
+///    },
+///    "knockout": {
+///      "type": "boolean"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layer": {
+///      "type": "string"
+///    },
+///    "mirror": {
+///      "type": "boolean"
+///    },
+///    "multiline": {
+///      "type": "boolean"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "orient_deg": {
+///      "type": "number"
+///    },
+///    "pen_width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "polyline_per_segment": {
+///      "type": "boolean"
+///    },
+///    "render_cache": {
+///      "$ref": "#/$defs/TextRenderCache"
+///    },
+///    "render_cache_exact": {
+///      "type": "boolean"
+///    },
+///    "render_cache_polygons": {
+///      "type": "array",
+///      "items": {
+///        "type": "array",
+///        "items": {
+///          "$ref": "#/$defs/PlotterPoint"
+///        }
+///      }
+///    },
+///    "render_cache_source": {
+///      "$ref": "#/$defs/PlotterTextRenderCacheSource"
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "text": {
+///      "type": "string"
+///    },
+///    "text_as_polygons": {
+///      "type": "boolean"
+///    },
+///    "v_align": {
+///      "$ref": "#/$defs/PlotterTextVAlign"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintTextOperation {
+    pub bold: bool,
+    pub color: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub font_face: ::std::string::String,
+    pub h_align: PlotterTextHAlign,
+    pub index: u32,
+    pub italic: bool,
+    #[serde(deserialize_with = "crate::deserialize_text_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub knockout: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub mirror: ::std::option::Option<bool>,
+    pub multiline: bool,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    pub orient_deg: f64,
+    pub pen_width_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub polyline_per_segment: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub render_cache: ::std::option::Option<TextRenderCache>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub render_cache_exact: ::std::option::Option<bool>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub render_cache_source: ::std::option::Option<PlotterTextRenderCacheSource>,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub text: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub text_as_polygons: ::std::option::Option<bool>,
+    pub v_align: PlotterTextVAlign,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
+}
+///`BoardFootprintThickSegmentOperation`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "required": [
+///    "end_x",
+///    "end_y",
+///    "index",
+///    "kind",
+///    "start_x",
+///    "start_y",
+///    "width_nm"
+///  ],
+///  "properties": {
+///    "data_ref": {
+///      "$ref": "#/$defs/BoardFootprintChildRef"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "end_x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "end_y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/BoardFootprintChildAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "ThickSegment"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "layer": {
+///      "type": "string"
+///    },
+///    "layers": {
+///      "type": "array",
+///      "items": {
+///        "type": "string"
+///      }
+///    },
+///    "mask_margin_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "pad_size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "pad_size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "role": {
+///      "$ref": "#/$defs/PlotterDrillRole"
+///    },
+///    "start_x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "start_y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct BoardFootprintThickSegmentOperation {
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_ref: ::std::option::Option<BoardFootprintChildRef>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub data_uuid: ::std::option::Option<::std::string::String>,
+    pub end_x: crate::JavaScriptSafeInteger,
+    pub end_y: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub extra_attrs: ::std::option::Option<BoardFootprintChildAttrs>,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_thick_segment_kind")]
+    pub kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub label: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub layer: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub layers: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub mask_margin_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub object_id: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_size_x_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub pad_size_y_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub role: ::std::option::Option<PlotterDrillRole>,
+    pub start_x: crate::JavaScriptSafeInteger,
+    pub start_y: crate::JavaScriptSafeInteger,
+    pub width_nm: crate::JavaScriptSafeInteger,
+}
 /**One board-level graphic record. The carrier layer travels on the record;
 the contained operations are layerless graphic-state operations.*/
 ///
@@ -461,9 +3437,9 @@ impl ::std::convert::TryFrom<::std::string::String> for BoardGraphicRecordKind {
         value.parse()
     }
 }
-/**Strict board graphics, text, tracks, vias, tables, dimensions, and authored
-zone-fill subset of kicad.plotter_ir.a0. Producers and consumers must run
-generated semantic validation after structural decoding.*/
+/**Strict board graphics, text, tracks, vias, tables, dimensions, authored
+zone fills, and embedded footprints subset of kicad.plotter_ir.a0. Producers
+and consumers must run generated semantic validation after structural decoding.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -471,7 +3447,7 @@ generated semantic validation after structural decoding.*/
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.board_plot.document:a0",
 ///  "title": "Board plot document a0",
-///  "description": "Strict board graphics, text, tracks, vias, tables, dimensions, and authored\nzone-fill subset of kicad.plotter_ir.a0. Producers and consumers must run\ngenerated semantic validation after structural decoding.",
+///  "description": "Strict board graphics, text, tracks, vias, tables, dimensions, authored\nzone fills, and embedded footprints subset of kicad.plotter_ir.a0. Producers\nand consumers must run generated semantic validation after structural decoding.",
 ///  "type": "object",
 ///  "required": [
 ///    "coordinate_space",
@@ -585,6 +3561,9 @@ pub struct BoardPlotDocumentA0 {
 ///    },
 ///    {
 ///      "$ref": "#/$defs/BoardTextBoxPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/BoardFootprintPlotRecord"
 ///    }
 ///  ]
 ///}
@@ -602,6 +3581,7 @@ pub enum BoardPlotRecord {
     ZoneFillPlotRecord(ZoneFillPlotRecord),
     BoardTextPlotRecord(BoardTextPlotRecord),
     BoardTextBoxPlotRecord(BoardTextBoxPlotRecord),
+    BoardFootprintPlotRecord(BoardFootprintPlotRecord),
 }
 impl ::std::convert::From<BoardGraphicPlotRecord> for BoardPlotRecord {
     fn from(value: BoardGraphicPlotRecord) -> Self {
@@ -646,6 +3626,11 @@ impl ::std::convert::From<BoardTextPlotRecord> for BoardPlotRecord {
 impl ::std::convert::From<BoardTextBoxPlotRecord> for BoardPlotRecord {
     fn from(value: BoardTextBoxPlotRecord) -> Self {
         Self::BoardTextBoxPlotRecord(value)
+    }
+}
+impl ::std::convert::From<BoardFootprintPlotRecord> for BoardPlotRecord {
+    fn from(value: BoardFootprintPlotRecord) -> Self {
+        Self::BoardFootprintPlotRecord(value)
     }
 }
 /**One board text-box record. A visible border contributes a leading Rect
@@ -2241,6 +5226,79 @@ impl ::std::convert::TryFrom<::std::string::String> for PlotterTextHAlign {
         value.parse()
     }
 }
+///Coordinate space carried by one typed text render cache.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Coordinate space carried by one typed text render cache.",
+///  "type": "string",
+///  "enum": [
+///    "board",
+///    "footprint_local"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlotterTextRenderCacheCoordinateSpace {
+    #[serde(rename = "board")]
+    Board,
+    #[serde(rename = "footprint_local")]
+    FootprintLocal,
+}
+impl ::std::fmt::Display for PlotterTextRenderCacheCoordinateSpace {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Board => f.write_str("board"),
+            Self::FootprintLocal => f.write_str("footprint_local"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlotterTextRenderCacheCoordinateSpace {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "board" => Ok(Self::Board),
+            "footprint_local" => Ok(Self::FootprintLocal),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterTextRenderCacheCoordinateSpace {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterTextRenderCacheCoordinateSpace {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterTextRenderCacheCoordinateSpace {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Provenance of one attached text render cache.
 ///
 /// <details><summary>JSON schema</summary>
@@ -2810,8 +5868,7 @@ knockout background restructure replaced the polygons.*/
 ///      "type": "number"
 ///    },
 ///    "coordinate_space": {
-///      "type": "string",
-///      "const": "board"
+///      "$ref": "#/$defs/PlotterTextRenderCacheCoordinateSpace"
 ///    },
 ///    "exact": {
 ///      "type": "boolean"
@@ -2848,7 +5905,7 @@ knockout background restructure replaced the polygons.*/
 #[serde(deny_unknown_fields)]
 pub struct TextRenderCache {
     pub angle: f64,
-    pub coordinate_space: ::std::string::String,
+    pub coordinate_space: PlotterTextRenderCacheCoordinateSpace,
     pub exact: bool,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub knockout: ::std::option::Option<bool>,

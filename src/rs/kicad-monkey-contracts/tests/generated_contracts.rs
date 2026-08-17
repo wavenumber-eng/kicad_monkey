@@ -521,7 +521,7 @@ fn board_text_contract_rejects_redundant_field_and_cache_drift() {
         ("angle", serde_json::json!(44.0)),
         ("schema", serde_json::json!("wrong")),
         ("unit", serde_json::json!("mm")),
-        ("coordinate_space", serde_json::json!("local")),
+        ("coordinate_space", serde_json::json!("footprint_local")),
         ("source", serde_json::json!("python_generated_cache")),
     ];
     for (field, replacement) in mutation_paths {

@@ -293,15 +293,15 @@ semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/board_dimension_sl
 [[surfaces]]
 id = "plotter_ir.board_footprints"
 disposition = "required_bounded_slice"
-wasm = "deferred_native_first"
-status = "planned"
+wasm = "maintained_feasibility_adapter"
+status = "closed"
 python_symbols = ["pcb_footprint_to_record", "_op_with_footprint_child_metadata", "_pad_block_ops"]
-rust_symbols = ["PcbFootprint", "PcbFootprintTransform", "FootprintPlotDocument", "BoardPlotDocument"]
-rack_cases = []
-evidence = ["docs/design/rust-footprint-plotter-phase2-slice.html", "docs/design/rust-phase5-exit-audit.html"]
-vector_evidence = []
-implementation_evidence = []
-semantic_resource_evidence = []
+rust_symbols = ["PcbFootprint", "BoardFootprintRecord", "BoardFootprintOperation", "BoardFootprintPlotRecord", "BoardPlotDocument", "kicad-monkey-wasm.plotBoardIr"]
+rack_cases = ["L1_035"]
+evidence = ["docs/design/rust-board-plotter-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "src/rs/kicad-monkey-core/tests/board_footprint_slice.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
+vector_evidence = ["tests/parity/board_plotter_a0_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/pcb/footprints.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir/footprint.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/board_footprint_slice.rs", "src/rs/kicad-monkey-core/tests/plotter_text_cache.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py"]
 
 [[surfaces]]
 id = "plotter_ir.schematic_foundation"

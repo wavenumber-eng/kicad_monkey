@@ -1,10 +1,15 @@
 //! Record-state validation for the board plotter IR document contract.
 
 use crate::generated::board_plot_document::{
-    BoardDimensionType, BoardPlotDocumentA0, BoardPlotRecord, BoardTextBoxPlotRecord,
-    BoardTextPlotRecord, CircleOperation, DimensionPlotRecord, FlashPadCircleOperation,
-    PlotterDrillRole as BoardDrillRole, PlotterFill as BoardFill,
-    PlotterOperation as BoardOperation, PlotterViaFlashRole, RectOperation, TablePlotRecord,
+    BoardDimensionType, BoardFootprintChildAttrs, BoardFootprintChildAttrsFootprintGraphicKind,
+    BoardFootprintChildAttrsPrimitive, BoardFootprintChildRef, BoardFootprintLayerRole,
+    BoardFootprintOperation, BoardFootprintPadBlockAttrs, BoardFootprintPadBlockAttrsPrimitive,
+    BoardFootprintPlotRecord, BoardFootprintStartBlockOperation,
+    BoardFootprintStartBlockOperationDataRef, BoardFootprintTextOperation, BoardPlotDocumentA0,
+    BoardPlotRecord, BoardTextBoxPlotRecord, BoardTextPlotRecord, CircleOperation,
+    DimensionPlotRecord, FlashPadCircleOperation, PlotterDrillRole as BoardDrillRole,
+    PlotterFill as BoardFill, PlotterOperation as BoardOperation,
+    PlotterTextRenderCacheCoordinateSpace, PlotterViaFlashRole, RectOperation, TablePlotRecord,
     TextOperation, ThickSegmentOperation,
 };
 use crate::{ValidationError, validation_error};
@@ -23,16 +28,26 @@ pub fn validate_board_plot_document(document: &BoardPlotDocumentA0) -> Result<()
         ));
     }
     let mut total_operations = 0usize;
+    let mut saw_footprint = false;
     for (record_index, record) in document.records.iter().enumerate() {
-        let (declared, operations) = validate_board_record(record, record_index)?;
-        if declared != operations.len() {
+        if matches!(record, BoardPlotRecord::BoardFootprintPlotRecord(_)) {
+            saw_footprint = true;
+        } else if saw_footprint {
+            return Err(validation_error(
+                "invalid_board_record_order",
+                format!("$.records[{record_index}]"),
+                "embedded footprint records form the terminal board record phase",
+            ));
+        }
+        let (declared, operation_count) = validate_board_record(record, record_index)?;
+        if declared != operation_count {
             return Err(validation_error(
                 "operation_count_mismatch",
                 format!("$.records[{record_index}].operation_count"),
                 "operation_count must equal the operation array length",
             ));
         }
-        total_operations = total_operations.saturating_add(operations.len());
+        total_operations = total_operations.saturating_add(operation_count);
     }
     if document.total_operations as usize != total_operations {
         return Err(validation_error(
@@ -47,46 +62,730 @@ pub fn validate_board_plot_document(document: &BoardPlotDocumentA0) -> Result<()
 fn validate_board_record(
     record: &BoardPlotRecord,
     record_index: usize,
-) -> Result<(usize, &[BoardOperation]), ValidationError> {
-    let (declared, operations) = match record {
+) -> Result<(usize, usize), ValidationError> {
+    let counts = match record {
         BoardPlotRecord::BoardGraphicPlotRecord(value) => {
             validate_board_graphic_operations(&value.operations, record_index)?;
-            (value.operation_count, &value.operations)
+            (value.operation_count as usize, value.operations.len())
         }
         BoardPlotRecord::TrackSegmentPlotRecord(value) => {
             validate_track_segment_operations(&value.operations, record_index)?;
-            (value.operation_count, &value.operations)
+            (value.operation_count as usize, value.operations.len())
         }
         BoardPlotRecord::TrackArcPlotRecord(value) => {
             validate_track_arc_operations(&value.operations, record_index)?;
-            (value.operation_count, &value.operations)
+            (value.operation_count as usize, value.operations.len())
         }
         BoardPlotRecord::ViaPlotRecord(value) => {
             validate_via_operations(&value.operations, record_index)?;
-            (value.operation_count, &value.operations)
+            (value.operation_count as usize, value.operations.len())
         }
         BoardPlotRecord::TablePlotRecord(value) => {
             validate_table_operations(value, record_index)?;
-            (value.operation_count, &value.operations)
+            (value.operation_count as usize, value.operations.len())
         }
         BoardPlotRecord::DimensionPlotRecord(value) => {
             validate_dimension_operations(value, record_index)?;
-            (value.operation_count, &value.operations)
+            (value.operation_count as usize, value.operations.len())
         }
         BoardPlotRecord::ZoneFillPlotRecord(value) => {
             validate_zone_fill_operations(value, record_index)?;
-            (value.operation_count, &value.operations)
+            (value.operation_count as usize, value.operations.len())
         }
         BoardPlotRecord::BoardTextPlotRecord(value) => {
             validate_board_text_operations(value, record_index)?;
-            (value.operation_count, &value.operations)
+            (value.operation_count as usize, value.operations.len())
         }
         BoardPlotRecord::BoardTextBoxPlotRecord(value) => {
             validate_board_text_box_operations(value, record_index)?;
-            (value.operation_count, &value.operations)
+            (value.operation_count as usize, value.operations.len())
+        }
+        BoardPlotRecord::BoardFootprintPlotRecord(value) => {
+            validate_board_footprint_record(value, record_index)?;
+            (value.operation_count as usize, value.operations.len())
         }
     };
-    Ok((declared as usize, operations))
+    Ok(counts)
+}
+
+struct FootprintChildMetadata<'a> {
+    index: u32,
+    kind: &'a str,
+    label: Option<&'a str>,
+    data_uuid: Option<&'a str>,
+    data_ref: Option<BoardFootprintChildRef>,
+    object_id: Option<&'a str>,
+    extra_attrs: Option<&'a BoardFootprintChildAttrs>,
+    layer: Option<&'a str>,
+}
+
+macro_rules! footprint_child_metadata {
+    ($value:expr) => {
+        FootprintChildMetadata {
+            index: $value.index,
+            kind: &$value.kind,
+            label: $value.label.as_deref(),
+            data_uuid: $value.data_uuid.as_deref(),
+            data_ref: $value.data_ref,
+            object_id: $value.object_id.as_deref(),
+            extra_attrs: $value.extra_attrs.as_ref(),
+            layer: $value.layer.as_deref(),
+        }
+    };
+}
+
+fn validate_board_footprint_record(
+    record: &BoardFootprintPlotRecord,
+    record_index: usize,
+) -> Result<(), ValidationError> {
+    let record_path = format!("$.records[{record_index}]");
+    if record.kind != "footprint"
+        || record.object_id != record.library_link
+        || !record.placement.angle_deg.is_finite()
+    {
+        return Err(invalid_board_footprint(
+            record_path,
+            "embedded footprint identity and finite placement must be canonical",
+        ));
+    }
+    let mut operation_index = 0usize;
+    let mut pad_phase = false;
+    let mut last_child_key: Option<(u8, u32, u32)> = None;
+    while operation_index < record.operations.len() {
+        let path = format!("$.records[{record_index}].operations[{operation_index}]");
+        match &record.operations[operation_index] {
+            BoardFootprintOperation::StartBlockOperation(start) => {
+                pad_phase = true;
+                let Some(inner) = record.operations.get(operation_index + 1) else {
+                    return Err(invalid_board_footprint(
+                        path,
+                        "pad blocks must contain exactly one operation and an EndBlock",
+                    ));
+                };
+                let Some(BoardFootprintOperation::EndBlockOperation(end)) =
+                    record.operations.get(operation_index + 2)
+                else {
+                    return Err(invalid_board_footprint(
+                        path,
+                        "pad blocks must contain exactly one operation and an EndBlock",
+                    ));
+                };
+                validate_board_footprint_header(
+                    start.index,
+                    &start.kind,
+                    operation_index,
+                    "StartBlock",
+                    &path,
+                )?;
+                validate_board_footprint_header(
+                    board_footprint_operation_index(inner),
+                    board_footprint_operation_kind(inner),
+                    operation_index + 1,
+                    board_footprint_expected_kind(inner),
+                    &format!(
+                        "$.records[{record_index}].operations[{}]",
+                        operation_index + 1
+                    ),
+                )?;
+                validate_board_footprint_header(
+                    end.index,
+                    &end.kind,
+                    operation_index + 2,
+                    "EndBlock",
+                    &format!(
+                        "$.records[{record_index}].operations[{}]",
+                        operation_index + 2
+                    ),
+                )?;
+                validate_board_footprint_pad_block(record, start, inner, path)?;
+                operation_index += 3;
+            }
+            BoardFootprintOperation::EndBlockOperation(_) if pad_phase => {
+                return Err(invalid_board_footprint(
+                    path,
+                    "EndBlock must close a complete pad block",
+                ));
+            }
+            _ if pad_phase => {
+                return Err(invalid_board_footprint(
+                    path,
+                    "footprint child operations cannot follow the terminal pad-block phase",
+                ));
+            }
+            operation => {
+                validate_board_footprint_child(
+                    record,
+                    operation,
+                    operation_index,
+                    &mut last_child_key,
+                    path,
+                )?;
+                operation_index += 1;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_board_footprint_child(
+    record: &BoardFootprintPlotRecord,
+    operation: &BoardFootprintOperation,
+    expected_index: usize,
+    last_key: &mut Option<(u8, u32, u32)>,
+    path: String,
+) -> Result<(), ValidationError> {
+    let metadata = match operation {
+        BoardFootprintOperation::ThickSegmentOperation(value) => footprint_child_metadata!(value),
+        BoardFootprintOperation::ArcThreePointOperation(value) => footprint_child_metadata!(value),
+        BoardFootprintOperation::CircleOperation(value) => footprint_child_metadata!(value),
+        BoardFootprintOperation::RectOperation(value) => footprint_child_metadata!(value),
+        BoardFootprintOperation::PlotPolyOperation(value) => footprint_child_metadata!(value),
+        BoardFootprintOperation::TextOperation(value) => {
+            validate_board_footprint_text(value, &path)?;
+            footprint_child_metadata!(value)
+        }
+        BoardFootprintOperation::BezierCurveOperation(_)
+        | BoardFootprintOperation::FlashPadCircleOperation(_)
+        | BoardFootprintOperation::FlashPadOvalOperation(_)
+        | BoardFootprintOperation::FlashPadRectOperation(_)
+        | BoardFootprintOperation::FlashPadRoundRectOperation(_)
+        | BoardFootprintOperation::FlashPadCustomOperation(_)
+        | BoardFootprintOperation::FlashPadTrapezOperation(_)
+        | BoardFootprintOperation::StartBlockOperation(_)
+        | BoardFootprintOperation::EndBlockOperation(_) => {
+            return Err(invalid_board_footprint(
+                path,
+                "direct footprint children admit only emitted text and graphic geometry",
+            ));
+        }
+    };
+    validate_board_footprint_header(
+        metadata.index,
+        metadata.kind,
+        expected_index,
+        board_footprint_expected_kind(operation),
+        &path,
+    )?;
+    let (Some(label), Some(data_uuid), Some(data_ref), Some(object_id), Some(attrs)) = (
+        metadata.label,
+        metadata.data_uuid,
+        metadata.data_ref,
+        metadata.object_id,
+        metadata.extra_attrs,
+    ) else {
+        return Err(invalid_board_footprint(
+            path,
+            "direct footprint child metadata fields are all required together",
+        ));
+    };
+    if label.is_empty()
+        || data_uuid.is_empty()
+        || object_id.is_empty()
+        || data_ref != attrs.footprint_primitive
+        || attrs.component != record.reference
+        || attrs.component_uid != record.uuid
+        || attrs.component_uuid != record.uuid
+        || attrs.footprint != record.library_link
+        || attrs.layer_name.as_deref() != metadata.layer
+        || attrs.layer_name.is_some() != attrs.layer_role.is_some()
+        || attrs
+            .layer_name
+            .as_deref()
+            .is_some_and(|layer| attrs.layer_role != Some(board_footprint_layer_role(layer)))
+    {
+        return Err(invalid_board_footprint(
+            path,
+            "child metadata must identify its source, parent footprint, and operation layer",
+        ));
+    }
+    validate_board_footprint_child_shape(operation, data_ref, attrs, &path)?;
+    let key = (
+        board_footprint_child_phase(data_ref),
+        attrs.footprint_object_index,
+        attrs.footprint_subop_index.unwrap_or(0),
+    );
+    if last_key.is_some_and(|previous| previous >= key) {
+        return Err(invalid_board_footprint(
+            path,
+            "footprint children must remain in canonical source-kind and object order",
+        ));
+    }
+    *last_key = Some(key);
+    Ok(())
+}
+
+fn validate_board_footprint_child_shape(
+    operation: &BoardFootprintOperation,
+    data_ref: BoardFootprintChildRef,
+    attrs: &BoardFootprintChildAttrs,
+    path: &str,
+) -> Result<(), ValidationError> {
+    let text_ref = matches!(
+        data_ref,
+        BoardFootprintChildRef::Property
+            | BoardFootprintChildRef::FpText
+            | BoardFootprintChildRef::FpTextBox
+    );
+    let is_text = matches!(operation, BoardFootprintOperation::TextOperation(_));
+    let graphic_kind = match operation {
+        BoardFootprintOperation::ThickSegmentOperation(_) => {
+            Some(if data_ref == BoardFootprintChildRef::FpTextBox {
+                BoardFootprintChildAttrsFootprintGraphicKind::TextBoxBorder
+            } else {
+                BoardFootprintChildAttrsFootprintGraphicKind::Line
+            })
+        }
+        BoardFootprintOperation::ArcThreePointOperation(_) => {
+            Some(BoardFootprintChildAttrsFootprintGraphicKind::Arc)
+        }
+        BoardFootprintOperation::CircleOperation(_) => {
+            Some(BoardFootprintChildAttrsFootprintGraphicKind::Circle)
+        }
+        BoardFootprintOperation::RectOperation(_) => {
+            Some(if data_ref == BoardFootprintChildRef::FpTextBox {
+                BoardFootprintChildAttrsFootprintGraphicKind::TextBoxBorder
+            } else {
+                BoardFootprintChildAttrsFootprintGraphicKind::Rect
+            })
+        }
+        BoardFootprintOperation::PlotPolyOperation(_) => {
+            Some(BoardFootprintChildAttrsFootprintGraphicKind::Poly)
+        }
+        _ => None,
+    };
+    let valid_ref = match operation {
+        BoardFootprintOperation::TextOperation(_) => text_ref,
+        BoardFootprintOperation::ThickSegmentOperation(_) => matches!(
+            data_ref,
+            BoardFootprintChildRef::FpTextBox | BoardFootprintChildRef::FpLine
+        ),
+        BoardFootprintOperation::ArcThreePointOperation(_) => {
+            data_ref == BoardFootprintChildRef::FpArc
+        }
+        BoardFootprintOperation::CircleOperation(_) => data_ref == BoardFootprintChildRef::FpCircle,
+        BoardFootprintOperation::RectOperation(_) => matches!(
+            data_ref,
+            BoardFootprintChildRef::FpTextBox | BoardFootprintChildRef::FpRect
+        ),
+        BoardFootprintOperation::PlotPolyOperation(_) => data_ref == BoardFootprintChildRef::FpPoly,
+        _ => false,
+    };
+    let shape_valid = if is_text {
+        attrs.primitive == BoardFootprintChildAttrsPrimitive::FootprintText
+            && attrs.footprint_text_role.is_some()
+            && attrs.footprint_graphic_kind.is_none()
+            && (data_ref == BoardFootprintChildRef::Property) == attrs.property_name.is_some()
+            && (data_ref == BoardFootprintChildRef::FpText) == attrs.fp_text_type.is_some()
+    } else {
+        attrs.primitive == BoardFootprintChildAttrsPrimitive::FootprintGraphic
+            && attrs.footprint_text_role.is_none()
+            && attrs.property_name.is_none()
+            && attrs.fp_text_type.is_none()
+            && attrs.footprint_graphic_kind == graphic_kind
+    };
+    let subop_required = matches!(
+        data_ref,
+        BoardFootprintChildRef::FpTextBox
+            | BoardFootprintChildRef::FpLine
+            | BoardFootprintChildRef::FpArc
+    );
+    if valid_ref && shape_valid && (attrs.footprint_subop_index.is_some() == subop_required) {
+        Ok(())
+    } else {
+        Err(invalid_board_footprint(
+            path.to_owned(),
+            "child ref, primitive, and typed attributes must match the operation shape",
+        ))
+    }
+}
+
+fn board_footprint_layer_role(layer: &str) -> BoardFootprintLayerRole {
+    if layer.ends_with(".Cu") || matches!(layer, "*.Cu" | "F&B.Cu") {
+        BoardFootprintLayerRole::Copper
+    } else if layer.ends_with(".SilkS") {
+        BoardFootprintLayerRole::Silkscreen
+    } else if layer.ends_with(".Mask") || layer == "*.Mask" {
+        BoardFootprintLayerRole::Soldermask
+    } else if layer.ends_with(".Paste") {
+        BoardFootprintLayerRole::Paste
+    } else if layer.ends_with(".Fab") {
+        BoardFootprintLayerRole::Fab
+    } else if layer.ends_with(".Courtyard") {
+        BoardFootprintLayerRole::Courtyard
+    } else if layer == "Edge.Cuts" {
+        BoardFootprintLayerRole::BoardOutline
+    } else if layer == "DRILLS" {
+        BoardFootprintLayerRole::Drill
+    } else if layer.ends_with(".User") || layer.starts_with("User.") {
+        BoardFootprintLayerRole::User
+    } else {
+        BoardFootprintLayerRole::Other
+    }
+}
+
+fn board_footprint_child_phase(value: BoardFootprintChildRef) -> u8 {
+    match value {
+        BoardFootprintChildRef::Property => 0,
+        BoardFootprintChildRef::FpText => 1,
+        BoardFootprintChildRef::FpTextBox => 2,
+        BoardFootprintChildRef::FpLine => 3,
+        BoardFootprintChildRef::FpArc => 4,
+        BoardFootprintChildRef::FpCircle => 5,
+        BoardFootprintChildRef::FpRect => 6,
+        BoardFootprintChildRef::FpPoly => 7,
+    }
+}
+
+fn validate_board_footprint_pad_block(
+    record: &BoardFootprintPlotRecord,
+    start: &BoardFootprintStartBlockOperation,
+    inner: &BoardFootprintOperation,
+    path: String,
+) -> Result<(), ValidationError> {
+    let attrs = &start.extra_attrs;
+    let pad_number = attrs.pad_number.as_deref();
+    let pad_number_matches = pad_number
+        .map(|number| number == start.object_id)
+        .unwrap_or(start.object_id == "pad");
+    let designator = match (record.reference.as_str(), pad_number) {
+        ("", None) => None,
+        ("", Some(number)) => Some(number.to_owned()),
+        (component, Some(number)) => Some(format!("{component}-{number}")),
+        (_, None) => None,
+    };
+    let layer_names = board_footprint_inner_layers(inner).join(",");
+    let common = optional_nonempty_matches(attrs.component.as_deref(), &record.reference)
+        && optional_nonempty_matches(attrs.component_uid.as_deref(), &record.uuid)
+        && optional_nonempty_matches(attrs.component_uuid.as_deref(), &record.uuid)
+        && optional_nonempty_matches(attrs.footprint.as_deref(), &record.library_link)
+        && pad_number_matches
+        && attrs.pad_designator.as_deref() == designator.as_deref()
+        && attrs
+            .pad_type
+            .as_ref()
+            .is_none_or(|value| !value.is_empty())
+        && attrs
+            .pad_shape
+            .as_ref()
+            .is_none_or(|value| !value.is_empty())
+        && optional_nonempty_matches(attrs.layer_names.as_deref(), &layer_names)
+        && start.label == start.data_uuid;
+    if !common || !board_footprint_operation_metadata_absent(inner) {
+        return Err(invalid_board_footprint(
+            path,
+            "pad block metadata must identify its parent and remain only on StartBlock",
+        ));
+    }
+    match start.data_ref {
+        BoardFootprintStartBlockOperationDataRef::Pad => {
+            let no_hole_attrs = attrs.primitive == BoardFootprintPadBlockAttrsPrimitive::Pad
+                && attrs.hole_owner.is_none()
+                && attrs.hole_kind.is_none()
+                && attrs.hole_plating.is_none()
+                && attrs.hole_render.is_none()
+                && attrs.hole_width_mm.is_none()
+                && attrs.hole_height_mm.is_none()
+                && attrs.hole_diameter_mm.is_none();
+            if no_hole_attrs && validate_board_footprint_pad_flash(inner, &start.layers) {
+                Ok(())
+            } else {
+                Err(invalid_board_footprint(
+                    path,
+                    "pad blocks require one canonical layered flash and no hole attributes",
+                ))
+            }
+        }
+        BoardFootprintStartBlockOperationDataRef::PadHole => {
+            if validate_board_footprint_hole_attrs(attrs, &start.label)
+                && validate_board_footprint_drill(inner, attrs)
+            {
+                Ok(())
+            } else {
+                Err(invalid_board_footprint(
+                    path,
+                    "pad_hole blocks require one drill operation and complete matching hole attributes",
+                ))
+            }
+        }
+    }
+}
+
+fn optional_nonempty_matches(actual: Option<&str>, source: &str) -> bool {
+    actual == (!source.is_empty()).then_some(source)
+}
+
+fn board_footprint_inner_layers(operation: &BoardFootprintOperation) -> &[String] {
+    match operation {
+        BoardFootprintOperation::ThickSegmentOperation(value) => &value.layers,
+        BoardFootprintOperation::CircleOperation(value) => &value.layers,
+        BoardFootprintOperation::FlashPadCircleOperation(value) => &value.layers,
+        BoardFootprintOperation::FlashPadOvalOperation(value) => &value.layers,
+        BoardFootprintOperation::FlashPadRectOperation(value) => &value.layers,
+        BoardFootprintOperation::FlashPadRoundRectOperation(value) => &value.layers,
+        BoardFootprintOperation::FlashPadCustomOperation(value) => &value.layers,
+        BoardFootprintOperation::FlashPadTrapezOperation(value) => &value.layers,
+        _ => &[],
+    }
+}
+
+fn validate_board_footprint_hole_attrs(attrs: &BoardFootprintPadBlockAttrs, label: &str) -> bool {
+    use crate::generated::board_plot_document::BoardFootprintPadBlockAttrsHoleKind as HoleKind;
+    use crate::generated::board_plot_document::BoardFootprintPadBlockAttrsHolePlating as Plating;
+    let dimensions = match attrs.hole_kind {
+        Some(HoleKind::Round) => {
+            attrs.hole_diameter_mm.is_some()
+                && attrs.hole_width_mm.is_none()
+                && attrs.hole_height_mm.is_none()
+        }
+        Some(HoleKind::Slot) => {
+            attrs.hole_diameter_mm.is_none()
+                && attrs.hole_width_mm.is_some()
+                && attrs.hole_height_mm.is_some()
+        }
+        None => false,
+    };
+    let owner = label.strip_suffix(":hole");
+    attrs.primitive == BoardFootprintPadBlockAttrsPrimitive::PadHole
+        && owner.is_some()
+        && attrs.hole_owner.as_deref() == owner
+        && attrs
+            .hole_plating
+            .is_some_and(|value| matches!(value, Plating::Plated | Plating::NonPlated))
+        && attrs.hole_render.is_some()
+        && dimensions
+}
+
+fn validate_board_footprint_pad_flash(
+    operation: &BoardFootprintOperation,
+    start_layers: &[String],
+) -> bool {
+    if start_layers.is_empty() {
+        return false;
+    }
+    match operation {
+        BoardFootprintOperation::FlashPadCircleOperation(value) => {
+            value.kind == "FlashPadCircle"
+                && value.role.is_none()
+                && value.mask_margin_nm.is_some()
+                && value.layers == start_layers
+        }
+        BoardFootprintOperation::FlashPadOvalOperation(value) => {
+            value.kind == "FlashPadOval" && value.layers == start_layers
+        }
+        BoardFootprintOperation::FlashPadRectOperation(value) => {
+            value.kind == "FlashPadRect" && value.layers == start_layers
+        }
+        BoardFootprintOperation::FlashPadRoundRectOperation(value) => {
+            value.kind == "FlashPadRoundRect" && value.layers == start_layers
+        }
+        BoardFootprintOperation::FlashPadCustomOperation(value) => {
+            value.kind == "FlashPadCustom"
+                && value.layers == start_layers
+                && (value.polygon_widths_nm.is_empty()
+                    || value.polygon_widths_nm.len() == value.polygons.len())
+        }
+        BoardFootprintOperation::FlashPadTrapezOperation(value) => {
+            value.kind == "FlashPadTrapez" && value.layers == start_layers
+        }
+        _ => false,
+    }
+}
+
+fn validate_board_footprint_drill(
+    operation: &BoardFootprintOperation,
+    attrs: &BoardFootprintPadBlockAttrs,
+) -> bool {
+    use crate::generated::board_plot_document::BoardFootprintPadBlockAttrsHolePlating as Plating;
+    let (role, layer, layers, mask, size_x, size_y) = match operation {
+        BoardFootprintOperation::CircleOperation(value) => (
+            value.role,
+            value.layer.as_deref(),
+            value.layers.as_slice(),
+            value.mask_margin_nm.is_some(),
+            value.pad_size_x_nm.is_some(),
+            value.pad_size_y_nm.is_some(),
+        ),
+        BoardFootprintOperation::ThickSegmentOperation(value) => (
+            value.role,
+            value.layer.as_deref(),
+            value.layers.as_slice(),
+            value.mask_margin_nm.is_some(),
+            value.pad_size_x_nm.is_some(),
+            value.pad_size_y_nm.is_some(),
+        ),
+        _ => return false,
+    };
+    if layer.is_some() || layers.is_empty() {
+        return false;
+    }
+    match attrs.hole_plating {
+        Some(Plating::Plated) => {
+            role == Some(BoardDrillRole::PadDrill) && !mask && !size_x && !size_y
+        }
+        Some(Plating::NonPlated) => {
+            role == Some(BoardDrillRole::NpthHole) && mask && size_x && size_y
+        }
+        None => false,
+    }
+}
+
+fn board_footprint_operation_metadata_absent(operation: &BoardFootprintOperation) -> bool {
+    macro_rules! absent {
+        ($value:expr) => {
+            $value.label.is_none()
+                && $value.data_uuid.is_none()
+                && $value.data_ref.is_none()
+                && $value.object_id.is_none()
+                && $value.extra_attrs.is_none()
+        };
+    }
+    match operation {
+        BoardFootprintOperation::ThickSegmentOperation(value) => absent!(value),
+        BoardFootprintOperation::ArcThreePointOperation(value) => absent!(value),
+        BoardFootprintOperation::CircleOperation(value) => absent!(value),
+        BoardFootprintOperation::RectOperation(value) => absent!(value),
+        BoardFootprintOperation::PlotPolyOperation(value) => absent!(value),
+        BoardFootprintOperation::BezierCurveOperation(value) => absent!(value),
+        BoardFootprintOperation::TextOperation(value) => absent!(value),
+        BoardFootprintOperation::FlashPadCircleOperation(value) => absent!(value),
+        BoardFootprintOperation::FlashPadOvalOperation(value) => absent!(value),
+        BoardFootprintOperation::FlashPadRectOperation(value) => absent!(value),
+        BoardFootprintOperation::FlashPadRoundRectOperation(value) => absent!(value),
+        BoardFootprintOperation::FlashPadCustomOperation(value) => absent!(value),
+        BoardFootprintOperation::FlashPadTrapezOperation(value) => absent!(value),
+        BoardFootprintOperation::StartBlockOperation(_)
+        | BoardFootprintOperation::EndBlockOperation(_) => false,
+    }
+}
+
+fn validate_board_footprint_text(
+    value: &BoardFootprintTextOperation,
+    path: &str,
+) -> Result<(), ValidationError> {
+    let marker_state = value.mirror.is_none()
+        && value.text_as_polygons.is_none()
+        && value.polyline_per_segment.is_none()
+        && value.knockout != Some(false);
+    let has_cache = value.render_cache.is_some();
+    let cache_keys = has_cache == value.render_cache_source.is_some()
+        && has_cache == value.render_cache_exact.is_some()
+        && has_cache != value.render_cache_polygons.is_empty();
+    let cache_state = match &value.render_cache {
+        Some(cache) => {
+            cache.schema == "kicad.render_cache.v1"
+                && cache.unit == "nm"
+                && cache.coordinate_space == PlotterTextRenderCacheCoordinateSpace::FootprintLocal
+                && value.render_cache_source == Some(cache.source)
+                && value.render_cache_exact == Some(cache.exact)
+                && cache.text == value.text
+                && cache.angle.is_finite()
+                && cache.knockout == value.knockout
+                && cache.polygons.len() == value.render_cache_polygons.len()
+                && cache.polygons.iter().zip(&value.render_cache_polygons).all(
+                    |(polygon, exterior)| {
+                        !polygon.contours.is_empty()
+                            && polygon.contours.iter().all(|contour| contour.len() >= 3)
+                            && points_equal(&polygon.contours[0], exterior)
+                    },
+                )
+        }
+        None => value.knockout.is_none(),
+    };
+    if value.orient_deg.is_finite() && marker_state && cache_keys && cache_state {
+        Ok(())
+    } else {
+        Err(invalid_board_footprint(
+            path.to_owned(),
+            "footprint text markers and footprint-local render cache must be coherent",
+        ))
+    }
+}
+
+fn validate_board_footprint_header(
+    actual_index: u32,
+    actual_kind: &str,
+    expected_index: usize,
+    expected_kind: &str,
+    path: &str,
+) -> Result<(), ValidationError> {
+    let expected_index = u32::try_from(expected_index).map_err(|_| {
+        invalid_board_footprint(
+            format!("{path}.index"),
+            "operation index exceeds the contract range",
+        )
+    })?;
+    if actual_index != expected_index || actual_kind != expected_kind {
+        Err(invalid_board_footprint(
+            path.to_owned(),
+            "operation kind and index must match its structural variant and array position",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+fn board_footprint_operation_index(operation: &BoardFootprintOperation) -> u32 {
+    match operation {
+        BoardFootprintOperation::ThickSegmentOperation(value) => value.index,
+        BoardFootprintOperation::ArcThreePointOperation(value) => value.index,
+        BoardFootprintOperation::CircleOperation(value) => value.index,
+        BoardFootprintOperation::RectOperation(value) => value.index,
+        BoardFootprintOperation::PlotPolyOperation(value) => value.index,
+        BoardFootprintOperation::BezierCurveOperation(value) => value.index,
+        BoardFootprintOperation::TextOperation(value) => value.index,
+        BoardFootprintOperation::FlashPadCircleOperation(value) => value.index,
+        BoardFootprintOperation::FlashPadOvalOperation(value) => value.index,
+        BoardFootprintOperation::FlashPadRectOperation(value) => value.index,
+        BoardFootprintOperation::FlashPadRoundRectOperation(value) => value.index,
+        BoardFootprintOperation::FlashPadCustomOperation(value) => value.index,
+        BoardFootprintOperation::FlashPadTrapezOperation(value) => value.index,
+        BoardFootprintOperation::StartBlockOperation(value) => value.index,
+        BoardFootprintOperation::EndBlockOperation(value) => value.index,
+    }
+}
+
+fn board_footprint_operation_kind(operation: &BoardFootprintOperation) -> &str {
+    match operation {
+        BoardFootprintOperation::ThickSegmentOperation(value) => &value.kind,
+        BoardFootprintOperation::ArcThreePointOperation(value) => &value.kind,
+        BoardFootprintOperation::CircleOperation(value) => &value.kind,
+        BoardFootprintOperation::RectOperation(value) => &value.kind,
+        BoardFootprintOperation::PlotPolyOperation(value) => &value.kind,
+        BoardFootprintOperation::BezierCurveOperation(value) => &value.kind,
+        BoardFootprintOperation::TextOperation(value) => &value.kind,
+        BoardFootprintOperation::FlashPadCircleOperation(value) => &value.kind,
+        BoardFootprintOperation::FlashPadOvalOperation(value) => &value.kind,
+        BoardFootprintOperation::FlashPadRectOperation(value) => &value.kind,
+        BoardFootprintOperation::FlashPadRoundRectOperation(value) => &value.kind,
+        BoardFootprintOperation::FlashPadCustomOperation(value) => &value.kind,
+        BoardFootprintOperation::FlashPadTrapezOperation(value) => &value.kind,
+        BoardFootprintOperation::StartBlockOperation(value) => &value.kind,
+        BoardFootprintOperation::EndBlockOperation(value) => &value.kind,
+    }
+}
+
+fn board_footprint_expected_kind(operation: &BoardFootprintOperation) -> &'static str {
+    match operation {
+        BoardFootprintOperation::ThickSegmentOperation(_) => "ThickSegment",
+        BoardFootprintOperation::ArcThreePointOperation(_) => "ArcThreePoint",
+        BoardFootprintOperation::CircleOperation(_) => "Circle",
+        BoardFootprintOperation::RectOperation(_) => "Rect",
+        BoardFootprintOperation::PlotPolyOperation(_) => "PlotPoly",
+        BoardFootprintOperation::BezierCurveOperation(_) => "BezierCurve",
+        BoardFootprintOperation::TextOperation(_) => "Text",
+        BoardFootprintOperation::FlashPadCircleOperation(_) => "FlashPadCircle",
+        BoardFootprintOperation::FlashPadOvalOperation(_) => "FlashPadOval",
+        BoardFootprintOperation::FlashPadRectOperation(_) => "FlashPadRect",
+        BoardFootprintOperation::FlashPadRoundRectOperation(_) => "FlashPadRoundRect",
+        BoardFootprintOperation::FlashPadCustomOperation(_) => "FlashPadCustom",
+        BoardFootprintOperation::FlashPadTrapezOperation(_) => "FlashPadTrapez",
+        BoardFootprintOperation::StartBlockOperation(_) => "StartBlock",
+        BoardFootprintOperation::EndBlockOperation(_) => "EndBlock",
+    }
+}
+
+fn invalid_board_footprint(path: String, message: &'static str) -> ValidationError {
+    validation_error("invalid_board_footprint", path, message)
 }
 
 fn validate_dimension_operations(
@@ -657,7 +1356,7 @@ fn cache_identities_match(
     let source_matches = value.render_cache_source == Some(cache.source);
     cache.schema == "kicad.render_cache.v1"
         && cache.unit == "nm"
-        && cache.coordinate_space == "board"
+        && cache.coordinate_space == PlotterTextRenderCacheCoordinateSpace::Board
         && source_matches
 }
 

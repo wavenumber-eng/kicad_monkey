@@ -18,6 +18,8 @@ pub struct PcbFootprintProperty {
     pub hidden: bool,
     pub unlocked: bool,
     pub graphical: bool,
+    pub effects: KiCadTextEffects,
+    pub render_cache_range: Option<Range<usize>>,
     pub uuid: Option<String>,
     pub source_range: Range<usize>,
 }
@@ -40,6 +42,7 @@ pub struct PcbFootprintText {
     pub layer: String,
     pub knockout: bool,
     pub hidden: bool,
+    pub unlocked: bool,
     pub uuid: Option<String>,
     pub effects: KiCadTextEffects,
     pub render_cache_range: Option<Range<usize>>,
@@ -138,6 +141,7 @@ fn footprint_text_from_span(
         hidden: has_flag(&header, "hide")
             || child_bool(source, &children, "hide")?
             || effects.hidden,
+        unlocked: has_flag(&header, "unlocked") || child_bool(source, &children, "unlocked")?,
         uuid: optional_uuid(source, &children)?,
         effects,
         render_cache_range: child(&children, "render_cache").map(|span| span.range.clone()),
@@ -356,9 +360,9 @@ fn footprint_property_from_span(
     let children = direct_children(source, &indexed.span, limits.max_object_children, limits)?;
     let at = optional_vector(source, &children, "at", [0.0, 0.0, 0.0])?;
     let graphical = child(&children, "at").is_some() && child(&children, "layer").is_some();
-    let hidden = has_flag(&header, "hide")
-        || child_bool(source, &children, "hide")?
-        || effects_hidden(source, &children, limits)?;
+    let effects = text_effects_from_children(source, &children, limits)?.unwrap_or_default();
+    let hidden =
+        has_flag(&header, "hide") || child_bool(source, &children, "hide")? || effects.hidden;
     Ok(PcbFootprintProperty {
         footprint_index: indexed.parent_index,
         name: required_string(
@@ -378,16 +382,9 @@ fn footprint_property_from_span(
         hidden,
         unlocked: has_flag(&header, "unlocked") || child_bool(source, &children, "unlocked")?,
         graphical,
+        effects,
+        render_cache_range: child(&children, "render_cache").map(|span| span.range.clone()),
         uuid: optional_uuid(source, &children)?,
         source_range: indexed.span.range.clone(),
     })
-}
-
-fn effects_hidden(source: &str, children: &[FormSpan], limits: PcbLimits) -> Result<bool, Error> {
-    let Some(effects) = child(children, "effects") else {
-        return Ok(false);
-    };
-    let header = bounded_scalar_values(source, effects, MAX_EFFECTS_FLAGS)?;
-    let fields = direct_children(source, effects, limits.max_object_children, limits)?;
-    Ok(has_flag(&header, "hide") || child_bool(source, &fields, "hide")?)
 }

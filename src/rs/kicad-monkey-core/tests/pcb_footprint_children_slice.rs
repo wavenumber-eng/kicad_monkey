@@ -17,7 +17,9 @@ const SOURCE: &str = r#"(kicad_pcb
     (clearance 0.25)
     (zone_connect 2)
     (property "Reference" "R1" (at 1 2 90) (layer "F.SilkS")
-      (hide yes) (unlocked yes) (uuid property-id))
+      (hide yes) (unlocked yes) (uuid property-id)
+      (effects (font (face "Inter") (size 1.5 2.5) (thickness 0.2)))
+      (render_cache "R1" 90 (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1)))))
     (property "Datasheet" "https://example.invalid")
     (fp_line (start 0 0) (end 1 0) (stroke (width 0.1) (type solid))
       (layer "F.SilkS") (uuid line-id))
@@ -88,6 +90,19 @@ fn assert_properties(properties: &[kicad_monkey_core::PcbFootprintProperty]) {
     assert!(properties[0].hidden);
     assert!(properties[0].unlocked);
     assert!(properties[0].graphical);
+    assert_eq!(properties[0].effects.font.face.as_deref(), Some("Inter"));
+    assert_eq!(
+        (
+            properties[0].effects.font.size_x,
+            properties[0].effects.font.size_y
+        ),
+        (2.5, 1.5)
+    );
+    let cache = properties[0]
+        .render_cache_range
+        .clone()
+        .expect("property cache range");
+    assert!(SOURCE[cache].starts_with("(render_cache"));
     assert_eq!(properties[0].uuid.as_deref(), Some("property-id"));
     assert!(!properties[1].graphical);
     assert_eq!(properties[1].layer, "F.SilkS");

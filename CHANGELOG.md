@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add bounded PCB-embedded footprint Plotter-IR after zones, preserving
+  footprint-local child ordering and ownership metadata, balanced pad/drill
+  blocks, local render-cache coordinates, strict generated contracts, and
+  native/host/Python-oracle resource evidence.
+
 - Replace the removed shared `WN_TEST_CORPUS` directory convention with the
   bot-compatible `KM_CORPUS` ZIP carrier, safe cached extraction, Rack-visible
   `KM_CORPUS_ROOT`, and an independent `KICAD_CLI_CACHE_ROOT` for oracle tools.

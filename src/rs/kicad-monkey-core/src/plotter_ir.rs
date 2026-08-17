@@ -5,6 +5,7 @@ use crate::footprint_plotter_text::footprint_text_operations;
 pub use crate::plotter_types::*;
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Lexer, Position, Sexp, TokenKind, parse};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
+use std::ops::Range;
 const DEFAULT_FOOTPRINT_VERSION: i64 = 20_260_206;
 const DEFAULT_GENERATOR: &str = "pcbnew";
 const DEFAULT_GENERATOR_VERSION: &str = "10.0";
@@ -271,12 +272,110 @@ fn build_geometry_operations(
             source,
             &span,
             footprint_mask_margin,
+            0.0,
             remaining,
             remaining_points,
-        )?;
+        )?
+        .into_operations();
         append_bounded_operations(&mut operations, additions, limits, &mut point_count)?;
     }
     Ok(operations)
+}
+
+/// Footprint graphic conversion shared by standalone and board-embedded
+/// producers. The source range is already bounded and owned by a typed PCB
+/// view; reparsing just the selected form avoids rebuilding a second tree.
+pub(crate) fn footprint_graphic_operations_from_range(
+    source: &str,
+    range: Range<usize>,
+    head: &str,
+    max_operations: usize,
+    max_points: usize,
+    max_depth: usize,
+    max_nodes: usize,
+) -> Result<Vec<PlotterOperation>, Error> {
+    validate_selected_form(source, range.clone(), max_depth, max_nodes)?;
+    let span = selected_form_span(range, head);
+    match head {
+        "fp_line" => parse_line(source, &span, max_operations),
+        "fp_arc" => parse_arc(source, &span, max_operations),
+        "fp_circle" => Ok(vec![parse_circle(source, &span)?]),
+        "fp_rect" => Ok(vec![parse_rect(source, &span)?]),
+        "fp_poly" => Ok(vec![parse_poly(source, &span, max_points)?]),
+        _ => Err(model_error(
+            "Unsupported footprint graphic",
+            Position::START,
+        )),
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct FootprintPadOperations {
+    pub flash: Vec<PlotterOperation>,
+    pub drill: Vec<PlotterOperation>,
+}
+
+impl FootprintPadOperations {
+    fn into_operations(mut self) -> Vec<PlotterOperation> {
+        self.flash.append(&mut self.drill);
+        self.flash
+    }
+}
+
+/// Pad conversion shared by standalone and board-embedded footprint
+/// producers. Embedded footprints pass the negative placement angle so pad
+/// flashes retain Python's footprint-local orientation convention.
+pub(crate) fn footprint_pad_operations_from_range(
+    source: &str,
+    range: Range<usize>,
+    footprint_mask_margin_mm: f64,
+    orient_deg_offset: f64,
+    max_operations: usize,
+    max_points: usize,
+    max_depth: usize,
+    max_nodes: usize,
+) -> Result<FootprintPadOperations, Error> {
+    validate_selected_form(source, range.clone(), max_depth, max_nodes)?;
+    parse_pad(
+        source,
+        &selected_form_span(range, "pad"),
+        footprint_mask_margin_mm,
+        orient_deg_offset,
+        max_operations,
+        max_points,
+    )
+}
+
+fn validate_selected_form(
+    source: &str,
+    range: Range<usize>,
+    max_depth: usize,
+    max_nodes: usize,
+) -> Result<(), Error> {
+    let selected = source
+        .get(range)
+        .ok_or_else(|| model_error("Footprint child span is outside source", Position::START))?;
+    crate::sexpr::parse_with_limits(
+        selected,
+        crate::sexpr::Limits {
+            max_source_bytes: selected.len(),
+            max_depth,
+            max_nodes,
+            max_decoded_string_bytes: selected.len(),
+        },
+    )?;
+    Ok(())
+}
+
+fn selected_form_span(range: Range<usize>, head: &str) -> FormSpan {
+    FormSpan {
+        head: Some(head.to_owned()),
+        path: vec![head.to_owned()],
+        depth: 0,
+        range,
+        start: Position::START,
+        end: Position::START,
+    }
 }
 
 fn parse_line(
@@ -539,9 +638,10 @@ fn parse_pad(
     source: &str,
     span: &FormSpan,
     footprint_mask_margin_mm: f64,
+    orient_deg_offset: f64,
     max_operations: usize,
     max_points: usize,
-) -> Result<Vec<PlotterOperation>, Error> {
+) -> Result<FootprintPadOperations, Error> {
     let form = parse_span(source, span)?;
     let values = list(&form).ok_or_else(|| model_error("pad must be a list", span.start))?;
     let pad_type = values.get(2).and_then(sexp_text).unwrap_or("");
@@ -549,7 +649,10 @@ fn parse_pad(
     let at = child(&form, "at");
     let x = mm_to_nm(optional_numeric_at(at, 1, 0.0, span.start)?)?;
     let y = mm_to_nm(optional_numeric_at(at, 2, 0.0, span.start)?)?;
-    let orient_deg = finite_number(optional_numeric_at(at, 3, 0.0, span.start)?, span.start)?;
+    let orient_deg = finite_number(
+        optional_numeric_at(at, 3, 0.0, span.start)? + orient_deg_offset,
+        span.start,
+    )?;
     let size = child(&form, "size");
     let size_x_mm = optional_numeric_at(size, 1, 0.0, span.start)?;
     let size_y_mm = optional_numeric_at(size, 2, 0.0, span.start)?;
@@ -588,7 +691,7 @@ fn parse_pad(
         mask_margin_nm,
     };
 
-    let mut output = Vec::new();
+    let mut output = FootprintPadOperations::default();
     if !suppress_npth_flash {
         let flash = match shape {
             "circle" => Some(PlotterOperation::FlashPadCircle(FlashPadCircle {
@@ -657,14 +760,21 @@ fn parse_pad(
             _ => None,
         };
         if let Some(flash) = flash {
-            push_plotter_operation(&mut output, flash, max_operations)?;
+            push_plotter_operation(&mut output.flash, flash, max_operations)?;
         }
     }
 
     if matches!(pad_type, "thru_hole" | "np_thru_hole")
         && let Some(drill_operation) = pad_drill_operation(context, drill)?
     {
-        push_plotter_operation(&mut output, drill_operation, max_operations)?;
+        if output.flash.len() >= max_operations {
+            return Err(limit_error());
+        }
+        push_plotter_operation(
+            &mut output.drill,
+            drill_operation,
+            max_operations - output.flash.len(),
+        )?;
     }
     Ok(output)
 }

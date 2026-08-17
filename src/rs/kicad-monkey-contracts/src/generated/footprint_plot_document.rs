@@ -1612,6 +1612,79 @@ impl ::std::convert::TryFrom<::std::string::String> for PlotterTextHAlign {
         value.parse()
     }
 }
+///Coordinate space carried by one typed text render cache.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Coordinate space carried by one typed text render cache.",
+///  "type": "string",
+///  "enum": [
+///    "board",
+///    "footprint_local"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlotterTextRenderCacheCoordinateSpace {
+    #[serde(rename = "board")]
+    Board,
+    #[serde(rename = "footprint_local")]
+    FootprintLocal,
+}
+impl ::std::fmt::Display for PlotterTextRenderCacheCoordinateSpace {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Board => f.write_str("board"),
+            Self::FootprintLocal => f.write_str("footprint_local"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlotterTextRenderCacheCoordinateSpace {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "board" => Ok(Self::Board),
+            "footprint_local" => Ok(Self::FootprintLocal),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterTextRenderCacheCoordinateSpace {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterTextRenderCacheCoordinateSpace {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterTextRenderCacheCoordinateSpace {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Provenance of one attached text render cache.
 ///
 /// <details><summary>JSON schema</summary>
@@ -2118,8 +2191,7 @@ knockout background restructure replaced the polygons.*/
 ///      "type": "number"
 ///    },
 ///    "coordinate_space": {
-///      "type": "string",
-///      "const": "board"
+///      "$ref": "#/$defs/PlotterTextRenderCacheCoordinateSpace"
 ///    },
 ///    "exact": {
 ///      "type": "boolean"
@@ -2156,7 +2228,7 @@ knockout background restructure replaced the polygons.*/
 #[serde(deny_unknown_fields)]
 pub struct TextRenderCache {
     pub angle: f64,
-    pub coordinate_space: ::std::string::String,
+    pub coordinate_space: PlotterTextRenderCacheCoordinateSpace,
     pub exact: bool,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub knockout: ::std::option::Option<bool>,

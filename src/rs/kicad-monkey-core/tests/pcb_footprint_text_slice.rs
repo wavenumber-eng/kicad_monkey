@@ -3,7 +3,7 @@ use kicad_monkey_core::{ErrorKind, PcbFamily, PcbLimits, PcbSelection, PcbView};
 const SOURCE: &str = r#"(kicad_pcb
   (footprint "Demo:Text"
     (layer "F.Cu")
-    (fp_text reference "R1" (at 1 2 90) hide
+    (fp_text reference "R1" (at 1 2 90) hide unlocked
       (layer "F.SilkS" knockout) (uuid text-id)
       (effects (font (face "Inter") (size 1.5 2.5) (thickness 0.2)
         (line_spacing 1.1) (bold yes) italic (color 1 2 3 0.5))
@@ -44,6 +44,7 @@ fn assert_text_identity(text: &kicad_monkey_core::PcbFootprintText) {
     assert_eq!(text.layer, "F.SilkS");
     assert!(text.knockout);
     assert!(text.hidden);
+    assert!(text.unlocked);
     assert_eq!(text.uuid.as_deref(), Some("text-id"));
 }
 

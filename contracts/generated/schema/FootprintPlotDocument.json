@@ -1096,8 +1096,7 @@
                     "const": "nm"
                 },
                 "coordinate_space": {
-                    "type": "string",
-                    "const": "board"
+                    "$ref": "#/$defs/PlotterTextRenderCacheCoordinateSpace"
                 },
                 "text": {
                     "type": "string"
@@ -1161,6 +1160,14 @@
             "minItems": 4,
             "maxItems": 4,
             "description": "Four pad-local trapezoid corners."
+        },
+        "PlotterTextRenderCacheCoordinateSpace": {
+            "type": "string",
+            "enum": [
+                "board",
+                "footprint_local"
+            ],
+            "description": "Coordinate space carried by one typed text render cache."
         },
         "TextRenderCachePolygon": {
             "type": "object",

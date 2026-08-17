@@ -359,6 +359,114 @@ def test_shared_board_vectors_match_python_generated_types_and_both_schemas() ->
     empty_dimension_text["records"][2]["text"] = ""
     decode_board_plot_document_a0(json.dumps(empty_dimension_text).encode("utf-8"))
 
+    footprints = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"]
+        == "embedded-footprints-follow-zones-and-keep-local-ownership"
+    )
+    assert [record["kind"] for record in footprints["records"]] == [
+        "zone_fill",
+        "footprint",
+        "footprint",
+    ]
+    rich = footprints["records"][1]
+    empty = footprints["records"][2]
+    assert rich["placement"] == {
+        "x_nm": 10_000_000,
+        "y_nm": 20_000_000,
+        "angle_deg": 90,
+    }
+    assert [operation["kind"] for operation in rich["operations"]] == [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Rect",
+        "Text",
+        "ThickSegment",
+        "ArcThreePoint",
+        "Circle",
+        "Rect",
+        "PlotPoly",
+        "StartBlock",
+        "FlashPadOval",
+        "EndBlock",
+        "StartBlock",
+        "ThickSegment",
+        "EndBlock",
+    ]
+    assert rich["operations"][0]["render_cache"]["coordinate_space"] == (
+        "footprint_local"
+    )
+    assert rich["operations"][0]["render_cache_polygons"] == [
+        [[0, 0], [-1_000_000, 0], [-1_000_000, -1_000_000]]
+    ]
+    assert "mirror" not in rich["operations"][3]
+    assert rich["operations"][6]["extra_attrs"]["footprint_object_index"] == 0
+    assert rich["operations"][6]["extra_attrs"]["footprint_subop_index"] == 0
+    assert rich["operations"][11]["extra_attrs"]["net_classes"] == (
+        "Power,HighCurrent"
+    )
+    assert rich["operations"][12]["orient_deg"] == 45.0
+    assert rich["operations"][14]["extra_attrs"]["hole_height_mm"] == "1.0"
+    assert empty["operations"] == []
+    assert empty["layer"] == "F.Cu"
+    assert empty["descr"] == ""
+    assert empty["tags"] == ""
+
+    footprint_mutations = []
+
+    missing_placement = json.loads(json.dumps(footprints))
+    del missing_placement["records"][1]["placement"]
+    footprint_mutations.append(missing_placement)
+
+    non_integer_child_index = json.loads(json.dumps(footprints))
+    non_integer_child_index["records"][1]["operations"][6]["extra_attrs"][
+        "footprint_object_index"
+    ] = "0"
+    footprint_mutations.append(non_integer_child_index)
+
+    missing_child_owner = json.loads(json.dumps(footprints))
+    del missing_child_owner["records"][1]["operations"][6]["data_ref"]
+    footprint_mutations.append(missing_child_owner)
+
+    board_space_cache = json.loads(json.dumps(footprints))
+    board_space_cache["records"][1]["operations"][0]["render_cache"][
+        "coordinate_space"
+    ] = "board"
+    footprint_mutations.append(board_space_cache)
+
+    false_mirror_marker = json.loads(json.dumps(footprints))
+    false_mirror_marker["records"][1]["operations"][3]["mirror"] = False
+    footprint_mutations.append(false_mirror_marker)
+
+    broken_pad_block = json.loads(json.dumps(footprints))
+    del broken_pad_block["records"][1]["operations"][13]
+    for index, operation in enumerate(broken_pad_block["records"][1]["operations"]):
+        operation["index"] = index
+    broken_pad_block["records"][1]["operation_count"] -= 1
+    broken_pad_block["total_operations"] -= 1
+    footprint_mutations.append(broken_pad_block)
+
+    non_string_hole_dimension = json.loads(json.dumps(footprints))
+    non_string_hole_dimension["records"][1]["operations"][14]["extra_attrs"][
+        "hole_height_mm"
+    ] = 1.0
+    footprint_mutations.append(non_string_hole_dimension)
+
+    null_description = json.loads(json.dumps(footprints))
+    null_description["records"][2]["descr"] = None
+    footprint_mutations.append(null_description)
+
+    wrong_record_order = json.loads(json.dumps(footprints))
+    wrong_record_order["records"][0:2] = reversed(wrong_record_order["records"][0:2])
+    footprint_mutations.append(wrong_record_order)
+
+    for mutation in footprint_mutations:
+        with pytest.raises(msgspec.ValidationError):
+            decode_board_plot_document_a0(json.dumps(mutation).encode("utf-8"))
+
 
 def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:
     _run([sys.executable, "scripts/generate_board_plotter_vectors.py", "--check"])
@@ -396,6 +504,28 @@ def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:
             "kicad-monkey-core",
             "--test",
             "board_dimension_slice",
+        ]
+    )
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "board_footprint_slice",
+        ]
+    )
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-contracts",
+            "--test",
+            "board_plot_contracts",
         ]
     )
     _run(

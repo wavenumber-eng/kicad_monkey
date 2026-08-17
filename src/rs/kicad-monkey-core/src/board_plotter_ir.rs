@@ -9,6 +9,7 @@
 
 mod copper;
 mod dimension;
+mod footprint;
 mod graphics;
 mod stroke_font_widths;
 mod table;
@@ -31,7 +32,8 @@ use copper::{segment_record, track_arc_record, via_operation_count, via_record, 
 use graphics::graphic_records;
 pub use text::{
     BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
-    BoardTextRecord, BoardTextRenderCache, BoardTextRenderCacheSource, BoardTextVAlign,
+    BoardTextRecord, BoardTextRenderCache, BoardTextRenderCacheCoordinateSpace,
+    BoardTextRenderCacheSource, BoardTextVAlign,
 };
 pub use text_variables::BoardTextVariables;
 
@@ -72,6 +74,118 @@ pub struct BoardDimensionRecord {
     pub operations: Vec<BoardDimensionOperation>,
 }
 
+/// Canonical ownership metadata attached to one embedded-footprint child
+/// operation by the established Python producer.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BoardFootprintChildMetadata {
+    pub label: String,
+    pub data_uuid: String,
+    pub data_ref: String,
+    pub object_id: String,
+    pub extra_attrs: BoardFootprintChildAttributes,
+}
+
+/// Closed, typed child attributes serialized under `extra_attrs`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BoardFootprintChildAttributes {
+    pub component: String,
+    pub component_uid: String,
+    pub component_uuid: String,
+    pub footprint: String,
+    pub layer_name: Option<String>,
+    pub layer_role: Option<String>,
+    pub primitive: String,
+    pub footprint_primitive: String,
+    pub footprint_object_index: usize,
+    pub footprint_subop_index: Option<usize>,
+    pub footprint_text_role: Option<String>,
+    pub property_name: Option<String>,
+    pub fp_text_type: Option<String>,
+    pub footprint_graphic_kind: Option<String>,
+}
+
+/// Closed string-valued block attributes. Python's `start_block` helper
+/// stringifies every retained value and drops empty values.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BoardFootprintBlockAttributes {
+    pub primitive: String,
+    pub component: Option<String>,
+    pub component_uid: Option<String>,
+    pub component_uuid: Option<String>,
+    pub footprint: Option<String>,
+    pub pad_number: Option<String>,
+    pub pad_designator: Option<String>,
+    pub pad_type: Option<String>,
+    pub pad_shape: Option<String>,
+    pub layer_names: Option<String>,
+    pub net_index: Option<String>,
+    pub net_id: Option<String>,
+    pub net: Option<String>,
+    pub net_class: Option<String>,
+    pub net_classes: Option<String>,
+    pub hole_owner: Option<String>,
+    pub hole_kind: Option<String>,
+    pub hole_plating: Option<String>,
+    pub hole_render: Option<String>,
+    pub hole_diameter_mm: Option<String>,
+    pub hole_width_mm: Option<String>,
+    pub hole_height_mm: Option<String>,
+}
+
+/// One grouping marker surrounding a pad flash or its independently grouped
+/// drill operation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BoardFootprintBlock {
+    pub label: String,
+    pub data_uuid: String,
+    pub data_ref: String,
+    pub object_id: String,
+    pub layers: Vec<String>,
+    pub extra_attrs: BoardFootprintBlockAttributes,
+}
+
+/// One operation in an embedded board-footprint record. Geometry and text
+/// children retain source ownership metadata; pad payloads are bracketed by
+/// explicit block markers exactly as in the Python plotter IR.
+#[derive(Clone, Debug, PartialEq)]
+pub enum BoardFootprintOperation {
+    Geometry {
+        operation: PlotterOperation,
+        metadata: BoardFootprintChildMetadata,
+    },
+    Text {
+        operation: BoardTextOperation,
+        metadata: BoardFootprintChildMetadata,
+    },
+    Pad(PlotterOperation),
+    StartBlock(BoardFootprintBlock),
+    EndBlock,
+}
+
+/// Board-local placement carried separately from footprint-local operations.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BoardFootprintPlacement {
+    pub x_nm: i64,
+    pub y_nm: i64,
+    pub angle_deg: f64,
+}
+
+/// One PCB-embedded footprint record in canonical child-family order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoardFootprintRecord {
+    pub uuid: String,
+    pub library_link: String,
+    pub reference: String,
+    pub value: String,
+    pub layer: String,
+    pub locked: bool,
+    pub descr: String,
+    pub tags: String,
+    pub attr: Vec<String>,
+    pub placement: BoardFootprintPlacement,
+    pub operations: Vec<BoardFootprintOperation>,
+}
+
 /// Limits for one board plotter conversion.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BoardPlotLimits {
@@ -84,6 +198,9 @@ pub struct BoardPlotLimits {
     pub max_text_bytes: usize,
     /// Aggregate net-class string bytes retained across emitted records.
     pub max_net_class_bytes: usize,
+    /// Aggregate embedded-footprint ownership/record metadata bytes retained
+    /// after source decoding.
+    pub max_metadata_bytes: usize,
     /// Maximum generic S-expression nodes or direct children in one carrier.
     pub max_parse_nodes: usize,
     /// Aggregate decoded input points retained before operation conversion.
@@ -106,6 +223,7 @@ impl Default for BoardPlotLimits {
             max_points: 1_000_000,
             max_text_bytes: 16 * 1024 * 1024,
             max_net_class_bytes: 16 * 1024 * 1024,
+            max_metadata_bytes: 16 * 1024 * 1024,
             max_parse_nodes: 1_000_000,
             max_input_points: 1_000_000,
             max_input_polygons: 100_000,
@@ -289,6 +407,7 @@ pub enum BoardPlotRecord {
     Table(BoardTableRecord),
     Dimension(BoardDimensionRecord),
     Zone(BoardZoneRecord),
+    Footprint(BoardFootprintRecord),
 }
 
 impl BoardPlotRecord {
@@ -303,6 +422,7 @@ impl BoardPlotRecord {
             Self::Table(record) => record.operations.len(),
             Self::Dimension(record) => record.operations.len(),
             Self::Zone(record) => record.operations.len(),
+            Self::Footprint(record) => record.operations.len(),
         }
     }
 }
@@ -410,6 +530,8 @@ struct BudgetTracker {
     text_bytes: usize,
     max_net_class_bytes: usize,
     net_class_bytes: usize,
+    max_metadata_bytes: usize,
+    metadata_bytes: usize,
 }
 
 impl BudgetTracker {
@@ -455,6 +577,14 @@ impl BudgetTracker {
             .ok_or_else(text_limit_error)
     }
 
+    fn ensure_text_capacity(&self, bytes: usize) -> Result<(), Error> {
+        self.text_bytes
+            .checked_add(bytes)
+            .filter(|total| *total <= self.max_text_bytes)
+            .ok_or_else(text_limit_error)?;
+        Ok(())
+    }
+
     fn charge_text(&mut self, bytes: usize) -> Result<(), Error> {
         self.text_bytes = self.text_bytes.saturating_add(bytes);
         if self.text_bytes > self.max_text_bytes {
@@ -469,6 +599,15 @@ impl BudgetTracker {
             .checked_add(bytes)
             .filter(|total| *total <= self.max_net_class_bytes)
             .ok_or_else(net_class_limit_error)?;
+        Ok(())
+    }
+
+    fn charge_metadata(&mut self, bytes: usize) -> Result<(), Error> {
+        self.metadata_bytes = self
+            .metadata_bytes
+            .checked_add(bytes)
+            .filter(|total| *total <= self.max_metadata_bytes)
+            .ok_or_else(metadata_limit_error)?;
         Ok(())
     }
 }
@@ -526,6 +665,8 @@ pub fn board_plot_document_with_text_cache_sidecar(
         text_bytes: 0,
         max_net_class_bytes: limits.max_net_class_bytes,
         net_class_bytes: 0,
+        max_metadata_bytes: limits.max_metadata_bytes,
+        metadata_bytes: 0,
     };
     // Decode the shared graphics family once, then partition borrowed carriers
     // into the Python category order for geometry and text producers.
@@ -592,12 +733,26 @@ pub fn board_plot_document_with_text_cache_sidecar(
         .and_then(|count| count.checked_add(decoded_dimension_points))
         .filter(|count| *count <= limits.max_input_points)
         .ok_or_else(input_point_limit_error)?;
+    let mut decoded_input_polygons = 0usize;
     append_zone_records(
         &view,
         net_classes,
         &mut budget,
         limits,
         &mut decoded_input_points,
+        &mut decoded_input_polygons,
+        &mut records,
+    )?;
+    footprint::append_footprint_records(
+        source,
+        &view,
+        net_classes,
+        &mut budget,
+        text_cache.as_ref(),
+        metadata.pad_to_mask_clearance,
+        limits,
+        &mut decoded_input_points,
+        &mut decoded_input_polygons,
         &mut records,
     )?;
     Ok(BoardPlotDocument {
@@ -639,16 +794,16 @@ fn append_zone_records(
     budget: &mut BudgetTracker,
     limits: BoardPlotLimits,
     decoded_input_points: &mut usize,
+    decoded_input_polygons: &mut usize,
     records: &mut Vec<BoardPlotRecord>,
 ) -> Result<(), Error> {
-    let mut decoded_input_polygons = 0usize;
     for zone in view.zones() {
         let zone = zone.map_err(normalize_input_limit_error)?;
         let zone_polygons = zone
             .polygons
             .len()
             .saturating_add(zone.filled_polygons.len());
-        decoded_input_polygons = decoded_input_polygons
+        *decoded_input_polygons = decoded_input_polygons
             .checked_add(zone_polygons)
             .filter(|count| *count <= limits.max_input_polygons)
             .ok_or_else(input_polygon_limit_error)?;
@@ -715,6 +870,27 @@ fn board_pcb_limits(limits: BoardPlotLimits) -> PcbLimits {
     PcbLimits {
         max_source_bytes: limits.max_source_bytes,
         max_depth: limits.max_depth,
+        max_top_level_forms: limits.max_parse_nodes,
+        max_object_children: limits.max_parse_nodes,
+        max_nets: limits.max_graphics,
+        max_footprints: limits.max_graphics,
+        max_footprint_children: limits.max_parse_nodes,
+        max_footprint_attributes: limits.max_parse_nodes.min(256),
+        max_footprint_properties: limits.max_graphics,
+        max_footprint_graphics: limits.max_graphics,
+        max_footprint_texts: limits.max_graphics,
+        max_footprint_text_boxes: limits.max_graphics,
+        max_text_effect_children: limits.max_parse_nodes,
+        max_text_font_children: limits.max_parse_nodes,
+        max_text_justify_tokens: limits.max_parse_nodes,
+        max_text_box_points: limits.max_input_points,
+        max_pad_header_scalars: limits.max_parse_nodes.min(256),
+        max_pad_children: limits.max_parse_nodes,
+        max_pad_chamfer_corners: limits.max_parse_nodes,
+        max_pad_custom_primitives: limits.max_input_polygons,
+        max_pad_custom_point_forms: limits.max_input_points,
+        max_pad_custom_points: limits.max_input_points,
+        max_pads: limits.max_graphics,
         max_graphics: limits.max_graphics,
         max_graphic_points: limits.max_input_points,
         // The request-level record budget bounds every promoted family.
@@ -728,7 +904,6 @@ fn board_pcb_limits(limits: BoardPlotLimits) -> PcbLimits {
         max_table_values: limits.max_parse_nodes,
         max_zone_polygons: limits.max_input_polygons,
         max_zone_points: limits.max_input_points,
-        max_object_children: limits.max_parse_nodes,
         ..PcbLimits::default()
     }
 }
@@ -776,6 +951,12 @@ fn board_selection() -> PcbSelection {
         .with(PcbFamily::Tables)
         .with(PcbFamily::Dimensions)
         .with(PcbFamily::Zones)
+        .with(PcbFamily::Footprints)
+        .with(PcbFamily::FootprintProperties)
+        .with(PcbFamily::FootprintGraphics)
+        .with(PcbFamily::FootprintTexts)
+        .with(PcbFamily::FootprintTextBoxes)
+        .with(PcbFamily::Pads)
 }
 
 /// Python `_net_extras`: `net_id` follows the resolved ordinal and
@@ -875,6 +1056,15 @@ fn net_class_limit_error() -> Error {
         ErrorPhase::Tree,
         ErrorKind::ResourceLimit,
         "Board plotter retained net-class strings exceed max_net_class_bytes",
+        Position::START,
+    )
+}
+
+fn metadata_limit_error() -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        "Board footprint metadata exceeds max_metadata_bytes",
         Position::START,
     )
 }

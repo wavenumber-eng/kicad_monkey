@@ -1,7 +1,10 @@
 //! Authored board-text render-cache decoding and knockout restructuring.
 
 use super::point_limit_error;
-use super::text::{BoardTextOperation, BoardTextRenderCache, BoardTextRenderCacheSource};
+use super::text::{
+    BoardTextOperation, BoardTextRenderCache, BoardTextRenderCacheCoordinateSpace,
+    BoardTextRenderCacheSource,
+};
 use crate::TextRenderCache;
 use crate::plotter_ir::{child, ensure_javascript_safe_integer, mm_to_nm, model_error, numeric_at};
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position, Sexp};
@@ -192,6 +195,26 @@ pub(super) fn attach_authored_cache(
     max_retained_points: usize,
     knockout: bool,
 ) -> Result<(), Error> {
+    attach_authored_cache_mapped(
+        operation,
+        cache,
+        exact,
+        max_retained_points,
+        knockout,
+        BoardTextRenderCacheCoordinateSpace::Board,
+        |x, y| Ok([mm_to_nm(x)?, mm_to_nm(y)?]),
+    )
+}
+
+pub(super) fn attach_authored_cache_mapped(
+    operation: &mut BoardTextOperation,
+    cache: &AuthoredRenderCache,
+    exact: bool,
+    max_retained_points: usize,
+    knockout: bool,
+    coordinate_space: BoardTextRenderCacheCoordinateSpace,
+    mut map_point: impl FnMut(f64, f64) -> Result<[i64; 2], Error>,
+) -> Result<(), Error> {
     let retained_points = cache.polygons.iter().try_fold(0usize, |total, polygon| {
         let contour_points = polygon
             .iter()
@@ -213,7 +236,7 @@ pub(super) fn attach_authored_cache(
             }
             let points = contour
                 .iter()
-                .map(|[x, y]| Ok([mm_to_nm(*x)?, mm_to_nm(*y)?]))
+                .map(|[x, y]| map_point(*x, *y))
                 .collect::<Result<Vec<_>, Error>>()?;
             contours.push(points);
         }
@@ -235,6 +258,7 @@ pub(super) fn attach_authored_cache(
         exact,
         knockout: false,
         source: BoardTextRenderCacheSource::ExistingFile,
+        coordinate_space,
         polygons: typed,
     });
     Ok(())
@@ -245,6 +269,22 @@ pub(super) fn attach_native_cache(
     operation: &mut BoardTextOperation,
     cache: TextRenderCache,
     max_retained_points: usize,
+) -> Result<(), Error> {
+    attach_native_cache_mapped(
+        operation,
+        cache,
+        max_retained_points,
+        BoardTextRenderCacheCoordinateSpace::Board,
+        |x, y| Ok([mm_to_nm(x)?, mm_to_nm(y)?]),
+    )
+}
+
+pub(super) fn attach_native_cache_mapped(
+    operation: &mut BoardTextOperation,
+    cache: TextRenderCache,
+    max_retained_points: usize,
+    coordinate_space: BoardTextRenderCacheCoordinateSpace,
+    mut map_point: impl FnMut(f64, f64) -> Result<[i64; 2], Error>,
 ) -> Result<(), Error> {
     let retained_points = cache.polygons.iter().try_fold(0usize, |total, polygon| {
         let contour_points = polygon.contours.iter().try_fold(0usize, |count, contour| {
@@ -271,7 +311,7 @@ pub(super) fn attach_native_cache(
                 contour
                     .points
                     .into_iter()
-                    .map(|point| Ok([mm_to_nm(point.x)?, mm_to_nm(point.y)?]))
+                    .map(|point| map_point(point.x, point.y))
                     .collect::<Result<Vec<_>, Error>>()
             })
             .collect::<Result<Vec<_>, Error>>()?;
@@ -290,6 +330,7 @@ pub(super) fn attach_native_cache(
         exact: false,
         knockout: false,
         source: BoardTextRenderCacheSource::NativeGenerated,
+        coordinate_space,
         polygons,
     });
     Ok(())

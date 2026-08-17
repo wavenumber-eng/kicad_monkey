@@ -14,15 +14,15 @@ const DEFAULT_TEXT_BOX_BORDER_WIDTH_NM: i64 = 200_000;
 const DEFAULT_TEXT_SIZE_NM: i64 = 1_270_000;
 
 #[derive(Clone, Copy)]
-struct TextOperationInput<'a> {
-    x: f64,
-    y: f64,
-    angle: f64,
-    layer: &'a str,
-    effects: &'a KiCadTextEffects,
-    default_h: PlotterTextHAlign,
-    default_v: PlotterTextVAlign,
-    multiline: bool,
+pub(crate) struct TextOperationInput<'a> {
+    pub x: f64,
+    pub y: f64,
+    pub angle: f64,
+    pub layer: &'a str,
+    pub effects: &'a KiCadTextEffects,
+    pub default_h: PlotterTextHAlign,
+    pub default_v: PlotterTextVAlign,
+    pub multiline: bool,
 }
 
 pub(crate) fn footprint_text_operations(
@@ -223,7 +223,7 @@ fn text_box_operations(
     Ok(operations)
 }
 
-fn operation_from_effects(
+pub(crate) fn operation_from_effects(
     text: String,
     input: TextOperationInput<'_>,
 ) -> Result<PlotterText, Error> {
@@ -256,7 +256,7 @@ fn operation_from_effects(
     })
 }
 
-fn alignments(
+pub(crate) fn alignments(
     effects: &KiCadTextEffects,
 ) -> (Option<PlotterTextHAlign>, Option<PlotterTextVAlign>) {
     let mut horizontal = None;
@@ -292,7 +292,7 @@ fn rgba_to_hex(color: KiCadColor) -> Option<String> {
     ))
 }
 
-fn text_box_border_width(width: Option<f64>) -> Result<i64, Error> {
+pub(crate) fn text_box_border_width(width: Option<f64>) -> Result<i64, Error> {
     let width = width.unwrap_or(0.0);
     if width < 0.0 {
         return Ok(0);

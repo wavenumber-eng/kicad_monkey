@@ -1,11 +1,12 @@
 use kicad_monkey_contracts::generated::shaping_record::ShapingInput;
 use kicad_monkey_core::{
-    BoardDimensionOperation, BoardPlotLimits, BoardPlotRecord, BoardTableOperation,
-    BoardTextBoxOperation, BoardTextRenderCacheSource, BoardTextVariables, ErrorKind,
-    PlotterTextCacheLimits, PlotterTextCacheResources, PlotterTextFont, TextBlockLayoutRequest,
-    TextHorizontalAlignment, TextRenderCache, TextVerticalAlignment,
-    board_plot_document_with_sidecars, board_plot_document_with_text_cache_sidecar,
-    generate_text_render_cache_block_hinted_a0, linebreak_text_block_hinted_a0,
+    BoardDimensionOperation, BoardFootprintOperation, BoardPlotLimits, BoardPlotRecord,
+    BoardTableOperation, BoardTextBoxOperation, BoardTextRenderCacheCoordinateSpace,
+    BoardTextRenderCacheSource, BoardTextVariables, ErrorKind, PlotterTextCacheLimits,
+    PlotterTextCacheResources, PlotterTextFont, TextBlockLayoutRequest, TextHorizontalAlignment,
+    TextRenderCache, TextVerticalAlignment, board_plot_document_with_sidecars,
+    board_plot_document_with_text_cache_sidecar, generate_text_render_cache_block_hinted_a0,
+    linebreak_text_block_hinted_a0,
 };
 use serde::Deserialize;
 
@@ -17,6 +18,57 @@ const FONT_BYTES: &[u8] = include_bytes!(concat!(
 #[derive(Deserialize)]
 struct Vectors {
     records: Vec<Record>,
+}
+
+#[test]
+fn embedded_footprint_faced_text_generates_a_local_native_cache() {
+    let source = r#"(kicad_pcb
+      (footprint "Demo:Native" (at 10 20 90) (uuid "native-footprint")
+        (property "Reference" "U1" (at 1 2 45) (layer "B.SilkS")
+          (effects (font (face "Native Fixture") (size 1 1)))
+          (uuid "native-reference"))))"#;
+    let fonts = [font()];
+    let resources = PlotterTextCacheResources {
+        fonts: &fonts,
+        limits: PlotterTextCacheLimits::default(),
+    };
+    let document = board_plot_document_with_text_cache_sidecar(
+        source,
+        BoardPlotLimits::default(),
+        &Default::default(),
+        &BoardTextVariables::default(),
+        Some(&resources),
+    )
+    .expect("embedded footprint native cache");
+    let BoardPlotRecord::Footprint(record) = &document.records[0] else {
+        panic!("expected footprint record");
+    };
+    let BoardFootprintOperation::Text { operation, .. } = &record.operations[0] else {
+        panic!("expected footprint text operation");
+    };
+    let cache = operation.render_cache.as_ref().expect("native cache");
+    assert_eq!(
+        cache.coordinate_space,
+        BoardTextRenderCacheCoordinateSpace::FootprintLocal
+    );
+    assert_eq!(cache.source, BoardTextRenderCacheSource::NativeGenerated);
+    assert!(!cache.exact);
+    assert_eq!(cache.text, "U1");
+    assert!(!cache.polygons.is_empty());
+    assert_eq!(operation.render_cache_polygons.len(), cache.polygons.len());
+
+    let error = board_plot_document_with_text_cache_sidecar(
+        source,
+        BoardPlotLimits {
+            max_text_bytes: 3,
+            ..BoardPlotLimits::default()
+        },
+        &Default::default(),
+        &BoardTextVariables::default(),
+        Some(&resources),
+    )
+    .expect_err("operation and native cache retain two copies of the text");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
 }
 
 #[derive(Deserialize)]
