@@ -910,7 +910,11 @@ class KiCadPcb:
 
     def resolve_net_ref(self, net_ref: NetRef | None) -> NetRef:
         """Resolve a board-element net reference against the PCB net table when possible."""
-        return self.net_table().resolve(net_ref)
+        if net_ref is None:
+            return NetRef()
+        name_by_ordinal = self.net_name_by_ordinal()
+        ordinal_by_name = {name: ordinal for ordinal, name in name_by_ordinal.items() if name}
+        return net_ref.resolve_name(name_by_ordinal).resolve_ordinal(ordinal_by_name)
 
     def resolve_net_name(self, net_ref: NetRef | None) -> str:
         """Resolve a board-element net name from a NetRef."""

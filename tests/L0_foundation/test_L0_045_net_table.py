@@ -65,3 +65,19 @@ def test_net_table_public_constructor_detaches_and_derives_reverse_lookup() -> N
 
 def test_net_table_excludes_the_empty_name_from_reverse_lookup() -> None:
     assert "" not in _table().ordinal_by_name
+
+
+def test_one_off_board_resolution_does_not_build_an_immutable_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pcb = KiCadPcb()
+    pcb.nets = [Net(ordinal=0, name=""), Net(ordinal=1, name="GND")]
+
+    def unexpected_snapshot(_board: KiCadPcb) -> NetTable:
+        raise AssertionError("one-off resolution must not freeze a NetTable")
+
+    monkeypatch.setattr(KiCadPcb, "net_table", unexpected_snapshot)
+
+    assert pcb.resolve_net_ref(NetRef(name="GND")) == NetRef(ordinal=1, name="GND")
+    assert pcb.resolve_net_name(NetRef(ordinal=1)) == "GND"
+    assert pcb.resolve_net_ref(None) == NetRef()
