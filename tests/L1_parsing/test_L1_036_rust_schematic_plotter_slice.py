@@ -268,6 +268,58 @@ def test_shared_schematic_vectors_match_python_and_both_schemas() -> None:
         ("AB", 6_250_000, 8_340_000),
     ]
 
+    symbols = _vector(
+        payload, "placed-symbols-pins-fields-dnp-and-overplots"
+    )["expected"]
+    assert symbols["total_operations"] == 37
+    assert [record["kind"] for record in symbols["records"]] == [
+        "sheet_header",
+        "symbol_instance",
+        "symbol_instance",
+        "symbol_overplot",
+        "symbol_overplot",
+    ]
+    first = symbols["records"][1]
+    assert first["reference"] == "U7"
+    assert first["mirror"] is None
+    assert [operation["kind"] for operation in first["operations"][3:8]] == [
+        "StartBlock",
+        "PlotPoly",
+        "Text",
+        "Text",
+        "EndBlock",
+    ]
+    assert first["operations"][3]["extra_attrs"] == {
+        "primitive": "pin",
+        "object-type": "pin",
+        "pin": "1",
+        "symbol-uuid": "placed-1",
+        "designator": "U?",
+        "lib-pin-uuid": "lib-pin-1",
+    }
+    assert first["operations"][9]["context"]["hyperlink"]["href"] == (
+        "https://example.test/part"
+    )
+    assert [operation["stroke_color"] for operation in first["operations"][-2:]] == [
+        "#DC090DD9",
+        "#DC090DD9",
+    ]
+    assert symbols["records"][3]["uuid"] == "placed-1:overplot"
+    assert symbols["records"][3]["operations"][2]["label"] == (
+        "placed-pin-1__overplot"
+    )
+    second = symbols["records"][2]
+    assert (second["at_angle_deg"], second["mirror"]) == (90.0, "x")
+    assert second["operations"][4]["points"] == [
+        [10_000_000, 9_000_000],
+        [10_000_000, 8_000_000],
+    ]
+    assert (
+        second["operations"][5]["orient_deg"],
+        second["operations"][6]["h_align"],
+    ) == (90.0, "GR_TEXT_H_ALIGN_RIGHT")
+    assert first["operations"][9]["y"] == 12_462_900
+
     graphics_vector = _vector(
         payload, "schematic-graphics-rules-images-and-table-family-order"
     )
@@ -456,6 +508,9 @@ def test_schematic_contract_rejects_noncanonical_structure_and_semantics() -> No
     graphics = _vector(
         payload, "schematic-graphics-rules-images-and-table-family-order"
     )["expected"]
+    symbols = _vector(
+        payload, "placed-symbols-pins-fields-dnp-and-overplots"
+    )["expected"]
 
     mutations = []
 
@@ -574,6 +629,36 @@ def test_schematic_contract_rejects_noncanonical_structure_and_semantics() -> No
     ]
     mutations.append(table_with_cache)
 
+    wrong_symbol_identity = _clone(symbols)
+    wrong_symbol_identity["records"][1]["object_id"] = "other"
+    mutations.append(wrong_symbol_identity)
+
+    wrong_symbol_phase = _clone(symbols)
+    wrong_symbol_phase["records"][2:4] = reversed(
+        wrong_symbol_phase["records"][2:4]
+    )
+    mutations.append(wrong_symbol_phase)
+
+    wrong_pin_parent = _clone(symbols)
+    wrong_pin_parent["records"][1]["operations"][3]["extra_attrs"][
+        "symbol-uuid"
+    ] = "placed-2"
+    mutations.append(wrong_pin_parent)
+
+    foreign_pin_attr = _clone(symbols)
+    foreign_pin_attr["records"][1]["operations"][3]["extra_attrs"]["foreign"] = "x"
+    mutations.append(foreign_pin_attr)
+
+    pin_hyperlink = _clone(symbols)
+    pin_hyperlink["records"][1]["operations"][5]["context"] = {
+        "hyperlink": {"href": "https://example.test/pin"}
+    }
+    mutations.append(pin_hyperlink)
+
+    wrong_overplot_uuid = _clone(symbols)
+    wrong_overplot_uuid["records"][3]["uuid"] = "wrong:overplot"
+    mutations.append(wrong_overplot_uuid)
+
     for mutation in mutations:
         with pytest.raises(msgspec.ValidationError):
             decode_schematic_plot_document_a0(json.dumps(mutation).encode("utf-8"))
@@ -588,6 +673,7 @@ def test_python_oracle_uses_injected_context_without_path_discovery() -> None:
             payload, "schematic-graphics-rules-images-and-table-family-order"
         ),
         _vector(payload, "explicit-font-metrics-for-schematic-table"),
+        _vector(payload, "placed-symbols-pins-fields-dnp-and-overplots"),
     ]
     discovery_helpers = (
         "_project_file_for_schematic_path",

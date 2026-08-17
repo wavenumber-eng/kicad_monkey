@@ -8,6 +8,7 @@
 mod annotation_render;
 mod graphic_render;
 mod image_decode;
+mod symbol_render;
 mod table_render;
 mod worksheet_render;
 
@@ -23,6 +24,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use annotation_render::{annotation_variables, append_annotation_records};
 use graphic_render::{append_graphic_records, append_image_records, append_rule_area_records};
+use symbol_render::append_symbol_records;
 use table_render::append_table_records;
 use worksheet_render::drawing_sheet_operations;
 
@@ -73,6 +75,14 @@ pub struct SchematicPlotLimits {
     pub max_tables: usize,
     pub max_table_cells: usize,
     pub max_table_cell_lines: usize,
+    pub max_symbols: usize,
+    pub max_symbol_overplots: usize,
+    pub max_symbol_properties: usize,
+    pub max_symbol_pins: usize,
+    pub max_library_symbols: usize,
+    pub max_library_subsymbols: usize,
+    pub max_library_pins: usize,
+    pub max_symbol_overlap_checks: usize,
     pub max_image_data_parts: usize,
     pub max_image_encoded_bytes: usize,
     pub max_image_decoded_bytes: usize,
@@ -132,6 +142,14 @@ impl Default for SchematicPlotLimits {
             max_tables: 100_000,
             max_table_cells: 1_000_000,
             max_table_cell_lines: 1_000_000,
+            max_symbols: 100_000,
+            max_symbol_overplots: 100_000,
+            max_symbol_properties: 1_000_000,
+            max_symbol_pins: 1_000_000,
+            max_library_symbols: 100_000,
+            max_library_subsymbols: 1_000_000,
+            max_library_pins: 1_000_000,
+            max_symbol_overlap_checks: 10_000_000,
             max_image_data_parts: 100_000,
             max_image_encoded_bytes: 64 * 1024 * 1024,
             max_image_decoded_bytes: 64 * 1024 * 1024,
@@ -420,6 +438,52 @@ pub struct SchematicTableRecord {
     pub operations: Vec<SchematicPlotOperation>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct SchematicSymbolInstanceRecord {
+    pub uuid: String,
+    pub lib_id: String,
+    pub lib_name: String,
+    pub reference: String,
+    pub at_x_nm: i64,
+    pub at_y_nm: i64,
+    pub at_angle_deg: f64,
+    pub mirror: Option<String>,
+    pub unit: u32,
+    pub convert: u32,
+    pub in_bom: bool,
+    pub on_board: bool,
+    pub dnp: bool,
+    pub exclude_from_sim: bool,
+    pub in_pos_files: bool,
+    pub operations: Vec<SchematicPlotOperation>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SchematicSymbolOverplotRecord {
+    pub uuid: String,
+    pub source_symbol_uuid: String,
+    pub lib_id: String,
+    pub operations: Vec<SchematicPlotOperation>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SchematicSymbolPinAttrs {
+    pub primitive: String,
+    pub object_type: String,
+    pub pin: String,
+    pub symbol_uuid: String,
+    pub designator: String,
+    pub lib_pin_uuid: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SchematicSymbolPinBlock {
+    pub label: String,
+    pub data_uuid: String,
+    pub object_id: String,
+    pub extra_attrs: SchematicSymbolPinAttrs,
+}
+
 /// Schematic-only Text wrapper for operation-local hyperlink context without
 /// broadening established producer-neutral Text payloads.
 #[derive(Clone, Debug, PartialEq)]
@@ -443,6 +507,8 @@ pub enum SchematicPlotOperation {
     PlotImage(PlotterImage),
     Text(SchematicTextOperation),
     StyledThickSegment(SchematicStyledThickSegment),
+    StartSymbolPinBlock(SchematicSymbolPinBlock),
+    EndBlock,
 }
 
 impl From<PlotterOperation> for SchematicPlotOperation {
@@ -460,6 +526,8 @@ pub enum SchematicPlotRecord {
     RuleArea(SchematicRuleAreaRecord),
     Image(SchematicImageRecord),
     Table(SchematicTableRecord),
+    SymbolInstance(SchematicSymbolInstanceRecord),
+    SymbolOverplot(SchematicSymbolOverplotRecord),
 }
 
 impl SchematicPlotRecord {
@@ -472,6 +540,8 @@ impl SchematicPlotRecord {
             Self::RuleArea(record) => record.operations.len(),
             Self::Image(record) => record.operations.len(),
             Self::Table(record) => record.operations.len(),
+            Self::SymbolInstance(record) => record.operations.len(),
+            Self::SymbolOverplot(record) => record.operations.len(),
         }
     }
 }
@@ -505,6 +575,8 @@ struct CarrierSpans {
     rule_areas: Vec<FormSpan>,
     images: Vec<FormSpan>,
     tables: Vec<FormSpan>,
+    lib_symbols: Option<FormSpan>,
+    symbols: Vec<FormSpan>,
 }
 
 pub(super) struct AnnotationSpans {
@@ -532,6 +604,7 @@ enum SchematicPlotScope {
     Foundation,
     Annotations,
     Graphics,
+    Symbols,
 }
 
 pub(crate) struct PlotBudget {
@@ -598,6 +671,10 @@ impl PlotBudget {
             .max_input_points
             .saturating_sub(self.input_points)
     }
+
+    pub(crate) fn remaining_text_bytes(&self) -> usize {
+        self.limits.max_text_bytes.saturating_sub(self.text_bytes)
+    }
 }
 
 /// Produce the P5_060 page header and connectivity families from raw source.
@@ -653,6 +730,27 @@ pub fn schematic_plot_document_with_graphics(
         limits,
         context,
         SchematicPlotScope::Graphics,
+        Some(drawing_settings),
+        text_resources,
+    )
+}
+
+/// Produce the complete P5_070 page through placed symbols and overlap
+/// overplots. Embedded library data, occurrence selection, drawing settings,
+/// project variables, and font bytes are all explicit source or sidecars.
+pub fn schematic_plot_document_with_symbols(
+    source: &str,
+    limits: SchematicPlotLimits,
+    context: &SchematicPlotContext,
+    drawing_settings: SchematicDrawingSettings,
+    text_resources: Option<&PlotterTextCacheResources<'_>>,
+) -> Result<SchematicPlotDocument, Error> {
+    validate_drawing_settings(drawing_settings)?;
+    schematic_plot_document_impl(
+        source,
+        limits,
+        context,
+        SchematicPlotScope::Symbols,
         Some(drawing_settings),
         text_resources,
     )
@@ -729,6 +827,10 @@ fn schematic_plot_document_impl(
             Some("rule_area") => carriers.rule_areas.push(span),
             Some("image") => carriers.images.push(span),
             Some("table") => carriers.tables.push(span),
+            Some("lib_symbols") if carriers.lib_symbols.is_none() => {
+                carriers.lib_symbols = Some(span)
+            }
+            Some("symbol") => carriers.symbols.push(span),
             _ => {}
         }
     }
@@ -754,6 +856,7 @@ fn schematic_plot_document_impl(
     ensure_family_limit(carriers.rule_areas.len(), limits.max_rule_areas)?;
     ensure_family_limit(carriers.images.len(), limits.max_images)?;
     ensure_family_limit(carriers.tables.len(), limits.max_tables)?;
+    ensure_family_limit(carriers.symbols.len(), limits.max_symbols)?;
     let version = version.unwrap_or(DEFAULT_VERSION);
     ensure_javascript_safe_integer(version)?;
     let generator = generator.unwrap_or_else(|| DEFAULT_GENERATOR.to_owned());
@@ -819,6 +922,8 @@ fn schematic_plot_document_impl(
         images: std::mem::take(&mut carriers.images),
         tables: std::mem::take(&mut carriers.tables),
     };
+    let lib_symbols = carriers.lib_symbols.take();
+    let symbol_spans = std::mem::take(&mut carriers.symbols);
     let mut records = vec![SchematicPlotRecord::SheetHeader(header)];
     append_polyline_records(
         source,
@@ -886,7 +991,7 @@ fn schematic_plot_document_impl(
             &mut records,
         )?;
     }
-    if scope == SchematicPlotScope::Graphics {
+    if scope >= SchematicPlotScope::Graphics {
         append_graphic_records(source, &graphic_spans, limits, &mut budget, &mut records)?;
         append_rule_area_records(source, &graphic_spans, limits, &mut budget, &mut records)?;
         append_image_records(source, &graphic_spans, limits, &mut budget, &mut records)?;
@@ -894,6 +999,20 @@ fn schematic_plot_document_impl(
             source,
             &graphic_spans,
             variables.as_ref().expect("graphics scope has variables"),
+            session.as_ref(),
+            limits,
+            &mut budget,
+            &mut records,
+        )?;
+    }
+    if scope >= SchematicPlotScope::Symbols {
+        append_symbol_records(
+            source,
+            lib_symbols.as_ref(),
+            &symbol_spans,
+            context,
+            drawing_settings.expect("symbol scope has drawing settings"),
+            variables.as_ref().expect("symbol scope has variables"),
             session.as_ref(),
             limits,
             &mut budget,
@@ -958,7 +1077,7 @@ fn selected_spans(
             "text_box",
         ]);
     }
-    if scope == SchematicPlotScope::Graphics {
+    if scope >= SchematicPlotScope::Graphics {
         heads.extend([
             "polyline",
             "arc",
@@ -969,6 +1088,9 @@ fn selected_spans(
             "image",
             "table",
         ]);
+    }
+    if scope >= SchematicPlotScope::Symbols {
+        heads.extend(["lib_symbols", "symbol"]);
     }
     let mut paths = BTreeSet::from([vec!["kicad_sch".to_owned()]]);
     paths.extend(

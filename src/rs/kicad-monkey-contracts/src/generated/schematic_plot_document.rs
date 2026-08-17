@@ -3187,7 +3187,7 @@ pub struct SchematicPlotCanvas {
     pub height_nm: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
-///Strict schematic subset through the P5_062 graphic families.
+///Strict schematic subset through the P5_070 placed-symbol family.
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -3195,7 +3195,7 @@ pub struct SchematicPlotCanvas {
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0",
 ///  "title": "Schematic plot document a0",
-///  "description": "Strict schematic subset through the P5_062 graphic families.",
+///  "description": "Strict schematic subset through the P5_070 placed-symbol family.",
 ///  "type": "object",
 ///  "required": [
 ///    "canvas",
@@ -3256,13 +3256,13 @@ pub struct SchematicPlotDocumentA0 {
     pub source_path: ::std::option::Option<::std::string::String>,
     pub total_operations: u32,
 }
-///Strict source-record vocabulary through the P5_062 schematic graphics.
+///Strict source-record vocabulary through the P5_070 placed symbols.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Strict source-record vocabulary through the P5_062 schematic graphics.",
+///  "description": "Strict source-record vocabulary through the P5_070 placed symbols.",
 ///  "oneOf": [
 ///    {
 ///      "$ref": "#/$defs/SchematicSheetHeaderPlotRecord"
@@ -3323,6 +3323,12 @@ pub struct SchematicPlotDocumentA0 {
 ///    },
 ///    {
 ///      "$ref": "#/$defs/SchematicTablePlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicSymbolInstancePlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicSymbolOverplotPlotRecord"
 ///    }
 ///  ]
 ///}
@@ -3351,6 +3357,8 @@ pub enum SchematicPlotRecord {
     RuleAreaPlotRecord(SchematicRuleAreaPlotRecord),
     ImagePlotRecord(SchematicImagePlotRecord),
     TablePlotRecord(SchematicTablePlotRecord),
+    SymbolInstancePlotRecord(SchematicSymbolInstancePlotRecord),
+    SymbolOverplotPlotRecord(SchematicSymbolOverplotPlotRecord),
 }
 impl ::std::convert::From<SchematicSheetHeaderPlotRecord> for SchematicPlotRecord {
     fn from(value: SchematicSheetHeaderPlotRecord) -> Self {
@@ -3450,6 +3458,16 @@ impl ::std::convert::From<SchematicImagePlotRecord> for SchematicPlotRecord {
 impl ::std::convert::From<SchematicTablePlotRecord> for SchematicPlotRecord {
     fn from(value: SchematicTablePlotRecord) -> Self {
         Self::TablePlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicSymbolInstancePlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicSymbolInstancePlotRecord) -> Self {
+        Self::SymbolInstancePlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicSymbolOverplotPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicSymbolOverplotPlotRecord) -> Self {
+        Self::SymbolOverplotPlotRecord(value)
     }
 }
 ///Typed title-block metadata carried by the leading sheet-header record.
@@ -3782,6 +3800,497 @@ pub struct SchematicSheetHeaderPlotRecord {
     pub title_block: ::std::option::Option<SchematicPlotTitleBlock>,
     pub uuid: ::std::string::String,
     pub version: crate::JavaScriptSafeInteger,
+}
+///Trailing ownership marker for one placed-symbol pin group.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Trailing ownership marker for one placed-symbol pin group.",
+///  "type": "object",
+///  "required": [
+///    "index",
+///    "kind"
+///  ],
+///  "properties": {
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "EndBlock"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicSymbolEndBlockOperation {
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_end_block_kind")]
+    pub kind: ::std::string::String,
+}
+///One placed schematic symbol, including body, pins, and visible fields.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One placed schematic symbol, including body, pins, and visible fields.",
+///  "type": "object",
+///  "required": [
+///    "at_angle_deg",
+///    "at_x_nm",
+///    "at_y_nm",
+///    "convert",
+///    "dnp",
+///    "exclude_from_sim",
+///    "in_bom",
+///    "in_pos_files",
+///    "kind",
+///    "lib_id",
+///    "lib_name",
+///    "mirror",
+///    "object_id",
+///    "on_board",
+///    "operation_count",
+///    "operations",
+///    "reference",
+///    "unit",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "at_angle_deg": {
+///      "type": "number"
+///    },
+///    "at_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "at_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "convert": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "dnp": {
+///      "type": "boolean"
+///    },
+///    "exclude_from_sim": {
+///      "type": "boolean"
+///    },
+///    "in_bom": {
+///      "type": "boolean"
+///    },
+///    "in_pos_files": {
+///      "type": "boolean"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "symbol_instance"
+///    },
+///    "lib_id": {
+///      "type": "string"
+///    },
+///    "lib_name": {
+///      "type": "string"
+///    },
+///    "mirror": {
+///      "anyOf": [
+///        {
+///          "type": "string"
+///        },
+///        {
+///          "type": "null"
+///        }
+///      ]
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "on_board": {
+///      "type": "boolean"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/SchematicSymbolOperation"
+///      }
+///    },
+///    "reference": {
+///      "type": "string"
+///    },
+///    "unit": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicSymbolInstancePlotRecord {
+    pub at_angle_deg: f64,
+    pub at_x_nm: crate::JavaScriptSafeInteger,
+    pub at_y_nm: crate::JavaScriptSafeInteger,
+    pub convert: u32,
+    pub dnp: bool,
+    pub exclude_from_sim: bool,
+    pub in_bom: bool,
+    pub in_pos_files: bool,
+    #[serde(deserialize_with = "crate::deserialize_symbol_instance_record_kind")]
+    pub kind: ::std::string::String,
+    pub lib_id: ::std::string::String,
+    pub lib_name: ::std::string::String,
+    pub mirror: ::std::option::Option<::std::string::String>,
+    pub object_id: ::std::string::String,
+    pub on_board: bool,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<SchematicSymbolOperation>,
+    pub reference: ::std::string::String,
+    pub unit: u32,
+    pub uuid: ::std::string::String,
+}
+///Strict operation vocabulary for placed symbols and their overplots.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Strict operation vocabulary for placed symbols and their overplots.",
+///  "anyOf": [
+///    {
+///      "$ref": "#/$defs/ThickSegmentOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/ArcThreePointOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/CircleOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/RectOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/PlotPolyOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/BezierCurveOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/TextOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/PlotImageOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadCircleOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadOvalOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadRectOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadRoundRectOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadCustomOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/FlashPadTrapezOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicSymbolStartBlockOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicSymbolEndBlockOperation"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum SchematicSymbolOperation {
+    ThickSegmentOperation(ThickSegmentOperation),
+    ArcThreePointOperation(ArcThreePointOperation),
+    CircleOperation(CircleOperation),
+    RectOperation(RectOperation),
+    PlotPolyOperation(PlotPolyOperation),
+    BezierCurveOperation(BezierCurveOperation),
+    TextOperation(TextOperation),
+    PlotImageOperation(PlotImageOperation),
+    FlashPadCircleOperation(FlashPadCircleOperation),
+    FlashPadOvalOperation(FlashPadOvalOperation),
+    FlashPadRectOperation(FlashPadRectOperation),
+    FlashPadRoundRectOperation(FlashPadRoundRectOperation),
+    FlashPadCustomOperation(FlashPadCustomOperation),
+    FlashPadTrapezOperation(FlashPadTrapezOperation),
+    SchematicSymbolStartBlockOperation(SchematicSymbolStartBlockOperation),
+    SchematicSymbolEndBlockOperation(SchematicSymbolEndBlockOperation),
+}
+impl ::std::convert::From<ThickSegmentOperation> for SchematicSymbolOperation {
+    fn from(value: ThickSegmentOperation) -> Self {
+        Self::ThickSegmentOperation(value)
+    }
+}
+impl ::std::convert::From<ArcThreePointOperation> for SchematicSymbolOperation {
+    fn from(value: ArcThreePointOperation) -> Self {
+        Self::ArcThreePointOperation(value)
+    }
+}
+impl ::std::convert::From<CircleOperation> for SchematicSymbolOperation {
+    fn from(value: CircleOperation) -> Self {
+        Self::CircleOperation(value)
+    }
+}
+impl ::std::convert::From<RectOperation> for SchematicSymbolOperation {
+    fn from(value: RectOperation) -> Self {
+        Self::RectOperation(value)
+    }
+}
+impl ::std::convert::From<PlotPolyOperation> for SchematicSymbolOperation {
+    fn from(value: PlotPolyOperation) -> Self {
+        Self::PlotPolyOperation(value)
+    }
+}
+impl ::std::convert::From<BezierCurveOperation> for SchematicSymbolOperation {
+    fn from(value: BezierCurveOperation) -> Self {
+        Self::BezierCurveOperation(value)
+    }
+}
+impl ::std::convert::From<TextOperation> for SchematicSymbolOperation {
+    fn from(value: TextOperation) -> Self {
+        Self::TextOperation(value)
+    }
+}
+impl ::std::convert::From<PlotImageOperation> for SchematicSymbolOperation {
+    fn from(value: PlotImageOperation) -> Self {
+        Self::PlotImageOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadCircleOperation> for SchematicSymbolOperation {
+    fn from(value: FlashPadCircleOperation) -> Self {
+        Self::FlashPadCircleOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadOvalOperation> for SchematicSymbolOperation {
+    fn from(value: FlashPadOvalOperation) -> Self {
+        Self::FlashPadOvalOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadRectOperation> for SchematicSymbolOperation {
+    fn from(value: FlashPadRectOperation) -> Self {
+        Self::FlashPadRectOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadRoundRectOperation> for SchematicSymbolOperation {
+    fn from(value: FlashPadRoundRectOperation) -> Self {
+        Self::FlashPadRoundRectOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadCustomOperation> for SchematicSymbolOperation {
+    fn from(value: FlashPadCustomOperation) -> Self {
+        Self::FlashPadCustomOperation(value)
+    }
+}
+impl ::std::convert::From<FlashPadTrapezOperation> for SchematicSymbolOperation {
+    fn from(value: FlashPadTrapezOperation) -> Self {
+        Self::FlashPadTrapezOperation(value)
+    }
+}
+impl ::std::convert::From<SchematicSymbolStartBlockOperation> for SchematicSymbolOperation {
+    fn from(value: SchematicSymbolStartBlockOperation) -> Self {
+        Self::SchematicSymbolStartBlockOperation(value)
+    }
+}
+impl ::std::convert::From<SchematicSymbolEndBlockOperation> for SchematicSymbolOperation {
+    fn from(value: SchematicSymbolEndBlockOperation) -> Self {
+        Self::SchematicSymbolEndBlockOperation(value)
+    }
+}
+///Replotted pins and fields for one overlapping placed symbol.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Replotted pins and fields for one overlapping placed symbol.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "lib_id",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "source_symbol_uuid",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "symbol_overplot"
+///    },
+///    "lib_id": {
+///      "type": "string"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/SchematicSymbolOperation"
+///      }
+///    },
+///    "source_symbol_uuid": {
+///      "type": "string"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicSymbolOverplotPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_symbol_overplot_record_kind")]
+    pub kind: ::std::string::String,
+    pub lib_id: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<SchematicSymbolOperation>,
+    pub source_symbol_uuid: ::std::string::String,
+    pub uuid: ::std::string::String,
+}
+///Exact string metadata retained on one placed-symbol pin group.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Exact string metadata retained on one placed-symbol pin group.",
+///  "type": "object",
+///  "additionalProperties": {
+///    "type": "string"
+///  }
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct SchematicSymbolPinBlockAttrs(
+    pub ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
+);
+impl ::std::ops::Deref for SchematicSymbolPinBlockAttrs {
+    type Target = ::std::collections::BTreeMap<::std::string::String, ::std::string::String>;
+    fn deref(&self) -> &::std::collections::BTreeMap<::std::string::String, ::std::string::String> {
+        &self.0
+    }
+}
+impl ::std::convert::From<SchematicSymbolPinBlockAttrs>
+    for ::std::collections::BTreeMap<::std::string::String, ::std::string::String>
+{
+    fn from(value: SchematicSymbolPinBlockAttrs) -> Self {
+        value.0
+    }
+}
+impl
+    ::std::convert::From<::std::collections::BTreeMap<::std::string::String, ::std::string::String>>
+    for SchematicSymbolPinBlockAttrs
+{
+    fn from(
+        value: ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
+    ) -> Self {
+        Self(value)
+    }
+}
+///Leading ownership marker for one placed-symbol pin group.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Leading ownership marker for one placed-symbol pin group.",
+///  "type": "object",
+///  "required": [
+///    "data_ref",
+///    "data_uuid",
+///    "extra_attrs",
+///    "index",
+///    "kind",
+///    "label",
+///    "object_id"
+///  ],
+///  "properties": {
+///    "data_ref": {
+///      "type": "string",
+///      "const": "symbol_pin"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/SchematicSymbolPinBlockAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "StartBlock"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicSymbolStartBlockOperation {
+    pub data_ref: ::std::string::String,
+    pub data_uuid: ::std::string::String,
+    pub extra_attrs: SchematicSymbolPinBlockAttrs,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_start_block_kind")]
+    pub kind: ::std::string::String,
+    pub label: ::std::string::String,
+    pub object_id: ::std::string::String,
 }
 ///One schematic table rendered as ordered text-box cell blocks.
 ///

@@ -47,7 +47,7 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict schematic subset through the P5_062 graphic families.",
+    "description": "Strict schematic subset through the P5_070 placed-symbol family.",
     "title": "Schematic plot document a0",
     "$defs": {
         "SchematicPlotRecord": {
@@ -111,9 +111,15 @@
                 },
                 {
                     "$ref": "#/$defs/SchematicTablePlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicSymbolInstancePlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicSymbolOverplotPlotRecord"
                 }
             ],
-            "description": "Strict source-record vocabulary through the P5_062 schematic graphics."
+            "description": "Strict source-record vocabulary through the P5_070 placed symbols."
         },
         "SchematicPlotCanvas": {
             "type": "object",
@@ -1049,6 +1055,155 @@
             },
             "description": "One schematic table rendered as ordered text-box cell blocks."
         },
+        "SchematicSymbolInstancePlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "symbol_instance"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/SchematicSymbolOperation"
+                    }
+                },
+                "lib_id": {
+                    "type": "string"
+                },
+                "lib_name": {
+                    "type": "string"
+                },
+                "reference": {
+                    "type": "string"
+                },
+                "at_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "at_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "at_angle_deg": {
+                    "type": "number"
+                },
+                "mirror": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "unit": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "convert": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "in_bom": {
+                    "type": "boolean"
+                },
+                "on_board": {
+                    "type": "boolean"
+                },
+                "dnp": {
+                    "type": "boolean"
+                },
+                "exclude_from_sim": {
+                    "type": "boolean"
+                },
+                "in_pos_files": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "lib_id",
+                "lib_name",
+                "reference",
+                "at_x_nm",
+                "at_y_nm",
+                "at_angle_deg",
+                "mirror",
+                "unit",
+                "convert",
+                "in_bom",
+                "on_board",
+                "dnp",
+                "exclude_from_sim",
+                "in_pos_files"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One placed schematic symbol, including body, pins, and visible fields."
+        },
+        "SchematicSymbolOverplotPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "symbol_overplot"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/SchematicSymbolOperation"
+                    }
+                },
+                "source_symbol_uuid": {
+                    "type": "string"
+                },
+                "lib_id": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "source_symbol_uuid",
+                "lib_id"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Replotted pins and fields for one overlapping placed symbol."
+        },
         "JavaScriptSafeInteger": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -1177,6 +1332,59 @@
                 "bmp"
             ],
             "description": "Decoded image formats admitted by the schematic image family."
+        },
+        "SchematicSymbolOperation": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/ThickSegmentOperation"
+                },
+                {
+                    "$ref": "#/$defs/ArcThreePointOperation"
+                },
+                {
+                    "$ref": "#/$defs/CircleOperation"
+                },
+                {
+                    "$ref": "#/$defs/RectOperation"
+                },
+                {
+                    "$ref": "#/$defs/PlotPolyOperation"
+                },
+                {
+                    "$ref": "#/$defs/BezierCurveOperation"
+                },
+                {
+                    "$ref": "#/$defs/TextOperation"
+                },
+                {
+                    "$ref": "#/$defs/PlotImageOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadCircleOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadOvalOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadRectOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadRoundRectOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadCustomOperation"
+                },
+                {
+                    "$ref": "#/$defs/FlashPadTrapezOperation"
+                },
+                {
+                    "$ref": "#/$defs/SchematicSymbolStartBlockOperation"
+                },
+                {
+                    "$ref": "#/$defs/SchematicSymbolEndBlockOperation"
+                }
+            ],
+            "description": "Strict operation vocabulary for placed symbols and their overplots."
         },
         "ThickSegmentOperation": {
             "type": "object",
@@ -2069,6 +2277,71 @@
                 "type": "string"
             }
         },
+        "SchematicSymbolStartBlockOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "StartBlock"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "type": "string",
+                    "const": "symbol_pin"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/SchematicSymbolPinBlockAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "label",
+                "data_uuid",
+                "data_ref",
+                "object_id",
+                "extra_attrs"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Leading ownership marker for one placed-symbol pin group."
+        },
+        "SchematicSymbolEndBlockOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "EndBlock"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                }
+            },
+            "required": [
+                "kind",
+                "index"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Trailing ownership marker for one placed-symbol pin group."
+        },
         "PlotterDrillRole": {
             "type": "string",
             "enum": [
@@ -2222,6 +2495,14 @@
             "minItems": 4,
             "maxItems": 4,
             "description": "Four pad-local trapezoid corners."
+        },
+        "SchematicSymbolPinBlockAttrs": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {
+                "type": "string"
+            },
+            "description": "Exact string metadata retained on one placed-symbol pin group."
         },
         "PlotterHyperlink": {
             "type": "object",

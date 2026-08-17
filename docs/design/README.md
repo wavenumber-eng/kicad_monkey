@@ -84,6 +84,9 @@ Current design notes:
 - `rust-schematic-graphics-phase5-slice.html` - accepted bounded native schematic
   graphics, rule-area, embedded-image, and table Plotter-IR with strict image
   decoding and shared deterministic font resources.
+- `rust-schematic-symbols-phase5-slice.html` - accepted bounded placed schematic
+  symbols, typed pin ownership, occurrence fields, transforms, DNP rendering,
+  and overlap overplots with deterministic font resources.
 - `rust-phase5-exit-audit.html` - accepted inventory and bounded closure order
   for the remaining native text, footprint, symbol, board, and schematic
   Plotter-IR surfaces before the native application phase.

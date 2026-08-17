@@ -33,6 +33,7 @@ METRIC_FONT_SHA256 = "faa68bc8dee69291f89b181de3caa97172ac346900af996a9f5adc9045
 # Generated Rust bindings retain these TypeSpec float64 fields as JSON numbers.
 FLOAT_KEYS = {
     "angle_deg",
+    "at_angle_deg",
     "orient_deg",
     "paper_height_mm",
     "paper_width_mm",
@@ -559,6 +560,70 @@ METRIC_TABLE_SOURCE = f"""(kicad_sch
         (uuid "metric-cell"))))
   (sheet_instances (path "/" (page "1"))))"""
 
+SYMBOL_SOURCE = f"""(kicad_sch
+  (version 20240101)
+  (generator eeschema)
+  (generator_version "10.0")
+  (uuid "symbol-page")
+  (paper "User" 30 30)
+  (title_block (title "Symbols"))
+  (lib_symbols
+    (symbol "Demo:Part"
+      (pin_names (offset 0.5))
+      (property "Reference" "U"
+        (at 0 0 0)
+        (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+      (symbol "Demo:Part_1_1"
+        (rectangle
+          (start -1 -1) (end 1 1)
+          (stroke (width 0) (type default))
+          (fill (type background)))
+        (text "${{PROJECT}}"
+          (at 0 0 0)
+          (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+        (pin passive line
+          (at -2 0 0)
+          (length 1)
+          (name "IN"
+            (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+          (number "1"
+            (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+          (uuid "lib-pin-1")))))
+  (symbol
+    (lib_id "Demo:Part")
+    (lib_name "Demo")
+    (at 10 10 0)
+    (unit 1)
+    (convert 1)
+    (dnp yes)
+    (uuid "placed-1")
+    (property "Reference" "U?"
+      (at 10 8 0)
+      (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+    (property "Value" "Part"
+      (at 10 12 0)
+      (effects
+        (font (face "{METRIC_FONT_FACE}") (size 1 1))
+        (justify left top)
+        (href "https://example.test/part")))
+    (pin "1" (uuid "placed-pin-1"))
+    (instances
+      (project "demo"
+        (path "/child" (reference "U7") (unit 1)))))
+  (symbol
+    (lib_id "Demo:Part")
+    (lib_name "Demo")
+    (at 10 10 90)
+    (mirror x)
+    (unit 1)
+    (convert 1)
+    (uuid "placed-2")
+    (property "Reference" "U2"
+      (at 10 8 0)
+      (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+    (pin "1" (uuid "placed-pin-2")))
+  (sheet_instances (path "/" (page "1"))))"""
+
 EMPTY_WORKSHEET = """(kicad_wks
   (version 20210606)
   (generator pl_editor)
@@ -678,6 +743,26 @@ def vectors() -> list[dict[str, Any]]:
             "sheet_count": 1,
             "sheet_path": "/",
             "sheet_name": "",
+        },
+        {
+            "id": "placed-symbols-pins-fields-dnp-and-overplots",
+            "source": SYMBOL_SOURCE,
+            "source_path": "virtual/symbols.kicad_sch",
+            "document_id": "symbols",
+            "worksheet_source": EMPTY_WORKSHEET,
+            "project_variables": {"PROJECT": "PX"},
+            "font_resource": {
+                "face": METRIC_FONT_FACE,
+                "bold": False,
+                "italic": False,
+                "font_path": "tests/parity/fonts/shaping-variable-fixture.ttf",
+                "font_sha256": METRIC_FONT_SHA256,
+                "shaping_case_id": "fixture_default_variation_axis",
+            },
+            "sheet_index": 1,
+            "sheet_count": 1,
+            "sheet_path": "/child",
+            "sheet_name": "Child",
         },
     ]
 

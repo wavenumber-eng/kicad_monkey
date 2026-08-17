@@ -346,14 +346,14 @@ semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/schematic_plotter_
 id = "plotter_ir.schematic_symbols"
 disposition = "required_bounded_slice"
 wasm = "deferred_native_first"
-status = "planned"
+status = "closed"
 python_symbols = ["_symbol_instance_record", "_symbol_overplot_record", "_append_schematic_symbol_records"]
-rust_symbols = ["SchematicDefinition", "SchematicOccurrence", "SymbolPlotDocument"]
-rack_cases = []
-evidence = ["docs/design/rust-phase5-exit-audit.html"]
-vector_evidence = []
-implementation_evidence = []
-semantic_resource_evidence = []
+rust_symbols = ["SchematicSymbolInstanceRecord", "SchematicSymbolOverplotRecord", "SchematicSymbolPinBlock", "schematic_plot_document_with_symbols", "PlotterTextCacheResources", "validate_schematic_plot_document"]
+rack_cases = ["L1_036"]
+evidence = ["docs/design/rust-schematic-symbols-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "contracts/generated/schema/SchematicPlotDocument.json", "src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
+vector_evidence = ["tests/parity/schematic_plotter_a0_vectors.json"]
+implementation_evidence = ["src/tsp/kicad_monkey/schematic-plot-a0.tsp", "src/rs/kicad-monkey-core/src/schematic_plotter_ir.rs", "src/rs/kicad-monkey-core/src/schematic_plotter_ir/symbol_render.rs", "src/rs/kicad-monkey-core/src/symbol_plotter_ir.rs", "src/rs/kicad-monkey-core/src/symbol_text.rs", "src/rs/kicad-monkey-core/src/plotter_text_cache.rs", "src/rs/kicad-monkey-contracts/src/schematic_plot_contract.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/schematic_plotter_slice.rs", "src/rs/kicad-monkey-contracts/tests/schematic_plot_contracts.rs", "tests/L1_parsing/test_L1_036_rust_schematic_plotter_slice.py"]
 
 [[surfaces]]
 id = "plotter_ir.schematic_sheets"

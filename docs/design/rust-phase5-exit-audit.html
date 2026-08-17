@@ -74,9 +74,10 @@
         Plotter-IR producer now covers the sheet header, default or
         caller-supplied worksheet drawing, wires, buses, entries, junctions,
         no-connects, labels and decorations, netclass flags, text, text boxes,
-        graphics, rule areas, PNG/JPEG/BMP images, and tables under a distinct
-        strict schematic contract.</td>
-        <td>Placed symbols and overplots; sheets, fields, and pins.</td>
+        graphics, rule areas, PNG/JPEG/BMP images, tables, and placed symbol
+        instances with pins, visible fields, DNP markers, transforms, and
+        overlap overplots under a distinct strict schematic contract.</td>
+        <td>Hierarchical sheets, sheet pins, fields, and decorations.</td>
       </tr>
     </tbody>
   </table>
@@ -140,7 +141,11 @@
     gate.</li>
     <li><strong>P5_070 schematic symbols.</strong> Reuse symbol geometry and
     text for placed symbols, pins, fields, DNP behavior, transforms, and
-    overlap overplots with occurrence-aware variables.</li>
+    overlap overplots with occurrence-aware variables. Implemented,
+    independently reviewed, and closed with exact hermetic Python vectors,
+    typed pin ownership blocks, deterministic caller-supplied font metrics,
+    strict generated contracts, checked symbol/library/overlap resource
+    ceilings, and the native-first L1_036 gate.</li>
     <li><strong>P5_071 hierarchical sheets.</strong> Promote sheet background
     and border passes, sheet pins and decorations, fields, DNP markers, and
     sheet metadata.</li>
@@ -213,9 +218,11 @@
   work and scratch points, contours, topology work, cache polygons/points,
   operations, retained output points, and serialized output. Schematic inputs
   additionally bound worksheet items/repeats/bitmap bytes and image encoded
-  bytes, decoded bytes, dimensions, pixels, and decode work. Per-payload byte
-  bounds precede decoding; aggregate counters and image geometry are validated
-  before retained operations are published.</p>
+  bytes, decoded bytes, dimensions, pixels, and decode work. Placed-symbol
+  inputs independently bound instances, overplots, properties, pins, embedded
+  library symbols/subsymbols/pins, and pairwise overlap checks. Per-payload
+  byte bounds precede decoding; aggregate counters and derived geometry are
+  validated before retained operations are published.</p>
 
   <p>Focused Rack owners must record warm runtime and keep their default slice
   gate under two minutes. L3_022 shards by producer and then corpus partition;
@@ -236,6 +243,9 @@
   two-minute slice policy.</p>
   <p>The 2026-08-17 warm P5_062 <code>L1_036</code> run completed all four
   tests in 2.74 seconds (3.51 seconds including Rack signoff), below the
+  two-minute slice policy.</p>
+  <p>The 2026-08-17 warm P5_070 <code>L1_036</code> run completed all four
+  tests in 4.32 seconds (5.06 seconds including Rack signoff), below the
   two-minute slice policy.</p>
 </body>
 </html>

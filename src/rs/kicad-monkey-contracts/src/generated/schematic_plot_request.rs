@@ -55,6 +55,9 @@ pub mod error {
 ///    "max_input_points",
 ///    "max_junctions",
 ///    "max_labels",
+///    "max_library_pins",
+///    "max_library_subsymbols",
+///    "max_library_symbols",
 ///    "max_metadata_bytes",
 ///    "max_netclass_flag_properties",
 ///    "max_netclass_flags",
@@ -69,6 +72,11 @@ pub mod error {
 ///    "max_rule_areas",
 ///    "max_selected_forms",
 ///    "max_source_bytes",
+///    "max_symbol_overlap_checks",
+///    "max_symbol_overplots",
+///    "max_symbol_pins",
+///    "max_symbol_properties",
+///    "max_symbols",
 ///    "max_table_cell_lines",
 ///    "max_table_cells",
 ///    "max_tables",
@@ -194,6 +202,21 @@ pub mod error {
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
 ///    },
+///    "max_library_pins": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_library_subsymbols": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_library_symbols": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
 ///    "max_metadata_bytes": {
 ///      "type": "string"
 ///    },
@@ -257,6 +280,29 @@ pub mod error {
 ///    },
 ///    "max_source_bytes": {
 ///      "type": "string"
+///    },
+///    "max_symbol_overlap_checks": {
+///      "type": "string"
+///    },
+///    "max_symbol_overplots": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_symbol_pins": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_symbol_properties": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_symbols": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
 ///    },
 ///    "max_table_cell_lines": {
 ///      "type": "integer",
@@ -423,6 +469,9 @@ pub struct SchematicPlotRequestA0 {
     pub max_input_points: u32,
     pub max_junctions: u32,
     pub max_labels: u32,
+    pub max_library_pins: u32,
+    pub max_library_subsymbols: u32,
+    pub max_library_symbols: u32,
     #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_metadata_bytes: ::std::string::String,
     pub max_netclass_flag_properties: u32,
@@ -440,6 +489,12 @@ pub struct SchematicPlotRequestA0 {
     pub max_selected_forms: u32,
     #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_source_bytes: ::std::string::String,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
+    pub max_symbol_overlap_checks: ::std::string::String,
+    pub max_symbol_overplots: u32,
+    pub max_symbol_pins: u32,
+    pub max_symbol_properties: u32,
+    pub max_symbols: u32,
     pub max_table_cell_lines: u32,
     pub max_table_cells: u32,
     pub max_tables: u32,

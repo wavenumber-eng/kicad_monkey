@@ -240,6 +240,44 @@
         "max_image_decode_work": {
             "type": "string"
         },
+        "max_symbols": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_symbol_overplots": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_symbol_properties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_symbol_pins": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_library_symbols": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_library_subsymbols": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_library_pins": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_symbol_overlap_checks": {
+            "type": "string"
+        },
         "max_text_variables": {
             "type": "integer",
             "minimum": 0,
@@ -348,6 +386,14 @@
         "max_image_height_px",
         "max_image_pixels",
         "max_image_decode_work",
+        "max_symbols",
+        "max_symbol_overplots",
+        "max_symbol_properties",
+        "max_symbol_pins",
+        "max_library_symbols",
+        "max_library_subsymbols",
+        "max_library_pins",
+        "max_symbol_overlap_checks",
         "max_text_variables",
         "max_text_variable_bytes",
         "max_worksheet_items",

@@ -901,7 +901,7 @@ class SymbolTextVariable(Struct, forbid_unknown_fields=True, frozen=True):
     value: str
 
 
-SchematicPlotRecord = Union["SchematicSheetHeaderPlotRecord", "SchematicWirePlotRecord", "SchematicBusPlotRecord", "SchematicBusEntryPlotRecord", "SchematicJunctionPlotRecord", "SchematicNoConnectPlotRecord", "SchematicLabelPlotRecord", "SchematicGlobalLabelPlotRecord", "SchematicHierarchicalLabelPlotRecord", "SchematicNetclassFlagPlotRecord", "SchematicTextPlotRecord", "SchematicTextBoxPlotRecord", "SchematicGraphicPolylinePlotRecord", "SchematicGraphicArcPlotRecord", "SchematicGraphicCirclePlotRecord", "SchematicGraphicRectanglePlotRecord", "SchematicGraphicBezierPlotRecord", "SchematicRuleAreaPlotRecord", "SchematicImagePlotRecord", "SchematicTablePlotRecord"]
+SchematicPlotRecord = Union["SchematicSheetHeaderPlotRecord", "SchematicWirePlotRecord", "SchematicBusPlotRecord", "SchematicBusEntryPlotRecord", "SchematicJunctionPlotRecord", "SchematicNoConnectPlotRecord", "SchematicLabelPlotRecord", "SchematicGlobalLabelPlotRecord", "SchematicHierarchicalLabelPlotRecord", "SchematicNetclassFlagPlotRecord", "SchematicTextPlotRecord", "SchematicTextBoxPlotRecord", "SchematicGraphicPolylinePlotRecord", "SchematicGraphicArcPlotRecord", "SchematicGraphicCirclePlotRecord", "SchematicGraphicRectanglePlotRecord", "SchematicGraphicBezierPlotRecord", "SchematicRuleAreaPlotRecord", "SchematicImagePlotRecord", "SchematicTablePlotRecord", "SchematicSymbolInstancePlotRecord", "SchematicSymbolOverplotPlotRecord"]
 
 
 class SchematicPlotCanvas(Struct, forbid_unknown_fields=True, frozen=True):
@@ -1082,6 +1082,36 @@ class SchematicTablePlotRecord(Struct, forbid_unknown_fields=True, frozen=True, 
     cell_count: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
+class SchematicSymbolInstancePlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="symbol_instance", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[SchematicSymbolOperation]
+    lib_id: str
+    lib_name: str
+    reference: str
+    at_x_nm: JavaScriptSafeInteger
+    at_y_nm: JavaScriptSafeInteger
+    at_angle_deg: float
+    mirror: str | None
+    unit: Annotated[int, Meta(ge=0, le=4294967295)]
+    convert: Annotated[int, Meta(ge=0, le=4294967295)]
+    in_bom: bool
+    on_board: bool
+    dnp: bool
+    exclude_from_sim: bool
+    in_pos_files: bool
+
+
+class SchematicSymbolOverplotPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="symbol_overplot", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[SchematicSymbolOperation]
+    source_symbol_uuid: str
+    lib_id: str
+
+
 class SchematicPlotTitleBlock(Struct, forbid_unknown_fields=True, frozen=True):
     title: str
     date: str
@@ -1102,7 +1132,26 @@ SchematicRuleAreaShape = Literal["polyline", "rectangle", "arc", "circle", "bezi
 SchematicImageFormat = Literal["png", "jpeg", "bmp"]
 
 
+SchematicSymbolOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "BezierCurveOperation", "TextOperation", "PlotImageOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadCustomOperation", "FlashPadTrapezOperation", "SchematicSymbolStartBlockOperation", "SchematicSymbolEndBlockOperation"]
+
+
 RecordString = dict[str, str]
+
+
+class SchematicSymbolStartBlockOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="StartBlock", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    label: str
+    data_uuid: str
+    data_ref: Literal["symbol_pin"]
+    object_id: str
+    extra_attrs: SchematicSymbolPinBlockAttrs
+
+
+class SchematicSymbolEndBlockOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="EndBlock", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+
+
+SchematicSymbolPinBlockAttrs = dict[str, str]
 
 
 SchematicWorksheetMode = Literal["default", "provided"]
@@ -1672,6 +1721,14 @@ class SchematicPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     max_image_height_px: Annotated[int, Meta(ge=0, le=4294967295)]
     max_image_pixels: str
     max_image_decode_work: str
+    max_symbols: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_symbol_overplots: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_symbol_properties: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_symbol_pins: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_library_symbols: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_library_subsymbols: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_library_pins: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_symbol_overlap_checks: str
     max_text_variables: Annotated[int, Meta(ge=0, le=4294967295)]
     max_text_variable_bytes: str
     max_worksheet_items: Annotated[int, Meta(ge=0, le=4294967295)]
@@ -2224,7 +2281,7 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
         raise msgspec.ValidationError("invalid_schematic_document at $")
     if not value.records or not isinstance(value.records[0], SchematicSheetHeaderPlotRecord):
         raise msgspec.ValidationError("missing_sheet_header at $.records[0]")
-    phases = {SchematicSheetHeaderPlotRecord: 0, SchematicWirePlotRecord: 1, SchematicBusPlotRecord: 2, SchematicBusEntryPlotRecord: 3, SchematicJunctionPlotRecord: 4, SchematicNoConnectPlotRecord: 5, SchematicLabelPlotRecord: 6, SchematicGlobalLabelPlotRecord: 7, SchematicHierarchicalLabelPlotRecord: 8, SchematicNetclassFlagPlotRecord: 9, SchematicTextPlotRecord: 10, SchematicTextBoxPlotRecord: 11, SchematicGraphicPolylinePlotRecord: 12, SchematicGraphicArcPlotRecord: 13, SchematicGraphicCirclePlotRecord: 14, SchematicGraphicRectanglePlotRecord: 15, SchematicGraphicBezierPlotRecord: 16, SchematicRuleAreaPlotRecord: 17, SchematicImagePlotRecord: 18, SchematicTablePlotRecord: 19}
+    phases = {SchematicSheetHeaderPlotRecord: 0, SchematicWirePlotRecord: 1, SchematicBusPlotRecord: 2, SchematicBusEntryPlotRecord: 3, SchematicJunctionPlotRecord: 4, SchematicNoConnectPlotRecord: 5, SchematicLabelPlotRecord: 6, SchematicGlobalLabelPlotRecord: 7, SchematicHierarchicalLabelPlotRecord: 8, SchematicNetclassFlagPlotRecord: 9, SchematicTextPlotRecord: 10, SchematicTextBoxPlotRecord: 11, SchematicGraphicPolylinePlotRecord: 12, SchematicGraphicArcPlotRecord: 13, SchematicGraphicCirclePlotRecord: 14, SchematicGraphicRectanglePlotRecord: 15, SchematicGraphicBezierPlotRecord: 16, SchematicRuleAreaPlotRecord: 17, SchematicImagePlotRecord: 18, SchematicTablePlotRecord: 19, SchematicSymbolInstancePlotRecord: 20, SchematicSymbolOverplotPlotRecord: 21}
     previous_phase = -1
     total_operations = 0
     for record_index, record in enumerate(value.records):
@@ -2234,7 +2291,8 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
             raise msgspec.ValidationError(f"invalid_schematic_record_order at {path}")
         previous_phase = phase
         label_record = isinstance(record, (SchematicLabelPlotRecord, SchematicGlobalLabelPlotRecord, SchematicHierarchicalLabelPlotRecord))
-        if (label_record and record.object_id != record.text) or (not label_record and not isinstance(record, SchematicNetclassFlagPlotRecord) and record.object_id != record.uuid):
+        symbol_record = isinstance(record, (SchematicSymbolInstancePlotRecord, SchematicSymbolOverplotPlotRecord))
+        if (label_record and record.object_id != record.text) or (not label_record and not isinstance(record, SchematicNetclassFlagPlotRecord) and not symbol_record and record.object_id != record.uuid):
             raise msgspec.ValidationError(f"invalid_schematic_record_identity at {path}")
         if record.operation_count != len(record.operations):
             raise msgspec.ValidationError(f"operation_count_mismatch at {path}.operation_count")
@@ -2265,8 +2323,10 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
             _validate_schematic_rule_area_record(record, path)
         elif isinstance(record, SchematicImagePlotRecord):
             _validate_schematic_image_record(record, path)
-        else:
+        elif isinstance(record, SchematicTablePlotRecord):
             _validate_schematic_table_record(record, path)
+        else:
+            _validate_schematic_symbol_record(record, path)
         total_operations += len(record.operations)
     if value.total_operations != total_operations:
         raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
@@ -2676,6 +2736,48 @@ def _validate_schematic_table_record(record: SchematicTablePlotRecord, path: str
         cells += 1
     if cells != record.cell_count:
         raise msgspec.ValidationError(f"table_cell_count_mismatch at {path}.cell_count")
+
+
+def _validate_schematic_symbol_text(operation: TextOperation, path: str, in_pin: bool) -> None:
+    _validate_schematic_annotation_text(operation, path)
+    if in_pin and operation.context is not UNSET:
+        raise msgspec.ValidationError(f"invalid_symbol_pin_text at {path}")
+
+
+def _validate_schematic_symbol_record(record: SchematicSymbolInstancePlotRecord | SchematicSymbolOverplotPlotRecord, path: str) -> None:
+    if isinstance(record, SchematicSymbolInstancePlotRecord):
+        if record.object_id != (record.lib_id or record.uuid) or not math.isfinite(record.at_angle_deg) or record.mirror not in (None, 'x', 'y'):
+            raise msgspec.ValidationError(f"invalid_symbol_instance at {path}")
+        parent_uuid = record.uuid
+    else:
+        if record.uuid != f'{record.source_symbol_uuid}:overplot' or record.object_id != (record.lib_id or record.source_symbol_uuid):
+            raise msgspec.ValidationError(f"invalid_symbol_overplot at {path}")
+        parent_uuid = record.source_symbol_uuid
+    block_start = None
+    allowed_attrs = {'primitive', 'object-type', 'pin', 'symbol-uuid', 'designator', 'lib-pin-uuid'}
+    for operation_index, operation in enumerate(record.operations):
+        operation_path = f'{path}.operations[{operation_index}]'
+        if isinstance(operation, SchematicSymbolStartBlockOperation):
+            if block_start is not None or operation.label != operation.data_uuid or not operation.label or operation.data_ref != 'symbol_pin' or not operation.object_id:
+                raise msgspec.ValidationError(f"invalid_symbol_pin_block at {operation_path}")
+            attrs = operation.extra_attrs
+            if set(attrs) - allowed_attrs or attrs.get('primitive') != 'pin' or attrs.get('object-type') != 'pin' or attrs.get('symbol-uuid') != parent_uuid or any(not isinstance(value, str) or not value for value in attrs.values()):
+                raise msgspec.ValidationError(f"invalid_symbol_pin_attrs at {operation_path}.extra_attrs")
+            block_start = operation_index
+            continue
+        if isinstance(operation, SchematicSymbolEndBlockOperation):
+            if block_start is None or operation_index == block_start + 1:
+                raise msgspec.ValidationError(f"invalid_symbol_pin_block at {operation_path}")
+            block_start = None
+            continue
+        if isinstance(operation, (PlotImageOperation, FlashPadCircleOperation, FlashPadOvalOperation, FlashPadRectOperation, FlashPadRoundRectOperation, FlashPadCustomOperation, FlashPadTrapezOperation)):
+            raise msgspec.ValidationError(f"invalid_symbol_operation at {operation_path}")
+        if isinstance(operation, TextOperation):
+            _validate_schematic_symbol_text(operation, operation_path, block_start is not None)
+        elif hasattr(operation, 'layer') and operation.layer is not UNSET:
+            raise msgspec.ValidationError(f"invalid_symbol_operation at {operation_path}")
+    if block_start is not None:
+        raise msgspec.ValidationError(f"invalid_symbol_pin_block at {path}.operations")
 _schematic_plot_request_a0_decoder = msgspec.json.Decoder(SchematicPlotRequestA0)
 
 
@@ -2686,7 +2788,7 @@ def decode_schematic_plot_request_a0(data: bytes) -> SchematicPlotRequestA0:
 
 
 def validate_schematic_plot_request_a0(value: SchematicPlotRequestA0) -> None:
-    fields = ('max_source_bytes', 'max_worksheet_bytes', 'max_output_bytes', 'max_text_bytes', 'max_metadata_bytes', 'max_image_encoded_bytes', 'max_image_decoded_bytes', 'max_image_pixels', 'max_image_decode_work', 'max_text_variable_bytes', 'max_worksheet_bitmap_encoded_bytes', 'max_worksheet_bitmap_decoded_bytes', 'max_worksheet_bitmap_pixels', 'max_worksheet_bitmap_decode_work')
+    fields = ('max_source_bytes', 'max_worksheet_bytes', 'max_output_bytes', 'max_text_bytes', 'max_metadata_bytes', 'max_image_encoded_bytes', 'max_image_decoded_bytes', 'max_image_pixels', 'max_image_decode_work', 'max_symbol_overlap_checks', 'max_text_variable_bytes', 'max_worksheet_bitmap_encoded_bytes', 'max_worksheet_bitmap_decoded_bytes', 'max_worksheet_bitmap_pixels', 'max_worksheet_bitmap_decode_work')
     for field_name in fields:
         encoded = getattr(value, field_name)
         if not encoded or not encoded.isascii() or not encoded.isdigit() or int(encoded) > 18_446_744_073_709_551_615:
@@ -3053,12 +3155,18 @@ __all__ = (
     "SchematicRuleAreaPlotRecord",
     "SchematicImagePlotRecord",
     "SchematicTablePlotRecord",
+    "SchematicSymbolInstancePlotRecord",
+    "SchematicSymbolOverplotPlotRecord",
     "SchematicPlotTitleBlock",
     "SchematicLabelShape",
     "SchematicNetclassFlagShape",
     "SchematicRuleAreaShape",
     "SchematicImageFormat",
+    "SchematicSymbolOperation",
     "RecordString",
+    "SchematicSymbolStartBlockOperation",
+    "SchematicSymbolEndBlockOperation",
+    "SchematicSymbolPinBlockAttrs",
     "SchematicWorksheetMode",
     "SchematicTextVariable",
     "SchematicTextOffsetRatio",

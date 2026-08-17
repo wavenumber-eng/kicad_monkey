@@ -195,7 +195,7 @@ const BOARD_FOOTPRINT_OPERATION_KINDS: [(&str, &str, &str); 15] = [
     ),
 ];
 
-const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 20] = [
+const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 22] = [
     (
         "SchematicSheetHeaderPlotRecord",
         "sheet_header",
@@ -296,9 +296,90 @@ const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 20] = [
         "table",
         "deserialize_table_record_kind",
     ),
+    (
+        "SchematicSymbolInstancePlotRecord",
+        "symbol_instance",
+        "deserialize_symbol_instance_record_kind",
+    ),
+    (
+        "SchematicSymbolOverplotPlotRecord",
+        "symbol_overplot",
+        "deserialize_symbol_overplot_record_kind",
+    ),
 ];
 
-const SCHEMATIC_REQUEST_U64_FIELDS: [&str; 14] = [
+const SCHEMATIC_SYMBOL_OPERATION_KINDS: [(&str, &str, &str); 16] = [
+    (
+        "ThickSegmentOperation",
+        "ThickSegment",
+        "deserialize_thick_segment_kind",
+    ),
+    (
+        "ArcThreePointOperation",
+        "ArcThreePoint",
+        "deserialize_arc_three_point_kind",
+    ),
+    ("CircleOperation", "Circle", "deserialize_circle_kind"),
+    ("RectOperation", "Rect", "deserialize_rect_kind"),
+    (
+        "PlotPolyOperation",
+        "PlotPoly",
+        "deserialize_plot_poly_kind",
+    ),
+    (
+        "BezierCurveOperation",
+        "BezierCurve",
+        "deserialize_bezier_curve_kind",
+    ),
+    ("TextOperation", "Text", "deserialize_text_kind"),
+    (
+        "PlotImageOperation",
+        "PlotImage",
+        "deserialize_plot_image_kind",
+    ),
+    (
+        "FlashPadCircleOperation",
+        "FlashPadCircle",
+        "deserialize_flash_pad_circle_kind",
+    ),
+    (
+        "FlashPadOvalOperation",
+        "FlashPadOval",
+        "deserialize_flash_pad_oval_kind",
+    ),
+    (
+        "FlashPadRectOperation",
+        "FlashPadRect",
+        "deserialize_flash_pad_rect_kind",
+    ),
+    (
+        "FlashPadRoundRectOperation",
+        "FlashPadRoundRect",
+        "deserialize_flash_pad_round_rect_kind",
+    ),
+    (
+        "FlashPadCustomOperation",
+        "FlashPadCustom",
+        "deserialize_flash_pad_custom_kind",
+    ),
+    (
+        "FlashPadTrapezOperation",
+        "FlashPadTrapez",
+        "deserialize_flash_pad_trapez_kind",
+    ),
+    (
+        "SchematicSymbolStartBlockOperation",
+        "StartBlock",
+        "deserialize_start_block_kind",
+    ),
+    (
+        "SchematicSymbolEndBlockOperation",
+        "EndBlock",
+        "deserialize_end_block_kind",
+    ),
+];
+
+const SCHEMATIC_REQUEST_U64_FIELDS: [&str; 15] = [
     "max_source_bytes",
     "max_worksheet_bytes",
     "max_output_bytes",
@@ -308,6 +389,7 @@ const SCHEMATIC_REQUEST_U64_FIELDS: [&str; 14] = [
     "max_image_decoded_bytes",
     "max_image_pixels",
     "max_image_decode_work",
+    "max_symbol_overlap_checks",
     "max_text_variable_bytes",
     "max_worksheet_bitmap_encoded_bytes",
     "max_worksheet_bitmap_decoded_bytes",
@@ -442,6 +524,12 @@ fn validate_plotter_operation_kinds(schema_name: &str, schema: &Value) -> Result
             "SchematicPlotRecord",
             &SCHEMATIC_RECORD_KINDS,
         )?;
+        validate_operation_union(
+            schema_name,
+            schema,
+            "SchematicSymbolOperation",
+            &SCHEMATIC_SYMBOL_OPERATION_KINDS,
+        )?;
     }
     Ok(())
 }
@@ -543,6 +631,12 @@ fn project_generated_presence(schema_name: &str, source: String) -> Result<Strin
     }
     if schema_name == "SchematicPlotDocument.json" {
         for (structure, _, deserializer) in SCHEMATIC_RECORD_KINDS {
+            projected = project_kind_deserializer(projected, structure, deserializer)?;
+        }
+        for (structure, _, deserializer) in SCHEMATIC_SYMBOL_OPERATION_KINDS
+            .into_iter()
+            .filter(|(structure, _, _)| structure.starts_with("SchematicSymbol"))
+        {
             projected = project_kind_deserializer(projected, structure, deserializer)?;
         }
         projected = project_schematic_record_string(projected)?;

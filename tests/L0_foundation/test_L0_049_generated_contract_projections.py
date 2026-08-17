@@ -322,6 +322,14 @@ def test_schematic_request_enforces_annotation_settings_and_limits() -> None:
         "max_image_height_px": 4096,
         "max_image_pixels": "16777216",
         "max_image_decode_work": "16777216",
+        "max_symbols": 10000,
+        "max_symbol_overplots": 10000,
+        "max_symbol_properties": 100000,
+        "max_symbol_pins": 100000,
+        "max_library_symbols": 10000,
+        "max_library_subsymbols": 100000,
+        "max_library_pins": 100000,
+        "max_symbol_overlap_checks": "1000000",
         "max_text_variables": 10,
         "max_text_variable_bytes": "4096",
         "max_worksheet_items": 10,
@@ -347,6 +355,7 @@ def test_schematic_request_enforces_annotation_settings_and_limits() -> None:
         "max_rule_areas",
         "max_table_cell_lines",
         "max_image_decode_work",
+        "max_symbol_overlap_checks",
     ):
         mutation = dict(request)
         del mutation[field]

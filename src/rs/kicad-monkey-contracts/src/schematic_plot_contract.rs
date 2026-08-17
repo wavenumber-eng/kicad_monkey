@@ -8,7 +8,8 @@ use crate::generated::schematic_plot_document::{
     SchematicJunctionPlotRecord, SchematicLabelShape, SchematicNetclassFlagPlotRecord,
     SchematicNetclassFlagShape, SchematicNoConnectPlotRecord, SchematicPlotDocumentA0,
     SchematicPlotRecord, SchematicRuleAreaPlotRecord, SchematicRuleAreaShape,
-    SchematicSheetHeaderPlotRecord, SchematicTablePlotRecord, SchematicTextBoxPlotRecord,
+    SchematicSheetHeaderPlotRecord, SchematicSymbolInstancePlotRecord, SchematicSymbolOperation,
+    SchematicSymbolOverplotPlotRecord, SchematicTablePlotRecord, SchematicTextBoxPlotRecord,
     SchematicTextPlotRecord, TextOperation, ThickSegmentOperation,
 };
 use crate::{ValidationError, validation_error};
@@ -22,6 +23,12 @@ const HIERARCHICAL_LABEL_COLOR: &str = "#725600FF";
 const NETCLASS_COLOR: &str = "#484848FF";
 
 /// Enforce document identity, record order, operation shape, and local indexes.
+// The exhaustive producer phase dispatcher is intentionally kept in one place
+// so newly generated record arms cannot bypass the common identity checks.
+#[allow(
+    clippy::too_many_lines,
+    reason = "the exhaustive record-phase dispatcher is a deliberate compile-time ratchet"
+)]
 pub fn validate_schematic_plot_document(
     document: &SchematicPlotDocumentA0,
 ) -> Result<(), ValidationError> {
@@ -60,6 +67,16 @@ pub fn validate_schematic_plot_document(
         }
         previous_phase = phase;
         let path = format!("$.records[{record_index}]");
+        if let SchematicPlotRecord::SymbolInstancePlotRecord(value) = record {
+            validate_symbol_instance(value, &path)?;
+            total_operations = total_operations.saturating_add(value.operations.len());
+            continue;
+        }
+        if let SchematicPlotRecord::SymbolOverplotPlotRecord(value) = record {
+            validate_symbol_overplot(value, &path)?;
+            total_operations = total_operations.saturating_add(value.operations.len());
+            continue;
+        }
         let (uuid, kind, expected_kind, object_id, declared, operations) = record_fields(record);
         let identity_matches = match record {
             SchematicPlotRecord::LabelPlotRecord(value) => value.object_id == value.text,
@@ -148,6 +165,8 @@ pub fn validate_schematic_plot_document(
             SchematicPlotRecord::TablePlotRecord(value) => {
                 validate_table(value, &path)?;
             }
+            SchematicPlotRecord::SymbolInstancePlotRecord(_)
+            | SchematicPlotRecord::SymbolOverplotPlotRecord(_) => unreachable!(),
         }
         total_operations = total_operations.saturating_add(operations.len());
     }
@@ -183,9 +202,17 @@ fn record_phase(record: &SchematicPlotRecord) -> u8 {
         SchematicPlotRecord::RuleAreaPlotRecord(_) => 17,
         SchematicPlotRecord::ImagePlotRecord(_) => 18,
         SchematicPlotRecord::TablePlotRecord(_) => 19,
+        SchematicPlotRecord::SymbolInstancePlotRecord(_) => 20,
+        SchematicPlotRecord::SymbolOverplotPlotRecord(_) => 21,
     }
 }
 
+// Keeping the generated union projection exhaustive makes missing record arms
+// a compile error; splitting it would weaken that ratchet without simplifying it.
+#[allow(
+    clippy::too_many_lines,
+    reason = "the generated record-union projection must remain visibly exhaustive"
+)]
 fn record_fields(
     record: &SchematicPlotRecord,
 ) -> (&str, &str, &'static str, &str, u32, &[PlotterOperation]) {
@@ -350,6 +377,10 @@ fn record_fields(
             value.operation_count,
             &value.operations,
         ),
+        SchematicPlotRecord::SymbolInstancePlotRecord(_)
+        | SchematicPlotRecord::SymbolOverplotPlotRecord(_) => {
+            unreachable!("symbol records have a distinct operation union")
+        }
     }
 }
 
@@ -408,6 +439,282 @@ fn operation_header(operation: &PlotterOperation) -> (u32, &str, &'static str) {
         }
         PlotterOperation::FlashPadTrapezOperation(value) => {
             (value.index, &value.kind, "FlashPadTrapez")
+        }
+    }
+}
+
+fn validate_symbol_instance(
+    record: &SchematicSymbolInstancePlotRecord,
+    path: &str,
+) -> Result<(), ValidationError> {
+    if record.kind != "symbol_instance"
+        || record.object_id
+            != if record.lib_id.is_empty() {
+                record.uuid.as_str()
+            } else {
+                record.lib_id.as_str()
+            }
+        || !record.at_angle_deg.is_finite()
+        || !matches!(record.mirror.as_deref(), None | Some("x") | Some("y"))
+    {
+        return Err(error(
+            "invalid_symbol_instance",
+            path,
+            "placed-symbol identity, angle, and mirror must be canonical",
+        ));
+    }
+    validate_symbol_operations(
+        &record.operations,
+        &record.uuid,
+        record.operation_count,
+        path,
+    )
+}
+
+fn validate_symbol_overplot(
+    record: &SchematicSymbolOverplotPlotRecord,
+    path: &str,
+) -> Result<(), ValidationError> {
+    let expected_uuid = format!("{}:overplot", record.source_symbol_uuid);
+    let expected_object = if record.lib_id.is_empty() {
+        &record.source_symbol_uuid
+    } else {
+        &record.lib_id
+    };
+    if record.kind != "symbol_overplot"
+        || record.uuid != expected_uuid
+        || record.object_id != *expected_object
+    {
+        return Err(error(
+            "invalid_symbol_overplot",
+            path,
+            "symbol overplot identity must remain linked to its source symbol",
+        ));
+    }
+    validate_symbol_operations(
+        &record.operations,
+        &record.source_symbol_uuid,
+        record.operation_count,
+        path,
+    )
+}
+
+// Pin-block state, the closed operation vocabulary, and shared drawing checks
+// are deliberately validated in one linear state machine.
+#[allow(
+    clippy::too_many_lines,
+    reason = "one linear state machine owns the complete pin-block validation invariant"
+)]
+fn validate_symbol_operations(
+    operations: &[SchematicSymbolOperation],
+    parent_uuid: &str,
+    declared: u32,
+    path: &str,
+) -> Result<(), ValidationError> {
+    if declared as usize != operations.len() {
+        return Err(error(
+            "operation_count_mismatch",
+            format!("{path}.operation_count"),
+            "operation_count must equal the operation array length",
+        ));
+    }
+    let mut block_start = None;
+    for (expected_index, operation) in operations.iter().enumerate() {
+        let operation_path = format!("{path}.operations[{expected_index}]");
+        let (index, kind, expected_kind) = symbol_operation_header(operation);
+        if index as usize != expected_index || kind != expected_kind {
+            return Err(error(
+                "invalid_schematic_operation",
+                &operation_path,
+                "symbol operation kind and local index must match its structural variant",
+            ));
+        }
+        match operation {
+            SchematicSymbolOperation::SchematicSymbolStartBlockOperation(value) => {
+                if block_start.is_some()
+                    || value.label.is_empty()
+                    || value.label != value.data_uuid
+                    || value.data_ref != "symbol_pin"
+                    || value.object_id.is_empty()
+                {
+                    return Err(error(
+                        "invalid_symbol_pin_block",
+                        &operation_path,
+                        "pin blocks must be nonnested and retain exact ownership",
+                    ));
+                }
+                let allowed = [
+                    "primitive",
+                    "object-type",
+                    "pin",
+                    "symbol-uuid",
+                    "designator",
+                    "lib-pin-uuid",
+                ];
+                if value
+                    .extra_attrs
+                    .keys()
+                    .any(|key| !allowed.contains(&key.as_str()))
+                    || value.extra_attrs.values().any(String::is_empty)
+                    || value.extra_attrs.get("primitive").map(String::as_str) != Some("pin")
+                    || value.extra_attrs.get("object-type").map(String::as_str) != Some("pin")
+                    || value.extra_attrs.get("symbol-uuid").map(String::as_str) != Some(parent_uuid)
+                {
+                    return Err(error(
+                        "invalid_symbol_pin_attrs",
+                        format!("{operation_path}.extra_attrs"),
+                        "pin block metadata must use the closed symbol-pin vocabulary",
+                    ));
+                }
+                block_start = Some(expected_index);
+            }
+            SchematicSymbolOperation::SchematicSymbolEndBlockOperation(_) => {
+                let Some(start) = block_start else {
+                    return Err(error(
+                        "invalid_symbol_pin_block",
+                        &operation_path,
+                        "pin block end must follow a matching start",
+                    ));
+                };
+                if expected_index == start + 1 {
+                    return Err(error(
+                        "invalid_symbol_pin_block",
+                        &operation_path,
+                        "pin blocks must contain at least one operation",
+                    ));
+                }
+                block_start = None;
+            }
+            SchematicSymbolOperation::PlotImageOperation(_)
+            | SchematicSymbolOperation::FlashPadCircleOperation(_)
+            | SchematicSymbolOperation::FlashPadOvalOperation(_)
+            | SchematicSymbolOperation::FlashPadRectOperation(_)
+            | SchematicSymbolOperation::FlashPadRoundRectOperation(_)
+            | SchematicSymbolOperation::FlashPadCustomOperation(_)
+            | SchematicSymbolOperation::FlashPadTrapezOperation(_) => {
+                return Err(error(
+                    "invalid_symbol_operation",
+                    &operation_path,
+                    "placed symbols do not admit images or pad flashes",
+                ));
+            }
+            SchematicSymbolOperation::TextOperation(value) => {
+                validate_annotation_text(value, &operation_path)?;
+                if block_start.is_some() && value.context.is_some() {
+                    return Err(error(
+                        "invalid_symbol_pin_text",
+                        &operation_path,
+                        "pin text cannot carry hyperlink context",
+                    ));
+                }
+            }
+            _ => validate_symbol_draw_operation(operation, &operation_path)?,
+        }
+    }
+    if block_start.is_some() {
+        return Err(error(
+            "invalid_symbol_pin_block",
+            format!("{path}.operations"),
+            "pin block must terminate before the record ends",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_symbol_draw_operation(
+    operation: &SchematicSymbolOperation,
+    path: &str,
+) -> Result<(), ValidationError> {
+    let layer = match operation {
+        SchematicSymbolOperation::ThickSegmentOperation(value) => {
+            if value.role.is_some()
+                || !value.layers.is_empty()
+                || value.mask_margin_nm.is_some()
+                || value.pad_size_x_nm.is_some()
+                || value.pad_size_y_nm.is_some()
+            {
+                return Err(error(
+                    "invalid_symbol_operation",
+                    path,
+                    "symbol segment state is invalid",
+                ));
+            }
+            value.layer.as_deref()
+        }
+        SchematicSymbolOperation::ArcThreePointOperation(value) => value.layer.as_deref(),
+        SchematicSymbolOperation::CircleOperation(value) => {
+            if value.role.is_some()
+                || !value.layers.is_empty()
+                || value.mask_margin_nm.is_some()
+                || value.pad_size_x_nm.is_some()
+                || value.pad_size_y_nm.is_some()
+            {
+                return Err(error(
+                    "invalid_symbol_operation",
+                    path,
+                    "symbol circle state is invalid",
+                ));
+            }
+            value.layer.as_deref()
+        }
+        SchematicSymbolOperation::RectOperation(value) => value.layer.as_deref(),
+        SchematicSymbolOperation::PlotPolyOperation(value) => value.layer.as_deref(),
+        SchematicSymbolOperation::BezierCurveOperation(value) => value.layer.as_deref(),
+        _ => unreachable!("non-drawing symbol operation was handled by the caller"),
+    };
+    if layer.is_some() {
+        return Err(error(
+            "invalid_symbol_operation",
+            path,
+            "placed-symbol operations must remain layerless",
+        ));
+    }
+    Ok(())
+}
+
+fn symbol_operation_header(operation: &SchematicSymbolOperation) -> (u32, &str, &'static str) {
+    match operation {
+        SchematicSymbolOperation::ThickSegmentOperation(value) => {
+            (value.index, &value.kind, "ThickSegment")
+        }
+        SchematicSymbolOperation::ArcThreePointOperation(value) => {
+            (value.index, &value.kind, "ArcThreePoint")
+        }
+        SchematicSymbolOperation::CircleOperation(value) => (value.index, &value.kind, "Circle"),
+        SchematicSymbolOperation::RectOperation(value) => (value.index, &value.kind, "Rect"),
+        SchematicSymbolOperation::PlotPolyOperation(value) => {
+            (value.index, &value.kind, "PlotPoly")
+        }
+        SchematicSymbolOperation::BezierCurveOperation(value) => {
+            (value.index, &value.kind, "BezierCurve")
+        }
+        SchematicSymbolOperation::TextOperation(value) => (value.index, &value.kind, "Text"),
+        SchematicSymbolOperation::PlotImageOperation(value) => {
+            (value.index, &value.kind, "PlotImage")
+        }
+        SchematicSymbolOperation::FlashPadCircleOperation(value) => {
+            (value.index, &value.kind, "FlashPadCircle")
+        }
+        SchematicSymbolOperation::FlashPadOvalOperation(value) => {
+            (value.index, &value.kind, "FlashPadOval")
+        }
+        SchematicSymbolOperation::FlashPadRectOperation(value) => {
+            (value.index, &value.kind, "FlashPadRect")
+        }
+        SchematicSymbolOperation::FlashPadRoundRectOperation(value) => {
+            (value.index, &value.kind, "FlashPadRoundRect")
+        }
+        SchematicSymbolOperation::FlashPadCustomOperation(value) => {
+            (value.index, &value.kind, "FlashPadCustom")
+        }
+        SchematicSymbolOperation::FlashPadTrapezOperation(value) => {
+            (value.index, &value.kind, "FlashPadTrapez")
+        }
+        SchematicSymbolOperation::SchematicSymbolStartBlockOperation(value) => {
+            (value.index, &value.kind, "StartBlock")
+        }
+        SchematicSymbolOperation::SchematicSymbolEndBlockOperation(value) => {
+            (value.index, &value.kind, "EndBlock")
         }
     }
 }
@@ -1319,7 +1626,7 @@ fn validate_graphic_record(
         && !matches!(
             first,
             GraphicRef::Polyline(value)
-                if value.points.first().is_some()
+                if !value.points.is_empty()
                     && value
                         .points
                         .first()
@@ -1655,6 +1962,12 @@ fn png_metadata(data: &[u8]) -> Option<ImageMetadata> {
     })
 }
 
+// This is a direct, allocation-free marker scanner. Keeping the marker state
+// explicit makes the accepted JPEG subset auditable against the Python oracle.
+#[allow(
+    clippy::cognitive_complexity,
+    reason = "the allocation-free marker scanner intentionally mirrors the Python authority"
+)]
 fn jpeg_metadata(data: &[u8]) -> Option<ImageMetadata> {
     let mut position = 2usize;
     let mut ppi_x = None;

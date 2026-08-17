@@ -169,6 +169,7 @@ pub(crate) fn body_text_operation(
 pub(crate) fn pin_text_operations(
     form: &Sexp,
     settings: SymbolTextSettings,
+    default_line_width_nm: Option<i64>,
     budget: &mut SymbolTextBudget,
     position: Position,
 ) -> Result<Vec<PlotterOperation>, Error> {
@@ -198,6 +199,7 @@ pub(crate) fn pin_text_operations(
         geometry,
         draws_name,
         settings,
+        default_line_width_nm,
         budget,
         position,
     )?;
@@ -268,6 +270,7 @@ fn append_pin_number(
     geometry: PinGeometry,
     draws_name: bool,
     settings: SymbolTextSettings,
+    default_line_width_nm: Option<i64>,
     budget: &mut SymbolTextBudget,
     position: Position,
 ) -> Result<(), Error> {
@@ -280,7 +283,12 @@ fn append_pin_number(
         return Ok(());
     }
     let effects = effects.unwrap_or_default();
-    let style = resolved_style(&effects, false, true, PIN_NUMBER_COLOR, position)?;
+    let mut style = resolved_style(&effects, false, true, PIN_NUMBER_COLOR, position)?;
+    if effects.font.thickness.unwrap_or(0.0) <= 0.0
+        && let Some(default_line_width_nm) = default_line_width_nm
+    {
+        style.pen_width_nm = default_line_width_nm;
+    }
     let clearance = coordinate_add(PIN_TEXT_MARGIN_NM, style.pen_width_nm, position)?;
     let midpoint_x = midpoint(geometry.root_x, geometry.pos_x, position)?;
     let midpoint_y = midpoint(geometry.root_y, geometry.pos_y, position)?;

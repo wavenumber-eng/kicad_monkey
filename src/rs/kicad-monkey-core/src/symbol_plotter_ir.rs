@@ -372,13 +372,18 @@ fn build_document(
     })
 }
 
-fn selected_subsymbol(sub_unit: u32, sub_style: u32, unit: Option<u32>, style: u32) -> bool {
+pub(crate) fn selected_subsymbol(
+    sub_unit: u32,
+    sub_style: u32,
+    unit: Option<u32>,
+    style: u32,
+) -> bool {
     let style_matches = sub_style == 0 || sub_style == style || (style == 0 && sub_style == 1);
     let unit_matches = unit.is_none_or(|requested| sub_unit == 0 || sub_unit == requested);
     style_matches && unit_matches
 }
 
-fn subsymbol_identity(name: &str) -> (u32, u32) {
+pub(crate) fn subsymbol_identity(name: &str) -> (u32, u32) {
     let mut suffix = name.rsplitn(3, '_');
     let style = suffix.next().and_then(|value| value.parse().ok());
     let unit = suffix.next().and_then(|value| value.parse().ok());
@@ -432,7 +437,7 @@ fn convert_subsymbol(
         for operation in pin_operations(pin, max_points, point_count, position)? {
             push_operation(&mut fills, operation, max_operations)?;
         }
-        for operation in pin_text_operations(pin, settings, text_budget, position)? {
+        for operation in pin_text_operations(pin, settings, None, text_budget, position)? {
             push_operation(&mut fills, operation, max_operations)?;
         }
     }
@@ -443,7 +448,7 @@ fn convert_subsymbol(
     Ok(fills)
 }
 
-fn convert_shape(
+pub(crate) fn convert_shape(
     form: &Sexp,
     head: &str,
     max_points: usize,
@@ -703,7 +708,7 @@ fn points(
     Ok(output)
 }
 
-fn split_filled_outline(
+pub(crate) fn split_filled_outline(
     mut operation: PlotterOperation,
 ) -> (PlotterOperation, Option<PlotterOperation>) {
     let fill = operation_fill(&operation);

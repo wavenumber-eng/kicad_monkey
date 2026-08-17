@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add bounded placed schematic symbols, typed pin ownership blocks,
+  occurrence-aware visible fields, DNP rendering, transforms, and overlap
+  overplots with strict generated contracts and hermetic Python-oracle
+  evidence.
+
 - Add bounded native schematic graphics, rule areas, PNG/JPEG/BMP images, and
   tables with strict generated contracts and hermetic Python-oracle evidence.
 

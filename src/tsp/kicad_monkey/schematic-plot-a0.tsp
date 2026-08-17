@@ -89,6 +89,14 @@ model SchematicPlotRequest {
   max_image_height_px: uint32;
   max_image_pixels: uint64;
   max_image_decode_work: uint64;
+  max_symbols: uint32;
+  max_symbol_overplots: uint32;
+  max_symbol_properties: uint32;
+  max_symbol_pins: uint32;
+  max_library_symbols: uint32;
+  max_library_subsymbols: uint32;
+  max_library_pins: uint32;
+  max_symbol_overlap_checks: uint64;
   max_text_variables: uint32;
   max_text_variable_bytes: uint64;
   max_worksheet_items: uint32;
@@ -382,7 +390,81 @@ model SchematicTablePlotRecord {
   cell_count: uint32;
 }
 
-/** Strict source-record vocabulary through the P5_062 schematic graphics. */
+/** Exact string metadata retained on one placed-symbol pin group. */
+model SchematicSymbolPinBlockAttrs is Record<string>;
+
+/** Leading ownership marker for one placed-symbol pin group. */
+model SchematicSymbolStartBlockOperation {
+  kind: "StartBlock";
+  index: uint32;
+  label: string;
+  data_uuid: string;
+  data_ref: "symbol_pin";
+  object_id: string;
+  extra_attrs: SchematicSymbolPinBlockAttrs;
+}
+
+/** Trailing ownership marker for one placed-symbol pin group. */
+model SchematicSymbolEndBlockOperation {
+  kind: "EndBlock";
+  index: uint32;
+}
+
+/** Strict operation vocabulary for placed symbols and their overplots. */
+union SchematicSymbolOperation {
+  thickSegment: ThickSegmentOperation,
+  arcThreePoint: ArcThreePointOperation,
+  circle: CircleOperation,
+  rect: RectOperation,
+  plotPoly: PlotPolyOperation,
+  bezierCurve: BezierCurveOperation,
+  text: TextOperation,
+  plotImage: PlotImageOperation,
+  flashPadCircle: FlashPadCircleOperation,
+  flashPadOval: FlashPadOvalOperation,
+  flashPadRect: FlashPadRectOperation,
+  flashPadRoundRect: FlashPadRoundRectOperation,
+  flashPadCustom: FlashPadCustomOperation,
+  flashPadTrapez: FlashPadTrapezOperation,
+  startBlock: SchematicSymbolStartBlockOperation,
+  endBlock: SchematicSymbolEndBlockOperation,
+}
+
+/** One placed schematic symbol, including body, pins, and visible fields. */
+model SchematicSymbolInstancePlotRecord {
+  uuid: string;
+  kind: "symbol_instance";
+  object_id: string;
+  operation_count: uint32;
+  operations: SchematicSymbolOperation[];
+  lib_id: string;
+  lib_name: string;
+  reference: string;
+  at_x_nm: JavaScriptSafeInteger;
+  at_y_nm: JavaScriptSafeInteger;
+  at_angle_deg: float64;
+  mirror: string | null;
+  unit: uint32;
+  convert: uint32;
+  in_bom: boolean;
+  on_board: boolean;
+  dnp: boolean;
+  exclude_from_sim: boolean;
+  in_pos_files: boolean;
+}
+
+/** Replotted pins and fields for one overlapping placed symbol. */
+model SchematicSymbolOverplotPlotRecord {
+  uuid: string;
+  kind: "symbol_overplot";
+  object_id: string;
+  operation_count: uint32;
+  operations: SchematicSymbolOperation[];
+  source_symbol_uuid: string;
+  lib_id: string;
+}
+
+/** Strict source-record vocabulary through the P5_070 placed symbols. */
 union SchematicPlotRecord {
   sheetHeader: SchematicSheetHeaderPlotRecord,
   wire: SchematicWirePlotRecord,
@@ -404,9 +486,11 @@ union SchematicPlotRecord {
   ruleArea: SchematicRuleAreaPlotRecord,
   image: SchematicImagePlotRecord,
   table: SchematicTablePlotRecord,
+  symbolInstance: SchematicSymbolInstancePlotRecord,
+  symbolOverplot: SchematicSymbolOverplotPlotRecord,
 }
 
-/** Strict schematic subset through the P5_062 graphic families. */
+/** Strict schematic subset through the P5_070 placed-symbol family. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0")
 @extension("title", "Schematic plot document a0")

@@ -8,7 +8,7 @@ use kicad_monkey_core::{
     SchematicConnectivityRecordKind, SchematicDrawingSettings, SchematicPlotContext,
     SchematicPlotDocument, SchematicPlotLimits, SchematicPlotOperation, SchematicPlotRecord,
     SchematicPlotVariables, schematic_plot_document, schematic_plot_document_with_annotations,
-    schematic_plot_document_with_graphics,
+    schematic_plot_document_with_graphics, schematic_plot_document_with_symbols,
 };
 use serde_json::{Map, Value, json};
 
@@ -51,7 +51,6 @@ fn context() -> SchematicPlotContext {
         worksheet_source: Some(WORKSHEET.as_bytes().to_vec()),
     }
 }
-
 fn plotter(operation: &SchematicPlotOperation) -> &PlotterOperation {
     let SchematicPlotOperation::Plotter(operation) = operation else {
         panic!("expected vector operation")
@@ -165,6 +164,27 @@ fn operation_json(operation: &SchematicPlotOperation, index: usize) -> Value {
             );
             Value::Object(object)
         }
+        SchematicPlotOperation::StartSymbolPinBlock(value) => {
+            let attrs = [
+                ("primitive", value.extra_attrs.primitive.as_str()),
+                ("object-type", value.extra_attrs.object_type.as_str()),
+                ("pin", value.extra_attrs.pin.as_str()),
+                ("symbol-uuid", value.extra_attrs.symbol_uuid.as_str()),
+                ("designator", value.extra_attrs.designator.as_str()),
+                ("lib-pin-uuid", value.extra_attrs.lib_pin_uuid.as_str()),
+            ]
+            .into_iter()
+            .filter(|(_, value)| !value.is_empty())
+            .map(|(name, value)| (name.to_owned(), json!(value)))
+            .collect::<Map<_, _>>();
+            json!({
+                "kind": "StartBlock", "index": index,
+                "label": value.label, "data_uuid": value.data_uuid,
+                "data_ref": "symbol_pin", "object_id": value.object_id,
+                "extra_attrs": attrs,
+            })
+        }
+        SchematicPlotOperation::EndBlock => json!({"kind": "EndBlock", "index": index}),
         SchematicPlotOperation::Plotter(operation) => match operation {
             PlotterOperation::Rect(value) => {
                 let mut object = json!({
@@ -321,8 +341,39 @@ fn operation_json(operation: &SchematicPlotOperation, index: usize) -> Value {
                 );
                 Value::Object(object)
             }
-            PlotterOperation::ThickSegment(_)
-            | PlotterOperation::FlashPadCircle(_)
+            PlotterOperation::ThickSegment(value) => {
+                let mut object = json!({
+                    "kind": "ThickSegment", "index": index,
+                    "start_x": value.start_x, "start_y": value.start_y,
+                    "end_x": value.end_x, "end_y": value.end_y,
+                    "width_nm": value.width_nm,
+                })
+                .as_object()
+                .expect("segment object")
+                .clone();
+                insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
+                insert_optional(&mut object, "role", value.role.as_ref().map(|v| json!(v)));
+                if !value.layers.is_empty() {
+                    object.insert("layers".to_owned(), json!(value.layers));
+                }
+                insert_optional(
+                    &mut object,
+                    "mask_margin_nm",
+                    value.mask_margin_nm.map(|v| json!(v)),
+                );
+                insert_optional(
+                    &mut object,
+                    "pad_size_x_nm",
+                    value.pad_size_x_nm.map(|v| json!(v)),
+                );
+                insert_optional(
+                    &mut object,
+                    "pad_size_y_nm",
+                    value.pad_size_y_nm.map(|v| json!(v)),
+                );
+                Value::Object(object)
+            }
+            PlotterOperation::FlashPadCircle(_)
             | PlotterOperation::FlashPadOval(_)
             | PlotterOperation::FlashPadRect(_)
             | PlotterOperation::FlashPadRoundRect(_)
@@ -438,6 +489,30 @@ fn document_json(document: &SchematicPlotDocument) -> Value {
                 "operations": value.operations.iter().enumerate()
                     .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
                 "cell_count": value.cell_count,
+            }),
+            SchematicPlotRecord::SymbolInstance(value) => json!({
+                "uuid": value.uuid, "kind": "symbol_instance",
+                "object_id": if value.lib_id.is_empty() { &value.uuid } else { &value.lib_id },
+                "operation_count": value.operations.len(),
+                "operations": value.operations.iter().enumerate()
+                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+                "lib_id": value.lib_id, "lib_name": value.lib_name,
+                "reference": value.reference,
+                "at_x_nm": value.at_x_nm, "at_y_nm": value.at_y_nm,
+                "at_angle_deg": value.at_angle_deg, "mirror": value.mirror,
+                "unit": value.unit, "convert": value.convert,
+                "in_bom": value.in_bom, "on_board": value.on_board,
+                "dnp": value.dnp, "exclude_from_sim": value.exclude_from_sim,
+                "in_pos_files": value.in_pos_files,
+            }),
+            SchematicPlotRecord::SymbolOverplot(value) => json!({
+                "uuid": value.uuid, "kind": "symbol_overplot",
+                "object_id": if value.lib_id.is_empty() { &value.source_symbol_uuid } else { &value.lib_id },
+                "operation_count": value.operations.len(),
+                "operations": value.operations.iter().enumerate()
+                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+                "source_symbol_uuid": value.source_symbol_uuid,
+                "lib_id": value.lib_id,
             }),
         })
         .collect::<Vec<_>>();
@@ -972,7 +1047,7 @@ fn every_shared_vector_is_exactly_projectable_to_the_strict_contract() {
                 fonts: &fonts,
                 limits: PlotterTextCacheLimits::default(),
             };
-            schematic_plot_document_with_graphics(
+            schematic_plot_document_with_symbols(
                 source,
                 SchematicPlotLimits::default(),
                 &context,
@@ -980,7 +1055,7 @@ fn every_shared_vector_is_exactly_projectable_to_the_strict_contract() {
                 Some(&resources),
             )
         } else {
-            schematic_plot_document_with_graphics(
+            schematic_plot_document_with_symbols(
                 source,
                 SchematicPlotLimits::default(),
                 &context,
@@ -995,6 +1070,148 @@ fn every_shared_vector_is_exactly_projectable_to_the_strict_contract() {
             serde_json::from_value(actual).expect("generated contract decode");
         validate_schematic_plot_document(&contract).expect("strict semantic validation");
     }
+}
+
+#[test]
+fn placed_symbol_family_and_aggregate_limits_are_independent() {
+    let vectors: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/schematic_plotter_a0_vectors.json"
+    )))
+    .expect("shared vectors");
+    let vector = vectors["vectors"]
+        .as_array()
+        .expect("vectors")
+        .iter()
+        .find(|vector| vector["id"] == "placed-symbols-pins-fields-dnp-and-overplots")
+        .expect("symbol vector");
+    let source = vector["source"].as_str().expect("source");
+    let context = vector_context(vector);
+    let settings = vector_drawing_settings(vector);
+    let fonts = [metric_font()];
+    let resources = PlotterTextCacheResources {
+        fonts: &fonts,
+        limits: PlotterTextCacheLimits::default(),
+    };
+    let run = |limits| {
+        schematic_plot_document_with_symbols(source, limits, &context, settings, Some(&resources))
+    };
+
+    let cases = [
+        ("symbols", 2usize, 1usize),
+        ("overplots", 2, 1),
+        ("properties", 3, 2),
+        ("pins", 2, 1),
+        ("library_symbols", 1, 0),
+        ("library_subsymbols", 2, 1),
+        ("library_pins", 2, 1),
+        ("overlap_checks", 1, 0),
+        ("records", 5, 4),
+        ("operations", 37, 36),
+        ("input_points", 11, 10),
+    ];
+    for (name, exact, one_under) in cases {
+        let mut exact_limits = SchematicPlotLimits::default();
+        let mut under_limits = exact_limits;
+        match name {
+            "symbols" => {
+                exact_limits.max_symbols = exact;
+                under_limits.max_symbols = one_under;
+            }
+            "overplots" => {
+                exact_limits.max_symbol_overplots = exact;
+                under_limits.max_symbol_overplots = one_under;
+            }
+            "properties" => {
+                exact_limits.max_symbol_properties = exact;
+                under_limits.max_symbol_properties = one_under;
+            }
+            "pins" => {
+                exact_limits.max_symbol_pins = exact;
+                under_limits.max_symbol_pins = one_under;
+            }
+            "library_symbols" => {
+                exact_limits.max_library_symbols = exact;
+                under_limits.max_library_symbols = one_under;
+            }
+            "library_subsymbols" => {
+                exact_limits.max_library_subsymbols = exact;
+                under_limits.max_library_subsymbols = one_under;
+            }
+            "library_pins" => {
+                exact_limits.max_library_pins = exact;
+                under_limits.max_library_pins = one_under;
+            }
+            "overlap_checks" => {
+                exact_limits.max_symbol_overlap_checks = exact;
+                under_limits.max_symbol_overlap_checks = one_under;
+            }
+            "records" => {
+                exact_limits.max_records = exact;
+                under_limits.max_records = one_under;
+            }
+            "operations" => {
+                exact_limits.max_operations = exact;
+                under_limits.max_operations = one_under;
+            }
+            "input_points" => {
+                exact_limits.max_input_points = exact;
+                under_limits.max_input_points = one_under;
+            }
+            _ => unreachable!(),
+        }
+        run(exact_limits).unwrap_or_else(|error| panic!("exact {name}: {error}"));
+        assert_eq!(
+            run(under_limits).unwrap_err().kind,
+            ErrorKind::ResourceLimit,
+            "one-under {name}",
+        );
+    }
+
+    assert_eq!(
+        schematic_plot_document_with_symbols(
+            source,
+            SchematicPlotLimits::default(),
+            &context,
+            settings,
+            None,
+        )
+        .expect_err("overlap and field bounds require deterministic metrics")
+        .kind,
+        ErrorKind::InvalidBuildValue,
+    );
+}
+
+#[test]
+fn placed_symbol_malformed_selection_fails_closed() {
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    let bad_mirror = r#"(kicad_sch (lib_symbols) (symbol (mirror z)))"#;
+    assert_eq!(
+        schematic_plot_document_with_symbols(
+            bad_mirror,
+            SchematicPlotLimits::default(),
+            &context,
+            SchematicDrawingSettings::default(),
+            None,
+        )
+        .expect_err("unsupported mirror must fail")
+        .kind,
+        ErrorKind::InvalidBuildValue,
+    );
+    let nonfinite = r#"(kicad_sch (lib_symbols) (symbol (at 0 0 nan)))"#;
+    assert!(
+        schematic_plot_document_with_symbols(
+            nonfinite,
+            SchematicPlotLimits::default(),
+            &context,
+            SchematicDrawingSettings::default(),
+            None,
+        )
+        .is_err()
+    );
 }
 
 fn assert_resource_pair(

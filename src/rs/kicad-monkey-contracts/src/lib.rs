@@ -151,6 +151,8 @@ literal_kind_deserializer!(deserialize_graphic_bezier_record_kind, "graphic_bezi
 literal_kind_deserializer!(deserialize_rule_area_record_kind, "rule_area");
 literal_kind_deserializer!(deserialize_image_record_kind, "image");
 literal_kind_deserializer!(deserialize_table_record_kind, "table");
+literal_kind_deserializer!(deserialize_symbol_instance_record_kind, "symbol_instance");
+literal_kind_deserializer!(deserialize_symbol_overplot_record_kind, "symbol_overplot");
 use std::fmt;
 
 /// Largest integer represented exactly by JavaScript's IEEE-754 `number`.

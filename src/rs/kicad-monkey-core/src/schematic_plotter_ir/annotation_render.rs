@@ -462,27 +462,27 @@ pub(super) fn render_text_box(
 }
 
 #[derive(Clone, Copy)]
-struct At {
-    x: i64,
-    y: i64,
-    angle: f64,
+pub(super) struct At {
+    pub(super) x: i64,
+    pub(super) y: i64,
+    pub(super) angle: f64,
 }
 
 #[derive(Clone)]
-struct TextStyle {
-    color: String,
-    size_x_nm: i64,
-    size_y_nm: i64,
-    h_align: PlotterTextHAlign,
-    v_align: PlotterTextVAlign,
-    pen_width_nm: i64,
-    italic: bool,
-    bold: bool,
-    font_face: String,
-    hyperlink_href: Option<String>,
+pub(super) struct TextStyle {
+    pub(super) color: String,
+    pub(super) size_x_nm: i64,
+    pub(super) size_y_nm: i64,
+    pub(super) h_align: PlotterTextHAlign,
+    pub(super) v_align: PlotterTextVAlign,
+    pub(super) pen_width_nm: i64,
+    pub(super) italic: bool,
+    pub(super) bold: bool,
+    pub(super) font_face: String,
+    pub(super) hyperlink_href: Option<String>,
 }
 
-fn parse_at(form: &Sexp) -> Result<At, Error> {
+pub(super) fn parse_at(form: &Sexp) -> Result<At, Error> {
     let Some(at) = child(form, "at") else {
         return Ok(At {
             x: 0,
@@ -501,7 +501,7 @@ fn parse_at(form: &Sexp) -> Result<At, Error> {
     })
 }
 
-fn text_style(
+pub(super) fn text_style(
     form: &Sexp,
     role_color: &str,
     drawing_width: Option<i64>,
@@ -520,10 +520,11 @@ fn text_style(
         _ if effects.font.bold => round_to_100(size_x_nm as f64 / 5.0)?,
         _ => DEFAULT_TEXT_PEN_WIDTH_NM,
     };
-    if explicit_thickness.is_none() && !effects.font.bold {
-        if let Some(width) = drawing_width {
-            pen_width_nm = width.max(MIN_PLOT_PEN_WIDTH_NM);
-        }
+    if explicit_thickness.is_none()
+        && !effects.font.bold
+        && let Some(width) = drawing_width
+    {
+        pen_width_nm = width.max(MIN_PLOT_PEN_WIDTH_NM);
     }
     pen_width_nm =
         pen_width_nm.min(((size_x_nm.abs().min(size_y_nm.abs()) as f64) * 0.25 + 0.5) as i64);
@@ -569,7 +570,7 @@ fn positive_text_size(value: f64) -> Result<i64, Error> {
     }
 }
 
-fn schematic_text(
+pub(super) fn schematic_text(
     x: i64,
     y: i64,
     text: String,
@@ -1308,7 +1309,7 @@ fn decoration_shape(shape: &str) -> bool {
         "input" | "output" | "bidirectional" | "tri_state" | "passive"
     )
 }
-fn apply_center_defaults(form: &Sexp, style: &mut TextStyle) {
+pub(super) fn apply_center_defaults(form: &Sexp, style: &mut TextStyle) {
     let tokens = child(form, "effects")
         .and_then(|effects| child(effects, "justify"))
         .and_then(list)

@@ -477,6 +477,73 @@ fn schematic_graphic_rule_image_and_table_mutations_fail_closed() {
 }
 
 #[test]
+fn schematic_symbol_pin_and_overplot_mutations_fail_closed() {
+    let canonical = shared_vector(
+        "schematic_plotter_a0_vectors.json",
+        "placed-symbols-pins-fields-dnp-and-overplots",
+    );
+    validate_schematic_plot_document(&decode(&canonical)).expect("canonical P5_070 vector");
+
+    let mut mutations = Vec::new();
+
+    let mut wrong_identity = canonical.clone();
+    wrong_identity["records"][1]["object_id"] = serde_json::json!("other");
+    mutations.push(wrong_identity);
+
+    let mut invalid_mirror = canonical.clone();
+    invalid_mirror["records"][1]["mirror"] = serde_json::json!("z");
+    mutations.push(invalid_mirror);
+
+    let mut overplot_before_instance = canonical.clone();
+    overplot_before_instance["records"]
+        .as_array_mut()
+        .expect("records")
+        .swap(2, 3);
+    mutations.push(overplot_before_instance);
+
+    let mut wrong_overplot_uuid = canonical.clone();
+    wrong_overplot_uuid["records"][3]["uuid"] = serde_json::json!("bad:overplot");
+    mutations.push(wrong_overplot_uuid);
+
+    let mut foreign_attrs = canonical.clone();
+    foreign_attrs["records"][1]["operations"][3]["extra_attrs"]["foreign"] = serde_json::json!("x");
+    mutations.push(foreign_attrs);
+
+    let mut wrong_parent = canonical.clone();
+    wrong_parent["records"][1]["operations"][3]["extra_attrs"]["symbol-uuid"] =
+        serde_json::json!("placed-2");
+    mutations.push(wrong_parent);
+
+    let mut nested_block = canonical.clone();
+    let mut start = nested_block["records"][1]["operations"][3].clone();
+    start["index"] = serde_json::json!(4);
+    nested_block["records"][1]["operations"][4] = start;
+    mutations.push(nested_block);
+
+    let mut pin_href = canonical.clone();
+    pin_href["records"][1]["operations"][5]["context"] =
+        serde_json::json!({"hyperlink": {"href": "https://example.test/pin"}});
+    mutations.push(pin_href);
+
+    let mut image_in_symbol = canonical.clone();
+    image_in_symbol["records"][1]["operations"][0] = serde_json::json!({
+        "kind": "PlotImage", "index": 0,
+        "x": 0, "y": 0, "width_nm": 84667, "height_nm": 84667,
+        "scale": 1.0, "image_data_b64": ONE_BY_ONE_PNG,
+        "image_format": "png"
+    });
+    mutations.push(image_in_symbol);
+
+    let mut wrong_data_ref = canonical;
+    wrong_data_ref["records"][1]["operations"][3]["data_ref"] = serde_json::json!("pad");
+    mutations.push(wrong_data_ref);
+
+    for mutation in mutations {
+        assert!(validate_schematic_plot_document(&decode(&mutation)).is_err());
+    }
+}
+
+#[test]
 fn schematic_single_pass_filled_shape_preserves_authoritative_fill_states() {
     let canonical = shared_vector(
         "schematic_plotter_a0_vectors.json",
@@ -595,6 +662,10 @@ fn schematic_request_requires_every_independent_budget() {
         "max_image_decoded_bytes": "4096",
         "max_image_width_px": 1000, "max_image_height_px": 1000,
         "max_image_pixels": "1000000", "max_image_decode_work": "8192",
+        "max_symbols": 100, "max_symbol_overplots": 100,
+        "max_symbol_properties": 1000, "max_symbol_pins": 1000,
+        "max_library_symbols": 100, "max_library_subsymbols": 1000,
+        "max_library_pins": 1000, "max_symbol_overlap_checks": "10000",
         "max_text_variables": 100, "max_text_variable_bytes": "4096",
         "max_worksheet_items": 100, "max_worksheet_repeats": 1000,
         "max_worksheet_point_sets": 100, "max_worksheet_points": 1000,
@@ -645,6 +716,7 @@ fn schematic_request_requires_every_independent_budget() {
         "max_rule_areas",
         "max_table_cell_lines",
         "max_image_decode_work",
+        "max_symbol_overlap_checks",
         "text_offset_ratio",
         "default_line_width_nm",
     ] {

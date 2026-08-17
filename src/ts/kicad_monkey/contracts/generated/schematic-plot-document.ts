@@ -1,7 +1,7 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
 /**
- * Strict source-record vocabulary through the P5_062 schematic graphics.
+ * Strict source-record vocabulary through the P5_070 placed symbols.
  */
 export type SchematicPlotRecord =
   | SchematicSheetHeaderPlotRecord
@@ -23,7 +23,9 @@ export type SchematicPlotRecord =
   | SchematicGraphicBezierPlotRecord
   | SchematicRuleAreaPlotRecord
   | SchematicImagePlotRecord
-  | SchematicTablePlotRecord;
+  | SchematicTablePlotRecord
+  | SchematicSymbolInstancePlotRecord
+  | SchematicSymbolOverplotPlotRecord;
 /**
  * Shared plotter operation vocabulary promoted across source producers.
  */
@@ -116,9 +118,29 @@ export type SchematicRuleAreaShape = "polyline" | "rectangle" | "arc" | "circle"
  * Decoded image formats admitted by the schematic image family.
  */
 export type SchematicImageFormat = "png" | "jpeg" | "bmp";
+/**
+ * Strict operation vocabulary for placed symbols and their overplots.
+ */
+export type SchematicSymbolOperation =
+  | ThickSegmentOperation
+  | ArcThreePointOperation
+  | CircleOperation
+  | RectOperation
+  | PlotPolyOperation
+  | BezierCurveOperation
+  | TextOperation
+  | PlotImageOperation
+  | FlashPadCircleOperation
+  | FlashPadOvalOperation
+  | FlashPadRectOperation
+  | FlashPadRoundRectOperation
+  | FlashPadCustomOperation
+  | FlashPadTrapezOperation
+  | SchematicSymbolStartBlockOperation
+  | SchematicSymbolEndBlockOperation;
 
 /**
- * Strict schematic subset through the P5_062 graphic families.
+ * Strict schematic subset through the P5_070 placed-symbol family.
  */
 export interface SchematicPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
@@ -671,6 +693,67 @@ export interface SchematicTablePlotRecord {
   operation_count: number;
   operations: PlotterOperation[];
   cell_count: number;
+}
+/**
+ * One placed schematic symbol, including body, pins, and visible fields.
+ */
+export interface SchematicSymbolInstancePlotRecord {
+  uuid: string;
+  kind: "symbol_instance";
+  object_id: string;
+  operation_count: number;
+  operations: SchematicSymbolOperation[];
+  lib_id: string;
+  lib_name: string;
+  reference: string;
+  at_x_nm: JavaScriptSafeInteger;
+  at_y_nm: JavaScriptSafeInteger;
+  at_angle_deg: number;
+  mirror: string | null;
+  unit: number;
+  convert: number;
+  in_bom: boolean;
+  on_board: boolean;
+  dnp: boolean;
+  exclude_from_sim: boolean;
+  in_pos_files: boolean;
+}
+/**
+ * Leading ownership marker for one placed-symbol pin group.
+ */
+export interface SchematicSymbolStartBlockOperation {
+  kind: "StartBlock";
+  index: number;
+  label: string;
+  data_uuid: string;
+  data_ref: "symbol_pin";
+  object_id: string;
+  extra_attrs: SchematicSymbolPinBlockAttrs;
+}
+/**
+ * Exact string metadata retained on one placed-symbol pin group.
+ */
+export interface SchematicSymbolPinBlockAttrs {
+  [k: string]: string;
+}
+/**
+ * Trailing ownership marker for one placed-symbol pin group.
+ */
+export interface SchematicSymbolEndBlockOperation {
+  kind: "EndBlock";
+  index: number;
+}
+/**
+ * Replotted pins and fields for one overlapping placed symbol.
+ */
+export interface SchematicSymbolOverplotPlotRecord {
+  uuid: string;
+  kind: "symbol_overplot";
+  object_id: string;
+  operation_count: number;
+  operations: SchematicSymbolOperation[];
+  source_symbol_uuid: string;
+  lib_id: string;
 }
 /**
  * Exact page extent of one schematic instance.
