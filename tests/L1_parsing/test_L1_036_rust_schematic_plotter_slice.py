@@ -268,6 +268,177 @@ def test_shared_schematic_vectors_match_python_and_both_schemas() -> None:
         ("AB", 6_250_000, 8_340_000),
     ]
 
+    graphics_vector = _vector(
+        payload, "schematic-graphics-rules-images-and-table-family-order"
+    )
+    assert graphics_vector["image_resources"] == [
+        {
+            "image_format": "png",
+            "image_sha256": (
+                "c2bfda6df6b855b24bb53c7131a8af317723ec31fd901b4a6cd8257df81c8cd2"
+            ),
+        },
+        {
+            "image_format": "jpeg",
+            "image_sha256": (
+                "6a99497d81003845d473989d76613e2b3d92e0b9a8c33e303e402fc593e3bb66"
+            ),
+        },
+        {
+            "image_format": "bmp",
+            "image_sha256": (
+                "3e213bd3ae10450193c8f943ce09f97a6c03800dac7614c2788f7eed361e70e0"
+            ),
+        },
+    ]
+    graphics = graphics_vector["expected"]
+    assert graphics["total_operations"] == 25
+    assert [record["kind"] for record in graphics["records"]] == [
+        "sheet_header",
+        "graphic_polyline",
+        "graphic_arc",
+        "graphic_circle",
+        "graphic_rectangle",
+        "graphic_bezier",
+        "rule_area",
+        "rule_area",
+        "rule_area",
+        "rule_area",
+        "rule_area",
+        "image",
+        "image",
+        "image",
+        "table",
+    ]
+    assert [record["uuid"] for record in graphics["records"][1:]] == [
+        "graphic-polyline",
+        "graphic-arc",
+        "graphic-circle",
+        "graphic-rectangle",
+        "graphic-bezier",
+        "rule-bezier",
+        "rule-circle",
+        "rule-rectangle",
+        "rule-arc",
+        "rule-polyline",
+        "image-bmp",
+        "image-jpeg",
+        "image-png",
+        "graphics-table",
+    ]
+    polyline, arc, circle, rectangle, bezier = graphics["records"][1:6]
+    assert polyline["operations"][0]["points"] == [
+        [1_000_000, 1_000_000],
+        [2_000_000, 1_000_000],
+        [2_000_000, 2_000_000],
+    ]
+    assert polyline["operations"][0]["width_nm"] == 152_400
+    assert polyline["operations"][0]["line_style"] == "DASH_DOT_DOT"
+    assert [operation["fill"] for operation in arc["operations"]] == [
+        "FILLED_WITH_BG_BODYCOLOR",
+        "NO_FILL",
+    ]
+    assert arc["operations"][0]["width_nm"] == 0
+    assert arc["operations"][0]["fill_color"] == "#F5F4EFFF"
+    assert circle["operations"][0]["fill"] == "FILLED_SHAPE"
+    assert circle["operations"][0]["width_nm"] == 0
+    assert circle["operations"][0]["stroke_color"] == "#0000C2FF"
+    assert [operation["fill"] for operation in rectangle["operations"]] == [
+        "FILLED_WITH_COLOR",
+        "NO_FILL",
+    ]
+    assert rectangle["operations"][0]["fill_color"] == "#00FFFFFF"
+    assert rectangle["operations"][1]["corner_radius_nm"] == 500_000
+    assert bezier["operations"][0]["kind"] == "BezierCurve"
+    assert "fill" not in bezier["operations"][0]
+    assert "fill_color" not in bezier["operations"][0]
+
+    rules = graphics["records"][6:11]
+    assert [record["shape"] for record in rules] == [
+        "bezier",
+        "circle",
+        "rectangle",
+        "arc",
+        "polyline",
+    ]
+    assert [record["operation_count"] for record in rules] == [1, 2, 2, 1, 1]
+    assert {
+        key: rules[2][key]
+        for key in ("locked", "exclude_from_sim", "in_bom", "on_board", "dnp")
+    } == {
+        "locked": True,
+        "exclude_from_sim": True,
+        "in_bom": False,
+        "on_board": False,
+        "dnp": True,
+    }
+    assert rules[4]["operations"][0]["points"] == [
+        [12_000_000, 13_000_000],
+        [14_000_000, 13_000_000],
+        [14_000_000, 15_000_000],
+        [12_000_000, 13_000_000],
+    ]
+
+    images = graphics["records"][11:14]
+    assert [record["image_format"] for record in images] == ["bmp", "jpeg", "png"]
+    assert [
+        (record["width_nm"], record["height_nm"], record["scale"])
+        for record in images
+    ] == [
+        (357_746, 268_310, 0.5),
+        (1_587_500, 1_058_333, 1.5),
+        (1_058_333, 1_587_500, 2.0),
+    ]
+    for record in images:
+        operation = record["operations"][0]
+        assert operation["image_format"] == record["image_format"]
+        assert operation["width_nm"] == record["width_nm"]
+        assert operation["height_nm"] == record["height_nm"]
+        assert operation["scale"] == record["scale"]
+
+    table = graphics["records"][14]
+    assert table["cell_count"] == 3
+    assert [operation["kind"] for operation in table["operations"]] == [
+        "Rect",
+        "Rect",
+        "Text",
+        "Rect",
+        "Rect",
+        "Text",
+        "Text",
+    ]
+    assert [
+        operation["text"]
+        for operation in table["operations"]
+        if operation["kind"] == "Text"
+    ] == ["Graphics-lower-project", "first", "second"]
+    assert table["operations"][2]["context"]["hyperlink"]["href"] == (
+        "https://example.test/cell"
+    )
+    assert all(
+        "render_cache" not in operation and "render_cache_polygons" not in operation
+        for operation in table["operations"]
+    )
+
+    metric_table_vector = _vector(
+        payload, "explicit-font-metrics-for-schematic-table"
+    )
+    assert metric_table_vector["font_resource"] == metric_vector["font_resource"]
+    metric_table = metric_table_vector["expected"]
+    assert metric_table["total_operations"] == 4
+    assert [record["kind"] for record in metric_table["records"]] == [
+        "sheet_header",
+        "table",
+    ]
+    assert metric_table["records"][1]["cell_count"] == 1
+    assert [
+        (operation["text"], operation["x"], operation["y"])
+        for operation in metric_table["records"][1]["operations"][1:]
+    ] == [
+        ("AB", 6_250_000, 6_660_000),
+        ("AB", 6_250_000, 8_340_000),
+    ]
+
     # The established contract is intentionally forward tolerant, while this
     # promoted slice rejects fields and vocabulary it has not implemented.
     future = _clone(compact)
@@ -281,6 +452,9 @@ def test_schematic_contract_rejects_noncanonical_structure_and_semantics() -> No
     payload = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))
     compact = _vector(
         payload, "custom-worksheet-connectivity-and-annotation-family-order"
+    )["expected"]
+    graphics = _vector(
+        payload, "schematic-graphics-rules-images-and-table-family-order"
     )["expected"]
 
     mutations = []
@@ -353,6 +527,53 @@ def test_schematic_contract_rejects_noncanonical_structure_and_semantics() -> No
         operation["index"] = index
     mutations.append(text_box_text_first)
 
+    wrong_graphics_phase = _clone(graphics)
+    wrong_graphics_phase["records"][1:3] = reversed(
+        wrong_graphics_phase["records"][1:3]
+    )
+    mutations.append(wrong_graphics_phase)
+
+    reversed_graphic_fill = _clone(graphics)
+    reversed_graphic_fill["records"][2]["operations"].reverse()
+    for index, operation in enumerate(
+        reversed_graphic_fill["records"][2]["operations"]
+    ):
+        operation["index"] = index
+    mutations.append(reversed_graphic_fill)
+
+    wrong_rule_shape = _clone(graphics)
+    wrong_rule_shape["records"][6]["shape"] = "circle"
+    mutations.append(wrong_rule_shape)
+
+    unclosed_rule_polyline = _clone(graphics)
+    unclosed_rule_polyline["records"][10]["operations"][0]["points"].pop()
+    mutations.append(unclosed_rule_polyline)
+
+    mismatched_image_extent = _clone(graphics)
+    mismatched_image_extent["records"][11]["width_nm"] += 1
+    mutations.append(mismatched_image_extent)
+
+    invalid_image_payload = _clone(graphics)
+    invalid_image_payload["records"][12]["operations"][0]["image_data_b64"] = "%%%"
+    mutations.append(invalid_image_payload)
+
+    wrong_table_cell_count = _clone(graphics)
+    wrong_table_cell_count["records"][14]["cell_count"] = 2
+    mutations.append(wrong_table_cell_count)
+
+    table_text_first = _clone(graphics)
+    table_operations = table_text_first["records"][14]["operations"]
+    table_operations.insert(0, table_operations.pop(2))
+    for index, operation in enumerate(table_operations):
+        operation["index"] = index
+    mutations.append(table_text_first)
+
+    table_with_cache = _clone(graphics)
+    table_with_cache["records"][14]["operations"][2]["render_cache_polygons"] = [
+        [[0, 0], [1, 0], [0, 1]]
+    ]
+    mutations.append(table_with_cache)
+
     for mutation in mutations:
         with pytest.raises(msgspec.ValidationError):
             decode_schematic_plot_document_a0(json.dumps(mutation).encode("utf-8"))
@@ -363,6 +584,10 @@ def test_python_oracle_uses_injected_context_without_path_discovery() -> None:
     vectors = [
         _vector(payload, "custom-worksheet-connectivity-and-annotation-family-order"),
         _vector(payload, "explicit-font-metrics-for-schematic-annotations"),
+        _vector(
+            payload, "schematic-graphics-rules-images-and-table-family-order"
+        ),
+        _vector(payload, "explicit-font-metrics-for-schematic-table"),
     ]
     discovery_helpers = (
         "_project_file_for_schematic_path",

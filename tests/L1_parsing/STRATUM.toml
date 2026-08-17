@@ -600,14 +600,14 @@ secondary = [
 [[subtests]]
 id = "L1_036"
 file = "test_L1_036_rust_schematic_plotter_slice.py"
-name = "Rust Schematic Plotter-IR Foundation and Annotation Slices"
-description = "Prove bounded schematic headers, worksheets, connectivity, labels and decorations, netclass flags, text, and text boxes from explicit KiCad bytes and project/font sidecars to shared kicad.plotter_ir.a0 operations"
-concerns = ["sexpr", "rust", "schematic", "plotter_ir", "worksheet", "annotations", "fonts"]
+name = "Rust Schematic Plotter-IR Foundation, Annotation, and Graphics Slices"
+description = "Prove bounded schematic headers, worksheets, connectivity, annotations, graphics, rule areas, inline images, and tables from explicit KiCad bytes and caller-owned project/font sidecars to shared kicad.plotter_ir.a0 operations"
+concerns = ["sexpr", "rust", "schematic", "plotter_ir", "worksheet", "annotations", "graphics", "rule_area", "images", "tables", "fonts"]
 test_cases = "tests/parity/schematic_plotter_a0_vectors.json"
 test_case_type = "contract"
 
 [subtests.objectives]
-primary = "Rust and Python emit the same established plotter-IR document for the promoted schematic foundation and annotations without project, worksheet, or font discovery"
+primary = "Rust and Python emit the same established plotter-IR document for the promoted schematic foundation, annotations, and graphics without project, worksheet, or font discovery"
 secondary = [
     "The strict TypeSpec schematic slice remains a valid subset of the forward-tolerant established plotter-IR contract",
     "A compact custom worksheet proves explicit variables, drawing settings, sheet context, page geometry, connectivity, annotation family order, and operation ordering",
@@ -615,8 +615,13 @@ secondary = [
     "A valid PNG worksheet placement and authored transparent junction retain exact image geometry and present-null color semantics",
     "Connectivity records retain Python family ordering, local operation indexes, widths, styles, colors, and geometry defaults",
     "A checked-in fixture font proves exact global-label width, ordinary-text line-height adjustment, and text-box wrapping without ambient fonts",
-    "Generated decoding rejects unknown vocabulary, malformed points, missing structure, invalid identities, record or annotation-operation reordering, and incorrect counts",
+    "Interleaved source proves canonical polyline, arc, circle, rectangle, Bezier, rule-area, image, and table phases with fill-before-outline operation order",
+    "All five rule-area shape carriers preserve nested identity, policy metadata, and closed polyline geometry",
+    "Authenticated PNG, JPEG, and BMP payloads prove physical-density scaling and exact retained inline image bytes",
+    "Multi-cell tables preserve cell operation grouping, project and built-in variables, hyperlinks, ignored authored caches, and continuous local indexes",
+    "The checked-in fixture font also proves exact table-cell wrapping without ambient font lookup",
+    "Generated decoding rejects unknown vocabulary, malformed points or images, missing structure, invalid identities, record or operation reordering, mismatched graphics metadata, injected table caches, and incorrect counts",
     "The native API consumes caller-owned source, worksheet bytes, variables, drawing settings, sheet context, and font resources without project, path, or font discovery",
-    "Native schematic and worksheet parsing, retained text, records, operations, points, bitmap data, and decoded images fail closed under independent limits",
+    "Native schematic, worksheet, graphic, rule-area, image, and table parsing plus retained text, records, operations, points, inline bytes, dimensions, pixels, and decode work fail closed under independent limits",
     "The strict request reserves an independent serialized-output ceiling for the deferred transport adapter",
 ]

@@ -36,11 +36,22 @@ pub mod error {
 ///  "type": "object",
 ///  "required": [
 ///    "default_line_width_nm",
+///    "max_arcs",
+///    "max_beziers",
 ///    "max_bus_entries",
 ///    "max_buses",
+///    "max_circles",
 ///    "max_depth",
 ///    "max_global_labels",
 ///    "max_hierarchical_labels",
+///    "max_image_data_parts",
+///    "max_image_decode_work",
+///    "max_image_decoded_bytes",
+///    "max_image_encoded_bytes",
+///    "max_image_height_px",
+///    "max_image_pixels",
+///    "max_image_width_px",
+///    "max_images",
 ///    "max_input_points",
 ///    "max_junctions",
 ///    "max_labels",
@@ -52,9 +63,15 @@ pub mod error {
 ///    "max_output_bytes",
 ///    "max_parse_nodes",
 ///    "max_points",
+///    "max_polylines",
 ///    "max_records",
+///    "max_rectangles",
+///    "max_rule_areas",
 ///    "max_selected_forms",
 ///    "max_source_bytes",
+///    "max_table_cell_lines",
+///    "max_table_cells",
+///    "max_tables",
 ///    "max_text_box_lines",
 ///    "max_text_boxes",
 ///    "max_text_bytes",
@@ -90,12 +107,27 @@ pub mod error {
 ///    "document_id": {
 ///      "type": "string"
 ///    },
+///    "max_arcs": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_beziers": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
 ///    "max_bus_entries": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
 ///    },
 ///    "max_buses": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_circles": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
@@ -111,6 +143,38 @@ pub mod error {
 ///      "minimum": 0.0
 ///    },
 ///    "max_hierarchical_labels": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_image_data_parts": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_image_decode_work": {
+///      "type": "string"
+///    },
+///    "max_image_decoded_bytes": {
+///      "type": "string"
+///    },
+///    "max_image_encoded_bytes": {
+///      "type": "string"
+///    },
+///    "max_image_height_px": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_image_pixels": {
+///      "type": "string"
+///    },
+///    "max_image_width_px": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_images": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
@@ -166,7 +230,22 @@ pub mod error {
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
 ///    },
+///    "max_polylines": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
 ///    "max_records": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_rectangles": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_rule_areas": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
@@ -178,6 +257,21 @@ pub mod error {
 ///    },
 ///    "max_source_bytes": {
 ///      "type": "string"
+///    },
+///    "max_table_cell_lines": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_table_cells": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_tables": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
 ///    },
 ///    "max_text_box_lines": {
 ///      "type": "integer",
@@ -306,39 +400,70 @@ pub struct SchematicPlotRequestA0 {
     pub default_line_width_nm: crate::SchematicDefaultLineWidthNm,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub document_id: ::std::option::Option<::std::string::String>,
+    pub max_arcs: u32,
+    pub max_beziers: u32,
     pub max_bus_entries: u32,
     pub max_buses: u32,
+    pub max_circles: u32,
     pub max_depth: u32,
     pub max_global_labels: u32,
     pub max_hierarchical_labels: u32,
+    pub max_image_data_parts: u32,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
+    pub max_image_decode_work: ::std::string::String,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
+    pub max_image_decoded_bytes: ::std::string::String,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
+    pub max_image_encoded_bytes: ::std::string::String,
+    pub max_image_height_px: u32,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
+    pub max_image_pixels: ::std::string::String,
+    pub max_image_width_px: u32,
+    pub max_images: u32,
     pub max_input_points: u32,
     pub max_junctions: u32,
     pub max_labels: u32,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_metadata_bytes: ::std::string::String,
     pub max_netclass_flag_properties: u32,
     pub max_netclass_flags: u32,
     pub max_no_connects: u32,
     pub max_operations: u32,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_output_bytes: ::std::string::String,
     pub max_parse_nodes: u32,
     pub max_points: u32,
+    pub max_polylines: u32,
     pub max_records: u32,
+    pub max_rectangles: u32,
+    pub max_rule_areas: u32,
     pub max_selected_forms: u32,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_source_bytes: ::std::string::String,
+    pub max_table_cell_lines: u32,
+    pub max_table_cells: u32,
+    pub max_tables: u32,
     pub max_text_box_lines: u32,
     pub max_text_boxes: u32,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_text_bytes: ::std::string::String,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_text_variable_bytes: ::std::string::String,
     pub max_text_variables: u32,
     pub max_texts: u32,
     pub max_wires: u32,
     pub max_worksheet_bitmap_data_parts: u32,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_worksheet_bitmap_decode_work: ::std::string::String,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_worksheet_bitmap_decoded_bytes: ::std::string::String,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_worksheet_bitmap_encoded_bytes: ::std::string::String,
     pub max_worksheet_bitmap_height_px: u32,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_worksheet_bitmap_pixels: ::std::string::String,
     pub max_worksheet_bitmap_width_px: u32,
+    #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_worksheet_bytes: ::std::string::String,
     pub max_worksheet_items: u32,
     pub max_worksheet_point_sets: u32,

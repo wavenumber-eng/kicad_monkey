@@ -8,6 +8,7 @@ use kicad_monkey_core::{
     SchematicConnectivityRecordKind, SchematicDrawingSettings, SchematicPlotContext,
     SchematicPlotDocument, SchematicPlotLimits, SchematicPlotOperation, SchematicPlotRecord,
     SchematicPlotVariables, schematic_plot_document, schematic_plot_document_with_annotations,
+    schematic_plot_document_with_graphics,
 };
 use serde_json::{Map, Value, json};
 
@@ -266,9 +267,61 @@ fn operation_json(operation: &SchematicPlotOperation, index: usize) -> Value {
                 Value::Object(object)
             }
             PlotterOperation::Text(value) => text_json(value, index, None),
+            PlotterOperation::ArcThreePoint(value) => {
+                let mut object = json!({
+                    "kind": "ArcThreePoint", "index": index,
+                    "start_x": value.start_x, "start_y": value.start_y,
+                    "mid_x": value.mid_x, "mid_y": value.mid_y,
+                    "end_x": value.end_x, "end_y": value.end_y,
+                    "fill": fill_name(value.fill), "width_nm": value.width_nm,
+                })
+                .as_object()
+                .expect("arc object")
+                .clone();
+                insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
+                insert_optional(
+                    &mut object,
+                    "stroke_color",
+                    value.stroke_color.as_ref().map(|v| json!(v)),
+                );
+                insert_optional(
+                    &mut object,
+                    "fill_color",
+                    value.fill_color.as_ref().map(|v| json!(v)),
+                );
+                insert_optional(
+                    &mut object,
+                    "line_style",
+                    value.line_style.map(|v| json!(line_style_name(v))),
+                );
+                Value::Object(object)
+            }
+            PlotterOperation::BezierCurve(value) => {
+                let mut object = json!({
+                    "kind": "BezierCurve", "index": index,
+                    "start_x": value.start_x, "start_y": value.start_y,
+                    "ctrl1_x": value.ctrl1_x, "ctrl1_y": value.ctrl1_y,
+                    "ctrl2_x": value.ctrl2_x, "ctrl2_y": value.ctrl2_y,
+                    "end_x": value.end_x, "end_y": value.end_y,
+                    "width_nm": value.width_nm, "tolerance_nm": value.tolerance_nm,
+                })
+                .as_object()
+                .expect("bezier object")
+                .clone();
+                insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
+                insert_optional(
+                    &mut object,
+                    "stroke_color",
+                    value.stroke_color.as_ref().map(|v| json!(v)),
+                );
+                insert_optional(
+                    &mut object,
+                    "line_style",
+                    value.line_style.map(|v| json!(line_style_name(v))),
+                );
+                Value::Object(object)
+            }
             PlotterOperation::ThickSegment(_)
-            | PlotterOperation::ArcThreePoint(_)
-            | PlotterOperation::BezierCurve(_)
             | PlotterOperation::FlashPadCircle(_)
             | PlotterOperation::FlashPadOval(_)
             | PlotterOperation::FlashPadRect(_)
@@ -356,6 +409,36 @@ fn document_json(document: &SchematicPlotDocument) -> Value {
                 insert_optional(&mut object, "length_nm", value.length_nm.map(|v| json!(v)));
                 Value::Object(object)
             }
+            SchematicPlotRecord::Graphic(value) => json!({
+                "uuid": value.uuid, "kind": value.kind.as_str(), "object_id": value.uuid,
+                "operation_count": value.operations.len(),
+                "operations": value.operations.iter().enumerate()
+                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+            }),
+            SchematicPlotRecord::RuleArea(value) => json!({
+                "uuid": value.uuid, "kind": "rule_area", "object_id": value.uuid,
+                "operation_count": value.operations.len(),
+                "operations": value.operations.iter().enumerate()
+                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+                "shape": value.shape.as_str(), "locked": value.locked,
+                "exclude_from_sim": value.exclude_from_sim, "in_bom": value.in_bom,
+                "on_board": value.on_board, "dnp": value.dnp,
+            }),
+            SchematicPlotRecord::Image(value) => json!({
+                "uuid": value.uuid, "kind": "image", "object_id": value.uuid,
+                "operation_count": value.operations.len(),
+                "operations": value.operations.iter().enumerate()
+                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+                "scale": value.scale, "image_format": value.image_format,
+                "width_nm": value.width_nm, "height_nm": value.height_nm,
+            }),
+            SchematicPlotRecord::Table(value) => json!({
+                "uuid": value.uuid, "kind": "table", "object_id": value.uuid,
+                "operation_count": value.operations.len(),
+                "operations": value.operations.iter().enumerate()
+                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+                "cell_count": value.cell_count,
+            }),
         })
         .collect::<Vec<_>>();
     let mut object = json!({
@@ -516,6 +599,7 @@ fn custom_worksheet_and_connectivity_match_python_foundation() {
             SchematicPlotRecord::Connectivity(record) => record.kind,
             SchematicPlotRecord::SheetHeader(_) => panic!("second header"),
             SchematicPlotRecord::Annotation(_) => panic!("unexpected annotation"),
+            _ => panic!("unexpected P5_062 record in foundation entry"),
         })
         .collect::<Vec<_>>();
     assert_eq!(
@@ -888,7 +972,7 @@ fn every_shared_vector_is_exactly_projectable_to_the_strict_contract() {
                 fonts: &fonts,
                 limits: PlotterTextCacheLimits::default(),
             };
-            schematic_plot_document_with_annotations(
+            schematic_plot_document_with_graphics(
                 source,
                 SchematicPlotLimits::default(),
                 &context,
@@ -896,7 +980,7 @@ fn every_shared_vector_is_exactly_projectable_to_the_strict_contract() {
                 Some(&resources),
             )
         } else {
-            schematic_plot_document_with_annotations(
+            schematic_plot_document_with_graphics(
                 source,
                 SchematicPlotLimits::default(),
                 &context,
@@ -954,6 +1038,421 @@ fn assert_annotation_resource_pair(
         .kind,
         ErrorKind::ResourceLimit
     );
+}
+
+fn assert_graphics_resource_pair(
+    source: &str,
+    context: &SchematicPlotContext,
+    exact: SchematicPlotLimits,
+    one_under: SchematicPlotLimits,
+) {
+    schematic_plot_document_with_graphics(
+        source,
+        exact,
+        context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("exact graphics resource boundary");
+    assert_eq!(
+        schematic_plot_document_with_graphics(
+            source,
+            one_under,
+            context,
+            SchematicDrawingSettings::default(),
+            None,
+        )
+        .expect_err("one-under graphics resource boundary")
+        .kind,
+        ErrorKind::ResourceLimit
+    );
+}
+
+#[test]
+fn earlier_schematic_entries_exclude_p5_062_carriers() {
+    let source = r#"(kicad_sch
+      (polyline (pts (xy 0 0) (xy 1 1)) (uuid "p"))
+      (table (uuid "t") (cells (table_cell "x" (at 0 0) (size 0 0)))))"#;
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    let foundation = schematic_plot_document(source, SchematicPlotLimits::default(), &context)
+        .expect("foundation scope");
+    let annotations = schematic_plot_document_with_annotations(
+        source,
+        SchematicPlotLimits::default(),
+        &context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("annotation scope");
+    let graphics = schematic_plot_document_with_graphics(
+        source,
+        SchematicPlotLimits::default(),
+        &context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("graphics scope");
+    assert_eq!(foundation.records.len(), 1);
+    assert_eq!(annotations.records.len(), 1);
+    assert_eq!(graphics.records.len(), 3);
+}
+
+#[test]
+fn graphics_family_table_and_image_ceilings_are_independent() {
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    let families: [(&str, fn(&mut SchematicPlotLimits, usize)); 8] = [
+        (
+            "(kicad_sch (polyline (pts (xy 0 0) (xy 1 1))))",
+            |limits: &mut SchematicPlotLimits, value| limits.max_polylines = value,
+        ),
+        (
+            "(kicad_sch (arc (start 0 0) (mid 1 1) (end 2 0)))",
+            |limits: &mut SchematicPlotLimits, value| limits.max_arcs = value,
+        ),
+        (
+            "(kicad_sch (circle (center 0 0) (radius 1)))",
+            |limits: &mut SchematicPlotLimits, value| limits.max_circles = value,
+        ),
+        (
+            "(kicad_sch (rectangle (start 0 0) (end 1 1)))",
+            |limits: &mut SchematicPlotLimits, value| limits.max_rectangles = value,
+        ),
+        (
+            "(kicad_sch (bezier (pts (xy 0 0) (xy 1 0) (xy 1 1) (xy 2 1))))",
+            |limits: &mut SchematicPlotLimits, value| limits.max_beziers = value,
+        ),
+        (
+            "(kicad_sch (rule_area (polyline (pts (xy 0 0) (xy 1 1)))))",
+            |limits: &mut SchematicPlotLimits, value| limits.max_rule_areas = value,
+        ),
+        (
+            "(kicad_sch (image (data \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\")))",
+            |limits: &mut SchematicPlotLimits, value| limits.max_images = value,
+        ),
+        (
+            "(kicad_sch (table (cells)))",
+            |limits: &mut SchematicPlotLimits, value| limits.max_tables = value,
+        ),
+    ];
+    for (source, set) in families {
+        let mut exact = SchematicPlotLimits::default();
+        let mut one_under = exact;
+        set(&mut exact, 1);
+        set(&mut one_under, 0);
+        assert_graphics_resource_pair(source, &context, exact, one_under);
+    }
+
+    let cell = "(kicad_sch (table (cells (table_cell \"x\" (at 0 0) (size 0 0)))))";
+    for (exact, one_under) in [
+        (
+            SchematicPlotLimits {
+                max_table_cells: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_table_cells: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_table_cell_lines: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_table_cell_lines: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+    ] {
+        assert_graphics_resource_pair(cell, &context, exact, one_under);
+    }
+
+    const PNG: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+    let image = format!("(kicad_sch (image (data \"{PNG}\")))");
+    for (exact, one_under) in [
+        (
+            SchematicPlotLimits {
+                max_image_data_parts: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_image_data_parts: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_image_encoded_bytes: PNG.len(),
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_image_encoded_bytes: PNG.len() - 1,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_image_decoded_bytes: 68,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_image_decoded_bytes: 67,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_image_width_px: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_image_width_px: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_image_height_px: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_image_height_px: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_image_pixels: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_image_pixels: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_image_decode_work: PNG.len() + 68 + 60,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_image_decode_work: PNG.len() + 68 + 59,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            // Header strings (14), one retained encoded image (92), two
+            // retained format strings (6), and the image stroke color (9).
+            SchematicPlotLimits {
+                max_metadata_bytes: 14 + PNG.len() + 6 + 9,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_metadata_bytes: 14 + PNG.len() + 6 + 8,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+    ] {
+        assert_graphics_resource_pair(&image, &context, exact, one_under);
+    }
+}
+
+#[test]
+fn malformed_graphics_and_images_fail_before_publication() {
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    for source in [
+        "(kicad_sch (circle (center 0 0) (radius -1)))",
+        "(kicad_sch (rectangle (start 0 0) (end 1 1) (radius -1)))",
+        "(kicad_sch (image (scale 0) (data \"AAAA\")))",
+        "(kicad_sch (image (scale -1) (data \"AAAA\")))",
+        "(kicad_sch (image (data \"AA=A\")))",
+        "(kicad_sch (image (data \"AAAA\")))",
+        // Repeated 0xFF marker prefixes are not collapsed by the Python
+        // authority. Treating this as SOF0 would publish invented dimensions.
+        "(kicad_sch (image (data \"/9j//8AABwgAAQAB\")))",
+        // A complete PNG terminates at IEND. Chunks appended after IEND must
+        // not be silently ignored by the native metadata projection.
+        "(kicad_sch (image (data \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYIIAAAAJcEhZcwAAAAEAAAABAQAAAAA=\")))",
+    ] {
+        assert!(
+            schematic_plot_document_with_graphics(
+                source,
+                SchematicPlotLimits::default(),
+                &context,
+                SchematicDrawingSettings::default(),
+                None,
+            )
+            .is_err(),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn graphics_and_table_retained_budgets_are_exact() {
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    let polyline = "(kicad_sch (polyline (pts (xy 0 0) (xy 1 1))))";
+    for (exact, one_under) in [
+        (
+            SchematicPlotLimits {
+                max_input_points: 2,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_input_points: 1,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_points: 2,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_points: 1,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+    ] {
+        assert_graphics_resource_pair(polyline, &context, exact, one_under);
+    }
+
+    let split = r#"(kicad_sch
+      (rectangle (start 0 0) (end 1 1)
+        (fill (type color) (color 1 2 3 1))))"#;
+    assert_graphics_resource_pair(
+        split,
+        &context,
+        SchematicPlotLimits {
+            max_operations: 3,
+            ..SchematicPlotLimits::default()
+        },
+        SchematicPlotLimits {
+            max_operations: 2,
+            ..SchematicPlotLimits::default()
+        },
+    );
+
+    let table = r#"(kicad_sch
+      (table (uuid "u") (cells
+        (table_cell "A" (at 0 0) (size 0 0) (margins 0 0 0 0)
+          (fill (type none)) (effects (href "h"))))))"#;
+    for (exact, one_under) in [
+        (
+            SchematicPlotLimits {
+                max_text_bytes: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_text_bytes: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            // Header strings (14), table UUID/object (2), retained outline
+            // color (9), and Text color/face/hyperlink strings (15).
+            SchematicPlotLimits {
+                max_metadata_bytes: 40,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_metadata_bytes: 39,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+    ] {
+        assert_graphics_resource_pair(table, &context, exact, one_under);
+    }
+}
+
+#[test]
+fn annotation_and_table_share_one_metric_work_session() {
+    let source = r#"(kicad_sch
+      (global_label "AB" (shape input) (at 1 1)
+        (effects (font (face "KiCad Monkey Shaping Fixture") (size 1 1))))
+      (table (cells
+        (table_cell "AB AB" (at 5 6) (size 2.5 3) (margins 0 0 0 0)
+          (fill (type none))
+          (effects (font (face "KiCad Monkey Shaping Fixture") (size 1 1)))))))"#;
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    let fonts = [metric_font()];
+    let run = |maximum| {
+        let resources = PlotterTextCacheResources {
+            fonts: &fonts,
+            limits: PlotterTextCacheLimits {
+                // One validation hash, one two-pass global-label measure, and
+                // one two-pass table-cell linebreak.
+                max_hash_bytes: maximum,
+                ..PlotterTextCacheLimits::default()
+            },
+        };
+        schematic_plot_document_with_graphics(
+            source,
+            SchematicPlotLimits::default(),
+            &context,
+            SchematicDrawingSettings::default(),
+            Some(&resources),
+        )
+    };
+    run(METRIC_FONT_BYTES.len() * 5).expect("one aggregate metric session");
+    assert_eq!(
+        run(METRIC_FONT_BYTES.len() * 5 - 1)
+            .expect_err("combined annotation/table hash work")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+}
+
+#[test]
+fn table_outline_fill_mapping_matches_schematic_authority() {
+    let source = r#"(kicad_sch
+      (table (cells
+        (table_cell "" (at 0 0) (size 1 1) (fill (type outline)))
+        (table_cell "" (at 2 2) (size 1 1) (fill (type solid))))))"#;
+    let document = schematic_plot_document_with_graphics(
+        source,
+        SchematicPlotLimits::default(),
+        &SchematicPlotContext {
+            worksheet_source: Some(b"(kicad_wks)".to_vec()),
+            ..SchematicPlotContext::default()
+        },
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("table fill mapping");
+    let table = document
+        .records
+        .iter()
+        .find_map(|record| match record {
+            SchematicPlotRecord::Table(record) => Some(record),
+            _ => None,
+        })
+        .expect("table record");
+    let fills = table
+        .operations
+        .iter()
+        .filter_map(|operation| match operation {
+            SchematicPlotOperation::Plotter(PlotterOperation::Rect(rect)) => Some(rect.fill),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(fills, [PlotterFill::FilledShape, PlotterFill::NoFill]);
 }
 
 #[test]

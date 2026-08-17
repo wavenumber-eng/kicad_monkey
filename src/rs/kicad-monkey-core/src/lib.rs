@@ -143,10 +143,12 @@ pub use schematic_netlist::{
 pub use schematic_plotter_ir::{
     SchematicAnnotationRecord, SchematicAnnotationRecordKind, SchematicCanvas,
     SchematicConnectivityRecord, SchematicConnectivityRecordKind, SchematicDrawingSettings,
-    SchematicPlotContext, SchematicPlotDocument, SchematicPlotLimits, SchematicPlotOperation,
-    SchematicPlotRecord, SchematicPlotVariables, SchematicSheetHeaderRecord,
-    SchematicStyledThickSegment, SchematicTextOperation, SchematicTitleBlock,
-    schematic_plot_document, schematic_plot_document_with_annotations,
+    SchematicGraphicRecord, SchematicGraphicRecordKind, SchematicImageRecord, SchematicPlotContext,
+    SchematicPlotDocument, SchematicPlotLimits, SchematicPlotOperation, SchematicPlotRecord,
+    SchematicPlotVariables, SchematicRuleAreaRecord, SchematicRuleAreaShape,
+    SchematicSheetHeaderRecord, SchematicStyledThickSegment, SchematicTableRecord,
+    SchematicTextOperation, SchematicTitleBlock, schematic_plot_document,
+    schematic_plot_document_with_annotations, schematic_plot_document_with_graphics,
 };
 pub use schematic_source::{
     SCHEMATIC_IU_PER_MM, SchematicBusAlias, SchematicBusEntry, SchematicConnectivity,

@@ -1,11 +1,14 @@
 //! Semantic validation for the strict schematic-foundation plot contract.
 
 use crate::generated::schematic_plot_document::{
-    CircleOperation, PlotImageOperation, PlotPolyOperation, PlotterFill, PlotterOperation,
-    RectOperation, SchematicGlobalLabelPlotRecord, SchematicHierarchicalLabelPlotRecord,
+    ArcThreePointOperation, BezierCurveOperation, CircleOperation, PlotImageOperation,
+    PlotPolyOperation, PlotterFill, PlotterOperation, RectOperation,
+    SchematicGlobalLabelPlotRecord, SchematicGraphicBezierPlotRecord,
+    SchematicHierarchicalLabelPlotRecord, SchematicImageFormat, SchematicImagePlotRecord,
     SchematicJunctionPlotRecord, SchematicLabelShape, SchematicNetclassFlagPlotRecord,
     SchematicNetclassFlagShape, SchematicNoConnectPlotRecord, SchematicPlotDocumentA0,
-    SchematicPlotRecord, SchematicSheetHeaderPlotRecord, SchematicTextBoxPlotRecord,
+    SchematicPlotRecord, SchematicRuleAreaPlotRecord, SchematicRuleAreaShape,
+    SchematicSheetHeaderPlotRecord, SchematicTablePlotRecord, SchematicTextBoxPlotRecord,
     SchematicTextPlotRecord, TextOperation, ThickSegmentOperation,
 };
 use crate::{ValidationError, validation_error};
@@ -121,6 +124,30 @@ pub fn validate_schematic_plot_document(
             SchematicPlotRecord::TextBoxPlotRecord(value) => {
                 validate_text_box(value, &path)?;
             }
+            SchematicPlotRecord::GraphicPolylinePlotRecord(value) => {
+                validate_graphic_record(&value.operations, GraphicKind::Polyline, false, &path)?;
+            }
+            SchematicPlotRecord::GraphicArcPlotRecord(value) => {
+                validate_graphic_record(&value.operations, GraphicKind::Arc, false, &path)?;
+            }
+            SchematicPlotRecord::GraphicCirclePlotRecord(value) => {
+                validate_graphic_record(&value.operations, GraphicKind::Circle, false, &path)?;
+            }
+            SchematicPlotRecord::GraphicRectanglePlotRecord(value) => {
+                validate_graphic_record(&value.operations, GraphicKind::Rectangle, false, &path)?;
+            }
+            SchematicPlotRecord::GraphicBezierPlotRecord(value) => {
+                validate_bezier_record(value, &path)?;
+            }
+            SchematicPlotRecord::RuleAreaPlotRecord(value) => {
+                validate_rule_area(value, &path)?;
+            }
+            SchematicPlotRecord::ImagePlotRecord(value) => {
+                validate_schematic_image(value, &path)?;
+            }
+            SchematicPlotRecord::TablePlotRecord(value) => {
+                validate_table(value, &path)?;
+            }
         }
         total_operations = total_operations.saturating_add(operations.len());
     }
@@ -148,6 +175,14 @@ fn record_phase(record: &SchematicPlotRecord) -> u8 {
         SchematicPlotRecord::NetclassFlagPlotRecord(_) => 9,
         SchematicPlotRecord::TextPlotRecord(_) => 10,
         SchematicPlotRecord::TextBoxPlotRecord(_) => 11,
+        SchematicPlotRecord::GraphicPolylinePlotRecord(_) => 12,
+        SchematicPlotRecord::GraphicArcPlotRecord(_) => 13,
+        SchematicPlotRecord::GraphicCirclePlotRecord(_) => 14,
+        SchematicPlotRecord::GraphicRectanglePlotRecord(_) => 15,
+        SchematicPlotRecord::GraphicBezierPlotRecord(_) => 16,
+        SchematicPlotRecord::RuleAreaPlotRecord(_) => 17,
+        SchematicPlotRecord::ImagePlotRecord(_) => 18,
+        SchematicPlotRecord::TablePlotRecord(_) => 19,
     }
 }
 
@@ -247,6 +282,70 @@ fn record_fields(
             &value.uuid,
             &value.kind,
             "text_box",
+            &value.object_id,
+            value.operation_count,
+            &value.operations,
+        ),
+        SchematicPlotRecord::GraphicPolylinePlotRecord(value) => (
+            &value.uuid,
+            &value.kind,
+            "graphic_polyline",
+            &value.object_id,
+            value.operation_count,
+            &value.operations,
+        ),
+        SchematicPlotRecord::GraphicArcPlotRecord(value) => (
+            &value.uuid,
+            &value.kind,
+            "graphic_arc",
+            &value.object_id,
+            value.operation_count,
+            &value.operations,
+        ),
+        SchematicPlotRecord::GraphicCirclePlotRecord(value) => (
+            &value.uuid,
+            &value.kind,
+            "graphic_circle",
+            &value.object_id,
+            value.operation_count,
+            &value.operations,
+        ),
+        SchematicPlotRecord::GraphicRectanglePlotRecord(value) => (
+            &value.uuid,
+            &value.kind,
+            "graphic_rectangle",
+            &value.object_id,
+            value.operation_count,
+            &value.operations,
+        ),
+        SchematicPlotRecord::GraphicBezierPlotRecord(value) => (
+            &value.uuid,
+            &value.kind,
+            "graphic_bezier",
+            &value.object_id,
+            value.operation_count,
+            &value.operations,
+        ),
+        SchematicPlotRecord::RuleAreaPlotRecord(value) => (
+            &value.uuid,
+            &value.kind,
+            "rule_area",
+            &value.object_id,
+            value.operation_count,
+            &value.operations,
+        ),
+        SchematicPlotRecord::ImagePlotRecord(value) => (
+            &value.uuid,
+            &value.kind,
+            "image",
+            &value.object_id,
+            value.operation_count,
+            &value.operations,
+        ),
+        SchematicPlotRecord::TablePlotRecord(value) => (
+            &value.uuid,
+            &value.kind,
+            "table",
             &value.object_id,
             value.operation_count,
             &value.operations,
@@ -957,18 +1056,33 @@ fn validate_text_box(
     record: &SchematicTextBoxPlotRecord,
     path: &str,
 ) -> Result<(), ValidationError> {
-    let Some(PlotterOperation::RectOperation(first)) = record.operations.first() else {
+    let text_start = validate_text_box_prefix(&record.operations, path)?;
+    validate_text_box_lines(&record.operations, text_start, path)
+}
+
+fn validate_text_box_prefix(
+    operations: &[PlotterOperation],
+    path: &str,
+) -> Result<usize, ValidationError> {
+    let Some(PlotterOperation::RectOperation(first)) = operations.first() else {
         return Err(error(
             "invalid_text_box",
             format!("{path}.operations"),
             "text box begins with an outline rectangle",
         ));
     };
+    let single_fill_valid = match first.fill {
+        PlotterFill::NoFill => first.fill_color.is_none(),
+        PlotterFill::FilledShape => true,
+        _ => true,
+    };
     if first.layer.is_some()
         || first.corner_radius_nm.get() != 0
         || first.width_nm.get() < 0
-        || first.stroke_color.is_none()
+        || !first.stroke_color.as_deref().is_some_and(valid_color)
+        || !first.fill_color.as_deref().is_none_or(valid_color)
         || first.line_style.is_none()
+        || !single_fill_valid
     {
         return Err(error(
             "invalid_text_box_outline",
@@ -979,7 +1093,7 @@ fn validate_text_box(
     let text_start = if matches!(first.fill, PlotterFill::NoFill | PlotterFill::FilledShape) {
         1
     } else {
-        let Some(PlotterOperation::RectOperation(outline)) = record.operations.get(1) else {
+        let Some(PlotterOperation::RectOperation(outline)) = operations.get(1) else {
             return Err(error(
                 "invalid_text_box_fill_pass",
                 format!("{path}.operations"),
@@ -998,7 +1112,7 @@ fn validate_text_box(
             || !same_geometry
             || outline.fill != PlotterFill::NoFill
             || outline.width_nm.get() < 0
-            || outline.stroke_color.is_none()
+            || !outline.stroke_color.as_deref().is_some_and(valid_color)
             || outline.fill_color.is_some()
             || outline.line_style != first.line_style
         {
@@ -1010,7 +1124,15 @@ fn validate_text_box(
         }
         2
     };
-    for (index, operation) in record.operations.iter().enumerate().skip(text_start) {
+    Ok(text_start)
+}
+
+fn validate_text_box_lines(
+    operations: &[PlotterOperation],
+    text_start: usize,
+    path: &str,
+) -> Result<(), ValidationError> {
+    for (index, operation) in operations.iter().enumerate().skip(text_start) {
         let PlotterOperation::TextOperation(text) = operation else {
             return Err(error(
                 "invalid_text_box_line",
@@ -1026,6 +1148,687 @@ fn validate_text_box(
             ));
         }
         validate_annotation_text(text, &format!("{path}.operations[{index}]"))?;
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy)]
+enum GraphicKind {
+    Polyline,
+    Arc,
+    Circle,
+    Rectangle,
+}
+
+#[derive(Clone, Copy)]
+enum GraphicRef<'a> {
+    Polyline(&'a PlotPolyOperation),
+    Arc(&'a ArcThreePointOperation),
+    Circle(&'a CircleOperation),
+    Rectangle(&'a RectOperation),
+}
+
+impl<'a> GraphicRef<'a> {
+    fn fill(self) -> PlotterFill {
+        match self {
+            Self::Polyline(value) => value.fill,
+            Self::Arc(value) => value.fill,
+            Self::Circle(value) => value.fill,
+            Self::Rectangle(value) => value.fill,
+        }
+    }
+
+    fn width(self) -> i64 {
+        match self {
+            Self::Polyline(value) => value.width_nm.get(),
+            Self::Arc(value) => value.width_nm.get(),
+            Self::Circle(value) => value.width_nm.get(),
+            Self::Rectangle(value) => value.width_nm.get(),
+        }
+    }
+
+    fn layer(self) -> Option<&'static str> {
+        let present = match self {
+            Self::Polyline(value) => value.layer.is_some(),
+            Self::Arc(value) => value.layer.is_some(),
+            Self::Circle(value) => value.layer.is_some(),
+            Self::Rectangle(value) => value.layer.is_some(),
+        };
+        present.then_some("present")
+    }
+
+    fn stroke_color(self) -> Option<&'static str> {
+        let valid = match self {
+            Self::Polyline(value) => value.stroke_color.as_deref().is_some_and(valid_color),
+            Self::Arc(value) => value.stroke_color.as_deref().is_some_and(valid_color),
+            Self::Circle(value) => value.stroke_color.as_deref().is_some_and(valid_color),
+            Self::Rectangle(value) => value.stroke_color.as_deref().is_some_and(valid_color),
+        };
+        valid.then_some("valid")
+    }
+
+    fn stroke(self) -> Option<&'a str> {
+        match self {
+            Self::Polyline(value) => value.stroke_color.as_deref(),
+            Self::Arc(value) => value.stroke_color.as_deref(),
+            Self::Circle(value) => value.stroke_color.as_deref(),
+            Self::Rectangle(value) => value.stroke_color.as_deref(),
+        }
+    }
+
+    fn fill_color(self) -> Option<&'a str> {
+        match self {
+            Self::Polyline(value) => value.fill_color.as_deref(),
+            Self::Arc(value) => value.fill_color.as_deref(),
+            Self::Circle(value) => value.fill_color.as_deref(),
+            Self::Rectangle(value) => value.fill_color.as_deref(),
+        }
+    }
+
+    fn line_style_present(self) -> bool {
+        match self {
+            Self::Polyline(value) => value.line_style.is_some(),
+            Self::Arc(value) => value.line_style.is_some(),
+            Self::Circle(value) => value.line_style.is_some(),
+            Self::Rectangle(value) => value.line_style.is_some(),
+        }
+    }
+
+    fn same_line_style(self, other: Self) -> bool {
+        match (self, other) {
+            (Self::Polyline(a), Self::Polyline(b)) => a.line_style == b.line_style,
+            (Self::Arc(a), Self::Arc(b)) => a.line_style == b.line_style,
+            (Self::Circle(a), Self::Circle(b)) => a.line_style == b.line_style,
+            (Self::Rectangle(a), Self::Rectangle(b)) => a.line_style == b.line_style,
+            _ => false,
+        }
+    }
+
+    fn same_geometry(self, other: Self) -> bool {
+        match (self, other) {
+            (Self::Polyline(a), Self::Polyline(b)) => {
+                a.points.len() == b.points.len()
+                    && a.points
+                        .iter()
+                        .zip(&b.points)
+                        .all(|(left, right)| left.0 == right.0)
+            }
+            (Self::Arc(a), Self::Arc(b)) => {
+                a.start_x == b.start_x
+                    && a.start_y == b.start_y
+                    && a.mid_x == b.mid_x
+                    && a.mid_y == b.mid_y
+                    && a.end_x == b.end_x
+                    && a.end_y == b.end_y
+            }
+            (Self::Circle(a), Self::Circle(b)) => {
+                a.cx == b.cx && a.cy == b.cy && a.diameter_nm == b.diameter_nm
+            }
+            (Self::Rectangle(a), Self::Rectangle(b)) => {
+                a.x1 == b.x1
+                    && a.y1 == b.y1
+                    && a.x2 == b.x2
+                    && a.y2 == b.y2
+                    && a.corner_radius_nm == b.corner_radius_nm
+            }
+            _ => false,
+        }
+    }
+}
+
+fn graphic_ref(operation: &PlotterOperation, kind: GraphicKind) -> Option<GraphicRef<'_>> {
+    match (operation, kind) {
+        (PlotterOperation::PlotPolyOperation(value), GraphicKind::Polyline) => {
+            Some(GraphicRef::Polyline(value))
+        }
+        (PlotterOperation::ArcThreePointOperation(value), GraphicKind::Arc) => {
+            Some(GraphicRef::Arc(value))
+        }
+        (PlotterOperation::CircleOperation(value), GraphicKind::Circle) => {
+            Some(GraphicRef::Circle(value))
+        }
+        (PlotterOperation::RectOperation(value), GraphicKind::Rectangle) => {
+            Some(GraphicRef::Rectangle(value))
+        }
+        _ => None,
+    }
+}
+
+fn validate_graphic_record(
+    operations: &[PlotterOperation],
+    kind: GraphicKind,
+    closed: bool,
+    path: &str,
+) -> Result<(), ValidationError> {
+    if !matches!(operations.len(), 1 | 2) {
+        return Err(error(
+            "invalid_graphic_record",
+            format!("{path}.operations"),
+            "schematic graphics contain one operation or a coherent fill pair",
+        ));
+    }
+    let first = graphic_ref(&operations[0], kind).ok_or_else(|| {
+        error(
+            "invalid_graphic_record",
+            format!("{path}.operations[0]"),
+            "schematic graphic operation kind must match its record",
+        )
+    })?;
+    validate_graphic_operation(first, &format!("{path}.operations[0]"))?;
+    if closed
+        && !matches!(
+            first,
+            GraphicRef::Polyline(value)
+                if value.points.first().is_some()
+                    && value
+                        .points
+                        .first()
+                        .zip(value.points.last())
+                        .is_some_and(|(first, last)| first.0 == last.0)
+        )
+    {
+        return Err(error(
+            "open_rule_area",
+            format!("{path}.operations[0].points"),
+            "rule-area polylines must be closed",
+        ));
+    }
+    if operations.len() == 1 {
+        let canonical = match first.fill() {
+            PlotterFill::NoFill => first.fill_color().is_none(),
+            PlotterFill::FilledShape => true,
+            _ => false,
+        };
+        return canonical.then_some(()).ok_or_else(|| {
+            error(
+                "invalid_graphic_fill",
+                format!("{path}.operations[0]"),
+                "single-pass schematic graphic fill state must be canonical",
+            )
+        });
+    }
+    let outline = graphic_ref(&operations[1], kind).ok_or_else(|| {
+        error(
+            "invalid_graphic_fill_pair",
+            format!("{path}.operations[1]"),
+            "schematic graphic fill pair must retain one operation kind",
+        )
+    })?;
+    validate_graphic_operation(outline, &format!("{path}.operations[1]"))?;
+    if matches!(first.fill(), PlotterFill::NoFill | PlotterFill::FilledShape)
+        || first.width() != 0
+        || first.fill_color().is_none()
+        || first.stroke() != first.fill_color()
+        || outline.fill() != PlotterFill::NoFill
+        || outline.fill_color().is_some()
+        || !first.same_line_style(outline)
+        || !first.same_geometry(outline)
+    {
+        return Err(error(
+            "invalid_graphic_fill_pair",
+            format!("{path}.operations"),
+            "schematic graphic fill and outline passes must be coherent",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_graphic_operation(value: GraphicRef<'_>, path: &str) -> Result<(), ValidationError> {
+    let specialized = match value {
+        GraphicRef::Polyline(polyline) => polyline.points.len() >= 2,
+        GraphicRef::Circle(circle) => {
+            circle.diameter_nm.get() >= 0
+                && circle.role.is_none()
+                && circle.layers.is_empty()
+                && circle.mask_margin_nm.is_none()
+                && circle.pad_size_x_nm.is_none()
+                && circle.pad_size_y_nm.is_none()
+        }
+        GraphicRef::Rectangle(rectangle) => rectangle.corner_radius_nm.get() >= 0,
+        GraphicRef::Arc(_) => true,
+    };
+    if value.layer().is_some()
+        || value.width() < 0
+        || value.stroke_color().is_none()
+        || value.fill_color().is_some_and(|color| !valid_color(color))
+        || !value.line_style_present()
+        || !specialized
+    {
+        return Err(error(
+            "invalid_graphic_style",
+            path,
+            "schematic graphic geometry and layerless style must be canonical",
+        ));
+    }
+    Ok(())
+}
+
+fn valid_color(value: &str) -> bool {
+    value.len() == 9
+        && value.starts_with('#')
+        && value[1..]
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'A'..=b'F'))
+}
+
+fn validate_bezier_operation(
+    value: &BezierCurveOperation,
+    path: &str,
+) -> Result<(), ValidationError> {
+    if value.layer.is_some()
+        || value.width_nm.get() < 0
+        || value.tolerance_nm.get() != 0
+        || !value.stroke_color.as_deref().is_some_and(valid_color)
+        || value.line_style.is_none()
+    {
+        return Err(error(
+            "invalid_graphic_bezier",
+            path,
+            "schematic Bezier geometry and layerless style must be canonical",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_bezier_record(
+    record: &SchematicGraphicBezierPlotRecord,
+    path: &str,
+) -> Result<(), ValidationError> {
+    let [PlotterOperation::BezierCurveOperation(value)] = record.operations.as_slice() else {
+        return Err(error(
+            "invalid_graphic_bezier",
+            format!("{path}.operations"),
+            "schematic Bezier records contain exactly one cubic operation",
+        ));
+    };
+    validate_bezier_operation(value, &format!("{path}.operations[0]"))
+}
+
+fn validate_rule_area(
+    record: &SchematicRuleAreaPlotRecord,
+    path: &str,
+) -> Result<(), ValidationError> {
+    match record.shape {
+        SchematicRuleAreaShape::Polyline => {
+            validate_graphic_record(&record.operations, GraphicKind::Polyline, true, path)
+        }
+        SchematicRuleAreaShape::Rectangle => {
+            validate_graphic_record(&record.operations, GraphicKind::Rectangle, false, path)
+        }
+        SchematicRuleAreaShape::Arc => {
+            validate_graphic_record(&record.operations, GraphicKind::Arc, false, path)
+        }
+        SchematicRuleAreaShape::Circle => {
+            validate_graphic_record(&record.operations, GraphicKind::Circle, false, path)
+        }
+        SchematicRuleAreaShape::Bezier => {
+            let [PlotterOperation::BezierCurveOperation(value)] = record.operations.as_slice()
+            else {
+                return Err(error(
+                    "invalid_rule_area",
+                    format!("{path}.operations"),
+                    "Bezier rule areas contain exactly one cubic operation",
+                ));
+            };
+            validate_bezier_operation(value, &format!("{path}.operations[0]"))
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ImageFormat {
+    Png,
+    Jpeg,
+    Bmp,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ImageMetadata {
+    format: ImageFormat,
+    width: u32,
+    height: u32,
+    ppi_x: Option<u32>,
+    ppi_y: Option<u32>,
+}
+
+fn validate_schematic_image(
+    record: &SchematicImagePlotRecord,
+    path: &str,
+) -> Result<(), ValidationError> {
+    let [PlotterOperation::PlotImageOperation(operation)] = record.operations.as_slice() else {
+        return Err(error(
+            "invalid_schematic_image",
+            format!("{path}.operations"),
+            "schematic image records contain exactly one image operation",
+        ));
+    };
+    let metadata = decode_image_metadata(&operation.image_data_b64).ok_or_else(|| {
+        error(
+            "invalid_schematic_image",
+            format!("{path}.operations[0].image_data_b64"),
+            "schematic image data must be canonical supported base64",
+        )
+    })?;
+    let expected_format = match metadata.format {
+        ImageFormat::Png => SchematicImageFormat::Png,
+        ImageFormat::Jpeg => SchematicImageFormat::Jpeg,
+        ImageFormat::Bmp => SchematicImageFormat::Bmp,
+    };
+    let width_nm =
+        image_extent(metadata.width, operation.scale, metadata.ppi_x).ok_or_else(|| {
+            error(
+                "invalid_schematic_image_extent",
+                format!("{path}.operations[0].width_nm"),
+                "schematic image width must remain finite and JavaScript-safe",
+            )
+        })?;
+    let height_nm =
+        image_extent(metadata.height, operation.scale, metadata.ppi_y).ok_or_else(|| {
+            error(
+                "invalid_schematic_image_extent",
+                format!("{path}.operations[0].height_nm"),
+                "schematic image height must remain finite and JavaScript-safe",
+            )
+        })?;
+    if !operation.scale.is_finite()
+        || operation.scale <= 0.0
+        || operation.stroke_color.as_deref() != Some("#0000C2FF")
+        || operation.image_format != expected_format.to_string()
+        || record.image_format != expected_format
+        || record.scale != operation.scale
+        || record.width_nm != operation.width_nm
+        || record.height_nm != operation.height_nm
+        || operation.width_nm.get() != width_nm
+        || operation.height_nm.get() != height_nm
+        || width_nm <= 0
+        || height_nm <= 0
+    {
+        return Err(error(
+            "invalid_schematic_image_metadata",
+            path,
+            "schematic image record, operation, decoded metadata, and extent must agree",
+        ));
+    }
+    Ok(())
+}
+
+fn decode_image_metadata(value: &str) -> Option<ImageMetadata> {
+    let data = decode_base64(value)?;
+    if data.len() >= 33
+        && data.get(..8) == Some(b"\x89PNG\r\n\x1a\n")
+        && data.get(8..16) == Some(b"\0\0\0\rIHDR")
+    {
+        return png_metadata(&data);
+    }
+    if data.len() >= 4 && data.get(..2) == Some(b"\xff\xd8") {
+        return jpeg_metadata(&data);
+    }
+    if data.len() >= 26 && data.get(..2) == Some(b"BM") {
+        return bmp_metadata(&data);
+    }
+    None
+}
+
+fn decode_base64(value: &str) -> Option<Vec<u8>> {
+    let mut output = Vec::with_capacity(value.len().saturating_mul(3) / 4);
+    let mut quartet = [0_u8; 4];
+    let mut quartet_len = 0usize;
+    let mut ended = false;
+    for byte in value.bytes() {
+        if byte.is_ascii_whitespace() || ended {
+            return None;
+        }
+        quartet[quartet_len] = match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            b'=' => 64,
+            _ => return None,
+        };
+        quartet_len += 1;
+        if quartet_len != 4 {
+            continue;
+        }
+        if quartet[0] >= 64 || quartet[1] >= 64 {
+            return None;
+        }
+        output.push((quartet[0] << 2) | (quartet[1] >> 4));
+        if quartet[2] == 64 {
+            if quartet[3] != 64 || quartet[1] & 0x0f != 0 {
+                return None;
+            }
+            ended = true;
+        } else {
+            output.push((quartet[1] << 4) | (quartet[2] >> 2));
+            if quartet[3] == 64 {
+                if quartet[2] & 0x03 != 0 {
+                    return None;
+                }
+                ended = true;
+            } else {
+                output.push((quartet[2] << 6) | quartet[3]);
+            }
+        }
+        quartet_len = 0;
+    }
+    (quartet_len == 0).then_some(output)
+}
+
+fn png_metadata(data: &[u8]) -> Option<ImageMetadata> {
+    let width = read_u32_be(data.get(16..20)?)?;
+    let height = read_u32_be(data.get(20..24)?)?;
+    if width == 0 || height == 0 {
+        return None;
+    }
+    let mut ppi_x = None;
+    let mut ppi_y = None;
+    let mut position = 8usize;
+    while position.checked_add(12)? <= data.len() {
+        let length = usize::try_from(read_u32_be(data.get(position..position + 4)?)?).ok()?;
+        let payload_start = position.checked_add(8)?;
+        let payload_end = payload_start.checked_add(length)?;
+        let end = payload_end.checked_add(4)?;
+        if end > data.len() {
+            return None;
+        }
+        let kind = data.get(position + 4..position + 8)?;
+        if kind == b"pHYs" && length >= 9 {
+            let payload = data.get(payload_start..payload_end)?;
+            if payload[8] == 1 {
+                ppi_x = ppi_from_ppm(read_u32_be(&payload[..4])?);
+                ppi_y = ppi_from_ppm(read_u32_be(&payload[4..8])?);
+            }
+        }
+        position = end;
+        if kind == b"IEND" {
+            break;
+        }
+    }
+    Some(ImageMetadata {
+        format: ImageFormat::Png,
+        width,
+        height,
+        ppi_x,
+        ppi_y,
+    })
+}
+
+fn jpeg_metadata(data: &[u8]) -> Option<ImageMetadata> {
+    let mut position = 2usize;
+    let mut ppi_x = None;
+    let mut ppi_y = None;
+    while position.checked_add(9)? <= data.len() {
+        if data[position] != 0xff {
+            position += 1;
+            continue;
+        }
+        let marker = data[position + 1];
+        position += 2;
+        if matches!(marker, 0xd8 | 0xd9) {
+            continue;
+        }
+        let length = usize::from(read_u16_be(data.get(position..position + 2)?)?);
+        if length < 2 || position.checked_add(length)? > data.len() {
+            return None;
+        }
+        let payload = data.get(position + 2..position + length)?;
+        if marker == 0xe0 && payload.starts_with(b"JFIF\0") && payload.len() >= 12 {
+            let units = payload[7];
+            let density_x = u32::from(read_u16_be(&payload[8..10])?);
+            let density_y = u32::from(read_u16_be(&payload[10..12])?);
+            if density_x > 0 && density_y > 0 {
+                match units {
+                    1 => {
+                        ppi_x = Some(density_x);
+                        ppi_y = Some(density_y);
+                    }
+                    2 => {
+                        ppi_x = density_to_ppi(density_x);
+                        ppi_y = density_to_ppi(density_y);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        if matches!(
+            marker,
+            0xc0 | 0xc1
+                | 0xc2
+                | 0xc3
+                | 0xc5
+                | 0xc6
+                | 0xc7
+                | 0xc9
+                | 0xca
+                | 0xcb
+                | 0xcd
+                | 0xce
+                | 0xcf
+        ) {
+            if length < 7 {
+                return None;
+            }
+            let height = u32::from(read_u16_be(data.get(position + 3..position + 5)?)?);
+            let width = u32::from(read_u16_be(data.get(position + 5..position + 7)?)?);
+            return (width > 0 && height > 0).then_some(ImageMetadata {
+                format: ImageFormat::Jpeg,
+                width,
+                height,
+                ppi_x,
+                ppi_y,
+            });
+        }
+        position += length;
+    }
+    None
+}
+
+fn bmp_metadata(data: &[u8]) -> Option<ImageMetadata> {
+    let dib = read_u32_le(data.get(14..18)?)?;
+    let (width, height, ppi_x, ppi_y) = if dib == 12 {
+        (
+            u32::from(read_u16_le(data.get(18..20)?)?),
+            u32::from(read_u16_le(data.get(20..22)?)?),
+            None,
+            None,
+        )
+    } else if dib >= 40 && data.len() >= 54 {
+        let width = read_i32_le(data.get(18..22)?)?.unsigned_abs();
+        let height = read_i32_le(data.get(22..26)?)?.unsigned_abs();
+        let ppi_x = bmp_ppi(read_i32_le(data.get(38..42)?)?);
+        let ppi_y = bmp_ppi(read_i32_le(data.get(42..46)?)?);
+        (width, height, ppi_x, ppi_y)
+    } else {
+        return None;
+    };
+    (width > 0 && height > 0).then_some(ImageMetadata {
+        format: ImageFormat::Bmp,
+        width,
+        height,
+        ppi_x,
+        ppi_y,
+    })
+}
+
+fn ppi_from_ppm(value: u32) -> Option<u32> {
+    (value > 0)
+        .then(|| (f64::from(value) * 0.0254).round_ties_even() as u32)
+        .filter(|value| *value > 0)
+}
+
+fn density_to_ppi(value: u32) -> Option<u32> {
+    (value > 0)
+        .then(|| (f64::from(value) * 2.54).round_ties_even() as u32)
+        .filter(|value| *value > 0)
+}
+
+fn bmp_ppi(value: i32) -> Option<u32> {
+    (value > 0)
+        .then(|| ((value / 100) as f64 * 2.54).round_ties_even() as u32)
+        .filter(|value| *value > 0)
+}
+
+fn image_extent(size: u32, scale: f64, ppi: Option<u32>) -> Option<i64> {
+    let density = f64::from(ppi.unwrap_or(300));
+    let value = f64::from(size) * scale * 25.4 / density * 1_000_000.0;
+    (value.is_finite()
+        && value >= crate::JAVASCRIPT_SAFE_INTEGER_MIN as f64
+        && value <= crate::JAVASCRIPT_SAFE_INTEGER_MAX as f64)
+        .then(|| value.round_ties_even() as i64)
+}
+
+fn read_u16_be(value: &[u8]) -> Option<u16> {
+    Some(u16::from_be_bytes(value.try_into().ok()?))
+}
+
+fn read_u16_le(value: &[u8]) -> Option<u16> {
+    Some(u16::from_le_bytes(value.try_into().ok()?))
+}
+
+fn read_u32_be(value: &[u8]) -> Option<u32> {
+    Some(u32::from_be_bytes(value.try_into().ok()?))
+}
+
+fn read_u32_le(value: &[u8]) -> Option<u32> {
+    Some(u32::from_le_bytes(value.try_into().ok()?))
+}
+
+fn read_i32_le(value: &[u8]) -> Option<i32> {
+    Some(i32::from_le_bytes(value.try_into().ok()?))
+}
+
+fn validate_table(record: &SchematicTablePlotRecord, path: &str) -> Result<(), ValidationError> {
+    let mut operation_index = 0usize;
+    let mut cells = 0usize;
+    while operation_index < record.operations.len() {
+        let prefix = validate_text_box_prefix(
+            &record.operations[operation_index..],
+            &format!("{path}.operations[{operation_index}]"),
+        )?;
+        operation_index += prefix;
+        while let Some(PlotterOperation::TextOperation(text)) =
+            record.operations.get(operation_index)
+        {
+            if text.text.is_empty() || text.multiline {
+                return Err(error(
+                    "invalid_table_cell_line",
+                    format!("{path}.operations[{operation_index}]"),
+                    "table cell lines must be nonempty single-line text",
+                ));
+            }
+            validate_annotation_text(text, &format!("{path}.operations[{operation_index}]"))?;
+            operation_index += 1;
+        }
+        cells = cells.saturating_add(1);
+    }
+    if cells != record.cell_count as usize {
+        return Err(error(
+            "table_cell_count_mismatch",
+            format!("{path}.cell_count"),
+            "table cell_count must equal the rendered cell blocks",
+        ));
     }
     Ok(())
 }

@@ -81,6 +81,9 @@ Current design notes:
 - `rust-schematic-annotations-phase5-slice.html` - accepted bounded native schematic
   labels, netclass flags, text, and text-box Plotter-IR with explicit drawing
   settings and deterministic caller-supplied font metrics.
+- `rust-schematic-graphics-phase5-slice.html` - accepted bounded native schematic
+  graphics, rule-area, embedded-image, and table Plotter-IR with strict image
+  decoding and shared deterministic font resources.
 - `rust-phase5-exit-audit.html` - accepted inventory and bounded closure order
   for the remaining native text, footprint, symbol, board, and schematic
   Plotter-IR surfaces before the native application phase.

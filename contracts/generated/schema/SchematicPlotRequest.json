@@ -163,6 +163,83 @@
             "minimum": 0,
             "maximum": 4294967295
         },
+        "max_polylines": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_arcs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_circles": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_rectangles": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_beziers": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_rule_areas": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_images": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_tables": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_table_cells": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_table_cell_lines": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_image_data_parts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_image_encoded_bytes": {
+            "type": "string"
+        },
+        "max_image_decoded_bytes": {
+            "type": "string"
+        },
+        "max_image_width_px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_image_height_px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_image_pixels": {
+            "type": "string"
+        },
+        "max_image_decode_work": {
+            "type": "string"
+        },
         "max_text_variables": {
             "type": "integer",
             "minimum": 0,
@@ -254,6 +331,23 @@
         "max_texts",
         "max_text_boxes",
         "max_text_box_lines",
+        "max_polylines",
+        "max_arcs",
+        "max_circles",
+        "max_rectangles",
+        "max_beziers",
+        "max_rule_areas",
+        "max_images",
+        "max_tables",
+        "max_table_cells",
+        "max_table_cell_lines",
+        "max_image_data_parts",
+        "max_image_encoded_bytes",
+        "max_image_decoded_bytes",
+        "max_image_width_px",
+        "max_image_height_px",
+        "max_image_pixels",
+        "max_image_decode_work",
         "max_text_variables",
         "max_text_variable_bytes",
         "max_worksheet_items",

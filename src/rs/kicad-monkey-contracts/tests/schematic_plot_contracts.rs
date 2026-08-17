@@ -386,6 +386,134 @@ fn schematic_annotation_semantic_mutations_fail_closed() {
 }
 
 #[test]
+fn schematic_graphic_rule_image_and_table_mutations_fail_closed() {
+    let canonical = shared_vector(
+        "schematic_plotter_a0_vectors.json",
+        "schematic-graphics-rules-images-and-table-family-order",
+    );
+    validate_schematic_plot_document(&decode(&canonical)).expect("canonical P5_062 vector");
+
+    let mut mutations = Vec::new();
+
+    let mut wrong_phase = canonical.clone();
+    wrong_phase["records"]
+        .as_array_mut()
+        .expect("records")
+        .swap(1, 2);
+    mutations.push(wrong_phase);
+
+    let mut layered_polyline = canonical.clone();
+    layered_polyline["records"][1]["operations"][0]["layer"] = serde_json::json!("Notes");
+    mutations.push(layered_polyline);
+
+    let mut short_polyline = canonical.clone();
+    short_polyline["records"][1]["operations"][0]["points"] =
+        serde_json::json!([[1_000_000, 1_000_000]]);
+    mutations.push(short_polyline);
+
+    let mut reversed_fill_pair = canonical.clone();
+    reversed_fill_pair["records"][2]["operations"]
+        .as_array_mut()
+        .expect("arc operations")
+        .reverse();
+    mutations.push(reversed_fill_pair);
+
+    let mut mismatched_fill_pair = canonical.clone();
+    mismatched_fill_pair["records"][4]["operations"][0]["fill_color"] =
+        serde_json::json!("#01020304");
+    mutations.push(mismatched_fill_pair);
+
+    let mut bezier_tolerance = canonical.clone();
+    bezier_tolerance["records"][5]["operations"][0]["tolerance_nm"] = serde_json::json!(1);
+    mutations.push(bezier_tolerance);
+
+    let mut wrong_rule_shape = canonical.clone();
+    wrong_rule_shape["records"][6]["shape"] = serde_json::json!("circle");
+    mutations.push(wrong_rule_shape);
+
+    let mut open_rule_polyline = canonical.clone();
+    open_rule_polyline["records"][10]["operations"][0]["points"]
+        .as_array_mut()
+        .expect("rule points")
+        .pop();
+    mutations.push(open_rule_polyline);
+
+    let mut mismatched_image_format = canonical.clone();
+    mismatched_image_format["records"][11]["image_format"] = serde_json::json!("png");
+    mutations.push(mismatched_image_format);
+
+    let mut image_whitespace = canonical.clone();
+    let encoded = image_whitespace["records"][12]["operations"][0]["image_data_b64"]
+        .as_str()
+        .expect("JPEG base64")
+        .to_owned();
+    image_whitespace["records"][12]["operations"][0]["image_data_b64"] =
+        serde_json::json!(format!("{}\n{}", &encoded[..12], &encoded[12..]));
+    mutations.push(image_whitespace);
+
+    let mut wrong_image_extent = canonical.clone();
+    wrong_image_extent["records"][13]["operations"][0]["width_nm"] = serde_json::json!(1_058_334);
+    mutations.push(wrong_image_extent);
+
+    let mut wrong_image_style = canonical.clone();
+    wrong_image_style["records"][13]["operations"][0]["stroke_color"] =
+        serde_json::json!("#0000C200");
+    mutations.push(wrong_image_style);
+
+    let mut wrong_cell_count = canonical.clone();
+    wrong_cell_count["records"][14]["cell_count"] = serde_json::json!(2);
+    mutations.push(wrong_cell_count);
+
+    let mut text_before_cell = canonical;
+    text_before_cell["records"][14]["operations"]
+        .as_array_mut()
+        .expect("table operations")
+        .swap(0, 2);
+    mutations.push(text_before_cell);
+
+    for mutation in mutations {
+        assert!(validate_schematic_plot_document(&decode(&mutation)).is_err());
+    }
+}
+
+#[test]
+fn schematic_single_pass_filled_shape_preserves_authoritative_fill_states() {
+    let canonical = shared_vector(
+        "schematic_plotter_a0_vectors.json",
+        "schematic-graphics-rules-images-and-table-family-order",
+    );
+
+    let mut explicit_graphic_fill = canonical.clone();
+    explicit_graphic_fill["records"][3]["operations"][0]["fill_color"] =
+        serde_json::json!("#01020304");
+    validate_schematic_plot_document(&decode(&explicit_graphic_fill))
+        .expect("explicit graphic fill may differ from its outline stroke");
+
+    let mut absent_graphic_fill = canonical.clone();
+    absent_graphic_fill["records"][3]["operations"][0]
+        .as_object_mut()
+        .expect("circle operation")
+        .remove("fill_color");
+    validate_schematic_plot_document(&decode(&absent_graphic_fill))
+        .expect("single-pass filled shape may omit fill color");
+
+    let mut absent_table_fill = canonical.clone();
+    absent_table_fill["records"][14]["operations"][3]["fill"] = serde_json::json!("FILLED_SHAPE");
+    validate_schematic_plot_document(&decode(&absent_table_fill))
+        .expect("single-pass table-cell outline fill may omit fill color");
+
+    let mut explicit_table_fill = absent_table_fill;
+    explicit_table_fill["records"][14]["operations"][3]["fill_color"] =
+        serde_json::json!("#11223344");
+    validate_schematic_plot_document(&decode(&explicit_table_fill))
+        .expect("table-cell filled shape may carry an explicit fill color");
+
+    let mut invalid_color = canonical;
+    invalid_color["records"][3]["operations"][0]["fill_color"] = serde_json::json!("#abcdef12");
+    assert!(validate_schematic_plot_document(&decode(&invalid_color)).is_err());
+}
+
+#[test]
 fn shared_context_and_segment_color_remain_fail_closed_for_existing_producers() {
     let context = serde_json::json!({"hyperlink": {"href": "https://example.test"}});
     let mut board = shared_vector(
@@ -458,6 +586,15 @@ fn schematic_request_requires_every_independent_budget() {
         "max_hierarchical_labels": 100, "max_netclass_flags": 100,
         "max_netclass_flag_properties": 100, "max_texts": 100,
         "max_text_boxes": 100, "max_text_box_lines": 1000,
+        "max_polylines": 100, "max_arcs": 100, "max_circles": 100,
+        "max_rectangles": 100, "max_beziers": 100,
+        "max_rule_areas": 100, "max_images": 100, "max_tables": 100,
+        "max_table_cells": 100, "max_table_cell_lines": 1000,
+        "max_image_data_parts": 100,
+        "max_image_encoded_bytes": "4096",
+        "max_image_decoded_bytes": "4096",
+        "max_image_width_px": 1000, "max_image_height_px": 1000,
+        "max_image_pixels": "1000000", "max_image_decode_work": "8192",
         "max_text_variables": 100, "max_text_variable_bytes": "4096",
         "max_worksheet_items": 100, "max_worksheet_repeats": 1000,
         "max_worksheet_point_sets": 100, "max_worksheet_points": 1000,
@@ -486,6 +623,14 @@ fn schematic_request_requires_every_independent_budget() {
     let mut negative_ratio = request.clone();
     negative_ratio["text_offset_ratio"] = serde_json::json!(-0.01);
     assert!(serde_json::from_value::<SchematicPlotRequestA0>(negative_ratio).is_err());
+    for (field, value) in [
+        ("max_image_encoded_bytes", "not-a-number"),
+        ("max_image_pixels", "18446744073709551616"),
+    ] {
+        let mut invalid_u64 = request.clone();
+        invalid_u64[field] = serde_json::json!(value);
+        assert!(serde_json::from_value::<SchematicPlotRequestA0>(invalid_u64).is_err());
+    }
     for field in [
         "max_source_bytes",
         "max_worksheet_bytes",
@@ -496,6 +641,10 @@ fn schematic_request_requires_every_independent_budget() {
         "max_labels",
         "max_netclass_flag_properties",
         "max_text_box_lines",
+        "max_polylines",
+        "max_rule_areas",
+        "max_table_cell_lines",
+        "max_image_decode_work",
         "text_offset_ratio",
         "default_line_width_nm",
     ] {

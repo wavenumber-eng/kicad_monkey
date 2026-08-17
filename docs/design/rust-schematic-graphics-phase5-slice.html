@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust schematic Plotter-IR Phase 5 graphics</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust schematic Plotter-IR Phase 5 graphics</h1>
+
+  <p>Status: accepted. P5_062 extends the native schematic document with
+  polylines, arcs, circles, rectangles, cubic B&eacute;ziers, rule areas,
+  embedded images, and tables. The earlier foundation and annotation entry
+  points remain unchanged, and the full producer performs no project, image,
+  or font discovery.</p>
+
+  <h2>Order and source ownership</h2>
+  <p>Raw bounded source spans preserve nanometre precision and emit records
+  after text boxes in the fixed family order <code>graphic_polyline</code>,
+  <code>graphic_arc</code>, <code>graphic_circle</code>,
+  <code>graphic_rectangle</code>, <code>graphic_bezier</code>,
+  <code>rule_area</code>, <code>image</code>, and <code>table</code>.
+  Source order is stable within each family. Rule-area identity belongs to its
+  nested shape; table cells remain children of one flattened table record.</p>
+
+  <h2>Drawing semantics</h2>
+  <p>Graphics use KiCad's fixed notes-layer defaults independently of project
+  line-width settings. Filled shapes preserve the authoritative fill-before-
+  outline split. Four-point B&eacute;ziers emit one cubic operation, while
+  malformed arities fail closed. Rule-area polylines are closed explicitly
+  and retain their policy flags.</p>
+
+  <p>Tables reuse the accepted text-box renderer, one-pass variables, and one
+  document-wide deterministic font session. Cell layout metadata and authored
+  render caches remain ignored because the Python producer does not retain
+  them. Font selection and wrapping therefore share aggregate hash and work
+  ceilings with preceding annotations.</p>
+
+  <h2>Image safety boundary</h2>
+  <p>Schematic images admit canonical PNG, JPEG, and BMP payloads with bounded
+  header and density parsing. Encoded and decoded bytes, data parts, image
+  dimensions, pixels, metadata work, scale, and derived extents are validated
+  before publication. Invalid base64, unsupported or truncated payloads,
+  nonpositive scale, and zero dimensions fail closed instead of reproducing
+  Python's permissive zero-sized fallback. Worksheet images remain separately
+  PNG-only.</p>
+
+  <h2>Contract, resources, and evidence</h2>
+  <p>The strict schematic contract gains eight record arms and their required
+  request ceilings without adding a PlotterOperation kind. TypeSpec and the
+  generated Rust, Python, TypeScript, and JSON Schema projections regenerate
+  atomically. Independent limits cover each family, table cells and retained
+  lines, image resources, input and output points, records, operations, text,
+  metadata, and the inherited text-engine work. Errors publish no partial
+  document.</p>
+
+  <p>Hermetic shared vectors cover all graphic and rule shapes, real
+  SHA-verified PNG/JPEG/BMP density cases, metric-independent table cells, and
+  fixture-font wrapping. Rack <code>L1_036</code>, focused native tests,
+  strict semantic mutations, and generated-binding checks own the executable
+  evidence. P5_070 and P5_071 still retain placed symbols and hierarchical
+  sheets; this native-first slice adds no WASM or Cruncher endpoint.</p>
+</body>
+</html>

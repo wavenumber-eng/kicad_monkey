@@ -6,10 +6,13 @@
 //! this module performs no filesystem discovery.
 
 mod annotation_render;
+mod graphic_render;
+mod image_decode;
+mod table_render;
 mod worksheet_render;
 
 use crate::plotter_ir::{ensure_javascript_safe_integer, mm_to_nm};
-use crate::plotter_text_cache::PlotterTextCacheResources;
+use crate::plotter_text_cache::{PlotterTextCacheResources, PlotterTextCacheSession};
 use crate::plotter_types::{
     PlotterCircle, PlotterFill, PlotterImage, PlotterLineStyle, PlotterOperation, PlotterPoly,
     PlotterText, ThickSegment,
@@ -18,7 +21,9 @@ use crate::sexpr::{Error, ErrorKind, ErrorPhase, Limits, Position, Sexp, parse_w
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use std::collections::{BTreeMap, BTreeSet};
 
-use annotation_render::append_annotation_records;
+use annotation_render::{annotation_variables, append_annotation_records};
+use graphic_render::{append_graphic_records, append_image_records, append_rule_area_records};
+use table_render::append_table_records;
 use worksheet_render::drawing_sheet_operations;
 
 const DEFAULT_VERSION: i64 = 20_260_306;
@@ -58,6 +63,23 @@ pub struct SchematicPlotLimits {
     /// Aggregate retained text-box lines. Temporary font-engine linebreak
     /// output is independently bounded by `PlotterTextCacheLimits::linebreak`.
     pub max_text_box_lines: usize,
+    pub max_polylines: usize,
+    pub max_arcs: usize,
+    pub max_circles: usize,
+    pub max_rectangles: usize,
+    pub max_beziers: usize,
+    pub max_rule_areas: usize,
+    pub max_images: usize,
+    pub max_tables: usize,
+    pub max_table_cells: usize,
+    pub max_table_cell_lines: usize,
+    pub max_image_data_parts: usize,
+    pub max_image_encoded_bytes: usize,
+    pub max_image_decoded_bytes: usize,
+    pub max_image_width_px: usize,
+    pub max_image_height_px: usize,
+    pub max_image_pixels: usize,
+    pub max_image_decode_work: usize,
     pub max_operations: usize,
     pub max_points: usize,
     pub max_input_points: usize,
@@ -100,6 +122,23 @@ impl Default for SchematicPlotLimits {
             max_texts: 100_000,
             max_text_boxes: 100_000,
             max_text_box_lines: 1_000_000,
+            max_polylines: 100_000,
+            max_arcs: 100_000,
+            max_circles: 100_000,
+            max_rectangles: 100_000,
+            max_beziers: 100_000,
+            max_rule_areas: 100_000,
+            max_images: 100_000,
+            max_tables: 100_000,
+            max_table_cells: 1_000_000,
+            max_table_cell_lines: 1_000_000,
+            max_image_data_parts: 100_000,
+            max_image_encoded_bytes: 64 * 1024 * 1024,
+            max_image_decoded_bytes: 64 * 1024 * 1024,
+            max_image_width_px: 1_000_000,
+            max_image_height_px: 1_000_000,
+            max_image_pixels: 100_000_000,
+            max_image_decode_work: 256 * 1024 * 1024,
             max_operations: 100_000,
             max_points: 1_000_000,
             max_input_points: 1_000_000,
@@ -303,6 +342,84 @@ pub struct SchematicAnnotationRecord {
     pub operations: Vec<SchematicPlotOperation>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SchematicGraphicRecordKind {
+    GraphicPolyline,
+    GraphicArc,
+    GraphicCircle,
+    GraphicRectangle,
+    GraphicBezier,
+}
+
+impl SchematicGraphicRecordKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::GraphicPolyline => "graphic_polyline",
+            Self::GraphicArc => "graphic_arc",
+            Self::GraphicCircle => "graphic_circle",
+            Self::GraphicRectangle => "graphic_rectangle",
+            Self::GraphicBezier => "graphic_bezier",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SchematicGraphicRecord {
+    pub uuid: String,
+    pub kind: SchematicGraphicRecordKind,
+    pub operations: Vec<SchematicPlotOperation>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SchematicRuleAreaShape {
+    Polyline,
+    Rectangle,
+    Arc,
+    Circle,
+    Bezier,
+}
+
+impl SchematicRuleAreaShape {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Polyline => "polyline",
+            Self::Rectangle => "rectangle",
+            Self::Arc => "arc",
+            Self::Circle => "circle",
+            Self::Bezier => "bezier",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SchematicRuleAreaRecord {
+    pub uuid: String,
+    pub shape: SchematicRuleAreaShape,
+    pub locked: bool,
+    pub exclude_from_sim: bool,
+    pub in_bom: bool,
+    pub on_board: bool,
+    pub dnp: bool,
+    pub operations: Vec<SchematicPlotOperation>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SchematicImageRecord {
+    pub uuid: String,
+    pub scale: f64,
+    pub image_format: String,
+    pub width_nm: i64,
+    pub height_nm: i64,
+    pub operations: Vec<SchematicPlotOperation>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SchematicTableRecord {
+    pub uuid: String,
+    pub cell_count: usize,
+    pub operations: Vec<SchematicPlotOperation>,
+}
+
 /// Schematic-only Text wrapper for operation-local hyperlink context without
 /// broadening established producer-neutral Text payloads.
 #[derive(Clone, Debug, PartialEq)]
@@ -339,6 +456,10 @@ pub enum SchematicPlotRecord {
     SheetHeader(SchematicSheetHeaderRecord),
     Connectivity(SchematicConnectivityRecord),
     Annotation(SchematicAnnotationRecord),
+    Graphic(SchematicGraphicRecord),
+    RuleArea(SchematicRuleAreaRecord),
+    Image(SchematicImageRecord),
+    Table(SchematicTableRecord),
 }
 
 impl SchematicPlotRecord {
@@ -347,6 +468,10 @@ impl SchematicPlotRecord {
             Self::SheetHeader(record) => record.operations.len(),
             Self::Connectivity(record) => record.operations.len(),
             Self::Annotation(record) => record.operations.len(),
+            Self::Graphic(record) => record.operations.len(),
+            Self::RuleArea(record) => record.operations.len(),
+            Self::Image(record) => record.operations.len(),
+            Self::Table(record) => record.operations.len(),
         }
     }
 }
@@ -372,6 +497,14 @@ struct CarrierSpans {
     netclass_flags: Vec<FormSpan>,
     texts: Vec<FormSpan>,
     text_boxes: Vec<FormSpan>,
+    polylines: Vec<FormSpan>,
+    arcs: Vec<FormSpan>,
+    circles: Vec<FormSpan>,
+    rectangles: Vec<FormSpan>,
+    beziers: Vec<FormSpan>,
+    rule_areas: Vec<FormSpan>,
+    images: Vec<FormSpan>,
+    tables: Vec<FormSpan>,
 }
 
 pub(super) struct AnnotationSpans {
@@ -381,6 +514,24 @@ pub(super) struct AnnotationSpans {
     netclass_flags: Vec<FormSpan>,
     texts: Vec<FormSpan>,
     text_boxes: Vec<FormSpan>,
+}
+
+pub(super) struct GraphicSpans {
+    polylines: Vec<FormSpan>,
+    arcs: Vec<FormSpan>,
+    circles: Vec<FormSpan>,
+    rectangles: Vec<FormSpan>,
+    beziers: Vec<FormSpan>,
+    rule_areas: Vec<FormSpan>,
+    images: Vec<FormSpan>,
+    tables: Vec<FormSpan>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+enum SchematicPlotScope {
+    Foundation,
+    Annotations,
+    Graphics,
 }
 
 pub(crate) struct PlotBudget {
@@ -423,15 +574,29 @@ impl PlotBudget {
         Ok(())
     }
 
-    fn charge_input_points(&mut self, points: usize) -> Result<(), Error> {
+    pub(crate) fn charge_input_points(&mut self, points: usize) -> Result<(), Error> {
         self.input_points = checked_limit(self.input_points, points, self.limits.max_input_points)?;
         Ok(())
     }
 
-    fn charge_metadata(&mut self, bytes: usize) -> Result<(), Error> {
+    pub(crate) fn charge_metadata(&mut self, bytes: usize) -> Result<(), Error> {
         self.metadata_bytes =
             checked_limit(self.metadata_bytes, bytes, self.limits.max_metadata_bytes)?;
         Ok(())
+    }
+
+    pub(crate) fn remaining_operations(&self) -> usize {
+        self.limits.max_operations.saturating_sub(self.operations)
+    }
+
+    pub(crate) fn remaining_points(&self) -> usize {
+        self.limits.max_points.saturating_sub(self.points)
+    }
+
+    pub(crate) fn remaining_input_points(&self) -> usize {
+        self.limits
+            .max_input_points
+            .saturating_sub(self.input_points)
     }
 }
 
@@ -441,7 +606,14 @@ pub fn schematic_plot_document(
     limits: SchematicPlotLimits,
     context: &SchematicPlotContext,
 ) -> Result<SchematicPlotDocument, Error> {
-    schematic_plot_document_impl(source, limits, context, None, None)
+    schematic_plot_document_impl(
+        source,
+        limits,
+        context,
+        SchematicPlotScope::Foundation,
+        None,
+        None,
+    )
 }
 
 /// Produce the P5_061 page foundation and annotation families. Drawing
@@ -459,6 +631,28 @@ pub fn schematic_plot_document_with_annotations(
         source,
         limits,
         context,
+        SchematicPlotScope::Annotations,
+        Some(drawing_settings),
+        text_resources,
+    )
+}
+
+/// Produce the complete P5_062 page foundation, annotations, graphics,
+/// rule areas, embedded images, and tables. All project and font inputs are
+/// explicit sidecars; core performs no path or platform-font discovery.
+pub fn schematic_plot_document_with_graphics(
+    source: &str,
+    limits: SchematicPlotLimits,
+    context: &SchematicPlotContext,
+    drawing_settings: SchematicDrawingSettings,
+    text_resources: Option<&PlotterTextCacheResources<'_>>,
+) -> Result<SchematicPlotDocument, Error> {
+    validate_drawing_settings(drawing_settings)?;
+    schematic_plot_document_impl(
+        source,
+        limits,
+        context,
+        SchematicPlotScope::Graphics,
         Some(drawing_settings),
         text_resources,
     )
@@ -468,6 +662,7 @@ fn schematic_plot_document_impl(
     source: &str,
     limits: SchematicPlotLimits,
     context: &SchematicPlotContext,
+    scope: SchematicPlotScope,
     drawing_settings: Option<SchematicDrawingSettings>,
     text_resources: Option<&PlotterTextCacheResources<'_>>,
 ) -> Result<SchematicPlotDocument, Error> {
@@ -484,7 +679,7 @@ fn schematic_plot_document_impl(
             max_decoded_string_bytes: limits.max_source_bytes,
         },
     )?;
-    let spans = selected_spans(source, limits, drawing_settings.is_some())?;
+    let spans = selected_spans(source, limits, scope)?;
     let roots = spans
         .iter()
         .filter(|span| span.depth == 0)
@@ -526,6 +721,14 @@ fn schematic_plot_document_impl(
             Some("netclass_flag") => carriers.netclass_flags.push(span),
             Some("text") => carriers.texts.push(span),
             Some("text_box") => carriers.text_boxes.push(span),
+            Some("polyline") => carriers.polylines.push(span),
+            Some("arc") => carriers.arcs.push(span),
+            Some("circle") => carriers.circles.push(span),
+            Some("rectangle") => carriers.rectangles.push(span),
+            Some("bezier") => carriers.beziers.push(span),
+            Some("rule_area") => carriers.rule_areas.push(span),
+            Some("image") => carriers.images.push(span),
+            Some("table") => carriers.tables.push(span),
             _ => {}
         }
     }
@@ -543,6 +746,14 @@ fn schematic_plot_document_impl(
     ensure_family_limit(carriers.netclass_flags.len(), limits.max_netclass_flags)?;
     ensure_family_limit(carriers.texts.len(), limits.max_texts)?;
     ensure_family_limit(carriers.text_boxes.len(), limits.max_text_boxes)?;
+    ensure_family_limit(carriers.polylines.len(), limits.max_polylines)?;
+    ensure_family_limit(carriers.arcs.len(), limits.max_arcs)?;
+    ensure_family_limit(carriers.circles.len(), limits.max_circles)?;
+    ensure_family_limit(carriers.rectangles.len(), limits.max_rectangles)?;
+    ensure_family_limit(carriers.beziers.len(), limits.max_beziers)?;
+    ensure_family_limit(carriers.rule_areas.len(), limits.max_rule_areas)?;
+    ensure_family_limit(carriers.images.len(), limits.max_images)?;
+    ensure_family_limit(carriers.tables.len(), limits.max_tables)?;
     let version = version.unwrap_or(DEFAULT_VERSION);
     ensure_javascript_safe_integer(version)?;
     let generator = generator.unwrap_or_else(|| DEFAULT_GENERATOR.to_owned());
@@ -598,6 +809,16 @@ fn schematic_plot_document_impl(
         texts: std::mem::take(&mut carriers.texts),
         text_boxes: std::mem::take(&mut carriers.text_boxes),
     };
+    let graphic_spans = GraphicSpans {
+        polylines: std::mem::take(&mut carriers.polylines),
+        arcs: std::mem::take(&mut carriers.arcs),
+        circles: std::mem::take(&mut carriers.circles),
+        rectangles: std::mem::take(&mut carriers.rectangles),
+        beziers: std::mem::take(&mut carriers.beziers),
+        rule_areas: std::mem::take(&mut carriers.rule_areas),
+        images: std::mem::take(&mut carriers.images),
+        tables: std::mem::take(&mut carriers.tables),
+    };
     let mut records = vec![SchematicPlotRecord::SheetHeader(header)];
     append_polyline_records(
         source,
@@ -641,14 +862,39 @@ fn schematic_plot_document_impl(
         &mut budget,
         &mut records,
     )?;
+    let session = if scope >= SchematicPlotScope::Annotations {
+        text_resources
+            .map(PlotterTextCacheSession::new)
+            .transpose()?
+    } else {
+        None
+    };
+    let variables = if scope >= SchematicPlotScope::Annotations {
+        Some(annotation_variables(context, title_block.as_ref(), limits)?)
+    } else {
+        None
+    };
     if let Some(drawing_settings) = drawing_settings {
         append_annotation_records(
             source,
             annotation_spans,
-            title_block.as_ref(),
-            context,
             drawing_settings,
-            text_resources,
+            variables.as_ref().expect("annotation scope has variables"),
+            session.as_ref(),
+            limits,
+            &mut budget,
+            &mut records,
+        )?;
+    }
+    if scope == SchematicPlotScope::Graphics {
+        append_graphic_records(source, &graphic_spans, limits, &mut budget, &mut records)?;
+        append_rule_area_records(source, &graphic_spans, limits, &mut budget, &mut records)?;
+        append_image_records(source, &graphic_spans, limits, &mut budget, &mut records)?;
+        append_table_records(
+            source,
+            &graphic_spans,
+            variables.as_ref().expect("graphics scope has variables"),
+            session.as_ref(),
             limits,
             &mut budget,
             &mut records,
@@ -687,7 +933,7 @@ impl Default for Paper {
 fn selected_spans(
     source: &str,
     limits: SchematicPlotLimits,
-    annotations: bool,
+    scope: SchematicPlotScope,
 ) -> Result<Vec<FormSpan>, Error> {
     let mut heads = vec![
         "version",
@@ -702,7 +948,7 @@ fn selected_spans(
         "junction",
         "no_connect",
     ];
-    if annotations {
+    if scope >= SchematicPlotScope::Annotations {
         heads.extend([
             "label",
             "global_label",
@@ -710,6 +956,18 @@ fn selected_spans(
             "netclass_flag",
             "text",
             "text_box",
+        ]);
+    }
+    if scope == SchematicPlotScope::Graphics {
+        heads.extend([
+            "polyline",
+            "arc",
+            "circle",
+            "rectangle",
+            "bezier",
+            "rule_area",
+            "image",
+            "table",
         ]);
     }
     let mut paths = BTreeSet::from([vec!["kicad_sch".to_owned()]]);

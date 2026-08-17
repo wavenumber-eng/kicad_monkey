@@ -1,3 +1,4 @@
+use super::image_decode;
 use super::{
     DEFAULT_KICAD_VERSION_TEXT, Paper, PlotBudget, SchematicPlotContext, SchematicPlotLimits,
     SchematicPlotOperation, SchematicTitleBlock, color_hex, limit_error, model_error,
@@ -17,7 +18,6 @@ use std::collections::BTreeMap;
 const DRAWING_SHEET_COLOR: &str = "#840000FF";
 const BACKGROUND_COLOR: &str = "#F5F4EFFF";
 const DRAWING_SHEET_MIN_WIDTH_NM: i64 = 152_400;
-const BITMAP_DEFAULT_DPI: f64 = 300.0;
 const MAX_EXPANSION_DEPTH: usize = 10;
 
 const DEFAULT_WORKSHEET: &str = concat!(
@@ -454,7 +454,7 @@ fn bitmap_operations(
         encoded.len(),
         limits.max_worksheet_bitmap_encoded_bytes,
     )?;
-    let decoded = decode_base64(
+    let decoded = image_decode::decode_base64(
         &encoded,
         limits
             .max_worksheet_bitmap_decoded_bytes
@@ -470,28 +470,31 @@ fn bitmap_operations(
         encoded.len().saturating_add(decoded.len()),
         limits.max_worksheet_bitmap_decode_work,
     )?;
-    let (width, height, ppm_x, ppm_y, metadata_work) = png_metadata(
+    let metadata = image_decode::image_metadata(
         &decoded,
         limits
             .max_worksheet_bitmap_decode_work
             .saturating_sub(images.work),
     )?;
+    if metadata.format != image_decode::ImageFormat::Png {
+        return Err(model_error("Worksheet bitmap is not PNG"));
+    }
     images.work = checked(
         images.work,
-        metadata_work,
+        metadata.work,
         limits.max_worksheet_bitmap_decode_work,
     )?;
-    if width as usize > limits.max_worksheet_bitmap_width_px
-        || height as usize > limits.max_worksheet_bitmap_height_px
+    if metadata.width as usize > limits.max_worksheet_bitmap_width_px
+        || metadata.height as usize > limits.max_worksheet_bitmap_height_px
     {
         return Err(limit_error());
     }
-    let pixels = (width as usize)
-        .checked_mul(height as usize)
+    let pixels = (metadata.width as usize)
+        .checked_mul(metadata.height as usize)
         .ok_or_else(limit_error)?;
     images.pixels = checked(images.pixels, pixels, limits.max_worksheet_bitmap_pixels)?;
-    let width_nm = bitmap_extent(width, item.scale, ppm_x)?;
-    let height_nm = bitmap_extent(height, item.scale, ppm_y)?;
+    let width_nm = image_decode::extent_nm(metadata.width, item.scale, metadata.ppi_x)?;
+    let height_nm = image_decode::extent_nm(metadata.height, item.scale, metadata.ppi_y)?;
     for index in 0..repeat_count(item.repeat) {
         let point = resolve_point(
             item.position,
@@ -763,116 +766,6 @@ fn expand_legacy(
     Ok(out)
 }
 
-fn decode_base64(value: &str, maximum: usize) -> Result<Vec<u8>, Error> {
-    let bytes = value.as_bytes();
-    if bytes.len() % 4 != 0 {
-        return Err(model_error("Invalid worksheet bitmap base64 length"));
-    }
-    let padding = bytes.iter().rev().take_while(|byte| **byte == b'=').count();
-    if padding > 2 {
-        return Err(model_error("Invalid worksheet bitmap base64 padding"));
-    }
-    let decoded_len = (bytes.len() / 4)
-        .checked_mul(3)
-        .and_then(|length| length.checked_sub(padding))
-        .ok_or_else(limit_error)?;
-    if decoded_len > maximum {
-        return Err(limit_error());
-    }
-    let mut output = Vec::with_capacity(decoded_len);
-    for (block_index, encoded) in bytes.chunks_exact(4).enumerate() {
-        let mut block = [0u8; 4];
-        for (index, byte) in encoded.iter().copied().enumerate() {
-            block[index] = match byte {
-                b'A'..=b'Z' => byte - b'A',
-                b'a'..=b'z' => byte - b'a' + 26,
-                b'0'..=b'9' => byte - b'0' + 52,
-                b'+' => 62,
-                b'/' => 63,
-                b'=' => 64,
-                _ => return Err(model_error("Invalid worksheet bitmap base64")),
-            }
-        }
-        let last = block_index + 1 == bytes.len() / 4;
-        if block[0] == 64
-            || block[1] == 64
-            || (!last && (block[2] == 64 || block[3] == 64))
-            || (block[2] == 64 && block[3] != 64)
-            || (block[2] == 64 && block[1] & 0x0f != 0)
-            || (block[3] == 64 && block[2] != 64 && block[2] & 0x03 != 0)
-        {
-            return Err(model_error("Invalid worksheet bitmap base64 padding"));
-        }
-        output.push((block[0] << 2) | (block[1] >> 4));
-        if block[2] != 64 {
-            output.push((block[1] << 4) | (block[2] >> 2));
-        }
-        if block[3] != 64 {
-            output.push((block[2] << 6) | block[3]);
-        }
-    }
-    debug_assert_eq!(output.len(), decoded_len);
-    Ok(output)
-}
-
-fn png_metadata(
-    data: &[u8],
-    maximum_work: usize,
-) -> Result<(u32, u32, Option<u32>, Option<u32>, usize), Error> {
-    if data.len() < 33 || !data.starts_with(b"\x89PNG\r\n\x1a\n") {
-        return Err(model_error("Worksheet bitmap is not PNG"));
-    }
-    let first_length = u32::from_be_bytes(data[8..12].try_into().unwrap()) as usize;
-    if first_length != 13 || &data[12..16] != b"IHDR" {
-        return Err(model_error(
-            "Worksheet PNG must begin with a canonical IHDR",
-        ));
-    }
-    let (mut width, mut height, mut ppm_x, mut ppm_y) = (0, 0, None, None);
-    let (mut offset, mut work) = (8usize, 0usize);
-    while offset + 8 <= data.len() {
-        let length = u32::from_be_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
-        let end = offset
-            .checked_add(12)
-            .and_then(|v| v.checked_add(length))
-            .ok_or_else(limit_error)?;
-        if end > data.len() {
-            return Err(model_error("Malformed worksheet PNG"));
-        }
-        work = checked(work, length.saturating_add(12), maximum_work)?;
-        let kind = &data[offset + 4..offset + 8];
-        let chunk = &data[offset + 8..offset + 8 + length];
-        if kind == b"IHDR" && offset == 8 {
-            width = u32::from_be_bytes(chunk[0..4].try_into().unwrap());
-            height = u32::from_be_bytes(chunk[4..8].try_into().unwrap());
-        } else if kind == b"pHYs" && length >= 9 && chunk[8] == 1 {
-            ppm_x = Some(u32::from_be_bytes(chunk[0..4].try_into().unwrap())).filter(|v| *v > 0);
-            ppm_y = Some(u32::from_be_bytes(chunk[4..8].try_into().unwrap())).filter(|v| *v > 0);
-        }
-        offset = end;
-        if kind == b"IEND" {
-            break;
-        }
-    }
-    if width == 0 || height == 0 {
-        return Err(model_error("Worksheet PNG dimensions must be positive"));
-    }
-    Ok((width, height, ppm_x, ppm_y, work))
-}
-fn bitmap_extent(size: u32, scale: f64, ppm: Option<u32>) -> Result<i64, Error> {
-    if !scale.is_finite() {
-        return Err(model_error("Worksheet bitmap scale must be finite"));
-    }
-    let ppi = ppm
-        .map(|value| (value as f64 * 0.0254).round_ties_even() as i64)
-        .filter(|value| *value > 0);
-    let mm = if let Some(ppi) = ppi {
-        size as f64 * scale * 25.4 / ppi as f64
-    } else {
-        size as f64 * scale * 25.4 / BITMAP_DEFAULT_DPI
-    };
-    mm_to_nm(mm)
-}
 fn checked(current: usize, additional: usize, maximum: usize) -> Result<usize, Error> {
     current
         .checked_add(additional)

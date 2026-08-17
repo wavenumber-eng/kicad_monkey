@@ -1,7 +1,7 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
 /**
- * Strict source-record vocabulary through the P5_061 schematic annotations.
+ * Strict source-record vocabulary through the P5_062 schematic graphics.
  */
 export type SchematicPlotRecord =
   | SchematicSheetHeaderPlotRecord
@@ -15,7 +15,15 @@ export type SchematicPlotRecord =
   | SchematicHierarchicalLabelPlotRecord
   | SchematicNetclassFlagPlotRecord
   | SchematicTextPlotRecord
-  | SchematicTextBoxPlotRecord;
+  | SchematicTextBoxPlotRecord
+  | SchematicGraphicPolylinePlotRecord
+  | SchematicGraphicArcPlotRecord
+  | SchematicGraphicCirclePlotRecord
+  | SchematicGraphicRectanglePlotRecord
+  | SchematicGraphicBezierPlotRecord
+  | SchematicRuleAreaPlotRecord
+  | SchematicImagePlotRecord
+  | SchematicTablePlotRecord;
 /**
  * Shared plotter operation vocabulary promoted across source producers.
  */
@@ -100,9 +108,17 @@ export type SchematicLabelShape =
  * Marker shapes admitted by schematic netclass/directive flags.
  */
 export type SchematicNetclassFlagShape = "round" | "dot" | "diamond" | "rectangle";
+/**
+ * Source-shape discriminator retained by a schematic rule area.
+ */
+export type SchematicRuleAreaShape = "polyline" | "rectangle" | "arc" | "circle" | "bezier";
+/**
+ * Decoded image formats admitted by the schematic image family.
+ */
+export type SchematicImageFormat = "png" | "jpeg" | "bmp";
 
 /**
- * Strict schematic subset through the P5_061 annotation families.
+ * Strict schematic subset through the P5_062 graphic families.
  */
 export interface SchematicPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
@@ -564,6 +580,97 @@ export interface SchematicTextBoxPlotRecord {
   operation_count: number;
   operations: PlotterOperation[];
   text: string;
+}
+/**
+ * One top-level schematic graphic polyline.
+ */
+export interface SchematicGraphicPolylinePlotRecord {
+  uuid: string;
+  kind: "graphic_polyline";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+}
+/**
+ * One top-level schematic graphic arc.
+ */
+export interface SchematicGraphicArcPlotRecord {
+  uuid: string;
+  kind: "graphic_arc";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+}
+/**
+ * One top-level schematic graphic circle.
+ */
+export interface SchematicGraphicCirclePlotRecord {
+  uuid: string;
+  kind: "graphic_circle";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+}
+/**
+ * One top-level schematic graphic rectangle.
+ */
+export interface SchematicGraphicRectanglePlotRecord {
+  uuid: string;
+  kind: "graphic_rectangle";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+}
+/**
+ * One canonical four-point top-level schematic graphic Bezier.
+ */
+export interface SchematicGraphicBezierPlotRecord {
+  uuid: string;
+  kind: "graphic_bezier";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+}
+/**
+ * One schematic rule area with source policy metadata.
+ */
+export interface SchematicRuleAreaPlotRecord {
+  uuid: string;
+  kind: "rule_area";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  shape: SchematicRuleAreaShape;
+  locked: boolean;
+  exclude_from_sim: boolean;
+  in_bom: boolean;
+  on_board: boolean;
+  dnp: boolean;
+}
+/**
+ * One decoded embedded schematic image.
+ */
+export interface SchematicImagePlotRecord {
+  uuid: string;
+  kind: "image";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  scale: number;
+  image_format: SchematicImageFormat;
+  width_nm: JavaScriptSafeInteger;
+  height_nm: JavaScriptSafeInteger;
+}
+/**
+ * One schematic table rendered as ordered text-box cell blocks.
+ */
+export interface SchematicTablePlotRecord {
+  uuid: string;
+  kind: "table";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  cell_count: number;
 }
 /**
  * Exact page extent of one schematic instance.

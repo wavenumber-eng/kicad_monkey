@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 from contextlib import ExitStack
 import hashlib
 import json
@@ -77,6 +78,27 @@ def _metric_font_path(vector: dict[str, Any]) -> Path | None:
     return path
 
 
+def _validate_image_resources(vector: dict[str, Any]) -> None:
+    resources = vector.get("image_resources")
+    if resources is None:
+        return
+    if not isinstance(resources, list):
+        raise AssertionError("image_resources must be an array")
+    for resource in resources:
+        if not isinstance(resource, dict):
+            raise AssertionError("image resource must be an object")
+        image_format = str(resource.get("image_format", ""))
+        expected = IMAGE_RESOURCE_BYTES.get(image_format)
+        if expected is None:
+            raise AssertionError(f"unexpected schematic image format: {image_format}")
+        encoded, fixed_digest = expected
+        digest = hashlib.sha256(base64.b64decode(encoded, validate=True)).hexdigest()
+        if digest != fixed_digest or digest != resource.get("image_sha256"):
+            raise AssertionError(f"schematic {image_format} digest drifted")
+        if encoded not in vector["source"]:
+            raise AssertionError(f"schematic {image_format} resource is not in source")
+
+
 def _provided_outline_font(vector: dict[str, Any], path: Path | None):
     resource = vector.get("font_resource")
 
@@ -122,6 +144,7 @@ def expected_for(vector: dict[str, Any]) -> dict[str, Any]:
     """
 
     schematic = KiCadSchematic.from_text(vector["source"])
+    _validate_image_resources(vector)
     worksheet = _worksheet(vector)
     drawing_settings = vector.get("drawing_settings") or {}
     project_sheet_count = vector.get("project_sheet_count")
@@ -367,6 +390,175 @@ METRIC_ANNOTATION_SOURCE = f"""(kicad_sch
       (font (face "{METRIC_FONT_FACE}") (size 1 1)))
     (uuid "metric-box")))"""
 
+PNG_DENSITY_B64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAAXNSR0IArs4c6QAA"
+    "AARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAARSURBVBhXY+AS"
+    "kfsPwgwYDABbCwdj+L78AwAAAABJRU5ErkJggg=="
+)
+JPEG_DENSITY_B64 = (
+    "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoH"
+    "BwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQME"
+    "BAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU"
+    "FBQUFBQUFBQUFBQUFBT/wAARCAACAAMDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEA"
+    "AAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIh"
+    "MUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6"
+    "Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZ"
+    "mqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx"
+    "8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREA"
+    "AgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAV"
+    "YnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hp"
+    "anN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPE"
+    "xcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8"
+    "2qKKK9M88//Z"
+)
+BMP_DENSITY_B64 = (
+    "Qk1mAAAAAAAAADYAAAAoAAAABAAAAAMAAAABACAAAAAAAAAAAAAlFgAAJRYAAAAAAAAA"
+    "AAAAHhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/HhQK/x4UCv8e"
+    "FAr/"
+)
+IMAGE_RESOURCE_BYTES = {
+    "png": (PNG_DENSITY_B64, "c2bfda6df6b855b24bb53c7131a8af317723ec31fd901b4a6cd8257df81c8cd2"),
+    "jpeg": (JPEG_DENSITY_B64, "6a99497d81003845d473989d76613e2b3d92e0b9a8c33e303e402fc593e3bb66"),
+    "bmp": (BMP_DENSITY_B64, "3e213bd3ae10450193c8f943ce09f97a6c03800dac7614c2788f7eed361e70e0"),
+}
+
+GRAPHICS_SOURCE = fr"""(kicad_sch
+  (version 20240101)
+  (generator eeschema)
+  (generator_version "10.0")
+  (uuid "graphics")
+  (paper "User" 30 30)
+  (title_block (title "Graphics"))
+  (lib_symbols)
+  (table
+    (uuid "graphics-table")
+    (cells
+      (table_cell "${{TITLE}}-${{title}}"
+        (exclude_from_sim yes)
+        (at 20 21 0)
+        (size 0 0)
+        (margins 0 0 0 0)
+        (span 2 3)
+        (stroke (width -1) (type dash))
+        (fill (type color) (color 1 2 3 0.5))
+        (effects
+          (font (size 1 1))
+          (justify left top)
+          (href "https://example.test/cell"))
+        (render_cache "stale" 0
+          (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1))))
+        (uuid "ignored-cell-1"))
+      (table_cell ""
+        (at 22 23 0)
+        (size 0 0)
+        (margins 0 0 0 0)
+        (fill (type none))
+        (uuid "ignored-cell-2"))
+      (table_cell "${{CELL}}\nsecond\n"
+        (at 24 25 90)
+        (size 0 0)
+        (margins 0 0 0 0)
+        (fill (type none))
+        (effects (font (size 1 1)) (justify right bottom))
+        (uuid "ignored-cell-3"))))
+  (rule_area
+    (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)
+    (bezier
+      (pts (xy 16 17) (xy 17 16) (xy 18 19) (xy 19 18))
+      (stroke (width 0.1) (type dash_dot))
+      (fill (type none))
+      (uuid "rule-bezier")))
+  (image
+    (at 18 19)
+    (scale 0.5)
+    (uuid "image-bmp")
+    (data "{BMP_DENSITY_B64}"))
+  (rectangle
+    (start 6 7) (end 8 9) (radius 0.5)
+    (stroke (width 0.254) (type solid))
+    (fill (type color) (color 0 255 255 1))
+    (uuid "graphic-rectangle"))
+  (rule_area
+    (exclude_from_sim yes) (in_bom yes) (on_board no) (dnp no)
+    (circle
+      (center 15 16) (radius 1)
+      (stroke (width 0) (type solid))
+      (fill (type background))
+      (uuid "rule-circle")))
+  (polyline
+    (pts (xy 1 1) (xy 2 1) (xy 2 2))
+    (stroke (width 0) (type dash_dot_dot))
+    (fill (type none))
+    (uuid "graphic-polyline"))
+  (image
+    (at 16 17)
+    (scale 1.5)
+    (uuid "image-jpeg")
+    (data "{JPEG_DENSITY_B64}"))
+  (arc
+    (start 2 3) (mid 3 2) (end 4 3)
+    (stroke (width 0.2) (type dot))
+    (fill (type background))
+    (uuid "graphic-arc"))
+  (rule_area
+    (locked yes) (exclude_from_sim yes) (in_bom no) (on_board no) (dnp yes)
+    (rectangle
+      (start 13 14) (end 15 16) (radius 0.25)
+      (stroke (width 0.15) (type dot))
+      (fill (type color) (color 4 5 6 0.5))
+      (uuid "rule-rectangle")))
+  (bezier
+    (pts (xy 8 9) (xy 9 8) (xy 10 11) (xy 11 10))
+    (stroke (width 0.1) (type dash_dot))
+    (fill (type color) (color 9 8 7 1))
+    (uuid "graphic-bezier"))
+  (rule_area
+    (exclude_from_sim no) (in_bom no) (on_board yes) (dnp yes)
+    (arc
+      (start 14 15) (mid 15 14) (end 16 15)
+      (stroke (width -1) (type default))
+      (fill (type none))
+      (uuid "rule-arc")))
+  (circle
+    (center 5 6) (radius 1.5)
+    (stroke (width -1) (type solid) (color 1 2 3 0))
+    (fill (type outline))
+    (uuid "graphic-circle"))
+  (image
+    (at 14 15)
+    (scale 2)
+    (uuid "image-png")
+    (data "{PNG_DENSITY_B64}"))
+  (rule_area
+    (locked yes) (exclude_from_sim yes) (in_bom no) (on_board no) (dnp yes)
+    (polyline
+      (pts (xy 12 13) (xy 14 13) (xy 14 15))
+      (stroke (width 0) (type dash) (color 194 0 0 1))
+      (fill (type none))
+      (uuid "rule-polyline")))
+  (sheet_instances (path "/" (page "1"))))"""
+
+METRIC_TABLE_SOURCE = f"""(kicad_sch
+  (version 20240101)
+  (generator eeschema)
+  (generator_version "10.0")
+  (uuid "metric-table")
+  (paper "User" 20 20)
+  (lib_symbols)
+  (table
+    (uuid "metric-table-record")
+    (cells
+      (table_cell "AB AB"
+        (at 5 6 0)
+        (size 2.5 3)
+        (margins 0 0 0 0)
+        (stroke (width 0) (type default))
+        (fill (type none))
+        (effects
+          (font (face "{METRIC_FONT_FACE}") (size 1 1)))
+        (uuid "metric-cell"))))
+  (sheet_instances (path "/" (page "1"))))"""
+
 EMPTY_WORKSHEET = """(kicad_wks
   (version 20210606)
   (generator pl_editor)
@@ -429,6 +621,49 @@ def vectors() -> list[dict[str, Any]]:
             "source": METRIC_ANNOTATION_SOURCE,
             "source_path": "metric-annotations.kicad_sch",
             "document_id": "metric-annotations",
+            "worksheet_source": EMPTY_WORKSHEET,
+            "project_variables": {},
+            "font_resource": {
+                "face": METRIC_FONT_FACE,
+                "bold": False,
+                "italic": False,
+                "font_path": "tests/parity/fonts/shaping-variable-fixture.ttf",
+                "font_sha256": METRIC_FONT_SHA256,
+                "shaping_case_id": "fixture_default_variation_axis",
+            },
+            "sheet_index": 1,
+            "sheet_count": 1,
+            "sheet_path": "/",
+            "sheet_name": "",
+        },
+        {
+            "id": "schematic-graphics-rules-images-and-table-family-order",
+            "source": GRAPHICS_SOURCE,
+            "source_path": "graphics.kicad_sch",
+            "document_id": "graphics",
+            "worksheet_source": EMPTY_WORKSHEET,
+            "project_variables": {
+                "CELL": "first",
+                "TITLE": "bad",
+                "title": "lower-project",
+            },
+            "image_resources": [
+                {
+                    "image_format": image_format,
+                    "image_sha256": digest,
+                }
+                for image_format, (_encoded, digest) in IMAGE_RESOURCE_BYTES.items()
+            ],
+            "sheet_index": 1,
+            "sheet_count": 1,
+            "sheet_path": "/",
+            "sheet_name": "",
+        },
+        {
+            "id": "explicit-font-metrics-for-schematic-table",
+            "source": METRIC_TABLE_SOURCE,
+            "source_path": "metric-table.kicad_sch",
+            "document_id": "metric-table",
             "worksheet_source": EMPTY_WORKSHEET,
             "project_variables": {},
             "font_resource": {

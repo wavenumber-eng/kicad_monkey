@@ -47,7 +47,7 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict schematic subset through the P5_061 annotation families.",
+    "description": "Strict schematic subset through the P5_062 graphic families.",
     "title": "Schematic plot document a0",
     "$defs": {
         "SchematicPlotRecord": {
@@ -87,9 +87,33 @@
                 },
                 {
                     "$ref": "#/$defs/SchematicTextBoxPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicGraphicPolylinePlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicGraphicArcPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicGraphicCirclePlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicGraphicRectanglePlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicGraphicBezierPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicRuleAreaPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicImagePlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicTablePlotRecord"
                 }
             ],
-            "description": "Strict source-record vocabulary through the P5_061 schematic annotations."
+            "description": "Strict source-record vocabulary through the P5_062 schematic graphics."
         },
         "SchematicPlotCanvas": {
             "type": "object",
@@ -683,6 +707,348 @@
             },
             "description": "One schematic text box with its canonical outline and plotted lines."
         },
+        "SchematicGraphicPolylinePlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "graphic_polyline"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One top-level schematic graphic polyline."
+        },
+        "SchematicGraphicArcPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "graphic_arc"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One top-level schematic graphic arc."
+        },
+        "SchematicGraphicCirclePlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "graphic_circle"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One top-level schematic graphic circle."
+        },
+        "SchematicGraphicRectanglePlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "graphic_rectangle"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One top-level schematic graphic rectangle."
+        },
+        "SchematicGraphicBezierPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "graphic_bezier"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One canonical four-point top-level schematic graphic Bezier."
+        },
+        "SchematicRuleAreaPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "rule_area"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "shape": {
+                    "$ref": "#/$defs/SchematicRuleAreaShape"
+                },
+                "locked": {
+                    "type": "boolean"
+                },
+                "exclude_from_sim": {
+                    "type": "boolean"
+                },
+                "in_bom": {
+                    "type": "boolean"
+                },
+                "on_board": {
+                    "type": "boolean"
+                },
+                "dnp": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "shape",
+                "locked",
+                "exclude_from_sim",
+                "in_bom",
+                "on_board",
+                "dnp"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One schematic rule area with source policy metadata."
+        },
+        "SchematicImagePlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "image"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "scale": {
+                    "type": "number"
+                },
+                "image_format": {
+                    "$ref": "#/$defs/SchematicImageFormat"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "height_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "scale",
+                "image_format",
+                "width_nm",
+                "height_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One decoded embedded schematic image."
+        },
+        "SchematicTablePlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "table"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "cell_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "cell_count"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One schematic table rendered as ordered text-box cell blocks."
+        },
         "JavaScriptSafeInteger": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -791,6 +1157,26 @@
                 "rectangle"
             ],
             "description": "Marker shapes admitted by schematic netclass/directive flags."
+        },
+        "SchematicRuleAreaShape": {
+            "type": "string",
+            "enum": [
+                "polyline",
+                "rectangle",
+                "arc",
+                "circle",
+                "bezier"
+            ],
+            "description": "Source-shape discriminator retained by a schematic rule area."
+        },
+        "SchematicImageFormat": {
+            "type": "string",
+            "enum": [
+                "png",
+                "jpeg",
+                "bmp"
+            ],
+            "description": "Decoded image formats admitted by the schematic image family."
         },
         "ThickSegmentOperation": {
             "type": "object",

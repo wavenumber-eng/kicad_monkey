@@ -27,25 +27,20 @@ const JAVASCRIPT_SAFE_INTEGER_MIN: i64 = -JAVASCRIPT_SAFE_INTEGER_MAX;
 pub(super) fn append_annotation_records(
     source: &str,
     spans: AnnotationSpans,
-    title_block: Option<&SchematicTitleBlock>,
-    context: &SchematicPlotContext,
     settings: SchematicDrawingSettings,
-    text_resources: Option<&PlotterTextCacheResources<'_>>,
+    variables: &BTreeMap<String, String>,
+    session: Option<&PlotterTextCacheSession<'_>>,
     limits: SchematicPlotLimits,
     budget: &mut PlotBudget,
     records: &mut Vec<SchematicPlotRecord>,
 ) -> Result<(), Error> {
-    let session = text_resources
-        .map(PlotterTextCacheSession::new)
-        .transpose()?;
-    let variables = annotation_variables(context, title_block, limits)?;
     append_labels(
         source,
         spans.labels,
         SchematicAnnotationRecordKind::Label,
         LOCAL_COLOR,
         settings,
-        session.as_ref(),
+        session,
         limits,
         budget,
         records,
@@ -56,7 +51,7 @@ pub(super) fn append_annotation_records(
         SchematicAnnotationRecordKind::GlobalLabel,
         GLOBAL_COLOR,
         settings,
-        session.as_ref(),
+        session,
         limits,
         budget,
         records,
@@ -67,7 +62,7 @@ pub(super) fn append_annotation_records(
         SchematicAnnotationRecordKind::HierarchicalLabel,
         HIER_COLOR,
         settings,
-        session.as_ref(),
+        session,
         limits,
         budget,
         records,
@@ -83,9 +78,9 @@ pub(super) fn append_annotation_records(
     append_texts(
         source,
         spans.texts,
-        &variables,
+        variables,
         settings,
-        session.as_ref(),
+        session,
         limits,
         budget,
         records,
@@ -93,8 +88,8 @@ pub(super) fn append_annotation_records(
     append_text_boxes(
         source,
         spans.text_boxes,
-        &variables,
-        session.as_ref(),
+        variables,
+        session,
         limits,
         budget,
         records,
@@ -323,101 +318,147 @@ fn append_text_boxes(
     let mut total_lines = 0usize;
     for span in spans {
         let form = parse_span(source, &span, limits)?;
-        let raw_text = value_at(&form, 1).unwrap_or_default();
-        let expanded = expand_once_bounded(
-            &raw_text,
-            variables,
-            limits.max_text_bytes.min(limits.max_metadata_bytes),
-        )?;
         let uuid = child_string(&form, "uuid").unwrap_or_default();
-        let at = parse_at(&form)?;
-        let [size_x, size_y] = child(&form, "size").map_or(Ok([0, 0]), parse_point)?;
-        budget.charge_input_points(2)?;
-        let mut style = text_style(&form, NOTES_COLOR, None)?;
-        apply_center_defaults(&form, &mut style);
-        let stroke = resolve_stroke(&form, DEFAULT_WIRE_WIDTH_MM, NOTES_COLOR)?;
-        let fill_form = child(&form, "fill");
-        let fill_name = fill_form
-            .and_then(|fill| child_string(fill, "type"))
-            .unwrap_or_else(|| "none".to_owned());
-        let fill = plot_fill(&fill_name)?;
-        let fill_color = fill_form
-            .and_then(|value| child(value, "color"))
-            .map(parse_color)
-            .transpose()?
-            .flatten();
-        let x2 = checked_add(at.x, size_x)?;
-        let y2 = checked_add(at.y, size_y)?;
-        let outline = PlotterRect {
-            x1: at.x,
-            y1: at.y,
-            x2,
-            y2,
-            fill,
-            width_nm: stroke.width_nm,
-            corner_radius_nm: 0,
-            layer: None,
-            stroke_color: Some(stroke.color.clone()),
-            fill_color: fill_color.clone(),
-            line_style: Some(stroke.style),
-        };
-        let mut operations = Vec::new();
-        if !matches!(fill, PlotterFill::NoFill | PlotterFill::FilledShape) {
-            let color = fill_color.unwrap_or_else(|| stroke.color.clone());
-            let mut fill_pass = outline.clone();
-            fill_pass.width_nm = 0;
-            fill_pass.stroke_color = Some(color.clone());
-            fill_pass.fill_color = Some(color);
-            operations.push(PlotterOperation::Rect(fill_pass).into());
-            let mut outline_pass = outline;
-            outline_pass.fill = PlotterFill::NoFill;
-            outline_pass.fill_color = None;
-            operations.push(PlotterOperation::Rect(outline_pass).into());
-        } else {
-            operations.push(PlotterOperation::Rect(outline).into());
-        }
-        let margins = text_box_margins(&form, style.size_y_nm)?;
         let remaining_lines = limits
             .max_text_box_lines
             .checked_sub(total_lines)
             .ok_or_else(limit_error)?;
-        let mut lines = wrap_text_box(
-            &expanded,
-            at.angle,
-            size_x,
-            size_y,
-            margins,
-            &style,
+        let rendered = render_text_box(
+            &form,
+            variables,
             metrics,
+            limits,
             remaining_lines,
+            budget.remaining_operations(),
+            budget,
         )?;
         total_lines = total_lines
-            .checked_add(lines.len())
+            .checked_add(rendered.line_count)
             .ok_or_else(limit_error)?;
-        let positions = text_box_positions(at, size_x, size_y, margins, &style, lines.len())?;
-        for (line, (x, y)) in lines.drain(..).zip(positions) {
-            if line.is_empty() {
-                continue;
-            }
-            operations.push(schematic_text(x, y, line, at.angle, style.clone(), false));
-        }
-        let points = operations.iter().map(operation_points).sum();
-        charge_text_operations(budget, &operations)?;
-        budget.charge_metadata(uuid.len().saturating_mul(2).saturating_add(expanded.len()))?;
-        budget.charge(1, operations.len(), points)?;
+        budget.charge_metadata(
+            uuid.len()
+                .saturating_mul(2)
+                .saturating_add(rendered.expanded.len()),
+        )?;
+        budget.charge(1, rendered.operations.len(), rendered.points)?;
         records.push(SchematicPlotRecord::Annotation(SchematicAnnotationRecord {
             uuid: uuid.clone(),
             kind: SchematicAnnotationRecordKind::TextBox,
             object_id: uuid,
-            text: Some(expanded),
+            text: Some(rendered.expanded),
             shape: None,
             at_x_nm: None,
             at_y_nm: None,
             length_nm: None,
-            operations,
+            operations: rendered.operations,
         }));
     }
     Ok(())
+}
+
+pub(super) struct RenderedTextBox {
+    pub expanded: String,
+    pub operations: Vec<SchematicPlotOperation>,
+    pub line_count: usize,
+    pub points: usize,
+}
+
+pub(super) fn render_text_box(
+    form: &Sexp,
+    variables: &BTreeMap<String, String>,
+    metrics: Option<&PlotterTextCacheSession<'_>>,
+    limits: SchematicPlotLimits,
+    remaining_lines: usize,
+    remaining_operations: usize,
+    budget: &mut PlotBudget,
+) -> Result<RenderedTextBox, Error> {
+    let raw_text = value_at(form, 1).unwrap_or_default();
+    let expanded = expand_once_bounded(
+        &raw_text,
+        variables,
+        limits.max_text_bytes.min(limits.max_metadata_bytes),
+    )?;
+    let at = parse_at(form)?;
+    let [size_x, size_y] = child(form, "size").map_or(Ok([0, 0]), parse_point)?;
+    budget.charge_input_points(2)?;
+    let mut style = text_style(form, NOTES_COLOR, None)?;
+    apply_center_defaults(form, &mut style);
+    let stroke = resolve_stroke(form, DEFAULT_WIRE_WIDTH_MM, NOTES_COLOR)?;
+    let fill_form = child(form, "fill");
+    let fill_name = fill_form
+        .and_then(|fill| child_string(fill, "type"))
+        .unwrap_or_else(|| "none".to_owned());
+    let fill = plot_fill(&fill_name);
+    let fill_color = fill_form
+        .and_then(|value| child(value, "color"))
+        .map(parse_color)
+        .transpose()?
+        .flatten();
+    let x2 = checked_add(at.x, size_x)?;
+    let y2 = checked_add(at.y, size_y)?;
+    let outline = PlotterRect {
+        x1: at.x,
+        y1: at.y,
+        x2,
+        y2,
+        fill,
+        width_nm: stroke.width_nm,
+        corner_radius_nm: 0,
+        layer: None,
+        stroke_color: Some(stroke.color.clone()),
+        fill_color: fill_color.clone(),
+        line_style: Some(stroke.style),
+    };
+    let mut operations = Vec::new();
+    if !matches!(fill, PlotterFill::NoFill | PlotterFill::FilledShape) {
+        let color = fill_color.unwrap_or_else(|| stroke.color.clone());
+        let mut fill_pass = outline.clone();
+        fill_pass.width_nm = 0;
+        fill_pass.stroke_color = Some(color.clone());
+        fill_pass.fill_color = Some(color);
+        operations.push(PlotterOperation::Rect(fill_pass).into());
+        let mut outline_pass = outline;
+        outline_pass.fill = PlotterFill::NoFill;
+        outline_pass.fill_color = None;
+        operations.push(PlotterOperation::Rect(outline_pass).into());
+    } else {
+        operations.push(PlotterOperation::Rect(outline).into());
+    }
+    let margins = text_box_margins(form, style.size_y_nm)?;
+    let mut lines = wrap_text_box(
+        &expanded,
+        at.angle,
+        size_x,
+        size_y,
+        margins,
+        &style,
+        metrics,
+        remaining_lines,
+    )?;
+    let line_count = lines.len();
+    let retained_lines = lines.iter().filter(|line| !line.is_empty()).count();
+    if operations
+        .len()
+        .checked_add(retained_lines)
+        .is_none_or(|count| count > remaining_operations)
+    {
+        return Err(limit_error());
+    }
+    let positions = text_box_positions(at, size_x, size_y, margins, &style, line_count)?;
+    for (line, (x, y)) in lines.drain(..).zip(positions) {
+        if line.is_empty() {
+            continue;
+        }
+        operations.push(schematic_text(x, y, line, at.angle, style.clone(), false));
+    }
+    let points = operations.iter().map(operation_points).sum();
+    charge_text_operations(budget, &operations)?;
+    Ok(RenderedTextBox {
+        expanded,
+        operations,
+        line_count,
+        points,
+    })
 }
 
 #[derive(Clone, Copy)]
@@ -902,7 +943,7 @@ fn property_text(
     )))
 }
 
-fn annotation_variables(
+pub(super) fn annotation_variables(
     context: &SchematicPlotContext,
     title_block: Option<&SchematicTitleBlock>,
     limits: SchematicPlotLimits,
@@ -1207,16 +1248,15 @@ fn metric_layout<'a>(text: &'a str, style: &'a TextStyle) -> PlotterTextLayout<'
     }
 }
 
-fn plot_fill(value: &str) -> Result<PlotterFill, Error> {
+fn plot_fill(value: &str) -> PlotterFill {
     match value {
-        "none" => Ok(PlotterFill::NoFill),
-        "solid" => Ok(PlotterFill::FilledShape),
-        "background" => Ok(PlotterFill::FilledWithBackgroundBodyColor),
-        "color" => Ok(PlotterFill::FilledWithColor),
-        "hatch" => Ok(PlotterFill::Hatch),
-        "reverse_hatch" => Ok(PlotterFill::ReverseHatch),
-        "cross_hatch" => Ok(PlotterFill::CrossHatch),
-        _ => Err(model_error("Unsupported schematic text-box fill")),
+        "outline" => PlotterFill::FilledShape,
+        "background" => PlotterFill::FilledWithBackgroundBodyColor,
+        "color" => PlotterFill::FilledWithColor,
+        "hatch" => PlotterFill::Hatch,
+        "reverse_hatch" => PlotterFill::ReverseHatch,
+        "cross_hatch" => PlotterFill::CrossHatch,
+        _ => PlotterFill::NoFill,
     }
 }
 

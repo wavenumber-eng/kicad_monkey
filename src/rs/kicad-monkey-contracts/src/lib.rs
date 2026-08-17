@@ -72,6 +72,23 @@ where
     <Option<String> as serde::Deserialize>::deserialize(deserializer).map(Some)
 }
 
+#[doc(hidden)]
+pub fn deserialize_u64_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = <String as serde::Deserialize>::deserialize(deserializer)?;
+    if value.is_empty()
+        || !value.bytes().all(|byte| byte.is_ascii_digit())
+        || value.parse::<u64>().is_err()
+    {
+        return Err(serde::de::Error::custom(
+            "expected an ASCII decimal string within uint64 range",
+        ));
+    }
+    Ok(value)
+}
+
 macro_rules! literal_kind_deserializer {
     ($name:ident, $expected:literal) => {
         #[doc(hidden)]
@@ -123,6 +140,17 @@ literal_kind_deserializer!(
 literal_kind_deserializer!(deserialize_netclass_flag_record_kind, "netclass_flag");
 literal_kind_deserializer!(deserialize_text_record_kind, "text");
 literal_kind_deserializer!(deserialize_text_box_record_kind, "text_box");
+literal_kind_deserializer!(deserialize_graphic_polyline_record_kind, "graphic_polyline");
+literal_kind_deserializer!(deserialize_graphic_arc_record_kind, "graphic_arc");
+literal_kind_deserializer!(deserialize_graphic_circle_record_kind, "graphic_circle");
+literal_kind_deserializer!(
+    deserialize_graphic_rectangle_record_kind,
+    "graphic_rectangle"
+);
+literal_kind_deserializer!(deserialize_graphic_bezier_record_kind, "graphic_bezier");
+literal_kind_deserializer!(deserialize_rule_area_record_kind, "rule_area");
+literal_kind_deserializer!(deserialize_image_record_kind, "image");
+literal_kind_deserializer!(deserialize_table_record_kind, "table");
 use std::fmt;
 
 /// Largest integer represented exactly by JavaScript's IEEE-754 `number`.

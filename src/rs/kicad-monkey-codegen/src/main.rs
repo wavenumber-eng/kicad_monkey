@@ -195,7 +195,7 @@ const BOARD_FOOTPRINT_OPERATION_KINDS: [(&str, &str, &str); 15] = [
     ),
 ];
 
-const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 12] = [
+const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 20] = [
     (
         "SchematicSheetHeaderPlotRecord",
         "sheet_header",
@@ -256,6 +256,63 @@ const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 12] = [
         "text_box",
         "deserialize_text_box_record_kind",
     ),
+    (
+        "SchematicGraphicPolylinePlotRecord",
+        "graphic_polyline",
+        "deserialize_graphic_polyline_record_kind",
+    ),
+    (
+        "SchematicGraphicArcPlotRecord",
+        "graphic_arc",
+        "deserialize_graphic_arc_record_kind",
+    ),
+    (
+        "SchematicGraphicCirclePlotRecord",
+        "graphic_circle",
+        "deserialize_graphic_circle_record_kind",
+    ),
+    (
+        "SchematicGraphicRectanglePlotRecord",
+        "graphic_rectangle",
+        "deserialize_graphic_rectangle_record_kind",
+    ),
+    (
+        "SchematicGraphicBezierPlotRecord",
+        "graphic_bezier",
+        "deserialize_graphic_bezier_record_kind",
+    ),
+    (
+        "SchematicRuleAreaPlotRecord",
+        "rule_area",
+        "deserialize_rule_area_record_kind",
+    ),
+    (
+        "SchematicImagePlotRecord",
+        "image",
+        "deserialize_image_record_kind",
+    ),
+    (
+        "SchematicTablePlotRecord",
+        "table",
+        "deserialize_table_record_kind",
+    ),
+];
+
+const SCHEMATIC_REQUEST_U64_FIELDS: [&str; 14] = [
+    "max_source_bytes",
+    "max_worksheet_bytes",
+    "max_output_bytes",
+    "max_text_bytes",
+    "max_metadata_bytes",
+    "max_image_encoded_bytes",
+    "max_image_decoded_bytes",
+    "max_image_pixels",
+    "max_image_decode_work",
+    "max_text_variable_bytes",
+    "max_worksheet_bitmap_encoded_bytes",
+    "max_worksheet_bitmap_decoded_bytes",
+    "max_worksheet_bitmap_pixels",
+    "max_worksheet_bitmap_decode_work",
 ];
 
 fn main() -> Result<()> {
@@ -449,11 +506,15 @@ fn project_generated_presence(schema_name: &str, source: String) -> Result<Strin
         "BoardPlotDocument.json"
             | "FootprintPlotDocument.json"
             | "SchematicPlotDocument.json"
+            | "SchematicPlotRequest.json"
             | "SymbolPlotDocument.json"
     ) {
         return Ok(source);
     }
     let mut projected = source;
+    if schema_name == "SchematicPlotRequest.json" {
+        return project_schematic_request_u64_strings(projected);
+    }
     if matches!(
         schema_name,
         "FootprintPlotDocument.json" | "SchematicPlotDocument.json" | "SymbolPlotDocument.json"
@@ -491,6 +552,19 @@ fn project_generated_presence(schema_name: &str, source: String) -> Result<Strin
         projected = rustfmt(&projected)?;
     }
     Ok(projected)
+}
+
+fn project_schematic_request_u64_strings(mut source: String) -> Result<String> {
+    for field_name in SCHEMATIC_REQUEST_U64_FIELDS {
+        let field = format!("    pub {field_name}: ::std::string::String,");
+        if source.matches(&field).count() != 1 {
+            bail!("SchematicPlotRequest.json {field_name} uint64 projection changed");
+        }
+        let replacement =
+            format!("    #[serde(deserialize_with = \"crate::deserialize_u64_string\")]\n{field}");
+        source = source.replacen(&field, &replacement, 1);
+    }
+    rustfmt(&source)
 }
 
 fn project_schematic_junction_color(mut source: String) -> Result<String> {

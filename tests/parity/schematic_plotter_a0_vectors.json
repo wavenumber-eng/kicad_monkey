@@ -1928,6 +1928,730 @@
      "y_axis": "down"
     }
    }
+  },
+  {
+   "id": "schematic-graphics-rules-images-and-table-family-order",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"graphics\")\n  (paper \"User\" 30 30)\n  (title_block (title \"Graphics\"))\n  (lib_symbols)\n  (table\n    (uuid \"graphics-table\")\n    (cells\n      (table_cell \"${TITLE}-${title}\"\n        (exclude_from_sim yes)\n        (at 20 21 0)\n        (size 0 0)\n        (margins 0 0 0 0)\n        (span 2 3)\n        (stroke (width -1) (type dash))\n        (fill (type color) (color 1 2 3 0.5))\n        (effects\n          (font (size 1 1))\n          (justify left top)\n          (href \"https://example.test/cell\"))\n        (render_cache \"stale\" 0\n          (polygon (pts (xy 0 0) (xy 1 0) (xy 0 1))))\n        (uuid \"ignored-cell-1\"))\n      (table_cell \"\"\n        (at 22 23 0)\n        (size 0 0)\n        (margins 0 0 0 0)\n        (fill (type none))\n        (uuid \"ignored-cell-2\"))\n      (table_cell \"${CELL}\\nsecond\\n\"\n        (at 24 25 90)\n        (size 0 0)\n        (margins 0 0 0 0)\n        (fill (type none))\n        (effects (font (size 1 1)) (justify right bottom))\n        (uuid \"ignored-cell-3\"))))\n  (rule_area\n    (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)\n    (bezier\n      (pts (xy 16 17) (xy 17 16) (xy 18 19) (xy 19 18))\n      (stroke (width 0.1) (type dash_dot))\n      (fill (type none))\n      (uuid \"rule-bezier\")))\n  (image\n    (at 18 19)\n    (scale 0.5)\n    (uuid \"image-bmp\")\n    (data \"Qk1mAAAAAAAAADYAAAAoAAAABAAAAAMAAAABACAAAAAAAAAAAAAlFgAAJRYAAAAAAAAAAAAAHhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/\"))\n  (rectangle\n    (start 6 7) (end 8 9) (radius 0.5)\n    (stroke (width 0.254) (type solid))\n    (fill (type color) (color 0 255 255 1))\n    (uuid \"graphic-rectangle\"))\n  (rule_area\n    (exclude_from_sim yes) (in_bom yes) (on_board no) (dnp no)\n    (circle\n      (center 15 16) (radius 1)\n      (stroke (width 0) (type solid))\n      (fill (type background))\n      (uuid \"rule-circle\")))\n  (polyline\n    (pts (xy 1 1) (xy 2 1) (xy 2 2))\n    (stroke (width 0) (type dash_dot_dot))\n    (fill (type none))\n    (uuid \"graphic-polyline\"))\n  (image\n    (at 16 17)\n    (scale 1.5)\n    (uuid \"image-jpeg\")\n    (data \"/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAACAAMDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD82qKKK9M88//Z\"))\n  (arc\n    (start 2 3) (mid 3 2) (end 4 3)\n    (stroke (width 0.2) (type dot))\n    (fill (type background))\n    (uuid \"graphic-arc\"))\n  (rule_area\n    (locked yes) (exclude_from_sim yes) (in_bom no) (on_board no) (dnp yes)\n    (rectangle\n      (start 13 14) (end 15 16) (radius 0.25)\n      (stroke (width 0.15) (type dot))\n      (fill (type color) (color 4 5 6 0.5))\n      (uuid \"rule-rectangle\")))\n  (bezier\n    (pts (xy 8 9) (xy 9 8) (xy 10 11) (xy 11 10))\n    (stroke (width 0.1) (type dash_dot))\n    (fill (type color) (color 9 8 7 1))\n    (uuid \"graphic-bezier\"))\n  (rule_area\n    (exclude_from_sim no) (in_bom no) (on_board yes) (dnp yes)\n    (arc\n      (start 14 15) (mid 15 14) (end 16 15)\n      (stroke (width -1) (type default))\n      (fill (type none))\n      (uuid \"rule-arc\")))\n  (circle\n    (center 5 6) (radius 1.5)\n    (stroke (width -1) (type solid) (color 1 2 3 0))\n    (fill (type outline))\n    (uuid \"graphic-circle\"))\n  (image\n    (at 14 15)\n    (scale 2)\n    (uuid \"image-png\")\n    (data \"iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAARSURBVBhXY+ASkfsPwgwYDABbCwdj+L78AwAAAABJRU5ErkJggg==\"))\n  (rule_area\n    (locked yes) (exclude_from_sim yes) (in_bom no) (on_board no) (dnp yes)\n    (polyline\n      (pts (xy 12 13) (xy 14 13) (xy 14 15))\n      (stroke (width 0) (type dash) (color 194 0 0 1))\n      (fill (type none))\n      (uuid \"rule-polyline\")))\n  (sheet_instances (path \"/\" (page \"1\"))))",
+   "source_path": "graphics.kicad_sch",
+   "document_id": "graphics",
+   "worksheet_source": "(kicad_wks\n  (version 20210606)\n  (generator pl_editor)\n  (setup\n    (left_margin 0)\n    (right_margin 0)\n    (top_margin 0)\n    (bottom_margin 0)))",
+   "project_variables": {
+    "CELL": "first",
+    "TITLE": "bad",
+    "title": "lower-project"
+   },
+   "image_resources": [
+    {
+     "image_format": "png",
+     "image_sha256": "c2bfda6df6b855b24bb53c7131a8af317723ec31fd901b4a6cd8257df81c8cd2"
+    },
+    {
+     "image_format": "jpeg",
+     "image_sha256": "6a99497d81003845d473989d76613e2b3d92e0b9a8c33e303e402fc593e3bb66"
+    },
+    {
+     "image_format": "bmp",
+     "image_sha256": "3e213bd3ae10450193c8f943ce09f97a6c03800dac7614c2788f7eed361e70e0"
+    }
+   ],
+   "sheet_index": 1,
+   "sheet_count": 1,
+   "sheet_path": "/",
+   "sheet_name": "",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 25,
+    "records": [
+     {
+      "uuid": "graphics",
+      "kind": "sheet_header",
+      "object_id": "graphics",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 30000000,
+        "y2": 30000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       }
+      ],
+      "paper_size": "User",
+      "paper_width_mm": 30.0,
+      "paper_height_mm": 30.0,
+      "paper_portrait": false,
+      "sheet_width_nm": 30000000,
+      "sheet_height_nm": 30000000,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0",
+      "title_block": {
+       "title": "Graphics",
+       "date": "",
+       "rev": "",
+       "company": "",
+       "comments": {}
+      }
+     },
+     {
+      "uuid": "graphic-polyline",
+      "kind": "graphic_polyline",
+      "object_id": "graphic-polyline",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          1000000,
+          1000000
+         ],
+         [
+          2000000,
+          1000000
+         ],
+         [
+          2000000,
+          2000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DASH_DOT_DOT"
+       }
+      ]
+     },
+     {
+      "uuid": "graphic-arc",
+      "kind": "graphic_arc",
+      "object_id": "graphic-arc",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "ArcThreePoint",
+        "index": 0,
+        "start_x": 2000000,
+        "start_y": 3000000,
+        "mid_x": 3000000,
+        "mid_y": 2000000,
+        "end_x": 4000000,
+        "end_y": 3000000,
+        "fill": "FILLED_WITH_BG_BODYCOLOR",
+        "width_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF",
+        "line_style": "DOT"
+       },
+       {
+        "kind": "ArcThreePoint",
+        "index": 1,
+        "start_x": 2000000,
+        "start_y": 3000000,
+        "mid_x": 3000000,
+        "mid_y": 2000000,
+        "end_x": 4000000,
+        "end_y": 3000000,
+        "fill": "NO_FILL",
+        "width_nm": 200000,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DOT"
+       }
+      ]
+     },
+     {
+      "uuid": "graphic-circle",
+      "kind": "graphic_circle",
+      "object_id": "graphic-circle",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Circle",
+        "index": 0,
+        "cx": 5000000,
+        "cy": 6000000,
+        "diameter_nm": 3000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "fill_color": "#0000C2FF",
+        "line_style": "SOLID"
+       }
+      ]
+     },
+     {
+      "uuid": "graphic-rectangle",
+      "kind": "graphic_rectangle",
+      "object_id": "graphic-rectangle",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 6000000,
+        "y1": 7000000,
+        "x2": 8000000,
+        "y2": 9000000,
+        "fill": "FILLED_WITH_COLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 500000,
+        "stroke_color": "#00FFFFFF",
+        "fill_color": "#00FFFFFF",
+        "line_style": "SOLID"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 6000000,
+        "y1": 7000000,
+        "x2": 8000000,
+        "y2": 9000000,
+        "fill": "NO_FILL",
+        "width_nm": 254000,
+        "corner_radius_nm": 500000,
+        "stroke_color": "#0000C2FF",
+        "line_style": "SOLID"
+       }
+      ]
+     },
+     {
+      "uuid": "graphic-bezier",
+      "kind": "graphic_bezier",
+      "object_id": "graphic-bezier",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "BezierCurve",
+        "index": 0,
+        "start_x": 8000000,
+        "start_y": 9000000,
+        "ctrl1_x": 9000000,
+        "ctrl1_y": 8000000,
+        "ctrl2_x": 10000000,
+        "ctrl2_y": 11000000,
+        "end_x": 11000000,
+        "end_y": 10000000,
+        "tolerance_nm": 0,
+        "width_nm": 100000,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DASH_DOT"
+       }
+      ]
+     },
+     {
+      "uuid": "rule-bezier",
+      "kind": "rule_area",
+      "object_id": "rule-bezier",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "BezierCurve",
+        "index": 0,
+        "start_x": 16000000,
+        "start_y": 17000000,
+        "ctrl1_x": 17000000,
+        "ctrl1_y": 16000000,
+        "ctrl2_x": 18000000,
+        "ctrl2_y": 19000000,
+        "end_x": 19000000,
+        "end_y": 18000000,
+        "tolerance_nm": 0,
+        "width_nm": 100000,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DASH_DOT"
+       }
+      ],
+      "shape": "bezier",
+      "locked": false,
+      "exclude_from_sim": false,
+      "in_bom": true,
+      "on_board": true,
+      "dnp": false
+     },
+     {
+      "uuid": "rule-circle",
+      "kind": "rule_area",
+      "object_id": "rule-circle",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Circle",
+        "index": 0,
+        "cx": 15000000,
+        "cy": 16000000,
+        "diameter_nm": 2000000,
+        "fill": "FILLED_WITH_BG_BODYCOLOR",
+        "width_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF",
+        "line_style": "SOLID"
+       },
+       {
+        "kind": "Circle",
+        "index": 1,
+        "cx": 15000000,
+        "cy": 16000000,
+        "diameter_nm": 2000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#0000C2FF",
+        "line_style": "SOLID"
+       }
+      ],
+      "shape": "circle",
+      "locked": false,
+      "exclude_from_sim": true,
+      "in_bom": true,
+      "on_board": false,
+      "dnp": false
+     },
+     {
+      "uuid": "rule-rectangle",
+      "kind": "rule_area",
+      "object_id": "rule-rectangle",
+      "operation_count": 2,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 13000000,
+        "y1": 14000000,
+        "x2": 15000000,
+        "y2": 16000000,
+        "fill": "FILLED_WITH_COLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 250000,
+        "stroke_color": "#04050680",
+        "fill_color": "#04050680",
+        "line_style": "DOT"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 13000000,
+        "y1": 14000000,
+        "x2": 15000000,
+        "y2": 16000000,
+        "fill": "NO_FILL",
+        "width_nm": 150000,
+        "corner_radius_nm": 250000,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DOT"
+       }
+      ],
+      "shape": "rectangle",
+      "locked": true,
+      "exclude_from_sim": true,
+      "in_bom": false,
+      "on_board": false,
+      "dnp": true
+     },
+     {
+      "uuid": "rule-arc",
+      "kind": "rule_area",
+      "object_id": "rule-arc",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "ArcThreePoint",
+        "index": 0,
+        "start_x": 14000000,
+        "start_y": 15000000,
+        "mid_x": 15000000,
+        "mid_y": 14000000,
+        "end_x": 16000000,
+        "end_y": 15000000,
+        "fill": "NO_FILL",
+        "width_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DEFAULT"
+       }
+      ],
+      "shape": "arc",
+      "locked": false,
+      "exclude_from_sim": false,
+      "in_bom": false,
+      "on_board": true,
+      "dnp": true
+     },
+     {
+      "uuid": "rule-polyline",
+      "kind": "rule_area",
+      "object_id": "rule-polyline",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotPoly",
+        "index": 0,
+        "points": [
+         [
+          12000000,
+          13000000
+         ],
+         [
+          14000000,
+          13000000
+         ],
+         [
+          14000000,
+          15000000
+         ],
+         [
+          12000000,
+          13000000
+         ]
+        ],
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "stroke_color": "#C20000FF",
+        "line_style": "DASH"
+       }
+      ],
+      "shape": "polyline",
+      "locked": true,
+      "exclude_from_sim": true,
+      "in_bom": false,
+      "on_board": false,
+      "dnp": true
+     },
+     {
+      "uuid": "image-bmp",
+      "kind": "image",
+      "object_id": "image-bmp",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotImage",
+        "index": 0,
+        "x": 18000000,
+        "y": 19000000,
+        "width_nm": 357746,
+        "height_nm": 268310,
+        "scale": 0.5,
+        "image_data_b64": "Qk1mAAAAAAAAADYAAAAoAAAABAAAAAMAAAABACAAAAAAAAAAAAAlFgAAJRYAAAAAAAAAAAAAHhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/HhQK/x4UCv8eFAr/",
+        "image_format": "bmp",
+        "stroke_color": "#0000C2FF"
+       }
+      ],
+      "scale": 0.5,
+      "image_format": "bmp",
+      "width_nm": 357746,
+      "height_nm": 268310
+     },
+     {
+      "uuid": "image-jpeg",
+      "kind": "image",
+      "object_id": "image-jpeg",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotImage",
+        "index": 0,
+        "x": 16000000,
+        "y": 17000000,
+        "width_nm": 1587500,
+        "height_nm": 1058333,
+        "scale": 1.5,
+        "image_data_b64": "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAACAAMDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD82qKKK9M88//Z",
+        "image_format": "jpeg",
+        "stroke_color": "#0000C2FF"
+       }
+      ],
+      "scale": 1.5,
+      "image_format": "jpeg",
+      "width_nm": 1587500,
+      "height_nm": 1058333
+     },
+     {
+      "uuid": "image-png",
+      "kind": "image",
+      "object_id": "image-png",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "PlotImage",
+        "index": 0,
+        "x": 14000000,
+        "y": 15000000,
+        "width_nm": 1058333,
+        "height_nm": 1587500,
+        "scale": 2.0,
+        "image_data_b64": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAARSURBVBhXY+ASkfsPwgwYDABbCwdj+L78AwAAAABJRU5ErkJggg==",
+        "image_format": "png",
+        "stroke_color": "#0000C2FF"
+       }
+      ],
+      "scale": 2.0,
+      "image_format": "png",
+      "width_nm": 1058333,
+      "height_nm": 1587500
+     },
+     {
+      "uuid": "graphics-table",
+      "kind": "table",
+      "object_id": "graphics-table",
+      "operation_count": 7,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 20000000,
+        "y1": 21000000,
+        "x2": 20000000,
+        "y2": 21000000,
+        "fill": "FILLED_WITH_COLOR",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#01020380",
+        "fill_color": "#01020380",
+        "line_style": "DASH"
+       },
+       {
+        "kind": "Rect",
+        "index": 1,
+        "x1": 20000000,
+        "y1": 21000000,
+        "x2": 20000000,
+        "y2": 21000000,
+        "fill": "NO_FILL",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DASH"
+       },
+       {
+        "kind": "Text",
+        "index": 2,
+        "x": 20000000,
+        "y": 21000000,
+        "text": "Graphics-lower-project",
+        "color": "#0000C2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_LEFT",
+        "v_align": "GR_TEXT_V_ALIGN_TOP",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial",
+        "context": {
+         "hyperlink": {
+          "href": "https://example.test/cell"
+         }
+        }
+       },
+       {
+        "kind": "Rect",
+        "index": 3,
+        "x1": 22000000,
+        "y1": 23000000,
+        "x2": 22000000,
+        "y2": 23000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Rect",
+        "index": 4,
+        "x1": 24000000,
+        "y1": 25000000,
+        "x2": 24000000,
+        "y2": 25000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Text",
+        "index": 5,
+        "x": 22320000,
+        "y": 25000000,
+        "text": "first",
+        "color": "#0000C2FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       },
+       {
+        "kind": "Text",
+        "index": 6,
+        "x": 24000000,
+        "y": 25000000,
+        "text": "second",
+        "color": "#0000C2FF",
+        "orient_deg": 90.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_RIGHT",
+        "v_align": "GR_TEXT_V_ALIGN_BOTTOM",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "Arial"
+       }
+      ],
+      "cell_count": 3
+     }
+    ],
+    "source_path": "graphics.kicad_sch",
+    "document_id": "graphics",
+    "canvas": {
+     "width_nm": 30000000,
+     "height_nm": 30000000
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
+  },
+  {
+   "id": "explicit-font-metrics-for-schematic-table",
+   "source": "(kicad_sch\n  (version 20240101)\n  (generator eeschema)\n  (generator_version \"10.0\")\n  (uuid \"metric-table\")\n  (paper \"User\" 20 20)\n  (lib_symbols)\n  (table\n    (uuid \"metric-table-record\")\n    (cells\n      (table_cell \"AB AB\"\n        (at 5 6 0)\n        (size 2.5 3)\n        (margins 0 0 0 0)\n        (stroke (width 0) (type default))\n        (fill (type none))\n        (effects\n          (font (face \"KiCad Monkey Shaping Fixture\") (size 1 1)))\n        (uuid \"metric-cell\"))))\n  (sheet_instances (path \"/\" (page \"1\"))))",
+   "source_path": "metric-table.kicad_sch",
+   "document_id": "metric-table",
+   "worksheet_source": "(kicad_wks\n  (version 20210606)\n  (generator pl_editor)\n  (setup\n    (left_margin 0)\n    (right_margin 0)\n    (top_margin 0)\n    (bottom_margin 0)))",
+   "project_variables": {},
+   "font_resource": {
+    "face": "KiCad Monkey Shaping Fixture",
+    "bold": false,
+    "italic": false,
+    "font_path": "tests/parity/fonts/shaping-variable-fixture.ttf",
+    "font_sha256": "faa68bc8dee69291f89b181de3caa97172ac346900af996a9f5adc9045119e36",
+    "shaping_case_id": "fixture_default_variation_axis"
+   },
+   "sheet_index": 1,
+   "sheet_count": 1,
+   "sheet_path": "/",
+   "sheet_name": "",
+   "expected": {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "SCH",
+    "total_operations": 4,
+    "records": [
+     {
+      "uuid": "metric-table",
+      "kind": "sheet_header",
+      "object_id": "metric-table",
+      "operation_count": 1,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 0,
+        "y1": 0,
+        "x2": 20000000,
+        "y2": 20000000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 100,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F5F4EFFF",
+        "fill_color": "#F5F4EFFF"
+       }
+      ],
+      "paper_size": "User",
+      "paper_width_mm": 20.0,
+      "paper_height_mm": 20.0,
+      "paper_portrait": false,
+      "sheet_width_nm": 20000000,
+      "sheet_height_nm": 20000000,
+      "version": 20240101,
+      "generator": "eeschema",
+      "generator_version": "10.0"
+     },
+     {
+      "uuid": "metric-table-record",
+      "kind": "table",
+      "object_id": "metric-table-record",
+      "operation_count": 3,
+      "operations": [
+       {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 5000000,
+        "y1": 6000000,
+        "x2": 7500000,
+        "y2": 9000000,
+        "fill": "NO_FILL",
+        "width_nm": 152400,
+        "corner_radius_nm": 0,
+        "stroke_color": "#0000C2FF",
+        "line_style": "DEFAULT"
+       },
+       {
+        "kind": "Text",
+        "index": 1,
+        "x": 6250000,
+        "y": 6660000,
+        "text": "AB",
+        "color": "#0000C2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       },
+       {
+        "kind": "Text",
+        "index": 2,
+        "x": 6250000,
+        "y": 8340000,
+        "text": "AB",
+        "color": "#0000C2FF",
+        "orient_deg": 0.0,
+        "size_x_nm": 1000000,
+        "size_y_nm": 1000000,
+        "h_align": "GR_TEXT_H_ALIGN_CENTER",
+        "v_align": "GR_TEXT_V_ALIGN_CENTER",
+        "pen_width_nm": 152400,
+        "italic": false,
+        "bold": false,
+        "multiline": false,
+        "font_face": "KiCad Monkey Shaping Fixture"
+       }
+      ],
+      "cell_count": 1
+     }
+    ],
+    "source_path": "metric-table.kicad_sch",
+    "document_id": "metric-table",
+    "canvas": {
+     "width_nm": 20000000,
+     "height_nm": 20000000
+    },
+    "coordinate_space": {
+     "unit": "nm",
+     "y_axis": "down"
+    }
+   }
   }
  ]
 }

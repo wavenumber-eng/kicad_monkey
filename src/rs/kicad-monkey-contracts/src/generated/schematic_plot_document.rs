@@ -2243,6 +2243,266 @@ pub struct SchematicGlobalLabelPlotRecord {
     pub text: ::std::string::String,
     pub uuid: ::std::string::String,
 }
+///One top-level schematic graphic arc.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One top-level schematic graphic arc.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "graphic_arc"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicGraphicArcPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_graphic_arc_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
+///One canonical four-point top-level schematic graphic Bezier.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One canonical four-point top-level schematic graphic Bezier.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "graphic_bezier"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicGraphicBezierPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_graphic_bezier_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
+///One top-level schematic graphic circle.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One top-level schematic graphic circle.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "graphic_circle"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicGraphicCirclePlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_graphic_circle_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
+///One top-level schematic graphic polyline.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One top-level schematic graphic polyline.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "graphic_polyline"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicGraphicPolylinePlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_graphic_polyline_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
+///One top-level schematic graphic rectangle.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One top-level schematic graphic rectangle.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "graphic_rectangle"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicGraphicRectanglePlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_graphic_rectangle_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
 ///One hierarchical schematic label and its optional decoration.
 ///
 /// <details><summary>JSON schema</summary>
@@ -2304,6 +2564,156 @@ pub struct SchematicHierarchicalLabelPlotRecord {
     pub shape: SchematicLabelShape,
     pub text: ::std::string::String,
     pub uuid: ::std::string::String,
+}
+///Decoded image formats admitted by the schematic image family.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Decoded image formats admitted by the schematic image family.",
+///  "type": "string",
+///  "enum": [
+///    "png",
+///    "jpeg",
+///    "bmp"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum SchematicImageFormat {
+    #[serde(rename = "png")]
+    Png,
+    #[serde(rename = "jpeg")]
+    Jpeg,
+    #[serde(rename = "bmp")]
+    Bmp,
+}
+impl ::std::fmt::Display for SchematicImageFormat {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Png => f.write_str("png"),
+            Self::Jpeg => f.write_str("jpeg"),
+            Self::Bmp => f.write_str("bmp"),
+        }
+    }
+}
+impl ::std::str::FromStr for SchematicImageFormat {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "png" => Ok(Self::Png),
+            "jpeg" => Ok(Self::Jpeg),
+            "bmp" => Ok(Self::Bmp),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for SchematicImageFormat {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for SchematicImageFormat {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for SchematicImageFormat {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///One decoded embedded schematic image.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One decoded embedded schematic image.",
+///  "type": "object",
+///  "required": [
+///    "height_nm",
+///    "image_format",
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "scale",
+///    "uuid",
+///    "width_nm"
+///  ],
+///  "properties": {
+///    "height_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "image_format": {
+///      "$ref": "#/$defs/SchematicImageFormat"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "image"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "scale": {
+///      "type": "number"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    },
+///    "width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicImagePlotRecord {
+    pub height_nm: crate::JavaScriptSafeInteger,
+    pub image_format: SchematicImageFormat,
+    #[serde(deserialize_with = "crate::deserialize_image_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub scale: f64,
+    pub uuid: ::std::string::String,
+    pub width_nm: crate::JavaScriptSafeInteger,
 }
 ///One schematic junction marker.
 ///
@@ -2777,7 +3187,7 @@ pub struct SchematicPlotCanvas {
     pub height_nm: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
-///Strict schematic subset through the P5_061 annotation families.
+///Strict schematic subset through the P5_062 graphic families.
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -2785,7 +3195,7 @@ pub struct SchematicPlotCanvas {
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0",
 ///  "title": "Schematic plot document a0",
-///  "description": "Strict schematic subset through the P5_061 annotation families.",
+///  "description": "Strict schematic subset through the P5_062 graphic families.",
 ///  "type": "object",
 ///  "required": [
 ///    "canvas",
@@ -2846,13 +3256,13 @@ pub struct SchematicPlotDocumentA0 {
     pub source_path: ::std::option::Option<::std::string::String>,
     pub total_operations: u32,
 }
-///Strict source-record vocabulary through the P5_061 schematic annotations.
+///Strict source-record vocabulary through the P5_062 schematic graphics.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Strict source-record vocabulary through the P5_061 schematic annotations.",
+///  "description": "Strict source-record vocabulary through the P5_062 schematic graphics.",
 ///  "oneOf": [
 ///    {
 ///      "$ref": "#/$defs/SchematicSheetHeaderPlotRecord"
@@ -2889,6 +3299,30 @@ pub struct SchematicPlotDocumentA0 {
 ///    },
 ///    {
 ///      "$ref": "#/$defs/SchematicTextBoxPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicGraphicPolylinePlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicGraphicArcPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicGraphicCirclePlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicGraphicRectanglePlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicGraphicBezierPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicRuleAreaPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicImagePlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicTablePlotRecord"
 ///    }
 ///  ]
 ///}
@@ -2909,6 +3343,14 @@ pub enum SchematicPlotRecord {
     NetclassFlagPlotRecord(SchematicNetclassFlagPlotRecord),
     TextPlotRecord(SchematicTextPlotRecord),
     TextBoxPlotRecord(SchematicTextBoxPlotRecord),
+    GraphicPolylinePlotRecord(SchematicGraphicPolylinePlotRecord),
+    GraphicArcPlotRecord(SchematicGraphicArcPlotRecord),
+    GraphicCirclePlotRecord(SchematicGraphicCirclePlotRecord),
+    GraphicRectanglePlotRecord(SchematicGraphicRectanglePlotRecord),
+    GraphicBezierPlotRecord(SchematicGraphicBezierPlotRecord),
+    RuleAreaPlotRecord(SchematicRuleAreaPlotRecord),
+    ImagePlotRecord(SchematicImagePlotRecord),
+    TablePlotRecord(SchematicTablePlotRecord),
 }
 impl ::std::convert::From<SchematicSheetHeaderPlotRecord> for SchematicPlotRecord {
     fn from(value: SchematicSheetHeaderPlotRecord) -> Self {
@@ -2970,6 +3412,46 @@ impl ::std::convert::From<SchematicTextBoxPlotRecord> for SchematicPlotRecord {
         Self::TextBoxPlotRecord(value)
     }
 }
+impl ::std::convert::From<SchematicGraphicPolylinePlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicGraphicPolylinePlotRecord) -> Self {
+        Self::GraphicPolylinePlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicGraphicArcPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicGraphicArcPlotRecord) -> Self {
+        Self::GraphicArcPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicGraphicCirclePlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicGraphicCirclePlotRecord) -> Self {
+        Self::GraphicCirclePlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicGraphicRectanglePlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicGraphicRectanglePlotRecord) -> Self {
+        Self::GraphicRectanglePlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicGraphicBezierPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicGraphicBezierPlotRecord) -> Self {
+        Self::GraphicBezierPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicRuleAreaPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicRuleAreaPlotRecord) -> Self {
+        Self::RuleAreaPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicImagePlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicImagePlotRecord) -> Self {
+        Self::ImagePlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicTablePlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicTablePlotRecord) -> Self {
+        Self::TablePlotRecord(value)
+    }
+}
 ///Typed title-block metadata carried by the leading sheet-header record.
 ///
 /// <details><summary>JSON schema</summary>
@@ -3014,6 +3496,176 @@ pub struct SchematicPlotTitleBlock {
     pub date: ::std::string::String,
     pub rev: ::std::string::String,
     pub title: ::std::string::String,
+}
+///One schematic rule area with source policy metadata.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One schematic rule area with source policy metadata.",
+///  "type": "object",
+///  "required": [
+///    "dnp",
+///    "exclude_from_sim",
+///    "in_bom",
+///    "kind",
+///    "locked",
+///    "object_id",
+///    "on_board",
+///    "operation_count",
+///    "operations",
+///    "shape",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "dnp": {
+///      "type": "boolean"
+///    },
+///    "exclude_from_sim": {
+///      "type": "boolean"
+///    },
+///    "in_bom": {
+///      "type": "boolean"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "rule_area"
+///    },
+///    "locked": {
+///      "type": "boolean"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "on_board": {
+///      "type": "boolean"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "shape": {
+///      "$ref": "#/$defs/SchematicRuleAreaShape"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicRuleAreaPlotRecord {
+    pub dnp: bool,
+    pub exclude_from_sim: bool,
+    pub in_bom: bool,
+    #[serde(deserialize_with = "crate::deserialize_rule_area_record_kind")]
+    pub kind: ::std::string::String,
+    pub locked: bool,
+    pub object_id: ::std::string::String,
+    pub on_board: bool,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub shape: SchematicRuleAreaShape,
+    pub uuid: ::std::string::String,
+}
+///Source-shape discriminator retained by a schematic rule area.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Source-shape discriminator retained by a schematic rule area.",
+///  "type": "string",
+///  "enum": [
+///    "polyline",
+///    "rectangle",
+///    "arc",
+///    "circle",
+///    "bezier"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum SchematicRuleAreaShape {
+    #[serde(rename = "polyline")]
+    Polyline,
+    #[serde(rename = "rectangle")]
+    Rectangle,
+    #[serde(rename = "arc")]
+    Arc,
+    #[serde(rename = "circle")]
+    Circle,
+    #[serde(rename = "bezier")]
+    Bezier,
+}
+impl ::std::fmt::Display for SchematicRuleAreaShape {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Polyline => f.write_str("polyline"),
+            Self::Rectangle => f.write_str("rectangle"),
+            Self::Arc => f.write_str("arc"),
+            Self::Circle => f.write_str("circle"),
+            Self::Bezier => f.write_str("bezier"),
+        }
+    }
+}
+impl ::std::str::FromStr for SchematicRuleAreaShape {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "polyline" => Ok(Self::Polyline),
+            "rectangle" => Ok(Self::Rectangle),
+            "arc" => Ok(Self::Arc),
+            "circle" => Ok(Self::Circle),
+            "bezier" => Ok(Self::Bezier),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for SchematicRuleAreaShape {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for SchematicRuleAreaShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for SchematicRuleAreaShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 ///Leading paper, title-block, background, and worksheet record.
 ///
@@ -3130,6 +3782,65 @@ pub struct SchematicSheetHeaderPlotRecord {
     pub title_block: ::std::option::Option<SchematicPlotTitleBlock>,
     pub uuid: ::std::string::String,
     pub version: crate::JavaScriptSafeInteger,
+}
+///One schematic table rendered as ordered text-box cell blocks.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One schematic table rendered as ordered text-box cell blocks.",
+///  "type": "object",
+///  "required": [
+///    "cell_count",
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "cell_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "table"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicTablePlotRecord {
+    pub cell_count: u32,
+    #[serde(deserialize_with = "crate::deserialize_table_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
 }
 ///One schematic text box with its canonical outline and plotted lines.
 ///

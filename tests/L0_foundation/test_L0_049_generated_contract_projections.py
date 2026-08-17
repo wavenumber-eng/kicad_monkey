@@ -305,6 +305,23 @@ def test_schematic_request_enforces_annotation_settings_and_limits() -> None:
         "max_texts": 10,
         "max_text_boxes": 10,
         "max_text_box_lines": 100,
+        "max_polylines": 10,
+        "max_arcs": 10,
+        "max_circles": 10,
+        "max_rectangles": 10,
+        "max_beziers": 10,
+        "max_rule_areas": 10,
+        "max_images": 10,
+        "max_tables": 10,
+        "max_table_cells": 100,
+        "max_table_cell_lines": 100,
+        "max_image_data_parts": 10,
+        "max_image_encoded_bytes": "4096",
+        "max_image_decoded_bytes": "4096",
+        "max_image_width_px": 4096,
+        "max_image_height_px": 4096,
+        "max_image_pixels": "16777216",
+        "max_image_decode_work": "16777216",
         "max_text_variables": 10,
         "max_text_variable_bytes": "4096",
         "max_worksheet_items": 10,
@@ -327,6 +344,9 @@ def test_schematic_request_enforces_annotation_settings_and_limits() -> None:
         "max_labels",
         "max_netclass_flag_properties",
         "max_text_box_lines",
+        "max_rule_areas",
+        "max_table_cell_lines",
+        "max_image_decode_work",
     ):
         mutation = dict(request)
         del mutation[field]
@@ -337,6 +357,10 @@ def test_schematic_request_enforces_annotation_settings_and_limits() -> None:
         ("text_offset_ratio", -0.01),
         ("default_line_width_nm", 84_699),
         ("default_line_width_nm", 9_007_199_254_740_992),
+        ("max_polylines", 4_294_967_296),
+        ("max_image_width_px", 4_294_967_296),
+        ("max_image_encoded_bytes", "not-a-number"),
+        ("max_image_pixels", "18446744073709551616"),
     ):
         mutation = dict(request)
         mutation[field] = value
@@ -416,3 +440,30 @@ def test_python_schematic_contract_preserves_nullable_color_and_validates_png() 
     ].append([2, 2])
     with pytest.raises(msgspec.ValidationError, match="invalid_worksheet_polyline"):
         decode_schematic_plot_document_a0(json.dumps(malformed_polyline).encode())
+
+
+def test_python_schematic_filled_shape_accepts_authoritative_optional_color() -> None:
+    payload = json.loads(
+        (PACKAGE_ROOT / "tests/parity/schematic_plotter_a0_vectors.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    graphics = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"]
+        == "schematic-graphics-rules-images-and-table-family-order"
+    )
+
+    explicit = json.loads(json.dumps(graphics))
+    explicit["records"][3]["operations"][0]["fill_color"] = "#01020304"
+    decode_schematic_plot_document_a0(json.dumps(explicit).encode())
+
+    absent = json.loads(json.dumps(graphics))
+    del absent["records"][3]["operations"][0]["fill_color"]
+    decode_schematic_plot_document_a0(json.dumps(absent).encode())
+
+    invalid = json.loads(json.dumps(graphics))
+    invalid["records"][3]["operations"][0]["fill_color"] = "#abcdef12"
+    with pytest.raises(msgspec.ValidationError, match="invalid_graphic_style"):
+        decode_schematic_plot_document_a0(json.dumps(invalid).encode())

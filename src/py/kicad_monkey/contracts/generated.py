@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import math
 from dataclasses import dataclass
@@ -899,7 +901,7 @@ class SymbolTextVariable(Struct, forbid_unknown_fields=True, frozen=True):
     value: str
 
 
-SchematicPlotRecord = Union["SchematicSheetHeaderPlotRecord", "SchematicWirePlotRecord", "SchematicBusPlotRecord", "SchematicBusEntryPlotRecord", "SchematicJunctionPlotRecord", "SchematicNoConnectPlotRecord", "SchematicLabelPlotRecord", "SchematicGlobalLabelPlotRecord", "SchematicHierarchicalLabelPlotRecord", "SchematicNetclassFlagPlotRecord", "SchematicTextPlotRecord", "SchematicTextBoxPlotRecord"]
+SchematicPlotRecord = Union["SchematicSheetHeaderPlotRecord", "SchematicWirePlotRecord", "SchematicBusPlotRecord", "SchematicBusEntryPlotRecord", "SchematicJunctionPlotRecord", "SchematicNoConnectPlotRecord", "SchematicLabelPlotRecord", "SchematicGlobalLabelPlotRecord", "SchematicHierarchicalLabelPlotRecord", "SchematicNetclassFlagPlotRecord", "SchematicTextPlotRecord", "SchematicTextBoxPlotRecord", "SchematicGraphicPolylinePlotRecord", "SchematicGraphicArcPlotRecord", "SchematicGraphicCirclePlotRecord", "SchematicGraphicRectanglePlotRecord", "SchematicGraphicBezierPlotRecord", "SchematicRuleAreaPlotRecord", "SchematicImagePlotRecord", "SchematicTablePlotRecord"]
 
 
 class SchematicPlotCanvas(Struct, forbid_unknown_fields=True, frozen=True):
@@ -1013,6 +1015,73 @@ class SchematicTextBoxPlotRecord(Struct, forbid_unknown_fields=True, frozen=True
     text: str
 
 
+class SchematicGraphicPolylinePlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="graphic_polyline", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+
+
+class SchematicGraphicArcPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="graphic_arc", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+
+
+class SchematicGraphicCirclePlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="graphic_circle", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+
+
+class SchematicGraphicRectanglePlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="graphic_rectangle", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+
+
+class SchematicGraphicBezierPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="graphic_bezier", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+
+
+class SchematicRuleAreaPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="rule_area", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    shape: SchematicRuleAreaShape
+    locked: bool
+    exclude_from_sim: bool
+    in_bom: bool
+    on_board: bool
+    dnp: bool
+
+
+class SchematicImagePlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="image", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    scale: float
+    image_format: SchematicImageFormat
+    width_nm: JavaScriptSafeInteger
+    height_nm: JavaScriptSafeInteger
+
+
+class SchematicTablePlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="table", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    cell_count: Annotated[int, Meta(ge=0, le=4294967295)]
+
+
 class SchematicPlotTitleBlock(Struct, forbid_unknown_fields=True, frozen=True):
     title: str
     date: str
@@ -1025,6 +1094,12 @@ SchematicLabelShape = Literal["input", "output", "bidirectional", "tri_state", "
 
 
 SchematicNetclassFlagShape = Literal["round", "dot", "diamond", "rectangle"]
+
+
+SchematicRuleAreaShape = Literal["polyline", "rectangle", "arc", "circle", "bezier"]
+
+
+SchematicImageFormat = Literal["png", "jpeg", "bmp"]
 
 
 RecordString = dict[str, str]
@@ -1580,6 +1655,23 @@ class SchematicPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     max_texts: Annotated[int, Meta(ge=0, le=4294967295)]
     max_text_boxes: Annotated[int, Meta(ge=0, le=4294967295)]
     max_text_box_lines: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_polylines: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_arcs: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_circles: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_rectangles: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_beziers: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_rule_areas: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_images: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_tables: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_table_cells: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_table_cell_lines: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_image_data_parts: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_image_encoded_bytes: str
+    max_image_decoded_bytes: str
+    max_image_width_px: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_image_height_px: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_image_pixels: str
+    max_image_decode_work: str
     max_text_variables: Annotated[int, Meta(ge=0, le=4294967295)]
     max_text_variable_bytes: str
     max_worksheet_items: Annotated[int, Meta(ge=0, le=4294967295)]
@@ -2132,7 +2224,7 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
         raise msgspec.ValidationError("invalid_schematic_document at $")
     if not value.records or not isinstance(value.records[0], SchematicSheetHeaderPlotRecord):
         raise msgspec.ValidationError("missing_sheet_header at $.records[0]")
-    phases = {SchematicSheetHeaderPlotRecord: 0, SchematicWirePlotRecord: 1, SchematicBusPlotRecord: 2, SchematicBusEntryPlotRecord: 3, SchematicJunctionPlotRecord: 4, SchematicNoConnectPlotRecord: 5, SchematicLabelPlotRecord: 6, SchematicGlobalLabelPlotRecord: 7, SchematicHierarchicalLabelPlotRecord: 8, SchematicNetclassFlagPlotRecord: 9, SchematicTextPlotRecord: 10, SchematicTextBoxPlotRecord: 11}
+    phases = {SchematicSheetHeaderPlotRecord: 0, SchematicWirePlotRecord: 1, SchematicBusPlotRecord: 2, SchematicBusEntryPlotRecord: 3, SchematicJunctionPlotRecord: 4, SchematicNoConnectPlotRecord: 5, SchematicLabelPlotRecord: 6, SchematicGlobalLabelPlotRecord: 7, SchematicHierarchicalLabelPlotRecord: 8, SchematicNetclassFlagPlotRecord: 9, SchematicTextPlotRecord: 10, SchematicTextBoxPlotRecord: 11, SchematicGraphicPolylinePlotRecord: 12, SchematicGraphicArcPlotRecord: 13, SchematicGraphicCirclePlotRecord: 14, SchematicGraphicRectanglePlotRecord: 15, SchematicGraphicBezierPlotRecord: 16, SchematicRuleAreaPlotRecord: 17, SchematicImagePlotRecord: 18, SchematicTablePlotRecord: 19}
     previous_phase = -1
     total_operations = 0
     for record_index, record in enumerate(value.records):
@@ -2163,8 +2255,18 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
             _validate_schematic_netclass_flag_record(record, path)
         elif isinstance(record, SchematicTextPlotRecord):
             _validate_schematic_text_record(record, path)
-        else:
+        elif isinstance(record, SchematicTextBoxPlotRecord):
             _validate_schematic_text_box_record(record, path)
+        elif isinstance(record, (SchematicGraphicPolylinePlotRecord, SchematicGraphicArcPlotRecord, SchematicGraphicCirclePlotRecord, SchematicGraphicRectanglePlotRecord)):
+            _validate_schematic_graphic_record(record, path)
+        elif isinstance(record, SchematicGraphicBezierPlotRecord):
+            _validate_schematic_bezier_record(record, path)
+        elif isinstance(record, SchematicRuleAreaPlotRecord):
+            _validate_schematic_rule_area_record(record, path)
+        elif isinstance(record, SchematicImagePlotRecord):
+            _validate_schematic_image_record(record, path)
+        else:
+            _validate_schematic_table_record(record, path)
         total_operations += len(record.operations)
     if value.total_operations != total_operations:
         raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
@@ -2357,28 +2459,238 @@ def _validate_schematic_text_record(record: SchematicTextPlotRecord, path: str) 
 
 
 def _validate_schematic_text_box_record(record: SchematicTextBoxPlotRecord, path: str) -> None:
-    if not record.operations or not isinstance(record.operations[0], RectOperation):
+    text_start = _validate_schematic_text_box_prefix(record.operations, path)
+    _validate_schematic_text_box_lines(record.operations, text_start, path)
+
+
+def _validate_schematic_text_box_prefix(operations: list[PlotterOperation], path: str) -> int:
+    if not operations or not isinstance(operations[0], RectOperation):
         raise msgspec.ValidationError(f"invalid_text_box at {path}.operations")
-    first = record.operations[0]
+    first = operations[0]
     first_layer = None if first.layer is UNSET else first.layer
-    if first_layer is not None or first.corner_radius_nm != 0 or first.width_nm < 0 or first.stroke_color is UNSET or first.line_style is UNSET:
+    fill_color = None if first.fill_color is UNSET else first.fill_color
+    single_fill_valid = (first.fill == 'NO_FILL' and first.fill_color is UNSET) or first.fill != 'NO_FILL'
+    if first_layer is not None or first.corner_radius_nm != 0 or first.width_nm < 0 or not _valid_schematic_color(first.stroke_color) or (fill_color is not None and not _valid_schematic_color(fill_color)) or first.line_style is UNSET or not single_fill_valid:
         raise msgspec.ValidationError(f"invalid_text_box_outline at {path}.operations[0]")
     if first.fill in ('NO_FILL', 'FILLED_SHAPE'):
-        text_start = 1
+        return 1
     else:
-        if len(record.operations) < 2 or not isinstance(record.operations[1], RectOperation):
+        if len(operations) < 2 or not isinstance(operations[1], RectOperation):
             raise msgspec.ValidationError(f"invalid_text_box_fill_pass at {path}.operations")
-        outline = record.operations[1]
+        outline = operations[1]
         outline_layer = None if outline.layer is UNSET else outline.layer
         same_geometry = (first.x1, first.y1, first.x2, first.y2, first.corner_radius_nm) == (outline.x1, outline.y1, outline.x2, outline.y2, outline.corner_radius_nm)
-        if first.width_nm != 0 or first.fill_color is UNSET or first.stroke_color != first.fill_color or outline_layer is not None or not same_geometry or outline.fill != 'NO_FILL' or outline.width_nm < 0 or outline.stroke_color is UNSET or outline.fill_color is not UNSET or outline.line_style != first.line_style:
+        if first.width_nm != 0 or first.fill_color is UNSET or first.stroke_color != first.fill_color or outline_layer is not None or not same_geometry or outline.fill != 'NO_FILL' or outline.width_nm < 0 or not _valid_schematic_color(outline.stroke_color) or outline.fill_color is not UNSET or outline.line_style != first.line_style:
             raise msgspec.ValidationError(f"invalid_text_box_fill_pass at {path}.operations[:2]")
-        text_start = 2
-    for index, operation in enumerate(record.operations[text_start:], start=text_start):
+        return 2
+
+
+def _validate_schematic_text_box_lines(operations: list[PlotterOperation], text_start: int, path: str) -> None:
+    for index, operation in enumerate(operations[text_start:], start=text_start):
         if not isinstance(operation, TextOperation) or not operation.text or operation.multiline:
             raise msgspec.ValidationError(f"invalid_text_box_line at {path}.operations[{index}]")
         _validate_schematic_annotation_text(operation, f'{path}.operations[{index}]')
-decode_schematic_plot_request_a0 = msgspec.json.Decoder(SchematicPlotRequestA0).decode
+
+
+def _valid_schematic_color(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 9 and value[0] == '#' and all(char in '0123456789ABCDEF' for char in value[1:])
+
+
+def _schematic_graphic_geometry(operation: PlotterOperation) -> tuple:
+    if isinstance(operation, PlotPolyOperation):
+        return tuple(tuple(point) for point in operation.points)
+    if isinstance(operation, ArcThreePointOperation):
+        return (operation.start_x, operation.start_y, operation.mid_x, operation.mid_y, operation.end_x, operation.end_y)
+    if isinstance(operation, CircleOperation):
+        return (operation.cx, operation.cy, operation.diameter_nm)
+    if isinstance(operation, RectOperation):
+        return (operation.x1, operation.y1, operation.x2, operation.y2, operation.corner_radius_nm)
+    raise msgspec.ValidationError('invalid_graphic_operation')
+
+
+def _validate_schematic_graphic_operation(operation: PlotterOperation, path: str) -> None:
+    layer = None if operation.layer is UNSET else operation.layer
+    if layer is not None or operation.width_nm < 0 or operation.stroke_color is UNSET or not _valid_schematic_color(operation.stroke_color) or (operation.fill_color is not UNSET and not _valid_schematic_color(operation.fill_color)) or operation.line_style is UNSET:
+        raise msgspec.ValidationError(f"invalid_graphic_style at {path}")
+    if isinstance(operation, PlotPolyOperation) and len(operation.points) < 2:
+        raise msgspec.ValidationError(f"invalid_graphic_points at {path}.points")
+    if isinstance(operation, CircleOperation):
+        forbidden = (operation.role is not UNSET, bool([] if operation.layers is UNSET else operation.layers), operation.mask_margin_nm is not UNSET, operation.pad_size_x_nm is not UNSET, operation.pad_size_y_nm is not UNSET)
+        if any(forbidden) or operation.diameter_nm < 0:
+            raise msgspec.ValidationError(f"invalid_graphic_circle at {path}")
+    if isinstance(operation, RectOperation) and operation.corner_radius_nm < 0:
+        raise msgspec.ValidationError(f"invalid_graphic_rectangle at {path}")
+
+
+def _validate_schematic_graphic_operations(operations: list[PlotterOperation], expected_type: type, path: str, *, closed: bool = False) -> None:
+    if len(operations) not in (1, 2) or not all(isinstance(operation, expected_type) for operation in operations):
+        raise msgspec.ValidationError(f"invalid_graphic_record at {path}.operations")
+    for index, operation in enumerate(operations):
+        _validate_schematic_graphic_operation(operation, f'{path}.operations[{index}]')
+    first = operations[0]
+    if closed and (not isinstance(first, PlotPolyOperation) or first.points[0] != first.points[-1]):
+        raise msgspec.ValidationError(f"open_rule_area at {path}.operations[0].points")
+    if len(operations) == 1:
+        valid_fill = (first.fill == 'NO_FILL' and first.fill_color is UNSET) or first.fill == 'FILLED_SHAPE'
+        if not valid_fill:
+            raise msgspec.ValidationError(f"invalid_graphic_fill at {path}.operations[0]")
+        return
+    outline = operations[1]
+    if first.fill in ('NO_FILL', 'FILLED_SHAPE') or first.width_nm != 0 or first.fill_color is UNSET or first.stroke_color != first.fill_color or outline.fill != 'NO_FILL' or outline.fill_color is not UNSET or outline.line_style != first.line_style or _schematic_graphic_geometry(first) != _schematic_graphic_geometry(outline):
+        raise msgspec.ValidationError(f"invalid_graphic_fill_pair at {path}.operations")
+
+
+def _validate_schematic_graphic_record(record: SchematicGraphicPolylinePlotRecord | SchematicGraphicArcPlotRecord | SchematicGraphicCirclePlotRecord | SchematicGraphicRectanglePlotRecord, path: str) -> None:
+    expected = PlotPolyOperation if isinstance(record, SchematicGraphicPolylinePlotRecord) else ArcThreePointOperation if isinstance(record, SchematicGraphicArcPlotRecord) else CircleOperation if isinstance(record, SchematicGraphicCirclePlotRecord) else RectOperation
+    _validate_schematic_graphic_operations(record.operations, expected, path)
+
+
+def _validate_schematic_bezier_operation(operation: BezierCurveOperation, path: str) -> None:
+    layer = None if operation.layer is UNSET else operation.layer
+    if layer is not None or operation.width_nm < 0 or operation.tolerance_nm != 0 or operation.stroke_color is UNSET or not _valid_schematic_color(operation.stroke_color) or operation.line_style is UNSET:
+        raise msgspec.ValidationError(f"invalid_graphic_bezier at {path}")
+
+
+def _validate_schematic_bezier_record(record: SchematicGraphicBezierPlotRecord, path: str) -> None:
+    if len(record.operations) != 1 or not isinstance(record.operations[0], BezierCurveOperation):
+        raise msgspec.ValidationError(f"invalid_graphic_bezier at {path}.operations")
+    _validate_schematic_bezier_operation(record.operations[0], f'{path}.operations[0]')
+
+
+def _validate_schematic_rule_area_record(record: SchematicRuleAreaPlotRecord, path: str) -> None:
+    expected = {'polyline': PlotPolyOperation, 'rectangle': RectOperation, 'arc': ArcThreePointOperation, 'circle': CircleOperation, 'bezier': BezierCurveOperation}[record.shape]
+    if expected is BezierCurveOperation:
+        if len(record.operations) != 1 or not isinstance(record.operations[0], BezierCurveOperation):
+            raise msgspec.ValidationError(f"invalid_rule_area at {path}.operations")
+        _validate_schematic_bezier_operation(record.operations[0], f'{path}.operations[0]')
+    else:
+        _validate_schematic_graphic_operations(record.operations, expected, path, closed=record.shape == 'polyline')
+
+
+def _schematic_image_metadata(value: str) -> tuple[str, int, int, int | None, int | None] | None:
+    if any(character in ' \t\r\n\v\f' for character in value):
+        return None
+    try:
+        data = base64.b64decode(value, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    if base64.b64encode(data).decode('ascii') != value:
+        return None
+    if len(data) >= 33 and data[:8] == b'\x89PNG\r\n\x1a\n' and data[8:16] == b'\x00\x00\x00\rIHDR':
+        width, height = int.from_bytes(data[16:20], 'big'), int.from_bytes(data[20:24], 'big')
+        ppm_x = ppm_y = None
+        position = 8
+        while position + 12 <= len(data):
+            length = int.from_bytes(data[position:position + 4], 'big')
+            end = position + 12 + length
+            if end > len(data): return None
+            kind = data[position + 4:position + 8]
+            payload = data[position + 8:position + 8 + length]
+            if kind == b'pHYs' and length >= 9 and payload[8] == 1:
+                ppm_x = int.from_bytes(payload[:4], 'big') or None
+                ppm_y = int.from_bytes(payload[4:8], 'big') or None
+            position = end
+            if kind == b'IEND': break
+        return ('png', width, height, _schematic_ppi_from_ppm(ppm_x), _schematic_ppi_from_ppm(ppm_y)) if width > 0 and height > 0 else None
+    if len(data) >= 4 and data[:2] == b'\xff\xd8':
+        position, ppi_x, ppi_y = 2, None, None
+        while position + 9 <= len(data):
+            if data[position] != 0xFF:
+                position += 1
+                continue
+            marker = data[position + 1]
+            position += 2
+            if marker in (0xD8, 0xD9): continue
+            if position + 2 > len(data): return None
+            length = int.from_bytes(data[position:position + 2], 'big')
+            if length < 2 or position + length > len(data): return None
+            payload = data[position + 2:position + length]
+            if marker == 0xE0 and payload.startswith(b'JFIF\x00') and len(payload) >= 12:
+                units, density_x, density_y = payload[7], int.from_bytes(payload[8:10], 'big'), int.from_bytes(payload[10:12], 'big')
+                if density_x > 0 and density_y > 0:
+                    if units == 1: ppi_x, ppi_y = density_x, density_y
+                    elif units == 2: ppi_x, ppi_y = round(density_x * 2.54), round(density_y * 2.54)
+            if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+                if length < 7: return None
+                height, width = int.from_bytes(data[position + 3:position + 5], 'big'), int.from_bytes(data[position + 5:position + 7], 'big')
+                return ('jpeg', width, height, ppi_x, ppi_y) if width > 0 and height > 0 else None
+            position += length
+        return None
+    if len(data) >= 26 and data[:2] == b'BM':
+        dib = int.from_bytes(data[14:18], 'little')
+        if dib == 12:
+            width, height, ppi_x, ppi_y = int.from_bytes(data[18:20], 'little'), int.from_bytes(data[20:22], 'little'), None, None
+        elif dib >= 40 and len(data) >= 54:
+            width = abs(int.from_bytes(data[18:22], 'little', signed=True))
+            height = abs(int.from_bytes(data[22:26], 'little', signed=True))
+            ppi_x = _schematic_bmp_ppi(int.from_bytes(data[38:42], 'little', signed=True))
+            ppi_y = _schematic_bmp_ppi(int.from_bytes(data[42:46], 'little', signed=True))
+        else: return None
+        return ('bmp', width, height, ppi_x, ppi_y) if width > 0 and height > 0 else None
+    return None
+
+
+def _schematic_ppi_from_ppm(value: int | None) -> int | None:
+    if value is None or value <= 0: return None
+    return round(value * 0.0254) or None
+
+
+def _schematic_bmp_ppi(value: int) -> int | None:
+    if value <= 0: return None
+    return round((value // 100) * 2.54) or None
+
+
+def _schematic_image_extent(size_px: int, scale: float, ppi: int | None) -> int:
+    return round(size_px * scale * 25.4 / (ppi if ppi and ppi > 0 else 300.0) * 1_000_000.0)
+
+
+def _validate_schematic_image_record(record: SchematicImagePlotRecord, path: str) -> None:
+    if len(record.operations) != 1 or not isinstance(record.operations[0], PlotImageOperation):
+        raise msgspec.ValidationError(f"invalid_schematic_image at {path}.operations")
+    operation = record.operations[0]
+    metadata = _schematic_image_metadata(operation.image_data_b64)
+    if metadata is None or not math.isfinite(operation.scale) or operation.scale <= 0 or operation.stroke_color != '#0000C2FF':
+        raise msgspec.ValidationError(f"invalid_schematic_image at {path}.operations[0]")
+    image_format, width_px, height_px, ppi_x, ppi_y = metadata
+    try:
+        width_nm, height_nm = _schematic_image_extent(width_px, operation.scale, ppi_x), _schematic_image_extent(height_px, operation.scale, ppi_y)
+    except (OverflowError, ValueError):
+        raise msgspec.ValidationError(f"invalid_schematic_image_extent at {path}.operations[0]") from None
+    if image_format != operation.image_format or (record.scale, record.image_format, record.width_nm, record.height_nm) != (operation.scale, operation.image_format, operation.width_nm, operation.height_nm) or (operation.width_nm, operation.height_nm) != (width_nm, height_nm) or width_nm <= 0 or height_nm <= 0:
+        raise msgspec.ValidationError(f"invalid_schematic_image_metadata at {path}")
+
+
+def _validate_schematic_table_record(record: SchematicTablePlotRecord, path: str) -> None:
+    operation_index = 0
+    cells = 0
+    while operation_index < len(record.operations):
+        cell_path = f'{path}.operations[{operation_index}]'
+        prefix = _validate_schematic_text_box_prefix(record.operations[operation_index:], cell_path)
+        operation_index += prefix
+        while operation_index < len(record.operations) and isinstance(record.operations[operation_index], TextOperation):
+            operation = record.operations[operation_index]
+            if not operation.text or operation.multiline:
+                raise msgspec.ValidationError(f"invalid_table_cell_line at {path}.operations[{operation_index}]")
+            _validate_schematic_annotation_text(operation, f'{path}.operations[{operation_index}]')
+            operation_index += 1
+        cells += 1
+    if cells != record.cell_count:
+        raise msgspec.ValidationError(f"table_cell_count_mismatch at {path}.cell_count")
+_schematic_plot_request_a0_decoder = msgspec.json.Decoder(SchematicPlotRequestA0)
+
+
+def decode_schematic_plot_request_a0(data: bytes) -> SchematicPlotRequestA0:
+    value = _schematic_plot_request_a0_decoder.decode(data)
+    validate_schematic_plot_request_a0(value)
+    return value
+
+
+def validate_schematic_plot_request_a0(value: SchematicPlotRequestA0) -> None:
+    fields = ('max_source_bytes', 'max_worksheet_bytes', 'max_output_bytes', 'max_text_bytes', 'max_metadata_bytes', 'max_image_encoded_bytes', 'max_image_decoded_bytes', 'max_image_pixels', 'max_image_decode_work', 'max_text_variable_bytes', 'max_worksheet_bitmap_encoded_bytes', 'max_worksheet_bitmap_decoded_bytes', 'max_worksheet_bitmap_pixels', 'max_worksheet_bitmap_decode_work')
+    for field_name in fields:
+        encoded = getattr(value, field_name)
+        if not encoded or not encoded.isascii() or not encoded.isdigit() or int(encoded) > 18_446_744_073_709_551_615:
+            raise msgspec.ValidationError(f"invalid_uint64 at $.{field_name}")
 decode_schematic_plot_result_a0 = msgspec.json.Decoder(SchematicPlotResultA0).decode
 decode_symbol_library_edit_request_a0 = msgspec.json.Decoder(SymbolLibraryEditRequestA0).decode
 decode_symbol_library_edit_result_a0 = msgspec.json.Decoder(SymbolLibraryEditResultA0).decode
@@ -2733,9 +3045,19 @@ __all__ = (
     "SchematicNetclassFlagPlotRecord",
     "SchematicTextPlotRecord",
     "SchematicTextBoxPlotRecord",
+    "SchematicGraphicPolylinePlotRecord",
+    "SchematicGraphicArcPlotRecord",
+    "SchematicGraphicCirclePlotRecord",
+    "SchematicGraphicRectanglePlotRecord",
+    "SchematicGraphicBezierPlotRecord",
+    "SchematicRuleAreaPlotRecord",
+    "SchematicImagePlotRecord",
+    "SchematicTablePlotRecord",
     "SchematicPlotTitleBlock",
     "SchematicLabelShape",
     "SchematicNetclassFlagShape",
+    "SchematicRuleAreaShape",
+    "SchematicImageFormat",
     "RecordString",
     "SchematicWorksheetMode",
     "SchematicTextVariable",
@@ -2855,5 +3177,6 @@ __all__ = (
     "validate_outline_vector_a0",
     "validate_shaping_record_a0",
     "validate_symbol_plot_document_a0",
+    "validate_schematic_plot_request_a0",
     "validate_schematic_plot_document_a0",
 )
