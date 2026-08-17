@@ -226,6 +226,25 @@ secondary = [
 # -----------------------------------------------------------------------------
 
 [[subtests]]
+id = "L1_018"
+file = "test_L1_018_corpus_sexpr_passthrough.py"
+name = "Python Corpus S-Expression Pass-Through"
+description = "Run the Python parser/writer over every promoted KiCad S-expression file"
+concerns = ["sexpr", "python", "parity"]
+test_cases = "${WN_TEST_CORPUS}/kicad"
+test_case_type = "shared_corpus"
+
+[subtests.objectives]
+primary = "Python parse -> build -> parse preserves every promoted corpus tree"
+secondary = [
+    "All promoted KiCad S-expression suffixes are represented",
+    "Failures are attributed to lex, tree, build, reparse, or compare",
+    "Real-world project inputs remain mandatory parser evidence",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
 id = "L1_022"
 file = "test_L1_022_rust_corpus_sexpr_passthrough.py"
 name = "Rust Corpus S-Expression Pass-Through"

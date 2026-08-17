@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Record the native Rust Phase 5 exit audit and explicit parity-ledger gaps for
+  plotter text integration, standalone footprint and library-symbol text,
+  board dimensions and embedded footprints, and schematic Plotter-IR.
+
 - Extend the native Rust board Plotter-IR producer with bounded table grids,
   borders, layer-aware faced cell text, local table variables, generated
   cross-language contracts, and Python-oracle parity evidence.

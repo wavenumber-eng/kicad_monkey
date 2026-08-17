@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 5 plotter and text exit audit</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 5 plotter and text exit audit</h1>
+
+  <p>Status: accepted after independent producer, contract, and gate review.
+  Phase 5 is not complete. This audit compares the
+  established Python Plotter-IR producers with the native Rust producers and
+  turns every remaining required family into a bounded slice. Phase 4 already
+  closed the governed native netlist and compiled-schematic-graph work; this
+  audit does not reopen those accepted boundaries. Native Windows
+  <code>kicad-cruncher</code> remains Phase 6.</p>
+
+  <h2>Audit boundary</h2>
+  <p>The parity authority is the behavior actually emitted by
+  <code>footprint_to_ir</code>, <code>lib_symbol_to_ir</code>,
+  <code>pcb_to_ir</code>, and <code>schematic_to_ir</code>. Source-model
+  carriers that those Python producers intentionally ignore do not become
+  implicit Phase 5 requirements. Each promoted Rust producer must preserve
+  Python category and operation order, generated-contract semantics, numeric
+  rounding, resource failure before publication, and the package's
+  transport-neutral core boundary. ADR-011 does not require a new WASM export
+  for any of these native slices.</p>
+
+  <h2>Current closure and gaps</h2>
+  <table>
+    <thead>
+      <tr><th>Producer</th><th>Native state</th><th>Remaining exact Python surface</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Text engine</td>
+        <td>Shaping, hinted outlines, curve flattening, layout, markup,
+        topology, typed cache I/O, and focused live KiCad save-oracle cases
+        exist.</td>
+        <td>Give plotter carriers a bounded font-selection/cache-generation
+        input so missing or stale outline caches can use the accepted native
+        engine. Keep font discovery outside the transport-neutral core.</td>
+      </tr>
+      <tr>
+        <td>Standalone footprint</td>
+        <td>Metadata, non-text graphics, patterned strokes, standard pads,
+        drills, polygon custom pads, and chamfered pads exist.</td>
+        <td>Reference/value/other properties, <code>fp_text</code>, and
+        <code>fp_text_box</code>, including variable resolution, canonical
+        ordering, borders, wrapping, and independent text/input limits.</td>
+      </tr>
+      <tr>
+        <td>Library symbol</td>
+        <td>Header metadata, inherited body geometry, fill/deferred-outline
+        order, pin shafts, and pin decorations exist.</td>
+        <td>Body <code>text</code> plus pin number/name operations, parent hide
+        and offset settings, project-variable substitution, and text budgets.</td>
+      </tr>
+      <tr>
+        <td>Board</td>
+        <td>Graphics, board text/text boxes with usable authored caches,
+        routing, vias, tables, authored zone fills, variables, and net-class
+        extras exist.</td>
+        <td>Connect P5_010 to missing/stale caches and wrapping outline text
+        in existing board text, text-box, and table carriers; add all dimension
+        styles and their stroke/outline text; then add embedded footprint
+        records with properties, text/text boxes, graphics, pads, drills,
+        metadata labels, and placement extras.</td>
+      </tr>
+      <tr>
+        <td>Schematic</td>
+        <td>Typed source bundles, hierarchy, connectivity, owned writeback,
+        compiled graph, and netlist foundations exist; no native schematic
+        Plotter-IR producer exists.</td>
+        <td>Sheet header and default/project worksheet drawing; wires, buses,
+        entries, junctions, no-connects;
+        labels and decorations; netclass flags; text/text boxes; graphics,
+        rule areas, images, and tables; placed symbols and overplots; sheets,
+        fields, and pins.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>Schematic closure preserves this exact Python record order: sheet header;
+  wires, buses, bus entries, junctions, and no-connects; local, global, and
+  hierarchical labels; netclass flags; text and text boxes; polyline, arc,
+  circle, rectangle, Bézier, rule area, image, and table records; all placed
+  symbols followed by overlap records; then hierarchical sheets.</p>
+
+  <h2>Bounded implementation sequence</h2>
+  <ol>
+    <li><strong>P5_010 carrier text bridge.</strong> Define a caller-supplied,
+    bounded font/cache sidecar over the accepted native render-cache engine.
+    Close missing, stale, matching, multiline, markup, style, and font
+    selection behavior without platform discovery in core, including the
+    existing board text, text-box, and table carriers.</li>
+    <li><strong>P5_020 standalone footprint text.</strong> Add property,
+    <code>fp_text</code>, and <code>fp_text_box</code> source selection and
+    standalone decoding to <code>FootprintView</code>, then add their emission
+    to the existing footprint record and generated contract. Board-nested
+    footprint child models are not reused as standalone ownership types.</li>
+    <li><strong>P5_030 library-symbol text.</strong> Add body text and pin
+    labels to the existing symbol record while preserving body-fill, text,
+    pin, and deferred-outline ordering.</li>
+    <li><strong>P5_040 board dimensions.</strong> Promote aligned,
+    orthogonal, radial, leader, and center dimension geometry plus stroke and
+    outline-font text records between tables and zones.</li>
+    <li><strong>P5_050 embedded board footprints.</strong> Reuse the promoted
+    footprint operations under board-local record metadata and placement,
+    preserving Python child metadata and board record order.</li>
+    <li><strong>P5_060 schematic foundation.</strong> Establish the native
+    schematic document/record contract and promote canvas metadata, the sheet
+    header with default/project worksheet drawing, wires, buses, entries,
+    junctions, and no-connects. Project variables and optional worksheet bytes
+    are caller-supplied bounded sidecars; core performs no path discovery.</li>
+    <li><strong>P5_061 schematic annotations.</strong> Promote local, global,
+    and hierarchical labels and decorations, netclass flags, ordinary text,
+    and text boxes with project/built-in variables and drawing settings.</li>
+    <li><strong>P5_062 schematic graphics.</strong> Promote polylines, arcs,
+    circles, rectangles, Béziers, rule areas, decoded images, and tables.</li>
+    <li><strong>P5_070 schematic symbols.</strong> Reuse symbol geometry and
+    text for placed symbols, pins, fields, DNP behavior, transforms, and
+    overlap overplots with occurrence-aware variables.</li>
+    <li><strong>P5_071 hierarchical sheets.</strong> Promote sheet background
+    and border passes, sheet pins and decorations, fields, DNP markers, and
+    sheet metadata.</li>
+    <li><strong>P5_080 Phase 5 exit.</strong> Add Rack <code>L3_022</code> as
+    the mandatory cross-producer gate over the final footprint, symbol, board,
+    and schematic vectors; native resource and semantic mutation suites;
+    package-local authoritative <code>input/</code> footprint, symbol, board,
+    and schematic corpus files; Cargo quality; and required live KiCad cache
+    and plot acceptance. The gate fails rather than skips when the corpus,
+    declared fonts, or required PCB/schematic KiCad CLI capabilities are
+    absent. Only then
+    close every Phase 5 carrier row plus the explicit Phase 5 exit governance
+    row, and accept the render-cache and Phase 5 exit documents.</li>
+  </ol>
+
+  <h2>Dependencies and exclusions</h2>
+  <p>P5_010 precedes faced board dimensions, embedded footprint outline text,
+  and schematic outline-font carriers. P5_020 and P5_030 can proceed from the
+  existing source readers while the bridge is reviewed. P5_050 depends on both
+  P5_010 and P5_020. P5_061 and P5_062 depend
+  on the P5_060 document contract. P5_070 depends on P5_030 and P5_060;
+  P5_071 depends on P5_060 and P5_061. P5_080 depends on every preceding
+  slice.</p>
+
+  <p>The optional synthetic knockout fallback remains under the accepted
+  <code>geometry.planar_kernel_bridge</code> deferral. Authored cached knockout
+  behavior is already native. Zone refill, analytic polygon operations,
+  ignored PCB groups/generated objects/images/barcodes, ignored standalone
+  footprint constructs, downstream <code>pcb_a0</code>, application reports,
+  and speculative WASM packaging remain outside this phase. Any future Python
+  producer expansion must add a parity-ledger row before it can widen this
+  exit gate.</p>
+
+  <h2>Contract compatibility during incubation</h2>
+  <p>The generic <code>kicad.plotter_ir.a0</code> schema remains the stable,
+  forward-compatible consumer contract: it accepts unknown operation kinds
+  and additional record fields. The strict generated footprint, symbol, and
+  board schemas are producer-operation contracts in an unpublished incubation
+  workspace. P5_020 through P5_050 may add record or operation union arms to
+  those strict <code>a0</code> schemas before the Phase 5 freeze only when all
+  generated Rust, Python, and TypeScript clients regenerate atomically in the
+  same slice. An older strict generated client is not compatible with a newer
+  incubating document and must negotiate the operation contract or consume the
+  generic schema instead.</p>
+
+  <p>P5_060 creates a distinct strict
+  <code>SchematicPlotDocumentA0</code> identity; it does not reuse the board
+  document identity. P5_080 freezes the producer-specific a0 unions. After
+  that freeze, a new record/operation union arm requires a new
+  producer-specific contract version or a separately reviewed tolerant
+  envelope; regeneration alone is not a compatibility decision.</p>
+
+  <h2>Evidence and runtime policy</h2>
+  <p>Each slice owns a focused native suite and a shared Python-generated
+  vector. P5_010 updates Rack <code>L1_035</code> for carrier integration and
+  <code>L2_009</code> for live cache generation. P5_020 updates
+  <code>L1_026</code>, P5_030 updates <code>L1_027</code>, and P5_040/P5_050
+  update <code>L1_035</code>. P5_060 creates <code>L1_036</code>, which P5_061,
+  P5_062, P5_070, and P5_071 extend with their ordered schematic families.
+  These Rack identifiers are planned owners, not evidence for an
+  unimplemented row. A row moves from
+  <code>planned</code> to <code>review_ready</code> only after its Rack owner,
+  executable vector, implementation evidence, and semantic/resource tests
+  exist. Contract changes require TypeSpec regeneration checks and semantic
+  mutation tests.</p>
+
+  <p>Carrier limits preserve every independent text-engine budget: font and
+  decoded-text bytes, font slots/hashes, lines and runs, feature inspections
+  and applications, cloned run metadata, glyphs, outline commands, Bézier
+  work and scratch points, contours, topology work, cache polygons/points,
+  operations, retained output points, and serialized output. Schematic inputs
+  additionally bound worksheet items/repeats/bitmap bytes and image encoded
+  bytes, decoded bytes, dimensions, pixels, and decode work before allocation
+  or publication.</p>
+
+  <p>Focused Rack owners must record warm runtime and keep their default slice
+  gate under two minutes. L3_022 shards by producer and then corpus partition;
+  each shard has a 20-minute ceiling and the complete Windows exit run has a
+  60-minute ceiling. A slice that exceeds either limit must reduce duplicate
+  oracle work or record and review a new measured budget before promotion.
+  Broad corpus and live KiCad work belongs in the final exit run unless a slice
+  changes its authority boundary. Every slice is independently reviewed,
+  logged through the development-standard plan, and committed before the next
+  slice begins.</p>
+</body>
+</html>

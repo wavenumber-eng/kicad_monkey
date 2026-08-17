@@ -1,6 +1,6 @@
 schema = "kicad_monkey.parity_scope.a0"
-milestone = "rust_phase3_pcb_promoted"
-review_state = "accepted"
+milestone = "rust_phase5_plotter_in_progress"
+review_state = "in_progress"
 
 [[surfaces]]
 id = "sexpr.lex_parse"
@@ -221,6 +221,9 @@ python_symbols = ["gr_text_to_record", "gr_text_box_to_record", "board_text_vari
 rust_symbols = ["BoardTextRecord", "BoardTextBoxRecord", "BoardTextVariables", "board_plot_document_with_sidecars", "validate_board_plot_document", "kicad-monkey-wasm.plotBoardIr"]
 rack_cases = ["L0_046", "L0_049", "L1_035"]
 evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/board_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/board_plotter_ir/text.rs", "src/rs/kicad-monkey-core/tests/board_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py", "docs/design/rust-board-plotter-phase5-slice.html"]
+vector_evidence = ["tests/parity/board_plotter_a0_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/board_plotter_ir/text.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/board_plotter_slice.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs"]
 
 [[surfaces]]
 id = "plotter_ir.board_tables"
@@ -231,6 +234,152 @@ python_symbols = ["table_to_record", "table_cell_text_to_op", "render_cache_requ
 rust_symbols = ["BoardTableRecord", "BoardTableOperation", "board_plot_document_with_sidecars", "validate_board_plot_document", "kicad-monkey-wasm.plotBoardIr"]
 rack_cases = ["L0_046", "L0_049", "L1_035"]
 evidence = ["src/tsp/kicad_monkey/plotter-ir-a0.tsp", "tests/parity/board_plotter_a0_vectors.json", "src/rs/kicad-monkey-core/src/board_plotter_ir/table.rs", "src/rs/kicad-monkey-core/tests/board_plotter_resource_limits.rs", "src/rs/kicad-monkey-contracts/src/board_plot_contract.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py", "docs/design/rust-board-plotter-phase5-slice.html"]
+vector_evidence = ["tests/parity/board_plotter_a0_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/board_plotter_ir/table.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/board_plotter_resource_limits.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs"]
+
+[[surfaces]]
+id = "text.native_plotter_cache_bridge"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["RenderCacheResolver", "RenderCacheRequest", "generate_render_cache_from_text_params"]
+rust_symbols = ["generate_text_render_cache_block_hinted_a0", "FontBundleManifestA0", "TextRenderCache"]
+rack_cases = []
+evidence = ["docs/design/rust-native-render-cache.html", "docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "plotter_ir.footprint_text"
+disposition = "required_bounded_slice"
+wasm = "maintained_feasibility_adapter"
+status = "planned"
+python_symbols = ["property_to_op", "fp_text_to_op", "fp_text_box_to_ops", "footprint_to_record"]
+rust_symbols = ["FootprintView", "FootprintPlotDocument", "footprint_plot_document"]
+rack_cases = []
+evidence = ["docs/design/rust-footprint-plotter-phase2-slice.html", "docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "plotter_ir.symbol_text"
+disposition = "required_bounded_slice"
+wasm = "maintained_feasibility_adapter"
+status = "planned"
+python_symbols = ["text_to_op", "pin_to_ops", "subsymbol_to_record", "lib_symbol_to_ir"]
+rust_symbols = ["SymbolPlotDocument", "SymbolPlotRecord", "symbol_plot_document"]
+rack_cases = []
+evidence = ["docs/design/rust-symbol-plotter-phase2-slice.html", "docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "plotter_ir.board_dimensions"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["dimension_shape_ops", "dimension_text_to_record", "render_cache_request_for_dimension_text"]
+rust_symbols = ["PcbDimension", "BoardPlotDocument"]
+rack_cases = []
+evidence = ["docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "plotter_ir.board_footprints"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["pcb_footprint_to_record", "_op_with_footprint_child_metadata", "_pad_block_ops"]
+rust_symbols = ["PcbFootprint", "PcbFootprintTransform", "FootprintPlotDocument", "BoardPlotDocument"]
+rack_cases = []
+evidence = ["docs/design/rust-footprint-plotter-phase2-slice.html", "docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "plotter_ir.schematic_foundation"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["schematic_to_ir", "_sheet_header_record", "drawing_sheet_to_ops", "_append_schematic_connectivity_records"]
+rust_symbols = ["SchematicDefinition", "SchematicConnectivity", "PlotterOperation"]
+rack_cases = []
+evidence = ["docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "plotter_ir.schematic_annotations"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["_append_schematic_label_records", "_append_schematic_text_records", "_netclass_flag_record"]
+rust_symbols = ["SchematicDefinition", "PlotterOperation"]
+rack_cases = []
+evidence = ["docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "plotter_ir.schematic_graphics"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["_append_schematic_graphics_records", "_rule_area_record", "_image_record", "_table_record"]
+rust_symbols = ["SchematicDefinition", "PlotterOperation"]
+rack_cases = []
+evidence = ["docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "plotter_ir.schematic_symbols"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["_symbol_instance_record", "_symbol_overplot_record", "_append_schematic_symbol_records"]
+rust_symbols = ["SchematicDefinition", "SchematicOccurrence", "SymbolPlotDocument"]
+rack_cases = []
+evidence = ["docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "plotter_ir.schematic_sheets"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["_sheet_record", "_append_schematic_sheet_records"]
+rust_symbols = ["SchematicDefinition", "SchematicOccurrence", "PlotterOperation"]
+rack_cases = []
+evidence = ["docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "plotter_ir.phase5_exit"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["footprint_to_ir", "lib_symbol_to_ir", "pcb_to_ir", "schematic_to_ir"]
+rust_symbols = ["footprint_plot_document", "symbol_plot_document", "board_plot_document", "generate_text_render_cache_block_hinted_a0"]
+rack_cases = []
+evidence = ["docs/adrs/ADR-011-native-first-rust-port-delivery.md", "docs/design/rust-phase5-exit-audit.html"]
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
 
 [[surfaces]]
 id = "pcb.native_setup_stackup"

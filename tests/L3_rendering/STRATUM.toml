@@ -206,6 +206,31 @@ secondary = [
     "Real-world board smoke coverage",
     "Comparison in pcb internal units"
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L3_018"
+file = "test_L3_018_compiled_schematic_graph.py"
+name = "Compiled Schematic Graph"
+description = "Require generated-contract and semantic graph parity over the accepted project corpus"
+concerns = ["schematic", "compiled_graph", "parity", "contracts"]
+test_cases = "${WN_TEST_CORPUS}/kicad/projects"
+test_case_type = "shared_corpus"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_compiled_schematic_graph"
+
+[subtests.objectives]
+primary = "Compiled graph identity, hierarchy, connectivity, and policy match the Python authority"
+secondary = [
+    "All accepted real-world project cases are mandatory",
+    "Generated contract decoding and semantic validation both pass",
+    "Malformed identity and reference mutations fail deterministically",
+]
+
+# -----------------------------------------------------------------------------
+
 [[subtests]]
 id = "L3_020"
 file = "test_L3_020_rust_schematic_bundle.py"
