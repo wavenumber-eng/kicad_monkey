@@ -7,7 +7,6 @@ small source-CAD switch instead of a bespoke KiCad data shape.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -26,14 +25,8 @@ _PUBLIC_CONTRACT_PROJECT = (
 
 
 def _resolve_public_contract_project() -> Path | None:
-    candidates: list[Path] = [TEST_CORPUS_ROOT / _PUBLIC_CONTRACT_PROJECT]
-    env = os.environ.get("WN_TEST_CORPUS")
-    if env:
-        candidates.insert(0, Path(env) / _PUBLIC_CONTRACT_PROJECT)
-    for project_file in candidates:
-        if project_file.is_file():
-            return project_file
-    return None
+    project_file = TEST_CORPUS_ROOT / _PUBLIC_CONTRACT_PROJECT
+    return project_file if project_file.is_file() else None
 
 
 _CANBOB_PRO = _resolve_public_contract_project()

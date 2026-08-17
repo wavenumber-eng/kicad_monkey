@@ -320,7 +320,10 @@ def generate_symbol_review(
     preferences_dir: Path | None = None,
 ) -> Path:
     kicad_root = kicad_root.resolve()
-    review_dir = (output_path.parent if output_path else kicad_root / "review").resolve()
+    default_review_dir = (
+        Path(__file__).parent / "L3_rendering" / "output" / "symbol_svg"
+    )
+    review_dir = (output_path.parent if output_path else default_review_dir).resolve()
     output_path = output_path or (review_dir / "symbol_svg_review.html")
     assets_dir = review_dir / "symbol_svg_review"
     review_dir.mkdir(parents=True, exist_ok=True)
@@ -373,14 +376,14 @@ def main() -> int:
     parser.add_argument(
         "--kicad-root",
         type=Path,
-        default=_default_kicad_root(),
-        help="KiCad corpus root. Defaults to $WN_TEST_CORPUS/kicad or tests/corpus/kicad.",
+        default=None,
+        help="KiCad corpus root. Defaults to the resolved KM_CORPUS archive.",
     )
     parser.add_argument(
         "--output",
         type=Path,
         default=None,
-        help="HTML output path. Defaults to <kicad-root>/review/symbol_svg_review.html.",
+        help="HTML output path. Defaults to tests/L3_rendering/output/symbol_svg/.",
     )
     parser.add_argument(
         "--case",
@@ -391,8 +394,9 @@ def main() -> int:
     )
     parser.add_argument("--preferences", type=Path, default=None)
     args = parser.parse_args()
+    kicad_root = args.kicad_root or _default_kicad_root()
     output = generate_symbol_review(
-        kicad_root=args.kicad_root,
+        kicad_root=kicad_root,
         output_path=args.output,
         cases=args.cases,
         preferences_dir=args.preferences,

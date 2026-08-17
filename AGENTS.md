@@ -3,7 +3,8 @@
 - Distribution name: `kicad-monkey`.
 - Python import name: `kicad_monkey`.
 - Keep package-local tests under `tests/` and run Rack through `tests/rack.py`.
-- Use `WN_TEST_CORPUS` only to override the package-local corpus archive.
+- Use `KM_CORPUS` to select a reviewed `kicad.zip`; the package-local archive
+  is the default. A directory containing `kicad/` is only for fixture authoring.
 - Persistent cases should follow `input/`, `reference_output/`, `output/`.
 - `output/` is transient and belongs in local temp/output paths, not authoritative fixture data.
 - Keep `kicad_monkey` focused on parser/source-model, round-trip, basic 2D rendering, and close-to-format utilities.

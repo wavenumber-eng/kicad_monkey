@@ -391,3 +391,22 @@ secondary = [
     "Delimiter-heavy inputs reject at the configured span ceiling without an allocation-sizing pre-scan",
     "Focused Rust evidence passes through Rack and live Arial multiline/tab cases remain in L2_009",
 ]
+
+[[subtests]]
+id = "L0_061"
+file = "test_L0_061_km_corpus_archive.py"
+name = "KM Corpus Archive Resolution"
+description = "Require bot-compatible ZIP-first corpus selection and a hard namespace cutover"
+concerns = ["parsing", "release", "resource-limits"]
+test_cases = "../corpus/kicad.archive.toml"
+test_case_type = "algorithmic"
+
+[subtests.objectives]
+primary = "KM_CORPUS selects one reviewed kicad.zip and safely exposes its extracted fixture tree"
+secondary = [
+    "The package-local archive remains the default carrier",
+    "Explicit ZIP and fixture-authoring directory inputs are supported",
+    "Invalid carriers and unsafe ZIP members fail closed",
+    "Archive replacement refreshes the extracted cache",
+    "The removed WN_TEST_CORPUS namespace cannot override KM_CORPUS",
+]

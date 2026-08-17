@@ -74,7 +74,7 @@ uv run --extra test twine check dist/*
 
 Run narrower targeted tests while developing, then run the signoff gates before
 opening a PR. Corpus-backed tests use `tests/corpus/kicad.zip` unless
-`WN_TEST_CORPUS` points at an external reviewed corpus.
+`KM_CORPUS` points at an external reviewed `kicad.zip` archive.
 
 Release decisions, compatibility policy, and public contract changes should be
 recorded in `docs/adrs/`.

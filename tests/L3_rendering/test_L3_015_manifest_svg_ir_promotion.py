@@ -10,9 +10,10 @@ from typing import Any
 
 import pytest
 
+from _suite_paths import TEST_GENERATED_CORPUS_ROOT, resolve_test_corpus_output_path
+
 from kicad_monkey.testing.corpus import (
     get_kicad_corpus_case,
-    get_kicad_corpus_root,
     iter_kicad_corpus_cases,
     load_kicad_corpus_manifest,
     resolve_kicad_manifest_path,
@@ -401,7 +402,7 @@ def test_promoted_real_world_all_sheets_render_to_ir_and_svg_from_manifest(case)
     )
 
     project_path = resolve_kicad_manifest_path(case, "project_file")
-    output_root = resolve_kicad_manifest_path(case, "output_root")
+    output_root = resolve_test_corpus_output_path(case)
     assert project_path is not None and output_root is not None
 
     ir_out = output_root / "schematic_ir"
@@ -507,7 +508,7 @@ def test_synthetic_schematic_cases_render_to_ir_and_svg_from_manifest(case):
     )
 
     input_file = resolve_kicad_manifest_path(case, "input_file")
-    output_root = resolve_kicad_manifest_path(case, "output_root")
+    output_root = resolve_test_corpus_output_path(case)
     assert input_file is not None and output_root is not None
 
     sch = KiCadSchematic.from_file(input_file)
@@ -542,7 +543,7 @@ def test_promoted_real_world_board_renders_review_layers_from_manifest(case):
     from kicad_monkey import KiCadPcb, pcb_to_ir
 
     board_path = resolve_kicad_manifest_path(case, "board_file")
-    output_root = resolve_kicad_manifest_path(case, "output_root")
+    output_root = resolve_test_corpus_output_path(case)
     assert board_path is not None and output_root is not None
 
     pcb = KiCadPcb.from_file(board_path)
@@ -590,7 +591,7 @@ def test_custom_pads_project_board_ir_covers_custom_and_trapezoid_pads_from_mani
     case = get_kicad_corpus_case("project_corpus/common/custom_pads_test/input/custom_pads_test")
     assert case is not None
     board_path = resolve_kicad_manifest_path(case, "board_file")
-    output_root = resolve_kicad_manifest_path(case, "output_root")
+    output_root = resolve_test_corpus_output_path(case)
     assert board_path is not None and output_root is not None
 
     pcb = KiCadPcb.from_file(board_path)
@@ -691,7 +692,7 @@ def test_synthetic_ir_coverage_gap_fixture_writes_remaining_op_kinds():
         "FlashRegularPolygon",
     } <= set(hist)
 
-    out_root = get_kicad_corpus_root() / "ir_coverage" / "output"
+    out_root = TEST_GENERATED_CORPUS_ROOT / "ir_coverage" / "output"
     ir_dir = out_root / "synthetic_ir"
     svg_dir = out_root / "synthetic_svg"
     ir_dir.mkdir(parents=True, exist_ok=True)
@@ -712,7 +713,7 @@ def test_public_official_symbol_libraries_render_units_from_manifest(case):
     from kicad_monkey import KiCadSymbolLib
 
     input_file = resolve_kicad_manifest_path(case, "input_file")
-    output_root = resolve_kicad_manifest_path(case, "output_root")
+    output_root = resolve_test_corpus_output_path(case)
     assert input_file is not None and output_root is not None
 
     lib = KiCadSymbolLib.from_file(input_file)
@@ -749,7 +750,7 @@ def test_public_official_footprints_render_to_ir_and_svg_from_manifest(case):
     from kicad_monkey import KiCadFootprint, footprint_to_ir
 
     input_file = resolve_kicad_manifest_path(case, "input_file")
-    output_root = resolve_kicad_manifest_path(case, "output_root")
+    output_root = resolve_test_corpus_output_path(case)
     assert input_file is not None and output_root is not None
 
     fp = KiCadFootprint.from_file(input_file)
@@ -797,7 +798,7 @@ def test_mimxrt685_symbol_library_renders_each_unit_from_manifest():
     case = get_kicad_corpus_case("internal_library/symbol_svg/MIMXRT685SFVKB")
     assert case is not None
     input_file = resolve_kicad_manifest_path(case, "input_file")
-    output_root = resolve_kicad_manifest_path(case, "output_root")
+    output_root = resolve_test_corpus_output_path(case)
     assert input_file is not None and output_root is not None
 
     lib = KiCadSymbolLib.from_file(input_file)
@@ -844,7 +845,7 @@ def test_schematic_recorder_drift_cases_match_manifest_oracles(case):
 
     input_file = resolve_kicad_manifest_path(case, "input_file")
     recorder_file = resolve_kicad_manifest_path(case, "recorder_file")
-    output_root = resolve_kicad_manifest_path(case, "output_root")
+    output_root = resolve_test_corpus_output_path(case)
     assert input_file is not None and input_file.exists()
     assert recorder_file is not None and recorder_file.exists()
     assert output_root is not None

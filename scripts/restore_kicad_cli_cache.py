@@ -2,7 +2,7 @@
 
 The restored tree is written to:
 
-    <corpus-root>/tools/kicad-cli/<short_hash>/
+    <cache-root>/<short_hash>/
 
 Run with:
 
@@ -84,16 +84,29 @@ def main(argv: list[str] | None = None) -> int:
         archive_path = temp_dir / entry.r2_archive
         extract_dir = temp_dir / "extract"
 
-        _download_file(s3, config.bucket, f"{entry.r2_prefix}manifest.json", remote_manifest_path)
+        _download_file(
+            s3, config.bucket, f"{entry.r2_prefix}manifest.json", remote_manifest_path
+        )
         cache_manifest = _load_cache_manifest(remote_manifest_path, entry)
 
-        _download_file(s3, config.bucket, f"{entry.r2_prefix}{entry.r2_archive}.sha256", remote_sha_path)
-        _download_file(s3, config.bucket, f"{entry.r2_prefix}{entry.r2_archive}", archive_path)
+        _download_file(
+            s3,
+            config.bucket,
+            f"{entry.r2_prefix}{entry.r2_archive}.sha256",
+            remote_sha_path,
+        )
+        _download_file(
+            s3, config.bucket, f"{entry.r2_prefix}{entry.r2_archive}", archive_path
+        )
 
         archive_sha256 = sha256_file(archive_path)
         expected_sha256 = str(cache_manifest["archive"]["sha256"])
         sidecar_sha256 = _parse_sha256_sidecar(remote_sha_path)
-        expected_values = {entry.r2_sha256.lower(), expected_sha256.lower(), sidecar_sha256.lower()}
+        expected_values = {
+            entry.r2_sha256.lower(),
+            expected_sha256.lower(),
+            sidecar_sha256.lower(),
+        }
         if len(expected_values) != 1 or archive_sha256.lower() not in expected_values:
             raise RuntimeError(
                 "archive SHA-256 mismatch: "
@@ -122,17 +135,17 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="Manifest short_hash to restore. Defaults to the last entry with R2 fields.",
     )
     parser.add_argument(
-        "--corpus-root",
+        "--cache-root",
         type=Path,
         help=(
-            "Corpus root that contains tools/kicad-cli. Defaults to "
-            "$WN_TEST_CORPUS after .env loading, then tests/corpus."
+            "KiCad CLI cache root. Defaults to $KICAD_CLI_CACHE_ROOT, then "
+            "tests/.cache/kicad-cli."
         ),
     )
     parser.add_argument(
         "--target-dir",
         type=Path,
-        help="Explicit restore target directory. Overrides --corpus-root.",
+        help="Explicit restore target directory. Overrides --cache-root.",
     )
     parser.add_argument(
         "--env-file",
@@ -231,11 +244,15 @@ def _make_s3_client(config: RestoreConfig) -> Any:
         aws_access_key_id=config.access_key_id,
         aws_secret_access_key=config.secret_access_key,
         region_name=config.region,
-        config=botocore_client.Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+        config=botocore_client.Config(
+            signature_version="s3v4", s3={"addressing_style": "path"}
+        ),
     )
 
 
-def _select_cache_entry(manifest_path: Path, short_hash: str | None) -> KicadCliCacheEntry:
+def _select_cache_entry(
+    manifest_path: Path, short_hash: str | None
+) -> KicadCliCacheEntry:
     data = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
     versions = data.get("versions")
     if not isinstance(versions, list):
@@ -247,13 +264,18 @@ def _select_cache_entry(manifest_path: Path, short_hash: str | None) -> KicadCli
             continue
         if short_hash is not None and raw_entry.get("short_hash") != short_hash:
             continue
-        if all(raw_entry.get(key) for key in ("r2_bucket", "r2_prefix", "r2_archive", "r2_sha256")):
+        if all(
+            raw_entry.get(key)
+            for key in ("r2_bucket", "r2_prefix", "r2_archive", "r2_sha256")
+        ):
             candidates.append(raw_entry)
 
     if not candidates:
         if short_hash is None:
             raise RuntimeError("manifest has no R2-backed kicad-cli versions")
-        raise RuntimeError(f"manifest has no R2-backed version with short_hash={short_hash!r}")
+        raise RuntimeError(
+            f"manifest has no R2-backed version with short_hash={short_hash!r}"
+        )
 
     raw = candidates[-1]
     prefix = str(raw["r2_prefix"]).strip("/")
@@ -269,8 +291,13 @@ def _select_cache_entry(manifest_path: Path, short_hash: str | None) -> KicadCli
 def _target_dir(args: argparse.Namespace, entry: KicadCliCacheEntry) -> Path:
     if args.target_dir is not None:
         return args.target_dir.resolve()
-    corpus_root = args.corpus_root or Path(os.environ.get("WN_TEST_CORPUS", REPO_ROOT / "tests" / "corpus"))
-    return (corpus_root / "tools" / "kicad-cli" / entry.short_hash).resolve()
+    cache_root = args.cache_root or Path(
+        os.environ.get(
+            "KICAD_CLI_CACHE_ROOT",
+            REPO_ROOT / "tests" / ".cache" / "kicad-cli",
+        )
+    )
+    return (cache_root / entry.short_hash).resolve()
 
 
 def _download_file(s3: Any, bucket: str, key: str, path: Path) -> None:
@@ -337,7 +364,9 @@ def _validate_extracted_bundle(extract_dir: Path) -> None:
         raise RuntimeError(f"restored bundle is missing required paths:\n{joined}")
 
 
-def _install_extracted_tree(extract_dir: Path, target_dir: Path, *, force: bool) -> None:
+def _install_extracted_tree(
+    extract_dir: Path, target_dir: Path, *, force: bool
+) -> None:
     target_parent = target_dir.parent.resolve()
     if not target_parent.exists():
         target_parent.mkdir(parents=True, exist_ok=True)
@@ -346,7 +375,9 @@ def _install_extracted_tree(extract_dir: Path, target_dir: Path, *, force: bool)
 
     if target_parent not in resolved_target.parents:
         raise RuntimeError(f"target directory is outside its parent: {target_dir}")
-    if resolved_target == target_parent or resolved_target.anchor == str(resolved_target):
+    if resolved_target == target_parent or resolved_target.anchor == str(
+        resolved_target
+    ):
         raise RuntimeError(f"refusing unsafe target directory: {target_dir}")
 
     if target_dir.exists():

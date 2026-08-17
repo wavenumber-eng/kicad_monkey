@@ -17,7 +17,6 @@ this broad corpus gate canonicalizes suffix-only permutations by terminal set.
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import subprocess
@@ -26,6 +25,7 @@ from pathlib import Path
 
 import pytest
 
+from _suite_paths import TEST_CORPUS_ROOT
 from kicad_cli_resolver import resolve_kicad_cli
 from kicad_monkey import (
     KiCadDesign,
@@ -41,25 +41,13 @@ PROJECT_BUCKETS = ("projects", "common", "upstream_qa", "netlist")
 
 
 def _resolve_corpus() -> Path | None:
-    candidates: list[Path] = []
-    env = os.environ.get("WN_TEST_CORPUS")
-    if env:
-        candidates.append(Path(env))
-    candidates.append(Path(__file__).resolve().parents[1] / "corpus")
-    for candidate in candidates:
-        if (candidate / "kicad").is_dir():
-            return candidate
-    return None
+    return TEST_CORPUS_ROOT if (TEST_CORPUS_ROOT / "kicad").is_dir() else None
 
 
 _CORPUS = _resolve_corpus()
 _KICAD_ROOT = (_CORPUS / "kicad") if _CORPUS is not None else None
 _CLI = resolve_kicad_cli()
-_REF_OUTPUT_DIR = (
-    _KICAD_ROOT / "netlist" / "project_corpus_reference_output"
-    if _KICAD_ROOT is not None
-    else None
-)
+_REF_OUTPUT_DIR = Path(__file__).parent / "output" / "project_corpus_netlist_oracle"
 _STAGE_SKIP_NAMES = {".git", ".history", "_stage", "output", "reference_output"}
 
 
@@ -176,7 +164,9 @@ def _emit_golden(pro: Path, *, cli: Path, dest_dir: Path) -> Path:
     ):
         return out_path
 
-    with tempfile.TemporaryDirectory(prefix=f"kicad_monkey_{_slug(pro)}_") as stage_name:
+    with tempfile.TemporaryDirectory(
+        prefix=f"kicad_monkey_{_slug(pro)}_"
+    ) as stage_name:
         stage = Path(stage_name)
         for child in pro.parent.iterdir():
             if child.name in _STAGE_SKIP_NAMES:
@@ -208,7 +198,9 @@ def _emit_golden(pro: Path, *, cli: Path, dest_dir: Path) -> Path:
         )
     if proc.returncode != 0:
         msg = (proc.stdout or "") + (proc.stderr or "")
-        raise RuntimeError(f"kicad-cli netlist export failed for {_rel(pro)}: {msg.strip()}")
+        raise RuntimeError(
+            f"kicad-cli netlist export failed for {_rel(pro)}: {msg.strip()}"
+        )
     return out_path
 
 
@@ -288,22 +280,26 @@ def _load_export(text: str):
     return sexp
 
 
-@pytest.mark.skipif(_KICAD_ROOT is None, reason="WN_TEST_CORPUS/kicad not present")
+@pytest.mark.skipif(_KICAD_ROOT is None, reason="KM_CORPUS kicad root not present")
 def test_project_corpus_inventory_matches_audit():
     rels = {_rel(pro) for pro in CASES}
     assert len(CASES) >= 54
     assert set(KNOWN_DRIFTS).issubset(rels)
 
 
-@pytest.mark.skipif(_KICAD_ROOT is None, reason="WN_TEST_CORPUS/kicad not present")
-@pytest.mark.skipif(_CLI is None, reason="kicad-cli not resolvable; set $KICAD_CLI or stage one")
+@pytest.mark.skipif(_KICAD_ROOT is None, reason="KM_CORPUS kicad root not present")
+@pytest.mark.skipif(
+    _CLI is None, reason="kicad-cli not resolvable; set $KICAD_CLI or stage one"
+)
 @pytest.mark.parametrize("pro", CASES, ids=lambda p: _rel(p))
 def test_project_corpus_netlist_matches_kicad_cli(pro: Path, request):
     rel = _rel(pro)
     if rel in KNOWN_DRIFTS:
-        request.node.add_marker(pytest.mark.xfail(reason=KNOWN_DRIFTS[rel], strict=False))
+        request.node.add_marker(
+            pytest.mark.xfail(reason=KNOWN_DRIFTS[rel], strict=False)
+        )
 
-    assert _CLI is not None and _REF_OUTPUT_DIR is not None
+    assert _CLI is not None
     golden_path = _emit_golden(pro, cli=_CLI, dest_dir=_REF_OUTPUT_DIR)
     golden = _load_export(golden_path.read_text(encoding="utf-8"))
 

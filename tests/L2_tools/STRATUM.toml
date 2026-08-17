@@ -42,7 +42,7 @@ objectives = [
 file = "test_L2_001_symbol_extraction.py"
 name = "Symbol Extraction"
 description = "Extract symbols from .kicad_sym files"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/board/input/speedy"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/board/input/speedy"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -57,7 +57,7 @@ primary = "Symbols extracted correctly from library files"
 file = "test_L2_002_footprint_extraction.py"
 name = "Footprint Extraction"
 description = "Extract footprints from projects"
-test_cases = "${WN_TEST_CORPUS}/kicad"
+test_cases = "${KM_CORPUS_ROOT}/kicad"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -72,7 +72,7 @@ primary = "Footprints extracted correctly from projects"
 file = "test_L2_003_component_indexing.py"
 name = "Component Indexing"
 description = "Index and lookup components from PCB"
-test_cases = "${WN_TEST_CORPUS}/kicad/common"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -87,7 +87,7 @@ primary = "Components indexed and looked up correctly"
 file = "test_L2_007_library_extraction.py"
 name = "Library Extraction"
 description = "Extract project-local symbols, footprints, metadata, and embedded STEP models"
-test_cases = "${WN_TEST_CORPUS}/kicad/projects/4-ch-backplane"
+test_cases = "${KM_CORPUS_ROOT}/kicad/projects/4-ch-backplane"
 test_case_type = "real_world"
 
 [subtests.code_under_test]

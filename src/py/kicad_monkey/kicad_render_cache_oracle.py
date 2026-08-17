@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
+import tempfile
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -31,6 +31,7 @@ from .kicad_render_cache import (
     render_cache_request_for_table_cell,
 )
 from .kicad_sexpr import build_sexp, parse_sexp
+from .testing.corpus import get_kicad_corpus_root
 
 
 class KiCadRenderCacheOracleError(RuntimeError):
@@ -897,8 +898,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--kicad-root",
         type=Path,
-        default=Path(os.environ.get("WN_TEST_CORPUS", "tests/corpus")) / "kicad",
-        help="Path to the KiCad corpus root containing manifest.json.",
+        default=None,
+        help="Path to the KiCad corpus root. Defaults to resolved KM_CORPUS.",
     )
     parser.add_argument(
         "--status",
@@ -913,15 +914,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-md", type=Path, default=None)
     parser.add_argument("--top-limit", type=int, default=40)
     args = parser.parse_args(argv)
+    kicad_root = args.kicad_root or get_kicad_corpus_root()
 
     statuses = args.status if args.status is not None else ["active", "reference_only"]
-    report = build_render_cache_coverage_report(args.kicad_root, statuses=statuses)
-    output_json = args.output_json or (
-        args.kicad_root / "review" / "render_cache_coverage_report.json"
-    )
-    output_md = args.output_md or (
-        args.kicad_root / "review" / "render_cache_coverage_report.md"
-    )
+    report = build_render_cache_coverage_report(kicad_root, statuses=statuses)
+    report_root = Path(tempfile.gettempdir()) / "kicad-monkey" / "reports"
+    output_json = args.output_json or (report_root / "render_cache_coverage_report.json")
+    output_md = args.output_md or (report_root / "render_cache_coverage_report.md")
     write_render_cache_coverage_report(
         report,
         output_json=output_json,

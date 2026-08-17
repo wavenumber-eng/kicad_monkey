@@ -45,7 +45,7 @@ objectives = [
 file = "test_L1_001_pcb_roundtrip.py"
 name = "PCB Round-Trip"
 description = "Parse -> serialize -> parse PCB files with equivalency check"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/board/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/board/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -68,7 +68,7 @@ secondary = [
 file = "test_L1_002_footprint_roundtrip.py"
 name = "Footprint Round-Trip"
 description = "Parse -> serialize -> parse footprint files with equivalency check"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/footprints/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/footprints/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -90,7 +90,7 @@ secondary = [
 file = "test_L1_003_oop_equivalency.py"
 name = "OOP Model Equivalency"
 description = "OOP model data matches raw sexp after parsing"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/board/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/board/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -117,7 +117,7 @@ primary = "Consistency across parsing methods"
 file = "test_L1_005_symbol_roundtrip.py"
 name = "Symbol Library Round-Trip"
 description = "Parse -> serialize -> parse symbol library files with equivalency check"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/reference_symbols/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/reference_symbols/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -140,7 +140,7 @@ secondary = [
 file = "test_L1_006_schematic_roundtrip.py"
 name = "Schematic Round-Trip"
 description = "Parse -> serialize -> parse schematic document files with equivalency check"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/reference_schematics/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/reference_schematics/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -164,7 +164,7 @@ secondary = [
 file = "test_L1_007_worksheet_roundtrip.py"
 name = "Worksheet Round-Trip"
 description = "Parse -> serialize -> parse worksheet/page layout files with equivalency check"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/reference_worksheets/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/reference_worksheets/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -188,7 +188,7 @@ secondary = [
 file = "test_L1_008_shared_corpus_source_model_readiness.py"
 name = "Shared Corpus Source Model Readiness"
 description = "Validate the real KiCad OOP surface on the shared KiCad corpus"
-test_cases = "${WN_TEST_CORPUS}/kicad/common"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common"
 test_case_type = "shared_corpus"
 
 [subtests.code_under_test]
@@ -231,7 +231,7 @@ file = "test_L1_018_corpus_sexpr_passthrough.py"
 name = "Python Corpus S-Expression Pass-Through"
 description = "Run the Python parser/writer over every promoted KiCad S-expression file"
 concerns = ["sexpr", "python", "parity"]
-test_cases = "${WN_TEST_CORPUS}/kicad"
+test_cases = "${KM_CORPUS_ROOT}/kicad"
 test_case_type = "shared_corpus"
 
 [subtests.objectives]
@@ -250,7 +250,7 @@ file = "test_L1_022_rust_corpus_sexpr_passthrough.py"
 name = "Rust Corpus S-Expression Pass-Through"
 description = "Run the Rust parser/writer over every promoted KiCad S-expression file"
 concerns = ["sexpr", "rust", "performance"]
-test_cases = "${WN_TEST_CORPUS}/kicad"
+test_cases = "${KM_CORPUS_ROOT}/kicad"
 test_case_type = "shared_corpus"
 
 [subtests.objectives]
@@ -404,7 +404,7 @@ file = "test_L1_029_rust_pcb_typed_slice.py"
 name = "Rust Native PCB Reader/Writer Slice"
 description = "Run the source-backed PCB view, focused writer, and promoted corpus parity through Rack"
 concerns = ["sexpr", "rust", "pcb", "writeback", "native"]
-test_cases = "${WN_TEST_CORPUS}/kicad/projects"
+test_cases = "${KM_CORPUS_ROOT}/kicad/projects"
 test_case_type = "shared_corpus"
 
 [subtests.objectives]
@@ -441,7 +441,7 @@ file = "test_L1_030_rust_pcb_roundtrip.py"
 name = "Rust Native PCB Owned Round-Trip"
 description = "Require exact owned writeback and complete promoted semantic decoding over every authoritative PCB input"
 concerns = ["sexpr", "rust", "pcb", "writeback", "native", "shared_corpus"]
-test_cases = "${WN_TEST_CORPUS}/kicad/**/input/**/*.kicad_pcb"
+test_cases = "${KM_CORPUS_ROOT}/kicad/**/input/**/*.kicad_pcb"
 test_case_type = "shared_corpus"
 
 [subtests.objectives]
@@ -533,7 +533,7 @@ file = "test_L1_034_rust_project_roundtrip.py"
 name = "Rust Native Project Reader/Writer"
 description = "Require full restored-corpus project JSON parity and transactional writeback"
 concerns = ["json", "rust", "project", "writeback", "native"]
-test_cases = "tests/corpus/kicad.zip:**/*.kicad_pro"
+test_cases = "${KM_CORPUS_ROOT}/kicad"
 test_case_type = "shared_corpus"
 
 [subtests.objectives]

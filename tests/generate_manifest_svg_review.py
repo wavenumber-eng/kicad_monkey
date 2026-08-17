@@ -1,6 +1,6 @@
 """Generate a manifest-driven KiCad SVG review page.
 
-The page links generated project SVGs from ``$WN_TEST_CORPUS/kicad`` and uses
+The page links generated project SVGs from the resolved ``KM_CORPUS`` and uses
 ``svg-pan-zoom`` for interactive inspection of selected previews.
 """
 
@@ -14,6 +14,9 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
+from corpus_output_paths import resolve_test_corpus_output_path
+from kicad_monkey.testing.corpus import get_kicad_corpus_root
 
 PAN_ZOOM_SCRIPT = "https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"
 VIEWBOX_RE = re.compile(r"<svg\b[^>]*\bviewBox=(['\"])(.*?)\1", re.IGNORECASE | re.DOTALL)
@@ -43,10 +46,7 @@ class ProjectReview:
 
 
 def _default_kicad_root() -> Path:
-    env_root = os.environ.get("WN_TEST_CORPUS")
-    if env_root:
-        return Path(env_root) / "kicad"
-    return Path(__file__).resolve().parents[1] / "tests" / "corpus" / "kicad"
+    return get_kicad_corpus_root()
 
 
 def _html(value: object) -> str:
@@ -103,7 +103,8 @@ def _discover_projects(kicad_root: Path, *, review_dir: Path) -> list[ProjectRev
         output_root_value = case.get("output_root")
         if not output_root_value:
             continue
-        output_root = kicad_root / str(output_root_value)
+        output_root = resolve_test_corpus_output_path(case)
+        assert output_root is not None
         schematic_svgs = [
             _svg_info(path, review_dir=review_dir)
             for path in sorted((output_root / "schematic_svg").glob("*.svg"))
@@ -207,7 +208,9 @@ def _render_table(projects: list[ProjectReview], *, review_dir: Path, kicad_root
         output_root_value = case.get("output_root")
         output_href = ""
         if output_root_value:
-            output_href = _rel_href(kicad_root / str(output_root_value), from_dir=review_dir)
+            output_root = resolve_test_corpus_output_path(case)
+            assert output_root is not None
+            output_href = _rel_href(output_root, from_dir=review_dir)
         rows.append(
             "<tr>"
             f"<td>{_html(project.name)}</td>"
@@ -348,7 +351,10 @@ def _render_page(projects: list[ProjectReview], *, kicad_root: Path, review_dir:
 
 def generate_review(kicad_root: Path, output_path: Path | None = None) -> Path:
     kicad_root = kicad_root.resolve()
-    review_dir = (output_path.parent if output_path else kicad_root / "review").resolve()
+    default_review_dir = (
+        Path(__file__).parent / "L3_rendering" / "output" / "manifest_svg"
+    )
+    review_dir = (output_path.parent if output_path else default_review_dir).resolve()
     output_path = output_path or (review_dir / "svg_review.html")
     review_dir.mkdir(parents=True, exist_ok=True)
 
@@ -368,18 +374,18 @@ def main() -> int:
     parser.add_argument(
         "--kicad-root",
         type=Path,
-        default=_default_kicad_root(),
-        help="KiCad corpus root. Defaults to $WN_TEST_CORPUS/kicad or tests/corpus/kicad.",
+        default=None,
+        help="KiCad corpus root. Defaults to the resolved KM_CORPUS archive.",
     )
     parser.add_argument(
         "--output",
         type=Path,
         default=None,
-        help="HTML output path. Defaults to <kicad-root>/review/svg_review.html.",
+        help="HTML output path. Defaults to tests/L3_rendering/output/manifest_svg/.",
     )
     args = parser.parse_args()
 
-    output_path = generate_review(args.kicad_root, args.output)
+    output_path = generate_review(args.kicad_root or _default_kicad_root(), args.output)
     print(output_path)
     return 0
 

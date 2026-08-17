@@ -35,6 +35,8 @@ LOCAL_KICAD_MONKEY_SRC = REPO_ROOT / "src" / "py"
 if LOCAL_KICAD_MONKEY_SRC.exists() and str(LOCAL_KICAD_MONKEY_SRC) not in sys.path:
     sys.path.insert(0, str(LOCAL_KICAD_MONKEY_SRC))
 
+from kicad_monkey.testing.corpus import get_kicad_corpus_root  # noqa: E402
+
 PLOTTED_RE = re.compile(r"Plotted to ['\"]([^'\"]+\.svg)['\"]", re.IGNORECASE)
 TRANSFORM_RE = re.compile(r"([A-Za-z]+)\(([^)]*)\)")
 NUMBER_RE = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
@@ -303,10 +305,7 @@ def _require_text_metric_dependencies() -> None:
 
 
 def _default_kicad_root() -> Path:
-    corpus = os.environ.get("WN_TEST_CORPUS")
-    if corpus:
-        return Path(corpus) / "kicad"
-    return REPO_ROOT / "tests" / "corpus" / "kicad"
+    return get_kicad_corpus_root()
 
 
 def _html(value: object) -> str:
@@ -1746,7 +1745,8 @@ def generate_comparison(
     compare_themed: bool = False,
 ) -> Path:
     kicad_root = kicad_root.resolve()
-    review_dir = (output_path.parent if output_path else kicad_root / "review").resolve()
+    default_review_dir = REPO_ROOT / "tests" / "L3_rendering" / "output" / "cli_svg"
+    review_dir = (output_path.parent if output_path else default_review_dir).resolve()
     output_path = output_path or (review_dir / "cli_svg_compare.html")
     assets_dir = review_dir / "cli_svg_compare"
     review_dir.mkdir(parents=True, exist_ok=True)
@@ -1820,14 +1820,14 @@ def main() -> int:
     parser.add_argument(
         "--kicad-root",
         type=Path,
-        default=_default_kicad_root(),
-        help="KiCad corpus root. Defaults to $WN_TEST_CORPUS/kicad or tests/corpus/kicad.",
+        default=None,
+        help="KiCad corpus root. Defaults to the resolved KM_CORPUS archive.",
     )
     parser.add_argument(
         "--output",
         type=Path,
         default=None,
-        help="HTML output path. Defaults to <kicad-root>/review/cli_svg_compare.html.",
+        help="HTML output path. Defaults to tests/L3_rendering/output/cli_svg/.",
     )
     parser.add_argument(
         "--case",
@@ -1858,8 +1858,9 @@ def main() -> int:
     args = parser.parse_args()
 
     _require_text_metric_dependencies()
+    kicad_root = args.kicad_root or _default_kicad_root()
     output_path = generate_comparison(
-        kicad_root=args.kicad_root,
+        kicad_root=kicad_root,
         output_path=args.output,
         cases=args.cases,
         max_cases=args.max_cases,

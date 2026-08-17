@@ -2,7 +2,7 @@
 //!
 //! Absolute corpus paths are supplied one per line on stdin. Keeping corpus
 //! discovery in Rack/Python preserves the package's canonical archive and
-//! `WN_TEST_CORPUS` resolution rules without adding archive or CLI dependencies
+//! `KM_CORPUS` resolution rules without adding archive or CLI dependencies
 //! to the production parser crate.
 
 use kicad_monkey_core::{ErrorPhase, build, parse_bytes};

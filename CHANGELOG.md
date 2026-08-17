@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Replace the removed shared `WN_TEST_CORPUS` directory convention with the
+  bot-compatible `KM_CORPUS` ZIP carrier, safe cached extraction, Rack-visible
+  `KM_CORPUS_ROOT`, and an independent `KICAD_CLI_CACHE_ROOT` for oracle tools.
+
 - Add bounded native board-dimension Plotter-IR for aligned, orthogonal,
   radial, leader, and center carriers, including Python-compatible formatting,
   Newstroke markup, faced text/cache projection, strict generated contracts,

@@ -29,10 +29,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Tuple
 
@@ -426,7 +425,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--corpus-root",
         type=Path,
-        default=Path(os.environ.get("WN_TEST_CORPUS", repo_root / "tests" / "corpus")),
+        default=repo_root / "tests" / "corpus",
+        help="Writable authoring root containing the kicad corpus folder.",
     )
     parser.add_argument(
         "--cases",

@@ -1,18 +1,18 @@
-# kicad-cli versions staged in the test corpus.
+# kicad-cli versions staged in the independent binary cache.
 #
-# Binaries themselves live in the corpus (WN_TEST_CORPUS), NOT in this
+# Binaries themselves live under KICAD_CLI_CACHE_ROOT, NOT in this
 # repo (each version is several hundred megabytes). This manifest is the
 # authoritative pointer: tests/kicad_cli_resolver.py prefers builds in
 # the order they are listed here over any other staged build found by
-# mtime. The corpus can contain stale experimental builds that must not
+# mtime. The cache can contain stale experimental builds that must not
 # be picked up just because their mtime is newer.
 #
 # To add a new staged version, build kicad-cli from a clean checkout,
 # copy the resulting release tree to
-#   <corpus>/tools/kicad-cli/<short-hash>/{bin,share,lib,etc}
+#   <cache-root>/<short-hash>/{bin,share,lib,etc}
 # and append a [[versions]] block here.
 
-corpus_relative_root = "tools/kicad-cli"
+cache_layout = "<short-hash>/{bin,share,lib,etc}"
 license = "GPL-2.0-or-later"
 
 [[versions]]

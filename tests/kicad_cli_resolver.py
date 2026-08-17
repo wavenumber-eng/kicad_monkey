@@ -1,4 +1,4 @@
-"""Shared KiCad CLI resolver for corpus-backed oracle tests."""
+"""Shared KiCad CLI resolver for cache-backed oracle tests."""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import Literal
 
 
-def _corpus_roots() -> list[Path]:
+def _cli_cache_roots() -> list[Path]:
     roots: list[Path] = []
-    env_corpus = os.environ.get("WN_TEST_CORPUS")
-    if env_corpus:
-        roots.append(Path(env_corpus))
-    roots.append(Path(__file__).resolve().parent / "corpus")
+    configured = os.environ.get("KICAD_CLI_CACHE_ROOT")
+    if configured:
+        roots.append(Path(configured))
+    roots.append(Path(__file__).resolve().parent / ".cache" / "kicad-cli")
 
     out: list[Path] = []
     seen: set[Path] = set()
@@ -31,7 +31,7 @@ def _corpus_roots() -> list[Path]:
 def _manifest_short_hashes() -> list[str]:
     """Return staged CLI hashes in manifest order.
 
-    The manifest is authoritative because the corpus can contain stale
+    The manifest is authoritative because the cache can contain stale
     experimental builds that should not be used just because their mtime is
     newer.
     """
@@ -66,7 +66,7 @@ def _build_tree_dir(candidate: Path) -> Path | None:
 def kicad_cli_subprocess_env(candidate: Path) -> dict[str, str] | None:
     """Return subprocess env overrides needed by a build-tree KiCad CLI.
 
-    Staged corpus and installed KiCad CLIs are self-contained enough for the
+    Staged cache and installed KiCad CLIs are self-contained enough for the
     default environment. A local debug build, however, needs the build DLL
     directories and vcpkg Python runtime on ``PATH``.
     """
@@ -99,7 +99,11 @@ def kicad_cli_subprocess_env(candidate: Path) -> dict[str, str] | None:
     env["KICAD_RUN_FROM_BUILD_DIR"] = "1"
     env["KICAD_USE_EXTERNAL_PYTHONHOME"] = "1"
     env["PYTHONHOME"] = str(python_home)
-    env["PATH"] = os.pathsep.join(str(path) for path in path_entries) + os.pathsep + env.get("PATH", "")
+    env["PATH"] = (
+        os.pathsep.join(str(path) for path in path_entries)
+        + os.pathsep
+        + env.get("PATH", "")
+    )
     return env
 
 
@@ -120,17 +124,15 @@ def _iter_kicad_cli_candidates() -> list[Path]:
         add(Path(env_cli))
 
     manifest_hashes = _manifest_short_hashes()
-    for corpus_root in _corpus_roots():
-        corpus_tools = corpus_root / "tools" / "kicad-cli"
+    for cache_root in _cli_cache_roots():
         for short_hash in manifest_hashes:
-            add(corpus_tools / short_hash / "bin" / "kicad-cli.exe")
+            add(cache_root / short_hash / "bin" / "kicad-cli.exe")
 
-    for corpus_root in _corpus_roots():
-        corpus_tools = corpus_root / "tools" / "kicad-cli"
-        if not corpus_tools.exists():
+    for cache_root in _cli_cache_roots():
+        if not cache_root.exists():
             continue
         staged = sorted(
-            (d for d in corpus_tools.iterdir() if d.is_dir()),
+            (d for d in cache_root.iterdir() if d.is_dir()),
             key=lambda d: d.stat().st_mtime,
             reverse=True,
         )
@@ -150,7 +152,9 @@ def _has_pcb_runtime(candidate: Path) -> bool:
     """Return whether a Windows candidate has access to pcbnew runtime DLLs."""
     if os.name != "nt":
         return True
-    return (candidate.parent / "_pcbnew.dll").exists() or _build_tree_dir(candidate) is not None
+    return (candidate.parent / "_pcbnew.dll").exists() or _build_tree_dir(
+        candidate
+    ) is not None
 
 
 def _supports_pcb_export_command(candidate: Path, export_command: str) -> bool:
@@ -196,8 +200,8 @@ def resolve_kicad_cli(
 
     Resolution policy:
     1. explicit ``$KICAD_CLI``;
-    2. manifest-listed staged corpus builds, in manifest order;
-    3. any other staged corpus build as a fallback;
+    2. manifest-listed staged cache builds, in manifest order;
+    3. any other staged cache build as a fallback;
     4. ``PATH``;
     5. installed KiCad 10/9.
     """

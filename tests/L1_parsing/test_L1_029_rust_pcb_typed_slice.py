@@ -14,10 +14,9 @@ from kicad_monkey.kicad_base import find_element, unquote_string
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
-CORPUS_ROOT = Path(os.environ.get("WN_TEST_CORPUS", TEST_CORPUS_ROOT))
+CORPUS_ROOT = TEST_CORPUS_ROOT
 CORPUS_BOARDS = (
-    CORPUS_ROOT
-    / "kicad/projects/4-ch-backplane/input/4-ch-backplane.kicad_pcb",
+    CORPUS_ROOT / "kicad/projects/4-ch-backplane/input/4-ch-backplane.kicad_pcb",
     CORPUS_ROOT
     / "kicad/projects/speedy_processing_module/input/11-10084__speedy_processing_module__B.kicad_pcb",
 )
@@ -173,8 +172,10 @@ def _projection_executable() -> Path:
             "pcb_projection_gate",
         ]
     )
-    return PACKAGE_ROOT / "target/debug/examples" / (
-        "pcb_projection_gate.exe" if os.name == "nt" else "pcb_projection_gate"
+    return (
+        PACKAGE_ROOT
+        / "target/debug/examples"
+        / ("pcb_projection_gate.exe" if os.name == "nt" else "pcb_projection_gate")
     )
 
 
@@ -219,7 +220,7 @@ def test_native_pcb_projection_matches_python_on_promoted_corpus() -> None:
     assert not missing, (
         "required promoted PCB corpus evidence is unavailable. Restore and verify it "
         "with `uv run --extra test python scripts/kicad_corpus_archive.py restore "
-        "--check-zip`, or set WN_TEST_CORPUS to a reviewed corpus root. Missing: "
+        "--check-zip`, or set KM_CORPUS to a reviewed kicad.zip. Missing: "
         + ", ".join(missing)
     )
     executable = _projection_executable()
@@ -389,9 +390,7 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
         ),
         "keepouts": sum(zone.keepout is not None for zone in board.zones),
         "placements": sum(zone.placement is not None for zone in board.zones),
-        "layer_properties": sum(
-            len(zone.layer_properties) for zone in board.zones
-        ),
+        "layer_properties": sum(len(zone.layer_properties) for zone in board.zones),
     }
     if board.zones:
         zone = board.zones[0]
@@ -451,9 +450,7 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
                 {
                     "layer": zone.filled_polygons[0].layer,
                     "island": zone.filled_polygons[0].island,
-                    "points": [
-                        list(point) for point in zone.filled_polygons[0].points
-                    ],
+                    "points": [list(point) for point in zone.filled_polygons[0].points],
                 }
                 if zone.filled_polygons
                 else None
@@ -645,9 +642,7 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
             },
             "backdrill": _drill_properties_summary(via.backdrill),
             "tertiary_drill": _drill_properties_summary(via.tertiary_drill),
-            "front_post_machining": _post_machining_summary(
-                via.front_post_machining
-            ),
+            "front_post_machining": _post_machining_summary(via.front_post_machining),
             "back_post_machining": _post_machining_summary(via.back_post_machining),
             "zone_layer_connections": _zone_layer_connections_summary(
                 via.zone_layer_connections
@@ -744,9 +739,7 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
             "teardrops": _teardrop_summary(pad.teardrops),
             "backdrill": _drill_properties_summary(pad.backdrill),
             "tertiary_drill": _drill_properties_summary(pad.tertiary_drill),
-            "front_post_machining": _post_machining_summary(
-                pad.front_post_machining
-            ),
+            "front_post_machining": _post_machining_summary(pad.front_post_machining),
             "back_post_machining": _post_machining_summary(pad.back_post_machining),
             "zone_layer_connections": _zone_layer_connections_summary(
                 pad.zone_layer_connections
@@ -769,7 +762,9 @@ def _assert_summary_matches_python(board_path: Path, summary: dict) -> None:
                     "kind": primitive.primitive_type,
                     "points": [list(point) for point in primitive.points],
                     "width": primitive.width,
-                    "fill": primitive.fill.value if primitive.fill is not None else None,
+                    "fill": primitive.fill.value
+                    if primitive.fill is not None
+                    else None,
                 }
                 for primitive in custom_pad.custom_primitives
             ],

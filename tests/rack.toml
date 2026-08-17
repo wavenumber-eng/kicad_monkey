@@ -2,7 +2,7 @@
 name = "KiCad Module Tests"
 version = "1.0"
 description = "Test suite for KiCad file format parsing, tools, and rendering"
-note = "Public package suite. Uses the package-local corpus archive unless WN_TEST_CORPUS overrides it."
+note = "Public package suite. Uses the package-local kicad.zip unless KM_CORPUS selects another reviewed archive."
 default_lane = "fast"
 
 [strata]

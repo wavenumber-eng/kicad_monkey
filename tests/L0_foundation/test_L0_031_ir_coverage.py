@@ -13,6 +13,7 @@ from kicad_monkey.kicad_ir_coverage import (
 
 def test_build_ir_coverage_report_counts_ir_and_recorder_outputs(tmp_path):
     root = tmp_path / "kicad"
+    generated_root = tmp_path / "generated"
     root.mkdir()
     (root / "manifest.json").write_text(
         json.dumps(
@@ -32,7 +33,7 @@ def test_build_ir_coverage_report_counts_ir_and_recorder_outputs(tmp_path):
         encoding="utf-8",
     )
 
-    ir_dir = root / "projects" / "demo" / "output" / "schematic_ir"
+    ir_dir = generated_root / "projects" / "demo" / "output" / "schematic_ir"
     ir_dir.mkdir(parents=True)
     (ir_dir / "demo.json").write_text(
         json.dumps(
@@ -96,7 +97,7 @@ def test_build_ir_coverage_report_counts_ir_and_recorder_outputs(tmp_path):
         encoding="utf-8",
     )
 
-    drift_dir = root / "projects" / "demo" / "output" / "recorder_drift"
+    drift_dir = generated_root / "projects" / "demo" / "output" / "recorder_drift"
     drift_dir.mkdir(parents=True)
     (drift_dir / "demo.1.json").write_text(
         json.dumps(
@@ -113,7 +114,7 @@ def test_build_ir_coverage_report_counts_ir_and_recorder_outputs(tmp_path):
         encoding="utf-8",
     )
 
-    op_dir = root / "projects" / "demo" / "output" / "op_equivalence"
+    op_dir = generated_root / "projects" / "demo" / "output" / "op_equivalence"
     op_dir.mkdir(parents=True)
     (op_dir / "demo.1.json").write_text(
         json.dumps(
@@ -128,7 +129,7 @@ def test_build_ir_coverage_report_counts_ir_and_recorder_outputs(tmp_path):
         encoding="utf-8",
     )
 
-    report = build_ir_coverage_report(root)
+    report = build_ir_coverage_report(root, generated_root=generated_root)
 
     assert report["schema"] == SCHEMA
     assert report["summary"]["ir_files"] == 1

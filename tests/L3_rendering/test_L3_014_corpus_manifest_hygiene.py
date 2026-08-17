@@ -14,27 +14,20 @@ from kicad_monkey.testing.corpus import (
 )
 
 _DEBRIS_FILE_NAMES = {".DS_Store", "Thumbs.db", "fp-info-cache"}
-_DEBRIS_SUFFIXES = {".bak", ".lck", ".log", ".tmp", ".zip"}
-_DEBRIS_DIR_NAMES = {".git", ".history", ".pytest_cache", "__pycache__", "review", "review_tmp"}
-
-# Directories holding regenerable test products. Tests write here at runtime
-# (manifest cases declare ``output_root``; netlist oracles stage project
-# copies under ``_stage``), so their presence is not corpus debris; the
-# corpus zip build excludes them when shipping fixtures.
-_RUNTIME_PRODUCT_DIR_NAMES = {"_stage", "output"}
-
-# kicad-cli regenerates a .kicad_prl beside every board/project it touches,
-# so L3 oracle runs recreate them at runtime even in a fresh corpus unpack.
-# They are runtime products, not corpus debris; the zip build still excludes
-# them from shipped fixtures.
-_RUNTIME_PRODUCT_SUFFIXES = {".kicad_prl"}
+_DEBRIS_SUFFIXES = {".bak", ".kicad_prl", ".lck", ".log", ".tmp", ".zip"}
+_DEBRIS_DIR_NAMES = {
+    ".git",
+    ".history",
+    ".pytest_cache",
+    "__pycache__",
+    "_stage",
+    "output",
+    "review",
+    "review_tmp",
+}
 
 
 def _is_debris(path: Path) -> bool:
-    if any(part in _RUNTIME_PRODUCT_DIR_NAMES for part in path.parts):
-        return False
-    if path.suffix.lower() in _RUNTIME_PRODUCT_SUFFIXES:
-        return False
     if path.is_dir():
         return path.name in _DEBRIS_DIR_NAMES or path.name.lower().endswith("-backups")
     name = path.name.lower()
