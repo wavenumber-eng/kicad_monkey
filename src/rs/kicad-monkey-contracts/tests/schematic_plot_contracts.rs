@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 use kicad_monkey_contracts::generated::board_plot_document::BoardPlotDocumentA0;
 use kicad_monkey_contracts::generated::footprint_plot_document::FootprintPlotDocumentA0;
 use kicad_monkey_contracts::generated::schematic_plot_document::SchematicPlotDocumentA0;
@@ -107,6 +109,46 @@ fn schematic_document() -> serde_json::Value {
 
 fn decode(value: &serde_json::Value) -> SchematicPlotDocumentA0 {
     serde_json::from_value(value.clone()).expect("schematic contract structure")
+}
+
+fn shared_vector(file: &str, id: &str) -> serde_json::Value {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../tests/parity")
+        .join(file);
+    let payload: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(path).expect("read shared vectors"))
+            .expect("decode shared vectors");
+    payload["vectors"]
+        .as_array()
+        .expect("vector list")
+        .iter()
+        .find(|vector| vector["id"] == id)
+        .expect("named shared vector")["expected"]
+        .clone()
+}
+
+fn insert_first_operation_field(
+    value: &mut serde_json::Value,
+    kind: &str,
+    field: &str,
+    replacement: serde_json::Value,
+) -> bool {
+    match value {
+        serde_json::Value::Object(object) => {
+            if object.get("kind").and_then(serde_json::Value::as_str) == Some(kind) {
+                object.insert(field.to_owned(), replacement);
+                true
+            } else {
+                object.values_mut().any(|child| {
+                    insert_first_operation_field(child, kind, field, replacement.clone())
+                })
+            }
+        }
+        serde_json::Value::Array(values) => values
+            .iter_mut()
+            .any(|child| insert_first_operation_field(child, kind, field, replacement.clone())),
+        _ => false,
+    }
 }
 
 #[test]
@@ -293,17 +335,129 @@ fn shared_schematic_vectors_decode_validate_and_round_trip_exactly() {
 }
 
 #[test]
+fn schematic_annotation_semantic_mutations_fail_closed() {
+    let canonical = shared_vector(
+        "schematic_plotter_a0_vectors.json",
+        "custom-worksheet-connectivity-and-annotation-family-order",
+    );
+    validate_schematic_plot_document(&decode(&canonical)).expect("canonical annotation vector");
+
+    let mut mutations = Vec::new();
+    let mut wrong_phase = canonical.clone();
+    wrong_phase["records"]
+        .as_array_mut()
+        .expect("records")
+        .swap(6, 7);
+    mutations.push(wrong_phase);
+
+    let mut reversed_global = canonical.clone();
+    reversed_global["records"][7]["operations"]
+        .as_array_mut()
+        .expect("global operations")
+        .reverse();
+    mutations.push(reversed_global);
+
+    let mut reversed_netclass = canonical.clone();
+    reversed_netclass["records"][9]["operations"]
+        .as_array_mut()
+        .expect("netclass operations")
+        .swap(0, 1);
+    mutations.push(reversed_netclass);
+
+    let mut text_before_rect = canonical.clone();
+    text_before_rect["records"][11]["operations"]
+        .as_array_mut()
+        .expect("text box operations")
+        .swap(0, 2);
+    mutations.push(text_before_rect);
+
+    for mutation in mutations {
+        assert!(validate_schematic_plot_document(&decode(&mutation)).is_err());
+    }
+
+    let mut blank_href = canonical;
+    assert!(insert_first_operation_field(
+        &mut blank_href,
+        "Text",
+        "context",
+        serde_json::json!({"hyperlink": {"href": ""}}),
+    ));
+    assert!(serde_json::from_value::<SchematicPlotDocumentA0>(blank_href).is_err());
+}
+
+#[test]
+fn shared_context_and_segment_color_remain_fail_closed_for_existing_producers() {
+    let context = serde_json::json!({"hyperlink": {"href": "https://example.test"}});
+    let mut board = shared_vector(
+        "board_plotter_a0_vectors.json",
+        "board-text-follows-python-serializer",
+    );
+    assert!(insert_first_operation_field(
+        &mut board,
+        "Text",
+        "context",
+        context.clone(),
+    ));
+    let board: BoardPlotDocumentA0 = serde_json::from_value(board).expect("board context shape");
+    assert!(validate_board_plot_document(&board).is_err());
+
+    let mut footprint = shared_vector(
+        "footprint_plotter_a0_vectors.json",
+        "standalone-properties-text-and-text-box",
+    );
+    assert!(insert_first_operation_field(
+        &mut footprint,
+        "Text",
+        "context",
+        context.clone(),
+    ));
+    let footprint: FootprintPlotDocumentA0 =
+        serde_json::from_value(footprint).expect("footprint context shape");
+    assert!(validate_footprint_plot_document(&footprint).is_err());
+
+    let mut symbol = shared_vector("symbol_plotter_a0_vectors.json", "styled-body-and-pin-text");
+    assert!(insert_first_operation_field(
+        &mut symbol,
+        "Text",
+        "context",
+        context,
+    ));
+    let symbol: SymbolPlotDocumentA0 =
+        serde_json::from_value(symbol).expect("symbol context shape");
+    assert!(validate_symbol_plot_document(&symbol).is_err());
+
+    let mut footprint = shared_vector(
+        "footprint_plotter_a0_vectors.json",
+        "solid-line-with-metadata",
+    );
+    assert!(insert_first_operation_field(
+        &mut footprint,
+        "ThickSegment",
+        "stroke_color",
+        serde_json::json!("#484848FF"),
+    ));
+    let footprint: FootprintPlotDocumentA0 =
+        serde_json::from_value(footprint).expect("footprint segment color shape");
+    assert!(validate_footprint_plot_document(&footprint).is_err());
+}
+
+#[test]
 fn schematic_request_requires_every_independent_budget() {
     let request = serde_json::json!({
         "type": "kicad_monkey.schematic_plot.request", "version": "a0",
         "sheet_index": 1, "sheet_count": 1, "sheet_path": "/", "sheet_name": "",
-        "worksheet_mode": "default", "max_source_bytes": "4096",
+        "worksheet_mode": "default", "text_offset_ratio": 0.15,
+        "default_line_width_nm": 152400, "max_source_bytes": "4096",
         "max_worksheet_bytes": "4096", "max_output_bytes": "65536",
         "max_depth": 64, "max_parse_nodes": 1000, "max_selected_forms": 1000,
         "max_records": 100, "max_operations": 1000, "max_points": 10000,
         "max_input_points": 10000, "max_text_bytes": "65536",
         "max_metadata_bytes": "65536", "max_wires": 100, "max_buses": 100,
         "max_bus_entries": 100, "max_junctions": 100, "max_no_connects": 100,
+        "max_labels": 100, "max_global_labels": 100,
+        "max_hierarchical_labels": 100, "max_netclass_flags": 100,
+        "max_netclass_flag_properties": 100, "max_texts": 100,
+        "max_text_boxes": 100, "max_text_box_lines": 1000,
         "max_text_variables": 100, "max_text_variable_bytes": "4096",
         "max_worksheet_items": 100, "max_worksheet_repeats": 1000,
         "max_worksheet_point_sets": 100, "max_worksheet_points": 1000,
@@ -325,6 +479,13 @@ fn schematic_request_requires_every_independent_budget() {
         over_u32[field] = serde_json::json!(4_294_967_296_u64);
         assert!(serde_json::from_value::<SchematicPlotRequestA0>(over_u32).is_err());
     }
+    let mut too_thin = request.clone();
+    too_thin["default_line_width_nm"] = serde_json::json!(84_699);
+    assert!(serde_json::from_value::<SchematicPlotRequestA0>(too_thin).is_err());
+
+    let mut negative_ratio = request.clone();
+    negative_ratio["text_offset_ratio"] = serde_json::json!(-0.01);
+    assert!(serde_json::from_value::<SchematicPlotRequestA0>(negative_ratio).is_err());
     for field in [
         "max_source_bytes",
         "max_worksheet_bytes",
@@ -332,6 +493,11 @@ fn schematic_request_requires_every_independent_budget() {
         "max_input_points",
         "max_worksheet_repeats",
         "max_worksheet_bitmap_decode_work",
+        "max_labels",
+        "max_netclass_flag_properties",
+        "max_text_box_lines",
+        "text_offset_ratio",
+        "default_line_width_nm",
     ] {
         let mut missing = request.clone();
         missing.as_object_mut().expect("request").remove(field);

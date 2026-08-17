@@ -47,7 +47,7 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict schematic-foundation subset of kicad.plotter_ir.a0.",
+    "description": "Strict schematic subset through the P5_061 annotation families.",
     "title": "Schematic plot document a0",
     "$defs": {
         "SchematicPlotRecord": {
@@ -69,9 +69,27 @@
                 },
                 {
                     "$ref": "#/$defs/SchematicNoConnectPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicLabelPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicGlobalLabelPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicHierarchicalLabelPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicNetclassFlagPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicTextPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicTextBoxPlotRecord"
                 }
             ],
-            "description": "Strict source-record vocabulary for the P5_060 schematic foundation."
+            "description": "Strict source-record vocabulary through the P5_061 schematic annotations."
         },
         "SchematicPlotCanvas": {
             "type": "object",
@@ -399,6 +417,272 @@
             },
             "description": "One schematic no-connect cross."
         },
+        "SchematicLabelPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "label"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "text"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One local schematic label."
+        },
+        "SchematicGlobalLabelPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "global_label"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                },
+                "shape": {
+                    "$ref": "#/$defs/SchematicLabelShape"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "text",
+                "shape"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One global schematic label and its optional decoration."
+        },
+        "SchematicHierarchicalLabelPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "hierarchical_label"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                },
+                "shape": {
+                    "$ref": "#/$defs/SchematicLabelShape"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "text",
+                "shape"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One hierarchical schematic label and its optional decoration."
+        },
+        "SchematicNetclassFlagPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "netclass_flag"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "at_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "at_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "shape": {
+                    "$ref": "#/$defs/SchematicNetclassFlagShape"
+                },
+                "length_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "at_x_nm",
+                "at_y_nm",
+                "shape",
+                "length_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One netclass/directive flag with its visible property text."
+        },
+        "SchematicTextPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "text"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "text"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One ordinary top-level schematic text annotation."
+        },
+        "SchematicTextBoxPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "text_box"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "text"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One schematic text box with its canonical outline and plotted lines."
+        },
         "JavaScriptSafeInteger": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -483,6 +767,31 @@
             },
             "description": "Typed title-block metadata carried by the leading sheet-header record."
         },
+        "SchematicLabelShape": {
+            "type": "string",
+            "enum": [
+                "input",
+                "output",
+                "bidirectional",
+                "tri_state",
+                "passive",
+                "dot",
+                "round",
+                "diamond",
+                "rectangle"
+            ],
+            "description": "Signal-direction shapes preserved on global and hierarchical labels."
+        },
+        "SchematicNetclassFlagShape": {
+            "type": "string",
+            "enum": [
+                "round",
+                "dot",
+                "diamond",
+                "rectangle"
+            ],
+            "description": "Marker shapes admitted by schematic netclass/directive flags."
+        },
         "ThickSegmentOperation": {
             "type": "object",
             "properties": {
@@ -530,6 +839,9 @@
                 },
                 "pad_size_y_nm": {
                     "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "stroke_color": {
+                    "type": "string"
                 }
             },
             "required": [
@@ -919,6 +1231,9 @@
                 },
                 "font_face": {
                     "type": "string"
+                },
+                "context": {
+                    "$ref": "#/$defs/PlotterOperationContext"
                 },
                 "layer": {
                     "type": "string"
@@ -1430,6 +1745,21 @@
             ],
             "description": "Vertical text alignments emitted by the board producers."
         },
+        "PlotterOperationContext": {
+            "type": "object",
+            "properties": {
+                "hyperlink": {
+                    "$ref": "#/$defs/PlotterHyperlink"
+                }
+            },
+            "required": [
+                "hyperlink"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Strict operation-local context emitted by current plotter producers."
+        },
         "TextRenderCache": {
             "type": "object",
             "properties": {
@@ -1506,6 +1836,22 @@
             "minItems": 4,
             "maxItems": 4,
             "description": "Four pad-local trapezoid corners."
+        },
+        "PlotterHyperlink": {
+            "type": "object",
+            "properties": {
+                "href": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "required": [
+                "href"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One exact hyperlink attached to an authored plotter text carrier."
         },
         "PlotterTextRenderCacheCoordinateSpace": {
             "type": "string",

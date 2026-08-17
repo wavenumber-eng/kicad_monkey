@@ -104,6 +104,7 @@ class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag
     mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     pad_size_x_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     pad_size_y_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
 
 
 class ArcThreePointOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ArcThreePoint", tag_field="kind"):
@@ -199,6 +200,7 @@ class TextOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Text",
     bold: bool
     multiline: bool
     font_face: str
+    context: PlotterOperationContext | UnsetType = field(default=UNSET)
     layer: str | UnsetType = field(default=UNSET)
     mirror: bool | UnsetType = field(default=UNSET)
     text_as_polygons: bool | UnsetType = field(default=UNSET)
@@ -308,6 +310,10 @@ PlotterTextHAlign = Literal["GR_TEXT_H_ALIGN_LEFT", "GR_TEXT_H_ALIGN_CENTER", "G
 PlotterTextVAlign = Literal["GR_TEXT_V_ALIGN_TOP", "GR_TEXT_V_ALIGN_CENTER", "GR_TEXT_V_ALIGN_BOTTOM"]
 
 
+class PlotterOperationContext(Struct, forbid_unknown_fields=True, frozen=True):
+    hyperlink: PlotterHyperlink
+
+
 class TextRenderCache(Struct, forbid_unknown_fields=True, frozen=True):
     schema: Literal["kicad.render_cache.v1"]
     unit: Literal["nm"]
@@ -327,6 +333,10 @@ PlotterViaFlashRole = Literal["via_aperture", "via_mask_opening"]
 
 
 PlotterQuad = Annotated[list[PlotterPoint], Meta(min_length=4, max_length=4)]
+
+
+class PlotterHyperlink(Struct, forbid_unknown_fields=True, frozen=True):
+    href: Annotated[str, Meta(min_length=1)]
 
 
 PlotterTextRenderCacheCoordinateSpace = Literal["board", "footprint_local"]
@@ -545,6 +555,7 @@ class BoardFootprintThickSegmentOperation(Struct, forbid_unknown_fields=True, fr
     mask_margin_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     pad_size_x_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
     pad_size_y_nm: JavaScriptSafeInteger | UnsetType = field(default=UNSET)
+    stroke_color: str | UnsetType = field(default=UNSET)
     label: str | UnsetType = field(default=UNSET)
     data_uuid: str | UnsetType = field(default=UNSET)
     data_ref: BoardFootprintChildRef | UnsetType = field(default=UNSET)
@@ -670,6 +681,7 @@ class BoardFootprintTextOperation(Struct, forbid_unknown_fields=True, frozen=Tru
     bold: bool
     multiline: bool
     font_face: str
+    context: PlotterOperationContext | UnsetType = field(default=UNSET)
     layer: str | UnsetType = field(default=UNSET)
     mirror: bool | UnsetType = field(default=UNSET)
     text_as_polygons: bool | UnsetType = field(default=UNSET)
@@ -887,7 +899,7 @@ class SymbolTextVariable(Struct, forbid_unknown_fields=True, frozen=True):
     value: str
 
 
-SchematicPlotRecord = Union["SchematicSheetHeaderPlotRecord", "SchematicWirePlotRecord", "SchematicBusPlotRecord", "SchematicBusEntryPlotRecord", "SchematicJunctionPlotRecord", "SchematicNoConnectPlotRecord"]
+SchematicPlotRecord = Union["SchematicSheetHeaderPlotRecord", "SchematicWirePlotRecord", "SchematicBusPlotRecord", "SchematicBusEntryPlotRecord", "SchematicJunctionPlotRecord", "SchematicNoConnectPlotRecord", "SchematicLabelPlotRecord", "SchematicGlobalLabelPlotRecord", "SchematicHierarchicalLabelPlotRecord", "SchematicNetclassFlagPlotRecord", "SchematicTextPlotRecord", "SchematicTextBoxPlotRecord"]
 
 
 class SchematicPlotCanvas(Struct, forbid_unknown_fields=True, frozen=True):
@@ -948,12 +960,71 @@ class SchematicNoConnectPlotRecord(Struct, forbid_unknown_fields=True, frozen=Tr
     operations: list[PlotterOperation]
 
 
+class SchematicLabelPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="label", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    text: str
+
+
+class SchematicGlobalLabelPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="global_label", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    text: str
+    shape: SchematicLabelShape
+
+
+class SchematicHierarchicalLabelPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="hierarchical_label", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    text: str
+    shape: SchematicLabelShape
+
+
+class SchematicNetclassFlagPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="netclass_flag", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    at_x_nm: JavaScriptSafeInteger
+    at_y_nm: JavaScriptSafeInteger
+    shape: SchematicNetclassFlagShape
+    length_nm: JavaScriptSafeInteger
+
+
+class SchematicTextPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="text", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    text: str
+
+
+class SchematicTextBoxPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="text_box", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    text: str
+
+
 class SchematicPlotTitleBlock(Struct, forbid_unknown_fields=True, frozen=True):
     title: str
     date: str
     rev: str
     company: str
     comments: RecordString
+
+
+SchematicLabelShape = Literal["input", "output", "bidirectional", "tri_state", "passive", "dot", "round", "diamond", "rectangle"]
+
+
+SchematicNetclassFlagShape = Literal["round", "dot", "diamond", "rectangle"]
 
 
 RecordString = dict[str, str]
@@ -965,6 +1036,12 @@ SchematicWorksheetMode = Literal["default", "provided"]
 class SchematicTextVariable(Struct, forbid_unknown_fields=True, frozen=True):
     name: str
     value: str
+
+
+SchematicTextOffsetRatio = Annotated[float, Meta(ge=0, le=1.7976931348623157e+308)]
+
+
+SchematicDefaultLineWidthNm = Annotated[int, Meta(ge=84700, le=9007199254740991)]
 
 
 SymbolBooleanField = Literal["in_bom", "on_board"]
@@ -1476,6 +1553,8 @@ class SchematicPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     sheet_path: str
     sheet_name: str
     worksheet_mode: SchematicWorksheetMode
+    text_offset_ratio: SchematicTextOffsetRatio
+    default_line_width_nm: SchematicDefaultLineWidthNm
     max_source_bytes: str
     max_worksheet_bytes: str
     max_output_bytes: str
@@ -1493,6 +1572,14 @@ class SchematicPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     max_bus_entries: Annotated[int, Meta(ge=0, le=4294967295)]
     max_junctions: Annotated[int, Meta(ge=0, le=4294967295)]
     max_no_connects: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_labels: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_global_labels: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_hierarchical_labels: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_netclass_flags: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_netclass_flag_properties: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_texts: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_text_boxes: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_text_box_lines: Annotated[int, Meta(ge=0, le=4294967295)]
     max_text_variables: Annotated[int, Meta(ge=0, le=4294967295)]
     max_text_variable_bytes: str
     max_worksheet_items: Annotated[int, Meta(ge=0, le=4294967295)]
@@ -1692,6 +1779,7 @@ def validate_footprint_plot_document_a0(value: FootprintPlotDocumentA0) -> None:
 
 def _validate_footprint_text(operation: TextOperation, path: str) -> None:
     forbidden = (
+        operation.context is not UNSET,
         operation.mirror is not UNSET,
         operation.text_as_polygons is not UNSET,
         operation.polyline_per_segment is not UNSET,
@@ -1712,6 +1800,8 @@ def _validate_shared_graphic_or_drill(operation: ThickSegmentOperation | CircleO
     has_mask = operation.mask_margin_nm is not UNSET
     has_size_x = operation.pad_size_x_nm is not UNSET
     has_size_y = operation.pad_size_y_nm is not UNSET
+    if isinstance(operation, ThickSegmentOperation) and operation.stroke_color is not UNSET:
+        raise msgspec.ValidationError(f"invalid_segment_color at {path}.stroke_color")
     graphic = (
         role is None and layer is not None and not layers
         and not has_mask and not has_size_x and not has_size_y
@@ -1744,6 +1834,11 @@ def validate_board_plot_document_a0(value: BoardPlotDocumentA0) -> None:
     saw_footprint = False
     for record_index, record in enumerate(value.records):
         path = f'$.records[{record_index}]'
+        for operation in record.operations:
+            if isinstance(operation, TextOperation) and operation.context is not UNSET:
+                raise msgspec.ValidationError(f"invalid_board_text_context at {path}.operations")
+            if isinstance(operation, ThickSegmentOperation) and operation.stroke_color is not UNSET:
+                raise msgspec.ValidationError(f"invalid_board_segment_color at {path}.operations")
         if any(isinstance(operation, PlotImageOperation) for operation in record.operations):
             raise msgspec.ValidationError(f"invalid_board_operation at {path}.operations")
         if isinstance(record, BoardFootprintPlotRecord):
@@ -1780,7 +1875,7 @@ def _validate_dimension_plot_record(record: DimensionPlotRecord, path: str) -> N
         elif isinstance(operation, ThickSegmentOperation):
             layer = None if operation.layer is UNSET else operation.layer
             layers = [] if operation.layers is UNSET else operation.layers
-            forbidden = (operation.role is not UNSET, bool(layers), operation.mask_margin_nm is not UNSET, operation.pad_size_x_nm is not UNSET, operation.pad_size_y_nm is not UNSET)
+            forbidden = (operation.role is not UNSET, bool(layers), operation.mask_margin_nm is not UNSET, operation.pad_size_x_nm is not UNSET, operation.pad_size_y_nm is not UNSET, operation.stroke_color is not UNSET)
             if layer not in record.layers or any(forbidden):
                 raise msgspec.ValidationError(f"invalid_dimension at {operation_path}")
         elif isinstance(operation, CircleOperation):
@@ -1795,6 +1890,8 @@ def _validate_dimension_plot_record(record: DimensionPlotRecord, path: str) -> N
 
 
 def _validate_board_text_payload(operation: TextOperation, path: str) -> None:
+    if operation.context is not UNSET:
+        raise msgspec.ValidationError(f"invalid_board_text_context at {path}.context")
     markers = (operation.mirror, operation.text_as_polygons, operation.polyline_per_segment, operation.knockout)
     if any(marker is not UNSET and marker is not True for marker in markers):
         raise msgspec.ValidationError(f"invalid_board_text at {path}")
@@ -1888,7 +1985,10 @@ def _validate_board_footprint_child_shape(operation: object, attrs: BoardFootpri
         _validate_board_footprint_text(operation, path)
     else:
         expected = None
-        if isinstance(operation, BoardFootprintThickSegmentOperation): expected = 'text-box-border' if data_ref == 'fp_text_box' else 'line'
+        if isinstance(operation, BoardFootprintThickSegmentOperation):
+            if operation.stroke_color is not UNSET:
+                raise msgspec.ValidationError(f"invalid_board_footprint_segment_color at {path}")
+            expected = 'text-box-border' if data_ref == 'fp_text_box' else 'line'
         elif isinstance(operation, BoardFootprintArcThreePointOperation): expected = 'arc'
         elif isinstance(operation, BoardFootprintCircleOperation): expected = 'circle'
         elif isinstance(operation, BoardFootprintRectOperation): expected = 'text-box-border' if data_ref == 'fp_text_box' else 'rect'
@@ -1915,7 +2015,7 @@ def _board_footprint_layer_role(layer: str) -> str:
 
 
 def _validate_board_footprint_text(operation: BoardFootprintTextOperation, path: str) -> None:
-    if not math.isfinite(operation.orient_deg) or operation.mirror is not UNSET or operation.text_as_polygons is not UNSET or operation.polyline_per_segment is not UNSET or operation.knockout is False:
+    if not math.isfinite(operation.orient_deg) or operation.context is not UNSET or operation.mirror is not UNSET or operation.text_as_polygons is not UNSET or operation.polyline_per_segment is not UNSET or operation.knockout is False:
         raise msgspec.ValidationError(f"invalid_board_footprint_cache at {path}")
     has_cache = operation.render_cache is not UNSET
     polygons = [] if operation.render_cache_polygons is UNSET else operation.render_cache_polygons
@@ -2010,6 +2110,7 @@ def validate_symbol_plot_document_a0(value: SymbolPlotDocumentA0) -> None:
                     operation.render_cache is not UNSET,
                     operation.render_cache_source is not UNSET,
                     operation.render_cache_exact is not UNSET,
+                    operation.context is not UNSET,
                 )
                 if any(forbidden):
                     raise msgspec.ValidationError(f"invalid_symbol_text at {path}")
@@ -2031,7 +2132,7 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
         raise msgspec.ValidationError("invalid_schematic_document at $")
     if not value.records or not isinstance(value.records[0], SchematicSheetHeaderPlotRecord):
         raise msgspec.ValidationError("missing_sheet_header at $.records[0]")
-    phases = {SchematicSheetHeaderPlotRecord: 0, SchematicWirePlotRecord: 1, SchematicBusPlotRecord: 2, SchematicBusEntryPlotRecord: 3, SchematicJunctionPlotRecord: 4, SchematicNoConnectPlotRecord: 5}
+    phases = {SchematicSheetHeaderPlotRecord: 0, SchematicWirePlotRecord: 1, SchematicBusPlotRecord: 2, SchematicBusEntryPlotRecord: 3, SchematicJunctionPlotRecord: 4, SchematicNoConnectPlotRecord: 5, SchematicLabelPlotRecord: 6, SchematicGlobalLabelPlotRecord: 7, SchematicHierarchicalLabelPlotRecord: 8, SchematicNetclassFlagPlotRecord: 9, SchematicTextPlotRecord: 10, SchematicTextBoxPlotRecord: 11}
     previous_phase = -1
     total_operations = 0
     for record_index, record in enumerate(value.records):
@@ -2040,7 +2141,8 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
         if phase < previous_phase or (phase == 0 and record_index != 0):
             raise msgspec.ValidationError(f"invalid_schematic_record_order at {path}")
         previous_phase = phase
-        if record.object_id != record.uuid:
+        label_record = isinstance(record, (SchematicLabelPlotRecord, SchematicGlobalLabelPlotRecord, SchematicHierarchicalLabelPlotRecord))
+        if (label_record and record.object_id != record.text) or (not label_record and not isinstance(record, SchematicNetclassFlagPlotRecord) and record.object_id != record.uuid):
             raise msgspec.ValidationError(f"invalid_schematic_record_identity at {path}")
         if record.operation_count != len(record.operations):
             raise msgspec.ValidationError(f"operation_count_mismatch at {path}.operation_count")
@@ -2053,8 +2155,16 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
             _validate_schematic_polyline_record(record, path)
         elif isinstance(record, SchematicJunctionPlotRecord):
             _validate_schematic_junction_record(record, path)
-        else:
+        elif isinstance(record, SchematicNoConnectPlotRecord):
             _validate_schematic_no_connect_record(record, path)
+        elif isinstance(record, (SchematicLabelPlotRecord, SchematicGlobalLabelPlotRecord, SchematicHierarchicalLabelPlotRecord)):
+            _validate_schematic_label_record(record, path)
+        elif isinstance(record, SchematicNetclassFlagPlotRecord):
+            _validate_schematic_netclass_flag_record(record, path)
+        elif isinstance(record, SchematicTextPlotRecord):
+            _validate_schematic_text_record(record, path)
+        else:
+            _validate_schematic_text_box_record(record, path)
         total_operations += len(record.operations)
     if value.total_operations != total_operations:
         raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
@@ -2081,7 +2191,7 @@ def _validate_schematic_sheet_header(value: SchematicPlotDocumentA0, record: Sch
         if isinstance(operation, PlotPolyOperation) and (len(operation.points) != 2 or operation.fill != 'NO_FILL' or operation.width_nm < 152_400 or operation.stroke_color != '#840000FF' or operation.fill_color is not UNSET or operation.line_style is not UNSET):
             raise msgspec.ValidationError(f"invalid_worksheet_polyline at {operation_path}")
         if isinstance(operation, TextOperation):
-            forbidden = (operation.mirror is not UNSET, operation.text_as_polygons is not UNSET, operation.polyline_per_segment is not UNSET, operation.knockout is not UNSET, operation.render_cache_polygons is not UNSET, operation.render_cache is not UNSET, operation.render_cache_source is not UNSET, operation.render_cache_exact is not UNSET)
+            forbidden = (operation.context is not UNSET, operation.mirror is not UNSET, operation.text_as_polygons is not UNSET, operation.polyline_per_segment is not UNSET, operation.knockout is not UNSET, operation.render_cache_polygons is not UNSET, operation.render_cache is not UNSET, operation.render_cache_source is not UNSET, operation.render_cache_exact is not UNSET)
             if any(forbidden) or not math.isfinite(operation.orient_deg):
                 raise msgspec.ValidationError(f"invalid_worksheet_text at {operation_path}")
         if isinstance(operation, PlotImageOperation) and (operation.image_format != 'png' or not math.isfinite(operation.scale) or operation.scale <= 0 or operation.width_nm < 0 or operation.height_nm < 0 or operation.stroke_color != '#840000FF' or not _valid_schematic_png_base64(operation.image_data_b64)):
@@ -2168,6 +2278,106 @@ def _validate_schematic_no_connect_record(record: SchematicNoConnectPlotRecord, 
             raise msgspec.ValidationError(f"invalid_no_connect at {path}.operations[{operation_index}]")
     if first.width_nm != second.width_nm or first.points[0][0] != second.points[0][0] or first.points[1][0] != second.points[1][0] or first.points[0][1] != second.points[1][1] or first.points[1][1] != second.points[0][1]:
         raise msgspec.ValidationError(f"invalid_no_connect_geometry at {path}.operations")
+
+
+def _validate_schematic_annotation_text(operation: TextOperation, path: str) -> None:
+    forbidden = (operation.layer is not UNSET, operation.mirror is not UNSET, operation.text_as_polygons is not UNSET, operation.polyline_per_segment is not UNSET, operation.knockout is not UNSET, operation.render_cache_polygons is not UNSET, operation.render_cache is not UNSET, operation.render_cache_source is not UNSET, operation.render_cache_exact is not UNSET)
+    if any(forbidden) or not math.isfinite(operation.orient_deg):
+        raise msgspec.ValidationError(f"invalid_annotation_text at {path}")
+    if operation.context is not UNSET:
+        href = operation.context.hyperlink.href
+        if not href or href != href.strip():
+            raise msgspec.ValidationError(f"invalid_hyperlink_context at {path}.context.hyperlink.href")
+
+
+def _validate_schematic_label_record(record: SchematicLabelPlotRecord | SchematicGlobalLabelPlotRecord | SchematicHierarchicalLabelPlotRecord, path: str) -> None:
+    decorated = isinstance(record, (SchematicGlobalLabelPlotRecord, SchematicHierarchicalLabelPlotRecord)) and record.shape in ('input', 'output', 'bidirectional', 'tri_state', 'passive')
+    expected_count = 2 if decorated else 1
+    if len(record.operations) != expected_count or not isinstance(record.operations[0], TextOperation):
+        raise msgspec.ValidationError(f"invalid_label_record at {path}.operations")
+    text = record.operations[0]
+    _validate_schematic_annotation_text(text, f'{path}.operations[0]')
+    if text.text != record.text.replace('{slash}', '/'):
+        raise msgspec.ValidationError(f"invalid_label_text at {path}.text")
+    if not decorated:
+        return
+    decoration = record.operations[1]
+    if not isinstance(decoration, PlotPolyOperation):
+        raise msgspec.ValidationError(f"invalid_label_decoration at {path}.operations[1]")
+    expected_color = '#840000FF' if isinstance(record, SchematicGlobalLabelPlotRecord) else '#725600FF'
+    expected_points = 7 if isinstance(record, SchematicGlobalLabelPlotRecord) else (6 if record.shape in ('input', 'output') else 5)
+    layer = None if decoration.layer is UNSET else decoration.layer
+    if layer is not None or decoration.fill != 'NO_FILL' or decoration.width_nm != 152_400 or decoration.stroke_color != expected_color or decoration.fill_color is not UNSET or decoration.line_style is not UNSET or len(decoration.points) != expected_points or decoration.points[0] != decoration.points[-1]:
+        raise msgspec.ValidationError(f"invalid_label_decoration at {path}.operations[1]")
+
+
+def _validate_schematic_netclass_flag_record(record: SchematicNetclassFlagPlotRecord, path: str) -> None:
+    if record.shape in ('round', 'dot'):
+        if len(record.operations) < 2 or not isinstance(record.operations[0], ThickSegmentOperation) or not isinstance(record.operations[1], CircleOperation):
+            raise msgspec.ValidationError(f"invalid_netclass_marker at {path}.operations")
+        segment, marker = record.operations[:2]
+        segment_layer = None if segment.layer is UNSET else segment.layer
+        segment_layers = [] if segment.layers is UNSET else segment.layers
+        segment_forbidden = (segment.role is not UNSET, bool(segment_layers), segment.mask_margin_nm is not UNSET, segment.pad_size_x_nm is not UNSET, segment.pad_size_y_nm is not UNSET)
+        if segment_layer is not None or any(segment_forbidden) or segment.width_nm <= 0 or segment.stroke_color != '#484848FF' or (segment.start_x, segment.start_y) != (record.at_x_nm, record.at_y_nm):
+            raise msgspec.ValidationError(f"invalid_netclass_segment at {path}.operations[0]")
+        marker_layer = None if marker.layer is UNSET else marker.layer
+        marker_layers = [] if marker.layers is UNSET else marker.layers
+        marker_forbidden = (marker.role is not UNSET, bool(marker_layers), marker.mask_margin_nm is not UNSET, marker.pad_size_x_nm is not UNSET, marker.pad_size_y_nm is not UNSET, marker.line_style is not UNSET)
+        symbol_size = 355_600 if record.shape == 'dot' else 508_000
+        expected_fill = 'FILLED_SHAPE' if record.shape == 'dot' else 'NO_FILL'
+        expected_width = 0 if record.shape == 'dot' else segment.width_nm
+        expected_fill_color = '#484848FF' if record.shape == 'dot' else UNSET
+        if marker_layer is not None or any(marker_forbidden) or marker.diameter_nm != 2 * symbol_size or marker.fill != expected_fill or marker.width_nm != expected_width or marker.stroke_color != '#484848FF' or marker.fill_color != expected_fill_color:
+            raise msgspec.ValidationError(f"invalid_netclass_circle at {path}.operations[1]")
+        text_start = 2
+    else:
+        if not record.operations or not isinstance(record.operations[0], PlotPolyOperation):
+            raise msgspec.ValidationError(f"invalid_netclass_marker at {path}.operations")
+        marker = record.operations[0]
+        layer = None if marker.layer is UNSET else marker.layer
+        expected_points = 7 if record.shape == 'diamond' else 8
+        if layer is not None or marker.fill != 'NO_FILL' or marker.width_nm <= 0 or marker.stroke_color != '#484848FF' or marker.fill_color is not UNSET or marker.line_style is not UNSET or len(marker.points) != expected_points or marker.points[0] != [record.at_x_nm, record.at_y_nm] or marker.points[-1] != marker.points[0]:
+            raise msgspec.ValidationError(f"invalid_netclass_polygon at {path}.operations[0]")
+        text_start = 1
+    for index, operation in enumerate(record.operations[text_start:], start=text_start):
+        if not isinstance(operation, TextOperation):
+            raise msgspec.ValidationError(f"invalid_netclass_property at {path}.operations[{index}]")
+        _validate_schematic_annotation_text(operation, f'{path}.operations[{index}]')
+
+
+def _validate_schematic_text_record(record: SchematicTextPlotRecord, path: str) -> None:
+    if len(record.operations) != 1 or not isinstance(record.operations[0], TextOperation):
+        raise msgspec.ValidationError(f"invalid_schematic_text at {path}.operations")
+    operation = record.operations[0]
+    _validate_schematic_annotation_text(operation, f'{path}.operations[0]')
+    expected = record.text[:-1] if record.text.endswith('\n') else record.text
+    if operation.text != expected or operation.multiline != ('\n' in operation.text):
+        raise msgspec.ValidationError(f"invalid_schematic_text at {path}.text")
+
+
+def _validate_schematic_text_box_record(record: SchematicTextBoxPlotRecord, path: str) -> None:
+    if not record.operations or not isinstance(record.operations[0], RectOperation):
+        raise msgspec.ValidationError(f"invalid_text_box at {path}.operations")
+    first = record.operations[0]
+    first_layer = None if first.layer is UNSET else first.layer
+    if first_layer is not None or first.corner_radius_nm != 0 or first.width_nm < 0 or first.stroke_color is UNSET or first.line_style is UNSET:
+        raise msgspec.ValidationError(f"invalid_text_box_outline at {path}.operations[0]")
+    if first.fill in ('NO_FILL', 'FILLED_SHAPE'):
+        text_start = 1
+    else:
+        if len(record.operations) < 2 or not isinstance(record.operations[1], RectOperation):
+            raise msgspec.ValidationError(f"invalid_text_box_fill_pass at {path}.operations")
+        outline = record.operations[1]
+        outline_layer = None if outline.layer is UNSET else outline.layer
+        same_geometry = (first.x1, first.y1, first.x2, first.y2, first.corner_radius_nm) == (outline.x1, outline.y1, outline.x2, outline.y2, outline.corner_radius_nm)
+        if first.width_nm != 0 or first.fill_color is UNSET or first.stroke_color != first.fill_color or outline_layer is not None or not same_geometry or outline.fill != 'NO_FILL' or outline.width_nm < 0 or outline.stroke_color is UNSET or outline.fill_color is not UNSET or outline.line_style != first.line_style:
+            raise msgspec.ValidationError(f"invalid_text_box_fill_pass at {path}.operations[:2]")
+        text_start = 2
+    for index, operation in enumerate(record.operations[text_start:], start=text_start):
+        if not isinstance(operation, TextOperation) or not operation.text or operation.multiline:
+            raise msgspec.ValidationError(f"invalid_text_box_line at {path}.operations[{index}]")
+        _validate_schematic_annotation_text(operation, f'{path}.operations[{index}]')
 decode_schematic_plot_request_a0 = msgspec.json.Decoder(SchematicPlotRequestA0).decode
 decode_schematic_plot_result_a0 = msgspec.json.Decoder(SchematicPlotResultA0).decode
 decode_symbol_library_edit_request_a0 = msgspec.json.Decoder(SymbolLibraryEditRequestA0).decode
@@ -2459,10 +2669,12 @@ __all__ = (
     "PlotterPoint",
     "PlotterTextHAlign",
     "PlotterTextVAlign",
+    "PlotterOperationContext",
     "TextRenderCache",
     "PlotterTextRenderCacheSource",
     "PlotterViaFlashRole",
     "PlotterQuad",
+    "PlotterHyperlink",
     "PlotterTextRenderCacheCoordinateSpace",
     "TextRenderCachePolygon",
     "BoardPlotRecord",
@@ -2515,10 +2727,20 @@ __all__ = (
     "SchematicBusEntryPlotRecord",
     "SchematicJunctionPlotRecord",
     "SchematicNoConnectPlotRecord",
+    "SchematicLabelPlotRecord",
+    "SchematicGlobalLabelPlotRecord",
+    "SchematicHierarchicalLabelPlotRecord",
+    "SchematicNetclassFlagPlotRecord",
+    "SchematicTextPlotRecord",
+    "SchematicTextBoxPlotRecord",
     "SchematicPlotTitleBlock",
+    "SchematicLabelShape",
+    "SchematicNetclassFlagShape",
     "RecordString",
     "SchematicWorksheetMode",
     "SchematicTextVariable",
+    "SchematicTextOffsetRatio",
+    "SchematicDefaultLineWidthNm",
     "SymbolBooleanField",
     "SymbolSummary",
     "UnitDefinition",

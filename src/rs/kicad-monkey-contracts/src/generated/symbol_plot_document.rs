@@ -1209,6 +1209,100 @@ impl ::std::convert::TryFrom<::std::string::String> for PlotterFill {
         value.parse()
     }
 }
+///One exact hyperlink attached to an authored plotter text carrier.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One exact hyperlink attached to an authored plotter text carrier.",
+///  "type": "object",
+///  "required": [
+///    "href"
+///  ],
+///  "properties": {
+///    "href": {
+///      "type": "string",
+///      "minLength": 1
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct PlotterHyperlink {
+    pub href: PlotterHyperlinkHref,
+}
+///`PlotterHyperlinkHref`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct PlotterHyperlinkHref(::std::string::String);
+impl ::std::ops::Deref for PlotterHyperlinkHref {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<PlotterHyperlinkHref> for ::std::string::String {
+    fn from(value: PlotterHyperlinkHref) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for PlotterHyperlinkHref {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterHyperlinkHref {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterHyperlinkHref {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterHyperlinkHref {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PlotterHyperlinkHref {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
 ///KiCad stroke styles carried without producer-specific decomposition.
 ///
 /// <details><summary>JSON schema</summary>
@@ -1443,6 +1537,31 @@ impl ::std::convert::From<FlashPadTrapezOperation> for PlotterOperation {
     fn from(value: FlashPadTrapezOperation) -> Self {
         Self::FlashPadTrapezOperation(value)
     }
+}
+///Strict operation-local context emitted by current plotter producers.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Strict operation-local context emitted by current plotter producers.",
+///  "type": "object",
+///  "required": [
+///    "hyperlink"
+///  ],
+///  "properties": {
+///    "hyperlink": {
+///      "$ref": "#/$defs/PlotterHyperlink"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct PlotterOperationContext {
+    pub hyperlink: PlotterHyperlink,
 }
 ///Plotter point encoded as an exact coordinate pair.
 ///
@@ -2208,6 +2327,9 @@ carries the exterior rings in nanometres.*/
 ///    "color": {
 ///      "type": "string"
 ///    },
+///    "context": {
+///      "$ref": "#/$defs/PlotterOperationContext"
+///    },
 ///    "font_face": {
 ///      "type": "string"
 ///    },
@@ -2296,6 +2418,8 @@ carries the exterior rings in nanometres.*/
 pub struct TextOperation {
     pub bold: bool,
     pub color: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub context: ::std::option::Option<PlotterOperationContext>,
     pub font_face: ::std::string::String,
     pub h_align: PlotterTextHAlign,
     pub index: u32,
@@ -2500,6 +2624,9 @@ generated semantic validator enforces these mutually exclusive states.*/
 ///    "start_y": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
+///    "stroke_color": {
+///      "type": "string"
+///    },
 ///    "width_nm": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    }
@@ -2530,5 +2657,7 @@ pub struct ThickSegmentOperation {
     pub role: ::std::option::Option<PlotterDrillRole>,
     pub start_x: crate::JavaScriptSafeInteger,
     pub start_y: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
 }

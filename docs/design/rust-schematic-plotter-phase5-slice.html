@@ -87,8 +87,10 @@
   Contract tests cover identity, phase, count/index, operation-shape, image,
   and JavaScript-safe-integer failures.</p>
 
-  <p>P5_061 and later slices retain schematic labels, text, shapes, images,
-  tables, symbols, sheets, hierarchy, fields, and project drawing settings.
+  <p>P5_061 now owns schematic labels, netclass flags, text, text boxes,
+  project drawing settings, and deterministic outline-font metric sidecars.
+  P5_062 and later slices retain schematic shapes, images, tables, symbols,
+  sheets, hierarchy, fields, and pins.
   The bounded native domain also rejects nonpositive custom page dimensions,
   nonpositive bitmap scales, and malformed PNG/base64 payloads rather than
   reproducing permissive Python failure behavior.

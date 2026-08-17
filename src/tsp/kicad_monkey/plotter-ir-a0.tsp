@@ -104,6 +104,7 @@ model ThickSegmentOperation {
   mask_margin_nm?: JavaScriptSafeInteger;
   pad_size_x_nm?: JavaScriptSafeInteger;
   pad_size_y_nm?: JavaScriptSafeInteger;
+  stroke_color?: string;
 }
 
 /** Solid three-point arc. */
@@ -308,6 +309,17 @@ enum PlotterTextRenderCacheCoordinateSpace {
   footprintLocal: "footprint_local",
 }
 
+/** One exact hyperlink attached to an authored plotter text carrier. */
+model PlotterHyperlink {
+  @minLength(1)
+  href: string;
+}
+
+/** Strict operation-local context emitted by current plotter producers. */
+model PlotterOperationContext {
+  hyperlink: PlotterHyperlink;
+}
+
 /** One render-cache polygon as ordered contours, exterior ring first. */
 model TextRenderCachePolygon {
   contours: PlotterPoint[][];
@@ -354,6 +366,7 @@ model TextOperation {
   bold: boolean;
   multiline: boolean;
   font_face: string;
+  context?: PlotterOperationContext;
   layer?: string;
   mirror?: boolean;
   text_as_polygons?: boolean;

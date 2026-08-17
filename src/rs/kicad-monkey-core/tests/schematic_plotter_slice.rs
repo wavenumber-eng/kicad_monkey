@@ -1,10 +1,13 @@
-use kicad_monkey_contracts::generated::schematic_plot_document::SchematicPlotDocumentA0;
+use kicad_monkey_contracts::generated::{
+    schematic_plot_document::SchematicPlotDocumentA0, shaping_record::ShapingRecordA0,
+};
 use kicad_monkey_contracts::validate_schematic_plot_document;
 use kicad_monkey_core::{
-    ErrorKind, PlotterFill, PlotterLineStyle, PlotterOperation, PlotterTextHAlign,
-    PlotterTextVAlign, SchematicConnectivityRecordKind, SchematicPlotContext,
+    ErrorKind, PlotterFill, PlotterLineStyle, PlotterOperation, PlotterTextCacheLimits,
+    PlotterTextCacheResources, PlotterTextFont, PlotterTextHAlign, PlotterTextVAlign,
+    SchematicConnectivityRecordKind, SchematicDrawingSettings, SchematicPlotContext,
     SchematicPlotDocument, SchematicPlotLimits, SchematicPlotOperation, SchematicPlotRecord,
-    SchematicPlotVariables, schematic_plot_document,
+    SchematicPlotVariables, schematic_plot_document, schematic_plot_document_with_annotations,
 };
 use serde_json::{Map, Value, json};
 
@@ -100,8 +103,49 @@ fn v_align_name(align: PlotterTextVAlign) -> &'static str {
     }
 }
 
+fn text_json(
+    value: &kicad_monkey_core::PlotterText,
+    index: usize,
+    hyperlink: Option<&str>,
+) -> Value {
+    let mut object = json!({
+        "kind": "Text", "index": index, "x": value.x, "y": value.y,
+        "text": value.text, "color": value.color,
+        "orient_deg": value.orient_deg,
+        "size_x_nm": value.size_x_nm, "size_y_nm": value.size_y_nm,
+        "h_align": h_align_name(value.h_align),
+        "v_align": v_align_name(value.v_align),
+        "pen_width_nm": value.pen_width_nm,
+        "italic": value.italic, "bold": value.bold,
+        "multiline": value.multiline, "font_face": value.font_face,
+    })
+    .as_object()
+    .expect("text object")
+    .clone();
+    insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
+    insert_optional(
+        &mut object,
+        "context",
+        hyperlink.map(|href| json!({"hyperlink": {"href": href}})),
+    );
+    Value::Object(object)
+}
+
 fn operation_json(operation: &SchematicPlotOperation, index: usize) -> Value {
     match operation {
+        SchematicPlotOperation::Text(value) => {
+            text_json(&value.text, index, value.hyperlink_href.as_deref())
+        }
+        SchematicPlotOperation::StyledThickSegment(value) => {
+            let segment = &value.segment;
+            json!({
+                "kind": "ThickSegment", "index": index,
+                "start_x": segment.start_x, "start_y": segment.start_y,
+                "end_x": segment.end_x, "end_y": segment.end_y,
+                "width_nm": segment.width_nm,
+                "stroke_color": value.stroke_color,
+            })
+        }
         SchematicPlotOperation::PlotImage(value) => {
             let mut object = json!({
                 "kind": "PlotImage", "index": index,
@@ -221,24 +265,7 @@ fn operation_json(operation: &SchematicPlotOperation, index: usize) -> Value {
                 );
                 Value::Object(object)
             }
-            PlotterOperation::Text(value) => {
-                let mut object = json!({
-                    "kind": "Text", "index": index, "x": value.x, "y": value.y,
-                    "text": value.text, "color": value.color,
-                    "orient_deg": value.orient_deg,
-                    "size_x_nm": value.size_x_nm, "size_y_nm": value.size_y_nm,
-                    "h_align": h_align_name(value.h_align),
-                    "v_align": v_align_name(value.v_align),
-                    "pen_width_nm": value.pen_width_nm,
-                    "italic": value.italic, "bold": value.bold,
-                    "multiline": value.multiline, "font_face": value.font_face,
-                })
-                .as_object()
-                .expect("text object")
-                .clone();
-                insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
-                Value::Object(object)
-            }
+            PlotterOperation::Text(value) => text_json(value, index, None),
             PlotterOperation::ThickSegment(_)
             | PlotterOperation::ArcThreePoint(_)
             | PlotterOperation::BezierCurve(_)
@@ -311,6 +338,24 @@ fn document_json(document: &SchematicPlotDocument) -> Value {
                 }
                 Value::Object(object)
             }
+            SchematicPlotRecord::Annotation(value) => {
+                let mut object = json!({
+                    "uuid": value.uuid, "kind": value.kind.as_str(),
+                    "object_id": value.object_id,
+                    "operation_count": value.operations.len(),
+                    "operations": value.operations.iter().enumerate()
+                        .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+                })
+                .as_object()
+                .expect("annotation object")
+                .clone();
+                insert_optional(&mut object, "text", value.text.as_ref().map(|v| json!(v)));
+                insert_optional(&mut object, "shape", value.shape.as_ref().map(|v| json!(v)));
+                insert_optional(&mut object, "at_x_nm", value.at_x_nm.map(|v| json!(v)));
+                insert_optional(&mut object, "at_y_nm", value.at_y_nm.map(|v| json!(v)));
+                insert_optional(&mut object, "length_nm", value.length_nm.map(|v| json!(v)));
+                Value::Object(object)
+            }
         })
         .collect::<Vec<_>>();
     let mut object = json!({
@@ -378,6 +423,52 @@ fn vector_context(vector: &Value) -> SchematicPlotContext {
     }
 }
 
+fn vector_drawing_settings(vector: &Value) -> SchematicDrawingSettings {
+    let values = vector.get("drawing_settings");
+    SchematicDrawingSettings {
+        text_offset_ratio: values
+            .and_then(|value| value.get("text_offset_ratio"))
+            .and_then(Value::as_f64)
+            .unwrap_or(0.15),
+        default_line_width_nm: values
+            .and_then(|value| value.get("default_line_thickness"))
+            .and_then(Value::as_f64)
+            .map(|mils| (mils * 25_400.0).round_ties_even() as i64)
+            .unwrap_or(152_400),
+    }
+}
+
+const METRIC_FONT_BYTES: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../tests/parity/fonts/shaping-variable-fixture.ttf"
+));
+
+fn metric_font() -> PlotterTextFont<'static> {
+    let vectors: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/font_shaping_a0_vectors.json"
+    )))
+    .expect("shaping vectors");
+    let record: ShapingRecordA0 = vectors["records"]
+        .as_array()
+        .expect("shaping records")
+        .iter()
+        .find(|record| record["case_id"] == "fixture_default_variation_axis")
+        .cloned()
+        .map(serde_json::from_value)
+        .expect("metric shaping case")
+        .expect("metric shaping record");
+    PlotterTextFont {
+        face: "KiCad Monkey Shaping Fixture",
+        bold: false,
+        italic: false,
+        font_bytes: METRIC_FONT_BYTES,
+        shaping: record.input,
+        fake_bold: false,
+        fake_italic: false,
+    }
+}
+
 #[test]
 fn custom_worksheet_and_connectivity_match_python_foundation() {
     let document = schematic_plot_document(SOURCE, SchematicPlotLimits::default(), &context())
@@ -424,6 +515,7 @@ fn custom_worksheet_and_connectivity_match_python_foundation() {
         .map(|record| match record {
             SchematicPlotRecord::Connectivity(record) => record.kind,
             SchematicPlotRecord::SheetHeader(_) => panic!("second header"),
+            SchematicPlotRecord::Annotation(_) => panic!("unexpected annotation"),
         })
         .collect::<Vec<_>>();
     assert_eq!(
@@ -787,11 +879,31 @@ fn every_shared_vector_is_exactly_projectable_to_the_strict_contract() {
         "kicad_monkey.schematic_plotter_parity.a0"
     );
     for vector in vectors["vectors"].as_array().expect("vector array") {
-        let document = schematic_plot_document(
-            vector["source"].as_str().expect("source"),
-            SchematicPlotLimits::default(),
-            &vector_context(vector),
-        )
+        let source = vector["source"].as_str().expect("source");
+        let context = vector_context(vector);
+        let settings = vector_drawing_settings(vector);
+        let document = if vector.get("font_resource").is_some() {
+            let fonts = [metric_font()];
+            let resources = PlotterTextCacheResources {
+                fonts: &fonts,
+                limits: PlotterTextCacheLimits::default(),
+            };
+            schematic_plot_document_with_annotations(
+                source,
+                SchematicPlotLimits::default(),
+                &context,
+                settings,
+                Some(&resources),
+            )
+        } else {
+            schematic_plot_document_with_annotations(
+                source,
+                SchematicPlotLimits::default(),
+                &context,
+                settings,
+                None,
+            )
+        }
         .unwrap_or_else(|error| panic!("{}: {error}", vector["id"]));
         let actual = document_json(&document);
         assert_eq!(actual, vector["expected"], "{}", vector["id"]);
@@ -812,6 +924,574 @@ fn assert_resource_pair(
         schematic_plot_document(source, one_over, context)
             .expect_err("one-over resource boundary")
             .kind,
+        ErrorKind::ResourceLimit
+    );
+}
+
+fn assert_annotation_resource_pair(
+    source: &str,
+    context: &SchematicPlotContext,
+    exact: SchematicPlotLimits,
+    one_over: SchematicPlotLimits,
+) {
+    schematic_plot_document_with_annotations(
+        source,
+        exact,
+        context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("exact annotation resource boundary");
+    assert_eq!(
+        schematic_plot_document_with_annotations(
+            source,
+            one_over,
+            context,
+            SchematicDrawingSettings::default(),
+            None,
+        )
+        .expect_err("one-over annotation resource boundary")
+        .kind,
+        ErrorKind::ResourceLimit
+    );
+}
+
+#[test]
+fn annotation_family_and_line_ceilings_have_exact_and_one_over_cases() {
+    let source = r#"(kicad_sch
+      (label "L" (at 1 1) (uuid "l"))
+      (global_label "" (shape passive) (at 2 2) (uuid "g"))
+      (hierarchical_label "H" (shape input) (at 3 3) (uuid "h"))
+      (netclass_flag "N" (shape dot) (length 1) (at 4 4) (uuid "n")
+        (property "Net Class" "Fast" (at 4 4)))
+      (text "\nT" (at 5 5) (uuid "t"))
+      (text_box "A\nB" (at 6 6) (size 0 0) (margins 0 0 0 0)
+        (fill (type none)) (uuid "b")))"#;
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    let pairs = [
+        (
+            SchematicPlotLimits {
+                max_labels: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_labels: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_global_labels: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_global_labels: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_hierarchical_labels: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_hierarchical_labels: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_netclass_flags: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_netclass_flags: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_netclass_flag_properties: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_netclass_flag_properties: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_texts: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_texts: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_text_boxes: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_text_boxes: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_text_box_lines: 2,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_text_box_lines: 1,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+    ];
+    for (exact, one_over) in pairs {
+        assert_annotation_resource_pair(source, &context, exact, one_over);
+    }
+}
+
+#[test]
+fn annotation_settings_and_font_metric_dependencies_fail_closed() {
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    for settings in [
+        SchematicDrawingSettings {
+            text_offset_ratio: f64::NAN,
+            ..SchematicDrawingSettings::default()
+        },
+        SchematicDrawingSettings {
+            default_line_width_nm: 84_699,
+            ..SchematicDrawingSettings::default()
+        },
+    ] {
+        assert_eq!(
+            schematic_plot_document_with_annotations(
+                "(kicad_sch)",
+                SchematicPlotLimits::default(),
+                &context,
+                settings,
+                None,
+            )
+            .expect_err("invalid drawing setting")
+            .kind,
+            ErrorKind::InvalidBuildValue
+        );
+    }
+    let metric_source = r#"(kicad_sch
+      (global_label "AB" (shape passive) (at 0 0)
+        (effects (font (face "Unavailable") (size 1 1)))))"#;
+    assert_eq!(
+        schematic_plot_document_with_annotations(
+            metric_source,
+            SchematicPlotLimits::default(),
+            &context,
+            SchematicDrawingSettings::default(),
+            None,
+        )
+        .expect_err("nonempty global decoration requires explicit font metrics")
+        .kind,
+        ErrorKind::InvalidBuildValue
+    );
+
+    let wrapping_source = r#"(kicad_sch
+      (text_box "A" (at 0 0) (size 10 10) (margins 0 0 0 0)
+        (fill (type none)) (uuid "b")))"#;
+    assert_eq!(
+        schematic_plot_document_with_annotations(
+            wrapping_source,
+            SchematicPlotLimits {
+                max_text_box_lines: 0,
+                ..SchematicPlotLimits::default()
+            },
+            &context,
+            SchematicDrawingSettings::default(),
+            None,
+        )
+        .expect_err("zero line ceiling is checked before font linebreaking")
+        .kind,
+        ErrorKind::ResourceLimit
+    );
+}
+
+#[test]
+fn annotation_defaults_and_kicad_half_away_rounding_match_python() {
+    let source = r#"(kicad_sch
+      (label "L" (at 0 0) (effects (font (size 0.000004 0.000004))) (uuid "l"))
+      (global_label "" (at 0 0) (effects (font (size 0.000012 0.000012))) (uuid "g"))
+      (hierarchical_label "H" (shape future) (at 0 0) (uuid "h"))
+      (netclass_flag "N" (at 0 0) (uuid "n"))
+      (text "\nX" (at 0 0) (effects (font (size 0.00065 0.00065))) (uuid "t")))"#;
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    let document = schematic_plot_document_with_annotations(
+        source,
+        SchematicPlotLimits::default(),
+        &context,
+        SchematicDrawingSettings {
+            text_offset_ratio: 0.0,
+            ..SchematicDrawingSettings::default()
+        },
+        None,
+    )
+    .expect("Python annotation defaults and rounding");
+    let annotations = document
+        .records
+        .iter()
+        .filter_map(|record| match record {
+            SchematicPlotRecord::Annotation(record) => Some(record),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let local = annotations
+        .iter()
+        .find(|record| record.kind.as_str() == "label")
+        .expect("local label");
+    let SchematicPlotOperation::Text(local_text) = &local.operations[0] else {
+        panic!("local label text")
+    };
+    assert_eq!((local_text.text.x, local_text.text.y), (0, -1));
+
+    let global = annotations
+        .iter()
+        .find(|record| record.kind.as_str() == "global_label")
+        .expect("global label");
+    assert_eq!(global.shape.as_deref(), Some("input"));
+    let SchematicPlotOperation::Text(global_text) = &global.operations[0] else {
+        panic!("global label text")
+    };
+    assert_eq!(global_text.text.x, 14);
+
+    let hierarchical = annotations
+        .iter()
+        .find(|record| record.kind.as_str() == "hierarchical_label")
+        .expect("hierarchical label");
+    assert_eq!(hierarchical.shape.as_deref(), Some("input"));
+
+    let netclass = annotations
+        .iter()
+        .find(|record| record.kind.as_str() == "netclass_flag")
+        .expect("netclass flag");
+    assert_eq!(netclass.length_nm, Some(2_540_000));
+
+    let text = annotations
+        .iter()
+        .find(|record| record.kind.as_str() == "text")
+        .expect("ordinary text");
+    let SchematicPlotOperation::Text(text_op) = &text.operations[0] else {
+        panic!("ordinary text operation")
+    };
+    assert_eq!(text_op.text.y, -249_700);
+}
+
+#[test]
+fn annotation_expansion_and_derived_geometry_fail_before_unbounded_publication() {
+    let context = SchematicPlotContext {
+        project_variables: SchematicPlotVariables::from_entries([("X", "0123456789abcdef")]),
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    let expansion = r#"(kicad_sch (text "${X}${X}" (at 0 0) (uuid "t")))"#;
+    schematic_plot_document_with_annotations(
+        expansion,
+        SchematicPlotLimits {
+            max_text_bytes: 32,
+            ..SchematicPlotLimits::default()
+        },
+        &context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("exact expanded byte ceiling");
+    assert_eq!(
+        schematic_plot_document_with_annotations(
+            expansion,
+            SchematicPlotLimits {
+                max_text_bytes: 31,
+                ..SchematicPlotLimits::default()
+            },
+            &context,
+            SchematicDrawingSettings::default(),
+            None,
+        )
+        .expect_err("expanded byte ceiling before allocation")
+        .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let expanded_builtin_source = r#"(kicad_sch (title_block (title "${X}") (date "${X}")))"#;
+    let expanded_builtin_context = SchematicPlotContext {
+        project_variables: SchematicPlotVariables::from_entries([(
+            "X",
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        )]),
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    schematic_plot_document_with_annotations(
+        expanded_builtin_source,
+        SchematicPlotLimits {
+            max_text_bytes: 128,
+            max_metadata_bytes: 128,
+            ..SchematicPlotLimits::default()
+        },
+        &expanded_builtin_context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("exact aggregate built-in expansion ceiling");
+    assert_eq!(
+        schematic_plot_document_with_annotations(
+            expanded_builtin_source,
+            SchematicPlotLimits {
+                max_text_bytes: 127,
+                max_metadata_bytes: 127,
+                ..SchematicPlotLimits::default()
+            },
+            &expanded_builtin_context,
+            SchematicDrawingSettings::default(),
+            None,
+        )
+        .expect_err("aggregate built-in expansion ceiling")
+        .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let huge_ratio = r#"(kicad_sch
+      (label "L" (at 0 0) (effects (font (size 1 1))) (uuid "l")))"#;
+    assert_eq!(
+        schematic_plot_document_with_annotations(
+            huge_ratio,
+            SchematicPlotLimits::default(),
+            &SchematicPlotContext {
+                worksheet_source: Some(b"(kicad_wks)".to_vec()),
+                ..SchematicPlotContext::default()
+            },
+            SchematicDrawingSettings {
+                text_offset_ratio: f64::MAX,
+                ..SchematicDrawingSettings::default()
+            },
+            None,
+        )
+        .expect_err("unsafe derived label offset")
+        .kind,
+        ErrorKind::InvalidBuildValue
+    );
+
+    let huge_text_box = r#"(kicad_sch
+      (text_box "A\nB" (at 0 0) (size 0 0) (margins 0 0 0 0)
+        (effects (font (size 9007199254.740991 9007199254.740991)))
+        (fill (type none)) (uuid "b")))"#;
+    assert!(
+        schematic_plot_document_with_annotations(
+            huge_text_box,
+            SchematicPlotLimits::default(),
+            &SchematicPlotContext {
+                worksheet_source: Some(b"(kicad_wks)".to_vec()),
+                ..SchematicPlotContext::default()
+            },
+            SchematicDrawingSettings::default(),
+            None,
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn text_box_legacy_margin_rounds_once_after_raw_mm_combination() {
+    let source = r#"(kicad_sch
+      (text_box "A" (at 0 0) (size 0 0)
+        (stroke (width 0.0000014))
+        (fill (type none))
+        (effects (font (size 0.000008 0.000008)) (justify left top))
+        (uuid "b")))"#;
+    let document = schematic_plot_document_with_annotations(
+        source,
+        SchematicPlotLimits::default(),
+        &SchematicPlotContext {
+            worksheet_source: Some(b"(kicad_wks)".to_vec()),
+            ..SchematicPlotContext::default()
+        },
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("legacy margin projection");
+    let text_box = document
+        .records
+        .iter()
+        .find_map(|record| match record {
+            SchematicPlotRecord::Annotation(record) if record.kind.as_str() == "text_box" => {
+                Some(record)
+            }
+            _ => None,
+        })
+        .expect("text-box record");
+    let SchematicPlotOperation::Text(text) = &text_box.operations[1] else {
+        panic!("text-box body")
+    };
+    assert_eq!((text.text.x, text.text.y), (7, 7));
+}
+
+#[test]
+fn annotation_retained_payload_operation_and_point_budgets_are_exact() {
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    let retained = r#"(kicad_sch
+      (text_box "A" (at 0 0) (size 0 0) (margins 0 0 0 0)
+        (fill (type none)) (effects (href "h")) (uuid "u")))"#;
+    for (exact, one_over) in [
+        (
+            SchematicPlotLimits {
+                max_text_bytes: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_text_bytes: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            // Header strings (14), record UUID/object/text (3), and the
+            // retained Text color/face/hyperlink strings (15).
+            SchematicPlotLimits {
+                max_metadata_bytes: 32,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_metadata_bytes: 31,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_operations: 3,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_operations: 2,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+    ] {
+        assert_annotation_resource_pair(retained, &context, exact, one_over);
+    }
+
+    let points = r#"(kicad_sch
+      (hierarchical_label "H" (shape input) (at 0 0) (uuid "h")))"#;
+    assert_annotation_resource_pair(
+        points,
+        &context,
+        SchematicPlotLimits {
+            max_points: 6,
+            ..SchematicPlotLimits::default()
+        },
+        SchematicPlotLimits {
+            max_points: 5,
+            ..SchematicPlotLimits::default()
+        },
+    );
+}
+
+#[test]
+fn annotation_metric_selection_hash_and_linebreak_work_are_bounded() {
+    let vectors: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../tests/parity/schematic_plotter_a0_vectors.json"
+    )))
+    .expect("schematic vectors");
+    let vector = vectors["vectors"]
+        .as_array()
+        .expect("vectors")
+        .iter()
+        .find(|vector| vector["id"] == "explicit-font-metrics-for-schematic-annotations")
+        .expect("metric vector");
+    let source = vector["source"].as_str().expect("source");
+    let context = vector_context(vector);
+    let fonts = [metric_font()];
+
+    let run = |cache_limits: PlotterTextCacheLimits| {
+        let resources = PlotterTextCacheResources {
+            fonts: &fonts,
+            limits: cache_limits,
+        };
+        schematic_plot_document_with_annotations(
+            source,
+            SchematicPlotLimits::default(),
+            &context,
+            vector_drawing_settings(vector),
+            Some(&resources),
+        )
+    };
+
+    run(PlotterTextCacheLimits {
+        // One validation hash plus two hashes for each of global-label
+        // measure, text line-height measure, and text-box linebreaking.
+        max_hash_bytes: METRIC_FONT_BYTES.len() * 7,
+        ..PlotterTextCacheLimits::default()
+    })
+    .expect("exact annotation metric hash work");
+    assert_eq!(
+        run(PlotterTextCacheLimits {
+            max_hash_bytes: METRIC_FONT_BYTES.len() * 7 - 1,
+            ..PlotterTextCacheLimits::default()
+        })
+        .expect_err("one-under metric hash work")
+        .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let mut exact_linebreak = PlotterTextCacheLimits::default();
+    exact_linebreak.linebreak.max_tokens = 2;
+    run(exact_linebreak).expect("exact text-box linebreak token work");
+    let mut one_under_linebreak = PlotterTextCacheLimits::default();
+    one_under_linebreak.linebreak.max_tokens = 1;
+    assert_eq!(
+        run(one_under_linebreak)
+            .expect_err("one-under text-box linebreak token work")
+            .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    let resources = PlotterTextCacheResources {
+        fonts: &fonts,
+        limits: PlotterTextCacheLimits::default(),
+    };
+    assert_eq!(
+        schematic_plot_document_with_annotations(
+            source,
+            SchematicPlotLimits {
+                max_text_box_lines: 1,
+                ..SchematicPlotLimits::default()
+            },
+            &context,
+            vector_drawing_settings(vector),
+            Some(&resources),
+        )
+        .expect_err("wrapped line ceiling is enforced during construction")
+        .kind,
+        ErrorKind::ResourceLimit
+    );
+
+    assert_eq!(
+        run(PlotterTextCacheLimits {
+            max_fonts: 0,
+            ..PlotterTextCacheLimits::default()
+        })
+        .expect_err("font selection is bounded before publication")
+        .kind,
         ErrorKind::ResourceLimit
     );
 }

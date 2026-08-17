@@ -12,6 +12,16 @@ enum SchematicWorksheetMode {
   provided: "provided",
 }
 
+/** Finite nonnegative project text-offset ratio used by schematic plotting. */
+@minValue(0)
+@maxValue(1.7976931348623157e308)
+scalar SchematicTextOffsetRatio extends float64;
+
+/** Effective schematic plot width after KiCad's minimum-pen clamp. */
+@minValue(84700)
+@maxValue(9007199254740991)
+scalar SchematicDefaultLineWidthNm extends safeint;
+
 /** One exact-case project text variable supplied by the caller. */
 model SchematicTextVariable {
   name: string;
@@ -35,6 +45,8 @@ model SchematicPlotRequest {
   sheet_name: string;
   worksheet_mode: SchematicWorksheetMode;
   text_variables?: SchematicTextVariable[];
+  text_offset_ratio: SchematicTextOffsetRatio;
+  default_line_width_nm: SchematicDefaultLineWidthNm;
   max_source_bytes: uint64;
   max_worksheet_bytes: uint64;
   max_output_bytes: uint64;
@@ -52,6 +64,14 @@ model SchematicPlotRequest {
   max_bus_entries: uint32;
   max_junctions: uint32;
   max_no_connects: uint32;
+  max_labels: uint32;
+  max_global_labels: uint32;
+  max_hierarchical_labels: uint32;
+  max_netclass_flags: uint32;
+  max_netclass_flag_properties: uint32;
+  max_texts: uint32;
+  max_text_boxes: uint32;
+  max_text_box_lines: uint32;
   max_text_variables: uint32;
   max_text_variable_bytes: uint64;
   max_worksheet_items: uint32;
@@ -160,7 +180,93 @@ model SchematicNoConnectPlotRecord {
   operations: PlotterOperation[];
 }
 
-/** Strict source-record vocabulary for the P5_060 schematic foundation. */
+/** Signal-direction shapes preserved on global and hierarchical labels. */
+enum SchematicLabelShape {
+  input: "input",
+  output: "output",
+  bidirectional: "bidirectional",
+  triState: "tri_state",
+  passive: "passive",
+  dot: "dot",
+  round: "round",
+  diamond: "diamond",
+  rectangle: "rectangle",
+}
+
+/** Marker shapes admitted by schematic netclass/directive flags. */
+enum SchematicNetclassFlagShape {
+  round: "round",
+  dot: "dot",
+  diamond: "diamond",
+  rectangle: "rectangle",
+}
+
+/** One local schematic label. */
+model SchematicLabelPlotRecord {
+  uuid: string;
+  kind: "label";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  text: string;
+}
+
+/** One global schematic label and its optional decoration. */
+model SchematicGlobalLabelPlotRecord {
+  uuid: string;
+  kind: "global_label";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  text: string;
+  shape: SchematicLabelShape;
+}
+
+/** One hierarchical schematic label and its optional decoration. */
+model SchematicHierarchicalLabelPlotRecord {
+  uuid: string;
+  kind: "hierarchical_label";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  text: string;
+  shape: SchematicLabelShape;
+}
+
+/** One netclass/directive flag with its visible property text. */
+model SchematicNetclassFlagPlotRecord {
+  uuid: string;
+  kind: "netclass_flag";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  at_x_nm: JavaScriptSafeInteger;
+  at_y_nm: JavaScriptSafeInteger;
+  shape: SchematicNetclassFlagShape;
+  length_nm: JavaScriptSafeInteger;
+}
+
+/** One ordinary top-level schematic text annotation. */
+model SchematicTextPlotRecord {
+  uuid: string;
+  kind: "text";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  text: string;
+}
+
+/** One schematic text box with its canonical outline and plotted lines. */
+model SchematicTextBoxPlotRecord {
+  uuid: string;
+  kind: "text_box";
+  object_id: string;
+  operation_count: uint32;
+  operations: PlotterOperation[];
+  text: string;
+}
+
+/** Strict source-record vocabulary through the P5_061 schematic annotations. */
 union SchematicPlotRecord {
   sheetHeader: SchematicSheetHeaderPlotRecord,
   wire: SchematicWirePlotRecord,
@@ -168,9 +274,15 @@ union SchematicPlotRecord {
   busEntry: SchematicBusEntryPlotRecord,
   junction: SchematicJunctionPlotRecord,
   noConnect: SchematicNoConnectPlotRecord,
+  label: SchematicLabelPlotRecord,
+  globalLabel: SchematicGlobalLabelPlotRecord,
+  hierarchicalLabel: SchematicHierarchicalLabelPlotRecord,
+  netclassFlag: SchematicNetclassFlagPlotRecord,
+  text: SchematicTextPlotRecord,
+  textBox: SchematicTextBoxPlotRecord,
 }
 
-/** Strict schematic-foundation subset of kicad.plotter_ir.a0. */
+/** Strict schematic subset through the P5_061 annotation families. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0")
 @extension("title", "Schematic plot document a0")

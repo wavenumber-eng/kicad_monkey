@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust schematic Plotter-IR Phase 5 annotations</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust schematic Plotter-IR Phase 5 annotations</h1>
+
+  <p>Status: accepted. P5_061 extends the native schematic Plotter-IR
+  document with local, global, and hierarchical labels, netclass flags,
+  ordinary text, and text boxes. It preserves the P5_060 native-first
+  boundary: there is no new WASM endpoint and no ambient project, worksheet,
+  or font discovery.</p>
+
+  <h2>Producer and ordering boundary</h2>
+  <p>The producer continues to scan bounded raw schematic forms so authored
+  nanometre precision and text metadata are not lost through the connectivity
+  model. Annotation records follow the P5_060 header and connectivity records
+  in the fixed family order <code>label</code>, <code>global_label</code>,
+  <code>hierarchical_label</code>, <code>netclass_flag</code>,
+  <code>text</code>, and <code>text_box</code>. Source order is preserved
+  within each family.</p>
+
+  <p>The existing P5_060 entry point remains unchanged. The annotation entry
+  point adds explicit effective drawing settings and an optional bounded font
+  resource set. Drawing settings carry the effective text-offset ratio and
+  default line width in nanometres; callers own conversion from KiCad project
+  mil values. A carrier that requires outline metrics fails closed unless the
+  exact requested face, bold, and italic selection is present. Core never
+  searches platform fonts or project paths.</p>
+
+  <h2>Annotation semantics</h2>
+  <p>Labels emit text before an optional direction decoration. Local labels
+  never decorate; global and hierarchical labels retain their distinct KiCad
+  placement, colors, point layouts, and supported shapes. Plotted label text
+  converts the KiCad <code>{slash}</code> escape while record identity keeps
+  the authored text. Label and netclass-property text does not expand project
+  variables.</p>
+
+  <p>Netclass flags emit their marker before visible property text. Round and
+  dot markers use a colored lead segment and circle; diamond and rectangle
+  markers use one closed polyline. Hidden, empty, and tilde-valued properties
+  do not emit operations. Unsupported valid-domain shapes fail closed rather
+  than silently widening the strict record vocabulary.</p>
+
+  <p>Ordinary text and text-box content use a separate one-pass, exact-case
+  variable expander. Built-in sheet and title values override project values;
+  unknown tokens remain literal and an empty token expands to an empty string.
+  This intentionally differs from the recursive, whitespace-trimming
+  worksheet expander. Ordinary text removes exactly one terminal newline for
+  plotting. Text boxes preserve the authoritative fill-before-outline order,
+  bounded wrapping, internal blank-line spacing, and per-line hyperlink
+  context.</p>
+
+  <h2>Contract and compatibility</h2>
+  <p>The strict schematic record union gains six annotation arms. Generated
+  text operations gain an optional closed hyperlink context and generated
+  thick segments gain an optional stroke color for netclass leads. TypeSpec,
+  JSON Schema, Rust, Python, and TypeScript bindings regenerate atomically.
+  Board, standalone-footprint, and symbol semantic validators continue to
+  reject those new optional states when their producers do not own them.</p>
+
+  <p>The strict producer contracts remain incubating through P5_071. Generic
+  <code>kicad.plotter_ir.a0</code> consumers remain forward tolerant. No font
+  bytes, drawing-resource payloads, serialized-output guarantee, or new bot
+  endpoint is added in this native slice.</p>
+
+  <h2>Resource boundary</h2>
+  <p>Independent limits cover every annotation family, netclass properties,
+  text-box lines, aggregate selected forms, records, operations, input and
+  output points, retained text, and retained metadata. The accepted text
+  resource limits continue to bound font bytes and selection, hashing,
+  shaping, line-breaking output, glyph and outline work. The text-box line
+  ceiling bounds retained logical lines and is preflighted before metric work
+  when already exhausted; the text engine's output and work ceilings bound
+  the temporary line-break result. Derived coordinates and widths are finite
+  and JavaScript-safe before records are published. Limit or malformed-model
+  failures return no partial document.</p>
+
+  <h2>Evidence and retained work</h2>
+  <p>The hermetic Python oracle extends the shared schematic vectors with one
+  dense metric-independent annotation document and one document bound to the
+  committed shaping fixture font. Together they cover all six families,
+  operation order, variables, drawing settings, hyperlinks, fill and outline
+  passes, exact global-label width, ordinary-text line height, and text-box
+  wrapping without platform discovery. Rack <code>L1_036</code>, focused
+  native tests, strict contract mutations, and generation checks own the
+  executable evidence.</p>
+
+  <p>P5_062 and later slices still retain schematic graphics, rule areas,
+  images, tables, placed symbols and overlap records, hierarchical sheets,
+  fields, and pins.</p>
+</body>
+</html>

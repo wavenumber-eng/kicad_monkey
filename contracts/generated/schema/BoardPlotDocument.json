@@ -962,6 +962,9 @@
                 },
                 "pad_size_y_nm": {
                     "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "stroke_color": {
+                    "type": "string"
                 }
             },
             "required": [
@@ -1351,6 +1354,9 @@
                 },
                 "font_face": {
                     "type": "string"
+                },
+                "context": {
+                    "$ref": "#/$defs/PlotterOperationContext"
                 },
                 "layer": {
                     "type": "string"
@@ -1841,6 +1847,9 @@
                 "pad_size_y_nm": {
                     "$ref": "#/$defs/JavaScriptSafeInteger"
                 },
+                "stroke_color": {
+                    "type": "string"
+                },
                 "label": {
                     "type": "string"
                 },
@@ -2313,6 +2322,9 @@
                 },
                 "font_face": {
                     "type": "string"
+                },
+                "context": {
+                    "$ref": "#/$defs/PlotterOperationContext"
                 },
                 "layer": {
                     "type": "string"
@@ -2941,6 +2953,21 @@
             ],
             "description": "Vertical text alignments emitted by the board producers."
         },
+        "PlotterOperationContext": {
+            "type": "object",
+            "properties": {
+                "hyperlink": {
+                    "$ref": "#/$defs/PlotterHyperlink"
+                }
+            },
+            "required": [
+                "hyperlink"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Strict operation-local context emitted by current plotter producers."
+        },
         "TextRenderCache": {
             "type": "object",
             "properties": {
@@ -3252,6 +3279,22 @@
                 "not": {}
             },
             "description": "Stringified SVG-enrichment attributes on an embedded pad block."
+        },
+        "PlotterHyperlink": {
+            "type": "object",
+            "properties": {
+                "href": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "required": [
+                "href"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One exact hyperlink attached to an authored plotter text carrier."
         },
         "PlotterTextRenderCacheCoordinateSpace": {
             "type": "string",

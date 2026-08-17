@@ -35,12 +35,18 @@ pub mod error {
 ///  "description": "Resource-bounded schematic plot operation. Source bytes are out of band.",
 ///  "type": "object",
 ///  "required": [
+///    "default_line_width_nm",
 ///    "max_bus_entries",
 ///    "max_buses",
 ///    "max_depth",
+///    "max_global_labels",
+///    "max_hierarchical_labels",
 ///    "max_input_points",
 ///    "max_junctions",
+///    "max_labels",
 ///    "max_metadata_bytes",
+///    "max_netclass_flag_properties",
+///    "max_netclass_flags",
 ///    "max_no_connects",
 ///    "max_operations",
 ///    "max_output_bytes",
@@ -49,9 +55,12 @@ pub mod error {
 ///    "max_records",
 ///    "max_selected_forms",
 ///    "max_source_bytes",
+///    "max_text_box_lines",
+///    "max_text_boxes",
 ///    "max_text_bytes",
 ///    "max_text_variable_bytes",
 ///    "max_text_variables",
+///    "max_texts",
 ///    "max_wires",
 ///    "max_worksheet_bitmap_data_parts",
 ///    "max_worksheet_bitmap_decode_work",
@@ -69,11 +78,15 @@ pub mod error {
 ///    "sheet_index",
 ///    "sheet_name",
 ///    "sheet_path",
+///    "text_offset_ratio",
 ///    "type",
 ///    "version",
 ///    "worksheet_mode"
 ///  ],
 ///  "properties": {
+///    "default_line_width_nm": {
+///      "$ref": "#/$defs/SchematicDefaultLineWidthNm"
+///    },
 ///    "document_id": {
 ///      "type": "string"
 ///    },
@@ -92,6 +105,16 @@ pub mod error {
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
 ///    },
+///    "max_global_labels": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_hierarchical_labels": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
 ///    "max_input_points": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
@@ -102,8 +125,23 @@ pub mod error {
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
 ///    },
+///    "max_labels": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
 ///    "max_metadata_bytes": {
 ///      "type": "string"
+///    },
+///    "max_netclass_flag_properties": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_netclass_flags": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
 ///    },
 ///    "max_no_connects": {
 ///      "type": "integer",
@@ -141,6 +179,16 @@ pub mod error {
 ///    "max_source_bytes": {
 ///      "type": "string"
 ///    },
+///    "max_text_box_lines": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_text_boxes": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
 ///    "max_text_bytes": {
 ///      "type": "string"
 ///    },
@@ -148,6 +196,11 @@ pub mod error {
 ///      "type": "string"
 ///    },
 ///    "max_text_variables": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_texts": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
@@ -222,6 +275,9 @@ pub mod error {
 ///    "source_path": {
 ///      "type": "string"
 ///    },
+///    "text_offset_ratio": {
+///      "$ref": "#/$defs/SchematicTextOffsetRatio"
+///    },
 ///    "text_variables": {
 ///      "type": "array",
 ///      "items": {
@@ -247,14 +303,20 @@ pub mod error {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct SchematicPlotRequestA0 {
+    pub default_line_width_nm: crate::SchematicDefaultLineWidthNm,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub document_id: ::std::option::Option<::std::string::String>,
     pub max_bus_entries: u32,
     pub max_buses: u32,
     pub max_depth: u32,
+    pub max_global_labels: u32,
+    pub max_hierarchical_labels: u32,
     pub max_input_points: u32,
     pub max_junctions: u32,
+    pub max_labels: u32,
     pub max_metadata_bytes: ::std::string::String,
+    pub max_netclass_flag_properties: u32,
+    pub max_netclass_flags: u32,
     pub max_no_connects: u32,
     pub max_operations: u32,
     pub max_output_bytes: ::std::string::String,
@@ -263,9 +325,12 @@ pub struct SchematicPlotRequestA0 {
     pub max_records: u32,
     pub max_selected_forms: u32,
     pub max_source_bytes: ::std::string::String,
+    pub max_text_box_lines: u32,
+    pub max_text_boxes: u32,
     pub max_text_bytes: ::std::string::String,
     pub max_text_variable_bytes: ::std::string::String,
     pub max_text_variables: u32,
+    pub max_texts: u32,
     pub max_wires: u32,
     pub max_worksheet_bitmap_data_parts: u32,
     pub max_worksheet_bitmap_decode_work: ::std::string::String,
@@ -285,6 +350,7 @@ pub struct SchematicPlotRequestA0 {
     pub sheet_path: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub source_path: ::std::option::Option<::std::string::String>,
+    pub text_offset_ratio: crate::NonNegativeFiniteFloat,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub text_variables: ::std::vec::Vec<SchematicTextVariable>,
     #[serde(rename = "type")]

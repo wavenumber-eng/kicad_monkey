@@ -42,6 +42,12 @@
                 "$ref": "#/$defs/SchematicTextVariable"
             }
         },
+        "text_offset_ratio": {
+            "$ref": "#/$defs/SchematicTextOffsetRatio"
+        },
+        "default_line_width_nm": {
+            "$ref": "#/$defs/SchematicDefaultLineWidthNm"
+        },
         "max_source_bytes": {
             "type": "string"
         },
@@ -117,6 +123,46 @@
             "minimum": 0,
             "maximum": 4294967295
         },
+        "max_labels": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_global_labels": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_hierarchical_labels": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_netclass_flags": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_netclass_flag_properties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_texts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_boxes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_box_lines": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
         "max_text_variables": {
             "type": "integer",
             "minimum": 0,
@@ -181,6 +227,8 @@
         "sheet_path",
         "sheet_name",
         "worksheet_mode",
+        "text_offset_ratio",
+        "default_line_width_nm",
         "max_source_bytes",
         "max_worksheet_bytes",
         "max_output_bytes",
@@ -198,6 +246,14 @@
         "max_bus_entries",
         "max_junctions",
         "max_no_connects",
+        "max_labels",
+        "max_global_labels",
+        "max_hierarchical_labels",
+        "max_netclass_flags",
+        "max_netclass_flag_properties",
+        "max_texts",
+        "max_text_boxes",
+        "max_text_box_lines",
         "max_text_variables",
         "max_text_variable_bytes",
         "max_worksheet_items",
@@ -244,6 +300,18 @@
                 "not": {}
             },
             "description": "One exact-case project text variable supplied by the caller."
+        },
+        "SchematicTextOffsetRatio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1.7976931348623157e+308,
+            "description": "Finite nonnegative project text-offset ratio used by schematic plotting."
+        },
+        "SchematicDefaultLineWidthNm": {
+            "type": "integer",
+            "minimum": 84700,
+            "maximum": 9007199254740991,
+            "description": "Effective schematic plot width after KiCad's minimum-pen clamp."
         }
     }
 }

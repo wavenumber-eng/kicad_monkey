@@ -4,6 +4,14 @@
  * Selection of the drawing-sheet byte sidecar supplied out of band.
  */
 export type SchematicWorksheetMode = "default" | "provided";
+/**
+ * Finite nonnegative project text-offset ratio used by schematic plotting.
+ */
+export type SchematicTextOffsetRatio = number;
+/**
+ * Effective schematic plot width after KiCad's minimum-pen clamp.
+ */
+export type SchematicDefaultLineWidthNm = number;
 
 /**
  * Resource-bounded schematic plot operation. Source bytes are out of band.
@@ -19,6 +27,8 @@ export interface SchematicPlotRequestA0 {
   sheet_name: string;
   worksheet_mode: SchematicWorksheetMode;
   text_variables?: SchematicTextVariable[];
+  text_offset_ratio: SchematicTextOffsetRatio;
+  default_line_width_nm: SchematicDefaultLineWidthNm;
   max_source_bytes: string;
   max_worksheet_bytes: string;
   max_output_bytes: string;
@@ -36,6 +46,14 @@ export interface SchematicPlotRequestA0 {
   max_bus_entries: number;
   max_junctions: number;
   max_no_connects: number;
+  max_labels: number;
+  max_global_labels: number;
+  max_hierarchical_labels: number;
+  max_netclass_flags: number;
+  max_netclass_flag_properties: number;
+  max_texts: number;
+  max_text_boxes: number;
+  max_text_box_lines: number;
   max_text_variables: number;
   max_text_variable_bytes: string;
   max_worksheet_items: number;

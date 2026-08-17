@@ -9,7 +9,8 @@ use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position};
 use crate::{
     TextBlockLayoutLimits, TextBlockLayoutRequest, TextHorizontalAlignment, TextLinebreakLimits,
     TextRenderCache, TextRenderCacheErrorKind, TextRenderCacheLimits, TextVerticalAlignment,
-    generate_text_render_cache_block_hinted_a0, linebreak_text_block_hinted_a0,
+    generate_text_render_cache_block_hinted_a0, layout_text_block_hinted_a0,
+    linebreak_text_block_hinted_a0,
 };
 use kicad_monkey_contracts::generated::shaping_record::ShapingInput;
 use kicad_monkey_contracts::validate_shaping_input_contract;
@@ -97,6 +98,18 @@ pub(crate) struct PlotterTextLayout<'a> {
     pub stroke_width: f64,
 }
 
+/// Deterministic outline-font dimensions in the same coordinate units as the
+/// corresponding [`PlotterTextLayout`].
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PlotterTextMetrics {
+    pub width: f64,
+    pub height: f64,
+    /// KiCad/FreeType face ascender plus descender after its high-resolution
+    /// metric grid is reduced to schematic millimetres.
+    pub line_height: f64,
+    pub line_widths: Vec<f64>,
+}
+
 impl PlotterTextCacheResources<'_> {
     pub(crate) fn validate(&self) -> Result<(), Error> {
         validate_resource_header(self)?;
@@ -157,6 +170,34 @@ impl PlotterTextCacheResources<'_> {
         })
     }
 
+    pub(crate) fn measure(
+        &self,
+        layout: PlotterTextLayout<'_>,
+    ) -> Result<PlotterTextMetrics, Error> {
+        let (font, shaping) = self.selection_and_shaping(layout)?;
+        let output = layout_text_block_hinted_a0(
+            font.font_bytes,
+            block_request(
+                layout,
+                &shaping,
+                self.limits.max_error,
+                font.fake_bold,
+                font.fake_italic,
+            ),
+            self.limits.layout,
+        )
+        .map_err(|error| match error.kind {
+            crate::TextContourErrorKind::ResourceLimit => resource(error.message),
+            _ => invalid(error.message),
+        })?;
+        Ok(PlotterTextMetrics {
+            width: output.width,
+            height: output.height,
+            line_height: hinted_line_height(font, layout)?,
+            line_widths: output.line_widths,
+        })
+    }
+
     fn selection_and_shaping(
         &self,
         layout: PlotterTextLayout<'_>,
@@ -175,6 +216,28 @@ impl PlotterTextCacheResources<'_> {
             .map_err(|_| invalid("Native plotter font selection is missing"))?;
         Ok(&self.fonts[index])
     }
+}
+
+fn hinted_line_height(
+    font: &PlotterTextFont<'_>,
+    layout: PlotterTextLayout<'_>,
+) -> Result<f64, Error> {
+    let face = ttf_parser::Face::parse(font.font_bytes, font.shaping.face_index)
+        .map_err(|_| invalid("Native plotter font vertical metrics are invalid"))?;
+    let units_per_em = f64::from(face.units_per_em());
+    let hinted = |metric: i16| {
+        // The Python authority requests a 1433/64 point face at 1152 dpi,
+        // then reduces FreeType's 26.6 metrics by 16. The resulting values
+        // occupy a four-unit grid on KiCad's 1433-unit outline face.
+        ((f64::from(metric).abs() * crate::KICAD_OUTLINE_FACE_SCALER / units_per_em / 4.0).ceil())
+            * 4.0
+    };
+    let size_y_iu = (layout.size_y * 10_000.0).round_ties_even();
+    let scale =
+        size_y_iu / crate::KICAD_OUTLINE_FACE_SCALER * crate::KICAD_OUTLINE_SIZE_COMPENSATION;
+    let height_iu =
+        (hinted(face.ascender()) * scale) as i64 + (hinted(face.descender()) * scale) as i64;
+    Ok(height_iu as f64 / 10_000.0)
 }
 
 impl<'a> PlotterTextCacheSession<'a> {
@@ -212,6 +275,14 @@ impl<'a> PlotterTextCacheSession<'a> {
         self.charge_session_hashes(layout)?;
         self.resources
             .generate(layout, max_retained_points, max_polygons, max_contours)
+    }
+
+    pub(crate) fn measure(
+        &self,
+        layout: PlotterTextLayout<'_>,
+    ) -> Result<PlotterTextMetrics, Error> {
+        self.charge_session_hashes(layout)?;
+        self.resources.measure(layout)
     }
 
     fn charge_session_hashes(&self, layout: PlotterTextLayout<'_>) -> Result<(), Error> {

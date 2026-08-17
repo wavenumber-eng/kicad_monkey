@@ -1143,6 +1143,100 @@ impl ::std::convert::TryFrom<::std::string::String> for PlotterFill {
         value.parse()
     }
 }
+///One exact hyperlink attached to an authored plotter text carrier.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One exact hyperlink attached to an authored plotter text carrier.",
+///  "type": "object",
+///  "required": [
+///    "href"
+///  ],
+///  "properties": {
+///    "href": {
+///      "type": "string",
+///      "minLength": 1
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct PlotterHyperlink {
+    pub href: PlotterHyperlinkHref,
+}
+///`PlotterHyperlinkHref`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "string",
+///  "minLength": 1
+///}
+/// ```
+/// </details>
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct PlotterHyperlinkHref(::std::string::String);
+impl ::std::ops::Deref for PlotterHyperlinkHref {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<PlotterHyperlinkHref> for ::std::string::String {
+    fn from(value: PlotterHyperlinkHref) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for PlotterHyperlinkHref {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterHyperlinkHref {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterHyperlinkHref {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterHyperlinkHref {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for PlotterHyperlinkHref {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
 ///KiCad stroke styles carried without producer-specific decomposition.
 ///
 /// <details><summary>JSON schema</summary>
@@ -1377,6 +1471,31 @@ impl ::std::convert::From<FlashPadTrapezOperation> for PlotterOperation {
     fn from(value: FlashPadTrapezOperation) -> Self {
         Self::FlashPadTrapezOperation(value)
     }
+}
+///Strict operation-local context emitted by current plotter producers.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Strict operation-local context emitted by current plotter producers.",
+///  "type": "object",
+///  "required": [
+///    "hyperlink"
+///  ],
+///  "properties": {
+///    "hyperlink": {
+///      "$ref": "#/$defs/PlotterHyperlink"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct PlotterOperationContext {
+    pub hyperlink: PlotterHyperlink,
 }
 ///Plotter point encoded as an exact coordinate pair.
 ///
@@ -2062,6 +2181,130 @@ pub struct SchematicBusPlotRecord {
     pub operations: ::std::vec::Vec<PlotterOperation>,
     pub uuid: ::std::string::String,
 }
+///One global schematic label and its optional decoration.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One global schematic label and its optional decoration.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "shape",
+///    "text",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "global_label"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "shape": {
+///      "$ref": "#/$defs/SchematicLabelShape"
+///    },
+///    "text": {
+///      "type": "string"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicGlobalLabelPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_global_label_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub shape: SchematicLabelShape,
+    pub text: ::std::string::String,
+    pub uuid: ::std::string::String,
+}
+///One hierarchical schematic label and its optional decoration.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One hierarchical schematic label and its optional decoration.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "shape",
+///    "text",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "hierarchical_label"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "shape": {
+///      "$ref": "#/$defs/SchematicLabelShape"
+///    },
+///    "text": {
+///      "type": "string"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicHierarchicalLabelPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_hierarchical_label_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub shape: SchematicLabelShape,
+    pub text: ::std::string::String,
+    pub uuid: ::std::string::String,
+}
 ///One schematic junction marker.
 ///
 /// <details><summary>JSON schema</summary>
@@ -2131,6 +2374,326 @@ pub struct SchematicJunctionPlotRecord {
     pub operation_count: u32,
     pub operations: ::std::vec::Vec<PlotterOperation>,
     pub uuid: ::std::string::String,
+}
+///One local schematic label.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One local schematic label.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "text",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "label"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "text": {
+///      "type": "string"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicLabelPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_label_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub text: ::std::string::String,
+    pub uuid: ::std::string::String,
+}
+///Signal-direction shapes preserved on global and hierarchical labels.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Signal-direction shapes preserved on global and hierarchical labels.",
+///  "type": "string",
+///  "enum": [
+///    "input",
+///    "output",
+///    "bidirectional",
+///    "tri_state",
+///    "passive",
+///    "dot",
+///    "round",
+///    "diamond",
+///    "rectangle"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum SchematicLabelShape {
+    #[serde(rename = "input")]
+    Input,
+    #[serde(rename = "output")]
+    Output,
+    #[serde(rename = "bidirectional")]
+    Bidirectional,
+    #[serde(rename = "tri_state")]
+    TriState,
+    #[serde(rename = "passive")]
+    Passive,
+    #[serde(rename = "dot")]
+    Dot,
+    #[serde(rename = "round")]
+    Round,
+    #[serde(rename = "diamond")]
+    Diamond,
+    #[serde(rename = "rectangle")]
+    Rectangle,
+}
+impl ::std::fmt::Display for SchematicLabelShape {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Input => f.write_str("input"),
+            Self::Output => f.write_str("output"),
+            Self::Bidirectional => f.write_str("bidirectional"),
+            Self::TriState => f.write_str("tri_state"),
+            Self::Passive => f.write_str("passive"),
+            Self::Dot => f.write_str("dot"),
+            Self::Round => f.write_str("round"),
+            Self::Diamond => f.write_str("diamond"),
+            Self::Rectangle => f.write_str("rectangle"),
+        }
+    }
+}
+impl ::std::str::FromStr for SchematicLabelShape {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "input" => Ok(Self::Input),
+            "output" => Ok(Self::Output),
+            "bidirectional" => Ok(Self::Bidirectional),
+            "tri_state" => Ok(Self::TriState),
+            "passive" => Ok(Self::Passive),
+            "dot" => Ok(Self::Dot),
+            "round" => Ok(Self::Round),
+            "diamond" => Ok(Self::Diamond),
+            "rectangle" => Ok(Self::Rectangle),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for SchematicLabelShape {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for SchematicLabelShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for SchematicLabelShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///One netclass/directive flag with its visible property text.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One netclass/directive flag with its visible property text.",
+///  "type": "object",
+///  "required": [
+///    "at_x_nm",
+///    "at_y_nm",
+///    "kind",
+///    "length_nm",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "shape",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "at_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "at_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "netclass_flag"
+///    },
+///    "length_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "shape": {
+///      "$ref": "#/$defs/SchematicNetclassFlagShape"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicNetclassFlagPlotRecord {
+    pub at_x_nm: crate::JavaScriptSafeInteger,
+    pub at_y_nm: crate::JavaScriptSafeInteger,
+    #[serde(deserialize_with = "crate::deserialize_netclass_flag_record_kind")]
+    pub kind: ::std::string::String,
+    pub length_nm: crate::JavaScriptSafeInteger,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub shape: SchematicNetclassFlagShape,
+    pub uuid: ::std::string::String,
+}
+///Marker shapes admitted by schematic netclass/directive flags.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Marker shapes admitted by schematic netclass/directive flags.",
+///  "type": "string",
+///  "enum": [
+///    "round",
+///    "dot",
+///    "diamond",
+///    "rectangle"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum SchematicNetclassFlagShape {
+    #[serde(rename = "round")]
+    Round,
+    #[serde(rename = "dot")]
+    Dot,
+    #[serde(rename = "diamond")]
+    Diamond,
+    #[serde(rename = "rectangle")]
+    Rectangle,
+}
+impl ::std::fmt::Display for SchematicNetclassFlagShape {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Round => f.write_str("round"),
+            Self::Dot => f.write_str("dot"),
+            Self::Diamond => f.write_str("diamond"),
+            Self::Rectangle => f.write_str("rectangle"),
+        }
+    }
+}
+impl ::std::str::FromStr for SchematicNetclassFlagShape {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "round" => Ok(Self::Round),
+            "dot" => Ok(Self::Dot),
+            "diamond" => Ok(Self::Diamond),
+            "rectangle" => Ok(Self::Rectangle),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for SchematicNetclassFlagShape {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for SchematicNetclassFlagShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for SchematicNetclassFlagShape {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 ///One schematic no-connect cross.
 ///
@@ -2214,7 +2777,7 @@ pub struct SchematicPlotCanvas {
     pub height_nm: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
-///Strict schematic-foundation subset of kicad.plotter_ir.a0.
+///Strict schematic subset through the P5_061 annotation families.
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -2222,7 +2785,7 @@ pub struct SchematicPlotCanvas {
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0",
 ///  "title": "Schematic plot document a0",
-///  "description": "Strict schematic-foundation subset of kicad.plotter_ir.a0.",
+///  "description": "Strict schematic subset through the P5_061 annotation families.",
 ///  "type": "object",
 ///  "required": [
 ///    "canvas",
@@ -2283,13 +2846,13 @@ pub struct SchematicPlotDocumentA0 {
     pub source_path: ::std::option::Option<::std::string::String>,
     pub total_operations: u32,
 }
-///Strict source-record vocabulary for the P5_060 schematic foundation.
+///Strict source-record vocabulary through the P5_061 schematic annotations.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Strict source-record vocabulary for the P5_060 schematic foundation.",
+///  "description": "Strict source-record vocabulary through the P5_061 schematic annotations.",
 ///  "oneOf": [
 ///    {
 ///      "$ref": "#/$defs/SchematicSheetHeaderPlotRecord"
@@ -2308,6 +2871,24 @@ pub struct SchematicPlotDocumentA0 {
 ///    },
 ///    {
 ///      "$ref": "#/$defs/SchematicNoConnectPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicLabelPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicGlobalLabelPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicHierarchicalLabelPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicNetclassFlagPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicTextPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicTextBoxPlotRecord"
 ///    }
 ///  ]
 ///}
@@ -2322,6 +2903,12 @@ pub enum SchematicPlotRecord {
     BusEntryPlotRecord(SchematicBusEntryPlotRecord),
     JunctionPlotRecord(SchematicJunctionPlotRecord),
     NoConnectPlotRecord(SchematicNoConnectPlotRecord),
+    LabelPlotRecord(SchematicLabelPlotRecord),
+    GlobalLabelPlotRecord(SchematicGlobalLabelPlotRecord),
+    HierarchicalLabelPlotRecord(SchematicHierarchicalLabelPlotRecord),
+    NetclassFlagPlotRecord(SchematicNetclassFlagPlotRecord),
+    TextPlotRecord(SchematicTextPlotRecord),
+    TextBoxPlotRecord(SchematicTextBoxPlotRecord),
 }
 impl ::std::convert::From<SchematicSheetHeaderPlotRecord> for SchematicPlotRecord {
     fn from(value: SchematicSheetHeaderPlotRecord) -> Self {
@@ -2351,6 +2938,36 @@ impl ::std::convert::From<SchematicJunctionPlotRecord> for SchematicPlotRecord {
 impl ::std::convert::From<SchematicNoConnectPlotRecord> for SchematicPlotRecord {
     fn from(value: SchematicNoConnectPlotRecord) -> Self {
         Self::NoConnectPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicLabelPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicLabelPlotRecord) -> Self {
+        Self::LabelPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicGlobalLabelPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicGlobalLabelPlotRecord) -> Self {
+        Self::GlobalLabelPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicHierarchicalLabelPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicHierarchicalLabelPlotRecord) -> Self {
+        Self::HierarchicalLabelPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicNetclassFlagPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicNetclassFlagPlotRecord) -> Self {
+        Self::NetclassFlagPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicTextPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicTextPlotRecord) -> Self {
+        Self::TextPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicTextBoxPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicTextBoxPlotRecord) -> Self {
+        Self::TextBoxPlotRecord(value)
     }
 }
 ///Typed title-block metadata carried by the leading sheet-header record.
@@ -2514,6 +3131,120 @@ pub struct SchematicSheetHeaderPlotRecord {
     pub uuid: ::std::string::String,
     pub version: crate::JavaScriptSafeInteger,
 }
+///One schematic text box with its canonical outline and plotted lines.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One schematic text box with its canonical outline and plotted lines.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "text",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "text_box"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "text": {
+///      "type": "string"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicTextBoxPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_text_box_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub text: ::std::string::String,
+    pub uuid: ::std::string::String,
+}
+///One ordinary top-level schematic text annotation.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One ordinary top-level schematic text annotation.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "text",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "text"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "text": {
+///      "type": "string"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicTextPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_text_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub text: ::std::string::String,
+    pub uuid: ::std::string::String,
+}
 ///One schematic wire polyline.
 ///
 /// <details><summary>JSON schema</summary>
@@ -2603,6 +3334,9 @@ carries the exterior rings in nanometres.*/
 ///    "color": {
 ///      "type": "string"
 ///    },
+///    "context": {
+///      "$ref": "#/$defs/PlotterOperationContext"
+///    },
 ///    "font_face": {
 ///      "type": "string"
 ///    },
@@ -2691,6 +3425,8 @@ carries the exterior rings in nanometres.*/
 pub struct TextOperation {
     pub bold: bool,
     pub color: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub context: ::std::option::Option<PlotterOperationContext>,
     pub font_face: ::std::string::String,
     pub h_align: PlotterTextHAlign,
     pub index: u32,
@@ -2895,6 +3631,9 @@ generated semantic validator enforces these mutually exclusive states.*/
 ///    "start_y": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    },
+///    "stroke_color": {
+///      "type": "string"
+///    },
 ///    "width_nm": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
 ///    }
@@ -2925,5 +3664,7 @@ pub struct ThickSegmentOperation {
     pub role: ::std::option::Option<PlotterDrillRole>,
     pub start_x: crate::JavaScriptSafeInteger,
     pub start_y: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
 }

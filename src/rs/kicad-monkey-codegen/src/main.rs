@@ -195,7 +195,7 @@ const BOARD_FOOTPRINT_OPERATION_KINDS: [(&str, &str, &str); 15] = [
     ),
 ];
 
-const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 6] = [
+const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 12] = [
     (
         "SchematicSheetHeaderPlotRecord",
         "sheet_header",
@@ -226,6 +226,36 @@ const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 6] = [
         "no_connect",
         "deserialize_no_connect_record_kind",
     ),
+    (
+        "SchematicLabelPlotRecord",
+        "label",
+        "deserialize_label_record_kind",
+    ),
+    (
+        "SchematicGlobalLabelPlotRecord",
+        "global_label",
+        "deserialize_global_label_record_kind",
+    ),
+    (
+        "SchematicHierarchicalLabelPlotRecord",
+        "hierarchical_label",
+        "deserialize_hierarchical_label_record_kind",
+    ),
+    (
+        "SchematicNetclassFlagPlotRecord",
+        "netclass_flag",
+        "deserialize_netclass_flag_record_kind",
+    ),
+    (
+        "SchematicTextPlotRecord",
+        "text",
+        "deserialize_text_record_kind",
+    ),
+    (
+        "SchematicTextBoxPlotRecord",
+        "text_box",
+        "deserialize_text_box_record_kind",
+    ),
 ];
 
 fn main() -> Result<()> {
@@ -243,7 +273,7 @@ fn main() -> Result<()> {
         )?;
         validate_plotter_operation_kinds(schema_name, &schema)?;
         flatten_board_footprint_operation_extensions(schema_name, &mut schema)?;
-        project_schematic_positive_uint32(schema_name, &mut schema)?;
+        project_schematic_request_fields(schema_name, &mut schema)?;
         project_for_typify(&mut schema);
         promote_disjoint_record_unions(&mut schema);
         project_tri_state_via_drill_layers(&mut schema);
@@ -576,6 +606,16 @@ fn generate(value: Value) -> Result<String> {
         "::std::num::NonZeroU32",
         [].into_iter(),
     );
+    settings.with_replacement(
+        "SchematicDefaultLineWidthNm",
+        "crate::SchematicDefaultLineWidthNm",
+        [].into_iter(),
+    );
+    settings.with_replacement(
+        "SchematicTextOffsetRatio",
+        "crate::NonNegativeFiniteFloat",
+        [].into_iter(),
+    );
     settings.with_replacement("StableTextId", "crate::StableTextId", [].into_iter());
     settings.with_replacement("NonEmptyText", "::std::string::String", [].into_iter());
     let mut type_space = TypeSpace::new(&settings);
@@ -645,7 +685,7 @@ fn project_tri_state_via_drill_layers(schema: &mut Value) {
     }
 }
 
-fn project_schematic_positive_uint32(schema_name: &str, schema: &mut Value) -> Result<()> {
+fn project_schematic_request_fields(schema_name: &str, schema: &mut Value) -> Result<()> {
     if schema_name != "SchematicPlotRequest.json" {
         return Ok(());
     }
@@ -664,11 +704,55 @@ fn project_schematic_positive_uint32(schema_name: &str, schema: &mut Value) -> R
         }
         *property = serde_json::json!({"$ref": "#/$defs/SchematicPositiveUint32"});
     }
-    schema
+    let definitions = schema
         .pointer_mut("/$defs")
         .and_then(Value::as_object_mut)
-        .context("missing SchematicPlotRequest $defs")?
-        .insert("SchematicPositiveUint32".to_owned(), bounded);
+        .context("missing SchematicPlotRequest $defs")?;
+    definitions.insert("SchematicPositiveUint32".to_owned(), bounded);
+
+    let default_width = serde_json::json!({
+        "type": "integer",
+        "minimum": 84_700,
+        "maximum": 9_007_199_254_740_991_i64,
+    });
+    let default_width_property = schema
+        .pointer("/properties/default_line_width_nm")
+        .context("missing SchematicPlotRequest.default_line_width_nm")?;
+    let mut default_width_definition = schema
+        .pointer("/$defs/SchematicDefaultLineWidthNm")
+        .cloned()
+        .context("missing SchematicDefaultLineWidthNm definition")?;
+    default_width_definition
+        .as_object_mut()
+        .context("SchematicDefaultLineWidthNm must be an object")?
+        .remove("description");
+    if default_width_property != &serde_json::json!({"$ref": "#/$defs/SchematicDefaultLineWidthNm"})
+        || default_width_definition != default_width
+    {
+        bail!("SchematicPlotRequest.default_line_width_nm schema changed");
+    }
+
+    let ratio = serde_json::json!({
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1.7976931348623157e308_f64,
+    });
+    let ratio_property = schema
+        .pointer("/properties/text_offset_ratio")
+        .context("missing SchematicPlotRequest.text_offset_ratio")?;
+    let mut ratio_definition = schema
+        .pointer("/$defs/SchematicTextOffsetRatio")
+        .cloned()
+        .context("missing SchematicTextOffsetRatio definition")?;
+    ratio_definition
+        .as_object_mut()
+        .context("SchematicTextOffsetRatio must be an object")?
+        .remove("description");
+    if ratio_property != &serde_json::json!({"$ref": "#/$defs/SchematicTextOffsetRatio"})
+        || ratio_definition != ratio
+    {
+        bail!("SchematicPlotRequest.text_offset_ratio schema changed");
+    }
     Ok(())
 }
 

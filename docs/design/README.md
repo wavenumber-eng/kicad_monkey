@@ -78,6 +78,9 @@ Current design notes:
 - `rust-schematic-plotter-phase5-slice.html` - accepted bounded native
   schematic page-header, worksheet, and connectivity Plotter-IR foundation
   with a distinct strict generated document contract.
+- `rust-schematic-annotations-phase5-slice.html` - accepted bounded native schematic
+  labels, netclass flags, text, and text-box Plotter-IR with explicit drawing
+  settings and deterministic caller-supplied font metrics.
 - `rust-phase5-exit-audit.html` - accepted inventory and bounded closure order
   for the remaining native text, footprint, symbol, board, and schematic
   Plotter-IR surfaces before the native application phase.

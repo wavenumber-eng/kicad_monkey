@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add bounded native schematic labels and decorations, netclass flags, text,
+  and text boxes with explicit drawing settings, deterministic caller-supplied
+  font metrics, strict generated contracts, and hermetic Python-oracle evidence.
+
 - Add the bounded native schematic Plotter-IR foundation for page metadata,
   default or caller-supplied worksheets, wires, buses, bus entries, junctions,
   and no-connects, with a distinct strict generated contract and hermetic

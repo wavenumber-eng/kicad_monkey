@@ -5,16 +5,20 @@
 //! context, and worksheet bytes are explicit sidecars;
 //! this module performs no filesystem discovery.
 
+mod annotation_render;
 mod worksheet_render;
 
 use crate::plotter_ir::{ensure_javascript_safe_integer, mm_to_nm};
+use crate::plotter_text_cache::PlotterTextCacheResources;
 use crate::plotter_types::{
     PlotterCircle, PlotterFill, PlotterImage, PlotterLineStyle, PlotterOperation, PlotterPoly,
+    PlotterText, ThickSegment,
 };
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Limits, Position, Sexp, parse_with_limits};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use std::collections::{BTreeMap, BTreeSet};
 
+use annotation_render::append_annotation_records;
 use worksheet_render::drawing_sheet_operations;
 
 const DEFAULT_VERSION: i64 = 20_260_306;
@@ -44,6 +48,16 @@ pub struct SchematicPlotLimits {
     pub max_bus_entries: usize,
     pub max_junctions: usize,
     pub max_no_connects: usize,
+    pub max_labels: usize,
+    pub max_global_labels: usize,
+    pub max_hierarchical_labels: usize,
+    pub max_netclass_flags: usize,
+    pub max_netclass_flag_properties: usize,
+    pub max_texts: usize,
+    pub max_text_boxes: usize,
+    /// Aggregate retained text-box lines. Temporary font-engine linebreak
+    /// output is independently bounded by `PlotterTextCacheLimits::linebreak`.
+    pub max_text_box_lines: usize,
     pub max_operations: usize,
     pub max_points: usize,
     pub max_input_points: usize,
@@ -78,6 +92,14 @@ impl Default for SchematicPlotLimits {
             max_bus_entries: 100_000,
             max_junctions: 100_000,
             max_no_connects: 100_000,
+            max_labels: 100_000,
+            max_global_labels: 100_000,
+            max_hierarchical_labels: 100_000,
+            max_netclass_flags: 100_000,
+            max_netclass_flag_properties: 1_000_000,
+            max_texts: 100_000,
+            max_text_boxes: 100_000,
+            max_text_box_lines: 1_000_000,
             max_operations: 100_000,
             max_points: 1_000_000,
             max_input_points: 1_000_000,
@@ -97,6 +119,23 @@ impl Default for SchematicPlotLimits {
             max_worksheet_bitmap_height_px: 1_000_000,
             max_worksheet_bitmap_pixels: 100_000_000,
             max_worksheet_bitmap_decode_work: 256 * 1024 * 1024,
+        }
+    }
+}
+
+/// Effective project drawing settings supplied by the caller. The transport
+/// adapter owns conversion from KiCad's project-file mil representation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SchematicDrawingSettings {
+    pub text_offset_ratio: f64,
+    pub default_line_width_nm: i64,
+}
+
+impl Default for SchematicDrawingSettings {
+    fn default() -> Self {
+        Self {
+            text_offset_ratio: 0.15,
+            default_line_width_nm: 152_400,
         }
     }
 }
@@ -226,12 +265,67 @@ pub struct SchematicConnectivityRecord {
     pub operations: Vec<SchematicPlotOperation>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SchematicAnnotationRecordKind {
+    Label,
+    GlobalLabel,
+    HierarchicalLabel,
+    NetclassFlag,
+    Text,
+    TextBox,
+}
+
+impl SchematicAnnotationRecordKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Label => "label",
+            Self::GlobalLabel => "global_label",
+            Self::HierarchicalLabel => "hierarchical_label",
+            Self::NetclassFlag => "netclass_flag",
+            Self::Text => "text",
+            Self::TextBox => "text_box",
+        }
+    }
+}
+
+/// Annotation extras are optional only where the corresponding strict record
+/// kind does not carry them. Producers populate every required field.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SchematicAnnotationRecord {
+    pub uuid: String,
+    pub kind: SchematicAnnotationRecordKind,
+    pub object_id: String,
+    pub text: Option<String>,
+    pub shape: Option<String>,
+    pub at_x_nm: Option<i64>,
+    pub at_y_nm: Option<i64>,
+    pub length_nm: Option<i64>,
+    pub operations: Vec<SchematicPlotOperation>,
+}
+
+/// Schematic-only Text wrapper for operation-local hyperlink context without
+/// broadening established producer-neutral Text payloads.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SchematicTextOperation {
+    pub text: PlotterText,
+    pub hyperlink_href: Option<String>,
+}
+
+/// Schematic-only styled segment used by directive/netclass flag markers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SchematicStyledThickSegment {
+    pub segment: ThickSegment,
+    pub stroke_color: String,
+}
+
 /// Schematic plotting extends the shared vector vocabulary with worksheet
 /// raster placement without changing the established board/footprint ABI.
 #[derive(Clone, Debug, PartialEq)]
 pub enum SchematicPlotOperation {
     Plotter(PlotterOperation),
     PlotImage(PlotterImage),
+    Text(SchematicTextOperation),
+    StyledThickSegment(SchematicStyledThickSegment),
 }
 
 impl From<PlotterOperation> for SchematicPlotOperation {
@@ -244,6 +338,7 @@ impl From<PlotterOperation> for SchematicPlotOperation {
 pub enum SchematicPlotRecord {
     SheetHeader(SchematicSheetHeaderRecord),
     Connectivity(SchematicConnectivityRecord),
+    Annotation(SchematicAnnotationRecord),
 }
 
 impl SchematicPlotRecord {
@@ -251,6 +346,7 @@ impl SchematicPlotRecord {
         match self {
             Self::SheetHeader(record) => record.operations.len(),
             Self::Connectivity(record) => record.operations.len(),
+            Self::Annotation(record) => record.operations.len(),
         }
     }
 }
@@ -270,6 +366,21 @@ struct CarrierSpans {
     bus_entries: Vec<FormSpan>,
     junctions: Vec<FormSpan>,
     no_connects: Vec<FormSpan>,
+    labels: Vec<FormSpan>,
+    global_labels: Vec<FormSpan>,
+    hierarchical_labels: Vec<FormSpan>,
+    netclass_flags: Vec<FormSpan>,
+    texts: Vec<FormSpan>,
+    text_boxes: Vec<FormSpan>,
+}
+
+pub(super) struct AnnotationSpans {
+    labels: Vec<FormSpan>,
+    global_labels: Vec<FormSpan>,
+    hierarchical_labels: Vec<FormSpan>,
+    netclass_flags: Vec<FormSpan>,
+    texts: Vec<FormSpan>,
+    text_boxes: Vec<FormSpan>,
 }
 
 pub(crate) struct PlotBudget {
@@ -330,6 +441,36 @@ pub fn schematic_plot_document(
     limits: SchematicPlotLimits,
     context: &SchematicPlotContext,
 ) -> Result<SchematicPlotDocument, Error> {
+    schematic_plot_document_impl(source, limits, context, None, None)
+}
+
+/// Produce the P5_061 page foundation and annotation families. Drawing
+/// settings and optional font bytes are explicit sidecars; core never reads a
+/// project or discovers a platform font.
+pub fn schematic_plot_document_with_annotations(
+    source: &str,
+    limits: SchematicPlotLimits,
+    context: &SchematicPlotContext,
+    drawing_settings: SchematicDrawingSettings,
+    text_resources: Option<&PlotterTextCacheResources<'_>>,
+) -> Result<SchematicPlotDocument, Error> {
+    validate_drawing_settings(drawing_settings)?;
+    schematic_plot_document_impl(
+        source,
+        limits,
+        context,
+        Some(drawing_settings),
+        text_resources,
+    )
+}
+
+fn schematic_plot_document_impl(
+    source: &str,
+    limits: SchematicPlotLimits,
+    context: &SchematicPlotContext,
+    drawing_settings: Option<SchematicDrawingSettings>,
+    text_resources: Option<&PlotterTextCacheResources<'_>>,
+) -> Result<SchematicPlotDocument, Error> {
     validate_context(context, limits)?;
     // The projection below avoids retaining the entire syntax tree, while
     // this one-shot bounded parse makes max_parse_nodes an aggregate source
@@ -343,7 +484,7 @@ pub fn schematic_plot_document(
             max_decoded_string_bytes: limits.max_source_bytes,
         },
     )?;
-    let spans = selected_spans(source, limits)?;
+    let spans = selected_spans(source, limits, drawing_settings.is_some())?;
     let roots = spans
         .iter()
         .filter(|span| span.depth == 0)
@@ -379,6 +520,12 @@ pub fn schematic_plot_document(
             Some("bus_entry") => carriers.bus_entries.push(span),
             Some("junction") => carriers.junctions.push(span),
             Some("no_connect") => carriers.no_connects.push(span),
+            Some("label") => carriers.labels.push(span),
+            Some("global_label") => carriers.global_labels.push(span),
+            Some("hierarchical_label") => carriers.hierarchical_labels.push(span),
+            Some("netclass_flag") => carriers.netclass_flags.push(span),
+            Some("text") => carriers.texts.push(span),
+            Some("text_box") => carriers.text_boxes.push(span),
             _ => {}
         }
     }
@@ -387,6 +534,15 @@ pub fn schematic_plot_document(
     ensure_family_limit(carriers.bus_entries.len(), limits.max_bus_entries)?;
     ensure_family_limit(carriers.junctions.len(), limits.max_junctions)?;
     ensure_family_limit(carriers.no_connects.len(), limits.max_no_connects)?;
+    ensure_family_limit(carriers.labels.len(), limits.max_labels)?;
+    ensure_family_limit(carriers.global_labels.len(), limits.max_global_labels)?;
+    ensure_family_limit(
+        carriers.hierarchical_labels.len(),
+        limits.max_hierarchical_labels,
+    )?;
+    ensure_family_limit(carriers.netclass_flags.len(), limits.max_netclass_flags)?;
+    ensure_family_limit(carriers.texts.len(), limits.max_texts)?;
+    ensure_family_limit(carriers.text_boxes.len(), limits.max_text_boxes)?;
     let version = version.unwrap_or(DEFAULT_VERSION);
     ensure_javascript_safe_integer(version)?;
     let generator = generator.unwrap_or_else(|| DEFAULT_GENERATOR.to_owned());
@@ -431,8 +587,16 @@ pub fn schematic_plot_document(
         version,
         generator,
         generator_version,
-        title_block,
+        title_block: title_block.clone(),
         operations: header_operations,
+    };
+    let annotation_spans = AnnotationSpans {
+        labels: std::mem::take(&mut carriers.labels),
+        global_labels: std::mem::take(&mut carriers.global_labels),
+        hierarchical_labels: std::mem::take(&mut carriers.hierarchical_labels),
+        netclass_flags: std::mem::take(&mut carriers.netclass_flags),
+        texts: std::mem::take(&mut carriers.texts),
+        text_boxes: std::mem::take(&mut carriers.text_boxes),
     };
     let mut records = vec![SchematicPlotRecord::SheetHeader(header)];
     append_polyline_records(
@@ -472,10 +636,24 @@ pub fn schematic_plot_document(
     append_no_connect_records(
         source,
         carriers.no_connects,
+        drawing_settings.map(|settings| settings.default_line_width_nm),
         limits,
         &mut budget,
         &mut records,
     )?;
+    if let Some(drawing_settings) = drawing_settings {
+        append_annotation_records(
+            source,
+            annotation_spans,
+            title_block.as_ref(),
+            context,
+            drawing_settings,
+            text_resources,
+            limits,
+            &mut budget,
+            &mut records,
+        )?;
+    }
     Ok(SchematicPlotDocument {
         source_path: context.source_path.clone(),
         document_id,
@@ -506,8 +684,12 @@ impl Default for Paper {
     }
 }
 
-fn selected_spans(source: &str, limits: SchematicPlotLimits) -> Result<Vec<FormSpan>, Error> {
-    let heads = [
+fn selected_spans(
+    source: &str,
+    limits: SchematicPlotLimits,
+    annotations: bool,
+) -> Result<Vec<FormSpan>, Error> {
+    let mut heads = vec![
         "version",
         "generator",
         "generator_version",
@@ -520,6 +702,16 @@ fn selected_spans(source: &str, limits: SchematicPlotLimits) -> Result<Vec<FormS
         "junction",
         "no_connect",
     ];
+    if annotations {
+        heads.extend([
+            "label",
+            "global_label",
+            "hierarchical_label",
+            "netclass_flag",
+            "text",
+            "text_box",
+        ]);
+    }
     let mut paths = BTreeSet::from([vec!["kicad_sch".to_owned()]]);
     paths.extend(
         heads
@@ -714,13 +906,16 @@ fn append_junction_records(
 fn append_no_connect_records(
     source: &str,
     spans: Vec<FormSpan>,
+    default_line_width_nm: Option<i64>,
     limits: SchematicPlotLimits,
     budget: &mut PlotBudget,
     records: &mut Vec<SchematicPlotRecord>,
 ) -> Result<(), Error> {
     let half = mm_to_nm(DEFAULT_NO_CONNECT_HALF_MM)?;
-    let width_mm = 6.0 * 0.0254;
-    let width_nm = mm_to_nm(width_mm)?.max(MIN_PLOT_PEN_WIDTH_NM);
+    let width_nm = match default_line_width_nm {
+        Some(width) => width,
+        None => mm_to_nm(6.0 * 0.0254)?.max(MIN_PLOT_PEN_WIDTH_NM),
+    };
     for span in spans {
         let form = parse_span(source, &span, limits)?;
         let [cx, cy] = child(&form, "at").map_or(Ok([0, 0]), parse_point)?;
@@ -942,6 +1137,20 @@ fn validate_context(
         return Err(limit_error());
     }
     Ok(())
+}
+
+fn validate_drawing_settings(settings: SchematicDrawingSettings) -> Result<(), Error> {
+    if !settings.text_offset_ratio.is_finite() || settings.text_offset_ratio < 0.0 {
+        return Err(model_error(
+            "Schematic text_offset_ratio must be finite and non-negative",
+        ));
+    }
+    if settings.default_line_width_nm < MIN_PLOT_PEN_WIDTH_NM {
+        return Err(model_error(
+            "Schematic default_line_width_nm must be at least 84700 nm",
+        ));
+    }
+    ensure_javascript_safe_integer(settings.default_line_width_nm).map(|_| ())
 }
 
 fn ensure_family_limit(count: usize, maximum: usize) -> Result<(), Error> {

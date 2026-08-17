@@ -114,12 +114,23 @@ literal_kind_deserializer!(deserialize_bus_record_kind, "bus");
 literal_kind_deserializer!(deserialize_bus_entry_record_kind, "bus_entry");
 literal_kind_deserializer!(deserialize_junction_record_kind, "junction");
 literal_kind_deserializer!(deserialize_no_connect_record_kind, "no_connect");
+literal_kind_deserializer!(deserialize_label_record_kind, "label");
+literal_kind_deserializer!(deserialize_global_label_record_kind, "global_label");
+literal_kind_deserializer!(
+    deserialize_hierarchical_label_record_kind,
+    "hierarchical_label"
+);
+literal_kind_deserializer!(deserialize_netclass_flag_record_kind, "netclass_flag");
+literal_kind_deserializer!(deserialize_text_record_kind, "text");
+literal_kind_deserializer!(deserialize_text_box_record_kind, "text_box");
 use std::fmt;
 
 /// Largest integer represented exactly by JavaScript's IEEE-754 `number`.
 pub const JAVASCRIPT_SAFE_INTEGER_MAX: i64 = 9_007_199_254_740_991;
 /// Smallest integer represented exactly by JavaScript's IEEE-754 `number`.
 pub const JAVASCRIPT_SAFE_INTEGER_MIN: i64 = -JAVASCRIPT_SAFE_INTEGER_MAX;
+/// KiCad's effective minimum plot pen width, in nanometres.
+pub const SCHEMATIC_DEFAULT_LINE_WIDTH_MIN_NM: i64 = 84_700;
 
 /// Integer guaranteed to remain exact across JSON and JavaScript/WASM boundaries.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, serde::Serialize)]
@@ -176,6 +187,62 @@ impl fmt::Display for JavaScriptSafeIntegerError {
 }
 
 impl std::error::Error for JavaScriptSafeIntegerError {}
+
+/// Effective schematic default line width, already clamped for plotting.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, serde::Serialize)]
+#[serde(transparent)]
+pub struct SchematicDefaultLineWidthNm(i64);
+
+impl SchematicDefaultLineWidthNm {
+    pub const fn get(self) -> i64 {
+        self.0
+    }
+}
+
+impl TryFrom<i64> for SchematicDefaultLineWidthNm {
+    type Error = SchematicDefaultLineWidthNmError;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        if (SCHEMATIC_DEFAULT_LINE_WIDTH_MIN_NM..=JAVASCRIPT_SAFE_INTEGER_MAX).contains(&value) {
+            Ok(Self(value))
+        } else {
+            Err(SchematicDefaultLineWidthNmError { value })
+        }
+    }
+}
+
+impl From<SchematicDefaultLineWidthNm> for i64 {
+    fn from(value: SchematicDefaultLineWidthNm) -> Self {
+        value.0
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SchematicDefaultLineWidthNm {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = i64::deserialize(deserializer)?;
+        Self::try_from(value).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SchematicDefaultLineWidthNmError {
+    value: i64,
+}
+
+impl fmt::Display for SchematicDefaultLineWidthNmError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{} is outside the effective schematic line-width range",
+            self.value
+        )
+    }
+}
+
+impl std::error::Error for SchematicDefaultLineWidthNmError {}
 
 /// Finite nonnegative floating-point value used for governed comparison tolerances.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
@@ -578,6 +645,7 @@ fn validate_footprint_operation(
 fn validate_footprint_text(operation: &TextOperation, path: String) -> Result<(), ValidationError> {
     require_layer(operation.layer.as_deref(), path.clone())?;
     if operation.kind != "Text"
+        || operation.context.is_some()
         || operation.mirror.is_some()
         || operation.text_as_polygons.is_some()
         || operation.polyline_per_segment.is_some()
@@ -844,6 +912,7 @@ fn validate_symbol_text(
     path: String,
 ) -> Result<(), ValidationError> {
     if operation.layer.is_none()
+        && operation.context.is_none()
         && operation.mirror.is_none()
         && operation.text_as_polygons.is_none()
         && operation.polyline_per_segment.is_none()
@@ -901,6 +970,13 @@ fn validate_shared_segment(
     operation: &ThickSegmentOperation,
     path: String,
 ) -> Result<(), ValidationError> {
+    if operation.stroke_color.is_some() {
+        return Err(validation_error(
+            "invalid_segment_color",
+            format!("{path}.stroke_color"),
+            "standalone footprint segments do not emit stroke_color",
+        ));
+    }
     validate_graphic_or_drill(
         operation.layer.as_deref(),
         operation.role,

@@ -328,7 +328,13 @@ fn validate_board_footprint_child_shape(
     );
     let is_text = matches!(operation, BoardFootprintOperation::TextOperation(_));
     let graphic_kind = match operation {
-        BoardFootprintOperation::ThickSegmentOperation(_) => {
+        BoardFootprintOperation::ThickSegmentOperation(value) => {
+            if value.stroke_color.is_some() {
+                return Err(invalid_board_footprint(
+                    path.to_owned(),
+                    "embedded footprint segments do not emit stroke_color",
+                ));
+            }
             Some(if data_ref == BoardFootprintChildRef::FpTextBox {
                 BoardFootprintChildAttrsFootprintGraphicKind::TextBoxBorder
             } else {
@@ -662,7 +668,8 @@ fn validate_board_footprint_text(
     value: &BoardFootprintTextOperation,
     path: &str,
 ) -> Result<(), ValidationError> {
-    let marker_state = value.mirror.is_none()
+    let marker_state = value.context.is_none()
+        && value.mirror.is_none()
         && value.text_as_polygons.is_none()
         && value.polyline_per_segment.is_none()
         && value.knockout != Some(false);
@@ -1236,6 +1243,7 @@ fn table_segment_has_graphic_state(value: &ThickSegmentOperation) -> bool {
         && value.mask_margin_nm.is_none()
         && value.pad_size_x_nm.is_none()
         && value.pad_size_y_nm.is_none()
+        && value.stroke_color.is_none()
 }
 
 fn text_box_rect_is_square(rect: &RectOperation) -> bool {
@@ -1264,6 +1272,13 @@ fn validate_text_payload_with_cache_angle(
             "invalid_board_operation",
             path.to_owned(),
             "board text operation kind must be Text",
+        ));
+    }
+    if value.context.is_some() {
+        return Err(validation_error(
+            "invalid_board_operation",
+            format!("{path}.context"),
+            "board text does not emit operation context",
         ));
     }
     validate_text_markers(value, path)?;
@@ -1485,6 +1500,7 @@ fn board_segment_is_layer_free(value: &ThickSegmentOperation) -> bool {
         && value.mask_margin_nm.is_none()
         && value.pad_size_x_nm.is_none()
         && value.pad_size_y_nm.is_none()
+        && value.stroke_color.is_none()
 }
 
 fn board_circle_is_layer_free(value: &CircleOperation) -> bool {

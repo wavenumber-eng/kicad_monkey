@@ -73,10 +73,10 @@
         compiled graph, and netlist foundations exist. The native
         Plotter-IR producer now covers the sheet header, default or
         caller-supplied worksheet drawing, wires, buses, entries, junctions,
-        and no-connects under a distinct strict schematic contract.</td>
-        <td>Labels and decorations; netclass flags; text/text boxes; graphics,
-        rule areas, images, and tables; placed symbols and overplots; sheets,
-        fields, and pins.</td>
+        no-connects, labels and decorations, netclass flags, text, and text
+        boxes under a distinct strict schematic contract.</td>
+        <td>Graphics, rule areas, images, and tables; placed symbols and
+        overplots; sheets, fields, and pins.</td>
       </tr>
     </tbody>
   </table>
@@ -128,7 +128,10 @@
     Rack gate.</li>
     <li><strong>P5_061 schematic annotations.</strong> Promote local, global,
     and hierarchical labels and decorations, netclass flags, ordinary text,
-    and text boxes with project/built-in variables and drawing settings.</li>
+    and text boxes with project/built-in variables and drawing settings.
+    Implemented, independently reviewed, and closed with exact hermetic Python
+    vectors, deterministic caller-supplied font metrics, strict generated
+    contracts, checked resource ceilings, and the native-first L1_036 gate.</li>
     <li><strong>P5_062 schematic graphics.</strong> Promote polylines, arcs,
     circles, rectangles, Béziers, rule areas, decoded images, and tables.</li>
     <li><strong>P5_070 schematic symbols.</strong> Reuse symbol geometry and
@@ -223,6 +226,9 @@
   the focused Rack gate.</p>
   <p>The 2026-08-17 warm P5_060 <code>L1_036</code> run completed all four
   tests in 7.73 seconds (8.44 seconds including Rack signoff), below the
+  two-minute slice policy.</p>
+  <p>The 2026-08-17 warm P5_061 <code>L1_036</code> run completed all four
+  tests in 1.81 seconds (2.54 seconds including Rack signoff), below the
   two-minute slice policy.</p>
 </body>
 </html>

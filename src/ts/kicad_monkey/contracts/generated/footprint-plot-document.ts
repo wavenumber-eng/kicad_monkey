@@ -129,6 +129,7 @@ export interface ThickSegmentOperation {
   mask_margin_nm?: JavaScriptSafeInteger;
   pad_size_x_nm?: JavaScriptSafeInteger;
   pad_size_y_nm?: JavaScriptSafeInteger;
+  stroke_color?: string;
 }
 /**
  * Solid three-point arc.
@@ -249,6 +250,7 @@ export interface TextOperation {
   bold: boolean;
   multiline: boolean;
   font_face: string;
+  context?: PlotterOperationContext;
   layer?: string;
   mirror?: boolean;
   text_as_polygons?: boolean;
@@ -258,6 +260,18 @@ export interface TextOperation {
   render_cache?: TextRenderCache;
   render_cache_source?: PlotterTextRenderCacheSource;
   render_cache_exact?: boolean;
+}
+/**
+ * Strict operation-local context emitted by current plotter producers.
+ */
+export interface PlotterOperationContext {
+  hyperlink: PlotterHyperlink;
+}
+/**
+ * One exact hyperlink attached to an authored plotter text carrier.
+ */
+export interface PlotterHyperlink {
+  href: string;
 }
 /**
  * Typed render cache from an authored `(render_cache ...)` form, the Python

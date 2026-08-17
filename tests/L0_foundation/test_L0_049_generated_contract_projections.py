@@ -20,7 +20,9 @@ from kicad_monkey.contracts.generated import (
     decode_compiled_schematic_graph_a0,
     decode_footprint_plot_document_a0,
     decode_schematic_plot_document_a0,
+    decode_schematic_plot_request_a0,
     decode_sexpr_build_request_a0,
+    decode_symbol_plot_document_a0,
 )
 
 
@@ -40,6 +42,26 @@ def _run(command: list[str]) -> None:
         f"Command failed: {' '.join(command)}\n"
         f"stdout:\n{completed.stdout}\n"
         f"stderr:\n{completed.stderr}"
+    )
+
+
+def _vector_expected(file_name: str, vector_id: str) -> dict:
+    payload = json.loads(
+        (PACKAGE_ROOT / "tests/parity" / file_name).read_text(encoding="utf-8")
+    )
+    return next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == vector_id
+    )
+
+
+def _first_operation(document: dict, kind: str) -> dict:
+    return next(
+        operation
+        for record in document["records"]
+        for operation in record["operations"]
+        if operation["kind"] == kind
     )
 
 
@@ -211,6 +233,115 @@ def test_python_board_validator_rejects_shared_plot_image_arm() -> None:
     # the generated transport union and can decode into the board root.
     decoder = msgspec.json.Decoder(BoardPlotDocumentA0)
     assert isinstance(decoder.decode(json.dumps(payload).encode()), BoardPlotDocumentA0)
+
+
+def test_new_annotation_fields_remain_fail_closed_for_existing_python_producers() -> None:
+    cases = (
+        (
+            "board_plotter_a0_vectors.json",
+            "board-text-follows-python-serializer",
+            decode_board_plot_document_a0,
+        ),
+        (
+            "footprint_plotter_a0_vectors.json",
+            "standalone-properties-text-and-text-box",
+            decode_footprint_plot_document_a0,
+        ),
+        (
+            "symbol_plotter_a0_vectors.json",
+            "styled-body-and-pin-text",
+            decode_symbol_plot_document_a0,
+        ),
+    )
+    for file_name, vector_id, decoder in cases:
+        document = _vector_expected(file_name, vector_id)
+        _first_operation(document, "Text")["context"] = {
+            "hyperlink": {"href": "https://example.test"}
+        }
+        with pytest.raises(msgspec.ValidationError):
+            decoder(json.dumps(document).encode())
+
+    footprint = _vector_expected(
+        "footprint_plotter_a0_vectors.json", "solid-line-with-metadata"
+    )
+    _first_operation(footprint, "ThickSegment")["stroke_color"] = "#484848FF"
+    with pytest.raises(msgspec.ValidationError, match="invalid_segment_color"):
+        decode_footprint_plot_document_a0(json.dumps(footprint).encode())
+
+
+def test_schematic_request_enforces_annotation_settings_and_limits() -> None:
+    request = {
+        "type": "kicad_monkey.schematic_plot.request",
+        "version": "a0",
+        "sheet_index": 1,
+        "sheet_count": 1,
+        "sheet_path": "/",
+        "sheet_name": "",
+        "worksheet_mode": "default",
+        "text_offset_ratio": 0.15,
+        "default_line_width_nm": 152_400,
+        "max_source_bytes": "4096",
+        "max_worksheet_bytes": "4096",
+        "max_output_bytes": "4096",
+        "max_depth": 64,
+        "max_parse_nodes": 1000,
+        "max_selected_forms": 1000,
+        "max_records": 100,
+        "max_operations": 100,
+        "max_points": 100,
+        "max_input_points": 100,
+        "max_text_bytes": "4096",
+        "max_metadata_bytes": "4096",
+        "max_wires": 10,
+        "max_buses": 10,
+        "max_bus_entries": 10,
+        "max_junctions": 10,
+        "max_no_connects": 10,
+        "max_labels": 10,
+        "max_global_labels": 10,
+        "max_hierarchical_labels": 10,
+        "max_netclass_flags": 10,
+        "max_netclass_flag_properties": 10,
+        "max_texts": 10,
+        "max_text_boxes": 10,
+        "max_text_box_lines": 100,
+        "max_text_variables": 10,
+        "max_text_variable_bytes": "4096",
+        "max_worksheet_items": 10,
+        "max_worksheet_repeats": 10,
+        "max_worksheet_point_sets": 10,
+        "max_worksheet_points": 10,
+        "max_worksheet_bitmap_data_parts": 10,
+        "max_worksheet_bitmap_encoded_bytes": "4096",
+        "max_worksheet_bitmap_decoded_bytes": "4096",
+        "max_worksheet_bitmap_width_px": 10,
+        "max_worksheet_bitmap_height_px": 10,
+        "max_worksheet_bitmap_pixels": "100",
+        "max_worksheet_bitmap_decode_work": "4096",
+    }
+    decode_schematic_plot_request_a0(json.dumps(request).encode())
+
+    for field in (
+        "text_offset_ratio",
+        "default_line_width_nm",
+        "max_labels",
+        "max_netclass_flag_properties",
+        "max_text_box_lines",
+    ):
+        mutation = dict(request)
+        del mutation[field]
+        with pytest.raises(msgspec.ValidationError):
+            decode_schematic_plot_request_a0(json.dumps(mutation).encode())
+
+    for field, value in (
+        ("text_offset_ratio", -0.01),
+        ("default_line_width_nm", 84_699),
+        ("default_line_width_nm", 9_007_199_254_740_992),
+    ):
+        mutation = dict(request)
+        mutation[field] = value
+        with pytest.raises(msgspec.ValidationError):
+            decode_schematic_plot_request_a0(json.dumps(mutation).encode())
 
 
 def test_python_schematic_contract_preserves_nullable_color_and_validates_png() -> None:

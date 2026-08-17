@@ -1,7 +1,7 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
 /**
- * Strict source-record vocabulary for the P5_060 schematic foundation.
+ * Strict source-record vocabulary through the P5_061 schematic annotations.
  */
 export type SchematicPlotRecord =
   | SchematicSheetHeaderPlotRecord
@@ -9,7 +9,13 @@ export type SchematicPlotRecord =
   | SchematicBusPlotRecord
   | SchematicBusEntryPlotRecord
   | SchematicJunctionPlotRecord
-  | SchematicNoConnectPlotRecord;
+  | SchematicNoConnectPlotRecord
+  | SchematicLabelPlotRecord
+  | SchematicGlobalLabelPlotRecord
+  | SchematicHierarchicalLabelPlotRecord
+  | SchematicNetclassFlagPlotRecord
+  | SchematicTextPlotRecord
+  | SchematicTextBoxPlotRecord;
 /**
  * Shared plotter operation vocabulary promoted across source producers.
  */
@@ -85,9 +91,18 @@ export type PlotterViaFlashRole = "via_aperture" | "via_mask_opening";
  * @maxItems 4
  */
 export type PlotterQuad = [PlotterPoint, PlotterPoint, PlotterPoint, PlotterPoint];
+/**
+ * Signal-direction shapes preserved on global and hierarchical labels.
+ */
+export type SchematicLabelShape =
+  "input" | "output" | "bidirectional" | "tri_state" | "passive" | "dot" | "round" | "diamond" | "rectangle";
+/**
+ * Marker shapes admitted by schematic netclass/directive flags.
+ */
+export type SchematicNetclassFlagShape = "round" | "dot" | "diamond" | "rectangle";
 
 /**
- * Strict schematic-foundation subset of kicad.plotter_ir.a0.
+ * Strict schematic subset through the P5_061 annotation families.
  */
 export interface SchematicPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
@@ -139,6 +154,7 @@ export interface ThickSegmentOperation {
   mask_margin_nm?: JavaScriptSafeInteger;
   pad_size_x_nm?: JavaScriptSafeInteger;
   pad_size_y_nm?: JavaScriptSafeInteger;
+  stroke_color?: string;
 }
 /**
  * Solid three-point arc.
@@ -259,6 +275,7 @@ export interface TextOperation {
   bold: boolean;
   multiline: boolean;
   font_face: string;
+  context?: PlotterOperationContext;
   layer?: string;
   mirror?: boolean;
   text_as_polygons?: boolean;
@@ -268,6 +285,18 @@ export interface TextOperation {
   render_cache?: TextRenderCache;
   render_cache_source?: PlotterTextRenderCacheSource;
   render_cache_exact?: boolean;
+}
+/**
+ * Strict operation-local context emitted by current plotter producers.
+ */
+export interface PlotterOperationContext {
+  hyperlink: PlotterHyperlink;
+}
+/**
+ * One exact hyperlink attached to an authored plotter text carrier.
+ */
+export interface PlotterHyperlink {
+  href: string;
 }
 /**
  * Typed render cache from an authored `(render_cache ...)` form, the Python
@@ -464,6 +493,77 @@ export interface SchematicNoConnectPlotRecord {
   object_id: string;
   operation_count: number;
   operations: PlotterOperation[];
+}
+/**
+ * One local schematic label.
+ */
+export interface SchematicLabelPlotRecord {
+  uuid: string;
+  kind: "label";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  text: string;
+}
+/**
+ * One global schematic label and its optional decoration.
+ */
+export interface SchematicGlobalLabelPlotRecord {
+  uuid: string;
+  kind: "global_label";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  text: string;
+  shape: SchematicLabelShape;
+}
+/**
+ * One hierarchical schematic label and its optional decoration.
+ */
+export interface SchematicHierarchicalLabelPlotRecord {
+  uuid: string;
+  kind: "hierarchical_label";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  text: string;
+  shape: SchematicLabelShape;
+}
+/**
+ * One netclass/directive flag with its visible property text.
+ */
+export interface SchematicNetclassFlagPlotRecord {
+  uuid: string;
+  kind: "netclass_flag";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  at_x_nm: JavaScriptSafeInteger;
+  at_y_nm: JavaScriptSafeInteger;
+  shape: SchematicNetclassFlagShape;
+  length_nm: JavaScriptSafeInteger;
+}
+/**
+ * One ordinary top-level schematic text annotation.
+ */
+export interface SchematicTextPlotRecord {
+  uuid: string;
+  kind: "text";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  text: string;
+}
+/**
+ * One schematic text box with its canonical outline and plotted lines.
+ */
+export interface SchematicTextBoxPlotRecord {
+  uuid: string;
+  kind: "text_box";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  text: string;
 }
 /**
  * Exact page extent of one schematic instance.
