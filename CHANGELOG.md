@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Complete bounded native schematic Plotter-IR with hierarchical sheet boxes,
+  typed sheet-pin ownership and decorations, visible fields, DNP rendering,
+  strict generated contracts, and hermetic Python-oracle evidence.
+
 - Add bounded placed schematic symbols, typed pin ownership blocks,
   occurrence-aware visible fields, DNP rendering, transforms, and overlap
   overplots with strict generated contracts and hermetic Python-oracle

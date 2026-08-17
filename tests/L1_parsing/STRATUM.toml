@@ -600,14 +600,14 @@ secondary = [
 [[subtests]]
 id = "L1_036"
 file = "test_L1_036_rust_schematic_plotter_slice.py"
-name = "Rust Schematic Plotter-IR Foundation Through Placed Symbols"
-description = "Prove bounded schematic headers, worksheets, connectivity, annotations, graphics, rule areas, inline images, tables, placed symbols, pins, and overlap overplots from explicit KiCad bytes and caller-owned project/font sidecars"
-concerns = ["sexpr", "rust", "schematic", "plotter_ir", "worksheet", "annotations", "graphics", "rule_area", "images", "tables", "symbols", "pins", "occurrences", "fonts"]
+name = "Rust Schematic Plotter-IR Foundation Through Hierarchical Sheets"
+description = "Prove bounded schematic headers, worksheets, connectivity, annotations, graphics, rule areas, inline images, tables, placed symbols, overplots, hierarchical sheets, sheet pins, and fields from explicit KiCad bytes and caller-owned project/font sidecars"
+concerns = ["sexpr", "rust", "schematic", "plotter_ir", "worksheet", "annotations", "graphics", "rule_area", "images", "tables", "symbols", "pins", "occurrences", "hierarchy", "sheets", "sheet_pins", "fonts"]
 test_cases = "tests/parity/schematic_plotter_a0_vectors.json"
 test_case_type = "contract"
 
 [subtests.objectives]
-primary = "Rust and Python emit the same established plotter-IR document through placed schematic symbols without project, worksheet, or font discovery"
+primary = "Rust and Python emit the same established plotter-IR document through hierarchical schematic sheets without project, worksheet, child-sheet, or font discovery"
 secondary = [
     "The strict TypeSpec schematic slice remains a valid subset of the forward-tolerant established plotter-IR contract",
     "A compact custom worksheet proves explicit variables, drawing settings, sheet context, page geometry, connectivity, annotation family order, and operation ordering",
@@ -623,8 +623,12 @@ secondary = [
     "Placed symbols follow tables, preserve occurrence references, unit/style selection, rotation and mirror transforms, visible fields, and project-variable body text",
     "Placed and alternate pins retain balanced typed ownership blocks, library and placed UUIDs, designators, graphics, names, numbers, and drawing-setting pen widths",
     "DNP dimming, exact diagonal markers, overlap bounds, and terminal source-ordered overplots match the Python authority",
-    "Generated decoding rejects unknown vocabulary, malformed points or images, missing structure, invalid identities, record or operation reordering, mismatched graphics metadata, injected table caches, and incorrect counts",
-    "The native API consumes caller-owned source, worksheet bytes, variables, drawing settings, sheet context, and font resources without project, path, or font discovery",
-    "Native schematic, worksheet, graphic, rule-area, image, table, symbol, pin, library, and overlap parsing plus retained text, metadata, records, operations, points, inline bytes, dimensions, pixels, and work fail closed under independent limits",
+    "Sheets declared before symbols in source remain terminal after symbol overplots and preserve source order within the sheet phase",
+    "Opaque DNP sheets preserve an undimmed background, dimmed border/pins/fields, and exact terminal markers while transparent sheets duplicate the canonical outline pass and authored negative strokes preserve Python's zero-width border",
+    "All nine sheet-pin shapes preserve UUID or derived ownership blocks and continuous operation indexes: the five electrical shapes retain exact decorations while dot, round, diamond, and rectangle retain text-only ownership blocks",
+    "Sheet fields preserve show-name and Sheetfile prefixes, hyperlinks, literal project-variable text, hidden and empty omission, while instance variant flags remain outside the plot record",
+    "Generated decoding rejects unknown vocabulary, malformed points or images, missing structure, invalid identities, record or operation reordering, mismatched graphics or sheet metadata, malformed sheet-pin blocks and DNP markers, injected table caches, and incorrect counts",
+    "The native API consumes caller-owned source, worksheet bytes, variables, drawing settings, sheet context, and font resources without project, path, child-sheet, or font discovery",
+    "Native schematic, worksheet, graphic, rule-area, image, table, symbol, pin, library, overlap, hierarchical-sheet, sheet-pin, and sheet-field parsing plus retained text, metadata, records, operations, points, inline bytes, dimensions, pixels, and work fail closed under independent limits",
     "The strict request reserves an independent serialized-output ceiling for the deferred transport adapter",
 ]

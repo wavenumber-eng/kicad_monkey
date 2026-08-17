@@ -278,6 +278,21 @@
         "max_symbol_overlap_checks": {
             "type": "string"
         },
+        "max_sheets": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_sheet_properties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_sheet_pins": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
         "max_text_variables": {
             "type": "integer",
             "minimum": 0,
@@ -394,6 +409,9 @@
         "max_library_subsymbols",
         "max_library_pins",
         "max_symbol_overlap_checks",
+        "max_sheets",
+        "max_sheet_properties",
+        "max_sheet_pins",
         "max_text_variables",
         "max_text_variable_bytes",
         "max_worksheet_items",

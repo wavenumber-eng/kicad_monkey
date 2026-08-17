@@ -79,6 +79,9 @@ export interface SchematicPlotRequestA0 {
   max_library_subsymbols: number;
   max_library_pins: number;
   max_symbol_overlap_checks: string;
+  max_sheets: number;
+  max_sheet_properties: number;
+  max_sheet_pins: number;
   max_text_variables: number;
   max_text_variable_bytes: string;
   max_worksheet_items: number;

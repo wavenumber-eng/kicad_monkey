@@ -901,7 +901,7 @@ class SymbolTextVariable(Struct, forbid_unknown_fields=True, frozen=True):
     value: str
 
 
-SchematicPlotRecord = Union["SchematicSheetHeaderPlotRecord", "SchematicWirePlotRecord", "SchematicBusPlotRecord", "SchematicBusEntryPlotRecord", "SchematicJunctionPlotRecord", "SchematicNoConnectPlotRecord", "SchematicLabelPlotRecord", "SchematicGlobalLabelPlotRecord", "SchematicHierarchicalLabelPlotRecord", "SchematicNetclassFlagPlotRecord", "SchematicTextPlotRecord", "SchematicTextBoxPlotRecord", "SchematicGraphicPolylinePlotRecord", "SchematicGraphicArcPlotRecord", "SchematicGraphicCirclePlotRecord", "SchematicGraphicRectanglePlotRecord", "SchematicGraphicBezierPlotRecord", "SchematicRuleAreaPlotRecord", "SchematicImagePlotRecord", "SchematicTablePlotRecord", "SchematicSymbolInstancePlotRecord", "SchematicSymbolOverplotPlotRecord"]
+SchematicPlotRecord = Union["SchematicSheetHeaderPlotRecord", "SchematicWirePlotRecord", "SchematicBusPlotRecord", "SchematicBusEntryPlotRecord", "SchematicJunctionPlotRecord", "SchematicNoConnectPlotRecord", "SchematicLabelPlotRecord", "SchematicGlobalLabelPlotRecord", "SchematicHierarchicalLabelPlotRecord", "SchematicNetclassFlagPlotRecord", "SchematicTextPlotRecord", "SchematicTextBoxPlotRecord", "SchematicGraphicPolylinePlotRecord", "SchematicGraphicArcPlotRecord", "SchematicGraphicCirclePlotRecord", "SchematicGraphicRectanglePlotRecord", "SchematicGraphicBezierPlotRecord", "SchematicRuleAreaPlotRecord", "SchematicImagePlotRecord", "SchematicTablePlotRecord", "SchematicSymbolInstancePlotRecord", "SchematicSymbolOverplotPlotRecord", "SchematicSheetPlotRecord"]
 
 
 class SchematicPlotCanvas(Struct, forbid_unknown_fields=True, frozen=True):
@@ -1112,6 +1112,20 @@ class SchematicSymbolOverplotPlotRecord(Struct, forbid_unknown_fields=True, froz
     lib_id: str
 
 
+class SchematicSheetPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="sheet", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[SchematicSheetOperation]
+    sheet_name: str
+    sheet_file: str
+    at_x_nm: JavaScriptSafeInteger
+    at_y_nm: JavaScriptSafeInteger
+    size_x_nm: JavaScriptSafeInteger
+    size_y_nm: JavaScriptSafeInteger
+    dnp: bool
+
+
 class SchematicPlotTitleBlock(Struct, forbid_unknown_fields=True, frozen=True):
     title: str
     date: str
@@ -1135,6 +1149,9 @@ SchematicImageFormat = Literal["png", "jpeg", "bmp"]
 SchematicSymbolOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "BezierCurveOperation", "TextOperation", "PlotImageOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadCustomOperation", "FlashPadTrapezOperation", "SchematicSymbolStartBlockOperation", "SchematicSymbolEndBlockOperation"]
 
 
+SchematicSheetOperation = Union["ThickSegmentOperation", "RectOperation", "PlotPolyOperation", "TextOperation", "SchematicSheetStartBlockOperation", "SchematicSheetEndBlockOperation"]
+
+
 RecordString = dict[str, str]
 
 
@@ -1151,7 +1168,23 @@ class SchematicSymbolEndBlockOperation(Struct, forbid_unknown_fields=True, froze
     index: Annotated[int, Meta(ge=0, le=4294967295)]
 
 
+class SchematicSheetStartBlockOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="StartBlock", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    label: str
+    data_uuid: str
+    data_ref: Literal["sheet_pin"]
+    object_id: str
+    extra_attrs: SchematicSheetPinBlockAttrs
+
+
+class SchematicSheetEndBlockOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="EndBlock", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+
+
 SchematicSymbolPinBlockAttrs = dict[str, str]
+
+
+SchematicSheetPinBlockAttrs = dict[str, str]
 
 
 SchematicWorksheetMode = Literal["default", "provided"]
@@ -1729,6 +1762,9 @@ class SchematicPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     max_library_subsymbols: Annotated[int, Meta(ge=0, le=4294967295)]
     max_library_pins: Annotated[int, Meta(ge=0, le=4294967295)]
     max_symbol_overlap_checks: str
+    max_sheets: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_sheet_properties: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_sheet_pins: Annotated[int, Meta(ge=0, le=4294967295)]
     max_text_variables: Annotated[int, Meta(ge=0, le=4294967295)]
     max_text_variable_bytes: str
     max_worksheet_items: Annotated[int, Meta(ge=0, le=4294967295)]
@@ -2281,7 +2317,7 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
         raise msgspec.ValidationError("invalid_schematic_document at $")
     if not value.records or not isinstance(value.records[0], SchematicSheetHeaderPlotRecord):
         raise msgspec.ValidationError("missing_sheet_header at $.records[0]")
-    phases = {SchematicSheetHeaderPlotRecord: 0, SchematicWirePlotRecord: 1, SchematicBusPlotRecord: 2, SchematicBusEntryPlotRecord: 3, SchematicJunctionPlotRecord: 4, SchematicNoConnectPlotRecord: 5, SchematicLabelPlotRecord: 6, SchematicGlobalLabelPlotRecord: 7, SchematicHierarchicalLabelPlotRecord: 8, SchematicNetclassFlagPlotRecord: 9, SchematicTextPlotRecord: 10, SchematicTextBoxPlotRecord: 11, SchematicGraphicPolylinePlotRecord: 12, SchematicGraphicArcPlotRecord: 13, SchematicGraphicCirclePlotRecord: 14, SchematicGraphicRectanglePlotRecord: 15, SchematicGraphicBezierPlotRecord: 16, SchematicRuleAreaPlotRecord: 17, SchematicImagePlotRecord: 18, SchematicTablePlotRecord: 19, SchematicSymbolInstancePlotRecord: 20, SchematicSymbolOverplotPlotRecord: 21}
+    phases = {SchematicSheetHeaderPlotRecord: 0, SchematicWirePlotRecord: 1, SchematicBusPlotRecord: 2, SchematicBusEntryPlotRecord: 3, SchematicJunctionPlotRecord: 4, SchematicNoConnectPlotRecord: 5, SchematicLabelPlotRecord: 6, SchematicGlobalLabelPlotRecord: 7, SchematicHierarchicalLabelPlotRecord: 8, SchematicNetclassFlagPlotRecord: 9, SchematicTextPlotRecord: 10, SchematicTextBoxPlotRecord: 11, SchematicGraphicPolylinePlotRecord: 12, SchematicGraphicArcPlotRecord: 13, SchematicGraphicCirclePlotRecord: 14, SchematicGraphicRectanglePlotRecord: 15, SchematicGraphicBezierPlotRecord: 16, SchematicRuleAreaPlotRecord: 17, SchematicImagePlotRecord: 18, SchematicTablePlotRecord: 19, SchematicSymbolInstancePlotRecord: 20, SchematicSymbolOverplotPlotRecord: 21, SchematicSheetPlotRecord: 22}
     previous_phase = -1
     total_operations = 0
     for record_index, record in enumerate(value.records):
@@ -2292,7 +2328,8 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
         previous_phase = phase
         label_record = isinstance(record, (SchematicLabelPlotRecord, SchematicGlobalLabelPlotRecord, SchematicHierarchicalLabelPlotRecord))
         symbol_record = isinstance(record, (SchematicSymbolInstancePlotRecord, SchematicSymbolOverplotPlotRecord))
-        if (label_record and record.object_id != record.text) or (not label_record and not isinstance(record, SchematicNetclassFlagPlotRecord) and not symbol_record and record.object_id != record.uuid):
+        sheet_record = isinstance(record, SchematicSheetPlotRecord)
+        if (label_record and record.object_id != record.text) or (sheet_record and record.object_id != record.sheet_name) or (not label_record and not isinstance(record, SchematicNetclassFlagPlotRecord) and not symbol_record and not sheet_record and record.object_id != record.uuid):
             raise msgspec.ValidationError(f"invalid_schematic_record_identity at {path}")
         if record.operation_count != len(record.operations):
             raise msgspec.ValidationError(f"operation_count_mismatch at {path}.operation_count")
@@ -2325,8 +2362,10 @@ def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
             _validate_schematic_image_record(record, path)
         elif isinstance(record, SchematicTablePlotRecord):
             _validate_schematic_table_record(record, path)
-        else:
+        elif symbol_record:
             _validate_schematic_symbol_record(record, path)
+        else:
+            _validate_schematic_sheet_record(record, path)
         total_operations += len(record.operations)
     if value.total_operations != total_operations:
         raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
@@ -2778,6 +2817,102 @@ def _validate_schematic_symbol_record(record: SchematicSymbolInstancePlotRecord 
             raise msgspec.ValidationError(f"invalid_symbol_operation at {operation_path}")
     if block_start is not None:
         raise msgspec.ValidationError(f"invalid_symbol_pin_block at {path}.operations")
+
+
+def _schematic_sheet_rect_state(operation: RectOperation) -> tuple:
+    return (operation.x1, operation.y1, operation.x2, operation.y2, operation.fill, operation.width_nm, operation.corner_radius_nm, operation.layer, operation.stroke_color, operation.fill_color, operation.line_style)
+
+
+def _validate_schematic_sheet_outline(operation: RectOperation, record: SchematicSheetPlotRecord, path: str) -> None:
+    expected = (record.at_x_nm, record.at_y_nm, record.at_x_nm + record.size_x_nm, record.at_y_nm + record.size_y_nm)
+    layer = None if operation.layer is UNSET else operation.layer
+    if (operation.x1, operation.y1, operation.x2, operation.y2) != expected or operation.fill != 'NO_FILL' or operation.width_nm < 0 or operation.corner_radius_nm != 0 or layer is not None or not _valid_schematic_color(operation.stroke_color) or operation.fill_color is not UNSET or operation.line_style is UNSET:
+        raise msgspec.ValidationError(f"invalid_sheet_outline at {path}")
+
+
+def _validate_schematic_sheet_pin(text: TextOperation, decoration: PlotPolyOperation | None, record: SchematicSheetPlotRecord, path: str, attrs: dict[str, str] | None = None) -> None:
+    _validate_schematic_annotation_text(text, f'{path}.text')
+    if text.multiline:
+        raise msgspec.ValidationError(f"invalid_sheet_pin_text at {path}.text")
+    shape = None
+    if attrs is not None:
+        required = {'primitive', 'object-type', 'sheet-uuid', 'sheet-name', 'sheet-file', 'pin', 'pin-name', 'shape'}
+        if set(attrs) != required or attrs.get('primitive') != 'sheet-entry' or attrs.get('object-type') != 'sheet-pin' or attrs.get('sheet-uuid') != record.uuid or attrs.get('sheet-name') != record.sheet_name or attrs.get('sheet-file') != record.sheet_file or attrs.get('pin') != attrs.get('pin-name'):
+            raise msgspec.ValidationError(f"invalid_sheet_pin_attrs at {path}.extra_attrs")
+        shape = attrs.get('shape')
+        if shape not in ('input', 'output', 'bidirectional', 'tri_state', 'passive', 'dot', 'round', 'diamond', 'rectangle') or text.text != attrs['pin-name'].replace('{slash}', '/'):
+            raise msgspec.ValidationError(f"invalid_sheet_pin_attrs at {path}.extra_attrs")
+    decoration_required = shape is None or shape in ('input', 'output', 'bidirectional', 'tri_state', 'passive')
+    if decoration_required != (decoration is not None):
+        raise msgspec.ValidationError(f"invalid_sheet_pin_decoration at {path}.decoration")
+    if decoration is None:
+        return
+    expected_points = (6,) if shape in ('input', 'output') else (5,) if shape is not None else (5, 6)
+    layer = None if decoration.layer is UNSET else decoration.layer
+    expected_color = '#949391FF' if record.dnp else '#006464FF'
+    if layer is not None or decoration.fill != 'NO_FILL' or decoration.width_nm != text.pen_width_nm or decoration.stroke_color != expected_color or decoration.fill_color is not UNSET or decoration.line_style is not UNSET or len(decoration.points) not in expected_points or decoration.points[0] != decoration.points[-1]:
+        raise msgspec.ValidationError(f"invalid_sheet_pin_decoration at {path}.decoration")
+
+
+def _validate_schematic_sheet_marker(operation: ThickSegmentOperation, path: str) -> None:
+    forbidden = (operation.layer is not UNSET, operation.role is not UNSET, operation.layers is not UNSET, operation.mask_margin_nm is not UNSET, operation.pad_size_x_nm is not UNSET, operation.pad_size_y_nm is not UNSET)
+    if any(forbidden) or operation.width_nm != 457_200 or operation.stroke_color != '#DC090DD9':
+        raise msgspec.ValidationError(f"invalid_sheet_dnp_marker at {path}")
+
+
+def _validate_schematic_sheet_record(record: SchematicSheetPlotRecord, path: str) -> None:
+    if record.object_id != record.sheet_name or record.size_x_nm <= 0 or record.size_y_nm <= 0 or len(record.operations) < 2 or not isinstance(record.operations[0], RectOperation) or not isinstance(record.operations[1], RectOperation):
+        raise msgspec.ValidationError(f"invalid_sheet_record at {path}")
+    first, outline = record.operations[:2]
+    _validate_schematic_sheet_outline(outline, record, f'{path}.operations[1]')
+    if first.fill == 'FILLED_SHAPE':
+        expected = (record.at_x_nm, record.at_y_nm, record.at_x_nm + record.size_x_nm, record.at_y_nm + record.size_y_nm)
+        layer = None if first.layer is UNSET else first.layer
+        if (first.x1, first.y1, first.x2, first.y2) != expected or first.width_nm != 0 or first.corner_radius_nm != 0 or layer is not None or not _valid_schematic_color(first.stroke_color) or first.fill_color != first.stroke_color or first.line_style is not UNSET:
+            raise msgspec.ValidationError(f"invalid_sheet_background at {path}.operations[0]")
+    else:
+        _validate_schematic_sheet_outline(first, record, f'{path}.operations[0]')
+        if _schematic_sheet_rect_state(first) != _schematic_sheet_rect_state(outline):
+            raise msgspec.ValidationError(f"invalid_sheet_outline_pair at {path}.operations[:2]")
+    content_end = len(record.operations) - (2 if record.dnp else 0)
+    if content_end < 2:
+        raise msgspec.ValidationError(f"invalid_sheet_dnp_marker at {path}.operations")
+    if record.dnp:
+        first_marker, second_marker = record.operations[-2:]
+        if not isinstance(first_marker, ThickSegmentOperation) or not isinstance(second_marker, ThickSegmentOperation):
+            raise msgspec.ValidationError(f"invalid_sheet_dnp_marker at {path}.operations")
+        _validate_schematic_sheet_marker(first_marker, f'{path}.operations[{content_end}]')
+        _validate_schematic_sheet_marker(second_marker, f'{path}.operations[{content_end + 1}]')
+        if first_marker.start_x != second_marker.end_x or first_marker.end_x != second_marker.start_x or first_marker.start_y != second_marker.start_y or first_marker.end_y != second_marker.end_y:
+            raise msgspec.ValidationError(f"invalid_sheet_dnp_geometry at {path}.operations[-2:]")
+    operation_index = 2
+    saw_property = False
+    while operation_index < content_end:
+        operation = record.operations[operation_index]
+        operation_path = f'{path}.operations[{operation_index}]'
+        if isinstance(operation, SchematicSheetStartBlockOperation):
+            has_decoration = operation_index + 3 < content_end and isinstance(record.operations[operation_index + 2], PlotPolyOperation) and isinstance(record.operations[operation_index + 3], SchematicSheetEndBlockOperation)
+            no_decoration = operation_index + 2 < content_end and isinstance(record.operations[operation_index + 2], SchematicSheetEndBlockOperation)
+            if saw_property or operation.label != operation.data_uuid or operation.label != operation.object_id or not operation.label or operation.data_ref != 'sheet_pin' or operation_index + 1 >= content_end or not isinstance(record.operations[operation_index + 1], TextOperation) or not (has_decoration or no_decoration):
+                raise msgspec.ValidationError(f"invalid_sheet_pin_block at {operation_path}")
+            decoration = record.operations[operation_index + 2] if has_decoration else None
+            _validate_schematic_sheet_pin(record.operations[operation_index + 1], decoration, record, operation_path, operation.extra_attrs)
+            operation_index += 4 if has_decoration else 3
+            continue
+        if isinstance(operation, TextOperation):
+            if operation_index + 1 < content_end and isinstance(record.operations[operation_index + 1], PlotPolyOperation):
+                if saw_property:
+                    raise msgspec.ValidationError(f"invalid_sheet_pin_order at {operation_path}")
+                _validate_schematic_sheet_pin(operation, record.operations[operation_index + 1], record, operation_path)
+                operation_index += 2
+                continue
+            saw_property = True
+            _validate_schematic_annotation_text(operation, operation_path)
+            if operation.multiline:
+                raise msgspec.ValidationError(f"invalid_sheet_property_text at {operation_path}")
+            operation_index += 1
+            continue
+        raise msgspec.ValidationError(f"invalid_sheet_operation at {operation_path}")
 _schematic_plot_request_a0_decoder = msgspec.json.Decoder(SchematicPlotRequestA0)
 
 
@@ -3157,16 +3292,21 @@ __all__ = (
     "SchematicTablePlotRecord",
     "SchematicSymbolInstancePlotRecord",
     "SchematicSymbolOverplotPlotRecord",
+    "SchematicSheetPlotRecord",
     "SchematicPlotTitleBlock",
     "SchematicLabelShape",
     "SchematicNetclassFlagShape",
     "SchematicRuleAreaShape",
     "SchematicImageFormat",
     "SchematicSymbolOperation",
+    "SchematicSheetOperation",
     "RecordString",
     "SchematicSymbolStartBlockOperation",
     "SchematicSymbolEndBlockOperation",
+    "SchematicSheetStartBlockOperation",
+    "SchematicSheetEndBlockOperation",
     "SchematicSymbolPinBlockAttrs",
+    "SchematicSheetPinBlockAttrs",
     "SchematicWorksheetMode",
     "SchematicTextVariable",
     "SchematicTextOffsetRatio",

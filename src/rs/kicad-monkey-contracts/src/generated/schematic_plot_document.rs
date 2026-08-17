@@ -916,17 +916,33 @@ pub struct PlotImageOperation {
 #[serde(deny_unknown_fields)]
 pub struct PlotPolyOperation {
     pub fill: PlotterFill,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
     #[serde(deserialize_with = "crate::deserialize_plot_poly_kind")]
     pub kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub layer: ::std::option::Option<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub line_style: ::std::option::Option<PlotterLineStyle>,
     pub points: ::std::vec::Vec<PlotterPoint>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
@@ -2060,16 +2076,32 @@ impl
 pub struct RectOperation {
     pub corner_radius_nm: crate::JavaScriptSafeInteger,
     pub fill: PlotterFill,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
     #[serde(deserialize_with = "crate::deserialize_rect_kind")]
     pub kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub layer: ::std::option::Option<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub line_style: ::std::option::Option<PlotterLineStyle>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
     pub x1: crate::JavaScriptSafeInteger,
@@ -3187,7 +3219,7 @@ pub struct SchematicPlotCanvas {
     pub height_nm: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
-///Strict schematic subset through the P5_070 placed-symbol family.
+///Strict schematic subset through the P5_071 hierarchical-sheet family.
 ///
 /// <details><summary>JSON schema</summary>
 ///
@@ -3195,7 +3227,7 @@ pub struct SchematicPlotCanvas {
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0",
 ///  "title": "Schematic plot document a0",
-///  "description": "Strict schematic subset through the P5_070 placed-symbol family.",
+///  "description": "Strict schematic subset through the P5_071 hierarchical-sheet family.",
 ///  "type": "object",
 ///  "required": [
 ///    "canvas",
@@ -3256,13 +3288,13 @@ pub struct SchematicPlotDocumentA0 {
     pub source_path: ::std::option::Option<::std::string::String>,
     pub total_operations: u32,
 }
-///Strict source-record vocabulary through the P5_070 placed symbols.
+///Strict source-record vocabulary through the P5_071 hierarchical sheets.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Strict source-record vocabulary through the P5_070 placed symbols.",
+///  "description": "Strict source-record vocabulary through the P5_071 hierarchical sheets.",
 ///  "oneOf": [
 ///    {
 ///      "$ref": "#/$defs/SchematicSheetHeaderPlotRecord"
@@ -3329,6 +3361,9 @@ pub struct SchematicPlotDocumentA0 {
 ///    },
 ///    {
 ///      "$ref": "#/$defs/SchematicSymbolOverplotPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicSheetPlotRecord"
 ///    }
 ///  ]
 ///}
@@ -3359,6 +3394,7 @@ pub enum SchematicPlotRecord {
     TablePlotRecord(SchematicTablePlotRecord),
     SymbolInstancePlotRecord(SchematicSymbolInstancePlotRecord),
     SymbolOverplotPlotRecord(SchematicSymbolOverplotPlotRecord),
+    SheetPlotRecord(SchematicSheetPlotRecord),
 }
 impl ::std::convert::From<SchematicSheetHeaderPlotRecord> for SchematicPlotRecord {
     fn from(value: SchematicSheetHeaderPlotRecord) -> Self {
@@ -3468,6 +3504,11 @@ impl ::std::convert::From<SchematicSymbolInstancePlotRecord> for SchematicPlotRe
 impl ::std::convert::From<SchematicSymbolOverplotPlotRecord> for SchematicPlotRecord {
     fn from(value: SchematicSymbolOverplotPlotRecord) -> Self {
         Self::SymbolOverplotPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicSheetPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicSheetPlotRecord) -> Self {
+        Self::SheetPlotRecord(value)
     }
 }
 ///Typed title-block metadata carried by the leading sheet-header record.
@@ -3685,6 +3726,40 @@ impl ::std::convert::TryFrom<::std::string::String> for SchematicRuleAreaShape {
         value.parse()
     }
 }
+///Trailing ownership marker for one hierarchical-sheet pin group.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Trailing ownership marker for one hierarchical-sheet pin group.",
+///  "type": "object",
+///  "required": [
+///    "index",
+///    "kind"
+///  ],
+///  "properties": {
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "EndBlock"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicSheetEndBlockOperation {
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_end_block_kind")]
+    pub kind: ::std::string::String,
+}
 ///Leading paper, title-block, background, and worksheet record.
 ///
 /// <details><summary>JSON schema</summary>
@@ -3800,6 +3875,265 @@ pub struct SchematicSheetHeaderPlotRecord {
     pub title_block: ::std::option::Option<SchematicPlotTitleBlock>,
     pub uuid: ::std::string::String,
     pub version: crate::JavaScriptSafeInteger,
+}
+///Strict operation vocabulary for hierarchical sheets and their pins.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Strict operation vocabulary for hierarchical sheets and their pins.",
+///  "anyOf": [
+///    {
+///      "$ref": "#/$defs/ThickSegmentOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/RectOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/PlotPolyOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/TextOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicSheetStartBlockOperation"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicSheetEndBlockOperation"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum SchematicSheetOperation {
+    ThickSegmentOperation(ThickSegmentOperation),
+    RectOperation(RectOperation),
+    PlotPolyOperation(PlotPolyOperation),
+    TextOperation(TextOperation),
+    SchematicSheetStartBlockOperation(SchematicSheetStartBlockOperation),
+    SchematicSheetEndBlockOperation(SchematicSheetEndBlockOperation),
+}
+impl ::std::convert::From<ThickSegmentOperation> for SchematicSheetOperation {
+    fn from(value: ThickSegmentOperation) -> Self {
+        Self::ThickSegmentOperation(value)
+    }
+}
+impl ::std::convert::From<RectOperation> for SchematicSheetOperation {
+    fn from(value: RectOperation) -> Self {
+        Self::RectOperation(value)
+    }
+}
+impl ::std::convert::From<PlotPolyOperation> for SchematicSheetOperation {
+    fn from(value: PlotPolyOperation) -> Self {
+        Self::PlotPolyOperation(value)
+    }
+}
+impl ::std::convert::From<TextOperation> for SchematicSheetOperation {
+    fn from(value: TextOperation) -> Self {
+        Self::TextOperation(value)
+    }
+}
+impl ::std::convert::From<SchematicSheetStartBlockOperation> for SchematicSheetOperation {
+    fn from(value: SchematicSheetStartBlockOperation) -> Self {
+        Self::SchematicSheetStartBlockOperation(value)
+    }
+}
+impl ::std::convert::From<SchematicSheetEndBlockOperation> for SchematicSheetOperation {
+    fn from(value: SchematicSheetEndBlockOperation) -> Self {
+        Self::SchematicSheetEndBlockOperation(value)
+    }
+}
+///Exact string metadata retained on one hierarchical-sheet pin group.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Exact string metadata retained on one hierarchical-sheet pin group.",
+///  "type": "object",
+///  "additionalProperties": {
+///    "type": "string"
+///  }
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct SchematicSheetPinBlockAttrs(
+    pub ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
+);
+impl ::std::ops::Deref for SchematicSheetPinBlockAttrs {
+    type Target = ::std::collections::BTreeMap<::std::string::String, ::std::string::String>;
+    fn deref(&self) -> &::std::collections::BTreeMap<::std::string::String, ::std::string::String> {
+        &self.0
+    }
+}
+impl ::std::convert::From<SchematicSheetPinBlockAttrs>
+    for ::std::collections::BTreeMap<::std::string::String, ::std::string::String>
+{
+    fn from(value: SchematicSheetPinBlockAttrs) -> Self {
+        value.0
+    }
+}
+impl
+    ::std::convert::From<::std::collections::BTreeMap<::std::string::String, ::std::string::String>>
+    for SchematicSheetPinBlockAttrs
+{
+    fn from(
+        value: ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
+    ) -> Self {
+        Self(value)
+    }
+}
+///One hierarchical sheet with its box, pins, visible fields, and DNP state.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One hierarchical sheet with its box, pins, visible fields, and DNP state.",
+///  "type": "object",
+///  "required": [
+///    "at_x_nm",
+///    "at_y_nm",
+///    "dnp",
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "sheet_file",
+///    "sheet_name",
+///    "size_x_nm",
+///    "size_y_nm",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "at_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "at_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "dnp": {
+///      "type": "boolean"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "sheet"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/SchematicSheetOperation"
+///      }
+///    },
+///    "sheet_file": {
+///      "type": "string"
+///    },
+///    "sheet_name": {
+///      "type": "string"
+///    },
+///    "size_x_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "size_y_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicSheetPlotRecord {
+    pub at_x_nm: crate::JavaScriptSafeInteger,
+    pub at_y_nm: crate::JavaScriptSafeInteger,
+    pub dnp: bool,
+    #[serde(deserialize_with = "crate::deserialize_sheet_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<SchematicSheetOperation>,
+    pub sheet_file: ::std::string::String,
+    pub sheet_name: ::std::string::String,
+    pub size_x_nm: crate::JavaScriptSafeInteger,
+    pub size_y_nm: crate::JavaScriptSafeInteger,
+    pub uuid: ::std::string::String,
+}
+///Leading ownership marker for one hierarchical-sheet pin group.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Leading ownership marker for one hierarchical-sheet pin group.",
+///  "type": "object",
+///  "required": [
+///    "data_ref",
+///    "data_uuid",
+///    "extra_attrs",
+///    "index",
+///    "kind",
+///    "label",
+///    "object_id"
+///  ],
+///  "properties": {
+///    "data_ref": {
+///      "type": "string",
+///      "const": "sheet_pin"
+///    },
+///    "data_uuid": {
+///      "type": "string"
+///    },
+///    "extra_attrs": {
+///      "$ref": "#/$defs/SchematicSheetPinBlockAttrs"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "StartBlock"
+///    },
+///    "label": {
+///      "type": "string"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicSheetStartBlockOperation {
+    pub data_ref: ::std::string::String,
+    pub data_uuid: ::std::string::String,
+    pub extra_attrs: SchematicSheetPinBlockAttrs,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_start_block_kind")]
+    pub kind: ::std::string::String,
+    pub label: ::std::string::String,
+    pub object_id: ::std::string::String,
 }
 ///Trailing ownership marker for one placed-symbol pin group.
 ///
@@ -4645,7 +4979,11 @@ carries the exterior rings in nanometres.*/
 pub struct TextOperation {
     pub bold: bool,
     pub color: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub context: ::std::option::Option<PlotterOperationContext>,
     pub font_face: ::std::string::String,
     pub h_align: PlotterTextHAlign,
@@ -4653,20 +4991,44 @@ pub struct TextOperation {
     pub italic: bool,
     #[serde(deserialize_with = "crate::deserialize_text_kind")]
     pub kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub knockout: ::std::option::Option<bool>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub layer: ::std::option::Option<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub mirror: ::std::option::Option<bool>,
     pub multiline: bool,
     pub orient_deg: f64,
     pub pen_width_nm: crate::JavaScriptSafeInteger,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub polyline_per_segment: ::std::option::Option<bool>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub render_cache: ::std::option::Option<TextRenderCache>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub render_cache_exact: ::std::option::Option<bool>,
     #[serde(
         default,
@@ -4674,12 +5036,20 @@ pub struct TextOperation {
         skip_serializing_if = "::std::vec::Vec::is_empty"
     )]
     pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub render_cache_source: ::std::option::Option<PlotterTextRenderCacheSource>,
     pub size_x_nm: crate::JavaScriptSafeInteger,
     pub size_y_nm: crate::JavaScriptSafeInteger,
     pub text: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub text_as_polygons: ::std::option::Option<bool>,
     pub v_align: PlotterTextVAlign,
     pub x: crate::JavaScriptSafeInteger,
@@ -4870,21 +5240,49 @@ pub struct ThickSegmentOperation {
     pub index: u32,
     #[serde(deserialize_with = "crate::deserialize_thick_segment_kind")]
     pub kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub layer: ::std::option::Option<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "crate::reject_present_schematic_segment_layers",
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
     pub layers: ::std::vec::Vec<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub mask_margin_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub pad_size_x_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub pad_size_y_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub role: ::std::option::Option<PlotterDrillRole>,
     pub start_x: crate::JavaScriptSafeInteger,
     pub start_y: crate::JavaScriptSafeInteger,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
 }

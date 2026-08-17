@@ -330,6 +330,9 @@ def test_schematic_request_enforces_annotation_settings_and_limits() -> None:
         "max_library_subsymbols": 100000,
         "max_library_pins": 100000,
         "max_symbol_overlap_checks": "1000000",
+        "max_sheets": 100,
+        "max_sheet_properties": 1000,
+        "max_sheet_pins": 1000,
         "max_text_variables": 10,
         "max_text_variable_bytes": "4096",
         "max_worksheet_items": 10,
@@ -356,6 +359,9 @@ def test_schematic_request_enforces_annotation_settings_and_limits() -> None:
         "max_table_cell_lines",
         "max_image_decode_work",
         "max_symbol_overlap_checks",
+        "max_sheets",
+        "max_sheet_properties",
+        "max_sheet_pins",
     ):
         mutation = dict(request)
         del mutation[field]
@@ -368,6 +374,7 @@ def test_schematic_request_enforces_annotation_settings_and_limits() -> None:
         ("default_line_width_nm", 9_007_199_254_740_992),
         ("max_polylines", 4_294_967_296),
         ("max_image_width_px", 4_294_967_296),
+        ("max_sheets", 4_294_967_296),
         ("max_image_encoded_bytes", "not-a-number"),
         ("max_image_pixels", "18446744073709551616"),
     ):
@@ -449,6 +456,65 @@ def test_python_schematic_contract_preserves_nullable_color_and_validates_png() 
     ].append([2, 2])
     with pytest.raises(msgspec.ValidationError, match="invalid_worksheet_polyline"):
         decode_schematic_plot_document_a0(json.dumps(malformed_polyline).encode())
+
+
+def test_python_schematic_sheet_pin_shapes_width_and_presence_are_strict() -> None:
+    canonical = _vector_expected(
+        "schematic_plotter_a0_vectors.json",
+        "hierarchical-sheets-follow-symbol-overplots",
+    )
+
+    zero_outline_width = json.loads(json.dumps(canonical))
+    zero_outline_width["records"][6]["operations"][0]["width_nm"] = 0
+    zero_outline_width["records"][6]["operations"][1]["width_nm"] = 0
+    decode_schematic_plot_document_a0(json.dumps(zero_outline_width).encode())
+
+    undecorated_round = json.loads(json.dumps(canonical))
+    undecorated_round["records"][5]["operations"][2]["extra_attrs"]["shape"] = (
+        "round"
+    )
+    del undecorated_round["records"][5]["operations"][4]
+    for index, operation in enumerate(undecorated_round["records"][5]["operations"]):
+        operation["index"] = index
+    undecorated_round["records"][5]["operation_count"] = 26
+    undecorated_round["total_operations"] = 66
+    decode_schematic_plot_document_a0(json.dumps(undecorated_round).encode())
+
+    undecorated_dot = json.loads(json.dumps(undecorated_round))
+    undecorated_dot["records"][5]["operations"][2]["extra_attrs"]["shape"] = (
+        "dot"
+    )
+    decode_schematic_plot_document_a0(json.dumps(undecorated_dot).encode())
+
+    undecorated_with_decoration = json.loads(json.dumps(canonical))
+    undecorated_with_decoration["records"][5]["operations"][2]["extra_attrs"][
+        "shape"
+    ] = "round"
+    with pytest.raises(msgspec.ValidationError, match="invalid_sheet_pin_decoration"):
+        decode_schematic_plot_document_a0(
+            json.dumps(undecorated_with_decoration).encode()
+        )
+
+    decorated_without_decoration = json.loads(json.dumps(undecorated_round))
+    decorated_without_decoration["records"][5]["operations"][2]["extra_attrs"][
+        "shape"
+    ] = "input"
+    with pytest.raises(msgspec.ValidationError, match="invalid_sheet_pin_decoration"):
+        decode_schematic_plot_document_a0(
+            json.dumps(decorated_without_decoration).encode()
+        )
+
+    for record_index, operation_index, field, value in (
+        (6, 0, "fill_color", None),
+        (5, 7, "context", None),
+        (5, 25, "layers", []),
+    ):
+        present_invalid = json.loads(json.dumps(canonical))
+        present_invalid["records"][record_index]["operations"][operation_index][
+            field
+        ] = value
+        with pytest.raises(msgspec.ValidationError):
+            decode_schematic_plot_document_a0(json.dumps(present_invalid).encode())
 
 
 def test_python_schematic_filled_shape_accepts_authoritative_optional_color() -> None:

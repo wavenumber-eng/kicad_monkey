@@ -47,7 +47,7 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict schematic subset through the P5_070 placed-symbol family.",
+    "description": "Strict schematic subset through the P5_071 hierarchical-sheet family.",
     "title": "Schematic plot document a0",
     "$defs": {
         "SchematicPlotRecord": {
@@ -117,9 +117,12 @@
                 },
                 {
                     "$ref": "#/$defs/SchematicSymbolOverplotPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicSheetPlotRecord"
                 }
             ],
-            "description": "Strict source-record vocabulary through the P5_070 placed symbols."
+            "description": "Strict source-record vocabulary through the P5_071 hierarchical sheets."
         },
         "SchematicPlotCanvas": {
             "type": "object",
@@ -1204,6 +1207,71 @@
             },
             "description": "Replotted pins and fields for one overlapping placed symbol."
         },
+        "SchematicSheetPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "sheet"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/SchematicSheetOperation"
+                    }
+                },
+                "sheet_name": {
+                    "type": "string"
+                },
+                "sheet_file": {
+                    "type": "string"
+                },
+                "at_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "at_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_x_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "size_y_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "dnp": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations",
+                "sheet_name",
+                "sheet_file",
+                "at_x_nm",
+                "at_y_nm",
+                "size_x_nm",
+                "size_y_nm",
+                "dnp"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One hierarchical sheet with its box, pins, visible fields, and DNP state."
+        },
         "JavaScriptSafeInteger": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -1385,6 +1453,29 @@
                 }
             ],
             "description": "Strict operation vocabulary for placed symbols and their overplots."
+        },
+        "SchematicSheetOperation": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/ThickSegmentOperation"
+                },
+                {
+                    "$ref": "#/$defs/RectOperation"
+                },
+                {
+                    "$ref": "#/$defs/PlotPolyOperation"
+                },
+                {
+                    "$ref": "#/$defs/TextOperation"
+                },
+                {
+                    "$ref": "#/$defs/SchematicSheetStartBlockOperation"
+                },
+                {
+                    "$ref": "#/$defs/SchematicSheetEndBlockOperation"
+                }
+            ],
+            "description": "Strict operation vocabulary for hierarchical sheets and their pins."
         },
         "ThickSegmentOperation": {
             "type": "object",
@@ -2342,6 +2433,71 @@
             },
             "description": "Trailing ownership marker for one placed-symbol pin group."
         },
+        "SchematicSheetStartBlockOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "StartBlock"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "label": {
+                    "type": "string"
+                },
+                "data_uuid": {
+                    "type": "string"
+                },
+                "data_ref": {
+                    "type": "string",
+                    "const": "sheet_pin"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "extra_attrs": {
+                    "$ref": "#/$defs/SchematicSheetPinBlockAttrs"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "label",
+                "data_uuid",
+                "data_ref",
+                "object_id",
+                "extra_attrs"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Leading ownership marker for one hierarchical-sheet pin group."
+        },
+        "SchematicSheetEndBlockOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "EndBlock"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                }
+            },
+            "required": [
+                "kind",
+                "index"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Trailing ownership marker for one hierarchical-sheet pin group."
+        },
         "PlotterDrillRole": {
             "type": "string",
             "enum": [
@@ -2503,6 +2659,14 @@
                 "type": "string"
             },
             "description": "Exact string metadata retained on one placed-symbol pin group."
+        },
+        "SchematicSheetPinBlockAttrs": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {
+                "type": "string"
+            },
+            "description": "Exact string metadata retained on one hierarchical-sheet pin group."
         },
         "PlotterHyperlink": {
             "type": "object",

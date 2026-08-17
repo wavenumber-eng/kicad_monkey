@@ -87,6 +87,9 @@ Current design notes:
 - `rust-schematic-symbols-phase5-slice.html` - accepted bounded placed schematic
   symbols, typed pin ownership, occurrence fields, transforms, DNP rendering,
   and overlap overplots with deterministic font resources.
+- `rust-schematic-sheets-phase5-slice.html` - accepted bounded hierarchical
+  sheet boxes, typed pin ownership and decorations, visible fields, and DNP
+  rendering with deterministic font resources.
 - `rust-phase5-exit-audit.html` - accepted inventory and bounded closure order
   for the remaining native text, footprint, symbol, board, and schematic
   Plotter-IR surfaces before the native application phase.

@@ -195,7 +195,7 @@ const BOARD_FOOTPRINT_OPERATION_KINDS: [(&str, &str, &str); 15] = [
     ),
 ];
 
-const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 22] = [
+const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 23] = [
     (
         "SchematicSheetHeaderPlotRecord",
         "sheet_header",
@@ -306,6 +306,11 @@ const SCHEMATIC_RECORD_KINDS: [(&str, &str, &str); 22] = [
         "symbol_overplot",
         "deserialize_symbol_overplot_record_kind",
     ),
+    (
+        "SchematicSheetPlotRecord",
+        "sheet",
+        "deserialize_sheet_record_kind",
+    ),
 ];
 
 const SCHEMATIC_SYMBOL_OPERATION_KINDS: [(&str, &str, &str); 16] = [
@@ -374,6 +379,31 @@ const SCHEMATIC_SYMBOL_OPERATION_KINDS: [(&str, &str, &str); 16] = [
     ),
     (
         "SchematicSymbolEndBlockOperation",
+        "EndBlock",
+        "deserialize_end_block_kind",
+    ),
+];
+
+const SCHEMATIC_SHEET_OPERATION_KINDS: [(&str, &str, &str); 6] = [
+    (
+        "ThickSegmentOperation",
+        "ThickSegment",
+        "deserialize_thick_segment_kind",
+    ),
+    ("RectOperation", "Rect", "deserialize_rect_kind"),
+    (
+        "PlotPolyOperation",
+        "PlotPoly",
+        "deserialize_plot_poly_kind",
+    ),
+    ("TextOperation", "Text", "deserialize_text_kind"),
+    (
+        "SchematicSheetStartBlockOperation",
+        "StartBlock",
+        "deserialize_start_block_kind",
+    ),
+    (
+        "SchematicSheetEndBlockOperation",
         "EndBlock",
         "deserialize_end_block_kind",
     ),
@@ -530,6 +560,12 @@ fn validate_plotter_operation_kinds(schema_name: &str, schema: &Value) -> Result
             "SchematicSymbolOperation",
             &SCHEMATIC_SYMBOL_OPERATION_KINDS,
         )?;
+        validate_operation_union(
+            schema_name,
+            schema,
+            "SchematicSheetOperation",
+            &SCHEMATIC_SHEET_OPERATION_KINDS,
+        )?;
     }
     Ok(())
 }
@@ -639,13 +675,76 @@ fn project_generated_presence(schema_name: &str, source: String) -> Result<Strin
         {
             projected = project_kind_deserializer(projected, structure, deserializer)?;
         }
+        for (structure, _, deserializer) in SCHEMATIC_SHEET_OPERATION_KINDS
+            .into_iter()
+            .filter(|(structure, _, _)| structure.starts_with("SchematicSheet"))
+        {
+            projected = project_kind_deserializer(projected, structure, deserializer)?;
+        }
         projected = project_schematic_record_string(projected)?;
         projected = project_schematic_junction_color(projected)?;
+        projected = project_schematic_operation_presence(projected)?;
         // The deterministic-map substitution can cross rustfmt's line-width
         // boundary, so normalize the fully projected source as the final step.
         projected = rustfmt(&projected)?;
     }
     Ok(projected)
+}
+
+fn project_schematic_operation_presence(mut source: String) -> Result<String> {
+    let original = r#"    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+"#;
+    let replacement = r#"    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+"#;
+    for (structure, expected) in [
+        ("RectOperation", 4usize),
+        ("PlotPolyOperation", 4),
+        ("TextOperation", 9),
+        ("ThickSegmentOperation", 6),
+    ] {
+        let marker = format!("pub struct {structure} {{");
+        let start = source
+            .find(&marker)
+            .with_context(|| format!("missing generated {structure}"))?;
+        let end = source[start..]
+            .find("\n}")
+            .map(|offset| start + offset + 2)
+            .with_context(|| format!("unterminated generated {structure}"))?;
+        let block = &source[start..end];
+        let count = block.matches(original).count();
+        if count != expected {
+            bail!("generated {structure} optional-field projection changed: {count} != {expected}");
+        }
+        let projected = block.replace(original, replacement);
+        source.replace_range(start..end, &projected);
+    }
+
+    let marker = "pub struct ThickSegmentOperation {";
+    let start = source
+        .find(marker)
+        .context("missing generated ThickSegmentOperation")?;
+    let end = source[start..]
+        .find("\n}")
+        .map(|offset| start + offset)
+        .context("unterminated generated ThickSegmentOperation")?;
+    let field = r#"    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub layers: ::std::vec::Vec<::std::string::String>,"#;
+    let offset = source[start..end]
+        .find(field)
+        .map(|offset| start + offset)
+        .context("missing generated ThickSegmentOperation.layers")?;
+    let replacement = r#"    #[serde(
+        default,
+        deserialize_with = "crate::reject_present_schematic_segment_layers",
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub layers: ::std::vec::Vec<::std::string::String>,"#;
+    source.replace_range(offset..offset + field.len(), replacement);
+    Ok(source)
 }
 
 fn project_schematic_request_u64_strings(mut source: String) -> Result<String> {

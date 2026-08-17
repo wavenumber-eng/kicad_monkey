@@ -71,6 +71,9 @@ pub mod error {
 ///    "max_rectangles",
 ///    "max_rule_areas",
 ///    "max_selected_forms",
+///    "max_sheet_pins",
+///    "max_sheet_properties",
+///    "max_sheets",
 ///    "max_source_bytes",
 ///    "max_symbol_overlap_checks",
 ///    "max_symbol_overplots",
@@ -274,6 +277,21 @@ pub mod error {
 ///      "minimum": 0.0
 ///    },
 ///    "max_selected_forms": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_sheet_pins": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_sheet_properties": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "max_sheets": {
 ///      "type": "integer",
 ///      "maximum": 4294967295.0,
 ///      "minimum": 0.0
@@ -487,6 +505,9 @@ pub struct SchematicPlotRequestA0 {
     pub max_rectangles: u32,
     pub max_rule_areas: u32,
     pub max_selected_forms: u32,
+    pub max_sheet_pins: u32,
+    pub max_sheet_properties: u32,
+    pub max_sheets: u32,
     #[serde(deserialize_with = "crate::deserialize_u64_string")]
     pub max_source_bytes: ::std::string::String,
     #[serde(deserialize_with = "crate::deserialize_u64_string")]

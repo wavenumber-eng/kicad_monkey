@@ -8,9 +8,10 @@ use crate::generated::schematic_plot_document::{
     SchematicJunctionPlotRecord, SchematicLabelShape, SchematicNetclassFlagPlotRecord,
     SchematicNetclassFlagShape, SchematicNoConnectPlotRecord, SchematicPlotDocumentA0,
     SchematicPlotRecord, SchematicRuleAreaPlotRecord, SchematicRuleAreaShape,
-    SchematicSheetHeaderPlotRecord, SchematicSymbolInstancePlotRecord, SchematicSymbolOperation,
-    SchematicSymbolOverplotPlotRecord, SchematicTablePlotRecord, SchematicTextBoxPlotRecord,
-    SchematicTextPlotRecord, TextOperation, ThickSegmentOperation,
+    SchematicSheetHeaderPlotRecord, SchematicSheetOperation, SchematicSheetPlotRecord,
+    SchematicSymbolInstancePlotRecord, SchematicSymbolOperation, SchematicSymbolOverplotPlotRecord,
+    SchematicTablePlotRecord, SchematicTextBoxPlotRecord, SchematicTextPlotRecord, TextOperation,
+    ThickSegmentOperation,
 };
 use crate::{ValidationError, validation_error};
 
@@ -21,6 +22,10 @@ const NO_CONNECT_COLOR: &str = "#000084FF";
 const GLOBAL_LABEL_COLOR: &str = "#840000FF";
 const HIERARCHICAL_LABEL_COLOR: &str = "#725600FF";
 const NETCLASS_COLOR: &str = "#484848FF";
+const SHEET_LABEL_COLOR: &str = "#006464FF";
+const DIMMED_SHEET_LABEL_COLOR: &str = "#949391FF";
+const DNP_MARKER_COLOR: &str = "#DC090DD9";
+const DNP_MARKER_WIDTH_NM: i64 = 457_200;
 
 /// Enforce document identity, record order, operation shape, and local indexes.
 // The exhaustive producer phase dispatcher is intentionally kept in one place
@@ -74,6 +79,11 @@ pub fn validate_schematic_plot_document(
         }
         if let SchematicPlotRecord::SymbolOverplotPlotRecord(value) = record {
             validate_symbol_overplot(value, &path)?;
+            total_operations = total_operations.saturating_add(value.operations.len());
+            continue;
+        }
+        if let SchematicPlotRecord::SheetPlotRecord(value) = record {
+            validate_sheet(value, &path)?;
             total_operations = total_operations.saturating_add(value.operations.len());
             continue;
         }
@@ -166,7 +176,8 @@ pub fn validate_schematic_plot_document(
                 validate_table(value, &path)?;
             }
             SchematicPlotRecord::SymbolInstancePlotRecord(_)
-            | SchematicPlotRecord::SymbolOverplotPlotRecord(_) => unreachable!(),
+            | SchematicPlotRecord::SymbolOverplotPlotRecord(_)
+            | SchematicPlotRecord::SheetPlotRecord(_) => unreachable!(),
         }
         total_operations = total_operations.saturating_add(operations.len());
     }
@@ -204,6 +215,7 @@ fn record_phase(record: &SchematicPlotRecord) -> u8 {
         SchematicPlotRecord::TablePlotRecord(_) => 19,
         SchematicPlotRecord::SymbolInstancePlotRecord(_) => 20,
         SchematicPlotRecord::SymbolOverplotPlotRecord(_) => 21,
+        SchematicPlotRecord::SheetPlotRecord(_) => 22,
     }
 }
 
@@ -378,8 +390,9 @@ fn record_fields(
             &value.operations,
         ),
         SchematicPlotRecord::SymbolInstancePlotRecord(_)
-        | SchematicPlotRecord::SymbolOverplotPlotRecord(_) => {
-            unreachable!("symbol records have a distinct operation union")
+        | SchematicPlotRecord::SymbolOverplotPlotRecord(_)
+        | SchematicPlotRecord::SheetPlotRecord(_) => {
+            unreachable!("symbol and sheet records have distinct operation unions")
         }
     }
 }
@@ -714,6 +727,413 @@ fn symbol_operation_header(operation: &SchematicSymbolOperation) -> (u32, &str, 
             (value.index, &value.kind, "StartBlock")
         }
         SchematicSymbolOperation::SchematicSymbolEndBlockOperation(value) => {
+            (value.index, &value.kind, "EndBlock")
+        }
+    }
+}
+
+fn validate_sheet(record: &SchematicSheetPlotRecord, path: &str) -> Result<(), ValidationError> {
+    if record.kind != "sheet"
+        || record.object_id != record.sheet_name
+        || record.size_x_nm.get() <= 0
+        || record.size_y_nm.get() <= 0
+        || record.operation_count as usize != record.operations.len()
+    {
+        return Err(error(
+            "invalid_sheet_record",
+            path,
+            "hierarchical-sheet identity, size, and operation count must be canonical",
+        ));
+    }
+    for (index, operation) in record.operations.iter().enumerate() {
+        let (actual_index, kind, expected_kind) = sheet_operation_header(operation);
+        if actual_index as usize != index || kind != expected_kind {
+            return Err(error(
+                "invalid_schematic_operation",
+                format!("{path}.operations[{index}]"),
+                "sheet operation kind and local index must match its structural variant",
+            ));
+        }
+    }
+    let [
+        SchematicSheetOperation::RectOperation(first),
+        SchematicSheetOperation::RectOperation(outline),
+        ..,
+    ] = record.operations.as_slice()
+    else {
+        return Err(error(
+            "invalid_sheet_record",
+            format!("{path}.operations"),
+            "hierarchical sheet must begin with its two body passes",
+        ));
+    };
+    validate_sheet_outline(outline, record, &format!("{path}.operations[1]"))?;
+    if first.fill == PlotterFill::FilledShape {
+        if !sheet_rect_geometry(first, record)
+            || first.width_nm.get() != 0
+            || first.corner_radius_nm.get() != 0
+            || first.layer.is_some()
+            || !first.stroke_color.as_deref().is_some_and(valid_color)
+            || first.stroke_color != first.fill_color
+            || first.line_style.is_some()
+        {
+            return Err(error(
+                "invalid_sheet_background",
+                format!("{path}.operations[0]"),
+                "opaque sheet background must be the canonical undashed fill pass",
+            ));
+        }
+    } else {
+        validate_sheet_outline(first, record, &format!("{path}.operations[0]"))?;
+        if !same_sheet_rect_state(first, outline) {
+            return Err(error(
+                "invalid_sheet_outline_pair",
+                format!("{path}.operations[..2]"),
+                "transparent sheets must retain two identical outline passes",
+            ));
+        }
+    }
+
+    let content_end = record
+        .operations
+        .len()
+        .checked_sub(usize::from(record.dnp) * 2)
+        .ok_or_else(|| {
+            error(
+                "invalid_sheet_dnp_marker",
+                format!("{path}.operations"),
+                "DNP sheet must retain two terminal markers",
+            )
+        })?;
+    if content_end < 2 {
+        return Err(error(
+            "invalid_sheet_dnp_marker",
+            format!("{path}.operations"),
+            "DNP sheet must retain its body before terminal markers",
+        ));
+    }
+    if record.dnp {
+        let (
+            SchematicSheetOperation::ThickSegmentOperation(first_marker),
+            SchematicSheetOperation::ThickSegmentOperation(second_marker),
+        ) = (
+            &record.operations[content_end],
+            &record.operations[content_end + 1],
+        )
+        else {
+            return Err(error(
+                "invalid_sheet_dnp_marker",
+                format!("{path}.operations[{content_end}]"),
+                "DNP sheet must end with two marker segments",
+            ));
+        };
+        validate_sheet_marker(first_marker, &format!("{path}.operations[{content_end}]"))?;
+        validate_sheet_marker(
+            second_marker,
+            &format!("{path}.operations[{}]", content_end + 1),
+        )?;
+        if first_marker.start_x != second_marker.end_x
+            || first_marker.end_x != second_marker.start_x
+            || first_marker.start_y != second_marker.start_y
+            || first_marker.end_y != second_marker.end_y
+        {
+            return Err(error(
+                "invalid_sheet_dnp_geometry",
+                format!("{path}.operations[{content_end}]"),
+                "DNP marker segments must be opposite diagonals of one box",
+            ));
+        }
+    }
+
+    let mut index = 2usize;
+    let mut saw_property = false;
+    while index < content_end {
+        let operation_path = format!("{path}.operations[{index}]");
+        match &record.operations[index] {
+            SchematicSheetOperation::SchematicSheetStartBlockOperation(start) => {
+                let Some((text, decoration, consumed)) =
+                    sheet_pin_block(&record.operations, index, content_end)
+                else {
+                    return Err(error(
+                        "invalid_sheet_pin_block",
+                        &operation_path,
+                        "sheet-pin block must contain Text, optional decoration, and EndBlock",
+                    ));
+                };
+                if saw_property
+                    || start.label.is_empty()
+                    || start.label != start.data_uuid
+                    || start.label != start.object_id
+                    || start.data_ref != "sheet_pin"
+                {
+                    return Err(error(
+                        "invalid_sheet_pin_block",
+                        &operation_path,
+                        "sheet-pin ownership must be nonempty, linked, and precede properties",
+                    ));
+                }
+                validate_sheet_pin(
+                    text,
+                    decoration,
+                    record,
+                    Some(&start.extra_attrs),
+                    &operation_path,
+                )?;
+                index += consumed;
+            }
+            SchematicSheetOperation::TextOperation(text) => {
+                if let Some(SchematicSheetOperation::PlotPolyOperation(decoration)) = record
+                    .operations
+                    .get(index + 1)
+                    .filter(|_| index + 1 < content_end)
+                {
+                    if saw_property {
+                        return Err(error(
+                            "invalid_sheet_pin_order",
+                            &operation_path,
+                            "sheet pins must precede visible properties",
+                        ));
+                    }
+                    validate_sheet_pin(text, Some(decoration), record, None, &operation_path)?;
+                    index += 2;
+                } else {
+                    saw_property = true;
+                    validate_annotation_text(text, &operation_path)?;
+                    if text.multiline {
+                        return Err(error(
+                            "invalid_sheet_property_text",
+                            &operation_path,
+                            "sheet properties are single plotter text operations",
+                        ));
+                    }
+                    index += 1;
+                }
+            }
+            _ => {
+                return Err(error(
+                    "invalid_sheet_operation",
+                    &operation_path,
+                    "sheet body admits only pin groups followed by property text",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn sheet_rect_geometry(value: &RectOperation, record: &SchematicSheetPlotRecord) -> bool {
+    value.x1.get() == record.at_x_nm.get()
+        && value.y1.get() == record.at_y_nm.get()
+        && value.x2.get() == record.at_x_nm.get() + record.size_x_nm.get()
+        && value.y2.get() == record.at_y_nm.get() + record.size_y_nm.get()
+}
+
+fn validate_sheet_outline(
+    value: &RectOperation,
+    record: &SchematicSheetPlotRecord,
+    path: &str,
+) -> Result<(), ValidationError> {
+    if !sheet_rect_geometry(value, record)
+        || value.fill != PlotterFill::NoFill
+        || value.width_nm.get() < 0
+        || value.corner_radius_nm.get() != 0
+        || value.layer.is_some()
+        || !value.stroke_color.as_deref().is_some_and(valid_color)
+        || value.fill_color.is_some()
+        || value.line_style.is_none()
+    {
+        return Err(error(
+            "invalid_sheet_outline",
+            path,
+            "sheet outline geometry and layerless style must be canonical",
+        ));
+    }
+    Ok(())
+}
+
+fn same_sheet_rect_state(first: &RectOperation, second: &RectOperation) -> bool {
+    first.x1 == second.x1
+        && first.y1 == second.y1
+        && first.x2 == second.x2
+        && first.y2 == second.y2
+        && first.fill == second.fill
+        && first.width_nm == second.width_nm
+        && first.corner_radius_nm == second.corner_radius_nm
+        && first.layer == second.layer
+        && first.stroke_color == second.stroke_color
+        && first.fill_color == second.fill_color
+        && first.line_style == second.line_style
+}
+
+fn sheet_pin_block(
+    operations: &[SchematicSheetOperation],
+    index: usize,
+    content_end: usize,
+) -> Option<(&TextOperation, Option<&PlotPolyOperation>, usize)> {
+    if index.checked_add(2)? >= content_end {
+        return None;
+    }
+    let SchematicSheetOperation::TextOperation(text) = &operations[index + 1] else {
+        return None;
+    };
+    match &operations[index + 2] {
+        SchematicSheetOperation::PlotPolyOperation(decoration)
+            if index + 3 < content_end
+                && matches!(
+                    operations[index + 3],
+                    SchematicSheetOperation::SchematicSheetEndBlockOperation(_)
+                ) =>
+        {
+            Some((text, Some(decoration), 4))
+        }
+        SchematicSheetOperation::SchematicSheetEndBlockOperation(_) => Some((text, None, 3)),
+        _ => None,
+    }
+}
+
+fn validate_sheet_pin(
+    text: &TextOperation,
+    decoration: Option<&PlotPolyOperation>,
+    record: &SchematicSheetPlotRecord,
+    attrs: Option<&std::collections::BTreeMap<String, String>>,
+    path: &str,
+) -> Result<(), ValidationError> {
+    validate_annotation_text(text, &format!("{path}.text"))?;
+    if text.multiline {
+        return Err(error(
+            "invalid_sheet_pin_text",
+            format!("{path}.text"),
+            "sheet pin text must remain a single plotter text operation",
+        ));
+    }
+    let mut shape = None;
+    if let Some(attrs) = attrs {
+        let required = [
+            "primitive",
+            "object-type",
+            "sheet-uuid",
+            "sheet-name",
+            "sheet-file",
+            "pin",
+            "pin-name",
+            "shape",
+        ];
+        let attrs_valid = attrs.len() == required.len()
+            && required.iter().all(|key| attrs.contains_key(*key))
+            && attrs.get("primitive").map(String::as_str) == Some("sheet-entry")
+            && attrs.get("object-type").map(String::as_str) == Some("sheet-pin")
+            && attrs.get("sheet-uuid").map(String::as_str) == Some(record.uuid.as_str())
+            && attrs.get("sheet-name").map(String::as_str) == Some(record.sheet_name.as_str())
+            && attrs.get("sheet-file").map(String::as_str) == Some(record.sheet_file.as_str())
+            && attrs.get("pin") == attrs.get("pin-name");
+        let value = attrs.get("shape").map(String::as_str);
+        if !attrs_valid
+            || !matches!(
+                value,
+                Some(
+                    "input"
+                        | "output"
+                        | "bidirectional"
+                        | "tri_state"
+                        | "passive"
+                        | "dot"
+                        | "round"
+                        | "diamond"
+                        | "rectangle"
+                )
+            )
+            || attrs
+                .get("pin-name")
+                .is_none_or(|name| text.text != name.replace("{slash}", "/"))
+        {
+            return Err(error(
+                "invalid_sheet_pin_attrs",
+                format!("{path}.extra_attrs"),
+                "sheet-pin metadata must use the exact linked vocabulary",
+            ));
+        }
+        shape = value;
+    }
+    let decoration_required = shape.is_none_or(|shape| {
+        matches!(
+            shape,
+            "input" | "output" | "bidirectional" | "tri_state" | "passive"
+        )
+    });
+    if decoration_required != decoration.is_some() {
+        return Err(error(
+            "invalid_sheet_pin_decoration",
+            format!("{path}.decoration"),
+            "sheet-pin decoration presence must match its shape",
+        ));
+    }
+    let Some(decoration) = decoration else {
+        return Ok(());
+    };
+    let expected_points = match shape {
+        Some("input" | "output") => decoration.points.len() == 6,
+        Some(_) => decoration.points.len() == 5,
+        None => matches!(decoration.points.len(), 5 | 6),
+    };
+    let closed = decoration
+        .points
+        .first()
+        .zip(decoration.points.last())
+        .is_some_and(|(first, last)| first.0 == last.0);
+    let expected_color = if record.dnp {
+        DIMMED_SHEET_LABEL_COLOR
+    } else {
+        SHEET_LABEL_COLOR
+    };
+    if decoration.layer.is_some()
+        || decoration.fill != PlotterFill::NoFill
+        || decoration.width_nm != text.pen_width_nm
+        || decoration.stroke_color.as_deref() != Some(expected_color)
+        || decoration.fill_color.is_some()
+        || decoration.line_style.is_some()
+        || !expected_points
+        || !closed
+    {
+        return Err(error(
+            "invalid_sheet_pin_decoration",
+            format!("{path}.decoration"),
+            "sheet-pin decoration must be the canonical closed layerless outline",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_sheet_marker(value: &ThickSegmentOperation, path: &str) -> Result<(), ValidationError> {
+    if value.layer.is_some()
+        || value.role.is_some()
+        || !value.layers.is_empty()
+        || value.mask_margin_nm.is_some()
+        || value.pad_size_x_nm.is_some()
+        || value.pad_size_y_nm.is_some()
+        || value.width_nm.get() != DNP_MARKER_WIDTH_NM
+        || value.stroke_color.as_deref() != Some(DNP_MARKER_COLOR)
+    {
+        return Err(error(
+            "invalid_sheet_dnp_marker",
+            path,
+            "sheet DNP marker must be the canonical layerless segment",
+        ));
+    }
+    Ok(())
+}
+
+fn sheet_operation_header(operation: &SchematicSheetOperation) -> (u32, &str, &'static str) {
+    match operation {
+        SchematicSheetOperation::ThickSegmentOperation(value) => {
+            (value.index, &value.kind, "ThickSegment")
+        }
+        SchematicSheetOperation::RectOperation(value) => (value.index, &value.kind, "Rect"),
+        SchematicSheetOperation::PlotPolyOperation(value) => (value.index, &value.kind, "PlotPoly"),
+        SchematicSheetOperation::TextOperation(value) => (value.index, &value.kind, "Text"),
+        SchematicSheetOperation::SchematicSheetStartBlockOperation(value) => {
+            (value.index, &value.kind, "StartBlock")
+        }
+        SchematicSheetOperation::SchematicSheetEndBlockOperation(value) => {
             (value.index, &value.kind, "EndBlock")
         }
     }

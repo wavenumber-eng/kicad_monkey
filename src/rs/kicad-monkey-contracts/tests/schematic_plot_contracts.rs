@@ -335,6 +335,140 @@ fn shared_schematic_vectors_decode_validate_and_round_trip_exactly() {
 }
 
 #[test]
+fn schematic_sheet_semantic_mutations_fail_closed() {
+    let canonical = shared_vector(
+        "schematic_plotter_a0_vectors.json",
+        "hierarchical-sheets-follow-symbol-overplots",
+    );
+    validate_schematic_plot_document(&decode(&canonical)).expect("canonical sheet vector");
+
+    let mut mutations = Vec::new();
+
+    let mut wrong_phase = canonical.clone();
+    wrong_phase["records"]
+        .as_array_mut()
+        .expect("records")
+        .swap(4, 5);
+    mutations.push(wrong_phase);
+
+    let mut wrong_identity = canonical.clone();
+    wrong_identity["records"][5]["object_id"] = serde_json::json!("Other");
+    mutations.push(wrong_identity);
+
+    let mut reversed_body = canonical.clone();
+    let operations = reversed_body["records"][5]["operations"]
+        .as_array_mut()
+        .expect("operations");
+    operations.swap(0, 1);
+    for (index, operation) in operations.iter_mut().enumerate() {
+        operation["index"] = serde_json::json!(index);
+    }
+    mutations.push(reversed_body);
+
+    let mut mismatched_transparent_outline = canonical.clone();
+    mismatched_transparent_outline["records"][6]["operations"][1]["x2"] =
+        serde_json::json!(20_000_001);
+    mutations.push(mismatched_transparent_outline);
+
+    let mut zero_outline_width = canonical.clone();
+    zero_outline_width["records"][6]["operations"][0]["width_nm"] = serde_json::json!(0);
+    zero_outline_width["records"][6]["operations"][1]["width_nm"] = serde_json::json!(0);
+    validate_schematic_plot_document(&decode(&zero_outline_width))
+        .expect("authored negative sheet stroke projects to zero width");
+
+    let mut undecorated_round = canonical.clone();
+    undecorated_round["records"][5]["operations"][2]["extra_attrs"]["shape"] =
+        serde_json::json!("round");
+    undecorated_round["records"][5]["operations"]
+        .as_array_mut()
+        .expect("operations")
+        .remove(4);
+    for (index, operation) in undecorated_round["records"][5]["operations"]
+        .as_array_mut()
+        .expect("operations")
+        .iter_mut()
+        .enumerate()
+    {
+        operation["index"] = serde_json::json!(index);
+    }
+    undecorated_round["records"][5]["operation_count"] = serde_json::json!(26);
+    undecorated_round["total_operations"] = serde_json::json!(66);
+    validate_schematic_plot_document(&decode(&undecorated_round))
+        .expect("undecorated round sheet pin");
+
+    let mut undecorated_dot = undecorated_round.clone();
+    undecorated_dot["records"][5]["operations"][2]["extra_attrs"]["shape"] =
+        serde_json::json!("dot");
+    validate_schematic_plot_document(&decode(&undecorated_dot)).expect("undecorated dot sheet pin");
+
+    let mut undecorated_with_decoration = canonical.clone();
+    undecorated_with_decoration["records"][5]["operations"][2]["extra_attrs"]["shape"] =
+        serde_json::json!("round");
+    mutations.push(undecorated_with_decoration);
+
+    let mut decorated_without_decoration = undecorated_round.clone();
+    decorated_without_decoration["records"][5]["operations"][2]["extra_attrs"]["shape"] =
+        serde_json::json!("input");
+    mutations.push(decorated_without_decoration);
+
+    let mut text_before_pin_block = canonical.clone();
+    let operations = text_before_pin_block["records"][5]["operations"]
+        .as_array_mut()
+        .expect("operations");
+    operations.swap(2, 3);
+    for (index, operation) in operations.iter_mut().enumerate() {
+        operation["index"] = serde_json::json!(index);
+    }
+    mutations.push(text_before_pin_block);
+
+    let mut wrong_pin_parent = canonical.clone();
+    wrong_pin_parent["records"][5]["operations"][2]["extra_attrs"]["sheet-uuid"] =
+        serde_json::json!("sheet-clear");
+    mutations.push(wrong_pin_parent);
+
+    let mut wrong_pin_shape = canonical.clone();
+    wrong_pin_shape["records"][5]["operations"][10]["extra_attrs"]["shape"] =
+        serde_json::json!("input");
+    mutations.push(wrong_pin_shape);
+
+    let mut open_pin_decoration = canonical.clone();
+    open_pin_decoration["records"][5]["operations"][20]["points"][0][0] =
+        serde_json::json!(10_000_001);
+    mutations.push(open_pin_decoration);
+
+    let mut inconsistent_dnp = canonical.clone();
+    inconsistent_dnp["records"][5]["dnp"] = serde_json::json!(false);
+    mutations.push(inconsistent_dnp);
+
+    let mut wrong_marker = canonical.clone();
+    wrong_marker["records"][5]["operations"][26]["width_nm"] = serde_json::json!(457_201);
+    mutations.push(wrong_marker);
+
+    for mutation in mutations {
+        assert!(validate_schematic_plot_document(&decode(&mutation)).is_err());
+    }
+
+    let mut null_fill_color = canonical.clone();
+    null_fill_color["records"][6]["operations"][0]["fill_color"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<SchematicPlotDocumentA0>(null_fill_color).is_err());
+
+    let mut null_text_context = canonical.clone();
+    null_text_context["records"][5]["operations"][7]["context"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<SchematicPlotDocumentA0>(null_text_context).is_err());
+
+    let mut present_empty_layers = canonical.clone();
+    present_empty_layers["records"][5]["operations"][25]["layers"] = serde_json::json!([]);
+    assert!(serde_json::from_value::<SchematicPlotDocumentA0>(present_empty_layers).is_err());
+
+    let mut foreign_operation = canonical;
+    foreign_operation["records"][6]["operations"][2] = serde_json::json!({
+        "kind": "Circle", "index": 2, "cx": 0, "cy": 0,
+        "diameter_nm": 1, "fill": "NO_FILL", "width_nm": 0
+    });
+    assert!(serde_json::from_value::<SchematicPlotDocumentA0>(foreign_operation).is_err());
+}
+
+#[test]
 fn schematic_annotation_semantic_mutations_fail_closed() {
     let canonical = shared_vector(
         "schematic_plotter_a0_vectors.json",
@@ -666,6 +800,8 @@ fn schematic_request_requires_every_independent_budget() {
         "max_symbol_properties": 1000, "max_symbol_pins": 1000,
         "max_library_symbols": 100, "max_library_subsymbols": 1000,
         "max_library_pins": 1000, "max_symbol_overlap_checks": "10000",
+        "max_sheets": 100, "max_sheet_properties": 1000,
+        "max_sheet_pins": 1000,
         "max_text_variables": 100, "max_text_variable_bytes": "4096",
         "max_worksheet_items": 100, "max_worksheet_repeats": 1000,
         "max_worksheet_point_sets": 100, "max_worksheet_points": 1000,
@@ -717,12 +853,20 @@ fn schematic_request_requires_every_independent_budget() {
         "max_table_cell_lines",
         "max_image_decode_work",
         "max_symbol_overlap_checks",
+        "max_sheets",
+        "max_sheet_properties",
+        "max_sheet_pins",
         "text_offset_ratio",
         "default_line_width_nm",
     ] {
         let mut missing = request.clone();
         missing.as_object_mut().expect("request").remove(field);
         assert!(serde_json::from_value::<SchematicPlotRequestA0>(missing).is_err());
+    }
+    for field in ["max_sheets", "max_sheet_properties", "max_sheet_pins"] {
+        let mut over_u32 = request.clone();
+        over_u32[field] = serde_json::json!(4_294_967_296_u64);
+        assert!(serde_json::from_value::<SchematicPlotRequestA0>(over_u32).is_err());
     }
 }
 

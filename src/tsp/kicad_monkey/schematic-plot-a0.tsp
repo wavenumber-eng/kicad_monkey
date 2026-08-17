@@ -97,6 +97,9 @@ model SchematicPlotRequest {
   max_library_subsymbols: uint32;
   max_library_pins: uint32;
   max_symbol_overlap_checks: uint64;
+  max_sheets: uint32;
+  max_sheet_properties: uint32;
+  max_sheet_pins: uint32;
   max_text_variables: uint32;
   max_text_variable_bytes: uint64;
   max_worksheet_items: uint32;
@@ -464,7 +467,53 @@ model SchematicSymbolOverplotPlotRecord {
   lib_id: string;
 }
 
-/** Strict source-record vocabulary through the P5_070 placed symbols. */
+/** Exact string metadata retained on one hierarchical-sheet pin group. */
+model SchematicSheetPinBlockAttrs is Record<string>;
+
+/** Leading ownership marker for one hierarchical-sheet pin group. */
+model SchematicSheetStartBlockOperation {
+  kind: "StartBlock";
+  index: uint32;
+  label: string;
+  data_uuid: string;
+  data_ref: "sheet_pin";
+  object_id: string;
+  extra_attrs: SchematicSheetPinBlockAttrs;
+}
+
+/** Trailing ownership marker for one hierarchical-sheet pin group. */
+model SchematicSheetEndBlockOperation {
+  kind: "EndBlock";
+  index: uint32;
+}
+
+/** Strict operation vocabulary for hierarchical sheets and their pins. */
+union SchematicSheetOperation {
+  thickSegment: ThickSegmentOperation,
+  rect: RectOperation,
+  plotPoly: PlotPolyOperation,
+  text: TextOperation,
+  startBlock: SchematicSheetStartBlockOperation,
+  endBlock: SchematicSheetEndBlockOperation,
+}
+
+/** One hierarchical sheet with its box, pins, visible fields, and DNP state. */
+model SchematicSheetPlotRecord {
+  uuid: string;
+  kind: "sheet";
+  object_id: string;
+  operation_count: uint32;
+  operations: SchematicSheetOperation[];
+  sheet_name: string;
+  sheet_file: string;
+  at_x_nm: JavaScriptSafeInteger;
+  at_y_nm: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  dnp: boolean;
+}
+
+/** Strict source-record vocabulary through the P5_071 hierarchical sheets. */
 union SchematicPlotRecord {
   sheetHeader: SchematicSheetHeaderPlotRecord,
   wire: SchematicWirePlotRecord,
@@ -488,9 +537,10 @@ union SchematicPlotRecord {
   table: SchematicTablePlotRecord,
   symbolInstance: SchematicSymbolInstancePlotRecord,
   symbolOverplot: SchematicSymbolOverplotPlotRecord,
+  sheet: SchematicSheetPlotRecord,
 }
 
-/** Strict schematic subset through the P5_070 placed-symbol family. */
+/** Strict schematic subset through the P5_071 hierarchical-sheet family. */
 @jsonSchema
 @id("urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0")
 @extension("title", "Schematic plot document a0")

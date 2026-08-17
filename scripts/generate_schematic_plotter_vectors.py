@@ -624,6 +624,117 @@ SYMBOL_SOURCE = f"""(kicad_sch
     (pin "1" (uuid "placed-pin-2")))
   (sheet_instances (path "/" (page "1"))))"""
 
+SHEET_SOURCE = SYMBOL_SOURCE.replace(
+    "  (lib_symbols",
+    f'''  (sheet
+    (at 4 20)
+    (size 8 6)
+    (exclude_from_sim yes)
+    (in_bom no)
+    (on_board yes)
+    (dnp yes)
+    (stroke (width 0.2) (type dash) (color 12 34 56 1))
+    (fill (color 240 230 220 0.5))
+    (uuid "sheet-rich")
+    (property "Sheetname" "Child"
+      (at 5 19 0)
+      (show_name yes)
+      (effects
+        (font (face "{METRIC_FONT_FACE}") (size 1 1))
+        (href "https://example.test/sheet")))
+    (property "Sheetfile" "child.kicad_sch"
+      (at 11 27 0)
+      (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+    (property "Literal" "${{PROJECT}}"
+      (at 8 27 0)
+      (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+    (property "Empty" ""
+      (at 0 0 0)
+      (effects (font (size 1 1))))
+    (property "Hidden" "ignored"
+      (at 0 0 0)
+      (hide yes)
+      (effects (font (size 1 1))))
+    (pin "BUS{{0..1}}" input
+      (at 4 22 180)
+      (uuid "sheet-pin-bus")
+      (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+    (pin "OUT{{slash}}N" output
+      (at 12 23 0)
+      (uuid "sheet-pin-out")
+      (effects
+        (font (face "{METRIC_FONT_FACE}") (size 1 1))
+        (href "https://example.test/sheet-pin")))
+    (pin "BIDI" bidirectional
+      (at 6 20 90)
+      (uuid "sheet-pin-bidi")
+      (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+    (pin "TRI" tri_state
+      (at 8 26 270)
+      (uuid "sheet-pin-tri")
+      (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+    (pin "PASS" passive
+      (at 10 20 45)
+      (effects (font (face "{METRIC_FONT_FACE}") (size 1 1))))
+    (instances
+      (project "demo"
+        (path "/child/sheet-rich"
+          (page "2")
+          (variant
+            (name "Ignored")
+            (dnp no)
+            (exclude_from_sim no)
+            (in_bom yes))))))
+  (sheet
+    (at 16 20)
+    (size 4 3)
+    (stroke (width 0) (type default))
+    (fill (color 255 255 255 0))
+    (uuid "sheet-clear")
+    (property "Sheetname" "Clear"
+      (at 18 19 0)
+      (effects (font (size 1 1)))))
+  (lib_symbols''',
+    1,
+)
+
+UNDECORATED_SHEET_PIN_SOURCE = '''(kicad_sch
+  (version 20240101)
+  (generator eeschema)
+  (generator_version "10.0")
+  (uuid "undecorated-sheet-page")
+  (paper "User" 20 20)
+  (sheet
+    (at 2 2)
+    (size 10 8)
+    (stroke (width -1) (type dot))
+    (uuid "sheet-undecorated")
+    (property "Sheetname" "DirectiveShapes"
+      (at 2 2 0)
+      (hide yes)
+      (effects (font (size 1 1))))
+    (property "Sheetfile" "directive-shapes.kicad_sch"
+      (at 2 2 0)
+      (hide yes)
+      (effects (font (size 1 1))))
+    (pin "DOT" dot
+      (at 2 3 180)
+      (uuid "sheet-pin-dot")
+      (effects (font (size 1 1))))
+    (pin "ROUND" round
+      (at 12 4 0)
+      (uuid "sheet-pin-round")
+      (effects (font (size 1 1))))
+    (pin "DIAMOND" diamond
+      (at 5 2 90)
+      (uuid "sheet-pin-diamond")
+      (effects (font (size 1 1))))
+    (pin "RECTANGLE" rectangle
+      (at 8 10 270)
+      (uuid "sheet-pin-rectangle")
+      (effects (font (size 1 1)))))
+  (sheet_instances (path "/" (page "1"))))'''
+
 EMPTY_WORKSHEET = """(kicad_wks
   (version 20210606)
   (generator pl_editor)
@@ -763,6 +874,38 @@ def vectors() -> list[dict[str, Any]]:
             "sheet_count": 1,
             "sheet_path": "/child",
             "sheet_name": "Child",
+        },
+        {
+            "id": "hierarchical-sheets-follow-symbol-overplots",
+            "source": SHEET_SOURCE,
+            "source_path": "virtual/sheets.kicad_sch",
+            "document_id": "sheets",
+            "worksheet_source": EMPTY_WORKSHEET,
+            "project_variables": {"PROJECT": "PX"},
+            "font_resource": {
+                "face": METRIC_FONT_FACE,
+                "bold": False,
+                "italic": False,
+                "font_path": "tests/parity/fonts/shaping-variable-fixture.ttf",
+                "font_sha256": METRIC_FONT_SHA256,
+                "shaping_case_id": "fixture_default_variation_axis",
+            },
+            "sheet_index": 1,
+            "sheet_count": 2,
+            "sheet_path": "/child",
+            "sheet_name": "Child",
+        },
+        {
+            "id": "hierarchical-sheet-undecorated-shapes-and-zero-width-border",
+            "source": UNDECORATED_SHEET_PIN_SOURCE,
+            "source_path": "virtual/undecorated-sheet-pins.kicad_sch",
+            "document_id": "undecorated-sheet-pins",
+            "worksheet_source": EMPTY_WORKSHEET,
+            "project_variables": {},
+            "sheet_index": 1,
+            "sheet_count": 1,
+            "sheet_path": "/",
+            "sheet_name": "",
         },
     ]
 

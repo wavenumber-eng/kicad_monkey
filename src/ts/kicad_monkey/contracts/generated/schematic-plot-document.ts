@@ -1,7 +1,7 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
 /**
- * Strict source-record vocabulary through the P5_070 placed symbols.
+ * Strict source-record vocabulary through the P5_071 hierarchical sheets.
  */
 export type SchematicPlotRecord =
   | SchematicSheetHeaderPlotRecord
@@ -25,7 +25,8 @@ export type SchematicPlotRecord =
   | SchematicImagePlotRecord
   | SchematicTablePlotRecord
   | SchematicSymbolInstancePlotRecord
-  | SchematicSymbolOverplotPlotRecord;
+  | SchematicSymbolOverplotPlotRecord
+  | SchematicSheetPlotRecord;
 /**
  * Shared plotter operation vocabulary promoted across source producers.
  */
@@ -138,9 +139,19 @@ export type SchematicSymbolOperation =
   | FlashPadTrapezOperation
   | SchematicSymbolStartBlockOperation
   | SchematicSymbolEndBlockOperation;
+/**
+ * Strict operation vocabulary for hierarchical sheets and their pins.
+ */
+export type SchematicSheetOperation =
+  | ThickSegmentOperation
+  | RectOperation
+  | PlotPolyOperation
+  | TextOperation
+  | SchematicSheetStartBlockOperation
+  | SchematicSheetEndBlockOperation;
 
 /**
- * Strict schematic subset through the P5_070 placed-symbol family.
+ * Strict schematic subset through the P5_071 hierarchical-sheet family.
  */
 export interface SchematicPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
@@ -754,6 +765,48 @@ export interface SchematicSymbolOverplotPlotRecord {
   operations: SchematicSymbolOperation[];
   source_symbol_uuid: string;
   lib_id: string;
+}
+/**
+ * One hierarchical sheet with its box, pins, visible fields, and DNP state.
+ */
+export interface SchematicSheetPlotRecord {
+  uuid: string;
+  kind: "sheet";
+  object_id: string;
+  operation_count: number;
+  operations: SchematicSheetOperation[];
+  sheet_name: string;
+  sheet_file: string;
+  at_x_nm: JavaScriptSafeInteger;
+  at_y_nm: JavaScriptSafeInteger;
+  size_x_nm: JavaScriptSafeInteger;
+  size_y_nm: JavaScriptSafeInteger;
+  dnp: boolean;
+}
+/**
+ * Leading ownership marker for one hierarchical-sheet pin group.
+ */
+export interface SchematicSheetStartBlockOperation {
+  kind: "StartBlock";
+  index: number;
+  label: string;
+  data_uuid: string;
+  data_ref: "sheet_pin";
+  object_id: string;
+  extra_attrs: SchematicSheetPinBlockAttrs;
+}
+/**
+ * Exact string metadata retained on one hierarchical-sheet pin group.
+ */
+export interface SchematicSheetPinBlockAttrs {
+  [k: string]: string;
+}
+/**
+ * Trailing ownership marker for one hierarchical-sheet pin group.
+ */
+export interface SchematicSheetEndBlockOperation {
+  kind: "EndBlock";
+  index: number;
 }
 /**
  * Exact page extent of one schematic instance.

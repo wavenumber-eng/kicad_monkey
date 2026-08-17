@@ -13,7 +13,7 @@ from jsonschema import Draft202012Validator
 import msgspec
 import pytest
 
-from kicad_monkey import kicad_schematic_to_ir as schematic_ir
+from kicad_monkey import KiCadSchematic, kicad_schematic_to_ir as schematic_ir
 from kicad_monkey.contracts.generated import decode_schematic_plot_document_a0
 
 
@@ -320,6 +320,286 @@ def test_shared_schematic_vectors_match_python_and_both_schemas() -> None:
     ) == (90.0, "GR_TEXT_H_ALIGN_RIGHT")
     assert first["operations"][9]["y"] == 12_462_900
 
+    sheets_vector = _vector(payload, "hierarchical-sheets-follow-symbol-overplots")
+    assert sheets_vector["font_resource"] == metric_vector["font_resource"]
+    assert sheets_vector["source"].index("  (sheet\n") < sheets_vector[
+        "source"
+    ].index("  (lib_symbols")
+    sheets = sheets_vector["expected"]
+    assert sheets["total_operations"] == 67
+    assert [record["kind"] for record in sheets["records"]] == [
+        "sheet_header",
+        "symbol_instance",
+        "symbol_instance",
+        "symbol_overplot",
+        "symbol_overplot",
+        "sheet",
+        "sheet",
+    ]
+    rich, clear = sheets["records"][-2:]
+    assert {
+        key: rich[key]
+        for key in (
+            "uuid",
+            "object_id",
+            "sheet_name",
+            "sheet_file",
+            "at_x_nm",
+            "at_y_nm",
+            "size_x_nm",
+            "size_y_nm",
+            "dnp",
+        )
+    } == {
+        "uuid": "sheet-rich",
+        "object_id": "Child",
+        "sheet_name": "Child",
+        "sheet_file": "child.kicad_sch",
+        "at_x_nm": 4_000_000,
+        "at_y_nm": 20_000_000,
+        "size_x_nm": 8_000_000,
+        "size_y_nm": 6_000_000,
+        "dnp": True,
+    }
+    assert not {
+        "exclude_from_sim",
+        "in_bom",
+        "on_board",
+        "fields_autoplaced",
+        "instances",
+        "variants",
+    }.intersection(rich)
+    assert [operation["index"] for operation in rich["operations"]] == list(
+        range(27)
+    )
+    assert [operation["kind"] for operation in rich["operations"]] == [
+        "Rect",
+        "Rect",
+        *(["StartBlock", "Text", "PlotPoly", "EndBlock"] * 5),
+        "Text",
+        "Text",
+        "Text",
+        "ThickSegment",
+        "ThickSegment",
+    ]
+    assert rich["operations"][0] == {
+        "kind": "Rect",
+        "index": 0,
+        "x1": 4_000_000,
+        "y1": 20_000_000,
+        "x2": 12_000_000,
+        "y2": 26_000_000,
+        "fill": "FILLED_SHAPE",
+        "width_nm": 0,
+        "corner_radius_nm": 0,
+        "stroke_color": "#F0E6DC80",
+        "fill_color": "#F0E6DC80",
+    }
+    assert {
+        key: rich["operations"][1][key]
+        for key in ("fill", "width_nm", "stroke_color", "line_style")
+    } == {
+        "fill": "NO_FILL",
+        "width_nm": 200_000,
+        "stroke_color": "#8C8B89FF",
+        "line_style": "DASH",
+    }
+    pin_starts = rich["operations"][2:22:4]
+    assert [operation["label"] for operation in pin_starts] == [
+        "sheet-pin-bus",
+        "sheet-pin-out",
+        "sheet-pin-bidi",
+        "sheet-pin-tri",
+        "sheet-rich__sheet_pin__PASS",
+    ]
+    assert [operation["extra_attrs"]["shape"] for operation in pin_starts] == [
+        "input",
+        "output",
+        "bidirectional",
+        "tri_state",
+        "passive",
+    ]
+    assert all(
+        operation["extra_attrs"]["sheet-uuid"] == "sheet-rich"
+        for operation in pin_starts
+    )
+    pin_texts = rich["operations"][3:22:4]
+    assert [
+        (
+            operation["text"],
+            operation["x"],
+            operation["y"],
+            operation["orient_deg"],
+        )
+        for operation in pin_texts
+    ] == [
+        ("BUS{0..1}", 5_150_000, 22_000_000, 0.0),
+        ("OUT/N", 10_850_000, 23_000_000, 0.0),
+        ("BIDI", 6_000_000, 21_150_000, 90.0),
+        ("TRI", 8_000_000, 24_850_000, 90.0),
+        ("PASS", 11_150_000, 20_000_000, 0.0),
+    ]
+    assert pin_texts[0]["color"] == "#9C9B99FF"
+    assert pin_texts[1]["context"]["hyperlink"]["href"] == (
+        "https://example.test/sheet-pin"
+    )
+    assert [operation["points"] for operation in rich["operations"][4:22:4]] == [
+        [
+            [5_000_000, 22_000_000],
+            [4_500_000, 21_500_000],
+            [4_000_000, 21_500_000],
+            [4_000_000, 22_500_000],
+            [4_500_000, 22_500_000],
+            [5_000_000, 22_000_000],
+        ],
+        [
+            [12_000_000, 23_000_000],
+            [11_500_000, 22_500_000],
+            [11_000_000, 22_500_000],
+            [11_000_000, 23_500_000],
+            [11_500_000, 23_500_000],
+            [12_000_000, 23_000_000],
+        ],
+        [
+            [6_000_000, 20_000_000],
+            [5_500_000, 20_500_000],
+            [6_000_000, 21_000_000],
+            [6_500_000, 20_500_000],
+            [6_000_000, 20_000_000],
+        ],
+        [
+            [8_000_000, 26_000_000],
+            [7_500_000, 25_500_000],
+            [8_000_000, 25_000_000],
+            [8_500_000, 25_500_000],
+            [8_000_000, 26_000_000],
+        ],
+        [
+            [10_000_000, 19_500_000],
+            [11_000_000, 19_500_000],
+            [11_000_000, 20_500_000],
+            [10_000_000, 20_500_000],
+            [10_000_000, 19_500_000],
+        ],
+    ]
+    fields = rich["operations"][22:25]
+    assert [operation["text"] for operation in fields] == [
+        "Sheetname: Child",
+        "File: child.kicad_sch",
+        "${PROJECT}",
+    ]
+    assert fields[0]["context"]["hyperlink"]["href"] == (
+        "https://example.test/sheet"
+    )
+    assert all(operation["text"] not in {"ignored", ""} for operation in fields)
+    assert [operation["stroke_color"] for operation in rich["operations"][-2:]] == [
+        "#DC090DD9",
+        "#DC090DD9",
+    ]
+    assert [
+        (
+            operation["start_x"],
+            operation["start_y"],
+            operation["end_x"],
+            operation["end_y"],
+            operation["width_nm"],
+        )
+        for operation in rich["operations"][-2:]
+    ] == [
+        (193_090, 18_857_927, 15_806_910, 27_142_073, 457_200),
+        (15_806_910, 18_857_927, 193_090, 27_142_073, 457_200),
+    ]
+    assert clear["dnp"] is False
+    assert clear["operation_count"] == 3
+    first_outline, second_outline = clear["operations"][:2]
+    assert first_outline["fill"] == second_outline["fill"] == "NO_FILL"
+    assert {k: v for k, v in first_outline.items() if k != "index"} == {
+        k: v for k, v in second_outline.items() if k != "index"
+    }
+
+    undecorated_vector = _vector(
+        payload, "hierarchical-sheet-undecorated-shapes-and-zero-width-border"
+    )
+    assert "font_resource" not in undecorated_vector
+    assert "(stroke (width -1) (type dot))" in undecorated_vector["source"]
+    undecorated = undecorated_vector["expected"]
+    assert undecorated["total_operations"] == 15
+    assert [record["kind"] for record in undecorated["records"]] == [
+        "sheet_header",
+        "sheet",
+    ]
+    directive_sheet = undecorated["records"][1]
+    assert {
+        key: directive_sheet[key]
+        for key in (
+            "uuid",
+            "object_id",
+            "sheet_name",
+            "sheet_file",
+            "at_x_nm",
+            "at_y_nm",
+            "size_x_nm",
+            "size_y_nm",
+            "dnp",
+        )
+    } == {
+        "uuid": "sheet-undecorated",
+        "object_id": "DirectiveShapes",
+        "sheet_name": "DirectiveShapes",
+        "sheet_file": "directive-shapes.kicad_sch",
+        "at_x_nm": 2_000_000,
+        "at_y_nm": 2_000_000,
+        "size_x_nm": 10_000_000,
+        "size_y_nm": 8_000_000,
+        "dnp": False,
+    }
+    assert directive_sheet["operation_count"] == 14
+    assert [operation["index"] for operation in directive_sheet["operations"]] == list(
+        range(14)
+    )
+    assert [operation["kind"] for operation in directive_sheet["operations"]] == [
+        "Rect",
+        "Rect",
+        *(["StartBlock", "Text", "EndBlock"] * 4),
+    ]
+    first_zero, second_zero = directive_sheet["operations"][:2]
+    assert (first_zero["width_nm"], first_zero["line_style"]) == (0, "DOT")
+    assert {key: value for key, value in first_zero.items() if key != "index"} == {
+        key: value for key, value in second_zero.items() if key != "index"
+    }
+    directive_starts = directive_sheet["operations"][2::3]
+    assert [operation["label"] for operation in directive_starts] == [
+        "sheet-pin-dot",
+        "sheet-pin-round",
+        "sheet-pin-diamond",
+        "sheet-pin-rectangle",
+    ]
+    assert [operation["extra_attrs"]["shape"] for operation in directive_starts] == [
+        "dot",
+        "round",
+        "diamond",
+        "rectangle",
+    ]
+    assert all(
+        operation["extra_attrs"]["sheet-uuid"] == "sheet-undecorated"
+        for operation in directive_starts
+    )
+    directive_texts = directive_sheet["operations"][3::3]
+    assert [
+        (operation["text"], operation["x"], operation["y"], operation["orient_deg"])
+        for operation in directive_texts
+    ] == [
+        ("DOT", 3_150_000, 3_000_000, 0.0),
+        ("ROUND", 10_850_000, 4_000_000, 0.0),
+        ("DIAMOND", 5_000_000, 3_150_000, 90.0),
+        ("RECTANGLE", 8_000_000, 8_850_000, 90.0),
+    ]
+    assert all(operation["color"] == "#006464FF" for operation in directive_texts)
+    assert all(operation["font_face"] == "Arial" for operation in directive_texts)
+    assert not any(
+        operation["kind"] == "PlotPoly" for operation in directive_sheet["operations"]
+    )
+
     graphics_vector = _vector(
         payload, "schematic-graphics-rules-images-and-table-family-order"
     )
@@ -511,6 +791,12 @@ def test_schematic_contract_rejects_noncanonical_structure_and_semantics() -> No
     symbols = _vector(
         payload, "placed-symbols-pins-fields-dnp-and-overplots"
     )["expected"]
+    sheets = _vector(
+        payload, "hierarchical-sheets-follow-symbol-overplots"
+    )["expected"]
+    undecorated_sheets = _vector(
+        payload, "hierarchical-sheet-undecorated-shapes-and-zero-width-border"
+    )["expected"]
 
     mutations = []
 
@@ -659,6 +945,75 @@ def test_schematic_contract_rejects_noncanonical_structure_and_semantics() -> No
     wrong_overplot_uuid["records"][3]["uuid"] = "wrong:overplot"
     mutations.append(wrong_overplot_uuid)
 
+    wrong_sheet_phase = _clone(sheets)
+    wrong_sheet_phase["records"][4:6] = reversed(
+        wrong_sheet_phase["records"][4:6]
+    )
+    mutations.append(wrong_sheet_phase)
+
+    wrong_sheet_identity = _clone(sheets)
+    wrong_sheet_identity["records"][5]["object_id"] = "Other"
+    mutations.append(wrong_sheet_identity)
+
+    reversed_sheet_body = _clone(sheets)
+    reversed_sheet_body["records"][5]["operations"][0:2] = reversed(
+        reversed_sheet_body["records"][5]["operations"][0:2]
+    )
+    for index, operation in enumerate(
+        reversed_sheet_body["records"][5]["operations"]
+    ):
+        operation["index"] = index
+    mutations.append(reversed_sheet_body)
+
+    mismatched_transparent_outline = _clone(sheets)
+    mismatched_transparent_outline["records"][6]["operations"][1]["x2"] += 1
+    mutations.append(mismatched_transparent_outline)
+
+    text_before_sheet_pin_block = _clone(sheets)
+    pin_operations = text_before_sheet_pin_block["records"][5]["operations"]
+    pin_operations[2:4] = reversed(pin_operations[2:4])
+    for index, operation in enumerate(pin_operations):
+        operation["index"] = index
+    mutations.append(text_before_sheet_pin_block)
+
+    wrong_sheet_pin_parent = _clone(sheets)
+    wrong_sheet_pin_parent["records"][5]["operations"][2]["extra_attrs"][
+        "sheet-uuid"
+    ] = "sheet-clear"
+    mutations.append(wrong_sheet_pin_parent)
+
+    wrong_sheet_pin_shape = _clone(sheets)
+    wrong_sheet_pin_shape["records"][5]["operations"][10]["extra_attrs"][
+        "shape"
+    ] = "input"
+    mutations.append(wrong_sheet_pin_shape)
+
+    malformed_sheet_pin_decoration = _clone(sheets)
+    malformed_sheet_pin_decoration["records"][5]["operations"][20]["points"][
+        0
+    ][0] += 1
+    mutations.append(malformed_sheet_pin_decoration)
+
+    inconsistent_sheet_dnp = _clone(sheets)
+    inconsistent_sheet_dnp["records"][5]["dnp"] = False
+    mutations.append(inconsistent_sheet_dnp)
+
+    malformed_sheet_dnp_marker = _clone(sheets)
+    malformed_sheet_dnp_marker["records"][5]["operations"][-1][
+        "width_nm"
+    ] += 1
+    mutations.append(malformed_sheet_dnp_marker)
+
+    leaked_sheet_instance_metadata = _clone(sheets)
+    leaked_sheet_instance_metadata["records"][5]["exclude_from_sim"] = True
+    mutations.append(leaked_sheet_instance_metadata)
+
+    decorated_shape_without_decoration = _clone(undecorated_sheets)
+    decorated_shape_without_decoration["records"][1]["operations"][2][
+        "extra_attrs"
+    ]["shape"] = "input"
+    mutations.append(decorated_shape_without_decoration)
+
     for mutation in mutations:
         with pytest.raises(msgspec.ValidationError):
             decode_schematic_plot_document_a0(json.dumps(mutation).encode("utf-8"))
@@ -674,6 +1029,11 @@ def test_python_oracle_uses_injected_context_without_path_discovery() -> None:
         ),
         _vector(payload, "explicit-font-metrics-for-schematic-table"),
         _vector(payload, "placed-symbols-pins-fields-dnp-and-overplots"),
+        _vector(payload, "hierarchical-sheets-follow-symbol-overplots"),
+        _vector(
+            payload,
+            "hierarchical-sheet-undecorated-shapes-and-zero-width-border",
+        ),
     ]
     discovery_helpers = (
         "_project_file_for_schematic_path",
@@ -690,6 +1050,13 @@ def test_python_oracle_uses_injected_context_without_path_discovery() -> None:
         )
         for name in discovery_helpers
     ]
+    patches.append(
+        patch.object(
+            KiCadSchematic,
+            "_load_sub_sheets",
+            side_effect=AssertionError("unexpected hierarchical sheet discovery"),
+        )
+    )
     for active_patch in patches:
         active_patch.start()
     try:

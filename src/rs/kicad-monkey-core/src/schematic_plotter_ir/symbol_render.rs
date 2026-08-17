@@ -77,11 +77,11 @@ struct PrimaryEntry {
 }
 
 #[derive(Clone, Copy)]
-struct Bbox {
-    left: i64,
-    top: i64,
-    right: i64,
-    bottom: i64,
+pub(super) struct Bbox {
+    pub(super) left: i64,
+    pub(super) top: i64,
+    pub(super) right: i64,
+    pub(super) bottom: i64,
 }
 
 #[allow(
@@ -1153,7 +1153,7 @@ fn hidden(form: &Sexp) -> bool {
         || child(form, "effects").is_some_and(|effects| child_yes(effects, "hide", false))
 }
 
-fn dim_operations(operations: &mut [SchematicPlotOperation]) {
+pub(super) fn dim_operations(operations: &mut [SchematicPlotOperation]) {
     for operation in operations {
         match operation {
             SchematicPlotOperation::Plotter(operation) => dim_plotter(operation),
@@ -1252,6 +1252,13 @@ fn dnp_marker_operations(
     };
     let full_bbox =
         union_bbox(Some(body_bbox), operations_bbox(pins, metrics, false)?).unwrap_or(body_bbox);
+    dnp_marker_operations_for_bboxes(body_bbox, full_bbox)
+}
+
+pub(super) fn dnp_marker_operations_for_bboxes(
+    body_bbox: Bbox,
+    full_bbox: Bbox,
+) -> Result<Vec<SchematicPlotOperation>, Error> {
     let margin_x = (body_bbox.left - full_bbox.left).max(full_bbox.right - body_bbox.right) as f64;
     let margin_y = (body_bbox.top - full_bbox.top).max(full_bbox.bottom - body_bbox.bottom) as f64;
     let margin_x = (margin_x * 0.6).max(margin_y * 0.3);
@@ -1309,7 +1316,7 @@ fn symbol_overlap_bbox(
     Ok(bbox)
 }
 
-fn operations_bbox(
+pub(super) fn operations_bbox(
     operations: &[SchematicPlotOperation],
     metrics: Option<&PlotterTextCacheSession<'_>>,
     include_text: bool,
@@ -1392,7 +1399,10 @@ fn operation_bbox(
                     checked_add(value.text.x, half_x)?,
                     checked_add(value.text.y, half_y)?,
                 )),
-                value.text.pen_width_nm,
+                // Python's schematic `_op_bbox_nm` uses the Text glyph box
+                // directly; Text has `pen_width_nm`, not the generic
+                // geometry `width_nm` that participates in bbox inflation.
+                0,
             )
         }
         SchematicPlotOperation::StyledThickSegment(value) => (
@@ -1410,7 +1420,7 @@ fn operation_bbox(
 }
 
 impl Bbox {
-    fn new(x1: i64, y1: i64, x2: i64, y2: i64) -> Self {
+    pub(super) fn new(x1: i64, y1: i64, x2: i64, y2: i64) -> Self {
         Self {
             left: x1.min(x2),
             top: y1.min(y2),
@@ -1445,7 +1455,7 @@ fn bbox_points(points: &[[i64; 2]]) -> Option<Bbox> {
     ))
 }
 
-fn union_bbox(left: Option<Bbox>, right: Option<Bbox>) -> Option<Bbox> {
+pub(super) fn union_bbox(left: Option<Bbox>, right: Option<Bbox>) -> Option<Bbox> {
     match (left, right) {
         (None, value) | (value, None) => value,
         (Some(left), Some(right)) => Some(Bbox {

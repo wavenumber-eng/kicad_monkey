@@ -63,6 +63,25 @@ where
 }
 
 #[doc(hidden)]
+pub fn deserialize_present_nonnull<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    <T as serde::Deserialize>::deserialize(deserializer).map(Some)
+}
+
+#[doc(hidden)]
+pub fn reject_present_schematic_segment_layers<'de, D, T>(_: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Err(serde::de::Error::custom(
+        "schematic producer segments forbid layers",
+    ))
+}
+
+#[doc(hidden)]
 pub fn deserialize_present_nullable_string<'de, D>(
     deserializer: D,
 ) -> Result<Option<Option<String>>, D::Error>
@@ -153,6 +172,7 @@ literal_kind_deserializer!(deserialize_image_record_kind, "image");
 literal_kind_deserializer!(deserialize_table_record_kind, "table");
 literal_kind_deserializer!(deserialize_symbol_instance_record_kind, "symbol_instance");
 literal_kind_deserializer!(deserialize_symbol_overplot_record_kind, "symbol_overplot");
+literal_kind_deserializer!(deserialize_sheet_record_kind, "sheet");
 use std::fmt;
 
 /// Largest integer represented exactly by JavaScript's IEEE-754 `number`.

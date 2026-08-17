@@ -146,11 +146,12 @@ pub use schematic_plotter_ir::{
     SchematicGraphicRecord, SchematicGraphicRecordKind, SchematicImageRecord, SchematicPlotContext,
     SchematicPlotDocument, SchematicPlotLimits, SchematicPlotOperation, SchematicPlotRecord,
     SchematicPlotVariables, SchematicRuleAreaRecord, SchematicRuleAreaShape,
-    SchematicSheetHeaderRecord, SchematicStyledThickSegment, SchematicSymbolInstanceRecord,
+    SchematicSheetHeaderRecord, SchematicSheetPinAttrs, SchematicSheetPinBlock,
+    SchematicSheetRecord, SchematicStyledThickSegment, SchematicSymbolInstanceRecord,
     SchematicSymbolOverplotRecord, SchematicSymbolPinAttrs, SchematicSymbolPinBlock,
     SchematicTableRecord, SchematicTextOperation, SchematicTitleBlock, schematic_plot_document,
     schematic_plot_document_with_annotations, schematic_plot_document_with_graphics,
-    schematic_plot_document_with_symbols,
+    schematic_plot_document_with_sheets, schematic_plot_document_with_symbols,
 };
 pub use schematic_source::{
     SCHEMATIC_IU_PER_MM, SchematicBusAlias, SchematicBusEntry, SchematicConnectivity,

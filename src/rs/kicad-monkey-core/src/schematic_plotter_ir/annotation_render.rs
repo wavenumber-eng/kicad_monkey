@@ -752,6 +752,24 @@ fn template_decoration(
     spin: usize,
     size_y_nm: i64,
 ) -> Result<SchematicPlotOperation, Error> {
+    styled_template_decoration(
+        shape,
+        at,
+        spin,
+        size_y_nm,
+        mm_to_nm(DEFAULT_WIRE_WIDTH_MM)?,
+        HIER_COLOR,
+    )
+}
+
+pub(super) fn styled_template_decoration(
+    shape: &str,
+    at: At,
+    spin: usize,
+    size_y_nm: i64,
+    pen_width_nm: i64,
+    stroke_color: &str,
+) -> Result<SchematicPlotOperation, Error> {
     const INPUT: [[(i64, i64); 6]; 4] = [
         [(0, 0), (-1, -1), (-2, -1), (-2, 1), (-1, 1), (0, 0)],
         [(0, 0), (1, -1), (1, -2), (-1, -2), (-1, -1), (0, 0)],
@@ -796,9 +814,9 @@ fn template_decoration(
     Ok(PlotterOperation::PlotPoly(PlotterPoly {
         points,
         fill: PlotterFill::NoFill,
-        width_nm: mm_to_nm(DEFAULT_WIRE_WIDTH_MM)?,
+        width_nm: pen_width_nm,
         layer: None,
-        stroke_color: Some(HIER_COLOR.to_owned()),
+        stroke_color: Some(stroke_color.to_owned()),
         fill_color: None,
         line_style: None,
     })
@@ -1328,7 +1346,7 @@ pub(super) fn apply_center_defaults(form: &Sexp, style: &mut TextStyle) {
         style.v_align = PlotterTextVAlign::Center;
     }
 }
-fn looks_like_bus_label(source: &str) -> bool {
+pub(super) fn looks_like_bus_label(source: &str) -> bool {
     let value = source.replace("{slash}", "");
     value.char_indices().any(|(index, ch)| {
         ch == '{'
@@ -1417,7 +1435,7 @@ fn round_i64(value: f64) -> Result<i64, Error> {
         Ok(round_ties_even_i64(value))
     }
 }
-fn ki_round_i64(value: f64) -> Result<i64, Error> {
+pub(super) fn ki_round_i64(value: f64) -> Result<i64, Error> {
     if !value.is_finite()
         || value < JAVASCRIPT_SAFE_INTEGER_MIN as f64
         || value > JAVASCRIPT_SAFE_INTEGER_MAX as f64

@@ -8,7 +8,8 @@ use kicad_monkey_core::{
     SchematicConnectivityRecordKind, SchematicDrawingSettings, SchematicPlotContext,
     SchematicPlotDocument, SchematicPlotLimits, SchematicPlotOperation, SchematicPlotRecord,
     SchematicPlotVariables, schematic_plot_document, schematic_plot_document_with_annotations,
-    schematic_plot_document_with_graphics, schematic_plot_document_with_symbols,
+    schematic_plot_document_with_graphics, schematic_plot_document_with_sheets,
+    schematic_plot_document_with_symbols,
 };
 use serde_json::{Map, Value, json};
 
@@ -181,6 +182,28 @@ fn operation_json(operation: &SchematicPlotOperation, index: usize) -> Value {
                 "kind": "StartBlock", "index": index,
                 "label": value.label, "data_uuid": value.data_uuid,
                 "data_ref": "symbol_pin", "object_id": value.object_id,
+                "extra_attrs": attrs,
+            })
+        }
+        SchematicPlotOperation::StartSheetPinBlock(value) => {
+            let attrs = [
+                ("primitive", value.extra_attrs.primitive.as_str()),
+                ("object-type", value.extra_attrs.object_type.as_str()),
+                ("sheet-uuid", value.extra_attrs.sheet_uuid.as_str()),
+                ("sheet-name", value.extra_attrs.sheet_name.as_str()),
+                ("sheet-file", value.extra_attrs.sheet_file.as_str()),
+                ("pin", value.extra_attrs.pin.as_str()),
+                ("pin-name", value.extra_attrs.pin_name.as_str()),
+                ("shape", value.extra_attrs.shape.as_str()),
+            ]
+            .into_iter()
+            .filter(|(_, value)| !value.is_empty())
+            .map(|(name, value)| (name.to_owned(), json!(value)))
+            .collect::<Map<_, _>>();
+            json!({
+                "kind": "StartBlock", "index": index,
+                "label": value.label, "data_uuid": value.data_uuid,
+                "data_ref": "sheet_pin", "object_id": value.object_id,
                 "extra_attrs": attrs,
             })
         }
@@ -513,6 +536,16 @@ fn document_json(document: &SchematicPlotDocument) -> Value {
                     .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
                 "source_symbol_uuid": value.source_symbol_uuid,
                 "lib_id": value.lib_id,
+            }),
+            SchematicPlotRecord::Sheet(value) => json!({
+                "uuid": value.uuid, "kind": "sheet", "object_id": value.sheet_name,
+                "operation_count": value.operations.len(),
+                "operations": value.operations.iter().enumerate()
+                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+                "sheet_name": value.sheet_name, "sheet_file": value.sheet_file,
+                "at_x_nm": value.at_x_nm, "at_y_nm": value.at_y_nm,
+                "size_x_nm": value.size_x_nm, "size_y_nm": value.size_y_nm,
+                "dnp": value.dnp,
             }),
         })
         .collect::<Vec<_>>();
@@ -1047,7 +1080,7 @@ fn every_shared_vector_is_exactly_projectable_to_the_strict_contract() {
                 fonts: &fonts,
                 limits: PlotterTextCacheLimits::default(),
             };
-            schematic_plot_document_with_symbols(
+            schematic_plot_document_with_sheets(
                 source,
                 SchematicPlotLimits::default(),
                 &context,
@@ -1055,7 +1088,7 @@ fn every_shared_vector_is_exactly_projectable_to_the_strict_contract() {
                 Some(&resources),
             )
         } else {
-            schematic_plot_document_with_symbols(
+            schematic_plot_document_with_sheets(
                 source,
                 SchematicPlotLimits::default(),
                 &context,
@@ -1315,6 +1348,243 @@ fn earlier_schematic_entries_exclude_p5_062_carriers() {
     assert_eq!(foundation.records.len(), 1);
     assert_eq!(annotations.records.len(), 1);
     assert_eq!(graphics.records.len(), 3);
+}
+
+fn assert_sheet_resource_pair(
+    source: &str,
+    context: &SchematicPlotContext,
+    exact: SchematicPlotLimits,
+    one_under: SchematicPlotLimits,
+) {
+    let settings = SchematicDrawingSettings::default();
+    schematic_plot_document_with_sheets(source, exact, context, settings, None)
+        .expect("exact sheet resource boundary");
+    assert_eq!(
+        schematic_plot_document_with_sheets(source, one_under, context, settings, None)
+            .expect_err("one-under sheet resource boundary")
+            .kind,
+        ErrorKind::ResourceLimit,
+    );
+}
+
+#[test]
+fn earlier_schematic_entries_exclude_terminal_sheets() {
+    let source = r#"(kicad_sch
+      (sheet (at 0 0) (size 1 1) (uuid "s")
+        (property "Sheetname" "Child" (hide yes))))"#;
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    let symbols = schematic_plot_document_with_symbols(
+        source,
+        SchematicPlotLimits::default(),
+        &context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("P5_070 scope");
+    let sheets = schematic_plot_document_with_sheets(
+        source,
+        SchematicPlotLimits::default(),
+        &context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("P5_071 scope");
+    assert_eq!(symbols.records.len(), 1);
+    assert_eq!(sheets.records.len(), 2);
+    assert!(matches!(sheets.records[1], SchematicPlotRecord::Sheet(_)));
+}
+
+#[test]
+fn sheet_family_and_retained_limits_are_exact() {
+    let source = r#"(kicad_sch
+      (sheet (at 0 0) (size 1 1) (uuid "s")
+        (property "Sheetname" "Child" (hide yes))
+        (pin "P" round (at 0 0 0) (uuid "p"))))"#;
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    for (exact, one_under) in [
+        (
+            SchematicPlotLimits {
+                max_sheets: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_sheets: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_sheet_properties: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_sheet_properties: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_sheet_pins: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_sheet_pins: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_records: 2,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_records: 1,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_operations: 6,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_operations: 5,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_points: 5,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_points: 4,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_input_points: 4,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_input_points: 3,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_text_bytes: 1,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_text_bytes: 0,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+        (
+            SchematicPlotLimits {
+                max_metadata_bytes: 102,
+                ..SchematicPlotLimits::default()
+            },
+            SchematicPlotLimits {
+                max_metadata_bytes: 101,
+                ..SchematicPlotLimits::default()
+            },
+        ),
+    ] {
+        assert_sheet_resource_pair(source, &context, exact, one_under);
+    }
+}
+
+#[test]
+fn malformed_sheet_geometry_and_missing_dnp_metrics_fail_closed() {
+    let context = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
+    for source in [
+        "(kicad_sch (sheet (size 0 1)))",
+        "(kicad_sch (sheet (size -1 1)))",
+        "(kicad_sch (sheet (size 0.0000004 1)))",
+        "(kicad_sch (sheet (at 0.0000006 0) (size 0.0000006 1)))",
+        "(kicad_sch (sheet (at 9007199254 0) (size 1 1)))",
+        "(kicad_sch (sheet (at 0) (size 1 1)))",
+        "(kicad_sch (sheet (size 1 1) (pin \"P\" input (at 0 0 1e20))))",
+    ] {
+        assert!(
+            schematic_plot_document_with_sheets(
+                source,
+                SchematicPlotLimits::default(),
+                &context,
+                SchematicDrawingSettings::default(),
+                None,
+            )
+            .is_err(),
+            "{source}",
+        );
+    }
+    let coherent_sub_nm = schematic_plot_document_with_sheets(
+        "(kicad_sch (sheet (at 0.0000004 0) (size 0.0000006 1)))",
+        SchematicPlotLimits::default(),
+        &context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("coherent positive rounded-nm sheet");
+    let SchematicPlotRecord::Sheet(coherent_sheet) = &coherent_sub_nm.records[1] else {
+        panic!("sheet record")
+    };
+    let SchematicPlotOperation::Plotter(PlotterOperation::Rect(coherent_outline)) =
+        &coherent_sheet.operations[1]
+    else {
+        panic!("sheet outline")
+    };
+    assert_eq!(coherent_sheet.size_x_nm, 1);
+    assert_eq!(
+        coherent_outline.x2,
+        coherent_sheet.at_x_nm + coherent_sheet.size_x_nm
+    );
+
+    let negative_stroke = schematic_plot_document_with_sheets(
+        "(kicad_sch (sheet (size 1 1) (stroke (width -1))))",
+        SchematicPlotLimits::default(),
+        &context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("Python-compatible negative sheet stroke");
+    let SchematicPlotRecord::Sheet(negative_sheet) = &negative_stroke.records[1] else {
+        panic!("sheet record")
+    };
+    let SchematicPlotOperation::Plotter(PlotterOperation::Rect(negative_outline)) =
+        &negative_sheet.operations[1]
+    else {
+        panic!("sheet outline")
+    };
+    assert_eq!(negative_outline.width_nm, 0);
+
+    let dnp_text = r#"(kicad_sch
+      (sheet (at 0 0) (size 1 1) (dnp yes)
+        (property "Sheetname" "Child" (at 0 0 0))))"#;
+    assert_eq!(
+        schematic_plot_document_with_sheets(
+            dnp_text,
+            SchematicPlotLimits::default(),
+            &context,
+            SchematicDrawingSettings::default(),
+            None,
+        )
+        .expect_err("DNP sheet text bounds require explicit metrics")
+        .kind,
+        ErrorKind::InvalidBuildValue,
+    );
 }
 
 #[test]
