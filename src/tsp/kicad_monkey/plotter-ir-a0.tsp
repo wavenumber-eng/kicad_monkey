@@ -292,16 +292,22 @@ enum PlotterTextVAlign {
   bottom: "GR_TEXT_V_ALIGN_BOTTOM",
 }
 
+/** Provenance of one attached text render cache. */
+enum PlotterTextRenderCacheSource {
+  existingFile: "existing_file_cache",
+  pythonGenerated: "python_generated_cache",
+  nativeGenerated: "native_generated_cache",
+}
+
 /** One render-cache polygon as ordered contours, exterior ring first. */
 model TextRenderCachePolygon {
   contours: PlotterPoint[][];
 }
 
 /**
- * Typed authored render cache mirrored from `(render_cache ...)` forms. The
- * promoted producers only forward file caches, so `source` is pinned to
- * `existing_file_cache`; `knockout` appears when the knockout background
- * restructure replaced the polygons.
+ * Typed render cache from an authored `(render_cache ...)` form, the Python
+ * resolver, or the deterministic native hinted outline engine. `knockout` appears when the
+ * knockout background restructure replaced the polygons.
  */
 model TextRenderCache {
   schema: "kicad.render_cache.v1";
@@ -309,7 +315,7 @@ model TextRenderCache {
   coordinate_space: "board";
   text: string;
   angle: float64;
-  source: "existing_file_cache";
+  source: PlotterTextRenderCacheSource;
   exact: boolean;
   polygons: TextRenderCachePolygon[];
   knockout?: boolean;
@@ -346,7 +352,7 @@ model TextOperation {
   knockout?: boolean;
   render_cache_polygons?: PlotterPoint[][];
   render_cache?: TextRenderCache;
-  render_cache_source?: "existing_file_cache";
+  render_cache_source?: PlotterTextRenderCacheSource;
   render_cache_exact?: boolean;
 }
 

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Connect the accepted native hinted text-cache engine to board text,
+  text-box, and table carriers through a deterministic bounded font/shaping
+  sidecar, with authenticated font identities, outline-font wrapping,
+  geometry-correct carrier mapping, bounded native output, and generated-cache
+  provenance across the shared contract projection.
+
 - Record the native Rust Phase 5 exit audit and explicit parity-ledger gaps for
   plotter text integration, standalone footprint and library-symbol text,
   board dimensions and embedded footprints, and schematic Plotter-IR.

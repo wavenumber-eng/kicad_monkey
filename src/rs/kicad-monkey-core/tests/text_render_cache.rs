@@ -271,6 +271,37 @@ fn malformed_or_nonfinite_cache_input_is_terminal() {
     assert_eq!(error.kind, TextRenderCacheErrorKind::InvalidInput);
 }
 
+#[test]
+fn generated_cache_point_limit_is_aggregate_across_glyph_groups() {
+    let mut vectors = vectors();
+    let layout = &mut vectors.records[0].layout;
+    layout.shaping.text = "AA".to_owned();
+    layout.shaping.features.clear();
+    let cache = generate_text_render_cache_a0(
+        FONT_BYTES,
+        request(layout),
+        TextRenderCacheLimits::default(),
+    )
+    .expect("two-glyph cache");
+    let total_points = cache
+        .polygons
+        .iter()
+        .flat_map(|polygon| &polygon.contours)
+        .map(|contour| contour.points.len())
+        .sum::<usize>();
+    assert!(total_points > 1);
+    let error = generate_text_render_cache_a0(
+        FONT_BYTES,
+        request(layout),
+        TextRenderCacheLimits {
+            max_points: total_points - 1,
+            ..TextRenderCacheLimits::default()
+        },
+    )
+    .expect_err("aggregate point limit");
+    assert_eq!(error.kind, TextRenderCacheErrorKind::ResourceLimit);
+}
+
 fn assert_polygons(cache: &TextRenderCache, expected: &[Vec<[f64; 2]>], tolerance: f64) {
     assert_eq!(cache.polygons.len(), expected.len());
     for (polygon, expected) in cache.polygons.iter().zip(expected) {

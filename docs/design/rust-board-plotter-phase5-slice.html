@@ -15,6 +15,15 @@
   and faced cell-text records. They are bounded Phase 5 increments, not the
   complete schematic/PCB plotter exit gate.</p>
 
+  <p>The carrier-text bridge adds an opt-in, caller-supplied
+  <code>PlotterTextCacheResources</code> sidecar. Each exact face/bold/italic
+  key binds deterministic font bytes to a complete shaping template; core
+  performs no platform-font or path discovery. When a faced board text,
+  text-box, or table cell has a missing or stale cache, the producer uses the
+  accepted hinted native engine, attaches
+  <code>native_generated_cache</code> provenance, and retains the pre-existing
+  no-sidecar behavior for compatibility.</p>
+
   <h2>Promoted behavior</h2>
   <p>The producer matches the established Python record ordering and text
   payload for effects, size, alignment, mirroring, text variables, border
@@ -41,6 +50,13 @@
   cache-only cells remain silent, and each cell operation carries its own
   PCB layer while the record exposes sorted unique participating layers.</p>
 
+  <p>Faced text boxes and table cells use the native outline measurer before
+  cache generation. The linebreaker keeps marked groups atomic, retains
+  KiCad's pending-space/bury behavior, subtracts stroke width from the column,
+  and shares one bounded hinted face across all word measurements. Authored
+  caches remain preferred when they match the resulting wrapped request text;
+  missing or stale caches regenerate from the same request.</p>
+
   <h2>Resource and complexity boundary</h2>
   <p>Source, parse depth, selected graphic count, operation count, resolved
   retained text occurrences, parse nodes, decoded input polygons and points,
@@ -62,24 +78,27 @@
   operation allowance before allocation or emission, and faced cell operations
   are preflighted before cache materialization.</p>
 
+  <p>The optional font sidecar independently bounds selection count and bytes,
+  font bytes, shaping metadata, variations and features, linebreak tokens and
+  output, lines, runs, run metadata, glyphs, outline commands, Bezier work and
+  scratch points, contours, topology work, cache polygons/points, and retained
+  board output. Reusable shaping templates require global feature ranges so
+  text substitution cannot silently reinterpret byte offsets. Font selections
+  are strictly sorted by face/style for logarithmic carrier lookup; duplicate
+  keys, malformed templates, and every supplied font-byte/hash mismatch fail
+  before board parsing. A per-document hash-byte budget charges initial
+  authentication and every shaping/outline session rebuild. Native generation receives the remaining board point,
+  polygon, and contour ceilings up front rather than materializing beyond the
+  carrier's output allowance.</p>
+
   <h2>Explicitly deferred behavior</h2>
-  <p>When an authored cache is missing or stale, outline-font cache generation
-  remains owned by the accepted native text pipeline and is not yet connected
-  to the board producer. The outline-font linebreaker used by font-face and
-  cache requests is distinct from ordinary Newstroke wrapping and remains part
-  of that connection. Authored text-box caches are promoted only when their
-  resolved text has no ASCII wrapping spaces and the cache text is unchanged;
-  every potentially wrapping cache is rejected with a stable
-  <code>unsupported_feature</code> diagnostic until the outline bridge lands. The optional
-  Shapely synthetic knockout fallback also
+  <p>The optional Shapely synthetic text-box knockout fallback
   remains deferred. Only the vector that exercises that fallback declares
   <code>oracle_mode: without_shapely</code>; other vectors run against the
-  installed Python environment. Faced table cells likewise require a usable
-  authored cache unless their resolved text is empty; empty text ignores a
-  missing or stale authored cache but retains a structurally valid matching
-  cache. Table-cell text that
-  may wrap at an ASCII space remains deferred to the same outline-font bridge.
-  These exclusions must be resolved
+  installed Python environment. Without a font sidecar, faced carriers retain
+  the accepted authored-cache-only boundary and stable outline-bridge
+  diagnostic. Empty table-cell text still ignores a missing or stale authored
+  cache but retains a structurally valid matching cache. These exclusions must be resolved
   or explicitly accepted when the complete Phase 5 plotter gate is reviewed.</p>
 
   <h2>Evidence</h2>
@@ -100,6 +119,18 @@
   deferral diagnostics. Contract mutations reject identity drift, empty or
   duplicate layers, phase violations, undeclared cell layers, impossible
   shared segment state, and exact table-cache claims.
+  The carrier bridge suite generates text, wrapped text-box, and wrapped table
+  caches from the bundled deterministic font; compares rotated, mirrored,
+  stroked text-box and default table-cell cache geometry to the authoritative
+  TextParams mapping; preserves whitespace-only and no-sidecar behavior; and
+  forces selection, font identity, shaping, cache, and retained-output ceilings.
+  The shared sidecar vector distinguishes matching authored, regenerated stale,
+  and generated missing provenance through the generated TypeSpec contract and
+  host-side WASM projection. The contract also retains established
+  <code>python_generated_cache</code> provenance for Python-authority output.
+  Rack <code>L2_009</code> retains live KiCad save-oracle coverage for plain
+  board text and a wrapping rotated/mirrored/stroked text box, alongside the
+  same hinted multiline, markup, style, and fake-style engine.
   <code>L0_046</code> and <code>L0_049</code> retain workspace and generated
   contract signoff.</p>
 </body>

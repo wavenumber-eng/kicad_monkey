@@ -2060,6 +2060,84 @@ impl ::std::convert::TryFrom<::std::string::String> for PlotterTextHAlign {
         value.parse()
     }
 }
+///Provenance of one attached text render cache.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Provenance of one attached text render cache.",
+///  "type": "string",
+///  "enum": [
+///    "existing_file_cache",
+///    "python_generated_cache",
+///    "native_generated_cache"
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+)]
+pub enum PlotterTextRenderCacheSource {
+    #[serde(rename = "existing_file_cache")]
+    ExistingFileCache,
+    #[serde(rename = "python_generated_cache")]
+    PythonGeneratedCache,
+    #[serde(rename = "native_generated_cache")]
+    NativeGeneratedCache,
+}
+impl ::std::fmt::Display for PlotterTextRenderCacheSource {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::ExistingFileCache => f.write_str("existing_file_cache"),
+            Self::PythonGeneratedCache => f.write_str("python_generated_cache"),
+            Self::NativeGeneratedCache => f.write_str("native_generated_cache"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlotterTextRenderCacheSource {
+    type Err = self::error::ConversionError;
+    fn from_str(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "existing_file_cache" => Ok(Self::ExistingFileCache),
+            "python_generated_cache" => Ok(Self::PythonGeneratedCache),
+            "native_generated_cache" => Ok(Self::NativeGeneratedCache),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlotterTextRenderCacheSource {
+    type Error = self::error::ConversionError;
+    fn try_from(value: &str) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<&::std::string::String> for PlotterTextRenderCacheSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlotterTextRenderCacheSource {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///Vertical text alignments emitted by the board producers.
 ///
 /// <details><summary>JSON schema</summary>
@@ -2458,8 +2536,7 @@ carries the exterior rings in nanometres.*/
 ///      }
 ///    },
 ///    "render_cache_source": {
-///      "type": "string",
-///      "const": "existing_file_cache"
+///      "$ref": "#/$defs/PlotterTextRenderCacheSource"
 ///    },
 ///    "size_x_nm": {
 ///      "$ref": "#/$defs/JavaScriptSafeInteger"
@@ -2515,7 +2592,7 @@ pub struct TextOperation {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub render_cache_source: ::std::option::Option<::std::string::String>,
+    pub render_cache_source: ::std::option::Option<PlotterTextRenderCacheSource>,
     pub size_x_nm: crate::JavaScriptSafeInteger,
     pub size_y_nm: crate::JavaScriptSafeInteger,
     pub text: ::std::string::String,
@@ -2525,16 +2602,15 @@ pub struct TextOperation {
     pub x: crate::JavaScriptSafeInteger,
     pub y: crate::JavaScriptSafeInteger,
 }
-/**Typed authored render cache mirrored from `(render_cache ...)` forms. The
-promoted producers only forward file caches, so `source` is pinned to
-`existing_file_cache`; `knockout` appears when the knockout background
-restructure replaced the polygons.*/
+/**Typed render cache from an authored `(render_cache ...)` form, the Python
+resolver, or the deterministic native hinted outline engine. `knockout` appears when the
+knockout background restructure replaced the polygons.*/
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "Typed authored render cache mirrored from `(render_cache ...)` forms. The\npromoted producers only forward file caches, so `source` is pinned to\n`existing_file_cache`; `knockout` appears when the knockout background\nrestructure replaced the polygons.",
+///  "description": "Typed render cache from an authored `(render_cache ...)` form, the Python\nresolver, or the deterministic native hinted outline engine. `knockout` appears when the\nknockout background restructure replaced the polygons.",
 ///  "type": "object",
 ///  "required": [
 ///    "angle",
@@ -2571,8 +2647,7 @@ restructure replaced the polygons.*/
 ///      "const": "kicad.render_cache.v1"
 ///    },
 ///    "source": {
-///      "type": "string",
-///      "const": "existing_file_cache"
+///      "$ref": "#/$defs/PlotterTextRenderCacheSource"
 ///    },
 ///    "text": {
 ///      "type": "string"
@@ -2596,7 +2671,7 @@ pub struct TextRenderCache {
     pub knockout: ::std::option::Option<bool>,
     pub polygons: ::std::vec::Vec<TextRenderCachePolygon>,
     pub schema: ::std::string::String,
-    pub source: ::std::string::String,
+    pub source: PlotterTextRenderCacheSource,
     pub text: ::std::string::String,
     pub unit: ::std::string::String,
 }

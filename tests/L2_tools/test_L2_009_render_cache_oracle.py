@@ -286,6 +286,43 @@ def _write_outline_text_board(
     )
 
 
+def _write_native_outline_text_box_board(source: Path) -> None:
+    source.write_text(
+        """(kicad_pcb
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(general (thickness 1.6) (legacy_teardrops no))
+	(paper "A4")
+	(layers
+		(0 "F.Cu" signal)
+		(2 "B.Cu" signal)
+		(5 "F.SilkS" user "F.Silkscreen")
+		(7 "B.SilkS" user "B.Silkscreen")
+		(1 "F.Mask" user)
+		(3 "B.Mask" user)
+		(25 "Edge.Cuts" user)
+	)
+	(setup (pad_to_mask_clearance 0))
+	(gr_text_box "TE TE"
+		(start 10 10)
+		(end 14 12)
+		(margins 0.2 0.3 0.4 0.5)
+		(angle 90)
+		(layer "F.SilkS")
+		(uuid "22222222-2222-2222-2222-222222222222")
+		(effects
+			(font (face "Arial") (size 2 2) (thickness 0.2) (line_spacing 1))
+			(justify right bottom mirror)
+		)
+		(stroke (width 0.2) (type solid))
+	)
+)
+""",
+        encoding="utf-8",
+    )
+
+
 def _compress_embedded_payload(data: bytes) -> str:
     zstandard = pytest.importorskip("zstandard")
     compressed = zstandard.ZstdCompressor().compress(data)
@@ -1361,6 +1398,91 @@ def test_native_render_cache_matches_kicad_save_oracle_for_outline_glyphs(
             "--",
             str(_ARIAL),
             str(request_path),
+        ],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=180,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    native_cache = RenderCache.from_sexp(parse_sexp(f"(holder {completed.stdout})"))
+    assert native_cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        native_cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(not _ARIAL.exists(), reason="Arial font not installed")
+@pytest.mark.parametrize("carrier", ["text", "text_box"])
+def test_native_board_text_carrier_bridge_matches_kicad_save_oracle(
+    tmp_path: Path,
+    carrier: str,
+):
+    source = tmp_path / f"render_cache_native_board_{carrier}.kicad_pcb"
+    if carrier == "text_box":
+        _write_native_outline_text_box_board(source)
+    else:
+        _write_outline_text_board(source, "TE")
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_native_board_carrier",
+    )
+    font_bytes = _ARIAL.read_bytes()
+    request_path = tmp_path / "native_board_carrier_request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "face": "Arial",
+                "bold": False,
+                "italic": False,
+                "shaping": {
+                    "font_id": "windows_arial_regular",
+                    "font_sha256": hashlib.sha256(font_bytes).hexdigest(),
+                    "face_index": 0,
+                    "variations": [],
+                    "text": "",
+                    "text_index_unit": "utf8_byte_offset",
+                    "scale_x": 2048,
+                    "scale_y": 2048,
+                    "direction": "left_to_right",
+                    "script": "Latn",
+                    "language": "en",
+                    "features": [],
+                    "buffer_properties": {
+                        "cluster_level": "monotone_graphemes",
+                        "beginning_of_text": True,
+                        "end_of_text": True,
+                        "default_ignorables": "normal",
+                        "do_not_insert_dotted_circle": False,
+                        "produce_unsafe_to_concat": False,
+                        "produce_safe_to_insert_tatweel": False,
+                    },
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--quiet",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--example",
+            "board_plot_text_cache_gate",
+            "--",
+            str(_ARIAL),
+            str(request_path),
+            str(source),
         ],
         cwd=Path(__file__).resolve().parents[2],
         capture_output=True,

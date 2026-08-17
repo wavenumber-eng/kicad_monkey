@@ -6,9 +6,10 @@ use kicad_monkey_contracts::generated::board_plot_document::{
     BoardGraphicPlotRecord, BoardGraphicRecordKind, BoardPlotDocumentA0, BoardPlotRecord,
     BoardTextBoxPlotRecord, BoardTextPlotRecord, BoardViaType, CircleOperation,
     FlashPadCircleOperation, PlotterCoordinateSpace, PlotterDrillRole, PlotterFill,
-    PlotterOperation, PlotterPoint, PlotterStringBool, PlotterTextHAlign, PlotterTextVAlign,
-    PlotterViaFlashRole, TablePlotRecord, TextOperation, TextRenderCache, TextRenderCachePolygon,
-    TrackArcPlotRecord, TrackSegmentPlotRecord, ViaPlotRecord, ZoneFillPlotRecord,
+    PlotterOperation, PlotterPoint, PlotterStringBool, PlotterTextHAlign,
+    PlotterTextRenderCacheSource, PlotterTextVAlign, PlotterViaFlashRole, TablePlotRecord,
+    TextOperation, TextRenderCache, TextRenderCachePolygon, TrackArcPlotRecord,
+    TrackSegmentPlotRecord, ViaPlotRecord, ZoneFillPlotRecord,
 };
 use kicad_monkey_contracts::generated::board_plot_request::BoardPlotRequestA0;
 use kicad_monkey_contracts::generated::board_plot_result::{
@@ -19,8 +20,9 @@ use kicad_monkey_core::{
     BoardGraphicRecordKind as CoreGraphicRecordKind, BoardNetClassAssignments, BoardPlotLimits,
     BoardPlotRecord as CoreBoardPlotRecord, BoardTableOperation, BoardTableRecord,
     BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
-    BoardTextRecord, BoardTextVAlign, BoardTextVariables, BoardViaOperation, BoardViaOperationKind,
-    BoardViaRecord, Error, ErrorPhase, board_plot_document_with_sidecars, utf8_text,
+    BoardTextRecord, BoardTextRenderCacheSource, BoardTextVAlign, BoardTextVariables,
+    BoardViaOperation, BoardViaOperationKind, BoardViaRecord, Error, ErrorPhase,
+    board_plot_document_with_sidecars, utf8_text,
 };
 use wasm_bindgen::prelude::*;
 
@@ -153,29 +155,11 @@ fn success(
         .map(kicad_monkey_core::BoardPlotRecord::operation_count)
         .sum::<usize>();
     let total_operations = u32::try_from(total).unwrap_or(u32::MAX);
-    let mut records = Vec::with_capacity(document.records.len());
-    for record in document.records {
-        records.push(contract_record(record)?);
-    }
-    let contract = BoardPlotDocumentA0 {
-        coordinate_space: PlotterCoordinateSpace {
-            unit: "nm".to_owned(),
-            y_axis: "down".to_owned(),
-        },
-        document_id: request.document_id.unwrap_or_default(),
-        generator: document.generator,
-        generator_version: document.generator_version,
-        paper: document.paper,
-        records,
-        schema: "kicad.plotter_ir.a0".to_owned(),
-        source_kind: "PCB".to_owned(),
-        source_path: request.source_path,
-        thickness_mm: document.thickness_mm,
-        total_operations,
-        version: JavaScriptSafeInteger::try_from(document.version)
-            .map_err(|error| error.to_string())?,
-    };
-    validate_board_plot_document(&contract).map_err(|error| error.to_string())?;
+    let contract = project_board_plot_document_a0(
+        document,
+        request.source_path,
+        request.document_id.unwrap_or_default(),
+    )?;
     let Some(output) = serialize_bounded(&contract, max_output_bytes)? else {
         return Ok(failure(limit_diagnostic()));
     };
@@ -189,6 +173,44 @@ fn success(
         },
         output,
     ))
+}
+
+/// Project one native board document through the same generated TypeSpec
+/// binding and semantic validator used by the browser adapter.
+pub fn project_board_plot_document_a0(
+    document: kicad_monkey_core::BoardPlotDocument,
+    source_path: Option<String>,
+    document_id: String,
+) -> Result<BoardPlotDocumentA0, String> {
+    let total_operations = document
+        .records
+        .iter()
+        .map(kicad_monkey_core::BoardPlotRecord::operation_count)
+        .sum::<usize>();
+    let mut records = Vec::with_capacity(document.records.len());
+    for record in document.records {
+        records.push(contract_record(record)?);
+    }
+    let contract = BoardPlotDocumentA0 {
+        coordinate_space: PlotterCoordinateSpace {
+            unit: "nm".to_owned(),
+            y_axis: "down".to_owned(),
+        },
+        document_id,
+        generator: document.generator,
+        generator_version: document.generator_version,
+        paper: document.paper,
+        records,
+        schema: "kicad.plotter_ir.a0".to_owned(),
+        source_kind: "PCB".to_owned(),
+        source_path,
+        thickness_mm: document.thickness_mm,
+        total_operations: u32::try_from(total_operations).unwrap_or(u32::MAX),
+        version: JavaScriptSafeInteger::try_from(document.version)
+            .map_err(|error| error.to_string())?,
+    };
+    validate_board_plot_document(&contract).map_err(|error| error.to_string())?;
+    Ok(contract)
 }
 
 fn contract_record(record: CoreBoardPlotRecord) -> Result<BoardPlotRecord, String> {
@@ -354,6 +376,14 @@ fn contract_text_operation(
     let render_cache = operation
         .render_cache
         .map(|cache| -> Result<TextRenderCache, String> {
+            let source = match cache.source {
+                BoardTextRenderCacheSource::ExistingFile => {
+                    PlotterTextRenderCacheSource::ExistingFileCache
+                }
+                BoardTextRenderCacheSource::NativeGenerated => {
+                    PlotterTextRenderCacheSource::NativeGeneratedCache
+                }
+            };
             Ok(TextRenderCache {
                 angle: cache.angle,
                 coordinate_space: "board".to_owned(),
@@ -373,16 +403,14 @@ fn contract_text_operation(
                     })
                     .collect::<Result<Vec<_>, String>>()?,
                 schema: "kicad.render_cache.v1".to_owned(),
-                source: "existing_file_cache".to_owned(),
+                source,
                 text: cache.text,
                 unit: "nm".to_owned(),
             })
         })
         .transpose()?;
     let render_cache_exact = render_cache.as_ref().map(|cache| cache.exact);
-    let render_cache_source = render_cache
-        .as_ref()
-        .map(|_| "existing_file_cache".to_owned());
+    let render_cache_source = render_cache.as_ref().map(|cache| cache.source);
     Ok(TextOperation {
         bold: operation.bold,
         color: operation.color,

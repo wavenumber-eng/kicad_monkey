@@ -59,12 +59,11 @@
       </tr>
       <tr>
         <td>Board</td>
-        <td>Graphics, board text/text boxes with usable authored caches,
+        <td>Graphics, board text/text boxes and table cells with authored or
+        caller-supplied native generated caches and outline wrapping,
         routing, vias, tables, authored zone fills, variables, and net-class
         extras exist.</td>
-        <td>Connect P5_010 to missing/stale caches and wrapping outline text
-        in existing board text, text-box, and table carriers; add all dimension
-        styles and their stroke/outline text; then add embedded footprint
+        <td>Add all dimension styles and their stroke/outline text; then add embedded footprint
         records with properties, text/text boxes, graphics, pads, drills,
         metadata labels, and placement extras.</td>
       </tr>
@@ -94,7 +93,8 @@
     bounded font/cache sidecar over the accepted native render-cache engine.
     Close missing, stale, matching, multiline, markup, style, and font
     selection behavior without platform discovery in core, including the
-    existing board text, text-box, and table carriers.</li>
+    existing board text, text-box, and table carriers. Implemented and under
+    independent closure review.</li>
     <li><strong>P5_020 standalone footprint text.</strong> Add property,
     <code>fp_text</code>, and <code>fp_text_box</code> source selection and
     standalone decoding to <code>FootprintView</code>, then add their emission

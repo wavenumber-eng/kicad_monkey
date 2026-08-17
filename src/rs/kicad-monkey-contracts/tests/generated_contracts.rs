@@ -425,7 +425,7 @@ fn board_text_contract_rejects_redundant_field_and_cache_drift() {
         ("schema", serde_json::json!("wrong")),
         ("unit", serde_json::json!("mm")),
         ("coordinate_space", serde_json::json!("local")),
-        ("source", serde_json::json!("generated")),
+        ("source", serde_json::json!("python_generated_cache")),
     ];
     for (field, replacement) in mutation_paths {
         let mut drift = text.clone();

@@ -149,17 +149,13 @@ fn cache_from_contours(
     group_sizes: &[usize],
     limits: TextRenderCacheLimits,
 ) -> Result<TextRenderCache, TextRenderCacheError> {
-    let mut topology_limits = limits.topology;
-    topology_limits.max_output_polygons = topology_limits
-        .max_output_polygons
-        .min(limits.max_polygons)
-        .min(limits.max_contours);
-    topology_limits.max_output_points = topology_limits.max_output_points.min(limits.max_points);
+    let base_topology_limits = limits.topology;
     // KiCad's saved-cache writer fractures each drawn glyph's polygon set
     // independently, so hole fracture and the Simplify seam and outer
     // reordering are all scoped to one glyph group; glyph draw order itself
     // is preserved.
     let mut polygons: Vec<TextRenderCachePolygon> = Vec::new();
+    let mut output_points = 0usize;
     let mut start = 0usize;
     for &size in group_sizes {
         let group = start
@@ -171,12 +167,27 @@ fn cache_from_contours(
                     "contour group sizes overrun the layout contours",
                 )
             })?;
+        let mut topology_limits = base_topology_limits;
+        topology_limits.max_output_polygons = topology_limits
+            .max_output_polygons
+            .min(limits.max_polygons.saturating_sub(polygons.len()))
+            .min(limits.max_contours.saturating_sub(polygons.len()));
+        topology_limits.max_output_points = topology_limits
+            .max_output_points
+            .min(limits.max_points.saturating_sub(output_points));
         let topology =
             fracture_text_contours_a0(group, topology_limits).map_err(map_contour_error)?;
         let fractured = topology.contours;
         if polygons.len().saturating_add(fractured.len()) > limits.max_polygons {
             return Err(limit("$.polygons", "render-cache polygon limit exceeded"));
         }
+        let group_points = fractured.iter().try_fold(0usize, |total, contour| {
+            total.checked_add(contour.points.len())
+        });
+        output_points = group_points
+            .and_then(|points| output_points.checked_add(points))
+            .filter(|points| *points <= limits.max_points)
+            .ok_or_else(|| limit("$.points", "render-cache point limit exceeded"))?;
         polygons.extend(fractured.into_iter().map(|contour| TextRenderCachePolygon {
             contours: vec![contour],
         }));

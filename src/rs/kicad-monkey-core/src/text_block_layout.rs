@@ -97,9 +97,9 @@ enum PendingItem {
     },
 }
 
-struct PendingLine {
+pub(crate) struct PendingLine {
     items: Vec<PendingItem>,
-    width: f64,
+    pub(crate) width: f64,
 }
 
 struct BlockMetrics {
@@ -111,7 +111,7 @@ struct BlockMetrics {
 }
 
 #[derive(Default)]
-struct AggregateWork {
+pub(crate) struct AggregateWork {
     runs: usize,
     run_metadata_bytes: usize,
     feature_inspections: usize,
@@ -271,11 +271,11 @@ fn horizontal_offset(alignment: TextHorizontalAlignment, width: f64) -> f64 {
 }
 
 /// Shared read-only inputs threaded through one block layout.
-struct LineBuildInputs<'a> {
-    session: &'a HintedTextContourSession<'a>,
-    request: TextBlockLayoutRequest<'a>,
-    limits: TextBlockLayoutLimits,
-    run_metadata_bytes: usize,
+pub(crate) struct LineBuildInputs<'a> {
+    pub(crate) session: &'a HintedTextContourSession<'a>,
+    pub(crate) request: TextBlockLayoutRequest<'a>,
+    pub(crate) limits: TextBlockLayoutLimits,
+    pub(crate) run_metadata_bytes: usize,
 }
 
 /// One open markup group on the explicit walk stack.
@@ -287,7 +287,7 @@ struct MarkupFrame<'a> {
     style: TextRunStyle,
 }
 
-fn build_line(
+pub(crate) fn build_line(
     inputs: &LineBuildInputs<'_>,
     line_span: Range<usize>,
     markup_budget: &mut usize,
@@ -560,7 +560,7 @@ fn single_line_request<'a>(
     }
 }
 
-fn validate_request(
+pub(crate) fn validate_request(
     request: TextBlockLayoutRequest<'_>,
     limits: TextBlockLayoutLimits,
 ) -> Result<(), TextContourError> {
@@ -679,7 +679,7 @@ fn rebase_features(
     Ok(rebased_features)
 }
 
-fn shaping_metadata_bytes(input: &ShapingInput) -> Result<usize, TextContourError> {
+pub(crate) fn shaping_metadata_bytes(input: &ShapingInput) -> Result<usize, TextContourError> {
     let mut total = input.font_id.len().checked_add(input.font_sha256.0.len());
     total = total.and_then(|value| value.checked_add(input.text_index_unit.len()));
     total =

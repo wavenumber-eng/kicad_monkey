@@ -112,8 +112,9 @@ primary = "Text render caches match KiCad save-oracle geometry within the accept
 secondary = [
     "The native hinted path covers representative line-only, curved, and holed Arial glyphs",
     "Caller-supplied font bytes and fixed face identity drive the native oracle adapter",
-    "Plain single-line native cache output stays independently attributable from multiline, markup, and fake-style work",
-]
+      "Plain single-line native cache output stays independently attributable from multiline, markup, and fake-style work",
+      "The caller-supplied board text sidecar reaches the same live KiCad cache oracle through the real board carrier",
+  ]
 
 [[subtests]]
 id = "L2_011"

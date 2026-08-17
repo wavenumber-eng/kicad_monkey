@@ -129,3 +129,31 @@ fn board_table_contract_enforces_operation_phases_and_states() {
         "invalid_board_operation"
     );
 }
+
+#[test]
+fn board_text_cache_contract_accepts_native_provenance_only_when_keys_agree() {
+    let mut native = board_table_vector();
+    let operation = &mut native["records"][1]["operations"][8];
+    operation["render_cache_source"] = serde_json::json!("native_generated_cache");
+    operation["render_cache"]["source"] = serde_json::json!("native_generated_cache");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(native.clone()).expect("shape");
+    validate_board_plot_document(&document).expect("native cache provenance");
+
+    let mut python = native.clone();
+    python["records"][1]["operations"][8]["render_cache_source"] =
+        serde_json::json!("python_generated_cache");
+    python["records"][1]["operations"][8]["render_cache"]["source"] =
+        serde_json::json!("python_generated_cache");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(python).expect("shape");
+    validate_board_plot_document(&document).expect("Python cache provenance");
+
+    native["records"][1]["operations"][8]["render_cache_source"] =
+        serde_json::json!("existing_file_cache");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(native).expect("shape");
+    assert_eq!(
+        validate_board_plot_document(&document)
+            .expect_err("cache provenance keys must agree")
+            .code,
+        "invalid_board_operation"
+    );
+}

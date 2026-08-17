@@ -15,6 +15,7 @@ pub mod footprint;
 pub mod kicad_netlist;
 pub mod pcb;
 pub mod plotter_ir;
+pub mod plotter_text_cache;
 pub mod plotter_types;
 pub mod project;
 pub mod schematic_bundle;
@@ -41,6 +42,7 @@ pub mod text_bezier;
 pub mod text_block_layout;
 pub mod text_contours;
 pub mod text_layout;
+pub mod text_linebreak;
 mod text_markup;
 pub mod text_metadata;
 pub mod text_render_cache;
@@ -53,10 +55,11 @@ pub use board_plotter_ir::{
     BoardGraphicRecord, BoardGraphicRecordKind, BoardNetClassAssignments, BoardNetClassExtras,
     BoardPlotDocument, BoardPlotLimits, BoardPlotRecord, BoardSegmentRecord, BoardTableOperation,
     BoardTableRecord, BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign,
-    BoardTextOperation, BoardTextRecord, BoardTextRenderCache, BoardTextVAlign, BoardTextVariables,
-    BoardTrackArcRecord, BoardViaFabrication, BoardViaOperation, BoardViaOperationKind,
-    BoardViaRecord, BoardViaType, BoardZoneRecord, board_plot_document,
-    board_plot_document_with_net_classes, board_plot_document_with_sidecars,
+    BoardTextOperation, BoardTextRecord, BoardTextRenderCache, BoardTextRenderCacheSource,
+    BoardTextVAlign, BoardTextVariables, BoardTrackArcRecord, BoardViaFabrication,
+    BoardViaOperation, BoardViaOperationKind, BoardViaRecord, BoardViaType, BoardZoneRecord,
+    board_plot_document, board_plot_document_with_net_classes, board_plot_document_with_sidecars,
+    board_plot_document_with_text_cache_sidecar,
 };
 pub use compiled_schematic_graph::{
     CompiledGraphIdentityAllocator, CompiledGraphIdentityError, CompiledSchematicGraphLimits,
@@ -89,6 +92,7 @@ pub use pcb::{
     PcbZonePlacementSource, PcbZonePolygon,
 };
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
+pub use plotter_text_cache::{PlotterTextCacheLimits, PlotterTextCacheResources, PlotterTextFont};
 pub use plotter_types::{
     ArcThreePoint, BezierCurve, FlashPadCircle, FlashPadCustom, FlashPadOval, FlashPadRect,
     FlashPadRoundRect, FlashPadTrapez, PlotterCircle, PlotterFill, PlotterLineStyle,
@@ -165,6 +169,7 @@ pub use text_layout::{
     KICAD_TEXT_HEIGHT_FUDGE_FACTOR, TextHorizontalAlignment, TextLayoutRequest,
     TextVerticalAlignment, layout_single_line_text_a0, layout_single_line_text_hinted_a0,
 };
+pub use text_linebreak::{TextLinebreakLimits, linebreak_text_block_hinted_a0};
 pub use text_metadata::{KiCadColor, KiCadFont, KiCadTextEffects};
 pub use text_render_cache::{
     TextRenderCache, TextRenderCacheError, TextRenderCacheErrorKind, TextRenderCacheLimits,

@@ -242,14 +242,14 @@ semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/board_plotter_reso
 id = "text.native_plotter_cache_bridge"
 disposition = "required_bounded_slice"
 wasm = "deferred_native_first"
-status = "planned"
+status = "review_ready"
 python_symbols = ["RenderCacheResolver", "RenderCacheRequest", "generate_render_cache_from_text_params"]
-rust_symbols = ["generate_text_render_cache_block_hinted_a0", "FontBundleManifestA0", "TextRenderCache"]
-rack_cases = []
-evidence = ["docs/design/rust-native-render-cache.html", "docs/design/rust-phase5-exit-audit.html"]
-vector_evidence = []
-implementation_evidence = []
-semantic_resource_evidence = []
+rust_symbols = ["PlotterTextCacheResources", "PlotterTextFont", "linebreak_text_block_hinted_a0", "generate_text_render_cache_block_hinted_a0", "board_plot_document_with_text_cache_sidecar", "TextRenderCache"]
+rack_cases = ["L1_035", "L2_009"]
+evidence = ["docs/design/rust-native-render-cache.html", "docs/design/rust-board-plotter-phase5-slice.html", "docs/design/rust-phase5-exit-audit.html", "src/rs/kicad-monkey-core/src/plotter_text_cache.rs", "src/rs/kicad-monkey-core/examples/board_plot_text_cache_gate.rs", "src/rs/kicad-monkey-wasm/examples/board_text_cache_sidecar_contract.rs", "src/rs/kicad-monkey-core/tests/plotter_text_cache.rs", "tests/L1_parsing/test_L1_035_rust_board_plotter_slice.py", "tests/L2_tools/test_L2_009_render_cache_oracle.py"]
+vector_evidence = ["tests/parity/text_layout_vectors.json", "tests/parity/board_plotter_a0_vectors.json", "tests/parity/board_text_cache_sidecar_vectors.json"]
+implementation_evidence = ["src/rs/kicad-monkey-core/src/plotter_text_cache.rs", "src/rs/kicad-monkey-core/src/text_linebreak.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir/text.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir/text_native.rs", "src/rs/kicad-monkey-core/src/board_plotter_ir/table.rs", "src/rs/kicad-monkey-wasm/src/board_plot.rs"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-core/tests/plotter_text_cache.rs", "src/rs/kicad-monkey-contracts/tests/board_plot_contracts.rs"]
 
 [[surfaces]]
 id = "plotter_ir.footprint_text"

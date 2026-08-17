@@ -1,32 +1,35 @@
-//! Board gr_text/gr_text_box record emission with authored render caches.
+//! Board gr_text/gr_text_box record emission with authored or native caches.
 //!
 //! Mirrors the Python `gr_text_to_record`/`gr_text_box_to_record` subset:
 //! effects/justify decoding with board CENTER defaults, `${NAME}` text
 //! variables (project sidecar overlaid by board properties), authored
 //! `render_cache` validation and attachment, and gr_text knockout
-//! restructuring. Python-generated font-face caches, Shapely synthetic
-//! text-box knockout is deferred. Ordinary stroke-font text-box wrapping is
-//! native; generated outline-font caches remain deferred.
+//! restructuring. A caller-supplied deterministic font/shaping sidecar drives
+//! missing/stale outline-cache generation and outline-font wrapping without
+//! ambient platform-font discovery. Shapely synthetic text-box knockout stays
+//! deferred. Ordinary stroke-font text-box wrapping remains native.
 
 use super::text_cache::{
-    AuthoredRenderCache, apply_knockout, attach_authored_cache, cache_is_valid, parse_render_cache,
+    AuthoredRenderCache, apply_knockout, attach_authored_cache, attach_native_cache,
+    cache_is_valid, parse_render_cache,
+};
+use super::text_native::{
+    new_text_box_operation, plotter_layout, text_box_border_operation, text_box_cache_geometry,
+    text_box_layout, text_box_wrap_width,
 };
 use super::text_variables::BoardTextVariables;
 use super::text_wrap::wrap_text_box;
 use super::{BoardPlotLimits, BoardPlotRecord, BudgetTracker, text_limit_error};
 use crate::pcb::{PcbGraphic, PcbGraphicKind, PcbPoint, PcbView};
 use crate::plotter_ir::{child, mm_to_nm, model_error, numeric_at, value_at};
-use crate::plotter_types::{PlotterFill, PlotterOperation, PlotterRect};
+use crate::plotter_text_cache::{PlotterTextCacheSession, PlotterTextLayout};
+use crate::plotter_types::PlotterOperation;
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Limits, Position, Sexp, parse_with_limits};
 
 /// Python `FRONT_SILKSCREEN_LAYER` default carried by gr_text/gr_text_box.
 const FRONT_SILKSCREEN_LAYER: &str = "F.SilkS";
 /// Python `Font` size default in mm.
 const DEFAULT_TEXT_SIZE_MM: f64 = 1.27;
-/// Python text-box border default width: `mm_to_nm(0.2)`.
-const TEXT_BOX_BORDER_DEFAULT_WIDTH_NM: i64 = 200_000;
-/// Python `DEFAULT_MIN_PLOT_PEN_WIDTH_NM` floor for nonzero border widths.
-const MIN_PLOT_PEN_WIDTH_NM: i64 = 84_700;
 
 /// Python `KiCadHorizAlign` subset emitted for board text.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -64,17 +67,23 @@ impl BoardTextVAlign {
     }
 }
 
-/// Attached render cache facts; the serialized `source` is always the
-/// Python `existing_file_cache` literal because generated caches are
-/// deferred with the outline-font bridge.
+/// Attached authored or native-generated render-cache facts.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoardTextRenderCache {
     pub text: String,
     pub angle: f64,
     pub exact: bool,
     pub knockout: bool,
+    pub source: BoardTextRenderCacheSource,
     /// polygons -> contours -> points; the first contour is the exterior.
     pub polygons: Vec<Vec<Vec<[i64; 2]>>>,
+}
+
+/// Provenance serialized with an attached board text render cache.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BoardTextRenderCacheSource {
+    ExistingFile,
+    NativeGenerated,
 }
 
 /// One `Text` operation payload. Ordinary `gr_text` remains black; the
@@ -166,6 +175,7 @@ pub(super) fn text_records(
     graphics: &[PcbGraphic],
     budget: &mut BudgetTracker,
     variables: &BoardTextVariables,
+    text_cache: Option<&PlotterTextCacheSession<'_>>,
     limits: BoardPlotLimits,
 ) -> Result<Vec<BoardPlotRecord>, Error> {
     let mut texts = Vec::new();
@@ -179,15 +189,15 @@ pub(super) fn text_records(
     }
     let mut records = Vec::new();
     for graphic in texts {
-        let record = text_record(
-            source,
-            graphic,
+        let context = TextRecordContext {
             variables,
-            budget.remaining_points()?,
-            budget.remaining_text_bytes()?,
-            budget.remaining_operations().unwrap_or(0),
+            text_cache,
+            cache_points: budget.remaining_points()?,
+            text_bytes: budget.remaining_text_bytes()?,
+            max_operations: budget.remaining_operations().unwrap_or(0),
             limits,
-        )?;
+        };
+        let record = text_record(source, graphic, context)?;
         budget.charge(
             record.operations.len(),
             text_point_total(&record.operations),
@@ -196,15 +206,15 @@ pub(super) fn text_records(
         records.push(BoardPlotRecord::Text(record));
     }
     for graphic in text_boxes {
-        let record = text_box_record(
-            source,
-            graphic,
+        let context = TextRecordContext {
             variables,
-            budget.remaining_points()?,
-            budget.remaining_text_bytes()?,
-            budget.remaining_operations().unwrap_or(0),
+            text_cache,
+            cache_points: budget.remaining_points()?,
+            text_bytes: budget.remaining_text_bytes()?,
+            max_operations: budget.remaining_operations().unwrap_or(0),
             limits,
-        )?;
+        };
+        let record = text_box_record(source, graphic, context)?;
         budget.charge(
             record.operations.len(),
             text_box_point_total(&record.operations),
@@ -285,19 +295,44 @@ pub(super) struct TextEffects {
     pub(super) thickness: Option<f64>,
     pub(super) bold: bool,
     pub(super) italic: bool,
+    pub(super) line_spacing: f64,
     pub(super) justify: Vec<String>,
     pub(super) color: String,
 }
 
 #[derive(Clone, Copy)]
-struct TextOperationLimits {
+struct TextOperationLimits<'a> {
+    cache_points: usize,
+    max_cache_polygons: usize,
+    max_cache_contours: usize,
+    text_bytes: usize,
+    text_cache: Option<&'a PlotterTextCacheSession<'a>>,
+}
+
+struct TextBoxOperationInput<'a> {
+    graphic: &'a PcbGraphic,
+    effects: &'a TextEffects,
+    cache: Option<&'a AuthoredRenderCache>,
+    angle: f64,
+    corners: (f64, f64, f64, f64),
+    margins: [f64; 4],
+    resolved: &'a str,
+    limits: TextOperationLimits<'a>,
+}
+
+#[derive(Clone, Copy)]
+struct TextRecordContext<'a> {
+    variables: &'a BoardTextVariables,
+    text_cache: Option<&'a PlotterTextCacheSession<'a>>,
     cache_points: usize,
     text_bytes: usize,
+    max_operations: usize,
+    limits: BoardPlotLimits,
 }
 
 impl TextEffects {
     /// Python `Font.effective_thickness` normal/bold auto-thickness rules.
-    fn effective_thickness(&self) -> f64 {
+    pub(super) fn effective_thickness(&self) -> f64 {
         if let Some(thickness) = self.thickness {
             return thickness;
         }
@@ -443,6 +478,7 @@ pub(super) fn text_effects(form: &Sexp) -> Result<TextEffects, Error> {
         }
         _ => None,
     };
+    let line_spacing = numeric_or(font.and_then(|value| child(value, "line_spacing")), 1, 1.0)?;
     let flag_or_yes = |name: &str| {
         font.is_some_and(|value| {
             has_flag(value, name)
@@ -474,6 +510,7 @@ pub(super) fn text_effects(form: &Sexp) -> Result<TextEffects, Error> {
         thickness,
         bold: flag_or_yes("bold"),
         italic: flag_or_yes("italic"),
+        line_spacing,
         justify,
         color,
     })
@@ -497,16 +534,24 @@ pub(super) fn alignments(justify: &[String]) -> (Option<BoardTextHAlign>, Option
     (h_align, v_align)
 }
 
+pub(super) fn effective_line_spacing(value: f64) -> f64 {
+    if value == 0.0 { 1.0 } else { value }
+}
+
 /// Python `gr_text_to_record`.
 fn text_record(
     source: &str,
     graphic: &PcbGraphic,
-    variables: &BoardTextVariables,
-    max_cache_points: usize,
-    max_text_bytes: usize,
-    max_operations: usize,
-    limits: BoardPlotLimits,
+    context: TextRecordContext<'_>,
 ) -> Result<BoardTextRecord, Error> {
+    let TextRecordContext {
+        variables,
+        text_cache,
+        cache_points: max_cache_points,
+        text_bytes: max_text_bytes,
+        max_operations,
+        limits,
+    } = context;
     let raw_text = graphic.text.clone().unwrap_or_default();
     if !raw_text.is_empty() && max_operations < 1 {
         return Err(resource_limit_error(
@@ -547,47 +592,24 @@ fn text_record(
     }
     let at = graphic.at.unwrap_or(PcbPoint { x: 0.0, y: 0.0 });
     let resolved = resolved.expect("nonempty board text was resolved before parsing");
-    let face_present = effects.face.is_some();
     let valid_cache = cache
         .as_ref()
         .filter(|value| cache_is_valid(value, &resolved, angle));
-    preflight_knockout(
-        valid_cache,
-        knockout,
-        max_cache_points,
-        limits.max_cache_contours,
-    )?;
     ensure_retained_text_bytes(
         resolved.len(),
         2 + usize::from(valid_cache.is_some()),
         max_text_bytes,
     )?;
     let mut operation = gr_text_operation(&effects, at, resolved, angle)?;
-    if cache.is_some() || face_present {
-        // The gr_text request text equals the resolved text: GrText has no
-        // `render_cache_text` wrapping hook.
-        if let Some(cache) = valid_cache {
-            attach_authored_cache(
-                &mut operation,
-                cache,
-                !face_present,
-                max_cache_points,
-                knockout,
-            )?;
-        }
-        // Missing or stale caches with a font face take the Python
-        // generation path, deferred with the outline-font bridge; the op
-        // then carries no cache keys.
-    }
-    if knockout {
-        let margin_nm = mm_to_nm(effects.knockout_margin_mm())?;
-        apply_knockout(
-            &mut operation,
-            margin_nm,
-            max_cache_points,
-            limits.max_cache_contours,
-        )?;
-    }
+    attach_gr_text_cache(
+        &mut operation,
+        &effects,
+        cache.as_ref(),
+        text_cache,
+        max_cache_points,
+        limits,
+        knockout,
+    )?;
     let text = operation.text.clone();
     Ok(BoardTextRecord {
         uuid,
@@ -595,6 +617,48 @@ fn text_record(
         text,
         operations: vec![operation],
     })
+}
+
+fn attach_gr_text_cache(
+    operation: &mut BoardTextOperation,
+    effects: &TextEffects,
+    cache: Option<&AuthoredRenderCache>,
+    text_cache: Option<&PlotterTextCacheSession<'_>>,
+    max_cache_points: usize,
+    limits: BoardPlotLimits,
+    knockout: bool,
+) -> Result<(), Error> {
+    let face_present = effects.face.is_some();
+    let valid_cache =
+        cache.filter(|value| cache_is_valid(value, &operation.text, operation.orient_deg));
+    preflight_knockout(
+        valid_cache,
+        knockout,
+        max_cache_points,
+        limits.max_cache_contours,
+    )?;
+    if cache.is_some() || face_present {
+        if let Some(cache) = valid_cache {
+            attach_authored_cache(operation, cache, !face_present, max_cache_points, knockout)?;
+        } else if face_present && let Some(resources) = text_cache {
+            let generated = resources.generate(
+                plotter_layout(operation, effects, effects.effective_thickness()),
+                max_cache_points,
+                limits.max_cache_polygons,
+                limits.max_cache_contours,
+            )?;
+            attach_native_cache(operation, generated, max_cache_points)?;
+        }
+    }
+    if knockout {
+        apply_knockout(
+            operation,
+            mm_to_nm(effects.knockout_margin_mm())?,
+            max_cache_points,
+            limits.max_cache_contours,
+        )?;
+    }
+    Ok(())
 }
 
 pub(super) fn ensure_retained_text_bytes(
@@ -660,18 +724,6 @@ fn gr_text_operation(
     })
 }
 
-/// Python text-box border width: `stroke_width_nm(stroke or Stroke(), 0.2mm)`.
-fn border_width_nm(stroke_width: Option<f64>) -> Result<i64, Error> {
-    let width = stroke_width.unwrap_or(0.0);
-    if width < 0.0 {
-        return Ok(0);
-    }
-    if width == 0.0 {
-        return Ok(TEXT_BOX_BORDER_DEFAULT_WIDTH_NM);
-    }
-    Ok(mm_to_nm(width)?.max(MIN_PLOT_PEN_WIDTH_NM))
-}
-
 /// Python `StrokeType(...)` accepts only the known KiCad stroke names.
 fn validate_stroke_type(form: &Sexp) -> Result<(), Error> {
     let Some(stroke) = child(form, "stroke") else {
@@ -691,7 +743,7 @@ fn validate_stroke_type(form: &Sexp) -> Result<(), Error> {
 
 /// Python `GrTextBox.from_sexp` start/end fallback: the corner-point
 /// bounding box applies only when the start/end pair is incomplete.
-fn text_box_corners(graphic: &PcbGraphic) -> (f64, f64, f64, f64) {
+pub(super) fn text_box_corners(graphic: &PcbGraphic) -> (f64, f64, f64, f64) {
     let pair_complete = graphic.start.is_some() && graphic.end.is_some();
     if !graphic.points.is_empty() && !pair_complete {
         let xs = graphic.points.iter().map(|point| point.x);
@@ -726,15 +778,17 @@ fn text_box_margins(form: &Sexp) -> Result<[f64; 4], Error> {
 
 /// Python `fp_text_box_to_ops` text placement over the normalized box with
 /// per-side margins applied by the effective alignment.
-fn text_box_text_operation(
-    effects: &TextEffects,
-    cache: Option<&AuthoredRenderCache>,
-    angle: f64,
-    corners: (f64, f64, f64, f64),
-    margins: [f64; 4],
-    resolved: &str,
-    limits: TextOperationLimits,
-) -> Result<BoardTextOperation, Error> {
+fn text_box_text_operation(input: TextBoxOperationInput<'_>) -> Result<BoardTextOperation, Error> {
+    let TextBoxOperationInput {
+        graphic,
+        effects,
+        cache,
+        angle,
+        corners,
+        margins,
+        resolved,
+        limits,
+    } = input;
     let face_present = effects.face.is_some();
     let (h_align, v_align) = alignments(&effects.justify);
     let h_align = h_align.unwrap_or(BoardTextHAlign::Center);
@@ -755,71 +809,86 @@ fn text_box_text_operation(
         BoardTextVAlign::Center => (y1 + y2) / 2.0,
         BoardTextVAlign::Top => y1 + margin_top,
     };
+    let approximate_wrap_width = text_box_wrap_width(corners, margins, angle);
+    let cache_geometry = text_box_cache_geometry(graphic, effects, angle, margins);
     let size_x_nm = mm_to_nm(effects.size_x)?;
     let wrap_size_x_nm = if size_x_nm == 0 { 1_270_000 } else { size_x_nm };
-    let wrapped = wrap_text_box(
+    let approximate_wrapped = wrap_text_box(resolved, approximate_wrap_width, wrap_size_x_nm);
+    let base_layout = text_box_layout(
+        effects,
         resolved,
-        ((x2 - x1) - margin_left - margin_right).max(0.0),
-        wrap_size_x_nm,
+        cache_geometry.x,
+        cache_geometry.y,
+        angle,
+        h_align,
+        v_align,
     );
-    ensure_cache_request_text_unchanged(cache, resolved)?;
-    let multiline = wrapped.contains('\n');
-    // Python replaces the ordinary Newstroke payload with the outline-cache
-    // request text whenever a cache or face is present. Until the full outline
-    // linebreaker lands, authored caches are supported only when that request
-    // text is unchanged; changed cache text is rejected above rather than
-    // silently accepting or discarding a semantically different cache.
-    let operation_text = if cache.is_some() || face_present {
-        resolved
-    } else {
-        &wrapped
+    let native_wrapped = match (face_present, limits.text_cache) {
+        (true, Some(resources)) => {
+            Some(resources.linebreak(base_layout, cache_geometry.wrap_width)?)
+        }
+        _ => None,
     };
+    if native_wrapped.is_none() {
+        ensure_cache_request_text_unchanged(cache, resolved)?;
+    }
+    let multiline = native_wrapped
+        .as_deref()
+        .unwrap_or(&approximate_wrapped)
+        .contains('\n');
+    let operation_text = native_wrapped.as_deref().unwrap_or_else(|| {
+        if cache.is_some() || face_present {
+            resolved
+        } else {
+            &approximate_wrapped
+        }
+    });
+    // Python replaces the ordinary Newstroke payload with the outline-cache
+    // request text whenever a cache or face is present. Without native font
+    // resources, retain the earlier fail-closed behavior for wrapping caches.
     let valid_cache = cache.filter(|value| cache_is_valid(value, operation_text, angle));
     ensure_retained_text_bytes(
         operation_text.len(),
         2 + usize::from(valid_cache.is_some()),
         limits.text_bytes,
     )?;
-    let operation_text = operation_text.to_owned();
-    let mut operation = BoardTextOperation {
-        x: mm_to_nm(x)?,
-        y: mm_to_nm(y)?,
-        text: operation_text.clone(),
-        color: effects.color.clone(),
-        orient_deg: angle,
+    let mut operation = new_text_box_operation(
+        effects,
+        operation_text.to_owned(),
+        (x, y),
+        angle,
+        (h_align, v_align),
         size_x_nm,
-        size_y_nm: mm_to_nm(effects.size_y)?,
-        h_align,
-        v_align,
-        pen_width_nm: match effects.thickness {
-            Some(thickness) => mm_to_nm(thickness)?,
-            None => 0,
-        },
-        italic: effects.italic,
-        bold: effects.bold,
-        multiline,
-        font_face: effects.face.clone().unwrap_or_default(),
-        layer: None,
-        // Text boxes never emit the mirror or per-segment markers.
-        mirror: false,
-        text_as_polygons: !face_present,
-        polyline_per_segment: false,
-        knockout: false,
-        render_cache_polygons: Vec::new(),
-        render_cache: None,
-    };
+    )?;
+    operation.multiline = multiline;
+    attach_text_box_cache(&mut operation, effects, valid_cache, base_layout, limits)?;
+    Ok(operation)
+}
+
+fn attach_text_box_cache(
+    operation: &mut BoardTextOperation,
+    effects: &TextEffects,
+    valid_cache: Option<&AuthoredRenderCache>,
+    base_layout: PlotterTextLayout<'_>,
+    limits: TextOperationLimits<'_>,
+) -> Result<(), Error> {
+    let face_present = effects.face.is_some();
     // Python's Shapely synthetic knockout is deferred: without Shapely
     // the oracle leaves the op unchanged, which is the pinned baseline.
     if let Some(cache) = valid_cache {
-        attach_authored_cache(
-            &mut operation,
-            cache,
-            !face_present,
+        attach_authored_cache(operation, cache, !face_present, limits.cache_points, false)?;
+    } else if face_present && let Some(resources) = limits.text_cache {
+        let mut layout = base_layout;
+        layout.text = &operation.text;
+        let generated = resources.generate(
+            layout,
             limits.cache_points,
-            false,
+            limits.max_cache_polygons,
+            limits.max_cache_contours,
         )?;
+        attach_native_cache(operation, generated, limits.cache_points)?;
     }
-    Ok(operation)
+    Ok(())
 }
 
 fn ensure_cache_request_text_unchanged(
@@ -844,12 +913,16 @@ fn ensure_cache_request_text_unchanged(
 fn text_box_record(
     source: &str,
     graphic: &PcbGraphic,
-    variables: &BoardTextVariables,
-    max_cache_points: usize,
-    max_text_bytes: usize,
-    max_operations: usize,
-    limits: BoardPlotLimits,
+    context: TextRecordContext<'_>,
 ) -> Result<BoardTextBoxRecord, Error> {
+    let TextRecordContext {
+        variables,
+        text_cache,
+        cache_points: max_cache_points,
+        text_bytes: max_text_bytes,
+        max_operations,
+        limits,
+    } = context;
     let raw_text = graphic.text.clone().unwrap_or_default();
     let required_operations =
         usize::from(graphic.border == Some(true)) + usize::from(!raw_text.is_empty());
@@ -880,7 +953,6 @@ fn text_box_record(
     validate_stroke_type(&form)?;
     let margins = text_box_margins(&form)?;
     let corners = text_box_corners(graphic);
-    let (start_x, start_y, end_x, end_y) = corners;
     let layer = graphic
         .layer
         .clone()
@@ -888,36 +960,26 @@ fn text_box_record(
     let uuid = graphic.uuid.clone().unwrap_or_default();
     let mut operations = Vec::new();
     if border == Some(true) {
-        operations.push(BoardTextBoxOperation::Border(PlotterOperation::Rect(
-            PlotterRect {
-                x1: mm_to_nm(start_x)?,
-                y1: mm_to_nm(start_y)?,
-                x2: mm_to_nm(end_x)?,
-                y2: mm_to_nm(end_y)?,
-                fill: PlotterFill::NoFill,
-                width_nm: border_width_nm(stroke_width)?,
-                corner_radius_nm: 0,
-                layer: None,
-                stroke_color: None,
-                fill_color: None,
-                line_style: None,
-            },
-        )));
+        operations.push(text_box_border_operation(corners, stroke_width)?);
     }
     if !raw_text.is_empty() {
         let resolved = resolved.expect("nonempty text box was resolved before parsing");
-        let operation = text_box_text_operation(
-            &effects,
-            cache.as_ref(),
+        let operation = text_box_text_operation(TextBoxOperationInput {
+            graphic,
+            effects: &effects,
+            cache: cache.as_ref(),
             angle,
             corners,
             margins,
-            &resolved,
-            TextOperationLimits {
+            resolved: &resolved,
+            limits: TextOperationLimits {
                 cache_points: max_cache_points,
+                max_cache_polygons: limits.max_cache_polygons,
+                max_cache_contours: limits.max_cache_contours,
                 text_bytes: max_text_bytes,
+                text_cache,
             },
-        )?;
+        })?;
         operations.push(BoardTextBoxOperation::Text(operation));
     }
     let text = operations

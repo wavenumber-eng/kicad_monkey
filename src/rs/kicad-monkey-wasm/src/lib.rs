@@ -12,7 +12,7 @@ mod symbol_library;
 mod symbol_plot;
 
 #[cfg(feature = "board")]
-pub use board_plot::{BoardPlotOutput, plot_board_ir};
+pub use board_plot::{BoardPlotOutput, plot_board_ir, project_board_plot_document_a0};
 #[cfg(feature = "symbol")]
 pub use symbol_library::{
     SymbolLibraryEditOutput, edit_symbol_library_boolean, read_symbol_library,

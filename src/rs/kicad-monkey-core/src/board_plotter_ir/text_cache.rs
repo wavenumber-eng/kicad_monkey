@@ -1,7 +1,8 @@
 //! Authored board-text render-cache decoding and knockout restructuring.
 
 use super::point_limit_error;
-use super::text::{BoardTextOperation, BoardTextRenderCache};
+use super::text::{BoardTextOperation, BoardTextRenderCache, BoardTextRenderCacheSource};
+use crate::TextRenderCache;
 use crate::plotter_ir::{child, ensure_javascript_safe_integer, mm_to_nm, model_error, numeric_at};
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position, Sexp};
 
@@ -233,7 +234,63 @@ pub(super) fn attach_authored_cache(
         angle: cache.angle,
         exact,
         knockout: false,
+        source: BoardTextRenderCacheSource::ExistingFile,
         polygons: typed,
+    });
+    Ok(())
+}
+
+/// Attach one cache produced by the accepted native hinted outline engine.
+pub(super) fn attach_native_cache(
+    operation: &mut BoardTextOperation,
+    cache: TextRenderCache,
+    max_retained_points: usize,
+) -> Result<(), Error> {
+    let retained_points = cache.polygons.iter().try_fold(0usize, |total, polygon| {
+        let contour_points = polygon.contours.iter().try_fold(0usize, |count, contour| {
+            count.checked_add(contour.points.len())
+        })?;
+        total.checked_add(contour_points)?.checked_add(
+            polygon
+                .contours
+                .first()
+                .map_or(0, |value| value.points.len()),
+        )
+    });
+    if retained_points.is_none_or(|points| points > max_retained_points) {
+        return Err(point_limit_error());
+    }
+    let mut polygons = Vec::with_capacity(cache.polygons.len());
+    let mut exteriors = Vec::with_capacity(cache.polygons.len());
+    for polygon in cache.polygons {
+        let contours = polygon
+            .contours
+            .into_iter()
+            .filter(|contour| contour.points.len() >= 3)
+            .map(|contour| {
+                contour
+                    .points
+                    .into_iter()
+                    .map(|point| Ok([mm_to_nm(point.x)?, mm_to_nm(point.y)?]))
+                    .collect::<Result<Vec<_>, Error>>()
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        if let Some(exterior) = contours.first() {
+            exteriors.push(exterior.clone());
+            polygons.push(contours);
+        }
+    }
+    if polygons.is_empty() {
+        return Ok(());
+    }
+    operation.render_cache_polygons = exteriors;
+    operation.render_cache = Some(BoardTextRenderCache {
+        text: cache.text,
+        angle: cache.angle_degrees,
+        exact: false,
+        knockout: false,
+        source: BoardTextRenderCacheSource::NativeGenerated,
+        polygons,
     });
     Ok(())
 }

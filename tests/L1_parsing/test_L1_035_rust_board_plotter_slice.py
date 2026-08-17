@@ -24,6 +24,9 @@ from kicad_monkey.kicad_project import KiCadProject
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 VECTOR_PATH = PACKAGE_ROOT / "tests" / "parity" / "board_plotter_a0_vectors.json"
+TEXT_CACHE_SIDECAR_VECTOR_PATH = (
+    PACKAGE_ROOT / "tests" / "parity" / "board_text_cache_sidecar_vectors.json"
+)
 SLICE_SCHEMA_PATH = (
     PACKAGE_ROOT / "contracts" / "generated" / "schema" / "BoardPlotDocument.json"
 )
@@ -248,6 +251,20 @@ def test_shared_board_vectors_match_python_generated_types_and_both_schemas() ->
     with pytest.raises(msgspec.ValidationError):
         decode_board_plot_document_a0(json.dumps(malformed_cache_point).encode("utf-8"))
 
+    native_cache = json.loads(json.dumps(texts))
+    native_op = native_cache["records"][4]["operations"][0]
+    native_op["render_cache_source"] = "native_generated_cache"
+    native_op["render_cache"]["source"] = "native_generated_cache"
+    decode_board_plot_document_a0(json.dumps(native_cache).encode("utf-8"))
+    Draft202012Validator(slice_schema).validate(native_cache)
+
+    python_cache = json.loads(json.dumps(texts))
+    python_op = python_cache["records"][4]["operations"][0]
+    python_op["render_cache_source"] = "python_generated_cache"
+    python_op["render_cache"]["source"] = "python_generated_cache"
+    decode_board_plot_document_a0(json.dumps(python_cache).encode("utf-8"))
+    Draft202012Validator(slice_schema).validate(python_cache)
+
     text_boxes = next(
         vector["expected"]
         for vector in payload["vectors"]
@@ -287,7 +304,58 @@ def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:
             "board_plotter_resource_limits",
         ]
     )
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "plotter_text_cache",
+        ]
+    )
     _run([cargo, "test", "--locked", "--package", "kicad-monkey-wasm"])
+
+
+def test_native_cache_sidecar_vector_reaches_generated_contract_projection() -> None:
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for the Rust plotter-IR gate"
+    vector = json.loads(TEXT_CACHE_SIDECAR_VECTOR_PATH.read_text(encoding="utf-8"))[
+        "vectors"
+    ][0]
+    completed = subprocess.run(
+        [
+            cargo,
+            "run",
+            "--quiet",
+            "--locked",
+            "--package",
+            "kicad-monkey-wasm",
+            "--example",
+            "board_text_cache_sidecar_contract",
+        ],
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=240,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    payload = json.loads(completed.stdout)
+    decode_board_plot_document_a0(completed.stdout.encode("utf-8"))
+    Draft202012Validator(
+        json.loads(SLICE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    ).validate(payload)
+    actual_sources = [
+        next(
+            operation["render_cache"]["source"]
+            for operation in record["operations"]
+            if "render_cache" in operation
+        )
+        for record in payload["records"]
+    ]
+    assert actual_sources == vector["expected_cache_sources"]
 
 
 def test_board_plot_request_requires_explicit_graphic_and_point_budgets() -> None:

@@ -57,6 +57,10 @@ export type PlotterTextHAlign = "GR_TEXT_H_ALIGN_LEFT" | "GR_TEXT_H_ALIGN_CENTER
  */
 export type PlotterTextVAlign = "GR_TEXT_V_ALIGN_TOP" | "GR_TEXT_V_ALIGN_CENTER" | "GR_TEXT_V_ALIGN_BOTTOM";
 /**
+ * Provenance of one attached text render cache.
+ */
+export type PlotterTextRenderCacheSource = "existing_file_cache" | "python_generated_cache" | "native_generated_cache";
+/**
  * Semantic roles allowed on board via flash operations.
  */
 export type PlotterViaFlashRole = "via_aperture" | "via_mask_opening";
@@ -244,14 +248,13 @@ export interface TextOperation {
   knockout?: boolean;
   render_cache_polygons?: PlotterPoint[][];
   render_cache?: TextRenderCache;
-  render_cache_source?: "existing_file_cache";
+  render_cache_source?: PlotterTextRenderCacheSource;
   render_cache_exact?: boolean;
 }
 /**
- * Typed authored render cache mirrored from `(render_cache ...)` forms. The
- * promoted producers only forward file caches, so `source` is pinned to
- * `existing_file_cache`; `knockout` appears when the knockout background
- * restructure replaced the polygons.
+ * Typed render cache from an authored `(render_cache ...)` form, the Python
+ * resolver, or the deterministic native hinted outline engine. `knockout` appears when the
+ * knockout background restructure replaced the polygons.
  */
 export interface TextRenderCache {
   schema: "kicad.render_cache.v1";
@@ -259,7 +262,7 @@ export interface TextRenderCache {
   coordinate_space: "board";
   text: string;
   angle: number;
-  source: "existing_file_cache";
+  source: PlotterTextRenderCacheSource;
   exact: boolean;
   polygons: TextRenderCachePolygon[];
   knockout?: boolean;

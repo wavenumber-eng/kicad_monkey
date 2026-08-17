@@ -549,13 +549,13 @@ secondary = [
 id = "L1_035"
 file = "test_L1_035_rust_board_plotter_slice.py"
 name = "Rust Board Plotter-IR Slice"
-description = "Prove promoted board graphics, tracks, vias, and zone fills from KiCad bytes to shared kicad.plotter_ir.a0 operations"
+description = "Prove promoted board graphics, text, routing, tables, and zone fills from KiCad bytes to shared kicad.plotter_ir.a0 operations"
 concerns = ["sexpr", "rust", "pcb", "plotter_ir", "wasm"]
 test_cases = "tests/parity/board_plotter_a0_vectors.json"
 test_case_type = "contract"
 
 [subtests.objectives]
-primary = "Rust and Python emit the same established plotter-IR document for promoted board graphics, tracks, vias, and zone fills"
+primary = "Rust and Python emit the same established plotter-IR document for promoted board graphics, text, tracks, vias, tables, and zone fills"
 secondary = [
     "The TypeSpec board slice remains a strict valid subset of the established plotter-IR contract",
     "Board documents carry version, generator, thickness, and paper metadata with Python defaults",
@@ -566,7 +566,12 @@ secondary = [
     "Board graphic operations stay layerless after generated semantic validation",
     "Pattern step caps, zero-progress strokes, and polygon point budgets fail without partial geometry",
     "The WASM boundary accepts source bytes and returns bounded out-of-band JSON bytes",
-    "Text carriers are excluded pending the board-text slice",
+    "Board text and text boxes preserve variables, wrapping, alignment, authored caches, cache exactness, and knockout behavior",
+    "A caller-supplied bounded font/shaping sidecar generates missing or stale board text, text-box, and table caches without platform discovery",
+    "Native outline line breaking preserves KiCad pending-space and markup grouping rules under independent shaping and output ceilings",
+    "Render-cache provenance distinguishes authored file caches from native generated caches across generated bindings and semantic validation",
+    "A shared sidecar vector projects matching, stale, and missing cache paths through the generated host-WASM contract",
+    "Rotated, mirrored, stroked text boxes and default-aligned table cells use Python TextParams cache geometry",
     "Track records follow graphics with bare locked flags, verbatim widths, and truthy net-name extras",
     "Track arcs plot from the file end point back to the start with no lock state",
     "Via records emit an aperture/drill pair then mask pairs gated by explicit untenting on outer copper",
@@ -577,4 +582,5 @@ secondary = [
     "Keepout zones keep zero-operation records, zone outlines never serialize, and present-but-empty net names resolve from the net table",
     "Net-class extras follow normalized exact-match project assignments carried on the request for tracks, arcs, vias, and zones",
     "Zone rings observe the shared operation, point, and per-family record budgets",
+    "Tables preserve grid-before-text ordering, cell variables and layers, authored/native cache behavior, and aggregate resource limits",
 ]

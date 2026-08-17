@@ -546,11 +546,11 @@ fn cache_identities_match(
     value: &TextOperation,
     cache: &crate::generated::board_plot_document::TextRenderCache,
 ) -> bool {
+    let source_matches = value.render_cache_source == Some(cache.source);
     cache.schema == "kicad.render_cache.v1"
         && cache.unit == "nm"
         && cache.coordinate_space == "board"
-        && cache.source == "existing_file_cache"
-        && value.render_cache_source.as_deref() == Some("existing_file_cache")
+        && source_matches
 }
 
 fn cache_payload_matches(

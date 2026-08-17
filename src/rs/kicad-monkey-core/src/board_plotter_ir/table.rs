@@ -1,21 +1,34 @@
-//! Board table grid/border and authored outline-cache emission.
+//! Board table grid/border and authored/native outline-cache emission.
 
 use super::text::{
-    BoardTextHAlign, BoardTextOperation, BoardTextVAlign, alignments, ensure_retained_text_bytes,
-    numeric_or, operation_text_bytes, text_effects, text_point_total,
+    BoardTextHAlign, BoardTextOperation, BoardTextVAlign, alignments, effective_line_spacing,
+    ensure_retained_text_bytes, numeric_or, operation_text_bytes, text_effects, text_point_total,
 };
-use super::text_cache::{attach_authored_cache, cache_is_valid_without_angle, parse_render_cache};
+use super::text_cache::{
+    AuthoredRenderCache, attach_authored_cache, attach_native_cache, cache_is_valid_without_angle,
+    parse_render_cache,
+};
+use super::text_native::{native_h_align, native_v_align};
 use super::{
     BoardPlotLimits, BoardPlotRecord, BoardTableOperation, BoardTableRecord, BoardTextVariables,
     BudgetTracker, input_point_limit_error, layerless_segment, limit_error,
 };
 use crate::pcb::{PcbTable, PcbTableCell, PcbView};
 use crate::plotter_ir::{child, mm_to_nm};
+use crate::plotter_text_cache::{PlotterTextCacheSession, PlotterTextLayout};
 use crate::plotter_types::PlotterOperation;
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Limits, Position, Sexp, parse_with_limits};
 use std::collections::BTreeSet;
 
 const DEFAULT_TABLE_STROKE_MM: f64 = 0.2;
+
+#[derive(Clone, Copy)]
+struct TableCellContext<'a> {
+    variables: &'a BoardTextVariables,
+    budget: &'a BudgetTracker,
+    text_cache: Option<&'a PlotterTextCacheSession<'a>>,
+    limits: BoardPlotLimits,
+}
 
 pub(super) fn decoded_tables(
     view: &PcbView<'_>,
@@ -40,6 +53,7 @@ pub(super) fn table_records(
     cells: &[PcbTableCell],
     variables: &BoardTextVariables,
     budget: &mut BudgetTracker,
+    text_cache: Option<&PlotterTextCacheSession<'_>>,
     limits: BoardPlotLimits,
 ) -> Result<Vec<BoardPlotRecord>, Error> {
     let mut records = Vec::with_capacity(tables.len());
@@ -64,6 +78,7 @@ pub(super) fn table_records(
             table_cells,
             variables,
             budget,
+            text_cache,
             limits,
         )?));
         cell_start = cell_end;
@@ -80,6 +95,7 @@ fn table_record(
     cells: &[PcbTableCell],
     variables: &BoardTextVariables,
     budget: &mut BudgetTracker,
+    text_cache: Option<&PlotterTextCacheSession<'_>>,
     limits: BoardPlotLimits,
 ) -> Result<BoardTableRecord, Error> {
     let form = parse_span(source, table.source_range.clone(), limits)?;
@@ -102,8 +118,13 @@ fn table_record(
     budget.charge(geometry_count, 0)?;
 
     for (cell_index, cell) in cells.iter().enumerate() {
-        let Some(operation) =
-            table_cell_text_operation(source, table, cell, cell_index, variables, budget, limits)?
+        let context = TableCellContext {
+            variables,
+            budget,
+            text_cache,
+            limits,
+        };
+        let Some(operation) = table_cell_text_operation(source, table, cell, cell_index, context)?
         else {
             continue;
         };
@@ -254,10 +275,14 @@ fn table_cell_text_operation(
     table: &PcbTable,
     cell: &PcbTableCell,
     cell_index: usize,
-    variables: &BoardTextVariables,
-    budget: &BudgetTracker,
-    limits: BoardPlotLimits,
+    context: TableCellContext<'_>,
 ) -> Result<Option<BoardTextOperation>, Error> {
+    let TableCellContext {
+        variables,
+        budget,
+        text_cache,
+        limits,
+    } = context;
     if cell.text.is_empty() {
         return Ok(None);
     }
@@ -279,7 +304,7 @@ fn table_cell_text_operation(
         variables,
         budget.remaining_text_bytes()?,
     )?;
-    if resolved.contains(' ') {
+    if resolved.contains(' ') && text_cache.is_none() {
         return Err(unsupported_outline_error());
     }
     let parsed_cache = parse_render_cache(
@@ -288,31 +313,44 @@ fn table_cell_text_operation(
         limits.max_cache_polygons,
         limits.max_cache_contours,
     )?;
-    let valid_cache = parsed_cache.filter(|cache| cache_is_valid_without_angle(cache, &resolved));
-    let cache = if resolved.is_empty() {
-        valid_cache
-    } else {
-        Some(valid_cache.ok_or_else(unsupported_outline_error)?)
-    };
-    ensure_retained_text_bytes(resolved.len(), 2, budget.remaining_text_bytes()?)?;
     let (x, y) = draw_position(cell, &effects.justify);
     let (h_align, v_align) = alignments(&effects.justify);
-    let multiline = resolved.contains('\n');
+    let h_align = h_align.unwrap_or(BoardTextHAlign::Left);
+    let v_align = v_align.unwrap_or(BoardTextVAlign::Bottom);
+    let (cache_h_align, cache_v_align) = alignments(&effects.justify);
+    let base_layout = table_cell_layout(
+        cell,
+        &effects,
+        &resolved,
+        x,
+        y,
+        cache_h_align.unwrap_or(BoardTextHAlign::Center),
+        cache_v_align.unwrap_or(BoardTextVAlign::Center),
+    );
+    let (wrapped, cache) = table_cell_wrapped_cache(
+        &resolved,
+        parsed_cache,
+        base_layout,
+        text_cache,
+        cell_wrap_width(cell),
+    )?;
+    ensure_retained_text_bytes(wrapped.len(), 2, budget.remaining_text_bytes()?)?;
+    let multiline = wrapped.contains('\n');
     let mut operation = BoardTextOperation {
         x: mm_to_nm(x)?,
         y: mm_to_nm(y)?,
-        text: resolved,
-        color: effects.color,
+        text: wrapped,
+        color: effects.color.clone(),
         orient_deg: cell.angle,
         size_x_nm: mm_to_nm(effects.size_x)?,
         size_y_nm: mm_to_nm(effects.size_y)?,
-        h_align: h_align.unwrap_or(BoardTextHAlign::Left),
-        v_align: v_align.unwrap_or(BoardTextVAlign::Bottom),
+        h_align,
+        v_align,
         pen_width_nm: effects.thickness.map(mm_to_nm).transpose()?.unwrap_or(0),
         italic: effects.italic,
         bold: effects.bold,
         multiline,
-        font_face: effects.face.unwrap_or_default(),
+        font_face: effects.face.clone().unwrap_or_default(),
         layer: Some(cell.layer.clone()),
         mirror: false,
         text_as_polygons: false,
@@ -321,16 +359,87 @@ fn table_cell_text_operation(
         render_cache_polygons: Vec::new(),
         render_cache: None,
     };
-    if let Some(cache) = cache {
-        attach_authored_cache(
-            &mut operation,
-            &cache,
-            false,
-            budget.remaining_points()?,
-            false,
-        )?;
-    }
+    attach_table_cell_cache(
+        &mut operation,
+        cache.as_ref(),
+        base_layout,
+        text_cache,
+        budget,
+        limits,
+    )?;
     Ok(Some(operation))
+}
+
+fn table_cell_wrapped_cache(
+    resolved: &str,
+    parsed_cache: Option<AuthoredRenderCache>,
+    base_layout: PlotterTextLayout<'_>,
+    text_cache: Option<&PlotterTextCacheSession<'_>>,
+    wrap_width: f64,
+) -> Result<(String, Option<AuthoredRenderCache>), Error> {
+    let wrapped = match text_cache {
+        Some(resources) => resources.linebreak(base_layout, wrap_width)?,
+        None => resolved.to_owned(),
+    };
+    let valid_cache = parsed_cache.filter(|cache| cache_is_valid_without_angle(cache, &wrapped));
+    if wrapped.is_empty() || valid_cache.is_some() || text_cache.is_some() {
+        Ok((wrapped, valid_cache))
+    } else {
+        Err(unsupported_outline_error())
+    }
+}
+
+fn attach_table_cell_cache(
+    operation: &mut BoardTextOperation,
+    cache: Option<&AuthoredRenderCache>,
+    base_layout: PlotterTextLayout<'_>,
+    text_cache: Option<&PlotterTextCacheSession<'_>>,
+    budget: &BudgetTracker,
+    limits: BoardPlotLimits,
+) -> Result<(), Error> {
+    if let Some(cache) = cache {
+        attach_authored_cache(operation, cache, false, budget.remaining_points()?, false)?;
+    } else if !operation.text.is_empty()
+        && let Some(resources) = text_cache
+    {
+        let mut layout = base_layout;
+        layout.text = &operation.text;
+        let generated = resources.generate(
+            layout,
+            budget.remaining_points()?,
+            limits.max_cache_polygons,
+            limits.max_cache_contours,
+        )?;
+        attach_native_cache(operation, generated, budget.remaining_points()?)?;
+    }
+    Ok(())
+}
+
+fn table_cell_layout<'a>(
+    cell: &PcbTableCell,
+    effects: &'a super::text::TextEffects,
+    text: &'a str,
+    x: f64,
+    y: f64,
+    h_align: BoardTextHAlign,
+    v_align: BoardTextVAlign,
+) -> PlotterTextLayout<'a> {
+    PlotterTextLayout {
+        text,
+        face: effects.face.as_deref().unwrap_or_default(),
+        bold: effects.bold,
+        italic: effects.italic,
+        size_x: effects.size_x,
+        size_y: effects.size_y,
+        position_x: x,
+        position_y: y,
+        angle_degrees: cell.angle,
+        mirrored: effects.justify.iter().any(|value| value == "mirror"),
+        horizontal_alignment: native_h_align(h_align),
+        vertical_alignment: native_v_align(v_align),
+        line_spacing: effective_line_spacing(effects.line_spacing),
+        stroke_width: effects.effective_thickness(),
+    }
 }
 
 fn resolved_cell_text(
@@ -375,6 +484,19 @@ fn draw_position(cell: &PcbTableCell, justify: &[String]) -> (f64, f64) {
     let rotated_x = offset_x * radians.cos() + offset_y * radians.sin();
     let rotated_y = offset_y * radians.cos() - offset_x * radians.sin();
     (anchor[0] + rotated_x, anchor[1] + rotated_y)
+}
+
+fn cell_wrap_width(cell: &PcbTableCell) -> f64 {
+    let corners = oriented_cell_corners(cell);
+    let width = (corners[1][0] - corners[0][0]).hypot(corners[1][1] - corners[0][1]);
+    let angle = cell.angle.rem_euclid(360.0);
+    let horizontal = angle.abs() <= 1e-9 || (angle - 180.0).abs() <= 1e-9;
+    let margins = if horizontal {
+        cell.margins[0] + cell.margins[2]
+    } else {
+        cell.margins[1] + cell.margins[3]
+    };
+    (width - margins).max(0.0)
 }
 
 fn oriented_cell_corners(cell: &PcbTableCell) -> [[f64; 2]; 4] {

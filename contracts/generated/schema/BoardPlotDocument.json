@@ -1159,8 +1159,7 @@
                     "$ref": "#/$defs/TextRenderCache"
                 },
                 "render_cache_source": {
-                    "type": "string",
-                    "const": "existing_file_cache"
+                    "$ref": "#/$defs/PlotterTextRenderCacheSource"
                 },
                 "render_cache_exact": {
                     "type": "boolean"
@@ -1604,8 +1603,7 @@
                     "type": "number"
                 },
                 "source": {
-                    "type": "string",
-                    "const": "existing_file_cache"
+                    "$ref": "#/$defs/PlotterTextRenderCacheSource"
                 },
                 "exact": {
                     "type": "boolean"
@@ -1633,7 +1631,16 @@
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Typed authored render cache mirrored from `(render_cache ...)` forms. The\npromoted producers only forward file caches, so `source` is pinned to\n`existing_file_cache`; `knockout` appears when the knockout background\nrestructure replaced the polygons."
+            "description": "Typed render cache from an authored `(render_cache ...)` form, the Python\nresolver, or the deterministic native hinted outline engine. `knockout` appears when the\nknockout background restructure replaced the polygons."
+        },
+        "PlotterTextRenderCacheSource": {
+            "type": "string",
+            "enum": [
+                "existing_file_cache",
+                "python_generated_cache",
+                "native_generated_cache"
+            ],
+            "description": "Provenance of one attached text render cache."
         },
         "PlotterViaFlashRole": {
             "type": "string",

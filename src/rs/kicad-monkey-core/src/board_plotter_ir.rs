@@ -13,11 +13,13 @@ mod stroke_font_widths;
 mod table;
 mod text;
 mod text_cache;
+mod text_native;
 mod text_variables;
 mod text_wrap;
 
 use crate::pcb::{PcbFamily, PcbGraphic, PcbLimits, PcbNetRef, PcbSelection, PcbView};
 use crate::plotter_ir::ensure_javascript_safe_integer;
+use crate::plotter_text_cache::{PlotterTextCacheResources, PlotterTextCacheSession};
 use crate::plotter_types::{PlotterOperation, ThickSegment};
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position};
 use std::collections::BTreeMap;
@@ -26,7 +28,7 @@ use copper::{segment_record, track_arc_record, via_operation_count, via_record, 
 use graphics::graphic_records;
 pub use text::{
     BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
-    BoardTextRecord, BoardTextRenderCache, BoardTextVAlign,
+    BoardTextRecord, BoardTextRenderCache, BoardTextRenderCacheSource, BoardTextVAlign,
 };
 pub use text_variables::BoardTextVariables;
 
@@ -475,6 +477,19 @@ pub fn board_plot_document_with_sidecars(
     net_classes: &BoardNetClassAssignments,
     text_variables: &BoardTextVariables,
 ) -> Result<BoardPlotDocument, Error> {
+    board_plot_document_with_text_cache_sidecar(source, limits, net_classes, text_variables, None)
+}
+
+/// Read the supported board families with project sidecars plus optional,
+/// caller-supplied deterministic outline-font/cache-generation resources.
+pub fn board_plot_document_with_text_cache_sidecar(
+    source: &str,
+    limits: BoardPlotLimits,
+    net_classes: &BoardNetClassAssignments,
+    text_variables: &BoardTextVariables,
+    text_cache: Option<&PlotterTextCacheResources<'_>>,
+) -> Result<BoardPlotDocument, Error> {
+    let text_cache = text_cache.map(PlotterTextCacheSession::new).transpose()?;
     let view = PcbView::parse_selected(source, board_pcb_limits(limits), board_selection())?;
     let metadata = view.metadata()?;
     ensure_javascript_safe_integer(metadata.version)?;
@@ -510,6 +525,7 @@ pub fn board_plot_document_with_sidecars(
         &graphics,
         &mut budget,
         &variables,
+        text_cache.as_ref(),
         limits,
     )?);
     append_copper_records(
@@ -525,6 +541,7 @@ pub fn board_plot_document_with_sidecars(
         &table_cells,
         &variables,
         &mut budget,
+        text_cache.as_ref(),
         limits,
     )?);
     let mut decoded_input_points = decoded_graphic_points

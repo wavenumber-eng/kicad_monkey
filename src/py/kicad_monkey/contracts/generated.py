@@ -206,7 +206,7 @@ class TextOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Text",
     knockout: bool | UnsetType = field(default=UNSET)
     render_cache_polygons: list[list[PlotterPoint]] | UnsetType = field(default=UNSET)
     render_cache: TextRenderCache | UnsetType = field(default=UNSET)
-    render_cache_source: Literal["existing_file_cache"] | UnsetType = field(default=UNSET)
+    render_cache_source: PlotterTextRenderCacheSource | UnsetType = field(default=UNSET)
     render_cache_exact: bool | UnsetType = field(default=UNSET)
 
 
@@ -302,10 +302,13 @@ class TextRenderCache(Struct, forbid_unknown_fields=True, frozen=True):
     coordinate_space: Literal["board"]
     text: str
     angle: float
-    source: Literal["existing_file_cache"]
+    source: PlotterTextRenderCacheSource
     exact: bool
     polygons: list[TextRenderCachePolygon]
     knockout: bool | UnsetType = field(default=UNSET)
+
+
+PlotterTextRenderCacheSource = Literal["existing_file_cache", "python_generated_cache", "native_generated_cache"]
 
 
 PlotterViaFlashRole = Literal["via_aperture", "via_mask_opening"]
@@ -1503,6 +1506,7 @@ __all__ = (
     "PlotterTextHAlign",
     "PlotterTextVAlign",
     "TextRenderCache",
+    "PlotterTextRenderCacheSource",
     "PlotterViaFlashRole",
     "PlotterQuad",
     "TextRenderCachePolygon",
