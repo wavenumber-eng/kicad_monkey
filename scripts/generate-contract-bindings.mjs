@@ -29,6 +29,9 @@ const roots = [
   ["SymbolPlotDocument.json", "SymbolPlotDocumentA0", "symbol-plot-document.ts"],
   ["SymbolPlotRequest.json", "SymbolPlotRequestA0", "symbol-plot-request.ts"],
   ["SymbolPlotResult.json", "SymbolPlotResultA0", "symbol-plot-result.ts"],
+  ["SchematicPlotDocument.json", "SchematicPlotDocumentA0", "schematic-plot-document.ts"],
+  ["SchematicPlotRequest.json", "SchematicPlotRequestA0", "schematic-plot-request.ts"],
+  ["SchematicPlotResult.json", "SchematicPlotResultA0", "schematic-plot-result.ts"],
   ["SymbolLibraryEditRequest.json", "SymbolLibraryEditRequestA0", "symbol-library-edit-request.ts"],
   ["SymbolLibraryEditResult.json", "SymbolLibraryEditResultA0", "symbol-library-edit-result.ts"],
   ["SymbolLibraryReadRequest.json", "SymbolLibraryReadRequestA0", "symbol-library-read-request.ts"],
@@ -158,6 +161,8 @@ function renderPython() {
       lines.push(...renderPythonBoardPlotterValidation(functionName, typeName));
     } else if (typeName === "SymbolPlotDocumentA0") {
       lines.push(...renderPythonSymbolPlotterValidation(functionName, typeName));
+    } else if (typeName === "SchematicPlotDocumentA0") {
+      lines.push(...renderPythonSchematicPlotterValidation(functionName, typeName));
     } else if (typeName === "SourceBundleManifestA0") {
       lines.push(...renderPythonSourceBundleValidation(functionName, typeName));
     } else if (typeName === "FontBundleManifestA0") {
@@ -181,6 +186,7 @@ function renderPython() {
     "validate_outline_vector_a0",
     "validate_shaping_record_a0",
     "validate_symbol_plot_document_a0",
+    "validate_schematic_plot_document_a0",
   ];
   lines.push("", "", "__all__ = (", ...exported.map((name) => `    ${pythonLiteral(name)},`), ")", "");
   return lines.join("\n");
@@ -217,6 +223,8 @@ function renderPythonBoardPlotterValidation(functionName, typeName) {
     "    saw_footprint = False",
     "    for record_index, record in enumerate(value.records):",
     "        path = f'$.records[{record_index}]'",
+    "        if any(isinstance(operation, PlotImageOperation) for operation in record.operations):",
+    '            raise msgspec.ValidationError(f"invalid_board_operation at {path}.operations")',
     "        if isinstance(record, BoardFootprintPlotRecord):",
     "            saw_footprint = True",
     "            _validate_board_footprint_plot_record(record, path)",
@@ -863,6 +871,162 @@ function renderPythonSymbolPlotterValidation(functionName, typeName) {
   ];
 }
 
+function renderPythonSchematicPlotterValidation(functionName, typeName) {
+  return [
+    `_schematic_plot_document_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _schematic_plot_document_a0_decoder.decode(data)",
+    "    validate_schematic_plot_document_a0(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_schematic_plot_document_a0(value: ${typeName}) -> None:`,
+    '    if value.schema != "kicad.plotter_ir.a0" or value.source_kind != "SCH" or value.coordinate_space.unit != "nm" or value.coordinate_space.y_axis != "down":',
+    '        raise msgspec.ValidationError("invalid_schematic_document at $")',
+    "    if not value.records or not isinstance(value.records[0], SchematicSheetHeaderPlotRecord):",
+    '        raise msgspec.ValidationError("missing_sheet_header at $.records[0]")',
+    "    phases = {SchematicSheetHeaderPlotRecord: 0, SchematicWirePlotRecord: 1, SchematicBusPlotRecord: 2, SchematicBusEntryPlotRecord: 3, SchematicJunctionPlotRecord: 4, SchematicNoConnectPlotRecord: 5}",
+    "    previous_phase = -1",
+    "    total_operations = 0",
+    "    for record_index, record in enumerate(value.records):",
+    "        path = f'$.records[{record_index}]'",
+    "        phase = phases[type(record)]",
+    "        if phase < previous_phase or (phase == 0 and record_index != 0):",
+    '            raise msgspec.ValidationError(f"invalid_schematic_record_order at {path}")',
+    "        previous_phase = phase",
+    "        if record.object_id != record.uuid:",
+    '            raise msgspec.ValidationError(f"invalid_schematic_record_identity at {path}")',
+    "        if record.operation_count != len(record.operations):",
+    '            raise msgspec.ValidationError(f"operation_count_mismatch at {path}.operation_count")',
+    "        for operation_index, operation in enumerate(record.operations):",
+    "            if operation.index != operation_index:",
+    '                raise msgspec.ValidationError(f"operation_index_mismatch at {path}.operations[{operation_index}].index")',
+    "        if isinstance(record, SchematicSheetHeaderPlotRecord):",
+    "            _validate_schematic_sheet_header(value, record, path)",
+    "        elif isinstance(record, (SchematicWirePlotRecord, SchematicBusPlotRecord, SchematicBusEntryPlotRecord)):",
+    "            _validate_schematic_polyline_record(record, path)",
+    "        elif isinstance(record, SchematicJunctionPlotRecord):",
+    "            _validate_schematic_junction_record(record, path)",
+    "        else:",
+    "            _validate_schematic_no_connect_record(record, path)",
+    "        total_operations += len(record.operations)",
+    "    if value.total_operations != total_operations:",
+    '        raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")',
+    "",
+    "",
+    "def _validate_schematic_sheet_header(value: SchematicPlotDocumentA0, record: SchematicSheetHeaderPlotRecord, path: str) -> None:",
+    "    if value.canvas.width_nm != record.sheet_width_nm or value.canvas.height_nm != record.sheet_height_nm or record.sheet_width_nm <= 0 or record.sheet_height_nm <= 0:",
+    '        raise msgspec.ValidationError(f"invalid_sheet_header at {path}")',
+    "    if not record.operations or not isinstance(record.operations[0], RectOperation):",
+    '        raise msgspec.ValidationError(f"invalid_sheet_background at {path}.operations[0]")',
+    "    background = record.operations[0]",
+    "    background_layer = None if background.layer is UNSET else background.layer",
+    "    if (background.x1, background.y1, background.x2, background.y2) != (0, 0, record.sheet_width_nm, record.sheet_height_nm) or background.fill != 'FILLED_SHAPE' or background.width_nm != 100 or background.corner_radius_nm != 0 or background_layer is not None or background.stroke_color != '#F5F4EFFF' or background.fill_color != '#F5F4EFFF':",
+    '        raise msgspec.ValidationError(f"invalid_sheet_background at {path}.operations[0]")',
+    "    for operation_index, operation in enumerate(record.operations[1:], start=1):",
+    "        operation_path = f'{path}.operations[{operation_index}]'",
+    "        if not isinstance(operation, (RectOperation, PlotPolyOperation, TextOperation, PlotImageOperation)):",
+    '            raise msgspec.ValidationError(f"invalid_worksheet_operation at {operation_path}")',
+    "        layer = None if not hasattr(operation, 'layer') or operation.layer is UNSET else operation.layer",
+    "        if layer is not None:",
+    '            raise msgspec.ValidationError(f"invalid_worksheet_operation at {operation_path}")',
+    "        if isinstance(operation, RectOperation) and (operation.fill != 'NO_FILL' or operation.width_nm < 152_400 or operation.corner_radius_nm != 0 or operation.stroke_color != '#840000FF' or operation.fill_color is not UNSET or operation.line_style is not UNSET):",
+    '            raise msgspec.ValidationError(f"invalid_worksheet_rect at {operation_path}")',
+    "        if isinstance(operation, PlotPolyOperation) and (len(operation.points) != 2 or operation.fill != 'NO_FILL' or operation.width_nm < 152_400 or operation.stroke_color != '#840000FF' or operation.fill_color is not UNSET or operation.line_style is not UNSET):",
+    '            raise msgspec.ValidationError(f"invalid_worksheet_polyline at {operation_path}")',
+    "        if isinstance(operation, TextOperation):",
+    "            forbidden = (operation.mirror is not UNSET, operation.text_as_polygons is not UNSET, operation.polyline_per_segment is not UNSET, operation.knockout is not UNSET, operation.render_cache_polygons is not UNSET, operation.render_cache is not UNSET, operation.render_cache_source is not UNSET, operation.render_cache_exact is not UNSET)",
+    "            if any(forbidden) or not math.isfinite(operation.orient_deg):",
+    '                raise msgspec.ValidationError(f"invalid_worksheet_text at {operation_path}")',
+    "        if isinstance(operation, PlotImageOperation) and (operation.image_format != 'png' or not math.isfinite(operation.scale) or operation.scale <= 0 or operation.width_nm < 0 or operation.height_nm < 0 or operation.stroke_color != '#840000FF' or not _valid_schematic_png_base64(operation.image_data_b64)):",
+    '            raise msgspec.ValidationError(f"invalid_worksheet_image at {operation_path}")',
+    "",
+    "",
+    "def _valid_schematic_png_base64(value: str) -> bool:",
+    "    prefix = bytearray()",
+    "    quartet: list[int] = []",
+    "    ended = False",
+    "    for character in value:",
+    "        if character in ' \\t\\r\\n\\v\\f':",
+    "            return False",
+    "        if ended:",
+    "            return False",
+    "        code = ord(character)",
+    "        if 65 <= code <= 90: sextet = code - 65",
+    "        elif 97 <= code <= 122: sextet = code - 97 + 26",
+    "        elif 48 <= code <= 57: sextet = code - 48 + 52",
+    "        elif character == '+': sextet = 62",
+    "        elif character == '/': sextet = 63",
+    "        elif character == '=': sextet = 64",
+    "        else: return False",
+    "        quartet.append(sextet)",
+    "        if len(quartet) != 4:",
+    "            continue",
+    "        if quartet[0] >= 64 or quartet[1] >= 64:",
+    "            return False",
+    "        if quartet[2] == 64:",
+    "            if quartet[3] != 64 or quartet[1] & 0x0F:",
+    "                return False",
+    "            decoded_len = 1",
+    "            ended = True",
+    "        elif quartet[3] == 64:",
+    "            if quartet[2] & 0x03:",
+    "                return False",
+    "            decoded_len = 2",
+    "            ended = True",
+    "        else:",
+    "            decoded_len = 3",
+    "        decoded = ((quartet[0] << 2) | (quartet[1] >> 4), ((quartet[1] << 4) | (quartet[2] >> 2)) & 0xFF, ((quartet[2] << 6) | quartet[3]) & 0xFF)",
+    "        prefix.extend(decoded[:min(decoded_len, 33 - len(prefix))])",
+    "        quartet.clear()",
+    "    if quartet or len(prefix) < 33:",
+    "        return False",
+    "    width = int.from_bytes(prefix[16:20], 'big')",
+    "    height = int.from_bytes(prefix[20:24], 'big')",
+    "    return prefix[:8] == b'\\x89PNG\\r\\n\\x1a\\n' and prefix[8:12] == b'\\x00\\x00\\x00\\r' and prefix[12:16] == b'IHDR' and width > 0 and height > 0",
+    "",
+    "",
+    "def _validate_schematic_polyline_record(record: SchematicWirePlotRecord | SchematicBusPlotRecord | SchematicBusEntryPlotRecord, path: str) -> None:",
+    "    if len(record.operations) != 1 or not isinstance(record.operations[0], PlotPolyOperation):",
+    '        raise msgspec.ValidationError(f"invalid_connectivity_record at {path}")',
+    "    operation = record.operations[0]",
+    "    layer = None if operation.layer is UNSET else operation.layer",
+    "    if layer is not None or operation.fill != 'NO_FILL' or operation.width_nm < 0 or operation.stroke_color is UNSET or not operation.stroke_color or operation.line_style is UNSET or not operation.points:",
+    '        raise msgspec.ValidationError(f"invalid_connectivity_polyline at {path}.operations[0]")',
+    "    if isinstance(record, SchematicBusEntryPlotRecord) and len(operation.points) != 2:",
+    '        raise msgspec.ValidationError(f"invalid_bus_entry at {path}.operations[0].points")',
+    "",
+    "",
+    "def _validate_schematic_junction_record(record: SchematicJunctionPlotRecord, path: str) -> None:",
+    "    if len(record.operations) != 1 or not isinstance(record.operations[0], CircleOperation):",
+    '        raise msgspec.ValidationError(f"invalid_junction at {path}")',
+    "    operation = record.operations[0]",
+    "    layer = None if operation.layer is UNSET else operation.layer",
+    "    role = None if operation.role is UNSET else operation.role",
+    "    layers = [] if operation.layers is UNSET else operation.layers",
+    "    forbidden = (role is not None, bool(layers), operation.mask_margin_nm is not UNSET, operation.pad_size_x_nm is not UNSET, operation.pad_size_y_nm is not UNSET)",
+    "    if layer is not None or any(forbidden) or operation.fill != 'FILLED_SHAPE' or operation.width_nm != 0 or operation.diameter_nm <= 0 or operation.stroke_color is UNSET or operation.fill_color is UNSET or operation.stroke_color != operation.fill_color:",
+    '        raise msgspec.ValidationError(f"invalid_junction at {path}.operations[0]")',
+    "    expected_color = '#009600FF' if record.color is UNSET or record.color is None else record.color",
+    "    if expected_color != operation.stroke_color:",
+    '        raise msgspec.ValidationError(f"invalid_junction_color at {path}.color")',
+    "",
+    "",
+    "def _validate_schematic_no_connect_record(record: SchematicNoConnectPlotRecord, path: str) -> None:",
+    "    if len(record.operations) != 2 or not all(isinstance(operation, PlotPolyOperation) for operation in record.operations):",
+    '        raise msgspec.ValidationError(f"invalid_no_connect at {path}")',
+    "    first, second = record.operations",
+    "    for operation_index, operation in enumerate((first, second)):",
+    "        layer = None if operation.layer is UNSET else operation.layer",
+    "        if layer is not None or operation.fill != 'NO_FILL' or operation.width_nm <= 0 or operation.stroke_color != '#000084FF' or operation.line_style is not UNSET or len(operation.points) != 2:",
+    '            raise msgspec.ValidationError(f"invalid_no_connect at {path}.operations[{operation_index}]")',
+    "    if first.width_nm != second.width_nm or first.points[0][0] != second.points[0][0] or first.points[1][0] != second.points[1][0] or first.points[0][1] != second.points[1][1] or first.points[1][1] != second.points[0][1]:",
+    '        raise msgspec.ValidationError(f"invalid_no_connect_geometry at {path}.operations")',
+  ];
+}
+
 function renderPythonDeclaration(name, schema, tag = undefined) {
   if (Array.isArray(schema.enum)) {
     return [`${name} = Literal[${schema.enum.map(pythonLiteral).join(", ")}]`];
@@ -905,6 +1069,16 @@ function renderPythonDeclaration(name, schema, tag = undefined) {
         ? `${name} = Annotated[${listType}, Meta(${constraints.join(", ")})]`
         : `${name} = ${listType}`,
     ];
+  }
+  const mapValues = schema.additionalProperties ?? schema.unevaluatedProperties;
+  if (
+    schema.type === "object"
+    && mapValues !== undefined
+    && mapValues !== false
+    && !isFalseSchema(mapValues)
+    && Object.keys(schema.properties ?? {}).length === 0
+  ) {
+    return [`${name} = dict[str, ${pythonType(mapValues)}]`];
   }
   assert(schema.type === "object", `${name}: expected object or enum`);
   if (Array.isArray(tag?.values)) {
@@ -955,7 +1129,10 @@ function renderPythonDeclaration(name, schema, tag = undefined) {
 function pythonType(schema) {
   if (typeof schema.$ref === "string") return schema.$ref.split("/").at(-1);
   if ("const" in schema) return `Literal[${pythonLiteral(schema.const)}]`;
-  if (Array.isArray(schema.anyOf) && Object.keys(schema).length === 1) {
+  if (
+    Array.isArray(schema.anyOf)
+    && Object.keys(schema).every((key) => key === "anyOf" || key === "description")
+  ) {
     const nullArm = schema.anyOf.findIndex((arm) => arm?.type === "null");
     if (nullArm !== -1 && schema.anyOf.length === 2) {
       return `${pythonType(schema.anyOf[1 - nullArm])} | None`;
@@ -994,6 +1171,10 @@ function pythonType(schema) {
     return `tuple[${schema.prefixItems.map(pythonType).join(", ")}]`;
   }
   if (schema.type === "array") return `list[${pythonType(schema.items)}]`;
+  const mapValues = schema.additionalProperties ?? schema.unevaluatedProperties;
+  if (schema.type === "object" && mapValues && !isFalseSchema(mapValues)) {
+    return `dict[str, ${pythonType(mapValues)}]`;
+  }
   fail(`unsupported Python schema: ${JSON.stringify(schema)}`);
 }
 
@@ -1006,8 +1187,10 @@ function projectSchema(value) {
   if (Array.isArray(value)) return value.map(projectSchema);
   if (value === null || typeof value !== "object") return value;
   for (const [key, child] of Object.entries(value)) value[key] = projectSchema(child);
-  if (isFalseSchema(value.unevaluatedProperties)) {
-    value.additionalProperties = false;
+  if (value.unevaluatedProperties !== undefined) {
+    value.additionalProperties = isFalseSchema(value.unevaluatedProperties)
+      ? false
+      : value.unevaluatedProperties;
     delete value.unevaluatedProperties;
   }
   return value;

@@ -784,175 +784,6 @@ pub struct FlashPadTrapezOperation {
     pub x: crate::JavaScriptSafeInteger,
     pub y: crate::JavaScriptSafeInteger,
 }
-/**Strict standalone-footprint subset of kicad.plotter_ir.a0. Producers and
-consumers must run generated semantic validation after structural decoding.*/
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0",
-///  "title": "Footprint plot document a0",
-///  "description": "Strict standalone-footprint subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
-///  "type": "object",
-///  "required": [
-///    "coordinate_space",
-///    "document_id",
-///    "generator",
-///    "generator_version",
-///    "records",
-///    "schema",
-///    "source_kind",
-///    "total_operations",
-///    "version"
-///  ],
-///  "properties": {
-///    "coordinate_space": {
-///      "$ref": "#/$defs/PlotterCoordinateSpace"
-///    },
-///    "document_id": {
-///      "type": "string"
-///    },
-///    "generator": {
-///      "type": "string"
-///    },
-///    "generator_version": {
-///      "type": "string"
-///    },
-///    "records": {
-///      "type": "array",
-///      "items": {
-///        "$ref": "#/$defs/FootprintPlotRecord"
-///      }
-///    },
-///    "schema": {
-///      "type": "string",
-///      "const": "kicad.plotter_ir.a0"
-///    },
-///    "source_kind": {
-///      "type": "string",
-///      "const": "MOD"
-///    },
-///    "source_path": {
-///      "type": "string"
-///    },
-///    "total_operations": {
-///      "type": "integer",
-///      "maximum": 4294967295.0,
-///      "minimum": 0.0
-///    },
-///    "version": {
-///      "$ref": "#/$defs/JavaScriptSafeInteger"
-///    }
-///  },
-///  "additionalProperties": false
-///}
-/// ```
-/// </details>
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct FootprintPlotDocumentA0 {
-    pub coordinate_space: PlotterCoordinateSpace,
-    pub document_id: ::std::string::String,
-    pub generator: ::std::string::String,
-    pub generator_version: ::std::string::String,
-    pub records: ::std::vec::Vec<FootprintPlotRecord>,
-    pub schema: ::std::string::String,
-    pub source_kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub source_path: ::std::option::Option<::std::string::String>,
-    pub total_operations: u32,
-    pub version: crate::JavaScriptSafeInteger,
-}
-///One standalone footprint record in canonical text/geometry/pad order.
-///
-/// <details><summary>JSON schema</summary>
-///
-/// ```json
-///{
-///  "description": "One standalone footprint record in canonical text/geometry/pad order.",
-///  "type": "object",
-///  "required": [
-///    "attr",
-///    "descr",
-///    "kind",
-///    "layer",
-///    "locked",
-///    "name",
-///    "object_id",
-///    "operation_count",
-///    "operations",
-///    "placed",
-///    "tags",
-///    "uuid"
-///  ],
-///  "properties": {
-///    "attr": {
-///      "type": "array",
-///      "items": {
-///        "type": "string"
-///      }
-///    },
-///    "descr": {
-///      "type": "string"
-///    },
-///    "kind": {
-///      "type": "string",
-///      "const": "footprint"
-///    },
-///    "layer": {
-///      "type": "string"
-///    },
-///    "locked": {
-///      "type": "boolean"
-///    },
-///    "name": {
-///      "type": "string"
-///    },
-///    "object_id": {
-///      "type": "string"
-///    },
-///    "operation_count": {
-///      "type": "integer",
-///      "maximum": 4294967295.0,
-///      "minimum": 0.0
-///    },
-///    "operations": {
-///      "type": "array",
-///      "items": {
-///        "$ref": "#/$defs/PlotterOperation"
-///      }
-///    },
-///    "placed": {
-///      "type": "boolean"
-///    },
-///    "tags": {
-///      "type": "string"
-///    },
-///    "uuid": {
-///      "type": "string"
-///    }
-///  },
-///  "additionalProperties": false
-///}
-/// ```
-/// </details>
-#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct FootprintPlotRecord {
-    pub attr: ::std::vec::Vec<::std::string::String>,
-    pub descr: ::std::string::String,
-    pub kind: ::std::string::String,
-    pub layer: ::std::string::String,
-    pub locked: bool,
-    pub name: ::std::string::String,
-    pub object_id: ::std::string::String,
-    pub operation_count: u32,
-    pub operations: ::std::vec::Vec<PlotterOperation>,
-    pub placed: bool,
-    pub tags: ::std::string::String,
-    pub uuid: ::std::string::String,
-}
 ///Decoded image placement shared by worksheet and schematic producers.
 ///
 /// <details><summary>JSON schema</summary>
@@ -1997,6 +1828,47 @@ impl ::std::convert::TryFrom<::std::string::String> for PlotterViaFlashRole {
         value.parse()
     }
 }
+///`RecordString`
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "type": "object",
+///  "additionalProperties": {
+///    "type": "string"
+///  }
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct RecordString(
+    pub ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
+);
+impl ::std::ops::Deref for RecordString {
+    type Target = ::std::collections::BTreeMap<::std::string::String, ::std::string::String>;
+    fn deref(&self) -> &::std::collections::BTreeMap<::std::string::String, ::std::string::String> {
+        &self.0
+    }
+}
+impl ::std::convert::From<RecordString>
+    for ::std::collections::BTreeMap<::std::string::String, ::std::string::String>
+{
+    fn from(value: RecordString) -> Self {
+        value.0
+    }
+}
+impl
+    ::std::convert::From<::std::collections::BTreeMap<::std::string::String, ::std::string::String>>
+    for RecordString
+{
+    fn from(
+        value: ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
+    ) -> Self {
+        Self(value)
+    }
+}
 ///Rectangle with square corners.
 ///
 /// <details><summary>JSON schema</summary>
@@ -2085,6 +1957,614 @@ pub struct RectOperation {
     pub x2: crate::JavaScriptSafeInteger,
     pub y1: crate::JavaScriptSafeInteger,
     pub y2: crate::JavaScriptSafeInteger,
+}
+///One schematic bus-entry segment.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One schematic bus-entry segment.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "bus_entry"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicBusEntryPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_bus_entry_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
+///One schematic bus polyline.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One schematic bus polyline.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "bus"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicBusPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_bus_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
+///One schematic junction marker.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One schematic junction marker.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "color": {
+///      "description": "Authored junction color; null preserves an authored transparent color.",
+///      "anyOf": [
+///        {
+///          "type": "string"
+///        },
+///        {
+///          "type": "null"
+///        }
+///      ]
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "junction"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicJunctionPlotRecord {
+    ///Authored junction color; null preserves an authored transparent color.
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nullable_string",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
+    pub color: ::std::option::Option<::std::option::Option<::std::string::String>>,
+    #[serde(deserialize_with = "crate::deserialize_junction_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
+///One schematic no-connect cross.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One schematic no-connect cross.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "no_connect"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicNoConnectPlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_no_connect_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
+}
+///Exact page extent of one schematic instance.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Exact page extent of one schematic instance.",
+///  "type": "object",
+///  "required": [
+///    "height_nm",
+///    "width_nm"
+///  ],
+///  "properties": {
+///    "height_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicPlotCanvas {
+    pub height_nm: crate::JavaScriptSafeInteger,
+    pub width_nm: crate::JavaScriptSafeInteger,
+}
+///Strict schematic-foundation subset of kicad.plotter_ir.a0.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "$id": "urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0",
+///  "title": "Schematic plot document a0",
+///  "description": "Strict schematic-foundation subset of kicad.plotter_ir.a0.",
+///  "type": "object",
+///  "required": [
+///    "canvas",
+///    "coordinate_space",
+///    "document_id",
+///    "records",
+///    "schema",
+///    "source_kind",
+///    "total_operations"
+///  ],
+///  "properties": {
+///    "canvas": {
+///      "$ref": "#/$defs/SchematicPlotCanvas"
+///    },
+///    "coordinate_space": {
+///      "$ref": "#/$defs/PlotterCoordinateSpace"
+///    },
+///    "document_id": {
+///      "type": "string"
+///    },
+///    "records": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/SchematicPlotRecord"
+///      }
+///    },
+///    "schema": {
+///      "type": "string",
+///      "const": "kicad.plotter_ir.a0"
+///    },
+///    "source_kind": {
+///      "type": "string",
+///      "const": "SCH"
+///    },
+///    "source_path": {
+///      "type": "string"
+///    },
+///    "total_operations": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicPlotDocumentA0 {
+    pub canvas: SchematicPlotCanvas,
+    pub coordinate_space: PlotterCoordinateSpace,
+    pub document_id: ::std::string::String,
+    pub records: ::std::vec::Vec<SchematicPlotRecord>,
+    pub schema: ::std::string::String,
+    pub source_kind: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub source_path: ::std::option::Option<::std::string::String>,
+    pub total_operations: u32,
+}
+///Strict source-record vocabulary for the P5_060 schematic foundation.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Strict source-record vocabulary for the P5_060 schematic foundation.",
+///  "oneOf": [
+///    {
+///      "$ref": "#/$defs/SchematicSheetHeaderPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicWirePlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicBusPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicBusEntryPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicJunctionPlotRecord"
+///    },
+///    {
+///      "$ref": "#/$defs/SchematicNoConnectPlotRecord"
+///    }
+///  ]
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum SchematicPlotRecord {
+    SheetHeaderPlotRecord(SchematicSheetHeaderPlotRecord),
+    WirePlotRecord(SchematicWirePlotRecord),
+    BusPlotRecord(SchematicBusPlotRecord),
+    BusEntryPlotRecord(SchematicBusEntryPlotRecord),
+    JunctionPlotRecord(SchematicJunctionPlotRecord),
+    NoConnectPlotRecord(SchematicNoConnectPlotRecord),
+}
+impl ::std::convert::From<SchematicSheetHeaderPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicSheetHeaderPlotRecord) -> Self {
+        Self::SheetHeaderPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicWirePlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicWirePlotRecord) -> Self {
+        Self::WirePlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicBusPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicBusPlotRecord) -> Self {
+        Self::BusPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicBusEntryPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicBusEntryPlotRecord) -> Self {
+        Self::BusEntryPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicJunctionPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicJunctionPlotRecord) -> Self {
+        Self::JunctionPlotRecord(value)
+    }
+}
+impl ::std::convert::From<SchematicNoConnectPlotRecord> for SchematicPlotRecord {
+    fn from(value: SchematicNoConnectPlotRecord) -> Self {
+        Self::NoConnectPlotRecord(value)
+    }
+}
+///Typed title-block metadata carried by the leading sheet-header record.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Typed title-block metadata carried by the leading sheet-header record.",
+///  "type": "object",
+///  "required": [
+///    "comments",
+///    "company",
+///    "date",
+///    "rev",
+///    "title"
+///  ],
+///  "properties": {
+///    "comments": {
+///      "$ref": "#/$defs/RecordString"
+///    },
+///    "company": {
+///      "type": "string"
+///    },
+///    "date": {
+///      "type": "string"
+///    },
+///    "rev": {
+///      "type": "string"
+///    },
+///    "title": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicPlotTitleBlock {
+    pub comments: RecordString,
+    pub company: ::std::string::String,
+    pub date: ::std::string::String,
+    pub rev: ::std::string::String,
+    pub title: ::std::string::String,
+}
+///Leading paper, title-block, background, and worksheet record.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Leading paper, title-block, background, and worksheet record.",
+///  "type": "object",
+///  "required": [
+///    "generator",
+///    "generator_version",
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "paper_height_mm",
+///    "paper_portrait",
+///    "paper_size",
+///    "paper_width_mm",
+///    "sheet_height_nm",
+///    "sheet_width_nm",
+///    "uuid",
+///    "version"
+///  ],
+///  "properties": {
+///    "generator": {
+///      "type": "string"
+///    },
+///    "generator_version": {
+///      "type": "string"
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "sheet_header"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "paper_height_mm": {
+///      "anyOf": [
+///        {
+///          "type": "number"
+///        },
+///        {
+///          "type": "null"
+///        }
+///      ]
+///    },
+///    "paper_portrait": {
+///      "type": "boolean"
+///    },
+///    "paper_size": {
+///      "type": "string"
+///    },
+///    "paper_width_mm": {
+///      "anyOf": [
+///        {
+///          "type": "number"
+///        },
+///        {
+///          "type": "null"
+///        }
+///      ]
+///    },
+///    "sheet_height_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "sheet_width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "title_block": {
+///      "$ref": "#/$defs/SchematicPlotTitleBlock"
+///    },
+///    "uuid": {
+///      "type": "string"
+///    },
+///    "version": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicSheetHeaderPlotRecord {
+    pub generator: ::std::string::String,
+    pub generator_version: ::std::string::String,
+    #[serde(deserialize_with = "crate::deserialize_sheet_header_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub paper_height_mm: ::std::option::Option<f64>,
+    pub paper_portrait: bool,
+    pub paper_size: ::std::string::String,
+    pub paper_width_mm: ::std::option::Option<f64>,
+    pub sheet_height_nm: crate::JavaScriptSafeInteger,
+    pub sheet_width_nm: crate::JavaScriptSafeInteger,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub title_block: ::std::option::Option<SchematicPlotTitleBlock>,
+    pub uuid: ::std::string::String,
+    pub version: crate::JavaScriptSafeInteger,
+}
+///One schematic wire polyline.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "One schematic wire polyline.",
+///  "type": "object",
+///  "required": [
+///    "kind",
+///    "object_id",
+///    "operation_count",
+///    "operations",
+///    "uuid"
+///  ],
+///  "properties": {
+///    "kind": {
+///      "type": "string",
+///      "const": "wire"
+///    },
+///    "object_id": {
+///      "type": "string"
+///    },
+///    "operation_count": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "operations": {
+///      "type": "array",
+///      "items": {
+///        "$ref": "#/$defs/PlotterOperation"
+///      }
+///    },
+///    "uuid": {
+///      "type": "string"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct SchematicWirePlotRecord {
+    #[serde(deserialize_with = "crate::deserialize_wire_record_kind")]
+    pub kind: ::std::string::String,
+    pub object_id: ::std::string::String,
+    pub operation_count: u32,
+    pub operations: ::std::vec::Vec<PlotterOperation>,
+    pub uuid: ::std::string::String,
 }
 /**Stroke or cached text operation. Boolean marker keys (`mirror`,
 `text_as_polygons`, `polyline_per_segment`, `knockout`) are present-only

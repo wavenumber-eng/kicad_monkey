@@ -70,11 +70,11 @@
       <tr>
         <td>Schematic</td>
         <td>Typed source bundles, hierarchy, connectivity, owned writeback,
-        compiled graph, and netlist foundations exist; no native schematic
-        Plotter-IR producer exists.</td>
-        <td>Sheet header and default/project worksheet drawing; wires, buses,
-        entries, junctions, no-connects;
-        labels and decorations; netclass flags; text/text boxes; graphics,
+        compiled graph, and netlist foundations exist. The native
+        Plotter-IR producer now covers the sheet header, default or
+        caller-supplied worksheet drawing, wires, buses, entries, junctions,
+        and no-connects under a distinct strict schematic contract.</td>
+        <td>Labels and decorations; netclass flags; text/text boxes; graphics,
         rule areas, images, and tables; placed symbols and overplots; sheets,
         fields, and pins.</td>
       </tr>
@@ -122,7 +122,10 @@
     schematic document/record contract and promote canvas metadata, the sheet
     header with default/project worksheet drawing, wires, buses, entries,
     junctions, and no-connects. Project variables and optional worksheet bytes
-    are caller-supplied bounded sidecars; core performs no path discovery.</li>
+    are caller-supplied bounded sidecars; core performs no path discovery.
+    Implemented, independently reviewed, and closed with exact Python vectors,
+    strict generated contracts, aggregate resource ceilings, and a native-first
+    Rack gate.</li>
     <li><strong>P5_061 schematic annotations.</strong> Promote local, global,
     and hierarchical labels and decorations, netclass flags, ordinary text,
     and text boxes with project/built-in variables and drawing settings.</li>
@@ -169,7 +172,7 @@
   forward-compatible consumer contract: it accepts unknown operation kinds
   and additional record fields. The strict generated footprint, symbol, and
   board schemas are producer-operation contracts in an unpublished incubation
-  workspace. P5_020 through P5_050 may add record or operation union arms to
+  workspace. P5_020 through P5_071 may add record or operation union arms to
   those strict <code>a0</code> schemas before the Phase 5 freeze only when all
   generated Rust, Python, and TypeScript clients regenerate atomically in the
   same slice. An older strict generated client is not compatible with a newer
@@ -203,8 +206,9 @@
   work and scratch points, contours, topology work, cache polygons/points,
   operations, retained output points, and serialized output. Schematic inputs
   additionally bound worksheet items/repeats/bitmap bytes and image encoded
-  bytes, decoded bytes, dimensions, pixels, and decode work before allocation
-  or publication.</p>
+  bytes, decoded bytes, dimensions, pixels, and decode work. Per-payload byte
+  bounds precede decoding; aggregate counters and image geometry are validated
+  before retained operations are published.</p>
 
   <p>Focused Rack owners must record warm runtime and keep their default slice
   gate under two minutes. L3_022 shards by producer and then corpus partition;
@@ -217,5 +221,8 @@
   slice begins. The 2026-08-17 warm P5_040 <code>L1_035</code> run completed
   four tests in 27.93 seconds after the native dimension suite was added to
   the focused Rack gate.</p>
+  <p>The 2026-08-17 warm P5_060 <code>L1_036</code> run completed all four
+  tests in 7.73 seconds (8.44 seconds including Rack signoff), below the
+  two-minute slice policy.</p>
 </body>
 </html>

@@ -11,6 +11,7 @@ export type PlotterOperation =
   | PlotPolyOperation
   | BezierCurveOperation
   | TextOperation
+  | PlotImageOperation
   | FlashPadCircleOperation
   | FlashPadOvalOperation
   | FlashPadRectOperation
@@ -279,6 +280,21 @@ export interface TextRenderCache {
  */
 export interface TextRenderCachePolygon {
   contours: PlotterPoint[][];
+}
+/**
+ * Decoded image placement shared by worksheet and schematic producers.
+ */
+export interface PlotImageOperation {
+  kind: "PlotImage";
+  index: number;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  width_nm: JavaScriptSafeInteger;
+  height_nm: JavaScriptSafeInteger;
+  scale: number;
+  image_data_b64: string;
+  image_format: string;
+  stroke_color?: string;
 }
 /**
  * Circular pad flash shared by footprint and PCB producers. Footprint pad

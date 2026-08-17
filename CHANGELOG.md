@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add the bounded native schematic Plotter-IR foundation for page metadata,
+  default or caller-supplied worksheets, wires, buses, bus entries, junctions,
+  and no-connects, with a distinct strict generated contract and hermetic
+  Python-oracle evidence.
+
 - Add bounded PCB-embedded footprint Plotter-IR after zones, preserving
   footprint-local child ordering and ownership metadata, balanced pad/drill
   blocks, local render-cache coordinates, strict generated contracts, and

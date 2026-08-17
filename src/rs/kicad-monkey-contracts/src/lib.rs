@@ -11,6 +11,7 @@ mod compiled_graph_contract;
 mod font_bundle_contract;
 mod font_text_contract;
 pub mod generated;
+mod schematic_plot_contract;
 mod source_bundle_contract;
 
 pub use board_plot_contract::validate_board_plot_document;
@@ -26,6 +27,7 @@ pub use font_text_contract::{
     validate_outline_vector_contract, validate_shaping_input_contract,
     validate_shaping_record_contract,
 };
+pub use schematic_plot_contract::validate_schematic_plot_document;
 pub use source_bundle_contract::{
     SourceBundleDecodeError, decode_source_bundle_manifest_a0,
     validate_source_bundle_manifest_contract,
@@ -60,6 +62,16 @@ where
     <String as serde::Deserialize>::deserialize(deserializer).map(Some)
 }
 
+#[doc(hidden)]
+pub fn deserialize_present_nullable_string<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    <Option<String> as serde::Deserialize>::deserialize(deserializer).map(Some)
+}
+
 macro_rules! literal_kind_deserializer {
     ($name:ident, $expected:literal) => {
         #[doc(hidden)]
@@ -87,6 +99,7 @@ literal_kind_deserializer!(deserialize_rect_kind, "Rect");
 literal_kind_deserializer!(deserialize_plot_poly_kind, "PlotPoly");
 literal_kind_deserializer!(deserialize_bezier_curve_kind, "BezierCurve");
 literal_kind_deserializer!(deserialize_text_kind, "Text");
+literal_kind_deserializer!(deserialize_plot_image_kind, "PlotImage");
 literal_kind_deserializer!(deserialize_flash_pad_circle_kind, "FlashPadCircle");
 literal_kind_deserializer!(deserialize_flash_pad_oval_kind, "FlashPadOval");
 literal_kind_deserializer!(deserialize_flash_pad_rect_kind, "FlashPadRect");
@@ -95,6 +108,12 @@ literal_kind_deserializer!(deserialize_flash_pad_custom_kind, "FlashPadCustom");
 literal_kind_deserializer!(deserialize_flash_pad_trapez_kind, "FlashPadTrapez");
 literal_kind_deserializer!(deserialize_start_block_kind, "StartBlock");
 literal_kind_deserializer!(deserialize_end_block_kind, "EndBlock");
+literal_kind_deserializer!(deserialize_sheet_header_kind, "sheet_header");
+literal_kind_deserializer!(deserialize_wire_record_kind, "wire");
+literal_kind_deserializer!(deserialize_bus_record_kind, "bus");
+literal_kind_deserializer!(deserialize_bus_entry_record_kind, "bus_entry");
+literal_kind_deserializer!(deserialize_junction_record_kind, "junction");
+literal_kind_deserializer!(deserialize_no_connect_record_kind, "no_connect");
 use std::fmt;
 
 /// Largest integer represented exactly by JavaScript's IEEE-754 `number`.

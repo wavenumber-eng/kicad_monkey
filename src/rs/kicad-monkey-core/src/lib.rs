@@ -29,6 +29,7 @@ pub mod schematic_connectivity;
 pub mod schematic_design;
 mod schematic_effective;
 pub mod schematic_netlist;
+pub mod schematic_plotter_ir;
 mod schematic_project;
 mod schematic_segment_index;
 mod schematic_source;
@@ -102,7 +103,7 @@ pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_
 pub use plotter_text_cache::{PlotterTextCacheLimits, PlotterTextCacheResources, PlotterTextFont};
 pub use plotter_types::{
     ArcThreePoint, BezierCurve, FlashPadCircle, FlashPadCustom, FlashPadOval, FlashPadRect,
-    FlashPadRoundRect, FlashPadTrapez, PlotterCircle, PlotterFill, PlotterLineStyle,
+    FlashPadRoundRect, FlashPadTrapez, PlotterCircle, PlotterFill, PlotterImage, PlotterLineStyle,
     PlotterOperation, PlotterPoly, PlotterRect, PlotterText, PlotterTextHAlign, PlotterTextVAlign,
     ThickSegment,
 };
@@ -138,6 +139,12 @@ pub use schematic_effective::SchematicEffectiveSymbol;
 pub use schematic_netlist::{
     SchematicLocalNet, SchematicLocalNetLimits, SchematicLocalNetTerminal,
     build_schematic_occurrence_nets, build_schematic_occurrence_nets_with_settings,
+};
+pub use schematic_plotter_ir::{
+    SchematicCanvas, SchematicConnectivityRecord, SchematicConnectivityRecordKind,
+    SchematicPlotContext, SchematicPlotDocument, SchematicPlotLimits, SchematicPlotOperation,
+    SchematicPlotRecord, SchematicPlotVariables, SchematicSheetHeaderRecord, SchematicTitleBlock,
+    schematic_plot_document,
 };
 pub use schematic_source::{
     SCHEMATIC_IU_PER_MM, SchematicBusAlias, SchematicBusEntry, SchematicConnectivity,

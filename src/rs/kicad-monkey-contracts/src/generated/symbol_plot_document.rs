@@ -850,6 +850,80 @@ pub struct LibSubsymbolPlotRecord {
     pub unit: u32,
     pub uuid: ::std::string::String,
 }
+///Decoded image placement shared by worksheet and schematic producers.
+///
+/// <details><summary>JSON schema</summary>
+///
+/// ```json
+///{
+///  "description": "Decoded image placement shared by worksheet and schematic producers.",
+///  "type": "object",
+///  "required": [
+///    "height_nm",
+///    "image_data_b64",
+///    "image_format",
+///    "index",
+///    "kind",
+///    "scale",
+///    "width_nm",
+///    "x",
+///    "y"
+///  ],
+///  "properties": {
+///    "height_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "image_data_b64": {
+///      "type": "string"
+///    },
+///    "image_format": {
+///      "type": "string"
+///    },
+///    "index": {
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
+///    "kind": {
+///      "type": "string",
+///      "const": "PlotImage"
+///    },
+///    "scale": {
+///      "type": "number"
+///    },
+///    "stroke_color": {
+///      "type": "string"
+///    },
+///    "width_nm": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "x": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    },
+///    "y": {
+///      "$ref": "#/$defs/JavaScriptSafeInteger"
+///    }
+///  },
+///  "additionalProperties": false
+///}
+/// ```
+/// </details>
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct PlotImageOperation {
+    pub height_nm: crate::JavaScriptSafeInteger,
+    pub image_data_b64: ::std::string::String,
+    pub image_format: ::std::string::String,
+    pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_plot_image_kind")]
+    pub kind: ::std::string::String,
+    pub scale: f64,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub stroke_color: ::std::option::Option<::std::string::String>,
+    pub width_nm: crate::JavaScriptSafeInteger,
+    pub x: crate::JavaScriptSafeInteger,
+    pub y: crate::JavaScriptSafeInteger,
+}
 ///Filled or outlined polygon operation.
 ///
 /// <details><summary>JSON schema</summary>
@@ -1258,6 +1332,9 @@ impl ::std::convert::TryFrom<::std::string::String> for PlotterLineStyle {
 ///      "$ref": "#/$defs/TextOperation"
 ///    },
 ///    {
+///      "$ref": "#/$defs/PlotImageOperation"
+///    },
+///    {
 ///      "$ref": "#/$defs/FlashPadCircleOperation"
 ///    },
 ///    {
@@ -1289,6 +1366,7 @@ pub enum PlotterOperation {
     PlotPolyOperation(PlotPolyOperation),
     BezierCurveOperation(BezierCurveOperation),
     TextOperation(TextOperation),
+    PlotImageOperation(PlotImageOperation),
     FlashPadCircleOperation(FlashPadCircleOperation),
     FlashPadOvalOperation(FlashPadOvalOperation),
     FlashPadRectOperation(FlashPadRectOperation),
@@ -1329,6 +1407,11 @@ impl ::std::convert::From<BezierCurveOperation> for PlotterOperation {
 impl ::std::convert::From<TextOperation> for PlotterOperation {
     fn from(value: TextOperation) -> Self {
         Self::TextOperation(value)
+    }
+}
+impl ::std::convert::From<PlotImageOperation> for PlotterOperation {
+    fn from(value: PlotImageOperation) -> Self {
+        Self::PlotImageOperation(value)
     }
 }
 impl ::std::convert::From<FlashPadCircleOperation> for PlotterOperation {

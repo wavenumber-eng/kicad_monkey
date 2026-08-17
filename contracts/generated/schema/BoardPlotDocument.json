@@ -790,6 +790,9 @@
                     "$ref": "#/$defs/TextOperation"
                 },
                 {
+                    "$ref": "#/$defs/PlotImageOperation"
+                },
+                {
                     "$ref": "#/$defs/FlashPadCircleOperation"
                 },
                 {
@@ -1405,6 +1408,59 @@
                 "not": {}
             },
             "description": "Stroke or cached text operation. Boolean marker keys (`mirror`,\n`text_as_polygons`, `polyline_per_segment`, `knockout`) are present-only\n-when-true, matching the established Python emitter. Render-cache keys\nappear together when an authored cache resolves; `render_cache_polygons`\ncarries the exterior rings in nanometres."
+        },
+        "PlotImageOperation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "const": "PlotImage"
+                },
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "x": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "y": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "height_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "scale": {
+                    "type": "number"
+                },
+                "image_data_b64": {
+                    "type": "string"
+                },
+                "image_format": {
+                    "type": "string"
+                },
+                "stroke_color": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "kind",
+                "index",
+                "x",
+                "y",
+                "width_nm",
+                "height_nm",
+                "scale",
+                "image_data_b64",
+                "image_format"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Decoded image placement shared by worksheet and schematic producers."
         },
         "FlashPadCircleOperation": {
             "type": "object",

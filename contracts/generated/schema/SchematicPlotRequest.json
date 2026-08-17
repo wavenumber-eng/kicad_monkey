@@ -1,0 +1,249 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.schematic_plot.request:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.schematic_plot.request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "source_path": {
+            "type": "string"
+        },
+        "document_id": {
+            "type": "string"
+        },
+        "sheet_index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+        },
+        "sheet_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+        },
+        "sheet_path": {
+            "type": "string"
+        },
+        "sheet_name": {
+            "type": "string"
+        },
+        "worksheet_mode": {
+            "$ref": "#/$defs/SchematicWorksheetMode"
+        },
+        "text_variables": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/SchematicTextVariable"
+            }
+        },
+        "max_source_bytes": {
+            "type": "string"
+        },
+        "max_worksheet_bytes": {
+            "type": "string"
+        },
+        "max_output_bytes": {
+            "type": "string"
+        },
+        "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_parse_nodes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_selected_forms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_records": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_operations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_input_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_bytes": {
+            "type": "string"
+        },
+        "max_metadata_bytes": {
+            "type": "string"
+        },
+        "max_wires": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_buses": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_bus_entries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_junctions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_no_connects": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_variables": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_text_variable_bytes": {
+            "type": "string"
+        },
+        "max_worksheet_items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_repeats": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_point_sets": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_points": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_bitmap_data_parts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_bitmap_encoded_bytes": {
+            "type": "string"
+        },
+        "max_worksheet_bitmap_decoded_bytes": {
+            "type": "string"
+        },
+        "max_worksheet_bitmap_width_px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_bitmap_height_px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_worksheet_bitmap_pixels": {
+            "type": "string"
+        },
+        "max_worksheet_bitmap_decode_work": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "sheet_index",
+        "sheet_count",
+        "sheet_path",
+        "sheet_name",
+        "worksheet_mode",
+        "max_source_bytes",
+        "max_worksheet_bytes",
+        "max_output_bytes",
+        "max_depth",
+        "max_parse_nodes",
+        "max_selected_forms",
+        "max_records",
+        "max_operations",
+        "max_points",
+        "max_input_points",
+        "max_text_bytes",
+        "max_metadata_bytes",
+        "max_wires",
+        "max_buses",
+        "max_bus_entries",
+        "max_junctions",
+        "max_no_connects",
+        "max_text_variables",
+        "max_text_variable_bytes",
+        "max_worksheet_items",
+        "max_worksheet_repeats",
+        "max_worksheet_point_sets",
+        "max_worksheet_points",
+        "max_worksheet_bitmap_data_parts",
+        "max_worksheet_bitmap_encoded_bytes",
+        "max_worksheet_bitmap_decoded_bytes",
+        "max_worksheet_bitmap_width_px",
+        "max_worksheet_bitmap_height_px",
+        "max_worksheet_bitmap_pixels",
+        "max_worksheet_bitmap_decode_work"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Resource-bounded schematic plot operation. Source bytes are out of band.",
+    "title": "Schematic plot request a0",
+    "$defs": {
+        "SchematicWorksheetMode": {
+            "type": "string",
+            "enum": [
+                "default",
+                "provided"
+            ],
+            "description": "Selection of the drawing-sheet byte sidecar supplied out of band."
+        },
+        "SchematicTextVariable": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One exact-case project text variable supplied by the caller."
+        }
+    }
+}

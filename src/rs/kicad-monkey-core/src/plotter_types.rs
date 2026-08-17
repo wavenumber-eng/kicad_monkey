@@ -71,6 +71,19 @@ pub struct PlotterText {
     pub layer: Option<String>,
 }
 
+/// One encoded raster image placed by the shared plotter vocabulary.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlotterImage {
+    pub x: i64,
+    pub y: i64,
+    pub width_nm: i64,
+    pub height_nm: i64,
+    pub scale: f64,
+    pub image_data_b64: String,
+    pub image_format: String,
+    pub stroke_color: Option<String>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArcThreePoint {
     pub start_x: i64,

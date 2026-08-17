@@ -4,6 +4,9 @@ import type {
   FootprintPlotDocumentA0,
   FootprintPlotRequestA0,
   FootprintReadRequestA0,
+  SchematicPlotDocumentA0,
+  SchematicPlotRequestA0,
+  SchematicPlotResultA0,
   SExpressionBuildRequestA0,
   SExpressionScanRequestA0,
 } from "../../src/ts/kicad_monkey/contracts/generated/index.js";
@@ -166,3 +169,69 @@ const footprintGraphicDocument = {
 void footprintPlot;
 void footprintPlotDocument;
 void footprintGraphicDocument;
+
+const schematicPlot = {
+  type: "kicad_monkey.schematic_plot.request",
+  version: "a0",
+  document_id: "Demo",
+  sheet_index: 1,
+  sheet_count: 1,
+  sheet_path: "/",
+  sheet_name: "Root",
+  worksheet_mode: "default",
+  max_source_bytes: "1048576",
+  max_worksheet_bytes: "1048576",
+  max_output_bytes: "1048576",
+  max_depth: 64,
+  max_parse_nodes: 100_000,
+  max_selected_forms: 10_000,
+  max_records: 10_000,
+  max_operations: 100_000,
+  max_points: 1_000_000,
+  max_input_points: 1_000_000,
+  max_text_bytes: "1048576",
+  max_metadata_bytes: "1048576",
+  max_wires: 10_000,
+  max_buses: 10_000,
+  max_bus_entries: 10_000,
+  max_junctions: 10_000,
+  max_no_connects: 10_000,
+  max_text_variables: 128,
+  max_text_variable_bytes: "65536",
+  max_worksheet_items: 10_000,
+  max_worksheet_repeats: 10_000,
+  max_worksheet_point_sets: 10_000,
+  max_worksheet_points: 100_000,
+  max_worksheet_bitmap_data_parts: 10_000,
+  max_worksheet_bitmap_encoded_bytes: "1048576",
+  max_worksheet_bitmap_decoded_bytes: "1048576",
+  max_worksheet_bitmap_width_px: 4096,
+  max_worksheet_bitmap_height_px: 4096,
+  max_worksheet_bitmap_pixels: "16777216",
+  max_worksheet_bitmap_decode_work: "16777216",
+} satisfies SchematicPlotRequestA0;
+
+const schematicPlotDocument = {
+  schema: "kicad.plotter_ir.a0",
+  source_kind: "SCH",
+  total_operations: 0,
+  records: [],
+  document_id: "Demo",
+  canvas: {
+    width_nm: 297_000_000,
+    height_nm: 210_000_000,
+  },
+  coordinate_space: { unit: "nm", y_axis: "down" },
+} satisfies SchematicPlotDocumentA0;
+
+const schematicPlotResult = {
+  type: "kicad_monkey.schematic_plot.result",
+  version: "a0",
+  output_bytes: "0",
+  total_operations: 0,
+  diagnostics: [],
+} satisfies SchematicPlotResultA0;
+
+void schematicPlot;
+void schematicPlotDocument;
+void schematicPlotResult;

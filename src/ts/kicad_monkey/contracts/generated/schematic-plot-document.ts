@@ -1,6 +1,15 @@
 /** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */
 
-export type SymbolPlotRecord = SymbolHeaderPlotRecord | LibSubsymbolPlotRecord;
+/**
+ * Strict source-record vocabulary for the P5_060 schematic foundation.
+ */
+export type SchematicPlotRecord =
+  | SchematicSheetHeaderPlotRecord
+  | SchematicWirePlotRecord
+  | SchematicBusPlotRecord
+  | SchematicBusEntryPlotRecord
+  | SchematicJunctionPlotRecord
+  | SchematicNoConnectPlotRecord;
 /**
  * Shared plotter operation vocabulary promoted across source producers.
  */
@@ -78,33 +87,37 @@ export type PlotterViaFlashRole = "via_aperture" | "via_mask_opening";
 export type PlotterQuad = [PlotterPoint, PlotterPoint, PlotterPoint, PlotterPoint];
 
 /**
- * Strict cache-free library-symbol geometry and text subset of kicad.plotter_ir.a0.
+ * Strict schematic-foundation subset of kicad.plotter_ir.a0.
  */
-export interface SymbolPlotDocumentA0 {
+export interface SchematicPlotDocumentA0 {
   schema: "kicad.plotter_ir.a0";
-  source_kind: "SYM";
+  source_kind: "SCH";
   total_operations: number;
-  records: SymbolPlotRecord[];
+  records: SchematicPlotRecord[];
   source_path?: string;
   document_id: string;
+  canvas: SchematicPlotCanvas;
   coordinate_space: PlotterCoordinateSpace;
 }
 /**
- * Leading metadata record for the selected library symbol.
+ * Leading paper, title-block, background, and worksheet record.
  */
-export interface SymbolHeaderPlotRecord {
-  uuid: "";
-  kind: "lib_symbol";
+export interface SchematicSheetHeaderPlotRecord {
+  uuid: string;
+  kind: "sheet_header";
   object_id: string;
   operation_count: number;
   operations: PlotterOperation[];
-  name: string;
-  extends?: string;
-  unit?: number;
-  style: number;
-  in_bom: boolean;
-  on_board: boolean;
-  power: boolean;
+  paper_size: string;
+  paper_width_mm: number | null;
+  paper_height_mm: number | null;
+  paper_portrait: boolean;
+  sheet_width_nm: JavaScriptSafeInteger;
+  sheet_height_nm: JavaScriptSafeInteger;
+  version: JavaScriptSafeInteger;
+  generator: string;
+  generator_version: string;
+  title_block?: SchematicPlotTitleBlock;
 }
 /**
  * Solid or decomposed segment shared by PCB, footprint, and drill producers.
@@ -386,16 +399,78 @@ export interface FlashPadTrapezOperation {
   mask_margin_nm: JavaScriptSafeInteger;
 }
 /**
- * One selected graphical subsymbol record.
+ * Typed title-block metadata carried by the leading sheet-header record.
  */
-export interface LibSubsymbolPlotRecord {
-  uuid: "";
-  kind: "lib_subsymbol";
+export interface SchematicPlotTitleBlock {
+  title: string;
+  date: string;
+  rev: string;
+  company: string;
+  comments: RecordString;
+}
+export interface RecordString {
+  [k: string]: string;
+}
+/**
+ * One schematic wire polyline.
+ */
+export interface SchematicWirePlotRecord {
+  uuid: string;
+  kind: "wire";
   object_id: string;
   operation_count: number;
   operations: PlotterOperation[];
-  unit: number;
-  style: number;
+}
+/**
+ * One schematic bus polyline.
+ */
+export interface SchematicBusPlotRecord {
+  uuid: string;
+  kind: "bus";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+}
+/**
+ * One schematic bus-entry segment.
+ */
+export interface SchematicBusEntryPlotRecord {
+  uuid: string;
+  kind: "bus_entry";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+}
+/**
+ * One schematic junction marker.
+ */
+export interface SchematicJunctionPlotRecord {
+  uuid: string;
+  kind: "junction";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+  /**
+   * Authored junction color; null preserves an authored transparent color.
+   */
+  color?: string | null;
+}
+/**
+ * One schematic no-connect cross.
+ */
+export interface SchematicNoConnectPlotRecord {
+  uuid: string;
+  kind: "no_connect";
+  object_id: string;
+  operation_count: number;
+  operations: PlotterOperation[];
+}
+/**
+ * Exact page extent of one schematic instance.
+ */
+export interface SchematicPlotCanvas {
+  width_nm: JavaScriptSafeInteger;
+  height_nm: JavaScriptSafeInteger;
 }
 /**
  * Coordinate convention for the footprint plotter slice.

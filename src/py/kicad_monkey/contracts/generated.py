@@ -88,7 +88,7 @@ class PlotterCoordinateSpace(Struct, forbid_unknown_fields=True, frozen=True):
 JavaScriptSafeInteger = Annotated[int, Meta(ge=-9007199254740991, le=9007199254740991)]
 
 
-PlotterOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "BezierCurveOperation", "TextOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadCustomOperation", "FlashPadTrapezOperation"]
+PlotterOperation = Union["ThickSegmentOperation", "ArcThreePointOperation", "CircleOperation", "RectOperation", "PlotPolyOperation", "BezierCurveOperation", "TextOperation", "PlotImageOperation", "FlashPadCircleOperation", "FlashPadOvalOperation", "FlashPadRectOperation", "FlashPadRoundRectOperation", "FlashPadCustomOperation", "FlashPadTrapezOperation"]
 
 
 class ThickSegmentOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="ThickSegment", tag_field="kind"):
@@ -208,6 +208,18 @@ class TextOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="Text",
     render_cache: TextRenderCache | UnsetType = field(default=UNSET)
     render_cache_source: PlotterTextRenderCacheSource | UnsetType = field(default=UNSET)
     render_cache_exact: bool | UnsetType = field(default=UNSET)
+
+
+class PlotImageOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="PlotImage", tag_field="kind"):
+    index: Annotated[int, Meta(ge=0, le=4294967295)]
+    x: JavaScriptSafeInteger
+    y: JavaScriptSafeInteger
+    width_nm: JavaScriptSafeInteger
+    height_nm: JavaScriptSafeInteger
+    scale: float
+    image_data_b64: str
+    image_format: str
+    stroke_color: str | UnsetType = field(default=UNSET)
 
 
 class FlashPadCircleOperation(Struct, forbid_unknown_fields=True, frozen=True, tag="FlashPadCircle", tag_field="kind"):
@@ -875,6 +887,86 @@ class SymbolTextVariable(Struct, forbid_unknown_fields=True, frozen=True):
     value: str
 
 
+SchematicPlotRecord = Union["SchematicSheetHeaderPlotRecord", "SchematicWirePlotRecord", "SchematicBusPlotRecord", "SchematicBusEntryPlotRecord", "SchematicJunctionPlotRecord", "SchematicNoConnectPlotRecord"]
+
+
+class SchematicPlotCanvas(Struct, forbid_unknown_fields=True, frozen=True):
+    width_nm: JavaScriptSafeInteger
+    height_nm: JavaScriptSafeInteger
+
+
+class SchematicSheetHeaderPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="sheet_header", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    paper_size: str
+    paper_width_mm: float | None
+    paper_height_mm: float | None
+    paper_portrait: bool
+    sheet_width_nm: JavaScriptSafeInteger
+    sheet_height_nm: JavaScriptSafeInteger
+    version: JavaScriptSafeInteger
+    generator: str
+    generator_version: str
+    title_block: SchematicPlotTitleBlock | UnsetType = field(default=UNSET)
+
+
+class SchematicWirePlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="wire", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+
+
+class SchematicBusPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="bus", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+
+
+class SchematicBusEntryPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="bus_entry", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+
+
+class SchematicJunctionPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="junction", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+    color: str | None | UnsetType = field(default=UNSET)
+
+
+class SchematicNoConnectPlotRecord(Struct, forbid_unknown_fields=True, frozen=True, tag="no_connect", tag_field="kind"):
+    uuid: str
+    object_id: str
+    operation_count: Annotated[int, Meta(ge=0, le=4294967295)]
+    operations: list[PlotterOperation]
+
+
+class SchematicPlotTitleBlock(Struct, forbid_unknown_fields=True, frozen=True):
+    title: str
+    date: str
+    rev: str
+    company: str
+    comments: RecordString
+
+
+RecordString = dict[str, str]
+
+
+SchematicWorksheetMode = Literal["default", "provided"]
+
+
+class SchematicTextVariable(Struct, forbid_unknown_fields=True, frozen=True):
+    name: str
+    value: str
+
+
 SymbolBooleanField = Literal["in_bom", "on_board"]
 
 
@@ -1365,6 +1457,68 @@ class SymbolPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
     diagnostics: list[Diagnostic]
 
 
+class SchematicPlotDocumentA0(Struct, forbid_unknown_fields=True, frozen=True):
+    schema: Literal["kicad.plotter_ir.a0"]
+    source_kind: Literal["SCH"]
+    total_operations: Annotated[int, Meta(ge=0, le=4294967295)]
+    records: list[SchematicPlotRecord]
+    document_id: str
+    canvas: SchematicPlotCanvas
+    coordinate_space: PlotterCoordinateSpace
+    source_path: str | UnsetType = field(default=UNSET)
+
+
+class SchematicPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.schematic_plot.request"] = field(name="type")
+    version: Literal["a0"]
+    sheet_index: Annotated[int, Meta(ge=1, le=4294967295)]
+    sheet_count: Annotated[int, Meta(ge=1, le=4294967295)]
+    sheet_path: str
+    sheet_name: str
+    worksheet_mode: SchematicWorksheetMode
+    max_source_bytes: str
+    max_worksheet_bytes: str
+    max_output_bytes: str
+    max_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_parse_nodes: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_selected_forms: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_records: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_operations: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_points: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_input_points: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_text_bytes: str
+    max_metadata_bytes: str
+    max_wires: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_buses: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_bus_entries: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_junctions: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_no_connects: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_text_variables: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_text_variable_bytes: str
+    max_worksheet_items: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_worksheet_repeats: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_worksheet_point_sets: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_worksheet_points: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_worksheet_bitmap_data_parts: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_worksheet_bitmap_encoded_bytes: str
+    max_worksheet_bitmap_decoded_bytes: str
+    max_worksheet_bitmap_width_px: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_worksheet_bitmap_height_px: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_worksheet_bitmap_pixels: str
+    max_worksheet_bitmap_decode_work: str
+    source_path: str | UnsetType = field(default=UNSET)
+    document_id: str | UnsetType = field(default=UNSET)
+    text_variables: list[SchematicTextVariable] | UnsetType = field(default=UNSET)
+
+
+class SchematicPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.schematic_plot.result"] = field(name="type")
+    version: Literal["a0"]
+    output_bytes: str
+    total_operations: Annotated[int, Meta(ge=0, le=4294967295)]
+    diagnostics: list[Diagnostic]
+
+
 class SymbolLibraryEditRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.symbol_library_edit.request"] = field(name="type")
     version: Literal["a0"]
@@ -1590,6 +1744,8 @@ def validate_board_plot_document_a0(value: BoardPlotDocumentA0) -> None:
     saw_footprint = False
     for record_index, record in enumerate(value.records):
         path = f'$.records[{record_index}]'
+        if any(isinstance(operation, PlotImageOperation) for operation in record.operations):
+            raise msgspec.ValidationError(f"invalid_board_operation at {path}.operations")
         if isinstance(record, BoardFootprintPlotRecord):
             saw_footprint = True
             _validate_board_footprint_plot_record(record, path)
@@ -1861,6 +2017,159 @@ def validate_symbol_plot_document_a0(value: SymbolPlotDocumentA0) -> None:
         raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
 decode_symbol_plot_request_a0 = msgspec.json.Decoder(SymbolPlotRequestA0).decode
 decode_symbol_plot_result_a0 = msgspec.json.Decoder(SymbolPlotResultA0).decode
+_schematic_plot_document_a0_decoder = msgspec.json.Decoder(SchematicPlotDocumentA0)
+
+
+def decode_schematic_plot_document_a0(data: bytes) -> SchematicPlotDocumentA0:
+    value = _schematic_plot_document_a0_decoder.decode(data)
+    validate_schematic_plot_document_a0(value)
+    return value
+
+
+def validate_schematic_plot_document_a0(value: SchematicPlotDocumentA0) -> None:
+    if value.schema != "kicad.plotter_ir.a0" or value.source_kind != "SCH" or value.coordinate_space.unit != "nm" or value.coordinate_space.y_axis != "down":
+        raise msgspec.ValidationError("invalid_schematic_document at $")
+    if not value.records or not isinstance(value.records[0], SchematicSheetHeaderPlotRecord):
+        raise msgspec.ValidationError("missing_sheet_header at $.records[0]")
+    phases = {SchematicSheetHeaderPlotRecord: 0, SchematicWirePlotRecord: 1, SchematicBusPlotRecord: 2, SchematicBusEntryPlotRecord: 3, SchematicJunctionPlotRecord: 4, SchematicNoConnectPlotRecord: 5}
+    previous_phase = -1
+    total_operations = 0
+    for record_index, record in enumerate(value.records):
+        path = f'$.records[{record_index}]'
+        phase = phases[type(record)]
+        if phase < previous_phase or (phase == 0 and record_index != 0):
+            raise msgspec.ValidationError(f"invalid_schematic_record_order at {path}")
+        previous_phase = phase
+        if record.object_id != record.uuid:
+            raise msgspec.ValidationError(f"invalid_schematic_record_identity at {path}")
+        if record.operation_count != len(record.operations):
+            raise msgspec.ValidationError(f"operation_count_mismatch at {path}.operation_count")
+        for operation_index, operation in enumerate(record.operations):
+            if operation.index != operation_index:
+                raise msgspec.ValidationError(f"operation_index_mismatch at {path}.operations[{operation_index}].index")
+        if isinstance(record, SchematicSheetHeaderPlotRecord):
+            _validate_schematic_sheet_header(value, record, path)
+        elif isinstance(record, (SchematicWirePlotRecord, SchematicBusPlotRecord, SchematicBusEntryPlotRecord)):
+            _validate_schematic_polyline_record(record, path)
+        elif isinstance(record, SchematicJunctionPlotRecord):
+            _validate_schematic_junction_record(record, path)
+        else:
+            _validate_schematic_no_connect_record(record, path)
+        total_operations += len(record.operations)
+    if value.total_operations != total_operations:
+        raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
+
+
+def _validate_schematic_sheet_header(value: SchematicPlotDocumentA0, record: SchematicSheetHeaderPlotRecord, path: str) -> None:
+    if value.canvas.width_nm != record.sheet_width_nm or value.canvas.height_nm != record.sheet_height_nm or record.sheet_width_nm <= 0 or record.sheet_height_nm <= 0:
+        raise msgspec.ValidationError(f"invalid_sheet_header at {path}")
+    if not record.operations or not isinstance(record.operations[0], RectOperation):
+        raise msgspec.ValidationError(f"invalid_sheet_background at {path}.operations[0]")
+    background = record.operations[0]
+    background_layer = None if background.layer is UNSET else background.layer
+    if (background.x1, background.y1, background.x2, background.y2) != (0, 0, record.sheet_width_nm, record.sheet_height_nm) or background.fill != 'FILLED_SHAPE' or background.width_nm != 100 or background.corner_radius_nm != 0 or background_layer is not None or background.stroke_color != '#F5F4EFFF' or background.fill_color != '#F5F4EFFF':
+        raise msgspec.ValidationError(f"invalid_sheet_background at {path}.operations[0]")
+    for operation_index, operation in enumerate(record.operations[1:], start=1):
+        operation_path = f'{path}.operations[{operation_index}]'
+        if not isinstance(operation, (RectOperation, PlotPolyOperation, TextOperation, PlotImageOperation)):
+            raise msgspec.ValidationError(f"invalid_worksheet_operation at {operation_path}")
+        layer = None if not hasattr(operation, 'layer') or operation.layer is UNSET else operation.layer
+        if layer is not None:
+            raise msgspec.ValidationError(f"invalid_worksheet_operation at {operation_path}")
+        if isinstance(operation, RectOperation) and (operation.fill != 'NO_FILL' or operation.width_nm < 152_400 or operation.corner_radius_nm != 0 or operation.stroke_color != '#840000FF' or operation.fill_color is not UNSET or operation.line_style is not UNSET):
+            raise msgspec.ValidationError(f"invalid_worksheet_rect at {operation_path}")
+        if isinstance(operation, PlotPolyOperation) and (len(operation.points) != 2 or operation.fill != 'NO_FILL' or operation.width_nm < 152_400 or operation.stroke_color != '#840000FF' or operation.fill_color is not UNSET or operation.line_style is not UNSET):
+            raise msgspec.ValidationError(f"invalid_worksheet_polyline at {operation_path}")
+        if isinstance(operation, TextOperation):
+            forbidden = (operation.mirror is not UNSET, operation.text_as_polygons is not UNSET, operation.polyline_per_segment is not UNSET, operation.knockout is not UNSET, operation.render_cache_polygons is not UNSET, operation.render_cache is not UNSET, operation.render_cache_source is not UNSET, operation.render_cache_exact is not UNSET)
+            if any(forbidden) or not math.isfinite(operation.orient_deg):
+                raise msgspec.ValidationError(f"invalid_worksheet_text at {operation_path}")
+        if isinstance(operation, PlotImageOperation) and (operation.image_format != 'png' or not math.isfinite(operation.scale) or operation.scale <= 0 or operation.width_nm < 0 or operation.height_nm < 0 or operation.stroke_color != '#840000FF' or not _valid_schematic_png_base64(operation.image_data_b64)):
+            raise msgspec.ValidationError(f"invalid_worksheet_image at {operation_path}")
+
+
+def _valid_schematic_png_base64(value: str) -> bool:
+    prefix = bytearray()
+    quartet: list[int] = []
+    ended = False
+    for character in value:
+        if character in ' \t\r\n\v\f':
+            return False
+        if ended:
+            return False
+        code = ord(character)
+        if 65 <= code <= 90: sextet = code - 65
+        elif 97 <= code <= 122: sextet = code - 97 + 26
+        elif 48 <= code <= 57: sextet = code - 48 + 52
+        elif character == '+': sextet = 62
+        elif character == '/': sextet = 63
+        elif character == '=': sextet = 64
+        else: return False
+        quartet.append(sextet)
+        if len(quartet) != 4:
+            continue
+        if quartet[0] >= 64 or quartet[1] >= 64:
+            return False
+        if quartet[2] == 64:
+            if quartet[3] != 64 or quartet[1] & 0x0F:
+                return False
+            decoded_len = 1
+            ended = True
+        elif quartet[3] == 64:
+            if quartet[2] & 0x03:
+                return False
+            decoded_len = 2
+            ended = True
+        else:
+            decoded_len = 3
+        decoded = ((quartet[0] << 2) | (quartet[1] >> 4), ((quartet[1] << 4) | (quartet[2] >> 2)) & 0xFF, ((quartet[2] << 6) | quartet[3]) & 0xFF)
+        prefix.extend(decoded[:min(decoded_len, 33 - len(prefix))])
+        quartet.clear()
+    if quartet or len(prefix) < 33:
+        return False
+    width = int.from_bytes(prefix[16:20], 'big')
+    height = int.from_bytes(prefix[20:24], 'big')
+    return prefix[:8] == b'\x89PNG\r\n\x1a\n' and prefix[8:12] == b'\x00\x00\x00\r' and prefix[12:16] == b'IHDR' and width > 0 and height > 0
+
+
+def _validate_schematic_polyline_record(record: SchematicWirePlotRecord | SchematicBusPlotRecord | SchematicBusEntryPlotRecord, path: str) -> None:
+    if len(record.operations) != 1 or not isinstance(record.operations[0], PlotPolyOperation):
+        raise msgspec.ValidationError(f"invalid_connectivity_record at {path}")
+    operation = record.operations[0]
+    layer = None if operation.layer is UNSET else operation.layer
+    if layer is not None or operation.fill != 'NO_FILL' or operation.width_nm < 0 or operation.stroke_color is UNSET or not operation.stroke_color or operation.line_style is UNSET or not operation.points:
+        raise msgspec.ValidationError(f"invalid_connectivity_polyline at {path}.operations[0]")
+    if isinstance(record, SchematicBusEntryPlotRecord) and len(operation.points) != 2:
+        raise msgspec.ValidationError(f"invalid_bus_entry at {path}.operations[0].points")
+
+
+def _validate_schematic_junction_record(record: SchematicJunctionPlotRecord, path: str) -> None:
+    if len(record.operations) != 1 or not isinstance(record.operations[0], CircleOperation):
+        raise msgspec.ValidationError(f"invalid_junction at {path}")
+    operation = record.operations[0]
+    layer = None if operation.layer is UNSET else operation.layer
+    role = None if operation.role is UNSET else operation.role
+    layers = [] if operation.layers is UNSET else operation.layers
+    forbidden = (role is not None, bool(layers), operation.mask_margin_nm is not UNSET, operation.pad_size_x_nm is not UNSET, operation.pad_size_y_nm is not UNSET)
+    if layer is not None or any(forbidden) or operation.fill != 'FILLED_SHAPE' or operation.width_nm != 0 or operation.diameter_nm <= 0 or operation.stroke_color is UNSET or operation.fill_color is UNSET or operation.stroke_color != operation.fill_color:
+        raise msgspec.ValidationError(f"invalid_junction at {path}.operations[0]")
+    expected_color = '#009600FF' if record.color is UNSET or record.color is None else record.color
+    if expected_color != operation.stroke_color:
+        raise msgspec.ValidationError(f"invalid_junction_color at {path}.color")
+
+
+def _validate_schematic_no_connect_record(record: SchematicNoConnectPlotRecord, path: str) -> None:
+    if len(record.operations) != 2 or not all(isinstance(operation, PlotPolyOperation) for operation in record.operations):
+        raise msgspec.ValidationError(f"invalid_no_connect at {path}")
+    first, second = record.operations
+    for operation_index, operation in enumerate((first, second)):
+        layer = None if operation.layer is UNSET else operation.layer
+        if layer is not None or operation.fill != 'NO_FILL' or operation.width_nm <= 0 or operation.stroke_color != '#000084FF' or operation.line_style is not UNSET or len(operation.points) != 2:
+            raise msgspec.ValidationError(f"invalid_no_connect at {path}.operations[{operation_index}]")
+    if first.width_nm != second.width_nm or first.points[0][0] != second.points[0][0] or first.points[1][0] != second.points[1][0] or first.points[0][1] != second.points[1][1] or first.points[1][1] != second.points[0][1]:
+        raise msgspec.ValidationError(f"invalid_no_connect_geometry at {path}.operations")
+decode_schematic_plot_request_a0 = msgspec.json.Decoder(SchematicPlotRequestA0).decode
+decode_schematic_plot_result_a0 = msgspec.json.Decoder(SchematicPlotResultA0).decode
 decode_symbol_library_edit_request_a0 = msgspec.json.Decoder(SymbolLibraryEditRequestA0).decode
 decode_symbol_library_edit_result_a0 = msgspec.json.Decoder(SymbolLibraryEditResultA0).decode
 decode_symbol_library_read_request_a0 = msgspec.json.Decoder(SymbolLibraryReadRequestA0).decode
@@ -2137,6 +2446,7 @@ __all__ = (
     "PlotPolyOperation",
     "BezierCurveOperation",
     "TextOperation",
+    "PlotImageOperation",
     "FlashPadCircleOperation",
     "FlashPadOvalOperation",
     "FlashPadRectOperation",
@@ -2197,6 +2507,18 @@ __all__ = (
     "SymbolHeaderPlotRecord",
     "LibSubsymbolPlotRecord",
     "SymbolTextVariable",
+    "SchematicPlotRecord",
+    "SchematicPlotCanvas",
+    "SchematicSheetHeaderPlotRecord",
+    "SchematicWirePlotRecord",
+    "SchematicBusPlotRecord",
+    "SchematicBusEntryPlotRecord",
+    "SchematicJunctionPlotRecord",
+    "SchematicNoConnectPlotRecord",
+    "SchematicPlotTitleBlock",
+    "RecordString",
+    "SchematicWorksheetMode",
+    "SchematicTextVariable",
     "SymbolBooleanField",
     "SymbolSummary",
     "UnitDefinition",
@@ -2261,6 +2583,9 @@ __all__ = (
     "SymbolPlotDocumentA0",
     "SymbolPlotRequestA0",
     "SymbolPlotResultA0",
+    "SchematicPlotDocumentA0",
+    "SchematicPlotRequestA0",
+    "SchematicPlotResultA0",
     "SymbolLibraryEditRequestA0",
     "SymbolLibraryEditResultA0",
     "SymbolLibraryReadRequestA0",
@@ -2288,6 +2613,9 @@ __all__ = (
     "decode_symbol_plot_document_a0",
     "decode_symbol_plot_request_a0",
     "decode_symbol_plot_result_a0",
+    "decode_schematic_plot_document_a0",
+    "decode_schematic_plot_request_a0",
+    "decode_schematic_plot_result_a0",
     "decode_symbol_library_edit_request_a0",
     "decode_symbol_library_edit_result_a0",
     "decode_symbol_library_read_request_a0",
@@ -2305,4 +2633,5 @@ __all__ = (
     "validate_outline_vector_a0",
     "validate_shaping_record_a0",
     "validate_symbol_plot_document_a0",
+    "validate_schematic_plot_document_a0",
 )

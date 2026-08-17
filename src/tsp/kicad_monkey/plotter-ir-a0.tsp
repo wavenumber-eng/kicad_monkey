@@ -365,6 +365,20 @@ model TextOperation {
   render_cache_exact?: boolean;
 }
 
+/** Decoded image placement shared by worksheet and schematic producers. */
+model PlotImageOperation {
+  kind: "PlotImage";
+  index: uint32;
+  x: JavaScriptSafeInteger;
+  y: JavaScriptSafeInteger;
+  width_nm: JavaScriptSafeInteger;
+  height_nm: JavaScriptSafeInteger;
+  scale: float64;
+  image_data_b64: string;
+  image_format: string;
+  stroke_color?: string;
+}
+
 /** Four pad-local trapezoid corners. */
 @minItems(4)
 @maxItems(4)
@@ -391,6 +405,7 @@ union PlotterOperation {
   plotPoly: PlotPolyOperation,
   bezierCurve: BezierCurveOperation,
   text: TextOperation,
+  plotImage: PlotImageOperation,
   flashPadCircle: FlashPadCircleOperation,
   flashPadOval: FlashPadOvalOperation,
   flashPadRect: FlashPadRectOperation,

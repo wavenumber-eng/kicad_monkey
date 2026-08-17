@@ -75,6 +75,9 @@ Current design notes:
   text, text-box, table, five-style dimension, and embedded-footprint
   Plotter-IR parity with
   explicit outline-bridge deferrals and independent resource ceilings.
+- `rust-schematic-plotter-phase5-slice.html` - accepted bounded native
+  schematic page-header, worksheet, and connectivity Plotter-IR foundation
+  with a distinct strict generated document contract.
 - `rust-phase5-exit-audit.html` - accepted inventory and bounded closure order
   for the remaining native text, footprint, symbol, board, and schematic
   Plotter-IR surfaces before the native application phase.

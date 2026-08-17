@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "urn:wavenumber:schema:kicad_monkey.symbol_plot.document:a0",
+    "$id": "urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0",
     "type": "object",
     "properties": {
         "schema": {
@@ -9,7 +9,7 @@
         },
         "source_kind": {
             "type": "string",
-            "const": "SYM"
+            "const": "SCH"
         },
         "total_operations": {
             "type": "integer",
@@ -19,7 +19,7 @@
         "records": {
             "type": "array",
             "items": {
-                "$ref": "#/$defs/SymbolPlotRecord"
+                "$ref": "#/$defs/SchematicPlotRecord"
             }
         },
         "source_path": {
@@ -27,6 +27,9 @@
         },
         "document_id": {
             "type": "string"
+        },
+        "canvas": {
+            "$ref": "#/$defs/SchematicPlotCanvas"
         },
         "coordinate_space": {
             "$ref": "#/$defs/PlotterCoordinateSpace"
@@ -38,23 +41,56 @@
         "total_operations",
         "records",
         "document_id",
+        "canvas",
         "coordinate_space"
     ],
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict cache-free library-symbol geometry and text subset of kicad.plotter_ir.a0.",
-    "title": "Symbol plot document a0",
+    "description": "Strict schematic-foundation subset of kicad.plotter_ir.a0.",
+    "title": "Schematic plot document a0",
     "$defs": {
-        "SymbolPlotRecord": {
+        "SchematicPlotRecord": {
             "anyOf": [
                 {
-                    "$ref": "#/$defs/SymbolHeaderPlotRecord"
+                    "$ref": "#/$defs/SchematicSheetHeaderPlotRecord"
                 },
                 {
-                    "$ref": "#/$defs/LibSubsymbolPlotRecord"
+                    "$ref": "#/$defs/SchematicWirePlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicBusPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicBusEntryPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicJunctionPlotRecord"
+                },
+                {
+                    "$ref": "#/$defs/SchematicNoConnectPlotRecord"
                 }
-            ]
+            ],
+            "description": "Strict source-record vocabulary for the P5_060 schematic foundation."
+        },
+        "SchematicPlotCanvas": {
+            "type": "object",
+            "properties": {
+                "width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "height_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                }
+            },
+            "required": [
+                "width_nm",
+                "height_nm"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Exact page extent of one schematic instance."
         },
         "PlotterCoordinateSpace": {
             "type": "object",
@@ -77,16 +113,15 @@
             },
             "description": "Coordinate convention for the footprint plotter slice."
         },
-        "SymbolHeaderPlotRecord": {
+        "SchematicSheetHeaderPlotRecord": {
             "type": "object",
             "properties": {
                 "uuid": {
-                    "type": "string",
-                    "const": ""
+                    "type": "string"
                 },
                 "kind": {
                     "type": "string",
-                    "const": "lib_symbol"
+                    "const": "sheet_header"
                 },
                 "object_id": {
                     "type": "string"
@@ -102,30 +137,49 @@
                         "$ref": "#/$defs/PlotterOperation"
                     }
                 },
-                "name": {
+                "paper_size": {
                     "type": "string"
                 },
-                "extends": {
+                "paper_width_mm": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "paper_height_mm": {
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "paper_portrait": {
+                    "type": "boolean"
+                },
+                "sheet_width_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "sheet_height_nm": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "version": {
+                    "$ref": "#/$defs/JavaScriptSafeInteger"
+                },
+                "generator": {
                     "type": "string"
                 },
-                "unit": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 4294967295
+                "generator_version": {
+                    "type": "string"
                 },
-                "style": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 4294967295
-                },
-                "in_bom": {
-                    "type": "boolean"
-                },
-                "on_board": {
-                    "type": "boolean"
-                },
-                "power": {
-                    "type": "boolean"
+                "title_block": {
+                    "$ref": "#/$defs/SchematicPlotTitleBlock"
                 }
             },
             "required": [
@@ -134,27 +188,141 @@
                 "object_id",
                 "operation_count",
                 "operations",
-                "name",
-                "style",
-                "in_bom",
-                "on_board",
-                "power"
+                "paper_size",
+                "paper_width_mm",
+                "paper_height_mm",
+                "paper_portrait",
+                "sheet_width_nm",
+                "sheet_height_nm",
+                "version",
+                "generator",
+                "generator_version"
             ],
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "Leading metadata record for the selected library symbol."
+            "description": "Leading paper, title-block, background, and worksheet record."
         },
-        "LibSubsymbolPlotRecord": {
+        "SchematicWirePlotRecord": {
             "type": "object",
             "properties": {
                 "uuid": {
-                    "type": "string",
-                    "const": ""
+                    "type": "string"
                 },
                 "kind": {
                     "type": "string",
-                    "const": "lib_subsymbol"
+                    "const": "wire"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One schematic wire polyline."
+        },
+        "SchematicBusPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "bus"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One schematic bus polyline."
+        },
+        "SchematicBusEntryPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "bus_entry"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One schematic bus-entry segment."
+        },
+        "SchematicJunctionPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "junction"
                 },
                 "object_id": {
                     "type": "string"
@@ -170,15 +338,16 @@
                         "$ref": "#/$defs/PlotterOperation"
                     }
                 },
-                "unit": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 4294967295
-                },
-                "style": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 4294967295
+                "color": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "Authored junction color; null preserves an authored transparent color."
                 }
             },
             "required": [
@@ -186,14 +355,55 @@
                 "kind",
                 "object_id",
                 "operation_count",
-                "operations",
-                "unit",
-                "style"
+                "operations"
             ],
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "One selected graphical subsymbol record."
+            "description": "One schematic junction marker."
+        },
+        "SchematicNoConnectPlotRecord": {
+            "type": "object",
+            "properties": {
+                "uuid": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "const": "no_connect"
+                },
+                "object_id": {
+                    "type": "string"
+                },
+                "operation_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/PlotterOperation"
+                    }
+                }
+            },
+            "required": [
+                "uuid",
+                "kind",
+                "object_id",
+                "operation_count",
+                "operations"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One schematic no-connect cross."
+        },
+        "JavaScriptSafeInteger": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Integer that remains exact when decoded as a JavaScript number."
         },
         "PlotterOperation": {
             "anyOf": [
@@ -241,6 +451,37 @@
                 }
             ],
             "description": "Shared plotter operation vocabulary promoted across source producers."
+        },
+        "SchematicPlotTitleBlock": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "rev": {
+                    "type": "string"
+                },
+                "company": {
+                    "type": "string"
+                },
+                "comments": {
+                    "$ref": "#/$defs/RecordString"
+                }
+            },
+            "required": [
+                "title",
+                "date",
+                "rev",
+                "company",
+                "comments"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Typed title-block metadata carried by the leading sheet-header record."
         },
         "ThickSegmentOperation": {
             "type": "object",
@@ -1120,11 +1361,12 @@
             },
             "description": "Trapezoid pad flash shared by footprint and PCB producers."
         },
-        "JavaScriptSafeInteger": {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991,
-            "description": "Integer that remains exact when decoded as a JavaScript number."
+        "RecordString": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {
+                "type": "string"
+            }
         },
         "PlotterDrillRole": {
             "type": "string",
