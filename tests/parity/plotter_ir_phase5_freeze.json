@@ -1,0 +1,199 @@
+{
+  "schema": "kicad_monkey.plotter_ir_phase5_freeze.v1",
+  "contract_version": "a0",
+  "artifacts": [
+    {
+      "path": "contracts/generated/schema/BoardPlotDocument.json",
+      "canonical_sha256": "fd95a069bfa86d91a4cb87c159cc04086419cca8ac2c3b026849895e7d006e2c"
+    },
+    {
+      "path": "contracts/generated/schema/BoardPlotRequest.json",
+      "canonical_sha256": "009d5bad6676dbc04761a1b8c70c6b23e856efe82a85d1b7d4ee6b87dbc467a7"
+    },
+    {
+      "path": "contracts/generated/schema/BoardPlotResult.json",
+      "canonical_sha256": "68916dcea8c4920f58f4648108f42045e9a43d89a7a463983c76eadb06d743d4"
+    },
+    {
+      "path": "contracts/generated/schema/FootprintPlotDocument.json",
+      "canonical_sha256": "9169607a8d42e8d33442beea2d99411966e0a0faff4eac2ff426adafc870d2fe"
+    },
+    {
+      "path": "contracts/generated/schema/FootprintPlotRequest.json",
+      "canonical_sha256": "267eeb5640e50c974de346d6dd2e502bb179a466ed1e7367a75e12b945b7527e"
+    },
+    {
+      "path": "contracts/generated/schema/FootprintPlotResult.json",
+      "canonical_sha256": "5c349f6ed7853a942a5a757ffac76508b81fef1f195376bd3ac8408254724be0"
+    },
+    {
+      "path": "contracts/generated/schema/SchematicPlotDocument.json",
+      "canonical_sha256": "9394619637f3d55565db18138f29c99a5594d05c657e42365b2467a901d1461d"
+    },
+    {
+      "path": "contracts/generated/schema/SchematicPlotRequest.json",
+      "canonical_sha256": "6b7d1aeb8c17f8dd51d75fa264801f2cb3c5d5e3e2edc04b3504814862c1905d"
+    },
+    {
+      "path": "contracts/generated/schema/SchematicPlotResult.json",
+      "canonical_sha256": "1537128c78bf4ce83783576215859ca5d188266286a5898d14c1e2553b91857c"
+    },
+    {
+      "path": "contracts/generated/schema/SymbolPlotDocument.json",
+      "canonical_sha256": "638ce9daedecb22a2a6bdfaf96473ffc4e5f6470a04a34ff074711766953b4e5"
+    },
+    {
+      "path": "contracts/generated/schema/SymbolPlotRequest.json",
+      "canonical_sha256": "91b59c3da572fe86b156f75849a84274beac732725b11f2be701eb009b78af93"
+    },
+    {
+      "path": "contracts/generated/schema/SymbolPlotResult.json",
+      "canonical_sha256": "6cc45cb0506bf78d801e335e9208d0223e6d44a44d46b98301b3454951be2dbc"
+    }
+  ],
+  "unions": [
+    {
+      "path": "contracts/generated/schema/FootprintPlotDocument.json",
+      "definition": "PlotterOperation",
+      "expected_arm_count": 14,
+      "mirror_paths": [
+        "contracts/generated/schema/SymbolPlotDocument.json",
+        "contracts/generated/schema/BoardPlotDocument.json",
+        "contracts/generated/schema/SchematicPlotDocument.json"
+      ],
+      "arms": [
+        {"ref": "#/$defs/ThickSegmentOperation", "kinds": ["ThickSegment"]},
+        {"ref": "#/$defs/ArcThreePointOperation", "kinds": ["ArcThreePoint"]},
+        {"ref": "#/$defs/CircleOperation", "kinds": ["Circle"]},
+        {"ref": "#/$defs/RectOperation", "kinds": ["Rect"]},
+        {"ref": "#/$defs/PlotPolyOperation", "kinds": ["PlotPoly"]},
+        {"ref": "#/$defs/BezierCurveOperation", "kinds": ["BezierCurve"]},
+        {"ref": "#/$defs/TextOperation", "kinds": ["Text"]},
+        {"ref": "#/$defs/PlotImageOperation", "kinds": ["PlotImage"]},
+        {"ref": "#/$defs/FlashPadCircleOperation", "kinds": ["FlashPadCircle"]},
+        {"ref": "#/$defs/FlashPadOvalOperation", "kinds": ["FlashPadOval"]},
+        {"ref": "#/$defs/FlashPadRectOperation", "kinds": ["FlashPadRect"]},
+        {"ref": "#/$defs/FlashPadRoundRectOperation", "kinds": ["FlashPadRoundRect"]},
+        {"ref": "#/$defs/FlashPadCustomOperation", "kinds": ["FlashPadCustom"]},
+        {"ref": "#/$defs/FlashPadTrapezOperation", "kinds": ["FlashPadTrapez"]}
+      ]
+    },
+    {
+      "path": "contracts/generated/schema/SymbolPlotDocument.json",
+      "definition": "SymbolPlotRecord",
+      "expected_arm_count": 2,
+      "arms": [
+        {"ref": "#/$defs/SymbolHeaderPlotRecord", "kinds": ["lib_symbol"]},
+        {"ref": "#/$defs/LibSubsymbolPlotRecord", "kinds": ["lib_subsymbol"]}
+      ]
+    },
+    {
+      "path": "contracts/generated/schema/BoardPlotDocument.json",
+      "definition": "BoardPlotRecord",
+      "expected_arm_count": 10,
+      "arms": [
+        {
+          "ref": "#/$defs/BoardGraphicPlotRecord",
+          "kinds": ["gr_line", "gr_arc", "gr_circle", "gr_rect", "gr_poly", "gr_curve"]
+        },
+        {"ref": "#/$defs/TrackSegmentPlotRecord", "kinds": ["segment"]},
+        {"ref": "#/$defs/TrackArcPlotRecord", "kinds": ["track_arc"]},
+        {"ref": "#/$defs/ViaPlotRecord", "kinds": ["via"]},
+        {"ref": "#/$defs/TablePlotRecord", "kinds": ["table"]},
+        {"ref": "#/$defs/DimensionPlotRecord", "kinds": ["dimension"]},
+        {"ref": "#/$defs/ZoneFillPlotRecord", "kinds": ["zone_fill"]},
+        {"ref": "#/$defs/BoardTextPlotRecord", "kinds": ["gr_text"]},
+        {"ref": "#/$defs/BoardTextBoxPlotRecord", "kinds": ["gr_text_box"]},
+        {"ref": "#/$defs/BoardFootprintPlotRecord", "kinds": ["footprint"]}
+      ]
+    },
+    {
+      "path": "contracts/generated/schema/BoardPlotDocument.json",
+      "definition": "BoardFootprintOperation",
+      "expected_arm_count": 15,
+      "arms": [
+        {"ref": "#/$defs/BoardFootprintThickSegmentOperation", "kinds": ["ThickSegment"]},
+        {"ref": "#/$defs/BoardFootprintArcThreePointOperation", "kinds": ["ArcThreePoint"]},
+        {"ref": "#/$defs/BoardFootprintCircleOperation", "kinds": ["Circle"]},
+        {"ref": "#/$defs/BoardFootprintRectOperation", "kinds": ["Rect"]},
+        {"ref": "#/$defs/BoardFootprintPlotPolyOperation", "kinds": ["PlotPoly"]},
+        {"ref": "#/$defs/BoardFootprintBezierCurveOperation", "kinds": ["BezierCurve"]},
+        {"ref": "#/$defs/BoardFootprintTextOperation", "kinds": ["Text"]},
+        {"ref": "#/$defs/BoardFootprintFlashPadCircleOperation", "kinds": ["FlashPadCircle"]},
+        {"ref": "#/$defs/BoardFootprintFlashPadOvalOperation", "kinds": ["FlashPadOval"]},
+        {"ref": "#/$defs/BoardFootprintFlashPadRectOperation", "kinds": ["FlashPadRect"]},
+        {"ref": "#/$defs/BoardFootprintFlashPadRoundRectOperation", "kinds": ["FlashPadRoundRect"]},
+        {"ref": "#/$defs/BoardFootprintFlashPadCustomOperation", "kinds": ["FlashPadCustom"]},
+        {"ref": "#/$defs/BoardFootprintFlashPadTrapezOperation", "kinds": ["FlashPadTrapez"]},
+        {"ref": "#/$defs/BoardFootprintStartBlockOperation", "kinds": ["StartBlock"]},
+        {"ref": "#/$defs/BoardFootprintEndBlockOperation", "kinds": ["EndBlock"]}
+      ]
+    },
+    {
+      "path": "contracts/generated/schema/SchematicPlotDocument.json",
+      "definition": "SchematicPlotRecord",
+      "expected_arm_count": 23,
+      "arms": [
+        {"ref": "#/$defs/SchematicSheetHeaderPlotRecord", "kinds": ["sheet_header"]},
+        {"ref": "#/$defs/SchematicWirePlotRecord", "kinds": ["wire"]},
+        {"ref": "#/$defs/SchematicBusPlotRecord", "kinds": ["bus"]},
+        {"ref": "#/$defs/SchematicBusEntryPlotRecord", "kinds": ["bus_entry"]},
+        {"ref": "#/$defs/SchematicJunctionPlotRecord", "kinds": ["junction"]},
+        {"ref": "#/$defs/SchematicNoConnectPlotRecord", "kinds": ["no_connect"]},
+        {"ref": "#/$defs/SchematicLabelPlotRecord", "kinds": ["label"]},
+        {"ref": "#/$defs/SchematicGlobalLabelPlotRecord", "kinds": ["global_label"]},
+        {"ref": "#/$defs/SchematicHierarchicalLabelPlotRecord", "kinds": ["hierarchical_label"]},
+        {"ref": "#/$defs/SchematicNetclassFlagPlotRecord", "kinds": ["netclass_flag"]},
+        {"ref": "#/$defs/SchematicTextPlotRecord", "kinds": ["text"]},
+        {"ref": "#/$defs/SchematicTextBoxPlotRecord", "kinds": ["text_box"]},
+        {"ref": "#/$defs/SchematicGraphicPolylinePlotRecord", "kinds": ["graphic_polyline"]},
+        {"ref": "#/$defs/SchematicGraphicArcPlotRecord", "kinds": ["graphic_arc"]},
+        {"ref": "#/$defs/SchematicGraphicCirclePlotRecord", "kinds": ["graphic_circle"]},
+        {"ref": "#/$defs/SchematicGraphicRectanglePlotRecord", "kinds": ["graphic_rectangle"]},
+        {"ref": "#/$defs/SchematicGraphicBezierPlotRecord", "kinds": ["graphic_bezier"]},
+        {"ref": "#/$defs/SchematicRuleAreaPlotRecord", "kinds": ["rule_area"]},
+        {"ref": "#/$defs/SchematicImagePlotRecord", "kinds": ["image"]},
+        {"ref": "#/$defs/SchematicTablePlotRecord", "kinds": ["table"]},
+        {"ref": "#/$defs/SchematicSymbolInstancePlotRecord", "kinds": ["symbol_instance"]},
+        {"ref": "#/$defs/SchematicSymbolOverplotPlotRecord", "kinds": ["symbol_overplot"]},
+        {"ref": "#/$defs/SchematicSheetPlotRecord", "kinds": ["sheet"]}
+      ]
+    },
+    {
+      "path": "contracts/generated/schema/SchematicPlotDocument.json",
+      "definition": "SchematicSymbolOperation",
+      "expected_arm_count": 16,
+      "arms": [
+        {"ref": "#/$defs/ThickSegmentOperation", "kinds": ["ThickSegment"]},
+        {"ref": "#/$defs/ArcThreePointOperation", "kinds": ["ArcThreePoint"]},
+        {"ref": "#/$defs/CircleOperation", "kinds": ["Circle"]},
+        {"ref": "#/$defs/RectOperation", "kinds": ["Rect"]},
+        {"ref": "#/$defs/PlotPolyOperation", "kinds": ["PlotPoly"]},
+        {"ref": "#/$defs/BezierCurveOperation", "kinds": ["BezierCurve"]},
+        {"ref": "#/$defs/TextOperation", "kinds": ["Text"]},
+        {"ref": "#/$defs/PlotImageOperation", "kinds": ["PlotImage"]},
+        {"ref": "#/$defs/FlashPadCircleOperation", "kinds": ["FlashPadCircle"]},
+        {"ref": "#/$defs/FlashPadOvalOperation", "kinds": ["FlashPadOval"]},
+        {"ref": "#/$defs/FlashPadRectOperation", "kinds": ["FlashPadRect"]},
+        {"ref": "#/$defs/FlashPadRoundRectOperation", "kinds": ["FlashPadRoundRect"]},
+        {"ref": "#/$defs/FlashPadCustomOperation", "kinds": ["FlashPadCustom"]},
+        {"ref": "#/$defs/FlashPadTrapezOperation", "kinds": ["FlashPadTrapez"]},
+        {"ref": "#/$defs/SchematicSymbolStartBlockOperation", "kinds": ["StartBlock"]},
+        {"ref": "#/$defs/SchematicSymbolEndBlockOperation", "kinds": ["EndBlock"]}
+      ]
+    },
+    {
+      "path": "contracts/generated/schema/SchematicPlotDocument.json",
+      "definition": "SchematicSheetOperation",
+      "expected_arm_count": 6,
+      "arms": [
+        {"ref": "#/$defs/ThickSegmentOperation", "kinds": ["ThickSegment"]},
+        {"ref": "#/$defs/RectOperation", "kinds": ["Rect"]},
+        {"ref": "#/$defs/PlotPolyOperation", "kinds": ["PlotPoly"]},
+        {"ref": "#/$defs/TextOperation", "kinds": ["Text"]},
+        {"ref": "#/$defs/SchematicSheetStartBlockOperation", "kinds": ["StartBlock"]},
+        {"ref": "#/$defs/SchematicSheetEndBlockOperation", "kinds": ["EndBlock"]}
+      ]
+    }
+  ]
+}

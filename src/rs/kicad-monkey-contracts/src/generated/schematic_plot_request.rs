@@ -462,7 +462,11 @@ pub mod error {
 #[serde(deny_unknown_fields)]
 pub struct SchematicPlotRequestA0 {
     pub default_line_width_nm: crate::SchematicDefaultLineWidthNm,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub document_id: ::std::option::Option<::std::string::String>,
     pub max_arcs: u32,
     pub max_beziers: u32,
@@ -549,7 +553,11 @@ pub struct SchematicPlotRequestA0 {
     pub sheet_index: ::std::num::NonZeroU32,
     pub sheet_name: ::std::string::String,
     pub sheet_path: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub source_path: ::std::option::Option<::std::string::String>,
     pub text_offset_ratio: crate::NonNegativeFiniteFloat,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]

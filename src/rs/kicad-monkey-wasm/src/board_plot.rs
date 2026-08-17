@@ -318,7 +318,7 @@ fn contract_footprint_operation(
     index: usize,
     operation: CoreBoardFootprintOperation,
 ) -> Result<ContractBoardFootprintOperation, String> {
-    let value = match operation {
+    let mut value = match operation {
         CoreBoardFootprintOperation::Geometry {
             operation,
             metadata,
@@ -375,7 +375,21 @@ fn contract_footprint_operation(
             "index": contract_count(index),
         }),
     };
+    omit_null_object_fields(&mut value);
     serde_json::from_value(value).map_err(|error| error.to_string())
+}
+
+fn omit_null_object_fields(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(object) => {
+            object.retain(|_, child| !child.is_null());
+            object.values_mut().for_each(omit_null_object_fields);
+        }
+        serde_json::Value::Array(values) => {
+            values.iter_mut().for_each(omit_null_object_fields);
+        }
+        _ => {}
+    }
 }
 
 fn operation_with_footprint_metadata<T: serde::Serialize>(
@@ -608,6 +622,7 @@ fn contract_text_operation(
     Ok(TextOperation {
         bold: operation.bold,
         color: operation.color,
+        context: None,
         font_face: operation.font_face,
         h_align: match operation.h_align {
             BoardTextHAlign::Left => PlotterTextHAlign::GrTextHAlignLeft,
@@ -911,6 +926,23 @@ mod tests {
     }
 
     #[test]
+    fn footprint_json_bridge_omits_null_object_fields_but_preserves_array_entries() {
+        let mut value = serde_json::json!({
+            "drop": null,
+            "nested": {"drop": null, "keep": 1},
+            "array": [null, {"drop": null, "keep": "value"}],
+        });
+        omit_null_object_fields(&mut value);
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "nested": {"keep": 1},
+                "array": [null, {"keep": "value"}],
+            })
+        );
+    }
+
+    #[test]
     fn board_plotter_host_path_emits_established_ir_shape_and_limits_output() {
         let vectors: Value = serde_json::from_str(include_str!(
             "../../../../tests/parity/board_plotter_a0_vectors.json"
@@ -930,6 +962,16 @@ mod tests {
                 vector["expected"]["total_operations"]
             );
             assert_eq!(document, vector["expected"], "{}", vector["id"]);
+            for record in document["records"].as_array().expect("record array") {
+                for operation in record["operations"].as_array().into_iter().flatten() {
+                    if operation["kind"] == "Text" {
+                        assert!(
+                            operation.get("context").is_none(),
+                            "legacy board text must not acquire hyperlink context"
+                        );
+                    }
+                }
+            }
         }
 
         let vector = &vectors["vectors"][0];

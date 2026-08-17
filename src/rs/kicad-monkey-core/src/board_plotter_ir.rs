@@ -535,6 +535,21 @@ struct BudgetTracker {
 }
 
 impl BudgetTracker {
+    fn new(limits: BoardPlotLimits) -> Self {
+        Self {
+            max_operations: limits.max_operations,
+            max_points: limits.max_points,
+            operation_count: 0,
+            point_count: 0,
+            max_text_bytes: limits.max_text_bytes,
+            text_bytes: 0,
+            max_net_class_bytes: limits.max_net_class_bytes,
+            net_class_bytes: 0,
+            max_metadata_bytes: limits.max_metadata_bytes,
+            metadata_bytes: 0,
+        }
+    }
+
     fn remaining_operations(&self) -> Result<usize, Error> {
         self.max_operations
             .checked_sub(self.operation_count)
@@ -656,18 +671,7 @@ pub fn board_plot_document_with_text_cache_sidecar(
     let metadata = view.metadata()?;
     ensure_javascript_safe_integer(metadata.version)?;
 
-    let mut budget = BudgetTracker {
-        max_operations: limits.max_operations,
-        max_points: limits.max_points,
-        operation_count: 0,
-        point_count: 0,
-        max_text_bytes: limits.max_text_bytes,
-        text_bytes: 0,
-        max_net_class_bytes: limits.max_net_class_bytes,
-        net_class_bytes: 0,
-        max_metadata_bytes: limits.max_metadata_bytes,
-        metadata_bytes: 0,
-    };
+    let mut budget = BudgetTracker::new(limits);
     // Decode the shared graphics family once, then partition borrowed carriers
     // into the Python category order for geometry and text producers.
     let (graphics, decoded_graphic_points) = decoded_graphics(&view, limits)?;
@@ -728,31 +732,32 @@ pub fn board_plot_document_with_text_cache_sidecar(
         limits,
         &mut records,
     )?;
-    let mut decoded_input_points = decoded_graphic_points
+    let decoded_input_points = decoded_graphic_points
         .checked_add(decoded_table_points)
         .and_then(|count| count.checked_add(decoded_dimension_points))
         .filter(|count| *count <= limits.max_input_points)
         .ok_or_else(input_point_limit_error)?;
-    let mut decoded_input_polygons = 0usize;
+    let mut decoded_inputs = (decoded_input_points, 0usize);
     append_zone_records(
         &view,
         net_classes,
         &mut budget,
         limits,
-        &mut decoded_input_points,
-        &mut decoded_input_polygons,
+        &mut decoded_inputs.0,
+        &mut decoded_inputs.1,
         &mut records,
     )?;
     footprint::append_footprint_records(
-        source,
-        &view,
-        net_classes,
+        footprint::FootprintAppendContext {
+            source,
+            view: &view,
+            net_classes,
+            text_cache: text_cache.as_ref(),
+            board_mask_clearance: metadata.pad_to_mask_clearance,
+            limits,
+        },
         &mut budget,
-        text_cache.as_ref(),
-        metadata.pad_to_mask_clearance,
-        limits,
-        &mut decoded_input_points,
-        &mut decoded_input_polygons,
+        &mut decoded_inputs,
         &mut records,
     )?;
     Ok(BoardPlotDocument {

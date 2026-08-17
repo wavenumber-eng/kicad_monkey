@@ -176,6 +176,36 @@ fn footprint_plotter_defaults_match_python_and_operation_limits_fail_closed() {
 }
 
 #[test]
+fn footprint_source_bytes_and_depth_are_inclusive_boundaries() {
+    let exact = FootprintPlotLimits {
+        max_source_bytes: LINE_FOOTPRINT.len(),
+        // The deepest authored carriers are `(width ...)` and `(type ...)`
+        // at zero-based nesting depth three.
+        max_depth: 3,
+        ..FootprintPlotLimits::default()
+    };
+    footprint_plot_document(LINE_FOOTPRINT, exact).expect("exact source and depth ceilings");
+
+    for limits in [
+        FootprintPlotLimits {
+            max_source_bytes: LINE_FOOTPRINT.len() - 1,
+            ..exact
+        },
+        FootprintPlotLimits {
+            max_depth: 2,
+            ..exact
+        },
+    ] {
+        assert_eq!(
+            footprint_plot_document(LINE_FOOTPRINT, limits)
+                .expect_err("one-under producer input ceiling")
+                .kind,
+            ErrorKind::ResourceLimit
+        );
+    }
+}
+
+#[test]
 fn dashed_lines_expand_to_bounded_thick_segments() {
     let source = LINE_FOOTPRINT.replace("(type solid)", "(type dash)");
     let document = footprint_plot_document(&source, FootprintPlotLimits::default())

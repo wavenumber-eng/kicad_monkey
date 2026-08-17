@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head>
   <meta charset="utf-8">
   <title>Rust native text render cache</title>
@@ -8,7 +8,7 @@
 <body>
   <h1>Rust native text render cache</h1>
 
-  <p>Status: proposal. The active native render-cache gate composes the already
+  <p>Status: accepted. The native render-cache gate composes the already
   accepted shaping and outline boundaries into KiCad-compatible polygon
   caches. Work is intentionally staged so a final contour mismatch remains
   attributable to shaping, outline extraction, curve decomposition, placement,
@@ -312,8 +312,9 @@
   fracture scoping with Simplify seam rewrite and outer reordering (the
   former Arial <code>%</code> gap, now closed &mdash; it was per-glyph outer
   output ordering plus hole-free ring seam rewriting, not geometry cleanup).
-  They do not yet claim broad font and composite-glyph
-  coverage, or repository-local corpus coverage. One known limitation sits in
+  The Phase 5 exit gate adds a focused transient authored Arial board and live
+  save-oracle case. The accepted boundary does not claim exhaustive font,
+  composite-glyph, or every-corpus-object coverage. One known limitation sits in
   the Python reference (not the Rust port): without a provisioned
   <code>KICAD_HARFBUZZ_DLL</code> its pure-uharfbuzz fallback shaping drifts a
   few microns per glyph at larger x positions; with the hb_ft path it matches

@@ -624,6 +624,39 @@ struct CarrierSpans {
     sheets: Vec<FormSpan>,
 }
 
+struct SchematicBuildContext<'a, 'font> {
+    source: &'a str,
+    limits: SchematicPlotLimits,
+    plot: &'a SchematicPlotContext,
+    scope: SchematicPlotScope,
+    drawing: Option<SchematicDrawingSettings>,
+    text_resources: Option<&'a PlotterTextCacheResources<'font>>,
+}
+
+struct SchematicSourceInputs {
+    version: i64,
+    generator: String,
+    generator_version: String,
+    uuid: String,
+    paper: Paper,
+    title_block: Option<SchematicTitleBlock>,
+    carriers: CarrierSpans,
+}
+
+struct SchematicHeaderBuild {
+    header: SchematicSheetHeaderRecord,
+    document_id: String,
+    width_nm: i64,
+    height_nm: i64,
+    budget: PlotBudget,
+}
+
+struct ConnectivityPolylineStyle {
+    kind: SchematicConnectivityRecordKind,
+    default_width_mm: f64,
+    default_color: &'static str,
+}
+
 pub(super) struct AnnotationSpans {
     labels: Vec<FormSpan>,
     global_labels: Vec<FormSpan>,
@@ -837,20 +870,68 @@ fn schematic_plot_document_impl(
     drawing_settings: Option<SchematicDrawingSettings>,
     text_resources: Option<&PlotterTextCacheResources<'_>>,
 ) -> Result<SchematicPlotDocument, Error> {
-    validate_context(context, limits)?;
+    let build = SchematicBuildContext {
+        source,
+        limits,
+        plot: context,
+        scope,
+        drawing: drawing_settings,
+        text_resources,
+    };
+    validate_schematic_source(&build)?;
+    let inputs = collect_schematic_inputs(&build)?;
+    let SchematicSourceInputs {
+        version,
+        generator,
+        generator_version,
+        uuid,
+        paper,
+        title_block,
+        carriers,
+    } = inputs;
+    let header = build_schematic_header(
+        &build,
+        version,
+        generator,
+        generator_version,
+        uuid,
+        paper,
+        title_block,
+    )?;
+    let mut budget = header.budget;
+    let records = render_schematic_records(&build, carriers, header.header, &mut budget)?;
+    Ok(SchematicPlotDocument {
+        source_path: context.source_path.clone(),
+        document_id: header.document_id,
+        canvas: SchematicCanvas {
+            width_nm: header.width_nm,
+            height_nm: header.height_nm,
+        },
+        records,
+    })
+}
+
+fn validate_schematic_source(build: &SchematicBuildContext<'_, '_>) -> Result<(), Error> {
+    validate_context(build.plot, build.limits)?;
     // The projection below avoids retaining the entire syntax tree, while
     // this one-shot bounded parse makes max_parse_nodes an aggregate source
     // ceiling rather than a per-selected-form ceiling.
     parse_with_limits(
-        source,
+        build.source,
         Limits {
-            max_source_bytes: limits.max_source_bytes,
-            max_depth: limits.max_depth,
-            max_nodes: limits.max_parse_nodes,
-            max_decoded_string_bytes: limits.max_source_bytes,
+            max_source_bytes: build.limits.max_source_bytes,
+            max_depth: build.limits.max_depth,
+            max_nodes: build.limits.max_parse_nodes,
+            max_decoded_string_bytes: build.limits.max_source_bytes,
         },
     )?;
-    let spans = selected_spans(source, limits, scope)?;
+    Ok(())
+}
+
+fn collect_schematic_inputs(
+    build: &SchematicBuildContext<'_, '_>,
+) -> Result<SchematicSourceInputs, Error> {
+    let spans = selected_spans(build.source, build.limits, build.scope)?;
     let roots = spans
         .iter()
         .filter(|span| span.depth == 0)
@@ -868,18 +949,22 @@ fn schematic_plot_document_impl(
     for span in spans.into_iter().filter(|span| span.depth == 1) {
         match span.head.as_deref() {
             Some("version") if version.is_none() => {
-                version = Some(form_i64(source, &span, limits)?)
+                version = Some(form_i64(build.source, &span, build.limits)?)
             }
             Some("generator") if generator.is_none() => {
-                generator = Some(form_string(source, &span, limits)?)
+                generator = Some(form_string(build.source, &span, build.limits)?)
             }
             Some("generator_version") if generator_version.is_none() => {
-                generator_version = Some(form_string(source, &span, limits)?)
+                generator_version = Some(form_string(build.source, &span, build.limits)?)
             }
-            Some("uuid") if uuid.is_none() => uuid = Some(form_string(source, &span, limits)?),
-            Some("paper") if paper.is_none() => paper = Some(parse_paper(source, &span, limits)?),
+            Some("uuid") if uuid.is_none() => {
+                uuid = Some(form_string(build.source, &span, build.limits)?)
+            }
+            Some("paper") if paper.is_none() => {
+                paper = Some(parse_paper(build.source, &span, build.limits)?)
+            }
             Some("title_block") if title_block.is_none() => {
-                title_block = Some(parse_title_block(source, &span, limits)?)
+                title_block = Some(parse_title_block(build.source, &span, build.limits)?)
             }
             Some("wire") => carriers.wires.push(span),
             Some("bus") => carriers.buses.push(span),
@@ -908,6 +993,25 @@ fn schematic_plot_document_impl(
             _ => {}
         }
     }
+    validate_carrier_counts(&carriers, build.limits)?;
+    let version = version.unwrap_or(DEFAULT_VERSION);
+    ensure_javascript_safe_integer(version)?;
+    Ok(SchematicSourceInputs {
+        version,
+        generator: generator.unwrap_or_else(|| DEFAULT_GENERATOR.to_owned()),
+        generator_version: generator_version
+            .unwrap_or_else(|| DEFAULT_GENERATOR_VERSION.to_owned()),
+        uuid: uuid.unwrap_or_default(),
+        paper: paper.unwrap_or_default(),
+        title_block,
+        carriers,
+    })
+}
+
+fn validate_carrier_counts(
+    carriers: &CarrierSpans,
+    limits: SchematicPlotLimits,
+) -> Result<(), Error> {
     ensure_family_limit(carriers.wires.len(), limits.max_wires)?;
     ensure_family_limit(carriers.buses.len(), limits.max_buses)?;
     ensure_family_limit(carriers.bus_entries.len(), limits.max_bus_entries)?;
@@ -932,27 +1036,33 @@ fn schematic_plot_document_impl(
     ensure_family_limit(carriers.tables.len(), limits.max_tables)?;
     ensure_family_limit(carriers.symbols.len(), limits.max_symbols)?;
     ensure_family_limit(carriers.sheets.len(), limits.max_sheets)?;
-    let version = version.unwrap_or(DEFAULT_VERSION);
-    ensure_javascript_safe_integer(version)?;
-    let generator = generator.unwrap_or_else(|| DEFAULT_GENERATOR.to_owned());
-    let generator_version =
-        generator_version.unwrap_or_else(|| DEFAULT_GENERATOR_VERSION.to_owned());
-    let uuid = uuid.unwrap_or_default();
-    let document_id = context
+    Ok(())
+}
+
+fn build_schematic_header(
+    build: &SchematicBuildContext<'_, '_>,
+    version: i64,
+    generator: String,
+    generator_version: String,
+    uuid: String,
+    paper: Paper,
+    title_block: Option<SchematicTitleBlock>,
+) -> Result<SchematicHeaderBuild, Error> {
+    let document_id = build
+        .plot
         .document_id
         .clone()
         .or_else(|| (!uuid.is_empty()).then(|| uuid.clone()))
         .unwrap_or_default();
-    let paper = paper.unwrap_or_default();
     let (sheet_width_nm, sheet_height_nm) = paper_dimensions(&paper)?;
-    let mut budget = PlotBudget::new(limits);
+    let mut budget = PlotBudget::new(build.limits);
     budget.charge_metadata(
         uuid.len()
             .saturating_add(generator.len())
             .saturating_add(generator_version.len())
             .saturating_add(paper.size.len())
             .saturating_add(title_block.as_ref().map_or(0, title_block_bytes))
-            .saturating_add(context.source_path.as_deref().map_or(0, str::len))
+            .saturating_add(build.plot.source_path.as_deref().map_or(0, str::len))
             .saturating_add(document_id.len()),
     )?;
     let header_operations = drawing_sheet_operations(
@@ -960,25 +1070,105 @@ fn schematic_plot_document_impl(
         title_block.as_ref(),
         sheet_width_nm,
         sheet_height_nm,
-        context,
-        limits,
+        build.plot,
+        build.limits,
         &mut budget,
     )?;
     budget.charge(1, 0, 0)?;
-    let header = SchematicSheetHeaderRecord {
-        uuid: uuid.clone(),
-        paper_size: paper.size,
-        paper_width_mm: paper.width,
-        paper_height_mm: paper.height,
-        paper_portrait: paper.portrait,
-        sheet_width_nm,
-        sheet_height_nm,
-        version,
-        generator,
-        generator_version,
-        title_block: title_block.clone(),
-        operations: header_operations,
-    };
+    Ok(SchematicHeaderBuild {
+        header: SchematicSheetHeaderRecord {
+            uuid,
+            paper_size: paper.size,
+            paper_width_mm: paper.width,
+            paper_height_mm: paper.height,
+            paper_portrait: paper.portrait,
+            sheet_width_nm,
+            sheet_height_nm,
+            version,
+            generator,
+            generator_version,
+            title_block,
+            operations: header_operations,
+        },
+        document_id,
+        width_nm: sheet_width_nm,
+        height_nm: sheet_height_nm,
+        budget,
+    })
+}
+
+fn render_schematic_records(
+    build: &SchematicBuildContext<'_, '_>,
+    mut carriers: CarrierSpans,
+    header: SchematicSheetHeaderRecord,
+    budget: &mut PlotBudget,
+) -> Result<Vec<SchematicPlotRecord>, Error> {
+    let mut records = vec![SchematicPlotRecord::SheetHeader(header)];
+    append_connectivity_records(build, &mut carriers, budget, &mut records)?;
+    append_scoped_records(build, carriers, budget, &mut records)?;
+    Ok(records)
+}
+
+fn append_connectivity_records(
+    build: &SchematicBuildContext<'_, '_>,
+    carriers: &mut CarrierSpans,
+    budget: &mut PlotBudget,
+    records: &mut Vec<SchematicPlotRecord>,
+) -> Result<(), Error> {
+    append_polyline_records(
+        build.source,
+        std::mem::take(&mut carriers.wires),
+        ConnectivityPolylineStyle {
+            kind: SchematicConnectivityRecordKind::Wire,
+            default_width_mm: DEFAULT_WIRE_WIDTH_MM,
+            default_color: WIRE_COLOR,
+        },
+        build.limits,
+        budget,
+        records,
+    )?;
+    append_polyline_records(
+        build.source,
+        std::mem::take(&mut carriers.buses),
+        ConnectivityPolylineStyle {
+            kind: SchematicConnectivityRecordKind::Bus,
+            default_width_mm: DEFAULT_BUS_WIDTH_MM,
+            default_color: BUS_COLOR,
+        },
+        build.limits,
+        budget,
+        records,
+    )?;
+    append_bus_entry_records(
+        build.source,
+        std::mem::take(&mut carriers.bus_entries),
+        build.limits,
+        budget,
+        records,
+    )?;
+    append_junction_records(
+        build.source,
+        std::mem::take(&mut carriers.junctions),
+        build.limits,
+        budget,
+        records,
+    )?;
+    append_no_connect_records(
+        build.source,
+        std::mem::take(&mut carriers.no_connects),
+        build.drawing.map(|settings| settings.default_line_width_nm),
+        build.limits,
+        budget,
+        records,
+    )
+}
+
+fn append_scoped_records(
+    build: &SchematicBuildContext<'_, '_>,
+    mut carriers: CarrierSpans,
+    budget: &mut PlotBudget,
+    records: &mut Vec<SchematicPlotRecord>,
+) -> Result<(), Error> {
     let annotation_spans = AnnotationSpans {
         labels: std::mem::take(&mut carriers.labels),
         global_labels: std::mem::take(&mut carriers.global_labels),
@@ -997,124 +1187,95 @@ fn schematic_plot_document_impl(
         images: std::mem::take(&mut carriers.images),
         tables: std::mem::take(&mut carriers.tables),
     };
-    let lib_symbols = carriers.lib_symbols.take();
-    let symbol_spans = std::mem::take(&mut carriers.symbols);
-    let sheet_spans = std::mem::take(&mut carriers.sheets);
-    let mut records = vec![SchematicPlotRecord::SheetHeader(header)];
-    append_polyline_records(
-        source,
-        carriers.wires,
-        SchematicConnectivityRecordKind::Wire,
-        DEFAULT_WIRE_WIDTH_MM,
-        WIRE_COLOR,
-        limits,
-        &mut budget,
-        &mut records,
-    )?;
-    append_polyline_records(
-        source,
-        carriers.buses,
-        SchematicConnectivityRecordKind::Bus,
-        DEFAULT_BUS_WIDTH_MM,
-        BUS_COLOR,
-        limits,
-        &mut budget,
-        &mut records,
-    )?;
-    append_bus_entry_records(
-        source,
-        carriers.bus_entries,
-        limits,
-        &mut budget,
-        &mut records,
-    )?;
-    append_junction_records(
-        source,
-        carriers.junctions,
-        limits,
-        &mut budget,
-        &mut records,
-    )?;
-    append_no_connect_records(
-        source,
-        carriers.no_connects,
-        drawing_settings.map(|settings| settings.default_line_width_nm),
-        limits,
-        &mut budget,
-        &mut records,
-    )?;
-    let session = if scope >= SchematicPlotScope::Annotations {
-        text_resources
+    let session = if build.scope >= SchematicPlotScope::Annotations {
+        build
+            .text_resources
             .map(PlotterTextCacheSession::new)
             .transpose()?
     } else {
         None
     };
-    let variables = if scope >= SchematicPlotScope::Annotations {
-        Some(annotation_variables(context, title_block.as_ref(), limits)?)
+    let title_block = records.first().and_then(|record| match record {
+        SchematicPlotRecord::SheetHeader(header) => header.title_block.as_ref(),
+        _ => None,
+    });
+    let variables = if build.scope >= SchematicPlotScope::Annotations {
+        Some(annotation_variables(build.plot, title_block, build.limits)?)
     } else {
         None
     };
-    if let Some(drawing_settings) = drawing_settings {
+    append_annotation_scope(
+        build,
+        annotation_spans,
+        &graphic_spans,
+        &carriers,
+        variables.as_ref(),
+        session.as_ref(),
+        (budget, records),
+    )
+}
+
+fn append_annotation_scope(
+    build: &SchematicBuildContext<'_, '_>,
+    annotation_spans: AnnotationSpans,
+    graphic_spans: &GraphicSpans,
+    carriers: &CarrierSpans,
+    variables: Option<&BTreeMap<String, String>>,
+    session: Option<&PlotterTextCacheSession<'_>>,
+    output: (&mut PlotBudget, &mut Vec<SchematicPlotRecord>),
+) -> Result<(), Error> {
+    let (budget, records) = output;
+    if let Some(drawing) = build.drawing {
         append_annotation_records(
-            source,
+            build.source,
             annotation_spans,
-            drawing_settings,
-            variables.as_ref().expect("annotation scope has variables"),
-            session.as_ref(),
-            limits,
-            &mut budget,
-            &mut records,
+            drawing,
+            variables.expect("annotation scope has variables"),
+            session,
+            build.limits,
+            (budget, records),
         )?;
     }
-    if scope >= SchematicPlotScope::Graphics {
-        append_graphic_records(source, &graphic_spans, limits, &mut budget, &mut records)?;
-        append_rule_area_records(source, &graphic_spans, limits, &mut budget, &mut records)?;
-        append_image_records(source, &graphic_spans, limits, &mut budget, &mut records)?;
+    if build.scope >= SchematicPlotScope::Graphics {
+        append_graphic_records(build.source, graphic_spans, build.limits, budget, records)?;
+        append_rule_area_records(build.source, graphic_spans, build.limits, budget, records)?;
+        append_image_records(build.source, graphic_spans, build.limits, budget, records)?;
         append_table_records(
-            source,
-            &graphic_spans,
-            variables.as_ref().expect("graphics scope has variables"),
-            session.as_ref(),
-            limits,
-            &mut budget,
-            &mut records,
+            build.source,
+            graphic_spans,
+            variables.expect("graphics scope has variables"),
+            session,
+            build.limits,
+            budget,
+            records,
         )?;
     }
-    if scope >= SchematicPlotScope::Symbols {
+    if build.scope >= SchematicPlotScope::Symbols {
         append_symbol_records(
-            source,
-            lib_symbols.as_ref(),
-            &symbol_spans,
-            context,
-            drawing_settings.expect("symbol scope has drawing settings"),
-            variables.as_ref().expect("symbol scope has variables"),
-            session.as_ref(),
-            limits,
-            &mut budget,
-            &mut records,
+            build.source,
+            carriers.lib_symbols.as_ref(),
+            &carriers.symbols,
+            build.plot,
+            build.drawing.expect("symbol scope has drawing settings"),
+            variables.expect("symbol scope has variables"),
+            session,
+            build.limits,
+            budget,
+            records,
         )?;
     }
-    if scope >= SchematicPlotScope::Sheets {
+    if build.scope >= SchematicPlotScope::Sheets {
         append_sheet_records(
-            source,
-            &sheet_spans,
-            drawing_settings.expect("sheet scope has drawing settings"),
-            session.as_ref(),
-            limits,
-            &mut budget,
-            &mut records,
+            build.source,
+            &carriers.sheets,
+            build.drawing.expect("sheet scope has drawing settings"),
+            session,
+            build.limits,
+            budget,
+            records,
         )?;
     }
-    Ok(SchematicPlotDocument {
-        source_path: context.source_path.clone(),
-        document_id,
-        canvas: SchematicCanvas {
-            width_nm: sheet_width_nm,
-            height_nm: sheet_height_nm,
-        },
-        records,
-    })
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1221,28 +1382,26 @@ fn parse_span(source: &str, span: &FormSpan, limits: SchematicPlotLimits) -> Res
 fn append_polyline_records(
     source: &str,
     spans: Vec<FormSpan>,
-    kind: SchematicConnectivityRecordKind,
-    default_width_mm: f64,
-    default_color: &str,
+    style: ConnectivityPolylineStyle,
     limits: SchematicPlotLimits,
     budget: &mut PlotBudget,
     records: &mut Vec<SchematicPlotRecord>,
 ) -> Result<(), Error> {
     for span in spans {
         let form = parse_span(source, &span, limits)?;
-        let points = child(&form, "pts").map_or(Ok(Vec::new()), |pts| parse_points(pts))?;
+        let points = child(&form, "pts").map_or(Ok(Vec::new()), parse_points)?;
         budget.charge_input_points(points.len())?;
         if points.is_empty() {
             continue;
         }
         let uuid = child_string(&form, "uuid").unwrap_or_default();
-        let stroke = resolve_stroke(&form, default_width_mm, default_color)?;
+        let stroke = resolve_stroke(&form, style.default_width_mm, style.default_color)?;
         budget.charge_metadata(uuid.len())?;
         budget.charge(1, 1, points.len())?;
         records.push(SchematicPlotRecord::Connectivity(
             SchematicConnectivityRecord {
                 uuid,
-                kind,
+                kind: style.kind,
                 junction_color_authored: false,
                 junction_color: None,
                 operations: vec![

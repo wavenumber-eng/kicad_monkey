@@ -9,9 +9,9 @@ use crate::generated::schematic_plot_document::{
     SchematicNetclassFlagShape, SchematicNoConnectPlotRecord, SchematicPlotDocumentA0,
     SchematicPlotRecord, SchematicRuleAreaPlotRecord, SchematicRuleAreaShape,
     SchematicSheetHeaderPlotRecord, SchematicSheetOperation, SchematicSheetPlotRecord,
-    SchematicSymbolInstancePlotRecord, SchematicSymbolOperation, SchematicSymbolOverplotPlotRecord,
-    SchematicTablePlotRecord, SchematicTextBoxPlotRecord, SchematicTextPlotRecord, TextOperation,
-    ThickSegmentOperation,
+    SchematicSheetStartBlockOperation, SchematicSymbolInstancePlotRecord, SchematicSymbolOperation,
+    SchematicSymbolOverplotPlotRecord, SchematicTablePlotRecord, SchematicTextBoxPlotRecord,
+    SchematicTextPlotRecord, TextOperation, ThickSegmentOperation,
 };
 use crate::{ValidationError, validation_error};
 
@@ -733,6 +733,17 @@ fn symbol_operation_header(operation: &SchematicSymbolOperation) -> (u32, &str, 
 }
 
 fn validate_sheet(record: &SchematicSheetPlotRecord, path: &str) -> Result<(), ValidationError> {
+    validate_sheet_identity(record, path)?;
+    validate_sheet_operation_headers(record, path)?;
+    validate_sheet_body_passes(record, path)?;
+    let content_end = validate_sheet_terminal_markers(record, path)?;
+    validate_sheet_contents(record, content_end, path)
+}
+
+fn validate_sheet_identity(
+    record: &SchematicSheetPlotRecord,
+    path: &str,
+) -> Result<(), ValidationError> {
     if record.kind != "sheet"
         || record.object_id != record.sheet_name
         || record.size_x_nm.get() <= 0
@@ -745,6 +756,13 @@ fn validate_sheet(record: &SchematicSheetPlotRecord, path: &str) -> Result<(), V
             "hierarchical-sheet identity, size, and operation count must be canonical",
         ));
     }
+    Ok(())
+}
+
+fn validate_sheet_operation_headers(
+    record: &SchematicSheetPlotRecord,
+    path: &str,
+) -> Result<(), ValidationError> {
     for (index, operation) in record.operations.iter().enumerate() {
         let (actual_index, kind, expected_kind) = sheet_operation_header(operation);
         if actual_index as usize != index || kind != expected_kind {
@@ -755,6 +773,13 @@ fn validate_sheet(record: &SchematicSheetPlotRecord, path: &str) -> Result<(), V
             ));
         }
     }
+    Ok(())
+}
+
+fn validate_sheet_body_passes(
+    record: &SchematicSheetPlotRecord,
+    path: &str,
+) -> Result<(), ValidationError> {
     let [
         SchematicSheetOperation::RectOperation(first),
         SchematicSheetOperation::RectOperation(outline),
@@ -793,7 +818,13 @@ fn validate_sheet(record: &SchematicSheetPlotRecord, path: &str) -> Result<(), V
             ));
         }
     }
+    Ok(())
+}
 
+fn validate_sheet_terminal_markers(
+    record: &SchematicSheetPlotRecord,
+    path: &str,
+) -> Result<usize, ValidationError> {
     let content_end = record
         .operations
         .len()
@@ -844,7 +875,14 @@ fn validate_sheet(record: &SchematicSheetPlotRecord, path: &str) -> Result<(), V
             ));
         }
     }
+    Ok(content_end)
+}
 
+fn validate_sheet_contents(
+    record: &SchematicSheetPlotRecord,
+    content_end: usize,
+    path: &str,
+) -> Result<(), ValidationError> {
     let mut index = 2usize;
     let mut saw_property = false;
     while index < content_end {
@@ -860,18 +898,7 @@ fn validate_sheet(record: &SchematicSheetPlotRecord, path: &str) -> Result<(), V
                         "sheet-pin block must contain Text, optional decoration, and EndBlock",
                     ));
                 };
-                if saw_property
-                    || start.label.is_empty()
-                    || start.label != start.data_uuid
-                    || start.label != start.object_id
-                    || start.data_ref != "sheet_pin"
-                {
-                    return Err(error(
-                        "invalid_sheet_pin_block",
-                        &operation_path,
-                        "sheet-pin ownership must be nonempty, linked, and precede properties",
-                    ));
-                }
+                validate_sheet_pin_owner(start, saw_property, &operation_path)?;
                 validate_sheet_pin(
                     text,
                     decoration,
@@ -917,6 +944,26 @@ fn validate_sheet(record: &SchematicSheetPlotRecord, path: &str) -> Result<(), V
                 ));
             }
         }
+    }
+    Ok(())
+}
+
+fn validate_sheet_pin_owner(
+    start: &SchematicSheetStartBlockOperation,
+    saw_property: bool,
+    path: &str,
+) -> Result<(), ValidationError> {
+    if saw_property
+        || start.label.is_empty()
+        || start.label != start.data_uuid
+        || start.label != start.object_id
+        || start.data_ref != "sheet_pin"
+    {
+        return Err(error(
+            "invalid_sheet_pin_block",
+            path,
+            "sheet-pin ownership must be nonempty, linked, and precede properties",
+        ));
     }
     Ok(())
 }
@@ -998,6 +1045,12 @@ fn validate_sheet_pin(
     attrs: Option<&std::collections::BTreeMap<String, String>>,
     path: &str,
 ) -> Result<(), ValidationError> {
+    validate_sheet_pin_text(text, path)?;
+    let shape = validate_sheet_pin_attrs(attrs, text, record, path)?;
+    validate_sheet_pin_decoration(decoration, text, record, shape, path)
+}
+
+fn validate_sheet_pin_text(text: &TextOperation, path: &str) -> Result<(), ValidationError> {
     validate_annotation_text(text, &format!("{path}.text"))?;
     if text.multiline {
         return Err(error(
@@ -1006,54 +1059,72 @@ fn validate_sheet_pin(
             "sheet pin text must remain a single plotter text operation",
         ));
     }
-    let mut shape = None;
-    if let Some(attrs) = attrs {
-        let required = [
-            "primitive",
-            "object-type",
-            "sheet-uuid",
-            "sheet-name",
-            "sheet-file",
-            "pin",
-            "pin-name",
-            "shape",
-        ];
-        let attrs_valid = attrs.len() == required.len()
-            && required.iter().all(|key| attrs.contains_key(*key))
-            && attrs.get("primitive").map(String::as_str) == Some("sheet-entry")
-            && attrs.get("object-type").map(String::as_str) == Some("sheet-pin")
-            && attrs.get("sheet-uuid").map(String::as_str) == Some(record.uuid.as_str())
-            && attrs.get("sheet-name").map(String::as_str) == Some(record.sheet_name.as_str())
-            && attrs.get("sheet-file").map(String::as_str) == Some(record.sheet_file.as_str())
-            && attrs.get("pin") == attrs.get("pin-name");
-        let value = attrs.get("shape").map(String::as_str);
-        if !attrs_valid
-            || !matches!(
-                value,
-                Some(
-                    "input"
-                        | "output"
-                        | "bidirectional"
-                        | "tri_state"
-                        | "passive"
-                        | "dot"
-                        | "round"
-                        | "diamond"
-                        | "rectangle"
-                )
+    Ok(())
+}
+
+fn validate_sheet_pin_attrs<'a>(
+    attrs: Option<&'a std::collections::BTreeMap<String, String>>,
+    text: &TextOperation,
+    record: &SchematicSheetPlotRecord,
+    path: &str,
+) -> Result<Option<&'a str>, ValidationError> {
+    let Some(attrs) = attrs else {
+        return Ok(None);
+    };
+    let required = [
+        "primitive",
+        "object-type",
+        "sheet-uuid",
+        "sheet-name",
+        "sheet-file",
+        "pin",
+        "pin-name",
+        "shape",
+    ];
+    let attrs_valid = attrs.len() == required.len()
+        && required.iter().all(|key| attrs.contains_key(*key))
+        && attrs.get("primitive").map(String::as_str) == Some("sheet-entry")
+        && attrs.get("object-type").map(String::as_str) == Some("sheet-pin")
+        && attrs.get("sheet-uuid").map(String::as_str) == Some(record.uuid.as_str())
+        && attrs.get("sheet-name").map(String::as_str) == Some(record.sheet_name.as_str())
+        && attrs.get("sheet-file").map(String::as_str) == Some(record.sheet_file.as_str())
+        && attrs.get("pin") == attrs.get("pin-name");
+    let shape = attrs.get("shape").map(String::as_str);
+    if !attrs_valid
+        || !matches!(
+            shape,
+            Some(
+                "input"
+                    | "output"
+                    | "bidirectional"
+                    | "tri_state"
+                    | "passive"
+                    | "dot"
+                    | "round"
+                    | "diamond"
+                    | "rectangle"
             )
-            || attrs
-                .get("pin-name")
-                .is_none_or(|name| text.text != name.replace("{slash}", "/"))
-        {
-            return Err(error(
-                "invalid_sheet_pin_attrs",
-                format!("{path}.extra_attrs"),
-                "sheet-pin metadata must use the exact linked vocabulary",
-            ));
-        }
-        shape = value;
+        )
+        || attrs
+            .get("pin-name")
+            .is_none_or(|name| text.text != name.replace("{slash}", "/"))
+    {
+        return Err(error(
+            "invalid_sheet_pin_attrs",
+            format!("{path}.extra_attrs"),
+            "sheet-pin metadata must use the exact linked vocabulary",
+        ));
     }
+    Ok(shape)
+}
+
+fn validate_sheet_pin_decoration(
+    decoration: Option<&PlotPolyOperation>,
+    text: &TextOperation,
+    record: &SchematicSheetPlotRecord,
+    shape: Option<&str>,
+    path: &str,
+) -> Result<(), ValidationError> {
     let decoration_required = shape.is_none_or(|shape| {
         matches!(
             shape,

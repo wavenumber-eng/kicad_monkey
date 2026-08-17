@@ -173,7 +173,11 @@ pub struct BoardNetClassAssignment {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct BoardPlotRequestA0 {
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub document_id: ::std::option::Option<::std::string::String>,
     pub max_cache_contours: u32,
     pub max_cache_polygons: u32,
@@ -189,7 +193,11 @@ pub struct BoardPlotRequestA0 {
     pub max_text_bytes: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub net_class_assignments: ::std::vec::Vec<BoardNetClassAssignment>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub source_path: ::std::option::Option<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub text_variables: ::std::vec::Vec<BoardTextVariable>,

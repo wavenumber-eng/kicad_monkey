@@ -334,14 +334,54 @@ fn shared_schematic_vectors_decode_validate_and_round_trip_exactly() {
     }
 }
 
+fn sheet_with_undecorated_pin(canonical: &serde_json::Value, shape: &str) -> serde_json::Value {
+    let mut document = canonical.clone();
+    document["records"][5]["operations"][2]["extra_attrs"]["shape"] = serde_json::json!(shape);
+    document["records"][5]["operations"]
+        .as_array_mut()
+        .expect("operations")
+        .remove(4);
+    for (index, operation) in document["records"][5]["operations"]
+        .as_array_mut()
+        .expect("operations")
+        .iter_mut()
+        .enumerate()
+    {
+        operation["index"] = serde_json::json!(index);
+    }
+    document["records"][5]["operation_count"] = serde_json::json!(26);
+    document["total_operations"] = serde_json::json!(66);
+    document
+}
+
 #[test]
-fn schematic_sheet_semantic_mutations_fail_closed() {
+fn schematic_sheet_accepts_canonical_and_authoritative_variants() {
     let canonical = shared_vector(
         "schematic_plotter_a0_vectors.json",
         "hierarchical-sheets-follow-symbol-overplots",
     );
     validate_schematic_plot_document(&decode(&canonical)).expect("canonical sheet vector");
 
+    let mut zero_outline_width = canonical.clone();
+    zero_outline_width["records"][6]["operations"][0]["width_nm"] = serde_json::json!(0);
+    zero_outline_width["records"][6]["operations"][1]["width_nm"] = serde_json::json!(0);
+    validate_schematic_plot_document(&decode(&zero_outline_width))
+        .expect("authored negative sheet stroke projects to zero width");
+
+    let undecorated_round = sheet_with_undecorated_pin(&canonical, "round");
+    validate_schematic_plot_document(&decode(&undecorated_round))
+        .expect("undecorated round sheet pin");
+
+    let undecorated_dot = sheet_with_undecorated_pin(&canonical, "dot");
+    validate_schematic_plot_document(&decode(&undecorated_dot)).expect("undecorated dot sheet pin");
+}
+
+#[test]
+fn schematic_sheet_semantic_mutations_fail_closed() {
+    let canonical = shared_vector(
+        "schematic_plotter_a0_vectors.json",
+        "hierarchical-sheets-follow-symbol-overplots",
+    );
     let mut mutations = Vec::new();
 
     let mut wrong_phase = canonical.clone();
@@ -370,43 +410,12 @@ fn schematic_sheet_semantic_mutations_fail_closed() {
         serde_json::json!(20_000_001);
     mutations.push(mismatched_transparent_outline);
 
-    let mut zero_outline_width = canonical.clone();
-    zero_outline_width["records"][6]["operations"][0]["width_nm"] = serde_json::json!(0);
-    zero_outline_width["records"][6]["operations"][1]["width_nm"] = serde_json::json!(0);
-    validate_schematic_plot_document(&decode(&zero_outline_width))
-        .expect("authored negative sheet stroke projects to zero width");
-
-    let mut undecorated_round = canonical.clone();
-    undecorated_round["records"][5]["operations"][2]["extra_attrs"]["shape"] =
-        serde_json::json!("round");
-    undecorated_round["records"][5]["operations"]
-        .as_array_mut()
-        .expect("operations")
-        .remove(4);
-    for (index, operation) in undecorated_round["records"][5]["operations"]
-        .as_array_mut()
-        .expect("operations")
-        .iter_mut()
-        .enumerate()
-    {
-        operation["index"] = serde_json::json!(index);
-    }
-    undecorated_round["records"][5]["operation_count"] = serde_json::json!(26);
-    undecorated_round["total_operations"] = serde_json::json!(66);
-    validate_schematic_plot_document(&decode(&undecorated_round))
-        .expect("undecorated round sheet pin");
-
-    let mut undecorated_dot = undecorated_round.clone();
-    undecorated_dot["records"][5]["operations"][2]["extra_attrs"]["shape"] =
-        serde_json::json!("dot");
-    validate_schematic_plot_document(&decode(&undecorated_dot)).expect("undecorated dot sheet pin");
-
     let mut undecorated_with_decoration = canonical.clone();
     undecorated_with_decoration["records"][5]["operations"][2]["extra_attrs"]["shape"] =
         serde_json::json!("round");
     mutations.push(undecorated_with_decoration);
 
-    let mut decorated_without_decoration = undecorated_round.clone();
+    let mut decorated_without_decoration = sheet_with_undecorated_pin(&canonical, "round");
     decorated_without_decoration["records"][5]["operations"][2]["extra_attrs"]["shape"] =
         serde_json::json!("input");
     mutations.push(decorated_without_decoration);
@@ -447,7 +456,14 @@ fn schematic_sheet_semantic_mutations_fail_closed() {
     for mutation in mutations {
         assert!(validate_schematic_plot_document(&decode(&mutation)).is_err());
     }
+}
 
+#[test]
+fn schematic_sheet_decode_rejects_noncanonical_presence_and_operation_kinds() {
+    let canonical = shared_vector(
+        "schematic_plotter_a0_vectors.json",
+        "hierarchical-sheets-follow-symbol-overplots",
+    );
     let mut null_fill_color = canonical.clone();
     null_fill_color["records"][6]["operations"][0]["fill_color"] = serde_json::Value::Null;
     assert!(serde_json::from_value::<SchematicPlotDocumentA0>(null_fill_color).is_err());
@@ -771,6 +787,128 @@ fn shared_context_and_segment_color_remain_fail_closed_for_existing_producers() 
 }
 
 #[test]
+fn shared_context_and_segment_color_reject_explicit_null_for_existing_producers() {
+    let mut board = shared_vector(
+        "board_plotter_a0_vectors.json",
+        "board-text-follows-python-serializer",
+    );
+    assert!(insert_first_operation_field(
+        &mut board,
+        "Text",
+        "context",
+        serde_json::Value::Null,
+    ));
+    assert!(serde_json::from_value::<BoardPlotDocumentA0>(board).is_err());
+
+    let mut footprint = shared_vector(
+        "footprint_plotter_a0_vectors.json",
+        "standalone-properties-text-and-text-box",
+    );
+    assert!(insert_first_operation_field(
+        &mut footprint,
+        "Text",
+        "context",
+        serde_json::Value::Null,
+    ));
+    assert!(serde_json::from_value::<FootprintPlotDocumentA0>(footprint).is_err());
+
+    let mut symbol = shared_vector("symbol_plotter_a0_vectors.json", "styled-body-and-pin-text");
+    assert!(insert_first_operation_field(
+        &mut symbol,
+        "Text",
+        "context",
+        serde_json::Value::Null,
+    ));
+    assert!(serde_json::from_value::<SymbolPlotDocumentA0>(symbol).is_err());
+
+    let mut board = shared_vector(
+        "board_plotter_a0_vectors.json",
+        "board-metadata-and-category-ordered-graphics",
+    );
+    assert!(insert_first_operation_field(
+        &mut board,
+        "ThickSegment",
+        "stroke_color",
+        serde_json::Value::Null,
+    ));
+    assert!(serde_json::from_value::<BoardPlotDocumentA0>(board).is_err());
+
+    let mut footprint = shared_vector(
+        "footprint_plotter_a0_vectors.json",
+        "solid-line-with-metadata",
+    );
+    assert!(insert_first_operation_field(
+        &mut footprint,
+        "ThickSegment",
+        "stroke_color",
+        serde_json::Value::Null,
+    ));
+    assert!(serde_json::from_value::<FootprintPlotDocumentA0>(footprint).is_err());
+
+    let mut symbol = shared_vector("symbol_plotter_a0_vectors.json", "styled-body-and-pin-text");
+    symbol["records"][1]["operations"][0] = serde_json::json!({
+        "kind": "ThickSegment", "index": 0,
+        "start_x": 0, "start_y": 0, "end_x": 1, "end_y": 1,
+        "width_nm": 1, "stroke_color": null,
+    });
+    assert!(serde_json::from_value::<SymbolPlotDocumentA0>(symbol).is_err());
+}
+
+#[test]
+fn frozen_documents_reject_null_optionals_and_missing_required_nullables() {
+    let mut board = shared_vector(
+        "board_plotter_a0_vectors.json",
+        "board-metadata-and-category-ordered-graphics",
+    );
+    board["source_path"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<BoardPlotDocumentA0>(board).is_err());
+
+    let mut footprint = shared_vector(
+        "footprint_plotter_a0_vectors.json",
+        "solid-line-with-metadata",
+    );
+    footprint["source_path"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<FootprintPlotDocumentA0>(footprint).is_err());
+
+    let mut symbol = shared_vector("symbol_plotter_a0_vectors.json", "styled-body-and-pin-text");
+    symbol["source_path"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<SymbolPlotDocumentA0>(symbol).is_err());
+
+    let canonical = shared_vector(
+        "schematic_plotter_a0_vectors.json",
+        "placed-symbols-pins-fields-dnp-and-overplots",
+    );
+    let mut schematic = canonical.clone();
+    schematic["source_path"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<SchematicPlotDocumentA0>(schematic).is_err());
+
+    for field in ["paper_width_mm", "paper_height_mm"] {
+        let mut missing = canonical.clone();
+        missing["records"][0]
+            .as_object_mut()
+            .expect("sheet header")
+            .remove(field);
+        assert!(serde_json::from_value::<SchematicPlotDocumentA0>(missing).is_err());
+    }
+    let mut missing_mirror = canonical;
+    missing_mirror["records"][1]
+        .as_object_mut()
+        .expect("symbol instance")
+        .remove("mirror");
+    assert!(serde_json::from_value::<SchematicPlotDocumentA0>(missing_mirror).is_err());
+
+    let mut board = shared_vector(
+        "board_plotter_a0_vectors.json",
+        "board-metadata-and-category-ordered-graphics",
+    );
+    board["records"][0]
+        .as_object_mut()
+        .expect("board graphic")
+        .remove("layer");
+    assert!(serde_json::from_value::<BoardPlotDocumentA0>(board).is_err());
+}
+
+#[test]
 fn schematic_request_requires_every_independent_budget() {
     let request = serde_json::json!({
         "type": "kicad_monkey.schematic_plot.request", "version": "a0",
@@ -814,6 +952,9 @@ fn schematic_request_requires_every_independent_budget() {
         "max_worksheet_bitmap_decode_work": "4096"
     });
     serde_json::from_value::<SchematicPlotRequestA0>(request.clone()).expect("complete request");
+    let mut null_source_path = request.clone();
+    null_source_path["source_path"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<SchematicPlotRequestA0>(null_source_path).is_err());
     for field in ["sheet_index", "sheet_count"] {
         let mut zero = request.clone();
         zero[field] = serde_json::json!(0);

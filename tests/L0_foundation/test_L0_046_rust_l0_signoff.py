@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,9 +16,28 @@ from wn_dev_std.rust_policy import check_rust_policy
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_ROOT = PACKAGE_ROOT / "contracts" / "generated" / "schema"
 SCOPE_PATH = PACKAGE_ROOT / "tests" / "parity" / "scope.toml"
+PHASE5_FREEZE_PATH = PACKAGE_ROOT / "tests" / "parity" / "plotter_ir_phase5_freeze.json"
+PHASE5_FREEZE_RELATIVE_PATH = "tests/parity/plotter_ir_phase5_freeze.json"
+_STRICT_PLOT_SCHEMA_NAMES = {
+    f"{producer}Plot{suffix}.json"
+    for producer in ("Board", "Footprint", "Schematic", "Symbol")
+    for suffix in ("Document", "Request", "Result")
+}
+_PHASE5_UNION_ARM_COUNTS = {
+    ("FootprintPlotDocument.json", "PlotterOperation"): 14,
+    ("SymbolPlotDocument.json", "SymbolPlotRecord"): 2,
+    ("BoardPlotDocument.json", "BoardPlotRecord"): 10,
+    ("BoardPlotDocument.json", "BoardFootprintOperation"): 15,
+    ("SchematicPlotDocument.json", "SchematicPlotRecord"): 23,
+    ("SchematicPlotDocument.json", "SchematicSymbolOperation"): 16,
+    ("SchematicPlotDocument.json", "SchematicSheetOperation"): 6,
+}
 
 
 def _run(command: list[str], *, timeout: int = 300) -> None:
+    environment = os.environ.copy()
+    environment["CARGO_BUILD_JOBS"] = "4"
+    environment["RUST_TEST_THREADS"] = "2"
     completed = subprocess.run(
         command,
         cwd=PACKAGE_ROOT,
@@ -24,6 +45,7 @@ def _run(command: list[str], *, timeout: int = 300) -> None:
         text=True,
         timeout=timeout,
         check=False,
+        env=environment,
     )
     assert completed.returncode == 0, (
         f"Command failed: {' '.join(command)}\n"
@@ -39,6 +61,110 @@ def _schema_hashes() -> dict[str, str]:
     }
 
 
+def _canonical_json_sha256(path: Path) -> str:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _phase5_freeze_path(relative_path: str) -> Path:
+    path = (PACKAGE_ROOT / relative_path).resolve()
+    path.relative_to(PACKAGE_ROOT.resolve())
+    return path
+
+
+def _kind_literals(schema: dict[str, object], definition_name: str) -> list[str]:
+    definitions = schema["$defs"]
+    assert isinstance(definitions, dict)
+    definition = definitions[definition_name]
+    assert isinstance(definition, dict)
+    properties = definition["properties"]
+    assert isinstance(properties, dict)
+    kind = properties["kind"]
+    assert isinstance(kind, dict)
+    if "const" in kind:
+        assert isinstance(kind["const"], str)
+        return [kind["const"]]
+    kind_ref = kind.get("$ref")
+    assert isinstance(kind_ref, str) and kind_ref.startswith("#/$defs/")
+    kind_definition = definitions[kind_ref.removeprefix("#/$defs/")]
+    assert isinstance(kind_definition, dict)
+    literals = kind_definition["enum"]
+    assert isinstance(literals, list) and all(
+        isinstance(literal, str) for literal in literals
+    )
+    return literals
+
+
+def _union_arms(
+    schema: dict[str, object], definition_name: str
+) -> list[dict[str, object]]:
+    definitions = schema["$defs"]
+    assert isinstance(definitions, dict)
+    definition = definitions[definition_name]
+    assert isinstance(definition, dict)
+    arms = definition["anyOf"]
+    assert isinstance(arms, list)
+    projection: list[dict[str, object]] = []
+    for arm in arms:
+        assert isinstance(arm, dict) and set(arm) == {"$ref"}
+        reference = arm["$ref"]
+        assert isinstance(reference, str) and reference.startswith("#/$defs/")
+        projection.append(
+            {
+                "ref": reference,
+                "kinds": _kind_literals(schema, reference.removeprefix("#/$defs/")),
+            }
+        )
+    return projection
+
+
+def test_phase5_plotter_contract_freeze_manifest_is_exact() -> None:
+    manifest = json.loads(PHASE5_FREEZE_PATH.read_text(encoding="utf-8"))
+    assert manifest["schema"] == "kicad_monkey.plotter_ir_phase5_freeze.v1"
+    assert manifest["contract_version"] == "a0"
+
+    artifacts = manifest["artifacts"]
+    assert isinstance(artifacts, list)
+    artifact_paths = [entry["path"] for entry in artifacts]
+    assert len(artifact_paths) == len(set(artifact_paths)) == 12
+    assert {Path(path).name for path in artifact_paths} == _STRICT_PLOT_SCHEMA_NAMES
+    for entry in artifacts:
+        path = _phase5_freeze_path(entry["path"])
+        assert path.parent == SCHEMA_ROOT.resolve()
+        assert _canonical_json_sha256(path) == entry["canonical_sha256"], (
+            f"frozen strict schema changed: {entry['path']}"
+        )
+
+    unions = manifest["unions"]
+    assert isinstance(unions, list)
+    union_keys = {(Path(entry["path"]).name, entry["definition"]) for entry in unions}
+    assert union_keys == set(_PHASE5_UNION_ARM_COUNTS)
+    for entry in unions:
+        path = _phase5_freeze_path(entry["path"])
+        key = (path.name, entry["definition"])
+        expected_count = _PHASE5_UNION_ARM_COUNTS[key]
+        assert entry["expected_arm_count"] == expected_count
+        assert len(entry["arms"]) == expected_count
+        schema = json.loads(path.read_text(encoding="utf-8"))
+        assert _union_arms(schema, entry["definition"]) == entry["arms"], (
+            f"frozen union changed: {path.name}#/$defs/{entry['definition']}"
+        )
+        for mirror_relative_path in entry.get("mirror_paths", []):
+            mirror_path = _phase5_freeze_path(mirror_relative_path)
+            assert mirror_path.parent == SCHEMA_ROOT.resolve()
+            mirror_schema = json.loads(mirror_path.read_text(encoding="utf-8"))
+            assert _union_arms(mirror_schema, entry["definition"]) == entry["arms"], (
+                f"frozen union mirror changed: "
+                f"{mirror_path.name}#/$defs/{entry['definition']}"
+            )
+
+
 def test_l0_parity_registry_governs_required_implementation_gaps() -> None:
     payload = tomllib.loads(SCOPE_PATH.read_text(encoding="utf-8"))
     assert payload["schema"] == "kicad_monkey.parity_scope.a0"
@@ -51,9 +177,7 @@ def test_l0_parity_registry_governs_required_implementation_gaps() -> None:
         for subtest in stratum.get("subtests", []):
             rack_case = subtest.get("id")
             if rack_case is None:
-                stem_parts = (
-                    Path(subtest["file"]).stem.removeprefix("test_").split("_")
-                )
+                stem_parts = Path(subtest["file"]).stem.removeprefix("test_").split("_")
                 if len(stem_parts) < 2:
                     continue
                 rack_case = "_".join(stem_parts[:2])
@@ -72,9 +196,9 @@ def test_l0_parity_registry_governs_required_implementation_gaps() -> None:
             "required_bounded_slice",
             "deferred_geometer_service",
         }, surface["id"]
-        assert status in {"planned", "review_ready", "closed", "deferred"}, (
-            surface["id"]
-        )
+        assert status in {"planned", "review_ready", "closed", "deferred"}, surface[
+            "id"
+        ]
         if disposition in {"required", "replaced_by_contract"}:
             assert status in {"closed", "review_ready"}, surface["id"]
         elif disposition == "required_bounded_slice":
@@ -113,6 +237,7 @@ def test_l0_parity_registry_governs_required_implementation_gaps() -> None:
                 "tests/L3_rendering/test_L3_022_rust_phase5_exit.py"
                 in surface["semantic_resource_evidence"]
             )
+            assert PHASE5_FREEZE_RELATIVE_PATH in surface["evidence"]
         for rack_case in surface["rack_cases"]:
             assert rack_case in rack_case_paths, (
                 f"unknown {surface['id']} Rack case: {rack_case}"
@@ -141,6 +266,8 @@ def test_typespec_and_generated_rust_contracts_are_clean() -> None:
     _run([npm, "run", "check:typespec"])
     _run([npm, "run", "generate:contracts"])
     assert _schema_hashes() == before, "TypeSpec-generated JSON Schemas were stale"
+    _run([npm, "run", "check:python-generation"])
+    _run([npm, "run", "check:typescript-generation"])
     _run(
         [
             cargo,
@@ -155,9 +282,9 @@ def test_typespec_and_generated_rust_contracts_are_clean() -> None:
 
 
 def test_wn_dev_std_rust_hygiene_profile_passes() -> None:
-    config = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
-        "tool"
-    ]["wn_dev_std"]
+    config = tomllib.loads(
+        (PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )["tool"]["wn_dev_std"]
     checks = check_rust_policy(PACKAGE_ROOT, config, "rust-app")
     failures = [f"{check.name}: {check.detail}" for check in checks if not check.passed]
     assert not failures, "\n".join(failures)

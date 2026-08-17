@@ -8,6 +8,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CARGO_BUILD_JOBS: "4"
+  RUST_TEST_THREADS: "2"
 
 jobs:
   test:
@@ -23,10 +25,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
       - name: Set up Python
         run: uv python install 3.14
       - name: Sync monorepo packages
         run: uv sync --all-packages --all-extras
+      - name: Install Rust and contract gate toolchains
+        run: |
+          npm install --global npm@11.6.2
+          npm ci
+          cargo install wasm-bindgen-cli --version 0.2.127 --locked
       - name: Install public font dependencies
         if: runner.os == 'Linux'
         run: |
@@ -67,3 +83,6 @@ jobs:
         run: uv run --package kicad-cruncher --extra test python tests/support_scripts/install_test.py
       - name: Run installed two-wheel compatibility test
         run: uv run --extra test python tests/support_scripts/toolchain_install_test.py
+
+  phase5-exit:
+    uses: ./.github/workflows/phase5-exit.yml

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Complete and freeze the bounded native Phase 5 Plotter-IR producers with a
+  mandatory Windows Rack gate over exact cross-producer vectors, resource and
+  semantic suites, exact selected `KM_CORPUS` producers plus broad corpus
+  S-expression acceptance, live KiCad 10.0.5 PCB/schematic acceptance, native
+  cache parity, Cargo quality, and real WASM checks.
+
 - Complete bounded native schematic Plotter-IR with hierarchical sheet boxes,
   typed sheet-pin ownership and decorations, visible fields, DNP rendering,
   strict generated contracts, and hermetic Python-oracle evidence.

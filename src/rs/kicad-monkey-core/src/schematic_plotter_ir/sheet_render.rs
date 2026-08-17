@@ -38,6 +38,20 @@ struct RetainedBudget {
     points: usize,
 }
 
+#[derive(Clone, Copy)]
+struct SheetCeilings {
+    text: usize,
+    metadata: usize,
+    operations: usize,
+    points: usize,
+}
+
+struct SheetIdentity<'a> {
+    uuid: &'a str,
+    name: &'a str,
+    file: &'a str,
+}
+
 impl RetainedBudget {
     fn text(&mut self, bytes: usize, maximum: usize) -> Result<(), Error> {
         self.text = checked_count(self.text, bytes, maximum)?;
@@ -113,19 +127,88 @@ fn render_sheet(
     let sheet_name = sheet_property_value(properties, &["Sheetname", "Sheet name"]);
     let sheet_file = sheet_property_value(properties, &["Sheetfile", "Sheet file"]);
     let dnp = yes_child(form, "dnp", false);
-    let remaining_text = budget.remaining_text_bytes();
-    let remaining_metadata = budget.remaining_metadata_bytes();
-    let remaining_operations = budget.remaining_operations();
-    let remaining_points = budget.remaining_points();
+    let ceilings = SheetCeilings {
+        text: budget.remaining_text_bytes(),
+        metadata: budget.remaining_metadata_bytes(),
+        operations: budget.remaining_operations(),
+        points: budget.remaining_points(),
+    };
     let mut retained = RetainedBudget::default();
     retained.metadata(
         uuid.len()
             .checked_add(sheet_name.len().checked_mul(2).ok_or_else(limit_error)?)
             .and_then(|value| value.checked_add(sheet_file.len()))
             .ok_or_else(limit_error)?,
-        remaining_metadata,
+        ceilings.metadata,
     )?;
 
+    let (mut operations, background_present) =
+        sheet_body_operations(form, &geometry, &mut retained, ceilings)?;
+    let sheet_body_operations = operations.len();
+
+    let identity = SheetIdentity {
+        uuid: &uuid,
+        name: &sheet_name,
+        file: &sheet_file,
+    };
+    for pin in pins {
+        append_pin(
+            pin,
+            &identity,
+            drawing,
+            &mut operations,
+            &mut retained,
+            ceilings,
+        )?;
+    }
+    for property in properties {
+        append_property(property, &mut operations, &mut retained, ceilings)?;
+    }
+
+    if dnp {
+        let body_bbox = Bbox::new(
+            geometry.at_x_nm,
+            geometry.at_y_nm,
+            geometry.end_x_nm,
+            geometry.end_y_nm,
+        );
+        let full_bbox = union_bbox(
+            Some(body_bbox),
+            operations_bbox(&operations[sheet_body_operations..], metrics, true)?,
+        )
+        .unwrap_or(body_bbox);
+        if background_present {
+            dim_operations(&mut operations[1..]);
+        } else {
+            dim_operations(&mut operations);
+        }
+        for marker in dnp_marker_operations_for_bboxes(body_bbox, full_bbox)? {
+            push_operation(&mut operations, marker, &mut retained, ceilings)?;
+        }
+    }
+
+    budget.charge_text(retained.text)?;
+    budget.charge_metadata(retained.metadata)?;
+    budget.charge(1, retained.operations, retained.points)?;
+    Ok(SchematicSheetRecord {
+        uuid,
+        sheet_name,
+        sheet_file,
+        at_x_nm: geometry.at_x_nm,
+        at_y_nm: geometry.at_y_nm,
+        size_x_nm: geometry.size_x_nm,
+        size_y_nm: geometry.size_y_nm,
+        dnp,
+        operations,
+    })
+}
+
+fn sheet_body_operations(
+    form: &Sexp,
+    geometry: &SheetGeometry,
+    retained: &mut RetainedBudget,
+    ceilings: SheetCeilings,
+) -> Result<(Vec<SchematicPlotOperation>, bool), Error> {
     let outline_stroke = resolve_stroke(form, DEFAULT_WIRE_WIDTH_MM, SHEET_COLOR)?;
     let outline = SchematicPlotOperation::Plotter(PlotterOperation::Rect(PlotterRect {
         x1: geometry.at_x_nm,
@@ -160,131 +243,30 @@ fn render_sheet(
             fill_color: Some(color),
             line_style: None,
         }));
-        push_operation(
-            &mut operations,
-            background,
-            &mut retained,
-            remaining_operations,
-            remaining_points,
-            remaining_metadata,
-        )?;
+        push_operation(&mut operations, background, retained, ceilings)?;
         true
     } else {
         false
     };
-    push_operation(
-        &mut operations,
-        outline.clone(),
-        &mut retained,
-        remaining_operations,
-        remaining_points,
-        remaining_metadata,
-    )?;
+    push_operation(&mut operations, outline.clone(), retained, ceilings)?;
     if !background_present {
-        push_operation(
-            &mut operations,
-            outline,
-            &mut retained,
-            remaining_operations,
-            remaining_points,
-            remaining_metadata,
-        )?;
+        push_operation(&mut operations, outline, retained, ceilings)?;
     }
-    let sheet_body_operations = operations.len();
-
-    for pin in pins {
-        append_pin(
-            pin,
-            &uuid,
-            &sheet_name,
-            &sheet_file,
-            drawing,
-            &mut operations,
-            &mut retained,
-            remaining_text,
-            remaining_metadata,
-            remaining_operations,
-            remaining_points,
-        )?;
-    }
-    for property in properties {
-        append_property(
-            property,
-            &mut operations,
-            &mut retained,
-            remaining_text,
-            remaining_metadata,
-            remaining_operations,
-            remaining_points,
-        )?;
-    }
-
-    if dnp {
-        let body_bbox = Bbox::new(
-            geometry.at_x_nm,
-            geometry.at_y_nm,
-            geometry.end_x_nm,
-            geometry.end_y_nm,
-        );
-        let full_bbox = union_bbox(
-            Some(body_bbox),
-            operations_bbox(&operations[sheet_body_operations..], metrics, true)?,
-        )
-        .unwrap_or(body_bbox);
-        if background_present {
-            dim_operations(&mut operations[1..]);
-        } else {
-            dim_operations(&mut operations);
-        }
-        for marker in dnp_marker_operations_for_bboxes(body_bbox, full_bbox)? {
-            push_operation(
-                &mut operations,
-                marker,
-                &mut retained,
-                remaining_operations,
-                remaining_points,
-                remaining_metadata,
-            )?;
-        }
-    }
-
-    budget.charge_text(retained.text)?;
-    budget.charge_metadata(retained.metadata)?;
-    budget.charge(1, retained.operations, retained.points)?;
-    Ok(SchematicSheetRecord {
-        uuid,
-        sheet_name,
-        sheet_file,
-        at_x_nm: geometry.at_x_nm,
-        at_y_nm: geometry.at_y_nm,
-        size_x_nm: geometry.size_x_nm,
-        size_y_nm: geometry.size_y_nm,
-        dnp,
-        operations,
-    })
+    Ok((operations, background_present))
 }
 
-#[allow(
-    clippy::too_many_arguments,
-    reason = "pin construction is preflighted against one retained sheet budget"
-)]
 fn append_pin(
     pin: &Sexp,
-    sheet_uuid: &str,
-    sheet_name: &str,
-    sheet_file: &str,
+    identity: &SheetIdentity<'_>,
     drawing: SchematicDrawingSettings,
     operations: &mut Vec<SchematicPlotOperation>,
     retained: &mut RetainedBudget,
-    maximum_text: usize,
-    maximum_metadata: usize,
-    maximum_operations: usize,
-    maximum_points: usize,
+    ceilings: SheetCeilings,
 ) -> Result<(), Error> {
     let name = value_at(pin, 1).unwrap_or_default();
     let shape = normalized_shape(value_at(pin, 2).as_deref());
     let source_uuid = child_string(pin, "uuid").unwrap_or_default();
-    let group_id = sheet_pin_group_id(sheet_uuid, &name, &source_uuid, maximum_metadata)?;
+    let group_id = sheet_pin_group_id(identity.uuid, &name, &source_uuid, ceilings.metadata)?;
     let has_group = !group_id.is_empty();
     let at = parse_at(pin)?;
     let role_color = if looks_like_bus_label(&name) {
@@ -295,7 +277,7 @@ fn append_pin(
     let mut style = text_style(pin, role_color, Some(drawing.default_line_width_nm))?;
     style.v_align = PlotterTextVAlign::Center;
     let display = name.replace("{slash}", "/");
-    retained.text(display.len(), maximum_text)?;
+    retained.text(display.len(), ceilings.text)?;
     let distance = checked_add(
         ki_round_i64(drawing.text_offset_ratio * style.size_y_nm as f64)?,
         style.size_x_nm,
@@ -337,7 +319,7 @@ fn append_pin(
         .checked_add(usize::from(decoration.is_some()))
         .and_then(|value| value.checked_add(usize::from(has_group) * 2))
         .ok_or_else(limit_error)?;
-    checked_count(retained.operations, required, maximum_operations)?;
+    checked_count(retained.operations, required, ceilings.operations)?;
     if has_group {
         let block = SchematicSheetPinBlock {
             label: group_id.clone(),
@@ -346,9 +328,9 @@ fn append_pin(
             extra_attrs: SchematicSheetPinAttrs {
                 primitive: "sheet-entry".to_owned(),
                 object_type: "sheet-pin".to_owned(),
-                sheet_uuid: sheet_uuid.to_owned(),
-                sheet_name: sheet_name.to_owned(),
-                sheet_file: sheet_file.to_owned(),
+                sheet_uuid: identity.uuid.to_owned(),
+                sheet_name: identity.name.to_owned(),
+                sheet_file: identity.file.to_owned(),
                 pin: name.clone(),
                 pin_name: name.clone(),
                 shape: shape.to_owned(),
@@ -358,54 +340,29 @@ fn append_pin(
             operations,
             SchematicPlotOperation::StartSheetPinBlock(block),
             retained,
-            maximum_operations,
-            maximum_points,
-            maximum_metadata,
+            ceilings,
         )?;
     }
-    push_operation(
-        operations,
-        text_op,
-        retained,
-        maximum_operations,
-        maximum_points,
-        maximum_metadata,
-    )?;
+    push_operation(operations, text_op, retained, ceilings)?;
     if let Some(decoration) = decoration {
-        push_operation(
-            operations,
-            decoration,
-            retained,
-            maximum_operations,
-            maximum_points,
-            maximum_metadata,
-        )?;
+        push_operation(operations, decoration, retained, ceilings)?;
     }
     if has_group {
         push_operation(
             operations,
             SchematicPlotOperation::EndBlock,
             retained,
-            maximum_operations,
-            maximum_points,
-            maximum_metadata,
+            ceilings,
         )?;
     }
     Ok(())
 }
 
-#[allow(
-    clippy::too_many_arguments,
-    reason = "property construction is preflighted against one retained sheet budget"
-)]
 fn append_property(
     property: &Sexp,
     operations: &mut Vec<SchematicPlotOperation>,
     retained: &mut RetainedBudget,
-    maximum_text: usize,
-    maximum_metadata: usize,
-    maximum_operations: usize,
-    maximum_points: usize,
+    ceilings: SheetCeilings,
 ) -> Result<(), Error> {
     if named_flag(property, "hide")
         || child(property, "effects").is_some_and(|effects| named_flag(effects, "hide"))
@@ -430,7 +387,7 @@ fn append_property(
             .saturating_add(delimiter.len())
             .saturating_add(value.len())
     });
-    retained.text(output_len, maximum_text)?;
+    retained.text(output_len, ceilings.text)?;
     let body = if let Some((name, delimiter)) = prefix {
         let mut body = String::with_capacity(output_len);
         body.push_str(name);
@@ -455,9 +412,7 @@ fn append_property(
         operations,
         schematic_text(at.x, at.y, body, at.angle, style, false),
         retained,
-        maximum_operations,
-        maximum_points,
-        maximum_metadata,
+        ceilings,
     )
 }
 
@@ -594,12 +549,10 @@ fn push_operation(
     operations: &mut Vec<SchematicPlotOperation>,
     operation: SchematicPlotOperation,
     retained: &mut RetainedBudget,
-    maximum_operations: usize,
-    maximum_points: usize,
-    maximum_metadata: usize,
+    ceilings: SheetCeilings,
 ) -> Result<(), Error> {
-    retained.operation(&operation, maximum_operations, maximum_points)?;
-    retained.metadata(operation_metadata(&operation)?, maximum_metadata)?;
+    retained.operation(&operation, ceilings.operations, ceilings.points)?;
+    retained.metadata(operation_metadata(&operation)?, ceilings.metadata)?;
     operations.push(operation);
     Ok(())
 }

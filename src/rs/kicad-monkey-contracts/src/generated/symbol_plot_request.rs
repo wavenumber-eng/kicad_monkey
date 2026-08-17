@@ -129,7 +129,11 @@ pub mod error {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct SymbolPlotRequestA0 {
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub document_id: ::std::option::Option<::std::string::String>,
     pub max_depth: u32,
     pub max_operations: u32,
@@ -138,11 +142,23 @@ pub struct SymbolPlotRequestA0 {
     pub max_source_bytes: ::std::string::String,
     pub max_subsymbols: u32,
     pub max_symbols: u32,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub max_text_bytes: ::std::option::Option<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub max_text_carriers: ::std::option::Option<u32>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub source_path: ::std::option::Option<::std::string::String>,
     pub style: u32,
     pub symbol_name: ::std::string::String,
@@ -151,7 +167,11 @@ pub struct SymbolPlotRequestA0 {
     pub text_variables: ::std::vec::Vec<SymbolTextVariable>,
     #[serde(rename = "type")]
     pub type_: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub unit: ::std::option::Option<u32>,
     pub version: ::std::string::String,
 }

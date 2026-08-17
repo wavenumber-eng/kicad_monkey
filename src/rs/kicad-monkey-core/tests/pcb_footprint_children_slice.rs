@@ -81,31 +81,32 @@ fn footprint_properties_and_graphics_are_typed_in_source_order() {
 
 fn assert_properties(properties: &[kicad_monkey_core::PcbFootprintProperty]) {
     assert_eq!(properties.len(), 2);
-    assert_eq!(properties[0].footprint_index, 0);
-    assert_eq!(properties[0].name, "Reference");
-    assert_eq!(properties[0].value, "R1");
-    assert_eq!((properties[0].at.x, properties[0].at.y), (1.0, 2.0));
-    assert_eq!(properties[0].angle, 90.0);
-    assert_eq!(properties[0].layer, "F.SilkS");
-    assert!(properties[0].hidden);
-    assert!(properties[0].unlocked);
-    assert!(properties[0].graphical);
-    assert_eq!(properties[0].effects.font.face.as_deref(), Some("Inter"));
+    assert_graphical_property(&properties[0]);
+    assert!(!properties[1].graphical);
+    assert_eq!(properties[1].layer, "F.SilkS");
+}
+
+fn assert_graphical_property(property: &kicad_monkey_core::PcbFootprintProperty) {
+    assert_eq!(property.footprint_index, 0);
+    assert_eq!(property.name, "Reference");
+    assert_eq!(property.value, "R1");
+    assert_eq!((property.at.x, property.at.y), (1.0, 2.0));
+    assert_eq!(property.angle, 90.0);
+    assert_eq!(property.layer, "F.SilkS");
+    assert!(property.hidden);
+    assert!(property.unlocked);
+    assert!(property.graphical);
+    assert_eq!(property.effects.font.face.as_deref(), Some("Inter"));
     assert_eq!(
-        (
-            properties[0].effects.font.size_x,
-            properties[0].effects.font.size_y
-        ),
+        (property.effects.font.size_x, property.effects.font.size_y),
         (2.5, 1.5)
     );
-    let cache = properties[0]
+    let cache = property
         .render_cache_range
         .clone()
         .expect("property cache range");
     assert!(SOURCE[cache].starts_with("(render_cache"));
-    assert_eq!(properties[0].uuid.as_deref(), Some("property-id"));
-    assert!(!properties[1].graphical);
-    assert_eq!(properties[1].layer, "F.SilkS");
+    assert_eq!(property.uuid.as_deref(), Some("property-id"));
 }
 
 fn assert_graphics(graphics: &[kicad_monkey_core::PcbFootprintGraphic]) {

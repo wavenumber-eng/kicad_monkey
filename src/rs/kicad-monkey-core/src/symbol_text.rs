@@ -195,13 +195,15 @@ pub(crate) fn pin_text_operations(
     let mut operations = Vec::with_capacity(2);
     append_pin_number(
         &mut operations,
-        form,
-        geometry,
-        draws_name,
-        settings,
-        default_line_width_nm,
+        PinNumberInput {
+            form,
+            geometry,
+            draws_name,
+            settings,
+            default_line_width_nm,
+            position,
+        },
         budget,
-        position,
     )?;
     if draws_name {
         append_pin_name(
@@ -227,6 +229,15 @@ struct PinGeometry {
     pin_right: bool,
     pin_down: bool,
     orient_deg: f64,
+}
+
+struct PinNumberInput<'a> {
+    form: &'a Sexp,
+    geometry: PinGeometry,
+    draws_name: bool,
+    settings: SymbolTextSettings,
+    default_line_width_nm: Option<i64>,
+    position: Position,
 }
 
 fn pin_geometry(form: &Sexp, position: Position) -> Result<PinGeometry, Error> {
@@ -266,14 +277,17 @@ fn pin_geometry(form: &Sexp, position: Position) -> Result<PinGeometry, Error> {
 
 fn append_pin_number(
     operations: &mut Vec<PlotterOperation>,
-    form: &Sexp,
-    geometry: PinGeometry,
-    draws_name: bool,
-    settings: SymbolTextSettings,
-    default_line_width_nm: Option<i64>,
+    input: PinNumberInput<'_>,
     budget: &mut SymbolTextBudget,
-    position: Position,
 ) -> Result<(), Error> {
+    let PinNumberInput {
+        form,
+        geometry,
+        draws_name,
+        settings,
+        default_line_width_nm,
+        position,
+    } = input;
     let number_form = child(form, "number");
     let number = number_form
         .and_then(|value| value_at(value, 1))

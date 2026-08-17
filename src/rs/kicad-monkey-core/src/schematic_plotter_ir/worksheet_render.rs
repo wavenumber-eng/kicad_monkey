@@ -20,6 +20,21 @@ const BACKGROUND_COLOR: &str = "#F5F4EFFF";
 const DRAWING_SHEET_MIN_WIDTH_NM: i64 = 152_400;
 const MAX_EXPANSION_DEPTH: usize = 10;
 
+#[derive(Clone, Copy)]
+struct WorksheetPage {
+    setup: WorksheetSetup,
+    width_mm: f64,
+    height_mm: f64,
+}
+
+struct WorksheetTextContext<'a> {
+    paper: &'a Paper,
+    title: Option<&'a SchematicTitleBlock>,
+    plot: &'a SchematicPlotContext,
+    page: WorksheetPage,
+    limits: SchematicPlotLimits,
+}
+
 const DEFAULT_WORKSHEET: &str = concat!(
     "(kicad_wks (version 20210606) (generator pl_editor)\n",
     "(setup (textsize 1.5 1.5)(linewidth 0.15)(textlinewidth 0.15)\n",
@@ -113,8 +128,32 @@ pub(super) fn drawing_sheet_operations(
         })
         .into(),
     );
-    let page_w_mm = width_nm as f64 / 1_000_000.0;
-    let page_h_mm = height_nm as f64 / 1_000_000.0;
+    let page = WorksheetPage {
+        setup,
+        width_mm: width_nm as f64 / 1_000_000.0,
+        height_mm: height_nm as f64 / 1_000_000.0,
+    };
+    append_worksheet_items(
+        &view,
+        WorksheetTextContext {
+            paper,
+            title: title_block,
+            plot: context,
+            page,
+            limits,
+        },
+        &mut operations,
+        budget,
+    )?;
+    Ok(operations)
+}
+
+fn append_worksheet_items(
+    view: &WorksheetView<'_>,
+    context: WorksheetTextContext<'_>,
+    operations: &mut Vec<SchematicPlotOperation>,
+    budget: &mut PlotBudget,
+) -> Result<(), Error> {
     let mut repeat_total = 0usize;
     let mut image_budget = ImageBudget::default();
     let mut worksheet_point_sets = 0usize;
@@ -127,20 +166,24 @@ pub(super) fn drawing_sheet_operations(
                 worksheet_point_sets = checked(
                     worksheet_point_sets,
                     value.point_sets.len(),
-                    limits.max_worksheet_point_sets,
+                    context.limits.max_worksheet_point_sets,
                 )?;
                 let points = value
                     .point_sets
                     .iter()
                     .try_fold(0usize, |total, values| total.checked_add(values.len()))
                     .ok_or_else(limit_error)?;
-                worksheet_points = checked(worksheet_points, points, limits.max_worksheet_points)?;
+                worksheet_points = checked(
+                    worksheet_points,
+                    points,
+                    context.limits.max_worksheet_points,
+                )?;
             }
             WorksheetItem::Bitmap(value) => {
                 worksheet_data_parts = checked(
                     worksheet_data_parts,
                     value.data_parts.len(),
-                    limits.max_worksheet_bitmap_data_parts,
+                    context.limits.max_worksheet_bitmap_data_parts,
                 )?;
             }
             _ => {}
@@ -148,69 +191,52 @@ pub(super) fn drawing_sheet_operations(
         let (option, repeat) = item_option_repeat(&item);
         let count = repeat_count(repeat);
         repeat_total = repeat_total.checked_add(count).ok_or_else(limit_error)?;
-        if repeat_total > limits.max_worksheet_repeats {
+        if repeat_total > context.limits.max_worksheet_repeats {
             return Err(limit_error());
         }
-        if (option == "page1only" && context.sheet_index != 1)
-            || (option == "notonpage1" && context.sheet_index == 1)
+        if (option == "page1only" && context.plot.sheet_index != 1)
+            || (option == "notonpage1" && context.plot.sheet_index == 1)
         {
             continue;
         }
         match item {
             WorksheetItem::Line(item) => line_operations(
-                &mut operations,
+                operations,
                 &item.start,
                 &item.end,
-                item.line_width.unwrap_or(setup.line_width),
+                item.line_width.unwrap_or(context.page.setup.line_width),
                 item.repeat,
-                setup,
-                page_w_mm,
-                page_h_mm,
+                context.page,
                 budget,
             )?,
             WorksheetItem::Rect(item) => rect_operations(
-                &mut operations,
+                operations,
                 &item.start,
                 &item.end,
-                item.line_width.unwrap_or(setup.line_width),
+                item.line_width.unwrap_or(context.page.setup.line_width),
                 item.repeat,
-                setup,
-                page_w_mm,
-                page_h_mm,
+                context.page,
                 budget,
             )?,
-            WorksheetItem::Text(item) => text_operations(
-                &mut operations,
-                &item,
-                paper,
-                title_block,
-                context,
-                setup,
-                page_w_mm,
-                page_h_mm,
-                budget,
-                limits,
-            )?,
+            WorksheetItem::Text(item) => text_operations(operations, &item, &context, budget)?,
             WorksheetItem::Bitmap(item) => bitmap_operations(
-                &mut operations,
+                operations,
                 &item,
-                setup,
-                page_w_mm,
-                page_h_mm,
+                context.page,
                 budget,
-                limits,
+                context.limits,
                 &mut image_budget,
             )?,
             WorksheetItem::Polygon(_) => {}
         }
     }
-    Ok(operations)
+    Ok(())
 }
 
-fn worksheet_text<'a>(
-    context: &'a SchematicPlotContext,
+fn worksheet_text(
+    context: &SchematicPlotContext,
     limits: SchematicPlotLimits,
-) -> Result<&'a str, Error> {
+) -> Result<&str, Error> {
     let Some(bytes) = context.worksheet_source.as_deref() else {
         return Ok(DEFAULT_WORKSHEET);
     };
@@ -248,9 +274,7 @@ fn line_operations(
     end: &WorksheetPoint,
     width_mm: f64,
     repeat: WorksheetRepeat,
-    setup: WorksheetSetup,
-    page_w: f64,
-    page_h: f64,
+    page: WorksheetPage,
     budget: &mut PlotBudget,
 ) -> Result<(), Error> {
     for index in 0..repeat_count(repeat) {
@@ -258,9 +282,12 @@ fn line_operations(
             repeat.increment_x * index as f64,
             repeat.increment_y * index as f64,
         );
-        let a = resolve_point(*start, page_w, page_h, setup, delta);
-        let b = resolve_point(*end, page_w, page_h, setup, delta);
-        if index > 0 && !(inside(a, page_w, page_h, setup) && inside(b, page_w, page_h, setup)) {
+        let a = resolve_point(*start, page.width_mm, page.height_mm, page.setup, delta);
+        let b = resolve_point(*end, page.width_mm, page.height_mm, page.setup, delta);
+        if index > 0
+            && !(inside(a, page.width_mm, page.height_mm, page.setup)
+                && inside(b, page.width_mm, page.height_mm, page.setup))
+        {
             continue;
         }
         budget.charge(0, 1, 2)?;
@@ -289,9 +316,7 @@ fn rect_operations(
     end: &WorksheetPoint,
     width_mm: f64,
     repeat: WorksheetRepeat,
-    setup: WorksheetSetup,
-    page_w: f64,
-    page_h: f64,
+    page: WorksheetPage,
     budget: &mut PlotBudget,
 ) -> Result<(), Error> {
     for index in 0..repeat_count(repeat) {
@@ -299,9 +324,12 @@ fn rect_operations(
             repeat.increment_x * index as f64,
             repeat.increment_y * index as f64,
         );
-        let a = resolve_point(*start, page_w, page_h, setup, delta);
-        let b = resolve_point(*end, page_w, page_h, setup, delta);
-        if index > 0 && !(inside(a, page_w, page_h, setup) && inside(b, page_w, page_h, setup)) {
+        let a = resolve_point(*start, page.width_mm, page.height_mm, page.setup, delta);
+        let b = resolve_point(*end, page.width_mm, page.height_mm, page.setup, delta);
+        if index > 0
+            && !(inside(a, page.width_mm, page.height_mm, page.setup)
+                && inside(b, page.width_mm, page.height_mm, page.setup))
+        {
             continue;
         }
         budget.charge(0, 1, 0)?;
@@ -325,35 +353,31 @@ fn rect_operations(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 fn text_operations(
     operations: &mut Vec<SchematicPlotOperation>,
     item: &WorksheetText,
-    paper: &Paper,
-    title: Option<&SchematicTitleBlock>,
-    context: &SchematicPlotContext,
-    setup: WorksheetSetup,
-    page_w: f64,
-    page_h: f64,
+    context: &WorksheetTextContext<'_>,
     budget: &mut PlotBudget,
-    limits: SchematicPlotLimits,
 ) -> Result<(), Error> {
     let count = repeat_count(item.repeat);
     let increment =
         item.repeat.increment_label + i64::from(item.repeat.increment_label == 0 && count > 1);
     let size_x = if item.font.size_x == 0.0 {
-        setup.text_size_x
+        context.page.setup.text_size_x
     } else {
         item.font.size_x
     };
     let size_y = if item.font.size_y == 0.0 {
-        setup.text_size_x
+        context.page.setup.text_size_x
     } else {
         item.font.size_y
     };
     let size_x_nm = mm_to_nm(size_x)?;
     let size_y_nm = mm_to_nm(size_y)?;
-    let width_mm = item.font.line_width.unwrap_or(setup.text_line_width);
+    let width_mm = item
+        .font
+        .line_width
+        .unwrap_or(context.page.setup.text_line_width);
     let pen_width = if item.font.bold {
         ((size_x_nm.abs().min(size_y_nm.abs()) as f64 / 5.0).round_ties_even() as i64)
             .max(DRAWING_SHEET_MIN_WIDTH_NM)
@@ -364,15 +388,22 @@ fn text_operations(
     for index in 0..count {
         let point = resolve_point(
             item.position,
-            page_w,
-            page_h,
-            setup,
+            context.page.width_mm,
+            context.page.height_mm,
+            context.page.setup,
             (
                 item.repeat.increment_x * index as f64,
                 item.repeat.increment_y * index as f64,
             ),
         );
-        if index > 0 && !inside(point, page_w, page_h, setup) {
+        if index > 0
+            && !inside(
+                point,
+                context.page.width_mm,
+                context.page.height_mm,
+                context.page.setup,
+            )
+        {
             continue;
         }
         let raw = if index > 0 && increment != 0 {
@@ -380,7 +411,13 @@ fn text_operations(
         } else {
             item.text.clone()
         };
-        let mut body = expand_text(&raw, paper, title, context, limits.max_text_bytes)?;
+        let mut body = expand_text(
+            &raw,
+            context.paper,
+            context.title,
+            context.plot,
+            context.limits.max_text_bytes,
+        )?;
         if body.ends_with("\r\n") {
             body.truncate(body.len() - 2)
         } else if body.ends_with('\r') || body.ends_with('\n') {
@@ -432,13 +469,10 @@ struct ImageBudget {
     work: usize,
 }
 
-#[allow(clippy::too_many_arguments)]
 fn bitmap_operations(
     operations: &mut Vec<SchematicPlotOperation>,
     item: &WorksheetBitmap,
-    setup: WorksheetSetup,
-    page_w: f64,
-    page_h: f64,
+    page: WorksheetPage,
     budget: &mut PlotBudget,
     limits: SchematicPlotLimits,
     images: &mut ImageBudget,
@@ -498,15 +532,15 @@ fn bitmap_operations(
     for index in 0..repeat_count(item.repeat) {
         let point = resolve_point(
             item.position,
-            page_w,
-            page_h,
-            setup,
+            page.width_mm,
+            page.height_mm,
+            page.setup,
             (
                 item.repeat.increment_x * index as f64,
                 item.repeat.increment_y * index as f64,
             ),
         );
-        if index > 0 && !inside(point, page_w, page_h, setup) {
+        if index > 0 && !inside(point, page.width_mm, page.height_mm, page.setup) {
             continue;
         }
         budget.charge_metadata(encoded.len())?;

@@ -101,20 +101,36 @@ pub struct ArcThreePointOperation {
     pub end_x: crate::JavaScriptSafeInteger,
     pub end_y: crate::JavaScriptSafeInteger,
     pub fill: PlotterFill,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
     #[serde(deserialize_with = "crate::deserialize_arc_three_point_kind")]
     pub kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub layer: ::std::option::Option<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub line_style: ::std::option::Option<PlotterLineStyle>,
     pub mid_x: crate::JavaScriptSafeInteger,
     pub mid_y: crate::JavaScriptSafeInteger,
     pub start_x: crate::JavaScriptSafeInteger,
     pub start_y: crate::JavaScriptSafeInteger,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
@@ -206,13 +222,25 @@ pub struct BezierCurveOperation {
     pub index: u32,
     #[serde(deserialize_with = "crate::deserialize_bezier_curve_kind")]
     pub kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub layer: ::std::option::Option<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub line_style: ::std::option::Option<PlotterLineStyle>,
     pub start_x: crate::JavaScriptSafeInteger,
     pub start_y: crate::JavaScriptSafeInteger,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub tolerance_nm: crate::JavaScriptSafeInteger,
     pub width_nm: crate::JavaScriptSafeInteger,
@@ -304,26 +332,58 @@ pub struct CircleOperation {
     pub cy: crate::JavaScriptSafeInteger,
     pub diameter_nm: crate::JavaScriptSafeInteger,
     pub fill: PlotterFill,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
     #[serde(deserialize_with = "crate::deserialize_circle_kind")]
     pub kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub layer: ::std::option::Option<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub layers: ::std::vec::Vec<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub line_style: ::std::option::Option<PlotterLineStyle>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub mask_margin_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub pad_size_x_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub pad_size_y_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub role: ::std::option::Option<PlotterDrillRole>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
 }
@@ -390,9 +450,17 @@ pub struct FlashPadCircleOperation {
     #[serde(deserialize_with = "crate::deserialize_flash_pad_circle_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub mask_margin_nm: ::std::option::Option<crate::JavaScriptSafeInteger>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub role: ::std::option::Option<PlotterViaFlashRole>,
     pub x: crate::JavaScriptSafeInteger,
     pub y: crate::JavaScriptSafeInteger,
@@ -480,7 +548,11 @@ equivalent to omission for generated Rust transport bindings.*/
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct FlashPadCustomOperation {
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub anchor_shape: ::std::option::Option<::std::string::String>,
     pub index: u32,
     #[serde(deserialize_with = "crate::deserialize_flash_pad_custom_kind")]
@@ -852,7 +924,11 @@ pub struct PlotImageOperation {
     #[serde(deserialize_with = "crate::deserialize_plot_image_kind")]
     pub kind: ::std::string::String,
     pub scale: f64,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub stroke_color: ::std::option::Option<::std::string::String>,
     pub width_nm: crate::JavaScriptSafeInteger,
     pub x: crate::JavaScriptSafeInteger,
@@ -3284,7 +3360,11 @@ pub struct SchematicPlotDocumentA0 {
     pub records: ::std::vec::Vec<SchematicPlotRecord>,
     pub schema: ::std::string::String,
     pub source_kind: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub source_path: ::std::option::Option<::std::string::String>,
     pub total_operations: u32,
 }
@@ -3865,13 +3945,19 @@ pub struct SchematicSheetHeaderPlotRecord {
     pub object_id: ::std::string::String,
     pub operation_count: u32,
     pub operations: ::std::vec::Vec<PlotterOperation>,
+    #[serde(deserialize_with = "crate::deserialize_required_nullable")]
     pub paper_height_mm: ::std::option::Option<f64>,
     pub paper_portrait: bool,
     pub paper_size: ::std::string::String,
+    #[serde(deserialize_with = "crate::deserialize_required_nullable")]
     pub paper_width_mm: ::std::option::Option<f64>,
     pub sheet_height_nm: crate::JavaScriptSafeInteger,
     pub sheet_width_nm: crate::JavaScriptSafeInteger,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub title_block: ::std::option::Option<SchematicPlotTitleBlock>,
     pub uuid: ::std::string::String,
     pub version: crate::JavaScriptSafeInteger,
@@ -4293,6 +4379,7 @@ pub struct SchematicSymbolInstancePlotRecord {
     pub kind: ::std::string::String,
     pub lib_id: ::std::string::String,
     pub lib_name: ::std::string::String,
+    #[serde(deserialize_with = "crate::deserialize_required_nullable")]
     pub mirror: ::std::option::Option<::std::string::String>,
     pub object_id: ::std::string::String,
     pub on_board: bool,
@@ -5119,7 +5206,11 @@ pub struct TextRenderCache {
     pub angle: f64,
     pub coordinate_space: PlotterTextRenderCacheCoordinateSpace,
     pub exact: bool,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub knockout: ::std::option::Option<bool>,
     pub polygons: ::std::vec::Vec<TextRenderCachePolygon>,
     pub schema: ::std::string::String,

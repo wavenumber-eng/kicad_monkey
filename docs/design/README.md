@@ -69,8 +69,8 @@ Current design notes:
   fixed records, resource policy, and explicit version-bound flag evidence.
 - `rust-native-font-outlines.html` - accepted bounded native TTF/gvar/CFF
   outline extraction and deterministic FontTools parity evidence.
-- `rust-native-render-cache.html` - proposed staged native shaping, outline,
-  curve decomposition, placement, and final KiCad cache-parity ladder.
+- `rust-native-render-cache.html` - accepted native shaping, outline, curve
+  decomposition, placement, and bounded KiCad cache-parity ladder.
 - `rust-board-plotter-phase5-slice.html` - accepted bounded native board
   text, text-box, table, five-style dimension, and embedded-footprint
   Plotter-IR parity with

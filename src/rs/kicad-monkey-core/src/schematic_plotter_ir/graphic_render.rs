@@ -296,148 +296,195 @@ fn shape_operations(
     max_output_points: usize,
 ) -> Result<(Vec<SchematicPlotOperation>, usize), Error> {
     let style = graphic_style(form)?;
-    let (operation, input_points) = match kind {
+    let built = match kind {
         SchematicGraphicRecordKind::GraphicPolyline => {
-            let mut points = child(form, "pts").map_or(Ok(Vec::new()), |points| {
-                parse_points_limited(points, max_input_points)
-            })?;
-            let input_points = points.len();
-            if points.len() < 2 {
-                return Ok((Vec::new(), input_points));
-            }
-            if close_rule_polyline && points.last() != points.first() {
-                points.push(points[0]);
-            }
-            (
-                PlotterOperation::PlotPoly(PlotterPoly {
-                    points,
-                    fill: style.fill,
-                    width_nm: style.stroke.width_nm,
-                    layer: None,
-                    stroke_color: Some(style.stroke.color.clone()),
-                    fill_color: style.fill_color.clone(),
-                    line_style: Some(style.stroke.style),
-                }),
-                input_points,
-            )
+            polyline_shape(form, &style, close_rule_polyline, max_input_points)?
         }
-        SchematicGraphicRecordKind::GraphicArc => {
-            let [start_x, start_y] = child(form, "start").map_or(Ok([0, 0]), parse_point)?;
-            let [mid_x, mid_y] = child(form, "mid").map_or(Ok([0, 0]), parse_point)?;
-            let [end_x, end_y] = child(form, "end").map_or(Ok([0, 0]), parse_point)?;
-            (
-                PlotterOperation::ArcThreePoint(ArcThreePoint {
-                    start_x,
-                    start_y,
-                    mid_x,
-                    mid_y,
-                    end_x,
-                    end_y,
-                    fill: style.fill,
-                    width_nm: style.stroke.width_nm,
-                    layer: None,
-                    stroke_color: Some(style.stroke.color.clone()),
-                    fill_color: style.fill_color.clone(),
-                    line_style: Some(style.stroke.style),
-                }),
-                3,
-            )
-        }
-        SchematicGraphicRecordKind::GraphicCircle => {
-            let [cx, cy] = child(form, "center").map_or(Ok([0, 0]), parse_point)?;
-            let radius = child(form, "radius").map_or(Ok(0.0), |value| number_at(value, 1))?;
-            if radius < 0.0 {
-                return Err(model_error("Schematic circle radius must be non-negative"));
-            }
-            (
-                PlotterOperation::Circle(PlotterCircle {
-                    cx,
-                    cy,
-                    diameter_nm: mm_to_nm(radius * 2.0)?,
-                    fill: style.fill,
-                    width_nm: style.stroke.width_nm,
-                    layer: None,
-                    role: None,
-                    layers: Vec::new(),
-                    mask_margin_nm: None,
-                    pad_size_x_nm: None,
-                    pad_size_y_nm: None,
-                    stroke_color: Some(style.stroke.color.clone()),
-                    fill_color: style.fill_color.clone(),
-                    line_style: Some(style.stroke.style),
-                }),
-                1,
-            )
-        }
-        SchematicGraphicRecordKind::GraphicRectangle => {
-            let [x1, y1] = child(form, "start").map_or(Ok([0, 0]), parse_point)?;
-            let [x2, y2] = child(form, "end").map_or(Ok([0, 0]), parse_point)?;
-            let radius = child(form, "radius").map_or(Ok(0.0), |value| number_at(value, 1))?;
-            if radius < 0.0 {
-                return Err(model_error(
-                    "Schematic rectangle radius must be non-negative",
-                ));
-            }
-            (
-                PlotterOperation::Rect(PlotterRect {
-                    x1,
-                    y1,
-                    x2,
-                    y2,
-                    fill: style.fill,
-                    width_nm: style.stroke.width_nm,
-                    corner_radius_nm: mm_to_nm(radius)?,
-                    layer: None,
-                    stroke_color: Some(style.stroke.color.clone()),
-                    fill_color: style.fill_color.clone(),
-                    line_style: Some(style.stroke.style),
-                }),
-                2,
-            )
-        }
-        SchematicGraphicRecordKind::GraphicBezier => {
-            let points = child(form, "pts").map_or(Ok(Vec::new()), |points| {
-                parse_points_limited(points, max_input_points)
-            })?;
-            let input_points = points.len();
-            if points.len() < 2 {
-                return Ok((Vec::new(), input_points));
-            }
-            if points.len() == 4 {
-                (
-                    PlotterOperation::BezierCurve(BezierCurve {
-                        start_x: points[0][0],
-                        start_y: points[0][1],
-                        ctrl1_x: points[1][0],
-                        ctrl1_y: points[1][1],
-                        ctrl2_x: points[2][0],
-                        ctrl2_y: points[2][1],
-                        end_x: points[3][0],
-                        end_y: points[3][1],
-                        width_nm: style.stroke.width_nm,
-                        tolerance_nm: 0,
-                        layer: None,
-                        stroke_color: Some(style.stroke.color.clone()),
-                        line_style: Some(style.stroke.style),
-                    }),
-                    input_points,
-                )
-            } else {
-                (
-                    PlotterOperation::PlotPoly(PlotterPoly {
-                        points,
-                        fill: style.fill,
-                        width_nm: style.stroke.width_nm,
-                        layer: None,
-                        stroke_color: Some(style.stroke.color.clone()),
-                        fill_color: style.fill_color.clone(),
-                        line_style: Some(style.stroke.style),
-                    }),
-                    input_points,
-                )
-            }
-        }
+        SchematicGraphicRecordKind::GraphicArc => arc_shape(form, &style)?,
+        SchematicGraphicRecordKind::GraphicCircle => circle_shape(form, &style)?,
+        SchematicGraphicRecordKind::GraphicRectangle => rectangle_shape(form, &style)?,
+        SchematicGraphicRecordKind::GraphicBezier => bezier_shape(form, &style, max_input_points)?,
     };
+    let Some(operation) = built.operation else {
+        return Ok((Vec::new(), built.input_points));
+    };
+    bounded_shape_result(
+        operation,
+        built.input_points,
+        max_operations,
+        max_output_points,
+    )
+}
+
+struct BuiltShape {
+    operation: Option<PlotterOperation>,
+    input_points: usize,
+}
+
+fn polyline_shape(
+    form: &Sexp,
+    style: &GraphicStyle,
+    close_rule_polyline: bool,
+    maximum_points: usize,
+) -> Result<BuiltShape, Error> {
+    let mut points = child(form, "pts").map_or(Ok(Vec::new()), |points| {
+        parse_points_limited(points, maximum_points)
+    })?;
+    let input_points = points.len();
+    if points.len() < 2 {
+        return Ok(BuiltShape {
+            operation: None,
+            input_points,
+        });
+    }
+    if close_rule_polyline && points.last() != points.first() {
+        points.push(points[0]);
+    }
+    Ok(BuiltShape {
+        operation: Some(PlotterOperation::PlotPoly(PlotterPoly {
+            points,
+            fill: style.fill,
+            width_nm: style.stroke.width_nm,
+            layer: None,
+            stroke_color: Some(style.stroke.color.clone()),
+            fill_color: style.fill_color.clone(),
+            line_style: Some(style.stroke.style),
+        })),
+        input_points,
+    })
+}
+
+fn arc_shape(form: &Sexp, style: &GraphicStyle) -> Result<BuiltShape, Error> {
+    let [start_x, start_y] = child(form, "start").map_or(Ok([0, 0]), parse_point)?;
+    let [mid_x, mid_y] = child(form, "mid").map_or(Ok([0, 0]), parse_point)?;
+    let [end_x, end_y] = child(form, "end").map_or(Ok([0, 0]), parse_point)?;
+    Ok(BuiltShape {
+        operation: Some(PlotterOperation::ArcThreePoint(ArcThreePoint {
+            start_x,
+            start_y,
+            mid_x,
+            mid_y,
+            end_x,
+            end_y,
+            fill: style.fill,
+            width_nm: style.stroke.width_nm,
+            layer: None,
+            stroke_color: Some(style.stroke.color.clone()),
+            fill_color: style.fill_color.clone(),
+            line_style: Some(style.stroke.style),
+        })),
+        input_points: 3,
+    })
+}
+
+fn circle_shape(form: &Sexp, style: &GraphicStyle) -> Result<BuiltShape, Error> {
+    let [cx, cy] = child(form, "center").map_or(Ok([0, 0]), parse_point)?;
+    let radius = child(form, "radius").map_or(Ok(0.0), |value| number_at(value, 1))?;
+    if radius < 0.0 {
+        return Err(model_error("Schematic circle radius must be non-negative"));
+    }
+    Ok(BuiltShape {
+        operation: Some(PlotterOperation::Circle(PlotterCircle {
+            cx,
+            cy,
+            diameter_nm: mm_to_nm(radius * 2.0)?,
+            fill: style.fill,
+            width_nm: style.stroke.width_nm,
+            layer: None,
+            role: None,
+            layers: Vec::new(),
+            mask_margin_nm: None,
+            pad_size_x_nm: None,
+            pad_size_y_nm: None,
+            stroke_color: Some(style.stroke.color.clone()),
+            fill_color: style.fill_color.clone(),
+            line_style: Some(style.stroke.style),
+        })),
+        input_points: 1,
+    })
+}
+
+fn rectangle_shape(form: &Sexp, style: &GraphicStyle) -> Result<BuiltShape, Error> {
+    let [x1, y1] = child(form, "start").map_or(Ok([0, 0]), parse_point)?;
+    let [x2, y2] = child(form, "end").map_or(Ok([0, 0]), parse_point)?;
+    let radius = child(form, "radius").map_or(Ok(0.0), |value| number_at(value, 1))?;
+    if radius < 0.0 {
+        return Err(model_error(
+            "Schematic rectangle radius must be non-negative",
+        ));
+    }
+    Ok(BuiltShape {
+        operation: Some(PlotterOperation::Rect(PlotterRect {
+            x1,
+            y1,
+            x2,
+            y2,
+            fill: style.fill,
+            width_nm: style.stroke.width_nm,
+            corner_radius_nm: mm_to_nm(radius)?,
+            layer: None,
+            stroke_color: Some(style.stroke.color.clone()),
+            fill_color: style.fill_color.clone(),
+            line_style: Some(style.stroke.style),
+        })),
+        input_points: 2,
+    })
+}
+
+fn bezier_shape(
+    form: &Sexp,
+    style: &GraphicStyle,
+    maximum_points: usize,
+) -> Result<BuiltShape, Error> {
+    let points = child(form, "pts").map_or(Ok(Vec::new()), |points| {
+        parse_points_limited(points, maximum_points)
+    })?;
+    let input_points = points.len();
+    if points.len() < 2 {
+        return Ok(BuiltShape {
+            operation: None,
+            input_points,
+        });
+    }
+    let operation = if points.len() == 4 {
+        PlotterOperation::BezierCurve(BezierCurve {
+            start_x: points[0][0],
+            start_y: points[0][1],
+            ctrl1_x: points[1][0],
+            ctrl1_y: points[1][1],
+            ctrl2_x: points[2][0],
+            ctrl2_y: points[2][1],
+            end_x: points[3][0],
+            end_y: points[3][1],
+            width_nm: style.stroke.width_nm,
+            tolerance_nm: 0,
+            layer: None,
+            stroke_color: Some(style.stroke.color.clone()),
+            line_style: Some(style.stroke.style),
+        })
+    } else {
+        PlotterOperation::PlotPoly(PlotterPoly {
+            points,
+            fill: style.fill,
+            width_nm: style.stroke.width_nm,
+            layer: None,
+            stroke_color: Some(style.stroke.color.clone()),
+            fill_color: style.fill_color.clone(),
+            line_style: Some(style.stroke.style),
+        })
+    };
+    Ok(BuiltShape {
+        operation: Some(operation),
+        input_points,
+    })
+}
+
+fn bounded_shape_result(
+    operation: PlotterOperation,
+    input_points: usize,
+    max_operations: usize,
+    max_output_points: usize,
+) -> Result<(Vec<SchematicPlotOperation>, usize), Error> {
     let multiplier = if matches!(
         &operation,
         PlotterOperation::ArcThreePoint(value) if !matches!(value.fill, PlotterFill::NoFill | PlotterFill::FilledShape)

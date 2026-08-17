@@ -84,14 +84,7 @@ fn start_block(operation: &BoardFootprintOperation) -> &BoardFootprintBlock {
     block
 }
 
-#[test]
-fn embedded_footprint_records_follow_python_order_placement_and_child_metadata() {
-    let document = board_plot_document(CANONICAL_SOURCE, BoardPlotLimits::default())
-        .expect("canonical embedded footprint");
-    assert!(matches!(document.records[0], BoardPlotRecord::Zone(_)));
-    assert!(matches!(document.records[1], BoardPlotRecord::Footprint(_)));
-
-    let record = footprint_record(&document);
+fn assert_canonical_record_fields(record: &BoardFootprintRecord) {
     assert_eq!(record.uuid, "fp-id");
     assert_eq!(record.library_link, "Demo:Canonical");
     assert_eq!(
@@ -110,7 +103,25 @@ fn embedded_footprint_records_follow_python_order_placement_and_child_metadata()
         (10_000_000, 20_000_000)
     );
     assert_eq!(record.placement.angle_deg, 45.0);
+}
 
+fn assert_child_metadata_entry(
+    actual: &BoardFootprintChildMetadata,
+    expected: (&str, usize, Option<usize>, &str),
+) {
+    let (data_ref, object_index, sub_index, label) = expected;
+    assert_eq!(actual.data_ref, data_ref);
+    assert_eq!(actual.extra_attrs.footprint_primitive, data_ref);
+    assert_eq!(actual.extra_attrs.footprint_object_index, object_index);
+    assert_eq!(actual.extra_attrs.footprint_subop_index, sub_index);
+    assert_eq!(actual.label, label);
+    assert_eq!(actual.data_uuid, label.split(':').next().unwrap());
+    assert_eq!(actual.extra_attrs.component, "R1");
+    assert_eq!(actual.extra_attrs.component_uid, "fp-id");
+    assert_eq!(actual.extra_attrs.footprint, "Demo:Canonical");
+}
+
+fn assert_canonical_child_metadata(record: &BoardFootprintRecord) {
     let metadata = record
         .operations
         .iter()
@@ -130,16 +141,8 @@ fn embedded_footprint_records_follow_python_order_placement_and_child_metadata()
         ("fp_rect", 0, None, "rect-id:footprint-graphic:0"),
         ("fp_poly", 0, None, "poly-id:footprint-graphic:0"),
     ];
-    for (actual, (data_ref, object_index, sub_index, label)) in metadata.iter().zip(expected) {
-        assert_eq!(actual.data_ref, data_ref);
-        assert_eq!(actual.extra_attrs.footprint_primitive, data_ref);
-        assert_eq!(actual.extra_attrs.footprint_object_index, object_index);
-        assert_eq!(actual.extra_attrs.footprint_subop_index, sub_index);
-        assert_eq!(actual.label, label);
-        assert_eq!(actual.data_uuid, label.split(':').next().unwrap());
-        assert_eq!(actual.extra_attrs.component, "R1");
-        assert_eq!(actual.extra_attrs.component_uid, "fp-id");
-        assert_eq!(actual.extra_attrs.footprint, "Demo:Canonical");
+    for (actual, expected) in metadata.iter().zip(expected) {
+        assert_child_metadata_entry(actual, expected);
     }
     assert_eq!(
         metadata[0].extra_attrs.footprint_text_role.as_deref(),
@@ -157,7 +160,9 @@ fn embedded_footprint_records_follow_python_order_placement_and_child_metadata()
         metadata[8].extra_attrs.footprint_graphic_kind.as_deref(),
         Some("circle")
     );
+}
 
+fn assert_canonical_user_text(record: &BoardFootprintRecord) {
     let BoardFootprintOperation::Text {
         operation: user_text,
         ..
@@ -180,16 +185,19 @@ fn embedded_footprint_records_follow_python_order_placement_and_child_metadata()
 }
 
 #[test]
-fn duplicate_reference_defaults_and_fallback_labels_match_python() {
-    let source = r#"(kicad_pcb
-      (footprint "Bare"
-        (property "Reference" "FIRST" (at 0 0) (layer "F.SilkS"))
-        (property "Reference" "SECOND" (at 1 0) (layer "F.SilkS"))
-        (fp_text reference "RAW" (at 0 0) (layer "F.SilkS")
-          (effects (font (size 1 1)))))
-      (footprint "Empty"))"#;
-    let document = board_plot_document(source, BoardPlotLimits::default()).expect("defaults");
+fn embedded_footprint_records_follow_python_order_placement_and_child_metadata() {
+    let document = board_plot_document(CANONICAL_SOURCE, BoardPlotLimits::default())
+        .expect("canonical embedded footprint");
+    assert!(matches!(document.records[0], BoardPlotRecord::Zone(_)));
+    assert!(matches!(document.records[1], BoardPlotRecord::Footprint(_)));
+
     let record = footprint_record(&document);
+    assert_canonical_record_fields(record);
+    assert_canonical_child_metadata(record);
+    assert_canonical_user_text(record);
+}
+
+fn assert_duplicate_reference_record(record: &BoardFootprintRecord) {
     assert_eq!(record.layer, "F.Cu");
     assert_eq!((record.placement.x_nm, record.placement.y_nm), (0, 0));
     assert_eq!(record.placement.angle_deg, 0.0);
@@ -201,7 +209,9 @@ fn duplicate_reference_defaults_and_fallback_labels_match_python() {
         2,
         "only the first duplicate field is graphical"
     );
+}
 
+fn assert_duplicate_reference_operations(record: &BoardFootprintRecord) {
     let BoardFootprintOperation::Text {
         operation: property,
         metadata,
@@ -225,14 +235,32 @@ fn duplicate_reference_defaults_and_fallback_labels_match_python() {
         "the last duplicate remains the text variable"
     );
     assert_eq!(metadata.object_id, "reference:0");
+}
 
-    let BoardPlotRecord::Footprint(empty) = &document.records[1] else {
+fn assert_empty_footprint(record: &BoardPlotRecord) {
+    let BoardPlotRecord::Footprint(empty) = record else {
         panic!("expected empty footprint record");
     };
     assert_eq!(empty.library_link, "Empty");
     assert_eq!((empty.reference.as_str(), empty.value.as_str()), ("", ""));
     assert_eq!(empty.layer, "F.Cu");
     assert!(empty.operations.is_empty());
+}
+
+#[test]
+fn duplicate_reference_defaults_and_fallback_labels_match_python() {
+    let source = r#"(kicad_pcb
+      (footprint "Bare"
+        (property "Reference" "FIRST" (at 0 0) (layer "F.SilkS"))
+        (property "Reference" "SECOND" (at 1 0) (layer "F.SilkS"))
+        (fp_text reference "RAW" (at 0 0) (layer "F.SilkS")
+          (effects (font (size 1 1)))))
+      (footprint "Empty"))"#;
+    let document = board_plot_document(source, BoardPlotLimits::default()).expect("defaults");
+    let record = footprint_record(&document);
+    assert_duplicate_reference_record(record);
+    assert_duplicate_reference_operations(record);
+    assert_empty_footprint(&document.records[1]);
 }
 
 #[test]
@@ -283,15 +311,7 @@ fn authored_cache_points_are_localized_and_charge_retained_output_points() {
     );
 }
 
-#[test]
-fn pad_and_hole_blocks_preserve_orientation_mask_net_and_npth_metadata() {
-    let classes = BoardNetClassAssignments::from_entries([("GND", vec!["Power", "Default"])]);
-    let document =
-        board_plot_document_with_net_classes(PAD_SOURCE, BoardPlotLimits::default(), &classes)
-            .expect("pad and hole blocks");
-    let record = footprint_record(&document);
-    assert_eq!(record.operations.len(), 12);
-
+fn assert_plated_pad(record: &BoardFootprintRecord) {
     let plated = start_block(&record.operations[0]);
     assert_eq!(
         (plated.data_ref.as_str(), plated.label.as_str()),
@@ -317,7 +337,9 @@ fn pad_and_hole_blocks_preserve_orientation_mask_net_and_npth_metadata() {
         record.operations[2],
         BoardFootprintOperation::EndBlock
     ));
+}
 
+fn assert_plated_hole(record: &BoardFootprintRecord) {
     let plated_hole = start_block(&record.operations[3]);
     assert_eq!(plated_hole.data_ref, "pad_hole");
     assert_eq!(plated_hole.label, "pad-1:hole");
@@ -342,7 +364,9 @@ fn pad_and_hole_blocks_preserve_orientation_mask_net_and_npth_metadata() {
     };
     assert_eq!(slot.width_nm, 600_000);
     assert_eq!(slot.role.as_deref(), Some("pad_drill"));
+}
 
+fn assert_npth_pad_and_hole(record: &BoardFootprintRecord) {
     let npth = start_block(&record.operations[6]);
     assert_eq!(npth.label, "pad-2");
     assert_eq!(npth.extra_attrs.pad_designator, None);
@@ -376,6 +400,19 @@ fn pad_and_hole_blocks_preserve_orientation_mask_net_and_npth_metadata() {
         (hole.pad_size_x_nm, hole.pad_size_y_nm),
         (Some(1_000_000), Some(1_000_000))
     );
+}
+
+#[test]
+fn pad_and_hole_blocks_preserve_orientation_mask_net_and_npth_metadata() {
+    let classes = BoardNetClassAssignments::from_entries([("GND", vec!["Power", "Default"])]);
+    let document =
+        board_plot_document_with_net_classes(PAD_SOURCE, BoardPlotLimits::default(), &classes)
+            .expect("pad and hole blocks");
+    let record = footprint_record(&document);
+    assert_eq!(record.operations.len(), 12);
+    assert_plated_pad(record);
+    assert_plated_hole(record);
+    assert_npth_pad_and_hole(record);
 }
 
 #[test]

@@ -23,7 +23,8 @@ use crate::pcb::{
     PcbGraphicKind, PcbHoleShape, PcbPad, PcbView,
 };
 use crate::plotter_ir::{
-    footprint_graphic_operations_from_range, footprint_pad_operations_from_range, mm_to_nm,
+    FootprintPadParseLimits, footprint_graphic_operations_from_range,
+    footprint_pad_operations_from_range, mm_to_nm,
 };
 use crate::plotter_text_cache::{PlotterTextCacheSession, PlotterTextLayout};
 use crate::plotter_types::{
@@ -42,30 +43,63 @@ struct FootprintInputs {
     pads: Vec<PcbPad>,
 }
 
-pub(super) fn append_footprint_records(
-    source: &str,
-    view: &PcbView<'_>,
-    net_classes: &BoardNetClassAssignments,
-    budget: &mut BudgetTracker,
-    text_cache: Option<&PlotterTextCacheSession<'_>>,
+pub(super) struct FootprintAppendContext<'a, 'source, 'font> {
+    pub source: &'source str,
+    pub view: &'a PcbView<'source>,
+    pub net_classes: &'a BoardNetClassAssignments,
+    pub text_cache: Option<&'a PlotterTextCacheSession<'font>>,
+    pub board_mask_clearance: f64,
+    pub limits: BoardPlotLimits,
+}
+
+struct FootprintRenderContext<'a, 'font> {
+    source: &'a str,
+    footprint: &'a PcbFootprint,
+    variables: &'a BoardTextVariables,
+    placement: BoardFootprintPlacement,
+    net_classes: &'a BoardNetClassAssignments,
+    text_cache: Option<&'a PlotterTextCacheSession<'font>>,
     board_mask_clearance: f64,
     limits: BoardPlotLimits,
-    decoded_input_points: &mut usize,
-    decoded_input_polygons: &mut usize,
+}
+
+struct ChildDescriptor<'a> {
+    source_uuid: Option<&'a str>,
+    data_ref: &'a str,
+    primitive: &'a str,
+    object_id: &'a str,
+    index: usize,
+    sub_index: Option<usize>,
+    layer: &'a str,
+    text_role: Option<String>,
+    property_name: Option<String>,
+    fp_text_type: Option<String>,
+    graphic_kind: Option<String>,
+}
+
+struct CacheDescriptor<'a> {
+    range: Range<usize>,
+    has_authored_cache: bool,
+    effects: &'a crate::KiCadTextEffects,
+    native_context: NativeCacheContext,
+    knockout: bool,
+}
+
+pub(super) fn append_footprint_records(
+    context: FootprintAppendContext<'_, '_, '_>,
+    budget: &mut BudgetTracker,
+    decoded_inputs: &mut (usize, usize),
     records: &mut Vec<BoardPlotRecord>,
 ) -> Result<(), Error> {
-    let inputs = decode_inputs(view, limits, decoded_input_points, decoded_input_polygons)?;
+    let inputs = decode_inputs(
+        context.view,
+        context.limits,
+        &mut decoded_inputs.0,
+        &mut decoded_inputs.1,
+    )?;
     for input in inputs {
         budget.ensure_capacity(0, 0)?;
-        let record = footprint_record(
-            source,
-            input,
-            net_classes,
-            budget,
-            text_cache,
-            board_mask_clearance,
-            limits,
-        )?;
+        let record = footprint_record(&context, input, budget)?;
         records.push(BoardPlotRecord::Footprint(record));
     }
     Ok(())
@@ -186,13 +220,9 @@ fn input_mut(inputs: &mut [FootprintInputs], index: usize) -> Result<&mut Footpr
 }
 
 fn footprint_record(
-    source: &str,
+    outer: &FootprintAppendContext<'_, '_, '_>,
     input: FootprintInputs,
-    net_classes: &BoardNetClassAssignments,
     budget: &mut BudgetTracker,
-    text_cache: Option<&PlotterTextCacheSession<'_>>,
-    board_mask_clearance: f64,
-    limits: BoardPlotLimits,
 ) -> Result<BoardFootprintRecord, Error> {
     let FootprintInputs {
         footprint,
@@ -217,57 +247,21 @@ fn footprint_record(
             .map(|property| (&property.name, &property.value)),
     );
     let mut operations = Vec::new();
-    append_properties(
-        source,
-        &footprint,
-        &properties,
-        &variables,
+    let context = FootprintRenderContext {
+        source: outer.source,
+        footprint: &footprint,
+        variables: &variables,
         placement,
-        &mut operations,
-        budget,
-        text_cache,
-        limits,
-    )?;
-    append_texts(
-        source,
-        &footprint,
-        &texts,
-        &variables,
-        placement,
-        &mut operations,
-        budget,
-        text_cache,
-        limits,
-    )?;
-    append_text_boxes(
-        source,
-        &footprint,
-        &text_boxes,
-        &variables,
-        placement,
-        &mut operations,
-        budget,
-        text_cache,
-        limits,
-    )?;
-    append_graphics(
-        source,
-        &footprint,
-        &graphics,
-        &mut operations,
-        budget,
-        limits,
-    )?;
-    append_pads(
-        source,
-        &footprint,
-        &pads,
-        net_classes,
-        board_mask_clearance,
-        &mut operations,
-        budget,
-        limits,
-    )?;
+        net_classes: outer.net_classes,
+        text_cache: outer.text_cache,
+        board_mask_clearance: outer.board_mask_clearance,
+        limits: outer.limits,
+    };
+    append_properties(&context, &properties, &mut operations, budget)?;
+    append_texts(&context, &texts, &mut operations, budget)?;
+    append_text_boxes(&context, &text_boxes, &mut operations, budget)?;
+    append_graphics(&context, &graphics, &mut operations, budget)?;
+    append_pads(&context, &pads, &mut operations, budget)?;
     Ok(BoardFootprintRecord {
         uuid: footprint.uuid.unwrap_or_default(),
         library_link: footprint.library_link,
@@ -283,17 +277,11 @@ fn footprint_record(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
 fn append_properties(
-    source: &str,
-    footprint: &PcbFootprint,
+    context: &FootprintRenderContext<'_, '_>,
     properties: &[PcbFootprintProperty],
-    variables: &BoardTextVariables,
-    placement: BoardFootprintPlacement,
     operations: &mut Vec<BoardFootprintOperation>,
     budget: &mut BudgetTracker,
-    text_cache: Option<&PlotterTextCacheSession<'_>>,
-    limits: BoardPlotLimits,
 ) -> Result<(), Error> {
     let reference = properties
         .iter()
@@ -315,7 +303,9 @@ fn append_properties(
         }
         let mut text = property.value.clone();
         if property.render_cache_range.is_some() || property.effects.font.face.is_some() {
-            text = variables.substitute_bounded(&text, budget.remaining_text_bytes()?)?;
+            text = context
+                .variables
+                .substitute_bounded(&text, budget.remaining_text_bytes()?)?;
         }
         let plotter = operation_from_effects(
             text,
@@ -332,32 +322,34 @@ fn append_properties(
         )?;
         let mut operation = board_text_operation(plotter);
         attach_footprint_cache(
-            source,
-            property.source_range.clone(),
-            property.render_cache_range.is_some(),
-            &property.effects,
-            placement,
-            NativeCacheContext::Simple {
-                unlocked: property.unlocked,
+            context,
+            CacheDescriptor {
+                range: property.source_range.clone(),
+                has_authored_cache: property.render_cache_range.is_some(),
+                effects: &property.effects,
+                native_context: NativeCacheContext::Simple {
+                    unlocked: property.unlocked,
+                },
+                knockout: false,
             },
-            false,
             &mut operation,
             budget,
-            text_cache,
-            limits,
         )?;
         append_child_text(
-            footprint,
-            property.uuid.as_deref(),
-            "property",
-            "footprint-text",
-            &property.name,
-            object_index,
-            None,
-            &property.layer,
-            Some(text_role(&property.name, Some(&property.name))),
-            Some(property.name.clone()),
-            None,
+            context,
+            ChildDescriptor {
+                source_uuid: property.uuid.as_deref(),
+                data_ref: "property",
+                primitive: "footprint-text",
+                object_id: &property.name,
+                index: object_index,
+                sub_index: None,
+                layer: &property.layer,
+                text_role: Some(text_role(&property.name, Some(&property.name))),
+                property_name: Some(property.name.clone()),
+                fp_text_type: None,
+                graphic_kind: None,
+            },
             operation,
             operations,
             budget,
@@ -366,34 +358,32 @@ fn append_properties(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 fn append_texts(
-    source: &str,
-    footprint: &PcbFootprint,
+    context: &FootprintRenderContext<'_, '_>,
     texts: &[PcbFootprintText],
-    variables: &BoardTextVariables,
-    placement: BoardFootprintPlacement,
     operations: &mut Vec<BoardFootprintOperation>,
     budget: &mut BudgetTracker,
-    text_cache: Option<&PlotterTextCacheSession<'_>>,
-    limits: BoardPlotLimits,
 ) -> Result<(), Error> {
     for (index, text) in texts.iter().enumerate() {
         if text.hidden {
             continue;
         }
         let raw = match text.kind.as_str() {
-            "reference" => variables
+            "reference" => context
+                .variables
                 .get("Reference")
-                .or_else(|| variables.get("REFERENCE"))
+                .or_else(|| context.variables.get("REFERENCE"))
                 .unwrap_or(&text.text),
-            "value" => variables
+            "value" => context
+                .variables
                 .get("Value")
-                .or_else(|| variables.get("VALUE"))
+                .or_else(|| context.variables.get("VALUE"))
                 .unwrap_or(&text.text),
             _ => &text.text,
         };
-        let resolved = variables.substitute_bounded(raw, budget.remaining_text_bytes()?)?;
+        let resolved = context
+            .variables
+            .substitute_bounded(raw, budget.remaining_text_bytes()?)?;
         if resolved.is_empty() {
             continue;
         }
@@ -412,19 +402,18 @@ fn append_texts(
         )?;
         let mut operation = board_text_operation(plotter);
         attach_footprint_cache(
-            source,
-            text.source_range.clone(),
-            text.render_cache_range.is_some(),
-            &text.effects,
-            placement,
-            NativeCacheContext::Simple {
-                unlocked: text.unlocked,
+            context,
+            CacheDescriptor {
+                range: text.source_range.clone(),
+                has_authored_cache: text.render_cache_range.is_some(),
+                effects: &text.effects,
+                native_context: NativeCacheContext::Simple {
+                    unlocked: text.unlocked,
+                },
+                knockout: text.knockout,
             },
-            text.knockout,
             &mut operation,
             budget,
-            text_cache,
-            limits,
         )?;
         let object_id = if text.kind.is_empty() {
             index.to_string()
@@ -432,17 +421,20 @@ fn append_texts(
             format!("{}:{index}", text.kind)
         };
         append_child_text(
-            footprint,
-            text.uuid.as_deref(),
-            "fp_text",
-            "footprint-text",
-            &object_id,
-            index,
-            None,
-            &text.layer,
-            Some(text_role(&text.kind, None)),
-            None,
-            Some(text.kind.clone()),
+            context,
+            ChildDescriptor {
+                source_uuid: text.uuid.as_deref(),
+                data_ref: "fp_text",
+                primitive: "footprint-text",
+                object_id: &object_id,
+                index,
+                sub_index: None,
+                layer: &text.layer,
+                text_role: Some(text_role(&text.kind, None)),
+                property_name: None,
+                fp_text_type: Some(text.kind.clone()),
+                graphic_kind: None,
+            },
             operation,
             operations,
             budget,
@@ -451,125 +443,51 @@ fn append_texts(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 fn append_text_boxes(
-    source: &str,
-    footprint: &PcbFootprint,
+    context: &FootprintRenderContext<'_, '_>,
     text_boxes: &[PcbFootprintTextBox],
-    variables: &BoardTextVariables,
-    placement: BoardFootprintPlacement,
     operations: &mut Vec<BoardFootprintOperation>,
     budget: &mut BudgetTracker,
-    text_cache: Option<&PlotterTextCacheSession<'_>>,
-    limits: BoardPlotLimits,
 ) -> Result<(), Error> {
     for (index, text_box) in text_boxes.iter().enumerate() {
-        let mut local = Vec::with_capacity(2);
-        if text_box.border.unwrap_or(false) {
-            local.push(EitherOperation::Geometry(PlotterOperation::Rect(
-                PlotterRect {
-                    x1: mm_to_nm(text_box.start.x)?,
-                    y1: mm_to_nm(text_box.start.y)?,
-                    x2: mm_to_nm(text_box.end.x)?,
-                    y2: mm_to_nm(text_box.end.y)?,
-                    fill: PlotterFill::NoFill,
-                    width_nm: text_box_border_width(text_box.stroke_width)?,
-                    corner_radius_nm: 0,
-                    layer: Some(text_box.layer.clone()),
-                    stroke_color: None,
-                    fill_color: None,
-                    line_style: None,
-                },
-            )));
-        }
-        if !text_box.text.is_empty() {
-            let effects = text_box.effects.clone().unwrap_or_default();
-            let (authored_h, authored_v) = alignments(&effects);
-            let h = authored_h.unwrap_or(PlotterTextHAlign::Left);
-            let v = authored_v.unwrap_or(PlotterTextVAlign::Top);
-            let x1 = text_box.start.x.min(text_box.end.x);
-            let y1 = text_box.start.y.min(text_box.end.y);
-            let x2 = text_box.start.x.max(text_box.end.x);
-            let y2 = text_box.start.y.max(text_box.end.y);
-            let [left, top, right, bottom] = text_box.margins;
-            let x = match h {
-                PlotterTextHAlign::Right => x2 - right,
-                PlotterTextHAlign::Center => (x1 + x2) / 2.0,
-                PlotterTextHAlign::Left => x1 + left,
-            };
-            let y = match v {
-                PlotterTextVAlign::Bottom => y2 - bottom,
-                PlotterTextVAlign::Center => (y1 + y2) / 2.0,
-                PlotterTextVAlign::Top => y1 + top,
-            };
-            let resolved =
-                variables.substitute_bounded(&text_box.text, budget.remaining_text_bytes()?)?;
-            let size_x_nm = mm_to_nm(effects.font.size_x)?;
-            let wrap_size_x_nm = if size_x_nm == 0 { 1_270_000 } else { size_x_nm };
-            let wrapped = super::text_wrap::wrap_text_box(
-                &resolved,
-                ((x2 - x1) - left - right).max(0.0),
-                wrap_size_x_nm,
-            );
-            let multiline = wrapped.contains('\n') || resolved.contains('\n');
-            let plotter = operation_from_effects(
-                wrapped,
-                TextOperationInput {
-                    x,
-                    y,
-                    angle: text_box.angle,
-                    layer: &text_box.layer,
-                    effects: &effects,
-                    default_h: h,
-                    default_v: v,
-                    multiline,
-                },
-            )?;
-            let mut operation = board_text_operation(plotter);
-            attach_footprint_cache(
-                source,
-                text_box.source_range.clone(),
-                text_box.render_cache_range.is_some(),
-                &effects,
-                placement,
-                NativeCacheContext::TextBox,
-                text_box.knockout.unwrap_or(false),
-                &mut operation,
-                budget,
-                text_cache,
-                limits,
-            )?;
-            local.push(EitherOperation::Text(operation));
-        }
+        let local = text_box_operations(context, text_box, budget)?;
         for (sub_index, operation) in local.into_iter().enumerate() {
             let object_id = format!("text_box:{index}");
             match operation {
                 EitherOperation::Text(operation) => append_child_text(
-                    footprint,
-                    text_box.uuid.as_deref(),
-                    "fp_text_box",
-                    "footprint-text",
-                    &object_id,
-                    index,
-                    Some(sub_index),
-                    &text_box.layer,
-                    Some("user".to_owned()),
-                    None,
-                    None,
+                    context,
+                    ChildDescriptor {
+                        source_uuid: text_box.uuid.as_deref(),
+                        data_ref: "fp_text_box",
+                        primitive: "footprint-text",
+                        object_id: &object_id,
+                        index,
+                        sub_index: Some(sub_index),
+                        layer: &text_box.layer,
+                        text_role: Some("user".to_owned()),
+                        property_name: None,
+                        fp_text_type: None,
+                        graphic_kind: None,
+                    },
                     operation,
                     operations,
                     budget,
                 )?,
                 EitherOperation::Geometry(operation) => append_child_geometry(
-                    footprint,
-                    text_box.uuid.as_deref(),
-                    "fp_text_box",
-                    "footprint-graphic",
-                    &object_id,
-                    index,
-                    Some(sub_index),
-                    &text_box.layer,
-                    Some("text-box-border".to_owned()),
+                    context,
+                    ChildDescriptor {
+                        source_uuid: text_box.uuid.as_deref(),
+                        data_ref: "fp_text_box",
+                        primitive: "footprint-graphic",
+                        object_id: &object_id,
+                        index,
+                        sub_index: Some(sub_index),
+                        layer: &text_box.layer,
+                        text_role: None,
+                        property_name: None,
+                        fp_text_type: None,
+                        graphic_kind: Some("text-box-border".to_owned()),
+                    },
                     operation,
                     operations,
                     budget,
@@ -580,18 +498,102 @@ fn append_text_boxes(
     Ok(())
 }
 
+fn text_box_operations(
+    context: &FootprintRenderContext<'_, '_>,
+    text_box: &PcbFootprintTextBox,
+    budget: &BudgetTracker,
+) -> Result<Vec<EitherOperation>, Error> {
+    let mut local = Vec::with_capacity(2);
+    if text_box.border.unwrap_or(false) {
+        local.push(EitherOperation::Geometry(PlotterOperation::Rect(
+            PlotterRect {
+                x1: mm_to_nm(text_box.start.x)?,
+                y1: mm_to_nm(text_box.start.y)?,
+                x2: mm_to_nm(text_box.end.x)?,
+                y2: mm_to_nm(text_box.end.y)?,
+                fill: PlotterFill::NoFill,
+                width_nm: text_box_border_width(text_box.stroke_width)?,
+                corner_radius_nm: 0,
+                layer: Some(text_box.layer.clone()),
+                stroke_color: None,
+                fill_color: None,
+                line_style: None,
+            },
+        )));
+    }
+    if text_box.text.is_empty() {
+        return Ok(local);
+    }
+    let effects = text_box.effects.clone().unwrap_or_default();
+    let (authored_h, authored_v) = alignments(&effects);
+    let h = authored_h.unwrap_or(PlotterTextHAlign::Left);
+    let v = authored_v.unwrap_or(PlotterTextVAlign::Top);
+    let x1 = text_box.start.x.min(text_box.end.x);
+    let y1 = text_box.start.y.min(text_box.end.y);
+    let x2 = text_box.start.x.max(text_box.end.x);
+    let y2 = text_box.start.y.max(text_box.end.y);
+    let [left, top, right, bottom] = text_box.margins;
+    let x = match h {
+        PlotterTextHAlign::Right => x2 - right,
+        PlotterTextHAlign::Center => (x1 + x2) / 2.0,
+        PlotterTextHAlign::Left => x1 + left,
+    };
+    let y = match v {
+        PlotterTextVAlign::Bottom => y2 - bottom,
+        PlotterTextVAlign::Center => (y1 + y2) / 2.0,
+        PlotterTextVAlign::Top => y1 + top,
+    };
+    let resolved = context
+        .variables
+        .substitute_bounded(&text_box.text, budget.remaining_text_bytes()?)?;
+    let size_x_nm = mm_to_nm(effects.font.size_x)?;
+    let wrap_size_x_nm = if size_x_nm == 0 { 1_270_000 } else { size_x_nm };
+    let wrapped = super::text_wrap::wrap_text_box(
+        &resolved,
+        ((x2 - x1) - left - right).max(0.0),
+        wrap_size_x_nm,
+    );
+    let multiline = wrapped.contains('\n') || resolved.contains('\n');
+    let plotter = operation_from_effects(
+        wrapped,
+        TextOperationInput {
+            x,
+            y,
+            angle: text_box.angle,
+            layer: &text_box.layer,
+            effects: &effects,
+            default_h: h,
+            default_v: v,
+            multiline,
+        },
+    )?;
+    let mut operation = board_text_operation(plotter);
+    attach_footprint_cache(
+        context,
+        CacheDescriptor {
+            range: text_box.source_range.clone(),
+            has_authored_cache: text_box.render_cache_range.is_some(),
+            effects: &effects,
+            native_context: NativeCacheContext::TextBox,
+            knockout: text_box.knockout.unwrap_or(false),
+        },
+        &mut operation,
+        budget,
+    )?;
+    local.push(EitherOperation::Text(operation));
+    Ok(local)
+}
+
 enum EitherOperation {
     Geometry(PlotterOperation),
     Text(BoardTextOperation),
 }
 
 fn append_graphics(
-    source: &str,
-    footprint: &PcbFootprint,
+    context: &FootprintRenderContext<'_, '_>,
     graphics: &[PcbFootprintGraphic],
     operations: &mut Vec<BoardFootprintOperation>,
     budget: &mut BudgetTracker,
-    limits: BoardPlotLimits,
 ) -> Result<(), Error> {
     let families = [
         (PcbGraphicKind::Line, "fp_line", "line"),
@@ -608,28 +610,33 @@ fn append_graphics(
         {
             let remaining_operations = budget.remaining_operations()?;
             let additions = footprint_graphic_operations_from_range(
-                source,
+                context.source,
                 graphic.graphic.source_range.clone(),
                 data_ref,
                 remaining_operations,
                 budget.remaining_points()?,
-                limits.max_depth,
-                limits.max_parse_nodes,
+                context.limits.max_depth,
+                context.limits.max_parse_nodes,
             )?;
             let layer = graphic.graphic.layer.as_deref().unwrap_or("F.SilkS");
             for (sub_index, operation) in additions.into_iter().enumerate() {
                 let metadata_sub_index =
                     matches!(kind, PcbGraphicKind::Line | PcbGraphicKind::Arc).then_some(sub_index);
                 append_child_geometry(
-                    footprint,
-                    graphic.graphic.uuid.as_deref(),
-                    data_ref,
-                    "footprint-graphic",
-                    &format!("{graphic_kind}:{index}"),
-                    index,
-                    metadata_sub_index,
-                    layer,
-                    Some(graphic_kind.to_owned()),
+                    context,
+                    ChildDescriptor {
+                        source_uuid: graphic.graphic.uuid.as_deref(),
+                        data_ref,
+                        primitive: "footprint-graphic",
+                        object_id: &format!("{graphic_kind}:{index}"),
+                        index,
+                        sub_index: metadata_sub_index,
+                        layer,
+                        text_role: None,
+                        property_name: None,
+                        fp_text_type: None,
+                        graphic_kind: Some(graphic_kind.to_owned()),
+                    },
                     operation,
                     operations,
                     budget,
@@ -641,74 +648,54 @@ fn append_graphics(
 }
 
 fn append_pads(
-    source: &str,
-    footprint: &PcbFootprint,
+    context: &FootprintRenderContext<'_, '_>,
     pads: &[PcbPad],
-    net_classes: &BoardNetClassAssignments,
-    board_mask_clearance: f64,
     operations: &mut Vec<BoardFootprintOperation>,
     budget: &mut BudgetTracker,
-    limits: BoardPlotLimits,
 ) -> Result<(), Error> {
     for (index, pad) in pads.iter().enumerate() {
         let margin = pad
             .solder_mask_margin
-            .or(footprint.solder_mask_margin)
-            .unwrap_or(board_mask_clearance);
+            .or(context.footprint.solder_mask_margin)
+            .unwrap_or(context.board_mask_clearance);
         let parsed = footprint_pad_operations_from_range(
-            source,
+            context.source,
             pad.source_range.clone(),
             margin,
-            -footprint.angle.unwrap_or(0.0),
-            budget.remaining_operations()?,
-            budget.remaining_points()?,
-            limits.max_depth,
-            limits.max_parse_nodes,
+            -context.footprint.angle.unwrap_or(0.0),
+            FootprintPadParseLimits {
+                max_operations: budget.remaining_operations()?,
+                max_points: budget.remaining_points()?,
+                max_depth: context.limits.max_depth,
+                max_nodes: context.limits.max_parse_nodes,
+            },
         )?;
         if !parsed.flash.is_empty() {
-            append_pad_block(
-                footprint,
-                pad,
-                index,
-                false,
-                parsed.flash,
-                net_classes,
-                operations,
-                budget,
-            )?;
+            append_pad_block(context, pad, index, false, parsed.flash, operations, budget)?;
         }
         if !parsed.drill.is_empty() {
-            append_pad_block(
-                footprint,
-                pad,
-                index,
-                true,
-                parsed.drill,
-                net_classes,
-                operations,
-                budget,
-            )?;
+            append_pad_block(context, pad, index, true, parsed.drill, operations, budget)?;
         }
     }
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 fn append_pad_block(
-    footprint: &PcbFootprint,
+    context: &FootprintRenderContext<'_, '_>,
     pad: &PcbPad,
     index: usize,
     hole: bool,
     payloads: Vec<PlotterOperation>,
-    net_classes: &BoardNetClassAssignments,
     operations: &mut Vec<BoardFootprintOperation>,
     budget: &mut BudgetTracker,
 ) -> Result<(), Error> {
-    let label = pad_label(footprint, pad, index, hole);
-    let base_label = pad_label(footprint, pad, index, false);
-    let component = footprint.reference.as_deref().unwrap_or("");
+    let label = pad_label(context.footprint, pad, index, hole);
+    let base_label = pad_label(context.footprint, pad, index, false);
+    let component = context.footprint.reference.as_deref().unwrap_or("");
     let number = &pad.number;
-    let classes = net_classes.extras_for_bounded(pad.net.name.as_deref(), budget)?;
+    let classes = context
+        .net_classes
+        .extras_for_bounded(pad.net.name.as_deref(), budget)?;
     let pad_designator = if !component.is_empty() && !number.is_empty() {
         format!("{component}-{number}")
     } else {
@@ -717,9 +704,9 @@ fn append_pad_block(
     let attrs = BoardFootprintBlockAttributes {
         primitive: if hole { "pad-hole" } else { "pad" }.to_owned(),
         component: nonempty(component),
-        component_uid: nonempty(footprint.uuid.as_deref().unwrap_or("")),
-        component_uuid: nonempty(footprint.uuid.as_deref().unwrap_or("")),
-        footprint: nonempty(&footprint.library_link),
+        component_uid: nonempty(context.footprint.uuid.as_deref().unwrap_or("")),
+        component_uuid: nonempty(context.footprint.uuid.as_deref().unwrap_or("")),
+        footprint: nonempty(&context.footprint.library_link),
         pad_number: nonempty(number),
         pad_designator: nonempty(&pad_designator),
         pad_type: nonempty(&pad.kind),
@@ -776,37 +763,14 @@ fn append_pad_block(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 fn append_child_text(
-    footprint: &PcbFootprint,
-    source_uuid: Option<&str>,
-    data_ref: &str,
-    primitive: &str,
-    object_id: &str,
-    index: usize,
-    sub_index: Option<usize>,
-    layer: &str,
-    text_role: Option<String>,
-    property_name: Option<String>,
-    fp_text_type: Option<String>,
+    context: &FootprintRenderContext<'_, '_>,
+    descriptor: ChildDescriptor<'_>,
     operation: BoardTextOperation,
     operations: &mut Vec<BoardFootprintOperation>,
     budget: &mut BudgetTracker,
 ) -> Result<(), Error> {
-    let metadata = child_metadata(
-        footprint,
-        source_uuid,
-        data_ref,
-        primitive,
-        object_id,
-        index,
-        sub_index,
-        layer,
-        text_role,
-        property_name,
-        fp_text_type,
-        None,
-    );
+    let metadata = child_metadata(context.footprint, descriptor);
     let points = cache_point_count(&operation)?;
     budget.ensure_capacity(1, points)?;
     budget.charge_text(retained_text_bytes(&operation)?)?;
@@ -818,35 +782,14 @@ fn append_child_text(
     budget.charge(1, points)
 }
 
-#[allow(clippy::too_many_arguments)]
 fn append_child_geometry(
-    footprint: &PcbFootprint,
-    source_uuid: Option<&str>,
-    data_ref: &str,
-    primitive: &str,
-    object_id: &str,
-    index: usize,
-    sub_index: Option<usize>,
-    layer: &str,
-    graphic_kind: Option<String>,
+    context: &FootprintRenderContext<'_, '_>,
+    descriptor: ChildDescriptor<'_>,
     operation: PlotterOperation,
     operations: &mut Vec<BoardFootprintOperation>,
     budget: &mut BudgetTracker,
 ) -> Result<(), Error> {
-    let metadata = child_metadata(
-        footprint,
-        source_uuid,
-        data_ref,
-        primitive,
-        object_id,
-        index,
-        sub_index,
-        layer,
-        None,
-        None,
-        None,
-        graphic_kind,
-    );
+    let metadata = child_metadata(context.footprint, descriptor);
     let points = operation_point_count(&operation);
     budget.ensure_capacity(1, points)?;
     charge_child_metadata(&metadata, budget)?;
@@ -857,21 +800,23 @@ fn append_child_geometry(
     budget.charge(1, points)
 }
 
-#[allow(clippy::too_many_arguments)]
 fn child_metadata(
     footprint: &PcbFootprint,
-    source_uuid: Option<&str>,
-    data_ref: &str,
-    primitive: &str,
-    object_id: &str,
-    index: usize,
-    sub_index: Option<usize>,
-    layer: &str,
-    text_role: Option<String>,
-    property_name: Option<String>,
-    fp_text_type: Option<String>,
-    graphic_kind: Option<String>,
+    descriptor: ChildDescriptor<'_>,
 ) -> BoardFootprintChildMetadata {
+    let ChildDescriptor {
+        source_uuid,
+        data_ref,
+        primitive,
+        object_id,
+        index,
+        sub_index,
+        layer,
+        text_role,
+        property_name,
+        fp_text_type,
+        graphic_kind,
+    } = descriptor;
     let owner = footprint
         .uuid
         .as_deref()
@@ -947,27 +892,26 @@ fn board_text_operation(value: PlotterText) -> BoardTextOperation {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn attach_footprint_cache(
-    source: &str,
-    range: Range<usize>,
-    has_authored_cache: bool,
-    effects: &crate::KiCadTextEffects,
-    placement: BoardFootprintPlacement,
-    native_context: NativeCacheContext,
-    knockout: bool,
+    context: &FootprintRenderContext<'_, '_>,
+    descriptor: CacheDescriptor<'_>,
     operation: &mut BoardTextOperation,
     budget: &BudgetTracker,
-    text_cache: Option<&PlotterTextCacheSession<'_>>,
-    limits: BoardPlotLimits,
 ) -> Result<(), Error> {
+    let CacheDescriptor {
+        range,
+        has_authored_cache,
+        effects,
+        native_context,
+        knockout,
+    } = descriptor;
     let cache = if has_authored_cache {
-        let form = parse_selected(source, range, limits)?;
+        let form = parse_selected(context.source, range, context.limits)?;
         parse_render_cache(
             &form,
-            limits.max_input_points,
-            limits.max_cache_polygons,
-            limits.max_cache_contours,
+            context.limits.max_input_points,
+            context.limits.max_cache_polygons,
+            context.limits.max_cache_contours,
         )?
     } else {
         None
@@ -990,10 +934,10 @@ fn attach_footprint_cache(
             budget.remaining_points()?,
             knockout,
             BoardTextRenderCacheCoordinateSpace::FootprintLocal,
-            |x, y| footprint_local_nm(x, y, placement),
+            |x, y| footprint_local_nm(x, y, context.placement),
         )?;
     } else if effects.font.face.is_some()
-        && let Some(resources) = text_cache
+        && let Some(resources) = context.text_cache
     {
         if !operation.text.trim().is_empty() {
             budget.ensure_text_capacity(
@@ -1004,19 +948,19 @@ fn attach_footprint_cache(
                     .ok_or_else(text_limit_error)?,
             )?;
         }
-        let layout = footprint_native_layout(operation, effects, placement, native_context);
+        let layout = footprint_native_layout(operation, effects, context.placement, native_context);
         let generated = resources.generate(
             layout,
             budget.remaining_points()?,
-            limits.max_cache_polygons,
-            limits.max_cache_contours,
+            context.limits.max_cache_polygons,
+            context.limits.max_cache_contours,
         )?;
         attach_native_cache_mapped(
             operation,
             generated,
             budget.remaining_points()?,
             BoardTextRenderCacheCoordinateSpace::FootprintLocal,
-            |x, y| footprint_local_nm(x, y, placement),
+            |x, y| footprint_local_nm(x, y, context.placement),
         )?;
     }
     if knockout {
@@ -1025,7 +969,7 @@ fn attach_footprint_cache(
             operation,
             mm_to_nm(margin)?,
             budget.remaining_points()?,
-            limits.max_cache_contours,
+            context.limits.max_cache_contours,
         )?;
     }
     Ok(())

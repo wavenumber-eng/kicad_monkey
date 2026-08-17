@@ -147,6 +147,62 @@ fn style_selection_and_resource_limits_fail_closed() {
 }
 
 #[test]
+fn symbol_input_and_family_resource_boundaries_are_inclusive() {
+    let source = r#"(kicad_symbol_lib
+      (symbol "D"
+        (symbol "D_1_1"
+          (polyline (pts (xy 0 0) (xy 1 0) (xy 0 1))
+            (stroke (width 0.1) (type solid)) (fill (type none))))))"#;
+    let exact = SymbolPlotLimits {
+        max_source_bytes: source.len(),
+        // `(xy ...)`, `(width ...)`, and `(type ...)` reach zero-based
+        // nesting depth five in the complete library source.
+        max_depth: 5,
+        max_symbols: 1,
+        max_subsymbols: 1,
+        max_operations: 1,
+        max_points: 3,
+        ..SymbolPlotLimits::default()
+    };
+    symbol_plot_document(source, "D", None, 0, exact)
+        .expect("every exact producer resource boundary is inclusive");
+
+    for limits in [
+        SymbolPlotLimits {
+            max_source_bytes: source.len() - 1,
+            ..exact
+        },
+        SymbolPlotLimits {
+            max_depth: 4,
+            ..exact
+        },
+        SymbolPlotLimits {
+            max_symbols: 0,
+            ..exact
+        },
+        SymbolPlotLimits {
+            max_subsymbols: 0,
+            ..exact
+        },
+        SymbolPlotLimits {
+            max_operations: 0,
+            ..exact
+        },
+        SymbolPlotLimits {
+            max_points: 2,
+            ..exact
+        },
+    ] {
+        assert_eq!(
+            symbol_plot_document(source, "D", None, 0, limits)
+                .expect_err("one-under producer resource ceiling")
+                .kind,
+            ErrorKind::ResourceLimit
+        );
+    }
+}
+
+#[test]
 fn outline_fill_uses_the_explicit_stroke_color() {
     let source = r#"(kicad_symbol_lib (symbol "D" (symbol "D_1_1"
       (circle (center 0 0) (radius 1)

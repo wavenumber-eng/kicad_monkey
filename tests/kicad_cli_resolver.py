@@ -50,7 +50,7 @@ def _manifest_short_hashes() -> list[str]:
     return hashes
 
 
-KiCadCliCapability = Literal["any", "pcb_svg", "pcb_bbox"]
+KiCadCliCapability = Literal["any", "pcb_svg", "pcb_bbox", "schematic_svg"]
 
 
 def _build_tree_dir(candidate: Path) -> Path | None:
@@ -193,6 +193,35 @@ def _supports_pcb_bbox(candidate: Path) -> bool:
     return _supports_pcb_export_command(candidate, "bbox")
 
 
+def _supports_schematic_svg(candidate: Path) -> bool:
+    """Probe whether a kicad-cli executable can load the schematic SVG exporter."""
+    if not candidate.exists():
+        return False
+    if os.name == "nt" and not (
+        (candidate.parent / "_eeschema.dll").exists()
+        or _build_tree_dir(candidate) is not None
+    ):
+        return False
+
+    try:
+        result = subprocess.run(
+            [str(candidate), "sch", "export", "svg", "--help"],
+            capture_output=True,
+            text=True,
+            env=kicad_cli_subprocess_env(candidate),
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    return (
+        result.returncode == 0
+        and "Failed to parse" not in combined_output
+        and "export svg" in combined_output
+    )
+
+
 def resolve_kicad_cli(
     *, required_capability: KiCadCliCapability = "any"
 ) -> Path | None:
@@ -216,6 +245,10 @@ def resolve_kicad_cli(
             continue
         if required_capability == "pcb_bbox":
             if _supports_pcb_bbox(candidate):
+                return candidate
+            continue
+        if required_capability == "schematic_svg":
+            if _supports_schematic_svg(candidate):
                 return candidate
             continue
     return None

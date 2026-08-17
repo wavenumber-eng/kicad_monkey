@@ -72,6 +72,15 @@ where
 }
 
 #[doc(hidden)]
+pub fn deserialize_required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    <Option<T> as serde::Deserialize>::deserialize(deserializer)
+}
+
+#[doc(hidden)]
 pub fn reject_present_schematic_segment_layers<'de, D, T>(_: D) -> Result<T, D::Error>
 where
     D: serde::Deserializer<'de>,

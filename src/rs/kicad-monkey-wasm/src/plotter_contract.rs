@@ -26,6 +26,7 @@ macro_rules! project_plotter_operation {
                 role: contract_drill_role(operation.role.as_deref())?,
                 start_x: safe_integer(operation.start_x)?,
                 start_y: safe_integer(operation.start_y)?,
+                stroke_color: None,
                 width_nm: safe_integer(operation.width_nm)?,
             }
             .into(),
@@ -118,6 +119,7 @@ macro_rules! project_plotter_operation {
             CorePlotterOperation::Text(operation) => TextOperation {
                 bold: operation.bold,
                 color: operation.color,
+                context: None,
                 font_face: operation.font_face,
                 h_align: contract_text_h_align(operation.h_align),
                 index,

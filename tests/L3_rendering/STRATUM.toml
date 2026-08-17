@@ -281,3 +281,40 @@ secondary = [
     "Polygon comparison at 0.002 mm tolerance",
     "Empty-text objects carry polygon-less caches",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L3_022"
+file = "test_L3_022_rust_phase5_exit.py"
+name = "Rust Phase 5 Plotter-IR Exit"
+description = "Mandatory cross-producer vector, reviewed-corpus, live KiCad, and native cache acceptance"
+test_cases = "${KM_CORPUS_ROOT}/kicad"
+test_case_type = "release_acceptance"
+concerns = ["rust", "rendering", "rendering.text", "parity", "contracts", "release"]
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_plotter_ir"
+modules = [
+    "kicad_monkey.kicad_footprint_to_ir",
+    "kicad_monkey.kicad_lib_symbol_to_ir",
+    "kicad_monkey.kicad_pcb_to_ir",
+    "kicad_monkey.kicad_schematic_to_ir",
+]
+
+[subtests.objectives]
+primary = "Footprint, symbol, board, and schematic native Plotter-IR close against governed Python and live KiCad authorities"
+secondary = [
+    "Every checked-in producer vector remains exact under the Python authority and strict generated decoder",
+    "Stable active manifest inputs under input/ produce nonempty strict documents for all four producers",
+    "KM_CORPUS must be a reviewed ZIP and missing corpus, fonts, Cargo, or KiCad capabilities fail rather than skip",
+    "KM_PHASE5_PRODUCERS and KM_PHASE5_PARTITION_INDEX/COUNT select deterministic source shards",
+    "The Phase 5 schema freeze, TypeSpec and generated bindings, vector generators, and native Rust codegen are checked directly",
+    "Selected producer-native semantic and resource test targets run explicitly under the four-job cap",
+    "The full Cargo format, check, Clippy, workspace test, doctest, rustdoc, and real wasm32 gates are mandatory",
+    "The existing Rust sexpr_corpus_gate accepts every selected manifest source with jobs capped at four",
+    "Broad 264-file corpus evidence is source/S-expression acceptance; exact producer parity remains the frozen vectors and four selected strict cases",
+    "The known Python Device__R multi-subsymbol record-local index drift is not represented as strict producer parity",
+    "PCB and schematic kicad-cli exporters produce valid SVG artifacts without claiming visual parity",
+    "A focused Arial board cache matches the live KiCad save oracle through the native carrier at 0.002 mm tolerance",
+]

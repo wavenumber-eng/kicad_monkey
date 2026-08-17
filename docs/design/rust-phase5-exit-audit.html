@@ -9,7 +9,8 @@
   <h1>Rust Phase 5 plotter and text exit audit</h1>
 
   <p>Status: accepted after independent producer, contract, and gate review.
-  Phase 5 is not complete. This audit compares the
+  Phase 5 is complete and its producer-specific strict <code>a0</code> unions
+  are frozen. This audit compares the
   established Python Plotter-IR producers with the native Rust producers and
   turns every remaining required family into a bounded slice. Phase 4 already
   closed the governed native netlist and compiled-schematic-graph work; this
@@ -38,24 +39,23 @@
         <td>Shaping, hinted outlines, curve flattening, layout, markup,
         topology, typed cache I/O, and focused live KiCad save-oracle cases
         exist.</td>
-        <td>Give plotter carriers a bounded font-selection/cache-generation
-        input so missing or stale outline caches can use the accepted native
-        engine. Keep font discovery outside the transport-neutral core.</td>
+        <td>No retained Phase 5 gap remains. Plotter carriers use bounded,
+        caller-supplied font/cache resources; font discovery remains outside
+        the transport-neutral core.</td>
       </tr>
       <tr>
         <td>Standalone footprint</td>
         <td>Metadata, non-text graphics, patterned strokes, standard pads,
         drills, polygon custom pads, and chamfered pads exist.</td>
-        <td>Reference/value/other properties, <code>fp_text</code>, and
-        <code>fp_text_box</code>, including variable resolution, canonical
-        ordering, borders, wrapping, and independent text/input limits.</td>
+        <td>No retained standalone-footprint Plotter-IR gap remains in the
+        Phase 5 bounded inventory.</td>
       </tr>
       <tr>
         <td>Library symbol</td>
         <td>Header metadata, inherited body geometry, fill/deferred-outline
         order, pin shafts, and pin decorations exist.</td>
-        <td>Body <code>text</code> plus pin number/name operations, parent hide
-        and offset settings, project-variable substitution, and text budgets.</td>
+        <td>No retained library-symbol Plotter-IR gap remains in the Phase 5
+        bounded inventory.</td>
       </tr>
       <tr>
         <td>Board</td>
@@ -79,7 +79,8 @@
         overlap overplots, and hierarchical sheets with typed pins, visible
         fields, DNP markers, and terminal ordering under a distinct strict
         schematic contract.</td>
-        <td>Phase 5 exit evidence and contract freeze only.</td>
+        <td>No retained schematic Plotter-IR gap remains in the Phase 5
+        bounded inventory.</td>
       </tr>
     </tbody>
   </table>
@@ -155,16 +156,17 @@
     strokes, deterministic caller-supplied font metrics, strict generated
     contracts, checked sheet/property/pin and aggregate resource ceilings,
     and the native-first L1_036 gate.</li>
-    <li><strong>P5_080 Phase 5 exit.</strong> Add Rack <code>L3_022</code> as
-    the mandatory cross-producer gate over the final footprint, symbol, board,
+    <li><strong>P5_080 Phase 5 exit.</strong> Rack <code>L3_022</code> is the
+    mandatory cross-producer gate over the final footprint, symbol, board,
     and schematic vectors; native resource and semantic mutation suites;
     package-local authoritative <code>input/</code> footprint, symbol, board,
     and schematic corpus files; Cargo quality; and required live KiCad cache
     and plot acceptance. The gate fails rather than skips when the corpus,
     declared fonts, or required PCB/schematic KiCad CLI capabilities are
-    absent. Only then
-    close every Phase 5 carrier row plus the explicit Phase 5 exit governance
-    row, and accept the render-cache and Phase 5 exit documents.</li>
+    absent. Implemented, independently reviewed, and closed with an immutable
+    12-schema/seven-union freeze ledger, exact cross-producer vectors, bounded
+    native semantic/resource suites, live KiCad 10.0.5 acceptance, and the
+    mandatory Windows <code>L3_022</code> bot and publication gate.</li>
   </ol>
 
   <h2>Dependencies and exclusions</h2>
@@ -185,6 +187,16 @@
   producer expansion must add a parity-ledger row before it can widen this
   exit gate.</p>
 
+  <p>Corpus evidence has two deliberately separate strengths. Exact producer
+  parity is frozen by the checked-in vectors and four selected strict manifest
+  cases. The complete 264-file footprint, symbol, board, and schematic corpus
+  partition proves bounded S-expression source acceptance, not arbitrary
+  producer-document parity. In particular, the Python authority for the
+  official multi-subsymbol <code>Device__R</code> carrier restarts operation
+  indexes per subsymbol record and therefore does not satisfy the strict
+  document-global index contract; the governed exact symbol case is
+  <code>Connector_Generic__Conn_02x05_Odd_Even</code>.</p>
+
   <h2>Contract compatibility during incubation</h2>
   <p>The generic <code>kicad.plotter_ir.a0</code> schema remains the stable,
   forward-compatible consumer contract: it accepts unknown operation kinds
@@ -199,8 +211,9 @@
 
   <p>P5_060 creates a distinct strict
   <code>SchematicPlotDocumentA0</code> identity; it does not reuse the board
-  document identity. P5_080 freezes the producer-specific a0 unions. After
-  that freeze, a new record/operation union arm requires a new
+  document identity. P5_080 has frozen the producer-specific a0 unions through
+  <code>tests/parity/plotter_ir_phase5_freeze.json</code>. A new
+  record/operation union arm now requires a new
   producer-specific contract version or a separately reviewed tolerant
   envelope; regeneration alone is not a compatibility decision.</p>
 
@@ -211,8 +224,7 @@
   <code>L1_026</code>, P5_030 updates <code>L1_027</code>, and P5_040/P5_050
   update <code>L1_035</code>. P5_060 creates <code>L1_036</code>, which P5_061,
   P5_062, P5_070, and P5_071 extend with their ordered schematic families.
-  These Rack identifiers are planned owners, not evidence for an
-  unimplemented row. A row moves from
+  These Rack identifiers are the accepted slice owners. A row moves from
   <code>planned</code> to <code>review_ready</code> only after its Rack owner,
   executable vector, implementation evidence, and semantic/resource tests
   exist. Contract changes require TypeSpec regeneration checks and semantic
@@ -231,10 +243,12 @@
   validated before retained operations are published.</p>
 
   <p>Focused Rack owners must record warm runtime and keep their default slice
-  gate under two minutes. L3_022 shards by producer and then corpus partition;
-  each shard has a 20-minute ceiling and the complete Windows exit run has a
-  60-minute ceiling. A slice that exceeds either limit must reduce duplicate
-  oracle work or record and review a new measured budget before promotion.
+  gate under two minutes. <code>L3_022</code> accepts producer and deterministic
+  corpus-partition selectors for diagnostics, but the required Windows bot
+  runs all producers and partitions serially so Cargo, live KiCad, and corpus
+  setup are not duplicated. The cold bot job has a 120-minute ceiling. A run
+  that exceeds that limit must reduce duplicate oracle work or record and
+  review a new measured budget before promotion.
   Broad corpus and live KiCad work belongs in the final exit run unless a slice
   changes its authority boundary. Every slice is independently reviewed,
   logged through the development-standard plan, and committed before the next
@@ -256,5 +270,12 @@
   <p>The 2026-08-17 warm P5_071 <code>L1_036</code> run completed all four
   tests in 8.45 seconds (9.27 seconds including Rack signoff), below the
   two-minute slice policy.</p>
+  <p>The 2026-08-17 warm Phase 5 exit <code>L3_022</code> run completed all
+  seven mandatory tests in 120.26 seconds (121.75 seconds including Rack
+  signoff). It covered 30 exact producer vectors with 771 operations, all
+  selected native semantic/resource suites, the 12-schema/seven-union freeze,
+  full Cargo quality and isolated WASM feature checks, 264 deterministically
+  partitioned corpus inputs, live PCB and schematic SVG export, and
+  native/live cache parity.</p>
 </body>
 </html>

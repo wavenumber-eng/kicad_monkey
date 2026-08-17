@@ -813,6 +813,22 @@ mod tests {
                 vector["expected"]["total_operations"]
             );
             assert_eq!(document, vector["expected"], "{}", vector["id"]);
+            for record in document["records"].as_array().expect("record array") {
+                for operation in record["operations"].as_array().into_iter().flatten() {
+                    if operation["kind"] == "ThickSegment" {
+                        assert!(
+                            operation.get("stroke_color").is_none(),
+                            "legacy footprint segments must not acquire stroke colors"
+                        );
+                    }
+                    if operation["kind"] == "Text" {
+                        assert!(
+                            operation.get("context").is_none(),
+                            "legacy footprint text must not acquire hyperlink context"
+                        );
+                    }
+                }
+            }
         }
 
         let text_vector = &vectors["vectors"]

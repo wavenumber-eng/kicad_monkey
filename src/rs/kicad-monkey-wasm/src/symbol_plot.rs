@@ -374,6 +374,16 @@ mod tests {
             let actual: serde_json::Value =
                 serde_json::from_slice(&output.output_bytes).expect("document bytes");
             assert_eq!(actual, vector["expected"], "{}", vector["id"]);
+            for record in actual["records"].as_array().expect("record array") {
+                for operation in record["operations"].as_array().into_iter().flatten() {
+                    if operation["kind"] == "Text" {
+                        assert!(
+                            operation.get("context").is_none(),
+                            "legacy symbol text must not acquire hyperlink context"
+                        );
+                    }
+                }
+            }
         }
     }
 

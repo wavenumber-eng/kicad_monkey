@@ -20,21 +20,44 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CARGO_BUILD_JOBS: "4"
+  RUST_TEST_THREADS: "2"
 
 permissions:
   contents: write
   id-token: write
 
 jobs:
+  phase5-exit:
+    if: >-
+      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
+    uses: ./.github/workflows/phase5-exit.yml
+
   publish-monkey:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
+    needs: phase5-exit
     runs-on: ubuntu-latest
     environment: pypi-kicad-monkey
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Rust and contract gate toolchains
+        run: |
+          npm install --global npm@11.6.2
+          npm ci
+          cargo install wasm-bindgen-cli --version 0.2.127 --locked
       - name: Install public font dependencies
         run: |
           sudo apt-get update

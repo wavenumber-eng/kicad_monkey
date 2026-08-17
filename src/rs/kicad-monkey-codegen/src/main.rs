@@ -3,7 +3,7 @@
 use anyhow::{Context, Result, bail};
 use schemars::schema::RootSchema;
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -440,13 +440,15 @@ fn main() -> Result<()> {
         let mut schema: Value = serde_json::from_slice(
             &fs::read(&schema_path).with_context(|| format!("read {}", schema_path.display()))?,
         )?;
+        let published_schema = schema.clone();
         validate_plotter_operation_kinds(schema_name, &schema)?;
         flatten_board_footprint_operation_extensions(schema_name, &mut schema)?;
         project_schematic_request_fields(schema_name, &mut schema)?;
         project_for_typify(&mut schema);
         promote_disjoint_record_unions(&mut schema);
         project_tri_state_via_drill_layers(&mut schema);
-        let generated = project_generated_presence(schema_name, generate(schema)?)?;
+        let generated =
+            project_generated_presence(schema_name, &published_schema, generate(schema)?)?;
         expected.insert(output_root.join(output_name), generated);
         modules.push(output_name.trim_end_matches(".rs"));
     }
@@ -624,25 +626,31 @@ fn literal_kind_for_structure<'a>(schema: &'a Value, structure: &str) -> Result<
         .with_context(|| format!("missing literal kind for {structure} base {base}"))
 }
 
-fn project_generated_presence(schema_name: &str, source: String) -> Result<String> {
-    if !matches!(
-        schema_name,
-        "BoardPlotDocument.json"
-            | "FootprintPlotDocument.json"
-            | "SchematicPlotDocument.json"
-            | "SchematicPlotRequest.json"
-            | "SymbolPlotDocument.json"
-    ) {
+fn project_generated_presence(
+    schema_name: &str,
+    published_schema: &Value,
+    source: String,
+) -> Result<String> {
+    if !is_frozen_plotter_schema(schema_name) {
         return Ok(source);
     }
     let mut projected = source;
     if schema_name == "SchematicPlotRequest.json" {
-        return project_schematic_request_u64_strings(projected);
+        projected = project_schematic_request_u64_strings(projected)?;
     }
-    if matches!(
+    let is_document = matches!(
         schema_name,
-        "FootprintPlotDocument.json" | "SchematicPlotDocument.json" | "SymbolPlotDocument.json"
-    ) {
+        "BoardPlotDocument.json"
+            | "FootprintPlotDocument.json"
+            | "SchematicPlotDocument.json"
+            | "SymbolPlotDocument.json"
+    );
+    if is_document
+        && matches!(
+            schema_name,
+            "FootprintPlotDocument.json" | "SchematicPlotDocument.json" | "SymbolPlotDocument.json"
+        )
+    {
         let original = r#"    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,"#;
         let replacement = r#"    #[serde(
@@ -656,14 +664,15 @@ fn project_generated_presence(schema_name: &str, source: String) -> Result<Strin
         }
         projected = projected.replace(original, replacement);
     }
-    for (structure, _, deserializer) in PLOTTER_OPERATION_KINDS {
-        projected = project_kind_deserializer(projected, structure, deserializer)?;
+    if is_document {
+        for (structure, _, deserializer) in PLOTTER_OPERATION_KINDS {
+            projected = project_kind_deserializer(projected, structure, deserializer)?;
+        }
     }
     if schema_name == "BoardPlotDocument.json" {
         for (structure, _, deserializer) in BOARD_FOOTPRINT_OPERATION_KINDS {
             projected = project_kind_deserializer(projected, structure, deserializer)?;
         }
-        projected = project_dimension_text_presence(projected)?;
     }
     if schema_name == "SchematicPlotDocument.json" {
         for (structure, _, deserializer) in SCHEMATIC_RECORD_KINDS {
@@ -683,46 +692,15 @@ fn project_generated_presence(schema_name: &str, source: String) -> Result<Strin
         }
         projected = project_schematic_record_string(projected)?;
         projected = project_schematic_junction_color(projected)?;
-        projected = project_schematic_operation_presence(projected)?;
-        // The deterministic-map substitution can cross rustfmt's line-width
-        // boundary, so normalize the fully projected source as the final step.
-        projected = rustfmt(&projected)?;
+        projected = project_schematic_segment_layers(projected)?;
     }
-    Ok(projected)
+    projected = project_schema_presence(schema_name, published_schema, projected)?;
+    // Presence and deterministic-map substitutions can cross rustfmt's line-width
+    // boundary, so normalize the fully projected source as the final step.
+    rustfmt(&projected)
 }
 
-fn project_schematic_operation_presence(mut source: String) -> Result<String> {
-    let original = r#"    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-"#;
-    let replacement = r#"    #[serde(
-        default,
-        deserialize_with = "crate::deserialize_present_nonnull",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-"#;
-    for (structure, expected) in [
-        ("RectOperation", 4usize),
-        ("PlotPolyOperation", 4),
-        ("TextOperation", 9),
-        ("ThickSegmentOperation", 6),
-    ] {
-        let marker = format!("pub struct {structure} {{");
-        let start = source
-            .find(&marker)
-            .with_context(|| format!("missing generated {structure}"))?;
-        let end = source[start..]
-            .find("\n}")
-            .map(|offset| start + offset + 2)
-            .with_context(|| format!("unterminated generated {structure}"))?;
-        let block = &source[start..end];
-        let count = block.matches(original).count();
-        if count != expected {
-            bail!("generated {structure} optional-field projection changed: {count} != {expected}");
-        }
-        let projected = block.replace(original, replacement);
-        source.replace_range(start..end, &projected);
-    }
-
+fn project_schematic_segment_layers(mut source: String) -> Result<String> {
     let marker = "pub struct ThickSegmentOperation {";
     let start = source
         .find(marker)
@@ -745,6 +723,268 @@ fn project_schematic_operation_presence(mut source: String) -> Result<String> {
     pub layers: ::std::vec::Vec<::std::string::String>,"#;
     source.replace_range(offset..offset + field.len(), replacement);
     Ok(source)
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum FieldPresence {
+    OptionalNonnullable,
+    OptionalNullable,
+    RequiredNullable,
+}
+
+fn is_frozen_plotter_schema(schema_name: &str) -> bool {
+    matches!(
+        schema_name,
+        "BoardPlotDocument.json"
+            | "BoardPlotRequest.json"
+            | "BoardPlotResult.json"
+            | "FootprintPlotDocument.json"
+            | "FootprintPlotRequest.json"
+            | "FootprintPlotResult.json"
+            | "SymbolPlotDocument.json"
+            | "SymbolPlotRequest.json"
+            | "SymbolPlotResult.json"
+            | "SchematicPlotDocument.json"
+            | "SchematicPlotRequest.json"
+            | "SchematicPlotResult.json"
+    )
+}
+
+fn project_schema_presence(schema_name: &str, schema: &Value, source: String) -> Result<String> {
+    let rules = schema_presence_rules(schema_name, schema)?;
+    let mut syntax =
+        syn::parse_file(&source).context("parse generated Rust for presence projection")?;
+    let mut seen = BTreeSet::new();
+    let mut projected_optionals = 0usize;
+    let mut required_nullables = 0usize;
+
+    for item in &mut syntax.items {
+        let syn::Item::Struct(structure) = item else {
+            continue;
+        };
+        let syn::Fields::Named(fields) = &mut structure.fields else {
+            continue;
+        };
+        let structure_name = structure.ident.to_string();
+        for field in &mut fields.named {
+            let Some(field_ident) = &field.ident else {
+                continue;
+            };
+            let key = (structure_name.clone(), field_ident.to_string());
+            let Some(presence) = rules.get(&key).copied() else {
+                continue;
+            };
+            seen.insert(key.clone());
+            if !is_option_type(&field.ty) {
+                // Vec/map/defaulted scalar projections already reject JSON null through
+                // their native deserializers; only Option<T> needs a presence projection.
+                continue;
+            }
+            match presence {
+                FieldPresence::OptionalNonnullable => {
+                    replace_serde_presence_attr(
+                        field,
+                        syn::parse_quote!(#[serde(
+                            default,
+                            deserialize_with = "crate::deserialize_present_nonnull",
+                            skip_serializing_if = "::std::option::Option::is_none"
+                        )]),
+                    )?;
+                    projected_optionals += 1;
+                }
+                FieldPresence::RequiredNullable => {
+                    replace_serde_presence_attr(
+                        field,
+                        syn::parse_quote!(#[serde(
+                            deserialize_with = "crate::deserialize_required_nullable"
+                        )]),
+                    )?;
+                    required_nullables += 1;
+                }
+                FieldPresence::OptionalNullable => {
+                    if key != ("SchematicJunctionPlotRecord".to_owned(), "color".to_owned())
+                        || !is_nested_option_type(&field.ty)
+                        || !has_deserializer(field, "deserialize_present_nullable_string")
+                    {
+                        bail!(
+                            "{schema_name} optional-nullable projection changed at {}.{}",
+                            key.0,
+                            key.1
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    let missing = rules
+        .keys()
+        .filter(|key| !seen.contains(*key))
+        .map(|(structure, field)| format!("{structure}.{field}"))
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        bail!(
+            "{schema_name} generated presence fields are missing: {}",
+            missing.join(", ")
+        );
+    }
+    let expected_required_nullables = rules
+        .values()
+        .filter(|presence| **presence == FieldPresence::RequiredNullable)
+        .count();
+    if required_nullables != expected_required_nullables {
+        bail!(
+            "{schema_name} required-nullable projection changed: {required_nullables} != {expected_required_nullables}"
+        );
+    }
+    if rules
+        .values()
+        .any(|presence| *presence == FieldPresence::OptionalNonnullable)
+        && projected_optionals == 0
+    {
+        bail!("{schema_name} has no projected optional nonnullable Option<T> fields");
+    }
+    Ok(prettyplease::unparse(&syntax))
+}
+
+fn replace_serde_presence_attr(field: &mut syn::Field, replacement: syn::Attribute) -> Result<()> {
+    let serde_attributes = field
+        .attrs
+        .iter()
+        .filter(|attribute| attribute.path().is_ident("serde"))
+        .count();
+    if serde_attributes > 1 {
+        bail!("generated optional field has multiple serde attributes");
+    }
+    field
+        .attrs
+        .retain(|attribute| !attribute.path().is_ident("serde"));
+    field.attrs.push(replacement);
+    Ok(())
+}
+
+fn has_deserializer(field: &syn::Field, needle: &str) -> bool {
+    field.attrs.iter().any(|attribute| {
+        attribute.path().is_ident("serde")
+            && matches!(&attribute.meta, syn::Meta::List(list) if list.tokens.to_string().contains(needle))
+    })
+}
+
+fn is_option_type(ty: &syn::Type) -> bool {
+    let syn::Type::Path(path) = ty else {
+        return false;
+    };
+    path.path
+        .segments
+        .last()
+        .is_some_and(|segment| segment.ident == "Option")
+}
+
+fn is_nested_option_type(ty: &syn::Type) -> bool {
+    let syn::Type::Path(path) = ty else {
+        return false;
+    };
+    let Some(segment) = path.path.segments.last() else {
+        return false;
+    };
+    let syn::PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+        return false;
+    };
+    arguments.args.iter().any(
+        |argument| matches!(argument, syn::GenericArgument::Type(inner) if is_option_type(inner)),
+    )
+}
+
+fn schema_presence_rules(
+    schema_name: &str,
+    schema: &Value,
+) -> Result<BTreeMap<(String, String), FieldPresence>> {
+    let mut objects = BTreeMap::new();
+    objects.insert(
+        schema_name.trim_end_matches(".json").to_owned() + "A0",
+        schema,
+    );
+    if let Some(definitions) = schema.get("$defs").and_then(Value::as_object) {
+        objects.extend(
+            definitions
+                .iter()
+                .map(|(name, value)| (name.clone(), value)),
+        );
+    }
+
+    let mut rules = BTreeMap::new();
+    for (structure, object) in objects {
+        let mut properties = BTreeMap::new();
+        let mut required = BTreeSet::new();
+        collect_object_shape(schema, object, &mut properties, &mut required)?;
+        for (field, property) in properties {
+            let nullable = schema_allows_null(property);
+            let presence = match (required.contains(&field), nullable) {
+                (false, false) => Some(FieldPresence::OptionalNonnullable),
+                (false, true) => Some(FieldPresence::OptionalNullable),
+                (true, true) => Some(FieldPresence::RequiredNullable),
+                (true, false) => None,
+            };
+            if let Some(presence) = presence {
+                rules.insert((structure.clone(), field.clone()), presence);
+            }
+        }
+    }
+    Ok(rules)
+}
+
+fn collect_object_shape<'a>(
+    root: &'a Value,
+    object: &'a Value,
+    properties: &mut BTreeMap<String, &'a Value>,
+    required: &mut BTreeSet<String>,
+) -> Result<()> {
+    if let Some(reference) = object.get("$ref").and_then(Value::as_str) {
+        let name = reference
+            .strip_prefix("#/$defs/")
+            .with_context(|| format!("presence reference leaves $defs: {reference}"))?;
+        let target = root
+            .pointer(&format!("/$defs/{name}"))
+            .with_context(|| format!("missing presence reference {reference}"))?;
+        collect_object_shape(root, target, properties, required)?;
+    }
+    if let Some(parts) = object.get("allOf").and_then(Value::as_array) {
+        for part in parts {
+            collect_object_shape(root, part, properties, required)?;
+        }
+    }
+    if let Some(fields) = object.get("properties").and_then(Value::as_object) {
+        properties.extend(fields.iter().map(|(name, value)| (name.clone(), value)));
+    }
+    if let Some(names) = object.get("required").and_then(Value::as_array) {
+        for name in names.iter().filter_map(Value::as_str) {
+            if !properties.contains_key(name) {
+                bail!("required presence field {name} has no property");
+            }
+            required.insert(name.to_owned());
+        }
+    }
+    Ok(())
+}
+
+fn schema_allows_null(schema: &Value) -> bool {
+    match schema.get("type") {
+        Some(Value::String(kind)) if kind == "null" => return true,
+        Some(Value::Array(kinds))
+            if kinds
+                .iter()
+                .any(|kind| kind.as_str().is_some_and(|kind| kind == "null")) =>
+        {
+            return true;
+        }
+        _ => {}
+    }
+    ["anyOf", "oneOf"].into_iter().any(|key| {
+        schema
+            .get(key)
+            .and_then(Value::as_array)
+            .is_some_and(|members| members.iter().any(schema_allows_null))
+    })
 }
 
 fn project_schematic_request_u64_strings(mut source: String) -> Result<String> {
@@ -795,32 +1035,6 @@ fn project_schematic_record_string(source: String) -> Result<String> {
         hash_map,
         "::std::collections::BTreeMap<::std::string::String, ::std::string::String>",
     ))
-}
-
-fn project_dimension_text_presence(mut source: String) -> Result<String> {
-    let structure = "DimensionPlotRecord";
-    let structure_marker = format!("pub struct {structure} {{");
-    let structure_start = source
-        .find(&structure_marker)
-        .with_context(|| format!("missing generated {structure}"))?;
-    let structure_end = source[structure_start..]
-        .find("\n}")
-        .map(|offset| structure_start + offset)
-        .with_context(|| format!("unterminated generated {structure}"))?;
-    let field = r#"    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub text: ::std::option::Option<::std::string::String>,"#;
-    let field_offset = source[structure_start..structure_end]
-        .find(field)
-        .map(|offset| structure_start + offset)
-        .with_context(|| format!("missing generated {structure}.text"))?;
-    let replacement = r#"    #[serde(
-        default,
-        deserialize_with = "crate::deserialize_present_optional_string",
-        skip_serializing_if = "::std::option::Option::is_none"
-    )]
-    pub text: ::std::option::Option<::std::string::String>,"#;
-    source.replace_range(field_offset..field_offset + field.len(), replacement);
-    Ok(source)
 }
 
 fn project_kind_deserializer(

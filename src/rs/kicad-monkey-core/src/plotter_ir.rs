@@ -315,6 +315,14 @@ pub(crate) struct FootprintPadOperations {
     pub drill: Vec<PlotterOperation>,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct FootprintPadParseLimits {
+    pub max_operations: usize,
+    pub max_points: usize,
+    pub max_depth: usize,
+    pub max_nodes: usize,
+}
+
 impl FootprintPadOperations {
     fn into_operations(mut self) -> Vec<PlotterOperation> {
         self.flash.append(&mut self.drill);
@@ -330,19 +338,16 @@ pub(crate) fn footprint_pad_operations_from_range(
     range: Range<usize>,
     footprint_mask_margin_mm: f64,
     orient_deg_offset: f64,
-    max_operations: usize,
-    max_points: usize,
-    max_depth: usize,
-    max_nodes: usize,
+    limits: FootprintPadParseLimits,
 ) -> Result<FootprintPadOperations, Error> {
-    validate_selected_form(source, range.clone(), max_depth, max_nodes)?;
+    validate_selected_form(source, range.clone(), limits.max_depth, limits.max_nodes)?;
     parse_pad(
         source,
         &selected_form_span(range, "pad"),
         footprint_mask_margin_mm,
         orient_deg_offset,
-        max_operations,
-        max_points,
+        limits.max_operations,
+        limits.max_points,
     )
 }
 

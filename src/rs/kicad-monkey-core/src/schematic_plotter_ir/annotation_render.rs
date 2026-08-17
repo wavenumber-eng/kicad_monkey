@@ -24,6 +24,14 @@ const DIRECTIVE_SYMBOL_SIZE_NM: i64 = 508_000;
 const JAVASCRIPT_SAFE_INTEGER_MAX: i64 = 9_007_199_254_740_991;
 const JAVASCRIPT_SAFE_INTEGER_MIN: i64 = -JAVASCRIPT_SAFE_INTEGER_MAX;
 
+struct AnnotationContext<'a, 'font> {
+    source: &'a str,
+    settings: SchematicDrawingSettings,
+    variables: &'a BTreeMap<String, String>,
+    session: Option<&'a PlotterTextCacheSession<'font>>,
+    limits: SchematicPlotLimits,
+}
+
 pub(super) fn append_annotation_records(
     source: &str,
     spans: AnnotationSpans,
@@ -31,84 +39,55 @@ pub(super) fn append_annotation_records(
     variables: &BTreeMap<String, String>,
     session: Option<&PlotterTextCacheSession<'_>>,
     limits: SchematicPlotLimits,
-    budget: &mut PlotBudget,
-    records: &mut Vec<SchematicPlotRecord>,
+    output: (&mut PlotBudget, &mut Vec<SchematicPlotRecord>),
 ) -> Result<(), Error> {
-    append_labels(
+    let (budget, records) = output;
+    let context = AnnotationContext {
         source,
+        settings,
+        variables,
+        session,
+        limits,
+    };
+    append_labels(
+        &context,
         spans.labels,
         SchematicAnnotationRecordKind::Label,
         LOCAL_COLOR,
-        settings,
-        session,
-        limits,
         budget,
         records,
     )?;
     append_labels(
-        source,
+        &context,
         spans.global_labels,
         SchematicAnnotationRecordKind::GlobalLabel,
         GLOBAL_COLOR,
-        settings,
-        session,
-        limits,
         budget,
         records,
     )?;
     append_labels(
-        source,
+        &context,
         spans.hierarchical_labels,
         SchematicAnnotationRecordKind::HierarchicalLabel,
         HIER_COLOR,
-        settings,
-        session,
-        limits,
         budget,
         records,
     )?;
-    append_netclass_flags(
-        source,
-        spans.netclass_flags,
-        settings,
-        limits,
-        budget,
-        records,
-    )?;
-    append_texts(
-        source,
-        spans.texts,
-        variables,
-        settings,
-        session,
-        limits,
-        budget,
-        records,
-    )?;
-    append_text_boxes(
-        source,
-        spans.text_boxes,
-        variables,
-        session,
-        limits,
-        budget,
-        records,
-    )
+    append_netclass_flags(&context, spans.netclass_flags, budget, records)?;
+    append_texts(&context, spans.texts, budget, records)?;
+    append_text_boxes(&context, spans.text_boxes, budget, records)
 }
 
 fn append_labels(
-    source: &str,
+    context: &AnnotationContext<'_, '_>,
     spans: Vec<FormSpan>,
     kind: SchematicAnnotationRecordKind,
     role_color: &str,
-    settings: SchematicDrawingSettings,
-    metrics: Option<&PlotterTextCacheSession<'_>>,
-    limits: SchematicPlotLimits,
     budget: &mut PlotBudget,
     records: &mut Vec<SchematicPlotRecord>,
 ) -> Result<(), Error> {
     for span in spans {
-        let form = parse_span(source, &span, limits)?;
+        let form = parse_span(context.source, &span, context.limits)?;
         let text = value_at(&form, 1).unwrap_or_default();
         let uuid = child_string(&form, "uuid").unwrap_or_default();
         let shape = if kind == SchematicAnnotationRecordKind::Label {
@@ -127,7 +106,11 @@ fn append_labels(
         } else {
             role_color
         };
-        let mut style = text_style(&form, text_color, Some(settings.default_line_width_nm))?;
+        let mut style = text_style(
+            &form,
+            text_color,
+            Some(context.settings.default_line_width_nm),
+        )?;
         if matches!(
             kind,
             SchematicAnnotationRecordKind::GlobalLabel
@@ -141,7 +124,7 @@ fn append_labels(
             shape.as_deref(),
             spin,
             &style,
-            settings.text_offset_ratio,
+            context.settings.text_offset_ratio,
         )?;
         let display = text.replace("{slash}", "/");
         let text_op = schematic_text(
@@ -156,7 +139,7 @@ fn append_labels(
         if let Some(shape) = shape.as_deref().filter(|shape| decoration_shape(shape)) {
             let decoration = match kind {
                 SchematicAnnotationRecordKind::GlobalLabel => {
-                    global_decoration(&form, shape, at, spin, &style, metrics)?
+                    global_decoration(&form, shape, at, spin, &style, context.session)?
                 }
                 SchematicAnnotationRecordKind::HierarchicalLabel => Some(template_decoration(
                     shape,
@@ -194,16 +177,14 @@ fn append_labels(
 }
 
 fn append_netclass_flags(
-    source: &str,
+    context: &AnnotationContext<'_, '_>,
     spans: Vec<FormSpan>,
-    settings: SchematicDrawingSettings,
-    limits: SchematicPlotLimits,
     budget: &mut PlotBudget,
     records: &mut Vec<SchematicPlotRecord>,
 ) -> Result<(), Error> {
     let mut property_count = 0usize;
     for span in spans {
-        let form = parse_span(source, &span, limits)?;
+        let form = parse_span(context.source, &span, context.limits)?;
         let text = value_at(&form, 1).unwrap_or_default();
         let uuid = child_string(&form, "uuid").unwrap_or_default();
         let at = parse_at(&form)?;
@@ -214,12 +195,20 @@ fn append_netclass_flags(
             return Err(model_error("Unsupported schematic netclass flag shape"));
         }
         budget.charge_input_points(1)?;
-        let style = text_style(&form, NETCLASS_COLOR, Some(settings.default_line_width_nm))?;
+        let style = text_style(
+            &form,
+            NETCLASS_COLOR,
+            Some(context.settings.default_line_width_nm),
+        )?;
         let mut operations = directive_marker_ops(at, length, &shape, style.pen_width_nm)?;
         for property in children(&form, "property") {
-            property_count = checked_limit(property_count, 1, limits.max_netclass_flag_properties)?;
+            property_count = checked_limit(
+                property_count,
+                1,
+                context.limits.max_netclass_flag_properties,
+            )?;
             budget.charge_input_points(1)?;
-            if let Some(op) = property_text(property, settings.default_line_width_nm)? {
+            if let Some(op) = property_text(property, context.settings.default_line_width_nm)? {
                 operations.push(op);
             }
         }
@@ -252,30 +241,33 @@ fn append_netclass_flags(
 }
 
 fn append_texts(
-    source: &str,
+    context: &AnnotationContext<'_, '_>,
     spans: Vec<FormSpan>,
-    variables: &BTreeMap<String, String>,
-    settings: SchematicDrawingSettings,
-    metrics: Option<&PlotterTextCacheSession<'_>>,
-    limits: SchematicPlotLimits,
     budget: &mut PlotBudget,
     records: &mut Vec<SchematicPlotRecord>,
 ) -> Result<(), Error> {
     for span in spans {
-        let form = parse_span(source, &span, limits)?;
+        let form = parse_span(context.source, &span, context.limits)?;
         let raw_text = value_at(&form, 1).unwrap_or_default();
         let expanded = expand_once_bounded(
             &raw_text,
-            variables,
-            limits.max_text_bytes.min(limits.max_metadata_bytes),
+            context.variables,
+            context
+                .limits
+                .max_text_bytes
+                .min(context.limits.max_metadata_bytes),
         )?;
         let plotted = expanded.strip_suffix('\n').unwrap_or(&expanded).to_owned();
         let uuid = child_string(&form, "uuid").unwrap_or_default();
         let at = parse_at(&form)?;
         budget.charge_input_points(1)?;
-        let mut style = text_style(&form, NOTES_COLOR, Some(settings.default_line_width_nm))?;
+        let mut style = text_style(
+            &form,
+            NOTES_COLOR,
+            Some(context.settings.default_line_width_nm),
+        )?;
         apply_center_defaults(&form, &mut style);
-        let adjustment = outline_adjust(&plotted, &style, metrics)?;
+        let adjustment = outline_adjust(&plotted, &style, context.session)?;
         let (adjust_x, adjust_y) = rotate(0.0, -(adjustment as f64), -at.angle);
         let op = schematic_text(
             checked_add(at.x, ki_round_i64(adjust_x)?)?,
@@ -307,27 +299,25 @@ fn append_texts(
 }
 
 fn append_text_boxes(
-    source: &str,
+    context: &AnnotationContext<'_, '_>,
     spans: Vec<FormSpan>,
-    variables: &BTreeMap<String, String>,
-    metrics: Option<&PlotterTextCacheSession<'_>>,
-    limits: SchematicPlotLimits,
     budget: &mut PlotBudget,
     records: &mut Vec<SchematicPlotRecord>,
 ) -> Result<(), Error> {
     let mut total_lines = 0usize;
     for span in spans {
-        let form = parse_span(source, &span, limits)?;
+        let form = parse_span(context.source, &span, context.limits)?;
         let uuid = child_string(&form, "uuid").unwrap_or_default();
-        let remaining_lines = limits
+        let remaining_lines = context
+            .limits
             .max_text_box_lines
             .checked_sub(total_lines)
             .ok_or_else(limit_error)?;
         let rendered = render_text_box(
             &form,
-            variables,
-            metrics,
-            limits,
+            context.variables,
+            context.session,
+            context.limits,
             remaining_lines,
             budget.remaining_operations(),
             budget,
@@ -427,13 +417,15 @@ pub(super) fn render_text_box(
     let margins = text_box_margins(form, style.size_y_nm)?;
     let mut lines = wrap_text_box(
         &expanded,
-        at.angle,
-        size_x,
-        size_y,
-        margins,
-        &style,
-        metrics,
-        remaining_lines,
+        TextBoxWrapInput {
+            angle: at.angle,
+            size_x,
+            size_y,
+            margins,
+            style: &style,
+            metrics,
+            maximum_lines: remaining_lines,
+        },
     )?;
     let line_count = lines.len();
     let retained_lines = lines.iter().filter(|line| !line.is_empty()).count();
@@ -1077,16 +1069,26 @@ fn text_box_margins(form: &Sexp, size_y: i64) -> Result<[i64; 4], Error> {
     Ok([margin; 4])
 }
 
-fn wrap_text_box(
-    text: &str,
+struct TextBoxWrapInput<'a, 'font> {
     angle: f64,
     size_x: i64,
     size_y: i64,
     margins: [i64; 4],
-    style: &TextStyle,
-    metrics: Option<&PlotterTextCacheSession<'_>>,
+    style: &'a TextStyle,
+    metrics: Option<&'a PlotterTextCacheSession<'font>>,
     maximum_lines: usize,
-) -> Result<Vec<String>, Error> {
+}
+
+fn wrap_text_box(text: &str, input: TextBoxWrapInput<'_, '_>) -> Result<Vec<String>, Error> {
+    let TextBoxWrapInput {
+        angle,
+        size_x,
+        size_y,
+        margins,
+        style,
+        metrics,
+        maximum_lines,
+    } = input;
     let box_width = if rounded_angle(angle) % 180 == 90 {
         size_y
             .abs()
@@ -1350,7 +1352,7 @@ pub(super) fn looks_like_bus_label(source: &str) -> bool {
     let value = source.replace("{slash}", "");
     value.char_indices().any(|(index, ch)| {
         ch == '{'
-            && (index == 0 || value[..index].chars().next_back() != Some('~'))
+            && (index == 0 || !value[..index].ends_with('~'))
             && value[index + ch.len_utf8()..].contains('}')
     })
 }

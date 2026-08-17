@@ -33,7 +33,7 @@ pub(super) struct ImageMetadata {
 
 pub(super) fn decode_base64(value: &str, maximum: usize) -> Result<Vec<u8>, Error> {
     let bytes = value.as_bytes();
-    if bytes.len() % 4 != 0 {
+    if !bytes.len().is_multiple_of(4) {
         return Err(model_error("Invalid schematic image base64 length"));
     }
     let padding = bytes.iter().rev().take_while(|byte| **byte == b'=').count();
@@ -64,7 +64,7 @@ pub(super) fn decode_base64(value: &str, maximum: usize) -> Result<Vec<u8>, Erro
         let last = block_index + 1 == bytes.len() / 4;
         if block[0] == 64
             || block[1] == 64
-            || (!last && (block[2] == 64 || block[3] == 64))
+            || (!last && block[3] == 64)
             || (block[2] == 64 && block[3] != 64)
             || (block[2] == 64 && block[1] & 0x0f != 0)
             || (block[3] == 64 && block[2] != 64 && block[2] & 0x03 != 0)

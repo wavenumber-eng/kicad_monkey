@@ -208,347 +208,169 @@ fn operation_json(operation: &SchematicPlotOperation, index: usize) -> Value {
             })
         }
         SchematicPlotOperation::EndBlock => json!({"kind": "EndBlock", "index": index}),
-        SchematicPlotOperation::Plotter(operation) => match operation {
-            PlotterOperation::Rect(value) => {
-                let mut object = json!({
-                    "kind": "Rect", "index": index,
-                    "x1": value.x1, "y1": value.y1, "x2": value.x2, "y2": value.y2,
-                    "fill": fill_name(value.fill), "width_nm": value.width_nm,
-                    "corner_radius_nm": value.corner_radius_nm,
-                })
-                .as_object()
-                .expect("rect object")
-                .clone();
-                insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
-                insert_optional(
-                    &mut object,
-                    "stroke_color",
-                    value.stroke_color.as_ref().map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "fill_color",
-                    value.fill_color.as_ref().map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "line_style",
-                    value.line_style.map(|v| json!(line_style_name(v))),
-                );
-                Value::Object(object)
-            }
-            PlotterOperation::PlotPoly(value) => {
-                let mut object = json!({
-                    "kind": "PlotPoly", "index": index, "points": value.points,
-                    "fill": fill_name(value.fill), "width_nm": value.width_nm,
-                })
-                .as_object()
-                .expect("poly object")
-                .clone();
-                insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
-                insert_optional(
-                    &mut object,
-                    "stroke_color",
-                    value.stroke_color.as_ref().map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "fill_color",
-                    value.fill_color.as_ref().map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "line_style",
-                    value.line_style.map(|v| json!(line_style_name(v))),
-                );
-                Value::Object(object)
-            }
-            PlotterOperation::Circle(value) => {
-                let mut object = json!({
-                    "kind": "Circle", "index": index,
-                    "cx": value.cx, "cy": value.cy, "diameter_nm": value.diameter_nm,
-                    "fill": fill_name(value.fill), "width_nm": value.width_nm,
-                })
-                .as_object()
-                .expect("circle object")
-                .clone();
-                insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
-                insert_optional(&mut object, "role", value.role.as_ref().map(|v| json!(v)));
-                if !value.layers.is_empty() {
-                    object.insert("layers".to_owned(), json!(value.layers));
-                }
-                insert_optional(
-                    &mut object,
-                    "mask_margin_nm",
-                    value.mask_margin_nm.map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "pad_size_x_nm",
-                    value.pad_size_x_nm.map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "pad_size_y_nm",
-                    value.pad_size_y_nm.map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "stroke_color",
-                    value.stroke_color.as_ref().map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "fill_color",
-                    value.fill_color.as_ref().map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "line_style",
-                    value.line_style.map(|v| json!(line_style_name(v))),
-                );
-                Value::Object(object)
-            }
-            PlotterOperation::Text(value) => text_json(value, index, None),
-            PlotterOperation::ArcThreePoint(value) => {
-                let mut object = json!({
-                    "kind": "ArcThreePoint", "index": index,
-                    "start_x": value.start_x, "start_y": value.start_y,
-                    "mid_x": value.mid_x, "mid_y": value.mid_y,
-                    "end_x": value.end_x, "end_y": value.end_y,
-                    "fill": fill_name(value.fill), "width_nm": value.width_nm,
-                })
-                .as_object()
-                .expect("arc object")
-                .clone();
-                insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
-                insert_optional(
-                    &mut object,
-                    "stroke_color",
-                    value.stroke_color.as_ref().map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "fill_color",
-                    value.fill_color.as_ref().map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "line_style",
-                    value.line_style.map(|v| json!(line_style_name(v))),
-                );
-                Value::Object(object)
-            }
-            PlotterOperation::BezierCurve(value) => {
-                let mut object = json!({
-                    "kind": "BezierCurve", "index": index,
-                    "start_x": value.start_x, "start_y": value.start_y,
-                    "ctrl1_x": value.ctrl1_x, "ctrl1_y": value.ctrl1_y,
-                    "ctrl2_x": value.ctrl2_x, "ctrl2_y": value.ctrl2_y,
-                    "end_x": value.end_x, "end_y": value.end_y,
-                    "width_nm": value.width_nm, "tolerance_nm": value.tolerance_nm,
-                })
-                .as_object()
-                .expect("bezier object")
-                .clone();
-                insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
-                insert_optional(
-                    &mut object,
-                    "stroke_color",
-                    value.stroke_color.as_ref().map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "line_style",
-                    value.line_style.map(|v| json!(line_style_name(v))),
-                );
-                Value::Object(object)
-            }
-            PlotterOperation::ThickSegment(value) => {
-                let mut object = json!({
-                    "kind": "ThickSegment", "index": index,
-                    "start_x": value.start_x, "start_y": value.start_y,
-                    "end_x": value.end_x, "end_y": value.end_y,
-                    "width_nm": value.width_nm,
-                })
-                .as_object()
-                .expect("segment object")
-                .clone();
-                insert_optional(&mut object, "layer", value.layer.as_ref().map(|v| json!(v)));
-                insert_optional(&mut object, "role", value.role.as_ref().map(|v| json!(v)));
-                if !value.layers.is_empty() {
-                    object.insert("layers".to_owned(), json!(value.layers));
-                }
-                insert_optional(
-                    &mut object,
-                    "mask_margin_nm",
-                    value.mask_margin_nm.map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "pad_size_x_nm",
-                    value.pad_size_x_nm.map(|v| json!(v)),
-                );
-                insert_optional(
-                    &mut object,
-                    "pad_size_y_nm",
-                    value.pad_size_y_nm.map(|v| json!(v)),
-                );
-                Value::Object(object)
-            }
-            PlotterOperation::FlashPadCircle(_)
-            | PlotterOperation::FlashPadOval(_)
-            | PlotterOperation::FlashPadRect(_)
-            | PlotterOperation::FlashPadRoundRect(_)
-            | PlotterOperation::FlashPadCustom(_)
-            | PlotterOperation::FlashPadTrapez(_) => {
-                panic!("operation outside the P5_060 schematic vocabulary")
-            }
-        },
+        SchematicPlotOperation::Plotter(operation) => plotter_operation_json(operation, index),
     }
 }
 
+fn plotter_operation_json(operation: &PlotterOperation, index: usize) -> Value {
+    match operation {
+        PlotterOperation::Rect(value) => styled_shape_json(
+            json!({"kind": "Rect", "index": index, "x1": value.x1, "y1": value.y1,
+                "x2": value.x2, "y2": value.y2, "fill": fill_name(value.fill),
+                "width_nm": value.width_nm, "corner_radius_nm": value.corner_radius_nm}),
+            value.layer.as_deref(),
+            value.stroke_color.as_deref(),
+            value.fill_color.as_deref(),
+            value.line_style,
+        ),
+        PlotterOperation::PlotPoly(value) => styled_shape_json(
+            json!({"kind": "PlotPoly", "index": index, "points": value.points,
+                "fill": fill_name(value.fill), "width_nm": value.width_nm}),
+            value.layer.as_deref(),
+            value.stroke_color.as_deref(),
+            value.fill_color.as_deref(),
+            value.line_style,
+        ),
+        PlotterOperation::Circle(value) => circle_json(value, index),
+        PlotterOperation::Text(value) => text_json(value, index, None),
+        PlotterOperation::ArcThreePoint(value) => styled_shape_json(
+            json!({"kind": "ArcThreePoint", "index": index,
+                "start_x": value.start_x, "start_y": value.start_y,
+                "mid_x": value.mid_x, "mid_y": value.mid_y,
+                "end_x": value.end_x, "end_y": value.end_y,
+                "fill": fill_name(value.fill), "width_nm": value.width_nm}),
+            value.layer.as_deref(),
+            value.stroke_color.as_deref(),
+            value.fill_color.as_deref(),
+            value.line_style,
+        ),
+        PlotterOperation::BezierCurve(value) => styled_shape_json(
+            json!({"kind": "BezierCurve", "index": index,
+                "start_x": value.start_x, "start_y": value.start_y,
+                "ctrl1_x": value.ctrl1_x, "ctrl1_y": value.ctrl1_y,
+                "ctrl2_x": value.ctrl2_x, "ctrl2_y": value.ctrl2_y,
+                "end_x": value.end_x, "end_y": value.end_y,
+                "width_nm": value.width_nm, "tolerance_nm": value.tolerance_nm}),
+            value.layer.as_deref(),
+            value.stroke_color.as_deref(),
+            None,
+            value.line_style,
+        ),
+        PlotterOperation::ThickSegment(value) => thick_segment_json(value, index),
+        PlotterOperation::FlashPadCircle(_)
+        | PlotterOperation::FlashPadOval(_)
+        | PlotterOperation::FlashPadRect(_)
+        | PlotterOperation::FlashPadRoundRect(_)
+        | PlotterOperation::FlashPadCustom(_)
+        | PlotterOperation::FlashPadTrapez(_) => {
+            panic!("operation outside the P5_060 schematic vocabulary")
+        }
+    }
+}
+
+fn styled_shape_json(
+    base: Value,
+    layer: Option<&str>,
+    stroke_color: Option<&str>,
+    fill_color: Option<&str>,
+    line_style: Option<kicad_monkey_core::PlotterLineStyle>,
+) -> Value {
+    let mut object = base.as_object().expect("shape object").clone();
+    insert_optional(&mut object, "layer", layer.map(|value| json!(value)));
+    insert_optional(
+        &mut object,
+        "stroke_color",
+        stroke_color.map(|value| json!(value)),
+    );
+    insert_optional(
+        &mut object,
+        "fill_color",
+        fill_color.map(|value| json!(value)),
+    );
+    insert_optional(
+        &mut object,
+        "line_style",
+        line_style.map(|value| json!(line_style_name(value))),
+    );
+    Value::Object(object)
+}
+
+fn circle_json(value: &kicad_monkey_core::PlotterCircle, index: usize) -> Value {
+    let styled = styled_shape_json(
+        json!({"kind": "Circle", "index": index, "cx": value.cx, "cy": value.cy,
+            "diameter_nm": value.diameter_nm, "fill": fill_name(value.fill),
+            "width_nm": value.width_nm}),
+        value.layer.as_deref(),
+        value.stroke_color.as_deref(),
+        value.fill_color.as_deref(),
+        value.line_style,
+    );
+    let mut object = styled.as_object().expect("circle object").clone();
+    insert_pad_fields(
+        &mut object,
+        value.role.as_deref(),
+        &value.layers,
+        value.mask_margin_nm,
+        value.pad_size_x_nm,
+        value.pad_size_y_nm,
+    );
+    Value::Object(object)
+}
+
+fn thick_segment_json(value: &kicad_monkey_core::ThickSegment, index: usize) -> Value {
+    let mut object = json!({"kind": "ThickSegment", "index": index,
+        "start_x": value.start_x, "start_y": value.start_y,
+        "end_x": value.end_x, "end_y": value.end_y, "width_nm": value.width_nm})
+    .as_object()
+    .expect("segment object")
+    .clone();
+    insert_optional(
+        &mut object,
+        "layer",
+        value.layer.as_deref().map(|value| json!(value)),
+    );
+    insert_pad_fields(
+        &mut object,
+        value.role.as_deref(),
+        &value.layers,
+        value.mask_margin_nm,
+        value.pad_size_x_nm,
+        value.pad_size_y_nm,
+    );
+    Value::Object(object)
+}
+
+fn insert_pad_fields(
+    object: &mut Map<String, Value>,
+    role: Option<&str>,
+    layers: &[String],
+    mask_margin_nm: Option<i64>,
+    pad_size_x_nm: Option<i64>,
+    pad_size_y_nm: Option<i64>,
+) {
+    insert_optional(object, "role", role.map(|value| json!(value)));
+    if !layers.is_empty() {
+        object.insert("layers".to_owned(), json!(layers));
+    }
+    insert_optional(
+        object,
+        "mask_margin_nm",
+        mask_margin_nm.map(|value| json!(value)),
+    );
+    insert_optional(
+        object,
+        "pad_size_x_nm",
+        pad_size_x_nm.map(|value| json!(value)),
+    );
+    insert_optional(
+        object,
+        "pad_size_y_nm",
+        pad_size_y_nm.map(|value| json!(value)),
+    );
+}
+
 fn document_json(document: &SchematicPlotDocument) -> Value {
-    let records = document
-        .records
-        .iter()
-        .map(|record| match record {
-            SchematicPlotRecord::SheetHeader(value) => {
-                let mut object = json!({
-                    "uuid": value.uuid, "kind": "sheet_header", "object_id": value.uuid,
-                    "operation_count": value.operations.len(),
-                    "operations": value.operations.iter().enumerate().map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
-                    "paper_size": value.paper_size,
-                    "paper_width_mm": value.paper_width_mm,
-                    "paper_height_mm": value.paper_height_mm,
-                    "paper_portrait": value.paper_portrait,
-                    "sheet_width_nm": value.sheet_width_nm,
-                    "sheet_height_nm": value.sheet_height_nm,
-                    "version": value.version, "generator": value.generator,
-                    "generator_version": value.generator_version,
-                })
-                .as_object()
-                .expect("header object")
-                .clone();
-                insert_optional(
-                    &mut object,
-                    "title_block",
-                    value.title_block.as_ref().map(|title| {
-                        json!({
-                            "title": title.title, "date": title.date,
-                            "rev": title.revision, "company": title.company,
-                            "comments": title.comments,
-                        })
-                    }),
-                );
-                Value::Object(object)
-            }
-            SchematicPlotRecord::Connectivity(value) => {
-                let mut object = json!({
-                    "uuid": value.uuid, "kind": value.kind.as_str(), "object_id": value.uuid,
-                    "operation_count": value.operations.len(),
-                    "operations": value.operations.iter().enumerate().map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
-                })
-                .as_object()
-                .expect("connectivity object")
-                .clone();
-                if value.kind == SchematicConnectivityRecordKind::Junction
-                    && value.junction_color_authored
-                {
-                    object.insert(
-                        "color".to_owned(),
-                        value
-                            .junction_color
-                            .as_ref()
-                            .map_or(Value::Null, |value| json!(value)),
-                    );
-                }
-                Value::Object(object)
-            }
-            SchematicPlotRecord::Annotation(value) => {
-                let mut object = json!({
-                    "uuid": value.uuid, "kind": value.kind.as_str(),
-                    "object_id": value.object_id,
-                    "operation_count": value.operations.len(),
-                    "operations": value.operations.iter().enumerate()
-                        .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
-                })
-                .as_object()
-                .expect("annotation object")
-                .clone();
-                insert_optional(&mut object, "text", value.text.as_ref().map(|v| json!(v)));
-                insert_optional(&mut object, "shape", value.shape.as_ref().map(|v| json!(v)));
-                insert_optional(&mut object, "at_x_nm", value.at_x_nm.map(|v| json!(v)));
-                insert_optional(&mut object, "at_y_nm", value.at_y_nm.map(|v| json!(v)));
-                insert_optional(&mut object, "length_nm", value.length_nm.map(|v| json!(v)));
-                Value::Object(object)
-            }
-            SchematicPlotRecord::Graphic(value) => json!({
-                "uuid": value.uuid, "kind": value.kind.as_str(), "object_id": value.uuid,
-                "operation_count": value.operations.len(),
-                "operations": value.operations.iter().enumerate()
-                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
-            }),
-            SchematicPlotRecord::RuleArea(value) => json!({
-                "uuid": value.uuid, "kind": "rule_area", "object_id": value.uuid,
-                "operation_count": value.operations.len(),
-                "operations": value.operations.iter().enumerate()
-                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
-                "shape": value.shape.as_str(), "locked": value.locked,
-                "exclude_from_sim": value.exclude_from_sim, "in_bom": value.in_bom,
-                "on_board": value.on_board, "dnp": value.dnp,
-            }),
-            SchematicPlotRecord::Image(value) => json!({
-                "uuid": value.uuid, "kind": "image", "object_id": value.uuid,
-                "operation_count": value.operations.len(),
-                "operations": value.operations.iter().enumerate()
-                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
-                "scale": value.scale, "image_format": value.image_format,
-                "width_nm": value.width_nm, "height_nm": value.height_nm,
-            }),
-            SchematicPlotRecord::Table(value) => json!({
-                "uuid": value.uuid, "kind": "table", "object_id": value.uuid,
-                "operation_count": value.operations.len(),
-                "operations": value.operations.iter().enumerate()
-                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
-                "cell_count": value.cell_count,
-            }),
-            SchematicPlotRecord::SymbolInstance(value) => json!({
-                "uuid": value.uuid, "kind": "symbol_instance",
-                "object_id": if value.lib_id.is_empty() { &value.uuid } else { &value.lib_id },
-                "operation_count": value.operations.len(),
-                "operations": value.operations.iter().enumerate()
-                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
-                "lib_id": value.lib_id, "lib_name": value.lib_name,
-                "reference": value.reference,
-                "at_x_nm": value.at_x_nm, "at_y_nm": value.at_y_nm,
-                "at_angle_deg": value.at_angle_deg, "mirror": value.mirror,
-                "unit": value.unit, "convert": value.convert,
-                "in_bom": value.in_bom, "on_board": value.on_board,
-                "dnp": value.dnp, "exclude_from_sim": value.exclude_from_sim,
-                "in_pos_files": value.in_pos_files,
-            }),
-            SchematicPlotRecord::SymbolOverplot(value) => json!({
-                "uuid": value.uuid, "kind": "symbol_overplot",
-                "object_id": if value.lib_id.is_empty() { &value.source_symbol_uuid } else { &value.lib_id },
-                "operation_count": value.operations.len(),
-                "operations": value.operations.iter().enumerate()
-                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
-                "source_symbol_uuid": value.source_symbol_uuid,
-                "lib_id": value.lib_id,
-            }),
-            SchematicPlotRecord::Sheet(value) => json!({
-                "uuid": value.uuid, "kind": "sheet", "object_id": value.sheet_name,
-                "operation_count": value.operations.len(),
-                "operations": value.operations.iter().enumerate()
-                    .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
-                "sheet_name": value.sheet_name, "sheet_file": value.sheet_file,
-                "at_x_nm": value.at_x_nm, "at_y_nm": value.at_y_nm,
-                "size_x_nm": value.size_x_nm, "size_y_nm": value.size_y_nm,
-                "dnp": value.dnp,
-            }),
-        })
-        .collect::<Vec<_>>();
+    let records = document.records.iter().map(record_json).collect::<Vec<_>>();
     let mut object = json!({
         "schema": "kicad.plotter_ir.a0", "source_kind": "SCH",
         "total_operations": document.records.iter().map(SchematicPlotRecord::operation_count).sum::<usize>(),
@@ -563,6 +385,154 @@ fn document_json(document: &SchematicPlotDocument) -> Value {
         &mut object,
         "source_path",
         document.source_path.as_ref().map(|value| json!(value)),
+    );
+    Value::Object(object)
+}
+
+fn record_json(record: &SchematicPlotRecord) -> Value {
+    match record {
+        SchematicPlotRecord::SheetHeader(value) => header_record_json(value),
+        SchematicPlotRecord::Connectivity(value) => connectivity_record_json(value),
+        SchematicPlotRecord::Annotation(value) => annotation_record_json(value),
+        SchematicPlotRecord::Graphic(value) => json!({
+            "uuid": value.uuid, "kind": value.kind.as_str(), "object_id": value.uuid,
+            "operation_count": value.operations.len(),
+            "operations": value.operations.iter().enumerate()
+                .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+        }),
+        SchematicPlotRecord::RuleArea(value) => json!({
+            "uuid": value.uuid, "kind": "rule_area", "object_id": value.uuid,
+            "operation_count": value.operations.len(),
+            "operations": value.operations.iter().enumerate()
+                .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+            "shape": value.shape.as_str(), "locked": value.locked,
+            "exclude_from_sim": value.exclude_from_sim, "in_bom": value.in_bom,
+            "on_board": value.on_board, "dnp": value.dnp,
+        }),
+        SchematicPlotRecord::Image(value) => json!({
+            "uuid": value.uuid, "kind": "image", "object_id": value.uuid,
+            "operation_count": value.operations.len(),
+            "operations": value.operations.iter().enumerate()
+                .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+            "scale": value.scale, "image_format": value.image_format,
+            "width_nm": value.width_nm, "height_nm": value.height_nm,
+        }),
+        SchematicPlotRecord::Table(value) => json!({
+            "uuid": value.uuid, "kind": "table", "object_id": value.uuid,
+            "operation_count": value.operations.len(),
+            "operations": value.operations.iter().enumerate()
+                .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+            "cell_count": value.cell_count,
+        }),
+        SchematicPlotRecord::SymbolInstance(value) => json!({
+            "uuid": value.uuid, "kind": "symbol_instance",
+            "object_id": if value.lib_id.is_empty() { &value.uuid } else { &value.lib_id },
+            "operation_count": value.operations.len(),
+            "operations": value.operations.iter().enumerate()
+                .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+            "lib_id": value.lib_id, "lib_name": value.lib_name,
+            "reference": value.reference,
+            "at_x_nm": value.at_x_nm, "at_y_nm": value.at_y_nm,
+            "at_angle_deg": value.at_angle_deg, "mirror": value.mirror,
+            "unit": value.unit, "convert": value.convert,
+            "in_bom": value.in_bom, "on_board": value.on_board,
+            "dnp": value.dnp, "exclude_from_sim": value.exclude_from_sim,
+            "in_pos_files": value.in_pos_files,
+        }),
+        SchematicPlotRecord::SymbolOverplot(value) => json!({
+            "uuid": value.uuid, "kind": "symbol_overplot",
+            "object_id": if value.lib_id.is_empty() { &value.source_symbol_uuid } else { &value.lib_id },
+            "operation_count": value.operations.len(),
+            "operations": value.operations.iter().enumerate()
+                .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+            "source_symbol_uuid": value.source_symbol_uuid,
+            "lib_id": value.lib_id,
+        }),
+        SchematicPlotRecord::Sheet(value) => json!({
+            "uuid": value.uuid, "kind": "sheet", "object_id": value.sheet_name,
+            "operation_count": value.operations.len(),
+            "operations": value.operations.iter().enumerate()
+                .map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+            "sheet_name": value.sheet_name, "sheet_file": value.sheet_file,
+            "at_x_nm": value.at_x_nm, "at_y_nm": value.at_y_nm,
+            "size_x_nm": value.size_x_nm, "size_y_nm": value.size_y_nm,
+            "dnp": value.dnp,
+        }),
+    }
+}
+
+fn header_record_json(value: &kicad_monkey_core::SchematicSheetHeaderRecord) -> Value {
+    let mut object = json!({
+        "uuid": value.uuid, "kind": "sheet_header", "object_id": value.uuid,
+        "operation_count": value.operations.len(),
+        "operations": value.operations.iter().enumerate().map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+        "paper_size": value.paper_size, "paper_width_mm": value.paper_width_mm,
+        "paper_height_mm": value.paper_height_mm, "paper_portrait": value.paper_portrait,
+        "sheet_width_nm": value.sheet_width_nm, "sheet_height_nm": value.sheet_height_nm,
+        "version": value.version, "generator": value.generator,
+        "generator_version": value.generator_version,
+    }).as_object().expect("header object").clone();
+    insert_optional(
+        &mut object,
+        "title_block",
+        value.title_block.as_ref().map(|title| {
+            json!({
+                "title": title.title, "date": title.date, "rev": title.revision,
+                "company": title.company, "comments": title.comments,
+            })
+        }),
+    );
+    Value::Object(object)
+}
+
+fn connectivity_record_json(value: &kicad_monkey_core::SchematicConnectivityRecord) -> Value {
+    let mut object = json!({
+        "uuid": value.uuid, "kind": value.kind.as_str(), "object_id": value.uuid,
+        "operation_count": value.operations.len(),
+        "operations": value.operations.iter().enumerate().map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+    }).as_object().expect("connectivity object").clone();
+    if value.kind == SchematicConnectivityRecordKind::Junction && value.junction_color_authored {
+        object.insert(
+            "color".to_owned(),
+            value
+                .junction_color
+                .as_ref()
+                .map_or(Value::Null, |value| json!(value)),
+        );
+    }
+    Value::Object(object)
+}
+
+fn annotation_record_json(value: &kicad_monkey_core::SchematicAnnotationRecord) -> Value {
+    let mut object = json!({
+        "uuid": value.uuid, "kind": value.kind.as_str(), "object_id": value.object_id,
+        "operation_count": value.operations.len(),
+        "operations": value.operations.iter().enumerate().map(|(index, value)| operation_json(value, index)).collect::<Vec<_>>(),
+    }).as_object().expect("annotation object").clone();
+    insert_optional(
+        &mut object,
+        "text",
+        value.text.as_ref().map(|value| json!(value)),
+    );
+    insert_optional(
+        &mut object,
+        "shape",
+        value.shape.as_ref().map(|value| json!(value)),
+    );
+    insert_optional(
+        &mut object,
+        "at_x_nm",
+        value.at_x_nm.map(|value| json!(value)),
+    );
+    insert_optional(
+        &mut object,
+        "at_y_nm",
+        value.at_y_nm.map(|value| json!(value)),
+    );
+    insert_optional(
+        &mut object,
+        "length_nm",
+        value.length_nm.map(|value| json!(value)),
     );
     Value::Object(object)
 }
@@ -664,6 +634,12 @@ fn metric_font() -> PlotterTextFont<'static> {
 fn custom_worksheet_and_connectivity_match_python_foundation() {
     let document = schematic_plot_document(SOURCE, SchematicPlotLimits::default(), &context())
         .expect("schematic plot");
+    assert_foundation_document(&document);
+    assert_foundation_header(&document.records[0]);
+    assert_foundation_connectivity(&document.records[1..]);
+}
+
+fn assert_foundation_document(document: &SchematicPlotDocument) {
     assert_eq!(
         document.source_path.as_deref(),
         Some("foundation.kicad_sch")
@@ -682,8 +658,10 @@ fn custom_worksheet_and_connectivity_match_python_foundation() {
             .sum::<usize>(),
         8
     );
+}
 
-    let SchematicPlotRecord::SheetHeader(header) = &document.records[0] else {
+fn assert_foundation_header(record: &SchematicPlotRecord) {
+    let SchematicPlotRecord::SheetHeader(header) = record else {
         panic!("header")
     };
     assert_eq!(header.uuid, "sch-1");
@@ -700,8 +678,16 @@ fn custom_worksheet_and_connectivity_match_python_foundation() {
     assert_eq!(text.text, "PX-PX-2/3-Child");
     assert_eq!((text.x, text.y), (1_000_000, 2_000_000));
     assert_eq!(text.font_face, "Arial");
+}
 
-    let kinds = document.records[1..]
+fn assert_foundation_connectivity(records: &[SchematicPlotRecord]) {
+    assert_foundation_connectivity_order(records);
+    assert_foundation_polylines(records);
+    assert_foundation_markers(records);
+}
+
+fn assert_foundation_connectivity_order(records: &[SchematicPlotRecord]) {
+    let kinds = records
         .iter()
         .map(|record| match record {
             SchematicPlotRecord::Connectivity(record) => record.kind,
@@ -720,8 +706,10 @@ fn custom_worksheet_and_connectivity_match_python_foundation() {
             SchematicConnectivityRecordKind::NoConnect,
         ]
     );
+}
 
-    let SchematicPlotRecord::Connectivity(wire) = &document.records[1] else {
+fn assert_foundation_polylines(records: &[SchematicPlotRecord]) {
+    let SchematicPlotRecord::Connectivity(wire) = &records[0] else {
         unreachable!()
     };
     let PlotterOperation::PlotPoly(wire_poly) = plotter(&wire.operations[0]) else {
@@ -735,7 +723,7 @@ fn custom_worksheet_and_connectivity_match_python_foundation() {
     assert_eq!(wire_poly.stroke_color.as_deref(), Some("#009600FF"));
     assert_eq!(wire_poly.line_style, Some(PlotterLineStyle::Default));
 
-    let SchematicPlotRecord::Connectivity(bus) = &document.records[2] else {
+    let SchematicPlotRecord::Connectivity(bus) = &records[1] else {
         unreachable!()
     };
     let PlotterOperation::PlotPoly(bus_poly) = plotter(&bus.operations[0]) else {
@@ -745,7 +733,7 @@ fn custom_worksheet_and_connectivity_match_python_foundation() {
     assert_eq!(bus_poly.stroke_color.as_deref(), Some("#01020380"));
     assert_eq!(bus_poly.line_style, Some(PlotterLineStyle::Dash));
 
-    let SchematicPlotRecord::Connectivity(entry) = &document.records[3] else {
+    let SchematicPlotRecord::Connectivity(entry) = &records[2] else {
         unreachable!()
     };
     let PlotterOperation::PlotPoly(entry_poly) = plotter(&entry.operations[0]) else {
@@ -756,8 +744,10 @@ fn custom_worksheet_and_connectivity_match_python_foundation() {
         [[7_000_000, 8_000_000], [9_540_000, 5_460_000]]
     );
     assert_eq!(entry_poly.width_nm, 0);
+}
 
-    let SchematicPlotRecord::Connectivity(junction) = &document.records[4] else {
+fn assert_foundation_markers(records: &[SchematicPlotRecord]) {
+    let SchematicPlotRecord::Connectivity(junction) = &records[3] else {
         unreachable!()
     };
     assert!(junction.junction_color_authored);
@@ -770,7 +760,7 @@ fn custom_worksheet_and_connectivity_match_python_foundation() {
         (9_000_000, 10_000_000, 914_400)
     );
 
-    let SchematicPlotRecord::Connectivity(no_connect) = &document.records[5] else {
+    let SchematicPlotRecord::Connectivity(no_connect) = &records[4] else {
         unreachable!()
     };
     assert_eq!(no_connect.operations.len(), 2);
@@ -1146,53 +1136,7 @@ fn placed_symbol_family_and_aggregate_limits_are_independent() {
     for (name, exact, one_under) in cases {
         let mut exact_limits = SchematicPlotLimits::default();
         let mut under_limits = exact_limits;
-        match name {
-            "symbols" => {
-                exact_limits.max_symbols = exact;
-                under_limits.max_symbols = one_under;
-            }
-            "overplots" => {
-                exact_limits.max_symbol_overplots = exact;
-                under_limits.max_symbol_overplots = one_under;
-            }
-            "properties" => {
-                exact_limits.max_symbol_properties = exact;
-                under_limits.max_symbol_properties = one_under;
-            }
-            "pins" => {
-                exact_limits.max_symbol_pins = exact;
-                under_limits.max_symbol_pins = one_under;
-            }
-            "library_symbols" => {
-                exact_limits.max_library_symbols = exact;
-                under_limits.max_library_symbols = one_under;
-            }
-            "library_subsymbols" => {
-                exact_limits.max_library_subsymbols = exact;
-                under_limits.max_library_subsymbols = one_under;
-            }
-            "library_pins" => {
-                exact_limits.max_library_pins = exact;
-                under_limits.max_library_pins = one_under;
-            }
-            "overlap_checks" => {
-                exact_limits.max_symbol_overlap_checks = exact;
-                under_limits.max_symbol_overlap_checks = one_under;
-            }
-            "records" => {
-                exact_limits.max_records = exact;
-                under_limits.max_records = one_under;
-            }
-            "operations" => {
-                exact_limits.max_operations = exact;
-                under_limits.max_operations = one_under;
-            }
-            "input_points" => {
-                exact_limits.max_input_points = exact;
-                under_limits.max_input_points = one_under;
-            }
-            _ => unreachable!(),
-        }
+        configure_symbol_limit(name, exact, one_under, &mut exact_limits, &mut under_limits);
         run(exact_limits).unwrap_or_else(|error| panic!("exact {name}: {error}"));
         assert_eq!(
             run(under_limits).unwrap_err().kind,
@@ -1213,6 +1157,58 @@ fn placed_symbol_family_and_aggregate_limits_are_independent() {
         .kind,
         ErrorKind::InvalidBuildValue,
     );
+}
+
+fn configure_symbol_limit(
+    name: &str,
+    exact: usize,
+    one_under: usize,
+    exact_limits: &mut SchematicPlotLimits,
+    under_limits: &mut SchematicPlotLimits,
+) {
+    let (exact_target, under_target) = match name {
+        "symbols" => (&mut exact_limits.max_symbols, &mut under_limits.max_symbols),
+        "overplots" => (
+            &mut exact_limits.max_symbol_overplots,
+            &mut under_limits.max_symbol_overplots,
+        ),
+        "properties" => (
+            &mut exact_limits.max_symbol_properties,
+            &mut under_limits.max_symbol_properties,
+        ),
+        "pins" => (
+            &mut exact_limits.max_symbol_pins,
+            &mut under_limits.max_symbol_pins,
+        ),
+        "library_symbols" => (
+            &mut exact_limits.max_library_symbols,
+            &mut under_limits.max_library_symbols,
+        ),
+        "library_subsymbols" => (
+            &mut exact_limits.max_library_subsymbols,
+            &mut under_limits.max_library_subsymbols,
+        ),
+        "library_pins" => (
+            &mut exact_limits.max_library_pins,
+            &mut under_limits.max_library_pins,
+        ),
+        "overlap_checks" => (
+            &mut exact_limits.max_symbol_overlap_checks,
+            &mut under_limits.max_symbol_overlap_checks,
+        ),
+        "records" => (&mut exact_limits.max_records, &mut under_limits.max_records),
+        "operations" => (
+            &mut exact_limits.max_operations,
+            &mut under_limits.max_operations,
+        ),
+        "input_points" => (
+            &mut exact_limits.max_input_points,
+            &mut under_limits.max_input_points,
+        ),
+        _ => unreachable!(),
+    };
+    *exact_target = exact;
+    *under_target = one_under;
 }
 
 #[test]
@@ -1407,7 +1403,13 @@ fn sheet_family_and_retained_limits_are_exact() {
         worksheet_source: Some(b"(kicad_wks)".to_vec()),
         ..SchematicPlotContext::default()
     };
-    for (exact, one_under) in [
+    for (exact, one_under) in sheet_resource_pairs() {
+        assert_sheet_resource_pair(source, &context, exact, one_under);
+    }
+}
+
+fn sheet_resource_pairs() -> [(SchematicPlotLimits, SchematicPlotLimits); 9] {
+    [
         (
             SchematicPlotLimits {
                 max_sheets: 1,
@@ -1498,9 +1500,7 @@ fn sheet_family_and_retained_limits_are_exact() {
                 ..SchematicPlotLimits::default()
             },
         ),
-    ] {
-        assert_sheet_resource_pair(source, &context, exact, one_under);
-    }
+    ]
 }
 
 #[test]
@@ -1593,7 +1593,15 @@ fn graphics_family_table_and_image_ceilings_are_independent() {
         worksheet_source: Some(b"(kicad_wks)".to_vec()),
         ..SchematicPlotContext::default()
     };
-    let families: [(&str, fn(&mut SchematicPlotLimits, usize)); 8] = [
+    assert_graphic_family_limits(&context);
+    assert_table_limits(&context);
+    assert_image_limits(&context);
+}
+
+type GraphicsLimitSetter = fn(&mut SchematicPlotLimits, usize);
+
+fn assert_graphic_family_limits(context: &SchematicPlotContext) {
+    let families: [(&str, GraphicsLimitSetter); 8] = [
         (
             "(kicad_sch (polyline (pts (xy 0 0) (xy 1 1))))",
             |limits: &mut SchematicPlotLimits, value| limits.max_polylines = value,
@@ -1632,9 +1640,11 @@ fn graphics_family_table_and_image_ceilings_are_independent() {
         let mut one_under = exact;
         set(&mut exact, 1);
         set(&mut one_under, 0);
-        assert_graphics_resource_pair(source, &context, exact, one_under);
+        assert_graphics_resource_pair(source, context, exact, one_under);
     }
+}
 
+fn assert_table_limits(context: &SchematicPlotContext) {
     let cell = "(kicad_sch (table (cells (table_cell \"x\" (at 0 0) (size 0 0)))))";
     for (exact, one_under) in [
         (
@@ -1658,9 +1668,11 @@ fn graphics_family_table_and_image_ceilings_are_independent() {
             },
         ),
     ] {
-        assert_graphics_resource_pair(cell, &context, exact, one_under);
+        assert_graphics_resource_pair(cell, context, exact, one_under);
     }
+}
 
+fn assert_image_limits(context: &SchematicPlotContext) {
     const PNG: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
     let image = format!("(kicad_sch (image (data \"{PNG}\")))");
     for (exact, one_under) in [
@@ -1747,7 +1759,7 @@ fn graphics_family_table_and_image_ceilings_are_independent() {
             },
         ),
     ] {
-        assert_graphics_resource_pair(&image, &context, exact, one_under);
+        assert_graphics_resource_pair(&image, context, exact, one_under);
     }
 }
 
@@ -2183,6 +2195,11 @@ fn annotation_defaults_and_kicad_half_away_rounding_match_python() {
 
 #[test]
 fn annotation_expansion_and_derived_geometry_fail_before_unbounded_publication() {
+    assert_annotation_expansion_limits();
+    assert_annotation_derived_geometry_failures();
+}
+
+fn assert_annotation_expansion_limits() {
     let context = SchematicPlotContext {
         project_variables: SchematicPlotVariables::from_entries([("X", "0123456789abcdef")]),
         worksheet_source: Some(b"(kicad_wks)".to_vec()),
@@ -2253,7 +2270,9 @@ fn annotation_expansion_and_derived_geometry_fail_before_unbounded_publication()
         .kind,
         ErrorKind::ResourceLimit
     );
+}
 
+fn assert_annotation_derived_geometry_failures() {
     let huge_ratio = r#"(kicad_sch
       (label "L" (at 0 0) (effects (font (size 1 1))) (uuid "l")))"#;
     assert_eq!(
@@ -2484,6 +2503,13 @@ fn annotation_metric_selection_hash_and_linebreak_work_are_bounded() {
 
 #[test]
 fn every_independent_resource_ceiling_has_an_exact_and_one_over_case() {
+    assert_base_resource_ceilings();
+    assert_text_and_project_resource_ceilings();
+    assert_worksheet_resource_ceilings();
+    assert_bitmap_resource_ceilings();
+}
+
+fn assert_base_resource_ceilings() {
     let empty_worksheet = SchematicPlotContext {
         worksheet_source: Some(b"(kicad_wks)".to_vec()),
         ..SchematicPlotContext::default()
@@ -2563,7 +2589,10 @@ fn every_independent_resource_ceiling_has_an_exact_and_one_over_case() {
             ..SchematicPlotLimits::default()
         },
     );
+}
 
+fn assert_text_and_project_resource_ceilings() {
+    let minimal = "(kicad_sch)";
     let text_worksheet = SchematicPlotContext {
         worksheet_source: Some(b"(kicad_wks (tbtext ab (pos 0 0)))".to_vec()),
         ..SchematicPlotContext::default()
@@ -2610,7 +2639,14 @@ fn every_independent_resource_ceiling_has_an_exact_and_one_over_case() {
             ..SchematicPlotLimits::default()
         },
     );
+}
 
+fn assert_worksheet_resource_ceilings() {
+    let minimal = "(kicad_sch)";
+    let empty_worksheet = SchematicPlotContext {
+        worksheet_source: Some(b"(kicad_wks)".to_vec()),
+        ..SchematicPlotContext::default()
+    };
     let worksheet_bytes = empty_worksheet
         .worksheet_source
         .as_ref()
@@ -2660,7 +2696,10 @@ fn every_independent_resource_ceiling_has_an_exact_and_one_over_case() {
             ..SchematicPlotLimits::default()
         },
     );
+}
 
+fn assert_bitmap_resource_ceilings() {
+    let minimal = "(kicad_sch)";
     const PNG: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
     let bitmap_context = SchematicPlotContext {
         worksheet_source: Some(

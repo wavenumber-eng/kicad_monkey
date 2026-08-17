@@ -88,6 +88,36 @@ fn board_plotter_reads_metadata_and_solid_lines_with_record_level_layers() {
 }
 
 #[test]
+fn board_source_bytes_and_depth_are_inclusive_boundaries() {
+    let exact = BoardPlotLimits {
+        max_source_bytes: LINE_BOARD.len(),
+        // The deepest authored carriers are `(width ...)` and `(type ...)`
+        // at zero-based nesting depth three.
+        max_depth: 3,
+        ..BoardPlotLimits::default()
+    };
+    board_plot_document(LINE_BOARD, exact).expect("exact source and depth ceilings");
+
+    for limits in [
+        BoardPlotLimits {
+            max_source_bytes: LINE_BOARD.len() - 1,
+            ..exact
+        },
+        BoardPlotLimits {
+            max_depth: 2,
+            ..exact
+        },
+    ] {
+        assert_eq!(
+            board_plot_document(LINE_BOARD, limits)
+                .expect_err("one-under producer input ceiling")
+                .kind,
+            ErrorKind::ResourceLimit
+        );
+    }
+}
+
+#[test]
 fn board_plotter_defaults_match_python_without_footprint_pen_clamps() {
     let document = board_plot_document("(kicad_pcb)", BoardPlotLimits::default())
         .expect("default board document");

@@ -64,9 +64,17 @@ pub struct Diagnostic {
     pub code: ::std::string::String,
     pub message: ::std::string::String,
     pub phase: DiagnosticPhase,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub position: ::std::option::Option<SourcePosition>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub token: ::std::option::Option<::std::string::String>,
 }
 ///`DiagnosticPhase`
