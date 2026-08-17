@@ -911,6 +911,8 @@ class FootprintPlotRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     max_points: Annotated[int, Meta(ge=0, le=4294967295)]
     source_path: str | UnsetType = field(default=UNSET)
     document_id: str | UnsetType = field(default=UNSET)
+    max_text_carriers: Annotated[int, Meta(ge=0, le=4294967295)] | UnsetType = field(default=UNSET)
+    max_text_bytes: str | UnsetType = field(default=UNSET)
 
 
 class FootprintPlotResultA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -1125,8 +1127,12 @@ def decode_footprint_plot_document_a0(data: bytes) -> FootprintPlotDocumentA0:
 
 
 def validate_footprint_plot_document_a0(value: FootprintPlotDocumentA0) -> None:
+    if len(value.records) != 1:
+        raise msgspec.ValidationError("invalid_footprint_document at $.records")
     total_operations = 0
     for record_index, record in enumerate(value.records):
+        if record.object_id != record.name:
+            raise msgspec.ValidationError(f"invalid_footprint_record at $.records[{record_index}]")
         if record.operation_count != len(record.operations):
             raise msgspec.ValidationError(
                 f"operation_count_mismatch at $.records[{record_index}].operation_count"
@@ -1134,8 +1140,12 @@ def validate_footprint_plot_document_a0(value: FootprintPlotDocumentA0) -> None:
         total_operations += len(record.operations)
         for operation_index, operation in enumerate(record.operations):
             path = f"$.records[{record_index}].operations[{operation_index}]"
+            if operation.index != operation_index:
+                raise msgspec.ValidationError(f"operation_index_mismatch at {path}.index")
             if isinstance(operation, (ThickSegmentOperation, CircleOperation)):
                 _validate_shared_graphic_or_drill(operation, path)
+            elif isinstance(operation, TextOperation):
+                _validate_footprint_text(operation, path)
             elif isinstance(operation, (ArcThreePointOperation, RectOperation, PlotPolyOperation, BezierCurveOperation)):
                 if operation.layer is UNSET or not operation.layer:
                     raise msgspec.ValidationError(f"missing_layer at {path}")
@@ -1146,14 +1156,36 @@ def validate_footprint_plot_document_a0(value: FootprintPlotDocumentA0) -> None:
                 FlashPadRoundRectOperation,
                 FlashPadCustomOperation,
                 FlashPadTrapezOperation,
-            )) and not operation.layers:
-                raise msgspec.ValidationError(f"missing_layers at {path}")
+            )):
+                if not operation.layers:
+                    raise msgspec.ValidationError(f"missing_layers at {path}")
+                if isinstance(operation, FlashPadCircleOperation) and (
+                    operation.mask_margin_nm is UNSET or operation.role is not UNSET
+                ):
+                    raise msgspec.ValidationError(f"invalid_pad_operation at {path}")
+            else:
+                raise msgspec.ValidationError(f"invalid_footprint_operation at {path}")
             if isinstance(operation, FlashPadCustomOperation):
                 widths = operation.polygon_widths_nm
                 if widths is not UNSET and widths and len(widths) != len(operation.polygons):
                     raise msgspec.ValidationError(f"polygon_width_count_mismatch at {path}.polygon_widths_nm")
     if value.total_operations != total_operations:
         raise msgspec.ValidationError("operation_count_mismatch at $.total_operations")
+
+
+def _validate_footprint_text(operation: TextOperation, path: str) -> None:
+    forbidden = (
+        operation.mirror is not UNSET,
+        operation.text_as_polygons is not UNSET,
+        operation.polyline_per_segment is not UNSET,
+        operation.knockout is not UNSET,
+        operation.render_cache_polygons is not UNSET,
+        operation.render_cache is not UNSET,
+        operation.render_cache_source is not UNSET,
+        operation.render_cache_exact is not UNSET,
+    )
+    if operation.layer is UNSET or not operation.layer or any(forbidden):
+        raise msgspec.ValidationError(f"invalid_footprint_text at {path}")
 
 
 def _validate_shared_graphic_or_drill(operation: ThickSegmentOperation | CircleOperation, path: str) -> None:

@@ -50,7 +50,7 @@ impl MarkupWidthState {
 /// Python `_wrap_text_box_lines`, implemented incrementally. Each byte is
 /// appended/measured at most twice (once more when it triggers a wrap), so a
 /// long paragraph cannot degrade into repeated whole-prefix measurement.
-pub(super) fn wrap_text_box(text: &str, max_width_mm: f64, size_x_nm: i64) -> String {
+pub(crate) fn wrap_text_box(text: &str, max_width_mm: f64, size_x_nm: i64) -> String {
     if max_width_mm <= 0.0 || !text.contains(' ') {
         return text.to_owned();
     }

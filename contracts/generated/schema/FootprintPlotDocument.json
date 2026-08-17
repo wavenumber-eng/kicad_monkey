@@ -55,7 +55,7 @@
     "unevaluatedProperties": {
         "not": {}
     },
-    "description": "Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
+    "description": "Strict standalone-footprint subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
     "title": "Footprint plot document a0",
     "$defs": {
         "FootprintPlotRecord": {
@@ -124,7 +124,7 @@
             "unevaluatedProperties": {
                 "not": {}
             },
-            "description": "One footprint record in the promoted non-text graphics slice."
+            "description": "One standalone footprint record in canonical text/geometry/pad order."
         },
         "PlotterCoordinateSpace": {
             "type": "object",

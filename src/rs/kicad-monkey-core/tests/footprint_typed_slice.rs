@@ -26,6 +26,78 @@ fn typed_view_reads_name_properties_and_pads_without_a_generic_tree() {
 }
 
 #[test]
+fn typed_view_decodes_standalone_text_carriers_without_board_ownership() {
+    let source = r#"(footprint "Text"
+      (property "Reference" "REF**" (at 1 2 30) (layer "F.SilkS")
+        (effects (font (size 1 2) bold)))
+      (fp_text user "hello" (at 3 4 45) (layer "B.SilkS") hide)
+      (fp_text_box "boxed" (pts (xy -1 -2) (xy 9) (xy 3 4))
+        (margins 0.1 0.2 0.3 0.4) (layer "F.Fab") (border yes)))"#;
+    let view = FootprintView::parse(source, FootprintLimits::default()).expect("typed text view");
+    let properties = view
+        .graphical_properties()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("graphical properties");
+    assert_eq!((properties[0].at_x, properties[0].angle), (1.0, 30.0));
+    assert_eq!(properties[0].effects.font.size_x, 2.0);
+    assert!(properties[0].effects.font.bold);
+
+    let texts = view.texts().collect::<Result<Vec<_>, _>>().expect("texts");
+    assert_eq!(texts[0].layer, "B.SilkS");
+    assert!(texts[0].hidden);
+
+    let boxes = view
+        .text_boxes()
+        .collect::<Result<Vec<_>, _>>()
+        .expect("text boxes");
+    assert_eq!(
+        (
+            boxes[0].start_x,
+            boxes[0].start_y,
+            boxes[0].end_x,
+            boxes[0].end_y
+        ),
+        (-1.0, -2.0, 3.0, 4.0)
+    );
+    assert_eq!(boxes[0].border, Some(true));
+    assert_eq!(boxes[0].polygon_points, [[-1.0, -2.0], [3.0, 4.0]]);
+
+    let error = FootprintView::parse(
+        source,
+        FootprintLimits {
+            max_text_carriers: 2,
+            ..FootprintLimits::default()
+        },
+    )
+    .expect_err("aggregate standalone text-carrier limit");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+}
+
+#[test]
+fn standalone_text_decoder_rejects_nonfinite_numbers() {
+    for source in [
+        r#"(footprint "Bad" (fp_text user "x" (at 0 0 NaN)))"#,
+        r#"(footprint "Bad" (property "P" "x" (at 0 0) (layer "F.Fab")
+          (effects (font (color 0 0 0 inf)))))"#,
+    ] {
+        let view = FootprintView::parse(source, FootprintLimits::default()).expect("selected view");
+        let error = if source.contains("fp_text") {
+            view.texts()
+                .next()
+                .expect("text")
+                .expect_err("finite angle")
+        } else {
+            view.graphical_properties()
+                .next()
+                .expect("property")
+                .expect_err("finite color")
+        };
+        assert_eq!(error.kind, ErrorKind::UnexpectedToken);
+        assert!(error.message.contains("finite"));
+    }
+}
+
+#[test]
 fn focused_edit_preserves_unknown_bytes_and_has_a_stable_second_write() {
     let limits = FootprintLimits::default();
     let view = FootprintView::parse(SOURCE, limits).expect("typed view");

@@ -1,5 +1,6 @@
 use kicad_monkey_core::{
-    ErrorKind, FootprintPlotLimits, PlotterOperation, footprint_plot_document,
+    ErrorKind, FootprintPlotLimits, PlotterOperation, PlotterTextHAlign, PlotterTextVAlign,
+    footprint_plot_document,
 };
 
 const LINE_FOOTPRINT: &str = r#"(footprint "Demo"
@@ -18,6 +19,19 @@ const LINE_FOOTPRINT: &str = r#"(footprint "Demo"
     (stroke (width 0.2) (type solid))
     (layer "F.SilkS"))
 )"#;
+
+const TEXT_FOOTPRINT: &str = r#"(footprint "Textual"
+  (property "Note" "N")
+  (property "Value" "VAL" (at 0 1) (layer "F.Fab") hide)
+  (property "Reference" "R${Value}" (at 1 2 30) (layer "F.SilkS"))
+  (property "Visible" "${Note}" (at -1 -2) (layer "B.Fab"))
+  (fp_text reference "raw" (at 3 4 15) (layer "F.SilkS"))
+  (fp_text user "${Note}" (at 7 8) (layer "B.SilkS")
+    (effects (font (size 1 1)) (justify center bottom)))
+  (fp_text_box "${Note} A" (start 0 0) (end 1.5 2)
+    (margins 0.1 0.2 0.1 0.2) (layer "F.SilkS") (border yes)
+    (effects (font (size 1 1)) (justify left top)))
+  (fp_line (start 0 0) (end 1 0) (stroke (width 0.1))))"#;
 
 #[test]
 #[allow(
@@ -48,6 +62,94 @@ fn footprint_plotter_reads_metadata_and_solid_lines_without_a_full_tree() {
     assert_eq!(line.end_y, -2_000_000);
     assert_eq!(line.width_nm, 200_000);
     assert_eq!(line.layer.as_deref(), Some("F.SilkS"));
+}
+
+#[test]
+fn standalone_text_carriers_follow_python_order_defaults_and_variables() {
+    let document = footprint_plot_document(TEXT_FOOTPRINT, FootprintPlotLimits::default())
+        .expect("standalone text document");
+    assert_eq!(document.operations.len(), 7);
+    let texts = document
+        .operations
+        .iter()
+        .filter_map(|operation| match operation {
+            PlotterOperation::Text(text) => Some(text),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        texts
+            .iter()
+            .map(|text| text.text.as_str())
+            .collect::<Vec<_>>(),
+        ["R${Value}", "${Note}", "RVAL", "N", "N\nA"]
+    );
+    assert_eq!(texts[0].h_align, PlotterTextHAlign::Left);
+    assert_eq!(texts[0].v_align, PlotterTextVAlign::Bottom);
+    assert_eq!(texts[3].h_align, PlotterTextHAlign::Center);
+    assert_eq!(texts[4].v_align, PlotterTextVAlign::Top);
+    assert!(texts[4].multiline);
+    assert!(matches!(document.operations[4], PlotterOperation::Rect(_)));
+    assert!(matches!(
+        document.operations[6],
+        PlotterOperation::ThickSegment(_)
+    ));
+}
+
+#[test]
+fn standalone_text_input_and_output_limits_fail_closed() {
+    let document = footprint_plot_document(TEXT_FOOTPRINT, FootprintPlotLimits::default())
+        .expect("standalone text document");
+    let exact_text_bytes = document
+        .operations
+        .iter()
+        .filter_map(|operation| match operation {
+            PlotterOperation::Text(text) => Some(text.text.len()),
+            _ => None,
+        })
+        .sum();
+    assert!(
+        footprint_plot_document(
+            TEXT_FOOTPRINT,
+            FootprintPlotLimits {
+                max_text_bytes: exact_text_bytes,
+                ..FootprintPlotLimits::default()
+            }
+        )
+        .is_ok()
+    );
+    let error = footprint_plot_document(
+        TEXT_FOOTPRINT,
+        FootprintPlotLimits {
+            max_text_bytes: exact_text_bytes - 1,
+            ..FootprintPlotLimits::default()
+        },
+    )
+    .expect_err("aggregate retained text ceiling");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+
+    let oversized_property = r#"(footprint "TextLimit"
+      (property "Reference" "long" (at 0 0) (layer "F.SilkS")))"#;
+    let error = footprint_plot_document(
+        oversized_property,
+        FootprintPlotLimits {
+            max_text_bytes: 0,
+            ..FootprintPlotLimits::default()
+        },
+    )
+    .expect_err("property text is preflighted before its output clone");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
+    assert!(error.message.contains("max_text_bytes"));
+
+    let error = footprint_plot_document(
+        TEXT_FOOTPRINT,
+        FootprintPlotLimits {
+            max_text_carriers: 6,
+            ..FootprintPlotLimits::default()
+        },
+    )
+    .expect_err("input carrier ceiling includes silent properties and text");
+    assert_eq!(error.kind, ErrorKind::ResourceLimit);
 }
 
 #[test]
@@ -376,6 +478,13 @@ fn plotter_outputs_stay_inside_the_javascript_safe_integer_range() {
         (stroke (width 0.1) (type solid))))"#;
     let error = footprint_plot_document(outside, FootprintPlotLimits::default())
         .expect_err("unsafe coordinate");
+    assert_eq!(error.kind, ErrorKind::UnexpectedToken);
+    assert!(error.message.contains("safe-integer"));
+
+    let outside_text = r#"(footprint "Demo"
+      (fp_text user "unsafe" (at 9007199255 0) (layer "F.SilkS")))"#;
+    let error = footprint_plot_document(outside_text, FootprintPlotLimits::default())
+        .expect_err("unsafe text coordinate");
     assert_eq!(error.kind, ErrorKind::UnexpectedToken);
     assert!(error.message.contains("safe-integer"));
 }

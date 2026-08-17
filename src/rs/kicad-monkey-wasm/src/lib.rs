@@ -400,10 +400,20 @@ fn plot_footprint_ir_impl(
 
 #[cfg(feature = "footprint")]
 fn footprint_plot_limits(request: &FootprintPlotRequestA0) -> Result<FootprintPlotLimits, String> {
+    let defaults = FootprintPlotLimits::default();
     Ok(FootprintPlotLimits {
         max_source_bytes: decimal_usize(&request.max_source_bytes, "max_source_bytes")?,
         max_depth: request.max_depth as usize,
         max_metadata_forms: request.max_metadata_forms as usize,
+        max_text_carriers: request
+            .max_text_carriers
+            .map_or(defaults.max_text_carriers, |value| value as usize),
+        max_text_bytes: request
+            .max_text_bytes
+            .as_deref()
+            .map(|value| decimal_usize(value, "max_text_bytes"))
+            .transpose()?
+            .unwrap_or(defaults.max_text_bytes),
         max_operations: request.max_operations as usize,
         max_points: request.max_points as usize,
     })
@@ -486,6 +496,7 @@ fn footprint_limits(
         max_depth: max_depth as usize,
         max_properties: max_properties as usize,
         max_pads: max_pads as usize,
+        ..FootprintLimits::default()
     })
 }
 
@@ -804,6 +815,31 @@ mod tests {
             assert_eq!(document, vector["expected"], "{}", vector["id"]);
         }
 
+        let text_vector = &vectors["vectors"]
+            .as_array()
+            .expect("vectors")
+            .iter()
+            .find(|vector| vector["id"] == "standalone-properties-text-and-text-box")
+            .expect("text vector");
+        let mut legacy: Value =
+            serde_json::from_slice(&footprint_plot_request(text_vector, "16384", 1_000))
+                .expect("legacy request shape");
+        legacy
+            .as_object_mut()
+            .expect("request object")
+            .remove("max_text_carriers");
+        legacy
+            .as_object_mut()
+            .expect("request object")
+            .remove("max_text_bytes");
+        let legacy = serde_json::to_vec(&legacy).expect("legacy request JSON");
+        let output = plot_footprint_ir_impl(
+            text_vector["source"].as_str().expect("source").as_bytes(),
+            &legacy,
+        )
+        .expect("bounded defaults preserve old a0 requests");
+        assert!(!output.output_bytes.is_empty());
+
         let vector = &vectors["vectors"][0];
         let source = vector["source"].as_str().expect("source").as_bytes();
         let limited_request = footprint_plot_request(vector, "8", 8);
@@ -826,6 +862,8 @@ mod tests {
             "max_output_bytes": max_output,
             "max_depth": 32,
             "max_metadata_forms": 32,
+            "max_text_carriers": 128,
+            "max_text_bytes": "16384",
             "max_operations": max_operations,
             "max_points": 1000
         }))
@@ -959,7 +997,7 @@ mod tests {
             (primitives
               (gr_poly (pts (xy -0.5 -0.5) (xy 0.5 -0.5) (xy 0 0.5))
                 (width 0.05) (fill yes)))))"#;
-        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_operations":8,"max_points":1000}"#;
+        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_text_carriers":32,"max_text_bytes":"4096","max_operations":8,"max_points":1000}"#;
         let output = plot_footprint_ir(source, request).expect("WASM plotter operation");
         let metadata: Value =
             serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
@@ -990,19 +1028,24 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn wasm_footprint_plotter_rejects_precision_losing_integer_output() {
-        let source = br#"(footprint "Demo" (version 9007199254740992))"#;
-        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_operations":8,"max_points":1000}"#;
-        let output = plot_footprint_ir(source, request).expect("range error result metadata");
-        let metadata: Value =
-            serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
-        assert_eq!(metadata["diagnostics"][0]["code"], "unexpected_token");
-        assert!(
-            metadata["diagnostics"][0]["message"]
-                .as_str()
-                .expect("diagnostic message")
-                .contains("safe-integer")
-        );
-        assert!(output.output_bytes().is_empty());
+        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_text_carriers":32,"max_text_bytes":"4096","max_operations":8,"max_points":1000}"#;
+        for source in [
+            br#"(footprint "Demo" (version 9007199254740992))"#.as_slice(),
+            br#"(footprint "Demo" (fp_text user "unsafe" (at 9007199255 0) (layer "F.SilkS")))"#
+                .as_slice(),
+        ] {
+            let output = plot_footprint_ir(source, request).expect("range error result metadata");
+            let metadata: Value =
+                serde_json::from_slice(&output.result_json()).expect("result metadata JSON");
+            assert_eq!(metadata["diagnostics"][0]["code"], "unexpected_token");
+            assert!(
+                metadata["diagnostics"][0]["message"]
+                    .as_str()
+                    .expect("diagnostic message")
+                    .contains("safe-integer")
+            );
+            assert!(output.output_bytes().is_empty());
+        }
     }
 
     #[wasm_bindgen_test]
@@ -1010,7 +1053,7 @@ mod tests {
         let source = br#"(footprint "Long"
           (fp_line (start 0 0) (end 7000000 0)
             (stroke (width 0.1) (type dash))))"#;
-        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_operations":100000,"max_points":1000}"#;
+        let request = br#"{"type":"kicad_monkey.footprint_plot.request","version":"a0","max_source_bytes":"4096","max_output_bytes":"4096","max_depth":32,"max_metadata_forms":32,"max_text_carriers":32,"max_text_bytes":"4096","max_operations":100000,"max_points":1000}"#;
         let output = plot_footprint_ir(source, request)
             .expect("decomposition limit belongs in result metadata");
         let metadata: Value =

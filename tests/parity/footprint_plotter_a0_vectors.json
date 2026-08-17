@@ -193,6 +193,86 @@
         "generator": "pcbnew",
         "generator_version": "9.0"
       }
+    },
+    {
+      "id": "standalone-properties-text-and-text-box",
+      "source": "(footprint \"Textual\"\n  (version 20260101)\n  (generator pcbnew)\n  (generator_version \"10.0\")\n  (layer \"F.Cu\")\n  (property \"Note\" \"N\")\n  (property \"Value\" \"VAL\" (at 0 1 0) (layer \"F.Fab\") hide)\n  (property \"Reference\" \"R${Value}\" (at 1 2 30) (layer \"F.SilkS\")\n    (effects (font (face \"KiCad Font\") (size 1 2) (thickness 0.1) bold italic (color 10 20 30 0.5)) (justify right top)))\n  (property \"Visible\" \"${Note}\" (at -1 -2) (layer \"B.Fab\"))\n  (fp_text reference \"raw\" (at 3 4 15) (layer \"F.SilkS\")\n    (effects (font (size 1 1))))\n  (fp_text value \"raw\" (at 5 6) (layer \"F.Fab\"))\n  (fp_text user \"${Note}\" (at 7 8) (layer \"B.SilkS\")\n    (effects (font (size 1 1)) (justify center bottom)))\n  (fp_text user \"hidden\" (at 0 0) (layer \"F.SilkS\") hide)\n  (fp_text_box \"${Note} A\" (start 0 0) (end 1.5 2) (margins 0.1 0.2 0.1 0.2)\n    (angle 45) (layer \"F.SilkS\") (border yes) (stroke (width 0.12))\n    (effects (font (size 1 1)) (justify left top)))\n  (fp_line (start 0 0) (end 1 0) (stroke (width 0.1)) (layer \"F.SilkS\")))",
+      "source_path": "textual.kicad_mod",
+      "document_id": "textual",
+      "expected": {
+        "schema": "kicad.plotter_ir.a0",
+        "source_kind": "MOD",
+        "total_operations": 8,
+        "records": [
+          {
+            "uuid": "",
+            "kind": "footprint",
+            "object_id": "Textual",
+            "operation_count": 8,
+            "operations": [
+              {"kind": "Text", "index": 0, "x": 1000000, "y": 2000000, "text": "R${Value}", "color": "#0A141E80", "orient_deg": 30.0, "size_x_nm": 2000000, "size_y_nm": 1000000, "h_align": "GR_TEXT_H_ALIGN_RIGHT", "v_align": "GR_TEXT_V_ALIGN_TOP", "pen_width_nm": 100000, "italic": true, "bold": true, "multiline": false, "font_face": "KiCad Font", "layer": "F.SilkS"},
+              {"kind": "Text", "index": 1, "x": -1000000, "y": -2000000, "text": "${Note}", "color": "#000000", "orient_deg": 0.0, "size_x_nm": 1270000, "size_y_nm": 1270000, "h_align": "GR_TEXT_H_ALIGN_LEFT", "v_align": "GR_TEXT_V_ALIGN_BOTTOM", "pen_width_nm": 0, "italic": false, "bold": false, "multiline": false, "font_face": "", "layer": "B.Fab"},
+              {"kind": "Text", "index": 2, "x": 3000000, "y": 4000000, "text": "RVAL", "color": "#000000", "orient_deg": 15.0, "size_x_nm": 1000000, "size_y_nm": 1000000, "h_align": "GR_TEXT_H_ALIGN_LEFT", "v_align": "GR_TEXT_V_ALIGN_BOTTOM", "pen_width_nm": 0, "italic": false, "bold": false, "multiline": false, "font_face": "", "layer": "F.SilkS"},
+              {"kind": "Text", "index": 3, "x": 5000000, "y": 6000000, "text": "VAL", "color": "#000000", "orient_deg": 0.0, "size_x_nm": 1270000, "size_y_nm": 1270000, "h_align": "GR_TEXT_H_ALIGN_LEFT", "v_align": "GR_TEXT_V_ALIGN_BOTTOM", "pen_width_nm": 0, "italic": false, "bold": false, "multiline": false, "font_face": "", "layer": "F.Fab"},
+              {"kind": "Text", "index": 4, "x": 7000000, "y": 8000000, "text": "N", "color": "#000000", "orient_deg": 0.0, "size_x_nm": 1000000, "size_y_nm": 1000000, "h_align": "GR_TEXT_H_ALIGN_CENTER", "v_align": "GR_TEXT_V_ALIGN_BOTTOM", "pen_width_nm": 0, "italic": false, "bold": false, "multiline": false, "font_face": "", "layer": "B.SilkS"},
+              {"kind": "Rect", "index": 5, "x1": 0, "y1": 0, "x2": 1500000, "y2": 2000000, "fill": "NO_FILL", "width_nm": 120000, "corner_radius_nm": 0, "layer": "F.SilkS"},
+              {"kind": "Text", "index": 6, "x": 100000, "y": 200000, "text": "N\nA", "color": "#000000", "orient_deg": 45.0, "size_x_nm": 1000000, "size_y_nm": 1000000, "h_align": "GR_TEXT_H_ALIGN_LEFT", "v_align": "GR_TEXT_V_ALIGN_TOP", "pen_width_nm": 0, "italic": false, "bold": false, "multiline": true, "font_face": "", "layer": "F.SilkS"},
+              {"kind": "ThickSegment", "index": 7, "start_x": 0, "start_y": 0, "end_x": 1000000, "end_y": 0, "width_nm": 100000, "layer": "F.SilkS"}
+            ],
+            "name": "Textual",
+            "layer": "F.Cu",
+            "locked": false,
+            "placed": false,
+            "descr": "",
+            "tags": "",
+            "attr": []
+          }
+        ],
+        "source_path": "textual.kicad_mod",
+        "document_id": "textual",
+        "coordinate_space": {"unit": "nm", "y_axis": "down"},
+        "version": 20260101,
+        "generator": "pcbnew",
+        "generator_version": "10.0"
+      }
+    },
+    {
+      "id": "standalone-text-alias-and-polygon-box-edges",
+      "source": "(footprint \"TextEdges\"\n  (version 20260101)\n  (generator pcbnew)\n  (generator_version \"10.0\")\n  (layer \"F.Cu\")\n  (property \"reference\" \"LOW\")\n  (property \"value\" \"lowv\")\n  (fp_text reference \"raw\" (at 1 2) (layer \"F.SilkS\"))\n  (fp_text value \"raw\" (at 3 4) (layer \"F.Fab\"))\n  (fp_text_box \"A A\" (pts (xy 0 0) (xy 9) (xy 0.1 1) (xy 0.1 0))\n    (layer \"B.SilkS\") (border yes) (effects (font (size 1 0)))))",
+      "source_path": "text-edges.kicad_mod",
+      "document_id": "text-edges",
+      "expected": {
+        "schema": "kicad.plotter_ir.a0",
+        "source_kind": "MOD",
+        "total_operations": 4,
+        "records": [
+          {
+            "uuid": "",
+            "kind": "footprint",
+            "object_id": "TextEdges",
+            "operation_count": 4,
+            "operations": [
+              {"kind": "Text", "index": 0, "x": 1000000, "y": 2000000, "text": "LOW", "color": "#000000", "orient_deg": 0.0, "size_x_nm": 1270000, "size_y_nm": 1270000, "h_align": "GR_TEXT_H_ALIGN_LEFT", "v_align": "GR_TEXT_V_ALIGN_BOTTOM", "pen_width_nm": 0, "italic": false, "bold": false, "multiline": false, "font_face": "", "layer": "F.SilkS"},
+              {"kind": "Text", "index": 1, "x": 3000000, "y": 4000000, "text": "lowv", "color": "#000000", "orient_deg": 0.0, "size_x_nm": 1270000, "size_y_nm": 1270000, "h_align": "GR_TEXT_H_ALIGN_LEFT", "v_align": "GR_TEXT_V_ALIGN_BOTTOM", "pen_width_nm": 0, "italic": false, "bold": false, "multiline": false, "font_face": "", "layer": "F.Fab"},
+              {"kind": "Rect", "index": 2, "x1": 0, "y1": 0, "x2": 100000, "y2": 1000000, "fill": "NO_FILL", "width_nm": 200000, "corner_radius_nm": 0, "layer": "B.SilkS"},
+              {"kind": "Text", "index": 3, "x": 0, "y": 0, "text": "A\nA", "color": "#000000", "orient_deg": 0.0, "size_x_nm": 0, "size_y_nm": 1000000, "h_align": "GR_TEXT_H_ALIGN_LEFT", "v_align": "GR_TEXT_V_ALIGN_TOP", "pen_width_nm": 0, "italic": false, "bold": false, "multiline": true, "font_face": "", "layer": "B.SilkS"}
+            ],
+            "name": "TextEdges",
+            "layer": "F.Cu",
+            "locked": false,
+            "placed": false,
+            "descr": "",
+            "tags": "",
+            "attr": []
+          }
+        ],
+        "source_path": "text-edges.kicad_mod",
+        "document_id": "text-edges",
+        "coordinate_space": {"unit": "nm", "y_axis": "down"},
+        "version": 20260101,
+        "generator": "pcbnew",
+        "generator_version": "10.0"
+      }
     }
   ]
 }

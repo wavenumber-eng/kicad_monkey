@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Complete native standalone-footprint property, text, and text-box Plotter-IR
+  emission with dedicated source-backed ownership types, canonical ordering,
+  local property variables, bounded text wrapping, strict semantic validation,
+  and shared Python/Rust/WASM parity vectors.
+
 - Connect the accepted native hinted text-cache engine to board text,
   text-box, and table carriers through a deterministic bounded font/shaping
   sidecar, with authenticated font identities, outline-font wrapping,

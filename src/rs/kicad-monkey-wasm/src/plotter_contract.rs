@@ -4,7 +4,8 @@ use kicad_monkey_contracts::JavaScriptSafeInteger;
 use kicad_monkey_contracts::generated::footprint_plot_document::*;
 use kicad_monkey_core::{
     PlotterFill as CorePlotterFill, PlotterLineStyle as CorePlotterLineStyle,
-    PlotterOperation as CorePlotterOperation,
+    PlotterOperation as CorePlotterOperation, PlotterTextHAlign as CorePlotterTextHAlign,
+    PlotterTextVAlign as CorePlotterTextVAlign,
 };
 
 macro_rules! project_plotter_operation {
@@ -112,6 +113,34 @@ macro_rules! project_plotter_operation {
                 stroke_color: operation.stroke_color,
                 tolerance_nm: safe_integer(operation.tolerance_nm)?,
                 width_nm: safe_integer(operation.width_nm)?,
+            }
+            .into(),
+            CorePlotterOperation::Text(operation) => TextOperation {
+                bold: operation.bold,
+                color: operation.color,
+                font_face: operation.font_face,
+                h_align: contract_text_h_align(operation.h_align),
+                index,
+                italic: operation.italic,
+                kind: "Text".to_owned(),
+                knockout: None,
+                layer: operation.layer,
+                mirror: None,
+                multiline: operation.multiline,
+                orient_deg: operation.orient_deg,
+                pen_width_nm: safe_integer(operation.pen_width_nm)?,
+                polyline_per_segment: None,
+                render_cache: None,
+                render_cache_exact: None,
+                render_cache_polygons: Vec::new(),
+                render_cache_source: None,
+                size_x_nm: safe_integer(operation.size_x_nm)?,
+                size_y_nm: safe_integer(operation.size_y_nm)?,
+                text: operation.text,
+                text_as_polygons: None,
+                v_align: contract_text_v_align(operation.v_align),
+                x: safe_integer(operation.x)?,
+                y: safe_integer(operation.y)?,
             }
             .into(),
             CorePlotterOperation::FlashPadCircle(operation) => FlashPadCircleOperation {
@@ -235,6 +264,22 @@ fn contract_line_style(style: CorePlotterLineStyle) -> PlotterLineStyle {
         CorePlotterLineStyle::Dot => PlotterLineStyle::Dot,
         CorePlotterLineStyle::DashDot => PlotterLineStyle::DashDot,
         CorePlotterLineStyle::DashDotDot => PlotterLineStyle::DashDotDot,
+    }
+}
+
+fn contract_text_h_align(value: CorePlotterTextHAlign) -> PlotterTextHAlign {
+    match value {
+        CorePlotterTextHAlign::Left => PlotterTextHAlign::GrTextHAlignLeft,
+        CorePlotterTextHAlign::Center => PlotterTextHAlign::GrTextHAlignCenter,
+        CorePlotterTextHAlign::Right => PlotterTextHAlign::GrTextHAlignRight,
+    }
+}
+
+fn contract_text_v_align(value: CorePlotterTextVAlign) -> PlotterTextVAlign {
+    match value {
+        CorePlotterTextVAlign::Top => PlotterTextVAlign::GrTextVAlignTop,
+        CorePlotterTextVAlign::Center => PlotterTextVAlign::GrTextVAlignCenter,
+        CorePlotterTextVAlign::Bottom => PlotterTextVAlign::GrTextVAlignBottom,
     }
 }
 

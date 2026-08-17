@@ -12,6 +12,11 @@ export interface FootprintPlotRequestA0 {
   max_output_bytes: string;
   max_depth: number;
   max_metadata_forms: number;
+  /**
+   * Optional Phase 5 ceilings; older a0 requests receive bounded defaults.
+   */
+  max_text_carriers?: number;
+  max_text_bytes?: string;
   max_operations: number;
   max_points: number;
 }

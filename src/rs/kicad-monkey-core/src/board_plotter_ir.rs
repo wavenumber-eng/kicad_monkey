@@ -15,7 +15,7 @@ mod text;
 mod text_cache;
 mod text_native;
 mod text_variables;
-mod text_wrap;
+pub(crate) mod text_wrap;
 
 use crate::pcb::{PcbFamily, PcbGraphic, PcbLimits, PcbNetRef, PcbSelection, PcbView};
 use crate::plotter_ir::ensure_javascript_safe_integer;

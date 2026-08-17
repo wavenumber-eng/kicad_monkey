@@ -24,6 +24,9 @@ model FootprintPlotRequest {
   max_output_bytes: uint64;
   max_depth: uint32;
   max_metadata_forms: uint32;
+  /** Optional Phase 5 ceilings; older a0 requests receive bounded defaults. */
+  max_text_carriers?: uint32;
+  max_text_bytes?: uint64;
   max_operations: uint32;
   max_points: uint32;
 }
@@ -390,7 +393,7 @@ union PlotterOperation {
   flashPadTrapez: FlashPadTrapezOperation,
 }
 
-/** One footprint record in the promoted non-text graphics slice. */
+/** One standalone footprint record in canonical text/geometry/pad order. */
 model FootprintPlotRecord {
   uuid: string;
   kind: "footprint";
@@ -407,7 +410,7 @@ model FootprintPlotRecord {
 }
 
 /**
- * Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and
+ * Strict standalone-footprint subset of kicad.plotter_ir.a0. Producers and
  * consumers must run generated semantic validation after structural decoding.
  */
 @jsonSchema

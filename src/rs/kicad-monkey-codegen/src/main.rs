@@ -53,6 +53,62 @@ const SCHEMAS: [(&str, &str); 27] = [
     ("OutlineVector.json", "outline_vector.rs"),
 ];
 
+const FOOTPRINT_OPERATION_KINDS: [(&str, &str, &str); 13] = [
+    (
+        "ThickSegmentOperation",
+        "ThickSegment",
+        "deserialize_thick_segment_kind",
+    ),
+    (
+        "ArcThreePointOperation",
+        "ArcThreePoint",
+        "deserialize_arc_three_point_kind",
+    ),
+    ("CircleOperation", "Circle", "deserialize_circle_kind"),
+    ("RectOperation", "Rect", "deserialize_rect_kind"),
+    (
+        "PlotPolyOperation",
+        "PlotPoly",
+        "deserialize_plot_poly_kind",
+    ),
+    (
+        "BezierCurveOperation",
+        "BezierCurve",
+        "deserialize_bezier_curve_kind",
+    ),
+    ("TextOperation", "Text", "deserialize_text_kind"),
+    (
+        "FlashPadCircleOperation",
+        "FlashPadCircle",
+        "deserialize_flash_pad_circle_kind",
+    ),
+    (
+        "FlashPadOvalOperation",
+        "FlashPadOval",
+        "deserialize_flash_pad_oval_kind",
+    ),
+    (
+        "FlashPadRectOperation",
+        "FlashPadRect",
+        "deserialize_flash_pad_rect_kind",
+    ),
+    (
+        "FlashPadRoundRectOperation",
+        "FlashPadRoundRect",
+        "deserialize_flash_pad_round_rect_kind",
+    ),
+    (
+        "FlashPadCustomOperation",
+        "FlashPadCustom",
+        "deserialize_flash_pad_custom_kind",
+    ),
+    (
+        "FlashPadTrapezOperation",
+        "FlashPadTrapez",
+        "deserialize_flash_pad_trapez_kind",
+    ),
+];
+
 fn main() -> Result<()> {
     let check = env::args().skip(1).any(|argument| argument == "--check");
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..");
@@ -66,10 +122,11 @@ fn main() -> Result<()> {
         let mut schema: Value = serde_json::from_slice(
             &fs::read(&schema_path).with_context(|| format!("read {}", schema_path.display()))?,
         )?;
+        validate_footprint_operation_kinds(schema_name, &schema)?;
         project_for_typify(&mut schema);
         promote_disjoint_record_unions(&mut schema);
         project_tri_state_via_drill_layers(&mut schema);
-        let generated = generate(schema)?;
+        let generated = project_generated_presence(schema_name, generate(schema)?)?;
         expected.insert(output_root.join(output_name), generated);
         modules.push(output_name.trim_end_matches(".rs"));
     }
@@ -96,6 +153,87 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn validate_footprint_operation_kinds(schema_name: &str, schema: &Value) -> Result<()> {
+    if schema_name != "FootprintPlotDocument.json" {
+        return Ok(());
+    }
+    let members = schema
+        .pointer("/$defs/PlotterOperation/anyOf")
+        .and_then(Value::as_array)
+        .context("missing footprint PlotterOperation union")?;
+    let mut actual = BTreeMap::new();
+    for member in members {
+        let reference = member
+            .get("$ref")
+            .and_then(Value::as_str)
+            .context("footprint PlotterOperation member is not a reference")?;
+        let structure = reference
+            .strip_prefix("#/$defs/")
+            .context("footprint PlotterOperation reference leaves $defs")?;
+        let kind = schema
+            .pointer(&format!("/$defs/{structure}/properties/kind/const"))
+            .and_then(Value::as_str)
+            .with_context(|| format!("missing literal kind for {structure}"))?;
+        if actual.insert(structure, kind).is_some() {
+            bail!("duplicate footprint PlotterOperation member {structure}");
+        }
+    }
+    let expected = FOOTPRINT_OPERATION_KINDS
+        .iter()
+        .map(|(structure, kind, _)| (*structure, *kind))
+        .collect::<BTreeMap<_, _>>();
+    if actual != expected {
+        bail!("footprint PlotterOperation union changed; update exact-kind projection");
+    }
+    Ok(())
+}
+
+fn project_generated_presence(schema_name: &str, source: String) -> Result<String> {
+    if schema_name != "FootprintPlotDocument.json" {
+        return Ok(source);
+    }
+    let original = r#"    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,"#;
+    let replacement = r#"    #[serde(
+        default,
+        deserialize_with = "crate::reject_present_render_cache_polygons",
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
+    pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,"#;
+    if !source.contains(original) {
+        bail!("footprint Text render-cache polygon projection changed");
+    }
+    let mut projected = source.replace(original, replacement);
+    for (structure, _, deserializer) in FOOTPRINT_OPERATION_KINDS {
+        projected = project_kind_deserializer(projected, structure, deserializer)?;
+    }
+    Ok(projected)
+}
+
+fn project_kind_deserializer(
+    mut source: String,
+    structure: &str,
+    deserializer: &str,
+) -> Result<String> {
+    let structure_marker = format!("pub struct {structure} {{");
+    let structure_start = source
+        .find(&structure_marker)
+        .with_context(|| format!("missing generated {structure}"))?;
+    let structure_end = source[structure_start..]
+        .find("\n}")
+        .map(|offset| structure_start + offset)
+        .with_context(|| format!("unterminated generated {structure}"))?;
+    let field = "    pub kind: ::std::string::String,";
+    let field_offset = source[structure_start..structure_end]
+        .find(field)
+        .map(|offset| structure_start + offset)
+        .with_context(|| format!("missing generated {structure}.kind"))?;
+    let replacement =
+        format!("    #[serde(deserialize_with = \"crate::{deserializer}\")]\n{field}");
+    source.replace_range(field_offset..field_offset + field.len(), &replacement);
+    Ok(source)
 }
 
 fn generate(value: Value) -> Result<String> {

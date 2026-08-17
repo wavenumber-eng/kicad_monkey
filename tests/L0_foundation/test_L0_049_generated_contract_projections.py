@@ -80,30 +80,39 @@ def test_generated_compiled_graph_projection_accepts_registered_vector() -> None
 
 @pytest.mark.parametrize("version", [-9_007_199_254_740_991, 9_007_199_254_740_991])
 def test_python_plotter_projection_accepts_javascript_safe_boundaries(version: int) -> None:
-    payload = json.dumps(
-        {
-            "schema": "kicad.plotter_ir.a0",
-            "source_kind": "MOD",
-            "total_operations": 0,
-            "records": [],
-            "document_id": "boundary",
-            "coordinate_space": {"unit": "nm", "y_axis": "down"},
-            "version": version,
-            "generator": "pcbnew",
-            "generator_version": "10.0",
-        }
-    ).encode()
+    payload = _footprint_version_payload(version)
     assert isinstance(decode_footprint_plot_document_a0(payload), FootprintPlotDocumentA0)
 
 
 @pytest.mark.parametrize("version", [-9_007_199_254_740_992, 9_007_199_254_740_992])
 def test_python_plotter_projection_rejects_unsafe_integer_neighbors(version: int) -> None:
-    payload = json.dumps(
+    payload = _footprint_version_payload(version)
+    with pytest.raises(msgspec.ValidationError):
+        decode_footprint_plot_document_a0(payload)
+
+
+def _footprint_version_payload(version: int) -> bytes:
+    return json.dumps(
         {
             "schema": "kicad.plotter_ir.a0",
             "source_kind": "MOD",
             "total_operations": 0,
-            "records": [],
+            "records": [
+                {
+                    "uuid": "",
+                    "kind": "footprint",
+                    "object_id": "boundary",
+                    "operation_count": 0,
+                    "operations": [],
+                    "name": "boundary",
+                    "layer": "F.Cu",
+                    "locked": False,
+                    "placed": False,
+                    "descr": "",
+                    "tags": "",
+                    "attr": [],
+                }
+            ],
             "document_id": "boundary",
             "coordinate_space": {"unit": "nm", "y_axis": "down"},
             "version": version,
@@ -111,8 +120,6 @@ def test_python_plotter_projection_rejects_unsafe_integer_neighbors(version: int
             "generator_version": "10.0",
         }
     ).encode()
-    with pytest.raises(msgspec.ValidationError):
-        decode_footprint_plot_document_a0(payload)
 
 
 def test_python_plotter_decoder_enforces_graphic_and_drill_semantics() -> None:

@@ -33,6 +33,15 @@
             "minimum": 0,
             "maximum": 4294967295
         },
+        "max_text_carriers": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "description": "Optional Phase 5 ceilings; older a0 requests receive bounded defaults."
+        },
+        "max_text_bytes": {
+            "type": "string"
+        },
         "max_operations": {
             "type": "integer",
             "minimum": 0,

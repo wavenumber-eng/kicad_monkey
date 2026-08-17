@@ -1,6 +1,7 @@
 //! Shared plotter operations and the source-selected footprint producer.
 
 use crate::footprint::{FootprintLimits, FootprintView};
+use crate::footprint_plotter_text::footprint_text_operations;
 pub use crate::plotter_types::*;
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Lexer, Position, Sexp, TokenKind, parse};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
@@ -25,6 +26,8 @@ pub struct FootprintPlotLimits {
     pub max_source_bytes: usize,
     pub max_depth: usize,
     pub max_metadata_forms: usize,
+    pub max_text_carriers: usize,
+    pub max_text_bytes: usize,
     pub max_operations: usize,
     pub max_points: usize,
 }
@@ -35,6 +38,8 @@ impl Default for FootprintPlotLimits {
             max_source_bytes: 64 * 1024 * 1024,
             max_depth: 128,
             max_metadata_forms: 256,
+            max_text_carriers: 100_000,
+            max_text_bytes: 16 * 1024 * 1024,
             max_operations: 100_000,
             max_points: 1_000_000,
         }
@@ -81,6 +86,10 @@ pub fn footprint_plot_document(
     let footprint_limits = FootprintLimits {
         max_source_bytes: limits.max_source_bytes,
         max_depth: limits.max_depth,
+        max_properties: limits.max_text_carriers,
+        max_texts: limits.max_text_carriers,
+        max_text_boxes: limits.max_text_carriers,
+        max_text_carriers: limits.max_text_carriers,
         ..FootprintLimits::default()
     };
     let view = FootprintView::parse(source, footprint_limits)?;
@@ -184,8 +193,14 @@ pub fn footprint_plot_document(
             _ => {}
         }
     }
-    let operations =
-        build_geometry_operations(source, geometry, solder_mask_margin.unwrap_or(0.0), limits)?;
+    let text_operations = footprint_text_operations(&view, limits)?;
+    let operations = build_geometry_operations(
+        source,
+        geometry,
+        solder_mask_margin.unwrap_or(0.0),
+        text_operations,
+        limits,
+    )?;
     let (locked, placed) = root_flags(source)?;
     let version = version.unwrap_or(DEFAULT_FOOTPRINT_VERSION);
     ensure_javascript_safe_integer(version)?;
@@ -210,9 +225,9 @@ fn build_geometry_operations(
     source: &str,
     geometry: FootprintGeometrySpans,
     footprint_mask_margin: f64,
+    mut operations: Vec<PlotterOperation>,
     limits: FootprintPlotLimits,
 ) -> Result<Vec<PlotterOperation>, Error> {
-    let mut operations = Vec::new();
     let mut point_count = 0usize;
     for span in geometry.lines {
         let remaining = remaining_operations(&operations, limits)?;
@@ -1581,11 +1596,20 @@ pub(crate) fn model_error(message: &'static str, position: Position) -> Error {
     )
 }
 
-fn limit_error() -> Error {
+pub(crate) fn limit_error() -> Error {
     Error::at(
         ErrorPhase::Tree,
         ErrorKind::ResourceLimit,
         "Footprint plotter operation exceeds configured limits",
+        Position::START,
+    )
+}
+
+pub(crate) fn text_limit_error() -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        "Footprint plotter text exceeds max_text_bytes",
         Position::START,
     )
 }

@@ -34,11 +34,55 @@ pub use source_bundle_contract::{
 use generated::build_request::{Node, NodeKind, SExpressionBuildRequestA0};
 use generated::footprint_plot_document::{
     CircleOperation, FlashPadCustomOperation, FootprintPlotDocumentA0, PlotterDrillRole,
-    PlotterOperation, ThickSegmentOperation,
+    PlotterOperation, TextOperation, ThickSegmentOperation,
 };
 use generated::symbol_plot_document::{
     PlotterOperation as SymbolOperation, SymbolPlotDocumentA0, SymbolPlotRecord,
 };
+
+#[doc(hidden)]
+pub fn reject_present_render_cache_polygons<'de, D, T>(_: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Err(serde::de::Error::custom(
+        "standalone footprint text forbids render_cache_polygons",
+    ))
+}
+
+macro_rules! literal_kind_deserializer {
+    ($name:ident, $expected:literal) => {
+        #[doc(hidden)]
+        pub fn $name<'de, D>(deserializer: D) -> Result<String, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let value = <String as serde::Deserialize>::deserialize(deserializer)?;
+            if value == $expected {
+                Ok(value)
+            } else {
+                Err(serde::de::Error::custom(concat!(
+                    "expected operation kind ",
+                    $expected
+                )))
+            }
+        }
+    };
+}
+
+literal_kind_deserializer!(deserialize_thick_segment_kind, "ThickSegment");
+literal_kind_deserializer!(deserialize_arc_three_point_kind, "ArcThreePoint");
+literal_kind_deserializer!(deserialize_circle_kind, "Circle");
+literal_kind_deserializer!(deserialize_rect_kind, "Rect");
+literal_kind_deserializer!(deserialize_plot_poly_kind, "PlotPoly");
+literal_kind_deserializer!(deserialize_bezier_curve_kind, "BezierCurve");
+literal_kind_deserializer!(deserialize_text_kind, "Text");
+literal_kind_deserializer!(deserialize_flash_pad_circle_kind, "FlashPadCircle");
+literal_kind_deserializer!(deserialize_flash_pad_oval_kind, "FlashPadOval");
+literal_kind_deserializer!(deserialize_flash_pad_rect_kind, "FlashPadRect");
+literal_kind_deserializer!(deserialize_flash_pad_round_rect_kind, "FlashPadRoundRect");
+literal_kind_deserializer!(deserialize_flash_pad_custom_kind, "FlashPadCustom");
+literal_kind_deserializer!(deserialize_flash_pad_trapez_kind, "FlashPadTrapez");
 use std::fmt;
 
 /// Largest integer represented exactly by JavaScript's IEEE-754 `number`.
@@ -397,8 +441,27 @@ pub fn validate_build_request(
 pub fn validate_footprint_plot_document(
     document: &FootprintPlotDocumentA0,
 ) -> Result<(), ValidationError> {
+    if document.schema != "kicad.plotter_ir.a0"
+        || document.source_kind != "MOD"
+        || document.coordinate_space.unit != "nm"
+        || document.coordinate_space.y_axis != "down"
+        || document.records.len() != 1
+    {
+        return Err(validation_error(
+            "invalid_footprint_document",
+            "$".to_owned(),
+            "footprint plot documents require canonical identity, coordinates, and one record",
+        ));
+    }
     let mut total_operations = 0usize;
     for (record_index, record) in document.records.iter().enumerate() {
+        if record.kind != "footprint" || record.object_id != record.name {
+            return Err(validation_error(
+                "invalid_footprint_record",
+                format!("$.records[{record_index}]"),
+                "footprint records require kind=footprint and object_id=name",
+            ));
+        }
         if record.operation_count as usize != record.operations.len() {
             return Err(validation_error(
                 "operation_count_mismatch",
@@ -409,7 +472,14 @@ pub fn validate_footprint_plot_document(
         total_operations = total_operations.saturating_add(record.operations.len());
         for (operation_index, operation) in record.operations.iter().enumerate() {
             let path = format!("$.records[{record_index}].operations[{operation_index}]");
-            validate_footprint_operation(operation, path)?;
+            let expected_index = u32::try_from(operation_index).map_err(|_| {
+                validation_error(
+                    "operation_index_mismatch",
+                    format!("{path}.index"),
+                    "operation index exceeds the contract range",
+                )
+            })?;
+            validate_footprint_operation(operation, expected_index, path)?;
         }
     }
     if document.total_operations as usize != total_operations {
@@ -422,47 +492,113 @@ pub fn validate_footprint_plot_document(
     Ok(())
 }
 
+fn validate_footprint_operation_header(
+    actual_index: u32,
+    actual_kind: &str,
+    expected_index: u32,
+    expected_kind: &str,
+    path: &str,
+) -> Result<(), ValidationError> {
+    if actual_kind != expected_kind {
+        return Err(validation_error(
+            "invalid_footprint_operation",
+            format!("{path}.kind"),
+            "operation kind must match its structural variant",
+        ));
+    }
+    if actual_index != expected_index {
+        return Err(validation_error(
+            "operation_index_mismatch",
+            format!("{path}.index"),
+            "operation index must equal its position in the record",
+        ));
+    }
+    Ok(())
+}
+
+macro_rules! validate_footprint_header {
+    ($value:expr, $index:expr, $kind:literal, $path:expr) => {
+        validate_footprint_operation_header($value.index, &$value.kind, $index, $kind, $path)?
+    };
+}
+
 fn validate_footprint_operation(
     operation: &PlotterOperation,
+    expected_index: u32,
     path: String,
 ) -> Result<(), ValidationError> {
     match operation {
-        PlotterOperation::TextOperation(_) => Err(validation_error(
-            "invalid_footprint_operation",
-            path,
-            "footprint plot documents do not yet support shared Text operations",
-        )),
+        PlotterOperation::TextOperation(operation) => {
+            validate_footprint_header!(operation, expected_index, "Text", &path);
+            validate_footprint_text(operation, path)
+        }
         PlotterOperation::ThickSegmentOperation(operation) => {
+            validate_footprint_header!(operation, expected_index, "ThickSegment", &path);
             validate_shared_segment(operation, path)
         }
-        PlotterOperation::CircleOperation(operation) => validate_shared_circle(operation, path),
-        _ => validate_footprint_static_operation(operation, path),
+        PlotterOperation::CircleOperation(operation) => {
+            validate_footprint_header!(operation, expected_index, "Circle", &path);
+            validate_shared_circle(operation, path)
+        }
+        _ => validate_footprint_static_operation(operation, expected_index, path),
     }
+}
+
+fn validate_footprint_text(operation: &TextOperation, path: String) -> Result<(), ValidationError> {
+    require_layer(operation.layer.as_deref(), path.clone())?;
+    if operation.kind != "Text"
+        || operation.mirror.is_some()
+        || operation.text_as_polygons.is_some()
+        || operation.polyline_per_segment.is_some()
+        || operation.knockout.is_some()
+        || !operation.render_cache_polygons.is_empty()
+        || operation.render_cache.is_some()
+        || operation.render_cache_source.is_some()
+        || operation.render_cache_exact.is_some()
+    {
+        return Err(validation_error(
+            "invalid_footprint_text",
+            path,
+            "standalone footprint Text operations require a layer and cache-free canonical state",
+        ));
+    }
+    Ok(())
 }
 
 fn validate_footprint_static_operation(
     operation: &PlotterOperation,
+    expected_index: u32,
     path: String,
 ) -> Result<(), ValidationError> {
     match operation {
         PlotterOperation::ArcThreePointOperation(value) => {
+            validate_footprint_header!(value, expected_index, "ArcThreePoint", &path);
             require_layer(value.layer.as_deref(), path)
         }
-        PlotterOperation::RectOperation(value) => require_layer(value.layer.as_deref(), path),
-        PlotterOperation::PlotPolyOperation(value) => require_layer(value.layer.as_deref(), path),
+        PlotterOperation::RectOperation(value) => {
+            validate_footprint_header!(value, expected_index, "Rect", &path);
+            require_layer(value.layer.as_deref(), path)
+        }
+        PlotterOperation::PlotPolyOperation(value) => {
+            validate_footprint_header!(value, expected_index, "PlotPoly", &path);
+            require_layer(value.layer.as_deref(), path)
+        }
         PlotterOperation::BezierCurveOperation(value) => {
+            validate_footprint_header!(value, expected_index, "BezierCurve", &path);
             require_layer(value.layer.as_deref(), path)
         }
-        _ => validate_footprint_pad_operation(operation, path),
+        _ => validate_footprint_pad_operation(operation, expected_index, path),
     }
 }
 
 fn validate_footprint_pad_operation(
     operation: &PlotterOperation,
+    expected_index: u32,
     path: String,
 ) -> Result<(), ValidationError> {
     match operation {
         PlotterOperation::FlashPadCircleOperation(value) => {
+            validate_footprint_header!(value, expected_index, "FlashPadCircle", &path);
             // The shared flash-circle model carries optional via roles for the
             // board document; footprint pads keep the pad-margin state.
             if value.mask_margin_nm.is_none() || value.role.is_some() {
@@ -474,12 +610,31 @@ fn validate_footprint_pad_operation(
             }
             require_layers(&value.layers, path)
         }
-        PlotterOperation::FlashPadOvalOperation(value) => require_layers(&value.layers, path),
-        PlotterOperation::FlashPadRectOperation(value) => require_layers(&value.layers, path),
-        PlotterOperation::FlashPadRoundRectOperation(value) => require_layers(&value.layers, path),
-        PlotterOperation::FlashPadCustomOperation(value) => validate_custom_pad(value, path),
-        PlotterOperation::FlashPadTrapezOperation(value) => require_layers(&value.layers, path),
-        _ => Ok(()),
+        PlotterOperation::FlashPadOvalOperation(value) => {
+            validate_footprint_header!(value, expected_index, "FlashPadOval", &path);
+            require_layers(&value.layers, path)
+        }
+        PlotterOperation::FlashPadRectOperation(value) => {
+            validate_footprint_header!(value, expected_index, "FlashPadRect", &path);
+            require_layers(&value.layers, path)
+        }
+        PlotterOperation::FlashPadRoundRectOperation(value) => {
+            validate_footprint_header!(value, expected_index, "FlashPadRoundRect", &path);
+            require_layers(&value.layers, path)
+        }
+        PlotterOperation::FlashPadCustomOperation(value) => {
+            validate_footprint_header!(value, expected_index, "FlashPadCustom", &path);
+            validate_custom_pad(value, path)
+        }
+        PlotterOperation::FlashPadTrapezOperation(value) => {
+            validate_footprint_header!(value, expected_index, "FlashPadTrapez", &path);
+            require_layers(&value.layers, path)
+        }
+        _ => Err(validation_error(
+            "invalid_footprint_operation",
+            path,
+            "operation is outside the footprint producer contract",
+        )),
     }
 }
 

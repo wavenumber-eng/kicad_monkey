@@ -36,6 +36,41 @@ pub enum PlotterLineStyle {
     DashDotDot,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PlotterTextHAlign {
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PlotterTextVAlign {
+    Top,
+    Center,
+    Bottom,
+}
+
+/// Cache-free shared Text payload used by standalone footprint and symbol
+/// producers. Board carriers retain their richer authored/native cache type.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlotterText {
+    pub x: i64,
+    pub y: i64,
+    pub text: String,
+    pub color: String,
+    pub orient_deg: f64,
+    pub size_x_nm: i64,
+    pub size_y_nm: i64,
+    pub h_align: PlotterTextHAlign,
+    pub v_align: PlotterTextVAlign,
+    pub pen_width_nm: i64,
+    pub italic: bool,
+    pub bold: bool,
+    pub multiline: bool,
+    pub font_face: String,
+    pub layer: Option<String>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArcThreePoint {
     pub start_x: i64,
@@ -188,6 +223,7 @@ pub enum PlotterOperation {
     Rect(PlotterRect),
     PlotPoly(PlotterPoly),
     BezierCurve(BezierCurve),
+    Text(PlotterText),
     FlashPadCircle(FlashPadCircle),
     FlashPadOval(FlashPadOval),
     FlashPadRect(FlashPadRect),

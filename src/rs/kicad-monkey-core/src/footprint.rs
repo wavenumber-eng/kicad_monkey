@@ -17,6 +17,10 @@ pub struct FootprintLimits {
     pub max_depth: usize,
     pub max_properties: usize,
     pub max_pads: usize,
+    pub max_texts: usize,
+    pub max_text_boxes: usize,
+    pub max_text_carriers: usize,
+    pub max_object_nodes: usize,
 }
 
 impl Default for FootprintLimits {
@@ -27,6 +31,10 @@ impl Default for FootprintLimits {
             max_depth: 128,
             max_properties: 4096,
             max_pads: 100_000,
+            max_texts: 100_000,
+            max_text_boxes: 100_000,
+            max_text_carriers: 100_000,
+            max_object_nodes: 100_000,
         }
     }
 }
@@ -42,9 +50,19 @@ pub struct FootprintProperty<'a> {
 /// A typed standalone-footprint view that retains only selected source spans.
 #[derive(Clone, Debug)]
 pub struct FootprintView<'a> {
-    source: &'a str,
-    root: FormSpan,
+    pub(crate) source: &'a str,
+    pub(crate) root: FormSpan,
+    pub(crate) properties: Vec<FormSpan>,
+    pub(crate) texts: Vec<FormSpan>,
+    pub(crate) text_boxes: Vec<FormSpan>,
+    pad_count: usize,
+    pub(crate) limits: FootprintLimits,
+}
+
+struct FootprintChildren {
     properties: Vec<FormSpan>,
+    texts: Vec<FormSpan>,
+    text_boxes: Vec<FormSpan>,
     pad_count: usize,
 }
 
@@ -52,7 +70,7 @@ impl<'a> FootprintView<'a> {
     /// Validate and index the top-level footprint, properties, and pads.
     pub fn parse(source: &'a str, limits: FootprintLimits) -> Result<Self, Error> {
         let child_limit = limits
-            .max_properties
+            .max_text_carriers
             .checked_add(limits.max_pads)
             .ok_or_else(limit_error)?;
         let projection_limits = |max_selected_forms| ProjectionLimits {
@@ -81,6 +99,8 @@ impl<'a> FootprintView<'a> {
             paths: Some(BTreeSet::from([
                 vec!["footprint".to_owned(), "property".to_owned()],
                 vec!["footprint".to_owned(), "pad".to_owned()],
+                vec!["footprint".to_owned(), "fp_text".to_owned()],
+                vec!["footprint".to_owned(), "fp_text_box".to_owned()],
             ])),
             min_depth: Some(1),
             max_depth: Some(1),
@@ -88,23 +108,15 @@ impl<'a> FootprintView<'a> {
         };
         let spans =
             scan_form_spans_with_limits(source, &child_selector, projection_limits(child_limit))?;
-        let mut properties = Vec::new();
-        let mut pad_count = 0usize;
-        for span in spans {
-            match (span.depth, span.head.as_deref()) {
-                (1, Some("property")) => properties.push(span),
-                (1, Some("pad")) => pad_count = pad_count.saturating_add(1),
-                _ => {}
-            }
-        }
-        if properties.len() > limits.max_properties || pad_count > limits.max_pads {
-            return Err(limit_error());
-        }
+        let children = partition_children(spans, limits)?;
         Ok(Self {
             source,
             root,
-            properties,
-            pad_count,
+            properties: children.properties,
+            texts: children.texts,
+            text_boxes: children.text_boxes,
+            pad_count: children.pad_count,
+            limits,
         })
     }
 
@@ -187,6 +199,50 @@ impl<'a> FootprintView<'a> {
     }
 }
 
+fn partition_children(
+    spans: Vec<FormSpan>,
+    limits: FootprintLimits,
+) -> Result<FootprintChildren, Error> {
+    let mut children = FootprintChildren {
+        properties: Vec::new(),
+        texts: Vec::new(),
+        text_boxes: Vec::new(),
+        pad_count: 0,
+    };
+    for span in spans {
+        match (span.depth, span.head.as_deref()) {
+            (1, Some("property")) => children.properties.push(span),
+            (1, Some("pad")) => children.pad_count = children.pad_count.saturating_add(1),
+            (1, Some("fp_text")) => children.texts.push(span),
+            (1, Some("fp_text_box")) => children.text_boxes.push(span),
+            _ => {}
+        }
+    }
+    validate_child_limits(&children, limits)?;
+    Ok(children)
+}
+
+fn validate_child_limits(
+    children: &FootprintChildren,
+    limits: FootprintLimits,
+) -> Result<(), Error> {
+    let carrier_count = children.properties.len().saturating_add(
+        children
+            .texts
+            .len()
+            .saturating_add(children.text_boxes.len()),
+    );
+    if children.properties.len() > limits.max_properties
+        || children.pad_count > limits.max_pads
+        || children.texts.len() > limits.max_texts
+        || children.text_boxes.len() > limits.max_text_boxes
+        || carrier_count > limits.max_text_carriers
+    {
+        return Err(limit_error());
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FootprintEdit {
     pub source: String,
@@ -218,7 +274,7 @@ fn property_from_span<'a>(
     .map_err(|error| rebase_error(error, span))
 }
 
-fn rebase_error(mut error: Error, span: &FormSpan) -> Error {
+pub(crate) fn rebase_error(mut error: Error, span: &FormSpan) -> Error {
     if let Some(position) = error.position {
         error.position = Some(Position {
             offset: span.range.start.saturating_add(position.offset),

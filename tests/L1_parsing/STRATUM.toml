@@ -330,7 +330,7 @@ secondary = [
 id = "L1_026"
 file = "test_L1_026_rust_footprint_plotter_slice.py"
 name = "Rust Footprint Plotter-IR Slice"
-description = "Prove non-text footprint graphics, standard/custom pads, and drills from KiCad bytes to shared kicad.plotter_ir.a0 operations"
+description = "Prove standalone footprint text, graphics, standard/custom pads, and drills from KiCad bytes to shared kicad.plotter_ir.a0 operations"
 concerns = ["sexpr", "rust", "footprint", "plotter_ir", "wasm"]
 test_cases = "tests/parity/footprint_plotter_a0_vectors.json"
 test_case_type = "contract"
@@ -340,6 +340,9 @@ primary = "Rust and Python emit the same established plotter-IR document for the
 secondary = [
     "The TypeSpec slice remains a strict valid subset of the established plotter-IR contract",
     "The core reads selected forms without constructing a generic full-file tree",
+    "Standalone properties, fp_text, and fp_text_box use dedicated source-backed ownership types",
+    "Property skip/order rules, local variables, text effects, and bordered wrapping match Python",
+    "Text carrier counts and aggregate retained text bytes fail closed before publication",
     "Python and Rust preserve canonical graphic grouping and patterned-stroke decomposition",
     "Footprint and future PCB producers share one TypeSpec and Rust plotter-operation vocabulary",
     "Standard pad flashes, mask margins, circular drills, slots, and NPTH hints match Python",

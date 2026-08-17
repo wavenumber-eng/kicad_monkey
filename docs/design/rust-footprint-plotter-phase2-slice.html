@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head>
   <meta charset="utf-8">
   <title>Rust Phase 2 Footprint Plotter-IR Slice</title>
@@ -12,7 +12,9 @@
     <h2>Decision</h2>
     <p>
       The footprint bytes-to-plotter proof now promotes standalone-footprint
-      metadata, lines, three-point arcs, circles, rectangles, and polygons.
+      metadata, graphical properties, <code>fp_text</code>,
+      <code>fp_text_box</code>, lines, three-point arcs, circles, rectangles,
+      and polygons.
       Patterned line and arc strokes are decomposed into thick segments using
       the Python path's dash rules. Standard circle, oval, rectangle,
       round-rectangle, and trapezoid pads emit pad flashes; through-hole and
@@ -20,9 +22,9 @@
       <code>gr_poly</code> primitives and zero-radius chamfered roundrect pads
       emit the shared custom flash. It emits a
       strict TypeSpec-owned subset of the established
-      <code>kicad.plotter_ir.a0</code> document. This slice does not claim parity
-      for text, properties, non-polygon custom primitives, symbols, or embedded PCB
-      footprints.
+      <code>kicad.plotter_ir.a0</code> document. The Phase 5 text extension
+      closes the current standalone Python producer surface; non-polygon custom
+      primitives, symbols, and embedded PCB footprints remain separate work.
     </p>
   </section>
 
@@ -30,10 +32,12 @@
     <h2>Architecture</h2>
     <ul>
       <li>
-        <code>FootprintView</code> first enforces one standalone footprint root.
-        The plotter reader then selects only exact top-level metadata and
-        supported graphic spans. It parses those small forms independently and
-        never constructs a generic tree for the complete file.
+        <code>FootprintView</code> first enforces one standalone footprint root
+        and selects dedicated property, text, text-box, and pad spans. Its
+        standalone text ownership types are intentionally distinct from
+        board-nested footprint children. The plotter reader selects the
+        remaining exact top-level metadata and graphic spans. Each small form
+        is parsed independently; no generic tree is built for the complete file.
       </li>
       <li>
         Coordinates cross the boundary as integer nanometres with Y down.
@@ -47,21 +51,27 @@
         operation vocabulary instead of defining parallel DTO families.
       </li>
       <li>
-        Output order follows Python's canonical grouping: lines, arcs, circles,
-        rectangles, then polygons. Source order is retained within each group.
+        Output order follows Python's canonical grouping: Reference and Value
+        properties, remaining graphical properties, <code>fp_text</code>,
+        <code>fp_text_box</code> border/text pairs, lines, arcs, circles,
+        rectangles, polygons, then pads. Source order is retained within each group.
         Solid/default strokes remain native operations; dash, dot,
         dash-dot, and dash-dot-dot strokes are deterministically decomposed.
         Pads follow all graphics in source order, with each pad flash preceding
         its drill overlay.
       </li>
       <li>
-        Source bytes, nesting depth, metadata-form count, operation count,
-        retained polygon-point count, and serialized output bytes are
+        Source bytes, nesting depth, metadata-form count, text-carrier count,
+        retained text bytes, operation count, retained polygon-point count,
+        and serialized output bytes are
         independently caller bounded. Custom-pad and footprint polygons
         enforce the point allowance while parsing, before oversized geometry
         is retained. Metadata duplicates therefore cannot consume a geometry
         allowance. The JSON writer stops at the output limit instead of first
         allocating an unbounded result.
+        The Phase 5 text-carrier and text-byte request fields are optional for
+        compatibility with earlier <code>a0</code> callers; omission selects
+        the same finite core defaults rather than an unbounded path.
       </li>
     </ul>
   </section>
@@ -97,6 +107,13 @@
       the generated Rust and Python transport types enforce the same range so
       an out-of-range integer cannot silently lose precision in JavaScript.
     </p>
+    <p>
+      Standalone text operations carry their exact layer and the cache-free
+      state emitted by Python's <code>footprint_to_ir</code>. The semantic
+      boundary requires canonical document/record identity, one footprint
+      record, sequential operation indices, and forbids board-only cache and
+      marker fields on footprint text.
+    </p>
   </section>
 
   <section>
@@ -112,9 +129,14 @@
       A custom-pad vector proves local polygon coordinates, per-polygon widths,
       anchor metadata, ignored non-polygon primitives, and exact chamfered
       roundrect polygon construction.
+      A Phase 5 vector proves property ordering/skip rules, Reference/Value and
+      local property-variable substitution, font/color/alignment mapping,
+      hidden text, bordered text-box wrapping, and text-before-geometry order.
       Documents validate against both the strict generated slice schema and the
       established plotter-IR schema. Rack L0_046 owns real Node-hosted WASM
       execution and Rust quality; L0_049 owns generated-language cleanliness.
+      The Phase 5 extension passed independent core, parity, and contract
+      reviews and is closed in the parity ledger.
     </p>
     <p>
       Pattern decomposition is fail-closed. The fixed safety-step cap and any
@@ -127,9 +149,10 @@
   <section>
     <h2>Retained Work</h2>
     <p>
-      Promote footprint properties/text and symbol pin graphics next. The
-      companion symbol-body slice now reuses this operation vocabulary. Text
-      retains the separate shaping, outline, and render-cache evidence gates.
+      Promote symbol body/pin text next. The companion symbol-body slice now
+      reuses this operation vocabulary. Standalone footprint text deliberately
+      matches the cache-free Python producer; board-nested outline-cache
+      placement remains owned by the embedded-footprint slice.
       Embedded PCB footprints will
       reuse the shared operations but require their own placement and record
       parity. The Phase 2 boundary review remains gated on that wider proof.

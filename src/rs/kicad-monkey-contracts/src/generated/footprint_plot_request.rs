@@ -74,6 +74,15 @@ pub mod error {
 ///    "max_source_bytes": {
 ///      "type": "string"
 ///    },
+///    "max_text_bytes": {
+///      "type": "string"
+///    },
+///    "max_text_carriers": {
+///      "description": "Optional Phase 5 ceilings; older a0 requests receive bounded defaults.",
+///      "type": "integer",
+///      "maximum": 4294967295.0,
+///      "minimum": 0.0
+///    },
 ///    "source_path": {
 ///      "type": "string"
 ///    },
@@ -101,6 +110,11 @@ pub struct FootprintPlotRequestA0 {
     pub max_output_bytes: ::std::string::String,
     pub max_points: u32,
     pub max_source_bytes: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub max_text_bytes: ::std::option::Option<::std::string::String>,
+    ///Optional Phase 5 ceilings; older a0 requests receive bounded defaults.
+    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    pub max_text_carriers: ::std::option::Option<u32>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub source_path: ::std::option::Option<::std::string::String>,
     #[serde(rename = "type")]

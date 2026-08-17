@@ -72,7 +72,7 @@ export type PlotterViaFlashRole = "via_aperture" | "via_mask_opening";
 export type PlotterQuad = [PlotterPoint, PlotterPoint, PlotterPoint, PlotterPoint];
 
 /**
- * Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and
+ * Strict standalone-footprint subset of kicad.plotter_ir.a0. Producers and
  * consumers must run generated semantic validation after structural decoding.
  */
 export interface FootprintPlotDocumentA0 {
@@ -88,7 +88,7 @@ export interface FootprintPlotDocumentA0 {
   generator_version: string;
 }
 /**
- * One footprint record in the promoted non-text graphics slice.
+ * One standalone footprint record in canonical text/geometry/pad order.
  */
 export interface FootprintPlotRecord {
   uuid: string;

@@ -12,7 +12,6 @@ import msgspec
 import pytest
 
 from kicad_monkey.contracts.generated import (
-    FootprintPlotDocumentA0,
     decode_footprint_plot_document_a0,
     decode_footprint_plot_request_a0,
 )
@@ -122,6 +121,45 @@ def test_shared_plotter_vectors_match_python_generated_types_and_both_schemas() 
         with pytest.raises(msgspec.ValidationError):
             decode_footprint_plot_document_a0(json.dumps(invalid).encode("utf-8"))
 
+    text = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "standalone-properties-text-and-text-box"
+    )
+    invalid_text_documents: list[dict] = []
+
+    missing_text_layer = json.loads(json.dumps(text))
+    del missing_text_layer["records"][0]["operations"][0]["layer"]
+    invalid_text_documents.append(missing_text_layer)
+
+    for field, value in (
+        ("mirror", True),
+        ("render_cache_polygons", []),
+        ("render_cache_exact", False),
+    ):
+        invalid = json.loads(json.dumps(text))
+        invalid["records"][0]["operations"][0][field] = value
+        invalid_text_documents.append(invalid)
+
+    wrong_index = json.loads(json.dumps(text))
+    wrong_index["records"][0]["operations"][0]["index"] = 7
+    invalid_text_documents.append(wrong_index)
+
+    wrong_record = json.loads(json.dumps(text))
+    wrong_record["records"][0]["object_id"] = "wrong"
+    invalid_text_documents.append(wrong_record)
+
+    duplicate_record = json.loads(json.dumps(text))
+    duplicate_record["records"].append(
+        json.loads(json.dumps(duplicate_record["records"][0]))
+    )
+    duplicate_record["total_operations"] *= 2
+    invalid_text_documents.append(duplicate_record)
+
+    for invalid in invalid_text_documents:
+        with pytest.raises(msgspec.ValidationError):
+            decode_footprint_plot_document_a0(json.dumps(invalid).encode("utf-8"))
+
 
 def test_rust_core_and_host_adapter_consume_the_shared_vector() -> None:
     cargo = shutil.which("cargo")
@@ -140,7 +178,7 @@ def test_rust_core_and_host_adapter_consume_the_shared_vector() -> None:
     _run([cargo, "test", "--locked", "--package", "kicad-monkey-wasm"])
 
 
-def test_footprint_plot_request_requires_an_explicit_point_budget() -> None:
+def test_footprint_plot_request_requires_points_and_accepts_optional_text_budgets() -> None:
     request = {
         "type": "kicad_monkey.footprint_plot.request",
         "version": "a0",
@@ -148,11 +186,19 @@ def test_footprint_plot_request_requires_an_explicit_point_budget() -> None:
         "max_output_bytes": "4096",
         "max_depth": 32,
         "max_metadata_forms": 32,
+        "max_text_carriers": 32,
+        "max_text_bytes": "4096",
         "max_operations": 32,
         "max_points": 128,
     }
     decoded = decode_footprint_plot_request_a0(json.dumps(request).encode())
     assert decoded.max_points == 128
-    del request["max_points"]
+    assert decoded.max_text_carriers == 32
+    assert decoded.max_text_bytes == "4096"
+    legacy = dict(request)
+    del legacy["max_text_carriers"]
+    del legacy["max_text_bytes"]
+    decode_footprint_plot_request_a0(json.dumps(legacy).encode())
+    del legacy["max_points"]
     with pytest.raises(msgspec.ValidationError):
-        decode_footprint_plot_request_a0(json.dumps(request).encode())
+        decode_footprint_plot_request_a0(json.dumps(legacy).encode())

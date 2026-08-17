@@ -520,28 +520,6 @@ fn footprint_flash_circles_require_pad_state_not_via_state() {
     );
 }
 
-#[test]
-fn footprint_semantics_reject_board_text_operations_from_the_shared_union() {
-    let footprint_vectors: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../tests/parity/footprint_plotter_a0_vectors.json"
-    ))
-    .expect("footprint vectors");
-    let board_vectors: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../tests/parity/board_plotter_a0_vectors.json"
-    ))
-    .expect("board vectors");
-    let mut footprint = footprint_vectors["vectors"][0]["expected"].clone();
-    footprint["records"][0]["operations"][0] =
-        board_vectors["vectors"][8]["expected"]["records"][0]["operations"][0].clone();
-    let document: FootprintPlotDocumentA0 = serde_json::from_value(footprint).expect("shape");
-    assert_eq!(
-        validate_footprint_plot_document(&document)
-            .expect_err("board text is outside footprint semantics")
-            .code,
-        "invalid_footprint_operation"
-    );
-}
-
 fn build_request(root: &str, max_depth: u32, max_nodes: u32) -> SExpressionBuildRequestA0 {
     serde_json::from_str(&format!(
         r#"{{"type":"kicad_monkey.sexpr_build.request","version":"a0","root":{root},"max_output_bytes":"1024","max_depth":{max_depth},"max_nodes":{max_nodes}}}"#

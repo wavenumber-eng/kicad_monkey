@@ -12,6 +12,8 @@ pub mod document_metadata;
 mod fake_style;
 pub mod font_outline;
 pub mod footprint;
+mod footprint_plotter_text;
+mod footprint_text;
 pub mod kicad_netlist;
 pub mod pcb;
 pub mod plotter_ir;
@@ -73,6 +75,7 @@ pub use font_outline::{
     HINTED_FONT_OUTLINE_ENGINE, HintedFontOutlineFace, extract_font_outline_a0,
 };
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
+pub use footprint_text::{FootprintGraphicalProperty, FootprintText, FootprintTextBox};
 pub use kicad_netlist::{
     KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetlist, KiCadNetlistComponent,
     KiCadNetlistComponentUnit, KiCadNetlistLimits, KiCadNetlistTerminal, build_kicad_netlist,
@@ -96,7 +99,8 @@ pub use plotter_text_cache::{PlotterTextCacheLimits, PlotterTextCacheResources, 
 pub use plotter_types::{
     ArcThreePoint, BezierCurve, FlashPadCircle, FlashPadCustom, FlashPadOval, FlashPadRect,
     FlashPadRoundRect, FlashPadTrapez, PlotterCircle, PlotterFill, PlotterLineStyle,
-    PlotterOperation, PlotterPoly, PlotterRect, ThickSegment,
+    PlotterOperation, PlotterPoly, PlotterRect, PlotterText, PlotterTextHAlign, PlotterTextVAlign,
+    ThickSegment,
 };
 pub use project::{
     ProjectBoardDesignSettings, ProjectDiffPairDimensions, ProjectDocument, ProjectError,

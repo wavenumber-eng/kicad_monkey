@@ -104,6 +104,7 @@ pub struct ArcThreePointOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_arc_three_point_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
@@ -203,6 +204,7 @@ pub struct BezierCurveOperation {
     pub end_x: crate::JavaScriptSafeInteger,
     pub end_y: crate::JavaScriptSafeInteger,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_bezier_curve_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
@@ -305,6 +307,7 @@ pub struct CircleOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_circle_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
@@ -384,6 +387,7 @@ these mutually exclusive states.*/
 pub struct FlashPadCircleOperation {
     pub diameter_nm: crate::JavaScriptSafeInteger,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_circle_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -479,6 +483,7 @@ pub struct FlashPadCustomOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub anchor_shape: ::std::option::Option<::std::string::String>,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_custom_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     pub mask_margin_nm: crate::JavaScriptSafeInteger,
@@ -553,6 +558,7 @@ pub struct FlashPadCustomOperation {
 #[serde(deny_unknown_fields)]
 pub struct FlashPadOvalOperation {
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_oval_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     pub mask_margin_nm: crate::JavaScriptSafeInteger,
@@ -624,6 +630,7 @@ pub struct FlashPadOvalOperation {
 #[serde(deny_unknown_fields)]
 pub struct FlashPadRectOperation {
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_rect_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     pub mask_margin_nm: crate::JavaScriptSafeInteger,
@@ -700,6 +707,7 @@ pub struct FlashPadRectOperation {
 pub struct FlashPadRoundRectOperation {
     pub corner_radius_nm: crate::JavaScriptSafeInteger,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_round_rect_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     pub mask_margin_nm: crate::JavaScriptSafeInteger,
@@ -768,6 +776,7 @@ pub struct FlashPadRoundRectOperation {
 pub struct FlashPadTrapezOperation {
     pub corners: PlotterQuad,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_flash_pad_trapez_kind")]
     pub kind: ::std::string::String,
     pub layers: ::std::vec::Vec<::std::string::String>,
     pub mask_margin_nm: crate::JavaScriptSafeInteger,
@@ -775,7 +784,7 @@ pub struct FlashPadTrapezOperation {
     pub x: crate::JavaScriptSafeInteger,
     pub y: crate::JavaScriptSafeInteger,
 }
-/**Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and
+/**Strict standalone-footprint subset of kicad.plotter_ir.a0. Producers and
 consumers must run generated semantic validation after structural decoding.*/
 ///
 /// <details><summary>JSON schema</summary>
@@ -784,7 +793,7 @@ consumers must run generated semantic validation after structural decoding.*/
 ///{
 ///  "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0",
 ///  "title": "Footprint plot document a0",
-///  "description": "Strict non-text footprint subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
+///  "description": "Strict standalone-footprint subset of kicad.plotter_ir.a0. Producers and\nconsumers must run generated semantic validation after structural decoding.",
 ///  "type": "object",
 ///  "required": [
 ///    "coordinate_space",
@@ -855,13 +864,13 @@ pub struct FootprintPlotDocumentA0 {
     pub total_operations: u32,
     pub version: crate::JavaScriptSafeInteger,
 }
-///One footprint record in the promoted non-text graphics slice.
+///One standalone footprint record in canonical text/geometry/pad order.
 ///
 /// <details><summary>JSON schema</summary>
 ///
 /// ```json
 ///{
-///  "description": "One footprint record in the promoted non-text graphics slice.",
+///  "description": "One standalone footprint record in canonical text/geometry/pad order.",
 ///  "type": "object",
 ///  "required": [
 ///    "attr",
@@ -1005,6 +1014,7 @@ pub struct PlotPolyOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_plot_poly_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
@@ -1906,6 +1916,7 @@ pub struct RectOperation {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub fill_color: ::std::option::Option<::std::string::String>,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_rect_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,
@@ -2048,6 +2059,7 @@ pub struct TextOperation {
     pub h_align: PlotterTextHAlign,
     pub index: u32,
     pub italic: bool,
+    #[serde(deserialize_with = "crate::deserialize_text_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub knockout: ::std::option::Option<bool>,
@@ -2064,7 +2076,11 @@ pub struct TextOperation {
     pub render_cache: ::std::option::Option<TextRenderCache>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub render_cache_exact: ::std::option::Option<bool>,
-    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "crate::reject_present_render_cache_polygons",
+        skip_serializing_if = "::std::vec::Vec::is_empty"
+    )]
     pub render_cache_polygons: ::std::vec::Vec<::std::vec::Vec<PlotterPoint>>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub render_cache_source: ::std::option::Option<PlotterTextRenderCacheSource>,
@@ -2258,6 +2274,7 @@ pub struct ThickSegmentOperation {
     pub end_x: crate::JavaScriptSafeInteger,
     pub end_y: crate::JavaScriptSafeInteger,
     pub index: u32,
+    #[serde(deserialize_with = "crate::deserialize_thick_segment_kind")]
     pub kind: ::std::string::String,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub layer: ::std::option::Option<::std::string::String>,

@@ -43,6 +43,10 @@ impl BoardTextVariables {
         self.substitute_bounded_with_local(text, &[], max_bytes)
     }
 
+    pub(crate) fn get(&self, name: &str) -> Option<&str> {
+        self.by_name.get(name).map(AsRef::as_ref)
+    }
+
     /// Resolve with a constant-size carrier-local overlay. This avoids
     /// cloning the complete board/project map for every table cell.
     pub(super) fn substitute_bounded_with_local(
