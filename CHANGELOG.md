@@ -13,6 +13,13 @@
   Windows Monkey wheel with an installed-process test. Native SVG and the
   no-fallback Cruncher switch remain later slices.
 
+- Add the accepted P6_010 `plotter-base-a0` native SVG operation over the
+  30 frozen Plotter-IR vectors: 29 deterministic hashed SVG results plus one
+  governed rejection for a legacy negative-width carrier that cannot form
+  valid SVG geometry. Explicit viewports and independent resource ceilings
+  are required. Existing Python SVG and Cruncher providers remain unchanged
+  pending P6_020.
+
 - Complete and freeze the bounded native Phase 5 Plotter-IR producers with a
   mandatory Windows Rack gate over exact cross-producer vectors, resource and
   semantic suites, exact selected `KM_CORPUS` producers plus broad corpus

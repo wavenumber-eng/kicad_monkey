@@ -5,6 +5,7 @@
 use cap_std::ambient_authority;
 use cap_std::fs::Dir;
 use kicad_monkey_contracts::decode_native_design_facts_request_a0;
+use kicad_monkey_contracts::decode_native_svg_render_request_a0;
 use kicad_monkey_contracts::generated::native_design_facts_request::{
     NativeDesignFactsLimits, NativeDesignFactsRequestA0, NativeFileSlot, NativeNetlistMetadata,
 };
@@ -12,6 +13,13 @@ use kicad_monkey_contracts::generated::native_design_facts_result::NativeDesignF
 use kicad_monkey_contracts::generated::native_error::NativeErrorA0;
 pub use kicad_monkey_contracts::generated::native_error::NativeErrorKind;
 use kicad_monkey_contracts::generated::native_handshake::NativeHandshakeA0;
+use kicad_monkey_contracts::generated::native_handshake_a1::{
+    NativeHandshakeA1, NativeHandshakeA1OperationsItem,
+};
+use kicad_monkey_contracts::generated::native_svg_render_result::{
+    CanonicalUint64Decimal as SvgCanonicalUint64Decimal, NativeSvgRenderResultA0,
+    NativeSvgRenderResultA0SourceKind,
+};
 use kicad_monkey_core::{
     CompiledSchematicGraphLimits, KiCadNetlistLimits, ProjectDocument, ProjectLimits,
     SchematicBundleIndex, SchematicBundleLimits, SchematicBusConnectivityLimits,
@@ -19,7 +27,10 @@ use kicad_monkey_core::{
     SourceBundle, SourceBundleLimits, build_compiled_schematic_graph, build_kicad_netlist,
     emit_kicad_netlist, validate_compiled_schematic_graph,
 };
+use kicad_monkey_svg::render_svg;
 use serde::Serialize;
+use serde::de::{DeserializeSeed, IgnoredAny, MapAccess, SeqAccess, Visitor};
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::fmt;
 use std::io::{Read, Write};
@@ -28,11 +39,15 @@ use std::path::{Component, Path, PathBuf};
 pub const PROTOCOL_VERSION: &str = "a0";
 pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const MAX_REQUEST_BYTES: usize = 1024 * 1024;
+pub const MAX_SVG_REQUEST_BYTES: usize = 256 * 1024 * 1024;
+pub const MAX_SVG_REQUEST_NODES: usize = 8 * 1024 * 1024;
 
 const REQUEST_TYPE: &str = "kicad_monkey.native.design_facts.request";
 const RESULT_TYPE: &str = "kicad_monkey.native.design_facts.result";
 const ERROR_TYPE: &str = "kicad_monkey.native.error";
 const HANDSHAKE_TYPE: &str = "kicad_monkey.native.handshake";
+const SVG_RESULT_TYPE: &str = "kicad_monkey.native.svg.result";
+const SVG_PROFILE: &str = "plotter-base-a0";
 const MAX_SOURCES: usize = 4096;
 const MAX_SOURCE_BYTES: usize = 64 * 1024 * 1024;
 const MAX_TOTAL_SOURCE_BYTES: usize = 256 * 1024 * 1024;
@@ -48,6 +63,7 @@ pub type DesignFactsRequestA0 = NativeDesignFactsRequestA0;
 
 /// Backward-compatible public name for the promoted generated handshake DTO.
 pub type HandshakeA0 = NativeHandshakeA0;
+pub type HandshakeA1 = NativeHandshakeA1;
 
 #[derive(Debug)]
 pub struct NativeError {
@@ -87,6 +103,19 @@ pub fn handshake() -> HandshakeA0 {
     }
 }
 
+#[must_use]
+pub fn handshake_a1() -> HandshakeA1 {
+    HandshakeA1 {
+        type_: HANDSHAKE_TYPE.to_owned(),
+        version: "a1".to_owned(),
+        engine_version: ENGINE_VERSION.to_owned(),
+        operations: [
+            NativeHandshakeA1OperationsItem::DesignFacts,
+            NativeHandshakeA1OperationsItem::RenderSvg,
+        ],
+    }
+}
+
 pub fn execute_request_reader(mut reader: impl Read) -> Result<Vec<u8>, NativeError> {
     let read_limit = MAX_REQUEST_BYTES
         .checked_add(1)
@@ -98,6 +127,221 @@ pub fn execute_request_reader(mut reader: impl Read) -> Result<Vec<u8>, NativeEr
         .read_to_end(&mut request)
         .map_err(|error| io_error("could not read request", error))?;
     execute_request_bytes(&request)
+}
+
+pub fn execute_svg_request_reader(mut reader: impl Read) -> Result<Vec<u8>, NativeError> {
+    let read_limit = MAX_SVG_REQUEST_BYTES
+        .checked_add(1)
+        .ok_or_else(|| resource_error("SVG request byte limit overflowed"))?;
+    let mut request = Vec::new();
+    reader
+        .by_ref()
+        .take(read_limit as u64)
+        .read_to_end(&mut request)
+        .map_err(|error| io_error("could not read SVG request", error))?;
+    execute_svg_request_bytes(&request)
+}
+
+pub fn execute_svg_request_bytes(request_bytes: &[u8]) -> Result<Vec<u8>, NativeError> {
+    if request_bytes.len() > MAX_SVG_REQUEST_BYTES {
+        return Err(resource_error(
+            "SVG request exceeds the fixed 256 MiB limit",
+        ));
+    }
+    preflight_svg_request_structure(request_bytes, MAX_SVG_REQUEST_NODES)?;
+    let request = decode_native_svg_render_request_a0(request_bytes)
+        .map_err(|error| request_error(format!("invalid native SVG request: {error}")))?;
+    let artifact = render_svg(&request)
+        .map_err(|error| NativeError::new(NativeErrorKind::Core, error.to_string()))?;
+    let svg_bytes = artifact.svg.len();
+    let svg_sha256 = hex_digest(Sha256::digest(artifact.svg.as_bytes()).as_slice());
+    let source_kind = match artifact.source_kind {
+        "MOD" => NativeSvgRenderResultA0SourceKind::Mod,
+        "SYM" => NativeSvgRenderResultA0SourceKind::Sym,
+        "PCB" => NativeSvgRenderResultA0SourceKind::Pcb,
+        "SCH" => NativeSvgRenderResultA0SourceKind::Sch,
+        _ => {
+            return Err(NativeError::new(
+                NativeErrorKind::Core,
+                "SVG renderer returned an unsupported source kind",
+            ));
+        }
+    };
+    serialize_bounded(
+        &NativeSvgRenderResultA0 {
+            document_id: artifact.document_id,
+            engine_version: ENGINE_VERSION.to_owned(),
+            profile: SVG_PROFILE.to_owned(),
+            source_kind,
+            svg_bytes: SvgCanonicalUint64Decimal(svg_bytes.to_string()),
+            svg_sha256,
+            svg_utf8: artifact.svg,
+            type_: SVG_RESULT_TYPE.to_owned(),
+            version: PROTOCOL_VERSION.to_owned(),
+        },
+        artifact.max_result_bytes,
+    )
+}
+
+fn preflight_svg_request_structure(
+    request_bytes: &[u8],
+    maximum_nodes: usize,
+) -> Result<(), NativeError> {
+    let mut counter = JsonNodeCounter {
+        nodes: 0,
+        maximum: maximum_nodes,
+        exceeded: false,
+    };
+    let mut deserializer = serde_json::Deserializer::from_slice(request_bytes);
+    let parsed = JsonNodeSeed {
+        counter: &mut counter,
+    }
+    .deserialize(&mut deserializer)
+    .and_then(|()| deserializer.end());
+    if counter.exceeded {
+        return Err(resource_error(
+            "SVG request exceeds the fixed structural node limit",
+        ));
+    }
+    parsed.map_err(|error| request_error(format!("invalid native SVG request: {error}")))
+}
+
+struct JsonNodeCounter {
+    nodes: usize,
+    maximum: usize,
+    exceeded: bool,
+}
+
+impl JsonNodeCounter {
+    fn charge<E: serde::de::Error>(&mut self) -> Result<(), E> {
+        self.nodes = self.nodes.checked_add(1).ok_or_else(|| {
+            self.exceeded = true;
+            E::custom("JSON structural node count overflowed")
+        })?;
+        if self.nodes > self.maximum {
+            self.exceeded = true;
+            return Err(E::custom("JSON structural node limit exceeded"));
+        }
+        Ok(())
+    }
+}
+
+struct JsonNodeSeed<'a> {
+    counter: &'a mut JsonNodeCounter,
+}
+
+impl<'de> DeserializeSeed<'de> for JsonNodeSeed<'_> {
+    type Value = ();
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        self.counter.charge()?;
+        deserializer.deserialize_any(JsonNodeVisitor {
+            counter: self.counter,
+        })
+    }
+}
+
+struct JsonNodeVisitor<'a> {
+    counter: &'a mut JsonNodeCounter,
+}
+
+impl<'de> Visitor<'de> for JsonNodeVisitor<'_> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a bounded JSON value")
+    }
+
+    fn visit_bool<E>(self, _value: bool) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_i64<E>(self, _value: i64) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_u64<E>(self, _value: u64) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_f64<E>(self, _value: f64) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_str<E>(self, _value: &str) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_borrowed_str<E>(self, _value: &'de str) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_none<E>(self) -> Result<Self::Value, E> {
+        Ok(())
+    }
+
+    fn visit_seq<A>(self, mut sequence: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        while sequence
+            .next_element_seed(JsonNodeSeed {
+                counter: self.counter,
+            })?
+            .is_some()
+        {}
+        Ok(())
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        while map
+            .next_key_seed(JsonKeySeed {
+                counter: self.counter,
+            })?
+            .is_some()
+        {
+            map.next_value_seed(JsonNodeSeed {
+                counter: self.counter,
+            })?;
+        }
+        Ok(())
+    }
+}
+
+struct JsonKeySeed<'a> {
+    counter: &'a mut JsonNodeCounter,
+}
+
+impl<'de> DeserializeSeed<'de> for JsonKeySeed<'_> {
+    type Value = IgnoredAny;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        self.counter.charge()?;
+        deserializer.deserialize_identifier(IgnoredAny)
+    }
+}
+
+fn hex_digest(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
 }
 
 pub fn execute_request_bytes(request_bytes: &[u8]) -> Result<Vec<u8>, NativeError> {
@@ -743,7 +987,9 @@ fn core_error(error: kicad_monkey_core::SourceBundleError) -> NativeError {
 
 #[cfg(test)]
 mod tests {
-    use super::{AppLimits, design_limits, project_limits, schematic_limits};
+    use super::{
+        AppLimits, design_limits, preflight_svg_request_structure, project_limits, schematic_limits,
+    };
     use kicad_monkey_core::{ProjectLimits, SchematicBundleLimits, SchematicDesignNetLimits};
 
     #[test]
@@ -790,5 +1036,16 @@ mod tests {
         let project_default = ProjectLimits::default();
         assert!(project.max_typed_string_bytes <= project_default.max_typed_string_bytes);
         assert!(project.max_json_nodes <= project_default.max_json_nodes);
+    }
+
+    #[test]
+    fn svg_request_structural_node_limit_is_inclusive() {
+        // Arrays and objects, their members, and object keys are all nodes,
+        // matching the public Python client's iterative accounting.
+        preflight_svg_request_structure(br#"{"a":[null,true]}"#, 5)
+            .expect("exact five-node request");
+        let error = preflight_svg_request_structure(br#"{"a":[null,true,false]}"#, 5)
+            .expect_err("one node over the structural ceiling");
+        assert!(error.message.contains("structural node limit"));
     }
 }

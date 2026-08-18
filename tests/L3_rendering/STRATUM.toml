@@ -285,6 +285,28 @@ secondary = [
 # -----------------------------------------------------------------------------
 
 [[subtests]]
+id = "L3_023"
+file = "test_L3_023_native_svg_exit.py"
+name = "Native Base SVG Exit"
+description = "Require all frozen Plotter-IR documents, pinned SVG hashes or governed safety rejection, and exact resource ceilings through the real native serializer"
+concerns = ["rust", "contracts", "svg", "transport", "resource-limits"]
+test_case_type = "contract"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_native"
+
+[subtests.objectives]
+primary = "Every frozen Phase-5 document produces its pinned deterministic plotter-base-a0 SVG or the single governed negative-width safety rejection"
+secondary = [
+    "The 30-case manifest pins source-document hashes, 29 SVG hashes/tag counts, and one exact fail-closed negative-width outcome",
+    "Independent record, operation, point, text, image, block, element, work, SVG-byte, and result-byte ceilings accept exact and reject one-under",
+    "The old handshake remains closed while the expanded handshake advertises render-svg",
+    "TypeSpec, generated bindings, native transport contracts, and the frozen Phase-5 unions are rechecked before rendering",
+    "The native executable is explicitly built before snapshot generation on a clean tree",
+    "Cargo work is serialized at four jobs and two test threads",
+]
+
+[[subtests]]
 id = "L3_022"
 file = "test_L3_022_rust_phase5_exit.py"
 name = "Rust Phase 5 Plotter-IR Exit"

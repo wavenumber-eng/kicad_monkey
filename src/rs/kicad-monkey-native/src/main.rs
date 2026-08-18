@@ -1,18 +1,27 @@
 #![forbid(unsafe_code)]
 
-use kicad_monkey_native::{execute_request_reader, handshake, serialize_error};
+use kicad_monkey_native::{
+    execute_request_reader, execute_svg_request_reader, handshake, handshake_a1, serialize_error,
+};
 use std::io::Write as _;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
     match std::env::args().skip(1).collect::<Vec<_>>().as_slice() {
         [command] if command == "handshake" => write_success(&handshake()),
+        [command] if command == "handshake-a1" => write_success(&handshake_a1()),
         [command] if command == "design-facts" => match execute_request_reader(std::io::stdin()) {
             Ok(output) => write_output(&output),
             Err(error) => write_error(&error),
         },
+        [command] if command == "render-svg" => {
+            match execute_svg_request_reader(std::io::stdin()) {
+                Ok(output) => write_output(&output),
+                Err(error) => write_error(&error),
+            }
+        }
         _ => write_error(&kicad_monkey_native::NativeError::new_for_cli(
-            "expected exactly one command: handshake or design-facts",
+            "expected exactly one command: handshake, handshake-a1, design-facts, or render-svg",
         )),
     }
 }

@@ -4,6 +4,7 @@ members = [
     "src/rs/kicad-monkey-contracts",
     "src/rs/kicad-monkey-core",
     "src/rs/kicad-monkey-native",
+    "src/rs/kicad-monkey-svg",
     "src/rs/kicad-monkey-wasm",
 ]
 resolver = "3"

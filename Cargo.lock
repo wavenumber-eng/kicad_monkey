@@ -378,7 +378,17 @@ dependencies = [
  "cap-std",
  "kicad-monkey-contracts",
  "kicad-monkey-core",
+ "kicad-monkey-svg",
  "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "kicad-monkey-svg"
+version = "0.1.0"
+dependencies = [
+ "kicad-monkey-contracts",
  "serde_json",
 ]
 

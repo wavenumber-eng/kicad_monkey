@@ -31,8 +31,11 @@ pub use font_text_contract::{
 pub use native_transport_contract::{
     NativeTransportDecodeError, decode_native_design_facts_request_a0,
     decode_native_design_facts_result_a0, decode_native_error_a0, decode_native_handshake_a0,
-    validate_native_design_facts_request_contract, validate_native_design_facts_result_contract,
-    validate_native_error_contract, validate_native_handshake_contract,
+    decode_native_handshake_a1, decode_native_svg_render_request_a0,
+    decode_native_svg_render_result_a0, validate_native_design_facts_request_contract,
+    validate_native_design_facts_result_contract, validate_native_error_contract,
+    validate_native_handshake_a1_contract, validate_native_handshake_contract,
+    validate_native_svg_render_request_contract, validate_native_svg_render_result_contract,
 };
 pub use schematic_plot_contract::validate_schematic_plot_document;
 pub use source_bundle_contract::{

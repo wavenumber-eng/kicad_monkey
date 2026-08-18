@@ -1520,6 +1520,48 @@ class NativeNetlistMetadata(Struct, forbid_unknown_fields=True, frozen=True):
     tool: str
 
 
+NativeSvgPlotDocument = Union["NativeFootprintSvgDocument", "NativeSymbolSvgDocument", "NativeBoardSvgDocument", "NativeSchematicSvgDocument"]
+
+
+class NativeSvgViewport(Struct, forbid_unknown_fields=True, frozen=True):
+    min_x_nm: JavaScriptSafeInteger
+    min_y_nm: JavaScriptSafeInteger
+    width_nm: NativeSvgPositiveSafeInteger
+    height_nm: NativeSvgPositiveSafeInteger
+
+
+class NativeSvgRenderLimits(Struct, forbid_unknown_fields=True, frozen=True):
+    max_records: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_operations: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_points: CanonicalUint64Decimal
+    max_text_bytes: CanonicalUint64Decimal
+    max_image_encoded_bytes: CanonicalUint64Decimal
+    max_block_depth: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_svg_elements: CanonicalUint64Decimal
+    max_render_work: CanonicalUint64Decimal
+    max_svg_bytes: CanonicalUint64Decimal
+    max_result_bytes: CanonicalUint64Decimal
+
+
+class NativeFootprintSvgDocument(Struct, forbid_unknown_fields=True, frozen=True, tag="footprint", tag_field="kind"):
+    value: FootprintPlotDocumentA0
+
+
+class NativeSymbolSvgDocument(Struct, forbid_unknown_fields=True, frozen=True, tag="symbol", tag_field="kind"):
+    value: SymbolPlotDocumentA0
+
+
+class NativeBoardSvgDocument(Struct, forbid_unknown_fields=True, frozen=True, tag="board", tag_field="kind"):
+    value: BoardPlotDocumentA0
+
+
+class NativeSchematicSvgDocument(Struct, forbid_unknown_fields=True, frozen=True, tag="schematic", tag_field="kind"):
+    value: SchematicPlotDocumentA0
+
+
+NativeSvgPositiveSafeInteger = Annotated[int, Meta(ge=1, le=9007199254740991)]
+
+
 NativeErrorKind = Literal["request", "path", "io", "resource_limit", "core"]
 
 
@@ -1927,6 +1969,13 @@ class NativeHandshakeA0(Struct, forbid_unknown_fields=True, frozen=True):
     operations: list[Literal["design-facts"]]
 
 
+class NativeHandshakeA1(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.native.handshake"] = field(name="type")
+    version: Literal["a1"]
+    engine_version: str
+    operations: tuple[Literal["design-facts"], Literal["render-svg"]]
+
+
 class NativeDesignFactsRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.native.design_facts.request"] = field(name="type")
     version: Literal["a0"]
@@ -1944,6 +1993,27 @@ class NativeDesignFactsResultA0(Struct, forbid_unknown_fields=True, frozen=True)
     compiled_schematic_graph: CompiledSchematicGraphA0
     kicad_netlist_version: Literal["E"]
     kicad_netlist: str
+
+
+class NativeSVGRenderRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.native.svg.request"] = field(name="type")
+    version: Literal["a0"]
+    profile: Literal["plotter-base-a0"]
+    document: NativeSvgPlotDocument
+    viewport: NativeSvgViewport
+    limits: NativeSvgRenderLimits
+
+
+class NativeSVGRenderResultA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.native.svg.result"] = field(name="type")
+    version: Literal["a0"]
+    engine_version: str
+    profile: Literal["plotter-base-a0"]
+    source_kind: Union[Literal["MOD"], Literal["SYM"], Literal["PCB"], Literal["SCH"]]
+    document_id: str
+    svg_utf8: str
+    svg_bytes: CanonicalUint64Decimal
+    svg_sha256: Annotated[str, Meta(pattern="^[0-9a-f]{64}$")]
 
 
 class NativeErrorA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -3252,6 +3322,20 @@ def validate_native_handshake_a0(value: NativeHandshakeA0) -> None:
         raise msgspec.ValidationError("invalid_value at $.engine_version")
     if len(value.operations) != 1 or value.operations[0] != 'design-facts':
         raise msgspec.ValidationError("unsupported_contract at $.operations")
+_native_handshake_a1_decoder = msgspec.json.Decoder(NativeHandshakeA1)
+
+
+def decode_native_handshake_a1(data: bytes) -> NativeHandshakeA1:
+    value = _native_handshake_a1_decoder.decode(data)
+    validate_native_handshake_a1(value)
+    return value
+
+
+def validate_native_handshake_a1(value: NativeHandshakeA1) -> None:
+    if not value.engine_version:
+        raise msgspec.ValidationError("invalid_value at $.engine_version")
+    if value.operations != ('design-facts', 'render-svg'):
+        raise msgspec.ValidationError("unsupported_contract at $.operations")
 _native_design_facts_request_a0_decoder = msgspec.json.Decoder(NativeDesignFactsRequestA0)
 
 
@@ -3282,6 +3366,90 @@ def decode_native_design_facts_result_a0(data: bytes) -> NativeDesignFactsResult
 def validate_native_design_facts_result_a0(value: NativeDesignFactsResultA0) -> None:
     if not value.engine_version:
         raise msgspec.ValidationError("invalid_value at $.engine_version")
+_native_svg_render_request_a0_decoder = msgspec.json.Decoder(NativeSVGRenderRequestA0)
+
+
+def decode_native_svg_render_request_a0(data: bytes) -> NativeSVGRenderRequestA0:
+    value = _native_svg_render_request_a0_decoder.decode(data)
+    validate_native_svg_render_request_a0(value)
+    return value
+
+
+def validate_native_svg_render_request_a0(value: NativeSVGRenderRequestA0) -> None:
+    for field_name in (
+        'max_points',
+        'max_text_bytes',
+        'max_image_encoded_bytes',
+        'max_svg_elements',
+        'max_render_work',
+        'max_svg_bytes',
+        'max_result_bytes',
+    ):
+        _validate_native_uint64(getattr(value.limits, field_name), f'$.limits.{field_name}')
+    document = value.document
+    if isinstance(document, NativeFootprintSvgDocument):
+        validate_footprint_plot_document_a0(document.value)
+        expected_source_kind = 'MOD'
+    elif isinstance(document, NativeSymbolSvgDocument):
+        validate_symbol_plot_document_a0(document.value)
+        expected_source_kind = 'SYM'
+    elif isinstance(document, NativeBoardSvgDocument):
+        validate_board_plot_document_a0(document.value)
+        expected_source_kind = 'PCB'
+    elif isinstance(document, NativeSchematicSvgDocument):
+        validate_schematic_plot_document_a0(document.value)
+        expected_source_kind = 'SCH'
+        canvas = document.value.canvas
+        viewport = value.viewport
+        if (
+            viewport.min_x_nm != 0
+            or viewport.min_y_nm != 0
+            or viewport.width_nm != canvas.width_nm
+            or viewport.height_nm != canvas.height_nm
+        ):
+            raise msgspec.ValidationError("viewport_mismatch at $.viewport")
+    else:
+        raise msgspec.ValidationError("unsupported_contract at $.document.kind")
+    if not document.value.document_id:
+        raise msgspec.ValidationError("invalid_value at $.document.value.document_id")
+    if document.value.source_kind != expected_source_kind:
+        raise msgspec.ValidationError("source_kind_mismatch at $.document.value.source_kind")
+
+
+def _validate_native_uint64(value: str, path: str) -> None:
+    canonical = value == '0' or (
+        bool(value)
+        and value[0] in '123456789'
+        and value.isascii()
+        and value.isdecimal()
+    )
+    if (
+        not canonical
+        or len(value) > 20
+        or (len(value) == 20 and value > '18446744073709551615')
+    ):
+        raise msgspec.ValidationError(f"invalid_uint64 at {path}")
+_native_svg_render_result_a0_decoder = msgspec.json.Decoder(NativeSVGRenderResultA0)
+
+
+def decode_native_svg_render_result_a0(data: bytes) -> NativeSVGRenderResultA0:
+    value = _native_svg_render_result_a0_decoder.decode(data)
+    validate_native_svg_render_result_a0(value)
+    return value
+
+
+def validate_native_svg_render_result_a0(value: NativeSVGRenderResultA0) -> None:
+    if not value.engine_version:
+        raise msgspec.ValidationError("invalid_value at $.engine_version")
+    if not value.document_id:
+        raise msgspec.ValidationError("invalid_value at $.document_id")
+    if not value.svg_utf8:
+        raise msgspec.ValidationError("invalid_value at $.svg_utf8")
+    _validate_native_uint64(value.svg_bytes, '$.svg_bytes')
+    if int(value.svg_bytes) != len(value.svg_utf8.encode('utf-8')):
+        raise msgspec.ValidationError("length_mismatch at $.svg_bytes")
+    if value.svg_sha256 != hashlib.sha256(value.svg_utf8.encode('utf-8')).hexdigest():
+        raise msgspec.ValidationError("hash_mismatch at $.svg_sha256")
 decode_native_error_a0 = msgspec.json.Decoder(NativeErrorA0).decode
 
 
@@ -3461,6 +3629,14 @@ __all__ = (
     "NativeFileSlot",
     "NativeDesignFactsLimits",
     "NativeNetlistMetadata",
+    "NativeSvgPlotDocument",
+    "NativeSvgViewport",
+    "NativeSvgRenderLimits",
+    "NativeFootprintSvgDocument",
+    "NativeSymbolSvgDocument",
+    "NativeBoardSvgDocument",
+    "NativeSchematicSvgDocument",
+    "NativeSvgPositiveSafeInteger",
     "NativeErrorKind",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
@@ -3493,8 +3669,11 @@ __all__ = (
     "ShapingRecordA0",
     "OutlineVectorA0",
     "NativeHandshakeA0",
+    "NativeHandshakeA1",
     "NativeDesignFactsRequestA0",
     "NativeDesignFactsResultA0",
+    "NativeSVGRenderRequestA0",
+    "NativeSVGRenderResultA0",
     "NativeErrorA0",
     "decode_sexpr_build_request_a0",
     "decode_sexpr_build_result_a0",
@@ -3527,8 +3706,11 @@ __all__ = (
     "decode_shaping_record_a0",
     "decode_outline_vector_a0",
     "decode_native_handshake_a0",
+    "decode_native_handshake_a1",
     "decode_native_design_facts_request_a0",
     "decode_native_design_facts_result_a0",
+    "decode_native_svg_render_request_a0",
+    "decode_native_svg_render_result_a0",
     "decode_native_error_a0",
     "validate_footprint_plot_document_a0",
     "validate_board_plot_document_a0",
@@ -3540,6 +3722,9 @@ __all__ = (
     "validate_schematic_plot_request_a0",
     "validate_schematic_plot_document_a0",
     "validate_native_handshake_a0",
+    "validate_native_handshake_a1",
     "validate_native_design_facts_request_a0",
     "validate_native_design_facts_result_a0",
+    "validate_native_svg_render_request_a0",
+    "validate_native_svg_render_result_a0",
 )

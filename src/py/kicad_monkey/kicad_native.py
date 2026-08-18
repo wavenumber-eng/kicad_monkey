@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Mapping, Sequence, cast
@@ -27,6 +28,9 @@ from .contracts.generated import (
     decode_native_design_facts_result_a0,
     decode_native_error_a0,
     decode_native_handshake_a0,
+    decode_native_handshake_a1,
+    decode_native_svg_render_request_a0,
+    decode_native_svg_render_result_a0,
 )
 from .kicad_base import get_value
 from .kicad_compiled_schematic_graph import validate_compiled_schematic_graph
@@ -45,6 +49,76 @@ _MAX_REQUEST_STRING_BYTES = 64 * 1024
 _MAX_REQUEST_NODES = 64 * 1024
 _DEFAULT_OUTPUT_BYTES = 64 * 1024 * 1024
 _DEFAULT_TIMEOUT_SECONDS = 120.0
+_MAX_SVG_REQUEST_BYTES = 256 * 1024 * 1024
+_MAX_SVG_REQUEST_NODES = 8 * 1024 * 1024
+_SVG_REQUEST_TYPE = "kicad_monkey.native.svg.request"
+_SVG_PROFILE = "plotter-base-a0"
+_SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+_SVG_TAGS = frozenset(
+    {
+        "svg",
+        "rect",
+        "g",
+        "line",
+        "path",
+        "circle",
+        "polygon",
+        "polyline",
+        "text",
+        "image",
+        "ellipse",
+    }
+)
+_SVG_ATTRIBUTES = frozenset(
+    {
+        "width",
+        "height",
+        "viewBox",
+        "x",
+        "y",
+        "fill",
+        "transform",
+        "id",
+        "data-ref",
+        "data-object-id",
+        "data-uuid",
+        "x1",
+        "y1",
+        "x2",
+        "y2",
+        "stroke",
+        "stroke-width",
+        "stroke-linecap",
+        "stroke-linejoin",
+        "stroke-dasharray",
+        "fill-opacity",
+        "stroke-opacity",
+        "cx",
+        "cy",
+        "r",
+        "rx",
+        "ry",
+        "points",
+        "d",
+        "font-size",
+        "font-family",
+        "font-weight",
+        "font-style",
+        "text-anchor",
+        "dominant-baseline",
+        "preserveAspectRatio",
+        "href",
+        "fill-rule",
+    }
+)
+_SVG_IMAGE_HREF_PREFIXES = (
+    "data:image/png;base64,",
+    "data:image/jpeg;base64,",
+    "data:image/bmp;base64,",
+)
+_BASE64_CHARACTERS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+)
 
 
 class KiCadNativeError(RuntimeError):
@@ -59,6 +133,18 @@ class KiCadNativeDesignFacts:
     compiled_schematic_graph: dict[str, object]
     kicad_netlist: str
     design_fingerprint: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class KiCadNativeSvg:
+    """Validated deterministic SVG returned by the native base serializer."""
+
+    engine_version: str
+    source_kind: str
+    document_id: str
+    svg_utf8: str
+    svg_bytes: int
+    svg_sha256: str
 
 
 def resolve_kicad_native_executable(
@@ -108,6 +194,127 @@ def kicad_native_handshake(
     if operations != ["design-facts"]:
         raise KiCadNativeError("native handshake operations are unsupported")
     return payload
+
+
+def kicad_native_handshake_a1(
+    *,
+    executable: Path | str | None = None,
+    timeout: float = 10.0,
+) -> dict[str, object]:
+    """Return the expanded handshake while preserving the closed a0 handshake."""
+
+    output = _run_native_command(
+        resolve_kicad_native_executable(executable),
+        "handshake-a1",
+        b"",
+        maximum_output_bytes=_MAX_HANDSHAKE_BYTES,
+        timeout=timeout,
+    )
+    try:
+        decoded = decode_native_handshake_a1(output)
+    except msgspec.ValidationError as error:
+        raise KiCadNativeError(f"native a1 handshake violates its contract: {error}") from error
+    payload = cast(dict[str, object], msgspec.to_builtins(decoded))
+    if not isinstance(payload.get("engine_version"), str) or not payload["engine_version"]:
+        raise KiCadNativeError("native a1 handshake engine_version is invalid")
+    operations = payload.get("operations")
+    if not isinstance(operations, (list, tuple)) or tuple(operations) != (
+        "design-facts",
+        "render-svg",
+    ):
+        raise KiCadNativeError("native a1 handshake operations are unsupported")
+    payload["operations"] = list(operations)
+    return payload
+
+
+def native_render_svg(
+    document: Mapping[str, object],
+    *,
+    document_kind: str,
+    viewport: Mapping[str, object],
+    limits: Mapping[str, object] | None = None,
+    executable: Path | str | None = None,
+    timeout: float = _DEFAULT_TIMEOUT_SECONDS,
+) -> KiCadNativeSvg:
+    """Render one frozen Plotter-IR document through the native base profile."""
+
+    if document_kind not in {"footprint", "symbol", "board", "schematic"}:
+        raise KiCadNativeError("native SVG document_kind is unsupported")
+    native = resolve_kicad_native_executable(executable)
+    handshake = kicad_native_handshake_a1(executable=native, timeout=min(timeout, 10.0))
+    selected_limits = dict(limits or _default_svg_limits())
+    request = {
+        "type": _SVG_REQUEST_TYPE,
+        "version": _PROTOCOL_VERSION,
+        "profile": _SVG_PROFILE,
+        "document": {"kind": document_kind, "value": dict(document)},
+        "viewport": dict(viewport),
+        "limits": selected_limits,
+    }
+    request_bytes = _encode_svg_request_bounded(request)
+    try:
+        decode_native_svg_render_request_a0(request_bytes)
+    except msgspec.ValidationError as error:
+        raise KiCadNativeError(f"native SVG request violates its contract: {error}") from error
+    _validate_svg_request_semantics(document, document_kind, viewport, selected_limits)
+    maximum_result_bytes = _canonical_svg_limit(
+        selected_limits.get("max_result_bytes"), "max_result_bytes"
+    )
+    output = _run_native_command(
+        native,
+        "render-svg",
+        request_bytes,
+        maximum_output_bytes=maximum_result_bytes,
+        timeout=timeout,
+    )
+    try:
+        decoded = decode_native_svg_render_result_a0(output)
+    except msgspec.ValidationError as error:
+        raise KiCadNativeError(f"native SVG result violates its contract: {error}") from error
+    payload = cast(dict[str, object], msgspec.to_builtins(decoded))
+    if payload.get("engine_version") != handshake["engine_version"]:
+        raise KiCadNativeError("native engine version changed between handshake and SVG render")
+    svg = payload.get("svg_utf8")
+    encoded_bytes = payload.get("svg_bytes")
+    digest = payload.get("svg_sha256")
+    if not isinstance(svg, str) or not isinstance(encoded_bytes, str) or not isinstance(digest, str):
+        raise KiCadNativeError("native SVG result fields are malformed")
+    size = _canonical_svg_limit(encoded_bytes, "svg_bytes")
+    actual = svg.encode("utf-8")
+    if size != len(actual):
+        raise KiCadNativeError("native SVG byte count does not match its payload")
+    if hashlib.sha256(actual).hexdigest() != digest:
+        raise KiCadNativeError("native SVG hash does not match its payload")
+    source_kind = payload.get("source_kind")
+    document_id = payload.get("document_id")
+    if not isinstance(source_kind, str) or not isinstance(document_id, str):
+        raise KiCadNativeError("native SVG result identity is malformed")
+    expected_source_kind = {
+        "footprint": "MOD",
+        "symbol": "SYM",
+        "board": "PCB",
+        "schematic": "SCH",
+    }[document_kind]
+    if source_kind != expected_source_kind or document_id != document.get(
+        "document_id"
+    ):
+        raise KiCadNativeError("native SVG result identity does not match its request")
+    maximum_svg_bytes = _canonical_svg_limit(
+        selected_limits.get("max_svg_bytes"), "max_svg_bytes"
+    )
+    if size > maximum_svg_bytes:
+        raise KiCadNativeError(
+            "native SVG payload exceeds the requested SVG byte ceiling"
+        )
+    _validate_native_svg(svg, viewport)
+    return KiCadNativeSvg(
+        engine_version=cast(str, payload["engine_version"]),
+        source_kind=source_kind,
+        document_id=document_id,
+        svg_utf8=svg,
+        svg_bytes=size,
+        svg_sha256=digest,
+    )
 
 
 def native_design_facts(
@@ -363,6 +570,172 @@ def _encode_request_bounded(value: Mapping[str, object]) -> bytes:
     return bytes(output)
 
 
+def _default_svg_limits() -> dict[str, object]:
+    return {
+        "max_records": 1_000_000,
+        "max_operations": 4_000_000,
+        "max_points": "16000000",
+        "max_text_bytes": str(256 * 1024 * 1024),
+        "max_image_encoded_bytes": str(256 * 1024 * 1024),
+        "max_block_depth": 4096,
+        "max_svg_elements": "8000000",
+        "max_render_work": "64000000",
+        "max_svg_bytes": str(512 * 1024 * 1024),
+        "max_result_bytes": str(768 * 1024 * 1024),
+    }
+
+
+def _canonical_svg_limit(value: object, name: str) -> int:
+    if not isinstance(value, str) or not value or not value.isascii() or not value.isdecimal():
+        raise KiCadNativeError(f"{name} must be canonical unsigned decimal text")
+    if len(value) > 1 and value.startswith("0"):
+        raise KiCadNativeError(f"{name} must not contain leading zeroes")
+    parsed = int(value)
+    if parsed > 768 * 1024 * 1024:
+        raise KiCadNativeError(f"{name} exceeds the native SVG application ceiling")
+    return parsed
+
+
+def _validate_svg_request_semantics(
+    document: Mapping[str, object],
+    document_kind: str,
+    viewport: Mapping[str, object],
+    limits: Mapping[str, object],
+) -> None:
+    expected_source = {
+        "footprint": "MOD",
+        "symbol": "SYM",
+        "board": "PCB",
+        "schematic": "SCH",
+    }[document_kind]
+    if document.get("source_kind") != expected_source:
+        raise KiCadNativeError("native SVG document kind and source_kind do not match")
+    for name in (
+        "max_points",
+        "max_text_bytes",
+        "max_image_encoded_bytes",
+        "max_svg_elements",
+        "max_render_work",
+        "max_svg_bytes",
+        "max_result_bytes",
+    ):
+        _canonical_svg_limit(limits.get(name), name)
+    if document_kind == "schematic":
+        canvas = document.get("canvas")
+        if not isinstance(canvas, Mapping):
+            raise KiCadNativeError("native schematic SVG document canvas is missing")
+        expected = {
+            "min_x_nm": 0,
+            "min_y_nm": 0,
+            "width_nm": canvas.get("width_nm"),
+            "height_nm": canvas.get("height_nm"),
+        }
+        if dict(viewport) != expected:
+            raise KiCadNativeError("native schematic SVG viewport does not match its canvas")
+
+
+def _encode_svg_request_bounded(value: Mapping[str, object]) -> bytes:
+    pending: list[object] = [value]
+    nodes = 0
+    while pending:
+        item = pending.pop()
+        nodes += 1
+        if nodes > _MAX_SVG_REQUEST_NODES:
+            raise KiCadNativeError("native SVG request exceeds its structural node ceiling")
+        if isinstance(item, Mapping):
+            pending.extend(item.keys())
+            pending.extend(item.values())
+        elif isinstance(item, Sequence) and not isinstance(item, (str, bytes, bytearray)):
+            pending.extend(item)
+    output = bytearray()
+    encoder = json.JSONEncoder(separators=(",", ":"), ensure_ascii=False)
+    for text in encoder.iterencode(value):
+        chunk = text.encode("utf-8")
+        if len(output) + len(chunk) > _MAX_SVG_REQUEST_BYTES:
+            raise KiCadNativeError("native SVG request exceeds the 256 MiB ceiling")
+        output.extend(chunk)
+    return bytes(output)
+
+
+def _validate_native_svg(svg: str, viewport: Mapping[str, object]) -> None:
+    if any(ord(character) < 0x20 and character not in "\t\n\r" for character in svg):
+        raise KiCadNativeError("native SVG contains an XML control character")
+    declarations = svg
+    if declarations.startswith("<?xml"):
+        end = declarations.find("?>")
+        if end < 0:
+            raise KiCadNativeError("native SVG XML declaration is unterminated")
+        declarations = declarations[end + 2 :]
+    if "<!" in declarations or "<?" in declarations:
+        raise KiCadNativeError("native SVG contains a forbidden XML declaration")
+    try:
+        root = ET.fromstring(svg)
+    except ET.ParseError as error:
+        raise KiCadNativeError(f"native SVG is malformed XML: {error}") from error
+    expected_root = f"{{{_SVG_NAMESPACE}}}svg"
+    if root.tag != expected_root:
+        raise KiCadNativeError("native SVG root is not an SVG-namespace svg element")
+    expected_view_box = f"0 0 {viewport.get('width_nm')} {viewport.get('height_nm')}"
+    if root.attrib.get("viewBox") != expected_view_box:
+        raise KiCadNativeError(
+            "native SVG viewBox does not match the requested viewport"
+        )
+
+    identifiers: set[str] = set()
+    for element in root.iter():
+        if not isinstance(element.tag, str) or not element.tag.startswith(
+            f"{{{_SVG_NAMESPACE}}}"
+        ):
+            raise KiCadNativeError("native SVG contains a foreign-namespace element")
+        tag = element.tag.rsplit("}", 1)[-1]
+        if tag not in _SVG_TAGS:
+            raise KiCadNativeError(f"native SVG contains unsupported element {tag}")
+        for name, value in element.attrib.items():
+            if name not in _SVG_ATTRIBUTES and not name.startswith("data-"):
+                raise KiCadNativeError(
+                    f"native SVG contains unsupported attribute {name}"
+                )
+            if name.startswith("on") or name in {"style", "class"}:
+                raise KiCadNativeError(f"native SVG contains unsafe attribute {name}")
+            if name == "id":
+                if not value:
+                    raise KiCadNativeError("native SVG contains an empty id")
+                if value in identifiers:
+                    raise KiCadNativeError("native SVG contains a duplicate id")
+                identifiers.add(value)
+            if name == "href":
+                if tag != "image" or not _safe_image_href(value):
+                    raise KiCadNativeError("native SVG contains an unsafe href")
+            if name in {"fill", "stroke"} and not _safe_svg_paint(value):
+                raise KiCadNativeError("native SVG contains an unsafe paint value")
+
+
+def _safe_image_href(value: str) -> bool:
+    prefix = next(
+        (item for item in _SVG_IMAGE_HREF_PREFIXES if value.startswith(item)), None
+    )
+    if prefix is None:
+        return False
+    payload = value[len(prefix) :]
+    if not payload or len(payload) % 4 != 0:
+        return False
+    unpadded = payload.rstrip("=")
+    padding = len(payload) - len(unpadded)
+    return padding <= 2 and all(
+        character in _BASE64_CHARACTERS for character in unpadded
+    )
+
+
+def _safe_svg_paint(value: str) -> bool:
+    if value == "none":
+        return True
+    return (
+        len(value) == 7
+        and value.startswith("#")
+        and all(character in "0123456789abcdefABCDEF" for character in value[1:])
+    )
+
+
 def _validate_version_e_netlist(text: str) -> None:
     try:
         root = parse_sexp(text)
@@ -492,8 +865,11 @@ def _run_native_command(
 __all__ = [
     "KiCadNativeDesignFacts",
     "KiCadNativeError",
+    "KiCadNativeSvg",
     "kicad_native_handshake",
+    "kicad_native_handshake_a1",
     "native_design_facts",
     "native_design_facts_for_design",
+    "native_render_svg",
     "resolve_kicad_native_executable",
 ]

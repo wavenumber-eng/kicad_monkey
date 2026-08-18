@@ -1,8 +1,10 @@
 use kicad_monkey_contracts::{
     decode_native_design_facts_request_a0, decode_native_design_facts_result_a0,
-    decode_native_error_a0, decode_native_handshake_a0,
+    decode_native_error_a0, decode_native_handshake_a0, decode_native_handshake_a1,
+    decode_native_svg_render_request_a0, decode_native_svg_render_result_a0,
 };
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 
 #[test]
 fn native_transport_envelopes_decode_and_round_trip_exact_wire_names() {
@@ -44,6 +46,111 @@ fn native_transport_envelopes_decode_and_round_trip_exact_wire_names() {
     let decoded = decode_native_error_a0(&encode(&error)).expect("strict error");
     assert_eq!(decoded.type_, error["type"]);
     assert_eq!(serde_json::to_value(decoded).expect("error encode"), error);
+}
+
+#[test]
+fn native_svg_envelopes_and_a1_handshake_are_strict() {
+    let handshake = json!({
+        "type": "kicad_monkey.native.handshake",
+        "version": "a1",
+        "engine_version": "0.1.0",
+        "operations": ["design-facts", "render-svg"]
+    });
+    let decoded = decode_native_handshake_a1(&encode(&handshake)).expect("strict a1 handshake");
+    assert_eq!(
+        serde_json::to_value(decoded).expect("a1 handshake encode"),
+        handshake
+    );
+
+    let request = svg_request_value();
+    decode_native_svg_render_request_a0(&encode(&request)).expect("strict SVG request");
+    let result = svg_result_value();
+    decode_native_svg_render_result_a0(&encode(&result)).expect("strict SVG result");
+
+    assert_rejected(
+        handshake.clone(),
+        "/operations",
+        json!(["design-facts", "design-facts"]),
+        true,
+        decode_native_handshake_a1,
+    );
+    assert_rejected(
+        handshake,
+        "/operations",
+        json!(["render-svg", "design-facts"]),
+        true,
+        decode_native_handshake_a1,
+    );
+    assert_rejected(
+        request.clone(),
+        "/document/kind",
+        json!("symbol"),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/document/value/document_id",
+        json!(""),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/document/value/total_operations",
+        json!(0),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/limits/max_points",
+        json!("01"),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/limits/max_points",
+        json!("18446744073709551616"),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        request,
+        "/viewport/width_nm",
+        json!(9_007_199_254_740_992_u64),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/document_id",
+        json!(""),
+        true,
+        decode_native_svg_render_result_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/svg_utf8",
+        json!(""),
+        true,
+        decode_native_svg_render_result_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/svg_bytes",
+        json!("0"),
+        true,
+        decode_native_svg_render_result_a0,
+    );
+    assert_rejected(
+        result,
+        "/svg_sha256",
+        json!("0000000000000000000000000000000000000000000000000000000000000000"),
+        true,
+        decode_native_svg_render_result_a0,
+    );
 }
 
 #[test]
@@ -292,6 +399,52 @@ fn result_value() -> Value {
         "compiled_schematic_graph": graph_vectors["graph"],
         "kicad_netlist_version": "E",
         "kicad_netlist": "(export (version \"E\"))"
+    })
+}
+
+fn svg_request_value() -> Value {
+    let vectors: Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/footprint_plotter_a0_vectors.json"
+    ))
+    .expect("footprint vectors");
+    json!({
+        "type": "kicad_monkey.native.svg.request",
+        "version": "a0",
+        "profile": "plotter-base-a0",
+        "document": {"kind": "footprint", "value": vectors["vectors"][0]["expected"]},
+        "viewport": {"min_x_nm": 0, "min_y_nm": -2000000, "width_nm": 2000000, "height_nm": 3000000},
+        "limits": {
+            "max_records": 1,
+            "max_operations": 1,
+            "max_points": "10",
+            "max_text_bytes": "100",
+            "max_image_encoded_bytes": "100",
+            "max_block_depth": 1,
+            "max_svg_elements": "10",
+            "max_render_work": "100000",
+            "max_svg_bytes": "100000",
+            "max_result_bytes": "200000"
+        }
+    })
+}
+
+fn svg_result_value() -> Value {
+    let svg = "<svg/>\n";
+    let digest = Sha256::digest(svg.as_bytes());
+    let hash = digest
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    json!({
+        "type": "kicad_monkey.native.svg.result",
+        "version": "a0",
+        "engine_version": "0.1.0",
+        "profile": "plotter-base-a0",
+        "source_kind": "MOD",
+        "document_id": "fixture",
+        "svg_utf8": svg,
+        "svg_bytes": svg.len().to_string(),
+        "svg_sha256": hash
     })
 }
 

@@ -8,6 +8,9 @@ import type {
   NativeDesignFactsResultA0,
   NativeErrorA0,
   NativeHandshakeA0,
+  NativeHandshakeA1,
+  NativeSVGRenderRequestA0,
+  NativeSVGRenderResultA0,
   SchematicPlotDocumentA0,
   SchematicPlotRequestA0,
   SchematicPlotResultA0,
@@ -31,6 +34,29 @@ const nativeError = {
 
 void nativeHandshake;
 void nativeError;
+
+const nativeHandshakeA1 = {
+  type: "kicad_monkey.native.handshake",
+  version: "a1",
+  engine_version: "0.1.0",
+  operations: ["design-facts", "render-svg"],
+} satisfies NativeHandshakeA1;
+
+type NativeHandshakeA1OperationsAreExact = NativeHandshakeA1["operations"] extends [
+  "design-facts",
+  "render-svg",
+]
+  ? ["design-facts", "render-svg"] extends NativeHandshakeA1["operations"]
+    ? true
+    : false
+  : false;
+const nativeHandshakeA1OperationsAreExact: NativeHandshakeA1OperationsAreExact = true;
+// @ts-expect-error Native a1 operation order is a closed wire tuple.
+const reversedNativeHandshakeA1Operations: NativeHandshakeA1["operations"] = ["render-svg", "design-facts"];
+
+void nativeHandshakeA1;
+void nativeHandshakeA1OperationsAreExact;
+void reversedNativeHandshakeA1Operations;
 
 const compiledGraph = {
   schema: "kicad_monkey.compiled_schematic_graph.a0",
@@ -153,6 +179,45 @@ const footprintPlotDocument = {
   generator: "pcbnew",
   generator_version: "10.0",
 } satisfies FootprintPlotDocumentA0;
+
+const nativeSvgRequest = {
+  type: "kicad_monkey.native.svg.request",
+  version: "a0",
+  profile: "plotter-base-a0",
+  document: { kind: "footprint", value: footprintPlotDocument },
+  viewport: { min_x_nm: 0, min_y_nm: 0, width_nm: 1_000_000, height_nm: 1_000_000 },
+  limits: {
+    max_records: 1,
+    max_operations: 1,
+    max_points: "10",
+    max_text_bytes: "100",
+    max_image_encoded_bytes: "100",
+    max_block_depth: 1,
+    max_svg_elements: "10",
+    max_render_work: "10000",
+    max_svg_bytes: "10000",
+    max_result_bytes: "20000",
+  },
+} satisfies NativeSVGRenderRequestA0;
+
+// @ts-expect-error A footprint wrapper cannot carry a PCB document.
+const mismatchedNativeSvgDocument: NativeSVGRenderRequestA0["document"] = { kind: "footprint", value: { ...footprintPlotDocument, source_kind: "PCB" } };
+
+const nativeSvgResult = {
+  type: "kicad_monkey.native.svg.result",
+  version: "a0",
+  engine_version: "0.1.0",
+  profile: "plotter-base-a0",
+  source_kind: "MOD",
+  document_id: "demo",
+  svg_utf8: "<svg/>\n",
+  svg_bytes: "7",
+  svg_sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+} satisfies NativeSVGRenderResultA0;
+
+void nativeSvgRequest;
+void nativeSvgResult;
+void mismatchedNativeSvgDocument;
 
 const footprintGraphicDocument = {
   ...footprintPlotDocument,

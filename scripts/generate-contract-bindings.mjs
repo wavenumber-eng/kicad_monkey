@@ -43,8 +43,11 @@ const roots = [
   ["ShapingRecord.json", "ShapingRecordA0", "shaping-record.ts"],
   ["OutlineVector.json", "OutlineVectorA0", "outline-vector.ts"],
   ["NativeHandshake.json", "NativeHandshakeA0", "native-handshake.ts"],
+  ["NativeHandshakeA1.json", "NativeHandshakeA1", "native-handshake-a1.ts"],
   ["NativeDesignFactsRequest.json", "NativeDesignFactsRequestA0", "native-design-facts-request.ts"],
   ["NativeDesignFactsResult.json", "NativeDesignFactsResultA0", "native-design-facts-result.ts"],
+  ["NativeSvgRenderRequest.json", "NativeSVGRenderRequestA0", "native-svg-render-request.ts"],
+  ["NativeSvgRenderResult.json", "NativeSVGRenderResultA0", "native-svg-render-result.ts"],
   ["NativeError.json", "NativeErrorA0", "native-error.ts"],
 ];
 const schemas = new Map();
@@ -62,6 +65,22 @@ const externalSchemaTypes = new Map([
   [
     "urn:wavenumber:schema:kicad_monkey.compiled_schematic_graph:a0",
     ["CompiledSchematicGraph.json", "CompiledSchematicGraphA0"],
+  ],
+  [
+    "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0",
+    ["FootprintPlotDocument.json", "FootprintPlotDocumentA0"],
+  ],
+  [
+    "urn:wavenumber:schema:kicad_monkey.symbol_plot.document:a0",
+    ["SymbolPlotDocument.json", "SymbolPlotDocumentA0"],
+  ],
+  [
+    "urn:wavenumber:schema:kicad_monkey.board_plot.document:a0",
+    ["BoardPlotDocument.json", "BoardPlotDocumentA0"],
+  ],
+  [
+    "urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0",
+    ["SchematicPlotDocument.json", "SchematicPlotDocumentA0"],
   ],
 ]);
 
@@ -186,10 +205,16 @@ function renderPython() {
       lines.push(...renderPythonSourceBundleValidation(functionName, typeName));
     } else if (typeName === "NativeHandshakeA0") {
       lines.push(...renderPythonNativeHandshakeValidation(functionName, typeName));
+    } else if (typeName === "NativeHandshakeA1") {
+      lines.push(...renderPythonNativeHandshakeA1Validation(functionName, typeName));
     } else if (typeName === "NativeDesignFactsRequestA0") {
       lines.push(...renderPythonNativeRequestValidation(functionName, typeName));
     } else if (typeName === "NativeDesignFactsResultA0") {
       lines.push(...renderPythonNativeResultValidation(functionName, typeName));
+    } else if (typeName === "NativeSVGRenderRequestA0") {
+      lines.push(...renderPythonNativeSvgRequestValidation(functionName, typeName));
+    } else if (typeName === "NativeSVGRenderResultA0") {
+      lines.push(...renderPythonNativeSvgResultValidation(functionName, typeName));
     } else if (typeName === "FontBundleManifestA0") {
       lines.push(...renderPythonFontBundleValidation(functionName, typeName));
     } else if (typeName === "ShapingRecordA0") {
@@ -214,8 +239,11 @@ function renderPython() {
     "validate_schematic_plot_request_a0",
     "validate_schematic_plot_document_a0",
     "validate_native_handshake_a0",
+    "validate_native_handshake_a1",
     "validate_native_design_facts_request_a0",
     "validate_native_design_facts_result_a0",
+    "validate_native_svg_render_request_a0",
+    "validate_native_svg_render_result_a0",
   ];
   lines.push("", "", "__all__ = (", ...exported.map((name) => `    ${pythonLiteral(name)},`), ")", "");
   return lines.join("\n");
@@ -774,6 +802,25 @@ function renderPythonNativeHandshakeValidation(functionName, typeName) {
   ];
 }
 
+function renderPythonNativeHandshakeA1Validation(functionName, typeName) {
+  return [
+    `_native_handshake_a1_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _native_handshake_a1_decoder.decode(data)",
+    "    validate_native_handshake_a1(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_native_handshake_a1(value: ${typeName}) -> None:`,
+    "    if not value.engine_version:",
+    '        raise msgspec.ValidationError("invalid_value at $.engine_version")',
+    "    if value.operations != ('design-facts', 'render-svg'):",
+    '        raise msgspec.ValidationError("unsupported_contract at $.operations")',
+  ];
+}
+
 function renderPythonNativeRequestValidation(functionName, typeName) {
   return [
     `_native_design_facts_request_a0_decoder = msgspec.json.Decoder(${typeName})`,
@@ -811,6 +858,100 @@ function renderPythonNativeResultValidation(functionName, typeName) {
     `def validate_native_design_facts_result_a0(value: ${typeName}) -> None:`,
     "    if not value.engine_version:",
     '        raise msgspec.ValidationError("invalid_value at $.engine_version")',
+  ];
+}
+
+function renderPythonNativeSvgRequestValidation(functionName, typeName) {
+  return [
+    `_native_svg_render_request_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _native_svg_render_request_a0_decoder.decode(data)",
+    "    validate_native_svg_render_request_a0(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_native_svg_render_request_a0(value: ${typeName}) -> None:`,
+    "    for field_name in (",
+    "        'max_points',",
+    "        'max_text_bytes',",
+    "        'max_image_encoded_bytes',",
+    "        'max_svg_elements',",
+    "        'max_render_work',",
+    "        'max_svg_bytes',",
+    "        'max_result_bytes',",
+    "    ):",
+    "        _validate_native_uint64(getattr(value.limits, field_name), f'$.limits.{field_name}')",
+    "    document = value.document",
+    "    if isinstance(document, NativeFootprintSvgDocument):",
+    "        validate_footprint_plot_document_a0(document.value)",
+    "        expected_source_kind = 'MOD'",
+    "    elif isinstance(document, NativeSymbolSvgDocument):",
+    "        validate_symbol_plot_document_a0(document.value)",
+    "        expected_source_kind = 'SYM'",
+    "    elif isinstance(document, NativeBoardSvgDocument):",
+    "        validate_board_plot_document_a0(document.value)",
+    "        expected_source_kind = 'PCB'",
+    "    elif isinstance(document, NativeSchematicSvgDocument):",
+    "        validate_schematic_plot_document_a0(document.value)",
+    "        expected_source_kind = 'SCH'",
+    "        canvas = document.value.canvas",
+    "        viewport = value.viewport",
+    "        if (",
+    "            viewport.min_x_nm != 0",
+    "            or viewport.min_y_nm != 0",
+    "            or viewport.width_nm != canvas.width_nm",
+    "            or viewport.height_nm != canvas.height_nm",
+    "        ):",
+    '            raise msgspec.ValidationError("viewport_mismatch at $.viewport")',
+    "    else:",
+    '        raise msgspec.ValidationError("unsupported_contract at $.document.kind")',
+    "    if not document.value.document_id:",
+    '        raise msgspec.ValidationError("invalid_value at $.document.value.document_id")',
+    "    if document.value.source_kind != expected_source_kind:",
+    '        raise msgspec.ValidationError("source_kind_mismatch at $.document.value.source_kind")',
+    "",
+    "",
+    "def _validate_native_uint64(value: str, path: str) -> None:",
+    "    canonical = value == '0' or (",
+    "        bool(value)",
+    "        and value[0] in '123456789'",
+    "        and value.isascii()",
+    "        and value.isdecimal()",
+    "    )",
+    "    if (",
+    "        not canonical",
+    "        or len(value) > 20",
+    "        or (len(value) == 20 and value > '18446744073709551615')",
+    "    ):",
+    '        raise msgspec.ValidationError(f"invalid_uint64 at {path}")',
+  ];
+}
+
+function renderPythonNativeSvgResultValidation(functionName, typeName) {
+  return [
+    `_native_svg_render_result_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _native_svg_render_result_a0_decoder.decode(data)",
+    "    validate_native_svg_render_result_a0(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_native_svg_render_result_a0(value: ${typeName}) -> None:`,
+    "    if not value.engine_version:",
+    '        raise msgspec.ValidationError("invalid_value at $.engine_version")',
+    "    if not value.document_id:",
+    '        raise msgspec.ValidationError("invalid_value at $.document_id")',
+    "    if not value.svg_utf8:",
+    '        raise msgspec.ValidationError("invalid_value at $.svg_utf8")',
+    "    _validate_native_uint64(value.svg_bytes, '$.svg_bytes')",
+    "    if int(value.svg_bytes) != len(value.svg_utf8.encode('utf-8')):",
+    '        raise msgspec.ValidationError("length_mismatch at $.svg_bytes")',
+    "    if value.svg_sha256 != hashlib.sha256(value.svg_utf8.encode('utf-8')).hexdigest():",
+    '        raise msgspec.ValidationError("hash_mismatch at $.svg_sha256")',
   ];
 }
 
@@ -1810,6 +1951,12 @@ function projectSchema(value) {
   if (Array.isArray(value)) return value.map(projectSchema);
   if (value === null || typeof value !== "object") return value;
   for (const [key, child] of Object.entries(value)) value[key] = projectSchema(child);
+  if (Array.isArray(value.prefixItems)) {
+    assert(value.type === "array", "prefixItems requires an array schema");
+    value.items = value.prefixItems;
+    value.additionalItems = false;
+    delete value.prefixItems;
+  }
   if (value.unevaluatedProperties !== undefined) {
     value.additionalProperties = isFalseSchema(value.unevaluatedProperties)
       ? false
@@ -1848,7 +1995,11 @@ function pascalCase(value) {
 }
 
 function snakeCase(value) {
-  return value.replace(/([a-z0-9])([A-Z])/gu, "$1_$2").replace(/[^a-zA-Z0-9]+/gu, "_").toLowerCase();
+  return value
+    .replace(/([A-Z]+)([A-Z][a-z])/gu, "$1_$2")
+    .replace(/([a-z0-9])([A-Z])/gu, "$1_$2")
+    .replace(/[^a-zA-Z0-9]+/gu, "_")
+    .toLowerCase();
 }
 
 function assert(condition, message) {

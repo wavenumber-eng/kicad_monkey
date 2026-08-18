@@ -21,6 +21,45 @@ _SCHEMATIC = """(kicad_sch
 )
 """
 
+_FOOTPRINT_DOCUMENT = {
+    "schema": "kicad.plotter_ir.a0",
+    "source_kind": "MOD",
+    "total_operations": 1,
+    "records": [
+        {
+            "uuid": "line",
+            "kind": "footprint",
+            "object_id": "Demo",
+            "operation_count": 1,
+            "operations": [
+                {
+                    "kind": "ThickSegment",
+                    "index": 0,
+                    "start_x": 0,
+                    "start_y": 0,
+                    "end_x": 1_000_000,
+                    "end_y": 0,
+                    "width_nm": 100_000,
+                    "layer": "F.SilkS",
+                }
+            ],
+            "name": "Demo",
+            "layer": "F.Cu",
+            "locked": False,
+            "placed": False,
+            "descr": "",
+            "tags": "",
+            "attr": [],
+        }
+    ],
+    "source_path": "demo.kicad_mod",
+    "document_id": "wheel-svg",
+    "coordinate_space": {"unit": "nm", "y_axis": "down"},
+    "version": 20260101,
+    "generator": "pcbnew",
+    "generator_version": "10.0",
+}
+
 
 def main() -> int:
     if len(sys.argv) != 2:
@@ -64,16 +103,23 @@ def main() -> int:
                     "import json,sys; "
                     "from pathlib import Path; "
                     "from kicad_monkey import KiCadDesign,kicad_native_handshake,"
-                    "native_design_facts_for_design; "
+                    "kicad_native_handshake_a1,native_design_facts_for_design,native_render_svg; "
                     "root=Path(sys.argv[1]); "
+                    "document=json.loads(sys.argv[2]); "
                     "handshake=kicad_native_handshake(); "
+                    "handshake_a1=kicad_native_handshake_a1(); "
                     "facts=native_design_facts_for_design("
                     "KiCadDesign.from_project_file(root/'demo.kicad_pro')); "
+                    "svg=native_render_svg(document,document_kind='footprint',"
+                    "viewport={'min_x_nm':0,'min_y_nm':0,'width_nm':1000000,'height_nm':1000000}); "
                     "assert facts.engine_version==handshake['engine_version']; "
+                    "assert svg.engine_version==handshake_a1['engine_version']; "
+                    "assert svg.document_id=='wheel-svg' and '<line' in svg.svg_utf8; "
                     "assert '(version \"E\"' in facts.kicad_netlist; "
-                    "print(json.dumps(handshake, sort_keys=True))"
+                    "print(json.dumps({'a0':handshake,'a1':handshake_a1}, sort_keys=True))"
                 ),
                 str(root),
+                json.dumps(_FOOTPRINT_DOCUMENT, separators=(",", ":")),
             ],
             check=True,
             cwd=root,
@@ -82,13 +128,15 @@ def main() -> int:
             encoding="utf-8",
         )
         payload = json.loads(completed.stdout)
-    if payload != {
+    if payload["a0"] != {
         "engine_version": "0.1.0",
         "operations": ["design-facts"],
         "type": "kicad_monkey.native.handshake",
         "version": "a0",
     }:
         raise SystemExit(f"unexpected native handshake: {payload!r}")
+    if payload["a1"]["operations"] != ["design-facts", "render-svg"]:
+        raise SystemExit(f"unexpected expanded native handshake: {payload!r}")
     return 0
 
 

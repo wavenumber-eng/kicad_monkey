@@ -1,0 +1,43 @@
+name: Phase 6 Native SVG
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CARGO_BUILD_JOBS: "4"
+  RUST_TEST_THREADS: "2"
+
+permissions:
+  contents: read
+
+jobs:
+  native-svg:
+    name: Phase 6 native SVG (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Set up Python
+        run: uv python install 3.14
+      - name: Sync package and contract toolchains
+        run: |
+          uv sync --all-packages --all-extras
+          npm install --global npm@11.6.2
+          npm ci
+      - name: Run native SVG contract and process gates
+        run: |
+          uv run --extra test python tests/rack.py run L0_063
+          uv run --extra test python tests/rack.py run L1_038
+          uv run --extra test python tests/rack.py run L3_023

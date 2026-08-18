@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use typify::{TypeSpace, TypeSpaceSettings};
 
-const SCHEMAS: [(&str, &str); 34] = [
+const SCHEMAS: [(&str, &str); 37] = [
     ("BoardPlotDocument.json", "board_plot_document.rs"),
     ("BoardPlotRequest.json", "board_plot_request.rs"),
     ("BoardPlotResult.json", "board_plot_result.rs"),
@@ -55,6 +55,7 @@ const SCHEMAS: [(&str, &str); 34] = [
     ("ShapingRecord.json", "shaping_record.rs"),
     ("OutlineVector.json", "outline_vector.rs"),
     ("NativeHandshake.json", "native_handshake.rs"),
+    ("NativeHandshakeA1.json", "native_handshake_a1.rs"),
     (
         "NativeDesignFactsRequest.json",
         "native_design_facts_request.rs",
@@ -63,6 +64,11 @@ const SCHEMAS: [(&str, &str); 34] = [
         "NativeDesignFactsResult.json",
         "native_design_facts_result.rs",
     ),
+    (
+        "NativeSvgRenderRequest.json",
+        "native_svg_render_request.rs",
+    ),
+    ("NativeSvgRenderResult.json", "native_svg_render_result.rs"),
     ("NativeError.json", "native_error.rs"),
 ];
 
@@ -455,6 +461,7 @@ fn main() -> Result<()> {
         flatten_board_footprint_operation_extensions(schema_name, &mut schema)?;
         project_schematic_request_fields(schema_name, &mut schema)?;
         project_native_external_references(schema_name, &mut schema)?;
+        project_native_handshake_tuple(schema_name, &mut schema)?;
         project_for_typify(&mut schema);
         promote_disjoint_record_unions(&mut schema);
         project_tri_state_via_drill_layers(&mut schema);
@@ -1185,6 +1192,28 @@ fn generate(schema_name: &str, value: Value) -> Result<String> {
             [].into_iter(),
         );
     }
+    if schema_name == "NativeSvgRenderRequest.json" {
+        settings.with_replacement(
+            "NativeFootprintPlotDocumentProjection",
+            "::serde_json::Value",
+            [].into_iter(),
+        );
+        settings.with_replacement(
+            "NativeSymbolPlotDocumentProjection",
+            "::serde_json::Value",
+            [].into_iter(),
+        );
+        settings.with_replacement(
+            "NativeBoardPlotDocumentProjection",
+            "::serde_json::Value",
+            [].into_iter(),
+        );
+        settings.with_replacement(
+            "NativeSchematicPlotDocumentProjection",
+            "::serde_json::Value",
+            [].into_iter(),
+        );
+    }
     let mut type_space = TypeSpace::new(&settings);
     type_space.add_root_schema(schema)?;
     let body = type_space.to_stream().to_string();
@@ -1194,7 +1223,68 @@ fn generate(schema_name: &str, value: Value) -> Result<String> {
     rustfmt(&prettyplease::unparse(&syntax))
 }
 
+fn project_native_handshake_tuple(schema_name: &str, schema: &mut Value) -> Result<()> {
+    if schema_name != "NativeHandshakeA1.json" {
+        return Ok(());
+    }
+    let operations = schema
+        .pointer_mut("/properties/operations")
+        .and_then(Value::as_object_mut)
+        .context("NativeHandshakeA1.json missing operations schema")?;
+    if operations.get("minItems") != Some(&Value::from(2))
+        || operations.get("maxItems") != Some(&Value::from(2))
+    {
+        bail!("NativeHandshakeA1.json operations tuple length changed");
+    }
+    let prefix_items = operations
+        .remove("prefixItems")
+        .and_then(|value| value.as_array().cloned())
+        .context("NativeHandshakeA1.json operations tuple projection changed")?;
+    let expected = ["design-facts", "render-svg"];
+    if prefix_items.len() != expected.len()
+        || prefix_items
+            .iter()
+            .zip(expected)
+            .any(|(item, expected)| item.get("const").and_then(Value::as_str) != Some(expected))
+    {
+        bail!("NativeHandshakeA1.json operations tuple order changed");
+    }
+    operations.insert(
+        "items".to_owned(),
+        serde_json::json!({ "anyOf": prefix_items }),
+    );
+    Ok(())
+}
+
 fn project_native_external_references(schema_name: &str, schema: &mut Value) -> Result<()> {
+    if schema_name == "NativeSvgRenderRequest.json" {
+        let references = [
+            (
+                "/$defs/NativeFootprintSvgDocument/properties/value/$ref",
+                "urn:wavenumber:schema:kicad_monkey.footprint_plot.document:a0",
+                "NativeFootprintPlotDocumentProjection",
+            ),
+            (
+                "/$defs/NativeSymbolSvgDocument/properties/value/$ref",
+                "urn:wavenumber:schema:kicad_monkey.symbol_plot.document:a0",
+                "NativeSymbolPlotDocumentProjection",
+            ),
+            (
+                "/$defs/NativeBoardSvgDocument/properties/value/$ref",
+                "urn:wavenumber:schema:kicad_monkey.board_plot.document:a0",
+                "NativeBoardPlotDocumentProjection",
+            ),
+            (
+                "/$defs/NativeSchematicSvgDocument/properties/value/$ref",
+                "urn:wavenumber:schema:kicad_monkey.schematic_plot.document:a0",
+                "NativeSchematicPlotDocumentProjection",
+            ),
+        ];
+        for (pointer, external, projection) in references {
+            project_native_reference(schema_name, schema, pointer, external, projection)?;
+        }
+        return Ok(());
+    }
     let (pointer, external, projection) = match schema_name {
         "NativeDesignFactsRequest.json" => (
             "/properties/manifest/$ref",
@@ -1208,6 +1298,16 @@ fn project_native_external_references(schema_name: &str, schema: &mut Value) -> 
         ),
         _ => return Ok(()),
     };
+    project_native_reference(schema_name, schema, pointer, external, projection)
+}
+
+fn project_native_reference(
+    schema_name: &str,
+    schema: &mut Value,
+    pointer: &str,
+    external: &str,
+    projection: &str,
+) -> Result<()> {
     let reference = schema
         .pointer_mut(pointer)
         .with_context(|| format!("missing {schema_name} external contract reference"))?;

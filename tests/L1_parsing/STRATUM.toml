@@ -636,6 +636,24 @@ secondary = [
 # -----------------------------------------------------------------------------
 
 [[subtests]]
+id = "L1_038"
+file = "test_L1_038_native_svg_transport.py"
+name = "Native Base SVG Process Transport"
+description = "Require the public Python client and real Rust process to agree on deterministic plotter-base-a0 SVG"
+concerns = ["rust", "contracts", "svg", "transport", "resource-limits"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "A real packaged-process candidate renders a strict frozen Plotter-IR document to a validated deterministic SVG result"
+secondary = [
+    "The closed a0 handshake remains byte-compatible while a1 advertises render-svg",
+    "All 30 frozen documents are covered as 29 pinned SVG results plus the exact negative-width safety rejection",
+    "The caller supplies the viewport explicitly and no source/project/font discovery occurs",
+    "The result byte count and SHA-256 are validated before publication",
+    "Cargo execution is serialized at four build jobs and two test threads",
+]
+
+[[subtests]]
 id = "L1_037"
 file = "test_L1_037_native_design_facts_transport.py"
 name = "Native Design Facts Process Transport"

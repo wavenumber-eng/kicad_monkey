@@ -86,3 +86,6 @@ jobs:
 
   phase5-exit:
     uses: ./.github/workflows/phase5-exit.yml
+
+  phase6-native-svg:
+    uses: ./.github/workflows/phase6-native-svg.yml

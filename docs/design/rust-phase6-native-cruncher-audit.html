@@ -14,7 +14,8 @@
   bounded Python client, and Windows platform-wheel lane are accepted.
   They are transport and packaging foundations, not a promoted Cruncher hard
   switch. In particular, the repository does not yet contain a native
-  <code>kicad-cruncher</code> executable or a native SVG provider.</p>
+  <code>kicad-cruncher</code> executable or a Cruncher-integrated native SVG
+  provider.</p>
 
   <h2>Authority and ownership</h2>
   <p><a href="../adrs/ADR-011-native-first-rust-port-delivery.md">ADR-011</a>
@@ -28,11 +29,11 @@
   <p>The existing public Cruncher distribution is still a Python wheel. Its
   <code>kicad-cruncher</code> and <code>kcr</code> scripts point to the Python
   CLI, and it carries an ordinary public <code>kicad-monkey</code> dependency.
-  The Rust workspace now also contains an unpublished
-  <code>kicad-monkey-native</code> candidate for the first bounded operation.
-  It is development evidence only until generated envelopes, platform-wheel
-  inclusion, clean-install execution, and independent review are complete.
-  These are design facts, not gaps silently filled by this proposal.</p>
+  The Rust workspace also contains the accepted, unpublished
+  <code>kicad-monkey-native</code> P6_000 transport foundation. Its generated
+  envelopes, platform-wheel inclusion, clean-install execution, and
+  independent review are closed evidence. It is not yet a Cruncher provider;
+  the no-fallback integration remains P6_020 work.</p>
 
   <h2>Phase 5 IR boundary is not an SVG or application boundary</h2>
   <p>Phase 5 closed strict, bounded Plotter-IR producers for footprint,
@@ -74,9 +75,11 @@
         <td>Serialize the frozen Plotter-IR and native text caches to bounded,
         deterministic SVG. Separate base SVG correctness from Cruncher-owned
         presentation, theming, links, and document enrichment.</td>
-        <td>Exact cross-producer SVG vectors, semantic SVG checks, malformed
-        block-state and resource tests, and selected live KiCad/Python oracle
-        comparisons.</td>
+        <td>Exact cross-producer SVG vectors, independent semantic SVG
+        goldens, malformed block-state and resource tests, and selected
+        Python-authority geometry/style comparisons. Live KiCad presentation
+        comparison remains provider work because this base profile is not a
+        public-wrapper byte-equivalence claim.</td>
       </tr>
       <tr>
         <td>P6_020 no-fallback physical provider</td>
@@ -132,6 +135,21 @@
   Windows-wheel <code>design-facts</code> execution were also green. Three
   independent reviews approved the slice. This closure does not promote SVG
   or any Cruncher fallback switch.</p>
+
+  <p>P6_010 closed on 2026-08-17. It adds the generated <code>render-svg</code>
+  operation and bounded <code>plotter-base-a0</code> serializer over all 30
+  frozen Phase-5 parity documents: 29 deterministic SVG results and one
+  explicit negative-width safety rejection. Its viewport, fixed base profile,
+  pinned hashes, exclusions, and resource ceilings are described in the
+  <a href="rust-native-svg-phase6-slice.html">native SVG slice</a>. Existing
+  Python SVG APIs and Cruncher composition remain unchanged until P6_020, so
+  this slice does not claim live-wrapper byte parity, layer-view parity, or a
+  no-fallback switchover.</p>
+  <p>Closure evidence was L0_063 (17 tests, 0.19 seconds warm), L1_038
+  (2 tests, 1.34 seconds warm), and L3_023 (1 test, 11.05 seconds warm;
+  11.92 seconds with Rack orchestration), plus the green full Rust workspace
+  format/check/Clippy/test gate and three independent approvals. P6_020 remains
+  planned and is the first slice allowed to redirect a Cruncher provider.</p>
 
   <h2>Transport and resource rules</h2>
   <ul>

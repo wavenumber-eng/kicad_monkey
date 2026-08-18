@@ -35,10 +35,12 @@ repository also contains the separately published `kicad-cruncher` workflow
 CLI under `packages/kicad_cruncher/`. The CLI depends on Monkey; Monkey never
 depends on the CLI.
 
-The Rust port has closed its Phase 5 Plotter-IR boundary. A review-ready
+The Rust port has closed its Phase 5 Plotter-IR boundary. The accepted
 Windows native-operation transport/package foundation now starts Phase 6;
 native SVG and the no-fallback Cruncher hard switch remain staged work. See
 the [native Cruncher delivery audit](docs/design/rust-phase6-native-cruncher-audit.html).
+The accepted [native base SVG slice](docs/design/rust-native-svg-phase6-slice.html)
+adds a bounded `render-svg` operation without redirecting existing SVG or Cruncher APIs.
 
 ## Install
 

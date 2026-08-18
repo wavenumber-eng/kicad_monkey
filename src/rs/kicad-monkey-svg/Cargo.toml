@@ -1,6 +1,6 @@
 [package]
-name = "kicad-monkey-native"
-description = "Bounded native process transport for KiCad Monkey"
+name = "kicad-monkey-svg"
+description = "Bounded deterministic SVG serialization for frozen KiCad Monkey Plotter-IR"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,10 +13,5 @@ publish = false
 workspace = true
 
 [dependencies]
-cap-std.workspace = true
 kicad-monkey-contracts = { path = "../kicad-monkey-contracts" }
-kicad-monkey-core = { path = "../kicad-monkey-core" }
-kicad-monkey-svg = { path = "../kicad-monkey-svg" }
-serde.workspace = true
 serde_json.workspace = true
-sha2.workspace = true

@@ -34,11 +34,18 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
     uses: ./.github/workflows/phase5-exit.yml
 
-  build-monkey-windows-wheel:
+  phase6-native-svg:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
     needs: phase5-exit
+    uses: ./.github/workflows/phase6-native-svg.yml
+
+  build-monkey-windows-wheel:
+    if: >-
+      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
+    needs: [phase5-exit, phase6-native-svg]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +74,7 @@ jobs:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: [phase5-exit, build-monkey-windows-wheel]
+    needs: [phase5-exit, phase6-native-svg, build-monkey-windows-wheel]
     runs-on: ubuntu-latest
     environment: pypi-kicad-monkey
     steps:

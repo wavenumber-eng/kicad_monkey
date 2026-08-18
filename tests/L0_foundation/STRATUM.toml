@@ -412,6 +412,23 @@ secondary = [
 ]
 
 [[subtests]]
+id = "L0_063"
+file = "test_L0_063_native_svg_transport.py"
+name = "Native SVG Transport Contracts"
+description = "Require strict generated envelopes and fail-closed hash/length validation for native base SVG"
+concerns = ["rust", "contracts", "svg", "transport", "resource-limits"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "The Python client accepts only the generated a1 handshake and hashed plotter-base-a0 result"
+secondary = [
+    "The closed a0 design-facts handshake remains unchanged",
+    "The request embeds exactly one frozen producer document and an explicit positive viewport",
+    "Generated request semantics revalidate the nested Phase-5 document, source kind, nonempty identity, viewport, and canonical ceilings",
+    "Malformed identity, hashes, lengths, unsafe XML, external links or paints, duplicate IDs, and over-ceiling results fail before SVG publication",
+]
+
+[[subtests]]
 id = "L0_062"
 file = "test_L0_062_native_process_client.py"
 name = "Native Process Client Foundation"
