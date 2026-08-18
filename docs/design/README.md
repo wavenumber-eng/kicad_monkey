@@ -104,6 +104,8 @@ Current design notes:
 - `rust-native-full-cli-phase6-slice.html` - accepted compatibility
   boundary for the installed Cruncher entry points, primary design aliases,
   exact artifacts and exits over mandatory Windows native providers.
+- `rust-phase6-exit.html` - review-ready Windows x64 candidate-artifact,
+  contract-freeze, reviewed-corpus, and exact-release-publication boundary.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

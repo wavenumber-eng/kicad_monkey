@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -59,9 +60,12 @@ class NativeDesignFactsProvider:
 def use_native_design_facts_provider() -> bool:
     """Return whether this platform is promoted to native design facts."""
 
-    return sys.platform == "win32" or os.environ.get(
-        "KICAD_CRUNCHER_NATIVE_DESIGN_FACTS"
-    ) == "1"
+    explicitly_enabled = os.environ.get("KICAD_CRUNCHER_NATIVE_DESIGN_FACTS") == "1"
+    windows_x64 = sys.platform == "win32" and platform.machine().casefold() in {
+        "amd64",
+        "x86_64",
+    }
+    return windows_x64 or explicitly_enabled
 
 
 def selected_design_facts_provider() -> DesignFactsProvider | None:

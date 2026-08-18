@@ -7,6 +7,7 @@ import email.parser
 import hashlib
 import json
 import os
+import platform
 import subprocess
 import sys
 import tarfile
@@ -87,6 +88,34 @@ def _metadata(wheel: Path) -> tuple[list[str], list[str]]:
 def _sdist_names(sdist: Path) -> list[str]:
     with tarfile.open(sdist, "r:gz") as archive:
         return archive.getnames()
+
+
+def _assert_windows_x64_native_payload(wheel: Path) -> None:
+    """Require the selected Windows artifact to contain one AMD64 PE sidecar."""
+
+    if os.name != "nt":
+        return
+    if platform.machine().casefold() not in {"amd64", "x86_64"}:
+        raise SystemExit(
+            f"P6_050 requires a Windows x64 runner, got {platform.machine()}"
+        )
+    if not wheel.name.endswith("-win_amd64.whl"):
+        raise SystemExit(f"Monkey candidate is not a Windows x64 wheel: {wheel.name}")
+    member = "kicad_monkey/_native/kicad-monkey-native.exe"
+    with zipfile.ZipFile(wheel) as archive:
+        names = archive.namelist()
+        if names.count(member) != 1:
+            raise SystemExit(f"Monkey wheel must contain exactly one {member}")
+        binary = archive.read(member)
+    if len(binary) < 0x40 or binary[:2] != b"MZ":
+        raise SystemExit("Monkey native sidecar is not a PE executable")
+    pe_offset = int.from_bytes(binary[0x3C:0x40], "little")
+    if (
+        pe_offset > len(binary) - 6
+        or binary[pe_offset : pe_offset + 4] != b"PE\0\0"
+        or int.from_bytes(binary[pe_offset + 4 : pe_offset + 6], "little") != 0x8664
+    ):
+        raise SystemExit("Monkey native sidecar is not an AMD64 PE executable")
 
 
 def _venv_python(venv_dir: Path) -> Path:
@@ -218,10 +247,17 @@ def _assert_installed_native_resolver(
             "-I",
             "-c",
             (
-                "import json, pathlib, kicad_monkey; "
+                "import json, pathlib, platform, kicad_monkey; "
                 "from kicad_monkey import resolve_kicad_native_executable; "
+                "from kicad_cruncher.kicad_cruncher_native_design import "
+                "use_native_design_facts_provider; "
+                "from kicad_cruncher.kicad_cruncher_native_physical import "
+                "use_native_physical_provider; "
                 "print(json.dumps({'package': str(pathlib.Path(kicad_monkey.__file__)"
-                ".resolve().parent), 'native': str(resolve_kicad_native_executable())}))"
+                ".resolve().parent), 'native': str(resolve_kicad_native_executable()), "
+                "'machine': platform.machine(), "
+                "'design_default': use_native_design_facts_provider(), "
+                "'physical_default': use_native_physical_provider()}))"
             ),
         ],
         cwd=temp_dir,
@@ -235,6 +271,12 @@ def _assert_installed_native_resolver(
     payload = json.loads(completed.stdout)
     package_dir = Path(payload["package"]).resolve()
     native = Path(payload["native"]).resolve()
+    if str(payload["machine"]).casefold() not in {"amd64", "x86_64"}:
+        raise SystemExit(f"Installed Python did not report Windows x64: {payload}")
+    if payload["design_default"] is not True or payload["physical_default"] is not True:
+        raise SystemExit(
+            f"Installed Windows native providers are not hard-selected: {payload}"
+        )
     if "site-packages" not in package_dir.as_posix() or native.parent != (
         package_dir / "_native"
     ):
@@ -442,7 +484,13 @@ def _validate_installed_design_cli_failures(
     for ordinal, (_label, current_prefix, current_alias) in enumerate(entrypoints):
         new_output = temp_dir / f"missing-native-output-{ordinal}"
         _expect_exit(
-            [*current_prefix, current_alias, str(schematic_path), "-o", str(new_output)],
+            [
+                *current_prefix,
+                current_alias,
+                str(schematic_path),
+                "-o",
+                str(new_output),
+            ],
             1,
             cwd=temp_dir,
             env=missing_native_env,
@@ -510,6 +558,52 @@ def _validate_installed_native_pcb_svg(
     ):
         raise SystemExit("Installed native PCB SVG lacks physical enrichment")
 
+    missing_native_env = dict(env)
+    missing_native_env["KICAD_MONKEY_NATIVE"] = str(temp_dir / "missing-native.exe")
+    missing_output = temp_dir / "pcb-svg-missing-native"
+    _expect_exit(
+        [
+            str(executable),
+            "pcb-svg",
+            str(pcb_path),
+            "--views",
+            "assembly-top",
+            "-o",
+            str(missing_output),
+        ],
+        1,
+        cwd=temp_dir,
+        env=missing_native_env,
+        output_text="PCB SVG generation failed",
+        output_channel="stdout",
+    )
+    _require_no_output(missing_output)
+
+    existing_output = temp_dir / "pcb-svg-existing"
+    existing_output.mkdir()
+    (existing_output / "keep.txt").write_bytes(b"previous-pcb-svg\n")
+    before = _artifact_tree_bytes(existing_output)
+    _expect_exit(
+        [
+            str(executable),
+            "pcb-svg",
+            str(pcb_path),
+            "--views",
+            "assembly-top",
+            "-o",
+            str(existing_output),
+        ],
+        1,
+        cwd=temp_dir,
+        env=missing_native_env,
+        output_text="PCB SVG generation failed",
+        output_channel="stdout",
+    )
+    if _artifact_tree_bytes(existing_output) != before:
+        raise SystemExit(
+            "Failed native pcb-svg command changed the previous output tree"
+        )
+
 
 def validate_artifacts(
     monkey_wheel: Path,
@@ -523,6 +617,7 @@ def validate_artifacts(
     cruncher_names, cruncher_requirements = _metadata(cruncher_wheel)
     monkey_sdist_names = _sdist_names(monkey_sdist.resolve())
     cruncher_sdist_names = _sdist_names(cruncher_sdist.resolve())
+    _assert_windows_x64_native_payload(monkey_wheel)
 
     if any(name.startswith("kicad_cruncher/") for name in monkey_names):
         raise SystemExit("Monkey wheel unexpectedly contains Cruncher source")
@@ -578,7 +673,12 @@ def validate_artifacts(
         env = os.environ.copy()
         env.pop("PYTHONPATH", None)
         env.pop("PYTHONHOME", None)
-        env.pop("KICAD_MONKEY_NATIVE", None)
+        for variable in (
+            "KICAD_MONKEY_NATIVE",
+            "KICAD_CRUNCHER_NATIVE_PHYSICAL",
+            "KICAD_CRUNCHER_NATIVE_DESIGN_FACTS",
+        ):
+            env.pop(variable, None)
         scripts = venv_dir / ("Scripts" if os.name == "nt" else "bin")
         env["PATH"] = str(scripts) + os.pathsep + env.get("PATH", "")
 

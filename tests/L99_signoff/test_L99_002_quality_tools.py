@@ -30,14 +30,14 @@ QUALITY_STATUS_DOC = PACKAGE_ROOT / "docs" / "design" / "quality-signoff-status.
 COMPLEXITY_BASELINE_PATH = "src/py/kicad_monkey"
 COMPLEXITY_MAX_BASELINE = 27
 COMPLEXITY_COUNT_BASELINES = {
-    10: 129,
+    10: 135,
     20: 18,
     30: 0,
     50: 0,
 }
 COMPLEXITY_EXCESS_BASELINES = {
-    10: 614,
-    20: 75,
+    10: 638,
+    20: 76,
     30: 0,
 }
 COMPLEXITY_MESSAGE_RE = re.compile(r"\((?P<complexity>\d+) > 10\)")

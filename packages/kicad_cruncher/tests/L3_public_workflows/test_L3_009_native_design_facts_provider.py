@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 from kicad_cruncher import kicad_cruncher_cmd_design as design_cmd
+from kicad_cruncher import kicad_cruncher_native_design as native_design
+from kicad_cruncher import kicad_cruncher_native_physical as native_physical
 from kicad_cruncher.kicad_cruncher_native_design import (
     NativeDesignFactsProvider,
     use_native_design_facts_provider,
@@ -28,6 +30,34 @@ _WORKSPACE = Path(__file__).resolve().parents[4]
 _NATIVE_EXE = _WORKSPACE / "target" / "debug" / (
     "kicad-monkey-native.exe" if os.name == "nt" else "kicad-monkey-native"
 )
+
+
+@pytest.mark.parametrize(
+    ("machine", "selected_by_default"),
+    (("AMD64", True), ("x86_64", True), ("ARM64", False), ("aarch64", False)),
+)
+def test_native_provider_default_is_windows_x64_only(
+    monkeypatch: pytest.MonkeyPatch,
+    machine: str,
+    selected_by_default: bool,
+) -> None:
+    """Keep the hard switch on its governed x64 target; opt-in stays portable."""
+
+    monkeypatch.delenv("KICAD_CRUNCHER_NATIVE_DESIGN_FACTS", raising=False)
+    monkeypatch.delenv("KICAD_CRUNCHER_NATIVE_PHYSICAL", raising=False)
+    monkeypatch.setattr(native_design.sys, "platform", "win32")
+    monkeypatch.setattr(native_physical.sys, "platform", "win32")
+    monkeypatch.setattr(native_design.platform, "machine", lambda: machine)
+    monkeypatch.setattr(native_physical.platform, "machine", lambda: machine)
+    assert native_design.use_native_design_facts_provider() is selected_by_default
+    assert native_physical.use_native_physical_provider() is selected_by_default
+
+    monkeypatch.setenv("KICAD_CRUNCHER_NATIVE_DESIGN_FACTS", "1")
+    monkeypatch.setenv("KICAD_CRUNCHER_NATIVE_PHYSICAL", "1")
+    assert native_design.use_native_design_facts_provider()
+    assert native_physical.use_native_physical_provider()
+
+
 _SCHEMATIC = """(kicad_sch
   (version 20260306)
   (generator "eeschema")
@@ -196,17 +226,16 @@ def test_native_facts_failure_preserves_the_published_tree(
     assert sorted(path.name for path in output.iterdir()) == ["keep.txt"]
 
 
-def test_provider_selection_is_windows_or_explicit_opt_in(
+def test_provider_selection_is_windows_x64_or_explicit_opt_in(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import kicad_cruncher.kicad_cruncher_native_design as native_design
-
     monkeypatch.delenv("KICAD_CRUNCHER_NATIVE_DESIGN_FACTS", raising=False)
     monkeypatch.setattr(native_design.sys, "platform", "linux")
     assert not use_native_design_facts_provider()
     monkeypatch.setenv("KICAD_CRUNCHER_NATIVE_DESIGN_FACTS", "1")
     assert use_native_design_facts_provider()
     monkeypatch.setattr(native_design.sys, "platform", "win32")
+    monkeypatch.setattr(native_design.platform, "machine", lambda: "AMD64")
     monkeypatch.delenv("KICAD_CRUNCHER_NATIVE_DESIGN_FACTS", raising=False)
     assert use_native_design_facts_provider()
 

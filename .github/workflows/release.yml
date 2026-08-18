@@ -67,40 +67,19 @@ jobs:
     needs: phase6-native-design-facts
     uses: ./.github/workflows/phase6-native-full-cli.yml
 
-  build-monkey-windows-wheel:
+  phase6-exit:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
+      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider, phase6-native-design-facts, phase6-native-full-cli]
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Build Windows native wheel from the public sdist
-        shell: pwsh
-        run: |
-          uv build --sdist --out-dir dist-sdist
-          $sdist = Get-ChildItem dist-sdist\*.tar.gz | Select-Object -First 1
-          if (-not $sdist) { throw "sdist build produced no archive" }
-          uv build $sdist.FullName --wheel --out-dir dist
-      - name: Verify native wheel payload
-        shell: pwsh
-        run: |
-          $wheel = Get-ChildItem dist\*.whl | Select-Object -First 1
-          uv run --extra test python tests/support_scripts/native_wheel_test.py $wheel
-      - uses: actions/upload-artifact@v4
-        with:
-          name: kicad-monkey-windows-wheel
-          path: dist/*.whl
-          if-no-files-found: error
+    needs: phase6-native-full-cli
+    uses: ./.github/workflows/phase6-exit.yml
 
   publish-monkey:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider, phase6-native-design-facts, phase6-native-full-cli, build-monkey-windows-wheel]
+    needs: phase6-exit
     runs-on: ubuntu-latest
     environment: pypi-kicad-monkey
     steps:
@@ -156,12 +135,22 @@ jobs:
         run: |
           uv run --extra test python tests/rack.py run L0_foundation
           uv run --extra test python tests/rack.py run L99_signoff
-      - name: Build package
-        run: uv run --extra test python -m build
       - uses: actions/download-artifact@v4
         with:
-          name: kicad-monkey-windows-wheel
-          path: dist
+          name: phase6-windows-x64-candidates
+          path: phase6-candidates
+      - name: Verify and select the tested Monkey distributions
+        shell: bash
+        run: |
+          uv run --extra test python scripts/verify_phase6_release_candidates.py \
+            phase6-candidates --git-sha "${GITHUB_SHA}"
+          WHEEL="$(find phase6-candidates -maxdepth 1 -name 'kicad_monkey-*-py3-none-win_amd64.whl' -print -quit)"
+          SDIST="$(find phase6-candidates -maxdepth 1 -name 'kicad_monkey-*.tar.gz' -print -quit)"
+          test -n "${WHEEL}" && test -n "${SDIST}"
+          mkdir -p dist
+          cp "${WHEEL}" dist/
+          cp "${SDIST}" dist/
+          uv build "${SDIST}" --wheel --out-dir dist
       - name: Check package
         run: uv run --extra test twine check dist/*
       - name: Run installed import test
@@ -173,27 +162,46 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
-  verify-public-monkey-physical-provider:
+  verify-public-monkey-toolchain:
     if: >-
       github.event_name == 'release' &&
       startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
-    needs: phase6-native-full-cli
+    needs: phase6-exit
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - name: Install and verify the public provider-capable Monkey wheel
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase6-windows-x64-candidates
+          path: phase6-candidates
+      - name: Run the tested Cruncher candidate against exact public Monkey
         shell: pwsh
         run: |
-          uv venv .public-monkey-venv
-          uv pip install --python .public-monkey-venv --no-cache "kicad-monkey>=2026.8.18"
-          .public-monkey-venv\Scripts\python.exe -I -c "from kicad_monkey import kicad_native_handshake_a2; h=kicad_native_handshake_a2(); assert h['operations'] == ['design-facts','render-svg','design-facts-a1']"
+          uv run --extra test python scripts/verify_phase6_release_candidates.py `
+            phase6-candidates --git-sha $env:GITHUB_SHA
+          New-Item -ItemType Directory -Path public-dist -Force | Out-Null
+          uvx --from pip pip download --only-binary=:all: --no-deps `
+            --dest public-dist 'kicad-monkey==2026.8.18'
+          $monkeyWheel = Get-ChildItem public-dist\kicad_monkey-*-win_amd64.whl
+          $cruncherWheel = Get-ChildItem phase6-candidates\kicad_cruncher-*-py3-none-any.whl
+          $monkeySdist = Get-ChildItem phase6-candidates\kicad_monkey-*.tar.gz
+          $cruncherSdist = Get-ChildItem phase6-candidates\kicad_cruncher-*.tar.gz
+          if ($monkeyWheel.Count -ne 1 -or $cruncherWheel.Count -ne 1 -or `
+              $monkeySdist.Count -ne 1 -or $cruncherSdist.Count -ne 1) {
+            throw 'Expected one artifact for every public toolchain role'
+          }
+          uv run --extra test python tests/support_scripts/toolchain_install_test.py `
+            --monkey-wheel $monkeyWheel.FullName `
+            --cruncher-wheel $cruncherWheel.FullName `
+            --monkey-sdist $monkeySdist.FullName `
+            --cruncher-sdist $cruncherSdist.FullName
 
   publish-cruncher:
     if: >-
       github.event_name == 'release' &&
       startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
-    needs: [phase6-native-full-cli, verify-public-monkey-physical-provider]
+    needs: [phase6-exit, verify-public-monkey-toolchain]
     runs-on: ubuntu-latest
     environment: pypi-kicad-cruncher
     steps:
@@ -214,16 +222,18 @@ jobs:
           grep -F "## ${VERSION}" packages/kicad_cruncher/CHANGELOG.md
           test -f "packages/kicad_cruncher/docs/releases/${RELEASE_DATE}.md"
           grep -F "\`${VERSION}\`" "packages/kicad_cruncher/docs/releases/${RELEASE_DATE}.md"
-      - name: Run Cruncher Rack gates against workspace Monkey
-        working-directory: packages/kicad_cruncher
-        env:
-          KICAD_MONKEY_NATIVE: ${{ github.workspace }}/target/debug/kicad-monkey-native
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase6-windows-x64-candidates
+          path: phase6-candidates
+      - name: Select the tested Cruncher distributions
+        shell: bash
         run: |
-          cargo build --locked --jobs 4 --package kicad-monkey-native
-          uv run --package kicad-cruncher --extra test rack run --all
-      - name: Build Cruncher package
-        working-directory: packages/kicad_cruncher
-        run: uv run --package kicad-cruncher --extra test python -m build
+          uv run --extra test python scripts/verify_phase6_release_candidates.py \
+            phase6-candidates --git-sha "${GITHUB_SHA}"
+          mkdir -p packages/kicad_cruncher/dist
+          cp phase6-candidates/kicad_cruncher-*.whl packages/kicad_cruncher/dist/
+          cp phase6-candidates/kicad_cruncher-*.tar.gz packages/kicad_cruncher/dist/
       - name: Check Cruncher package
         run: uv run --extra test twine check packages/kicad_cruncher/dist/*
       - name: Run installed Cruncher console test
@@ -287,16 +297,49 @@ jobs:
           assert hasattr(kicad_monkey, "KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA")
           PY
 
+  verify-coordinated-phase6-toolchain:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [verify-coordinated-monkey, phase6-exit]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase6-windows-x64-candidates
+          path: phase6-candidates
+      - name: Run the exact Cruncher candidate against public Monkey
+        shell: pwsh
+        env:
+          MONKEY_VERSION: ${{ inputs.monkey_version }}
+        run: |
+          uv run --extra test python scripts/verify_phase6_release_candidates.py `
+            phase6-candidates --git-sha $env:GITHUB_SHA
+          New-Item -ItemType Directory -Path public-dist -Force | Out-Null
+          uvx --from pip pip download --only-binary=:all: --no-deps `
+            --dest public-dist "kicad-monkey==$env:MONKEY_VERSION"
+          $monkeyWheel = Get-ChildItem public-dist\kicad_monkey-*-win_amd64.whl
+          $cruncherWheel = Get-ChildItem phase6-candidates\kicad_cruncher-*-py3-none-any.whl
+          $monkeySdist = Get-ChildItem phase6-candidates\kicad_monkey-*.tar.gz
+          $cruncherSdist = Get-ChildItem phase6-candidates\kicad_cruncher-*.tar.gz
+          if ($monkeyWheel.Count -ne 1 -or $cruncherWheel.Count -ne 1 -or `
+              $monkeySdist.Count -ne 1 -or $cruncherSdist.Count -ne 1) {
+            throw 'Expected one artifact for every coordinated toolchain role'
+          }
+          uv run --extra test python tests/support_scripts/toolchain_install_test.py `
+            --monkey-wheel $monkeyWheel.FullName `
+            --cruncher-wheel $cruncherWheel.FullName `
+            --monkey-sdist $monkeySdist.FullName `
+            --cruncher-sdist $cruncherSdist.FullName
+
   publish-coordinated-cruncher:
     if: github.event_name == 'workflow_dispatch'
-    needs: [verify-coordinated-monkey, phase6-native-full-cli]
+    needs: [verify-coordinated-phase6-toolchain, phase6-exit]
     runs-on: ubuntu-latest
     environment: pypi-kicad-cruncher
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - name: Verify coordinated tags and package versions
         shell: bash
         env:
@@ -311,18 +354,19 @@ jobs:
           git fetch --force --tags origin
           test "$(git rev-parse "kicad-monkey-v${MONKEY_VERSION}^{commit}")" = "${GITHUB_SHA}"
           test "$(git rev-parse "kicad-cruncher-v${CRUNCHER_VERSION}^{commit}")" = "${GITHUB_SHA}"
-      - name: Run Cruncher Rack gates against workspace Monkey
-        working-directory: packages/kicad_cruncher
-        env:
-          KICAD_MONKEY_NATIVE: ${{ github.workspace }}/target/debug/kicad-monkey-native
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase6-windows-x64-candidates
+          path: phase6-candidates
+      - name: Select and check the tested Cruncher distributions
+        shell: bash
         run: |
-          cargo build --locked --jobs 4 --package kicad-monkey-native
-          uv run --package kicad-cruncher --extra test rack run --all
-      - name: Build and check Cruncher package
-        working-directory: packages/kicad_cruncher
-        run: |
-          uv run --package kicad-cruncher --extra test python -m build
-          uv run --package kicad-cruncher --extra test twine check dist/*
+          uv run --extra test python scripts/verify_phase6_release_candidates.py \
+            phase6-candidates --git-sha "${GITHUB_SHA}"
+          mkdir -p packages/kicad_cruncher/dist
+          cp phase6-candidates/kicad_cruncher-*.whl packages/kicad_cruncher/dist/
+          cp phase6-candidates/kicad_cruncher-*.tar.gz packages/kicad_cruncher/dist/
+          uv run --package kicad-cruncher --extra test twine check packages/kicad_cruncher/dist/*
       - name: Verify Cruncher against public Monkey
         shell: bash
         env:

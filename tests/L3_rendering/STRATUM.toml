@@ -362,6 +362,38 @@ secondary = [
 ]
 
 [[subtests]]
+id = "L3_027"
+file = "test_L3_027_rust_phase6_exit.py"
+name = "Rust Phase 6 Windows Release Exit"
+description = "Require one hash-bound Windows x64 candidate set to pass the clean installed native Cruncher workflow without fallback"
+test_cases = "tests/corpus/kicad.archive.toml"
+test_case_type = "release_acceptance"
+concerns = ["rust", "contracts", "cli", "cross-package", "release", "provenance"]
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_native"
+modules = [
+    "kicad_cruncher._cli",
+    "kicad_cruncher.kicad_cruncher_cmd_design",
+    "kicad_cruncher.kicad_cruncher_native_physical",
+    "kicad_cruncher.kicad_cruncher_native_design",
+    "kicad_monkey.kicad_native",
+]
+
+[subtests.objectives]
+primary = "The exact Windows x64 Monkey and universal Cruncher release candidates pass the installed native-backed CLI contract and remain publishable unchanged"
+secondary = [
+    "P6_000 through P6_040 are closed prerequisites and the accepted native/CLI contracts remain frozen",
+    "KM_CORPUS is the exact content-addressed reviewed ZIP prerequisite and missing corpus or candidate artifacts fails rather than skips",
+    "Corpus semantic/oracle evidence is inherited from mandatory L3_023 and L3_025; L3_027 binds the ZIP hash and runs installed candidate smokes rather than rerendering the corpus",
+    "Every candidate sdist and wheel is contained, byte-counted, SHA-256 bound, and tied to the tested commit",
+    "The Windows Monkey wheel contains the package-owned native executable and the Cruncher wheel retains a public one-way Monkey dependency",
+    "Clean installed entry points select the wheel-owned native executable without an environment override or Python provider retry",
+    "Success, malformed input, provider failure, and transactional no-partial-output behavior remain governed by the composed installed test",
+    "Release publication consumes these exact tested files rather than rebuilding equivalents",
+]
+
+[[subtests]]
 id = "L3_026"
 file = "test_L3_026_native_full_cli.py"
 name = "Native-backed Cruncher CLI Compatibility Exit"

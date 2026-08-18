@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import subprocess
@@ -483,6 +484,51 @@ def test_pcb_svg_command_stages_all_inputs_before_publication(
     assert result == 1
     assert (output / "existing.svg").read_text(encoding="utf-8") == "keep"
     assert sorted(path.name for path in output.iterdir()) == ["existing.svg"]
+
+
+@pytest.mark.parametrize("existing_destination", [False, True])
+def test_pcb_svg_command_failure_preserves_destination_and_authored_config_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    existing_destination: bool,
+) -> None:
+    input_file = tmp_path / "failure.kicad_pcb"
+    input_file.write_text("(kicad_pcb (version 20240108))", encoding="utf-8")
+    output = tmp_path / "published"
+    if existing_destination:
+        output.mkdir()
+        (output / "existing.svg").write_bytes(b"keep\r\nexact\n")
+
+    before = {
+        path.relative_to(output).as_posix(): path.read_bytes()
+        for path in output.rglob("*")
+        if path.is_file()
+    } if output.exists() else None
+
+    def fail(_config: object, _input_file: Path, *, output_dir: Path) -> int:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "partial.svg").write_text("partial", encoding="utf-8")
+        raise RuntimeError("native PCB render failed")
+
+    monkeypatch.setattr(pcb_svg_cmd, "_render_a0_board_outputs", fail)
+    result = pcb_svg_cmd.cmd_pcb_svg(
+        argparse.Namespace(file=input_file, output=output, config=None)
+    )
+
+    assert result == 1
+    config_path = input_file.parent / pcb_svg_cmd.PCB_SVG_CONFIG_FILENAME
+    assert config_path.is_file()
+    assert "kicad_cruncher.pcb_svg.config.a0" in config_path.read_text(encoding="utf-8")
+    if before is None:
+        assert not output.exists()
+    else:
+        after = {
+            path.relative_to(output).as_posix(): path.read_bytes()
+            for path in output.rglob("*")
+            if path.is_file()
+        }
+        assert after == before
 
 
 def test_design_review_staging_preserves_destination_on_native_failure(

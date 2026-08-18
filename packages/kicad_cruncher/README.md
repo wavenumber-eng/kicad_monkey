@@ -41,6 +41,15 @@ uv run --package kicad-cruncher kicad-cruncher --help
 uv run --package kicad-cruncher python -m kicad_cruncher version
 ```
 
+The promoted native production path is Windows x64. On that platform, the
+installed Monkey wheel supplies `kicad-monkey-native` for PCB physical-base
+SVG, compiled schematic graphs, and version-E netlists; a native failure is
+terminal and is never retried through the corresponding Python implementation.
+Linux and macOS retain their Python providers. The
+`KICAD_CRUNCHER_NATIVE_DESIGN_FACTS=1` and
+`KICAD_CRUNCHER_NATIVE_PHYSICAL=1` environment switches are development/test
+opt-ins on other platforms, not production-support declarations.
+
 ## Commands
 
 Run `kicad-cruncher <command> --help` for command-specific options.
@@ -110,6 +119,12 @@ The `pcb-svg` command writes to `./output/pcb-svg/` by default and uses
 contract. This remains a preview feature: SVG structure,
 virtual-layer metadata, default views, and config controls may change as more
 real-world boards are tested.
+
+Artifact publication is transactional: failed rendering leaves a new output
+directory absent and preserves an existing output tree byte-for-byte. When the
+project-adjacent `pcb.svg.config` is missing, the command intentionally authors
+that config template before rendering; it is configuration input and is not
+part of the transient artifact transaction.
 
 ```powershell
 kicad-cruncher pcb-svg board.kicad_pcb

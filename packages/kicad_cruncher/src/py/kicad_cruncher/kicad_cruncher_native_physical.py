@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import platform
 import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -110,7 +111,12 @@ class NativePhysicalProvider:
 def use_native_physical_provider() -> bool:
     """Return whether this platform is promoted to the native provider."""
 
-    return sys.platform == "win32" or os.environ.get("KICAD_CRUNCHER_NATIVE_PHYSICAL") == "1"
+    explicitly_enabled = os.environ.get("KICAD_CRUNCHER_NATIVE_PHYSICAL") == "1"
+    windows_x64 = sys.platform == "win32" and platform.machine().casefold() in {
+        "amd64",
+        "x86_64",
+    }
+    return windows_x64 or explicitly_enabled
 
 
 def board_document_id(pcb: object) -> str:

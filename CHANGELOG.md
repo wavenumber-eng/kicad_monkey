@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Add the review-ready Windows x64 native release exit: frozen native/CLI
+  contracts, a content-addressed reviewed-corpus prerequisite with inherited
+  oracle evidence, hash-bound candidate distributions, a fail-not-skip Rack
+  owner, and CI/release publication of the tested Windows Monkey and Cruncher
+  artifacts. Linux and macOS retain their Python provider path. The pre-commit
+  dirty-tree gate passed in 68.14 seconds (69.13 seconds with Rack) as
+  functional evidence only; clean-commit acceptance remains pending.
+
+- Refresh the unchanged-limit Rust hygiene debt inventory from 29 to 131 exact
+  findings after the reviewed native Plotter-IR and application work, with
+  future increases still rejected.
+
 - Add the accepted P6_040 native-backed Cruncher CLI compatibility gate.
   It preserves the installed Python entry points and primary design aliases
   while requiring their selected Windows PCB physical-base, compiled-graph,

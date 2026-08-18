@@ -50,6 +50,13 @@ Rust `kicad-cruncher` executable or that every Cruncher command has been
 rewritten in Rust. Requiring that literal executable boundary would be a new
 application-ownership decision with its own contracts and packaging evidence.
 
+The native application release target is specifically Windows x64. Its exit gate binds a
+single tested Monkey platform wheel and universal Cruncher distribution set to
+the source commit and requires release publication to consume those exact
+artifacts. Linux and macOS retain the Python provider path until separately
+measured and promoted; this Windows hard switch is not an all-platform or
+all-Rust Cruncher claim.
+
 The existing WASM adapters remain maintained feasibility evidence. They prove
 byte-oriented requests, generated diagnostics, independent feature families,
 resource limits, and take-once large output ownership. New PCB, schematic,
@@ -61,7 +68,7 @@ consumer that needs the composition. Not every native capability requires a
 WASM export.
 
 `pcb_a0`, Viz, ALX, and the KiCad-to-`pcb_a0` adapter are excluded from this
-plan's phases and Definition of Done. A separate downstream task may begin
+decision's Definition of Done. A separate downstream task may begin
 after native test parity and consume documented KiCad-native crate features.
 
 ## Consequences

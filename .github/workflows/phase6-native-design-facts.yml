@@ -36,5 +36,16 @@ jobs:
           uv sync --all-packages --all-extras
           npm install --global npm@11.6.2
           npm ci
+      - name: Restore the exact reviewed corpus ZIP
+        shell: pwsh
+        run: |
+          uv run --extra test python scripts/kicad_corpus_archive.py metadata
+          uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
+          uv run --extra test python scripts/package_kicad_corpus.py --check
+          $corpus = Join-Path $env:GITHUB_WORKSPACE 'tests\corpus\kicad.zip'
+          if (-not (Test-Path -LiteralPath $corpus -PathType Leaf)) {
+            throw "Reviewed corpus ZIP was not restored at $corpus"
+          }
+          "KM_CORPUS=$corpus" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Run the source-bound design-facts Rack gate
         run: uv run --extra test python tests/rack.py run L3_025

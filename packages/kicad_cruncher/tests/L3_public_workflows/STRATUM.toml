@@ -92,7 +92,7 @@ native_only = "A real native render succeeds while both legacy Python render ent
 normalization = "Native nm geometry is adapted to the established mm canvas, enriched record topology, and governed pad-mask view"
 cache = "Repeated layer sets reuse one native artifact and bound the sequential per-board root/process and retained-byte work"
 failure = "Native failures do not retry through Python and publish no cache entry"
-transactions = "Later PCB/design provider failures leave existing destinations unchanged and no new partial files"
+transactions = "Later PCB/design provider failures preserve existing destinations exactly, leave new artifact destinations absent, and retain the intentionally authored input-adjacent pcb-svg config template"
 
 [[subtests]]
 id = "L3_010"

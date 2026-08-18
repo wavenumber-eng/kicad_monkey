@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2026.8.18
+
 - Add an accepted native-backed CLI compatibility contract for the installed
   `kicad-cruncher`, `kcr`, and module entry points and the primary design
   aliases. Strict manifest paths, exact output channels and exit statuses,

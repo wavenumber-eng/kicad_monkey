@@ -18,6 +18,10 @@ SCHEMA_ROOT = PACKAGE_ROOT / "contracts" / "generated" / "schema"
 SCOPE_PATH = PACKAGE_ROOT / "tests" / "parity" / "scope.toml"
 PHASE5_FREEZE_PATH = PACKAGE_ROOT / "tests" / "parity" / "plotter_ir_phase5_freeze.json"
 PHASE5_FREEZE_RELATIVE_PATH = "tests/parity/plotter_ir_phase5_freeze.json"
+PHASE6_FREEZE_PATH = (
+    PACKAGE_ROOT / "tests" / "parity" / "native_phase6_exit_freeze.json"
+)
+PHASE6_FREEZE_RELATIVE_PATH = "tests/parity/native_phase6_exit_freeze.json"
 _STRICT_PLOT_SCHEMA_NAMES = {
     f"{producer}Plot{suffix}.json"
     for producer in ("Board", "Footprint", "Schematic", "Symbol")
@@ -32,6 +36,27 @@ _PHASE5_UNION_ARM_COUNTS = {
     ("SchematicPlotDocument.json", "SchematicSymbolOperation"): 16,
     ("SchematicPlotDocument.json", "SchematicSheetOperation"): 6,
 }
+_PHASE6_ARTIFACT_PATHS = (
+    "contracts/generated/schema/NativeDesignFactsRequest.json",
+    "contracts/generated/schema/NativeDesignFactsRequestA1.json",
+    "contracts/generated/schema/NativeDesignFactsResult.json",
+    "contracts/generated/schema/NativeDesignFactsResultA1.json",
+    "contracts/generated/schema/NativeError.json",
+    "contracts/generated/schema/NativeHandshake.json",
+    "contracts/generated/schema/NativeHandshakeA1.json",
+    "contracts/generated/schema/NativeHandshakeA2.json",
+    "contracts/generated/schema/NativeSvgRenderRequest.json",
+    "contracts/generated/schema/NativeSvgRenderResult.json",
+    "contracts/generated/schema/SourceBundleManifest.json",
+    "contracts/generated/schema/CompiledSchematicGraph.json",
+    "packages/kicad_cruncher/docs/contracts/command_manifest.a0.json",
+    "packages/kicad_cruncher/docs/contracts/design_review_manifest.a0.schema.json",
+)
+_PHASE6_HANDSHAKE_PATHS = (
+    "contracts/generated/schema/NativeHandshake.json",
+    "contracts/generated/schema/NativeHandshakeA1.json",
+    "contracts/generated/schema/NativeHandshakeA2.json",
+)
 
 
 def _run(command: list[str], *, timeout: int = 300) -> None:
@@ -165,6 +190,71 @@ def test_phase5_plotter_contract_freeze_manifest_is_exact() -> None:
             )
 
 
+def _handshake_operations(schema: dict[str, object]) -> list[str]:
+    properties = schema["properties"]
+    assert isinstance(properties, dict)
+    operations = properties["operations"]
+    assert isinstance(operations, dict)
+    if "prefixItems" in operations:
+        items = operations["prefixItems"]
+        assert isinstance(items, list)
+        values = [item["const"] for item in items]
+    else:
+        item = operations["items"]
+        assert isinstance(item, dict)
+        values = [item["const"]]
+    assert all(isinstance(value, str) for value in values)
+    assert operations["minItems"] == operations["maxItems"] == len(values)
+    return values
+
+
+def test_phase6_native_contract_and_cli_freeze_manifest_is_exact() -> None:
+    manifest = json.loads(PHASE6_FREEZE_PATH.read_text(encoding="utf-8"))
+    assert manifest["schema"] == "kicad_monkey.native_phase6_exit_freeze.v1"
+    artifacts = manifest["artifacts"]
+    assert isinstance(artifacts, list)
+    paths = [entry["path"] for entry in artifacts]
+    assert paths == list(_PHASE6_ARTIFACT_PATHS)
+    assert len(paths) == len(set(paths)) == len(_PHASE6_ARTIFACT_PATHS)
+    assert sum(Path(path).name.startswith("Native") for path in paths) == 10
+    assert {Path(path).name for path in paths if "generated/schema" in path} == {
+        "NativeDesignFactsRequest.json",
+        "NativeDesignFactsRequestA1.json",
+        "NativeDesignFactsResult.json",
+        "NativeDesignFactsResultA1.json",
+        "NativeError.json",
+        "NativeHandshake.json",
+        "NativeHandshakeA1.json",
+        "NativeHandshakeA2.json",
+        "NativeSvgRenderRequest.json",
+        "NativeSvgRenderResult.json",
+        "SourceBundleManifest.json",
+        "CompiledSchematicGraph.json",
+    }
+    for entry in artifacts:
+        path = _phase5_freeze_path(entry["path"])
+        assert path.is_file(), entry["path"]
+        assert _canonical_json_sha256(path) == entry["canonical_sha256"], (
+            f"frozen Phase 6 contract changed: {entry['path']}"
+        )
+    handshakes = manifest["handshakes"]
+    assert [entry["path"] for entry in handshakes] == list(
+        _PHASE6_HANDSHAKE_PATHS
+    )
+    assert [entry["operations"] for entry in handshakes] == [
+        ["design-facts"],
+        ["design-facts", "render-svg"],
+        ["design-facts", "render-svg", "design-facts-a1"],
+    ]
+    for entry in handshakes:
+        path = _phase5_freeze_path(entry["path"])
+        schema = json.loads(path.read_text(encoding="utf-8"))
+        assert _handshake_operations(schema) == entry["operations"]
+    phase5 = manifest["phase5_freeze"]
+    assert phase5["path"] == PHASE5_FREEZE_RELATIVE_PATH
+    assert _canonical_json_sha256(PHASE5_FREEZE_PATH) == phase5["canonical_sha256"]
+
+
 def test_l0_parity_registry_governs_required_implementation_gaps() -> None:
     payload = tomllib.loads(SCOPE_PATH.read_text(encoding="utf-8"))
     assert payload["schema"] == "kicad_monkey.parity_scope.a0"
@@ -238,6 +328,13 @@ def test_l0_parity_registry_governs_required_implementation_gaps() -> None:
                 in surface["semantic_resource_evidence"]
             )
             assert PHASE5_FREEZE_RELATIVE_PATH in surface["evidence"]
+        if surface["id"] == "cruncher.phase6_exit" and status != "planned":
+            assert surface["rack_cases"] == ["L3_027"]
+            assert (
+                rack_case_paths["L3_027"]
+                == "tests/L3_rendering/test_L3_027_rust_phase6_exit.py"
+            )
+            assert PHASE6_FREEZE_RELATIVE_PATH in surface["evidence"]
         for rack_case in surface["rack_cases"]:
             assert rack_case in rack_case_paths, (
                 f"unknown {surface['id']} Rack case: {rack_case}"

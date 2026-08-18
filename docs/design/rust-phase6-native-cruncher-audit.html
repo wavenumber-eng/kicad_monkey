@@ -128,8 +128,9 @@
         separately measured and promoted; Windows-first is not a claim of
         cross-platform hard switchover.</td>
         <td>A mandatory Rack exit gate, clean public-distribution install,
-        exact corpus/oracle evidence, package provenance checks, reproducible
-        release artifacts, and a recorded runtime budget.</td>
+        a content-addressed corpus prerequisite with inherited oracle evidence,
+        package provenance checks, publication of the same hash-bound tested
+        candidates, and a recorded runtime budget.</td>
       </tr>
     </tbody>
   </table>
@@ -190,6 +191,25 @@
   Windows two-wheel gate in 239.86 seconds, composing 116 focused tests;
   three independent reviews approved the boundary. P6_050 exit remains
   staged.</p>
+  <p>P6_050 is now review-ready. Its Windows x64 exit workflow constructs one
+  hash-bound public-distribution candidate set, requires the content-addressed
+  reviewed corpus ZIP, freezes the accepted native and CLI contracts, and
+  makes release jobs consume the tested Windows Monkey wheel and Cruncher
+  distributions rather than rebuilding equivalents. Corpus semantics remain
+  inherited from the mandatory L3_023 and L3_025 prerequisite gates; the
+  candidate gate binds the ZIP digest and runs installed artifact smokes rather
+  than rerendering that corpus. The exact boundary is described in the
+  <a href="rust-phase6-exit.html">Phase 6 Windows release exit</a>. No final
+  clean-commit Rack result or independent approval is recorded yet, so Phase 6
+  remains in progress. A first full dirty-tree run passed 1/1 in 68.14 seconds
+  (69.13 seconds with Rack); it is retained only as functional evidence and
+  must not be described as commit-bound release acceptance.</p>
+
+  <p>The final hygiene catch-up records 131 exact findings versus the prior 29
+  after the reviewed Phase 5 and P6_000 through P6_040 Rust expansion. It does
+  not change any policy limit, and future increases remain failures. This
+  debt-inventory refresh is independently reviewable P6_050 governance rather
+  than a claim that the recorded functions were simplified.</p>
 
   <h2>Transport and resource rules</h2>
   <ul>

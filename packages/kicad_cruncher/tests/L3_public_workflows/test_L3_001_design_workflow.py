@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from kicad_cruncher import kicad_cruncher_pcb_svg_compositor as pcb_svg_compositor
 from kicad_cruncher import kicad_cruncher_cmd_pcb_svg as pcb_svg_cmd
+from kicad_cruncher import kicad_cruncher_pcb_svg_compositor as pcb_svg_compositor
 from kicad_cruncher.config_json import load_json_config
 from kicad_cruncher.kicad_cruncher_cmd_design import (
     _PCB_TRACE_COLOR,

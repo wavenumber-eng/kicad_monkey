@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
 from kicad_cruncher.config_json import load_json_config
-from kicad_cruncher.kicad_cruncher_common import resolve_output_dir
 from kicad_cruncher.kicad_cruncher_pcb_model_pose import (
     Matrix4,
     board_world_to_svg,
@@ -276,6 +275,12 @@ def _resolve_pcb_svg_configs(
         config_by_input[input_file] = loaded
 
     return config_by_input, sorted(set(created_paths))
+
+
+def _resolve_pcb_svg_output_dir(output: Path | None) -> Path:
+    """Resolve the artifact destination without creating it before publication."""
+
+    return output if output is not None else Path("output") / "pcb-svg"
 
 
 def _resolve_explicit_input(raw_file: str | None) -> list[Path] | None:
@@ -2271,7 +2276,7 @@ def cmd_pcb_svg(args: argparse.Namespace) -> int:
         for config_path in created_configs:
             log.info("Created pcb-svg config template: %s", config_path)
         log.info("pcb-svg config template created and defaulted for this invocation.")
-    output_dir = resolve_output_dir(args.output, "pcb-svg")
+    output_dir = _resolve_pcb_svg_output_dir(args.output)
     return _render_pcb_svg_to_output(input_files, output_dir, config_by_input)
 
 
