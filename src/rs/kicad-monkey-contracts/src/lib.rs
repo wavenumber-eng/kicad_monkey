@@ -11,6 +11,7 @@ mod compiled_graph_contract;
 mod font_bundle_contract;
 mod font_text_contract;
 pub mod generated;
+mod native_transport_contract;
 mod schematic_plot_contract;
 mod source_bundle_contract;
 
@@ -26,6 +27,12 @@ pub use font_bundle_contract::{
 pub use font_text_contract::{
     validate_outline_vector_contract, validate_shaping_input_contract,
     validate_shaping_record_contract,
+};
+pub use native_transport_contract::{
+    NativeTransportDecodeError, decode_native_design_facts_request_a0,
+    decode_native_design_facts_result_a0, decode_native_error_a0, decode_native_handshake_a0,
+    validate_native_design_facts_request_contract, validate_native_design_facts_result_contract,
+    validate_native_error_contract, validate_native_handshake_contract,
 };
 pub use schematic_plot_contract::validate_schematic_plot_document;
 pub use source_bundle_contract::{

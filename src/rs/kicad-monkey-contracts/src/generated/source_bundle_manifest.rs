@@ -117,7 +117,11 @@ impl ::std::fmt::Display for CanonicalUint64Decimal {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct SourceBundleManifestA0 {
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub project_path: ::std::option::Option<::std::string::String>,
     pub root_schematic_path: ::std::string::String,
     pub schema: ::std::string::String,

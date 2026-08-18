@@ -632,3 +632,23 @@ secondary = [
     "Native schematic, worksheet, graphic, rule-area, image, table, symbol, pin, library, overlap, hierarchical-sheet, sheet-pin, and sheet-field parsing plus retained text, metadata, records, operations, points, inline bytes, dimensions, pixels, and work fail closed under independent limits",
     "The strict request reserves an independent serialized-output ceiling for the deferred transport adapter",
 ]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_037"
+file = "test_L1_037_native_design_facts_transport.py"
+name = "Native Design Facts Process Transport"
+description = "Require the public Python client and real Rust process to agree on the strict design-facts protocol"
+concerns = ["rust", "project", "contracts", "transport", "resource-limits"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "A real packaged-process candidate returns the exact Python compiled graph and a parsed version-E netlist through the fail-closed client"
+secondary = [
+    "The handshake and operation version agree",
+    "Current in-memory project and schematic bytes are staged explicitly without PATH or project discovery",
+    "The generated graph decoder and semantic validator run before facts are published",
+    "The validated native graph can be injected only into the matching in-memory design state",
+    "Cargo execution is serialized at four build jobs and two test threads",
+]

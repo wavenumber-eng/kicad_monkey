@@ -410,3 +410,21 @@ secondary = [
     "Archive replacement refreshes the extracted cache",
     "The removed WN_TEST_CORPUS namespace cannot override KM_CORPUS",
 ]
+
+[[subtests]]
+id = "L0_062"
+file = "test_L0_062_native_process_client.py"
+name = "Native Process Client Foundation"
+description = "Require an explicit, bounded, fail-closed Python client for the package-owned native operation process"
+concerns = ["rust", "project", "contracts", "resource-limits", "release"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "The Python boundary validates the native handshake and strict design-facts result without PATH discovery or Python fallback"
+secondary = [
+    "The package-owned binary or an explicit development override is the only executable authority",
+    "Subprocess stdout and stderr are drained concurrently and terminate the child at independent byte ceilings",
+    "Compiled graph payloads pass generated decoding and semantic validation before publication",
+    "File-backed project and schematic sources become explicit portable source-bundle slots",
+    "Injected compiled graphs bypass the Python graph builder without sharing mutable state",
+]

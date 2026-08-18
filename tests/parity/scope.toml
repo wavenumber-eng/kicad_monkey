@@ -1,6 +1,6 @@
 schema = "kicad_monkey.parity_scope.a0"
-milestone = "rust_phase5_plotter_closed"
-review_state = "accepted"
+milestone = "rust_phase6_native_cruncher_in_progress"
+review_state = "in_progress"
 
 [[surfaces]]
 id = "sexpr.lex_parse"
@@ -640,3 +640,81 @@ python_symbols = ["KiCadProject", "ProjectVariant", "KiCadProjectNetSettings", "
 rust_symbols = ["ProjectDocument", "ProjectView", "ProjectVariant", "ProjectNetSettings", "ProjectBoardDesignSettings", "ProjectLimits"]
 rack_cases = ["L1_034"]
 evidence = ["src/rs/kicad-monkey-core/src/project.rs", "src/rs/kicad-monkey-core/tests/project.rs", "src/rs/kicad-monkey-core/examples/project_gate.rs", "src/rs/kicad-monkey-core/examples/project_mutation_gate.rs", "tests/L1_parsing/test_L1_034_rust_project_roundtrip.py", "docs/design/rust-project-phase4-slice.html"]
+
+[[surfaces]]
+id = "cruncher.native_operation_transport_package"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "closed"
+python_symbols = ["native_design_facts", "native_design_facts_for_design", "KiCadNativeDesignFacts", "KiCadNativeError"]
+rust_symbols = ["kicad-monkey-native", "DesignFactsRequestA0", "handshake", "execute_request_bytes", "NativeError"]
+rack_cases = ["L0_062", "L1_037"]
+evidence = ["docs/design/rust-phase6-native-cruncher-audit.html", "src/tsp/kicad_monkey/native-transport-a0.tsp", "contracts/generated/schema/NativeDesignFactsRequest.json", "contracts/generated/schema/NativeDesignFactsResult.json", "hatch_build.py", ".github/workflows/release.yml"]
+vector_evidence = ["tests/parity/source_bundle_a0_vectors.json", "tests/L1_parsing/test_L1_037_native_design_facts_transport.py"]
+implementation_evidence = ["src/rs/kicad-monkey-native/src/lib.rs", "src/rs/kicad-monkey-native/src/main.rs", "src/py/kicad_monkey/kicad_native.py", "src/py/kicad_monkey/kicad_design_json.py", "pyproject.toml"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-native/tests/design_facts.rs", "src/rs/kicad-monkey-contracts/tests/native_transport_contracts.rs", "tests/L0_foundation/test_L0_062_native_process_client.py", "tests/L1_parsing/test_L1_037_native_design_facts_transport.py", "tests/support_scripts/native_wheel_test.py"]
+
+[[surfaces]]
+id = "cruncher.native_svg"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["render_ir_to_svg", "PcbSvgCompositionRenderCache"]
+rust_symbols = ["render_plotter_ir_to_svg"]
+rack_cases = []
+evidence = []
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "cruncher.no_fallback_physical_provider"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["NativePhysicalProvider"]
+rust_symbols = ["NativePhysicalOperation"]
+rack_cases = []
+evidence = []
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "cruncher.native_design_facts"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["KiCadDesign.to_json", "write_design_review_bundle"]
+rust_symbols = ["NativeDesignFacts"]
+rack_cases = []
+evidence = []
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "cruncher.native_full_cli"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["kicad-cruncher", "kcr", "python -m kicad_cruncher", "cmd_design"]
+rust_symbols = ["kicad-cruncher", "kcr", "design", "design-review", "dr"]
+rack_cases = []
+evidence = []
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []
+
+[[surfaces]]
+id = "cruncher.phase6_exit"
+disposition = "required_bounded_slice"
+wasm = "deferred_native_first"
+status = "planned"
+python_symbols = ["kicad-cruncher", "kcr", "python -m kicad_cruncher"]
+rust_symbols = ["kicad-monkey-native"]
+rack_cases = []
+evidence = []
+vector_evidence = []
+implementation_evidence = []
+semantic_resource_evidence = []

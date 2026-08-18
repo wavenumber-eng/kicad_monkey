@@ -28,3 +28,7 @@ export type { FontBundleManifestA0 } from "./font-bundle-manifest.js";
 export type { FontResolutionRequestA0 } from "./font-resolution-request.js";
 export type { ShapingRecordA0 } from "./shaping-record.js";
 export type { OutlineVectorA0 } from "./outline-vector.js";
+export type { NativeHandshakeA0 } from "./native-handshake.js";
+export type { NativeDesignFactsRequestA0 } from "./native-design-facts-request.js";
+export type { NativeDesignFactsResultA0 } from "./native-design-facts-result.js";
+export type { NativeErrorA0 } from "./native-error.js";

@@ -7,10 +7,14 @@ schemas are owned by kicad_monkey and do not depend on external model packages.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
 
+import msgspec
+
+from .contracts.generated import decode_compiled_schematic_graph_a0
 from .kicad_compiled_schematic_graph import build_compiled_schematic_graph
 from .kicad_netlist_model import (
     KiCadNet,
@@ -24,6 +28,7 @@ from .kicad_schematic_occurrence import walk_schematic_occurrences
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .kicad_design import KiCadDesign
+    from .kicad_native import KiCadNativeDesignFacts
     from .kicad_sch_sheet import SchSheet
     from .kicad_schematic import KiCadSchematic
 
@@ -70,8 +75,31 @@ _GRAPHICAL_ID_KEYS = (
 )
 
 
-def kicad_design_to_json(design: "KiCadDesign", *, include_indexes: bool = True) -> dict:
+def kicad_design_to_json(
+    design: "KiCadDesign",
+    *,
+    include_indexes: bool = True,
+    compiled_schematic_graph: KiCadNativeDesignFacts | None = None,
+) -> dict:
     """Build a KiCad-native design payload."""
+    if compiled_schematic_graph is None:
+        compiled_graph_payload = build_compiled_schematic_graph(design).to_json()
+    else:
+        from .kicad_compiled_schematic_graph import validate_compiled_schematic_graph
+        from .kicad_native import KiCadNativeDesignFacts, _design_fingerprint
+
+        if not isinstance(compiled_schematic_graph, KiCadNativeDesignFacts):
+            raise TypeError("compiled_schematic_graph must be validated native design facts")
+        if compiled_schematic_graph.design_fingerprint != _design_fingerprint(design):
+            raise ValueError("compiled schematic graph does not belong to the current design state")
+        graph_bytes = json.dumps(
+            compiled_schematic_graph.compiled_schematic_graph,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        decoded = decode_compiled_schematic_graph_a0(graph_bytes)
+        compiled_graph_payload = msgspec.to_builtins(decoded)
+        validate_compiled_schematic_graph(compiled_graph_payload)
+
     netlist = design.to_netlist()
     component_svg_ids = _component_svg_ids(netlist)
     component_pin_counts = _component_pin_counts(netlist)
@@ -94,7 +122,7 @@ def kicad_design_to_json(design: "KiCadDesign", *, include_indexes: bool = True)
         "components": components,
         "schematic_hierarchy": _schematic_hierarchy_json(design),
         "nets": _nets_json(netlist, component_svg_ids=component_svg_ids),
-        "compiled_schematic_graph": build_compiled_schematic_graph(design).to_json(),
+        "compiled_schematic_graph": compiled_graph_payload,
     }
 
     pnp = _pnp_json(design, netlist)

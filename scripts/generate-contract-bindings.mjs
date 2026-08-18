@@ -42,6 +42,10 @@ const roots = [
   ["FontResolutionRequest.json", "FontResolutionRequestA0", "font-resolution-request.ts"],
   ["ShapingRecord.json", "ShapingRecordA0", "shaping-record.ts"],
   ["OutlineVector.json", "OutlineVectorA0", "outline-vector.ts"],
+  ["NativeHandshake.json", "NativeHandshakeA0", "native-handshake.ts"],
+  ["NativeDesignFactsRequest.json", "NativeDesignFactsRequestA0", "native-design-facts-request.ts"],
+  ["NativeDesignFactsResult.json", "NativeDesignFactsResultA0", "native-design-facts-result.ts"],
+  ["NativeError.json", "NativeErrorA0", "native-error.ts"],
 ];
 const schemas = new Map();
 for (const [file] of roots) {
@@ -49,6 +53,17 @@ for (const [file] of roots) {
   assert(document.$schema === "https://json-schema.org/draft/2020-12/schema", `${file}: draft`);
   schemas.set(file, document);
 }
+
+const externalSchemaTypes = new Map([
+  [
+    "urn:wavenumber:schema:kicad_monkey.source_bundle_manifest:a0",
+    ["SourceBundleManifest.json", "SourceBundleManifestA0"],
+  ],
+  [
+    "urn:wavenumber:schema:kicad_monkey.compiled_schematic_graph:a0",
+    ["CompiledSchematicGraph.json", "CompiledSchematicGraphA0"],
+  ],
+]);
 
 if (generatePython) {
   const output = renderPython();
@@ -69,7 +84,7 @@ if (generateTypeScript) {
   const outputRoot = path.join(root, "src/ts/kicad_monkey/contracts/generated");
   const exports = [];
   for (const [file, typeName, outputName] of roots) {
-    const projected = projectSchema(structuredClone(schemas.get(file)));
+    const projected = projectSchema(bundleExternalReferences(structuredClone(schemas.get(file))));
     const source = await compile(projected, typeName, {
       bannerComment: "/** Generated from KiCad Monkey TypeSpec JSON Schema. Do not edit. */",
       format: true,
@@ -169,6 +184,12 @@ function renderPython() {
       lines.push(...renderPythonSchematicPlotRequestValidation(functionName, typeName));
     } else if (typeName === "SourceBundleManifestA0") {
       lines.push(...renderPythonSourceBundleValidation(functionName, typeName));
+    } else if (typeName === "NativeHandshakeA0") {
+      lines.push(...renderPythonNativeHandshakeValidation(functionName, typeName));
+    } else if (typeName === "NativeDesignFactsRequestA0") {
+      lines.push(...renderPythonNativeRequestValidation(functionName, typeName));
+    } else if (typeName === "NativeDesignFactsResultA0") {
+      lines.push(...renderPythonNativeResultValidation(functionName, typeName));
     } else if (typeName === "FontBundleManifestA0") {
       lines.push(...renderPythonFontBundleValidation(functionName, typeName));
     } else if (typeName === "ShapingRecordA0") {
@@ -192,6 +213,9 @@ function renderPython() {
     "validate_symbol_plot_document_a0",
     "validate_schematic_plot_request_a0",
     "validate_schematic_plot_document_a0",
+    "validate_native_handshake_a0",
+    "validate_native_design_facts_request_a0",
+    "validate_native_design_facts_result_a0",
   ];
   lines.push("", "", "__all__ = (", ...exported.map((name) => `    ${pythonLiteral(name)},`), ")", "");
   return lines.join("\n");
@@ -728,6 +752,65 @@ function renderPythonSourceBundleValidation(functionName, typeName) {
     "        if int(source.source_bytes) > 18_446_744_073_709_551_615:",
     '            raise msgspec.ValidationError("source_bytes exceeds uint64")',
     "    return value",
+  ];
+}
+
+function renderPythonNativeHandshakeValidation(functionName, typeName) {
+  return [
+    `_native_handshake_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _native_handshake_a0_decoder.decode(data)",
+    "    validate_native_handshake_a0(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_native_handshake_a0(value: ${typeName}) -> None:`,
+    "    if not value.engine_version:",
+    '        raise msgspec.ValidationError("invalid_value at $.engine_version")',
+    "    if len(value.operations) != 1 or value.operations[0] != 'design-facts':",
+    '        raise msgspec.ValidationError("unsupported_contract at $.operations")',
+  ];
+}
+
+function renderPythonNativeRequestValidation(functionName, typeName) {
+  return [
+    `_native_design_facts_request_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _native_design_facts_request_a0_decoder.decode(data)",
+    "    validate_native_design_facts_request_a0(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_native_design_facts_request_a0(value: ${typeName}) -> None:`,
+    "    fields = ('max_source_bytes', 'max_total_source_bytes', 'max_output_bytes')",
+    "    for field_name in fields:",
+    "        encoded = getattr(value.limits, field_name)",
+    "        if int(encoded) > 18_446_744_073_709_551_615:",
+    '            raise msgspec.ValidationError(f"invalid_uint64 at $.limits.{field_name}")',
+    "    for index, source in enumerate(value.manifest.sources):",
+    "        if int(source.source_bytes) > 18_446_744_073_709_551_615:",
+    '            raise msgspec.ValidationError(f"invalid_uint64 at $.manifest.sources[{index}].source_bytes")',
+  ];
+}
+
+function renderPythonNativeResultValidation(functionName, typeName) {
+  return [
+    `_native_design_facts_result_a0_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _native_design_facts_result_a0_decoder.decode(data)",
+    "    validate_native_design_facts_result_a0(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_native_design_facts_result_a0(value: ${typeName}) -> None:`,
+    "    if not value.engine_version:",
+    '        raise msgspec.ValidationError("invalid_value at $.engine_version")',
   ];
 }
 
@@ -1625,7 +1708,7 @@ function renderPythonDeclaration(name, schema, tag = undefined) {
 }
 
 function pythonType(schema) {
-  if (typeof schema.$ref === "string") return schema.$ref.split("/").at(-1);
+  if (typeof schema.$ref === "string") return pythonReferenceType(schema.$ref);
   if ("const" in schema) return `Literal[${pythonLiteral(schema.const)}]`;
   if (
     Array.isArray(schema.anyOf)
@@ -1677,8 +1760,50 @@ function pythonType(schema) {
 }
 
 function pythonForwardType(schema) {
-  if (typeof schema.$ref === "string") return pythonLiteral(schema.$ref.split("/").at(-1));
+  if (typeof schema.$ref === "string") return pythonLiteral(pythonReferenceType(schema.$ref));
   return pythonType(schema);
+}
+
+function pythonReferenceType(reference) {
+  const external = externalSchemaTypes.get(reference);
+  return external === undefined ? reference.split("/").at(-1) : external[1];
+}
+
+function bundleExternalReferences(schema) {
+  const bundled = new Map();
+  function visit(value) {
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (value === null || typeof value !== "object") return;
+    const external = externalSchemaTypes.get(value.$ref);
+    if (external !== undefined) {
+      const [file, typeName] = external;
+      value.$ref = `#/$defs/${typeName}`;
+      bundled.set(typeName, file);
+    }
+    for (const child of Object.values(value)) visit(child);
+  }
+  visit(schema);
+  schema.$defs ??= {};
+  for (const [typeName, file] of bundled) {
+    const external = structuredClone(schemas.get(file));
+    const definitions = external.$defs ?? {};
+    delete external.$schema;
+    delete external.$id;
+    delete external.$defs;
+    delete external.title;
+    for (const [name, definition] of Object.entries(definitions)) {
+      if (schema.$defs[name] !== undefined) {
+        assert(
+          JSON.stringify(schema.$defs[name]) === JSON.stringify(definition),
+          `${typeName}: conflicting bundled definition ${name}`,
+        );
+      } else {
+        schema.$defs[name] = definition;
+      }
+    }
+    schema.$defs[typeName] = external;
+  }
+  return schema;
 }
 
 function projectSchema(value) {

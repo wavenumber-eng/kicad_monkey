@@ -1501,6 +1501,28 @@ class OutlineClose(Struct, forbid_unknown_fields=True, frozen=True, tag="close",
 NonNegativeFiniteFloat = Annotated[float, Meta(ge=0)]
 
 
+class NativeFileSlot(Struct, forbid_unknown_fields=True, frozen=True):
+    slot: Annotated[int, Meta(ge=0, le=4294967295)]
+    path: str
+
+
+class NativeDesignFactsLimits(Struct, forbid_unknown_fields=True, frozen=True):
+    max_sources: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_source_bytes: CanonicalUint64Decimal
+    max_total_source_bytes: CanonicalUint64Decimal
+    max_path_bytes: Annotated[int, Meta(ge=0, le=4294967295)]
+    max_output_bytes: CanonicalUint64Decimal
+
+
+class NativeNetlistMetadata(Struct, forbid_unknown_fields=True, frozen=True):
+    source_path: str
+    date: str
+    tool: str
+
+
+NativeErrorKind = Literal["request", "path", "io", "resource_limit", "core"]
+
+
 class SExpressionBuildRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.sexpr_build.request"] = field(name="type")
     version: Literal["a0"]
@@ -1896,6 +1918,39 @@ class OutlineVectorA0(Struct, forbid_unknown_fields=True, frozen=True):
     glyph_id: Annotated[int, Meta(ge=0, le=4294967295)]
     units_per_em: PositiveUint32
     commands: list[OutlineCommand]
+
+
+class NativeHandshakeA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.native.handshake"] = field(name="type")
+    version: Literal["a0"]
+    engine_version: str
+    operations: list[Literal["design-facts"]]
+
+
+class NativeDesignFactsRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.native.design_facts.request"] = field(name="type")
+    version: Literal["a0"]
+    bundle_root: str
+    manifest: SourceBundleManifestA0
+    file_slots: list[NativeFileSlot]
+    limits: NativeDesignFactsLimits
+    netlist: NativeNetlistMetadata
+
+
+class NativeDesignFactsResultA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.native.design_facts.result"] = field(name="type")
+    version: Literal["a0"]
+    engine_version: str
+    compiled_schematic_graph: CompiledSchematicGraphA0
+    kicad_netlist_version: Literal["E"]
+    kicad_netlist: str
+
+
+class NativeErrorA0(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.native.error"] = field(name="type")
+    version: Literal["a0"]
+    kind: NativeErrorKind
+    message: str
 
 
 decode_sexpr_build_request_a0 = msgspec.json.Decoder(SExpressionBuildRequestA0).decode
@@ -3183,6 +3238,51 @@ def validate_outline_vector_a0(value: OutlineVectorA0) -> None:
             coordinates = ()
         if any(not math.isfinite(coordinate) for coordinate in coordinates):
             raise msgspec.ValidationError(f"invalid_coordinate at $.commands[{index}]")
+_native_handshake_a0_decoder = msgspec.json.Decoder(NativeHandshakeA0)
+
+
+def decode_native_handshake_a0(data: bytes) -> NativeHandshakeA0:
+    value = _native_handshake_a0_decoder.decode(data)
+    validate_native_handshake_a0(value)
+    return value
+
+
+def validate_native_handshake_a0(value: NativeHandshakeA0) -> None:
+    if not value.engine_version:
+        raise msgspec.ValidationError("invalid_value at $.engine_version")
+    if len(value.operations) != 1 or value.operations[0] != 'design-facts':
+        raise msgspec.ValidationError("unsupported_contract at $.operations")
+_native_design_facts_request_a0_decoder = msgspec.json.Decoder(NativeDesignFactsRequestA0)
+
+
+def decode_native_design_facts_request_a0(data: bytes) -> NativeDesignFactsRequestA0:
+    value = _native_design_facts_request_a0_decoder.decode(data)
+    validate_native_design_facts_request_a0(value)
+    return value
+
+
+def validate_native_design_facts_request_a0(value: NativeDesignFactsRequestA0) -> None:
+    fields = ('max_source_bytes', 'max_total_source_bytes', 'max_output_bytes')
+    for field_name in fields:
+        encoded = getattr(value.limits, field_name)
+        if int(encoded) > 18_446_744_073_709_551_615:
+            raise msgspec.ValidationError(f"invalid_uint64 at $.limits.{field_name}")
+    for index, source in enumerate(value.manifest.sources):
+        if int(source.source_bytes) > 18_446_744_073_709_551_615:
+            raise msgspec.ValidationError(f"invalid_uint64 at $.manifest.sources[{index}].source_bytes")
+_native_design_facts_result_a0_decoder = msgspec.json.Decoder(NativeDesignFactsResultA0)
+
+
+def decode_native_design_facts_result_a0(data: bytes) -> NativeDesignFactsResultA0:
+    value = _native_design_facts_result_a0_decoder.decode(data)
+    validate_native_design_facts_result_a0(value)
+    return value
+
+
+def validate_native_design_facts_result_a0(value: NativeDesignFactsResultA0) -> None:
+    if not value.engine_version:
+        raise msgspec.ValidationError("invalid_value at $.engine_version")
+decode_native_error_a0 = msgspec.json.Decoder(NativeErrorA0).decode
 
 
 __all__ = (
@@ -3358,6 +3458,10 @@ __all__ = (
     "OutlineCurveTo",
     "OutlineClose",
     "NonNegativeFiniteFloat",
+    "NativeFileSlot",
+    "NativeDesignFactsLimits",
+    "NativeNetlistMetadata",
+    "NativeErrorKind",
     "SExpressionBuildRequestA0",
     "SExpressionBuildResultA0",
     "SExpressionScanRequestA0",
@@ -3388,6 +3492,10 @@ __all__ = (
     "FontResolutionRequestA0",
     "ShapingRecordA0",
     "OutlineVectorA0",
+    "NativeHandshakeA0",
+    "NativeDesignFactsRequestA0",
+    "NativeDesignFactsResultA0",
+    "NativeErrorA0",
     "decode_sexpr_build_request_a0",
     "decode_sexpr_build_result_a0",
     "decode_sexpr_scan_request_a0",
@@ -3418,6 +3526,10 @@ __all__ = (
     "decode_font_resolution_request_a0",
     "decode_shaping_record_a0",
     "decode_outline_vector_a0",
+    "decode_native_handshake_a0",
+    "decode_native_design_facts_request_a0",
+    "decode_native_design_facts_result_a0",
+    "decode_native_error_a0",
     "validate_footprint_plot_document_a0",
     "validate_board_plot_document_a0",
     "resolve_font_selection_a0",
@@ -3427,4 +3539,7 @@ __all__ = (
     "validate_symbol_plot_document_a0",
     "validate_schematic_plot_request_a0",
     "validate_schematic_plot_document_a0",
+    "validate_native_handshake_a0",
+    "validate_native_design_facts_request_a0",
+    "validate_native_design_facts_result_a0",
 )

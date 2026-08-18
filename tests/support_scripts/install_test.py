@@ -90,6 +90,22 @@ def run_install_test(wheel: Path) -> None:
             cwd=temp_dir,
             env=env,
         )
+        if os.name == "nt":
+            _run(
+                [
+                    str(python),
+                    "-I",
+                    "-c",
+                    (
+                        "from kicad_monkey import kicad_native_handshake; "
+                        "h=kicad_native_handshake(); "
+                        "assert h['version']=='a0'; "
+                        "assert h['operations']==['design-facts']"
+                    ),
+                ],
+                cwd=temp_dir,
+                env=env,
+            )
         sys.stdout.write("Installed-package test passed.\n")
 
 

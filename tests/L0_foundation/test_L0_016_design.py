@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 
+import msgspec
 import pytest
 
 from kicad_monkey import KiCadDesign
@@ -218,6 +219,91 @@ class TestTopSchematic:
         _write_min_sch(sch)
         d = KiCadDesign.from_project_file(pro)
         assert d.top_schematic is d.schematics[0]
+
+
+class TestDesignJsonCompiledGraphInjection:
+    def test_prevalidated_graph_bypasses_graph_rebuild(self, tmp_path, monkeypatch):
+        sch = tmp_path / "demo.kicad_sch"
+        _write_min_sch(sch)
+        design = KiCadDesign.from_schematic_file(sch)
+
+        from kicad_monkey.kicad_compiled_schematic_graph import (
+            build_compiled_schematic_graph,
+        )
+        from kicad_monkey.kicad_native import (
+            KiCadNativeDesignFacts,
+            _design_fingerprint,
+        )
+
+        graph = build_compiled_schematic_graph(design).to_json()
+        facts = KiCadNativeDesignFacts(
+            engine_version="0.1.0",
+            compiled_schematic_graph=graph,
+            kicad_netlist="(export (version \"E\"))",
+            design_fingerprint=_design_fingerprint(design),
+        )
+
+        def unexpected_rebuild(_design):
+            raise AssertionError("the injected compiled graph must be reused")
+
+        monkeypatch.setattr(
+            "kicad_monkey.kicad_design_json.build_compiled_schematic_graph",
+            unexpected_rebuild,
+        )
+        payload = design.to_json(compiled_schematic_graph=facts)
+
+        assert payload["compiled_schematic_graph"] == graph
+        assert payload["compiled_schematic_graph"] is not graph
+
+    def test_injected_graph_must_match_current_design_state(self, tmp_path):
+        sch = tmp_path / "demo.kicad_sch"
+        _write_min_sch(sch)
+        design = KiCadDesign.from_schematic_file(sch)
+
+        from kicad_monkey.kicad_compiled_schematic_graph import (
+            build_compiled_schematic_graph,
+        )
+        from kicad_monkey.kicad_native import (
+            KiCadNativeDesignFacts,
+            _design_fingerprint,
+        )
+
+        facts = KiCadNativeDesignFacts(
+            engine_version="0.1.0",
+            compiled_schematic_graph=build_compiled_schematic_graph(design).to_json(),
+            kicad_netlist="(export (version \"E\"))",
+            design_fingerprint=_design_fingerprint(design),
+        )
+        assert design.top_schematic is not None
+        design.top_schematic.title_block.title = "mutated"
+
+        with pytest.raises(ValueError, match="current design state"):
+            design.to_json(compiled_schematic_graph=facts)
+
+    def test_injected_graph_is_structurally_strict(self, tmp_path):
+        sch = tmp_path / "demo.kicad_sch"
+        _write_min_sch(sch)
+        design = KiCadDesign.from_schematic_file(sch)
+
+        from kicad_monkey.kicad_compiled_schematic_graph import (
+            build_compiled_schematic_graph,
+        )
+        from kicad_monkey.kicad_native import (
+            KiCadNativeDesignFacts,
+            _design_fingerprint,
+        )
+
+        graph = build_compiled_schematic_graph(design).to_json()
+        graph["unexpected"] = True
+        facts = KiCadNativeDesignFacts(
+            engine_version="0.1.0",
+            compiled_schematic_graph=graph,
+            kicad_netlist="(export (version \"E\"))",
+            design_fingerprint=_design_fingerprint(design),
+        )
+
+        with pytest.raises(msgspec.ValidationError, match="unknown field"):
+            design.to_json(compiled_schematic_graph=facts)
 
 
 # ---------------------------------------------------------------------------

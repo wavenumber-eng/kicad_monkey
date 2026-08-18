@@ -14,11 +14,19 @@ from kicad_monkey.contracts.generated import (
     BoardPlotDocumentA0,
     CompiledSchematicGraphA0,
     FootprintPlotDocumentA0,
+    NativeDesignFactsRequestA0,
+    NativeDesignFactsResultA0,
+    NativeErrorA0,
+    NativeHandshakeA0,
     SchematicPlotDocumentA0,
     SExpressionBuildRequestA0,
     decode_board_plot_document_a0,
     decode_compiled_schematic_graph_a0,
     decode_footprint_plot_document_a0,
+    decode_native_design_facts_request_a0,
+    decode_native_design_facts_result_a0,
+    decode_native_error_a0,
+    decode_native_handshake_a0,
     decode_schematic_plot_document_a0,
     decode_schematic_plot_request_a0,
     decode_sexpr_build_request_a0,
@@ -27,6 +35,148 @@ from kicad_monkey.contracts.generated import (
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _native_graph() -> dict[str, object]:
+    return {
+        "schema": "kicad_monkey.compiled_schematic_graph.a0",
+        "type": "sch.compiled_schematic_graph",
+        "identity_namespace": "sch.compiled_schematic_graph.a0",
+        "unit_definitions": [],
+        "page_definitions": [],
+        "unit_occurrences": [],
+        "page_occurrences": [],
+        "hierarchy_occurrences": [],
+        "component_occurrences": [],
+        "local_net_occurrences": [],
+        "terminal_occurrences": [],
+        "hierarchy_terminal_bindings": [],
+        "graphical_artifact_links": [],
+    }
+
+
+def _native_request() -> dict[str, object]:
+    return {
+        "type": "kicad_monkey.native.design_facts.request",
+        "version": "a0",
+        "bundle_root": "C:/bundle",
+        "manifest": {
+            "schema": "kicad_monkey.source_bundle_manifest.a0",
+            "type": "kicad_monkey.source_bundle_manifest",
+            "version": "a0",
+            "root_schematic_path": "root.kicad_sch",
+            "sources": [
+                {
+                    "path": "root.kicad_sch",
+                    "kind": "schematic",
+                    "slot": 0,
+                    "source_bytes": "0",
+                }
+            ],
+        },
+        "file_slots": [{"slot": 0, "path": "root.kicad_sch"}],
+        "limits": {
+            "max_sources": 1,
+            "max_source_bytes": "1048576",
+            "max_total_source_bytes": "1048576",
+            "max_path_bytes": 4096,
+            "max_output_bytes": "8388608",
+        },
+        "netlist": {
+            "source_path": "root.kicad_sch",
+            "date": "",
+            "tool": "kicad-monkey-native",
+        },
+    }
+
+
+def test_native_transport_generated_roots_are_strict_and_fail_closed() -> None:
+    handshake = {
+        "type": "kicad_monkey.native.handshake",
+        "version": "a0",
+        "engine_version": "0.1.0",
+        "operations": ["design-facts"],
+    }
+    assert isinstance(
+        decode_native_handshake_a0(json.dumps(handshake).encode()), NativeHandshakeA0
+    )
+
+    request = _native_request()
+    assert isinstance(
+        decode_native_design_facts_request_a0(json.dumps(request).encode()),
+        NativeDesignFactsRequestA0,
+    )
+
+    result = {
+        "type": "kicad_monkey.native.design_facts.result",
+        "version": "a0",
+        "engine_version": "0.1.0",
+        "compiled_schematic_graph": _native_graph(),
+        "kicad_netlist_version": "E",
+        "kicad_netlist": '(export (version "E"))',
+    }
+    assert isinstance(
+        decode_native_design_facts_result_a0(json.dumps(result).encode()),
+        NativeDesignFactsResultA0,
+    )
+
+    error = {
+        "type": "kicad_monkey.native.error",
+        "version": "a0",
+        "kind": "request",
+        "message": "failure",
+    }
+    assert isinstance(decode_native_error_a0(json.dumps(error).encode()), NativeErrorA0)
+
+    null_manifest_request = json.loads(json.dumps(request))
+    null_manifest_request["manifest"]["project_path"] = None
+    null_graph_result = json.loads(json.dumps(result))
+    graph_vector = json.loads(
+        (PACKAGE_ROOT / "tests/parity/compiled_schematic_graph_a0_vectors.json").read_text(
+            encoding="utf-8"
+        )
+    )["graph"]
+    graph_vector["page_occurrences"][0]["address_key"] = None
+    null_graph_result["compiled_schematic_graph"] = graph_vector
+
+    mutations = [
+        (decode_native_handshake_a0, {**handshake, "operations": []}),
+        (decode_native_handshake_a0, {**handshake, "engine_version": ""}),
+        (decode_native_handshake_a0, {**handshake, "unknown": True}),
+        (
+            decode_native_design_facts_request_a0,
+            {**request, "limits": {**request["limits"], "max_output_bytes": "01"}},
+        ),
+        (
+            decode_native_design_facts_request_a0,
+            {
+                **request,
+                "limits": {
+                    **request["limits"],
+                    "max_output_bytes": "18446744073709551616",
+                },
+            },
+        ),
+        (decode_native_design_facts_request_a0, {**request, "file_slots": None}),
+        (decode_native_design_facts_request_a0, null_manifest_request),
+        (
+            decode_native_design_facts_result_a0,
+            {**result, "kicad_netlist_version": "D"},
+        ),
+        (
+            decode_native_design_facts_result_a0,
+            {
+                **result,
+                "compiled_schematic_graph": {**_native_graph(), "unknown": True},
+            },
+        ),
+        (decode_native_design_facts_result_a0, null_graph_result),
+        (decode_native_error_a0, {**error, "kind": "invented"}),
+        (decode_native_error_a0, {**error, "unknown": True}),
+    ]
+    for decoder, mutation in mutations:
+        with pytest.raises(msgspec.ValidationError):
+            decoder(json.dumps(mutation).encode())
 
 
 def _run(command: list[str]) -> None:

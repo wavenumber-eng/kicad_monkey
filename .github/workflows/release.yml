@@ -34,11 +34,40 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
     uses: ./.github/workflows/phase5-exit.yml
 
-  publish-monkey:
+  build-monkey-windows-wheel:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
     needs: phase5-exit
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build Windows native wheel from the public sdist
+        shell: pwsh
+        run: |
+          uv build --sdist --out-dir dist-sdist
+          $sdist = Get-ChildItem dist-sdist\*.tar.gz | Select-Object -First 1
+          if (-not $sdist) { throw "sdist build produced no archive" }
+          uv build $sdist.FullName --wheel --out-dir dist
+      - name: Verify native wheel payload
+        shell: pwsh
+        run: |
+          $wheel = Get-ChildItem dist\*.whl | Select-Object -First 1
+          uv run --extra test python tests/support_scripts/native_wheel_test.py $wheel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kicad-monkey-windows-wheel
+          path: dist/*.whl
+          if-no-files-found: error
+
+  publish-monkey:
+    if: >-
+      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
+    needs: [phase5-exit, build-monkey-windows-wheel]
     runs-on: ubuntu-latest
     environment: pypi-kicad-monkey
     steps:
@@ -96,10 +125,18 @@ jobs:
           uv run --extra test python tests/rack.py run L99_signoff
       - name: Build package
         run: uv run --extra test python -m build
+      - uses: actions/download-artifact@v4
+        with:
+          name: kicad-monkey-windows-wheel
+          path: dist
       - name: Check package
         run: uv run --extra test twine check dist/*
       - name: Run installed import test
-        run: uv run --extra test python tests/support_scripts/install_test.py
+        shell: bash
+        run: |
+          WHEEL="$(find dist -maxdepth 1 -name 'kicad_monkey-*-py3-none-any.whl' -print -quit)"
+          test -n "${WHEEL}"
+          uv run --extra test python tests/support_scripts/install_test.py --wheel "${WHEEL}"
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 

@@ -553,6 +553,13 @@ __all__ = [
     # Design aggregator (lazy loaded)
     "KiCadDesign",
     "KiCadSchematicInstance",
+    # Native process transport (lazy loaded)
+    "KiCadNativeDesignFacts",
+    "KiCadNativeError",
+    "kicad_native_handshake",
+    "native_design_facts",
+    "native_design_facts_for_design",
+    "resolve_kicad_native_executable",
     # Compiled schematic graph (lazy loaded)
     "KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA",
     "KICAD_COMPILED_SCHEMATIC_GRAPH_TYPE",
@@ -1042,6 +1049,12 @@ _LAZY_EXPORT_MODULES: dict[str, str] = {
     'load_default_drawing_sheet': 'kicad_drawing_sheet',
     'KiCadDesign': 'kicad_design',
     'KiCadSchematicInstance': 'kicad_design',
+    'KiCadNativeDesignFacts': 'kicad_native',
+    'KiCadNativeError': 'kicad_native',
+    'kicad_native_handshake': 'kicad_native',
+    'native_design_facts': 'kicad_native',
+    'native_design_facts_for_design': 'kicad_native',
+    'resolve_kicad_native_executable': 'kicad_native',
     'KICAD_COMPILED_SCHEMATIC_GRAPH_SCHEMA': 'kicad_compiled_schematic_graph',
     'KICAD_COMPILED_SCHEMATIC_GRAPH_TYPE': 'kicad_compiled_schematic_graph',
     'KICAD_COMPILED_SCHEMATIC_GRAPH_IDENTITY_NAMESPACE': 'kicad_compiled_schematic_graph',

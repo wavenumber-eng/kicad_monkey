@@ -1,0 +1,45 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.native.error:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.native.error"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "kind": {
+            "$ref": "#/$defs/NativeErrorKind"
+        },
+        "message": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "kind",
+        "message"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Structured stderr payload for a failed native process operation.",
+    "title": "Native error a0",
+    "$defs": {
+        "NativeErrorKind": {
+            "type": "string",
+            "enum": [
+                "request",
+                "path",
+                "io",
+                "resource_limit",
+                "core"
+            ],
+            "description": "Supported native process error category."
+        }
+    }
+}

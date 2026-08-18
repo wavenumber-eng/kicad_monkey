@@ -111,6 +111,12 @@ PUBLIC_API_EXPORTS: tuple[PublicApiExport, ...] = (
         requires_marker=True,
     ),
     PublicApiExport("find_adjacent_kicad_project_path", PublicApiStratum.PROJECT),
+    PublicApiExport("KiCadNativeDesignFacts", PublicApiStratum.PROJECT),
+    PublicApiExport("KiCadNativeError", PublicApiStratum.PROJECT),
+    PublicApiExport("kicad_native_handshake", PublicApiStratum.PROJECT),
+    PublicApiExport("native_design_facts", PublicApiStratum.PROJECT),
+    PublicApiExport("native_design_facts_for_design", PublicApiStratum.PROJECT),
+    PublicApiExport("resolve_kicad_native_executable", PublicApiStratum.PROJECT),
     # IR and SVG rendering entry points.
     PublicApiExport("KICAD_PLOTTER_IR_SCHEMA", PublicApiStratum.RENDERING),
     PublicApiExport("KiCadPlotterDocument", PublicApiStratum.RENDERING),

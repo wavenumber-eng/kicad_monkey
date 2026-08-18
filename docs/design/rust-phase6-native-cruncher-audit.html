@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 6 native Cruncher delivery audit</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 6 native Cruncher delivery audit</h1>
+
+  <p>Status: proposal. Phase 5 Plotter-IR is accepted and frozen. Phase 6 is
+  now in progress as a governed sequence. The P6_000 Monkey-owned
+  <code>kicad-monkey-native</code> operation process, generated transport,
+  bounded Python client, and Windows platform-wheel lane are accepted.
+  They are transport and packaging foundations, not a promoted Cruncher hard
+  switch. In particular, the repository does not yet contain a native
+  <code>kicad-cruncher</code> executable or a native SVG provider.</p>
+
+  <h2>Authority and ownership</h2>
+  <p><a href="../adrs/ADR-011-native-first-rust-port-delivery.md">ADR-011</a>
+  selects native Windows <code>kicad-cruncher</code> as the next delivery
+  boundary. The package boundary remains unchanged:
+  <code>kicad_monkey</code> owns low-level source models, strict contracts,
+  native operations, and basic rendering; the separately distributed
+  <code>kicad-cruncher</code> package owns its CLI and artifact orchestration.
+  Monkey must never depend on Cruncher.</p>
+
+  <p>The existing public Cruncher distribution is still a Python wheel. Its
+  <code>kicad-cruncher</code> and <code>kcr</code> scripts point to the Python
+  CLI, and it carries an ordinary public <code>kicad-monkey</code> dependency.
+  The Rust workspace now also contains an unpublished
+  <code>kicad-monkey-native</code> candidate for the first bounded operation.
+  It is development evidence only until generated envelopes, platform-wheel
+  inclusion, clean-install execution, and independent review are complete.
+  These are design facts, not gaps silently filled by this proposal.</p>
+
+  <h2>Phase 5 IR boundary is not an SVG or application boundary</h2>
+  <p>Phase 5 closed strict, bounded Plotter-IR producers for footprint,
+  symbol, board, and schematic documents, plus the governed native text-cache
+  path. It froze the producer-specific record and operation contracts. It did
+  not close SVG serialization, Cruncher theming or enrichment, design-review
+  artifact assembly, a native executable, platform packaging, or the public
+  CLI switchover. A Phase 5 document matching Python exactly therefore does
+  not by itself prove that a rendered SVG or a Cruncher output directory
+  matches Python.</p>
+
+  <p>The strict Phase 5 contracts remain the transport boundary for native SVG
+  work. Adding a new record or operation arm requires a new contract version
+  or an independently reviewed tolerant envelope; Phase 6 must not mutate the
+  frozen <code>a0</code> unions merely to simplify application integration.</p>
+
+  <h2>Bounded delivery sequence</h2>
+  <table>
+    <thead>
+      <tr><th>Slice</th><th>Required outcome</th><th>Promotion evidence</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>P6_000 native operation transport and package</td>
+        <td>Add a Monkey-owned, versioned native operation executable or
+        sidecar with bounded byte-oriented input/output, generated-contract
+        decoding, deterministic diagnostics, and fail-before-publication
+        behavior. Package it in an installed Windows artifact without a Rust
+        toolchain or workspace-path dependency. The proving operation may
+        carry a compiled graph and version-E netlist, but it does not yet
+        replace Cruncher design assembly or promote the full design-fact
+        surface owned by P6_030.</td>
+        <td>Clean-wheel install, protocol-version and malformed-request tests,
+        resource mutations, atomic-output tests, and an installed-process
+        smoke test with the repository unavailable.</td>
+      </tr>
+      <tr>
+        <td>P6_010 native SVG</td>
+        <td>Serialize the frozen Plotter-IR and native text caches to bounded,
+        deterministic SVG. Separate base SVG correctness from Cruncher-owned
+        presentation, theming, links, and document enrichment.</td>
+        <td>Exact cross-producer SVG vectors, semantic SVG checks, malformed
+        block-state and resource tests, and selected live KiCad/Python oracle
+        comparisons.</td>
+      </tr>
+      <tr>
+        <td>P6_020 no-fallback physical provider</td>
+        <td>Give Cruncher an internal provider that obtains selected physical
+        source, graph, netlist, plot, and SVG facts through the installed
+        native operation. Once promoted for a selected operation, missing,
+        incompatible, or invalid native output is an error: Python must not
+        silently reparse or recompute that operation.</td>
+        <td>Spy tests proving zero legacy-provider calls, absent/bad-sidecar
+        failures, exact typed results, bounded diagnostics, and no partial
+        artifacts.</td>
+      </tr>
+      <tr>
+        <td>P6_030 native design facts</td>
+        <td>Promote the remaining design-fact contracts needed by Cruncher and
+        assemble exact design/netlist/compiled-graph facts natively. Existing
+        Rust netlist JSON is test-only and cannot become a public transport
+        until its schema and compatibility policy are explicitly promoted.</td>
+        <td>Cross-package Python/native fact vectors, hierarchy and occurrence
+        cases, malformed and ceiling mutations, deterministic serialization,
+        and installed-package design-review fixtures.</td>
+      </tr>
+      <tr>
+        <td>P6_040 full CLI compatibility</td>
+        <td>Preserve the public <code>kicad-cruncher</code>, <code>kcr</code>,
+        and <code>python -m kicad_cruncher</code> entry points; command aliases,
+        arguments, output layout, logs, and exit codes; and the primary
+        <code>design</code>/<code>design-review</code>/<code>dr</code>
+        workflow. Any Python facade that remains must orchestrate the native
+        provider rather than provide a fallback implementation.</td>
+        <td>Installed cross-package CLI tests over success, user error,
+        malformed input, missing dependency, and partial-output cleanup,
+        including exact artifact manifests.</td>
+      </tr>
+      <tr>
+        <td>P6_050 exit</td>
+        <td>Make the selected Windows bot and release artifact use the native
+        path with no fallback, then promote the scope only after every prior
+        slice is independently reviewed. Linux and macOS remain Python unless
+        separately measured and promoted; Windows-first is not a claim of
+        cross-platform hard switchover.</td>
+        <td>A mandatory Rack exit gate, clean public-distribution install,
+        exact corpus/oracle evidence, package provenance checks, reproducible
+        release artifacts, and a recorded runtime budget.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>P6_000 closed on 2026-08-17. Its Rack evidence is L0_062 (15 tests,
+  0.71 seconds warm) and L1_037 (one real Python-to-Rust operation test,
+  0.37 seconds warm). The full Rust workspace test suite, generated-contract
+  checks, capability-contained path mutations, and public-sdist to isolated
+  Windows-wheel <code>design-facts</code> execution were also green. Three
+  independent reviews approved the slice. This closure does not promote SVG
+  or any Cruncher fallback switch.</p>
+
+  <h2>Transport and resource rules</h2>
+  <ul>
+    <li>Each operation has a named protocol/version, a strict request and
+    result contract, independent byte/count/work ceilings, and bounded
+    diagnostics. Ad hoc internal JSON is not a public contract.</li>
+    <li>Inputs are read from explicit paths or bytes supplied by the caller.
+    Paths are contained beneath an explicit staging root. The native core does
+    not discover projects, fonts, templates, or output locations.</li>
+    <li>Outputs are bounded in memory or written to temporary staging and are
+    published only after the complete operation validates. Overflow,
+    truncation, protocol mismatch, missing resources, and malformed native
+    output fail closed.</li>
+    <li>The Cruncher adapter performs an explicit protocol handshake. It must
+    not retry through Python after native execution begins or succeeds
+    partially.</li>
+  </ul>
+
+  <h2>Packaging constraints</h2>
+  <p>The clean installed-distribution boundary is mandatory. A built Cruncher
+  artifact must continue to declare a normal public <code>kicad-monkey</code>
+  dependency and must not embed repository paths, editable installs, path
+  dependencies, or a copy of the Monkey Rust workspace. A Monkey-owned native
+  sidecar may be shipped by a platform-aware Monkey wheel and discovered by a
+  documented package API. If a separately built Cruncher-native artifact is
+  chosen instead, its source and binary ownership must satisfy the same
+  one-way dependency and provenance rules.</p>
+
+  <p>P6_000 adds a platform-tagged Windows Monkey wheel build, archive
+  inclusion checks, an sdist-to-wheel rebuild, and a clean isolated install
+  test for the package-owned executable. Cruncher remains a separate universal
+  wheel and still follows its established Python rendering path. Signing and
+  any separately packaged native Cruncher executable remain later release
+  decisions under ADR-011; public Cargo publication is not implied.</p>
+
+  <h2>Compatibility and exclusions</h2>
+  <p>The public Python APIs remain compatible while transport slices are being
+  staged. The hard switch happens only for a specifically promoted operation;
+  it is not inferred from the presence of a binary. PyO3 is optional and is
+  not a prerequisite. New WASM exports, browser packaging, downstream
+  <code>pcb_a0</code>, Viz, ALX, and application-specific report formats are
+  outside Phase 6. Cruncher-owned manifests and presentation remain in the
+  Cruncher package even when their physical facts and SVG are native.</p>
+
+  <h2>Exit decision</h2>
+  <p>Phase 6 can become accepted only when all six planned scope rows have
+  executable vectors, implementation evidence, semantic/resource suites, and
+  Rack owners; the selected Windows public install completes
+  <code>design</code>/<code>design-review</code>/<code>dr</code> without a
+  Python physical fallback; and CI and release use the same tested artifact.
+  Until then, the repository remains in Phase 6 implementation and the
+  established Python Cruncher path remains authoritative.</p>
+</body>
+</html>

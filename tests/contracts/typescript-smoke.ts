@@ -4,12 +4,33 @@ import type {
   FootprintPlotDocumentA0,
   FootprintPlotRequestA0,
   FootprintReadRequestA0,
+  NativeDesignFactsRequestA0,
+  NativeDesignFactsResultA0,
+  NativeErrorA0,
+  NativeHandshakeA0,
   SchematicPlotDocumentA0,
   SchematicPlotRequestA0,
   SchematicPlotResultA0,
   SExpressionBuildRequestA0,
   SExpressionScanRequestA0,
 } from "../../src/ts/kicad_monkey/contracts/generated/index.js";
+
+const nativeHandshake = {
+  type: "kicad_monkey.native.handshake",
+  version: "a0",
+  engine_version: "0.1.0",
+  operations: ["design-facts"],
+} satisfies NativeHandshakeA0;
+
+const nativeError = {
+  type: "kicad_monkey.native.error",
+  version: "a0",
+  kind: "resource_limit",
+  message: "bounded failure",
+} satisfies NativeErrorA0;
+
+void nativeHandshake;
+void nativeError;
 
 const compiledGraph = {
   schema: "kicad_monkey.compiled_schematic_graph.a0",
@@ -28,6 +49,40 @@ const compiledGraph = {
 } satisfies CompiledSchematicGraphA0;
 
 void compiledGraph;
+
+const nativeDesignFactsRequest = {
+  type: "kicad_monkey.native.design_facts.request",
+  version: "a0",
+  bundle_root: "C:/bundle",
+  manifest: {
+    schema: "kicad_monkey.source_bundle_manifest.a0",
+    type: "kicad_monkey.source_bundle_manifest",
+    version: "a0",
+    root_schematic_path: "root.kicad_sch",
+    sources: [{ path: "root.kicad_sch", kind: "schematic", slot: 0, source_bytes: "0" }],
+  },
+  file_slots: [{ slot: 0, path: "root.kicad_sch" }],
+  limits: {
+    max_sources: 1,
+    max_source_bytes: "1048576",
+    max_total_source_bytes: "1048576",
+    max_path_bytes: 4096,
+    max_output_bytes: "8388608",
+  },
+  netlist: { source_path: "root.kicad_sch", date: "", tool: "kicad-monkey-native" },
+} satisfies NativeDesignFactsRequestA0;
+
+const nativeDesignFactsResult = {
+  type: "kicad_monkey.native.design_facts.result",
+  version: "a0",
+  engine_version: "0.1.0",
+  compiled_schematic_graph: compiledGraph,
+  kicad_netlist_version: "E",
+  kicad_netlist: '(export (version "E"))',
+} satisfies NativeDesignFactsResultA0;
+
+void nativeDesignFactsRequest;
+void nativeDesignFactsResult;
 
 const buildRequest = {
   type: "kicad_monkey.sexpr_build.request",

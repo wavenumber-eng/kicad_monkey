@@ -89,9 +89,16 @@ members = ["packages/kicad_cruncher"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/py/kicad_monkey"]
 
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
 [tool.hatch.build.targets.sdist]
 include = [
+    "Cargo.toml",
+    "Cargo.lock",
+    "hatch_build.py",
     "assets/**",
+    "src/rs/**",
     "src/py/**",
     "tests/**",
     "docs/**",

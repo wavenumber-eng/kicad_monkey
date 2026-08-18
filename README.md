@@ -35,6 +35,11 @@ repository also contains the separately published `kicad-cruncher` workflow
 CLI under `packages/kicad_cruncher/`. The CLI depends on Monkey; Monkey never
 depends on the CLI.
 
+The Rust port has closed its Phase 5 Plotter-IR boundary. A review-ready
+Windows native-operation transport/package foundation now starts Phase 6;
+native SVG and the no-fallback Cruncher hard switch remain staged work. See
+the [native Cruncher delivery audit](docs/design/rust-phase6-native-cruncher-audit.html).
+
 ## Install
 
 For library use inside an existing Python environment:

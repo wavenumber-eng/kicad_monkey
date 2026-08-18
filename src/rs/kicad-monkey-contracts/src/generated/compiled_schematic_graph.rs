@@ -208,7 +208,11 @@ pub struct CompiledSchematicGraphA0 {
 #[serde(deny_unknown_fields)]
 pub struct ComponentOccurrence {
     pub body_style: u32,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub design_component_ref: ::std::option::Option<::std::string::String>,
     pub display_designator: ::std::string::String,
     pub id: ::std::string::String,
@@ -467,7 +471,11 @@ pub struct HierarchyOccurrence {
 #[serde(deny_unknown_fields)]
 pub struct HierarchyTerminalBinding {
     pub child_terminal_occurrence_ref: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub design_net_ref: ::std::option::Option<::std::string::String>,
     pub hierarchy_occurrence_ref: ::std::string::String,
     pub id: ::std::string::String,
@@ -529,12 +537,20 @@ pub struct HierarchyTerminalBinding {
 #[serde(deny_unknown_fields)]
 pub struct LocalNetOccurrence {
     pub aliases: ::std::vec::Vec<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub design_net_ref: ::std::option::Option<::std::string::String>,
     pub display_name: ::std::string::String,
     pub id: ::std::string::String,
     pub page_occurrence_ref: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub qualified_name: ::std::option::Option<::std::string::String>,
     pub source_identity: SourceIdentity,
     #[serde(rename = "type")]
@@ -641,13 +657,21 @@ pub struct PageDefinition {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct PageOccurrence {
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub address_key: ::std::option::Option<::std::string::String>,
     pub display_name: ::std::string::String,
     pub id: ::std::string::String,
     pub instance_order: u32,
     pub page_definition_ref: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub sheet_number: ::std::option::Option<::std::string::String>,
     pub source_identity: SourceIdentity,
     #[serde(rename = "type")]
@@ -776,36 +800,42 @@ pub struct SourceIdentity {
     #[serde(
         rename = "sch.source_key.artifact_element",
         default,
+        deserialize_with = "crate::deserialize_present_nonnull",
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub sch_source_key_artifact_element: ::std::option::Option<::std::string::String>,
     #[serde(
         rename = "sch.source_key.compiled_net",
         default,
+        deserialize_with = "crate::deserialize_present_nonnull",
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub sch_source_key_compiled_net: ::std::option::Option<::std::string::String>,
     #[serde(
         rename = "sch.source_key.source_path",
         default,
+        deserialize_with = "crate::deserialize_present_nonnull",
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub sch_source_key_source_path: ::std::option::Option<::std::string::String>,
     #[serde(
         rename = "sch.source_key.source_record",
         default,
+        deserialize_with = "crate::deserialize_present_nonnull",
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub sch_source_key_source_record: ::std::option::Option<::std::string::String>,
     #[serde(
         rename = "sch.source_key.source_subobject",
         default,
+        deserialize_with = "crate::deserialize_present_nonnull",
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub sch_source_key_source_subobject: ::std::option::Option<::std::string::String>,
     #[serde(
         rename = "sch.source_key.source_uuid",
         default,
+        deserialize_with = "crate::deserialize_present_nonnull",
         skip_serializing_if = "::std::option::Option::is_none"
     )]
     pub sch_source_key_source_uuid: ::std::option::Option<::std::string::String>,
@@ -887,14 +917,30 @@ impl ::std::default::Default for SourceIdentity {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct TerminalOccurrence {
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub component_occurrence_ref: ::std::option::Option<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub design_component_pin_ref: ::std::option::Option<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub design_net_ref: ::std::option::Option<::std::string::String>,
     pub id: ::std::string::String,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub local_net_occurrence_ref: ::std::option::Option<::std::string::String>,
     pub name: ::std::string::String,
     pub page_occurrence_ref: ::std::string::String,
@@ -1089,7 +1135,11 @@ pub struct UnitOccurrence {
     pub display_name: ::std::string::String,
     pub id: ::std::string::String,
     pub page_occurrence_refs: ::std::vec::Vec<::std::string::String>,
-    #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "crate::deserialize_present_nonnull",
+        skip_serializing_if = "::std::option::Option::is_none"
+    )]
     pub parent_hierarchy_occurrence_ref: ::std::option::Option<::std::string::String>,
     pub source_identity: SourceIdentity,
     #[serde(rename = "type")]

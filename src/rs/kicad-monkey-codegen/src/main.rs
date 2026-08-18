@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use typify::{TypeSpace, TypeSpaceSettings};
 
-const SCHEMAS: [(&str, &str); 30] = [
+const SCHEMAS: [(&str, &str); 34] = [
     ("BoardPlotDocument.json", "board_plot_document.rs"),
     ("BoardPlotRequest.json", "board_plot_request.rs"),
     ("BoardPlotResult.json", "board_plot_result.rs"),
@@ -54,6 +54,16 @@ const SCHEMAS: [(&str, &str); 30] = [
     ("FontResolutionRequest.json", "font_resolution_request.rs"),
     ("ShapingRecord.json", "shaping_record.rs"),
     ("OutlineVector.json", "outline_vector.rs"),
+    ("NativeHandshake.json", "native_handshake.rs"),
+    (
+        "NativeDesignFactsRequest.json",
+        "native_design_facts_request.rs",
+    ),
+    (
+        "NativeDesignFactsResult.json",
+        "native_design_facts_result.rs",
+    ),
+    ("NativeError.json", "native_error.rs"),
 ];
 
 const PLOTTER_OPERATION_KINDS: [(&str, &str, &str); 14] = [
@@ -444,11 +454,15 @@ fn main() -> Result<()> {
         validate_plotter_operation_kinds(schema_name, &schema)?;
         flatten_board_footprint_operation_extensions(schema_name, &mut schema)?;
         project_schematic_request_fields(schema_name, &mut schema)?;
+        project_native_external_references(schema_name, &mut schema)?;
         project_for_typify(&mut schema);
         promote_disjoint_record_unions(&mut schema);
         project_tri_state_via_drill_layers(&mut schema);
-        let generated =
-            project_generated_presence(schema_name, &published_schema, generate(schema)?)?;
+        let generated = project_generated_presence(
+            schema_name,
+            &published_schema,
+            generate(schema_name, schema)?,
+        )?;
         expected.insert(output_root.join(output_name), generated);
         modules.push(output_name.trim_end_matches(".rs"));
     }
@@ -631,7 +645,7 @@ fn project_generated_presence(
     published_schema: &Value,
     source: String,
 ) -> Result<String> {
-    if !is_frozen_plotter_schema(schema_name) {
+    if !uses_strict_presence_projection(schema_name) {
         return Ok(source);
     }
     let mut projected = source;
@@ -732,10 +746,12 @@ enum FieldPresence {
     RequiredNullable,
 }
 
-fn is_frozen_plotter_schema(schema_name: &str) -> bool {
+fn uses_strict_presence_projection(schema_name: &str) -> bool {
     matches!(
         schema_name,
-        "BoardPlotDocument.json"
+        "CompiledSchematicGraph.json"
+            | "SourceBundleManifest.json"
+            | "BoardPlotDocument.json"
             | "BoardPlotRequest.json"
             | "BoardPlotResult.json"
             | "FootprintPlotDocument.json"
@@ -770,7 +786,9 @@ fn project_schema_presence(schema_name: &str, schema: &Value, source: String) ->
             let Some(field_ident) = &field.ident else {
                 continue;
             };
-            let key = (structure_name.clone(), field_ident.to_string());
+            let rust_name = field_ident.to_string();
+            let wire_name = serde_field_name(field)?.unwrap_or_else(|| rust_name.clone());
+            let key = (structure_name.clone(), wire_name.clone());
             let Some(presence) = rules.get(&key).copied() else {
                 continue;
             };
@@ -780,40 +798,10 @@ fn project_schema_presence(schema_name: &str, schema: &Value, source: String) ->
                 // their native deserializers; only Option<T> needs a presence projection.
                 continue;
             }
-            match presence {
-                FieldPresence::OptionalNonnullable => {
-                    replace_serde_presence_attr(
-                        field,
-                        syn::parse_quote!(#[serde(
-                            default,
-                            deserialize_with = "crate::deserialize_present_nonnull",
-                            skip_serializing_if = "::std::option::Option::is_none"
-                        )]),
-                    )?;
-                    projected_optionals += 1;
-                }
-                FieldPresence::RequiredNullable => {
-                    replace_serde_presence_attr(
-                        field,
-                        syn::parse_quote!(#[serde(
-                            deserialize_with = "crate::deserialize_required_nullable"
-                        )]),
-                    )?;
-                    required_nullables += 1;
-                }
-                FieldPresence::OptionalNullable => {
-                    if key != ("SchematicJunctionPlotRecord".to_owned(), "color".to_owned())
-                        || !is_nested_option_type(&field.ty)
-                        || !has_deserializer(field, "deserialize_present_nullable_string")
-                    {
-                        bail!(
-                            "{schema_name} optional-nullable projection changed at {}.{}",
-                            key.0,
-                            key.1
-                        );
-                    }
-                }
-            }
+            let (optional_count, required_count) =
+                project_presence_field(schema_name, field, presence, &wire_name, &rust_name, &key)?;
+            projected_optionals += optional_count;
+            required_nullables += required_count;
         }
     }
 
@@ -845,6 +833,90 @@ fn project_schema_presence(schema_name: &str, schema: &Value, source: String) ->
         bail!("{schema_name} has no projected optional nonnullable Option<T> fields");
     }
     Ok(prettyplease::unparse(&syntax))
+}
+
+fn project_presence_field(
+    schema_name: &str,
+    field: &mut syn::Field,
+    presence: FieldPresence,
+    wire_name: &str,
+    rust_name: &str,
+    key: &(String, String),
+) -> Result<(usize, usize)> {
+    let span = field
+        .ident
+        .as_ref()
+        .context("generated field has no name")?
+        .span();
+    match presence {
+        FieldPresence::OptionalNonnullable => {
+            let replacement = if wire_name == rust_name {
+                syn::parse_quote!(#[serde(
+                    default,
+                    deserialize_with = "crate::deserialize_present_nonnull",
+                    skip_serializing_if = "::std::option::Option::is_none"
+                )])
+            } else {
+                let wire_name = syn::LitStr::new(wire_name, span);
+                syn::parse_quote!(#[serde(
+                    rename = #wire_name,
+                    default,
+                    deserialize_with = "crate::deserialize_present_nonnull",
+                    skip_serializing_if = "::std::option::Option::is_none"
+                )])
+            };
+            replace_serde_presence_attr(field, replacement)?;
+            Ok((1, 0))
+        }
+        FieldPresence::RequiredNullable => {
+            let replacement = if wire_name == rust_name {
+                syn::parse_quote!(#[serde(
+                    deserialize_with = "crate::deserialize_required_nullable"
+                )])
+            } else {
+                let wire_name = syn::LitStr::new(wire_name, span);
+                syn::parse_quote!(#[serde(
+                    rename = #wire_name,
+                    deserialize_with = "crate::deserialize_required_nullable"
+                )])
+            };
+            replace_serde_presence_attr(field, replacement)?;
+            Ok((0, 1))
+        }
+        FieldPresence::OptionalNullable => {
+            if key != &("SchematicJunctionPlotRecord".to_owned(), "color".to_owned())
+                || !is_nested_option_type(&field.ty)
+                || !has_deserializer(field, "deserialize_present_nullable_string")
+            {
+                bail!(
+                    "{schema_name} optional-nullable projection changed at {}.{}",
+                    key.0,
+                    key.1
+                );
+            }
+            Ok((0, 0))
+        }
+    }
+}
+
+fn serde_field_name(field: &syn::Field) -> Result<Option<String>> {
+    let mut rename = None;
+    for attribute in field
+        .attrs
+        .iter()
+        .filter(|attribute| attribute.path().is_ident("serde"))
+    {
+        attribute.parse_nested_meta(|meta| {
+            if meta.path.is_ident("rename") {
+                let value = meta.value()?;
+                rename = Some(value.parse::<syn::LitStr>()?.value());
+            } else if meta.input.peek(syn::Token![=]) {
+                let _ = meta.value()?.parse::<syn::Expr>()?;
+            }
+            Ok(())
+        })?;
+    }
+    Ok(rename)
 }
 
 fn replace_serde_presence_attr(field: &mut syn::Field, replacement: syn::Attribute) -> Result<()> {
@@ -1061,7 +1133,7 @@ fn project_kind_deserializer(
     Ok(source)
 }
 
-fn generate(value: Value) -> Result<String> {
+fn generate(schema_name: &str, value: Value) -> Result<String> {
     let schema: RootSchema = serde_json::from_value(value)?;
     let mut settings = TypeSpaceSettings::default();
     settings.with_struct_builder(false);
@@ -1099,6 +1171,20 @@ fn generate(value: Value) -> Result<String> {
     );
     settings.with_replacement("StableTextId", "crate::StableTextId", [].into_iter());
     settings.with_replacement("NonEmptyText", "::std::string::String", [].into_iter());
+    if schema_name == "NativeDesignFactsRequest.json" {
+        settings.with_replacement(
+            "NativeSourceBundleManifestProjection",
+            "crate::generated::source_bundle_manifest::SourceBundleManifestA0",
+            [].into_iter(),
+        );
+    }
+    if schema_name == "NativeDesignFactsResult.json" {
+        settings.with_replacement(
+            "NativeCompiledSchematicGraphProjection",
+            "crate::generated::compiled_schematic_graph::CompiledSchematicGraphA0",
+            [].into_iter(),
+        );
+    }
     let mut type_space = TypeSpace::new(&settings);
     type_space.add_root_schema(schema)?;
     let body = type_space.to_stream().to_string();
@@ -1106,6 +1192,38 @@ fn generate(value: Value) -> Result<String> {
         format!("// Generated from TypeSpec JSON Schema through typify. Do not edit.\n\n{body}\n");
     let syntax = syn::parse_file(&source).context("parse generated Rust")?;
     rustfmt(&prettyplease::unparse(&syntax))
+}
+
+fn project_native_external_references(schema_name: &str, schema: &mut Value) -> Result<()> {
+    let (pointer, external, projection) = match schema_name {
+        "NativeDesignFactsRequest.json" => (
+            "/properties/manifest/$ref",
+            "urn:wavenumber:schema:kicad_monkey.source_bundle_manifest:a0",
+            "NativeSourceBundleManifestProjection",
+        ),
+        "NativeDesignFactsResult.json" => (
+            "/properties/compiled_schematic_graph/$ref",
+            "urn:wavenumber:schema:kicad_monkey.compiled_schematic_graph:a0",
+            "NativeCompiledSchematicGraphProjection",
+        ),
+        _ => return Ok(()),
+    };
+    let reference = schema
+        .pointer_mut(pointer)
+        .with_context(|| format!("missing {schema_name} external contract reference"))?;
+    if reference.as_str() != Some(external) {
+        bail!("{schema_name} external contract reference changed");
+    }
+    *reference = Value::String(format!("#/$defs/{projection}"));
+    let definitions = schema
+        .as_object_mut()
+        .context("native transport schema root must be an object")?
+        .entry("$defs")
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+        .with_context(|| format!("invalid {schema_name} definitions"))?;
+    definitions.insert(projection.to_owned(), serde_json::json!({"type": "object"}));
+    Ok(())
 }
 
 fn rustfmt(source: &str) -> Result<String> {

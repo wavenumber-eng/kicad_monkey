@@ -3,6 +3,7 @@ members = [
     "src/rs/kicad-monkey-codegen",
     "src/rs/kicad-monkey-contracts",
     "src/rs/kicad-monkey-core",
+    "src/rs/kicad-monkey-native",
     "src/rs/kicad-monkey-wasm",
 ]
 resolver = "3"
@@ -27,6 +28,7 @@ too_many_lines = "deny"
 
 [workspace.dependencies]
 anyhow = "1.0.102"
+cap-std = "4.0.2"
 harfrust = "0.13.0"
 prettyplease = "0.2.37"
 read-fonts = "0.43.0"

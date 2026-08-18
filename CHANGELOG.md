@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Open Phase 6 governance for staged native Cruncher delivery, explicitly
+  separating the closed Plotter-IR boundary from native SVG, platform
+  packaging, no-fallback design facts, full public CLI compatibility, and the
+  final hard-switchover exit gate. This is a plan, not a native CLI release.
+
+- Add the accepted Phase 6 native operation transport foundation: strict
+  generated request/result envelopes, bounded `kicad-monkey-native`
+  design-facts execution, current-state Python staging, and a platform-tagged
+  Windows Monkey wheel with an installed-process test. Native SVG and the
+  no-fallback Cruncher switch remain later slices.
+
 - Complete and freeze the bounded native Phase 5 Plotter-IR producers with a
   mandatory Windows Rack gate over exact cross-producer vectors, resource and
   semantic suites, exact selected `KM_CORPUS` producers plus broad corpus
