@@ -35,16 +35,19 @@ repository also contains the separately published `kicad-cruncher` workflow
 CLI under `packages/kicad_cruncher/`. The CLI depends on Monkey; Monkey never
 depends on the CLI.
 
-The Rust port has closed its Phase 5 Plotter-IR boundary. The accepted
+The Rust port has closed its Plotter-IR boundary. The accepted
 Windows native-operation transport/package foundation and native base SVG
-serializer now start Phase 6; the higher-level, cross-platform Cruncher hard
+serializer now start native application delivery; the higher-level, cross-platform Cruncher hard
 switch remains staged work. See
 the [native Cruncher delivery audit](docs/design/rust-phase6-native-cruncher-audit.html).
 The accepted [native base SVG slice](docs/design/rust-native-svg-phase6-slice.html)
 is followed by the accepted
 [Windows no-fallback PCB physical provider](docs/design/rust-native-physical-provider-phase6-slice.html),
 which retains Cruncher-owned enrichment and composition while replacing its
-physical-base serialization seam.
+physical-base serialization seam. The accepted
+[source-bound native design-facts slice](docs/design/rust-native-design-facts-phase6-slice.html)
+next switches the Windows compiled graph and version-E netlist while retaining
+Python Design JSON, netlist JSON, presentation, and orchestration.
 
 ## Install
 

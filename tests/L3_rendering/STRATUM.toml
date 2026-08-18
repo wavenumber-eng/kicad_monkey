@@ -335,6 +335,33 @@ secondary = [
 ]
 
 [[subtests]]
+id = "L3_025"
+file = "test_L3_025_native_design_facts.py"
+name = "Native Design Facts Provider Exit"
+description = "Require source-bound native compiled-graph and version-E netlist facts in the selected Windows Cruncher design-review path"
+concerns = ["rust", "contracts", "connectivity", "cross-package", "release"]
+test_case_type = "release_acceptance"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_native"
+modules = [
+    "kicad_cruncher.kicad_cruncher_native_design",
+    "kicad_cruncher.kicad_cruncher_cmd_design",
+]
+
+[subtests.objectives]
+primary = "The promoted Windows design-review graph and version-E netlist come from one source-bound native result without a Python retry"
+secondary = [
+    "The A2 handshake and A1 request/result remain generated and preserve every accepted older native protocol",
+    "The native snapshot digest covers the exact current in-memory project and schematic bytes read through contained source slots",
+    "Netlist source, date, tool, UTF-8 byte count, SHA-256, and canonical top-level structure are validated before publication",
+    "Design JSON, the standalone graph, and schematic SVG linkage consume the same injected native graph while Design JSON and netlist JSON remain Python-owned",
+    "The four governed hierarchy projects retain exact compiled-graph and typed-netlist semantic parity",
+    "Provider failure performs zero Python graph or version-E writer retry and leaves no partial design-review tree",
+    "Cargo work is serialized at four jobs and two test threads",
+]
+
+[[subtests]]
 id = "L3_022"
 file = "test_L3_022_rust_phase5_exit.py"
 name = "Rust Phase 5 Plotter-IR Exit"

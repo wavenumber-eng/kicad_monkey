@@ -4,21 +4,32 @@
 
 use cap_std::ambient_authority;
 use cap_std::fs::Dir;
-use kicad_monkey_contracts::decode_native_design_facts_request_a0;
 use kicad_monkey_contracts::decode_native_svg_render_request_a0;
-use kicad_monkey_contracts::generated::native_design_facts_request::{
-    NativeDesignFactsLimits, NativeDesignFactsRequestA0, NativeFileSlot, NativeNetlistMetadata,
-};
+use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
+use kicad_monkey_contracts::generated::native_design_facts_request::NativeDesignFactsRequestA0;
+use kicad_monkey_contracts::generated::native_design_facts_request_a1::NativeDesignFactsRequestA1;
 use kicad_monkey_contracts::generated::native_design_facts_result::NativeDesignFactsResultA0;
+use kicad_monkey_contracts::generated::native_design_facts_result_a1::{
+    CanonicalUint64Decimal as DesignFactsCanonicalUint64Decimal, NativeDesignFactsResultA1,
+};
 use kicad_monkey_contracts::generated::native_error::NativeErrorA0;
 pub use kicad_monkey_contracts::generated::native_error::NativeErrorKind;
 use kicad_monkey_contracts::generated::native_handshake::NativeHandshakeA0;
 use kicad_monkey_contracts::generated::native_handshake_a1::{
     NativeHandshakeA1, NativeHandshakeA1OperationsItem,
 };
+use kicad_monkey_contracts::generated::native_handshake_a2::{
+    NativeHandshakeA2, NativeHandshakeA2OperationsItem,
+};
 use kicad_monkey_contracts::generated::native_svg_render_result::{
     CanonicalUint64Decimal as SvgCanonicalUint64Decimal, NativeSvgRenderResultA0,
     NativeSvgRenderResultA0SourceKind,
+};
+use kicad_monkey_contracts::generated::source_bundle_manifest::{
+    SourceBundleManifestA0, SourceKind,
+};
+use kicad_monkey_contracts::{
+    decode_native_design_facts_request_a0, decode_native_design_facts_request_a1,
 };
 use kicad_monkey_core::{
     CompiledSchematicGraphLimits, KiCadNetlistLimits, ProjectDocument, ProjectLimits,
@@ -37,10 +48,21 @@ use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 
 pub const PROTOCOL_VERSION: &str = "a0";
+pub const DESIGN_FACTS_A1_VERSION: &str = "a1";
+pub const DESIGN_FACTS_RESOURCE_PROFILE: &str = "design-facts-bounded-a1";
 pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const MAX_REQUEST_BYTES: usize = 1024 * 1024;
+pub const MAX_DESIGN_REQUEST_NODES: usize = 64 * 1024;
+pub const MAX_DESIGN_REQUEST_DEPTH: usize = 64;
 pub const MAX_SVG_REQUEST_BYTES: usize = 256 * 1024 * 1024;
 pub const MAX_SVG_REQUEST_NODES: usize = 8 * 1024 * 1024;
+pub const MAX_SVG_REQUEST_DEPTH: usize = 64;
+/// Fixed A1 design-facts profile ceiling for aggregate netclass wildcard work.
+///
+/// The reviewed Jumperless v5r7 design consumes 1,025,852 work units. This
+/// leaves bounded headroom while remaining far below the core's 1,000,000,000
+/// default ceiling.
+pub const DESIGN_FACTS_A1_MAX_WILDCARD_MATCH_WORK: usize = 2_000_000;
 
 const REQUEST_TYPE: &str = "kicad_monkey.native.design_facts.request";
 const RESULT_TYPE: &str = "kicad_monkey.native.design_facts.result";
@@ -57,6 +79,7 @@ const MAX_OUTPUT_BYTES: usize = 256 * 1024 * 1024;
 const MAX_FAMILY_ITEMS: usize = 250_000;
 const MAX_METADATA_BYTES: usize = 64 * 1024;
 const MAX_ERROR_BYTES: usize = 64 * 1024;
+const SOURCE_SNAPSHOT_DOMAIN: &[u8] = b"kicad_monkey.native.source_snapshot.a1\0";
 
 /// Backward-compatible public name for the promoted generated request DTO.
 pub type DesignFactsRequestA0 = NativeDesignFactsRequestA0;
@@ -64,6 +87,7 @@ pub type DesignFactsRequestA0 = NativeDesignFactsRequestA0;
 /// Backward-compatible public name for the promoted generated handshake DTO.
 pub type HandshakeA0 = NativeHandshakeA0;
 pub type HandshakeA1 = NativeHandshakeA1;
+pub type HandshakeA2 = NativeHandshakeA2;
 
 #[derive(Debug)]
 pub struct NativeError {
@@ -116,6 +140,20 @@ pub fn handshake_a1() -> HandshakeA1 {
     }
 }
 
+#[must_use]
+pub fn handshake_a2() -> HandshakeA2 {
+    HandshakeA2 {
+        type_: HANDSHAKE_TYPE.to_owned(),
+        version: "a2".to_owned(),
+        engine_version: ENGINE_VERSION.to_owned(),
+        operations: [
+            NativeHandshakeA2OperationsItem::DesignFacts,
+            NativeHandshakeA2OperationsItem::RenderSvg,
+            NativeHandshakeA2OperationsItem::DesignFactsA1,
+        ],
+    }
+}
+
 pub fn execute_request_reader(mut reader: impl Read) -> Result<Vec<u8>, NativeError> {
     let read_limit = MAX_REQUEST_BYTES
         .checked_add(1)
@@ -127,6 +165,19 @@ pub fn execute_request_reader(mut reader: impl Read) -> Result<Vec<u8>, NativeEr
         .read_to_end(&mut request)
         .map_err(|error| io_error("could not read request", error))?;
     execute_request_bytes(&request)
+}
+
+pub fn execute_request_a1_reader(mut reader: impl Read) -> Result<Vec<u8>, NativeError> {
+    let read_limit = MAX_REQUEST_BYTES
+        .checked_add(1)
+        .ok_or_else(|| resource_error("request byte limit overflowed"))?;
+    let mut request = Vec::new();
+    reader
+        .by_ref()
+        .take(read_limit as u64)
+        .read_to_end(&mut request)
+        .map_err(|error| io_error("could not read request", error))?;
+    execute_request_a1_bytes(&request)
 }
 
 pub fn execute_svg_request_reader(mut reader: impl Read) -> Result<Vec<u8>, NativeError> {
@@ -148,7 +199,12 @@ pub fn execute_svg_request_bytes(request_bytes: &[u8]) -> Result<Vec<u8>, Native
             "SVG request exceeds the fixed 256 MiB limit",
         ));
     }
-    preflight_svg_request_structure(request_bytes, MAX_SVG_REQUEST_NODES)?;
+    preflight_request_structure(
+        request_bytes,
+        MAX_SVG_REQUEST_NODES,
+        MAX_SVG_REQUEST_DEPTH,
+        "SVG",
+    )?;
     let request = decode_native_svg_render_request_a0(request_bytes)
         .map_err(|error| request_error(format!("invalid native SVG request: {error}")))?;
     let artifact = render_svg(&request)
@@ -183,51 +239,70 @@ pub fn execute_svg_request_bytes(request_bytes: &[u8]) -> Result<Vec<u8>, Native
     )
 }
 
-fn preflight_svg_request_structure(
+fn preflight_request_structure(
     request_bytes: &[u8],
     maximum_nodes: usize,
+    maximum_depth: usize,
+    request_name: &str,
 ) -> Result<(), NativeError> {
     let mut counter = JsonNodeCounter {
         nodes: 0,
-        maximum: maximum_nodes,
-        exceeded: false,
+        maximum_nodes,
+        maximum_depth,
+        exceeded: None,
     };
     let mut deserializer = serde_json::Deserializer::from_slice(request_bytes);
     let parsed = JsonNodeSeed {
         counter: &mut counter,
+        depth: 1,
     }
     .deserialize(&mut deserializer)
     .and_then(|()| deserializer.end());
-    if counter.exceeded {
-        return Err(resource_error(
-            "SVG request exceeds the fixed structural node limit",
-        ));
+    if let Some(limit) = counter.exceeded {
+        return Err(resource_error(format!(
+            "{request_name} request exceeds the fixed structural {limit} limit"
+        )));
     }
-    parsed.map_err(|error| request_error(format!("invalid native SVG request: {error}")))
+    parsed.map_err(|error| {
+        request_error(format!(
+            "invalid native {} request: {error}",
+            request_name.to_ascii_lowercase()
+        ))
+    })
 }
 
 struct JsonNodeCounter {
     nodes: usize,
-    maximum: usize,
-    exceeded: bool,
+    maximum_nodes: usize,
+    maximum_depth: usize,
+    exceeded: Option<&'static str>,
 }
 
 impl JsonNodeCounter {
-    fn charge<E: serde::de::Error>(&mut self) -> Result<(), E> {
+    fn charge_node<E: serde::de::Error>(&mut self) -> Result<(), E> {
         self.nodes = self.nodes.checked_add(1).ok_or_else(|| {
-            self.exceeded = true;
+            self.exceeded = Some("node");
             E::custom("JSON structural node count overflowed")
         })?;
-        if self.nodes > self.maximum {
-            self.exceeded = true;
+        if self.nodes > self.maximum_nodes {
+            self.exceeded = Some("node");
             return Err(E::custom("JSON structural node limit exceeded"));
         }
         Ok(())
+    }
+
+    fn charge_value<E: serde::de::Error>(&mut self, depth: usize) -> Result<(), E> {
+        if depth > self.maximum_depth {
+            self.exceeded = Some("depth");
+            return Err(E::custom("JSON structural depth limit exceeded"));
+        }
+        self.charge_node()
     }
 }
 
 struct JsonNodeSeed<'a> {
     counter: &'a mut JsonNodeCounter,
+    depth: usize,
 }
 
 impl<'de> DeserializeSeed<'de> for JsonNodeSeed<'_> {
@@ -237,15 +312,17 @@ impl<'de> DeserializeSeed<'de> for JsonNodeSeed<'_> {
     where
         D: serde::Deserializer<'de>,
     {
-        self.counter.charge()?;
+        self.counter.charge_value(self.depth)?;
         deserializer.deserialize_any(JsonNodeVisitor {
             counter: self.counter,
+            depth: self.depth,
         })
     }
 }
 
 struct JsonNodeVisitor<'a> {
     counter: &'a mut JsonNodeCounter,
+    depth: usize,
 }
 
 impl<'de> Visitor<'de> for JsonNodeVisitor<'_> {
@@ -294,6 +371,7 @@ impl<'de> Visitor<'de> for JsonNodeVisitor<'_> {
         while sequence
             .next_element_seed(JsonNodeSeed {
                 counter: self.counter,
+                depth: self.depth.saturating_add(1),
             })?
             .is_some()
         {}
@@ -312,6 +390,7 @@ impl<'de> Visitor<'de> for JsonNodeVisitor<'_> {
         {
             map.next_value_seed(JsonNodeSeed {
                 counter: self.counter,
+                depth: self.depth.saturating_add(1),
             })?;
         }
         Ok(())
@@ -329,8 +408,83 @@ impl<'de> DeserializeSeed<'de> for JsonKeySeed<'_> {
     where
         D: serde::Deserializer<'de>,
     {
-        self.counter.charge()?;
+        self.counter.charge_node()?;
         deserializer.deserialize_identifier(IgnoredAny)
+    }
+}
+
+/// Hash the logical manifest carriers and actual loaded source bytes.
+///
+/// The canonical binary domain is `kicad_monkey.native.source_snapshot.a1\0`,
+/// followed by length-prefixed root/project paths, the source count, and source
+/// records sorted by slot. Each record contains its big-endian slot, its
+/// length-prefixed path and kind literal, and its actual byte length and bytes.
+fn source_snapshot_sha256(
+    manifest: &SourceBundleManifestA0,
+    buffers: &[Vec<u8>],
+) -> Result<String, NativeError> {
+    let mut sources = manifest.sources.iter().collect::<Vec<_>>();
+    sources.sort_by_key(|source| *source.slot);
+    if sources.len() != buffers.len() {
+        return Err(request_error(
+            "source snapshot manifest and loaded slots have different lengths",
+        ));
+    }
+
+    let mut digest = Sha256::new();
+    digest.update(SOURCE_SNAPSHOT_DOMAIN);
+    update_length_prefixed(&mut digest, manifest.root_schematic_path.as_bytes())?;
+    match manifest.project_path.as_deref() {
+        Some(path) => {
+            digest.update([1]);
+            update_length_prefixed(&mut digest, path.as_bytes())?;
+        }
+        None => digest.update([0]),
+    }
+    update_u64(&mut digest, sources.len(), "source snapshot count")?;
+
+    let mut previous_slot = None;
+    for source in sources {
+        let slot = *source.slot;
+        if previous_slot == Some(slot) {
+            return Err(request_error(
+                "source snapshot manifest contains a duplicate slot",
+            ));
+        }
+        previous_slot = Some(slot);
+        let bytes = buffers
+            .get(slot as usize)
+            .ok_or_else(|| request_error("source snapshot manifest slot is out of range"))?;
+        digest.update(slot.to_be_bytes());
+        update_length_prefixed(&mut digest, source.path.as_bytes())?;
+        update_length_prefixed(&mut digest, source_kind_literal(source.kind).as_bytes())?;
+        update_u64(&mut digest, bytes.len(), "source snapshot byte length")?;
+        digest.update(bytes);
+    }
+    Ok(hex_digest(&digest.finalize()))
+}
+
+fn update_length_prefixed(digest: &mut Sha256, value: &[u8]) -> Result<(), NativeError> {
+    update_u64(digest, value.len(), "source snapshot string length")?;
+    digest.update(value);
+    Ok(())
+}
+
+fn update_u64(digest: &mut Sha256, value: usize, label: &str) -> Result<(), NativeError> {
+    let value = u64::try_from(value)
+        .map_err(|_| resource_error(format!("{label} does not fit unsigned 64-bit")))?;
+    digest.update(value.to_be_bytes());
+    Ok(())
+}
+
+const fn source_kind_literal(kind: SourceKind) -> &'static str {
+    match kind {
+        SourceKind::Project => "project",
+        SourceKind::Schematic => "schematic",
+        SourceKind::SymbolLibrary => "symbol_library",
+        SourceKind::SymbolTable => "symbol_table",
+        SourceKind::Worksheet => "worksheet",
+        SourceKind::Other => "other",
     }
 }
 
@@ -348,9 +502,30 @@ pub fn execute_request_bytes(request_bytes: &[u8]) -> Result<Vec<u8>, NativeErro
     if request_bytes.len() > MAX_REQUEST_BYTES {
         return Err(resource_error("request exceeds the fixed 1 MiB limit"));
     }
+    preflight_request_structure(
+        request_bytes,
+        MAX_DESIGN_REQUEST_NODES,
+        MAX_DESIGN_REQUEST_DEPTH,
+        "design-facts",
+    )?;
     let request = decode_native_design_facts_request_a0(request_bytes)
         .map_err(|error| request_error(format!("invalid native request: {error}")))?;
     execute_request(request)
+}
+
+pub fn execute_request_a1_bytes(request_bytes: &[u8]) -> Result<Vec<u8>, NativeError> {
+    if request_bytes.len() > MAX_REQUEST_BYTES {
+        return Err(resource_error("request exceeds the fixed 1 MiB limit"));
+    }
+    preflight_request_structure(
+        request_bytes,
+        MAX_DESIGN_REQUEST_NODES,
+        MAX_DESIGN_REQUEST_DEPTH,
+        "design-facts",
+    )?;
+    let request = decode_native_design_facts_request_a1(request_bytes)
+        .map_err(|error| request_error(format!("invalid native a1 request: {error}")))?;
+    execute_request_a1(request)
 }
 
 #[must_use]
@@ -376,13 +551,161 @@ pub fn serialize_error(error: &NativeError) -> Vec<u8> {
 
 fn execute_request(request: DesignFactsRequestA0) -> Result<Vec<u8>, NativeError> {
     validate_identity(&request)?;
-    let limits = AppLimits::from_wire(request.limits)?;
-    validate_metadata(&request.netlist, limits.max_path_bytes)?;
-    let root = canonical_bundle_root(&request.bundle_root, limits.max_path_bytes)?;
-    let buffers = load_slots(&root, request.file_slots, limits)?;
+    let facts = build_design_facts(
+        DesignFactsInput::from_a0(request),
+        DesignFactsExecutionProfile::A0,
+    )?;
+    serialize_bounded(
+        &NativeDesignFactsResultA0 {
+            type_: RESULT_TYPE.to_owned(),
+            version: PROTOCOL_VERSION.to_owned(),
+            engine_version: ENGINE_VERSION.to_owned(),
+            compiled_schematic_graph: facts.graph,
+            kicad_netlist_version: "E".to_owned(),
+            kicad_netlist: facts.netlist_text,
+        },
+        facts.max_output_bytes,
+    )
+}
+
+fn execute_request_a1(request: NativeDesignFactsRequestA1) -> Result<Vec<u8>, NativeError> {
+    validate_identity_a1(&request)?;
+    let facts = build_design_facts(
+        DesignFactsInput::from_a1(request),
+        DesignFactsExecutionProfile::A1,
+    )?;
+    let netlist_bytes = facts.netlist_text.len();
+    let netlist_hash = hex_digest(&Sha256::digest(facts.netlist_text.as_bytes()));
+    let source_snapshot_sha256 = facts
+        .source_snapshot_sha256
+        .ok_or_else(|| NativeError::new(NativeErrorKind::Core, "source snapshot was not built"))?;
+    serialize_bounded(
+        &NativeDesignFactsResultA1 {
+            type_: RESULT_TYPE.to_owned(),
+            version: DESIGN_FACTS_A1_VERSION.to_owned(),
+            engine_version: ENGINE_VERSION.to_owned(),
+            resource_profile: DESIGN_FACTS_RESOURCE_PROFILE.to_owned(),
+            source_snapshot_sha256,
+            compiled_schematic_graph: facts.graph,
+            kicad_netlist_version: "E".to_owned(),
+            kicad_netlist: facts.netlist_text,
+            kicad_netlist_bytes: DesignFactsCanonicalUint64Decimal(netlist_bytes.to_string()),
+            kicad_netlist_sha256: netlist_hash,
+        },
+        facts.max_output_bytes,
+    )
+}
+
+struct DesignFactsInput {
+    bundle_root: String,
+    manifest: SourceBundleManifestA0,
+    file_slots: Vec<FileSlotInput>,
+    limits: LimitsInput,
+    netlist: NetlistMetadataInput,
+}
+
+impl DesignFactsInput {
+    fn from_a0(request: NativeDesignFactsRequestA0) -> Self {
+        Self {
+            bundle_root: request.bundle_root,
+            manifest: request.manifest,
+            file_slots: request
+                .file_slots
+                .into_iter()
+                .map(|slot| FileSlotInput {
+                    slot: slot.slot,
+                    path: slot.path,
+                })
+                .collect(),
+            limits: LimitsInput {
+                max_sources: request.limits.max_sources,
+                max_source_bytes: request.limits.max_source_bytes.to_string(),
+                max_total_source_bytes: request.limits.max_total_source_bytes.to_string(),
+                max_path_bytes: request.limits.max_path_bytes,
+                max_output_bytes: request.limits.max_output_bytes.to_string(),
+            },
+            netlist: NetlistMetadataInput {
+                source_path: request.netlist.source_path,
+                date: request.netlist.date,
+                tool: request.netlist.tool,
+            },
+        }
+    }
+
+    fn from_a1(request: NativeDesignFactsRequestA1) -> Self {
+        Self {
+            bundle_root: request.bundle_root,
+            manifest: request.manifest,
+            file_slots: request
+                .file_slots
+                .into_iter()
+                .map(|slot| FileSlotInput {
+                    slot: slot.slot,
+                    path: slot.path,
+                })
+                .collect(),
+            limits: LimitsInput {
+                max_sources: request.limits.max_sources,
+                max_source_bytes: request.limits.max_source_bytes.to_string(),
+                max_total_source_bytes: request.limits.max_total_source_bytes.to_string(),
+                max_path_bytes: request.limits.max_path_bytes,
+                max_output_bytes: request.limits.max_output_bytes.to_string(),
+            },
+            netlist: NetlistMetadataInput {
+                source_path: request.netlist.source_path,
+                date: request.netlist.date,
+                tool: request.netlist.tool,
+            },
+        }
+    }
+}
+
+struct FileSlotInput {
+    slot: u32,
+    path: String,
+}
+
+struct LimitsInput {
+    max_sources: u32,
+    max_source_bytes: String,
+    max_total_source_bytes: String,
+    max_path_bytes: u32,
+    max_output_bytes: String,
+}
+
+struct NetlistMetadataInput {
+    source_path: String,
+    date: String,
+    tool: String,
+}
+
+struct BuiltDesignFacts {
+    graph: CompiledSchematicGraphA0,
+    netlist_text: String,
+    source_snapshot_sha256: Option<String>,
+    max_output_bytes: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DesignFactsExecutionProfile {
+    A0,
+    A1,
+}
+
+fn build_design_facts(
+    input: DesignFactsInput,
+    profile: DesignFactsExecutionProfile,
+) -> Result<BuiltDesignFacts, NativeError> {
+    let limits = AppLimits::from_input(&input.limits)?;
+    validate_metadata(&input.netlist, limits.max_path_bytes)?;
+    let root = canonical_bundle_root(&input.bundle_root, limits.max_path_bytes)?;
+    let buffers = load_slots(&root, input.file_slots, limits)?;
+    let source_snapshot_sha256 = (profile == DesignFactsExecutionProfile::A1)
+        .then(|| source_snapshot_sha256(&input.manifest, &buffers))
+        .transpose()?;
     let source_defaults = SourceBundleLimits::default();
     let bundle = SourceBundle::from_manifest(
-        request.manifest,
+        input.manifest,
         buffers,
         SourceBundleLimits {
             max_sources: source_defaults.max_sources.min(limits.max_sources),
@@ -406,7 +729,7 @@ fn execute_request(request: DesignFactsRequestA0) -> Result<Vec<u8>, NativeError
     let graph = build_compiled_schematic_graph(&index, graph_limits(limits)).map_err(core_error)?;
     validate_compiled_schematic_graph(&graph)
         .map_err(|error| NativeError::new(NativeErrorKind::Core, error.to_string()))?;
-    let netlist_limits = netlist_limits(limits);
+    let netlist_limits = netlist_limits(limits, profile);
     let netlist = build_kicad_netlist(
         &index,
         project.as_ref().map(ProjectDocument::view),
@@ -415,23 +738,18 @@ fn execute_request(request: DesignFactsRequestA0) -> Result<Vec<u8>, NativeError
     .map_err(core_error)?;
     let netlist_text = emit_kicad_netlist(
         &netlist,
-        &request.netlist.source_path,
-        &request.netlist.date,
-        &request.netlist.tool,
+        &input.netlist.source_path,
+        &input.netlist.date,
+        &input.netlist.tool,
         limits.max_output_bytes,
     )
     .map_err(core_error)?;
-    serialize_bounded(
-        &NativeDesignFactsResultA0 {
-            type_: RESULT_TYPE.to_owned(),
-            version: PROTOCOL_VERSION.to_owned(),
-            engine_version: ENGINE_VERSION.to_owned(),
-            compiled_schematic_graph: graph,
-            kicad_netlist_version: "E".to_owned(),
-            kicad_netlist: netlist_text,
-        },
-        limits.max_output_bytes,
-    )
+    Ok(BuiltDesignFacts {
+        graph,
+        netlist_text,
+        source_snapshot_sha256,
+        max_output_bytes: limits.max_output_bytes,
+    })
 }
 
 #[derive(Clone, Copy)]
@@ -444,7 +762,7 @@ struct AppLimits {
 }
 
 impl AppLimits {
-    fn from_wire(wire: NativeDesignFactsLimits) -> Result<Self, NativeError> {
+    fn from_input(wire: &LimitsInput) -> Result<Self, NativeError> {
         Ok(Self {
             max_sources: bounded_u32(wire.max_sources, MAX_SOURCES, "max_sources")?,
             max_source_bytes: decimal_usize(
@@ -477,8 +795,21 @@ fn validate_identity(request: &NativeDesignFactsRequestA0) -> Result<(), NativeE
     }
 }
 
+fn validate_identity_a1(request: &NativeDesignFactsRequestA1) -> Result<(), NativeError> {
+    if request.type_ == REQUEST_TYPE
+        && request.version == DESIGN_FACTS_A1_VERSION
+        && request.resource_profile == DESIGN_FACTS_RESOURCE_PROFILE
+    {
+        Ok(())
+    } else {
+        Err(request_error(
+            "unsupported a1 request identity, protocol version, or resource profile",
+        ))
+    }
+}
+
 fn validate_metadata(
-    metadata: &NativeNetlistMetadata,
+    metadata: &NetlistMetadataInput,
     max_path_bytes: usize,
 ) -> Result<(), NativeError> {
     if metadata.source_path.len() > max_path_bytes {
@@ -515,7 +846,7 @@ fn canonical_bundle_root(raw: &str, max_path_bytes: usize) -> Result<PathBuf, Na
 
 fn load_slots(
     root: &Path,
-    slots: Vec<NativeFileSlot>,
+    slots: Vec<FileSlotInput>,
     limits: AppLimits,
 ) -> Result<Vec<Vec<u8>>, NativeError> {
     if slots.len() > limits.max_sources {
@@ -688,8 +1019,14 @@ fn graph_limits(limits: AppLimits) -> CompiledSchematicGraphLimits {
     }
 }
 
-fn netlist_limits(limits: AppLimits) -> KiCadNetlistLimits {
+fn netlist_limits(limits: AppLimits, profile: DesignFactsExecutionProfile) -> KiCadNetlistLimits {
     let default = KiCadNetlistLimits::default();
+    let max_wildcard_match_work = match profile {
+        DesignFactsExecutionProfile::A0 => family(default.max_wildcard_match_work),
+        DesignFactsExecutionProfile::A1 => default
+            .max_wildcard_match_work
+            .min(DESIGN_FACTS_A1_MAX_WILDCARD_MATCH_WORK),
+    };
     KiCadNetlistLimits {
         design: design_limits(limits),
         max_nets: family(default.max_nets),
@@ -710,7 +1047,7 @@ fn netlist_limits(limits: AppLimits) -> KiCadNetlistLimits {
         max_libparts: family(default.max_libparts),
         max_libpart_pins: family(default.max_libpart_pins),
         max_sheets: family(default.max_sheets),
-        max_wildcard_match_work: family(default.max_wildcard_match_work),
+        max_wildcard_match_work,
         max_retained_string_bytes: bytes(
             default.max_retained_string_bytes,
             limits.max_output_bytes,
@@ -889,6 +1226,115 @@ fn serialize_bounded(value: &impl Serialize, maximum: usize) -> Result<Vec<u8>, 
     Ok(writer.bytes)
 }
 
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+    use kicad_monkey_contracts::generated::source_bundle_manifest::{
+        CanonicalUint64Decimal, SourceBundleSource, SourceSlot,
+    };
+
+    #[test]
+    fn design_request_structural_node_limit_is_exact() {
+        let element_count = MAX_DESIGN_REQUEST_NODES - 3;
+        let exact = serde_json::to_vec(&serde_json::json!({
+            "items": vec![serde_json::Value::Null; element_count]
+        }))
+        .expect("exact structural request");
+        preflight_request_structure(
+            &exact,
+            MAX_DESIGN_REQUEST_NODES,
+            MAX_DESIGN_REQUEST_DEPTH,
+            "design-facts",
+        )
+        .expect("exact structural node limit");
+
+        let one_over = serde_json::to_vec(&serde_json::json!({
+            "items": vec![serde_json::Value::Null; element_count + 1]
+        }))
+        .expect("one-over structural request");
+        let error = preflight_request_structure(
+            &one_over,
+            MAX_DESIGN_REQUEST_NODES,
+            MAX_DESIGN_REQUEST_DEPTH,
+            "design-facts",
+        )
+        .expect_err("one structural node over");
+        assert_eq!(error.kind, NativeErrorKind::ResourceLimit);
+        assert!(error.message.contains("node"));
+    }
+
+    #[test]
+    fn design_request_structural_depth_limit_is_exact() {
+        let exact = nested_json(MAX_DESIGN_REQUEST_DEPTH - 1);
+        preflight_request_structure(
+            exact.as_bytes(),
+            MAX_DESIGN_REQUEST_NODES,
+            MAX_DESIGN_REQUEST_DEPTH,
+            "design-facts",
+        )
+        .expect("exact structural depth limit");
+
+        let one_over = nested_json(MAX_DESIGN_REQUEST_DEPTH);
+        let error = preflight_request_structure(
+            one_over.as_bytes(),
+            MAX_DESIGN_REQUEST_NODES,
+            MAX_DESIGN_REQUEST_DEPTH,
+            "design-facts",
+        )
+        .expect_err("one structural depth over");
+        assert_eq!(error.kind, NativeErrorKind::ResourceLimit);
+        assert!(error.message.contains("depth"));
+    }
+
+    #[test]
+    fn source_snapshot_is_slot_order_independent_and_byte_sensitive() {
+        let ordered = snapshot_manifest(vec![
+            snapshot_source(0, "root.kicad_sch"),
+            snapshot_source(1, "child.kicad_sch"),
+        ]);
+        let reordered = snapshot_manifest(vec![
+            snapshot_source(1, "child.kicad_sch"),
+            snapshot_source(0, "root.kicad_sch"),
+        ]);
+        let buffers = vec![b"root".to_vec(), b"child".to_vec()];
+        let ordered_hash = source_snapshot_sha256(&ordered, &buffers).expect("ordered snapshot");
+        assert_eq!(
+            source_snapshot_sha256(&reordered, &buffers).expect("reordered snapshot"),
+            ordered_hash
+        );
+
+        let changed = vec![b"root".to_vec(), b"changed".to_vec()];
+        assert_ne!(
+            source_snapshot_sha256(&ordered, &changed).expect("changed snapshot"),
+            ordered_hash
+        );
+    }
+
+    fn nested_json(array_count: usize) -> String {
+        format!("{}null{}", "[".repeat(array_count), "]".repeat(array_count))
+    }
+
+    fn snapshot_manifest(sources: Vec<SourceBundleSource>) -> SourceBundleManifestA0 {
+        SourceBundleManifestA0 {
+            project_path: Some("demo.kicad_pro".to_owned()),
+            root_schematic_path: "root.kicad_sch".to_owned(),
+            schema: "kicad_monkey.source_bundle_manifest.a0".to_owned(),
+            sources,
+            type_: "kicad_monkey.source_bundle_manifest".to_owned(),
+            version: "a0".to_owned(),
+        }
+    }
+
+    fn snapshot_source(slot: u32, path: &str) -> SourceBundleSource {
+        SourceBundleSource {
+            kind: SourceKind::Schematic,
+            path: path.to_owned(),
+            slot: SourceSlot(slot),
+            source_bytes: CanonicalUint64Decimal("0".to_owned()),
+        }
+    }
+}
+
 struct BoundedWriter {
     bytes: Vec<u8>,
     maximum: usize,
@@ -988,9 +1434,15 @@ fn core_error(error: kicad_monkey_core::SourceBundleError) -> NativeError {
 #[cfg(test)]
 mod tests {
     use super::{
-        AppLimits, design_limits, preflight_svg_request_structure, project_limits, schematic_limits,
+        AppLimits, DESIGN_FACTS_A1_MAX_WILDCARD_MATCH_WORK, DesignFactsExecutionProfile,
+        MAX_FAMILY_ITEMS, MAX_SVG_REQUEST_DEPTH, design_limits, netlist_limits,
+        preflight_request_structure, project_limits, schematic_limits,
     };
-    use kicad_monkey_core::{ProjectLimits, SchematicBundleLimits, SchematicDesignNetLimits};
+    use kicad_monkey_core::{
+        KiCadNetlistLimits, ProjectLimits, SchematicBundleLimits, SchematicDesignNetLimits,
+    };
+
+    const JUMPERLESS_V5R7_WILDCARD_MATCH_WORK: usize = 1_025_852;
 
     #[test]
     fn application_limits_never_raise_core_defaults() {
@@ -1036,16 +1488,33 @@ mod tests {
         let project_default = ProjectLimits::default();
         assert!(project.max_typed_string_bytes <= project_default.max_typed_string_bytes);
         assert!(project.max_json_nodes <= project_default.max_json_nodes);
+
+        let a0_netlist = netlist_limits(limits, DesignFactsExecutionProfile::A0);
+        assert_eq!(a0_netlist.max_wildcard_match_work, MAX_FAMILY_ITEMS);
+        let netlist = netlist_limits(limits, DesignFactsExecutionProfile::A1);
+        let netlist_default = KiCadNetlistLimits::default();
+        assert_eq!(
+            netlist.max_wildcard_match_work,
+            DESIGN_FACTS_A1_MAX_WILDCARD_MATCH_WORK
+        );
+        assert!(netlist.max_wildcard_match_work <= netlist_default.max_wildcard_match_work);
+        assert!(JUMPERLESS_V5R7_WILDCARD_MATCH_WORK <= netlist.max_wildcard_match_work);
+        assert!(JUMPERLESS_V5R7_WILDCARD_MATCH_WORK > a0_netlist.max_wildcard_match_work);
     }
 
     #[test]
     fn svg_request_structural_node_limit_is_inclusive() {
         // Arrays and objects, their members, and object keys are all nodes,
         // matching the public Python client's iterative accounting.
-        preflight_svg_request_structure(br#"{"a":[null,true]}"#, 5)
+        preflight_request_structure(br#"{"a":[null,true]}"#, 5, MAX_SVG_REQUEST_DEPTH, "SVG")
             .expect("exact five-node request");
-        let error = preflight_svg_request_structure(br#"{"a":[null,true,false]}"#, 5)
-            .expect_err("one node over the structural ceiling");
+        let error = preflight_request_structure(
+            br#"{"a":[null,true,false]}"#,
+            5,
+            MAX_SVG_REQUEST_DEPTH,
+            "SVG",
+        )
+        .expect_err("one node over the structural ceiling");
         assert!(error.message.contains("structural node limit"));
     }
 }

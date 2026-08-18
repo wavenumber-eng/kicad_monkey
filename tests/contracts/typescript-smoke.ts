@@ -5,10 +5,13 @@ import type {
   FootprintPlotRequestA0,
   FootprintReadRequestA0,
   NativeDesignFactsRequestA0,
+  NativeDesignFactsRequestA1,
   NativeDesignFactsResultA0,
+  NativeDesignFactsResultA1,
   NativeErrorA0,
   NativeHandshakeA0,
   NativeHandshakeA1,
+  NativeHandshakeA2,
   NativeSVGRenderRequestA0,
   NativeSVGRenderResultA0,
   SchematicPlotDocumentA0,
@@ -57,6 +60,30 @@ const reversedNativeHandshakeA1Operations: NativeHandshakeA1["operations"] = ["r
 void nativeHandshakeA1;
 void nativeHandshakeA1OperationsAreExact;
 void reversedNativeHandshakeA1Operations;
+
+const nativeHandshakeA2 = {
+  type: "kicad_monkey.native.handshake",
+  version: "a2",
+  engine_version: "0.1.0",
+  operations: ["design-facts", "render-svg", "design-facts-a1"],
+} satisfies NativeHandshakeA2;
+
+type NativeHandshakeA2OperationsAreExact = NativeHandshakeA2["operations"] extends [
+  "design-facts",
+  "render-svg",
+  "design-facts-a1",
+]
+  ? ["design-facts", "render-svg", "design-facts-a1"] extends NativeHandshakeA2["operations"]
+    ? true
+    : false
+  : false;
+const nativeHandshakeA2OperationsAreExact: NativeHandshakeA2OperationsAreExact = true;
+// @ts-expect-error Native a2 operation order is a closed wire tuple.
+const reversedNativeHandshakeA2Operations: NativeHandshakeA2["operations"] = ["design-facts-a1", "render-svg", "design-facts"];
+
+void nativeHandshakeA2;
+void nativeHandshakeA2OperationsAreExact;
+void reversedNativeHandshakeA2Operations;
 
 const compiledGraph = {
   schema: "kicad_monkey.compiled_schematic_graph.a0",
@@ -109,6 +136,24 @@ const nativeDesignFactsResult = {
 
 void nativeDesignFactsRequest;
 void nativeDesignFactsResult;
+
+const nativeDesignFactsRequestA1 = {
+  ...nativeDesignFactsRequest,
+  version: "a1",
+  resource_profile: "design-facts-bounded-a1",
+} satisfies NativeDesignFactsRequestA1;
+
+const nativeDesignFactsResultA1 = {
+  ...nativeDesignFactsResult,
+  version: "a1",
+  resource_profile: "design-facts-bounded-a1",
+  source_snapshot_sha256: "0000000000000000000000000000000000000000000000000000000000000000",
+  kicad_netlist_bytes: "22",
+  kicad_netlist_sha256: "fdb9de537cd653ab43fed2d1406a0cbf818365b1aad3b4c859bd60240288290b",
+} satisfies NativeDesignFactsResultA1;
+
+void nativeDesignFactsRequestA1;
+void nativeDesignFactsResultA1;
 
 const buildRequest = {
   type: "kicad_monkey.sexpr_build.request",

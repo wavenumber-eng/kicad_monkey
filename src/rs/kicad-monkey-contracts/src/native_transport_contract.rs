@@ -3,10 +3,13 @@
 use crate::generated::board_plot_document::BoardPlotDocumentA0;
 use crate::generated::footprint_plot_document::FootprintPlotDocumentA0;
 use crate::generated::native_design_facts_request::NativeDesignFactsRequestA0;
+use crate::generated::native_design_facts_request_a1::NativeDesignFactsRequestA1;
 use crate::generated::native_design_facts_result::NativeDesignFactsResultA0;
+use crate::generated::native_design_facts_result_a1::NativeDesignFactsResultA1;
 use crate::generated::native_error::NativeErrorA0;
 use crate::generated::native_handshake::NativeHandshakeA0;
 use crate::generated::native_handshake_a1::{NativeHandshakeA1, NativeHandshakeA1OperationsItem};
+use crate::generated::native_handshake_a2::{NativeHandshakeA2, NativeHandshakeA2OperationsItem};
 use crate::generated::native_svg_render_request::{
     NativeBoardSvgDocument, NativeFootprintSvgDocument, NativeSchematicSvgDocument,
     NativeSvgPlotDocument, NativeSvgRenderRequestA0, NativeSymbolSvgDocument,
@@ -27,6 +30,7 @@ const REQUEST_TYPE: &str = "kicad_monkey.native.design_facts.request";
 const RESULT_TYPE: &str = "kicad_monkey.native.design_facts.result";
 const ERROR_TYPE: &str = "kicad_monkey.native.error";
 const DESIGN_FACTS_OPERATION: &str = "design-facts";
+const DESIGN_FACTS_A1_PROFILE: &str = "design-facts-bounded-a1";
 const SVG_REQUEST_TYPE: &str = "kicad_monkey.native.svg.request";
 const SVG_RESULT_TYPE: &str = "kicad_monkey.native.svg.result";
 const SVG_PROFILE: &str = "plotter-base-a0";
@@ -50,6 +54,18 @@ pub fn decode_native_design_facts_result_a0(
     decode_and_validate(source, validate_native_design_facts_result_contract)
 }
 
+pub fn decode_native_design_facts_request_a1(
+    source: &[u8],
+) -> Result<NativeDesignFactsRequestA1, NativeTransportDecodeError> {
+    decode_and_validate(source, validate_native_design_facts_request_a1_contract)
+}
+
+pub fn decode_native_design_facts_result_a1(
+    source: &[u8],
+) -> Result<NativeDesignFactsResultA1, NativeTransportDecodeError> {
+    decode_and_validate(source, validate_native_design_facts_result_a1_contract)
+}
+
 pub fn decode_native_error_a0(source: &[u8]) -> Result<NativeErrorA0, NativeTransportDecodeError> {
     decode_and_validate(source, validate_native_error_contract)
 }
@@ -58,6 +74,12 @@ pub fn decode_native_handshake_a1(
     source: &[u8],
 ) -> Result<NativeHandshakeA1, NativeTransportDecodeError> {
     decode_and_validate(source, validate_native_handshake_a1_contract)
+}
+
+pub fn decode_native_handshake_a2(
+    source: &[u8],
+) -> Result<NativeHandshakeA2, NativeTransportDecodeError> {
+    decode_and_validate(source, validate_native_handshake_a2_contract)
 }
 
 pub fn decode_native_svg_render_request_a0(
@@ -143,6 +165,29 @@ pub fn validate_native_handshake_a1_contract(
             "unsupported_contract",
             "$.operations",
             "native a1 operations must be design-facts then render-svg",
+        ))
+    }
+}
+
+pub fn validate_native_handshake_a2_contract(
+    value: &NativeHandshakeA2,
+) -> Result<(), ValidationError> {
+    require_literal(&value.type_, HANDSHAKE_TYPE, "$.type")?;
+    require_literal(&value.version, "a2", "$.version")?;
+    require_nonempty(&value.engine_version, "$.engine_version")?;
+    if value.operations
+        == [
+            NativeHandshakeA2OperationsItem::DesignFacts,
+            NativeHandshakeA2OperationsItem::RenderSvg,
+            NativeHandshakeA2OperationsItem::DesignFactsA1,
+        ]
+    {
+        Ok(())
+    } else {
+        Err(validation_error(
+            "unsupported_contract",
+            "$.operations",
+            "native a2 operations must be design-facts, render-svg, then design-facts-a1",
         ))
     }
 }
@@ -301,6 +346,67 @@ pub fn validate_native_design_facts_result_contract(
     validate_compiled_schematic_graph_contract(&value.compiled_schematic_graph)
 }
 
+pub fn validate_native_design_facts_request_a1_contract(
+    value: &NativeDesignFactsRequestA1,
+) -> Result<(), ValidationError> {
+    require_literal(&value.type_, REQUEST_TYPE, "$.type")?;
+    require_literal(&value.version, "a1", "$.version")?;
+    require_literal(
+        &value.resource_profile,
+        DESIGN_FACTS_A1_PROFILE,
+        "$.resource_profile",
+    )?;
+    validate_source_bundle_manifest_contract(&value.manifest)?;
+    for (path, encoded) in [
+        ("$.limits.max_source_bytes", &*value.limits.max_source_bytes),
+        (
+            "$.limits.max_total_source_bytes",
+            &*value.limits.max_total_source_bytes,
+        ),
+        ("$.limits.max_output_bytes", &*value.limits.max_output_bytes),
+    ] {
+        require_canonical_uint64(encoded, path)?;
+    }
+    Ok(())
+}
+
+pub fn validate_native_design_facts_result_a1_contract(
+    value: &NativeDesignFactsResultA1,
+) -> Result<(), ValidationError> {
+    require_literal(&value.type_, RESULT_TYPE, "$.type")?;
+    require_literal(&value.version, "a1", "$.version")?;
+    require_nonempty(&value.engine_version, "$.engine_version")?;
+    require_literal(
+        &value.resource_profile,
+        DESIGN_FACTS_A1_PROFILE,
+        "$.resource_profile",
+    )?;
+    require_lower_hex_digest(&value.source_snapshot_sha256, "$.source_snapshot_sha256")?;
+    validate_compiled_schematic_graph_contract(&value.compiled_schematic_graph)?;
+    require_literal(&value.kicad_netlist_version, "E", "$.kicad_netlist_version")?;
+    require_nonempty(&value.kicad_netlist, "$.kicad_netlist")?;
+    let actual_bytes = value.kicad_netlist.len() as u64;
+    let declared_bytes =
+        require_canonical_uint64(&value.kicad_netlist_bytes, "$.kicad_netlist_bytes")?;
+    if actual_bytes != declared_bytes {
+        return Err(validation_error(
+            "length_mismatch",
+            "$.kicad_netlist_bytes",
+            "KiCad netlist byte count does not match kicad_netlist",
+        ));
+    }
+    require_lower_hex_digest(&value.kicad_netlist_sha256, "$.kicad_netlist_sha256")?;
+    let actual_hash = hex_digest(Sha256::digest(value.kicad_netlist.as_bytes()).as_slice());
+    if value.kicad_netlist_sha256 != actual_hash {
+        return Err(validation_error(
+            "hash_mismatch",
+            "$.kicad_netlist_sha256",
+            "KiCad netlist SHA-256 does not match kicad_netlist",
+        ));
+    }
+    Ok(())
+}
+
 pub fn validate_native_error_contract(value: &NativeErrorA0) -> Result<(), ValidationError> {
     require_literal(&value.type_, ERROR_TYPE, "$.type")?;
     require_literal(&value.version, PROTOCOL_VERSION, "$.version")
@@ -327,6 +433,23 @@ fn require_nonempty(value: &str, path: &str) -> Result<(), ValidationError> {
         ))
     } else {
         Ok(())
+    }
+}
+
+fn require_lower_hex_digest(value: &str, path: &str) -> Result<(), ValidationError> {
+    if value.len() == 64
+        && value
+            .as_bytes()
+            .iter()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte))
+    {
+        Ok(())
+    } else {
+        Err(validation_error(
+            "invalid_hash",
+            path,
+            "native SHA-256 must be 64 lowercase hexadecimal characters",
+        ))
     }
 }
 

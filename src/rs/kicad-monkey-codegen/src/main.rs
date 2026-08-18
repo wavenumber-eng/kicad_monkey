@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use typify::{TypeSpace, TypeSpaceSettings};
 
-const SCHEMAS: [(&str, &str); 37] = [
+const SCHEMAS: [(&str, &str); 40] = [
     ("BoardPlotDocument.json", "board_plot_document.rs"),
     ("BoardPlotRequest.json", "board_plot_request.rs"),
     ("BoardPlotResult.json", "board_plot_result.rs"),
@@ -56,6 +56,7 @@ const SCHEMAS: [(&str, &str); 37] = [
     ("OutlineVector.json", "outline_vector.rs"),
     ("NativeHandshake.json", "native_handshake.rs"),
     ("NativeHandshakeA1.json", "native_handshake_a1.rs"),
+    ("NativeHandshakeA2.json", "native_handshake_a2.rs"),
     (
         "NativeDesignFactsRequest.json",
         "native_design_facts_request.rs",
@@ -63,6 +64,14 @@ const SCHEMAS: [(&str, &str); 37] = [
     (
         "NativeDesignFactsResult.json",
         "native_design_facts_result.rs",
+    ),
+    (
+        "NativeDesignFactsRequestA1.json",
+        "native_design_facts_request_a1.rs",
+    ),
+    (
+        "NativeDesignFactsResultA1.json",
+        "native_design_facts_result_a1.rs",
     ),
     (
         "NativeSvgRenderRequest.json",
@@ -1178,14 +1187,20 @@ fn generate(schema_name: &str, value: Value) -> Result<String> {
     );
     settings.with_replacement("StableTextId", "crate::StableTextId", [].into_iter());
     settings.with_replacement("NonEmptyText", "::std::string::String", [].into_iter());
-    if schema_name == "NativeDesignFactsRequest.json" {
+    if matches!(
+        schema_name,
+        "NativeDesignFactsRequest.json" | "NativeDesignFactsRequestA1.json"
+    ) {
         settings.with_replacement(
             "NativeSourceBundleManifestProjection",
             "crate::generated::source_bundle_manifest::SourceBundleManifestA0",
             [].into_iter(),
         );
     }
-    if schema_name == "NativeDesignFactsResult.json" {
+    if matches!(
+        schema_name,
+        "NativeDesignFactsResult.json" | "NativeDesignFactsResultA1.json"
+    ) {
         settings.with_replacement(
             "NativeCompiledSchematicGraphProjection",
             "crate::generated::compiled_schematic_graph::CompiledSchematicGraphA0",
@@ -1224,30 +1239,31 @@ fn generate(schema_name: &str, value: Value) -> Result<String> {
 }
 
 fn project_native_handshake_tuple(schema_name: &str, schema: &mut Value) -> Result<()> {
-    if schema_name != "NativeHandshakeA1.json" {
-        return Ok(());
-    }
+    let expected: &[&str] = match schema_name {
+        "NativeHandshakeA1.json" => &["design-facts", "render-svg"],
+        "NativeHandshakeA2.json" => &["design-facts", "render-svg", "design-facts-a1"],
+        _ => return Ok(()),
+    };
     let operations = schema
         .pointer_mut("/properties/operations")
         .and_then(Value::as_object_mut)
         .context("NativeHandshakeA1.json missing operations schema")?;
-    if operations.get("minItems") != Some(&Value::from(2))
-        || operations.get("maxItems") != Some(&Value::from(2))
+    if operations.get("minItems") != Some(&Value::from(expected.len()))
+        || operations.get("maxItems") != Some(&Value::from(expected.len()))
     {
-        bail!("NativeHandshakeA1.json operations tuple length changed");
+        bail!("{schema_name} operations tuple length changed");
     }
     let prefix_items = operations
         .remove("prefixItems")
         .and_then(|value| value.as_array().cloned())
-        .context("NativeHandshakeA1.json operations tuple projection changed")?;
-    let expected = ["design-facts", "render-svg"];
+        .with_context(|| format!("{schema_name} operations tuple projection changed"))?;
     if prefix_items.len() != expected.len()
         || prefix_items
             .iter()
-            .zip(expected)
+            .zip(expected.iter().copied())
             .any(|(item, expected)| item.get("const").and_then(Value::as_str) != Some(expected))
     {
-        bail!("NativeHandshakeA1.json operations tuple order changed");
+        bail!("{schema_name} operations tuple order changed");
     }
     operations.insert(
         "items".to_owned(),
@@ -1286,12 +1302,12 @@ fn project_native_external_references(schema_name: &str, schema: &mut Value) -> 
         return Ok(());
     }
     let (pointer, external, projection) = match schema_name {
-        "NativeDesignFactsRequest.json" => (
+        "NativeDesignFactsRequest.json" | "NativeDesignFactsRequestA1.json" => (
             "/properties/manifest/$ref",
             "urn:wavenumber:schema:kicad_monkey.source_bundle_manifest:a0",
             "NativeSourceBundleManifestProjection",
         ),
-        "NativeDesignFactsResult.json" => (
+        "NativeDesignFactsResult.json" | "NativeDesignFactsResultA1.json" => (
             "/properties/compiled_schematic_graph/$ref",
             "urn:wavenumber:schema:kicad_monkey.compiled_schematic_graph:a0",
             "NativeCompiledSchematicGraphProjection",

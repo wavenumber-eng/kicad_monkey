@@ -7,6 +7,11 @@
   transactional command publication. Non-Windows and higher-level
   composition remain on their explicit Python path.
 
+- Add an accepted Windows native design-facts provider for the compiled
+  schematic graph and version-E netlist. Native failures preserve the prior
+  transactional design-review tree and never retry the Python graph or
+  version-E writer; Design JSON and netlist JSON remain Python-owned.
+
 ## 2026.8.11.1
 
 - Route Altium footprint conversion through import-specific cleanup so

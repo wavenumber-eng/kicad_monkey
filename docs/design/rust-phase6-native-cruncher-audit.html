@@ -14,8 +14,9 @@
   bounded Python client, and Windows platform-wheel lane are accepted.
   They are transport and packaging foundations, not a promoted Cruncher hard
   switch. In particular, the repository does not yet contain a native
-  <code>kicad-cruncher</code> executable or a Cruncher-integrated native SVG
-  provider.</p>
+  <code>kicad-cruncher</code> executable or a full Cruncher-native SVG/CLI
+  replacement; the accepted Windows PCB physical-base provider is the
+  deliberately bounded exception.</p>
 
   <h2>Authority and ownership</h2>
   <p><a href="../adrs/ADR-011-native-first-rust-port-delivery.md">ADR-011</a>
@@ -97,10 +98,12 @@
       </tr>
       <tr>
         <td>P6_030 native design facts</td>
-        <td>Promote the remaining design-fact contracts needed by Cruncher and
-        assemble exact design/netlist/compiled-graph facts natively. Existing
-        Rust netlist JSON is test-only and cannot become a public transport
-        until its schema and compatibility policy are explicitly promoted.</td>
+        <td>Switch the selected Windows Cruncher compiled graph and version-E
+        netlist artifact to one source-bound native result. Python retains
+        Design JSON, netlist JSON, SVG presentation, manifests, and command
+        orchestration. Existing Rust netlist JSON remains test-only and cannot
+        become a public transport until its schema and compatibility policy
+        are explicitly promoted.</td>
         <td>Cross-package Python/native fact vectors, hierarchy and occurrence
         cases, malformed and ceiling mutations, deterministic serialization,
         and installed-package design-review fixtures.</td>
@@ -163,6 +166,17 @@
   execution, affected broad-workflow regressions, and three independent
   approvals closed the slice. The broader Cruncher hard switch remains
   staged.</p>
+  <p>P6_030 closed on 2026-08-18. Its new A1 facts result binds the compiled graph
+  and version-E netlist to the exact current source snapshot and requested
+  source/date/tool metadata. The Windows provider consumes that result once
+  without a Python graph or netlist-writer retry, while Python retains Design
+  JSON and netlist JSON. The bounded protocol, provider, transaction, and
+  evidence boundary is described in the
+  <a href="rust-native-design-facts-phase6-slice.html">native design facts
+  slice</a>. Rack L3_025, the four-project parity suite, the isolated
+  sdist-built Windows wheel workflow, full native/workspace gates, and three
+  independent approvals closed the slice. P6_040 full CLI compatibility and
+  P6_050 exit remain staged.</p>
 
   <h2>Transport and resource rules</h2>
   <ul>

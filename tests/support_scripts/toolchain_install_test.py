@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import email.parser
+import hashlib
 import json
 import os
 import subprocess
@@ -136,6 +137,17 @@ def _validate_installed_design_review(
     graph = json.loads((output_dir / graph_record["file"]).read_text(encoding="utf-8"))
     if graph != design["compiled_schematic_graph"]:
         raise SystemExit("Installed design review standalone graph differs from Design JSON")
+    if os.name == "nt":
+        facts = manifest.get("design_facts")
+        if not isinstance(facts, dict) or facts.get("backend") != "kicad-monkey-native":
+            raise SystemExit("Installed Windows design review did not use native design facts")
+        if facts.get("resource_profile") != "design-facts-bounded-a1":
+            raise SystemExit("Installed native design facts use the wrong resource profile")
+        netlist = (output_dir / manifest["netlist_kicad_sexpr"]).read_bytes()
+        if facts.get("kicad_netlist_bytes") != len(netlist):
+            raise SystemExit("Installed native netlist byte provenance differs from its file")
+        if facts.get("kicad_netlist_sha256") != hashlib.sha256(netlist).hexdigest():
+            raise SystemExit("Installed native netlist hash provenance differs from its file")
 
     svg_record = manifest["schematic_svgs"][0]
     svg_text = (output_dir / svg_record["file"]).read_text(encoding="utf-8")
@@ -239,9 +251,9 @@ def validate_artifacts(
     )
     if not monkey_dependency:
         raise SystemExit("Cruncher wheel is missing its public kicad-monkey dependency")
-    if ">=2026.8.17" not in monkey_dependency.replace(" ", ""):
+    if ">=2026.8.18" not in monkey_dependency.replace(" ", ""):
         raise SystemExit(
-            "Cruncher wheel does not retain the governed kicad-monkey>=2026.8.17 "
+            "Cruncher wheel does not retain the governed kicad-monkey>=2026.8.18 "
             f"floor: {monkey_dependency}"
         )
     forbidden = (" @ ", "file:", "workspace", "\\", "../")

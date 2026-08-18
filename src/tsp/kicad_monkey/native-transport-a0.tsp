@@ -64,6 +64,19 @@ model NativeHandshakeA1 {
   operations: ["design-facts", "render-svg"];
 }
 
+/** Exact native process handshake with the bounded a1 design-facts operation. */
+@jsonSchema
+@id("urn:wavenumber:schema:kicad_monkey.native.handshake:a2")
+@extension("title", "Native handshake a2")
+model NativeHandshakeA2 {
+  type: "kicad_monkey.native.handshake";
+  version: "a2";
+  engine_version: string;
+  @extension("minItems", 3)
+  @extension("maxItems", 3)
+  operations: ["design-facts", "render-svg", "design-facts-a1"];
+}
+
 /** Positive viewport dimension that remains exact in JavaScript. */
 @minValue(1)
 @maxValue(9007199254740991)
@@ -174,6 +187,40 @@ model NativeDesignFactsResult {
   compiled_schematic_graph: CompiledSchematicGraph;
   kicad_netlist_version: "E";
   kicad_netlist: string;
+}
+
+/** Strict bounded a1 request for native compiled-graph and version-E netlist facts. */
+@jsonSchema
+@id("urn:wavenumber:schema:kicad_monkey.native.design_facts.request:a1")
+@extension("title", "Native design facts request a1")
+model NativeDesignFactsRequestA1 {
+  type: "kicad_monkey.native.design_facts.request";
+  version: "a1";
+  resource_profile: "design-facts-bounded-a1";
+  bundle_root: string;
+  manifest: SourceBundleManifest;
+  file_slots: NativeFileSlot[];
+  limits: NativeDesignFactsLimits;
+  netlist: NativeNetlistMetadata;
+}
+
+/** Strict bounded a1 result with source identity and netlist byte integrity. */
+@jsonSchema
+@id("urn:wavenumber:schema:kicad_monkey.native.design_facts.result:a1")
+@extension("title", "Native design facts result a1")
+model NativeDesignFactsResultA1 {
+  type: "kicad_monkey.native.design_facts.result";
+  version: "a1";
+  engine_version: string;
+  resource_profile: "design-facts-bounded-a1";
+  @pattern("^[0-9a-f]{64}$")
+  source_snapshot_sha256: string;
+  compiled_schematic_graph: CompiledSchematicGraph;
+  kicad_netlist_version: "E";
+  kicad_netlist: string;
+  kicad_netlist_bytes: CanonicalUint64Decimal;
+  @pattern("^[0-9a-f]{64}$")
+  kicad_netlist_sha256: string;
 }
 
 /** Structured stderr payload for a failed native process operation. */

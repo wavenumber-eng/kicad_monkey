@@ -22,8 +22,8 @@ exist. The concrete browser operation set is also not yet known. Downstream
 projects may need different operation combinations and can package the shared
 Rust core themselves.
 
-The `pcb_a0` contract and KiCad-to-generic adapter are owned by
-`data_models`. Their implementation and Viz/ALX adoption depend on a trusted
+The `pcb_a0` contract and KiCad-to-generic adapter are owned by a downstream
+model package. Their implementation and Viz/ALX adoption depend on a trusted
 KiCad-native surface, but they are not part of the `kicad_monkey` Rust port.
 
 ## Decision
@@ -66,6 +66,6 @@ after native test parity and consume documented KiCad-native crate features.
 - PyO3 acceleration is optional follow-on integration and does not precede the
   native CLI.
 - Downstream adapters can compose their own native or WASM products without
-  adding `data_models` concepts or dependencies to `kicad_monkey`.
+  adding external model concepts or dependencies to `kicad_monkey`.
 - Public Cargo publication remains a later explicit release decision after
   native parity and artifact disposition.

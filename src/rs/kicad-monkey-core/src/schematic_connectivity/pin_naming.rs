@@ -190,7 +190,7 @@ fn schematic_pin_svg_id(
     source_pin_uuid: &str,
     max_string_bytes: usize,
 ) -> Result<String, SourceBundleError> {
-    if terminal.hidden {
+    if !terminal.has_drawing {
         return Ok(String::new());
     }
     if !source_pin_uuid.is_empty() {

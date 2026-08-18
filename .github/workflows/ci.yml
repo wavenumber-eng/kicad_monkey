@@ -97,3 +97,7 @@ jobs:
   phase6-native-physical-provider:
     needs: phase6-native-svg
     uses: ./.github/workflows/phase6-native-physical-provider.yml
+
+  phase6-native-design-facts:
+    needs: phase6-native-physical-provider
+    uses: ./.github/workflows/phase6-native-design-facts.yml

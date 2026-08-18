@@ -684,14 +684,14 @@ semantic_resource_evidence = ["packages/kicad_cruncher/tests/L3_public_workflows
 id = "cruncher.native_design_facts"
 disposition = "required_bounded_slice"
 wasm = "deferred_native_first"
-status = "planned"
-python_symbols = ["KiCadDesign.to_json", "write_design_review_bundle"]
-rust_symbols = ["NativeDesignFacts"]
-rack_cases = []
-evidence = []
-vector_evidence = []
-implementation_evidence = []
-semantic_resource_evidence = []
+status = "closed"
+python_symbols = ["native_design_facts_a1", "native_design_facts_for_design", "KiCadNativeDesignFacts", "DesignFactsProvider", "NativeDesignFactsProvider", "KiCadDesign.to_json", "write_design_review_bundle"]
+rust_symbols = ["NativeDesignFactsRequestA1", "NativeDesignFactsResultA1", "NativeHandshakeA2", "execute_request_a1_bytes", "handshake_a2"]
+rack_cases = ["L3_025"]
+evidence = ["docs/design/rust-native-design-facts-phase6-slice.html", "docs/design/rust-phase6-native-cruncher-audit.html", "src/tsp/kicad_monkey/native-transport-a0.tsp", "contracts/generated/schema/NativeDesignFactsRequestA1.json", "contracts/generated/schema/NativeDesignFactsResultA1.json", "contracts/generated/schema/NativeHandshakeA2.json", ".github/workflows/phase6-native-design-facts.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
+vector_evidence = ["tests/L1_parsing/test_L1_037_native_design_facts_transport.py", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_009_native_design_facts_provider.py", "tests/support_scripts/toolchain_install_test.py"]
+implementation_evidence = ["src/rs/kicad-monkey-native/src/lib.rs", "src/rs/kicad-monkey-native/src/main.rs", "src/rs/kicad-monkey-contracts/src/native_transport_contract.rs", "src/py/kicad_monkey/kicad_native.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_native_design.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_cmd_design.py"]
+semantic_resource_evidence = ["src/rs/kicad-monkey-native/tests/design_facts.rs", "src/rs/kicad-monkey-contracts/tests/native_transport_contracts.rs", "src/rs/kicad-monkey-core/tests/kicad_netlist.rs", "src/rs/kicad-monkey-core/tests/schematic_connectivity.rs", "tests/L0_foundation/test_L0_049_generated_contract_projections.py", "tests/L0_foundation/test_L0_062_native_process_client.py", "tests/L1_parsing/test_L1_037_native_design_facts_transport.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_009_native_design_facts_provider.py", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "tests/L3_rendering/test_L3_025_native_design_facts.py", "tests/support_scripts/toolchain_install_test.py"]
 
 [[surfaces]]
 id = "cruncher.native_full_cli"

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -15,18 +16,24 @@ from kicad_monkey.contracts.generated import (
     CompiledSchematicGraphA0,
     FootprintPlotDocumentA0,
     NativeDesignFactsRequestA0,
+    NativeDesignFactsRequestA1,
     NativeDesignFactsResultA0,
+    NativeDesignFactsResultA1,
     NativeErrorA0,
     NativeHandshakeA0,
+    NativeHandshakeA2,
     SchematicPlotDocumentA0,
     SExpressionBuildRequestA0,
     decode_board_plot_document_a0,
     decode_compiled_schematic_graph_a0,
     decode_footprint_plot_document_a0,
     decode_native_design_facts_request_a0,
+    decode_native_design_facts_request_a1,
     decode_native_design_facts_result_a0,
+    decode_native_design_facts_result_a1,
     decode_native_error_a0,
     decode_native_handshake_a0,
+    decode_native_handshake_a2,
     decode_schematic_plot_document_a0,
     decode_schematic_plot_request_a0,
     decode_sexpr_build_request_a0,
@@ -173,6 +180,96 @@ def test_native_transport_generated_roots_are_strict_and_fail_closed() -> None:
         (decode_native_design_facts_result_a0, null_graph_result),
         (decode_native_error_a0, {**error, "kind": "invented"}),
         (decode_native_error_a0, {**error, "unknown": True}),
+    ]
+    for decoder, mutation in mutations:
+        with pytest.raises(msgspec.ValidationError):
+            decoder(json.dumps(mutation).encode())
+
+
+def test_native_design_facts_a1_integrity_and_a2_capability_are_strict() -> None:
+    handshake = {
+        "type": "kicad_monkey.native.handshake",
+        "version": "a2",
+        "engine_version": "0.1.0",
+        "operations": ["design-facts", "render-svg", "design-facts-a1"],
+    }
+    assert isinstance(
+        decode_native_handshake_a2(json.dumps(handshake).encode()), NativeHandshakeA2
+    )
+
+    request = {
+        **_native_request(),
+        "version": "a1",
+        "resource_profile": "design-facts-bounded-a1",
+    }
+    assert isinstance(
+        decode_native_design_facts_request_a1(json.dumps(request).encode()),
+        NativeDesignFactsRequestA1,
+    )
+
+    netlist = '(export (version "E") (design (tool "native-Ω")))'
+    encoded_netlist = netlist.encode("utf-8")
+    result = {
+        "type": "kicad_monkey.native.design_facts.result",
+        "version": "a1",
+        "engine_version": "0.1.0",
+        "resource_profile": "design-facts-bounded-a1",
+        "source_snapshot_sha256": hashlib.sha256(b"source snapshot").hexdigest(),
+        "compiled_schematic_graph": _native_graph(),
+        "kicad_netlist_version": "E",
+        "kicad_netlist": netlist,
+        "kicad_netlist_bytes": str(len(encoded_netlist)),
+        "kicad_netlist_sha256": hashlib.sha256(encoded_netlist).hexdigest(),
+    }
+    assert isinstance(
+        decode_native_design_facts_result_a1(json.dumps(result).encode()),
+        NativeDesignFactsResultA1,
+    )
+
+    mutations = [
+        (
+            decode_native_handshake_a2,
+            {**handshake, "operations": ["design-facts-a1", "render-svg", "design-facts"]},
+        ),
+        (decode_native_handshake_a2, {**handshake, "engine_version": ""}),
+        (
+            decode_native_design_facts_request_a1,
+            {**request, "resource_profile": "invented"},
+        ),
+        (
+            decode_native_design_facts_request_a1,
+            {**request, "limits": {**request["limits"], "max_output_bytes": "01"}},
+        ),
+        (
+            decode_native_design_facts_result_a1,
+            {**result, "source_snapshot_sha256": "A" * 64},
+        ),
+        (
+            decode_native_design_facts_result_a1,
+            {
+                **result,
+                "kicad_netlist": "",
+                "kicad_netlist_bytes": "0",
+                "kicad_netlist_sha256": hashlib.sha256(b"").hexdigest(),
+            },
+        ),
+        (
+            decode_native_design_facts_result_a1,
+            {**result, "kicad_netlist_bytes": str(len(netlist))},
+        ),
+        (
+            decode_native_design_facts_result_a1,
+            {**result, "kicad_netlist_bytes": "01"},
+        ),
+        (
+            decode_native_design_facts_result_a1,
+            {**result, "kicad_netlist_bytes": "18446744073709551616"},
+        ),
+        (
+            decode_native_design_facts_result_a1,
+            {**result, "kicad_netlist_sha256": "0" * 64},
+        ),
+        (decode_native_design_facts_result_a1, {**result, "unknown": True}),
     ]
     for decoder, mutation in mutations:
         with pytest.raises(msgspec.ValidationError):

@@ -43,7 +43,7 @@ Current design notes:
   continuation decision.
 - `rust-compiled-schematic-graph-phase4-contract.html` - accepted TypeSpec
   authority, generated transport projections, and deterministic identity
-  vectors for the Phase 4 schematic compiler.
+  vectors for the native schematic compiler.
 - `rust-compiled-schematic-graph-phase4-native.html` - native deterministic
   identity allocation and linear semantic graph validation over generated DTOs.
 - `rust-source-bundle-phase4-slice.html` - named byte ownership, portable path
@@ -59,7 +59,7 @@ Current design notes:
 - `rust-netlist-phase4-slice.html` - native resolved netlist model, project
   net-class enrichment, and bounded KiCad version-E S-expression output.
 - `rust-phase4-exit-audit.html` - explicit accepted-corpus, compiler,
-  writer, malformed-graph, and netlist/compiled-graph Phase 4 exit mapping.
+  writer, malformed-graph, and netlist/compiled-graph exit mapping.
 - `rust-kicad-version-compatibility.html` - exact stable-release format and
   operation evidence matrix policy plus opt-in nightly observation rules.
 - `rust-font-text-contracts.html` - TypeSpec-owned out-of-band font bundles,
@@ -96,9 +96,11 @@ Current design notes:
 - `rust-phase6-native-cruncher-audit.html` - staged Windows-native transport,
   SVG, provider, design-fact, CLI, and final switchover boundaries.
 - `rust-native-svg-phase6-slice.html` - accepted bounded native base-SVG
-  serialization over the frozen Phase 5 Plotter-IR documents.
+  serialization over the frozen Plotter-IR documents.
 - `rust-native-physical-provider-phase6-slice.html` - accepted Windows
   no-fallback PCB physical-base provider and transactional Cruncher boundary.
+- `rust-native-design-facts-phase6-slice.html` - accepted source-bound
+  native compiled-graph and version-E netlist provider for Windows Cruncher.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

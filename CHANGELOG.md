@@ -2,12 +2,14 @@
 
 ## Unreleased
 
-- Open Phase 6 governance for staged native Cruncher delivery, explicitly
+## 2026.8.18
+
+- Open native Cruncher delivery governance, explicitly
   separating the closed Plotter-IR boundary from native SVG, platform
   packaging, no-fallback design facts, full public CLI compatibility, and the
   final hard-switchover exit gate. This is a plan, not a native CLI release.
 
-- Add the accepted Phase 6 native operation transport foundation: strict
+- Add the accepted native operation transport foundation: strict
   generated request/result envelopes, bounded `kicad-monkey-native`
   design-facts execution, current-state Python staging, and a platform-tagged
   Windows Monkey wheel with an installed-process test. Native SVG and the
@@ -27,7 +29,12 @@
   Plotter-IR production, theming, virtual/HLR geometry, schematic rendering,
   and non-Windows providers remain Python-owned.
 
-- Complete and freeze the bounded native Phase 5 Plotter-IR producers with a
+- Add the accepted P6_030 Windows native design-facts provider. A new
+  source-bound A1 operation supplies the compiled schematic graph and
+  deterministic version-E netlist without Python fallback, while Design JSON,
+  netlist JSON, SVG presentation, and orchestration remain Python-owned.
+
+- Complete and freeze the bounded native Plotter-IR producers with a
   mandatory Windows Rack gate over exact cross-producer vectors, resource and
   semantic suites, exact selected `KM_CORPUS` producers plus broad corpus
   S-expression acceptance, live KiCad 10.0.5 PCB/schematic acceptance, native
@@ -84,7 +91,7 @@
   geometry-correct carrier mapping, bounded native output, and generated-cache
   provenance across the shared contract projection.
 
-- Record the native Rust Phase 5 exit audit and explicit parity-ledger gaps for
+- Record the native Rust Plotter-IR exit audit and explicit parity-ledger gaps for
   plotter text integration, standalone footprint and library-symbol text,
   board dimensions and embedded footprints, and schematic Plotter-IR.
 

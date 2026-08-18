@@ -1976,6 +1976,13 @@ class NativeHandshakeA1(Struct, forbid_unknown_fields=True, frozen=True):
     operations: tuple[Literal["design-facts"], Literal["render-svg"]]
 
 
+class NativeHandshakeA2(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.native.handshake"] = field(name="type")
+    version: Literal["a2"]
+    engine_version: str
+    operations: tuple[Literal["design-facts"], Literal["render-svg"], Literal["design-facts-a1"]]
+
+
 class NativeDesignFactsRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
     type_: Literal["kicad_monkey.native.design_facts.request"] = field(name="type")
     version: Literal["a0"]
@@ -1993,6 +2000,30 @@ class NativeDesignFactsResultA0(Struct, forbid_unknown_fields=True, frozen=True)
     compiled_schematic_graph: CompiledSchematicGraphA0
     kicad_netlist_version: Literal["E"]
     kicad_netlist: str
+
+
+class NativeDesignFactsRequestA1(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.native.design_facts.request"] = field(name="type")
+    version: Literal["a1"]
+    resource_profile: Literal["design-facts-bounded-a1"]
+    bundle_root: str
+    manifest: SourceBundleManifestA0
+    file_slots: list[NativeFileSlot]
+    limits: NativeDesignFactsLimits
+    netlist: NativeNetlistMetadata
+
+
+class NativeDesignFactsResultA1(Struct, forbid_unknown_fields=True, frozen=True):
+    type_: Literal["kicad_monkey.native.design_facts.result"] = field(name="type")
+    version: Literal["a1"]
+    engine_version: str
+    resource_profile: Literal["design-facts-bounded-a1"]
+    source_snapshot_sha256: Annotated[str, Meta(pattern="^[0-9a-f]{64}$")]
+    compiled_schematic_graph: CompiledSchematicGraphA0
+    kicad_netlist_version: Literal["E"]
+    kicad_netlist: str
+    kicad_netlist_bytes: CanonicalUint64Decimal
+    kicad_netlist_sha256: Annotated[str, Meta(pattern="^[0-9a-f]{64}$")]
 
 
 class NativeSVGRenderRequestA0(Struct, forbid_unknown_fields=True, frozen=True):
@@ -3336,6 +3367,20 @@ def validate_native_handshake_a1(value: NativeHandshakeA1) -> None:
         raise msgspec.ValidationError("invalid_value at $.engine_version")
     if value.operations != ('design-facts', 'render-svg'):
         raise msgspec.ValidationError("unsupported_contract at $.operations")
+_native_handshake_a2_decoder = msgspec.json.Decoder(NativeHandshakeA2)
+
+
+def decode_native_handshake_a2(data: bytes) -> NativeHandshakeA2:
+    value = _native_handshake_a2_decoder.decode(data)
+    validate_native_handshake_a2(value)
+    return value
+
+
+def validate_native_handshake_a2(value: NativeHandshakeA2) -> None:
+    if not value.engine_version:
+        raise msgspec.ValidationError("invalid_value at $.engine_version")
+    if value.operations != ('design-facts', 'render-svg', 'design-facts-a1'):
+        raise msgspec.ValidationError("unsupported_contract at $.operations")
 _native_design_facts_request_a0_decoder = msgspec.json.Decoder(NativeDesignFactsRequestA0)
 
 
@@ -3366,6 +3411,46 @@ def decode_native_design_facts_result_a0(data: bytes) -> NativeDesignFactsResult
 def validate_native_design_facts_result_a0(value: NativeDesignFactsResultA0) -> None:
     if not value.engine_version:
         raise msgspec.ValidationError("invalid_value at $.engine_version")
+_native_design_facts_request_a1_decoder = msgspec.json.Decoder(NativeDesignFactsRequestA1)
+
+
+def decode_native_design_facts_request_a1(data: bytes) -> NativeDesignFactsRequestA1:
+    value = _native_design_facts_request_a1_decoder.decode(data)
+    validate_native_design_facts_request_a1(value)
+    return value
+
+
+def validate_native_design_facts_request_a1(value: NativeDesignFactsRequestA1) -> None:
+    fields = ('max_source_bytes', 'max_total_source_bytes', 'max_output_bytes')
+    for field_name in fields:
+        encoded = getattr(value.limits, field_name)
+        if int(encoded) > 18_446_744_073_709_551_615:
+            raise msgspec.ValidationError(f"invalid_uint64 at $.limits.{field_name}")
+    for index, source in enumerate(value.manifest.sources):
+        if int(source.source_bytes) > 18_446_744_073_709_551_615:
+            raise msgspec.ValidationError(f"invalid_uint64 at $.manifest.sources[{index}].source_bytes")
+_native_design_facts_result_a1_decoder = msgspec.json.Decoder(NativeDesignFactsResultA1)
+
+
+def decode_native_design_facts_result_a1(data: bytes) -> NativeDesignFactsResultA1:
+    value = _native_design_facts_result_a1_decoder.decode(data)
+    validate_native_design_facts_result_a1(value)
+    return value
+
+
+def validate_native_design_facts_result_a1(value: NativeDesignFactsResultA1) -> None:
+    if not value.engine_version:
+        raise msgspec.ValidationError("invalid_value at $.engine_version")
+    if not value.kicad_netlist:
+        raise msgspec.ValidationError("invalid_value at $.kicad_netlist")
+    declared_bytes = int(value.kicad_netlist_bytes)
+    if declared_bytes > 18_446_744_073_709_551_615:
+        raise msgspec.ValidationError("invalid_uint64 at $.kicad_netlist_bytes")
+    encoded = value.kicad_netlist.encode('utf-8')
+    if declared_bytes != len(encoded):
+        raise msgspec.ValidationError("length_mismatch at $.kicad_netlist_bytes")
+    if value.kicad_netlist_sha256 != hashlib.sha256(encoded).hexdigest():
+        raise msgspec.ValidationError("hash_mismatch at $.kicad_netlist_sha256")
 _native_svg_render_request_a0_decoder = msgspec.json.Decoder(NativeSVGRenderRequestA0)
 
 
@@ -3670,8 +3755,11 @@ __all__ = (
     "OutlineVectorA0",
     "NativeHandshakeA0",
     "NativeHandshakeA1",
+    "NativeHandshakeA2",
     "NativeDesignFactsRequestA0",
     "NativeDesignFactsResultA0",
+    "NativeDesignFactsRequestA1",
+    "NativeDesignFactsResultA1",
     "NativeSVGRenderRequestA0",
     "NativeSVGRenderResultA0",
     "NativeErrorA0",
@@ -3707,8 +3795,11 @@ __all__ = (
     "decode_outline_vector_a0",
     "decode_native_handshake_a0",
     "decode_native_handshake_a1",
+    "decode_native_handshake_a2",
     "decode_native_design_facts_request_a0",
     "decode_native_design_facts_result_a0",
+    "decode_native_design_facts_request_a1",
+    "decode_native_design_facts_result_a1",
     "decode_native_svg_render_request_a0",
     "decode_native_svg_render_result_a0",
     "decode_native_error_a0",
@@ -3723,8 +3814,11 @@ __all__ = (
     "validate_schematic_plot_document_a0",
     "validate_native_handshake_a0",
     "validate_native_handshake_a1",
+    "validate_native_handshake_a2",
     "validate_native_design_facts_request_a0",
     "validate_native_design_facts_result_a0",
+    "validate_native_design_facts_request_a1",
+    "validate_native_design_facts_result_a1",
     "validate_native_svg_render_request_a0",
     "validate_native_svg_render_result_a0",
 )

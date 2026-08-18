@@ -1,6 +1,6 @@
 use super::{
     SchematicPoint, carrier_form_spans, child_point, child_scalar, direct_scalars, limit_error,
-    source_error,
+    parse_iu, source_error,
 };
 use crate::schematic_bundle::SchematicBundleLimits;
 use crate::sexpr::{Lexer, Token, TokenKind, decode_quoted_with_limit};
@@ -19,6 +19,8 @@ pub struct SchematicLibrarySymbol {
     pub power_kind: Option<String>,
     pub duplicate_pin_numbers_are_jumpers: bool,
     pub jumper_pin_groups: Vec<Vec<String>>,
+    pub pin_names_hide: bool,
+    pub pin_numbers_hide: bool,
     pub subsymbols: Vec<SchematicLibrarySubsymbol>,
 }
 
@@ -36,8 +38,11 @@ pub struct SchematicLibraryPin {
     pub graphic_style: String,
     pub at: SchematicPoint,
     pub angle_degrees: i64,
+    pub length_is_zero: bool,
     pub name: String,
+    pub name_has_visible_size: bool,
     pub number: String,
+    pub number_has_visible_size: bool,
     pub hidden: bool,
     pub uuid: Option<String>,
 }
@@ -122,6 +127,9 @@ fn parse_library_symbol(
             "symbol",
             "extends",
             "power",
+            "pin_names",
+            "pin_numbers",
+            "hide",
             "pin",
             "property",
             "duplicate_pin_numbers_are_jumpers",
@@ -133,7 +141,7 @@ fn parse_library_symbol(
             .max_library_subsymbols_per_source
             .saturating_add(limits.max_library_pins_per_source)
             .saturating_add(limits.max_library_properties_per_symbol)
-            .saturating_add(6),
+            .saturating_add(10),
     )?;
     let root = selected
         .iter()
@@ -169,6 +177,9 @@ fn parse_library_symbol(
         .map(|span| parse_jumper_pin_groups(text, span, source_path, limits, counts))
         .transpose()?
         .unwrap_or_default();
+    let pin_names_hide = symbol_pin_text_hidden(text, &selected, "pin_names", source_path, limits)?;
+    let pin_numbers_hide =
+        symbol_pin_text_hidden(text, &selected, "pin_numbers", source_path, limits)?;
     let mut subsymbols = Vec::new();
     for subsymbol_span in selected
         .iter()
@@ -197,8 +208,48 @@ fn parse_library_symbol(
         power_kind,
         duplicate_pin_numbers_are_jumpers,
         jumper_pin_groups,
+        pin_names_hide,
+        pin_numbers_hide,
         subsymbols,
     })
+}
+
+fn symbol_pin_text_hidden(
+    source: &str,
+    selected: &[FormSpan],
+    head: &str,
+    source_path: &str,
+    limits: SchematicBundleLimits,
+) -> Result<bool, SourceBundleError> {
+    let Some(carrier) = selected
+        .iter()
+        .find(|span| span.depth == 1 && span.head.as_deref() == Some(head))
+    else {
+        return Ok(false);
+    };
+    if direct_scalars(source, carrier, 2, source_path, limits)?
+        .iter()
+        .any(|value| value == "hide")
+    {
+        return Ok(true);
+    }
+    selected
+        .iter()
+        .find(|span| {
+            span.depth == 2
+                && span.head.as_deref() == Some("hide")
+                && span.range.start >= carrier.range.start
+                && span.range.end <= carrier.range.end
+        })
+        .map(|span| direct_scalars(source, span, 1, source_path, limits))
+        .transpose()
+        .map(|values| {
+            values.is_some_and(|values| {
+                values
+                    .first()
+                    .is_some_and(|value| matches!(value.as_str(), "yes" | "true" | "1"))
+            })
+        })
 }
 
 fn parse_library_properties(
@@ -415,7 +466,7 @@ fn parse_library_pin(
         .map_err(|error| source_error(source_path, error.to_string()))?;
     let selected = carrier_form_spans(
         text,
-        &["pin", "at", "name", "number", "hide", "uuid"],
+        &["pin", "at", "length", "name", "number", "hide", "uuid"],
         source_path,
         limits,
         8,
@@ -446,6 +497,15 @@ fn parse_library_pin(
         })?;
     let hidden = header.iter().any(|value| value == "hide")
         || child_scalar(text, &selected, "hide", source_path, limits)?.as_deref() == Some("yes");
+    let length = child_scalar(text, &selected, "length", source_path, limits)?;
+    if let Some(value) = &length {
+        parse_iu(value, source_path)?;
+    }
+    let length_is_zero = length.as_deref().is_some_and(decimal_scalar_is_zero);
+    let name_has_visible_size =
+        pin_text_has_visible_size(text, &selected, "name", source_path, limits)?;
+    let number_has_visible_size =
+        pin_text_has_visible_size(text, &selected, "number", source_path, limits)?;
     Ok(SchematicLibraryPin {
         electrical_type: header
             .first()
@@ -454,11 +514,84 @@ fn parse_library_pin(
         graphic_style: header.get(1).cloned().unwrap_or_else(|| "line".to_owned()),
         at,
         angle_degrees,
+        length_is_zero,
         name: child_scalar(text, &selected, "name", source_path, limits)?.unwrap_or_default(),
+        name_has_visible_size,
         number: child_scalar(text, &selected, "number", source_path, limits)?.unwrap_or_default(),
+        number_has_visible_size,
         hidden,
         uuid: child_scalar(text, &selected, "uuid", source_path, limits)?,
     })
+}
+
+fn pin_text_has_visible_size(
+    source: &str,
+    selected: &[FormSpan],
+    carrier_head: &str,
+    source_path: &str,
+    limits: SchematicBundleLimits,
+) -> Result<bool, SourceBundleError> {
+    let Some(carrier) = selected
+        .iter()
+        .find(|span| span.depth == 1 && span.head.as_deref() == Some(carrier_head))
+    else {
+        return Ok(true);
+    };
+    let carrier_source = source
+        .get(carrier.range.clone())
+        .ok_or_else(|| source_error(source_path, "schematic pin text carrier range is invalid"))?;
+    let size_spans = scan_form_spans_with_limits(
+        carrier_source,
+        &Selector {
+            heads: Some(BTreeSet::from(["size".to_owned()])),
+            min_depth: Some(3),
+            max_depth: Some(3),
+            ..Selector::default()
+        },
+        ProjectionLimits {
+            max_source_bytes: limits.max_source_bytes,
+            max_depth: limits.max_depth,
+            max_selected_forms: 2,
+            ..ProjectionLimits::default()
+        },
+    )
+    .map_err(|error| source_error(source_path, error.to_string()))?;
+    let Some(size) = size_spans.first() else {
+        return Ok(true);
+    };
+    let values = direct_scalars(carrier_source, size, 2, source_path, limits)?;
+    let parse_dimension = |value: Option<&String>| -> Result<f64, SourceBundleError> {
+        let value = value.map_or(1.27, |value| value.parse::<f64>().unwrap_or(f64::NAN));
+        let scaled = value * 1_000_000.0;
+        if !scaled.is_finite() {
+            return Err(source_error(
+                source_path,
+                "schematic pin text size is not finite",
+            ));
+        }
+        Ok(scaled.round_ties_even())
+    };
+    Ok(parse_dimension(values.first())?.abs() > 0.0 && parse_dimension(values.get(1))?.abs() > 0.0)
+}
+
+fn decimal_scalar_is_zero(value: &str) -> bool {
+    let unsigned = value
+        .strip_prefix('+')
+        .or_else(|| value.strip_prefix('-'))
+        .unwrap_or(value);
+    let mantissa = unsigned.split(['e', 'E']).next().unwrap_or_default();
+    let mut saw_digit = false;
+    for byte in mantissa.bytes() {
+        if byte.is_ascii_digit() {
+            saw_digit = true;
+            if byte != b'0' {
+                return false;
+            }
+        } else if byte != b'.' {
+            return false;
+        }
+    }
+    saw_digit
 }
 
 fn unit_and_style(name: &str) -> (i64, i64) {

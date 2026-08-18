@@ -95,6 +95,27 @@ failure = "Native failures do not retry through Python and publish no cache entr
 transactions = "Later PCB/design provider failures leave existing destinations unchanged and no new partial files"
 
 [[subtests]]
+id = "L3_009"
+file = "test_L3_009_native_design_facts_provider.py"
+name = "Native Design Facts Provider"
+description = "Validate the Windows no-fallback compiled-graph and version-E netlist provider"
+concerns = ["contracts", "connectivity", "cross-package", "release"]
+test_case_type = "reference"
+test_cases = "synthetic file-backed design, hostile provider failure, public aliases, and real native a1 process"
+
+[subtests.code_under_test]
+provider_module = "kicad_cruncher.kicad_cruncher_native_design"
+design_module = "kicad_cruncher.kicad_cruncher_cmd_design"
+monkey_module = "kicad_monkey.kicad_native"
+
+[subtests.objectives]
+native_only = "Selected native facts inject one validated graph and version-E netlist with zero Python graph or netlist-writer retry"
+snapshot = "Native result provenance is bound to the exact current in-memory source snapshot and requested netlist metadata"
+linkage = "Design JSON, standalone graph, and schematic SVG graph views consume the same injected graph"
+transactions = "Native failure preserves the complete previously published design-review tree"
+public_cli = "design, design-review, and dr produce deterministic native facts through the real process"
+
+[[subtests]]
 id = "L3_004"
 file = "test_L3_004_pcb_clean_workflow.py"
 name = "PCB Clean Workflow"

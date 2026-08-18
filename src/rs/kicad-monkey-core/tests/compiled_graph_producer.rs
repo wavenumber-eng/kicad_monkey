@@ -1,4 +1,6 @@
-use kicad_monkey_contracts::generated::compiled_schematic_graph::TerminalRole;
+use kicad_monkey_contracts::generated::compiled_schematic_graph::{
+    GraphicalTargetType, TerminalRole,
+};
 use kicad_monkey_contracts::generated::source_bundle_manifest::{
     SourceBundleManifestA0, SourceBundleSource, SourceKind,
 };
@@ -156,6 +158,64 @@ fn every_structural_row_family_fails_before_one_over_publication() {
     }
 }
 
+#[test]
+fn power_ports_link_parent_symbols_while_component_pins_link_rendered_pins() {
+    let index = single_index(
+        br##"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "power:+3V3" (power local)
+              (pin_numbers (hide yes))
+              (pin_names (hide yes))
+              (symbol "power:+3V3_1_1"
+                (pin power_in line (at 0 0 90) (length 0)
+                  (name "~") (number "1"))))
+            (symbol "Demo:Visible"
+              (symbol "Demo:Visible_1_1"
+                (pin passive line (at 0 0 0) (length 2.54)
+                  (name "P") (number "1")))))
+          (symbol (lib_id "power:+3V3") (lib_name "power:+3V3")
+            (at 0 0 0) (uuid power)
+            (property "Reference" "#PWR01")
+            (property "Value" "+3V3")
+            (pin "1" (uuid power-pin)))
+          (symbol (lib_id "Demo:Visible") (lib_name "Demo:Visible")
+            (at 20 0 0) (uuid component)
+            (property "Reference" "U1")
+            (property "Value" "Visible")
+            (pin "1" (uuid component-pin))))"##,
+    );
+    let graph = build_compiled_schematic_graph(&index, Default::default())
+        .expect("compiled graph pin selectors");
+    validate_compiled_schematic_graph(&graph).expect("valid compiled graph pin selectors");
+
+    for (role, expected_element_id) in [
+        (TerminalRole::PowerPort, "power"),
+        (TerminalRole::ComponentPin, "component-pin"),
+    ] {
+        let terminal = graph
+            .terminal_occurrences
+            .iter()
+            .find(|terminal| terminal.role == role)
+            .expect("terminal role");
+        let link = graph
+            .graphical_artifact_links
+            .iter()
+            .find(|link| {
+                link.target_type == GraphicalTargetType::SchTerminalOccurrence
+                    && link.target_ref == terminal.id
+            })
+            .expect("terminal graphical link");
+        assert_eq!(link.element_id, expected_element_id);
+    }
+    assert!(
+        graph
+            .graphical_artifact_links
+            .iter()
+            .all(|link| link.element_id != "power-pin")
+    );
+}
+
 fn minimum_retained_string_limit(index: &SchematicBundleIndex) -> usize {
     let mut high = 1_usize;
     while build_compiled_schematic_graph(
@@ -247,6 +307,27 @@ fn structural_index() -> SchematicBundleIndex {
         .expect("structural source bundle");
     SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
         .expect("structural schematic index")
+}
+
+fn single_index(root: &[u8]) -> SchematicBundleIndex {
+    let project = b"{}".to_vec();
+    let root = root.to_vec();
+    let buffers = vec![project, root];
+    let manifest = SourceBundleManifestA0 {
+        project_path: Some("demo.kicad_pro".to_owned()),
+        root_schematic_path: "root.kicad_sch".to_owned(),
+        schema: "kicad_monkey.source_bundle_manifest.a0".to_owned(),
+        sources: vec![
+            descriptor("demo.kicad_pro", SourceKind::Project, 0, &buffers[0]),
+            descriptor("root.kicad_sch", SourceKind::Schematic, 1, &buffers[1]),
+        ],
+        type_: "kicad_monkey.source_bundle_manifest".to_owned(),
+        version: "a0".to_owned(),
+    };
+    let bundle = SourceBundle::from_manifest(manifest, buffers, SourceBundleLimits::default())
+        .expect("single schematic source bundle");
+    SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("single schematic index")
 }
 
 fn descriptor(path: &str, kind: SourceKind, slot: u32, bytes: &[u8]) -> SourceBundleSource {

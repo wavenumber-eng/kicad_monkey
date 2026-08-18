@@ -37,7 +37,7 @@ kicad-cruncher design --no-indexes</code></pre>
 <section id="ownership">
   <h2>Ownership</h2>
   <p>The semantic model and SVG enrichment contract are owned by <code>kicad-monkey</code>. <code>kicad-cruncher</code> must not re-parse KiCad pads, vias, nets, or hierarchy to invent parallel metadata. It calls the public <code>kicad-monkey</code> APIs, writes the returned artifacts into a review bundle, and applies a review visual theme to the enriched SVG records.</p>
-  <p>Design JSON is produced from <code>KiCadDesign.to_json()</code>. Netlist JSON and KiCad S-expression netlists are produced from <code>KiCadDesign.to_netlist_json()</code> and <code>KiCadDesign.to_kicad_netlist_sexpr()</code>. Schematic SVGs are produced from <code>design.schematic_instances()</code>, <code>design.to_schematic_instance_ir(...)</code>, <code>render_ir_to_svg(...)</code>, and the <code>kicad-monkey</code> schematic SVG enrichment helpers with enriched black-and-white role-theme render options. PCB review SVGs are produced from a command-scoped cached <code>kicad-monkey</code> board IR and all-layer bounding box, filtered to the selected copper layer plus <code>Edge.Cuts</code>.</p>
+  <p>Design JSON and netlist JSON remain Python-owned and are produced from <code>KiCadDesign.to_json()</code> and <code>KiCadDesign.to_netlist_json()</code>. On Windows, one source-bound public Monkey native operation supplies the compiled graph injected into Design JSON and the published version-E S-expression netlist; native failure is terminal and is not retried through the Python graph or netlist writer. Linux and macOS retain their explicit Python route until separately promoted. Schematic SVGs are produced from <code>design.schematic_instances()</code>, <code>design.to_schematic_instance_ir(...)</code>, <code>render_ir_to_svg(...)</code>, and the <code>kicad-monkey</code> schematic SVG enrichment helpers with enriched black-and-white role-theme render options. PCB review SVGs are produced from a command-scoped cached <code>kicad-monkey</code> board IR and all-layer bounding box, filtered to the selected copper layer plus <code>Edge.Cuts</code>.</p>
 </section>
 
 <section id="output">
@@ -48,7 +48,7 @@ kicad-cruncher design --no-indexes</code></pre>
     <li><code>&lt;input-stem&gt;_compiled_schematic_graph.json</code>: the exact <code>compiled_schematic_graph</code> object from the Design JSON.</li>
     <li><code>&lt;input-stem&gt;_netlist.json</code>: <code>kicad_monkey.netlist.a0</code> JSON.</li>
     <li><code>&lt;input-stem&gt;_netlist.net</code>: kicad-cli-style S-expression netlist.</li>
-    <li><code>design_review_manifest.json</code>: <code>kicad_cruncher.design_review_manifest.a0</code> artifact index.</li>
+    <li><code>design_review_manifest.json</code>: <code>kicad_cruncher.design_review_manifest.a0</code> artifact index, including native source/netlist provenance when that provider is selected.</li>
     <li><code>README.md</code>: agent-facing explanation of the generated bundle.</li>
     <li><code>schematics/*.svg</code>: one enriched schematic SVG per concrete hierarchy instance.</li>
     <li><code>pcb/copper_layers/*__review.svg</code>: one enriched PCB review SVG per copper layer when a board is present.</li>

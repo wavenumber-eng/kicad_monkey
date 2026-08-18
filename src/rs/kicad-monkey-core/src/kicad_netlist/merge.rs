@@ -64,11 +64,9 @@ fn collect_uuids(
 ) -> Result<Vec<String>, SourceBundleError> {
     let mut seen_uuids = HashSet::new();
     let mut uuids = Vec::new();
-    for index in extra_indices
-        .iter()
-        .rev()
-        .chain(std::iter::once(&primary_index))
-    {
+    // KiCad retains nonprimary units in their equivalent-key insertion order,
+    // then appends the lexically lowest-UUID primary unit last.
+    for index in extra_indices.iter().chain(std::iter::once(&primary_index)) {
         for uuid in &candidates[*index].component.instance_uuids {
             if seen_uuids.insert(uuid.as_str()) {
                 budget.reserve(uuid.len())?;
@@ -183,14 +181,9 @@ mod tests {
         assert_eq!(merged.value, "unit-one");
         assert_eq!(merged.reference, "PRIMARY");
         assert_eq!(merged.fields["Custom"], "unit-one");
-        assert_eq!(merged.instance_uuids.len(), 3);
         assert_eq!(
-            merged
-                .instance_uuids
-                .iter()
-                .filter(|uuid| uuid.as_str() == "duplicate")
-                .count(),
-            1
+            merged.instance_uuids,
+            ["z-uuid", "duplicate", "m-uuid", "a-uuid"]
         );
     }
 
@@ -261,6 +254,11 @@ mod tests {
                 unit: 2,
                 order: 1,
                 component: component("PRIMARY", "unit-two", ["a-uuid", "duplicate"], "unit-two"),
+            },
+            ComponentCandidate {
+                unit: 3,
+                order: 2,
+                component: component("EXTRA", "unit-three", ["m-uuid", "duplicate"], "unit-three"),
             },
         ]
     }

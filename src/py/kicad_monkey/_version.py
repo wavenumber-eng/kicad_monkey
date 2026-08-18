@@ -8,7 +8,7 @@ from datetime import date
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as distribution_version
 
-__version__ = "2026.8.17"
+__version__ = "2026.8.18"
 
 _DISTRIBUTION_NAME = "kicad-monkey"
 _VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:\.(\d+)|\.?a(\d+))?$")

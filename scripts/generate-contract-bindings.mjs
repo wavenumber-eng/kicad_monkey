@@ -44,8 +44,11 @@ const roots = [
   ["OutlineVector.json", "OutlineVectorA0", "outline-vector.ts"],
   ["NativeHandshake.json", "NativeHandshakeA0", "native-handshake.ts"],
   ["NativeHandshakeA1.json", "NativeHandshakeA1", "native-handshake-a1.ts"],
+  ["NativeHandshakeA2.json", "NativeHandshakeA2", "native-handshake-a2.ts"],
   ["NativeDesignFactsRequest.json", "NativeDesignFactsRequestA0", "native-design-facts-request.ts"],
   ["NativeDesignFactsResult.json", "NativeDesignFactsResultA0", "native-design-facts-result.ts"],
+  ["NativeDesignFactsRequestA1.json", "NativeDesignFactsRequestA1", "native-design-facts-request-a1.ts"],
+  ["NativeDesignFactsResultA1.json", "NativeDesignFactsResultA1", "native-design-facts-result-a1.ts"],
   ["NativeSvgRenderRequest.json", "NativeSVGRenderRequestA0", "native-svg-render-request.ts"],
   ["NativeSvgRenderResult.json", "NativeSVGRenderResultA0", "native-svg-render-result.ts"],
   ["NativeError.json", "NativeErrorA0", "native-error.ts"],
@@ -207,10 +210,16 @@ function renderPython() {
       lines.push(...renderPythonNativeHandshakeValidation(functionName, typeName));
     } else if (typeName === "NativeHandshakeA1") {
       lines.push(...renderPythonNativeHandshakeA1Validation(functionName, typeName));
+    } else if (typeName === "NativeHandshakeA2") {
+      lines.push(...renderPythonNativeHandshakeA2Validation(functionName, typeName));
     } else if (typeName === "NativeDesignFactsRequestA0") {
       lines.push(...renderPythonNativeRequestValidation(functionName, typeName));
     } else if (typeName === "NativeDesignFactsResultA0") {
       lines.push(...renderPythonNativeResultValidation(functionName, typeName));
+    } else if (typeName === "NativeDesignFactsRequestA1") {
+      lines.push(...renderPythonNativeRequestA1Validation(functionName, typeName));
+    } else if (typeName === "NativeDesignFactsResultA1") {
+      lines.push(...renderPythonNativeResultA1Validation(functionName, typeName));
     } else if (typeName === "NativeSVGRenderRequestA0") {
       lines.push(...renderPythonNativeSvgRequestValidation(functionName, typeName));
     } else if (typeName === "NativeSVGRenderResultA0") {
@@ -240,8 +249,11 @@ function renderPython() {
     "validate_schematic_plot_document_a0",
     "validate_native_handshake_a0",
     "validate_native_handshake_a1",
+    "validate_native_handshake_a2",
     "validate_native_design_facts_request_a0",
     "validate_native_design_facts_result_a0",
+    "validate_native_design_facts_request_a1",
+    "validate_native_design_facts_result_a1",
     "validate_native_svg_render_request_a0",
     "validate_native_svg_render_result_a0",
   ];
@@ -821,6 +833,25 @@ function renderPythonNativeHandshakeA1Validation(functionName, typeName) {
   ];
 }
 
+function renderPythonNativeHandshakeA2Validation(functionName, typeName) {
+  return [
+    `_native_handshake_a2_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _native_handshake_a2_decoder.decode(data)",
+    "    validate_native_handshake_a2(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_native_handshake_a2(value: ${typeName}) -> None:`,
+    "    if not value.engine_version:",
+    '        raise msgspec.ValidationError("invalid_value at $.engine_version")',
+    "    if value.operations != ('design-facts', 'render-svg', 'design-facts-a1'):",
+    '        raise msgspec.ValidationError("unsupported_contract at $.operations")',
+  ];
+}
+
 function renderPythonNativeRequestValidation(functionName, typeName) {
   return [
     `_native_design_facts_request_a0_decoder = msgspec.json.Decoder(${typeName})`,
@@ -858,6 +889,56 @@ function renderPythonNativeResultValidation(functionName, typeName) {
     `def validate_native_design_facts_result_a0(value: ${typeName}) -> None:`,
     "    if not value.engine_version:",
     '        raise msgspec.ValidationError("invalid_value at $.engine_version")',
+  ];
+}
+
+function renderPythonNativeRequestA1Validation(functionName, typeName) {
+  return [
+    `_native_design_facts_request_a1_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _native_design_facts_request_a1_decoder.decode(data)",
+    "    validate_native_design_facts_request_a1(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_native_design_facts_request_a1(value: ${typeName}) -> None:`,
+    "    fields = ('max_source_bytes', 'max_total_source_bytes', 'max_output_bytes')",
+    "    for field_name in fields:",
+    "        encoded = getattr(value.limits, field_name)",
+    "        if int(encoded) > 18_446_744_073_709_551_615:",
+    '            raise msgspec.ValidationError(f"invalid_uint64 at $.limits.{field_name}")',
+    "    for index, source in enumerate(value.manifest.sources):",
+    "        if int(source.source_bytes) > 18_446_744_073_709_551_615:",
+    '            raise msgspec.ValidationError(f"invalid_uint64 at $.manifest.sources[{index}].source_bytes")',
+  ];
+}
+
+function renderPythonNativeResultA1Validation(functionName, typeName) {
+  return [
+    `_native_design_facts_result_a1_decoder = msgspec.json.Decoder(${typeName})`,
+    "",
+    "",
+    `def ${functionName}(data: bytes) -> ${typeName}:`,
+    "    value = _native_design_facts_result_a1_decoder.decode(data)",
+    "    validate_native_design_facts_result_a1(value)",
+    "    return value",
+    "",
+    "",
+    `def validate_native_design_facts_result_a1(value: ${typeName}) -> None:`,
+    "    if not value.engine_version:",
+    '        raise msgspec.ValidationError("invalid_value at $.engine_version")',
+    "    if not value.kicad_netlist:",
+    '        raise msgspec.ValidationError("invalid_value at $.kicad_netlist")',
+    "    declared_bytes = int(value.kicad_netlist_bytes)",
+    "    if declared_bytes > 18_446_744_073_709_551_615:",
+    '        raise msgspec.ValidationError("invalid_uint64 at $.kicad_netlist_bytes")',
+    "    encoded = value.kicad_netlist.encode('utf-8')",
+    "    if declared_bytes != len(encoded):",
+    '        raise msgspec.ValidationError("length_mismatch at $.kicad_netlist_bytes")',
+    "    if value.kicad_netlist_sha256 != hashlib.sha256(encoded).hexdigest():",
+    '        raise msgspec.ValidationError("hash_mismatch at $.kicad_netlist_sha256")',
   ];
 }
 

@@ -5,6 +5,7 @@ use kicad_monkey_core::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicDriverPriority,
     SchematicOccurrenceConnectivityLimits, SchematicPoint, SchematicWireDriverKind, SourceBundle,
     SourceBundleErrorKind, SourceBundleLimits, build_schematic_occurrence_subgraphs,
+    build_schematic_scalar_design_nets,
 };
 
 #[test]
@@ -177,6 +178,100 @@ fn stacked_pins_power_priority_and_hidden_no_connects_are_materialized() {
         .collect::<Vec<_>>();
     assert_eq!(hidden.len(), 2);
     assert_ne!(hidden[0].coords, hidden[1].coords);
+}
+
+#[test]
+fn pin_svg_ids_require_an_actually_rendered_pin_operation() {
+    let index = index(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Collapsed"
+              (pin_numbers (hide yes))
+              (pin_names (offset 0) (hide yes))
+              (symbol "Demo:Collapsed_1_1"
+                (pin passive line (at 0 0 0) (length 0)
+                  (name "~") (number "1"))))
+            (symbol "Demo:Length"
+              (pin_numbers (hide yes))
+              (pin_names (hide yes))
+              (symbol "Demo:Length_1_1"
+                (pin passive line (at 0 0 0) (length 2.54)
+                  (name "~") (number "1"))))
+            (symbol "Demo:Decorated"
+              (pin_numbers (hide yes))
+              (pin_names (hide yes))
+              (symbol "Demo:Decorated_1_1"
+                (pin passive inverted (at 0 0 0) (length 0)
+                  (name "~") (number "1"))))
+            (symbol "Demo:Named"
+              (pin_numbers (hide yes))
+              (symbol "Demo:Named_1_1"
+                (pin passive line (at 0 0 0) (length 0)
+                  (name "VISIBLE") (number "1"))))
+            (symbol "Demo:ZeroText"
+              (pin_numbers (hide yes))
+              (symbol "Demo:ZeroText_1_1"
+                (pin passive line (at 0 0 0) (length 0)
+                  (name "SUPPRESSED" (effects (font (size 0 1.27))))
+                  (number "1")))))
+          (symbol (lib_id "Demo:Collapsed") (lib_name "Demo:Collapsed")
+            (at 0 0 0) (uuid collapsed)
+            (property "Reference" "P1")
+            (pin "1" (uuid collapsed-pin)))
+          (symbol (lib_id "Demo:Length") (lib_name "Demo:Length")
+            (at 20 0 0) (uuid length)
+            (property "Reference" "P2")
+            (pin "1" (uuid length-pin)))
+          (symbol (lib_id "Demo:Decorated") (lib_name "Demo:Decorated")
+            (at 40 0 0) (uuid decorated)
+            (property "Reference" "P3")
+            (pin "1" (uuid decorated-pin)))
+          (symbol (lib_id "Demo:Named") (lib_name "Demo:Named")
+            (at 60 0 0) (uuid named)
+            (property "Reference" "P4")
+            (pin "1" (uuid named-pin)))
+          (symbol (lib_id "Demo:ZeroText") (lib_name "Demo:ZeroText")
+            (at 80 0 0) (uuid zero-text)
+            (property "Reference" "P5")
+            (pin "1" (uuid zero-text-pin))))"#,
+    );
+    let subgraphs = build_schematic_occurrence_subgraphs(
+        &index,
+        1,
+        SchematicOccurrenceConnectivityLimits::default(),
+    )
+    .expect("pin SVG selector semantics");
+
+    let pin_svg_id = |reference: &str| {
+        subgraphs
+            .iter()
+            .flat_map(|subgraph| &subgraph.pin_drivers)
+            .find(|driver| driver.reference == reference)
+            .expect("pin driver")
+            .pin_svg_id
+            .clone()
+    };
+    assert_eq!(pin_svg_id("P1"), "");
+    assert_eq!(pin_svg_id("P2"), "length-pin");
+    assert_eq!(pin_svg_id("P3"), "decorated-pin");
+    assert_eq!(pin_svg_id("P4"), "named-pin");
+    assert_eq!(pin_svg_id("P5"), "");
+
+    let design = build_schematic_scalar_design_nets(&index, 1, Default::default())
+        .expect("design net SVG fallbacks");
+    let terminal_svg_id = |designator: &str| {
+        design
+            .nets
+            .iter()
+            .flat_map(|net| &net.terminals)
+            .find(|terminal| terminal.designator == designator)
+            .expect("design net terminal")
+            .svg_id
+            .clone()
+    };
+    assert_eq!(terminal_svg_id("P1"), "collapsed");
+    assert_eq!(terminal_svg_id("P2"), "length-pin");
 }
 
 #[test]

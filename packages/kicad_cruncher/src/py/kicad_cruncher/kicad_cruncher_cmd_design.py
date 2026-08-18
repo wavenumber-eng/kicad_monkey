@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import re
@@ -21,6 +22,7 @@ from kicad_cruncher.kicad_cruncher_common import (
 )
 from kicad_cruncher.logging_utils import stage_done_text, stage_progress_text, stage_start_text
 
+from .kicad_cruncher_native_design import selected_design_facts_provider
 from .kicad_cruncher_transaction import (
     publish_staged_tree as _publish_design_review_tree,
 )
@@ -28,7 +30,7 @@ from .kicad_cruncher_transaction import (
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from kicad_monkey import KiCadDesign, KiCadPcb
+    from kicad_monkey import KiCadDesign, KiCadNativeDesignFacts, KiCadPcb
 
 JsonObject = dict[str, object]
 Artifact = dict[str, object]
@@ -704,6 +706,43 @@ def write_design_review_bundle(
         )
 
 
+def _load_native_design_facts(
+    design: KiCadDesign,
+    *,
+    progress: ProgressCallback | None,
+) -> KiCadNativeDesignFacts | None:
+    """Build the selected native facts before staged artifact generation."""
+
+    facts_provider = selected_design_facts_provider()
+    if facts_provider is None:
+        return None
+    top = design.top_schematic
+    source_path = str(getattr(top, "source_path", "") or "")
+    _emit_progress(progress, "building native design facts")
+    return facts_provider.design_facts(
+        design,
+        source_path=source_path,
+        date="",
+        tool="kicad_cruncher",
+    )
+
+
+def _write_kicad_netlist(
+    path: Path,
+    design: KiCadDesign,
+    native_facts: KiCadNativeDesignFacts | None,
+) -> None:
+    """Publish native bytes exactly while preserving the legacy text path."""
+
+    if native_facts is not None:
+        path.write_bytes(native_facts.kicad_netlist.encode("utf-8"))
+        return
+    path.write_text(
+        design.to_kicad_netlist_sexpr(tool="kicad_cruncher", date=""),
+        encoding="utf-8",
+    )
+
+
 def _write_design_review_bundle_staged(
     input_file: Path,
     output_dir: Path,
@@ -717,8 +756,14 @@ def _write_design_review_bundle_staged(
     output_dir.mkdir(parents=True, exist_ok=True)
     _emit_progress(progress, f"loading design from {input_file}")
     design = KiCadDesign.from_file(input_file)
+    native_facts = _load_native_design_facts(design, progress=progress)
     _emit_progress(progress, "building design JSON")
-    design_payload = design.to_json(include_indexes=include_indexes)
+    # Design/netlist JSON presentation remains Python-owned in this bounded
+    # slice.  Only the validated native compiled graph is injected here.
+    design_payload = design.to_json(
+        include_indexes=include_indexes,
+        compiled_schematic_graph=native_facts,
+    )
 
     design_json_path = output_dir / f"{input_file.stem}_design.json"
     compiled_schematic_graph_path = (
@@ -748,10 +793,7 @@ def _write_design_review_bundle_staged(
     _emit_progress(progress, f"writing netlist JSON: {_relpath(netlist_json_path, output_dir)}")
     _write_json(netlist_json_path, netlist_payload)
     _emit_progress(progress, "building KiCad S-expression netlist")
-    netlist_kicad_sexpr_path.write_text(
-        design.to_kicad_netlist_sexpr(tool="kicad_cruncher", date=""),
-        encoding="utf-8",
-    )
+    _write_kicad_netlist(netlist_kicad_sexpr_path, design, native_facts)
 
     schematic_svgs = _render_schematic_svgs(
         design,
@@ -785,6 +827,29 @@ def _write_design_review_bundle_staged(
         "pcb_svgs": pcb_svgs,
         "readme": "README.md",
     }
+    if native_facts is not None:
+        if (
+            native_facts.resource_profile is None
+            or native_facts.source_snapshot_sha256 is None
+            or native_facts.kicad_netlist_bytes is None
+            or native_facts.kicad_netlist_sha256 is None
+        ):
+            raise ValueError("Native design facts omitted required a1 provenance")
+        canonical_graph = json.dumps(
+            compiled_schematic_graph,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        manifest["design_facts"] = {
+            "backend": "kicad-monkey-native",
+            "engine_version": native_facts.engine_version,
+            "resource_profile": native_facts.resource_profile,
+            "source_snapshot_sha256": native_facts.source_snapshot_sha256,
+            "compiled_schematic_graph_sha256": hashlib.sha256(canonical_graph).hexdigest(),
+            "kicad_netlist_bytes": native_facts.kicad_netlist_bytes,
+            "kicad_netlist_sha256": native_facts.kicad_netlist_sha256,
+        }
     _emit_progress(progress, "writing design-review manifest and README")
     _write_json(manifest_path, manifest)
     readme_path = _write_review_readme(
@@ -841,12 +906,15 @@ def cmd_design(args: argparse.Namespace) -> int:
         log.error("Design review generation failed: %s", exc)
         return 1
 
+    graph_record = bundle.manifest.get("compiled_schematic_graph")
+    graph_counts = graph_record.get("counts") if isinstance(graph_record, dict) else None
+    graph_collection_count = len(graph_counts) if isinstance(graph_counts, dict) else 0
     log.info(
         "%s",
         stage_done_text(
             "Design review: "
             f"{bundle.component_count} components, {bundle.net_count} nets, "
-            f"{len(bundle.manifest['compiled_schematic_graph']['counts'])} graph collections, "
+            f"{graph_collection_count} graph collections, "
             f"{len(bundle.schematic_svgs)} schematic SVGs, {len(bundle.pcb_svgs)} PCB SVGs "
             f"-> {bundle.readme_path} in {time.perf_counter() - started:.2f}s"
         ),

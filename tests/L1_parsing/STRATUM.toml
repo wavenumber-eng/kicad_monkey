@@ -664,7 +664,10 @@ test_case_type = "contract"
 [subtests.objectives]
 primary = "A real packaged-process candidate returns the exact Python compiled graph and a parsed version-E netlist through the fail-closed client"
 secondary = [
-    "The handshake and operation version agree",
+    "The original a0 handshake/design-facts operation remains accepted with its unchanged result surface",
+    "The a2 handshake advertises design-facts-a1 and its engine version agrees with the source-bound operation",
+    "The a1 result binds the exact source snapshot plus resource profile and netlist byte/hash provenance",
+    "The version-E netlist contains the exact source, date, and tool requested by the caller",
     "Current in-memory project and schematic bytes are staged explicitly without PATH or project discovery",
     "The generated graph decoder and semantic validator run before facts are published",
     "The validated native graph can be injected only into the matching in-memory design state",

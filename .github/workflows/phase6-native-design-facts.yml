@@ -1,0 +1,40 @@
+name: Phase 6 Native Design Facts
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CARGO_BUILD_JOBS: "4"
+  RUST_TEST_THREADS: "2"
+
+permissions:
+  contents: read
+
+jobs:
+  native-design-facts:
+    name: Phase 6 native design facts (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Set up Python
+        run: uv python install 3.14
+      - name: Sync package and contract toolchains
+        run: |
+          uv sync --all-packages --all-extras
+          npm install --global npm@11.6.2
+          npm ci
+      - name: Run the source-bound design-facts Rack gate
+        run: uv run --extra test python tests/rack.py run L3_025

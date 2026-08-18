@@ -51,11 +51,19 @@ jobs:
     needs: phase6-native-svg
     uses: ./.github/workflows/phase6-native-physical-provider.yml
 
+  phase6-native-design-facts:
+    if: >-
+      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
+      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
+    needs: phase6-native-physical-provider
+    uses: ./.github/workflows/phase6-native-design-facts.yml
+
   build-monkey-windows-wheel:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider]
+    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider, phase6-native-design-facts]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -84,7 +92,7 @@ jobs:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider, build-monkey-windows-wheel]
+    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider, phase6-native-design-facts, build-monkey-windows-wheel]
     runs-on: ubuntu-latest
     environment: pypi-kicad-monkey
     steps:
@@ -161,7 +169,7 @@ jobs:
     if: >-
       github.event_name == 'release' &&
       startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
-    needs: phase6-native-physical-provider
+    needs: phase6-native-design-facts
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -170,14 +178,14 @@ jobs:
         shell: pwsh
         run: |
           uv venv .public-monkey-venv
-          uv pip install --python .public-monkey-venv --no-cache "kicad-monkey>=2026.8.17"
-          .public-monkey-venv\Scripts\python.exe -I -c "from kicad_monkey import kicad_native_handshake_a1; h=kicad_native_handshake_a1(); assert h['operations'] == ['design-facts','render-svg']"
+          uv pip install --python .public-monkey-venv --no-cache "kicad-monkey>=2026.8.18"
+          .public-monkey-venv\Scripts\python.exe -I -c "from kicad_monkey import kicad_native_handshake_a2; h=kicad_native_handshake_a2(); assert h['operations'] == ['design-facts','render-svg','design-facts-a1']"
 
   publish-cruncher:
     if: >-
       github.event_name == 'release' &&
       startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
-    needs: [phase6-native-physical-provider, verify-public-monkey-physical-provider]
+    needs: [phase6-native-design-facts, verify-public-monkey-physical-provider]
     runs-on: ubuntu-latest
     environment: pypi-kicad-cruncher
     steps:
@@ -273,7 +281,7 @@ jobs:
 
   publish-coordinated-cruncher:
     if: github.event_name == 'workflow_dispatch'
-    needs: [verify-coordinated-monkey, phase6-native-physical-provider]
+    needs: [verify-coordinated-monkey, phase6-native-design-facts]
     runs-on: ubuntu-latest
     environment: pypi-kicad-cruncher
     steps:

@@ -14,6 +14,7 @@ pub struct SchematicSymbolTerminal {
     pub electrical_type: String,
     pub graphic_style: String,
     pub hidden: bool,
+    pub has_drawing: bool,
     pub library_at: SchematicPoint,
     pub at: SchematicPoint,
 }
@@ -74,6 +75,7 @@ pub(crate) fn resolve_symbol_terminals(
                     electrical_type: pin.electrical_type.clone(),
                     graphic_style: pin.graphic_style.clone(),
                     hidden: pin.hidden,
+                    has_drawing: placed_pin_has_drawing(library, placed, pin),
                     library_at: pin.at,
                     at: transform_pin(placed, pin, occurrence)?,
                 });
@@ -98,6 +100,33 @@ fn terminal_string_bytes(
     ]
     .into_iter()
     .try_fold(0_usize, usize::checked_add)
+}
+
+fn placed_pin_has_drawing(
+    library: &crate::SchematicLibrarySymbol,
+    placed: &SchematicPlacedSymbol,
+    pin: &SchematicLibraryPin,
+) -> bool {
+    if pin.hidden {
+        return false;
+    }
+    // A selected alternate can replace both the pin name and graphic style.
+    // The compact connectivity model does not retain alternate definitions, so
+    // preserve the selector conservatively whenever an alternate is selected.
+    if placed
+        .pins
+        .iter()
+        .any(|placed_pin| placed_pin.number == pin.number && placed_pin.alternate.is_some())
+    {
+        return true;
+    }
+    let draws_geometry = pin.graphic_style != "line" || !pin.length_is_zero;
+    let draws_name = !library.pin_names_hide
+        && !matches!(pin.name.as_str(), "" | "~")
+        && pin.name_has_visible_size;
+    let draws_number =
+        !library.pin_numbers_hide && !pin.number.is_empty() && pin.number_has_visible_size;
+    draws_geometry || draws_name || draws_number
 }
 
 fn active_subsymbol(unit: i64, style: i64, placed_unit: i64, convert: i64) -> bool {

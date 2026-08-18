@@ -103,11 +103,13 @@ def main() -> int:
                     "import json,sys; "
                     "from pathlib import Path; "
                     "from kicad_monkey import KiCadDesign,kicad_native_handshake,"
-                    "kicad_native_handshake_a1,native_design_facts_for_design,native_render_svg; "
+                    "kicad_native_handshake_a1,kicad_native_handshake_a2,"
+                    "native_design_facts_for_design,native_render_svg; "
                     "root=Path(sys.argv[1]); "
                     "document=json.loads(sys.argv[2]); "
                     "handshake=kicad_native_handshake(); "
                     "handshake_a1=kicad_native_handshake_a1(); "
+                    "handshake_a2=kicad_native_handshake_a2(); "
                     "facts=native_design_facts_for_design("
                     "KiCadDesign.from_project_file(root/'demo.kicad_pro')); "
                     "svg=native_render_svg(document,document_kind='footprint',"
@@ -116,7 +118,9 @@ def main() -> int:
                     "assert svg.engine_version==handshake_a1['engine_version']; "
                     "assert svg.document_id=='wheel-svg' and '<line' in svg.svg_utf8; "
                     "assert '(version \"E\"' in facts.kicad_netlist; "
-                    "print(json.dumps({'a0':handshake,'a1':handshake_a1}, sort_keys=True))"
+                    "assert facts.resource_profile=='design-facts-bounded-a1'; "
+                    "assert facts.source_snapshot_sha256==facts.design_fingerprint; "
+                    "print(json.dumps({'a0':handshake,'a1':handshake_a1,'a2':handshake_a2}, sort_keys=True))"
                 ),
                 str(root),
                 json.dumps(_FOOTPRINT_DOCUMENT, separators=(",", ":")),
@@ -137,6 +141,12 @@ def main() -> int:
         raise SystemExit(f"unexpected native handshake: {payload!r}")
     if payload["a1"]["operations"] != ["design-facts", "render-svg"]:
         raise SystemExit(f"unexpected expanded native handshake: {payload!r}")
+    if payload["a2"]["operations"] != [
+        "design-facts",
+        "render-svg",
+        "design-facts-a1",
+    ]:
+        raise SystemExit(f"unexpected source-bound native handshake: {payload!r}")
     return 0
 
 

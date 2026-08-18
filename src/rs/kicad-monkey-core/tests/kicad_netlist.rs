@@ -40,6 +40,44 @@ fn native_materializer_emits_components_libparts_sheets_and_resolved_nets() {
     assert!(matches!(reparsed, kicad_monkey_core::sexpr::Sexp::List(_)));
 }
 
+#[test]
+fn multi_unit_tstamps_preserve_nonprimary_source_order_then_lowest_uuid_primary() {
+    let index = single_index(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:Multi"
+              (symbol "Demo:Multi_1_1")
+              (symbol "Demo:Multi_2_1")
+              (symbol "Demo:Multi_3_1")
+              (symbol "Demo:Multi_4_1")))
+          (symbol (lib_id "Demo:Multi") (lib_name "Demo:Multi")
+            (at 0 0 0) (unit 1) (uuid 7332c9d0-2326-43ef-8057-b98c9b8e133c)
+            (property "Reference" "U1") (property "Value" "Multi"))
+          (symbol (lib_id "Demo:Multi") (lib_name "Demo:Multi")
+            (at 10 0 0) (unit 3) (uuid 82dbe4d7-1c62-492f-b41d-8a0e7e250760)
+            (property "Reference" "U1") (property "Value" "Multi"))
+          (symbol (lib_id "Demo:Multi") (lib_name "Demo:Multi")
+            (at 20 0 0) (unit 4) (uuid cae74693-d5c5-481a-9faa-97917b358de7)
+            (property "Reference" "U1") (property "Value" "Multi"))
+          (symbol (lib_id "Demo:Multi") (lib_name "Demo:Multi")
+            (at 30 0 0) (unit 2) (uuid d31054c5-0fcb-49eb-903b-e65f43072f2d)
+            (property "Reference" "U1") (property "Value" "Multi")))"#,
+    );
+    let netlist =
+        build_kicad_netlist(&index, None, KiCadNetlistLimits::default()).expect("native netlist");
+    assert_eq!(netlist.components.len(), 1);
+    assert_eq!(
+        netlist.components[0].instance_uuids,
+        [
+            "82dbe4d7-1c62-492f-b41d-8a0e7e250760",
+            "cae74693-d5c5-481a-9faa-97917b358de7",
+            "d31054c5-0fcb-49eb-903b-e65f43072f2d",
+            "7332c9d0-2326-43ef-8057-b98c9b8e133c",
+        ]
+    );
+}
+
 fn assert_structural_netlist(netlist: &KiCadNetlist) {
     assert_eq!(netlist.sheets.len(), 2);
     assert_eq!(
@@ -92,6 +130,62 @@ fn project_patterns_assign_the_first_declared_valid_net_class() {
     .expect("native netlist");
     assert!(!netlist.nets.is_empty());
     assert!(netlist.nets.iter().all(|net| net.net_class == "Power"));
+}
+
+#[test]
+fn aggregate_wildcard_work_accepts_exact_and_rejects_one_under() {
+    let index = single_index(
+        br#"(kicad_sch
+          (uuid root)
+          (lib_symbols
+            (symbol "Demo:One"
+              (symbol "Demo:One_1_1"
+                (pin passive line (at 0 0 0) (name "P") (number "1")))))
+          (global_label "ALPHA" (shape input) (at 0 0 0) (uuid alpha))
+          (global_label "BETA" (shape input) (at 10 0 0) (uuid beta))
+          (symbol (lib_id "Demo:One") (lib_name "Demo:One")
+            (at 0 0 0) (uuid alpha-symbol)
+            (property "Reference" "U1") (property "Value" "One"))
+          (symbol (lib_id "Demo:One") (lib_name "Demo:One")
+            (at 10 0 0) (uuid beta-symbol)
+            (property "Reference" "U2") (property "Value" "One")))"#,
+    );
+    let project = ProjectDocument::parse(
+        r#"{
+          "net_settings": {
+            "classes": [{"name":"Default"}, {"name":"Signals"}],
+            "netclass_patterns": [
+              {"pattern":"NO*", "netclass":"Signals"},
+              {"pattern":"A*", "netclass":"Signals"}
+            ]
+          }
+        }"#
+        .to_owned(),
+        ProjectLimits::default(),
+    )
+    .expect("project patterns");
+    // ALPHA charges 26 + 19 units; BETA charges 22 + 16 units.
+    let exact_work = 83;
+    build_kicad_netlist(
+        &index,
+        Some(project.view()),
+        KiCadNetlistLimits {
+            max_wildcard_match_work: exact_work,
+            ..KiCadNetlistLimits::default()
+        },
+    )
+    .expect("exact aggregate wildcard work");
+    let error = build_kicad_netlist(
+        &index,
+        Some(project.view()),
+        KiCadNetlistLimits {
+            max_wildcard_match_work: exact_work - 1,
+            ..KiCadNetlistLimits::default()
+        },
+    )
+    .expect_err("one-under aggregate wildcard work");
+    assert_eq!(error.kind, SourceBundleErrorKind::ResourceLimit);
+    assert!(error.message.contains("wildcard match work"));
 }
 
 #[test]
@@ -226,6 +320,27 @@ fn structural_index_with_limits(
     };
     let bundle = SourceBundle::from_manifest(manifest, buffers, SourceBundleLimits::default())?;
     SchematicBundleIndex::build(&bundle, limits)
+}
+
+fn single_index(root: &[u8]) -> SchematicBundleIndex {
+    let project = b"{}".to_vec();
+    let root = root.to_vec();
+    let buffers = vec![project, root];
+    let manifest = SourceBundleManifestA0 {
+        project_path: Some("demo.kicad_pro".to_owned()),
+        root_schematic_path: "root.kicad_sch".to_owned(),
+        schema: "kicad_monkey.source_bundle_manifest.a0".to_owned(),
+        sources: vec![
+            descriptor("demo.kicad_pro", SourceKind::Project, 0, &buffers[0]),
+            descriptor("root.kicad_sch", SourceKind::Schematic, 1, &buffers[1]),
+        ],
+        type_: "kicad_monkey.source_bundle_manifest".to_owned(),
+        version: "a0".to_owned(),
+    };
+    let bundle = SourceBundle::from_manifest(manifest, buffers, SourceBundleLimits::default())
+        .expect("single schematic source bundle");
+    SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())
+        .expect("single schematic index")
 }
 
 fn descriptor(path: &str, kind: SourceKind, slot: u32, bytes: &[u8]) -> SourceBundleSource {

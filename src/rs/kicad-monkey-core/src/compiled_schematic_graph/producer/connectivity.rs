@@ -209,7 +209,6 @@ impl StructuralGraphBuilder<'_> {
         context: &mut TerminalContext<'_>,
     ) -> Result<(), SourceBundleError> {
         for pin in &subgraph.pin_drivers {
-            let element_id = unique_pin_element(pin, &context.terminal_state.pin_element_counts);
             if pin.reference.starts_with('#') {
                 if pin.is_power {
                     let name = if pin.power_value.is_empty() {
@@ -225,7 +224,9 @@ impl StructuralGraphBuilder<'_> {
                             name,
                             pin_designator: &pin.pin_number,
                             component_ref: None,
-                            element_id,
+                            // Power-port terminals address the complete placed
+                            // symbol, not an independently rendered pin group.
+                            element_id: &pin.symbol_uuid,
                             hierarchical_port: false,
                         },
                         context,
@@ -233,6 +234,7 @@ impl StructuralGraphBuilder<'_> {
                 }
                 continue;
             }
+            let element_id = unique_pin_element(pin, &context.terminal_state.pin_element_counts);
             let component_ref = self
                 .component_by_symbol
                 .get(&context.occurrence_index)
