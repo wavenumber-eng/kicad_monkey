@@ -45,7 +45,9 @@ REFERENCE_CASES = (
     "real_world/speedy_processing_module",
     "real_world/jumperless_v5r7",
 )
-COORDINATE_VECTORS = PACKAGE_ROOT / "tests" / "parity" / "schematic_coordinate_iu_vectors.json"
+COORDINATE_VECTORS = (
+    PACKAGE_ROOT / "tests" / "parity" / "schematic_coordinate_iu_vectors.json"
+)
 I64_MIN = -(2**63)
 I64_MAX = 2**63 - 1
 
@@ -242,7 +244,9 @@ def _partition_difference(
             right_component_by_point.get(tuple(point)) for point in subgraph["coords"]
         }
         if len(right_components) > 1:
-            right_indexes = sorted(index for index in right_components if index is not None)
+            right_indexes = sorted(
+                index for index in right_components if index is not None
+            )
             return (
                 f"left component {component_index} joins right components "
                 f"{right_indexes} at {subgraph['coords'][:12]}; "
@@ -284,7 +288,9 @@ def _polyline(value: object) -> dict[str, object]:
 def _marker(value: object) -> dict[str, object]:
     return {
         "uuid": str(getattr(value, "uuid", "") or ""),
-        "at": _point(float(getattr(value, "at_x", 0.0)), float(getattr(value, "at_y", 0.0))),
+        "at": _point(
+            float(getattr(value, "at_x", 0.0)), float(getattr(value, "at_y", 0.0))
+        ),
     }
 
 
@@ -295,11 +301,15 @@ def _label(value: object, scope: str) -> dict[str, object]:
         "text": str(getattr(value, "text", "") or ""),
         "shape": str(getattr(shape, "value", shape) or ""),
         "uuid": str(getattr(value, "uuid", "") or ""),
-        "at": _point(float(getattr(value, "at_x", 0.0)), float(getattr(value, "at_y", 0.0))),
+        "at": _point(
+            float(getattr(value, "at_x", 0.0)), float(getattr(value, "at_y", 0.0))
+        ),
     }
 
 
-def _definition_summary(schematic: KiCadSchematic, bundle_root: Path) -> dict[str, object]:
+def _definition_summary(
+    schematic: KiCadSchematic, bundle_root: Path
+) -> dict[str, object]:
     graph = ConnectivityGraph()
     for wire in getattr(schematic, "wires", ()):
         graph.add_wire(wire)
@@ -309,7 +319,10 @@ def _definition_summary(schematic: KiCadSchematic, bundle_root: Path) -> dict[st
         graph.add_bus_entry(entry)
     graph.add_junctions(getattr(schematic, "junctions", ()))
     components = sorted(
-        [sorted([list(point) for point in component]) for component in graph.components()]
+        [
+            sorted([list(point) for point in component])
+            for component in graph.components()
+        ]
     )
     source_path = Path(str(getattr(schematic, "source_path"))).resolve()
     bus_subgraphs = []
@@ -343,7 +356,11 @@ def _definition_summary(schematic: KiCadSchematic, bundle_root: Path) -> dict[st
                     {
                         "name": str(getattr(pin, "name", "") or ""),
                         "shape": str(
-                            getattr(getattr(pin, "shape", ""), "value", getattr(pin, "shape", ""))
+                            getattr(
+                                getattr(pin, "shape", ""),
+                                "value",
+                                getattr(pin, "shape", ""),
+                            )
                             or ""
                         ),
                         "uuid": str(getattr(pin, "uuid", "") or ""),
@@ -428,10 +445,15 @@ def _definition_summary(schematic: KiCadSchematic, bundle_root: Path) -> dict[st
             for alias in getattr(schematic, "bus_aliases", ())
         ],
         "junctions": [_marker(value) for value in getattr(schematic, "junctions", ())],
-        "no_connects": [_marker(value) for value in getattr(schematic, "no_connects", ())],
+        "no_connects": [
+            _marker(value) for value in getattr(schematic, "no_connects", ())
+        ],
         "labels": [
             *[_label(value, "local") for value in getattr(schematic, "labels", ())],
-            *[_label(value, "global") for value in getattr(schematic, "global_labels", ())],
+            *[
+                _label(value, "global")
+                for value in getattr(schematic, "global_labels", ())
+            ],
             *[
                 _label(value, "hierarchical")
                 for value in getattr(schematic, "hierarchical_labels", ())
@@ -487,13 +509,13 @@ def _request(
                 .resolve()
                 .relative_to(bundle_root)
                 .as_posix(),
-                "parent_index": occurrence.parent.index
-                if occurrence.parent
-                else None,
+                "parent_index": occurrence.parent.index if occurrence.parent else None,
                 "parent_sheet_index": (
                     next(
                         index
-                        for index, sheet in enumerate(occurrence.parent.schematic.sheets)
+                        for index, sheet in enumerate(
+                            occurrence.parent.schematic.sheets
+                        )
                         if sheet is occurrence.sheet_symbol
                     )
                     if occurrence.parent is not None
@@ -509,7 +531,8 @@ def _request(
             }
         )
     expected_definitions = {
-        Path(path).relative_to(bundle_root).as_posix() for path in map(Path, schematic_paths)
+        Path(path).relative_to(bundle_root).as_posix()
+        for path in map(Path, schematic_paths)
     }
     schematic_by_path = {
         str(Path(occurrence.schematic.source_path).resolve()): occurrence.schematic
@@ -537,7 +560,9 @@ def _request(
     for occurrence in occurrences:
         symbols = []
         terminals = []
-        for symbol_index, symbol in enumerate(getattr(occurrence.schematic, "symbols", ())):
+        for symbol_index, symbol in enumerate(
+            getattr(occurrence.schematic, "symbols", ())
+        ):
             fields = {
                 str(getattr(prop, "key", "")): str(getattr(prop, "value", ""))
                 for prop in getattr(symbol, "properties", ())
@@ -565,7 +590,8 @@ def _request(
                     "convert": symbol.convert,
                     "policy": [
                         occurrence.effective_dnp or symbol.dnp,
-                        occurrence.effective_exclude_from_sim or symbol.exclude_from_sim,
+                        occurrence.effective_exclude_from_sim
+                        or symbol.exclude_from_sim,
                         occurrence.effective_in_bom and symbol.in_bom,
                         occurrence.effective_on_board and symbol.on_board,
                         symbol.in_pos_files,
@@ -615,7 +641,9 @@ def _request(
                             {
                                 "symbol_index": next(
                                     index
-                                    for index, symbol in enumerate(occurrence.schematic.symbols)
+                                    for index, symbol in enumerate(
+                                        occurrence.schematic.symbols
+                                    )
                                     if str(getattr(symbol, "uuid", "") or "")
                                     == pin.svg_uuid
                                 ),
@@ -708,9 +736,7 @@ def _request(
                 }
             )
             code += 1
-        expected_local_nets.append(
-            {"occurrence_index": occurrence.index, "nets": nets}
-        )
+        expected_local_nets.append({"occurrence_index": occurrence.index, "nets": nets})
     expected_scalar_design = _scalar_design_summary(top)
     return (
         request,
@@ -750,9 +776,7 @@ def _scalar_design_summary(top: KiCadSchematic) -> dict[str, object]:
                 pin_name=str(pin.name or ""),
                 source_pin_uuid=str(pin.uuid or ""),
             )
-            parent_subgraph = parent.coord_to_sg.get(
-                snap_mm_to_iu(pin.at_x, pin.at_y)
-            )
+            parent_subgraph = parent.coord_to_sg.get(snap_mm_to_iu(pin.at_x, pin.at_y))
             child_match = hierarchical_by_name.get(pin.name)
             child_subgraph = child_match[0] if child_match is not None else None
             bindings.append(
@@ -847,8 +871,7 @@ def _netlist_version_e_summary(design: KiCadDesign) -> dict[str, object]:
                 "instance_uuids": component.instance_uuids,
                 "properties": component.properties,
                 "units": [
-                    {"name": unit.name, "pins": unit.pins}
-                    for unit in component.units
+                    {"name": unit.name, "pins": unit.pins} for unit in component.units
                 ],
                 "in_bom": component.in_bom,
                 "on_board": component.on_board,
@@ -891,7 +914,9 @@ def _netlist_version_e_summary(design: KiCadDesign) -> dict[str, object]:
     }
 
 
-def _run_native_bundle_requests(requests: list[dict[str, object]]) -> list[dict[str, Any]]:
+def _run_native_bundle_requests(
+    requests: list[dict[str, object]],
+) -> list[dict[str, Any]]:
     cargo = shutil.which("cargo")
     assert cargo is not None, "cargo is required for native source-bundle validation"
     completed = subprocess.run(
@@ -899,6 +924,8 @@ def _run_native_bundle_requests(requests: list[dict[str, object]]) -> list[dict[
             cargo,
             "run",
             "--locked",
+            "--jobs",
+            "4",
             "--quiet",
             "--package",
             "kicad-monkey-core",
@@ -917,6 +944,36 @@ def _run_native_bundle_requests(requests: list[dict[str, object]]) -> list[dict[
     )
     assert completed.returncode == 0, completed.stderr
     return [json.loads(line) for line in completed.stdout.splitlines()]
+
+
+def _run_native_core_test_targets(*targets: str) -> None:
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for native hierarchy validation"
+    command = [
+        cargo,
+        "test",
+        "--locked",
+        "--jobs",
+        "4",
+        "--package",
+        "kicad-monkey-core",
+    ]
+    for target in targets:
+        command.extend(("--test", target))
+    command.extend(("--", "--test-threads", "2"))
+    completed = subprocess.run(
+        command,
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=300,
+        check=False,
+    )
+    assert completed.returncode == 0, (
+        f"Command failed: {' '.join(command)}\n"
+        f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+    )
 
 
 def _synthetic_bus_request(
@@ -1029,6 +1086,10 @@ def test_project_subpart_settings_drive_complete_graph_parity(tmp_path: Path) ->
     assert local_nets[0]["display_name"] == "unconnected-(U1-1-IO-Pad1)"
 
 
+def test_native_hierarchy_and_subpart_resource_oracles_are_rack_owned() -> None:
+    _run_native_core_test_targets("schematic_bundle", "schematic_netlist")
+
+
 def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
     requests_and_counts = [_request(case_id) for case_id in REFERENCE_CASES]
     results = _run_native_bundle_requests(
@@ -1045,9 +1106,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
         wire_subgraphs,
         local_nets,
         scalar_design,
-    ) in zip(
-        results, requests_and_counts, strict=True
-    ):
+    ) in zip(results, requests_and_counts, strict=True):
         assert set(result["definition_paths"]) == definitions
         assert result["occurrences"] == occurrences
         assert result["effective_symbols"] == effective
@@ -1081,6 +1140,7 @@ def test_native_source_bundle_matches_python_hierarchy_inventory() -> None:
             parse_sexp(cast(str, result["netlist_sexpr"]))
         ) == _unordered_netlist_sexpr(parse_sexp(expected_sexpr))
         assert {
-            definition["source_path"]: definition for definition in result["definitions"]
+            definition["source_path"]: definition
+            for definition in result["definitions"]
         } == source_models
         assert result["total_bytes"] > 0

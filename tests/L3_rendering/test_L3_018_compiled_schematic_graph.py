@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import shutil
 import subprocess
 from functools import lru_cache
@@ -115,11 +116,16 @@ def test_reference_projects_pass_the_native_semantic_validator() -> None:
         f"{json.dumps(_compiled_graph(case_id), separators=(',', ':'))}\n"
         for case_id in REFERENCE_CASES
     )
+    environment = os.environ.copy()
+    environment["CARGO_BUILD_JOBS"] = "4"
+    environment["RUST_TEST_THREADS"] = "2"
     completed = subprocess.run(
         [
             cargo,
             "run",
             "--locked",
+            "--jobs",
+            "4",
             "--quiet",
             "--package",
             "kicad-monkey-core",
@@ -132,6 +138,7 @@ def test_reference_projects_pass_the_native_semantic_validator() -> None:
         text=True,
         timeout=300,
         check=False,
+        env=environment,
     )
     assert completed.returncode == 0, completed.stderr
     assert completed.stdout.count(" rows ") == len(REFERENCE_CASES)

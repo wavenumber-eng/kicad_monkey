@@ -535,37 +535,37 @@ evidence = ["src/tsp/kicad_monkey/compiled-schematic-graph-a0.tsp", "contracts/g
 id = "compiled_graph.native_identity_allocator"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["SchCompiledSchematicGraphIdentityAllocator", "compiled_schematic_graph_design_scope"]
 rust_symbols = ["CompiledGraphIdentityAllocator", "compiled_schematic_graph_design_scope"]
 rack_cases = ["L0_046", "L0_050", "L3_018"]
-evidence = ["tests/parity/compiled_schematic_graph_a0_vectors.json", "src/rs/kicad-monkey-core/src/compiled_schematic_graph/identity.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_semantics.rs", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
+evidence = ["tests/parity/compiled_schematic_graph_a0_vectors.json", "src/rs/kicad-monkey-core/src/compiled_schematic_graph/identity.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_semantics.rs", "tests/L0_foundation/test_L0_050_compiled_graph_contract.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
 
 [[surfaces]]
 id = "compiled_graph.native_semantic_validator"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["validate_compiled_schematic_graph"]
 rust_symbols = ["validate_compiled_schematic_graph", "compiled_graph_validation_gate"]
-rack_cases = ["L0_046", "L3_018"]
-evidence = ["src/rs/kicad-monkey-core/src/compiled_schematic_graph/validation.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_semantics.rs", "src/rs/kicad-monkey-core/examples/compiled_graph_validation_gate.rs", "tests/L3_rendering/test_L3_018_compiled_schematic_graph.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
+rack_cases = ["L0_046", "L0_050", "L3_018"]
+evidence = ["src/rs/kicad-monkey-core/src/compiled_schematic_graph/validation.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_semantics.rs", "src/rs/kicad-monkey-core/examples/compiled_graph_validation_gate.rs", "tests/L0_foundation/test_L0_050_compiled_graph_contract.py", "tests/L3_rendering/test_L3_018_compiled_schematic_graph.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
 
 [[surfaces]]
 id = "compiled_graph.native_producer"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["build_compiled_schematic_graph"]
 rust_symbols = ["build_compiled_schematic_graph", "CompiledSchematicGraphLimits"]
-rack_cases = ["L0_046", "L3_020"]
-evidence = ["src/rs/kicad-monkey-core/src/compiled_schematic_graph/producer.rs", "src/rs/kicad-monkey-core/src/compiled_schematic_graph/producer/connectivity.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_producer.rs", "src/rs/kicad-monkey-core/examples/schematic_bundle_gate.rs", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
+rack_cases = ["L0_046", "L0_050", "L3_020"]
+evidence = ["src/rs/kicad-monkey-core/src/compiled_schematic_graph/producer.rs", "src/rs/kicad-monkey-core/src/compiled_schematic_graph/producer/connectivity.rs", "src/rs/kicad-monkey-core/tests/compiled_graph_producer.rs", "src/rs/kicad-monkey-core/examples/schematic_bundle_gate.rs", "tests/L0_foundation/test_L0_050_compiled_graph_contract.py", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html"]
 
 [[surfaces]]
 id = "schematic.source_bundle_contract"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["SourceBundleManifestA0"]
 rust_symbols = ["SourceBundleManifestA0", "SourceBundle", "SourceBundleLimits"]
 rack_cases = ["L0_046", "L0_049", "L0_051", "L3_020"]
@@ -575,31 +575,31 @@ evidence = ["src/tsp/kicad_monkey/source-bundle-a0.tsp", "contracts/generated/sc
 id = "schematic.native_hierarchy_foundation"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["KiCadSchematic", "walk_schematic_occurrences"]
 rust_symbols = ["SchematicBundleIndex", "SchematicDefinition", "SchematicSheet", "SchematicOccurrence"]
-rack_cases = ["L3_020"]
-evidence = ["src/rs/kicad-monkey-core/src/schematic_bundle.rs", "src/rs/kicad-monkey-core/tests/schematic_bundle.rs", "src/rs/kicad-monkey-core/examples/schematic_bundle_gate.rs", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "docs/design/rust-source-bundle-phase4-slice.html"]
+rack_cases = ["L3_020", "L3_022"]
+evidence = ["src/rs/kicad-monkey-core/src/schematic_bundle.rs", "src/rs/kicad-monkey-core/tests/schematic_bundle.rs", "src/rs/kicad-monkey-core/examples/schematic_bundle_gate.rs", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "docs/design/rust-source-bundle-phase4-slice.html"]
 
 [[surfaces]]
 id = "schematic.project_subpart_settings"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["KiCadProject.get_path", "build_compiled_schematic_graph"]
 rust_symbols = ["SchematicBundleIndex.subpart_settings", "build_schematic_occurrence_nets", "build_schematic_scalar_design_nets", "build_compiled_schematic_graph"]
-rack_cases = ["L0_046", "L3_020"]
-evidence = ["src/rs/kicad-monkey-core/src/schematic_project.rs", "src/rs/kicad-monkey-core/tests/schematic_netlist.rs", "src/py/kicad_monkey/kicad_compiled_schematic_graph.py", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html", "docs/design/rust-schematic-connectivity-phase4-slice.html"]
+rack_cases = ["L0_046", "L3_020", "L3_022"]
+evidence = ["src/rs/kicad-monkey-core/src/schematic_project.rs", "src/rs/kicad-monkey-core/tests/schematic_netlist.rs", "src/py/kicad_monkey/kicad_compiled_schematic_graph.py", "tests/L3_rendering/test_L3_020_rust_schematic_bundle.py", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "docs/design/rust-compiled-schematic-graph-phase4-native.html", "docs/design/rust-schematic-connectivity-phase4-slice.html"]
 
 [[surfaces]]
 id = "schematic.native_owned_writer"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["KiCadSchematic.to_text", "SchSymbol.properties"]
 rust_symbols = ["SchematicDocument", "SchematicDocumentLimits"]
-rack_cases = ["L1_032"]
-evidence = ["src/rs/kicad-monkey-core/src/schematic_bundle/document.rs", "src/rs/kicad-monkey-core/tests/schematic_document.rs", "src/rs/kicad-monkey-core/examples/schematic_roundtrip_gate.rs", "src/rs/kicad-monkey-core/examples/schematic_mutation_gate.rs", "tests/L1_parsing/test_L1_032_rust_schematic_roundtrip.py", "docs/design/rust-schematic-writer-phase4-slice.html"]
+rack_cases = ["L1_032", "L3_022"]
+evidence = ["src/rs/kicad-monkey-core/src/schematic_bundle/document.rs", "src/rs/kicad-monkey-core/tests/schematic_document.rs", "src/rs/kicad-monkey-core/examples/schematic_roundtrip_gate.rs", "src/rs/kicad-monkey-core/examples/schematic_mutation_gate.rs", "tests/L1_parsing/test_L1_032_rust_schematic_roundtrip.py", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "docs/design/rust-schematic-writer-phase4-slice.html"]
 
 [[surfaces]]
 id = "text.font_shaping_outline_contracts"
@@ -615,11 +615,11 @@ evidence = ["src/tsp/kicad_monkey/font-text-a0.tsp", "contracts/generated/schema
 id = "worksheet.native_reader_writer"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["KiCadWorksheet", "WksSetup", "WksLine", "WksRect", "WksPolygon", "WksTbText", "WksBitmap"]
 rust_symbols = ["WorksheetView", "WorksheetDocument", "WorksheetItem", "WorksheetLimits"]
-rack_cases = ["L1_033"]
-evidence = ["src/rs/kicad-monkey-core/src/worksheet.rs", "src/rs/kicad-monkey-core/tests/worksheet.rs", "src/rs/kicad-monkey-core/examples/worksheet_gate.rs", "tests/L1_parsing/test_L1_033_rust_worksheet_roundtrip.py", "docs/design/rust-worksheet-phase4-slice.html"]
+rack_cases = ["L1_033", "L3_022"]
+evidence = ["src/rs/kicad-monkey-core/src/worksheet.rs", "src/rs/kicad-monkey-core/tests/worksheet.rs", "src/rs/kicad-monkey-core/examples/worksheet_gate.rs", "tests/L1_parsing/test_L1_033_rust_worksheet_roundtrip.py", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "docs/design/rust-worksheet-phase4-slice.html"]
 
 [[surfaces]]
 id = "geometry.planar_kernel_bridge"
@@ -635,11 +635,11 @@ evidence = ["docs/design/rust-geometer-bridge-disposition.html", "src/rs/kicad-m
 id = "project.native_reader_writer"
 disposition = "required"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["KiCadProject", "ProjectVariant", "KiCadProjectNetSettings", "KiCadProjectBoardDesignSettings"]
 rust_symbols = ["ProjectDocument", "ProjectView", "ProjectVariant", "ProjectNetSettings", "ProjectBoardDesignSettings", "ProjectLimits"]
-rack_cases = ["L1_034"]
-evidence = ["src/rs/kicad-monkey-core/src/project.rs", "src/rs/kicad-monkey-core/tests/project.rs", "src/rs/kicad-monkey-core/examples/project_gate.rs", "src/rs/kicad-monkey-core/examples/project_mutation_gate.rs", "tests/L1_parsing/test_L1_034_rust_project_roundtrip.py", "docs/design/rust-project-phase4-slice.html"]
+rack_cases = ["L1_034", "L3_022"]
+evidence = ["src/rs/kicad-monkey-core/src/project.rs", "src/rs/kicad-monkey-core/tests/project.rs", "src/rs/kicad-monkey-core/examples/project_gate.rs", "src/rs/kicad-monkey-core/examples/project_mutation_gate.rs", "tests/L1_parsing/test_L1_034_rust_project_roundtrip.py", "tests/L3_rendering/test_L3_022_rust_phase5_exit.py", "docs/design/rust-project-phase4-slice.html"]
 
 [[surfaces]]
 id = "cruncher.native_operation_transport_package"

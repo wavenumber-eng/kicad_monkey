@@ -8,7 +8,7 @@
 <body>
   <h1>Rust Phase 4 schematic compiler exit audit</h1>
 
-  <p>Status: accepted after independent review of <code>05c3680</code>. Phase 4
+  <p>Status: accepted after independent review of <code>bd168c7</code>. Phase 4
   is complete. This audit evaluates the native schematic compiler boundary
   only; plotter/text closure and the native <code>kicad-cruncher</code> command
   remain later plan phases.</p>
@@ -80,8 +80,10 @@
         <td>Schematic</td>
         <td>Rack <code>L1_032</code> requires every durable schematic, exact
         owned write, equal reparsed typed state, stable second write,
-        transactional mutation, limits/I/O diagnostics, Python mutation
-        semantics, and the installed schematic-capable KiCad CLI oracle.</td>
+        transactional mutation, limits/I/O diagnostics, and Python mutation
+        semantics. The accepted exit run also used an installed
+        schematic-capable KiCad CLI oracle; ongoing L1_032 CLI coverage is
+        optional when no capable executable is available.</td>
         <td>5 passed</td>
       </tr>
       <tr>

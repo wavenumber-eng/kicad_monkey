@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head>
   <meta charset="utf-8">
   <title>Rust schematic connectivity carrier slice</title>
@@ -8,8 +8,9 @@
 <body>
   <h1>Rust schematic connectivity carrier slice</h1>
 
-  <p>Status: implemented as a native Phase 4 foundation. This is not the complete
-  schematic compiler or compiled-graph promotion.</p>
+  <p>Status: accepted native Phase 4 foundation. This page governs the
+  connectivity boundary; the complete compiler and compiled-graph promotion
+  are covered by the accepted Phase 4 exit under separate governed surfaces.</p>
 
   <h2>Boundary</h2>
   <p><code>SchematicBundleIndex</code> now realizes typed, iterable source carriers
@@ -270,7 +271,10 @@
   only the typed <code>schematic</code> fields through Serde and ignores unrelated
   project sections without materializing a generic JSON tree. Missing settings use
   KiCad's <code>A</code>/no-separator defaults; malformed types and values outside
-  <code>u32</code> fail with a project-scoped diagnostic.</p>
+  <code>u32</code> fail with a project-scoped diagnostic. This is an intentional
+  stricter native malformed-input boundary: Python accepts any
+  <code>isinstance(value, int)</code> value and otherwise retains its default, so
+  native rejection is not claimed as exact Python error parity.</p>
 
   <h2>Evidence</h2>
   <p>The focused Rust suite covers all carrier families, label scope/shape, exact
@@ -361,9 +365,9 @@
   separately proves its generated render ID is charged both when the label
   driver is retained and when graphical ownership is emitted.</p>
 
-  <h2>Deferred work</h2>
-  <p>Schematic mutation and semantic
-  round-trip remain in Phase 4. Browser/WASM packaging remains deferred by the
-  native-first plan.</p>
+  <h2>Retained boundary</h2>
+  <p>Schematic mutation and semantic round-trip are covered by the accepted
+  Phase 4 exit under the separate native writer surface. Browser/WASM packaging
+  remains outside this native-first connectivity boundary.</p>
 </body>
 </html>

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import msgspec
@@ -19,9 +22,32 @@ SCHEMA = (
     Path(__file__).resolve().parents[2]
     / "contracts/generated/schema/SourceBundleManifest.json"
 )
+PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_generated_source_bundle_manifest_is_strict_and_keeps_bytes_out_of_band() -> None:
+def _run_capped_rust(command: list[str]) -> None:
+    environment = os.environ.copy()
+    environment["CARGO_BUILD_JOBS"] = "4"
+    environment["RUST_TEST_THREADS"] = "2"
+    completed = subprocess.run(
+        command,
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+        env=environment,
+    )
+    assert completed.returncode == 0, (
+        f"Command failed: {' '.join(command)}\n"
+        f"stdout:\n{completed.stdout}\n"
+        f"stderr:\n{completed.stderr}"
+    )
+
+
+def test_generated_source_bundle_manifest_is_strict_and_keeps_bytes_out_of_band() -> (
+    None
+):
     vectors = json.loads(VECTORS.read_text(encoding="utf-8"))
     manifest = vectors["manifest"]
     decoded = decode_source_bundle_manifest_a0(json.dumps(manifest).encode())
@@ -53,3 +79,43 @@ def test_shared_integer_transport_cases_match_json_schema_and_python() -> None:
         else:
             with pytest.raises(msgspec.ValidationError):
                 decode_source_bundle_manifest_a0(json.dumps(candidate).encode())
+
+
+def test_native_source_bundle_contract_and_resource_evidence() -> None:
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for native source-bundle evidence"
+    _run_capped_rust(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--jobs",
+            "4",
+            "--package",
+            "kicad-monkey-contracts",
+            "--test",
+            "generated_contracts",
+            "source_bundle_integer_transport_matches_shared_boundaries_and_failures",
+            "--",
+            "--exact",
+            "--test-threads",
+            "2",
+        ]
+    )
+    _run_capped_rust(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--jobs",
+            "4",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "schematic_bundle",
+            "manifest",
+            "--",
+            "--test-threads",
+            "2",
+        ]
+    )

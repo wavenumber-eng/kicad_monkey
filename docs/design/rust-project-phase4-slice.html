@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head>
   <meta charset="utf-8">
   <title>Rust Phase 4 native project reader/writer slice</title>
@@ -7,7 +7,7 @@
 </head>
 <body>
   <h1>Rust Phase 4 native project reader/writer slice</h1>
-  <p><strong>Status:</strong> review-ready native product slice.</p>
+  <p><strong>Status:</strong> accepted native product slice.</p>
 
   <section>
     <h2>Decision and boundary</h2>
@@ -72,9 +72,10 @@
     unknown JSON. Focused Rust tests cover independent limits, ordered
     serialization, transactional conflicts/no-ops, malformed input, and I/O.</p>
     <p>Project-folder creation and orchestration remain downstream workflow
-    concerns. Phase 4 still retains broader schematic carrier mutation and its
-    full project-bundle-to-netlist/compiled-graph exit review. Native plotter,
-    cruncher, and selected later WASM packaging remain separate phases.</p>
+    concerns. Schematic mutation and the project-bundle-to-netlist/compiled-graph
+    obligations are covered by the accepted Phase 4 exit under separate governed
+    surfaces. Native plotter and Cruncher behavior are governed by later accepted
+    phases and do not widen this project reader/writer boundary.</p>
   </section>
 </body>
 </html>

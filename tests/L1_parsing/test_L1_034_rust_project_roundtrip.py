@@ -40,8 +40,24 @@ def _run(command: list[str], *, timeout: int = 900) -> subprocess.CompletedProce
 def _example(name: str) -> Path:
     cargo = shutil.which("cargo")
     assert cargo is not None, "cargo is required for the Rust project gate"
-    _run([cargo, "build", "--locked", "--package", "kicad-monkey-core", "--example", name])
-    return PACKAGE_ROOT / "target/debug/examples" / (f"{name}.exe" if os.name == "nt" else name)
+    _run(
+        [
+            cargo,
+            "build",
+            "--locked",
+            "--jobs",
+            "4",
+            "--package",
+            "kicad-monkey-core",
+            "--example",
+            name,
+        ]
+    )
+    return (
+        PACKAGE_ROOT
+        / "target/debug/examples"
+        / (f"{name}.exe" if os.name == "nt" else name)
+    )
 
 
 def _project_files() -> list[Path]:
@@ -60,7 +76,9 @@ def test_native_project_model_matches_python_across_restored_corpus() -> None:
     actual: list[dict[str, Any]] = []
     for start in range(0, len(paths), BATCH_SIZE):
         batch = paths[start : start + BATCH_SIZE]
-        evidence = json.loads(_run([str(executable), *(str(path) for path in batch)]).stdout)
+        evidence = json.loads(
+            _run([str(executable), *(str(path) for path in batch)]).stdout
+        )
         assert evidence["schema"] == "kicad_monkey.project_gate_evidence.a0"
         assert evidence["file_count"] == len(batch)
         actual.extend(evidence["files"])
@@ -78,9 +96,13 @@ def test_native_project_mutation_matches_python(tmp_path: Path) -> None:
     }
     input_path = tmp_path / "input.kicad_pro"
     output_path = tmp_path / "output.kicad_pro"
-    input_path.write_text(json.dumps(source, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    input_path.write_text(
+        json.dumps(source, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     evidence = json.loads(
-        _run([str(_example("project_mutation_gate")), str(input_path), str(output_path)]).stdout
+        _run(
+            [str(_example("project_mutation_gate")), str(input_path), str(output_path)]
+        ).stdout
     )
     assert evidence == {
         "schema": "kicad_monkey.project_mutation_gate.a0",
@@ -104,7 +126,22 @@ def test_native_project_mutation_matches_python(tmp_path: Path) -> None:
 def test_native_project_resource_and_io_oracles_are_rack_owned() -> None:
     cargo = shutil.which("cargo")
     assert cargo is not None, "cargo is required for the Rust project gate"
-    _run([cargo, "test", "--locked", "--package", "kicad-monkey-core", "--test", "project"])
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--jobs",
+            "4",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "project",
+            "--",
+            "--test-threads",
+            "2",
+        ]
+    )
 
 
 def _python_projection(path: Path) -> dict[str, Any]:
@@ -132,7 +169,8 @@ def _python_projection(path: Path) -> dict[str, Any]:
         "net_settings": {
             "classes": [_net_class(value) for value in net_settings.classes],
             "assignments": [
-                [name, values] for name, values in net_settings.netclass_assignments.items()
+                [name, values]
+                for name, values in net_settings.netclass_assignments.items()
             ],
             "patterns": [
                 {"pattern": value.pattern, "netclass_name": value.netclass_name}
@@ -156,17 +194,34 @@ def _python_projection(path: Path) -> dict[str, Any]:
 
 def _net_class(value: Any) -> dict[str, Any]:
     fields = (
-        "name", "track_width", "clearance", "diff_pair_gap", "diff_pair_width",
-        "diff_pair_via_gap", "via_diameter", "via_drill", "microvia_diameter",
-        "microvia_drill", "bus_width", "wire_width", "pcb_color", "schematic_color",
-        "line_style", "priority", "tuning_profile",
+        "name",
+        "track_width",
+        "clearance",
+        "diff_pair_gap",
+        "diff_pair_width",
+        "diff_pair_via_gap",
+        "via_diameter",
+        "via_drill",
+        "microvia_diameter",
+        "microvia_drill",
+        "bus_width",
+        "wire_width",
+        "pcb_color",
+        "schematic_color",
+        "line_style",
+        "priority",
+        "tuning_profile",
     )
     return {field: getattr(value, field) for field in fields}
 
 
 def _tuning(value: Any) -> dict[str, Any]:
     fields = (
-        "spacing", "min_amplitude", "max_amplitude", "corner_style",
-        "corner_radius_percentage", "single_sided",
+        "spacing",
+        "min_amplitude",
+        "max_amplitude",
+        "corner_style",
+        "corner_radius_percentage",
+        "single_sided",
     )
     return {field: getattr(value, field) for field in fields}

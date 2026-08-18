@@ -164,6 +164,71 @@ fn manifest_slots_paths_sizes_kinds_and_project_json_fail_closed() {
 }
 
 #[test]
+fn manifest_limits_accept_exact_boundaries_and_reject_one_under() {
+    let project = b"{}".to_vec();
+    let root = b"(kicad_sch)".to_vec();
+    let descriptors = vec![
+        descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
+        descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+    ];
+    let max_source_bytes = project.len().max(root.len());
+    let max_total_bytes = project.len() + root.len();
+    let max_path_bytes = descriptors
+        .iter()
+        .map(|descriptor| descriptor.path.len())
+        .max()
+        .expect("source path");
+    let exact = SourceBundleLimits {
+        max_sources: descriptors.len(),
+        max_source_bytes,
+        max_total_bytes,
+        max_path_bytes,
+    };
+    let build = |limits| {
+        SourceBundle::from_manifest(
+            manifest(descriptors.clone()),
+            vec![project.clone(), root.clone()],
+            limits,
+        )
+    };
+
+    let bundle = build(exact).expect("exact source-bundle limits");
+    assert_eq!(bundle.sources().len(), descriptors.len());
+    assert_eq!(bundle.total_bytes(), max_total_bytes);
+
+    for limits in [
+        SourceBundleLimits {
+            max_sources: descriptors.len() - 1,
+            ..exact
+        },
+        SourceBundleLimits {
+            max_source_bytes: max_source_bytes - 1,
+            ..exact
+        },
+        SourceBundleLimits {
+            max_total_bytes: max_total_bytes - 1,
+            ..exact
+        },
+    ] {
+        assert_eq!(
+            build(limits)
+                .expect_err("one-under source-bundle resource limit")
+                .kind,
+            SourceBundleErrorKind::ResourceLimit
+        );
+    }
+    assert_eq!(
+        build(SourceBundleLimits {
+            max_path_bytes: max_path_bytes - 1,
+            ..exact
+        })
+        .expect_err("one-under source path limit")
+        .kind,
+        SourceBundleErrorKind::Path
+    );
+}
+
+#[test]
 fn schematics_are_scanned_once_and_repeated_pages_realize_distinct_occurrences() {
     let bundle = hierarchy_bundle();
     let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())

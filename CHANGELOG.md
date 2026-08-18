@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Close the nine remaining implementation-complete native schematic compiler
+  registry surfaces:
+  native compiled-graph identity, validation, and production; strict source
+  bundles and hierarchy; project-controlled subpart settings; and owned
+  schematic, worksheet, and project readers/writers. Rack now directly owns
+  their native mutation/resource suites as well as the four-project Python
+  differential. S-expression performance and typed footprint read/write stay
+  review-ready pending their separately documented evidence and hardening.
+
 - Add the accepted Windows x64 native release exit: frozen native/CLI
   contracts, a content-addressed reviewed-corpus prerequisite with inherited
   oracle evidence, hash-bound candidate distributions, a fail-not-skip Rack

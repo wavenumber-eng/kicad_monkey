@@ -197,6 +197,7 @@ secondary = [
     "Unknown fields, unregistered enum tokens, and every Rust envelope or row literal mismatch fail closed",
     "Project scope normalization and selector precedence are portable across path separators, case, and whitespace",
     "The Python authority rejects missing, invalid, and duplicate identities and emits RFC 4122 UUIDv7 values ready for the native compiler",
+    "Capped native tests replay allocator failures, semantic ownership and cycle mutations, exact producer row/string ceilings, and bounded validator input",
 ]
 
 [[subtests]]
@@ -215,6 +216,7 @@ secondary = [
     "Shared schema, Python, and Rust vectors enforce uint32 slots and canonical uint64 decimal byte counts",
     "Unknown fields and unsupported contract literals fail closed",
     "The manifest cannot hide base64 or embedded source payloads",
+    "Capped native tests cover exact byte-slot ownership, path and project failures, and exact/one-under source count, per-source bytes, aggregate bytes, and path bytes",
 ]
 
 [[subtests]]

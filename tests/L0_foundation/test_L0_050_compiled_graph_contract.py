@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import shutil
+import subprocess
 import uuid
 from copy import deepcopy
 from pathlib import Path
@@ -24,7 +27,31 @@ from kicad_monkey.kicad_compiled_schematic_graph import (
     validate_compiled_schematic_graph,
 )
 
-VECTORS = Path(__file__).resolve().parents[1] / "parity/compiled_schematic_graph_a0_vectors.json"
+VECTORS = (
+    Path(__file__).resolve().parents[1]
+    / "parity/compiled_schematic_graph_a0_vectors.json"
+)
+PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _run_capped_rust(command: list[str]) -> None:
+    environment = os.environ.copy()
+    environment["CARGO_BUILD_JOBS"] = "4"
+    environment["RUST_TEST_THREADS"] = "2"
+    completed = subprocess.run(
+        command,
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+        env=environment,
+    )
+    assert completed.returncode == 0, (
+        f"Command failed: {' '.join(command)}\n"
+        f"stdout:\n{completed.stdout}\n"
+        f"stderr:\n{completed.stderr}"
+    )
 
 
 def _vectors() -> dict[str, Any]:
@@ -118,9 +145,12 @@ def test_identity_selector_precedence_and_scope_normalization_are_portable() -> 
         assert _allocate(right_allocator, right) == case["expected"]
 
     for case in identity["scope_cases"]:
-        assert compiled_schematic_graph_design_scope(
-            source_cad=case["source_cad"], project=case["project"]
-        ) == case["expected"]
+        assert (
+            compiled_schematic_graph_design_scope(
+                source_cad=case["source_cad"], project=case["project"]
+            )
+            == case["expected"]
+        )
 
 
 def test_identity_invalid_and_duplicate_addresses_fail_closed() -> None:
@@ -180,3 +210,44 @@ def test_shared_inverse_ownership_failures_are_rejected_by_python() -> None:
         decode_compiled_schematic_graph_a0(json.dumps(graph).encode())
         with pytest.raises(ValueError, match=re.escape(case["error_match"])):
             validate_compiled_schematic_graph(graph)
+
+
+def test_native_graph_contract_allocator_validator_and_producer_evidence() -> None:
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for native compiled-graph evidence"
+    _run_capped_rust(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--jobs",
+            "4",
+            "--package",
+            "kicad-monkey-contracts",
+            "--test",
+            "generated_contracts",
+            "--",
+            "--test-threads",
+            "2",
+        ]
+    )
+    _run_capped_rust(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--jobs",
+            "4",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "compiled_graph_semantics",
+            "--test",
+            "compiled_graph_producer",
+            "--example",
+            "compiled_graph_validation_gate",
+            "--",
+            "--test-threads",
+            "2",
+        ]
+    )

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head>
   <meta charset="utf-8">
   <title>Rust Phase 4 native worksheet reader/writer slice</title>
@@ -7,7 +7,7 @@
 </head>
 <body>
   <h1>Rust Phase 4 native worksheet reader/writer slice</h1>
-  <p><strong>Status:</strong> review-ready native product slice.</p>
+  <p><strong>Status:</strong> accepted native product slice.</p>
 
   <section>
     <h2>Decision and boundary</h2>
@@ -65,10 +65,10 @@
     The durable Python implementation and exact source round trip are the
     current semantic authorities. Later board/schematic plotting integration
     can add an application-level worksheet rendering oracle.</p>
-    <p>This slice does not close Phase 4. Broader native schematic compiler and
-    writer parity, project writeback, plotter closure, native cruncher assembly,
-    full Python/Rust test parity, and later selected WASM packaging remain
-    independently tracked.</p>
+    <p>Native schematic compiler/writer and project writeback obligations are
+    covered by the accepted Phase 4 exit under separate governed surfaces.
+    Plotter and native Cruncher closure are governed by later accepted phases;
+    they do not widen this worksheet reader/writer boundary.</p>
   </section>
 </body>
 </html>

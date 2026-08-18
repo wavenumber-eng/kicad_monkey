@@ -45,16 +45,22 @@ def _roundtrip_executable() -> Path:
             cargo,
             "build",
             "--locked",
+            "--jobs",
+            "4",
             "--package",
             "kicad-monkey-core",
             "--example",
             "schematic_roundtrip_gate",
         ]
     )
-    return PACKAGE_ROOT / "target/debug/examples" / (
-        "schematic_roundtrip_gate.exe"
-        if os.name == "nt"
-        else "schematic_roundtrip_gate"
+    return (
+        PACKAGE_ROOT
+        / "target/debug/examples"
+        / (
+            "schematic_roundtrip_gate.exe"
+            if os.name == "nt"
+            else "schematic_roundtrip_gate"
+        )
     )
 
 
@@ -66,16 +72,22 @@ def _mutation_executable() -> Path:
             cargo,
             "build",
             "--locked",
+            "--jobs",
+            "4",
             "--package",
             "kicad-monkey-core",
             "--example",
             "schematic_mutation_gate",
         ]
     )
-    return PACKAGE_ROOT / "target/debug/examples" / (
-        "schematic_mutation_gate.exe"
-        if os.name == "nt"
-        else "schematic_mutation_gate"
+    return (
+        PACKAGE_ROOT
+        / "target/debug/examples"
+        / (
+            "schematic_mutation_gate.exe"
+            if os.name == "nt"
+            else "schematic_mutation_gate"
+        )
     )
 
 
@@ -114,10 +126,15 @@ def test_native_schematic_mutation_and_resource_oracles_are_rack_owned() -> None
             cargo,
             "test",
             "--locked",
+            "--jobs",
+            "4",
             "--package",
             "kicad-monkey-core",
             "--test",
             "schematic_document",
+            "--",
+            "--test-threads",
+            "2",
         ]
     )
 
@@ -175,7 +192,9 @@ def test_inserted_property_has_kicad_placement_and_python_semantics(
         for item in schematic.symbols
         if item.uuid == mutation_evidence["symbol_uuid"]
     )
-    inserted = [prop for prop in symbol.properties if prop.key == "Rust Native Property"]
+    inserted = [
+        prop for prop in symbol.properties if prop.key == "Rust Native Property"
+    ]
     assert len(inserted) == 1
     assert inserted[0].value == "source-preserving"
     assert (inserted[0].at_x, inserted[0].at_y, inserted[0].at_angle) == (0, 0, 0)

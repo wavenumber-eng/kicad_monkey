@@ -44,17 +44,17 @@ Current design notes:
 - `rust-compiled-schematic-graph-phase4-contract.html` - accepted TypeSpec
   authority, generated transport projections, and deterministic identity
   vectors for the native schematic compiler.
-- `rust-compiled-schematic-graph-phase4-native.html` - native deterministic
+- `rust-compiled-schematic-graph-phase4-native.html` - accepted native deterministic
   identity allocation and linear semantic graph validation over generated DTOs.
-- `rust-source-bundle-phase4-slice.html` - named byte ownership, portable path
+- `rust-source-bundle-phase4-slice.html` - accepted named byte ownership, portable path
   validation, one-scan schematic definitions, and repeated hierarchy occurrences.
-- `rust-schematic-connectivity-phase4-slice.html` - typed schematic connection
+- `rust-schematic-connectivity-phase4-slice.html` - accepted typed schematic connection
   carriers and deterministic 100-nm-grid wire connectivity over source bundles.
-- `rust-schematic-writer-phase4-slice.html` - exact owned schematic writeback,
+- `rust-schematic-writer-phase4-slice.html` - accepted exact owned schematic writeback,
   transactional placed-symbol property edits, and promoted semantic reparse.
-- `rust-worksheet-phase4-slice.html` - source-ordered modern and legacy
+- `rust-worksheet-phase4-slice.html` - accepted source-ordered modern and legacy
   worksheet semantics, bounded lazy item decoding, and exact owned writeback.
-- `rust-project-phase4-slice.html` - insertion-ordered project JSON semantics,
+- `rust-project-phase4-slice.html` - accepted insertion-ordered project JSON semantics,
   full restored-corpus parity, and transactional exact/canonical writeback.
 - `rust-netlist-phase4-slice.html` - native resolved netlist model, project
   net-class enrichment, and bounded KiCad version-E S-expression output.

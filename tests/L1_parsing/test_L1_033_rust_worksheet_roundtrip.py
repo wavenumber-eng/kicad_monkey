@@ -42,14 +42,18 @@ def _worksheet_executable() -> Path:
             cargo,
             "build",
             "--locked",
+            "--jobs",
+            "4",
             "--package",
             "kicad-monkey-core",
             "--example",
             "worksheet_gate",
         ]
     )
-    return PACKAGE_ROOT / "target/debug/examples" / (
-        "worksheet_gate.exe" if os.name == "nt" else "worksheet_gate"
+    return (
+        PACKAGE_ROOT
+        / "target/debug/examples"
+        / ("worksheet_gate.exe" if os.name == "nt" else "worksheet_gate")
     )
 
 
@@ -84,10 +88,15 @@ def test_native_worksheet_resource_mutation_and_io_oracles_are_rack_owned() -> N
             cargo,
             "test",
             "--locked",
+            "--jobs",
+            "4",
             "--package",
             "kicad-monkey-core",
             "--test",
             "worksheet",
+            "--",
+            "--test-threads",
+            "2",
         ]
     )
 
@@ -160,7 +169,9 @@ def _python_item(kind: str, item: Any) -> dict[str, Any]:
             "position": _point(item.pos),
             "rotate": item.rotate,
             "linewidth": _optional_float(item.linewidth),
-            "point_sets": [[list(point) for point in points] for points in item.point_sets],
+            "point_sets": [
+                [list(point) for point in points] for points in item.point_sets
+            ],
         }
     if kind == "tbtext":
         font = item.font

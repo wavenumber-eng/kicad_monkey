@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head>
   <meta charset="utf-8">
   <title>Rust Phase 4 source bundle and hierarchy slice</title>
@@ -8,9 +8,10 @@
 <body>
   <h1>Rust Phase 4 source bundle and hierarchy slice</h1>
   <p>
-    Status: review ready. This slice establishes the named multi-file input and
-    hierarchy foundation for the native schematic compiler. It does not claim
-    connectivity, netlist, compiled-graph emission, or schematic write parity.
+    Status: accepted with direct executable Rust evidence. This slice
+    establishes the named multi-file input and hierarchy foundation for the
+    native schematic compiler. It does not claim connectivity, netlist,
+    compiled-graph emission, or schematic write parity.
   </p>
 
   <h2>Contract and byte ownership</h2>
@@ -66,9 +67,13 @@
   <ul>
     <li>Language-neutral manifest vectors drive strict generated Python and Rust decoding.</li>
     <li>Focused Rust tests cover exact slots/bytes, path and role failures, project JSON, nested relative sheets, repeated pages, inherited policy, missing sources, cycles, and occurrence limits.</li>
+    <li>Rack L0_051 directly runs the Rust contract vector and focused core manifest tests under four build jobs and two test threads, including exact/one-under source count, per-source byte, aggregate byte, and path byte ceilings.</li>
     <li>Rack L3_020 compares definition and occurrence counts with Python for all four compiled-graph reference projects through one native process.</li>
     <li>Package-owned unsafe code remains forbidden; serde/serde_json are the only added mature serialization dependencies and were already workspace dependencies.</li>
-    <li>Owned schematic/project writers, full typed source families, connectivity, buses, netlists, and compiled-graph emission remain active Phase 4 work.</li>
+    <li>Owned schematic/project writers, connectivity, buses, netlists, and
+      compiled-graph emission are covered by the accepted Phase 4 exit under
+      separate governed surfaces; they do not widen this source-bundle and
+      hierarchy boundary.</li>
   </ul>
 </body>
 </html>
