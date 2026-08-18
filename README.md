@@ -47,7 +47,11 @@ which retains Cruncher-owned enrichment and composition while replacing its
 physical-base serialization seam. The accepted
 [source-bound native design-facts slice](docs/design/rust-native-design-facts-phase6-slice.html)
 next switches the Windows compiled graph and version-E netlist while retaining
-Python Design JSON, netlist JSON, presentation, and orchestration.
+Python Design JSON, netlist JSON, presentation, and orchestration. The
+[accepted native-backed CLI compatibility slice](docs/design/rust-native-full-cli-phase6-slice.html)
+governs the installed entry points, primary design aliases, artifact tree,
+logs, exits, and no-fallback failures without claiming a separate all-Rust
+Cruncher executable.
 
 ## Install
 

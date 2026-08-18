@@ -50,3 +50,22 @@ test_megamaid_help_describes_project_dissection = "Megamaid help describes the f
 test_design_alias_help_starts = "Design review aliases start and print command help"
 test_pcb_svg_help_describes_config_and_hlr = "pcb-svg help describes config-driven SVG and HLR behavior"
 test_resolve_output_dir_defaults_to_command_subfolder = "Shared output resolver defaults to output/<command> and accepts command-specific defaults"
+
+[[subtests]]
+id = "L0_004"
+file = "test_L0_004_design_review_manifest.py"
+name = "Design Review Manifest Contract"
+description = "Validate the strict existing design-review manifest wire and command failure boundary"
+concerns = ["cli", "contracts", "release"]
+test_case_type = "contract"
+test_cases = "docs/contracts/design_review_manifest.a0.schema.json and synthetic command failures"
+
+[subtests.code_under_test]
+module = "kicad_cruncher.kicad_cruncher_cmd_design"
+contract = "docs/contracts/design_review_manifest.a0.schema.json"
+
+[subtests.objectives]
+existing_wire = "The strict schema accepts native provenance and the compatible retained-Python manifest without provenance"
+strictness = "Unknown fields, incomplete graph counts, malformed hashes, and unsafe absolute, backslash, dot, or traversal artifact paths fail validation"
+publication = "Every manifest artifact resolves beneath staging and exists before the manifest and complete tree publish"
+failure = "Handled output-resolution, invalid-manifest, or generation failures return 1 and leave a new destination absent"

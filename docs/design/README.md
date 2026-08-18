@@ -101,6 +101,9 @@ Current design notes:
   no-fallback PCB physical-base provider and transactional Cruncher boundary.
 - `rust-native-design-facts-phase6-slice.html` - accepted source-bound
   native compiled-graph and version-E netlist provider for Windows Cruncher.
+- `rust-native-full-cli-phase6-slice.html` - accepted compatibility
+  boundary for the installed Cruncher entry points, primary design aliases,
+  exact artifacts and exits over mandatory Windows native providers.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

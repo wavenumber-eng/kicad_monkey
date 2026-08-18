@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Protocol
 
 from kicad_cruncher.kicad_cruncher_common import (
     find_kicad_project_in_cwd,
-    resolve_output_dir,
     supported_design_input_suffixes,
 )
 from kicad_cruncher.logging_utils import stage_done_text, stage_progress_text, stage_start_text
@@ -46,7 +45,7 @@ class _SchematicInstanceLike(Protocol):
     sheet_number: int
     sheet_count: int
     instance_index: int
-    sheet_path_uuids: list[str]
+    sheet_path_uuids: str
     sheet_instance_path: str
 
 
@@ -118,6 +117,11 @@ def _validate_input_suffix(input_file: Path) -> bool:
     return False
 
 
+def _resolve_design_output_dir(output: Path | None) -> Path:
+    """Resolve the design destination without creating it before staging succeeds."""
+    return output if output is not None else Path("output") / "design"
+
+
 def _safe_filename(value: str, *, fallback: str = "artifact") -> str:
     """Return a filesystem-safe filename stem."""
     text = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
@@ -127,6 +131,63 @@ def _safe_filename(value: str, *, fallback: str = "artifact") -> str:
 
 def _relpath(path: Path, root: Path) -> str:
     return str(path.relative_to(root)).replace("\\", "/")
+
+
+def _manifest_artifact_paths(manifest: JsonObject) -> list[str]:
+    """Return every bundle-relative artifact path from the a0 manifest."""
+
+    paths: list[str] = []
+    for key in ("design_json", "netlist_json", "netlist_kicad_sexpr", "readme"):
+        value = manifest.get(key)
+        if not isinstance(value, str):
+            raise ValueError(f"Design-review manifest {key} must be a string")
+        paths.append(value)
+
+    graph = manifest.get("compiled_schematic_graph")
+    if not isinstance(graph, dict) or not isinstance(graph.get("file"), str):
+        raise ValueError("Design-review manifest compiled graph file must be a string")
+    paths.append(graph["file"])
+
+    for collection_name in ("schematic_svgs", "pcb_svgs"):
+        collection = manifest.get(collection_name)
+        if not isinstance(collection, list):
+            raise ValueError(f"Design-review manifest {collection_name} must be a list")
+        for index, record in enumerate(collection):
+            if not isinstance(record, dict) or not isinstance(record.get("file"), str):
+                raise ValueError(
+                    f"Design-review manifest {collection_name}[{index}].file must be a string"
+                )
+            paths.append(record["file"])
+    return paths
+
+
+def _validate_design_review_manifest_artifacts(manifest: JsonObject, output_dir: Path) -> None:
+    """Require safe, contained, existing files before publishing a manifest."""
+
+    root = output_dir.resolve()
+    for value in _manifest_artifact_paths(manifest):
+        segments = value.split("/")
+        if (
+            not value
+            or value.startswith("/")
+            or re.match(r"^[A-Za-z]:", value)
+            or "\\" in value
+            or any(segment in {"", ".", ".."} for segment in segments)
+        ):
+            raise ValueError(
+                f"Design-review manifest artifact path is not safe bundle-relative: {value!r}"
+            )
+        candidate = root.joinpath(*segments).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError as error:
+            raise ValueError(
+                f"Design-review manifest artifact escapes the bundle: {value!r}"
+            ) from error
+        if not candidate.is_file():
+            raise ValueError(
+                f"Design-review manifest artifact does not exist before publication: {value!r}"
+            )
 
 
 def _write_json(path: Path, payload: JsonObject) -> None:
@@ -851,7 +912,6 @@ def _write_design_review_bundle_staged(
             "kicad_netlist_sha256": native_facts.kicad_netlist_sha256,
         }
     _emit_progress(progress, "writing design-review manifest and README")
-    _write_json(manifest_path, manifest)
     readme_path = _write_review_readme(
         output_dir,
         input_file=input_file,
@@ -863,6 +923,8 @@ def _write_design_review_bundle_staged(
         pcb_svgs=pcb_svgs,
         manifest_path=manifest_path,
     )
+    _validate_design_review_manifest_artifacts(manifest, output_dir)
+    _write_json(manifest_path, manifest)
     return DesignReviewBundle(
         output_dir=output_dir,
         design_json_path=design_json_path,
@@ -887,7 +949,6 @@ def cmd_design(args: argparse.Namespace) -> int:
     if not _validate_input_suffix(input_file):
         return 1
 
-    output_dir = resolve_output_dir(args.output, "design")
     include_indexes = not bool(args.no_indexes)
     started = time.perf_counter()
 
@@ -895,6 +956,7 @@ def cmd_design(args: argparse.Namespace) -> int:
         log.info("%s", stage_progress_text(f"Design review: {message}"))
 
     try:
+        output_dir = _resolve_design_output_dir(args.output)
         log.info("%s", stage_start_text(f"Design review: starting bundle for {input_file}"))
         bundle = write_design_review_bundle(
             input_file,

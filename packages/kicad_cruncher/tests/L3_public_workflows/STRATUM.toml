@@ -95,6 +95,27 @@ failure = "Native failures do not retry through Python and publish no cache entr
 transactions = "Later PCB/design provider failures leave existing destinations unchanged and no new partial files"
 
 [[subtests]]
+id = "L3_010"
+file = "test_L3_010_design_cli_compatibility.py"
+name = "Design CLI Compatibility"
+description = "Validate all public design aliases and entry mechanisms against the exact native-backed bundle contract"
+concerns = ["cli", "contracts", "cross-package", "release"]
+test_case_type = "reference"
+test_cases = "public hlr_test project, real native executable, all three aliases and entry mechanisms, and hostile missing-native failures"
+
+[subtests.code_under_test]
+design_module = "kicad_cruncher.kicad_cruncher_cmd_design"
+manifest_contract = "docs/contracts/design_review_manifest.a0.schema.json"
+entrypoint_module = "kicad_cruncher._cli"
+
+[subtests.objectives]
+entrypoints = "kicad-cruncher design, kcr design-review, and python -m kicad_cruncher dr publish byte-identical bundles"
+artifacts = "Every published file is indexed and native graph, netlist, and PCB provenance are exact"
+exit_codes = "Successful, handled runtime failure, and usage-error invocations return 0, 1, and 2 without tracebacks"
+no_partial = "A failed new invocation leaves the requested destination absent"
+native_only = "Selected native graph, netlist, and physical rendering never retry through legacy Python builders"
+
+[[subtests]]
 id = "L3_009"
 file = "test_L3_009_native_design_facts_provider.py"
 name = "Native Design Facts Provider"

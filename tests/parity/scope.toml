@@ -697,14 +697,14 @@ semantic_resource_evidence = ["src/rs/kicad-monkey-native/tests/design_facts.rs"
 id = "cruncher.native_full_cli"
 disposition = "required_bounded_slice"
 wasm = "deferred_native_first"
-status = "planned"
+status = "closed"
 python_symbols = ["kicad-cruncher", "kcr", "python -m kicad_cruncher", "cmd_design"]
-rust_symbols = ["kicad-cruncher", "kcr", "design", "design-review", "dr"]
-rack_cases = []
-evidence = []
-vector_evidence = []
-implementation_evidence = []
-semantic_resource_evidence = []
+rust_symbols = ["execute_request_a1_bytes", "execute_svg_request_bytes", "NativeDesignFactsRequestA1", "NativeSvgRenderRequestA0"]
+rack_cases = ["L3_026"]
+evidence = ["docs/adrs/ADR-011-native-first-rust-port-delivery.md", "docs/design/rust-native-full-cli-phase6-slice.html", "docs/design/rust-phase6-native-cruncher-audit.html", "packages/kicad_cruncher/docs/contracts/design_review_manifest.a0.schema.json", ".github/workflows/phase6-native-full-cli.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
+vector_evidence = ["packages/kicad_cruncher/docs/contracts/command_manifest.a0.json", "packages/kicad_cruncher/tests/L0_public_cli/test_L0_004_design_review_manifest.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_010_design_cli_compatibility.py", "tests/support_scripts/toolchain_install_test.py"]
+implementation_evidence = ["packages/kicad_cruncher/pyproject.toml", "packages/kicad_cruncher/src/py/kicad_cruncher/_cli.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_cmd_design.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_native_design.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_native_physical.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_transaction.py", "src/rs/kicad-monkey-native/src/lib.rs", "src/rs/kicad-monkey-native/src/main.rs"]
+semantic_resource_evidence = ["tests/L0_foundation/test_L0_062_native_process_client.py", "tests/L0_foundation/test_L0_063_native_svg_transport.py", "packages/kicad_cruncher/tests/L0_public_cli/test_L0_001_cli_entrypoint.py", "packages/kicad_cruncher/tests/L0_public_cli/test_L0_004_design_review_manifest.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_010_design_cli_compatibility.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_008_native_physical_provider.py", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_009_native_design_facts_provider.py", "tests/L3_rendering/test_L3_026_native_full_cli.py", "tests/support_scripts/toolchain_install_test.py"]
 
 [[surfaces]]
 id = "cruncher.phase6_exit"

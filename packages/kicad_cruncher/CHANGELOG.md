@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add an accepted native-backed CLI compatibility contract for the installed
+  `kicad-cruncher`, `kcr`, and module entry points and the primary design
+  aliases. Strict manifest paths, exact output channels and exit statuses,
+  wheel-owned native provenance, and transactional failure behavior are now
+  part of the Windows release gate.
+
 - Add an accepted Windows no-fallback native PCB physical-base SVG provider
   with preserved Cruncher enrichment, drill ordering, cache ceilings, and
   transactional command publication. Non-Windows and higher-level

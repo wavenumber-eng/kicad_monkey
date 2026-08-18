@@ -40,6 +40,16 @@ Deliver the port native-first in this order:
 5. only then select concrete browser operations and package thin,
    operation-specific WASM artifacts.
 
+For the bounded native application delivery, step 3 means that the installed Windows
+Cruncher entry points directly select the packaged Rust operations for every
+promoted physical, graph, and version-E netlist result, with no Python retry.
+The existing Python facade may continue to own CLI parsing, application
+orchestration, presentation, and transactional artifact publication. This does
+not assert that the universal Cruncher wheel contains a separately compiled
+Rust `kicad-cruncher` executable or that every Cruncher command has been
+rewritten in Rust. Requiring that literal executable boundary would be a new
+application-ownership decision with its own contracts and packaging evidence.
+
 The existing WASM adapters remain maintained feasibility evidence. They prove
 byte-oriented requests, generated diagnostics, independent feature families,
 resource limits, and take-once large output ownership. New PCB, schematic,

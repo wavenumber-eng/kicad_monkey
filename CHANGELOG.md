@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add the accepted P6_040 native-backed Cruncher CLI compatibility gate.
+  It preserves the installed Python entry points and primary design aliases
+  while requiring their selected Windows PCB physical-base, compiled-graph,
+  and version-E netlist providers to remain native and fail closed. This is
+  not a separately compiled Rust Cruncher executable or the final P6_050
+  public-release hard switch.
+
 ## 2026.8.18
 
 - Open native Cruncher delivery governance, explicitly

@@ -362,6 +362,37 @@ secondary = [
 ]
 
 [[subtests]]
+id = "L3_026"
+file = "test_L3_026_native_full_cli.py"
+name = "Native-backed Cruncher CLI Compatibility Exit"
+description = "Require the installed Windows Cruncher entry points and design aliases to preserve their public CLI and artifact contract over mandatory native providers"
+concerns = ["rust", "contracts", "cli", "cross-package", "release"]
+test_case_type = "release_acceptance"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_native"
+modules = [
+    "kicad_cruncher._cli",
+    "kicad_cruncher.kicad_cruncher_cmd_design",
+    "kicad_cruncher.kicad_cruncher_native_physical",
+    "kicad_cruncher.kicad_cruncher_native_design",
+    "kicad_monkey.kicad_native",
+]
+
+[subtests.objectives]
+primary = "The installed kicad-cruncher, kcr, and module entry points preserve the primary design alias workflow over mandatory Windows native providers"
+secondary = [
+    "The governed public command inventory and design arguments retain their help and parser behavior",
+    "Success, argparse misuse, input failures, and provider failures preserve their established exit status and stdout/stderr channels",
+    "All three design aliases publish the same strict manifest and complete artifact topology with exact native graph and version-E netlist provenance",
+    "Missing, incompatible, timed-out, malformed, or resource-rejected native results never retry through Python physical, graph, or version-E writers",
+    "Every failure preserves an existing destination and leaves no unpublished staging tree",
+    "The Monkey Windows wheel is rebuilt from its sdist and the universal Cruncher wheel retains a normal public kicad-monkey dependency without workspace paths",
+    "The installed two-wheel test runs with repository imports unavailable and verifies all three public entry mechanisms",
+    "Cargo work is serialized at four jobs and two test threads",
+]
+
+[[subtests]]
 id = "L3_022"
 file = "test_L3_022_rust_phase5_exit.py"
 name = "Rust Phase 5 Plotter-IR Exit"

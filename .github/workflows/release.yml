@@ -59,11 +59,19 @@ jobs:
     needs: phase6-native-physical-provider
     uses: ./.github/workflows/phase6-native-design-facts.yml
 
+  phase6-native-full-cli:
+    if: >-
+      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
+      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
+    needs: phase6-native-design-facts
+    uses: ./.github/workflows/phase6-native-full-cli.yml
+
   build-monkey-windows-wheel:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider, phase6-native-design-facts]
+    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider, phase6-native-design-facts, phase6-native-full-cli]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,7 +100,7 @@ jobs:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider, phase6-native-design-facts, build-monkey-windows-wheel]
+    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider, phase6-native-design-facts, phase6-native-full-cli, build-monkey-windows-wheel]
     runs-on: ubuntu-latest
     environment: pypi-kicad-monkey
     steps:
@@ -169,7 +177,7 @@ jobs:
     if: >-
       github.event_name == 'release' &&
       startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
-    needs: phase6-native-design-facts
+    needs: phase6-native-full-cli
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -185,7 +193,7 @@ jobs:
     if: >-
       github.event_name == 'release' &&
       startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
-    needs: [phase6-native-design-facts, verify-public-monkey-physical-provider]
+    needs: [phase6-native-full-cli, verify-public-monkey-physical-provider]
     runs-on: ubuntu-latest
     environment: pypi-kicad-cruncher
     steps:
@@ -281,7 +289,7 @@ jobs:
 
   publish-coordinated-cruncher:
     if: github.event_name == 'workflow_dispatch'
-    needs: [verify-coordinated-monkey, phase6-native-design-facts]
+    needs: [verify-coordinated-monkey, phase6-native-full-cli]
     runs-on: ubuntu-latest
     environment: pypi-kicad-cruncher
     steps:
