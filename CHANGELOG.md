@@ -6,10 +6,11 @@
   contracts, a content-addressed reviewed-corpus prerequisite with inherited
   oracle evidence, hash-bound candidate distributions, a fail-not-skip Rack
   owner, and CI/release publication of the tested Windows Monkey and Cruncher
-  artifacts. Linux and macOS retain their Python provider path. The terminal
-  clean-commit candidate at `c3097ca` passed L3_027 1/1 in 69.65
-  seconds (70.66 seconds with Rack); the complete build plus gate took 199.7
-  seconds wall clock, and three independent final reviews approved closure.
+  artifacts. Linux and macOS retain their Python provider path. The final
+  promoted-tree candidate passed L3_027 1/1 in 67.38 seconds (68.38 seconds
+  with Rack); the complete build plus gate took 192.6 seconds wall clock.
+  The refreshed aggregate Rack report passed 7/7 subtests and 43/43 tests,
+  including L99 23/23, and three independent final reviews approved closure.
 
 - Refresh the unchanged-limit Rust hygiene debt inventory from 29 to 131 exact
   findings after the reviewed native Plotter-IR and application work, with
