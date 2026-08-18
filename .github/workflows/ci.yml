@@ -66,7 +66,11 @@ jobs:
         run: uv run --all-packages --all-extras python -m pytest tests/cross_package -q
       - name: Run Cruncher Rack gates against workspace Monkey
         working-directory: packages/kicad_cruncher
-        run: uv run --package kicad-cruncher --extra test rack run --all
+        env:
+          KICAD_MONKEY_NATIVE: ${{ github.workspace }}/target/debug/kicad-monkey-native${{ runner.os == 'Windows' && '.exe' || '' }}
+        run: |
+          cargo build --locked --jobs 4 --package kicad-monkey-native
+          uv run --package kicad-cruncher --extra test rack run --all
       - name: Build Monkey package
         run: uv run --extra test python -m build
       - name: Build Cruncher package
@@ -89,3 +93,7 @@ jobs:
 
   phase6-native-svg:
     uses: ./.github/workflows/phase6-native-svg.yml
+
+  phase6-native-physical-provider:
+    needs: phase6-native-svg
+    uses: ./.github/workflows/phase6-native-physical-provider.yml

@@ -671,14 +671,14 @@ semantic_resource_evidence = ["src/rs/kicad-monkey-svg/tests/render_svg.rs", "sr
 id = "cruncher.no_fallback_physical_provider"
 disposition = "required_bounded_slice"
 wasm = "deferred_native_first"
-status = "planned"
-python_symbols = ["NativePhysicalProvider", "PcbSvgCompositionRenderCache"]
-rust_symbols = ["NativePhysicalOperation"]
-rack_cases = []
-evidence = []
-vector_evidence = []
-implementation_evidence = []
-semantic_resource_evidence = []
+status = "closed"
+python_symbols = ["PhysicalSvgProvider", "NativePhysicalProvider", "PhysicalSvgProvenance", "PcbSvgCompositionRenderCache"]
+rust_symbols = ["execute_svg_request_bytes", "render_svg"]
+rack_cases = ["L3_024"]
+evidence = ["docs/design/rust-native-physical-provider-phase6-slice.html", "docs/design/rust-phase6-native-cruncher-audit.html", ".github/workflows/phase6-native-physical-provider.yml", ".github/workflows/ci.yml", ".github/workflows/release.yml"]
+vector_evidence = ["tests/parity/native_svg_a0_vectors.json", "packages/kicad_cruncher/tests/L3_public_workflows/test_L3_008_native_physical_provider.py", "tests/support_scripts/toolchain_install_test.py"]
+implementation_evidence = ["packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_native_physical.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_pcb_svg_compositor.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_cmd_pcb_svg.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_cmd_design.py", "packages/kicad_cruncher/src/py/kicad_cruncher/kicad_cruncher_transaction.py", "src/py/kicad_monkey/kicad_native.py", "src/rs/kicad-monkey-native/src/lib.rs", "src/rs/kicad-monkey-svg/src/lib.rs"]
+semantic_resource_evidence = ["packages/kicad_cruncher/tests/L3_public_workflows/test_L3_008_native_physical_provider.py", "packages/kicad_cruncher/tests/L99_signoff/test_L99_001_release_signoff.py", "tests/L3_rendering/test_L3_024_native_physical_provider.py", "tests/support_scripts/toolchain_install_test.py"]
 
 [[surfaces]]
 id = "cruncher.native_design_facts"

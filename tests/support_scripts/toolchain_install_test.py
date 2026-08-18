@@ -31,6 +31,28 @@ _INSTALLED_SMOKE_SCHEMATIC = """(kicad_sch
 )
 """
 
+_INSTALLED_SMOKE_PCB = """(kicad_pcb
+  (version 20241229)
+  (generator "pcbnew")
+  (generator_version "9.0")
+  (general (thickness 1.6) (legacy_teardrops no))
+  (paper "A4")
+  (layers
+    (0 "F.Cu" signal)
+    (31 "B.Cu" signal)
+    (44 "Edge.Cuts" user)
+  )
+  (gr_rect
+    (start 0 0)
+    (end 20 10)
+    (stroke (width 0.1) (type solid))
+    (fill none)
+    (layer "Edge.Cuts")
+    (uuid "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee")
+  )
+)
+"""
+
 
 def _latest_wheel(dist_dir: Path, prefix: str) -> Path:
     wheels = sorted(dist_dir.glob(f"{prefix}-*.whl"), key=lambda path: path.stat().st_mtime)
@@ -136,6 +158,47 @@ def _validate_installed_design_review(
         raise SystemExit("Installed schematic SVG graph selector is missing")
 
 
+def _validate_installed_native_pcb_svg(
+    executable: Path,
+    *,
+    temp_dir: Path,
+    env: dict[str, str],
+) -> None:
+    """Exercise the Windows no-fallback physical provider from installed wheels."""
+    if os.name != "nt":
+        return
+    pcb_path = temp_dir / "native physical smoke.kicad_pcb"
+    output_dir = temp_dir / "pcb-svg"
+    pcb_path.write_text(_INSTALLED_SMOKE_PCB, encoding="utf-8")
+    _run(
+        [
+            str(executable),
+            "pcb-svg",
+            str(pcb_path),
+            "--views",
+            "assembly-top",
+            "-o",
+            str(output_dir),
+        ],
+        cwd=temp_dir,
+        env=env,
+    )
+    manifest_path = output_dir / "native physical smoke__views.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest["schema"] != "pcb.svg.manifest.a0":
+        raise SystemExit("Installed native PCB SVG manifest has the wrong schema")
+    svg_paths = sorted(output_dir.rglob("*.svg"))
+    if not svg_paths:
+        raise SystemExit("Installed native PCB SVG command emitted no SVG")
+    roots = [ET.fromstring(path.read_text(encoding="utf-8")) for path in svg_paths]
+    if not any(
+        root.attrib.get("data-enrichment-schema")
+        == "kicad_monkey.pcb.svg.enrichment.a0"
+        for root in roots
+    ):
+        raise SystemExit("Installed native PCB SVG lacks physical enrichment")
+
+
 def validate_artifacts(
     monkey_wheel: Path,
     cruncher_wheel: Path,
@@ -176,6 +239,11 @@ def validate_artifacts(
     )
     if not monkey_dependency:
         raise SystemExit("Cruncher wheel is missing its public kicad-monkey dependency")
+    if ">=2026.8.17" not in monkey_dependency.replace(" ", ""):
+        raise SystemExit(
+            "Cruncher wheel does not retain the governed kicad-monkey>=2026.8.17 "
+            f"floor: {monkey_dependency}"
+        )
     forbidden = (" @ ", "file:", "workspace", "\\", "../")
     if any(token in monkey_dependency for token in forbidden):
         raise SystemExit(f"Cruncher wheel leaks a non-public dependency: {monkey_dependency}")
@@ -227,6 +295,11 @@ def validate_artifacts(
         _run([str(_console_script(venv_dir, "kcr")), "--version"], cwd=temp_dir, env=env)
         _run([str(python), "-I", "-m", "kicad_cruncher", "version"], cwd=temp_dir, env=env)
         _validate_installed_design_review(
+            _console_script(venv_dir, "kcr"),
+            temp_dir=temp_dir,
+            env=env,
+        )
+        _validate_installed_native_pcb_svg(
             _console_script(venv_dir, "kcr"),
             temp_dir=temp_dir,
             env=env,

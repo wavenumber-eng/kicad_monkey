@@ -93,6 +93,12 @@ Current design notes:
 - `rust-phase5-exit-audit.html` - accepted inventory and bounded closure order
   for the remaining native text, footprint, symbol, board, and schematic
   Plotter-IR surfaces before the native application phase.
+- `rust-phase6-native-cruncher-audit.html` - staged Windows-native transport,
+  SVG, provider, design-fact, CLI, and final switchover boundaries.
+- `rust-native-svg-phase6-slice.html` - accepted bounded native base-SVG
+  serialization over the frozen Phase 5 Plotter-IR documents.
+- `rust-native-physical-provider-phase6-slice.html` - accepted Windows
+  no-fallback PCB physical-base provider and transactional Cruncher boundary.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

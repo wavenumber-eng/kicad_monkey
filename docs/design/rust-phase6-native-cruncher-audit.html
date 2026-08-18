@@ -32,8 +32,10 @@
   The Rust workspace also contains the accepted, unpublished
   <code>kicad-monkey-native</code> P6_000 transport foundation. Its generated
   envelopes, platform-wheel inclusion, clean-install execution, and
-  independent review are closed evidence. It is not yet a Cruncher provider;
-  the no-fallback integration remains P6_020 work.</p>
+  independent review are closed evidence. The accepted P6_020 slice now
+  uses that installed operation as Cruncher's selected Windows PCB
+  physical-base serializer without a legacy retry; higher-level and
+  cross-platform provider migration remains staged.</p>
 
   <h2>Phase 5 IR boundary is not an SVG or application boundary</h2>
   <p>Phase 5 closed strict, bounded Plotter-IR producers for footprint,
@@ -83,11 +85,12 @@
       </tr>
       <tr>
         <td>P6_020 no-fallback physical provider</td>
-        <td>Give Cruncher an internal provider that obtains selected physical
-        source, graph, netlist, plot, and SVG facts through the installed
-        native operation. Once promoted for a selected operation, missing,
-        incompatible, or invalid native output is an error: Python must not
-        silently reparse or recompute that operation.</td>
+        <td>Switch the selected Windows Cruncher PCB physical-base SVG
+        serialization seam to the installed native operation. Python retains
+        PCB loading, Plotter-IR production, filtering, enrichment, theming,
+        virtual/HLR geometry, and orchestration. Missing, incompatible, or
+        invalid native output is an error and never triggers legacy SVG
+        serialization.</td>
         <td>Spy tests proving zero legacy-provider calls, absent/bad-sidecar
         failures, exact typed results, bounded diagnostics, and no partial
         artifacts.</td>
@@ -141,15 +144,25 @@
   frozen Phase-5 parity documents: 29 deterministic SVG results and one
   explicit negative-width safety rejection. Its viewport, fixed base profile,
   pinned hashes, exclusions, and resource ceilings are described in the
-  <a href="rust-native-svg-phase6-slice.html">native SVG slice</a>. Existing
-  Python SVG APIs and Cruncher composition remain unchanged until P6_020, so
-  this slice does not claim live-wrapper byte parity, layer-view parity, or a
-  no-fallback switchover.</p>
+  <a href="rust-native-svg-phase6-slice.html">native SVG slice</a>. P6_010
+  itself did not change Python SVG APIs or Cruncher composition. The
+  later P6_020 adapter owns layer views, enrichment, and the selected Windows
+  no-fallback provider without broadening the P6_010 base profile.</p>
   <p>Closure evidence was L0_063 (17 tests, 0.19 seconds warm), L1_038
   (2 tests, 1.34 seconds warm), and L3_023 (1 test, 11.05 seconds warm;
   11.92 seconds with Rack orchestration), plus the green full Rust workspace
-  format/check/Clippy/test gate and three independent approvals. P6_020 remains
-  planned and is the first slice allowed to redirect a Cruncher provider.</p>
+  format/check/Clippy/test gate and three independent approvals.</p>
+  <p>P6_020 closed on 2026-08-17. It redirects only the Windows PCB
+  physical-base serialization seam, retaining Python PCB loading, Plotter-IR
+  production, layer filtering, enrichment, theming, virtual/HLR geometry, and
+  orchestration. Its bounded request/cache boundary, governed mask-point
+  quantization, no-fallback failures, transactional publication, and installed
+  two-wheel evidence are described in the
+  <a href="rust-native-physical-provider-phase6-slice.html">native physical
+  provider slice</a>. Rack L3_024, package signoff, installed two-wheel
+  execution, affected broad-workflow regressions, and three independent
+  approvals closed the slice. The broader Cruncher hard switch remains
+  staged.</p>
 
   <h2>Transport and resource rules</h2>
   <ul>

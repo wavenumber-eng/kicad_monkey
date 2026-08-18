@@ -73,6 +73,28 @@ test_pcb_svg_cutout_project_detects_generalized_edge_cut_regions = "Detect close
 test_pcb_svg_assembly_view_uses_geometer_hlr = "Generate assembly HLR SVG using an embedded STEP model"
 
 [[subtests]]
+id = "L3_008"
+file = "test_L3_008_native_physical_provider.py"
+name = "Native PCB Physical Provider"
+description = "Validate the Windows no-fallback native base-SVG provider and transactional publication"
+concerns = ["contracts", "rendering", "cross-package", "release"]
+test_case_type = "reference"
+test_cases = "governed board vectors, mask-view fixture, public design fixture, and synthetic provider failures"
+
+[subtests.code_under_test]
+module = "kicad_cruncher.kicad_cruncher_native_physical"
+compositor_module = "kicad_cruncher.kicad_cruncher_pcb_svg_compositor"
+pcb_svg_module = "kicad_cruncher.kicad_cruncher_cmd_pcb_svg"
+design_module = "kicad_cruncher.kicad_cruncher_cmd_design"
+
+[subtests.objectives]
+native_only = "A real native render succeeds while both legacy Python render entry points are forbidden"
+normalization = "Native nm geometry is adapted to the established mm canvas, enriched record topology, and governed pad-mask view"
+cache = "Repeated layer sets reuse one native artifact and bound the sequential per-board root/process and retained-byte work"
+failure = "Native failures do not retry through Python and publish no cache entry"
+transactions = "Later PCB/design provider failures leave existing destinations unchanged and no new partial files"
+
+[[subtests]]
 id = "L3_004"
 file = "test_L3_004_pcb_clean_workflow.py"
 name = "PCB Clean Workflow"

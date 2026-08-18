@@ -6,10 +6,11 @@ import argparse
 import json
 import logging
 import re
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -19,6 +20,10 @@ from kicad_cruncher.kicad_cruncher_common import (
     supported_design_input_suffixes,
 )
 from kicad_cruncher.logging_utils import stage_done_text, stage_progress_text, stage_start_text
+
+from .kicad_cruncher_transaction import (
+    publish_staged_tree as _publish_design_review_tree,
+)
 
 log = logging.getLogger(__name__)
 
@@ -667,7 +672,46 @@ def write_design_review_bundle(
     include_indexes: bool = True,
     progress: ProgressCallback | None = None,
 ) -> DesignReviewBundle:
-    """Write the shared design-review bundle used by design and megamaid."""
+    """Transactionally publish the shared design-review bundle."""
+
+    output_parent = output_dir.resolve().parent
+    output_parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix=".kicad-cruncher-design-",
+        dir=output_parent,
+    ) as temporary:
+        staging = Path(temporary) / "output"
+        bundle = _write_design_review_bundle_staged(
+            input_file,
+            staging,
+            include_indexes=include_indexes,
+            progress=progress,
+        )
+        _publish_design_review_tree(staging, output_dir)
+
+        def published(path: Path) -> Path:
+            return output_dir / path.relative_to(staging)
+
+        return replace(
+            bundle,
+            output_dir=output_dir,
+            design_json_path=published(bundle.design_json_path),
+            compiled_schematic_graph_path=published(bundle.compiled_schematic_graph_path),
+            netlist_json_path=published(bundle.netlist_json_path),
+            netlist_kicad_sexpr_path=published(bundle.netlist_kicad_sexpr_path),
+            manifest_path=published(bundle.manifest_path),
+            readme_path=published(bundle.readme_path),
+        )
+
+
+def _write_design_review_bundle_staged(
+    input_file: Path,
+    output_dir: Path,
+    *,
+    include_indexes: bool = True,
+    progress: ProgressCallback | None = None,
+) -> DesignReviewBundle:
+    """Write a complete bundle into an unpublished staging directory."""
     from kicad_monkey import KiCadDesign
 
     output_dir.mkdir(parents=True, exist_ok=True)

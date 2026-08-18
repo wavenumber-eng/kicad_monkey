@@ -17,8 +17,15 @@
   30 frozen Plotter-IR vectors: 29 deterministic hashed SVG results plus one
   governed rejection for a legacy negative-width carrier that cannot form
   valid SVG geometry. Explicit viewports and independent resource ceilings
-  are required. Existing Python SVG and Cruncher providers remain unchanged
-  pending P6_020.
+  are required. P6_010 itself left existing Python SVG and Cruncher providers
+  unchanged; the separately reviewed P6_020 provider follows below.
+
+- Add the accepted P6_020 Windows Cruncher PCB physical provider. It uses
+  the packaged native base-SVG operation without legacy retry, restores the
+  existing layer/drill/enrichment topology, bounds retained native roots, and
+  publishes PCB SVG and design-review trees transactionally. PCB parsing,
+  Plotter-IR production, theming, virtual/HLR geometry, schematic rendering,
+  and non-Windows providers remain Python-owned.
 
 - Complete and freeze the bounded native Phase 5 Plotter-IR producers with a
   mandatory Windows Rack gate over exact cross-producer vectors, resource and

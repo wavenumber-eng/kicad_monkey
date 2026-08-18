@@ -11,6 +11,7 @@ import logging
 import math
 import os
 import re
+import tempfile
 import time
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -51,6 +52,10 @@ from kicad_cruncher.kicad_cruncher_pcb_svg_projection import (
     _get_assembly_projection_cache,
 )
 from kicad_cruncher.logging_utils import stage_done_text, stage_progress_text, stage_start_text
+
+from .kicad_cruncher_transaction import (
+    publish_staged_tree as _publish_staged_pcb_svg_tree,
+)
 
 log = logging.getLogger(__name__)
 
@@ -2222,22 +2227,30 @@ def _render_pcb_svg_to_output(
     output_dir: Path,
     config_by_input: dict[Path, _PcbSvgConfig],
 ) -> int:
+    output_parent = output_dir.resolve().parent
+    output_parent.mkdir(parents=True, exist_ok=True)
     total_written = 0
-    for input_file in input_files:
-        resolved_input = input_file.resolve()
-        config = config_by_input.get(resolved_input)
-        if config is None:
-            log.error("No pcb-svg config resolved for input: %s", resolved_input)
-            return 1
-        try:
-            total_written += _render_a0_board_outputs(
-                config,
-                resolved_input,
-                output_dir=output_dir,
-            )
-        except Exception as exc:
-            log.error("PCB SVG generation failed for %s: %s", input_file.name, exc)
-            return 1
+    with tempfile.TemporaryDirectory(
+        prefix=".kicad-cruncher-pcb-svg-",
+        dir=output_parent,
+    ) as temporary:
+        staging_output = Path(temporary) / "output"
+        for input_file in input_files:
+            resolved_input = input_file.resolve()
+            config = config_by_input.get(resolved_input)
+            if config is None:
+                log.error("No pcb-svg config resolved for input: %s", resolved_input)
+                return 1
+            try:
+                total_written += _render_a0_board_outputs(
+                    config,
+                    resolved_input,
+                    output_dir=staging_output,
+                )
+            except Exception as exc:
+                log.error("PCB SVG generation failed for %s: %s", input_file.name, exc)
+                return 1
+        _publish_staged_pcb_svg_tree(staging_output, output_dir)
     log.info("Successfully generated %s PCB SVG artifact file(s)", total_written)
     return 0
 

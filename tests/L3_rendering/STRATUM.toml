@@ -307,6 +307,34 @@ secondary = [
 ]
 
 [[subtests]]
+id = "L3_024"
+file = "test_L3_024_native_physical_provider.py"
+name = "Native Physical Provider Exit"
+description = "Require Cruncher's selected Windows PCB physical base to use the installed native serializer without a Python fallback"
+concerns = ["rust", "contracts", "svg", "cross-package", "release"]
+test_case_type = "release_acceptance"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_native"
+modules = [
+    "kicad_cruncher.kicad_cruncher_native_physical",
+    "kicad_cruncher.kicad_cruncher_pcb_svg_compositor",
+]
+
+[subtests.objectives]
+primary = "The promoted Windows Cruncher PCB physical base is serialized by kicad-monkey-native with no legacy retry"
+secondary = [
+    "The native nanometre viewport is normalized to Cruncher's millimetre canvas without changing the full-board origin",
+    "Layer, net, component, pad, via, and hole enrichment remains available to Cruncher theming and composition",
+    "Ordinary and custom pad mask views preserve enriched-renderer geometry with custom buffered points quantized within half a nanometre",
+    "Via drills are terminal enriched overlays and pad holes retain plating and shape identity",
+    "Repeated layer sets reuse one validated native artifact and the sequential per-board cache bounds roots, process launches, and retained native SVG bytes",
+    "Missing or malformed native results fail with zero calls to KiCadPcb.to_svg or render_ir_to_svg",
+    "PCB SVG and design-review trees stage every file before publication so later native failure leaves no partial artifacts",
+    "Cargo work is serialized at four jobs and two test threads",
+]
+
+[[subtests]]
 id = "L3_022"
 file = "test_L3_022_rust_phase5_exit.py"
 name = "Rust Phase 5 Plotter-IR Exit"

@@ -31,21 +31,31 @@ jobs:
   phase5-exit:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
+      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
     uses: ./.github/workflows/phase5-exit.yml
 
   phase6-native-svg:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
+      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
     needs: phase5-exit
     uses: ./.github/workflows/phase6-native-svg.yml
+
+  phase6-native-physical-provider:
+    if: >-
+      startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
+      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
+    needs: phase6-native-svg
+    uses: ./.github/workflows/phase6-native-physical-provider.yml
 
   build-monkey-windows-wheel:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: [phase5-exit, phase6-native-svg]
+    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +84,7 @@ jobs:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
-    needs: [phase5-exit, phase6-native-svg, build-monkey-windows-wheel]
+    needs: [phase5-exit, phase6-native-svg, phase6-native-physical-provider, build-monkey-windows-wheel]
     runs-on: ubuntu-latest
     environment: pypi-kicad-monkey
     steps:
@@ -147,15 +157,34 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
+  verify-public-monkey-physical-provider:
+    if: >-
+      github.event_name == 'release' &&
+      startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
+    needs: phase6-native-physical-provider
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install and verify the public provider-capable Monkey wheel
+        shell: pwsh
+        run: |
+          uv venv .public-monkey-venv
+          uv pip install --python .public-monkey-venv --no-cache "kicad-monkey>=2026.8.17"
+          .public-monkey-venv\Scripts\python.exe -I -c "from kicad_monkey import kicad_native_handshake_a1; h=kicad_native_handshake_a1(); assert h['operations'] == ['design-facts','render-svg']"
+
   publish-cruncher:
     if: >-
       github.event_name == 'release' &&
       startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
+    needs: [phase6-native-physical-provider, verify-public-monkey-physical-provider]
     runs-on: ubuntu-latest
     environment: pypi-kicad-cruncher
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: Verify tag matches package version
         shell: bash
         run: |
@@ -171,7 +200,11 @@ jobs:
           grep -F "\`${VERSION}\`" "packages/kicad_cruncher/docs/releases/${RELEASE_DATE}.md"
       - name: Run Cruncher Rack gates against workspace Monkey
         working-directory: packages/kicad_cruncher
-        run: uv run --package kicad-cruncher --extra test rack run --all
+        env:
+          KICAD_MONKEY_NATIVE: ${{ github.workspace }}/target/debug/kicad-monkey-native
+        run: |
+          cargo build --locked --jobs 4 --package kicad-monkey-native
+          uv run --package kicad-cruncher --extra test rack run --all
       - name: Build Cruncher package
         working-directory: packages/kicad_cruncher
         run: uv run --package kicad-cruncher --extra test python -m build
@@ -240,12 +273,14 @@ jobs:
 
   publish-coordinated-cruncher:
     if: github.event_name == 'workflow_dispatch'
-    needs: verify-coordinated-monkey
+    needs: [verify-coordinated-monkey, phase6-native-physical-provider]
     runs-on: ubuntu-latest
     environment: pypi-kicad-cruncher
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: Verify coordinated tags and package versions
         shell: bash
         env:
@@ -262,7 +297,11 @@ jobs:
           test "$(git rev-parse "kicad-cruncher-v${CRUNCHER_VERSION}^{commit}")" = "${GITHUB_SHA}"
       - name: Run Cruncher Rack gates against workspace Monkey
         working-directory: packages/kicad_cruncher
-        run: uv run --package kicad-cruncher --extra test rack run --all
+        env:
+          KICAD_MONKEY_NATIVE: ${{ github.workspace }}/target/debug/kicad-monkey-native
+        run: |
+          cargo build --locked --jobs 4 --package kicad-monkey-native
+          uv run --package kicad-cruncher --extra test rack run --all
       - name: Build and check Cruncher package
         working-directory: packages/kicad_cruncher
         run: |

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust native PCB physical provider — Phase 6</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <h1>Rust native PCB physical provider — Phase 6</h1>
+  <p><strong>Status:</strong> accepted P6_020 bounded slice.</p>
+  <p>This slice switches the Windows Cruncher PCB physical-base serializer to
+  the packaged <code>kicad-monkey-native render-svg</code> operation. Python
+  still owns PCB loading, Plotter-IR production, layer selection,
+  viewport calculation, record enrichment, drill-overlay ordering, theming,
+  virtual layers, HLR, and command artifact orchestration.</p>
+
+  <h2>Provider boundary</h2>
+  <p><code>NativePhysicalProvider</code> is selected once on Windows. Missing,
+  incompatible, timed-out, resource-rejected, or malformed native output is a
+  terminal error; it is never caught and retried through
+  <code>render_ir_to_svg</code> or <code>KiCadPcb.to_svg</code>. Linux and macOS
+  retain an explicit legacy provider until a later platform promotion.</p>
+  <p>The adapter supplies a deterministic nonempty document identity and the
+  independently rounded legacy PCB viewport. It converts the native nm SVG to
+  Cruncher's mm composition coordinates, restores typed record enrichment,
+  applies the established layer-specific pad-mask view, and moves via/pad
+  drill geometry into terminal overlay groups. Buffered custom-pad mask points
+  are projected to the nearest integer nanometre (at most 0.5 nm displacement)
+  because the frozen board contract carries integer points. P6_010's governed
+  negative-width rejection remains a no-fallback error.</p>
+
+  <h2>Resources and publication</h2>
+  <p>Each native call retains P6_010 request, document, render, node, SVG, and
+  result ceilings. One sequential board cache independently bounds distinct
+  native roots to 32 (at most 64 sidecar launches: handshake plus render) and
+  bounds aggregate retained SVG bytes. These ceilings begin at the strict
+  provider request boundary; source loading, Python Plotter-IR construction,
+  and command-wide multi-board aggregates remain deferred. PCB SVG and
+  design-review commands render a
+  complete sibling staging tree and publish only after every artifact
+  succeeds; a later failure preserves the prior destination.</p>
+
+  <h2>Evidence</h2>
+  <p>Rack <code>L3_024</code> builds the real native executable and runs the
+  Cruncher <code>L3_008</code> cross-package suite. It proves native execution,
+  enrichment, layer-specific mask geometry, drill ordering, coordinate
+  compatibility, cache reuse, zero legacy calls, provider/cache ceilings, and
+  transactional multi-artifact failure.
+  The Windows package gate builds Monkey from its public sdist, installs its
+  platform wheel beside the universal Cruncher wheel, and executes public
+  <code>kcr pcb-svg</code> with the source workspace unavailable.</p>
+
+  <h2>Closure</h2>
+  <p>P6_020 closed on 2026-08-17 after Rack <code>L3_024</code> passed
+  in 2.60 seconds (3.49 seconds with Rack orchestration), its focused
+  Cruncher suite passed 15 tests, the package signoff passed 9 tests, and a
+  clean Monkey-sdist-to-Windows-wheel plus universal Cruncher-wheel test ran
+  the installed public provider successfully. The four large workflow cases
+  that exposed filtering and unlayered-pad gaps also passed after correction.
+  Three independent reviews approved the bounded slice.</p>
+
+  <h2>Deferred</h2>
+  <p>This is not native PCB parsing, native Plotter-IR production, schematic
+  review rendering, Cruncher virtual/HLR geometry, or a full native CLI. Those
+  remain P6_030–P6_050 work.</p>
+</main>
+</body>
+</html>

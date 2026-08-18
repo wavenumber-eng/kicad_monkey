@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add an accepted Windows no-fallback native PCB physical-base SVG provider
+  with preserved Cruncher enrichment, drill ordering, cache ceilings, and
+  transactional command publication. Non-Windows and higher-level
+  composition remain on their explicit Python path.
+
 ## 2026.8.11.1
 
 - Route Altium footprint conversion through import-specific cleanup so
