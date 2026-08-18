@@ -35,9 +35,8 @@ repository also contains the separately published `kicad-cruncher` workflow
 CLI under `packages/kicad_cruncher/`. The CLI depends on Monkey; Monkey never
 depends on the CLI.
 
-The Rust port has closed its Plotter-IR boundary. Its bounded Windows native
-providers now have review-ready exit evidence through CLI compatibility and
-the Windows x64 release gate. See
+The Rust port has closed its Plotter-IR boundary and its bounded Windows x64
+native Cruncher delivery milestone. See
 the [native Cruncher delivery audit](docs/design/rust-phase6-native-cruncher-audit.html).
 The accepted [native base SVG slice](docs/design/rust-native-svg-phase6-slice.html)
 is followed by the accepted
@@ -50,10 +49,11 @@ Python Design JSON, netlist JSON, presentation, and orchestration. The
 [accepted native-backed CLI compatibility slice](docs/design/rust-native-full-cli-phase6-slice.html)
 governs the installed entry points, primary design aliases, artifact tree,
 logs, exits, and no-fallback failures without claiming a separate all-Rust
-Cruncher executable. The review-ready
+Cruncher executable. The accepted
 [Windows x64 release exit](docs/design/rust-phase6-exit.html) binds one tested
 candidate set to CI and release publication. Linux and macOS retain the
-established Python provider path.
+established Python provider path, and Python continues to own Cruncher
+orchestration and presentation.
 
 ## Install
 

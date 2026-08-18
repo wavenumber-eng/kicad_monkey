@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head>
   <meta charset="utf-8">
   <title>Rust Phase 6 native Cruncher delivery audit</title>
@@ -8,20 +8,20 @@
 <body>
   <h1>Rust Phase 6 native Cruncher delivery audit</h1>
 
-  <p>Status: proposal. Phase 5 Plotter-IR is accepted and frozen. Phase 6 is
-  now in progress as a governed sequence. The P6_000 Monkey-owned
-  <code>kicad-monkey-native</code> operation process, generated transport,
+  <p>Status: accepted. Phase 5 Plotter-IR is accepted and frozen, and the
+  bounded Phase 6 Windows x64 native Cruncher sequence is closed. The P6_000
+  Monkey-owned <code>kicad-monkey-native</code> operation process, generated transport,
   bounded Python client, and Windows platform-wheel lane are accepted.
   They are transport and packaging foundations, not a promoted Cruncher hard
-  switch. In particular, the repository does not yet contain a native
+  switch. In particular, the repository does not contain a native
   <code>kicad-cruncher</code> executable or a full Cruncher-native SVG/CLI
-  replacement; the accepted Windows PCB physical-base provider is the
-  deliberately bounded exception.</p>
+  replacement. The accepted Windows physical-base, compiled-graph, and
+  version-E netlist providers are deliberately bounded exceptions.</p>
 
   <h2>Authority and ownership</h2>
   <p><a href="../adrs/ADR-011-native-first-rust-port-delivery.md">ADR-011</a>
-  selects native Windows <code>kicad-cruncher</code> as the next delivery
-  boundary. The package boundary remains unchanged:
+  defines the native Windows <code>kicad-cruncher</code> delivery boundary. The
+  package boundary remains unchanged:
   <code>kicad_monkey</code> owns low-level source models, strict contracts,
   native operations, and basic rendering; the separately distributed
   <code>kicad-cruncher</code> package owns its CLI and artifact orchestration.
@@ -189,9 +189,8 @@
   <a href="rust-native-full-cli-phase6-slice.html">native-backed CLI
   compatibility slice</a>. Rack L3_026 passed its isolated sdist-built
   Windows two-wheel gate in 239.86 seconds, composing 116 focused tests;
-  three independent reviews approved the boundary. P6_050 exit remains
-  staged.</p>
-  <p>P6_050 is now review-ready. Its Windows x64 exit workflow constructs one
+  three independent reviews approved the boundary.</p>
+  <p>P6_050 closed on 2026-08-18. Its Windows x64 exit workflow constructs one
   hash-bound public-distribution candidate set, requires the content-addressed
   reviewed corpus ZIP, freezes the accepted native and CLI contracts, and
   makes release jobs consume the tested Windows Monkey wheel and Cruncher
@@ -199,11 +198,11 @@
   inherited from the mandatory L3_023 and L3_025 prerequisite gates; the
   candidate gate binds the ZIP digest and runs installed artifact smokes rather
   than rerendering that corpus. The exact boundary is described in the
-  <a href="rust-phase6-exit.html">Phase 6 Windows release exit</a>. No final
-  clean-commit Rack result or independent approval is recorded yet, so Phase 6
-  remains in progress. A first full dirty-tree run passed 1/1 in 68.14 seconds
-  (69.13 seconds with Rack); it is retained only as functional evidence and
-  must not be described as commit-bound release acceptance.</p>
+  <a href="rust-phase6-exit.html">Phase 6 Windows release exit</a>. The terminal
+  candidate was rebuilt from clean commit <code>c3097ca</code>; L3_027 passed
+  1/1 in 69.65 seconds (70.66 seconds with Rack), and the complete build plus
+  gate took 199.7 seconds wall clock. Three independent final reviews approved
+  the corrected boundary.</p>
 
   <p>The final hygiene catch-up records 131 exact findings versus the prior 29
   after the reviewed Phase 5 and P6_000 through P6_040 Rust expansion. It does
@@ -246,8 +245,8 @@
   decisions under ADR-011; public Cargo publication is not implied.</p>
 
   <h2>Compatibility and exclusions</h2>
-  <p>The public Python APIs remain compatible while transport slices are being
-  staged. The hard switch happens only for a specifically promoted operation;
+  <p>The public Python APIs remain compatible through the staged transport
+  delivery. The hard switch happens only for a specifically promoted operation;
   it is not inferred from the presence of a binary. PyO3 is optional and is
   not a prerequisite. New WASM exports, browser packaging, downstream
   <code>pcb_a0</code>, Viz, ALX, and application-specific report formats are
@@ -255,12 +254,13 @@
   Cruncher package even when their physical facts and SVG are native.</p>
 
   <h2>Exit decision</h2>
-  <p>Phase 6 can become accepted only when all six planned scope rows have
-  executable vectors, implementation evidence, semantic/resource suites, and
-  Rack owners; the selected Windows public install completes
-  <code>design</code>/<code>design-review</code>/<code>dr</code> without a
-  Python physical fallback; and CI and release use the same tested artifact.
-  Until then, the repository remains in Phase 6 implementation and the
-  established Python Cruncher path remains authoritative.</p>
+  <p>All six Phase 6 scope rows now have executable vectors, implementation
+  evidence, semantic/resource suites, and Rack owners. The selected Windows
+  public install completes <code>design</code>/<code>design-review</code>/<code>dr</code>
+  without a Python physical fallback, and CI and release use the same tested
+  candidate set. Phase 6 is therefore accepted for Windows x64. Linux and
+  macOS retain their established Python providers, and Python continues to own
+  Cruncher CLI parsing, orchestration, presentation, enrichment, and
+  transactional publication.</p>
 </body>
 </html>

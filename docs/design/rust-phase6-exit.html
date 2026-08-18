@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-doc-status="proposal">
+<html lang="en" data-doc-status="accepted">
 <head>
   <meta charset="utf-8">
   <title>Rust Phase 6 Windows release exit</title>
@@ -8,16 +8,14 @@
 <body>
   <h1>Rust Phase 6 Windows release exit</h1>
 
-  <p><strong>Status:</strong> P6_050 is review-ready, not accepted. The final
-  Rack result, independent reviews, and public release publication are still
-  required before the Phase 6 milestone can close.</p>
+  <p><strong>Status:</strong> accepted. P6_050 and the bounded Phase 6 Windows
+  x64 native Cruncher milestone closed on 2026-08-18.</p>
 
-  <p>The first complete local candidate run passed its single test in 68.14
-  seconds (69.13 seconds including Rack orchestration). It was intentionally
-  run before the review-ready changes were committed, so it is functional
-  dirty-tree evidence rather than commit-bound release acceptance. The final
-  acceptance run must rebuild from the clean reviewed commit; the workflow now
-  rejects tracked staged or unstaged changes before constructing artifacts.</p>
+  <p>The terminal candidate was rebuilt from clean commit
+  <code>c3097ca</code>. Rack L3_027 passed 1/1 in 69.65 seconds (70.66 seconds
+  including Rack orchestration), and the complete candidate build plus gate
+  took 199.7 seconds wall clock. Three independent final reviews approved the
+  corrected contract, release, and governance boundary.</p>
 
   <h2>Boundary</h2>
   <p>The selected release target is Windows x64. The installed universal
@@ -77,13 +75,13 @@
   an explicit debt inventory, not a relaxation of limits or evidence that the
   listed functions were simplified during P6_050.</p>
 
-  <h2>Acceptance</h2>
-  <p>Review-ready does not mean closed. Promotion requires a clean-commit green
-  L3_027 run, recorded wall-clock and Rack runtime within the 120-minute
-  workflow cap, independent contract/release/governance review, and
-  confirmation that the selected CI and release dependency graphs require the
-  Phase 6 exit job. Only then may P6_050 move to closed, the audit become
-  accepted, and the top parity milestone become
-  <code>rust_phase6_native_cruncher_closed</code>.</p>
+  <h2>Closure</h2>
+  <p>The clean-commit L3_027 result, recorded runtime, three independent final
+  approvals, and mandatory CI/release dependency graph close P6_050. The top
+  parity milestone is <code>rust_phase6_native_cruncher_closed</code>. This
+  acceptance remains the bounded Windows x64 provider hard switch described
+  above: it does not promote Linux or macOS, remove the retained Python
+  orchestration/presentation boundary, or claim a separate all-Rust Cruncher
+  executable.</p>
 </body>
 </html>

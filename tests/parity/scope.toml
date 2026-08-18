@@ -1,6 +1,6 @@
 schema = "kicad_monkey.parity_scope.a0"
-milestone = "rust_phase6_native_cruncher_in_progress"
-review_state = "in_progress"
+milestone = "rust_phase6_native_cruncher_closed"
+review_state = "accepted"
 
 [[surfaces]]
 id = "sexpr.lex_parse"
@@ -710,7 +710,7 @@ semantic_resource_evidence = ["tests/L0_foundation/test_L0_062_native_process_cl
 id = "cruncher.phase6_exit"
 disposition = "required_bounded_slice"
 wasm = "deferred_native_first"
-status = "review_ready"
+status = "closed"
 python_symbols = ["kicad-cruncher", "kcr", "python -m kicad_cruncher"]
 rust_symbols = ["kicad-monkey-native"]
 rack_cases = ["L3_027"]

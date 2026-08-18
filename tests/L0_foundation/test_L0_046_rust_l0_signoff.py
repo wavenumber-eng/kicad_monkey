@@ -344,10 +344,27 @@ def test_l0_parity_registry_governs_required_implementation_gaps() -> None:
                 f"missing {surface['id']} evidence: {evidence}"
             )
     if payload["review_state"] == "accepted":
+        assert payload["milestone"] == "rust_phase6_native_cruncher_closed"
         assert all(
             surface["status"] == "closed"
             for surface in surfaces
             if surface["disposition"] == "required_bounded_slice"
+        )
+        phase6_surfaces = {
+            surface["id"]: surface
+            for surface in surfaces
+            if surface["id"].startswith("cruncher.")
+        }
+        assert set(phase6_surfaces) == {
+            "cruncher.native_operation_transport_package",
+            "cruncher.native_svg",
+            "cruncher.no_fallback_physical_provider",
+            "cruncher.native_design_facts",
+            "cruncher.native_full_cli",
+            "cruncher.phase6_exit",
+        }
+        assert all(
+            surface["status"] == "closed" for surface in phase6_surfaces.values()
         )
 
 
