@@ -2,8 +2,12 @@ use std::path::PathBuf;
 
 use kicad_cruncher_cli::design::{
     SchematicPlotDocumentsLimits, SchematicSvgDocumentsLimits, build_schematic_base_svgs,
-    build_schematic_base_svgs_with_limits, build_schematic_plot_documents,
+    build_schematic_base_svgs_for_plot_documents, build_schematic_base_svgs_with_limits,
+    build_schematic_plot_document_artifacts, build_schematic_plot_documents,
     build_schematic_plot_documents_with_limits, build_structured_design_facts, load_design_sources,
+};
+use kicad_cruncher_cli::schematic_review_svg::{
+    SchematicReviewSvgLimits, build_schematic_review_svgs, build_schematic_review_svgs_with_limits,
 };
 use kicad_monkey_core::{KiCadNetlist, validate_compiled_schematic_graph};
 use serde_json::Value;
@@ -186,4 +190,219 @@ fn schematic_base_svg_batches_enforce_exact_document_and_byte_limits() {
     )
     .unwrap_err();
     assert!(per_document_error.to_string().contains("base SVG"));
+}
+
+#[test]
+fn schematic_review_svg_binds_graph_enrichment_and_black_white_theme() {
+    let loaded = load_design_sources(&hlr_test_project()).unwrap();
+    let facts = build_structured_design_facts(&loaded).unwrap();
+    let documents =
+        build_schematic_plot_document_artifacts(&loaded, &facts.schematic_instances).unwrap();
+    let base = build_schematic_base_svgs_for_plot_documents(&documents).unwrap();
+    let review = build_schematic_review_svgs(
+        &documents,
+        &base,
+        &facts.compiled_schematic_graph,
+        &facts.design_json,
+        "../compiled_schematic_graph.json",
+    )
+    .unwrap();
+    assert_eq!(review.len(), facts.schematic_instances.len());
+    for (artifact, instance) in review.iter().zip(&facts.schematic_instances) {
+        assert_review_svg(artifact, instance, &facts.compiled_schematic_graph);
+    }
+}
+
+fn assert_review_svg(
+    artifact: &kicad_cruncher_cli::schematic_review_svg::SchematicReviewSvg,
+    instance: &kicad_monkey_core::KiCadSchematicInstance,
+    graph: &kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0,
+) {
+    assert_eq!(artifact.page_occurrence_ref, instance.page_occurrence_ref);
+    assert_eq!(artifact.artifact_key, "sch.dwg_scene");
+    for marker in [
+        "data-review-theme=\"kicad_cruncher.design_review.schematic_svg.a0\"",
+        "id=\"schematic-enrichment-a0\"",
+        "data-primitive=\"symbol\"",
+        "compiled_schematic_graph_view",
+        "../compiled_schematic_graph.json",
+    ] {
+        assert!(artifact.svg.contains(marker));
+    }
+    assert!(
+        svg_colors(&artifact.svg)
+            .iter()
+            .all(|color| matches!(color.as_str(), "#000000" | "#FFFFFF"))
+    );
+    assert!(artifact.svg.contains("#000000"));
+    assert_eq!(
+        artifact.graph_link_count,
+        graph
+            .graphical_artifact_links
+            .iter()
+            .filter(|link| link.page_occurrence_ref == instance.page_occurrence_ref)
+            .count()
+    );
+    assert_eq!(artifact.document_id, instance.document_id);
+}
+
+#[test]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one table-driven test covers every public enrichment ceiling and stale binding"
+)]
+fn schematic_review_svg_enforces_exact_and_one_under_output_limits() {
+    let loaded = load_design_sources(&hlr_test_project()).unwrap();
+    let facts = build_structured_design_facts(&loaded).unwrap();
+    let documents =
+        build_schematic_plot_document_artifacts(&loaded, &facts.schematic_instances[..1]).unwrap();
+    let mut base = build_schematic_base_svgs_for_plot_documents(&documents).unwrap();
+    let baseline = build_schematic_review_svgs(
+        &documents,
+        &base,
+        &facts.compiled_schematic_graph,
+        &facts.design_json,
+        "../compiled_schematic_graph.json",
+    )
+    .unwrap();
+    let bytes = baseline[0].svg.len();
+    let exact = SchematicReviewSvgLimits {
+        max_documents: 1,
+        max_total_output_bytes: bytes,
+        max_output_bytes_per_document: bytes,
+        ..SchematicReviewSvgLimits::default()
+    };
+    build_schematic_review_svgs_with_limits(
+        &documents,
+        &base,
+        &facts.compiled_schematic_graph,
+        &facts.design_json,
+        "../compiled_schematic_graph.json",
+        exact,
+    )
+    .expect("exact review SVG limit");
+    for limits in [
+        SchematicReviewSvgLimits {
+            max_documents: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_total_output_bytes: bytes - 1,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_output_bytes_per_document: bytes - 1,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_graph_links_per_document: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_graph_index_items: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_graph_index_materialized_bytes: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_graph_artifact_bytes: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_graph_view_materialized_bytes: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_graph_view_serialized_bytes: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_record_attributes_per_document: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_record_attribute_bytes_per_document: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_svg_selector_ids_per_document: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_svg_selector_bytes_per_document: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_view_index_items_per_document: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_view_index_materialized_bytes_per_document: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_view_index_serialized_bytes_per_document: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_view_authority_items: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_view_authority_materialized_bytes: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_total_view_index_work: 0,
+            ..exact
+        },
+    ] {
+        assert!(
+            build_schematic_review_svgs_with_limits(
+                &documents,
+                &base,
+                &facts.compiled_schematic_graph,
+                &facts.design_json,
+                "../compiled_schematic_graph.json",
+                limits,
+            )
+            .is_err()
+        );
+    }
+
+    let original_hash = std::mem::replace(&mut base[0].plot_document_sha256, "stale".to_owned());
+    assert!(
+        build_schematic_review_svgs(
+            &documents,
+            &base,
+            &facts.compiled_schematic_graph,
+            &facts.design_json,
+            "../compiled_schematic_graph.json",
+        )
+        .is_err()
+    );
+    base[0].plot_document_sha256 = original_hash;
+
+    let mut stale_design = facts.design_json.clone();
+    stale_design["compiled_schematic_graph"]["schema"] = Value::String("stale".to_owned());
+    assert!(
+        build_schematic_review_svgs(
+            &documents,
+            &base,
+            &facts.compiled_schematic_graph,
+            &stale_design,
+            "../compiled_schematic_graph.json",
+        )
+        .is_err()
+    );
+}
+
+fn svg_colors(svg: &str) -> Vec<String> {
+    svg.match_indices('#')
+        .filter_map(|(index, _)| svg.get(index..index + 7))
+        .filter(|value| value[1..].bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .map(str::to_owned)
+        .collect()
 }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -45,6 +46,11 @@ _RUST_SCHEMATIC_BASE_SVGS_ORACLE = _WORKSPACE / "target" / "debug" / "examples" 
     "schematic_base_svgs_oracle.exe"
     if os.name == "nt"
     else "schematic_base_svgs_oracle"
+)
+_RUST_SCHEMATIC_REVIEW_SVGS_ORACLE = _WORKSPACE / "target" / "debug" / "examples" / (
+    "schematic_review_svgs_oracle.exe"
+    if os.name == "nt"
+    else "schematic_review_svgs_oracle"
 )
 _PROJECT = (
     _PACKAGE_ROOT
@@ -175,6 +181,7 @@ def _build_rust_cli() -> None:
     assert _RUST_SCHEMATIC_INSTANCES_ORACLE.is_file()
     assert _RUST_SCHEMATIC_PLOT_DOCUMENTS_ORACLE.is_file()
     assert _RUST_SCHEMATIC_BASE_SVGS_ORACLE.is_file()
+    assert _RUST_SCHEMATIC_REVIEW_SVGS_ORACLE.is_file()
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -438,3 +445,109 @@ def test_rust_schematic_base_svg_preserves_python_plot_identity(source: Path) ->
             record["kind"],
             record["object_id"],
         )
+
+
+@pytest.mark.parametrize(
+    ("source", "first_only"),
+    ((_PROJECT, True), (_REPRESENTATIVE_PROJECTS[0], False)),
+)
+def test_rust_schematic_review_svg_matches_python_enrichment_contract(
+    source: Path,
+    first_only: bool,
+) -> None:
+    from kicad_monkey.kicad_schematic_svg_enrichment import (
+        schematic_record_svg_data_attrs,
+        schematic_root_svg_attrs,
+        schematic_svg_enrichment_payload,
+    )
+
+    source = source.resolve()
+    command = [str(_RUST_SCHEMATIC_REVIEW_SVGS_ORACLE), str(source)]
+    if first_only:
+        command.append("--first")
+    completed = _run(command)
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    actual_artifacts = json.loads(completed.stdout)
+    design = KiCadDesign.from_file(source)
+    design_payload = design.to_json()
+    graph = design_payload["compiled_schematic_graph"]
+    instances = design.schematic_instances()
+    if first_only:
+        instances = instances[:1]
+    assert len(actual_artifacts) == len(instances)
+    for actual, instance in zip(actual_artifacts, instances, strict=True):
+        ir = design.to_schematic_instance_ir(instance)
+        expected_payload = schematic_svg_enrichment_payload(
+            design_payload,
+            source_path=instance.source_path or "",
+            sheet_name=instance.sheet_name,
+            sheet_path=instance.sheet_path,
+            sheet_instance_path=instance.sheet_instance_path,
+            profile="enriched",
+            compiled_schematic_graph=graph,
+            schematic_instance=instance,
+            compiled_graph_artifact="../compiled_schematic_graph.json",
+        )
+        _assert_schematic_review_svg(
+            actual,
+            instance,
+            ir,
+            expected_payload,
+            schematic_record_svg_data_attrs,
+            schematic_root_svg_attrs,
+        )
+
+
+def _assert_schematic_review_svg(
+    actual: dict[str, object],
+    instance: object,
+    ir: object,
+    expected_payload: dict[str, object],
+    record_attrs: object,
+    root_attrs: object,
+) -> None:
+
+    root = ET.fromstring(actual["svg"])
+    metadata = next(
+        element
+        for element in root.iter()
+        if element.tag.endswith("metadata")
+        and element.attrib.get("id") == "schematic-enrichment-a0"
+    )
+    assert json.loads(metadata.text or "") == expected_payload
+    graph_view = expected_payload["compiled_schematic_graph_view"]
+    expected_root_attrs = root_attrs(
+        source_path=instance.source_path or "",
+        sheet_name=instance.sheet_name,
+        sheet_path=instance.sheet_path,
+        profile="enriched",
+        compiled_graph_view=graph_view,
+    )
+    expected_root_attrs["data-review-theme"] = (
+        "kicad_cruncher.design_review.schematic_svg.a0"
+    )
+    for name, value in expected_root_attrs.items():
+        assert root.attrib[name] == str(value)
+
+    by_id = {
+        element.attrib["id"]: element
+        for element in root.iter()
+        if element.attrib.get("id")
+    }
+    for record in ir.records:
+        expected_attrs = record_attrs(record, record.operations)
+        for name, value in expected_attrs.items():
+            assert by_id[record.uuid].attrib[name] == str(value)
+    colors = {
+        value.upper()
+        for element in root.iter()
+        for name, value in element.attrib.items()
+        if name in {"fill", "stroke"} and re.fullmatch(r"#[0-9A-Fa-f]{6}", value)
+    }
+    assert colors <= {"#000000", "#FFFFFF"}
+    assert actual["page_occurrence_ref"] == graph_view["page_occurrence_ref"]
+    assert actual["graph_link_count"] == len(graph_view["graphical_artifact_link_refs"])
+    assert actual["resolved_svg_identity_count"] == len(
+        graph_view["element_to_graphical_artifact_link_refs"]
+    )

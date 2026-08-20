@@ -136,8 +136,16 @@ impl Default for SchematicSvgDocumentsLimits {
 #[derive(Debug)]
 pub struct SchematicBaseSvg {
     pub document_id: String,
+    pub source_path: String,
+    pub plot_document_sha256: String,
     pub svg: String,
     pub metrics: SvgMetrics,
+}
+
+#[derive(Debug)]
+pub struct SchematicPlotDocument {
+    pub(crate) value: serde_json::Value,
+    pub(crate) instance: KiCadSchematicInstance,
 }
 
 #[derive(Debug)]
@@ -146,13 +154,13 @@ pub struct DesignError {
 }
 
 impl DesignError {
-    fn new(message: impl Into<String>) -> Self {
+    pub(crate) fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
         }
     }
 
-    fn context(context: &str, error: impl fmt::Display) -> Self {
+    pub(crate) fn context(context: &str, error: impl fmt::Display) -> Self {
         Self::new(format!("{context}: {error}"))
     }
 }
@@ -483,6 +491,36 @@ pub fn build_schematic_plot_documents_with_limits(
     instances: &[KiCadSchematicInstance],
     limits: SchematicPlotDocumentsLimits,
 ) -> Result<Vec<serde_json::Value>, DesignError> {
+    build_schematic_plot_document_artifacts_with_limits(loaded, instances, limits).map(
+        |artifacts| {
+            artifacts
+                .into_iter()
+                .map(|artifact| artifact.value)
+                .collect()
+        },
+    )
+}
+
+pub fn build_schematic_plot_document_artifacts(
+    loaded: &LoadedDesignSources,
+    instances: &[KiCadSchematicInstance],
+) -> Result<Vec<SchematicPlotDocument>, DesignError> {
+    build_schematic_plot_document_artifacts_with_limits(
+        loaded,
+        instances,
+        SchematicPlotDocumentsLimits::default(),
+    )
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "one pass keeps sidecar budgets and each occurrence-bound document together"
+)]
+pub fn build_schematic_plot_document_artifacts_with_limits(
+    loaded: &LoadedDesignSources,
+    instances: &[KiCadSchematicInstance],
+    limits: SchematicPlotDocumentsLimits,
+) -> Result<Vec<SchematicPlotDocument>, DesignError> {
     if instances.len() > limits.max_documents {
         return Err(DesignError::new(format!(
             "schematic plot document count exceeds its limit: {} > {}",
@@ -579,7 +617,10 @@ pub fn build_schematic_plot_documents_with_limits(
         serde_json::to_writer(&mut writer, &value).map_err(|error| {
             DesignError::context("schematic plot aggregate output limit exceeded", error)
         })?;
-        documents.push(value);
+        documents.push(SchematicPlotDocument {
+            value,
+            instance: instance.clone(),
+        });
     }
     Ok(documents)
 }
@@ -587,11 +628,51 @@ pub fn build_schematic_plot_documents_with_limits(
 pub fn build_schematic_base_svgs(
     documents: &[serde_json::Value],
 ) -> Result<Vec<SchematicBaseSvg>, DesignError> {
-    build_schematic_base_svgs_with_limits(documents, SchematicSvgDocumentsLimits::default())
+    build_schematic_base_svgs_bound(documents, SchematicSvgDocumentsLimits::default())
+}
+
+pub fn build_schematic_base_svgs_for_plot_documents(
+    documents: &[SchematicPlotDocument],
+) -> Result<Vec<SchematicBaseSvg>, DesignError> {
+    build_schematic_base_svgs_for_plot_documents_with_limits(
+        documents,
+        SchematicSvgDocumentsLimits::default(),
+    )
+}
+
+pub fn build_schematic_base_svgs_for_plot_documents_with_limits(
+    documents: &[SchematicPlotDocument],
+    limits: SchematicSvgDocumentsLimits,
+) -> Result<Vec<SchematicBaseSvg>, DesignError> {
+    if documents.len() > limits.max_documents {
+        return Err(DesignError::new(
+            "schematic SVG document count exceeds its limit",
+        ));
+    }
+    let values = documents
+        .iter()
+        .map(|document| &document.value)
+        .collect::<Vec<_>>();
+    build_schematic_base_svg_values(&values, limits)
 }
 
 pub fn build_schematic_base_svgs_with_limits(
     documents: &[serde_json::Value],
+    limits: SchematicSvgDocumentsLimits,
+) -> Result<Vec<SchematicBaseSvg>, DesignError> {
+    build_schematic_base_svgs_bound(documents, limits)
+}
+
+fn build_schematic_base_svgs_bound(
+    documents: &[serde_json::Value],
+    limits: SchematicSvgDocumentsLimits,
+) -> Result<Vec<SchematicBaseSvg>, DesignError> {
+    let values = documents.iter().collect::<Vec<_>>();
+    build_schematic_base_svg_values(&values, limits)
+}
+
+fn build_schematic_base_svg_values(
+    documents: &[&serde_json::Value],
     limits: SchematicSvgDocumentsLimits,
 ) -> Result<Vec<SchematicBaseSvg>, DesignError> {
     if documents.len() > limits.max_documents {
@@ -604,11 +685,14 @@ pub fn build_schematic_base_svgs_with_limits(
     let mut artifacts = Vec::with_capacity(documents.len());
     let mut total_svg_bytes = 0_usize;
     for document in documents {
+        let source_path = document["source_path"]
+            .as_str()
+            .ok_or_else(|| DesignError::new("schematic plot source path is missing"))?;
         let remaining = limits
             .max_total_svg_bytes
             .checked_sub(total_svg_bytes)
             .ok_or_else(|| DesignError::new("schematic SVG aggregate byte limit exceeded"))?;
-        let request = schematic_svg_request(document.clone(), &limits.per_document, remaining)?;
+        let request = schematic_svg_request((*document).clone(), &limits.per_document, remaining)?;
         let artifact = render_svg(&request)
             .map_err(|error| DesignError::context("could not render schematic base SVG", error))?;
         total_svg_bytes = total_svg_bytes
@@ -616,11 +700,43 @@ pub fn build_schematic_base_svgs_with_limits(
             .ok_or_else(|| DesignError::new("schematic SVG aggregate byte count overflowed"))?;
         artifacts.push(SchematicBaseSvg {
             document_id: artifact.document_id,
+            source_path: source_path.to_owned(),
+            plot_document_sha256: json_sha256(document)?,
             svg: artifact.svg,
             metrics: artifact.metrics,
         });
     }
     Ok(artifacts)
+}
+
+fn json_sha256(value: &serde_json::Value) -> Result<String, DesignError> {
+    let mut hasher = Sha256::new();
+    serde_json::to_writer(&mut DigestWriter(&mut hasher), value)
+        .map_err(|error| DesignError::context("could not fingerprint plot document", error))?;
+    Ok(hex_bytes(&hasher.finalize()))
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(char::from(HEX[usize::from(byte >> 4)]));
+        output.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+    output
+}
+
+struct DigestWriter<'a>(&'a mut Sha256);
+
+impl io::Write for DigestWriter<'_> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.update(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 fn schematic_svg_request(
