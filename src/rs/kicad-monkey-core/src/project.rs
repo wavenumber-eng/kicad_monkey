@@ -92,6 +92,7 @@ pub struct ProjectVariant {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct ProjectNetClass {
     pub name: String,
+    pub description: String,
     pub track_width: Option<f64>,
     pub clearance: Option<f64>,
     pub diff_pair_gap: Option<f64>,
@@ -521,6 +522,7 @@ fn net_classes(
         .map(|value| {
             let result = ProjectNetClass {
                 name: object_string(value, "name"),
+                description: object_string(value, "description"),
                 track_width: optional_number(value, "track_width"),
                 clearance: optional_number(value, "clearance"),
                 diff_pair_gap: optional_number(value, "diff_pair_gap"),
@@ -540,6 +542,7 @@ fn net_classes(
             };
             for item in [
                 &result.name,
+                &result.description,
                 &result.pcb_color,
                 &result.schematic_color,
                 &result.tuning_profile,

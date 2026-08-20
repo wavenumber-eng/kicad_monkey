@@ -124,10 +124,17 @@ pub struct KiCadDesignSheet {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct KiCadNetClass {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct KiCadNetlist {
     pub nets: Vec<KiCadNet>,
     pub components: Vec<KiCadNetlistComponent>,
     pub libparts: Vec<KiCadLibPart>,
     pub libraries: Vec<String>,
+    pub net_classes: Vec<KiCadNetClass>,
     pub sheets: Vec<KiCadDesignSheet>,
 }

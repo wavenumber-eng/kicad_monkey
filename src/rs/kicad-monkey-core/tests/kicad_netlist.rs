@@ -14,6 +14,7 @@ fn empty_version_e_emit_matches_python_exactly_and_fails_closed() {
         components: Vec::new(),
         libparts: Vec::new(),
         libraries: Vec::new(),
+        net_classes: Vec::new(),
         sheets: Vec::new(),
     };
     let expected = "(export\n  (version \"E\"\n  )\n  (design\n    (source \"\"\n    )\n    (date \"\"\n    )\n    (tool \"kicad_monkey\"\n    )\n  )\n  (components\n  )\n  (libparts\n  )\n  (libraries\n  )\n  (nets\n  )\n)\n";
@@ -34,6 +35,8 @@ fn native_materializer_emits_components_libparts_sheets_and_resolved_nets() {
     let netlist =
         build_kicad_netlist(&index, None, KiCadNetlistLimits::default()).expect("native netlist");
     assert_structural_netlist(&netlist);
+    assert!(netlist.net_classes.is_empty());
+    assert!(netlist.nets.iter().all(|net| net.net_class.is_empty()));
     let output = emit_kicad_netlist(&netlist, "root.kicad_sch", "", "kicad_monkey", 1_000_000)
         .expect("version-E output");
     let reparsed = kicad_monkey_core::sexpr::parse(&output).expect("valid S-expression");

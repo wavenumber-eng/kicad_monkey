@@ -6,15 +6,15 @@ fn main() -> ExitCode {
     let invocation = match parse_args(std::env::args_os().skip(1)) {
         Ok(invocation) => invocation,
         Err(error) => {
-            eprintln!("error: {error}\n\n{TOP_LEVEL_HELP}");
+            eprintln!("{TOP_LEVEL_HELP}kicad-cruncher: error: {error}");
             return ExitCode::from(2);
         }
     };
 
     match invocation {
-        Invocation::TopLevelHelp => print!("{TOP_LEVEL_HELP}"),
+        Invocation::TopLevelHelp => print!("{}\n\n{TOP_LEVEL_HELP}", version_text()),
         Invocation::Version => println!("{}", version_text()),
-        Invocation::DesignHelp => print!("{DESIGN_HELP}"),
+        Invocation::DesignHelp => print!("{}\n\n{DESIGN_HELP}", version_text()),
         Invocation::Design(_) => {
             eprintln!(
                 "error: the Rust design workflow is still under migration and is not yet canonical"

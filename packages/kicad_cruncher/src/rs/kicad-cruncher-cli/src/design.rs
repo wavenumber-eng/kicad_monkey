@@ -11,10 +11,10 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
     CanonicalUint64Decimal, SourceBundleManifestA0, SourceBundleSource, SourceKind, SourceSlot,
 };
 use kicad_monkey_core::{
-    KiCadNetlist, KiCadNetlistLimits, ProjectDocument, ProjectLimits, SchematicBundleIndex,
-    SchematicBundleLimits, SchematicDocument, SchematicDocumentLimits, SourceBundle,
-    SourceBundleLimits, build_compiled_schematic_graph, build_kicad_netlist, emit_kicad_netlist,
-    validate_compiled_schematic_graph,
+    KiCadNetlist, KiCadNetlistJsonMetadata, KiCadNetlistLimits, ProjectDocument, ProjectLimits,
+    SchematicBundleIndex, SchematicBundleLimits, SchematicDocument, SchematicDocumentLimits,
+    SourceBundle, SourceBundleLimits, build_compiled_schematic_graph, build_kicad_netlist,
+    build_kicad_netlist_json, emit_kicad_netlist, validate_compiled_schematic_graph,
 };
 
 const GRAPH_TOOL: &str = "kicad_cruncher";
@@ -55,6 +55,7 @@ pub struct LoadedDesignSources {
 pub struct StructuredDesignFacts {
     pub compiled_schematic_graph: CompiledSchematicGraphA0,
     pub netlist: KiCadNetlist,
+    pub netlist_json: serde_json::Value,
     pub kicad_netlist: String,
 }
 
@@ -85,7 +86,7 @@ fn resolve_design_paths(input: &Path) -> Result<DesignPaths, DesignError> {
             }
             (Some(input_path.clone()), schematic)
         }
-        Some("kicad_sch") => (None, input_path.clone()),
+        Some("kicad_sch") => (find_adjacent_project(&input_path)?, input_path.clone()),
         _ => {
             return Err(DesignError::new(
                 "design input must end in .kicad_pro or .kicad_sch",
@@ -108,6 +109,51 @@ fn resolve_design_paths(input: &Path) -> Result<DesignPaths, DesignError> {
         project: project_path,
         root_schematic: root_schematic_path,
     })
+}
+
+fn find_adjacent_project(source: &Path) -> Result<Option<PathBuf>, DesignError> {
+    let exact = source.with_extension("kicad_pro");
+    if exact.is_file() {
+        return Ok(Some(exact));
+    }
+    let parent = source
+        .parent()
+        .ok_or_else(|| DesignError::new("design input has no parent directory"))?;
+    let mut siblings = Vec::new();
+    for entry in parent
+        .read_dir()
+        .map_err(|error| DesignError::context("could not inspect design directory", error))?
+    {
+        let path = entry
+            .map_err(|error| DesignError::context("could not inspect design directory", error))?
+            .path();
+        if path.is_file()
+            && path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("kicad_pro"))
+        {
+            if siblings.len() >= 4_096 {
+                return Err(DesignError::new(
+                    "design directory exceeds adjacent-project candidate limit",
+                ));
+            }
+            siblings.push(path);
+        }
+    }
+    siblings.sort();
+    if siblings.len() == 1 {
+        return Ok(siblings.pop());
+    }
+    let source_stem = source.file_stem().and_then(|stem| stem.to_str());
+    Ok(source_stem.and_then(|stem| {
+        siblings.into_iter().find(|candidate| {
+            candidate
+                .file_stem()
+                .and_then(|candidate_stem| candidate_stem.to_str())
+                .is_some_and(|candidate_stem| candidate_stem.eq_ignore_ascii_case(stem))
+        })
+    }))
 }
 
 pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignError> {
@@ -223,9 +269,18 @@ pub fn build_structured_design_facts(
         KiCadNetlistLimits::default().max_output_bytes,
     )
     .map_err(|error| DesignError::context("could not emit KiCad netlist", error))?;
+    let netlist_json = build_kicad_netlist_json(
+        &netlist,
+        KiCadNetlistJsonMetadata {
+            source: "",
+            date: "",
+            tool: "kicad_monkey",
+        },
+    );
     Ok(StructuredDesignFacts {
         compiled_schematic_graph,
         netlist,
+        netlist_json,
         kicad_netlist,
     })
 }

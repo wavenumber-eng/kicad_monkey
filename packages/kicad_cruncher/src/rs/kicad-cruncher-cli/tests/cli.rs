@@ -11,7 +11,7 @@ fn executable_reports_help_and_version_without_python() {
     assert!(
         String::from_utf8(help.stdout)
             .unwrap()
-            .contains("design, design-review, dr")
+            .contains("design (design-review, dr)")
     );
 
     let version = binary().arg("--version").output().unwrap();
@@ -21,6 +21,19 @@ fn executable_reports_help_and_version_without_python() {
             .unwrap()
             .starts_with("kicad-cruncher ")
     );
+}
+
+#[test]
+fn usage_errors_follow_the_python_cli_stream_and_exit_contract() {
+    let output = binary()
+        .args(["design", "--not-a-real-option"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("usage: kicad-cruncher"));
+    assert!(stderr.contains("kicad-cruncher: error: unrecognized arguments: --not-a-real-option"));
 }
 
 #[test]

@@ -5,8 +5,8 @@ use super::resource::{
 };
 use super::variables::{ExpansionWorkBudget, VariableResolver};
 use super::{
-    KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetlist, KiCadNetlistComponent,
-    KiCadNetlistComponentUnit, KiCadNetlistLimits, KiCadNetlistTerminal,
+    KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetClass, KiCadNetlist,
+    KiCadNetlistComponent, KiCadNetlistComponentUnit, KiCadNetlistLimits, KiCadNetlistTerminal,
 };
 use crate::{
     ProjectNetSettings, ProjectView, SchematicBundleIndex, SchematicEffectiveSymbol,
@@ -48,6 +48,7 @@ pub fn build_kicad_netlist(
         )?,
         libparts: build_libparts(index, limits, &mut budget)?,
         libraries: Vec::new(),
+        net_classes: build_net_classes(project_settings.as_ref(), &mut budget)?,
         sheets: build_sheets(index, limits, &mut budget)?,
     };
     // The model is complete before publication. This also catches accidental
@@ -55,6 +56,42 @@ pub fn build_kicad_netlist(
     validate_counts(&netlist, limits)?;
     netlist.nets.shrink_to_fit();
     Ok(netlist)
+}
+
+fn build_net_classes(
+    settings: Option<&ProjectNetSettings>,
+    budget: &mut StringBudget,
+) -> Result<Vec<KiCadNetClass>, SourceBundleError> {
+    let Some(settings) = settings else {
+        return Ok(Vec::new());
+    };
+    let by_name = settings
+        .classes
+        .iter()
+        .filter(|class| !class.name.is_empty())
+        .map(|class| (class.name.as_str(), class))
+        .collect::<HashMap<_, _>>();
+    let mut classes = Vec::with_capacity(settings.classes.len().saturating_add(1));
+    let mut seen = HashSet::with_capacity(settings.classes.len().saturating_add(1));
+    for declared in &settings.classes {
+        if declared.name.is_empty() || !seen.insert(declared.name.as_str()) {
+            continue;
+        }
+        let class = by_name[declared.name.as_str()];
+        budget.reserve_many([class.name.len(), class.description.len()])?;
+        classes.push(KiCadNetClass {
+            name: class.name.clone(),
+            description: class.description.clone(),
+        });
+    }
+    if seen.insert("Default") {
+        budget.reserve("Default".len())?;
+        classes.push(KiCadNetClass {
+            name: "Default".to_owned(),
+            description: String::new(),
+        });
+    }
+    Ok(classes)
 }
 
 fn project_variable_index(
@@ -112,13 +149,18 @@ fn build_nets(
                 svg_id: terminal.svg_id,
             });
         }
-        let net_class = resolve_class(
-            &net.name,
-            &class_names,
-            &exact_classes,
-            &patterns,
-            &mut wildcard_work,
-        )?;
+        let net_class = settings
+            .map(|_| {
+                resolve_class(
+                    &net.name,
+                    &class_names,
+                    &exact_classes,
+                    &patterns,
+                    &mut wildcard_work,
+                )
+            })
+            .transpose()?
+            .unwrap_or_default();
         let driver_kind = net
             .driver_kind
             .map_or_else(String::new, |kind| kind.as_str().to_owned());

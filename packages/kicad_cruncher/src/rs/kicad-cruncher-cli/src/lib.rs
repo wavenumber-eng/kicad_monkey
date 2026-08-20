@@ -9,31 +9,42 @@ use std::path::PathBuf;
 pub mod design;
 
 pub const TOP_LEVEL_HELP: &str = "\
-KiCad Cruncher native CLI
+usage: kicad-cruncher <command> ...
 
-Usage: kicad-cruncher <COMMAND>
+High-level CLI for KiCad design workflows
 
 Commands:
-  design, design-review, dr  Generate a KiCad design-review bundle
-  version                    Print version information
+  design (design-review, dr)  generate KiCad design review artifacts
+  version                     print version information
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  -h, --help     show this help message and exit
+  -V, --version  print version information and exit
 ";
 
 pub const DESIGN_HELP: &str = "\
-Generate a KiCad design-review bundle
+usage: kicad-cruncher design [-h] [-o OUTPUT] [--no-indexes] [file]
 
-Usage: kicad-cruncher design [OPTIONS] [FILE]
+Generate a KiCad design review bundle from .kicad_pro or .kicad_sch files. The output includes KiCad-native design JSON, enriched black-and-white schematic SVGs, an occurrence-scoped compiled schematic graph, enriched PCB copper-layer SVGs, KiCad-native netlist JSON, a KiCad S-expression netlist, a manifest, and a README for review agents. The design JSON includes project metadata, schematic hierarchy, components, nets, variants, and optional lookup indexes.
 
-Arguments:
-  [FILE]  KiCad project or schematic; auto-detect one .kicad_pro when omitted
+positional arguments:
+  file                  KiCad project or schematic file; optional when one
+                        .kicad_pro is in CWD
 
-Options:
-  -o, --output <DIRECTORY>  Output directory [default: ./output/design]
-      --no-indexes          Exclude optional lookup indexes from Design JSON
-  -h, --help                Print help
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        output directory (default: ./output/design)
+  --no-indexes          exclude lookup indexes from JSON
+
+Examples:
+  kicad-cruncher design project.kicad_pro
+  kicad-cruncher design-review project.kicad_pro
+  kicad-cruncher dr project.kicad_pro
+  kicad-cruncher design schematic.kicad_sch
+  kicad-cruncher design                    # Auto-detect one .kicad_pro in CWD
+  kicad-cruncher design project.kicad_pro --no-indexes
+  kicad-cruncher design project.kicad_pro -o output_dir/
 ";
 
 #[derive(Debug, Eq, PartialEq)]
@@ -83,9 +94,11 @@ pub fn parse_args(args: impl IntoIterator<Item = OsString>) -> Result<Invocation
         Some("-V" | "--version" | "version") => no_trailing_args(args, Invocation::Version),
         Some("design" | "design-review" | "dr") => parse_design_args(args),
         Some(value) if value.starts_with('-') => {
-            Err(CliError::new(format!("unknown top-level option: {value}")))
+            Err(CliError::new(format!("unrecognized arguments: {value}")))
         }
-        Some(value) => Err(CliError::new(format!("unknown command: {value}"))),
+        Some(value) => Err(CliError::new(format!(
+            "argument <command>: invalid choice: '{value}'"
+        ))),
         None => Err(CliError::new("command is not valid Unicode")),
     }
 }
@@ -123,12 +136,16 @@ fn parse_design_args(mut args: impl Iterator<Item = OsString>) -> Result<Invocat
                 }
             }
             Some(value) if value.starts_with('-') => {
-                return Err(CliError::new(format!("unknown design option: {value}")));
+                return Err(CliError::new(format!("unrecognized arguments: {value}")));
             }
             _ => {
-                if input.replace(PathBuf::from(argument)).is_some() {
-                    return Err(CliError::new("design accepts at most one input file"));
+                if input.is_some() {
+                    return Err(CliError::new(format!(
+                        "unrecognized arguments: {}",
+                        argument.to_string_lossy()
+                    )));
                 }
+                input = Some(PathBuf::from(argument));
             }
         }
     }
@@ -206,13 +223,13 @@ mod tests {
             parse_args(os_args(["design", "one.kicad_sch", "two.kicad_sch"]))
                 .unwrap_err()
                 .to_string(),
-            "design accepts at most one input file"
+            "unrecognized arguments: two.kicad_sch"
         );
         assert_eq!(
             parse_args(os_args(["design", "--wat"]))
                 .unwrap_err()
                 .to_string(),
-            "unknown design option: --wat"
+            "unrecognized arguments: --wat"
         );
     }
 }

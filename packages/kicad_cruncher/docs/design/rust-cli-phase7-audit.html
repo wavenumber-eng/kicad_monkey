@@ -25,11 +25,11 @@
   <table>
     <thead><tr><th>Piece</th><th>Current implementation</th><th>Rust migration state</th></tr></thead>
     <tbody>
-      <tr><td>CLI parsing, aliases, input discovery, output defaults</td><td>Cruncher Python</td><td>Not yet present in a Cruncher Rust executable.</td></tr>
-      <tr><td>Project and schematic parsing</td><td>Monkey Python aggregate; bounded Rust source-bundle and parser foundations also exist</td><td>Foundation exists, but direct filesystem discovery and design aggregation must be assembled for the Rust CLI.</td></tr>
-      <tr><td>Compiled schematic graph</td><td>Rust on the promoted Windows path, transported through <code>kicad-monkey-native</code></td><td>Rust-ready reusable core; the new CLI should call it directly.</td></tr>
-      <tr><td>Version-E S-expression netlist</td><td>Rust on the promoted Windows path, transported with design facts</td><td>Rust-ready reusable core; exact-byte oracle coverage already exists.</td></tr>
-      <tr><td>Design JSON and netlist JSON</td><td>Monkey Python presentation from <code>KiCadDesign</code></td><td>Missing as direct Rust public composition and required before the nonvisual bundle slice is complete.</td></tr>
+      <tr><td>CLI parsing, aliases, input discovery, output defaults</td><td>Cruncher Python remains canonical</td><td>The dedicated Rust executable now parses <code>design</code>, <code>design-review</code>, and <code>dr</code>, matches the Python help and usage-error contract, and deliberately rejects successful workflow dispatch until the full bundle exists.</td></tr>
+      <tr><td>Project and schematic parsing</td><td>Monkey Python aggregate remains canonical</td><td>Cruncher Rust now discovers project and recursive schematic sources, including the adjacent-project rule for direct schematic input, and assembles a bounded Monkey source bundle directly.</td></tr>
+      <tr><td>Compiled schematic graph</td><td>Rust on the promoted Windows path, transported through <code>kicad-monkey-native</code></td><td>The Cruncher Rust crate now calls the reusable Monkey graph builder directly without Python or the native transport process.</td></tr>
+      <tr><td>Version-E S-expression netlist</td><td>Rust on the promoted Windows path, transported with design facts</td><td>The Cruncher Rust crate now builds the typed netlist and calls the exact-byte Monkey emitter directly.</td></tr>
+      <tr><td>Design JSON and netlist JSON</td><td>Monkey Python presentation from <code>KiCadDesign</code></td><td>Monkey Rust now presents <code>kicad_monkey.netlist.a0</code>; cross-package tests match Python exactly for project and direct-schematic HLR inputs. Rust Design JSON remains open.</td></tr>
       <tr><td>Base schematic and PCB SVG</td><td>Monkey Plotter-IR/rendering with selected native PCB base rendering</td><td>Rust Plotter-IR and SVG foundations exist.</td></tr>
       <tr><td>Schematic graph linkage, metadata enrichment, review theme</td><td>Monkey Python enrichment called by Cruncher Python</td><td>Must move to reusable Rust Monkey surfaces where format-close, then be composed by Cruncher Rust.</td></tr>
       <tr><td>PCB layer selection, metadata preservation, and review theme</td><td>Cruncher Python around Monkey render output</td><td>Must move to Cruncher Rust while retaining Monkey-owned physical records.</td></tr>

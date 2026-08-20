@@ -82,9 +82,9 @@ pub use font_outline::{
 pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, FootprintView};
 pub use footprint_text::{FootprintGraphicalProperty, FootprintText, FootprintTextBox};
 pub use kicad_netlist::{
-    KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetlist, KiCadNetlistComponent,
-    KiCadNetlistComponentUnit, KiCadNetlistLimits, KiCadNetlistTerminal, build_kicad_netlist,
-    emit_kicad_netlist,
+    KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetClass, KiCadNetlist,
+    KiCadNetlistComponent, KiCadNetlistComponentUnit, KiCadNetlistJsonMetadata, KiCadNetlistLimits,
+    KiCadNetlistTerminal, build_kicad_netlist, build_kicad_netlist_json, emit_kicad_netlist,
 };
 pub use pcb::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbDocument,

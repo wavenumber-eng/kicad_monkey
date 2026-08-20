@@ -27,6 +27,7 @@ const PROJECT: &str = r##"{
     "classes": [
       {
         "name": "Default",
+        "description": "General signals",
         "track_width": 0.25,
         "clearance": 0.2,
         "diff_pair_gap": 0.3,
@@ -118,6 +119,7 @@ fn assert_net_settings(view: ProjectView<'_>) {
     let nets = view.net_settings().expect("net settings");
     assert_eq!(nets.classes.len(), 1);
     assert_eq!(nets.classes[0].name, "Default");
+    assert_eq!(nets.classes[0].description, "General signals");
     assert_eq!(nets.classes[0].track_width, Some(0.25));
     assert_eq!(nets.classes[0].line_style, Some(2));
     assert_eq!(

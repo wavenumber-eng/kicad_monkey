@@ -137,6 +137,24 @@ transactions = "Native failure preserves the complete previously published desig
 public_cli = "design, design-review, and dr produce deterministic native facts through the real process"
 
 [[subtests]]
+id = "L3_011"
+file = "test_L3_011_rust_design_cli_compatibility.py"
+name = "Rust Design CLI Compatibility"
+description = "Keep the pure-Rust design command surface aligned with the canonical Python CLI while implementation slices land"
+concerns = ["cli", "contracts", "cross-package", "release"]
+test_case_type = "reference"
+test_cases = "all three design aliases, command help, invalid-option usage failures, and the public hlr_test project and schematic"
+
+[subtests.code_under_test]
+python_entrypoint = "kicad_cruncher._cli"
+rust_crate = "src/rs/kicad-cruncher-cli"
+
+[subtests.objectives]
+help = "Rust design, design-review, and dr help retain the canonical Python workflow contract"
+usage_errors = "Rust aliases return 2 on invalid options, write usage only to stderr, and create no traceback"
+netlist_json = "Direct Rust structured facts reproduce Python's exact KiCad-native netlist JSON on the HLR project"
+
+[[subtests]]
 id = "L3_004"
 file = "test_L3_004_pcb_clean_workflow.py"
 name = "PCB Clean Workflow"
