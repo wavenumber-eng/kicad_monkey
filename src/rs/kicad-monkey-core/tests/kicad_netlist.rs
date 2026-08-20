@@ -96,6 +96,7 @@ fn assert_structural_netlist(netlist: &KiCadNetlist) {
     assert_eq!(netlist.libparts[0].part, "One");
     assert_eq!(netlist.libparts[0].description, "Synthetic library part");
     assert_eq!(netlist.components[0].value, "first-duplicate-uuid-wins");
+    assert_off_board_child_is_retained(netlist);
     assert_eq!(netlist.sheets[0].title, "Structural demo");
     assert_eq!(netlist.sheets[0].company, "Wavenumber");
     assert_eq!(netlist.sheets[0].revision, "A");
@@ -107,6 +108,18 @@ fn assert_structural_netlist(netlist: &KiCadNetlist) {
             .iter()
             .flat_map(|net| &net.terminals)
             .any(|terminal| terminal.designator == "R1")
+    );
+}
+
+fn assert_off_board_child_is_retained(netlist: &KiCadNetlist) {
+    let child = &netlist.components[1];
+    assert!(!child.on_board);
+    assert_eq!(
+        child
+            .properties
+            .get("exclude_from_board")
+            .map(String::as_str),
+        Some("")
     );
 }
 
@@ -267,6 +280,7 @@ fn structural_index_with_limits(
           (symbol "Demo:One_1_1"
             (pin passive line (at 0 0 0) (name "P") (number "1")))))
       (sheet (uuid child-sheet)
+        (on_board no)
         (property "Sheetname" "Child")
         (property "Sheetfile" "child.kicad_sch")
         (pin "SIG" input (at 20 0 180) (uuid sheet-pin)))

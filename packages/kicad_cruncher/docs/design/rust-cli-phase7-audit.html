@@ -29,7 +29,7 @@
       <tr><td>Project and schematic parsing</td><td>Monkey Python aggregate remains canonical</td><td>Cruncher Rust now discovers project and recursive schematic sources, including the adjacent-project rule for direct schematic input, and assembles a bounded Monkey source bundle directly.</td></tr>
       <tr><td>Compiled schematic graph</td><td>Rust on the promoted Windows path, transported through <code>kicad-monkey-native</code></td><td>The Cruncher Rust crate now calls the reusable Monkey graph builder directly without Python or the native transport process.</td></tr>
       <tr><td>Version-E S-expression netlist</td><td>Rust on the promoted Windows path, transported with design facts</td><td>The Cruncher Rust crate now builds the typed netlist and calls the exact-byte Monkey emitter directly.</td></tr>
-      <tr><td>Design JSON and netlist JSON</td><td>Monkey Python presentation from <code>KiCadDesign</code></td><td>Monkey Rust now presents <code>kicad_monkey.netlist.a0</code>; cross-package tests match Python exactly for project and direct-schematic HLR inputs. Rust Design JSON remains open.</td></tr>
+      <tr><td>Design JSON and netlist JSON</td><td>Monkey Python presentation remains canonical until executable promotion</td><td>Monkey Rust now presents both <code>kicad_monkey.netlist.a0</code> and <code>kicad_monkey.design.a0</code>. Exact cross-package oracles cover project and direct-schematic HLR inputs, indexed and no-index output, hierarchy, graphical linkage, multi-unit UUID selection, PCB placement, off-board components, and large hierarchical net naming.</td></tr>
       <tr><td>Base schematic and PCB SVG</td><td>Monkey Plotter-IR/rendering with selected native PCB base rendering</td><td>Rust Plotter-IR and SVG foundations exist.</td></tr>
       <tr><td>Schematic graph linkage, metadata enrichment, review theme</td><td>Monkey Python enrichment called by Cruncher Python</td><td>Must move to reusable Rust Monkey surfaces where format-close, then be composed by Cruncher Rust.</td></tr>
       <tr><td>PCB layer selection, metadata preservation, and review theme</td><td>Cruncher Python around Monkey render output</td><td>Must move to Cruncher Rust while retaining Monkey-owned physical records.</td></tr>
@@ -37,6 +37,12 @@
       <tr><td>Installed <code>kicad-cruncher</code> entry point</td><td>Python console script in a universal wheel</td><td>Requires a platform executable artifact and installed smoke coverage.</td></tr>
     </tbody>
   </table>
+</section>
+
+<section id="structured-facts-slice">
+  <h2>Structured facts slice</h2>
+  <p>The accepted structured-facts boundary keeps source discovery and CLI orchestration in Cruncher while Monkey owns close-to-format graph, netlist, hierarchy, component, variant, index, and placement presentation. The Design JSON presenter accepts only an immutable facts handle that binds the project view, compiled graph, and typed netlist to the exact schematic-index instance; facts from a stale same-path index are rejected, and callers cannot mix a current graph with a stale netlist. Before aggregate JSON materialization, a dedicated budget accounts for variants and overrides, project variables, component parameter maps, aliases, generated indexes, PCB footprint properties, graph rows and nested values, serialized text, derived items, and retained model bytes. Exact and one-over resource tests exercise both the public builder and a graph-heavy underlying model budget.</p>
+  <p>Cross-language acceptance includes HLR project and schematic entry points, taillight hierarchy and graphical linkage, Yoshi multi-unit and PnP behavior, and the 4-channel backplane's power-only hierarchical net naming. The full review bundle remains incomplete until schematic SVG, PCB SVG, transactional publication, and installed-entry-point slices land.</p>
 </section>
 
 <section id="crate-boundary">

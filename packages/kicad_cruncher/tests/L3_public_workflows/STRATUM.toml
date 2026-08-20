@@ -153,6 +153,7 @@ rust_crate = "src/rs/kicad-cruncher-cli"
 help = "Rust design, design-review, and dr help retain the canonical Python workflow contract"
 usage_errors = "Rust aliases return 2 on invalid options, write usage only to stderr, and create no traceback"
 netlist_json = "Direct Rust structured facts reproduce Python's exact KiCad-native netlist JSON on the HLR project"
+design_json = "Direct Rust facts reproduce exact indexed/no-index HLR Design JSON plus taillight, Yoshi, and large hierarchical 4-channel graph, graphics, multi-unit, and PnP cases"
 
 [[subtests]]
 id = "L3_004"

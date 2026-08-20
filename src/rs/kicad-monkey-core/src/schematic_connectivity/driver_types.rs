@@ -82,6 +82,18 @@ pub struct SchematicGraphicalIds {
     pub sheet_entries: Vec<String>,
 }
 
+impl SchematicGraphicalIds {
+    pub fn iter(&self) -> impl Iterator<Item = &String> {
+        self.wires
+            .iter()
+            .chain(&self.junctions)
+            .chain(&self.labels)
+            .chain(&self.power_ports)
+            .chain(&self.ports)
+            .chain(&self.sheet_entries)
+    }
+}
+
 pub(super) fn label_type(
     scope: SchematicLabelScope,
 ) -> (SchematicDriverPriority, SchematicWireDriverKind) {

@@ -1,7 +1,8 @@
 use crate::schematic_netlist::name_schematic_subgraph;
 use crate::{
-    SchematicBundleIndex, SchematicDriverPriority, SchematicPinDriver, SchematicSubpartSettings,
-    SchematicWireDriverKind, SchematicWireSubgraph, SourceBundleError, SourceBundleErrorKind,
+    SchematicBundleIndex, SchematicDriverPriority, SchematicPinDriver, SchematicPoint,
+    SchematicSubpartSettings, SchematicWireDriverKind, SchematicWireSubgraph, SourceBundleError,
+    SourceBundleErrorKind,
 };
 use std::collections::{HashMap, HashSet};
 mod bus_promotion;
@@ -17,10 +18,70 @@ use driver_storage::merged_driver_shape;
 use occurrence_compile::{DesignCompilationBudget, compile_design_occurrence};
 use sheet_pin_targets::SheetPinTargetIndex;
 pub use types::{
-    SchematicDesignNet, SchematicDesignNetLimits, SchematicDesignNetMember,
-    SchematicDesignNetTerminal, SchematicHierarchyNetBinding, SchematicScalarDesignNetlist,
+    SchematicDesignNet, SchematicDesignNetEndpoint, SchematicDesignNetLimits,
+    SchematicDesignNetMember, SchematicDesignNetTerminal, SchematicHierarchyNetBinding,
+    SchematicScalarDesignNetlist,
 };
 use union_find::UnionFind;
+
+fn append_unique(target: &mut Vec<String>, source: &[String]) {
+    let additions = {
+        let mut seen = target.iter().map(String::as_str).collect::<HashSet<_>>();
+        source
+            .iter()
+            .filter(|value| !value.is_empty() && seen.insert(value.as_str()))
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+    target.extend(additions);
+}
+
+fn nonempty<'a>(preferred: &'a str, fallback: &'a str) -> &'a str {
+    if preferred.is_empty() {
+        fallback
+    } else {
+        preferred
+    }
+}
+
+fn endpoint(
+    role: &str,
+    element_id: &str,
+    object_id: &str,
+    name: &str,
+    source_sheet: &str,
+    point: SchematicPoint,
+) -> SchematicDesignNetEndpoint {
+    let endpoint_id = if object_id.is_empty() {
+        format!("{role}:{name}:{}:{}", point.x_iu, point.y_iu)
+    } else {
+        format!("{role}:{object_id}")
+    };
+    SchematicDesignNetEndpoint {
+        endpoint_id,
+        role: role.to_owned(),
+        element_id: element_id.to_owned(),
+        object_id: object_id.to_owned(),
+        name: name.to_owned(),
+        source_sheet: source_sheet.to_owned(),
+        connection_point: Some(point),
+    }
+}
+
+fn push_endpoint(
+    endpoints: &mut Vec<SchematicDesignNetEndpoint>,
+    seen: &mut HashSet<(String, String, String)>,
+    endpoint: SchematicDesignNetEndpoint,
+) {
+    let key = (
+        endpoint.endpoint_id.clone(),
+        endpoint.role.clone(),
+        endpoint.source_sheet.clone(),
+    );
+    if seen.insert(key) {
+        endpoints.push(endpoint);
+    }
+}
 
 pub fn build_schematic_scalar_design_nets(
     index: &SchematicBundleIndex,
@@ -56,6 +117,7 @@ pub(crate) fn build_schematic_compiled_design(
 pub(crate) struct SchematicCompiledDesign {
     pub(crate) netlist: SchematicScalarDesignNetlist,
     pub(crate) occurrences: Vec<CompiledOccurrence>,
+    pub(crate) unmaterialized_net_names: HashMap<(usize, usize), String>,
 }
 
 pub(crate) struct CompiledOccurrence {
@@ -73,6 +135,11 @@ pub(crate) struct CompiledOccurrence {
 struct OutputShape {
     members: usize,
     terminals: usize,
+}
+
+struct MaterializedDesign {
+    nets: Vec<SchematicDesignNet>,
+    unmaterialized_net_names: HashMap<(usize, usize), String>,
 }
 
 struct DesignBuilder<'a> {
@@ -152,13 +219,14 @@ impl<'a> DesignBuilder<'a> {
         let groups = self.ordered_groups();
         self.preflight_output_shape(&groups)?;
         let suffix_indices = self.sheet_pin_suffix_indices()?;
-        let nets = self.materialize(groups, &suffix_indices, &promotion)?;
+        let materialized = self.materialize(groups, &suffix_indices, &promotion)?;
         Ok(SchematicCompiledDesign {
             netlist: SchematicScalarDesignNetlist {
-                nets,
+                nets: materialized.nets,
                 hierarchy_bindings,
             },
             occurrences: self.compiled,
+            unmaterialized_net_names: materialized.unmaterialized_net_names,
         })
     }
 
@@ -460,15 +528,12 @@ impl<'a> DesignBuilder<'a> {
         groups: Vec<Vec<usize>>,
         suffix_indices: &HashMap<(usize, usize), usize>,
         promotion: &BusPromotion,
-    ) -> Result<Vec<SchematicDesignNet>, SourceBundleError> {
+    ) -> Result<MaterializedDesign, SourceBundleError> {
         let mut nets = Vec::new();
+        let mut unmaterialized_net_names = HashMap::new();
         let mut seen_synthetic_sheet_pin_names = HashMap::<String, usize>::new();
         let mut synthetic_sheet_pin_name_bytes = 0_usize;
         for group in groups {
-            let terminal_refs = self.terminal_refs(&group);
-            if terminal_refs.is_empty() {
-                continue;
-            }
             let (mut merged, choice) = self.merged_subgraph(&group, promotion)?;
             let Some(choice) = choice else {
                 continue;
@@ -491,8 +556,31 @@ impl<'a> DesignBuilder<'a> {
                 &mut seen_synthetic_sheet_pin_names,
                 &mut synthetic_sheet_pin_name_bytes,
             )?;
+            let terminal_refs = self.terminal_refs(&group);
+            if terminal_refs.is_empty() {
+                let cloned_bytes = name
+                    .len()
+                    .checked_mul(group.len())
+                    .ok_or_else(|| self.limit_error("design work string bytes overflow"))?;
+                synthetic_sheet_pin_name_bytes = synthetic_sheet_pin_name_bytes
+                    .checked_add(cloned_bytes)
+                    .ok_or_else(|| self.limit_error("design work string bytes overflow"))?;
+                if synthetic_sheet_pin_name_bytes > self.limits.max_work_string_bytes {
+                    return Err(self.limit_error("design work string bytes exceed their limit"));
+                }
+                for flat_index in group {
+                    let (occurrence, subgraph_index) = self.flat[flat_index];
+                    unmaterialized_net_names.insert(
+                        (self.compiled[occurrence].occurrence_index, subgraph_index),
+                        name.clone(),
+                    );
+                }
+                continue;
+            }
             self.retain_output_bytes(name.len())?;
             let terminals = self.materialize_terminals(terminal_refs)?;
+            let graphical = self.materialize_graphical(&group)?;
+            let endpoints = self.materialize_endpoints(&group)?;
             let members = group
                 .iter()
                 .map(|flat_index| {
@@ -517,9 +605,107 @@ impl<'a> DesignBuilder<'a> {
                 auto_named,
                 members,
                 terminals,
+                graphical,
+                endpoints,
             });
         }
-        Ok(nets)
+        Ok(MaterializedDesign {
+            nets,
+            unmaterialized_net_names,
+        })
+    }
+
+    fn materialize_graphical(
+        &mut self,
+        group: &[usize],
+    ) -> Result<crate::SchematicGraphicalIds, SourceBundleError> {
+        let mut graphical = crate::SchematicGraphicalIds::default();
+        for &flat_index in group {
+            let (occurrence, subgraph_index) = self.flat[flat_index];
+            let source = &self.compiled[occurrence].subgraphs[subgraph_index].graphical;
+            append_unique(&mut graphical.wires, &source.wires);
+            append_unique(&mut graphical.junctions, &source.junctions);
+            append_unique(&mut graphical.labels, &source.labels);
+            append_unique(&mut graphical.power_ports, &source.power_ports);
+            append_unique(&mut graphical.ports, &source.ports);
+            append_unique(&mut graphical.sheet_entries, &source.sheet_entries);
+        }
+        let bytes = graphical
+            .iter()
+            .try_fold(0_usize, |total, value| total.checked_add(value.len()))
+            .ok_or_else(|| self.limit_error("design graphical output bytes overflow"))?;
+        self.retain_output_bytes(bytes)?;
+        Ok(graphical)
+    }
+
+    fn materialize_endpoints(
+        &mut self,
+        group: &[usize],
+    ) -> Result<Vec<SchematicDesignNetEndpoint>, SourceBundleError> {
+        let mut endpoints = Vec::new();
+        let mut seen = HashSet::new();
+        for &flat_index in group {
+            let (occurrence, subgraph_index) = self.flat[flat_index];
+            let compiled = &self.compiled[occurrence];
+            let subgraph = &compiled.subgraphs[subgraph_index];
+            for label in &subgraph.label_drivers {
+                let role = match label.kind {
+                    SchematicWireDriverKind::HierarchicalLabel => "port",
+                    SchematicWireDriverKind::SheetPin => "sheet_entry",
+                    _ => continue,
+                };
+                let element_id = nonempty(&label.render_id, &label.source_uuid);
+                let object_id = nonempty(&label.source_uuid, element_id);
+                push_endpoint(
+                    &mut endpoints,
+                    &mut seen,
+                    endpoint(
+                        role,
+                        element_id,
+                        object_id,
+                        &label.text,
+                        &compiled.legacy_address,
+                        label.at,
+                    ),
+                );
+            }
+            for pin in &subgraph.pin_drivers {
+                if !(pin.is_power && pin.reference.starts_with('#')) {
+                    continue;
+                }
+                let element_id = nonempty(&pin.symbol_uuid, &pin.source_pin_uuid);
+                let object_id = nonempty(&pin.source_pin_uuid, element_id);
+                let name = nonempty(&pin.power_value, nonempty(&pin.pin_name, &pin.reference));
+                push_endpoint(
+                    &mut endpoints,
+                    &mut seen,
+                    endpoint(
+                        "power_port",
+                        element_id,
+                        object_id,
+                        name,
+                        &compiled.legacy_address,
+                        pin.at,
+                    ),
+                );
+            }
+        }
+        let bytes = endpoints
+            .iter()
+            .flat_map(|endpoint| {
+                [
+                    &endpoint.endpoint_id,
+                    &endpoint.role,
+                    &endpoint.element_id,
+                    &endpoint.object_id,
+                    &endpoint.name,
+                    &endpoint.source_sheet,
+                ]
+            })
+            .try_fold(0_usize, |total, value| total.checked_add(value.len()))
+            .ok_or_else(|| self.limit_error("design endpoint output bytes overflow"))?;
+        self.retain_output_bytes(bytes)?;
+        Ok(endpoints)
     }
 
     fn apply_sheet_pin_suffix(

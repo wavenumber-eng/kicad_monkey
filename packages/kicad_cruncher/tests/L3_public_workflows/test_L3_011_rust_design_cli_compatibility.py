@@ -21,6 +21,9 @@ _RUST_NETLIST_ORACLE = _WORKSPACE / "target" / "debug" / "examples" / (
     if os.name == "nt"
     else "design_netlist_json_oracle"
 )
+_RUST_DESIGN_ORACLE = _WORKSPACE / "target" / "debug" / "examples" / (
+    "design_json_oracle.exe" if os.name == "nt" else "design_json_oracle"
+)
 _PROJECT = (
     _PACKAGE_ROOT
     / "tests"
@@ -29,6 +32,34 @@ _PROJECT = (
     / "projects"
     / "hlr_test"
     / "hlr_test.kicad_pro"
+)
+_REPRESENTATIVE_PROJECTS = (
+    _PACKAGE_ROOT
+    / "tests"
+    / "corpus"
+    / "kicad"
+    / "projects"
+    / "taillight"
+    / "input"
+    / "11-10045__taillight__C.kicad_pro",
+    _PACKAGE_ROOT
+    / "tests"
+    / "corpus"
+    / "kicad"
+    / "projects"
+    / "yoshi_mainboard"
+    / "input"
+    / "11-10080__yoshi-mainboard__A.kicad_pro",
+)
+_LARGE_HIERARCHY_PROJECT = (
+    _PACKAGE_ROOT
+    / "tests"
+    / "corpus"
+    / "kicad"
+    / "projects"
+    / "4-ch-backplane"
+    / "input"
+    / "4-ch-backplane.kicad_pro"
 )
 _DESIGN_HELP_MARKERS = (
     "design review bundle",
@@ -53,8 +84,7 @@ def _build_rust_cli() -> None:
             "-p",
             "kicad-cruncher-cli",
             "--bins",
-            "--example",
-            "design_netlist_json_oracle",
+            "--examples",
         ],
         cwd=_WORKSPACE,
         capture_output=True,
@@ -66,6 +96,7 @@ def _build_rust_cli() -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert _RUST_EXE.is_file()
     assert _RUST_NETLIST_ORACLE.is_file()
+    assert _RUST_DESIGN_ORACLE.is_file()
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -78,7 +109,7 @@ def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=30,
+        timeout=60,
         check=False,
     )
 
@@ -118,3 +149,46 @@ def test_rust_netlist_json_matches_the_python_design_oracle_exactly(
     assert completed.returncode == 0, completed.stderr
     assert completed.stderr == ""
     assert json.loads(completed.stdout) == KiCadDesign.from_file(source).to_netlist_json()
+
+
+@pytest.mark.parametrize(
+    "source", (_PROJECT.resolve(), _PROJECT.with_suffix(".kicad_sch").resolve())
+)
+@pytest.mark.parametrize("include_indexes", (True, False))
+def test_rust_design_json_matches_the_python_oracle_exactly(
+    source: Path,
+    include_indexes: bool,
+) -> None:
+    arguments = [str(_RUST_DESIGN_ORACLE), str(source)]
+    if not include_indexes:
+        arguments.append("--no-indexes")
+    completed = _run(arguments)
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    assert json.loads(completed.stdout) == KiCadDesign.from_file(source).to_json(
+        include_indexes=include_indexes
+    )
+
+
+@pytest.mark.parametrize("source", _REPRESENTATIVE_PROJECTS)
+def test_rust_design_json_matches_hierarchy_graphics_multi_unit_and_pnp_oracles(
+    source: Path,
+) -> None:
+    source = source.resolve()
+    completed = _run([str(_RUST_DESIGN_ORACLE), str(source)])
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    assert json.loads(completed.stdout) == KiCadDesign.from_file(source).to_json()
+
+
+def test_rust_design_json_matches_large_hierarchical_net_naming_oracle() -> None:
+    source = _LARGE_HIERARCHY_PROJECT.resolve()
+    completed = _run([str(_RUST_DESIGN_ORACLE), str(source), "--no-indexes"])
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    assert json.loads(completed.stdout) == KiCadDesign.from_file(source).to_json(
+        include_indexes=False
+    )

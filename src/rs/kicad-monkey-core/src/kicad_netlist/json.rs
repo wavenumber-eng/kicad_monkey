@@ -33,7 +33,7 @@ pub fn build_kicad_netlist_json(
         .filter_map(|component| {
             component
                 .instance_uuids
-                .first()
+                .last()
                 .filter(|uuid| !component.reference.is_empty() && !uuid.is_empty())
                 .map(|uuid| (component.reference.as_str(), uuid.as_str()))
         })
@@ -100,7 +100,7 @@ fn component_parameters(component: &KiCadNetlistComponent) -> BTreeMap<String, S
         "kicad_sheet_path_uuids",
         &component.sheet_path_uuids,
     );
-    if let Some(uuid) = component.instance_uuids.first() {
+    if let Some(uuid) = component.instance_uuids.last() {
         insert_nonempty(&mut parameters, "kicad_instance_uuid", uuid);
     }
     parameters.insert("kicad_in_bom".to_owned(), component.in_bom.to_string());
@@ -132,9 +132,9 @@ fn net_json(net: &KiCadNet, index: usize, component_svg_ids: &BTreeMap<&str, &st
             "pin_name": terminal.pin_name,
             "pin_type": pin_type(&terminal.pin_type),
         })).collect::<Vec<_>>(),
-        "graphical": graphical_json(&terminals, component_svg_ids),
-        "aliases": Vec::<String>::new(),
-        "endpoints": terminal_endpoints(&terminals, component_svg_ids),
+        "graphical": graphical_json(net, &terminals, component_svg_ids),
+        "aliases": net.aliases.iter().filter(|alias| !alias.is_empty()).collect::<BTreeSet<_>>(),
+        "endpoints": net_endpoints(net, &terminals, component_svg_ids),
         "driver_priority": net.driver_priority,
         "driver_kind": net.driver_kind,
         "net_class": net.net_class,
@@ -155,6 +155,7 @@ fn sorted_terminals(terminals: &[KiCadNetlistTerminal]) -> Vec<&KiCadNetlistTerm
 }
 
 fn graphical_json(
+    net: &KiCadNet,
     terminals: &[&KiCadNetlistTerminal],
     component_svg_ids: &BTreeMap<&str, &str>,
 ) -> Value {
@@ -184,21 +185,45 @@ fn graphical_json(
         pins.push(Value::Object(row));
     }
     json!({
-        "wires": [],
-        "junctions": [],
-        "labels": [],
-        "power_ports": [],
-        "ports": [],
-        "sheet_entries": [],
+        "wires": sorted_unique(&net.graphical.wires),
+        "junctions": sorted_unique(&net.graphical.junctions),
+        "labels": sorted_unique(&net.graphical.labels),
+        "power_ports": sorted_unique(&net.graphical.power_ports),
+        "ports": sorted_unique(&net.graphical.ports),
+        "sheet_entries": sorted_unique(&net.graphical.sheet_entries),
         "pins": pins,
     })
 }
 
-fn terminal_endpoints(
+fn net_endpoints(
+    net: &KiCadNet,
     terminals: &[&KiCadNetlistTerminal],
     component_svg_ids: &BTreeMap<&str, &str>,
 ) -> Vec<Value> {
-    let mut endpoints = BTreeMap::new();
+    let mut endpoints = net
+        .endpoints
+        .iter()
+        .map(|endpoint| {
+            let mut row = Map::new();
+            row.insert("endpoint_id".to_owned(), json!(endpoint.endpoint_id));
+            row.insert("role".to_owned(), json!(endpoint.role));
+            row.insert("element_id".to_owned(), json!(endpoint.element_id));
+            row.insert("object_id".to_owned(), json!(endpoint.object_id));
+            row.insert("name".to_owned(), json!(endpoint.name));
+            row.insert("source_sheet".to_owned(), json!(endpoint.source_sheet));
+            if let Some((x, y)) = endpoint.connection_point {
+                row.insert(
+                    "connection_point".to_owned(),
+                    json!({
+                        "x": round_schematic_mm(x),
+                        "y": round_schematic_mm(y),
+                        "units": "mm",
+                    }),
+                );
+            }
+            Value::Object(row)
+        })
+        .collect::<Vec<_>>();
     for terminal in terminals {
         let svg_id = if terminal.svg_id.is_empty() {
             component_svg_ids
@@ -236,16 +261,46 @@ fn terminal_endpoints(
         if !terminal.pin_name.is_empty() {
             endpoint.insert("pin_name".to_owned(), json!(terminal.pin_name));
         }
-        let key = (
-            endpoint_id,
-            terminal.designator.clone(),
-            terminal.pin.clone(),
-            terminal.pin_name.clone(),
-            terminal.pin_type.clone(),
-        );
-        endpoints.entry(key).or_insert(Value::Object(endpoint));
+        endpoints.push(Value::Object(endpoint));
     }
-    endpoints.into_values().collect()
+    endpoints.sort_by_key(endpoint_sort_key);
+    endpoints.dedup();
+    endpoints
+}
+
+fn endpoint_sort_key(endpoint: &Value) -> [String; 10] {
+    let text = |key| {
+        endpoint
+            .get(key)
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_owned()
+    };
+    [
+        text("endpoint_id"),
+        text("role"),
+        text("element_id"),
+        text("object_id"),
+        text("name"),
+        text("source_sheet"),
+        text("designator"),
+        text("pin"),
+        text("pin_name"),
+        text("pin_type"),
+    ]
+}
+
+fn round_schematic_mm(value: i64) -> f64 {
+    let value = value as f64 / 10_000.0;
+    (value * 10_000.0).round() / 10_000.0
+}
+
+fn sorted_unique(values: &[String]) -> BTreeSet<&str> {
+    values
+        .iter()
+        .map(String::as_str)
+        .filter(|value| !value.is_empty())
+        .collect()
 }
 
 fn pin_type(value: &str) -> String {

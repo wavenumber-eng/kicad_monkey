@@ -662,6 +662,19 @@ fn exact_design_limits(
                                 + terminal.svg_id.len()
                         })
                         .sum::<usize>()
+                    + net.graphical.iter().map(String::len).sum::<usize>()
+                    + net
+                        .endpoints
+                        .iter()
+                        .map(|endpoint| {
+                            endpoint.endpoint_id.len()
+                                + endpoint.role.len()
+                                + endpoint.element_id.len()
+                                + endpoint.object_id.len()
+                                + endpoint.name.len()
+                                + endpoint.source_sheet.len()
+                        })
+                        .sum::<usize>()
             })
             .sum::<usize>();
     SchematicDesignNetLimits {

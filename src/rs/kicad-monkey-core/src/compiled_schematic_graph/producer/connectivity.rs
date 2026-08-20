@@ -16,6 +16,7 @@ type TerminalSemanticKey = (TerminalRole, String, String, String);
 
 struct ConnectivityState {
     net_by_member: HashMap<MemberKey, usize>,
+    unmaterialized_net_names: HashMap<MemberKey, String>,
     terminal_by_source: HashMap<TerminalSourceKey, String>,
     terminal_index_by_id: HashMap<String, usize>,
     hierarchical_port_by_name: HashMap<(usize, String), String>,
@@ -71,6 +72,7 @@ struct LocalNetInput<'a> {
     owner: &'a OccurrenceRefs,
     subgraph: &'a SchematicWireSubgraph,
     design_net: Option<&'a SchematicDesignNet>,
+    unmaterialized_name: Option<&'a str>,
     terminal_indices: &'a [usize],
     terminal_refs: BTreeSet<String>,
     graphical_elements: Vec<String>,
@@ -83,6 +85,7 @@ impl StructuralGraphBuilder<'_> {
         let SchematicCompiledDesign {
             netlist,
             occurrences,
+            unmaterialized_net_names,
         } = build_schematic_compiled_design(
             self.index,
             1,
@@ -101,6 +104,7 @@ impl StructuralGraphBuilder<'_> {
             hierarchy_bindings: netlist.hierarchy_bindings,
             state: ConnectivityState {
                 net_by_member,
+                unmaterialized_net_names,
                 terminal_by_source: HashMap::new(),
                 terminal_index_by_id: HashMap::new(),
                 hierarchical_port_by_name: HashMap::new(),
@@ -192,11 +196,17 @@ impl StructuralGraphBuilder<'_> {
             .net_by_member
             .get(&(context.occurrence_index, context.subgraph_index))
             .and_then(|index| context.nets.get(*index));
+        let unmaterialized_name = context
+            .state
+            .unmaterialized_net_names
+            .get(&(context.occurrence_index, context.subgraph_index))
+            .map(String::as_str);
         self.append_local_net(LocalNetInput {
             occurrence_index: context.occurrence_index,
             owner: context.owner,
             subgraph,
             design_net,
+            unmaterialized_name,
             terminal_indices: &collection.indices,
             terminal_refs,
             graphical_elements,
@@ -464,7 +474,9 @@ impl StructuralGraphBuilder<'_> {
         )?;
         let display_name = input
             .design_net
-            .map_or(input.subgraph.chosen_name.as_str(), |net| net.name.as_str());
+            .map(|net| net.name.as_str())
+            .or(input.unmaterialized_name)
+            .unwrap_or(input.subgraph.chosen_name.as_str());
         let aliases = input
             .subgraph
             .label_drivers

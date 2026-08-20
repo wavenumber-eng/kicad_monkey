@@ -1,5 +1,6 @@
 use crate::{
-    SchematicDriverPriority, SchematicOccurrenceConnectivityLimits, SchematicWireDriverKind,
+    SchematicDriverPriority, SchematicGraphicalIds, SchematicOccurrenceConnectivityLimits,
+    SchematicPoint, SchematicWireDriverKind,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -83,6 +84,17 @@ pub struct SchematicDesignNetTerminal {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SchematicDesignNetEndpoint {
+    pub endpoint_id: String,
+    pub role: String,
+    pub element_id: String,
+    pub object_id: String,
+    pub name: String,
+    pub source_sheet: String,
+    pub connection_point: Option<SchematicPoint>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchematicDesignNet {
     pub name: String,
     pub code: u64,
@@ -91,6 +103,8 @@ pub struct SchematicDesignNet {
     pub auto_named: bool,
     pub members: Vec<SchematicDesignNetMember>,
     pub terminals: Vec<SchematicDesignNetTerminal>,
+    pub graphical: SchematicGraphicalIds,
+    pub endpoints: Vec<SchematicDesignNetEndpoint>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -14,5 +14,6 @@ pub use emit::emit_kicad_netlist;
 pub use json::{KiCadNetlistJsonMetadata, build_kicad_netlist_json};
 pub use types::{
     KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetClass, KiCadNetlist,
-    KiCadNetlistComponent, KiCadNetlistComponentUnit, KiCadNetlistLimits, KiCadNetlistTerminal,
+    KiCadNetlistComponent, KiCadNetlistComponentUnit, KiCadNetlistEndpoint,
+    KiCadNetlistGraphicalIds, KiCadNetlistLimits, KiCadNetlistTerminal,
 };

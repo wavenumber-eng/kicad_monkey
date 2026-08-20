@@ -11,9 +11,10 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
     CanonicalUint64Decimal, SourceBundleManifestA0, SourceBundleSource, SourceKind, SourceSlot,
 };
 use kicad_monkey_core::{
-    KiCadNetlist, KiCadNetlistJsonMetadata, KiCadNetlistLimits, ProjectDocument, ProjectLimits,
+    KiCadDesignJsonPaths, KiCadDesignPcb, KiCadDesignSourcePath, KiCadNetlist,
+    KiCadNetlistJsonMetadata, KiCadNetlistLimits, PcbLimits, PcbView, ProjectLimits,
     SchematicBundleIndex, SchematicBundleLimits, SchematicDocument, SchematicDocumentLimits,
-    SourceBundle, SourceBundleLimits, build_compiled_schematic_graph, build_kicad_netlist,
+    SourceBundle, SourceBundleLimits, build_kicad_design_facts, build_kicad_design_json,
     build_kicad_netlist_json, emit_kicad_netlist, validate_compiled_schematic_graph,
 };
 
@@ -49,6 +50,8 @@ pub struct LoadedDesignSources {
     pub input_path: PathBuf,
     pub bundle_root: PathBuf,
     pub bundle: SourceBundle,
+    pub pcb_path: Option<PathBuf>,
+    pub pcb_source: Option<String>,
 }
 
 #[derive(Debug)]
@@ -56,6 +59,7 @@ pub struct StructuredDesignFacts {
     pub compiled_schematic_graph: CompiledSchematicGraphA0,
     pub netlist: KiCadNetlist,
     pub netlist_json: serde_json::Value,
+    pub design_json: serde_json::Value,
     pub kicad_netlist: String,
 }
 
@@ -64,6 +68,7 @@ struct DesignPaths {
     root: PathBuf,
     project: Option<PathBuf>,
     root_schematic: PathBuf,
+    pcb: Option<PathBuf>,
 }
 
 fn resolve_design_paths(input: &Path) -> Result<DesignPaths, DesignError> {
@@ -75,7 +80,7 @@ fn resolve_design_paths(input: &Path) -> Result<DesignPaths, DesignError> {
     }
 
     let suffix = input_path.extension().and_then(|value| value.to_str());
-    let (project_path, root_schematic_path) = match suffix {
+    let (project_path, root_schematic_path, pcb_path) = match suffix {
         Some("kicad_pro") => {
             let schematic = input_path.with_extension("kicad_sch");
             if !schematic.is_file() {
@@ -84,9 +89,18 @@ fn resolve_design_paths(input: &Path) -> Result<DesignPaths, DesignError> {
                     schematic.display()
                 )));
             }
-            (Some(input_path.clone()), schematic)
+            let pcb = input_path.with_extension("kicad_pcb");
+            (
+                Some(input_path.clone()),
+                schematic,
+                pcb.is_file().then_some(pcb),
+            )
         }
-        Some("kicad_sch") => (find_adjacent_project(&input_path)?, input_path.clone()),
+        Some("kicad_sch") => (
+            find_adjacent_project(&input_path)?,
+            input_path.clone(),
+            None,
+        ),
         _ => {
             return Err(DesignError::new(
                 "design input must end in .kicad_pro or .kicad_sch",
@@ -108,6 +122,7 @@ fn resolve_design_paths(input: &Path) -> Result<DesignPaths, DesignError> {
         root: bundle_root,
         project: project_path,
         root_schematic: root_schematic_path,
+        pcb: pcb_path,
     })
 }
 
@@ -233,36 +248,50 @@ pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignEr
     };
     let bundle = SourceBundle::from_manifest(manifest, buffers, limits)
         .map_err(|error| DesignError::context("source bundle is invalid", error))?;
+    let (pcb_path, pcb_source) = paths
+        .pcb
+        .map(|path| {
+            let bytes = read_bounded(&path, limits.max_source_bytes)?;
+            let source = String::from_utf8(bytes)
+                .map_err(|error| DesignError::context("PCB source is not UTF-8", error))?;
+            Ok::<_, DesignError>((path, source))
+        })
+        .transpose()?
+        .map_or((None, None), |(path, source)| (Some(path), Some(source)));
     Ok(LoadedDesignSources {
         input_path: paths.input,
         bundle_root: paths.root,
         bundle,
+        pcb_path,
+        pcb_source,
     })
 }
 
 pub fn build_structured_design_facts(
     loaded: &LoadedDesignSources,
 ) -> Result<StructuredDesignFacts, DesignError> {
+    build_structured_design_facts_with_options(loaded, true)
+}
+
+pub fn build_structured_design_facts_with_options(
+    loaded: &LoadedDesignSources,
+    include_indexes: bool,
+) -> Result<StructuredDesignFacts, DesignError> {
     let index = SchematicBundleIndex::build(&loaded.bundle, SchematicBundleLimits::default())
         .map_err(|error| DesignError::context("could not index schematic hierarchy", error))?;
-    let project = loaded
-        .bundle
-        .project()
-        .map(|source| ProjectDocument::from_reader(source.bytes(), ProjectLimits::default()))
-        .transpose()
-        .map_err(|error| DesignError::context("could not parse project", error))?;
-    let compiled_schematic_graph = build_compiled_schematic_graph(&index, Default::default())
-        .map_err(|error| DesignError::context("could not compile schematic graph", error))?;
-    validate_compiled_schematic_graph(&compiled_schematic_graph)
-        .map_err(|error| DesignError::context("compiled schematic graph is invalid", error))?;
-    let netlist = build_kicad_netlist(
+    let design_facts = build_kicad_design_facts(
         &index,
-        project.as_ref().map(ProjectDocument::view),
+        &loaded.bundle,
+        ProjectLimits::default(),
+        Default::default(),
         KiCadNetlistLimits::default(),
     )
-    .map_err(|error| DesignError::context("could not build KiCad netlist", error))?;
+    .map_err(|error| DesignError::context("could not build structured design facts", error))?;
+    validate_compiled_schematic_graph(design_facts.graph())
+        .map_err(|error| DesignError::context("compiled schematic graph is invalid", error))?;
+    let netlist = design_facts.netlist();
     let kicad_netlist = emit_kicad_netlist(
-        &netlist,
+        netlist,
         loaded.bundle.root_schematic_path(),
         "",
         GRAPH_TOOL,
@@ -270,19 +299,93 @@ pub fn build_structured_design_facts(
     )
     .map_err(|error| DesignError::context("could not emit KiCad netlist", error))?;
     let netlist_json = build_kicad_netlist_json(
-        &netlist,
+        netlist,
         KiCadNetlistJsonMetadata {
             source: "",
             date: "",
             tool: "kicad_monkey",
         },
     );
+    let pcb_view = loaded
+        .pcb_source
+        .as_deref()
+        .map(|source| PcbView::parse(source, PcbLimits::default()))
+        .transpose()
+        .map_err(|error| DesignError::context("could not parse PCB", error))?;
+    let pcb_filename = loaded
+        .pcb_path
+        .as_deref()
+        .and_then(Path::file_name)
+        .and_then(|name| name.to_str());
+    let pcb = pcb_view
+        .as_ref()
+        .zip(pcb_filename)
+        .map(|(view, filename)| KiCadDesignPcb {
+            source_filename: filename,
+            view,
+        });
+    let design_json = build_kicad_design_json(
+        &index,
+        &design_facts,
+        &design_json_paths(loaded)?,
+        pcb,
+        include_indexes,
+    )
+    .map_err(|error| DesignError::context("could not build KiCad design JSON", error))?;
+    let (compiled_schematic_graph, netlist) = design_facts.into_parts();
     Ok(StructuredDesignFacts {
         compiled_schematic_graph,
         netlist,
         netlist_json,
+        design_json,
         kicad_netlist,
     })
+}
+
+fn design_json_paths(loaded: &LoadedDesignSources) -> Result<KiCadDesignJsonPaths, DesignError> {
+    let mut paths = KiCadDesignJsonPaths::default();
+    for source in loaded.bundle.sources() {
+        let absolute = loaded.bundle_root.join(source.path());
+        let absolute = absolute.canonicalize().map_err(|error| {
+            DesignError::context("could not resolve design JSON source path", error)
+        })?;
+        ensure_contained(&loaded.bundle_root, &absolute)?;
+        let filename = absolute
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| DesignError::new("design source filename is not valid Unicode"))?
+            .to_owned();
+        let path = display_source_path(&absolute);
+        match source.kind() {
+            SourceKind::Project => {
+                paths.project_name = absolute
+                    .file_stem()
+                    .and_then(|name| name.to_str())
+                    .map(str::to_owned);
+                paths.project_filename = Some(filename);
+                paths.project_path = Some(path);
+            }
+            SourceKind::Schematic => {
+                paths.schematic_paths.insert(
+                    source.path().to_owned(),
+                    KiCadDesignSourcePath { filename, path },
+                );
+            }
+            _ => {}
+        }
+    }
+    Ok(paths)
+}
+
+fn display_source_path(path: &Path) -> String {
+    let value = path.to_string_lossy();
+    if let Some(value) = value.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{value}")
+    } else if let Some(value) = value.strip_prefix(r"\\?\") {
+        value.to_owned()
+    } else {
+        value.into_owned()
+    }
 }
 
 fn resolve_child_schematic(

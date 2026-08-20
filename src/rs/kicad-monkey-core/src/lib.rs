@@ -8,6 +8,7 @@
 
 pub mod board_plotter_ir;
 pub mod compiled_schematic_graph;
+pub mod design_json;
 pub mod document_metadata;
 mod fake_style;
 pub mod font_outline;
@@ -73,6 +74,11 @@ pub use compiled_schematic_graph::{
     IdentityMapping, build_compiled_schematic_graph, compiled_schematic_graph_design_scope,
     validate_compiled_schematic_graph,
 };
+pub use design_json::{
+    KiCadDesignFacts, KiCadDesignJsonError, KiCadDesignJsonLimits, KiCadDesignJsonPaths,
+    KiCadDesignPcb, KiCadDesignSourcePath, build_kicad_design_facts, build_kicad_design_json,
+    build_kicad_design_json_with_limits,
+};
 pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
 pub use font_outline::{
     FONT_OUTLINE_ENGINE, FontOutlineError, FontOutlineErrorKind, FontOutlineFace,
@@ -83,8 +89,9 @@ pub use footprint::{FootprintEdit, FootprintLimits, FootprintProperty, Footprint
 pub use footprint_text::{FootprintGraphicalProperty, FootprintText, FootprintTextBox};
 pub use kicad_netlist::{
     KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetClass, KiCadNetlist,
-    KiCadNetlistComponent, KiCadNetlistComponentUnit, KiCadNetlistJsonMetadata, KiCadNetlistLimits,
-    KiCadNetlistTerminal, build_kicad_netlist, build_kicad_netlist_json, emit_kicad_netlist,
+    KiCadNetlistComponent, KiCadNetlistComponentUnit, KiCadNetlistEndpoint,
+    KiCadNetlistGraphicalIds, KiCadNetlistJsonMetadata, KiCadNetlistLimits, KiCadNetlistTerminal,
+    build_kicad_netlist, build_kicad_netlist_json, emit_kicad_netlist,
 };
 pub use pcb::{
     PcbBarcode, PcbBoardMetadata, PcbBoardVariant, PcbCounts, PcbDimension, PcbDocument,

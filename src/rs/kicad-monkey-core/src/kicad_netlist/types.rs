@@ -57,6 +57,27 @@ pub struct KiCadNetlistTerminal {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct KiCadNetlistEndpoint {
+    pub endpoint_id: String,
+    pub role: String,
+    pub element_id: String,
+    pub object_id: String,
+    pub name: String,
+    pub source_sheet: String,
+    pub connection_point: Option<(i64, i64)>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
+pub struct KiCadNetlistGraphicalIds {
+    pub wires: Vec<String>,
+    pub junctions: Vec<String>,
+    pub labels: Vec<String>,
+    pub power_ports: Vec<String>,
+    pub ports: Vec<String>,
+    pub sheet_entries: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct KiCadNet {
     pub name: String,
     pub code: u64,
@@ -65,6 +86,9 @@ pub struct KiCadNet {
     pub driver_kind: String,
     pub auto_named: bool,
     pub net_class: String,
+    pub aliases: Vec<String>,
+    pub graphical: KiCadNetlistGraphicalIds,
+    pub endpoints: Vec<KiCadNetlistEndpoint>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

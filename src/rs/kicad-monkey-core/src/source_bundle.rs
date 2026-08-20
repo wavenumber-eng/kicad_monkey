@@ -6,6 +6,7 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
 use kicad_monkey_contracts::validate_source_bundle_manifest_contract;
 use serde::Deserialize;
 use serde::de::IgnoredAny;
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fmt;
 
@@ -143,6 +144,19 @@ impl SourceBundle {
             .and_then(|path| self.sources.get(path))
     }
 
+    pub(crate) fn project_identity_sha256(&self) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        match self.project() {
+            Some(project) => {
+                hasher.update([1]);
+                hash_identity_field(&mut hasher, project.path().as_bytes());
+                hash_identity_field(&mut hasher, project.bytes());
+            }
+            None => hasher.update([0]),
+        }
+        hasher.finalize().into()
+    }
+
     pub(crate) fn resolve_schematic(
         &self,
         parent_path: &str,
@@ -166,6 +180,11 @@ impl SourceBundle {
         }
         Ok(source)
     }
+}
+
+fn hash_identity_field(hasher: &mut Sha256, value: &[u8]) {
+    hasher.update((value.len() as u128).to_le_bytes());
+    hasher.update(value);
 }
 
 fn validate_bundle_cardinality(

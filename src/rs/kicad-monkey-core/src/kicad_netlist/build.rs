@@ -6,7 +6,8 @@ use super::resource::{
 use super::variables::{ExpansionWorkBudget, VariableResolver};
 use super::{
     KiCadDesignSheet, KiCadLibPart, KiCadLibPartPin, KiCadNet, KiCadNetClass, KiCadNetlist,
-    KiCadNetlistComponent, KiCadNetlistComponentUnit, KiCadNetlistLimits, KiCadNetlistTerminal,
+    KiCadNetlistComponent, KiCadNetlistComponentUnit, KiCadNetlistEndpoint,
+    KiCadNetlistGraphicalIds, KiCadNetlistLimits, KiCadNetlistTerminal,
 };
 use crate::{
     ProjectNetSettings, ProjectView, SchematicBundleIndex, SchematicEffectiveSymbol,
@@ -173,6 +174,30 @@ fn build_nets(
             driver_kind,
             auto_named: net.auto_named,
             net_class,
+            aliases: Vec::new(),
+            graphical: KiCadNetlistGraphicalIds {
+                wires: net.graphical.wires,
+                junctions: net.graphical.junctions,
+                labels: net.graphical.labels,
+                power_ports: net.graphical.power_ports,
+                ports: net.graphical.ports,
+                sheet_entries: net.graphical.sheet_entries,
+            },
+            endpoints: net
+                .endpoints
+                .into_iter()
+                .map(|endpoint| KiCadNetlistEndpoint {
+                    endpoint_id: endpoint.endpoint_id,
+                    role: endpoint.role,
+                    element_id: endpoint.element_id,
+                    object_id: endpoint.object_id,
+                    name: endpoint.name,
+                    source_sheet: endpoint.source_sheet,
+                    connection_point: endpoint
+                        .connection_point
+                        .map(|point| (point.x_iu, point.y_iu)),
+                })
+                .collect(),
         });
     }
     Ok(result)
@@ -305,7 +330,7 @@ impl<'a> ComponentCollection<'a> {
                     schematic_error("KiCad netlist effective symbol index is invalid")
                 })?;
             let library = definition.library_symbol_for_placement(placed);
-            if omitted_component(&effective, library) {
+            if omitted_component(placed, &effective, library) {
                 continue;
             }
             if !effective.uuid.is_empty()
@@ -387,10 +412,11 @@ impl<'a> ComponentCollection<'a> {
 }
 
 fn omitted_component(
+    placed: &SchematicPlacedSymbol,
     effective: &SchematicEffectiveSymbol,
     library: Option<&SchematicLibrarySymbol>,
 ) -> bool {
-    !effective.on_board
+    !placed.on_board
         || effective.reference.starts_with('#')
         || library.is_some_and(|symbol| symbol.power)
         || effective.lib_id == "power:PWR_FLAG"
