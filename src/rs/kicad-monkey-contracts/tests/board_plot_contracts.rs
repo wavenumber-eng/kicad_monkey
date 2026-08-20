@@ -475,3 +475,56 @@ fn board_footprint_contract_requires_footprint_local_cache() {
     let document: BoardPlotDocumentA0 = serde_json::from_value(board_space).expect("shape");
     assert!(validate_board_plot_document(&document).is_err());
 }
+
+#[test]
+fn board_footprint_contract_accepts_authored_layerless_npth_pad_flash() {
+    let mut value = board_footprint_vector();
+    value["records"][0]["operations"][1]["layers"] = serde_json::json!([]);
+    value["records"][0]["operations"][1]["extra_attrs"]["pad_type"] =
+        serde_json::json!("np_thru_hole");
+    value["records"][0]["operations"][1]["extra_attrs"]
+        .as_object_mut()
+        .expect("pad attrs")
+        .remove("layer_names");
+    value["records"][0]["operations"][2]["layers"] = serde_json::json!([]);
+    let document: BoardPlotDocumentA0 =
+        serde_json::from_value(value.clone()).expect("layerless NPTH shape");
+    validate_board_plot_document(&document).expect("authored layerless NPTH pad");
+
+    value["records"][0]["operations"][1]["extra_attrs"]["pad_type"] = serde_json::json!("smd");
+    let document: BoardPlotDocumentA0 = serde_json::from_value(value).expect("layerless SMD shape");
+    assert!(validate_board_plot_document(&document).is_err());
+}
+
+#[test]
+fn board_footprint_contract_accepts_authored_wildcard_layer_npth_hole() {
+    let mut value = board_footprint_vector();
+    value["records"][0]["operations"] = serde_json::json!([
+        {
+            "kind": "StartBlock", "index": 0, "label": "fp-1:pad:0:hole",
+            "data_uuid": "fp-1:pad:0:hole", "data_ref": "pad_hole", "object_id": "1",
+            "layers": ["*.Cu", "*.Mask"],
+            "extra_attrs": {
+                "primitive": "pad-hole", "component": "U1", "component_uid": "fp-1",
+                "component_uuid": "fp-1", "footprint": "Package:Example",
+                "pad_number": "1", "pad_designator": "U1-1", "pad_type": "np_thru_hole",
+                "pad_shape": "circle", "layer_names": "*.Cu,*.Mask",
+                "hole_owner": "fp-1:pad:0", "hole_kind": "round",
+                "hole_plating": "non_plated", "hole_render": "drill",
+                "hole_diameter_mm": "0.5"
+            }
+        },
+        {
+            "kind": "Circle", "index": 1, "cx": 0, "cy": 0,
+            "diameter_nm": 500000, "fill": "FILLED_SHAPE", "width_nm": 0,
+            "role": "npth_hole", "layers": ["*.Cu", "*.Mask"],
+            "mask_margin_nm": 0, "pad_size_x_nm": 1000000,
+            "pad_size_y_nm": 1000000
+        },
+        {"kind": "EndBlock", "index": 2}
+    ]);
+    value["records"][0]["operation_count"] = serde_json::json!(3);
+    value["total_operations"] = serde_json::json!(3);
+    let document: BoardPlotDocumentA0 = serde_json::from_value(value).expect("wildcard drill");
+    validate_board_plot_document(&document).expect("authored wildcard-layer drill");
+}

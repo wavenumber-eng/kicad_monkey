@@ -6,6 +6,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod board_plot_contract;
 pub mod board_plotter_ir;
 pub mod compiled_schematic_graph;
 pub mod design_json;
@@ -17,6 +18,7 @@ mod footprint_plotter_text;
 mod footprint_text;
 pub mod kicad_netlist;
 pub mod pcb;
+mod plotter_contract;
 pub mod plotter_ir;
 pub mod plotter_text_cache;
 pub mod plotter_types;
@@ -58,18 +60,20 @@ pub mod text_topology;
 pub mod worksheet;
 mod worksheet_preflight;
 
+pub use board_plot_contract::{BoardPlotContractLimits, project_board_plot_document_a0};
 pub use board_plotter_ir::{
-    BoardDimensionOperation, BoardDimensionRecord, BoardFootprintBlock,
+    BoardBoundsLimits, BoardDimensionOperation, BoardDimensionRecord, BoardFootprintBlock,
     BoardFootprintBlockAttributes, BoardFootprintChildAttributes, BoardFootprintChildMetadata,
     BoardFootprintOperation, BoardFootprintPlacement, BoardFootprintRecord, BoardGraphicRecord,
     BoardGraphicRecordKind, BoardNetClassAssignments, BoardNetClassExtras, BoardPlotDocument,
-    BoardPlotLimits, BoardPlotRecord, BoardSegmentRecord, BoardTableOperation, BoardTableRecord,
-    BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
-    BoardTextRecord, BoardTextRenderCache, BoardTextRenderCacheCoordinateSpace,
+    BoardPlotFacts, BoardPlotLimits, BoardPlotRecord, BoardSegmentRecord, BoardTableOperation,
+    BoardTableRecord, BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign,
+    BoardTextOperation, BoardTextRecord, BoardTextRenderCache, BoardTextRenderCacheCoordinateSpace,
     BoardTextRenderCacheSource, BoardTextVAlign, BoardTextVariables, BoardTrackArcRecord,
     BoardViaFabrication, BoardViaOperation, BoardViaOperationKind, BoardViaRecord, BoardViaType,
     BoardZoneRecord, board_plot_document, board_plot_document_with_net_classes,
     board_plot_document_with_sidecars, board_plot_document_with_text_cache_sidecar,
+    board_plot_facts_with_sidecars,
 };
 pub use compiled_schematic_graph::{
     CompiledGraphIdentityAllocator, CompiledGraphIdentityError, CompiledSchematicGraphLimits,
@@ -108,6 +112,7 @@ pub use pcb::{
     PcbZoneKeepout, PcbZoneLayerConnections, PcbZoneLayerProperty, PcbZonePlacement,
     PcbZonePlacementSource, PcbZonePolygon,
 };
+pub use plotter_contract::contract_plotter_operation as project_plotter_operation_a0;
 pub use plotter_ir::{FootprintPlotDocument, FootprintPlotLimits, footprint_plot_document};
 pub use plotter_text_cache::{PlotterTextCacheLimits, PlotterTextCacheResources, PlotterTextFont};
 pub use plotter_types::{

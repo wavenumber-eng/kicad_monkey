@@ -21,13 +21,17 @@ use kicad_monkey_core::schematic_embedded::{
     SchematicEmbeddedFile, SchematicEmbeddedLimits, schematic_embedded_files,
 };
 use kicad_monkey_core::{
-    KiCadDesignJsonPaths, KiCadDesignPcb, KiCadDesignSourcePath, KiCadNetlist,
-    KiCadNetlistJsonMetadata, KiCadNetlistLimits, KiCadSchematicInstance, PcbLimits, PcbView,
-    PlotterTextCacheLimits, PlotterTextCacheResources, PlotterTextFont, ProjectDocument,
-    ProjectLimits, SchematicBundleIndex, SchematicBundleLimits, SchematicDocument,
-    SchematicDocumentLimits, SchematicDrawingSettings, SchematicPlotContext,
-    SchematicPlotContractBudget, SchematicPlotContractLimits, SchematicPlotLimits,
-    SchematicPlotVariables, SourceBundle, SourceBundleLimits, TokenKind, build_kicad_design_facts,
+    BoardBoundsLimits, BoardPlotContractLimits, project_board_plot_document_a0,
+};
+use kicad_monkey_core::{
+    BoardNetClassAssignments, BoardPlotLimits, BoardTextVariables, KiCadDesignJsonPaths,
+    KiCadDesignPcb, KiCadDesignSourcePath, KiCadNetlist, KiCadNetlistJsonMetadata,
+    KiCadNetlistLimits, KiCadSchematicInstance, PcbLimits, PcbView, PlotterTextCacheLimits,
+    PlotterTextCacheResources, PlotterTextFont, ProjectDocument, ProjectLimits,
+    SchematicBundleIndex, SchematicBundleLimits, SchematicDocument, SchematicDocumentLimits,
+    SchematicDrawingSettings, SchematicPlotContext, SchematicPlotContractBudget,
+    SchematicPlotContractLimits, SchematicPlotLimits, SchematicPlotVariables, SourceBundle,
+    SourceBundleLimits, TokenKind, board_plot_facts_with_sidecars, build_kicad_design_facts,
     build_kicad_design_json, build_kicad_netlist_json, emit_kicad_netlist,
     schematic_plot_document_budget, schematic_plot_document_json,
     schematic_plot_document_with_sheets, validate_compiled_schematic_graph,
@@ -146,6 +150,82 @@ pub struct SchematicBaseSvg {
 pub struct SchematicPlotDocument {
     pub(crate) value: serde_json::Value,
     pub(crate) instance: KiCadSchematicInstance,
+}
+
+#[derive(Debug)]
+pub struct BoardPlotDocument {
+    pub(crate) value: serde_json::Value,
+    pub(crate) source_path: String,
+    pub(crate) source_sha256: String,
+    pub(crate) copper_layers: Vec<String>,
+    pub(crate) bounds: Option<[i64; 4]>,
+}
+
+impl BoardPlotDocument {
+    pub fn copper_layer_count(&self) -> usize {
+        self.copper_layers.len()
+    }
+
+    pub fn record_count(&self) -> usize {
+        self.value["records"].as_array().map_or(0, Vec::len)
+    }
+
+    pub fn operation_count(&self) -> usize {
+        self.value["records"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|record| record["operations"].as_array())
+            .map(Vec::len)
+            .sum()
+    }
+
+    pub fn serialized_bytes(&self) -> Result<usize, DesignError> {
+        let mut writer = SerializedSize::default();
+        serde_json::to_writer(&mut writer, &self.value)
+            .map_err(|error| DesignError::context("could not size board plot document", error))?;
+        Ok(writer.written)
+    }
+}
+
+#[derive(Default)]
+struct SerializedSize {
+    written: usize,
+}
+
+impl io::Write for SerializedSize {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        self.written = self
+            .written
+            .checked_add(buffer.len())
+            .ok_or_else(|| io::Error::other("serialized board plot size overflowed"))?;
+        Ok(buffer.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BoardPlotDocumentLimits {
+    pub max_copper_layers: usize,
+    pub max_contract_bytes: usize,
+    pub plot: BoardPlotLimits,
+    pub bounds: BoardBoundsLimits,
+    pub contract: BoardPlotContractLimits,
+}
+
+impl Default for BoardPlotDocumentLimits {
+    fn default() -> Self {
+        Self {
+            max_copper_layers: 64,
+            max_contract_bytes: 512 * 1024 * 1024,
+            plot: BoardPlotLimits::default(),
+            bounds: BoardBoundsLimits::default(),
+            contract: BoardPlotContractLimits::default(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -473,6 +553,124 @@ pub fn build_structured_design_facts_with_options(
         kicad_netlist,
         schematic_instances,
     })
+}
+
+pub fn build_board_plot_document(
+    loaded: &LoadedDesignSources,
+) -> Result<Option<BoardPlotDocument>, DesignError> {
+    build_board_plot_document_with_limits(loaded, BoardPlotDocumentLimits::default())
+}
+
+pub fn build_board_plot_document_with_limits(
+    loaded: &LoadedDesignSources,
+    limits: BoardPlotDocumentLimits,
+) -> Result<Option<BoardPlotDocument>, DesignError> {
+    let Some(source) = loaded.pcb_source.as_deref() else {
+        return Ok(None);
+    };
+    let source_path = loaded
+        .pcb_path
+        .as_deref()
+        .ok_or_else(|| DesignError::new("PCB source path is missing"))?;
+    let (net_classes, text_variables) = board_project_sidecars(loaded)?;
+    let facts = board_plot_facts_with_sidecars(
+        source,
+        limits.plot,
+        PcbLimits::default(),
+        &net_classes,
+        &text_variables,
+    )
+    .map_err(|error| DesignError::context("could not build board plot facts", error))?;
+    let mut copper_layers = Vec::new();
+    for layer in facts.view().layers() {
+        let layer =
+            layer.map_err(|error| DesignError::context("could not enumerate PCB layers", error))?;
+        if layer.name.ends_with(".Cu") {
+            if copper_layers.len() == limits.max_copper_layers {
+                return Err(DesignError::new("PCB copper layer count exceeds its limit"));
+            }
+            copper_layers.push(layer.name);
+        }
+    }
+    let mut faces = BTreeSet::from(["Arial".to_owned()]);
+    collect_font_faces(source, &mut faces)?;
+    let embedded_files = schematic_embedded_files(source, SchematicEmbeddedLimits::default())
+        .map_err(|error| DesignError::context("could not extract board font sidecars", error))?;
+    let font_styles = schematic_font_styles(&faces, &embedded_files)?;
+    let fonts = font_styles
+        .iter()
+        .map(|style| {
+            Ok(PlotterTextFont {
+                face: &style.face,
+                bold: style.bold,
+                italic: style.italic,
+                font_bytes: style.bytes.as_ref(),
+                shaping: shaping_template(
+                    &format!("board_{}_{}", style.name, style.sha256),
+                    &style.sha256,
+                )?,
+                fake_bold: style.fake_bold,
+                fake_italic: style.fake_italic,
+            })
+        })
+        .collect::<Result<Vec<_>, DesignError>>()?;
+    let text_resources = PlotterTextCacheResources {
+        fonts: &fonts,
+        limits: PlotterTextCacheLimits::default(),
+    };
+    let bounds = facts
+        .bounds(Some(&text_resources), limits.bounds)
+        .map_err(|error| DesignError::context("could not bound board geometry", error))?;
+    let document = facts.into_document();
+    let source_sha256 = sha256_hex(source.as_bytes());
+    let document_id = format!("pcb-sha256:{source_sha256}");
+    let contract = project_board_plot_document_a0(
+        document,
+        Some(display_source_path(source_path)),
+        document_id,
+        limits.contract,
+    )
+    .map_err(|error| DesignError::context("could not project board plot document", error))?;
+    let mut writer = LimitedVecWriter::new(limits.max_contract_bytes);
+    serde_json::to_writer(&mut writer, &contract)
+        .map_err(|error| DesignError::context("board plot contract exceeds its limit", error))?;
+    let value = serde_json::from_slice(writer.bytes()).map_err(|error| {
+        DesignError::context("could not materialize board plot document", error)
+    })?;
+    Ok(Some(BoardPlotDocument {
+        value,
+        source_path: display_source_path(source_path),
+        source_sha256,
+        copper_layers,
+        bounds,
+    }))
+}
+
+fn board_project_sidecars(
+    loaded: &LoadedDesignSources,
+) -> Result<(BoardNetClassAssignments, BoardTextVariables), DesignError> {
+    let project = loaded
+        .bundle
+        .project()
+        .map(|source| ProjectDocument::from_reader(source.bytes(), ProjectLimits::default()))
+        .transpose()
+        .map_err(|error| DesignError::context("could not parse board project settings", error))?;
+    let Some(project) = project.as_ref().map(ProjectDocument::view) else {
+        return Ok((
+            BoardNetClassAssignments::default(),
+            BoardTextVariables::default(),
+        ));
+    };
+    let net_settings = project
+        .net_settings()
+        .map_err(|error| DesignError::context("could not read board net classes", error))?;
+    let variables = project
+        .text_variables()
+        .map_err(|error| DesignError::context("could not read board text variables", error))?;
+    Ok((
+        BoardNetClassAssignments::from_entries(net_settings.assignments),
+        BoardTextVariables::from_entries(variables),
+    ))
 }
 
 pub fn build_schematic_plot_documents(
@@ -909,6 +1107,42 @@ struct AggregateLimitedWriter<'a> {
     limit: usize,
 }
 
+struct LimitedVecWriter {
+    bytes: Vec<u8>,
+    limit: usize,
+}
+
+impl LimitedVecWriter {
+    fn new(limit: usize) -> Self {
+        Self {
+            bytes: Vec::new(),
+            limit,
+        }
+    }
+
+    fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
+impl io::Write for LimitedVecWriter {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        let next = self
+            .bytes
+            .len()
+            .checked_add(buffer.len())
+            .filter(|next| *next <= self.limit)
+            .ok_or_else(|| io::Error::other(format!("output exceeds {} bytes", self.limit)))?;
+        self.bytes.reserve(next.saturating_sub(self.bytes.len()));
+        self.bytes.extend_from_slice(buffer);
+        Ok(buffer.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 impl<'a> AggregateLimitedWriter<'a> {
     const fn new(written: &'a mut usize, limit: usize) -> Self {
         Self { written, limit }
@@ -1315,7 +1549,7 @@ fn windows_font_selection(
     }
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let digest = Sha256::digest(bytes);
     let mut encoded = String::with_capacity(digest.len().saturating_mul(2));

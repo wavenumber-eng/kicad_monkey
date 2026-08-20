@@ -12,6 +12,7 @@ mod dimension;
 mod footprint;
 mod graphics;
 mod stroke_font_widths;
+mod stroke_text_bounds;
 mod table;
 mod text;
 mod text_cache;
@@ -30,6 +31,7 @@ use std::collections::BTreeMap;
 
 use copper::{segment_record, track_arc_record, via_operation_count, via_record, zone_record};
 use graphics::graphic_records;
+pub use stroke_text_bounds::BoardBoundsLimits;
 pub use text::{
     BoardTextBoxOperation, BoardTextBoxRecord, BoardTextHAlign, BoardTextOperation,
     BoardTextRecord, BoardTextRenderCache, BoardTextRenderCacheCoordinateSpace,
@@ -52,6 +54,8 @@ pub struct BoardTableRecord {
     pub uuid: String,
     pub layers: Vec<String>,
     pub cell_count: usize,
+    /// Source cell rectangles retained for the all-layer viewport authority.
+    pub cell_bounds_nm: Vec<[i64; 4]>,
     pub operations: Vec<BoardTableOperation>,
 }
 
@@ -657,6 +661,47 @@ pub fn board_plot_document_with_sidecars(
     board_plot_document_with_text_cache_sidecar(source, limits, net_classes, text_variables, None)
 }
 
+/// Source-bound board plot facts used by downstream presentation.
+///
+/// The typed plot document and PCB view are always derived from the same
+/// borrowed source, preventing stale or cross-design bounds composition.
+pub struct BoardPlotFacts<'a> {
+    document: BoardPlotDocument,
+    view: PcbView<'a>,
+}
+
+impl BoardPlotFacts<'_> {
+    pub fn view(&self) -> &PcbView<'_> {
+        &self.view
+    }
+
+    pub fn bounds(
+        &self,
+        outline_fonts: Option<&PlotterTextCacheResources<'_>>,
+        limits: BoardBoundsLimits,
+    ) -> Result<Option<[i64; 4]>, Error> {
+        stroke_text_bounds::board_bounds(&self.document, &self.view, outline_fonts, limits)
+    }
+
+    pub fn into_document(self) -> BoardPlotDocument {
+        self.document
+    }
+}
+
+/// Build one immutable, source-bound board fact set with project sidecars.
+pub fn board_plot_facts_with_sidecars<'a>(
+    source: &'a str,
+    plot_limits: BoardPlotLimits,
+    pcb_limits: PcbLimits,
+    net_classes: &BoardNetClassAssignments,
+    text_variables: &BoardTextVariables,
+) -> Result<BoardPlotFacts<'a>, Error> {
+    let document =
+        board_plot_document_with_sidecars(source, plot_limits, net_classes, text_variables)?;
+    let view = PcbView::parse(source, pcb_limits)?;
+    Ok(BoardPlotFacts { document, view })
+}
+
 /// Read the supported board families with project sidecars plus optional,
 /// caller-supplied deterministic outline-font/cache-generation resources.
 pub fn board_plot_document_with_text_cache_sidecar(
@@ -905,6 +950,8 @@ fn board_pcb_limits(limits: BoardPlotLimits) -> PcbLimits {
         max_zones: limits.max_graphics,
         max_dimensions: limits.max_graphics,
         max_tables: limits.max_graphics,
+        max_images: limits.max_graphics,
+        max_image_data_parts: limits.max_parse_nodes,
         max_table_cells: limits.max_parse_nodes,
         max_table_values: limits.max_parse_nodes,
         max_zone_polygons: limits.max_input_polygons,
@@ -962,6 +1009,7 @@ fn board_selection() -> PcbSelection {
         .with(PcbFamily::FootprintTexts)
         .with(PcbFamily::FootprintTextBoxes)
         .with(PcbFamily::Pads)
+        .with(PcbFamily::Images)
 }
 
 /// Python `_net_extras`: `net_id` follows the resolved ordinal and

@@ -222,6 +222,8 @@ pub struct FlashPadCustom {
 pub struct FlashPadTrapez {
     pub x: i64,
     pub y: i64,
+    pub size_x_nm: i64,
+    pub size_y_nm: i64,
     pub corners: [[i64; 2]; 4],
     pub orient_deg: f64,
     pub layers: Vec<String>,

@@ -1,10 +1,15 @@
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use kicad_cruncher_cli::design::{
-    SchematicPlotDocumentsLimits, SchematicSvgDocumentsLimits, build_schematic_base_svgs,
+    BoardPlotDocumentLimits, SchematicPlotDocumentsLimits, SchematicSvgDocumentsLimits,
+    build_board_plot_document, build_board_plot_document_with_limits, build_schematic_base_svgs,
     build_schematic_base_svgs_for_plot_documents, build_schematic_base_svgs_with_limits,
     build_schematic_plot_document_artifacts, build_schematic_plot_documents,
     build_schematic_plot_documents_with_limits, build_structured_design_facts, load_design_sources,
+};
+use kicad_cruncher_cli::pcb_review_svg::{
+    PcbReviewSvgLimits, build_pcb_review_svgs, build_pcb_review_svgs_with_limits,
 };
 use kicad_cruncher_cli::schematic_review_svg::{
     SchematicReviewSvgLimits, build_schematic_review_svgs, build_schematic_review_svgs_with_limits,
@@ -15,6 +20,51 @@ use serde_json::Value;
 fn hlr_test_project() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../../tests/corpus/kicad/projects/hlr_test/hlr_test.kicad_pro")
+}
+
+fn taillight_project() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+        "../../../tests/corpus/kicad/projects/taillight/input/11-10045__taillight__C.kicad_pro",
+    )
+}
+
+struct TemporaryDesign {
+    root: PathBuf,
+}
+
+impl Drop for TemporaryDesign {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+fn hlr_with_board_image() -> (TemporaryDesign, PathBuf) {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "kicad-cruncher-board-image-{}-{nonce}",
+        std::process::id()
+    ));
+    std::fs::create_dir(&root).expect("temporary design directory");
+    let hlr_project = hlr_test_project();
+    let source = hlr_project.parent().expect("HLR directory");
+    for name in ["hlr_test.kicad_pro", "hlr_test.kicad_sch"] {
+        std::fs::copy(source.join(name), root.join(name)).expect("copy HLR source");
+    }
+    let mut board =
+        std::fs::read_to_string(source.join("hlr_test.kicad_pcb")).expect("read HLR board");
+    let closing = board.rfind(')').expect("board root close");
+    board.insert_str(
+        closing,
+        r#"(image (at 1000 2000) (layer "F.SilkS") (scale 0)
+          (data "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"))
+"#,
+    );
+    std::fs::write(root.join("hlr_test.kicad_pcb"), board).expect("write image board");
+    let project = root.join("hlr_test.kicad_pro");
+    (TemporaryDesign { root }, project)
 }
 
 #[test]
@@ -65,6 +115,136 @@ fn direct_schematic_input_discovers_the_adjacent_project() {
     let loaded = load_design_sources(&hlr_test_project().with_extension("kicad_sch")).unwrap();
     assert_eq!(loaded.bundle.project_path(), Some("hlr_test.kicad_pro"));
     assert_eq!(loaded.bundle.sources().len(), 2);
+}
+
+#[test]
+fn pcb_review_svg_uses_native_board_projection_and_enforces_output_limits() {
+    let loaded = load_design_sources(&hlr_test_project()).unwrap();
+    let document = build_board_plot_document(&loaded).unwrap().unwrap();
+    let baseline = build_pcb_review_svgs(&loaded, &document).unwrap();
+    assert!(!baseline.is_empty());
+    let other = load_design_sources(&taillight_project()).unwrap();
+    assert!(build_pcb_review_svgs(&other, &document).is_err());
+    assert!(baseline.iter().all(|artifact| {
+        artifact.svg.contains("id=\"pcb-enrichment-a0\"")
+            && artifact.svg.contains("data-review-layer=")
+            && artifact.included_layers.contains(&"Edge.Cuts".to_owned())
+    }));
+    let total_bytes = baseline.iter().map(|artifact| artifact.svg.len()).sum();
+    let largest = baseline
+        .iter()
+        .map(|artifact| artifact.svg.len())
+        .max()
+        .unwrap();
+    let exact = PcbReviewSvgLimits {
+        max_layers: baseline.len(),
+        max_svg_bytes_per_layer: largest,
+        max_total_svg_bytes: total_bytes,
+        ..PcbReviewSvgLimits::default()
+    };
+    build_pcb_review_svgs_with_limits(&loaded, &document, exact)
+        .expect("exact PCB review SVG limits");
+    for limits in [
+        PcbReviewSvgLimits {
+            max_layers: baseline.len() - 1,
+            ..exact
+        },
+        PcbReviewSvgLimits {
+            max_svg_bytes_per_layer: largest - 1,
+            ..exact
+        },
+        PcbReviewSvgLimits {
+            max_total_svg_bytes: total_bytes - 1,
+            ..exact
+        },
+        PcbReviewSvgLimits {
+            max_metadata_bytes: 0,
+            ..exact
+        },
+        PcbReviewSvgLimits {
+            max_total_filter_work: 0,
+            ..exact
+        },
+        PcbReviewSvgLimits {
+            max_metadata_items: 0,
+            ..exact
+        },
+        PcbReviewSvgLimits {
+            max_metadata_materialized_bytes: 0,
+            ..exact
+        },
+        PcbReviewSvgLimits {
+            max_total_materialized_bytes: 0,
+            ..exact
+        },
+        PcbReviewSvgLimits {
+            max_total_composition_work: 0,
+            ..exact
+        },
+    ] {
+        assert!(build_pcb_review_svgs_with_limits(&loaded, &document, limits).is_err());
+    }
+}
+
+#[test]
+fn board_projection_limits_accept_exact_and_reject_one_under() {
+    let loaded = load_design_sources(&hlr_test_project()).unwrap();
+    let document = build_board_plot_document(&loaded).unwrap().unwrap();
+    let copper_layers = document.copper_layer_count();
+    let exact = BoardPlotDocumentLimits {
+        max_copper_layers: copper_layers,
+        max_contract_bytes: document.serialized_bytes().unwrap(),
+        contract: kicad_monkey_core::BoardPlotContractLimits {
+            max_records: document.record_count(),
+            max_operations: document.operation_count(),
+            ..kicad_monkey_core::BoardPlotContractLimits::default()
+        },
+        ..BoardPlotDocumentLimits::default()
+    };
+    build_board_plot_document_with_limits(&loaded, exact)
+        .expect("exact board projection limits")
+        .expect("PCB document");
+    for limits in [
+        BoardPlotDocumentLimits {
+            max_copper_layers: copper_layers - 1,
+            ..exact
+        },
+        BoardPlotDocumentLimits {
+            max_contract_bytes: exact.max_contract_bytes - 1,
+            ..exact
+        },
+        BoardPlotDocumentLimits {
+            contract: kicad_monkey_core::BoardPlotContractLimits {
+                max_records: document.record_count() - 1,
+                ..exact.contract
+            },
+            ..exact
+        },
+        BoardPlotDocumentLimits {
+            contract: kicad_monkey_core::BoardPlotContractLimits {
+                max_operations: document.operation_count() - 1,
+                ..exact.contract
+            },
+            ..exact
+        },
+    ] {
+        assert!(build_board_plot_document_with_limits(&loaded, limits).is_err());
+    }
+}
+
+#[test]
+fn board_image_viewport_crosses_the_monkey_cruncher_boundary() {
+    let (_temporary, project) = hlr_with_board_image();
+    let loaded = load_design_sources(&project).expect("image design sources");
+    let document = build_board_plot_document(&loaded)
+        .expect("image board plot")
+        .expect("PCB document");
+    let artifacts = build_pcb_review_svgs(&loaded, &document).expect("image review SVGs");
+    assert!(!artifacts.is_empty());
+    for artifact in artifacts {
+        assert_eq!(artifact.viewport_bounds_nm[2], 1_000_050_000);
+        assert_eq!(artifact.viewport_bounds_nm[3], 2_000_050_000);
+    }
 }
 
 #[test]

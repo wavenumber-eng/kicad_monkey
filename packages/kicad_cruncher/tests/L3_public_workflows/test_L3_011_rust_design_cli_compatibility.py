@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -51,6 +53,9 @@ _RUST_SCHEMATIC_REVIEW_SVGS_ORACLE = _WORKSPACE / "target" / "debug" / "examples
     "schematic_review_svgs_oracle.exe"
     if os.name == "nt"
     else "schematic_review_svgs_oracle"
+)
+_RUST_PCB_REVIEW_SVGS_ORACLE = _WORKSPACE / "target" / "debug" / "examples" / (
+    "pcb_review_svgs_oracle.exe" if os.name == "nt" else "pcb_review_svgs_oracle"
 )
 _PROJECT = (
     _PACKAGE_ROOT
@@ -142,6 +147,53 @@ def _first_json_difference(actual: object, expected: object, path: str = "$") ->
         if len(actual) != len(expected):
             return f"{path}: length {len(actual)} != {len(expected)}"
     return f"{path}: {actual!r} != {expected!r}"
+
+
+def _svg_record_geometry(element: ET.Element) -> tuple[int, tuple[float, ...]]:
+    """Tag-independent unique-coordinate count and envelope for one record."""
+    drawable = {"path", "polygon", "polyline", "line", "rect", "circle", "ellipse"}
+    points: list[tuple[float, float]] = []
+    for child in element.iter():
+        tag = child.tag.rsplit("}", 1)[-1]
+        if tag not in drawable:
+            continue
+        attrs = child.attrib
+        if tag in {"polygon", "polyline"}:
+            numbers = [
+                float(value)
+                for value in re.findall(
+                    r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", attrs.get("points", "")
+                )
+            ]
+            points.extend(zip(numbers[::2], numbers[1::2], strict=False))
+        elif tag == "path":
+            numbers = [
+                float(value)
+                for value in re.findall(
+                    r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", attrs.get("d", "")
+                )
+            ]
+            points.extend(zip(numbers[::2], numbers[1::2], strict=False))
+        elif tag == "line":
+            points.extend(
+                [(float(attrs["x1"]), float(attrs["y1"])), (float(attrs["x2"]), float(attrs["y2"]))]
+            )
+        elif tag == "rect":
+            x, y = float(attrs.get("x", 0)), float(attrs.get("y", 0))
+            width, height = float(attrs.get("width", 0)), float(attrs.get("height", 0))
+            points.extend([(x, y), (x + width, y + height)])
+        else:
+            cx, cy = float(attrs.get("cx", 0)), float(attrs.get("cy", 0))
+            rx = float(attrs.get("r", attrs.get("rx", 0)))
+            ry = float(attrs.get("r", attrs.get("ry", 0)))
+            points.extend([(cx - rx, cy - ry), (cx + rx, cy + ry)])
+    if not points:
+        return 0, ()
+    normalized = {(round(x, 6), round(y, 6)) for x, y in points}
+    xs, ys = zip(*normalized, strict=True)
+    envelope = tuple(round(value, 6) for value in (min(xs), min(ys), max(xs), max(ys)))
+    assert all(math.isfinite(value) for value in envelope)
+    return len(normalized), envelope
 _DESIGN_HELP_MARKERS = (
     "design review bundle",
     "enriched black-and-white schematic SVGs",
@@ -182,9 +234,12 @@ def _build_rust_cli() -> None:
     assert _RUST_SCHEMATIC_PLOT_DOCUMENTS_ORACLE.is_file()
     assert _RUST_SCHEMATIC_BASE_SVGS_ORACLE.is_file()
     assert _RUST_SCHEMATIC_REVIEW_SVGS_ORACLE.is_file()
+    assert _RUST_PCB_REVIEW_SVGS_ORACLE.is_file()
 
 
-def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
+def _run(
+    command: list[str], *, timeout: int = 60
+) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env.update({"NO_COLOR": "1", "PYTHONUTF8": "1"})
     return subprocess.run(
@@ -194,7 +249,7 @@ def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=60,
+        timeout=timeout,
         check=False,
     )
 
@@ -551,3 +606,124 @@ def _assert_schematic_review_svg(
     assert actual["resolved_svg_identity_count"] == len(
         graph_view["element_to_graphical_artifact_link_refs"]
     )
+
+
+@pytest.mark.parametrize(
+    "source", (_PROJECT, _REPRESENTATIVE_PROJECTS[0], _EMBEDDED_BERKELEY_PROJECT)
+)
+def test_rust_pcb_review_svg_matches_python_enrichment_contract(source: Path) -> None:
+    from kicad_cruncher.kicad_cruncher_cmd_design import (
+        _cached_pcb_review_svg_text,
+        _pcb_copper_layers,
+        _style_pcb_review_svg,
+    )
+    from kicad_cruncher.kicad_cruncher_native_physical import NativePhysicalProvider
+    from kicad_cruncher.kicad_cruncher_pcb_svg_compositor import (
+        PcbSvgCompositionRenderCache,
+    )
+
+    source = source.resolve()
+    completed = _run(
+        [str(_RUST_PCB_REVIEW_SVGS_ORACLE), str(source)], timeout=120
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    actual_artifacts = json.loads(completed.stdout)
+    design = KiCadDesign.from_file(source)
+    native = _WORKSPACE / "target" / "debug" / (
+        "kicad-monkey-native.exe" if os.name == "nt" else "kicad-monkey-native"
+    )
+    cache = PcbSvgCompositionRenderCache(
+        design.pcb,
+        physical_provider=NativePhysicalProvider(executable=native),
+    )
+    layers = _pcb_copper_layers(design.pcb)
+    assert [artifact["layer"] for artifact in actual_artifacts] == layers
+    for actual, layer in zip(actual_artifacts, layers, strict=True):
+        expected_base = _cached_pcb_review_svg_text(design.pcb, cache, layer)
+        expected_svg, expected_holes = _style_pcb_review_svg(expected_base, layer)
+        expected = ET.fromstring(expected_svg)
+        rendered = ET.fromstring(actual["svg"])
+        assert actual["included_layers"] == [layer, "Edge.Cuts"]
+        assert actual["drill_slot_record_count"] == expected_holes
+        actual_root_attrs = dict(rendered.attrib)
+        expected_root_attrs = dict(expected.attrib)
+        actual_view_box = [float(value) for value in actual_root_attrs.pop("viewBox").split()]
+        expected_view_box = [
+            float(value) for value in expected_root_attrs.pop("viewBox").split()
+        ]
+        actual_width = float(actual_root_attrs.pop("width").removesuffix("mm"))
+        expected_width = float(expected_root_attrs.pop("width").removesuffix("mm"))
+        assert actual_root_attrs == expected_root_attrs
+        assert actual_view_box == pytest.approx(expected_view_box, abs=0.001)
+        assert actual_width == pytest.approx(expected_width, abs=0.001)
+        expected_metadata = next(
+            element for element in expected if element.tag.endswith("metadata")
+        )
+        actual_metadata = next(
+            element for element in rendered if element.tag.endswith("metadata")
+        )
+        actual_payload = json.loads(actual_metadata.text or "")
+        expected_payload = json.loads(expected_metadata.text or "")
+        actual_bbox = actual_payload["board"].pop("bbox_mm")
+        expected_bbox = expected_payload["board"].pop("bbox_mm")
+        assert actual_bbox == pytest.approx(expected_bbox, abs=0.001)
+        assert [value / 1_000_000 for value in actual["viewport_bounds_nm"]] == pytest.approx(
+            expected_bbox, abs=0.001
+        )
+        assert actual_payload == expected_payload, _first_json_difference(
+            actual_payload, expected_payload
+        )
+        expected_ids = [
+            element.attrib["id"] for element in expected.iter() if element.attrib.get("id")
+        ]
+        actual_ids = [
+            element.attrib["id"] for element in rendered.iter() if element.attrib.get("id")
+        ]
+        assert not [name for name, count in Counter(expected_ids).items() if count != 1]
+        assert not [name for name, count in Counter(actual_ids).items() if count != 1]
+        expected_by_id = {
+            element.attrib["id"]: element
+            for element in expected.iter()
+            if element.attrib.get("id")
+        }
+        actual_by_id = {
+            element.attrib["id"]: element
+            for element in rendered.iter()
+            if element.attrib.get("id")
+        }
+        assert actual_by_id.keys() == expected_by_id.keys(), (
+            actual_by_id.keys() ^ expected_by_id.keys()
+        )
+        for element_id, expected_element in expected_by_id.items():
+            assert actual_by_id[element_id].attrib == expected_element.attrib, (
+                element_id,
+                actual_by_id[element_id].attrib,
+                expected_element.attrib,
+            )
+            # Native Rust and Python may encode the same filled geometry as
+            # polygons or paths. Compare the themed colors within every
+            # exact-bound source record instead of renderer-specific tags.
+            expected_colors = {
+                value
+                for child in expected_element.iter()
+                for name, value in child.attrib.items()
+                if name in {"fill", "stroke"} and value != "none"
+            }
+            actual_colors = {
+                value
+                for child in actual_by_id[element_id].iter()
+                for name, value in child.attrib.items()
+                if name in {"fill", "stroke"} and value != "none"
+            }
+            assert actual_colors == expected_colors, element_id
+            actual_geometry = _svg_record_geometry(actual_by_id[element_id])
+            expected_geometry = _svg_record_geometry(expected_element)
+            # Equivalent curve/path tessellation can retain a slightly
+            # different number of unique samples. A 1% per-record ceiling
+            # still detects missing, moved, or broad topology drift without
+            # coupling the oracle to renderer-specific contour segmentation.
+            assert actual_geometry[0] == pytest.approx(
+                expected_geometry[0], rel=0.01, abs=2
+            ), element_id
+            assert actual_geometry[1] == pytest.approx(expected_geometry[1], abs=0.001), element_id

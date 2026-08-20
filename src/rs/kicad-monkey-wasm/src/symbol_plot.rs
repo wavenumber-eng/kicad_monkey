@@ -1,6 +1,6 @@
 //! Browser adapter for the source-selected symbol geometry and text producer.
 
-use crate::{plotter_contract::contract_plotter_operation, serialize_bounded};
+use crate::serialize_bounded;
 use kicad_monkey_contracts::generated::symbol_plot_document::{
     LibSubsymbolPlotRecord, PlotterCoordinateSpace, PlotterOperation, SymbolHeaderPlotRecord,
     SymbolPlotDocumentA0, SymbolPlotRecord,
@@ -10,6 +10,7 @@ use kicad_monkey_contracts::generated::symbol_plot_result::{
     Diagnostic, DiagnosticPhase, SourcePosition, SymbolPlotResultA0,
 };
 use kicad_monkey_contracts::validate_symbol_plot_document;
+use kicad_monkey_core::project_plotter_operation_a0 as contract_plotter_operation;
 use kicad_monkey_core::{
     Error, ErrorKind, ErrorPhase, SymbolPlotLimits, SymbolTextVariables,
     symbol_plot_document_with_text_variables, utf8_text,

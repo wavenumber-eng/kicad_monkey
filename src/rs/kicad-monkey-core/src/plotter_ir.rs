@@ -739,6 +739,8 @@ fn parse_pad(
                 Some(PlotterOperation::FlashPadTrapez(FlashPadTrapez {
                     x,
                     y,
+                    size_x_nm,
+                    size_y_nm,
                     corners: [
                         [
                             checked_safe_add(-half_x, -delta_y)?,

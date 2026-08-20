@@ -200,6 +200,48 @@ impl<'a> PcbView<'a> {
             .map(|span| image_from_span(self.source, span, self.limits))
     }
 
+    /// Join one image payload only after enforcing its retained-byte ceiling.
+    pub(crate) fn image_data(&self, image: &PcbImage, maximum: usize) -> Result<String, Error> {
+        let span = self
+            .images
+            .iter()
+            .find(|span| span.range == image.source_range)
+            .ok_or_else(|| {
+                Error::at(
+                    ErrorPhase::Tree,
+                    ErrorKind::InvalidBuildValue,
+                    "PCB image does not belong to this view",
+                    Position::START,
+                )
+            })?;
+        let children = direct_children(
+            self.source,
+            span,
+            self.limits.max_object_children,
+            self.limits,
+        )?;
+        let Some(data) = child(&children, "data") else {
+            return Ok(String::new());
+        };
+        let values = bounded_scalar_values(self.source, data, self.limits.max_image_data_parts)?;
+        let mut output = String::new();
+        for token in values {
+            let remaining = maximum
+                .checked_sub(output.len())
+                .ok_or_else(image_limit_error)?;
+            let part = if token.kind == TokenKind::QuotedString {
+                decode_quoted_with_limit(token.lexeme, remaining).ok_or_else(image_limit_error)?
+            } else {
+                if token.lexeme.len() > remaining {
+                    return Err(image_limit_error());
+                }
+                token.lexeme.to_owned()
+            };
+            output.push_str(&part);
+        }
+        Ok(output)
+    }
+
     pub fn barcodes(&self) -> impl Iterator<Item = Result<PcbBarcode, Error>> + '_ {
         self.barcodes
             .iter()
@@ -701,5 +743,21 @@ fn joined_data_bytes(
         return Ok(0);
     };
     let values = bounded_scalar_values(source, data, limits.max_image_data_parts)?;
-    Ok(values.iter().map(token_string).map(|part| part.len()).sum())
+    values.iter().try_fold(0_usize, |total, token| {
+        let length = if token.kind == TokenKind::QuotedString {
+            token.lexeme.len().saturating_sub(2)
+        } else {
+            token.lexeme.len()
+        };
+        total.checked_add(length).ok_or_else(image_limit_error)
+    })
+}
+
+fn image_limit_error() -> Error {
+    Error::at(
+        ErrorPhase::Tree,
+        ErrorKind::ResourceLimit,
+        "PCB image data exceeds configured limits",
+        Position::START,
+    )
 }

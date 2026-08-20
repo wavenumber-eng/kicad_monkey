@@ -492,7 +492,12 @@ fn validate_board_footprint_pad_block(
                 && attrs.hole_width_mm.is_none()
                 && attrs.hole_height_mm.is_none()
                 && attrs.hole_diameter_mm.is_none();
-            if no_hole_attrs && validate_board_footprint_pad_flash(inner, &start.layers) {
+            let layers_are_canonical =
+                !start.layers.is_empty() || attrs.pad_type.as_deref() == Some("np_thru_hole");
+            if no_hole_attrs
+                && layers_are_canonical
+                && validate_board_footprint_pad_flash(inner, &start.layers)
+            {
                 Ok(())
             } else {
                 Err(invalid_board_footprint(
@@ -565,9 +570,6 @@ fn validate_board_footprint_pad_flash(
     operation: &BoardFootprintOperation,
     start_layers: &[String],
 ) -> bool {
-    if start_layers.is_empty() {
-        return false;
-    }
     match operation {
         BoardFootprintOperation::FlashPadCircleOperation(value) => {
             value.kind == "FlashPadCircle"
@@ -621,12 +623,16 @@ fn validate_board_footprint_drill(
         ),
         _ => return false,
     };
-    if layer.is_some() || layers.is_empty() {
+    if layer.is_some() {
         return false;
     }
     match attrs.hole_plating {
         Some(Plating::Plated) => {
-            role == Some(BoardDrillRole::PadDrill) && !mask && !size_x && !size_y
+            !layers.is_empty()
+                && role == Some(BoardDrillRole::PadDrill)
+                && !mask
+                && !size_x
+                && !size_y
         }
         Some(Plating::NonPlated) => {
             role == Some(BoardDrillRole::NpthHole) && mask && size_x && size_y

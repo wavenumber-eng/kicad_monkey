@@ -7,8 +7,9 @@
 
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Position};
 use crate::{
-    TextBlockLayoutLimits, TextBlockLayoutRequest, TextHorizontalAlignment, TextLinebreakLimits,
-    TextRenderCache, TextRenderCacheErrorKind, TextRenderCacheLimits, TextVerticalAlignment,
+    TextBlockLayoutLimits, TextBlockLayoutRequest, TextHorizontalAlignment, TextLayoutRequest,
+    TextLinebreakLimits, TextRenderCache, TextRenderCacheErrorKind, TextRenderCacheLimits,
+    TextVerticalAlignment, generate_text_render_cache_a0,
     generate_text_render_cache_block_hinted_a0, layout_text_block_hinted_a0,
     linebreak_text_block_hinted_a0,
 };
@@ -275,6 +276,43 @@ impl<'a> PlotterTextCacheSession<'a> {
         self.charge_session_hashes(layout)?;
         self.resources
             .generate(layout, max_retained_points, max_polygons, max_contours)
+    }
+
+    pub(crate) fn generate_single_line_unhinted(
+        &self,
+        layout: PlotterTextLayout<'_>,
+        max_retained_points: usize,
+        max_polygons: usize,
+        max_contours: usize,
+    ) -> Result<TextRenderCache, Error> {
+        self.charge_session_hashes(layout)?;
+        let (font, shaping) = self.resources.selection_and_shaping(layout)?;
+        let (_, cache_limits) = bounded_generation_limits(
+            self.resources.limits,
+            max_retained_points,
+            max_polygons,
+            max_contours,
+        );
+        generate_text_render_cache_a0(
+            font.font_bytes,
+            TextLayoutRequest {
+                shaping: &shaping,
+                size_x: layout.size_x,
+                size_y: layout.size_y,
+                position_x: layout.position_x,
+                position_y: layout.position_y,
+                angle_degrees: layout.angle_degrees,
+                mirrored: layout.mirrored,
+                horizontal_alignment: layout.horizontal_alignment,
+                vertical_alignment: layout.vertical_alignment,
+                max_error: self.resources.limits.max_error,
+            },
+            cache_limits,
+        )
+        .map_err(|error| match error.kind {
+            TextRenderCacheErrorKind::ResourceLimit => resource(error.message),
+            _ => invalid(error.message),
+        })
     }
 
     pub(crate) fn measure(

@@ -1,12 +1,12 @@
 //! Shared core-to-TypeSpec plotter operation projection.
 
-use kicad_monkey_contracts::JavaScriptSafeInteger;
-use kicad_monkey_contracts::generated::footprint_plot_document::*;
-use kicad_monkey_core::{
+use crate::{
     PlotterFill as CorePlotterFill, PlotterLineStyle as CorePlotterLineStyle,
     PlotterOperation as CorePlotterOperation, PlotterTextHAlign as CorePlotterTextHAlign,
     PlotterTextVAlign as CorePlotterTextVAlign,
 };
+use kicad_monkey_contracts::JavaScriptSafeInteger;
+use kicad_monkey_contracts::generated::footprint_plot_document::*;
 
 macro_rules! project_plotter_operation {
     ($source_index:expr, $source_operation:expr) => {{
@@ -239,7 +239,7 @@ macro_rules! project_plotter_operation {
     }};
 }
 
-pub(crate) fn contract_plotter_operation(
+pub fn contract_plotter_operation(
     index: usize,
     operation: CorePlotterOperation,
 ) -> Result<PlotterOperation, String> {

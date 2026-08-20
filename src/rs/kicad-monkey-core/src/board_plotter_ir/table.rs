@@ -140,10 +140,22 @@ fn table_record(
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
+    let cell_bounds_nm = cells
+        .iter()
+        .map(|cell| {
+            Ok([
+                mm_to_nm(cell.start.x.min(cell.end.x))?,
+                mm_to_nm(cell.start.y.min(cell.end.y))?,
+                mm_to_nm(cell.start.x.max(cell.end.x))?,
+                mm_to_nm(cell.start.y.max(cell.end.y))?,
+            ])
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
     Ok(BoardTableRecord {
         uuid: table.uuid.clone().unwrap_or_default(),
         layers,
         cell_count: cells.len(),
+        cell_bounds_nm,
         operations,
     })
 }

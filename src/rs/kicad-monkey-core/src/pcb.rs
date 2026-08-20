@@ -5,7 +5,8 @@
 
 use crate::sexpr::{
     Error, ErrorKind, ErrorPhase, Lexer, Patch, Position, Sexp, Token, TokenKind,
-    apply_patches_with_limit, build_with_limit, decode_quoted, is_teardrop_numeric_key,
+    apply_patches_with_limit, build_with_limit, decode_quoted, decode_quoted_with_limit,
+    is_teardrop_numeric_key,
 };
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use crate::{KiCadPaper, KiCadTextEffects, KiCadTitleBlock};

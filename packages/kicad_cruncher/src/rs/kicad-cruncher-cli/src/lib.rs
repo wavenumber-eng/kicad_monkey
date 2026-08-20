@@ -7,6 +7,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 pub mod design;
+pub mod pcb_review_svg;
 pub mod schematic_review_svg;
 
 pub const TOP_LEVEL_HELP: &str = "\

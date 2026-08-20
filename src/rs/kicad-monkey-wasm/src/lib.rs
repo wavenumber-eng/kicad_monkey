@@ -5,7 +5,6 @@
 #[cfg(feature = "board")]
 mod board_plot;
 #[cfg(any(feature = "footprint", feature = "symbol", feature = "board"))]
-mod plotter_contract;
 #[cfg(feature = "symbol")]
 mod symbol_library;
 #[cfg(feature = "symbol")]
@@ -59,6 +58,8 @@ use kicad_monkey_contracts::{JavaScriptSafeInteger, validate_footprint_plot_docu
 #[cfg(feature = "sexpr")]
 use kicad_monkey_contracts::{ValidatedNode, validate_build_request};
 use kicad_monkey_core::ErrorKind;
+#[cfg(feature = "footprint")]
+use kicad_monkey_core::project_plotter_operation_a0 as contract_plotter_operation;
 #[cfg(any(feature = "sexpr", feature = "footprint"))]
 use kicad_monkey_core::{Error, ErrorPhase};
 #[cfg(feature = "footprint")]
@@ -69,8 +70,6 @@ use kicad_monkey_core::{
 use kicad_monkey_core::{
     ProjectionLimits, Selector, Sexp, build, build_with_limit, parse_bytes, scan_reader_form_spans,
 };
-#[cfg(feature = "footprint")]
-use plotter_contract::contract_plotter_operation;
 #[cfg(feature = "sexpr")]
 use std::collections::BTreeSet;
 #[cfg(feature = "sexpr")]

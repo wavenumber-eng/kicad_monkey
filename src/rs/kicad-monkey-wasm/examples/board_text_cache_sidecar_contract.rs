@@ -73,6 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         document,
         Some("board_text_cache_sidecar_vectors.json".to_owned()),
         "matching-stale-missing-carrier-caches".to_owned(),
+        kicad_monkey_core::BoardPlotContractLimits::default(),
     )?;
     serde_json::to_writer(std::io::stdout(), &contract)?;
     Ok(())
