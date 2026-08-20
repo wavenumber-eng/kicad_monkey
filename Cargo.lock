@@ -336,6 +336,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kicad-cruncher-cli"
+version = "2026.8.18"
+dependencies = [
+ "kicad-monkey-contracts",
+ "kicad-monkey-core",
+ "kicad-monkey-svg",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "kicad-monkey-codegen"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phase 7 pure-Rust CLI audit</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-doc-status="accepted" data-doc-kind="architecture-audit">
+<main>
+<nav class="nav"><a href="index.html">Design Index</a><a href="cli/design.html">design</a></nav>
+<header>
+  <p class="status">Accepted migration boundary</p>
+  <h1>Phase 7 pure-Rust CLI audit</h1>
+  <p class="lede">Use the design-review bundle as the first complete native CLI vertical slice.</p>
+</header>
+
+<section id="decision">
+  <h2>Decision</h2>
+  <p>The Phase 7 target is a real Rust <code>kicad-cruncher</code> executable, not Python commands that invoke the existing Monkey native sidecar. The executable is Cruncher-owned and composes the Rust Monkey crates directly. The existing Python <code>design</code> workflow remains the migration oracle until the installed Rust command reproduces its contracted bundle.</p>
+</section>
+
+<section id="current-state">
+  <h2>Current design-review ownership</h2>
+  <table>
+    <thead><tr><th>Piece</th><th>Current implementation</th><th>Rust migration state</th></tr></thead>
+    <tbody>
+      <tr><td>CLI parsing, aliases, input discovery, output defaults</td><td>Cruncher Python</td><td>Not yet present in a Cruncher Rust executable.</td></tr>
+      <tr><td>Project and schematic parsing</td><td>Monkey Python aggregate; bounded Rust source-bundle and parser foundations also exist</td><td>Foundation exists, but direct filesystem discovery and design aggregation must be assembled for the Rust CLI.</td></tr>
+      <tr><td>Compiled schematic graph</td><td>Rust on the promoted Windows path, transported through <code>kicad-monkey-native</code></td><td>Rust-ready reusable core; the new CLI should call it directly.</td></tr>
+      <tr><td>Version-E S-expression netlist</td><td>Rust on the promoted Windows path, transported with design facts</td><td>Rust-ready reusable core; exact-byte oracle coverage already exists.</td></tr>
+      <tr><td>Design JSON and netlist JSON</td><td>Monkey Python presentation from <code>KiCadDesign</code></td><td>Missing as direct Rust public composition and required before the nonvisual bundle slice is complete.</td></tr>
+      <tr><td>Base schematic and PCB SVG</td><td>Monkey Plotter-IR/rendering with selected native PCB base rendering</td><td>Rust Plotter-IR and SVG foundations exist.</td></tr>
+      <tr><td>Schematic graph linkage, metadata enrichment, review theme</td><td>Monkey Python enrichment called by Cruncher Python</td><td>Must move to reusable Rust Monkey surfaces where format-close, then be composed by Cruncher Rust.</td></tr>
+      <tr><td>PCB layer selection, metadata preservation, and review theme</td><td>Cruncher Python around Monkey render output</td><td>Must move to Cruncher Rust while retaining Monkey-owned physical records.</td></tr>
+      <tr><td>Manifest, README, safe relative paths, staging and publication</td><td>Cruncher Python</td><td>Must move to Cruncher Rust and preserve the existing a0 contract and failure atomicity.</td></tr>
+      <tr><td>Installed <code>kicad-cruncher</code> entry point</td><td>Python console script in a universal wheel</td><td>Requires a platform executable artifact and installed smoke coverage.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="crate-boundary">
+  <h2>Crate boundary</h2>
+  <p>A dedicated crate under <code>packages/kicad_cruncher/src/rs/</code> owns argument parsing, command dispatch, review presentation, artifact layout, progress, exit status, and transactional publication. It depends on the Rust Monkey crates. The Monkey workspace crates remain independent of Cruncher and own only reusable close-to-format behavior.</p>
+</section>
+
+<section id="delivery-order">
+  <h2>Delivery order</h2>
+  <ol>
+    <li>Stand up the Rust executable crate with stable <code>--help</code>, <code>--version</code>, and internal <code>design</code> command parsing.</li>
+    <li>Port source loading plus Design JSON, compiled graph, netlist JSON, and version-E netlist generation.</li>
+    <li>Port enriched schematic review SVG production and compiled-graph linkage.</li>
+    <li>Port enriched per-copper-layer PCB review SVG production.</li>
+    <li>Port the manifest, README, safe-path checks, and transactional directory publication.</li>
+    <li>Compare the full Rust bundle with the Python oracle, then promote the installed Rust executable.</li>
+  </ol>
+</section>
+
+<section id="acceptance">
+  <h2>Acceptance</h2>
+  <p>The slice is complete only when the Rust executable generates the full contracted review bundle for representative corpus projects, passes cross-package Monkey/Cruncher tests, preserves exact graph and netlist evidence, matches required SVG linkage and physical metadata, fails without partially publishing output, installs without workspace paths, and runs without a Python interpreter.</p>
+</section>
+
+<section id="deferred">
+  <h2>Deferred work</h2>
+  <p>KiCad-to-PCB-A0 and Plotter-IR-to-DWG-Scene integration belongs in the Viz repository. New Monkey WASM packaging remains deferred until a concrete Monkey core-library browser use case exists. Other Cruncher commands follow the design-review migration pattern after this vertical slice.</p>
+</section>
+</main>
+</body>
+</html>

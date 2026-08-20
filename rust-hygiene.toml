@@ -12,7 +12,7 @@ max_cyclomatic_complexity = 10
 max_nesting = 4
 
 [paths]
-source_roots = ["src/rs", "tests"]
+source_roots = ["src/rs", "packages/kicad_cruncher/src/rs", "tests"]
 exclude_parts = [
   ".git",
   "_build",

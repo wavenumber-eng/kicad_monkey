@@ -15,6 +15,7 @@
 
   <h2>Boundaries</h2>
   <ul>
+    <li><code>src/rs/kicad-cruncher-cli</code> is the migration home of the canonical pure-Rust executable and owns native command dispatch and workflow artifact orchestration.</li>
     <li><code>_cli.py</code> owns top-level CLI registration and dispatch.</li>
     <li><code>kicad_cruncher_cmd_* </code> modules own individual public commands.</li>
     <li><code>bom_pnp_* </code> modules own shared BOM, PnP, and JLC normalization.</li>
@@ -23,6 +24,15 @@
     <li><code>docs/contracts/</code> owns command and config schemas.</li>
     <li><code>docs/design/</code> owns durable command and interface design docs.</li>
   </ul>
+
+  <h2>Pure-Rust CLI Migration</h2>
+  <p>
+    The current installed console script remains Python while the Rust
+    executable is built and checked against it as an oracle. Design review is
+    the first complete vertical slice. The Rust executable is promoted only
+    after it reproduces the contracted bundle and installed behavior without a
+    Python runtime.
+  </p>
 
   <h2>Release Policy</h2>
   <p>
