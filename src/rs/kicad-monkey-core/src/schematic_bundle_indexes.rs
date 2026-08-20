@@ -138,11 +138,16 @@ pub(crate) fn index_library_symbols(
 }
 
 pub(crate) fn portable_file_stem(path: &str) -> String {
-    path.rsplit('/')
-        .next()
-        .unwrap_or(path)
-        .strip_suffix(".kicad_pro")
-        .unwrap_or_else(|| path.rsplit('/').next().unwrap_or(path))
+    let filename = path.rsplit('/').next().unwrap_or(path);
+    let suffix = ".kicad_pro";
+    filename
+        .get(..filename.len().saturating_sub(suffix.len()))
+        .filter(|_| {
+            filename
+                .get(filename.len().saturating_sub(suffix.len())..)
+                .is_some_and(|value| value.eq_ignore_ascii_case(suffix))
+        })
+        .unwrap_or(filename)
         .to_owned()
 }
 

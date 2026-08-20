@@ -975,6 +975,11 @@ fn schematic_limits(limits: AppLimits) -> SchematicBundleLimits {
         max_symbol_variant_fields_per_variant: family(
             default.max_symbol_variant_fields_per_variant,
         ),
+        max_page_instances_per_source: family(default.max_page_instances_per_source),
+        max_page_instance_bytes_per_source: bytes(
+            default.max_page_instance_bytes_per_source,
+            limits.max_total_source_bytes,
+        ),
         max_legacy_symbol_instances_per_source: family(
             default.max_legacy_symbol_instances_per_source,
         ),

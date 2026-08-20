@@ -253,11 +253,18 @@ impl fmt::Display for DesignError {
 
 impl std::error::Error for DesignError {}
 
+impl From<io::Error> for DesignError {
+    fn from(error: io::Error) -> Self {
+        Self::context("design-review I/O failed", error)
+    }
+}
+
 #[derive(Debug)]
 pub struct LoadedDesignSources {
     pub input_path: PathBuf,
     pub bundle_root: PathBuf,
     pub bundle: SourceBundle,
+    pub source_snapshot_sha256: String,
     pub pcb_path: Option<PathBuf>,
     pub pcb_source: Option<String>,
 }
@@ -289,8 +296,8 @@ fn resolve_design_paths(input: &Path) -> Result<DesignPaths, DesignError> {
     }
 
     let suffix = input_path.extension().and_then(|value| value.to_str());
-    let (project_path, root_schematic_path, pcb_path) = match suffix {
-        Some("kicad_pro") => {
+    let (project_path, root_schematic_path, pcb_path) =
+        if suffix.is_some_and(|value| value.eq_ignore_ascii_case("kicad_pro")) {
             let schematic = input_path.with_extension("kicad_sch");
             if !schematic.is_file() {
                 return Err(DesignError::new(format!(
@@ -304,18 +311,17 @@ fn resolve_design_paths(input: &Path) -> Result<DesignPaths, DesignError> {
                 schematic,
                 pcb.is_file().then_some(pcb),
             )
-        }
-        Some("kicad_sch") => (
-            find_adjacent_project(&input_path)?,
-            input_path.clone(),
-            None,
-        ),
-        _ => {
+        } else if suffix.is_some_and(|value| value.eq_ignore_ascii_case("kicad_sch")) {
+            (
+                find_adjacent_project(&input_path)?,
+                input_path.clone(),
+                None,
+            )
+        } else {
             return Err(DesignError::new(
                 "design input must end in .kicad_pro or .kicad_sch",
             ));
-        }
-    };
+        };
 
     let bundle_root = input_path
         .parent()
@@ -455,6 +461,7 @@ pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignEr
         type_: "kicad_monkey.source_bundle_manifest".to_owned(),
         version: "a0".to_owned(),
     };
+    let source_snapshot_sha256 = source_snapshot_sha256(&manifest, &buffers)?;
     let bundle = SourceBundle::from_manifest(manifest, buffers, limits)
         .map_err(|error| DesignError::context("source bundle is invalid", error))?;
     let (pcb_path, pcb_source) = paths
@@ -471,9 +478,58 @@ pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignEr
         input_path: paths.input,
         bundle_root: paths.root,
         bundle,
+        source_snapshot_sha256,
         pcb_path,
         pcb_source,
     })
+}
+
+fn source_snapshot_sha256(
+    manifest: &SourceBundleManifestA0,
+    buffers: &[Vec<u8>],
+) -> Result<String, DesignError> {
+    let mut sources = manifest.sources.iter().collect::<Vec<_>>();
+    sources.sort_by_key(|source| *source.slot);
+    if sources.len() != buffers.len() {
+        return Err(DesignError::new(
+            "source snapshot manifest and loaded slots have different lengths",
+        ));
+    }
+    let mut digest = Sha256::new();
+    digest.update(b"kicad_monkey.native.source_snapshot.a1\0");
+    digest_length_prefixed(&mut digest, manifest.root_schematic_path.as_bytes())?;
+    if let Some(project_path) = manifest.project_path.as_deref() {
+        digest.update([1]);
+        digest_length_prefixed(&mut digest, project_path.as_bytes())?;
+    } else {
+        digest.update([0]);
+    }
+    digest_usize(&mut digest, sources.len(), "source snapshot count")?;
+    for source in sources {
+        let slot = *source.slot;
+        let bytes = buffers
+            .get(slot as usize)
+            .ok_or_else(|| DesignError::new("source snapshot slot is out of range"))?;
+        digest.update(slot.to_be_bytes());
+        digest_length_prefixed(&mut digest, source.path.as_bytes())?;
+        digest_length_prefixed(&mut digest, source.kind.to_string().as_bytes())?;
+        digest_usize(&mut digest, bytes.len(), "source snapshot byte length")?;
+        digest.update(bytes);
+    }
+    Ok(hex_encoded(&digest.finalize()))
+}
+
+fn digest_length_prefixed(digest: &mut Sha256, bytes: &[u8]) -> Result<(), DesignError> {
+    digest_usize(digest, bytes.len(), "source snapshot string length")?;
+    digest.update(bytes);
+    Ok(())
+}
+
+fn digest_usize(digest: &mut Sha256, value: usize, label: &str) -> Result<(), DesignError> {
+    let value = u64::try_from(value)
+        .map_err(|_| DesignError::new(format!("{label} does not fit unsigned 64-bit")))?;
+    digest.update(value.to_be_bytes());
+    Ok(())
 }
 
 pub fn build_structured_design_facts(
@@ -499,9 +555,11 @@ pub fn build_structured_design_facts_with_options(
     validate_compiled_schematic_graph(design_facts.graph())
         .map_err(|error| DesignError::context("compiled schematic graph is invalid", error))?;
     let netlist = design_facts.netlist();
+    let netlist_source =
+        display_source_path(&loaded.bundle_root.join(loaded.bundle.root_schematic_path()));
     let kicad_netlist = emit_kicad_netlist(
         netlist,
-        loaded.bundle.root_schematic_path(),
+        &netlist_source,
         "",
         GRAPH_TOOL,
         KiCadNetlistLimits::default().max_output_bytes,
@@ -1560,6 +1618,16 @@ pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     encoded
 }
 
+pub(crate) fn hex_encoded(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len().saturating_mul(2));
+    for byte in bytes {
+        encoded.push(char::from(HEX[(byte >> 4) as usize]));
+        encoded.push(char::from(HEX[(byte & 0x0f) as usize]));
+    }
+    encoded
+}
+
 fn shaping_template(font_id: &str, sha256: &str) -> Result<ShapingInput, DesignError> {
     serde_json::from_value(serde_json::json!({
         "font_id": font_id,
@@ -1622,7 +1690,7 @@ fn design_json_paths(loaded: &LoadedDesignSources) -> Result<KiCadDesignJsonPath
     Ok(paths)
 }
 
-fn display_source_path(path: &Path) -> String {
+pub(crate) fn display_source_path(path: &Path) -> String {
     let value = path.to_string_lossy();
     if let Some(value) = value.strip_prefix(r"\\?\UNC\") {
         format!(r"\\{value}")
@@ -1757,6 +1825,27 @@ fn push_source(
 #[cfg(test)]
 mod plot_batch_budget_tests {
     use super::*;
+
+    #[test]
+    fn source_snapshot_binds_exact_loaded_carrier_bytes() {
+        let manifest = SourceBundleManifestA0 {
+            project_path: None,
+            root_schematic_path: "root.kicad_sch".to_owned(),
+            schema: "kicad_monkey.source_bundle_manifest.a0".to_owned(),
+            sources: vec![SourceBundleSource {
+                kind: SourceKind::Schematic,
+                path: "root.kicad_sch".to_owned(),
+                slot: SourceSlot(0),
+                source_bytes: CanonicalUint64Decimal("3".to_owned()),
+            }],
+            type_: "kicad_monkey.source_bundle_manifest".to_owned(),
+            version: "a0".to_owned(),
+        };
+        let first = source_snapshot_sha256(&manifest, &[b"abc".to_vec()]).unwrap();
+        let changed = source_snapshot_sha256(&manifest, &[b"abd".to_vec()]).unwrap();
+        assert_ne!(first, changed);
+        assert_eq!(first.len(), 64);
+    }
 
     #[test]
     fn aggregate_budget_accepts_exact_and_rejects_one_under() {

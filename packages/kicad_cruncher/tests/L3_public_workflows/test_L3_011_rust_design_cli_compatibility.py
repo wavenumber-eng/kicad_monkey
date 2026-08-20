@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -13,7 +15,9 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
-from kicad_monkey import KiCadDesign
+from jsonschema import Draft202012Validator
+from kicad_cruncher import kicad_cruncher_cmd_design as design_cmd
+from kicad_monkey import KiCadDesign, get_value, parse_sexp
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 _WORKSPACE = Path(__file__).resolve().parents[4]
@@ -113,6 +117,9 @@ _EMBEDDED_BERKELEY_PROJECT = (
     / "speedy_processing_module"
     / "input"
     / "11-10084__speedy_processing_module__B.kicad_pro"
+)
+_MANIFEST_SCHEMA = (
+    _PACKAGE_ROOT / "docs" / "contracts" / "design_review_manifest.a0.schema.json"
 )
 
 
@@ -238,13 +245,13 @@ def _build_rust_cli() -> None:
 
 
 def _run(
-    command: list[str], *, timeout: int = 60
+    command: list[str], *, timeout: int = 60, cwd: Path = _PACKAGE_ROOT
 ) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env.update({"NO_COLOR": "1", "PYTHONUTF8": "1"})
     return subprocess.run(
         command,
-        cwd=_PACKAGE_ROOT,
+        cwd=cwd,
         env=env,
         capture_output=True,
         text=True,
@@ -278,6 +285,137 @@ def test_rust_usage_errors_match_the_python_cli_contract(alias: str) -> None:
         assert "usage: kicad-cruncher" in completed.stderr
         assert "unrecognized arguments: --not-a-real-option" in completed.stderr
         assert "Traceback" not in completed.stderr
+
+
+def _bundle_digest(root: Path) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
+
+
+def _assert_rust_bundle(output: Path, project: Path = _PROJECT) -> None:
+    manifest = json.loads((output / "design_review_manifest.json").read_text("utf-8"))
+    Draft202012Validator(json.loads(_MANIFEST_SCHEMA.read_text("utf-8"))).validate(
+        manifest
+    )
+    graph_record = manifest["compiled_schematic_graph"]
+    schematic = manifest["schematic_svgs"]
+    pcbs = manifest["pcb_svgs"]
+    expected_files = {
+        "README.md",
+        "design_review_manifest.json",
+        manifest["design_json"],
+        graph_record["file"],
+        manifest["netlist_json"],
+        manifest["netlist_kicad_sexpr"],
+        *(item["file"] for item in schematic),
+        *(item["file"] for item in pcbs),
+    }
+    assert {
+        path.relative_to(output).as_posix()
+        for path in output.rglob("*")
+        if path.is_file()
+    } == expected_files
+    design = json.loads((output / manifest["design_json"]).read_text("utf-8"))
+    graph = json.loads((output / graph_record["file"]).read_text("utf-8"))
+    assert graph == design["compiled_schematic_graph"]
+    canonical_graph = json.dumps(
+        graph, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+    facts = manifest["design_facts"]
+    assert facts["backend"] == "kicad-monkey-native"
+    assert facts["resource_profile"] == "design-facts-bounded-a1"
+    assert re.fullmatch(r"[0-9a-f]{64}", facts["source_snapshot_sha256"])
+    assert hashlib.sha256(canonical_graph).hexdigest() == facts[
+        "compiled_schematic_graph_sha256"
+    ]
+    netlist_bytes = (output / manifest["netlist_kicad_sexpr"]).read_bytes()
+    assert len(netlist_bytes) == facts["kicad_netlist_bytes"]
+    assert hashlib.sha256(netlist_bytes).hexdigest() == facts["kicad_netlist_sha256"]
+    netlist = parse_sexp(netlist_bytes.decode("utf-8"))
+    design_block = next(
+        row
+        for row in netlist[1:]
+        if isinstance(row, list) and row and row[0] == "design"
+    )
+    assert get_value(design_block, "source") == str(project.with_suffix(".kicad_sch"))
+    assert get_value(design_block, "date") == ""
+    assert get_value(design_block, "tool") == "kicad_cruncher"
+    assert len(schematic) == 1
+    assert {item["layer"] for item in pcbs} == {"F.Cu", "B.Cu"}
+    assert all(
+        "kicad_monkey.pcb.svg.enrichment.a0"
+        in (output / item["file"]).read_text("utf-8")
+        for item in pcbs
+    )
+    assert (output / manifest["readme"]).read_text("utf-8") == design_cmd._readme_text(
+        input_file=Path(manifest["input"]),
+        design_json=manifest["design_json"],
+        compiled_schematic_graph=graph_record["file"],
+        netlist_json=manifest["netlist_json"],
+        netlist_kicad_sexpr=manifest["netlist_kicad_sexpr"],
+        schematic_svgs=schematic,
+        pcb_svgs=pcbs,
+        manifest_file="design_review_manifest.json",
+    )
+
+
+def test_rust_design_aliases_publish_the_same_complete_transactional_bundle(
+    tmp_path: Path,
+) -> None:
+    digests: list[dict[str, str]] = []
+    for alias in ("design", "design-review", "dr"):
+        output = tmp_path / alias
+        completed = _run(
+            [str(_RUST_EXE), alias, str(_PROJECT.resolve()), "-o", str(output)],
+            timeout=120,
+        )
+        assert completed.returncode == 0, completed.stdout + completed.stderr
+        assert completed.stderr == ""
+        assert "Design review:" in completed.stdout
+        _assert_rust_bundle(output)
+        digests.append(_bundle_digest(output))
+    assert digests[0] == digests[1] == digests[2]
+
+
+def test_rust_design_failure_preserves_the_previous_bundle(tmp_path: Path) -> None:
+    output = tmp_path / "review"
+    output.mkdir()
+    marker = output / "previous.txt"
+    marker.write_text("keep me", encoding="utf-8")
+    missing = tmp_path / "missing.kicad_pro"
+
+    completed = _run([str(_RUST_EXE), "design", str(missing), "-o", str(output)])
+
+    assert completed.returncode == 1
+    assert completed.stdout == ""
+    assert "could not resolve design input" in completed.stderr
+    assert marker.read_text("utf-8") == "keep me"
+    assert list(tmp_path.glob(".kicad-cruncher-design-*")) == []
+
+
+def test_rust_design_auto_detects_one_project_and_honors_no_indexes(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    for suffix in (".kicad_pro", ".kicad_sch", ".kicad_pcb"):
+        shutil.copy2(_PROJECT.with_suffix(suffix), source / f"hlr_test{suffix}")
+    output = tmp_path / "review"
+
+    completed = _run(
+        [str(_RUST_EXE), "design", "--no-indexes", "-o", str(output)],
+        timeout=120,
+        cwd=source,
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    _assert_rust_bundle(output, source / "hlr_test.kicad_pro")
+    manifest = json.loads((output / "design_review_manifest.json").read_text("utf-8"))
+    design = json.loads((output / manifest["design_json"]).read_text("utf-8"))
+    assert "indexes" not in design
 
 
 @pytest.mark.parametrize("source", (_PROJECT, _PROJECT.with_suffix(".kicad_sch")))

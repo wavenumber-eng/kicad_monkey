@@ -306,13 +306,14 @@ fn validate_kind_suffix(
     path: &str,
 ) -> Result<(), SourceBundleError> {
     let valid = match descriptor.kind {
-        SourceKind::Project => path.ends_with(".kicad_pro"),
-        SourceKind::Schematic => path.ends_with(".kicad_sch"),
-        SourceKind::SymbolLibrary => path.ends_with(".kicad_sym"),
+        SourceKind::Project => path_ends_with_ascii_case(path, ".kicad_pro"),
+        SourceKind::Schematic => path_ends_with_ascii_case(path, ".kicad_sch"),
+        SourceKind::SymbolLibrary => path_ends_with_ascii_case(path, ".kicad_sym"),
         SourceKind::SymbolTable => {
-            path.ends_with("sym-lib-table") || path.ends_with("fp-lib-table")
+            path_ends_with_ascii_case(path, "sym-lib-table")
+                || path_ends_with_ascii_case(path, "fp-lib-table")
         }
-        SourceKind::Worksheet => path.ends_with(".kicad_wks"),
+        SourceKind::Worksheet => path_ends_with_ascii_case(path, ".kicad_wks"),
         SourceKind::Other => true,
     };
     if valid {
@@ -324,6 +325,11 @@ fn validate_kind_suffix(
             "source kind does not match its KiCad filename",
         ))
     }
+}
+
+fn path_ends_with_ascii_case(path: &str, suffix: &str) -> bool {
+    path.get(path.len().saturating_sub(suffix.len())..)
+        .is_some_and(|value| value.eq_ignore_ascii_case(suffix))
 }
 
 fn validate_project_json(source: &SourceFile) -> Result<(), SourceBundleError> {

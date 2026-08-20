@@ -37,15 +37,16 @@ fn usage_errors_follow_the_python_cli_stream_and_exit_contract() {
 }
 
 #[test]
-fn unpromoted_design_command_cannot_report_false_success() {
+fn design_runtime_failure_returns_one_without_false_success() {
     let output = binary()
         .args(["design", "project.kicad_pro"])
         .output()
         .unwrap();
-    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
     assert!(
         String::from_utf8(output.stderr)
             .unwrap()
-            .contains("still under migration")
+            .contains("could not resolve design input")
     );
 }
