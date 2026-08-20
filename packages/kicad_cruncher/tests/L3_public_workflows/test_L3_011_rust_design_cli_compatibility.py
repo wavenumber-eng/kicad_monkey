@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -39,6 +40,11 @@ _RUST_SCHEMATIC_PLOT_DOCUMENTS_ORACLE = (
         if os.name == "nt"
         else "schematic_plot_documents_oracle"
     )
+)
+_RUST_SCHEMATIC_BASE_SVGS_ORACLE = _WORKSPACE / "target" / "debug" / "examples" / (
+    "schematic_base_svgs_oracle.exe"
+    if os.name == "nt"
+    else "schematic_base_svgs_oracle"
 )
 _PROJECT = (
     _PACKAGE_ROOT
@@ -168,6 +174,7 @@ def _build_rust_cli() -> None:
     assert _RUST_DESIGN_ORACLE.is_file()
     assert _RUST_SCHEMATIC_INSTANCES_ORACLE.is_file()
     assert _RUST_SCHEMATIC_PLOT_DOCUMENTS_ORACLE.is_file()
+    assert _RUST_SCHEMATIC_BASE_SVGS_ORACLE.is_file()
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -394,3 +401,40 @@ def test_rust_plot_documents_load_custom_worksheet_and_missing_italic_face(
         for instance in design.schematic_instances()
     ]
     assert json.loads(completed.stdout) == expected
+
+
+@pytest.mark.parametrize("source", (_PROJECT, _REPRESENTATIVE_PROJECTS[0]))
+def test_rust_schematic_base_svg_preserves_python_plot_identity(source: Path) -> None:
+    source = source.resolve()
+    completed = _run(
+        [str(_RUST_SCHEMATIC_BASE_SVGS_ORACLE), str(source), "--first"]
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    design = KiCadDesign.from_file(source)
+    expected = design.to_schematic_instance_ir(design.schematic_instances()[0]).to_dict()
+    [actual] = json.loads(completed.stdout)
+    assert actual["document_id"] == expected["document_id"]
+    assert actual["metrics"]["records"] == len(expected["records"])
+    assert actual["metrics"]["operations"] == expected["total_operations"]
+    assert actual["metrics"]["svg_bytes"] == len(actual["svg"].encode("utf-8"))
+
+    root = ET.fromstring(actual["svg"])
+    assert root.attrib["viewBox"] == (
+        f'0 0 {expected["canvas"]["width_nm"]} '
+        f'{expected["canvas"]["height_nm"]}'
+    )
+    rendered_records = {
+        element.attrib["id"]: (
+            element.attrib.get("data-ref"),
+            element.attrib.get("data-object-id"),
+        )
+        for element in root.iter()
+        if "id" in element.attrib
+    }
+    for record in expected["records"]:
+        assert rendered_records[record["uuid"]] == (
+            record["kind"],
+            record["object_id"],
+        )

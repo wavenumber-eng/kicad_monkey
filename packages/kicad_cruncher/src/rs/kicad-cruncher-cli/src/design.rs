@@ -8,6 +8,11 @@ use std::io::{self, Read};
 use std::path::{Component, Path, PathBuf};
 
 use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
+use kicad_monkey_contracts::generated::native_svg_render_request::{
+    CanonicalUint64Decimal as SvgUint64, NativeSchematicSvgDocument, NativeSvgPlotDocument,
+    NativeSvgPositiveSafeInteger, NativeSvgRenderLimits, NativeSvgRenderRequestA0,
+    NativeSvgViewport,
+};
 use kicad_monkey_contracts::generated::shaping_record::ShapingInput;
 use kicad_monkey_contracts::generated::source_bundle_manifest::{
     CanonicalUint64Decimal, SourceBundleManifestA0, SourceBundleSource, SourceKind, SourceSlot,
@@ -27,6 +32,7 @@ use kicad_monkey_core::{
     schematic_plot_document_budget, schematic_plot_document_json,
     schematic_plot_document_with_sheets, validate_compiled_schematic_graph,
 };
+use kicad_monkey_svg::{SvgMetrics, render_svg};
 use sha2::{Digest, Sha256};
 
 const GRAPH_TOOL: &str = "kicad_cruncher";
@@ -85,6 +91,53 @@ impl Default for SchematicPlotDocumentsLimits {
             per_document: SchematicPlotContractLimits::default(),
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct SchematicSvgDocumentsLimits {
+    pub max_documents: usize,
+    pub max_total_svg_bytes: usize,
+    pub per_document: SchematicSvgRenderLimits,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SchematicSvgRenderLimits {
+    pub max_block_depth: u32,
+    pub max_image_encoded_bytes: usize,
+    pub max_operations: u32,
+    pub max_points: usize,
+    pub max_records: u32,
+    pub max_render_work: usize,
+    pub max_svg_bytes: usize,
+    pub max_svg_elements: usize,
+    pub max_text_bytes: usize,
+}
+
+impl Default for SchematicSvgDocumentsLimits {
+    fn default() -> Self {
+        Self {
+            max_documents: 4_096,
+            max_total_svg_bytes: 512 * 1024 * 1024,
+            per_document: SchematicSvgRenderLimits {
+                max_block_depth: 4_096,
+                max_image_encoded_bytes: 256 * 1024 * 1024,
+                max_operations: 4_000_000,
+                max_points: 16_000_000,
+                max_records: 1_000_000,
+                max_render_work: 64_000_000,
+                max_svg_bytes: 512 * 1024 * 1024,
+                max_svg_elements: 8_000_000,
+                max_text_bytes: 256 * 1024 * 1024,
+            },
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SchematicBaseSvg {
+    pub document_id: String,
+    pub svg: String,
+    pub metrics: SvgMetrics,
 }
 
 #[derive(Debug)]
@@ -529,6 +582,106 @@ pub fn build_schematic_plot_documents_with_limits(
         documents.push(value);
     }
     Ok(documents)
+}
+
+pub fn build_schematic_base_svgs(
+    documents: &[serde_json::Value],
+) -> Result<Vec<SchematicBaseSvg>, DesignError> {
+    build_schematic_base_svgs_with_limits(documents, SchematicSvgDocumentsLimits::default())
+}
+
+pub fn build_schematic_base_svgs_with_limits(
+    documents: &[serde_json::Value],
+    limits: SchematicSvgDocumentsLimits,
+) -> Result<Vec<SchematicBaseSvg>, DesignError> {
+    if documents.len() > limits.max_documents {
+        return Err(DesignError::new(format!(
+            "schematic SVG document count exceeds its limit: {} > {}",
+            documents.len(),
+            limits.max_documents
+        )));
+    }
+    let mut artifacts = Vec::with_capacity(documents.len());
+    let mut total_svg_bytes = 0_usize;
+    for document in documents {
+        let remaining = limits
+            .max_total_svg_bytes
+            .checked_sub(total_svg_bytes)
+            .ok_or_else(|| DesignError::new("schematic SVG aggregate byte limit exceeded"))?;
+        let request = schematic_svg_request(document.clone(), &limits.per_document, remaining)?;
+        let artifact = render_svg(&request)
+            .map_err(|error| DesignError::context("could not render schematic base SVG", error))?;
+        total_svg_bytes = total_svg_bytes
+            .checked_add(artifact.metrics.svg_bytes)
+            .ok_or_else(|| DesignError::new("schematic SVG aggregate byte count overflowed"))?;
+        artifacts.push(SchematicBaseSvg {
+            document_id: artifact.document_id,
+            svg: artifact.svg,
+            metrics: artifact.metrics,
+        });
+    }
+    Ok(artifacts)
+}
+
+fn schematic_svg_request(
+    document: serde_json::Value,
+    configured: &SchematicSvgRenderLimits,
+    remaining_svg_bytes: usize,
+) -> Result<NativeSvgRenderRequestA0, DesignError> {
+    let canvas = document
+        .get("canvas")
+        .ok_or_else(|| DesignError::new("schematic plot document canvas is missing"))?;
+    let width_nm = positive_svg_dimension(canvas, "width_nm")?;
+    let height_nm = positive_svg_dimension(canvas, "height_nm")?;
+    let max_svg_bytes = remaining_svg_bytes.min(configured.max_svg_bytes);
+    let per_document = NativeSvgRenderLimits {
+        max_block_depth: configured.max_block_depth,
+        max_image_encoded_bytes: svg_uint(configured.max_image_encoded_bytes),
+        max_operations: configured.max_operations,
+        max_points: svg_uint(configured.max_points),
+        max_records: configured.max_records,
+        max_render_work: svg_uint(configured.max_render_work),
+        max_result_bytes: svg_uint(max_svg_bytes),
+        max_svg_bytes: svg_uint(max_svg_bytes),
+        max_svg_elements: svg_uint(configured.max_svg_elements),
+        max_text_bytes: svg_uint(configured.max_text_bytes),
+    };
+    Ok(NativeSvgRenderRequestA0 {
+        document: NativeSvgPlotDocument::SchematicSvgDocument(NativeSchematicSvgDocument {
+            kind: "schematic".to_owned(),
+            value: document,
+        }),
+        limits: per_document,
+        profile: "plotter-base-a0".to_owned(),
+        type_: "kicad_monkey.native.svg.request".to_owned(),
+        version: "a0".to_owned(),
+        viewport: NativeSvgViewport {
+            height_nm,
+            min_x_nm: kicad_monkey_contracts::JavaScriptSafeInteger::try_from(0_i64)
+                .expect("zero is a JavaScript-safe integer"),
+            min_y_nm: kicad_monkey_contracts::JavaScriptSafeInteger::try_from(0_i64)
+                .expect("zero is a JavaScript-safe integer"),
+            width_nm,
+        },
+    })
+}
+
+fn positive_svg_dimension(
+    canvas: &serde_json::Value,
+    name: &str,
+) -> Result<NativeSvgPositiveSafeInteger, DesignError> {
+    let value = canvas
+        .get(name)
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| DesignError::new(format!("schematic plot canvas {name} is missing")))?;
+    let value = std::num::NonZeroU64::new(value).ok_or_else(|| {
+        DesignError::new(format!("schematic plot canvas {name} must be positive"))
+    })?;
+    Ok(NativeSvgPositiveSafeInteger(value))
+}
+
+fn svg_uint(value: usize) -> SvgUint64 {
+    SvgUint64(value.to_string())
 }
 
 fn charge_plot_batch_budget(

@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use kicad_cruncher_cli::design::{
-    SchematicPlotDocumentsLimits, build_schematic_plot_documents,
+    SchematicPlotDocumentsLimits, SchematicSvgDocumentsLimits, build_schematic_base_svgs,
+    build_schematic_base_svgs_with_limits, build_schematic_plot_documents,
     build_schematic_plot_documents_with_limits, build_structured_design_facts, load_design_sources,
 };
 use kicad_monkey_core::{KiCadNetlist, validate_compiled_schematic_graph};
@@ -103,4 +104,86 @@ fn schematic_plot_batches_enforce_exact_document_and_output_limits() {
             .is_err()
         );
     }
+}
+
+#[test]
+fn schematic_base_svg_preserves_canvas_and_record_identity() {
+    let loaded = load_design_sources(&hlr_test_project()).unwrap();
+    let facts = build_structured_design_facts(&loaded).unwrap();
+    let documents = build_schematic_plot_documents(&loaded, &facts.schematic_instances).unwrap();
+    let artifacts = build_schematic_base_svgs(&documents).unwrap();
+    assert_eq!(artifacts.len(), documents.len());
+    for (document, artifact) in documents.iter().zip(&artifacts) {
+        assert_eq!(artifact.document_id, document["document_id"]);
+        assert!(artifact.svg.starts_with("<?xml version=\"1.0\""));
+        assert!(artifact.svg.contains(&format!(
+            "viewBox=\"0 0 {} {}\"",
+            document["canvas"]["width_nm"].as_u64().unwrap(),
+            document["canvas"]["height_nm"].as_u64().unwrap()
+        )));
+        let records = document["records"].as_array().unwrap();
+        assert_eq!(artifact.metrics.records, records.len());
+        for record in records {
+            let uuid = record["uuid"].as_str().unwrap();
+            assert!(artifact.svg.contains(&format!("id=\"{uuid}\"")));
+        }
+    }
+}
+
+#[test]
+fn schematic_base_svg_batches_enforce_exact_document_and_byte_limits() {
+    let loaded = load_design_sources(&hlr_test_project()).unwrap();
+    let facts = build_structured_design_facts(&loaded).unwrap();
+    let documents = build_schematic_plot_documents(&loaded, &facts.schematic_instances).unwrap();
+    let baseline = build_schematic_base_svgs(&documents).unwrap();
+    let total_bytes = baseline.iter().map(|artifact| artifact.svg.len()).sum();
+    let exact = SchematicSvgDocumentsLimits {
+        max_documents: baseline.len(),
+        max_total_svg_bytes: total_bytes,
+        ..SchematicSvgDocumentsLimits::default()
+    };
+    build_schematic_base_svgs_with_limits(&documents, exact.clone()).expect("exact SVG limits");
+
+    let document_error = build_schematic_base_svgs_with_limits(
+        &documents,
+        SchematicSvgDocumentsLimits {
+            max_documents: baseline.len() - 1,
+            ..exact.clone()
+        },
+    )
+    .unwrap_err();
+    assert!(document_error.to_string().contains("document count"));
+    let byte_error = build_schematic_base_svgs_with_limits(
+        &documents,
+        SchematicSvgDocumentsLimits {
+            max_total_svg_bytes: total_bytes - 1,
+            ..exact
+        },
+    )
+    .unwrap_err();
+    assert!(byte_error.to_string().contains("base SVG"));
+
+    let first_bytes = baseline[0].svg.len();
+    let mut per_document = SchematicSvgDocumentsLimits::default().per_document;
+    per_document.max_svg_bytes = first_bytes;
+    build_schematic_base_svgs_with_limits(
+        &documents[..1],
+        SchematicSvgDocumentsLimits {
+            max_documents: 1,
+            max_total_svg_bytes: first_bytes,
+            per_document,
+        },
+    )
+    .expect("exact per-document SVG limit");
+    per_document.max_svg_bytes = first_bytes - 1;
+    let per_document_error = build_schematic_base_svgs_with_limits(
+        &documents[..1],
+        SchematicSvgDocumentsLimits {
+            max_documents: 1,
+            max_total_svg_bytes: first_bytes,
+            per_document,
+        },
+    )
+    .unwrap_err();
+    assert!(per_document_error.to_string().contains("base SVG"));
 }
