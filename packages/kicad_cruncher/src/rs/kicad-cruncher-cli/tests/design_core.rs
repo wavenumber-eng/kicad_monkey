@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 
-use kicad_cruncher_cli::design::{build_structured_design_facts, load_design_sources};
+use kicad_cruncher_cli::design::{
+    SchematicPlotDocumentsLimits, build_schematic_plot_documents,
+    build_schematic_plot_documents_with_limits, build_structured_design_facts, load_design_sources,
+};
 use kicad_monkey_core::{KiCadNetlist, validate_compiled_schematic_graph};
 use serde_json::Value;
 
@@ -57,4 +60,47 @@ fn direct_schematic_input_discovers_the_adjacent_project() {
     let loaded = load_design_sources(&hlr_test_project().with_extension("kicad_sch")).unwrap();
     assert_eq!(loaded.bundle.project_path(), Some("hlr_test.kicad_pro"));
     assert_eq!(loaded.bundle.sources().len(), 2);
+}
+
+#[test]
+fn schematic_plot_batches_enforce_exact_document_and_output_limits() {
+    let loaded = load_design_sources(&hlr_test_project()).unwrap();
+    let facts = build_structured_design_facts(&loaded).unwrap();
+    let baseline = build_schematic_plot_documents(&loaded, &facts.schematic_instances).unwrap();
+    let output_bytes = serde_json::to_vec(&baseline).unwrap().len();
+    let exact = SchematicPlotDocumentsLimits {
+        max_documents: baseline.len(),
+        max_total_output_bytes: output_bytes,
+        ..SchematicPlotDocumentsLimits::default()
+    };
+    build_schematic_plot_documents_with_limits(&loaded, &facts.schematic_instances, exact)
+        .expect("exact batch limits");
+
+    for limits in [
+        SchematicPlotDocumentsLimits {
+            max_documents: baseline.len() - 1,
+            ..exact
+        },
+        SchematicPlotDocumentsLimits {
+            max_total_output_bytes: output_bytes - 1,
+            ..exact
+        },
+        SchematicPlotDocumentsLimits {
+            max_total_derived_items: 0,
+            ..exact
+        },
+        SchematicPlotDocumentsLimits {
+            max_total_materialized_bytes: 0,
+            ..exact
+        },
+    ] {
+        assert!(
+            build_schematic_plot_documents_with_limits(
+                &loaded,
+                &facts.schematic_instances,
+                limits,
+            )
+            .is_err()
+        );
+    }
 }

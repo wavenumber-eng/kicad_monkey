@@ -25,6 +25,7 @@ sha2.workspace = true
 skrifa.workspace = true
 ttf-parser.workspace = true
 unicode-casefold.workspace = true
+zstd.workspace = true
 
 [[example]]
 name = "sexpr_selection_sort_benchmark"

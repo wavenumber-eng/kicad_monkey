@@ -22,3 +22,5 @@ kicad-monkey-core = { path = "../../../../../src/rs/kicad-monkey-core" }
 kicad-monkey-svg = { path = "../../../../../src/rs/kicad-monkey-svg" }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
+ttf-parser.workspace = true

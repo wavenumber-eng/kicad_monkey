@@ -97,6 +97,32 @@ fn typed_project_fields_cover_compiler_and_board_settings() {
     assert_board_settings(view);
 }
 
+#[test]
+fn schematic_drawing_settings_convert_mils_and_enforce_the_plot_pen_floor() {
+    let project = ProjectDocument::parse(
+        r#"{"schematic":{"drawing":{"text_offset_ratio":0.08,"default_line_thickness":10.0}}}"#
+            .to_owned(),
+        ProjectLimits::default(),
+    )
+    .expect("project");
+    let settings = project.view().schematic_drawing_settings();
+    assert_eq!(settings.text_offset_ratio, 0.08);
+    assert_eq!(settings.default_line_width_nm, 254_000);
+
+    let project = ProjectDocument::parse(
+        r#"{"schematic":{"drawing":{"default_line_thickness":0.0}}}"#.to_owned(),
+        ProjectLimits::default(),
+    )
+    .expect("project");
+    assert_eq!(
+        project
+            .view()
+            .schematic_drawing_settings()
+            .default_line_width_nm,
+        84_700
+    );
+}
+
 fn assert_project_metadata(view: ProjectView<'_>) {
     assert_eq!(
         view.text_variables().expect("variables"),

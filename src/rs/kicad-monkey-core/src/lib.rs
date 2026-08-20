@@ -29,7 +29,9 @@ pub mod schematic_bus_connectivity;
 pub mod schematic_connectivity;
 pub mod schematic_design;
 mod schematic_effective;
+pub mod schematic_embedded;
 pub mod schematic_netlist;
+pub mod schematic_plot_contract;
 pub mod schematic_plotter_ir;
 mod schematic_project;
 mod schematic_segment_index;
@@ -76,8 +78,8 @@ pub use compiled_schematic_graph::{
 };
 pub use design_json::{
     KiCadDesignFacts, KiCadDesignJsonError, KiCadDesignJsonLimits, KiCadDesignJsonPaths,
-    KiCadDesignPcb, KiCadDesignSourcePath, build_kicad_design_facts, build_kicad_design_json,
-    build_kicad_design_json_with_limits,
+    KiCadDesignPcb, KiCadDesignSourcePath, KiCadSchematicInstance, build_kicad_design_facts,
+    build_kicad_design_json, build_kicad_design_json_with_limits,
 };
 pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
 pub use font_outline::{
@@ -121,7 +123,7 @@ pub use project::{
 };
 pub use schematic_bundle::{
     SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicDocument,
-    SchematicDocumentLimits, SchematicOccurrence, SchematicSheet,
+    SchematicDocumentLimits, SchematicOccurrence, SchematicPageInstance, SchematicSheet,
 };
 pub use schematic_bus::{
     SchematicBusExpansionError, SchematicBusExpansionErrorKind, SchematicBusExpansionLimits,
@@ -146,6 +148,10 @@ pub use schematic_effective::SchematicEffectiveSymbol;
 pub use schematic_netlist::{
     SchematicLocalNet, SchematicLocalNetLimits, SchematicLocalNetTerminal,
     build_schematic_occurrence_nets, build_schematic_occurrence_nets_with_settings,
+};
+pub use schematic_plot_contract::{
+    SchematicPlotContractBudget, SchematicPlotContractError, SchematicPlotContractLimits,
+    schematic_plot_document_budget, schematic_plot_document_json,
 };
 pub use schematic_plotter_ir::{
     SchematicAnnotationRecord, SchematicAnnotationRecordKind, SchematicCanvas,

@@ -18,6 +18,14 @@ fn public_builder_validates_binding_and_enforces_exact_limits() {
         KiCadNetlistLimits::default(),
     )
     .expect("structured design facts");
+    let instances = facts.schematic_instances().expect("schematic instances");
+    assert_eq!(instances.len(), 1);
+    assert_eq!(instances[0].sheet_name, "demo");
+    assert_eq!(instances[0].sheet_path, "/");
+    assert_eq!(instances[0].sheet_instance_path, "/root");
+    assert_eq!(instances[0].sheet_number, instances[0].instance_index);
+    assert_eq!(instances[0].document_id, "root");
+    assert!(instances[0].is_top_level);
     let paths = KiCadDesignJsonPaths::default();
     let baseline =
         build_kicad_design_json(&index, &facts, &paths, None, true).expect("baseline design JSON");
@@ -73,6 +81,9 @@ fn design_input(value: &str) -> (SourceBundle, SchematicBundleIndex) {
     let schematic = format!(
         r#"(kicad_sch
       (uuid root)
+      (sheet_instances
+        (path "/unmatched" (page "7"))
+        (path "/root" (page "0")))
       (lib_symbols
         (symbol "Demo:One"
           (symbol "Demo:One_1_1"

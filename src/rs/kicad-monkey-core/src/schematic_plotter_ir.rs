@@ -247,6 +247,8 @@ pub struct SchematicPlotContext {
     pub sheet_index: usize,
     pub sheet_count: usize,
     pub sheet_path: String,
+    /// KiCad UUID occurrence path used to select instance-specific references.
+    pub sheet_instance_path: String,
     pub sheet_name: String,
     pub project_variables: SchematicPlotVariables,
     pub worksheet_source: Option<Vec<u8>>,
@@ -260,6 +262,7 @@ impl Default for SchematicPlotContext {
             sheet_index: 1,
             sheet_count: 1,
             sheet_path: "/".to_owned(),
+            sheet_instance_path: "/".to_owned(),
             sheet_name: String::new(),
             project_variables: SchematicPlotVariables::default(),
             worksheet_source: None,
@@ -1739,10 +1742,9 @@ fn validate_context(
     context: &SchematicPlotContext,
     limits: SchematicPlotLimits,
 ) -> Result<(), Error> {
-    if context.sheet_index == 0
-        || context.sheet_count == 0
-        || context.sheet_index > context.sheet_count
-    {
+    // KiCad page numbers are positive labels, not dense indexes. A project can
+    // contain six concrete sheets numbered 1, 2, 5, 6, 7, and 8.
+    if context.sheet_index == 0 || context.sheet_count == 0 {
         return Err(model_error("Invalid schematic page context"));
     }
     if context.project_variables.iter().len() > limits.max_project_variables {

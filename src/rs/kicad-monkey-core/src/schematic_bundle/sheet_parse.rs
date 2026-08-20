@@ -23,5 +23,6 @@ pub(super) fn default_sheet() -> SchematicSheet {
         exclude_from_sim: false,
         properties: Vec::new(),
         pins: Vec::new(),
+        page_instances: Vec::new(),
     }
 }

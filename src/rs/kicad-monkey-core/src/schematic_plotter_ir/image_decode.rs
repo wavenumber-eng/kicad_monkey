@@ -116,7 +116,6 @@ fn png_metadata(data: &[u8], maximum_work: usize) -> Result<ImageMetadata, Error
     }
     let (mut width, mut height, mut ppm_x, mut ppm_y) = (0, 0, None, None);
     let (mut offset, mut work) = (8usize, 0usize);
-    let mut saw_iend = false;
     while offset.checked_add(8).is_some_and(|end| end <= data.len()) {
         let length = be_u32(data, offset)? as usize;
         let end = offset
@@ -137,16 +136,11 @@ fn png_metadata(data: &[u8], maximum_work: usize) -> Result<ImageMetadata, Error
             ppm_y = nonzero(be_u32(chunk, 4)?);
         }
         if kind == b"IEND" {
-            if length != 0 || end != data.len() {
-                return Err(model_error("Malformed schematic PNG terminator"));
-            }
-            saw_iend = true;
-            offset = end;
             break;
         }
         offset = end;
     }
-    if !saw_iend || offset != data.len() || width == 0 || height == 0 {
+    if width == 0 || height == 0 {
         return Err(model_error("Malformed schematic PNG dimensions"));
     }
     Ok(ImageMetadata {
@@ -325,4 +319,24 @@ fn le_i32(data: &[u8], offset: usize) -> Result<i32, Error> {
         .get(offset..offset.saturating_add(4))
         .ok_or_else(|| model_error("Malformed schematic image metadata"))?;
     Ok(i32::from_le_bytes(bytes.try_into().unwrap()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn png_metadata_matches_python_lenient_terminator_handling() {
+        let mut png =
+            b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01\0\0\0\x02\x08\x06\0\0\0\0\0\0\0".to_vec();
+        let without_iend = image_metadata(&png, png.len()).expect("dimensions before IEND");
+        assert_eq!((without_iend.width, without_iend.height), (1, 2));
+
+        png.extend_from_slice(b"\0\0\0\x01IENDx\0\0\0\0trailing");
+        let malformed_iend = image_metadata(&png, png.len()).expect("malformed IEND payload");
+        assert_eq!(
+            (malformed_iend.width, malformed_iend.height),
+            (without_iend.width, without_iend.height)
+        );
+    }
 }

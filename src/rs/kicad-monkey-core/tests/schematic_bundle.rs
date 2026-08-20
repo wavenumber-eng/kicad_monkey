@@ -229,6 +229,61 @@ fn manifest_limits_accept_exact_boundaries_and_reject_one_under() {
 }
 
 #[test]
+fn page_instance_retention_limits_are_aggregate_and_exact() {
+    let project = b"{}".to_vec();
+    let root = br#"(kicad_sch
+      (uuid root)
+      (sheet_instances
+        (path "/root" (page "1"))
+        (path "/other" (page "2"))))"#
+        .to_vec();
+    let sources = vec![
+        descriptor("design/root.kicad_pro", SourceKind::Project, 0, &project),
+        descriptor("design/root.kicad_sch", SourceKind::Schematic, 1, &root),
+    ];
+    let build = |limits| {
+        let bundle = SourceBundle::from_manifest(
+            manifest(sources.clone()),
+            vec![project.clone(), root.clone()],
+            SourceBundleLimits::default(),
+        )?;
+        SchematicBundleIndex::build(&bundle, limits)
+    };
+    let exact = SchematicBundleLimits {
+        max_page_instances_per_source: 2,
+        max_page_instance_bytes_per_source: "/root".len() + "/other".len(),
+        ..SchematicBundleLimits::default()
+    };
+    let index = build(exact).expect("exact page-instance limits");
+    assert_eq!(
+        index
+            .definitions()
+            .next()
+            .expect("root definition")
+            .root_page_instances
+            .len(),
+        2
+    );
+    for limits in [
+        SchematicBundleLimits {
+            max_page_instances_per_source: 1,
+            ..exact
+        },
+        SchematicBundleLimits {
+            max_page_instance_bytes_per_source: exact.max_page_instance_bytes_per_source - 1,
+            ..exact
+        },
+    ] {
+        assert_eq!(
+            build(limits)
+                .expect_err("one-under page instance limit")
+                .kind,
+            SourceBundleErrorKind::ResourceLimit
+        );
+    }
+}
+
+#[test]
 fn schematics_are_scanned_once_and_repeated_pages_realize_distinct_occurrences() {
     let bundle = hierarchy_bundle();
     let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())

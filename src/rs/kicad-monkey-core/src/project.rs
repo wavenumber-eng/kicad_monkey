@@ -187,6 +187,32 @@ impl<'a> ProjectView<'a> {
             .collect()
     }
 
+    /// Return KiCad's schematic drawing settings in the units consumed by the
+    /// typed plotter. Project line thickness is stored in mils.
+    #[must_use]
+    pub fn schematic_drawing_settings(&self) -> crate::SchematicDrawingSettings {
+        const MIN_PLOT_PEN_WIDTH_NM: i64 = 84_700;
+        let defaults = crate::SchematicDrawingSettings::default();
+        let drawing = path(self.root, &["schematic", "drawing"]).and_then(Value::as_object);
+        let text_offset_ratio = drawing
+            .and_then(|value| value.get("text_offset_ratio"))
+            .and_then(Value::as_f64)
+            .filter(|value| value.is_finite() && *value >= 0.0)
+            .unwrap_or(defaults.text_offset_ratio);
+        let default_line_width_nm = drawing
+            .and_then(|value| value.get("default_line_thickness"))
+            .and_then(Value::as_f64)
+            .filter(|value| value.is_finite() && *value >= 0.0)
+            .map(|mils| (mils * 25_400.0).round_ties_even() as i64)
+            .map_or(defaults.default_line_width_nm, |value| {
+                value.max(MIN_PLOT_PEN_WIDTH_NM)
+            });
+        crate::SchematicDrawingSettings {
+            text_offset_ratio,
+            default_line_width_nm,
+        }
+    }
+
     pub fn variants(&self) -> Result<Vec<ProjectVariant>, ProjectError> {
         let values = path(self.root, &["schematic", "variants"])
             .and_then(Value::as_array)

@@ -41,6 +41,13 @@ pub struct SchematicSheet {
     pub exclude_from_sim: bool,
     pub properties: Vec<SchematicSymbolProperty>,
     pub pins: Vec<SchematicSheetPin>,
+    pub page_instances: Vec<SchematicPageInstance>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SchematicPageInstance {
+    pub path: String,
+    pub page_number: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -52,6 +59,7 @@ pub struct SchematicDefinition {
     pub uuid: Option<String>,
     pub title_block: Option<KiCadTitleBlock>,
     pub sheets: Vec<SchematicSheet>,
+    pub root_page_instances: Vec<SchematicPageInstance>,
     pub symbols: Vec<SchematicPlacedSymbol>,
     pub library_symbols: Vec<SchematicLibrarySymbol>,
     pub legacy_symbol_instances: Vec<SchematicLegacySymbolInstance>,
@@ -302,6 +310,7 @@ fn parse_schematic_definition_text(
         uuid: None,
         title_block: None,
         sheets: Vec::new(),
+        root_page_instances: Vec::new(),
         symbols: Vec::new(),
         library_symbols: Vec::new(),
         legacy_symbol_instances: Vec::new(),
@@ -373,6 +382,7 @@ fn populate_schematic_definition(
 ) -> Result<(), SourceBundleError> {
     let mut current_sheet: Option<usize> = None;
     let mut sheet_states = Vec::new();
+    let mut page_budget = PageInstanceBudget::default();
     for span in spans {
         match (span.depth, span.head.as_deref()) {
             (1, Some("version")) => {
@@ -402,6 +412,10 @@ fn populate_schematic_definition(
                 sheet_states.push(SheetParseState::default());
                 current_sheet = Some(definition.sheets.len() - 1);
             }
+            (1, Some("sheet_instances")) => {
+                definition.root_page_instances =
+                    page_instances(text, span, source_path, limits, &mut page_budget)?;
+            }
             (2, head) if span.path.get(1).is_some_and(|part| part == "sheet") => {
                 let Some(index) = current_sheet else {
                     return Err(SourceBundleError::new(
@@ -418,6 +432,7 @@ fn populate_schematic_definition(
                     span,
                     source_path,
                     limits,
+                    &mut page_budget,
                 )?;
             }
             _ => {}
@@ -426,6 +441,10 @@ fn populate_schematic_definition(
     Ok(())
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "sheet parsing updates the owner, local state, and one source-wide page budget"
+)]
 fn parse_sheet_child(
     sheet: &mut SchematicSheet,
     state: &mut SheetParseState,
@@ -434,6 +453,7 @@ fn parse_sheet_child(
     span: &FormSpan,
     source_path: &str,
     limits: SchematicBundleLimits,
+    page_budget: &mut PageInstanceBudget,
 ) -> Result<(), SourceBundleError> {
     match head {
         Some("uuid") => {
@@ -458,6 +478,9 @@ fn parse_sheet_child(
             sheet
                 .pins
                 .push(parse_sheet_pin(text, span, source_path, limits)?);
+        }
+        Some("instances") => {
+            sheet.page_instances = page_instances(text, span, source_path, limits, page_budget)?;
         }
         Some(head) => parse_sheet_flag(sheet, state, head, text, span, source_path, limits)?,
         None => {}
@@ -651,6 +674,8 @@ fn schematic_selector() -> Selector {
         &["kicad_sch", "sheet", "dnp"],
         &["kicad_sch", "sheet", "exclude_from_sim"],
         &["kicad_sch", "sheet", "pin"],
+        &["kicad_sch", "sheet", "instances"],
+        &["kicad_sch", "sheet_instances"],
         &["kicad_sch", "wire"],
         &["kicad_sch", "bus"],
         &["kicad_sch", "bus_entry"],
@@ -672,6 +697,100 @@ fn schematic_selector() -> Selector {
         min_depth: Some(0),
         max_depth: Some(2),
         ..Selector::default()
+    }
+}
+
+fn page_instances(
+    text: &str,
+    span: &FormSpan,
+    source_path: &str,
+    limits: SchematicBundleLimits,
+    budget: &mut PageInstanceBudget,
+) -> Result<Vec<SchematicPageInstance>, SourceBundleError> {
+    let form = span
+        .text(text)
+        .map_err(|error| schematic_error(source_path, error))?;
+    let mut lexer = Lexer::new(form);
+    let mut expecting_head = false;
+    let mut current_path = None;
+    let mut expecting_path_value = false;
+    let mut expecting_page_value = false;
+    let mut instances = Vec::new();
+    while let Some(token) = lexer
+        .next()
+        .transpose()
+        .map_err(|error| schematic_error(source_path, error))?
+    {
+        match token.kind {
+            TokenKind::Left => {
+                expecting_head = true;
+                expecting_path_value = false;
+                expecting_page_value = false;
+            }
+            TokenKind::Right => {
+                expecting_head = false;
+                expecting_path_value = false;
+                expecting_page_value = false;
+            }
+            _ if expecting_head => {
+                let head = decoded(token);
+                expecting_path_value = head == "path";
+                expecting_page_value = head == "page";
+                expecting_head = false;
+            }
+            _ if expecting_path_value => {
+                current_path = Some(decoded(token).into_owned());
+                expecting_path_value = false;
+            }
+            _ if expecting_page_value => {
+                let value = decoded(token);
+                expecting_page_value = false;
+                let Some(page_number) = value.parse().ok() else {
+                    continue;
+                };
+                let path = current_path.clone().unwrap_or_default();
+                budget.charge(&path, source_path, limits)?;
+                instances.push(SchematicPageInstance { path, page_number });
+            }
+            _ => {}
+        }
+    }
+    Ok(instances)
+}
+
+#[derive(Default)]
+struct PageInstanceBudget {
+    count: usize,
+    path_bytes: usize,
+}
+
+impl PageInstanceBudget {
+    fn charge(
+        &mut self,
+        path: &str,
+        source_path: &str,
+        limits: SchematicBundleLimits,
+    ) -> Result<(), SourceBundleError> {
+        self.count = self
+            .count
+            .checked_add(1)
+            .ok_or_else(|| schematic_limit(source_path, "sheet page instance count overflowed"))?;
+        if self.count > limits.max_page_instances_per_source {
+            return Err(schematic_limit(
+                source_path,
+                "sheet page instance count exceeds its limit",
+            ));
+        }
+        self.path_bytes = self.path_bytes.checked_add(path.len()).ok_or_else(|| {
+            schematic_limit(source_path, "sheet page instance path bytes overflowed")
+        })?;
+        if self.path_bytes > limits.max_page_instance_bytes_per_source {
+            return Err(schematic_limit(
+                source_path,
+                "sheet page instance path bytes exceed their limit",
+            ));
+        }
+        Ok(())
     }
 }
 

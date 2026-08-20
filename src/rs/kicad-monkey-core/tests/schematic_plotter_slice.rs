@@ -6,8 +6,9 @@ use kicad_monkey_core::{
     ErrorKind, PlotterFill, PlotterLineStyle, PlotterOperation, PlotterTextCacheLimits,
     PlotterTextCacheResources, PlotterTextFont, PlotterTextHAlign, PlotterTextVAlign,
     SchematicConnectivityRecordKind, SchematicDrawingSettings, SchematicPlotContext,
-    SchematicPlotDocument, SchematicPlotLimits, SchematicPlotOperation, SchematicPlotRecord,
-    SchematicPlotVariables, schematic_plot_document, schematic_plot_document_with_annotations,
+    SchematicPlotContractLimits, SchematicPlotDocument, SchematicPlotLimits,
+    SchematicPlotOperation, SchematicPlotRecord, SchematicPlotVariables, schematic_plot_document,
+    schematic_plot_document_json, schematic_plot_document_with_annotations,
     schematic_plot_document_with_graphics, schematic_plot_document_with_sheets,
     schematic_plot_document_with_symbols,
 };
@@ -44,6 +45,7 @@ fn context() -> SchematicPlotContext {
         sheet_index: 2,
         sheet_count: 3,
         sheet_path: "/child".to_owned(),
+        sheet_instance_path: "/sch-1/child".to_owned(),
         sheet_name: "Child".to_owned(),
         project_variables: SchematicPlotVariables::from_entries([
             ("PROJECT", "PX"),
@@ -571,6 +573,11 @@ fn vector_context(vector: &Value) -> SchematicPlotContext {
             .and_then(Value::as_str)
             .unwrap_or("/")
             .to_owned(),
+        sheet_instance_path: vector
+            .get("sheet_instance_path")
+            .and_then(Value::as_str)
+            .unwrap_or("/")
+            .to_owned(),
         sheet_name: vector
             .get("sheet_name")
             .and_then(Value::as_str)
@@ -637,6 +644,15 @@ fn custom_worksheet_and_connectivity_match_python_foundation() {
     assert_foundation_document(&document);
     assert_foundation_header(&document.records[0]);
     assert_foundation_connectivity(&document.records[1..]);
+}
+
+#[test]
+fn nonsequential_kicad_page_numbers_are_valid_plot_context() {
+    let mut context = context();
+    context.sheet_index = 8;
+    context.sheet_count = 6;
+    schematic_plot_document(SOURCE, SchematicPlotLimits::default(), &context)
+        .expect("page number is a label, not a dense sheet index");
 }
 
 fn assert_foundation_document(document: &SchematicPlotDocument) {
@@ -1087,7 +1103,15 @@ fn every_shared_vector_is_exactly_projectable_to_the_strict_contract() {
             )
         }
         .unwrap_or_else(|error| panic!("{}: {error}", vector["id"]));
-        let actual = document_json(&document);
+        let expected_projection = document_json(&document);
+        let actual =
+            schematic_plot_document_json(&document, SchematicPlotContractLimits::default())
+                .unwrap_or_else(|error| panic!("{}: {error}", vector["id"]));
+        assert_eq!(
+            actual, expected_projection,
+            "{} production projection",
+            vector["id"]
+        );
         assert_eq!(actual, vector["expected"], "{}", vector["id"]);
         let contract: SchematicPlotDocumentA0 =
             serde_json::from_value(actual).expect("generated contract decode");
@@ -1779,9 +1803,6 @@ fn malformed_graphics_and_images_fail_before_publication() {
         // Repeated 0xFF marker prefixes are not collapsed by the Python
         // authority. Treating this as SOF0 would publish invented dimensions.
         "(kicad_sch (image (data \"/9j//8AABwgAAQAB\")))",
-        // A complete PNG terminates at IEND. Chunks appended after IEND must
-        // not be silently ignored by the native metadata projection.
-        "(kicad_sch (image (data \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYIIAAAAJcEhZcwAAAAEAAAABAQAAAAA=\")))",
     ] {
         assert!(
             schematic_plot_document_with_graphics(

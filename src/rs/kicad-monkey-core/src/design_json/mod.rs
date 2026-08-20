@@ -15,7 +15,10 @@ mod hierarchy;
 mod indexes;
 mod pnp;
 mod resource;
+mod schematic_instances;
 mod variants;
+
+pub use schematic_instances::KiCadSchematicInstance;
 
 pub const KICAD_DESIGN_JSON_SCHEMA: &str = "kicad_monkey.design.a0";
 pub const KICAD_DESIGN_JSON_GENERATOR: &str = "kicad_monkey";
@@ -43,6 +46,10 @@ impl KiCadDesignFacts<'_> {
 
     pub fn into_parts(self) -> (CompiledSchematicGraphA0, KiCadNetlist) {
         (self.graph, self.netlist)
+    }
+
+    pub fn schematic_instances(&self) -> Result<Vec<KiCadSchematicInstance>, KiCadDesignJsonError> {
+        schematic_instances::schematic_instances(self)
     }
 }
 

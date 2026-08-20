@@ -1,24 +1,91 @@
 //! Direct Rust assembly of the nonvisual design-review foundations.
 
-use std::collections::{HashSet, VecDeque};
+use std::borrow::Cow;
+use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::fmt;
 use std::fs::File;
-use std::io::Read;
+use std::io::{self, Read};
 use std::path::{Component, Path, PathBuf};
 
 use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
+use kicad_monkey_contracts::generated::shaping_record::ShapingInput;
 use kicad_monkey_contracts::generated::source_bundle_manifest::{
     CanonicalUint64Decimal, SourceBundleManifestA0, SourceBundleSource, SourceKind, SourceSlot,
 };
+use kicad_monkey_core::schematic_embedded::{
+    SchematicEmbeddedFile, SchematicEmbeddedLimits, schematic_embedded_files,
+};
 use kicad_monkey_core::{
     KiCadDesignJsonPaths, KiCadDesignPcb, KiCadDesignSourcePath, KiCadNetlist,
-    KiCadNetlistJsonMetadata, KiCadNetlistLimits, PcbLimits, PcbView, ProjectLimits,
-    SchematicBundleIndex, SchematicBundleLimits, SchematicDocument, SchematicDocumentLimits,
-    SourceBundle, SourceBundleLimits, build_kicad_design_facts, build_kicad_design_json,
-    build_kicad_netlist_json, emit_kicad_netlist, validate_compiled_schematic_graph,
+    KiCadNetlistJsonMetadata, KiCadNetlistLimits, KiCadSchematicInstance, PcbLimits, PcbView,
+    PlotterTextCacheLimits, PlotterTextCacheResources, PlotterTextFont, ProjectDocument,
+    ProjectLimits, SchematicBundleIndex, SchematicBundleLimits, SchematicDocument,
+    SchematicDocumentLimits, SchematicDrawingSettings, SchematicPlotContext,
+    SchematicPlotContractBudget, SchematicPlotContractLimits, SchematicPlotLimits,
+    SchematicPlotVariables, SourceBundle, SourceBundleLimits, TokenKind, build_kicad_design_facts,
+    build_kicad_design_json, build_kicad_netlist_json, emit_kicad_netlist,
+    schematic_plot_document_budget, schematic_plot_document_json,
+    schematic_plot_document_with_sheets, validate_compiled_schematic_graph,
 };
+use sha2::{Digest, Sha256};
 
 const GRAPH_TOOL: &str = "kicad_cruncher";
+const KICAD_STROKE_REGULAR: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../../../assets/fonts/kicad-stroke.ttf"
+));
+const KICAD_STROKE_ITALIC: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../../../assets/fonts/kicad-stroke-italic.ttf"
+));
+const KICAD_STROKE_BOLD: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../../../assets/fonts/kicad-stroke-bold.ttf"
+));
+const KICAD_STROKE_BOLD_ITALIC: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../../../assets/fonts/kicad-stroke-bold-italic.ttf"
+));
+
+struct SchematicFontStyle<'a> {
+    face: String,
+    bold: bool,
+    italic: bool,
+    name: String,
+    bytes: Cow<'a, [u8]>,
+    sha256: String,
+    fake_bold: bool,
+    fake_italic: bool,
+}
+
+struct EmbeddedFontCandidate<'a> {
+    file: &'a SchematicEmbeddedFile,
+    families: Vec<String>,
+    bold: bool,
+    italic: bool,
+    sha256: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SchematicPlotDocumentsLimits {
+    pub max_documents: usize,
+    pub max_total_derived_items: usize,
+    pub max_total_materialized_bytes: usize,
+    pub max_total_output_bytes: usize,
+    pub per_document: SchematicPlotContractLimits,
+}
+
+impl Default for SchematicPlotDocumentsLimits {
+    fn default() -> Self {
+        Self {
+            max_documents: 4_096,
+            max_total_derived_items: 64_000_000,
+            max_total_materialized_bytes: 2_usize.saturating_mul(1024 * 1024 * 1024),
+            max_total_output_bytes: 512 * 1024 * 1024,
+            per_document: SchematicPlotContractLimits::default(),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct DesignError {
@@ -61,6 +128,7 @@ pub struct StructuredDesignFacts {
     pub netlist_json: serde_json::Value,
     pub design_json: serde_json::Value,
     pub kicad_netlist: String,
+    pub schematic_instances: Vec<KiCadSchematicInstance>,
 }
 
 struct DesignPaths {
@@ -332,6 +400,9 @@ pub fn build_structured_design_facts_with_options(
         include_indexes,
     )
     .map_err(|error| DesignError::context("could not build KiCad design JSON", error))?;
+    let schematic_instances = design_facts
+        .schematic_instances()
+        .map_err(|error| DesignError::context("could not enumerate schematic instances", error))?;
     let (compiled_schematic_graph, netlist) = design_facts.into_parts();
     Ok(StructuredDesignFacts {
         compiled_schematic_graph,
@@ -339,7 +410,678 @@ pub fn build_structured_design_facts_with_options(
         netlist_json,
         design_json,
         kicad_netlist,
+        schematic_instances,
     })
+}
+
+pub fn build_schematic_plot_documents(
+    loaded: &LoadedDesignSources,
+    instances: &[KiCadSchematicInstance],
+) -> Result<Vec<serde_json::Value>, DesignError> {
+    build_schematic_plot_documents_with_limits(
+        loaded,
+        instances,
+        SchematicPlotDocumentsLimits::default(),
+    )
+}
+
+pub fn build_schematic_plot_documents_with_limits(
+    loaded: &LoadedDesignSources,
+    instances: &[KiCadSchematicInstance],
+    limits: SchematicPlotDocumentsLimits,
+) -> Result<Vec<serde_json::Value>, DesignError> {
+    if instances.len() > limits.max_documents {
+        return Err(DesignError::new(format!(
+            "schematic plot document count exceeds its limit: {} > {}",
+            instances.len(),
+            limits.max_documents
+        )));
+    }
+    if limits.max_total_output_bytes < 2 {
+        return Err(DesignError::new(
+            "schematic plot aggregate output limit is smaller than an empty JSON array",
+        ));
+    }
+    let embedded_files = design_embedded_files(loaded)?;
+    let (variables, drawing_settings, worksheet_source) =
+        project_plot_sidecars(loaded, &embedded_files)?;
+    let font_faces = requested_font_faces(loaded, worksheet_source.as_deref())?;
+    let font_styles = schematic_font_styles(&font_faces, &embedded_files)?;
+    let mut fonts = Vec::with_capacity(font_styles.len());
+    for style in &font_styles {
+        fonts.push(PlotterTextFont {
+            face: &style.face,
+            bold: style.bold,
+            italic: style.italic,
+            font_bytes: style.bytes.as_ref(),
+            shaping: shaping_template(
+                &format!("schematic_{}_{}", style.name, style.sha256),
+                &style.sha256,
+            )?,
+            fake_bold: style.fake_bold,
+            fake_italic: style.fake_italic,
+        });
+    }
+    fonts.sort_by(|left, right| {
+        (left.face, left.bold, left.italic).cmp(&(right.face, right.bold, right.italic))
+    });
+    let text_resources = PlotterTextCacheResources {
+        fonts: &fonts,
+        limits: PlotterTextCacheLimits::default(),
+    };
+    let mut documents = Vec::with_capacity(instances.len());
+    let mut total_output_bytes = 2_usize;
+    let mut batch_budget = SchematicPlotContractBudget {
+        derived_items: 0,
+        materialized_bytes: 0,
+    };
+    for (document_index, instance) in instances.iter().enumerate() {
+        if document_index != 0 {
+            total_output_bytes = total_output_bytes.checked_add(1).ok_or_else(|| {
+                DesignError::new("schematic plot aggregate output byte count overflowed")
+            })?;
+        }
+        let source = loaded
+            .bundle
+            .source(&instance.source_path)
+            .map_err(|error| DesignError::context("could not resolve schematic source", error))?
+            .ok_or_else(|| {
+                DesignError::new(format!(
+                    "schematic instance source is missing: {}",
+                    instance.source_path
+                ))
+            })?;
+        let source_path = loaded.bundle_root.join(source.path());
+        let context = SchematicPlotContext {
+            source_path: Some(display_source_path(&source_path)),
+            document_id: Some(instance.document_id.clone()),
+            sheet_index: instance.sheet_number,
+            sheet_count: instance.sheet_count,
+            sheet_path: instance.sheet_path.clone(),
+            sheet_instance_path: instance.sheet_instance_path.clone(),
+            sheet_name: instance.sheet_name.clone(),
+            project_variables: variables.clone(),
+            worksheet_source: worksheet_source.clone(),
+        };
+        let document = schematic_plot_document_with_sheets(
+            source
+                .text()
+                .map_err(|error| DesignError::context("schematic source is not UTF-8", error))?,
+            SchematicPlotLimits::default(),
+            &context,
+            drawing_settings,
+            Some(&text_resources),
+        )
+        .map_err(|error| DesignError::context("could not build schematic plot document", error))?;
+        let document_budget = schematic_plot_document_budget(&document).map_err(|error| {
+            DesignError::context("could not budget schematic plot document", error)
+        })?;
+        charge_plot_batch_budget(&mut batch_budget, document_budget, limits)?;
+        let value =
+            schematic_plot_document_json(&document, limits.per_document).map_err(|error| {
+                DesignError::context("could not project schematic plot document", error)
+            })?;
+        let mut writer =
+            AggregateLimitedWriter::new(&mut total_output_bytes, limits.max_total_output_bytes);
+        serde_json::to_writer(&mut writer, &value).map_err(|error| {
+            DesignError::context("schematic plot aggregate output limit exceeded", error)
+        })?;
+        documents.push(value);
+    }
+    Ok(documents)
+}
+
+fn charge_plot_batch_budget(
+    total: &mut SchematicPlotContractBudget,
+    document: SchematicPlotContractBudget,
+    limits: SchematicPlotDocumentsLimits,
+) -> Result<(), DesignError> {
+    let derived_items = total
+        .derived_items
+        .checked_add(document.derived_items)
+        .ok_or_else(|| DesignError::new("schematic plot aggregate item count overflowed"))?;
+    let materialized_bytes = total
+        .materialized_bytes
+        .checked_add(document.materialized_bytes)
+        .ok_or_else(|| DesignError::new("schematic plot aggregate byte count overflowed"))?;
+    if derived_items > limits.max_total_derived_items {
+        return Err(DesignError::new(format!(
+            "schematic plot aggregate derived item limit exceeded: {derived_items} > {}",
+            limits.max_total_derived_items
+        )));
+    }
+    if materialized_bytes > limits.max_total_materialized_bytes {
+        return Err(DesignError::new(format!(
+            "schematic plot aggregate materialized byte limit exceeded: {materialized_bytes} > {}",
+            limits.max_total_materialized_bytes
+        )));
+    }
+    total.derived_items = derived_items;
+    total.materialized_bytes = materialized_bytes;
+    Ok(())
+}
+
+fn project_plot_sidecars(
+    loaded: &LoadedDesignSources,
+    embedded_files: &[SchematicEmbeddedFile],
+) -> Result<
+    (
+        SchematicPlotVariables,
+        SchematicDrawingSettings,
+        Option<Vec<u8>>,
+    ),
+    DesignError,
+> {
+    let project = loaded
+        .bundle
+        .project()
+        .map(|source| ProjectDocument::from_reader(source.bytes(), ProjectLimits::default()))
+        .transpose()
+        .map_err(|error| {
+            DesignError::context("could not parse schematic project settings", error)
+        })?;
+    let project = project.as_ref().map(ProjectDocument::view);
+    let variables = project
+        .map(|view| view.text_variables())
+        .transpose()
+        .map_err(|error| DesignError::context("could not read schematic text variables", error))?
+        .unwrap_or_default();
+    let drawing_settings = project.map_or_else(SchematicDrawingSettings::default, |view| {
+        view.schematic_drawing_settings()
+    });
+    let worksheet_source = project
+        .and_then(|view| view.get_path("schematic.page_layout_descr_file"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(|value| load_project_worksheet(loaded, embedded_files, value))
+        .transpose()?
+        .flatten();
+    Ok((
+        SchematicPlotVariables::from_entries(variables),
+        drawing_settings,
+        worksheet_source,
+    ))
+}
+
+fn design_embedded_files(
+    loaded: &LoadedDesignSources,
+) -> Result<Vec<SchematicEmbeddedFile>, DesignError> {
+    let limits = SchematicEmbeddedLimits::default();
+    let mut files = Vec::new();
+    let mut decoded_bytes = 0_usize;
+    for source in loaded.bundle.sources() {
+        if source.kind() != SourceKind::Schematic {
+            continue;
+        }
+        let extracted = schematic_embedded_files(
+            source
+                .text()
+                .map_err(|error| DesignError::context("schematic source is not UTF-8", error))?,
+            limits,
+        )
+        .map_err(|error| DesignError::context("could not extract schematic sidecars", error))?;
+        for file in extracted {
+            decoded_bytes = decoded_bytes
+                .checked_add(file.bytes.len())
+                .ok_or_else(|| DesignError::new("design embedded sidecar byte count overflowed"))?;
+            if files.len() >= limits.max_files || decoded_bytes > limits.max_decoded_bytes {
+                return Err(DesignError::new(
+                    "design embedded sidecars exceed their aggregate limit",
+                ));
+            }
+            files.push(file);
+        }
+    }
+    Ok(files)
+}
+
+struct AggregateLimitedWriter<'a> {
+    written: &'a mut usize,
+    limit: usize,
+}
+
+impl<'a> AggregateLimitedWriter<'a> {
+    const fn new(written: &'a mut usize, limit: usize) -> Self {
+        Self { written, limit }
+    }
+}
+
+impl io::Write for AggregateLimitedWriter<'_> {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        let next = self
+            .written
+            .checked_add(buffer.len())
+            .filter(|next| *next <= self.limit)
+            .ok_or_else(|| io::Error::other(format!("output exceeds {} bytes", self.limit)))?;
+        *self.written = next;
+        Ok(buffer.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn load_project_worksheet(
+    loaded: &LoadedDesignSources,
+    embedded_files: &[SchematicEmbeddedFile],
+    worksheet: &str,
+) -> Result<Option<Vec<u8>>, DesignError> {
+    if let Some(name) = worksheet.strip_prefix("kicad-embed://") {
+        return Ok(embedded_files
+            .iter()
+            .find(|file| file.file_type == "worksheet" && file.name == name)
+            .map(|file| file.bytes.clone()));
+    }
+    let relative = Path::new(worksheet);
+    if relative.is_absolute()
+        || relative
+            .components()
+            .any(|part| matches!(part, Component::Prefix(_)))
+    {
+        return Err(DesignError::new(
+            "project worksheet path must remain inside the design bundle",
+        ));
+    }
+    let unresolved = loaded.bundle_root.join(relative);
+    if !unresolved.exists() {
+        return Ok(None);
+    }
+    let path = unresolved.canonicalize().map_err(|error| {
+        DesignError::context(
+            &format!("could not resolve project worksheet {worksheet}"),
+            error,
+        )
+    })?;
+    ensure_contained(&loaded.bundle_root, &path)?;
+    read_bounded(&path, SchematicPlotLimits::default().max_worksheet_bytes).map(Some)
+}
+
+fn requested_font_faces(
+    loaded: &LoadedDesignSources,
+    worksheet_source: Option<&[u8]>,
+) -> Result<BTreeSet<String>, DesignError> {
+    let mut faces = BTreeSet::from([String::new(), "Arial".to_owned()]);
+    for source in loaded.bundle.sources() {
+        if source.kind() == SourceKind::Schematic {
+            collect_font_faces(
+                source.text().map_err(|error| {
+                    DesignError::context("schematic source is not UTF-8", error)
+                })?,
+                &mut faces,
+            )?;
+        }
+    }
+    if let Some(source) = worksheet_source {
+        let source = std::str::from_utf8(source)
+            .map_err(|error| DesignError::context("worksheet source is not UTF-8", error))?;
+        collect_font_faces(source, &mut faces)?;
+    }
+    Ok(faces)
+}
+
+fn collect_font_faces(source: &str, faces: &mut BTreeSet<String>) -> Result<(), DesignError> {
+    const MAX_FACES: usize = 64;
+    const MAX_FACE_BYTES: usize = 64 * 1024;
+    let mut lexer = kicad_monkey_core::Lexer::new(source);
+    let mut expecting_head = false;
+    let mut expecting_face = false;
+    while let Some(token) = lexer
+        .next()
+        .transpose()
+        .map_err(|error| DesignError::context("could not scan plot font faces", error))?
+    {
+        match token.kind {
+            TokenKind::Left => {
+                expecting_head = true;
+                expecting_face = false;
+            }
+            TokenKind::Right => {
+                expecting_head = false;
+                expecting_face = false;
+            }
+            _ if expecting_head => {
+                expecting_face = token.lexeme == "face";
+                expecting_head = false;
+            }
+            TokenKind::QuotedString if expecting_face => {
+                expecting_face = false;
+                let face = serde_json::from_str::<String>(token.lexeme).map_err(|error| {
+                    DesignError::context("could not decode plot font face", error)
+                })?;
+                if face.len() > MAX_FACE_BYTES {
+                    return Err(DesignError::new("plot font face exceeds its byte limit"));
+                }
+                faces.insert(face);
+                if faces.len() > MAX_FACES {
+                    return Err(DesignError::new("plot font face count exceeds its limit"));
+                }
+                if faces.iter().map(String::len).sum::<usize>() > MAX_FACE_BYTES {
+                    return Err(DesignError::new(
+                        "plot font face names exceed their aggregate byte limit",
+                    ));
+                }
+            }
+            _ => expecting_face = false,
+        }
+    }
+    Ok(())
+}
+
+fn schematic_font_styles<'a>(
+    faces: &BTreeSet<String>,
+    embedded_files: &'a [SchematicEmbeddedFile],
+) -> Result<Vec<SchematicFontStyle<'a>>, DesignError> {
+    schematic_font_styles_with_limits(faces, embedded_files, PlotterTextCacheLimits::default())
+}
+
+fn schematic_font_styles_with_limits<'a>(
+    faces: &BTreeSet<String>,
+    embedded_files: &'a [SchematicEmbeddedFile],
+    font_limits: PlotterTextCacheLimits,
+) -> Result<Vec<SchematicFontStyle<'a>>, DesignError> {
+    let embedded_fonts = embedded_font_index(embedded_files)?;
+    let mut styles = Vec::with_capacity(faces.len().saturating_mul(4));
+    let mut retained_font_bytes = 0_usize;
+    for face in faces {
+        for (bold, italic, name) in [
+            (false, false, "regular"),
+            (false, true, "italic"),
+            (true, false, "bold"),
+            (true, true, "bold_italic"),
+        ] {
+            let style = resolve_schematic_font(face, bold, italic, name, &embedded_fonts)?;
+            retained_font_bytes = retained_font_bytes
+                .checked_add(style.bytes.len())
+                .filter(|bytes| *bytes <= font_limits.max_font_bytes)
+                .ok_or_else(|| DesignError::new("plot font bytes exceed their aggregate limit"))?;
+            styles.push(style);
+        }
+    }
+    Ok(styles)
+}
+
+fn resolve_schematic_font<'a>(
+    face: &str,
+    bold: bool,
+    italic: bool,
+    name: &str,
+    embedded_fonts: &[EmbeddedFontCandidate<'a>],
+) -> Result<SchematicFontStyle<'a>, DesignError> {
+    if let Some((candidate, selected_bold, selected_italic)) =
+        embedded_font_selection(face, bold, italic, embedded_fonts)
+    {
+        let file = candidate.file;
+        return Ok(SchematicFontStyle {
+            face: face.to_owned(),
+            bold,
+            italic,
+            name: name.to_owned(),
+            bytes: Cow::Borrowed(&file.bytes),
+            sha256: candidate.sha256.clone(),
+            fake_bold: bold && !selected_bold,
+            fake_italic: italic && !selected_italic,
+        });
+    }
+    let system_root = std::env::var_os("SystemRoot").map(PathBuf::from);
+    if let Some(font_dir) = system_root.map(|root| root.join("Fonts")) {
+        let (filename, selected_bold, selected_italic) =
+            windows_font_selection(face, bold, italic, &font_dir);
+        let path = font_dir.join(filename);
+        if path.is_file() {
+            let bytes = read_bounded(&path, PlotterTextCacheLimits::default().max_face_bytes)?;
+            let sha256 = sha256_hex(&bytes);
+            return Ok(SchematicFontStyle {
+                face: face.to_owned(),
+                bold,
+                italic,
+                name: name.to_owned(),
+                bytes: Cow::Owned(bytes),
+                sha256,
+                fake_bold: bold && !selected_bold,
+                fake_italic: italic && !selected_italic,
+            });
+        }
+    }
+    let source = match (bold, italic) {
+        (false, false) => KICAD_STROKE_REGULAR,
+        (false, true) => KICAD_STROKE_ITALIC,
+        (true, false) => KICAD_STROKE_BOLD,
+        (true, true) => KICAD_STROKE_BOLD_ITALIC,
+    };
+    let sha256 = sha256_hex(source);
+    Ok(SchematicFontStyle {
+        face: face.to_owned(),
+        bold,
+        italic,
+        name: name.to_owned(),
+        bytes: Cow::Borrowed(source),
+        sha256,
+        fake_bold: false,
+        fake_italic: false,
+    })
+}
+
+fn embedded_font_selection<'index, 'files>(
+    requested_face: &str,
+    bold: bool,
+    italic: bool,
+    embedded_fonts: &'index [EmbeddedFontCandidate<'files>],
+) -> Option<(&'index EmbeddedFontCandidate<'files>, bool, bool)> {
+    let requested = normalized_font_name(requested_face);
+    if requested.is_empty() {
+        return None;
+    }
+    for (candidate_bold, candidate_italic) in font_style_lookup_order(bold, italic) {
+        if let Some(candidate) = embedded_fonts.iter().rev().find(|candidate| {
+            candidate.bold == candidate_bold
+                && candidate.italic == candidate_italic
+                && candidate.families.iter().any(|family| family == &requested)
+        }) {
+            return Some((candidate, candidate_bold, candidate_italic));
+        }
+    }
+    None
+}
+
+fn embedded_font_index(
+    embedded_files: &[SchematicEmbeddedFile],
+) -> Result<Vec<EmbeddedFontCandidate<'_>>, DesignError> {
+    const MAX_NAME_RECORDS: usize = 65_536;
+    const MAX_FAMILY_ALIASES: usize = 4_096;
+    const MAX_FAMILY_BYTES: usize = 256 * 1024;
+    let mut name_records = 0_usize;
+    let mut family_aliases = 0_usize;
+    let mut family_bytes = 0_usize;
+    let mut candidates = Vec::new();
+    for file in embedded_files
+        .iter()
+        .filter(|file| file.file_type.eq_ignore_ascii_case("font"))
+    {
+        if file.bytes.len() > PlotterTextCacheLimits::default().max_face_bytes {
+            return Err(DesignError::new(
+                "embedded font face exceeds its byte limit",
+            ));
+        }
+        let Ok(face) = ttf_parser::Face::parse(&file.bytes, 0) else {
+            continue;
+        };
+        let mut families = BTreeSet::new();
+        for name in face.names() {
+            name_records = name_records
+                .checked_add(1)
+                .filter(|count| *count <= MAX_NAME_RECORDS)
+                .ok_or_else(|| DesignError::new("embedded font name records exceed their limit"))?;
+            if !matches!(
+                name.name_id,
+                ttf_parser::name_id::FAMILY | ttf_parser::name_id::TYPOGRAPHIC_FAMILY
+            ) {
+                continue;
+            }
+            if let Some(name) = name.to_string() {
+                push_font_family(
+                    &mut families,
+                    &name,
+                    &mut family_aliases,
+                    &mut family_bytes,
+                    MAX_FAMILY_ALIASES,
+                    MAX_FAMILY_BYTES,
+                )?;
+            }
+        }
+        if let Some(stem) = Path::new(&file.name)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+        {
+            push_font_family(
+                &mut families,
+                strip_font_style_suffix(stem),
+                &mut family_aliases,
+                &mut family_bytes,
+                MAX_FAMILY_ALIASES,
+                MAX_FAMILY_BYTES,
+            )?;
+        }
+        if !families.is_empty() {
+            candidates.push(EmbeddedFontCandidate {
+                file,
+                families: families.into_iter().collect(),
+                bold: face.is_bold(),
+                italic: face.is_italic(),
+                sha256: sha256_hex(&file.bytes),
+            });
+        }
+    }
+    Ok(candidates)
+}
+
+fn push_font_family(
+    families: &mut BTreeSet<String>,
+    value: &str,
+    aliases: &mut usize,
+    bytes: &mut usize,
+    max_aliases: usize,
+    max_bytes: usize,
+) -> Result<(), DesignError> {
+    let normalized = normalized_font_name(value);
+    if normalized.is_empty() || families.contains(&normalized) {
+        return Ok(());
+    }
+    *aliases = aliases
+        .checked_add(1)
+        .filter(|count| *count <= max_aliases)
+        .ok_or_else(|| DesignError::new("embedded font family aliases exceed their limit"))?;
+    *bytes = bytes
+        .checked_add(normalized.len())
+        .filter(|count| *count <= max_bytes)
+        .ok_or_else(|| DesignError::new("embedded font family names exceed their byte limit"))?;
+    families.insert(normalized);
+    Ok(())
+}
+
+fn font_style_lookup_order(bold: bool, italic: bool) -> Vec<(bool, bool)> {
+    let mut order = vec![(bold, italic)];
+    if bold && italic {
+        order.extend([(true, false), (false, true)]);
+    }
+    order.push((false, false));
+    order.dedup();
+    order
+}
+
+fn normalized_font_name(value: &str) -> String {
+    value
+        .chars()
+        .filter(|character| character.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+fn strip_font_style_suffix(value: &str) -> &str {
+    const SUFFIXES: [&str; 7] = [
+        "regular", "medium", "bold", "italic", "semibold", "demibold", "black",
+    ];
+    let lower = value.to_ascii_lowercase();
+    for suffix in SUFFIXES {
+        if let Some(prefix) = lower.strip_suffix(suffix) {
+            let cut = prefix.trim_end_matches(['-', '_', ' ']).len();
+            return &value[..cut];
+        }
+    }
+    value
+}
+
+fn windows_font_selection(
+    face: &str,
+    bold: bool,
+    italic: bool,
+    font_dir: &Path,
+) -> (&'static str, bool, bool) {
+    let normalized = face.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.eq_ignore_ascii_case("Fragment Mono") {
+        return match (bold, italic) {
+            (false, false) if font_dir.join("CascadiaCode.ttf").is_file() => {
+                ("CascadiaCode.ttf", false, false)
+            }
+            (true, false | true) if font_dir.join("BOOKOSB.TTF").is_file() => {
+                ("BOOKOSB.TTF", true, false)
+            }
+            _ => ("arial.ttf", false, false),
+        };
+    }
+    if normalized.eq_ignore_ascii_case("Berkeley Mono") {
+        let candidate = if bold {
+            "BerkeleyMono-Bold.ttf"
+        } else {
+            "BerkeleyMono-Regular.ttf"
+        };
+        if font_dir.join(candidate).is_file() {
+            return (candidate, bold, false);
+        }
+    }
+    if bold {
+        ("arialbd.ttf", true, false)
+    } else {
+        ("arial.ttf", false, false)
+    }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let digest = Sha256::digest(bytes);
+    let mut encoded = String::with_capacity(digest.len().saturating_mul(2));
+    for byte in digest {
+        encoded.push(char::from(HEX[(byte >> 4) as usize]));
+        encoded.push(char::from(HEX[(byte & 0x0f) as usize]));
+    }
+    encoded
+}
+
+fn shaping_template(font_id: &str, sha256: &str) -> Result<ShapingInput, DesignError> {
+    serde_json::from_value(serde_json::json!({
+        "font_id": font_id,
+        "font_sha256": sha256,
+        "face_index": 0,
+        "variations": [],
+        "text": "",
+        "text_index_unit": "utf8_byte_offset",
+        "scale_x": 1000,
+        "scale_y": 1000,
+        "direction": "left_to_right",
+        "script": "Latn",
+        "language": "en",
+        "features": [],
+        "buffer_properties": {
+            "cluster_level": "monotone_graphemes",
+            "beginning_of_text": true,
+            "end_of_text": true,
+            "default_ignorables": "normal",
+            "do_not_insert_dotted_circle": false,
+            "produce_unsafe_to_concat": false,
+            "produce_safe_to_insert_tatweel": false
+        }
+    }))
+    .map_err(|error| DesignError::context("could not build default shaping template", error))
 }
 
 fn design_json_paths(loaded: &LoadedDesignSources) -> Result<KiCadDesignJsonPaths, DesignError> {
@@ -507,4 +1249,107 @@ fn push_source(
     });
     buffers.push(bytes);
     Ok(())
+}
+
+#[cfg(test)]
+mod plot_batch_budget_tests {
+    use super::*;
+
+    #[test]
+    fn aggregate_budget_accepts_exact_and_rejects_one_under() {
+        let document = SchematicPlotContractBudget {
+            derived_items: 41,
+            materialized_bytes: 73,
+        };
+        let exact = SchematicPlotDocumentsLimits {
+            max_total_derived_items: document.derived_items,
+            max_total_materialized_bytes: document.materialized_bytes,
+            ..SchematicPlotDocumentsLimits::default()
+        };
+        let mut total = SchematicPlotContractBudget {
+            derived_items: 0,
+            materialized_bytes: 0,
+        };
+        charge_plot_batch_budget(&mut total, document, exact).expect("exact batch budget");
+        assert_eq!(total, document);
+
+        for limits in [
+            SchematicPlotDocumentsLimits {
+                max_total_derived_items: document.derived_items - 1,
+                ..exact
+            },
+            SchematicPlotDocumentsLimits {
+                max_total_materialized_bytes: document.materialized_bytes - 1,
+                ..exact
+            },
+        ] {
+            let mut total = SchematicPlotContractBudget {
+                derived_items: 0,
+                materialized_bytes: 0,
+            };
+            assert!(charge_plot_batch_budget(&mut total, document, limits).is_err());
+        }
+    }
+
+    #[test]
+    fn embedded_font_selection_uses_family_style_and_regular_fallback() {
+        let files = vec![
+            SchematicEmbeddedFile {
+                name: "renamed-bold.ttf".to_owned(),
+                file_type: "font".to_owned(),
+                bytes: KICAD_STROKE_BOLD.to_vec(),
+            },
+            SchematicEmbeddedFile {
+                name: "renamed-regular.ttf".to_owned(),
+                file_type: "font".to_owned(),
+                bytes: KICAD_STROKE_REGULAR.to_vec(),
+            },
+        ];
+        let indexed = embedded_font_index(&files).expect("bounded embedded font index");
+        assert_eq!(indexed.len(), 2);
+        let (bold, selected_bold, selected_italic) =
+            embedded_font_selection("renamed", true, false, &indexed).expect("bold face");
+        assert_eq!(bold.file.name, "renamed-bold.ttf");
+        assert!(selected_bold);
+        assert!(!selected_italic);
+
+        let regular_files = &files[1..];
+        let regular_only =
+            embedded_font_index(regular_files).expect("bounded regular embedded font index");
+        let (fallback, selected_bold, selected_italic) =
+            embedded_font_selection("renamed", true, true, &regular_only)
+                .expect("regular fallback");
+        assert_eq!(fallback.file.name, "renamed-regular.ttf");
+        assert!(!selected_bold);
+        assert!(!selected_italic);
+
+        let faces = BTreeSet::from(["renamed".to_owned()]);
+        let exact_bytes = KICAD_STROKE_REGULAR.len() * 4;
+        let exact_limits = PlotterTextCacheLimits {
+            max_font_bytes: exact_bytes,
+            ..PlotterTextCacheLimits::default()
+        };
+        let styles = schematic_font_styles_with_limits(&faces, regular_files, exact_limits)
+            .expect("exact reused embedded font budget");
+        assert_eq!(styles.len(), 4);
+        assert!(
+            styles
+                .iter()
+                .all(|style| matches!(style.bytes, Cow::Borrowed(_)))
+        );
+        assert!(
+            schematic_font_styles_with_limits(
+                &faces,
+                regular_files,
+                PlotterTextCacheLimits {
+                    max_font_bytes: exact_bytes - 1,
+                    ..exact_limits
+                },
+            )
+            .err()
+            .expect("one-under reused embedded font budget")
+            .to_string()
+            .contains("aggregate limit")
+        );
+    }
 }

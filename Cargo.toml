@@ -43,6 +43,7 @@ syn = { version = "2.0.117", features = ["full"] }
 typify = { version = "0.7.0", default-features = false }
 ttf-parser = { version = "0.25.1", default-features = false, features = ["std", "variable-fonts"] }
 unicode-casefold = "0.2.0"
+zstd = "0.13.3"
 wasm-bindgen = "0.2.126"
 wasm-bindgen-test = "0.3.76"
 

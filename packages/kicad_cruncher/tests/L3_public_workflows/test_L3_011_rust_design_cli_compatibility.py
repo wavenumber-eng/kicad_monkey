@@ -24,6 +24,22 @@ _RUST_NETLIST_ORACLE = _WORKSPACE / "target" / "debug" / "examples" / (
 _RUST_DESIGN_ORACLE = _WORKSPACE / "target" / "debug" / "examples" / (
     "design_json_oracle.exe" if os.name == "nt" else "design_json_oracle"
 )
+_RUST_SCHEMATIC_INSTANCES_ORACLE = _WORKSPACE / "target" / "debug" / "examples" / (
+    "schematic_instances_oracle.exe"
+    if os.name == "nt"
+    else "schematic_instances_oracle"
+)
+_RUST_SCHEMATIC_PLOT_DOCUMENTS_ORACLE = (
+    _WORKSPACE
+    / "target"
+    / "debug"
+    / "examples"
+    / (
+        "schematic_plot_documents_oracle.exe"
+        if os.name == "nt"
+        else "schematic_plot_documents_oracle"
+    )
+)
 _PROJECT = (
     _PACKAGE_ROOT
     / "tests"
@@ -61,6 +77,59 @@ _LARGE_HIERARCHY_PROJECT = (
     / "input"
     / "4-ch-backplane.kicad_pro"
 )
+_EMBEDDED_WORKSHEET_PROJECT = (
+    _PACKAGE_ROOT
+    / "tests"
+    / "corpus"
+    / "kicad"
+    / "projects"
+    / "charge_indicator"
+    / "input"
+    / "11-10043__charge_indicator__C.kicad_pro"
+)
+_EMBEDDED_BERKELEY_PROJECT = (
+    _PACKAGE_ROOT
+    / "tests"
+    / "corpus"
+    / "kicad"
+    / "projects"
+    / "speedy_processing_module"
+    / "input"
+    / "11-10084__speedy_processing_module__B.kicad_pro"
+)
+
+
+def _first_json_difference(actual: object, expected: object, path: str = "$") -> str:
+    if type(actual) is not type(expected):
+        return f"{path}: type {type(actual).__name__} != {type(expected).__name__}"
+    if isinstance(actual, dict):
+        if actual.keys() != expected.keys():
+            return f"{path}: keys {actual.keys() ^ expected.keys()}"
+        for key in sorted(actual, key=lambda value: value == "total_operations"):
+            if actual[key] != expected[key]:
+                return _first_json_difference(actual[key], expected[key], f"{path}.{key}")
+    elif isinstance(actual, list):
+        for index, value in enumerate(actual[: len(expected)]):
+            if value != expected[index]:
+                if path.endswith(".records"):
+                    actual_window = [
+                        (item.get("kind"), item.get("uuid"))
+                        for item in actual[max(0, index - 2) : index + 3]
+                    ]
+                    expected_window = [
+                        (item.get("kind"), item.get("uuid"))
+                        for item in expected[max(0, index - 2) : index + 3]
+                    ]
+                    return (
+                        f"{path}[{index}]: "
+                        f"{value.get('kind')} {value.get('uuid')} != "
+                        f"{expected[index].get('kind')} {expected[index].get('uuid')}; "
+                        f"windows {actual_window!r} != {expected_window!r}"
+                    )
+                return _first_json_difference(value, expected[index], f"{path}[{index}]")
+        if len(actual) != len(expected):
+            return f"{path}: length {len(actual)} != {len(expected)}"
+    return f"{path}: {actual!r} != {expected!r}"
 _DESIGN_HELP_MARKERS = (
     "design review bundle",
     "enriched black-and-white schematic SVGs",
@@ -97,6 +166,8 @@ def _build_rust_cli() -> None:
     assert _RUST_EXE.is_file()
     assert _RUST_NETLIST_ORACLE.is_file()
     assert _RUST_DESIGN_ORACLE.is_file()
+    assert _RUST_SCHEMATIC_INSTANCES_ORACLE.is_file()
+    assert _RUST_SCHEMATIC_PLOT_DOCUMENTS_ORACLE.is_file()
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -192,3 +263,134 @@ def test_rust_design_json_matches_large_hierarchical_net_naming_oracle() -> None
     assert json.loads(completed.stdout) == KiCadDesign.from_file(source).to_json(
         include_indexes=False
     )
+
+
+@pytest.mark.parametrize(
+    "source", (_PROJECT, _REPRESENTATIVE_PROJECTS[0], _LARGE_HIERARCHY_PROJECT)
+)
+def test_rust_schematic_instances_match_the_python_hierarchy_oracle(source: Path) -> None:
+    source = source.resolve()
+    completed = _run([str(_RUST_SCHEMATIC_INSTANCES_ORACLE), str(source)])
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    design = KiCadDesign.from_file(source)
+    graph = design.to_json(include_indexes=False)["compiled_schematic_graph"]
+    pages = {
+        row["source_identity"]["sch.source_key.source_record"]: row
+        for row in graph["page_occurrences"]
+    }
+    expected: list[dict[str, object]] = []
+    for instance in design.schematic_instances():
+        instance_path = str(instance.sheet_instance_path or "")
+        page = pages[f"instance-path:{instance_path}"]
+        expected.append(
+            {
+                "instance_index": instance.instance_index,
+                "sheet_number": instance.sheet_number,
+                "sheet_count": instance.sheet_count,
+                "source_path": Path(instance.source_path)
+                .resolve()
+                .relative_to(source.parent)
+                .as_posix(),
+                "sheet_name": instance.sheet_name,
+                "sheet_path": instance.sheet_path,
+                "sheet_path_uuids": instance.sheet_path_uuids,
+                "sheet_instance_path": instance_path,
+                "sheet_symbol_uid": instance.sheet_symbol_uid,
+                "sheet_file": instance.sheet_file,
+                "parent_sheet_path": instance.parent_sheet_path,
+                "parent_sheet_path_uuids": instance.parent_sheet_path_uuids,
+                "parent_sheet_instance_path": instance.parent_sheet_instance_path,
+                "is_top_level": instance.is_top_level,
+                "document_id": instance.ir_kwargs()["document_id"],
+                "page_occurrence_ref": page["id"],
+            }
+        )
+    actual = json.loads(completed.stdout)
+    assert actual == expected, _first_json_difference(actual, expected)
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        _PROJECT,
+        _REPRESENTATIVE_PROJECTS[0],
+        _REPRESENTATIVE_PROJECTS[1],
+        _EMBEDDED_WORKSHEET_PROJECT,
+    ),
+)
+def test_rust_schematic_plot_documents_match_the_python_oracle_exactly(
+    source: Path,
+) -> None:
+    source = source.resolve()
+    completed = _run([str(_RUST_SCHEMATIC_PLOT_DOCUMENTS_ORACLE), str(source)])
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    design = KiCadDesign.from_file(source)
+    expected = [
+        design.to_schematic_instance_ir(instance).to_dict()
+        for instance in design.schematic_instances()
+    ]
+    actual = json.loads(completed.stdout)
+    assert actual == expected, _first_json_difference(actual, expected)
+
+
+def test_rust_plot_document_uses_generic_embedded_font_family_and_style() -> None:
+    source = _EMBEDDED_BERKELEY_PROJECT.resolve()
+    completed = _run(
+        [str(_RUST_SCHEMATIC_PLOT_DOCUMENTS_ORACLE), str(source), "--first"]
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    design = KiCadDesign.from_file(source)
+    expected = [
+        design.to_schematic_instance_ir(design.schematic_instances()[0]).to_dict()
+    ]
+    actual = json.loads(completed.stdout)
+    assert actual == expected, _first_json_difference(actual, expected)
+
+
+def test_rust_plot_documents_load_custom_worksheet_and_missing_italic_face(
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "styled.kicad_pro"
+    project.write_text(
+        json.dumps(
+            {
+                "schematic": {"page_layout_descr_file": "styled.kicad_wks"},
+                "text_variables": {"LABEL": "Resolved"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "styled.kicad_sch").write_text(
+        """(kicad_sch (version 20240101) (generator eeschema)
+  (generator_version "10.0") (uuid "styled-root") (paper "A4")
+  (lib_symbols)
+  (sheet_instances (path "/styled-root" (page "1"))))
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "styled.kicad_wks").write_text(
+        """(kicad_wks (version 20210606) (generator pl_editor)
+  (setup (textsize 1.5 1.5) (linewidth 0.15) (textlinewidth 0.15)
+    (left_margin 10) (right_margin 10) (top_margin 10) (bottom_margin 10))
+  (tbtext "${LABEL}" (name "") (pos 20 20 ltcorner)
+    (font (face "Definitely Missing Face") (size 1.5 1.5) italic)))
+""",
+        encoding="utf-8",
+    )
+
+    completed = _run([str(_RUST_SCHEMATIC_PLOT_DOCUMENTS_ORACLE), str(project)])
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stderr == ""
+    design = KiCadDesign.from_file(project)
+    expected = [
+        design.to_schematic_instance_ir(instance).to_dict()
+        for instance in design.schematic_instances()
+    ]
+    assert json.loads(completed.stdout) == expected

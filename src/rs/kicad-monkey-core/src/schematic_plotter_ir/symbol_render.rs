@@ -206,7 +206,7 @@ pub(super) fn append_symbol_records(
             operations.extend(dnp_markers.iter().cloned());
         }
         charge_operations(budget, &operations)?;
-        let reference = instance_reference(&symbol, &context.sheet_path);
+        let reference = instance_reference(&symbol, &context.sheet_instance_path);
         let metadata = symbol_metadata_bytes(&symbol, &reference)?;
         budget.charge_metadata(metadata)?;
         let record = SchematicSymbolInstanceRecord {
@@ -924,7 +924,7 @@ fn append_properties(
         let key = value_at(property, 1).unwrap_or_default();
         let mut value = resolved_property_value(property, symbol);
         if key == "Reference" {
-            value = instance_reference(symbol, &context.sheet_path);
+            value = instance_reference(symbol, &context.sheet_instance_path);
             if !value.is_empty() && !suffix.is_empty() && !value.ends_with(&suffix) {
                 value.push_str(&suffix);
             }
@@ -1667,8 +1667,10 @@ fn round_to_100(value: f64) -> Result<i64, Error> {
     if !value.is_finite() {
         return Err(model_error("Schematic symbol metric is invalid"));
     }
-    let rounded = ((value / 100.0) + 0.5)
-        .floor()
+    // KiCad's outline-font bbox bridge truncates the scaled metric to the
+    // schematic IU grid before converting that integer back to nanometres.
+    let rounded = (value / 100.0)
+        .trunc()
         .clamp(i64::MIN as f64, i64::MAX as f64) as i64;
     rounded
         .checked_mul(100)
