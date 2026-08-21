@@ -58,6 +58,24 @@
   <h2>Verification</h2>
   <p>Persistent unit and cross-package tests cover profiled-versus-normal construction, exact timing inventories, report rejection, source mutation detection, artifact and SVG parity, worker panic and drop/join behavior, tight-budget sequential fallback, prepared-source identity, one-view PCB limits, cached-metadata ceilings, single schematic parsing, and text-cache authentication before PCB parsing. Final acceptance also passed the complete locked Rust workspace suite, strict all-target Clippy, formatting, and the performance probe's fail-closed tests.</p>
 </section>
+
+<section id="test-runtime-impact">
+  <h2>Test inventory and runtime impact</h2>
+  <p>The performance work adds 21 Rust tests and five Python test functions. The Python functions are fully registered as <code>L0_005</code>; no new corpus-backed L3 case or repeated full design-review command was added to routine CI.</p>
+  <table>
+    <thead><tr><th>Location</th><th>Added tests</th><th>Owned evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Cruncher <code>design.rs</code></td><td>3</td><td>Overlap accounting, facts-error precedence, and source-limit preflight</td></tr>
+      <tr><td>Cruncher <code>design_bundle.rs</code></td><td>7</td><td>Parallel gate, joined workers, exact prepared bytes, buffered output, profile inventory, sequential fallback, and publication timing</td></tr>
+      <tr><td>Cruncher schematic review and cross-package design-core tests</td><td>4</td><td>Cached metadata/XML output plus validated schematic and full PCB-view reuse</td></tr>
+      <tr><td>Monkey core bundle, document, Design JSON, board, and schematic plot tests</td><td>6</td><td>Profiled/ordinary identity, timing separation, caller-limit intersection, and owned definition identity</td></tr>
+      <tr><td>Monkey SVG sink</td><td>1</td><td>Streaming escaped XML text</td></tr>
+      <tr><td>Cruncher <code>L0_005</code></td><td>5 Python functions</td><td>Safe ZIP extraction, semantic SVG comparison, profile binding, positive memory sampling, and sampler failure</td></tr>
+    </tbody>
+  </table>
+  <p>On the acceptance host, the warm locked workspace run collected 631 Rust tests and passed in 14.11 seconds. The preceding CLI slice recorded 610 tests in 14.25 seconds on the same host, so the 21 focused additions produce no material warm-lane increase beyond normal timing noise. <code>L0_005</code> passes all five functions in 0.54 seconds.</p>
+  <p>The accepted three-pair Speedy comparison contains about 200 seconds of measured command time plus release build, extraction, validation, and cleanup. It remains an explicit advisory/signoff invocation and is not part of an ordinary Rack or Cargo lane. This preserves fast failure feedback while retaining a repeatable full-system performance authority when executable-producing code changes.</p>
+</section>
 </main>
 </body>
 </html>

@@ -86,8 +86,11 @@ module = "tests.support_scripts.speedy_dr_performance_probe"
 corpus_safety = "Windows traversal and drive-like ZIP members cannot escape the temporary Speedy source root"
 svg_parity = "The benchmark accepts renderer scale and identity-carrier differences while rejecting missing SVG record geometry"
 profile_binding = "Profile mode requires exactly one valid native trace bound to measured bundle artifact counts and bytes"
+memory_sampling = "The benchmark records a positive root-process peak and propagates live sampler failures"
 
 [subtests.test_functions]
 test_speedy_probe_rejects_windows_archive_escape_members = "Reviewed-corpus selection rejects Windows backslash traversal before extraction"
 test_speedy_probe_semantically_validates_schematic_svg_bodies = "Semantic schematic SVG validation accepts known carrier differences and detects a corrupted body"
 test_speedy_probe_requires_a_bundle_bound_rust_profile = "Profile capture rejects missing, unexpected, malformed, arithmetically invalid, or bundle-mismatched records"
+test_speedy_probe_captures_root_process_peak_working_set = "Root-process peak sampling observes a durable allocation rather than only process startup"
+test_speedy_probe_rejects_memory_sampler_failure = "A live-process sampler failure aborts the benchmark instead of publishing a zero or partial measurement"
