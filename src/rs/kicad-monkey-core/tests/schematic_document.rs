@@ -34,6 +34,22 @@ fn owned_schematic_writes_exact_source_and_rebuilds_typed_state() {
 }
 
 #[test]
+fn validated_definition_matches_the_document_rebuild_exactly() {
+    let (document, validated) = SchematicDocument::from_named_reader_with_definition(
+        "design/root.kicad_sch",
+        Cursor::new(SOURCE.as_bytes()),
+        limits(),
+    )
+    .expect("document and validation definition");
+    assert_eq!(document.source(), SOURCE);
+    assert_eq!(document.source_path(), "design/root.kicad_sch");
+    assert_eq!(
+        validated,
+        document.definition().expect("definition rebuild")
+    );
+}
+
+#[test]
 fn symbol_property_edits_are_transactional_source_preserving_and_stable() {
     let mut document =
         SchematicDocument::parse_named("design/root.kicad_sch", SOURCE.to_owned(), limits())

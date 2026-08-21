@@ -2015,6 +2015,16 @@ mod tests {
                 ("publish_staged_tree", "promote_staged_bundle"),
             ]
         );
+        let load_detail = |name| {
+            profile
+                .details
+                .iter()
+                .find(|detail| detail.parent == "load_design_sources" && detail.name == name)
+                .expect("load profile detail")
+                .elapsed_ns
+        };
+        assert_eq!(load_detail("parse_schematic_documents"), 0);
+        assert!(load_detail("extract_schematic_definitions") > 0);
         fs::remove_dir_all(root).unwrap();
     }
 

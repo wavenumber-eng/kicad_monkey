@@ -621,7 +621,7 @@ fn finish_design_sources_internal(
     let mut pending = VecDeque::from([paths.root_schematic.clone()]);
     let mut seen = HashSet::new();
     let mut schematic_read_elapsed = std::time::Duration::ZERO;
-    let mut schematic_parse_elapsed = std::time::Duration::ZERO;
+    let schematic_parse_elapsed = std::time::Duration::ZERO;
     let mut definition_elapsed = std::time::Duration::ZERO;
     let mut discovery_elapsed = std::time::Duration::ZERO;
     let mut carrier_elapsed = std::time::Duration::ZERO;
@@ -638,19 +638,13 @@ fn finish_design_sources_internal(
         let bytes = read_bounded(&source_path, schematic_limits.parse.max_source_bytes)?;
         schematic_read_elapsed += performance.elapsed(read_started);
 
-        let parse_started = performance.start();
-        let source = SchematicDocument::from_named_reader(
+        let definition_started = performance.start();
+        let (source, definition) = SchematicDocument::from_named_reader_with_definition(
             &relative,
             io::Cursor::new(bytes),
             schematic_limits,
         )
         .map_err(|error| DesignError::context("could not parse schematic", error))?;
-        schematic_parse_elapsed += performance.elapsed(parse_started);
-
-        let definition_started = performance.start();
-        let definition = source
-            .definition()
-            .map_err(|error| DesignError::context("could not inspect schematic sheets", error))?;
         definition_elapsed += performance.elapsed(definition_started);
 
         let discovery_started = performance.start();

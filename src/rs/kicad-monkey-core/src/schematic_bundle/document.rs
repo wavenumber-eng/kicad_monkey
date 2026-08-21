@@ -60,14 +60,28 @@ impl SchematicDocument {
         source: String,
         limits: SchematicDocumentLimits,
     ) -> Result<Self, SourceBundleError> {
+        Self::parse_named_with_definition(source_path, source, limits)
+            .map(|(document, _definition)| document)
+    }
+
+    /// Validate one named source and retain the typed definition produced by
+    /// that exact validation pass.
+    pub fn parse_named_with_definition(
+        source_path: impl Into<String>,
+        source: String,
+        limits: SchematicDocumentLimits,
+    ) -> Result<(Self, SchematicDefinition), SourceBundleError> {
         let source_path = source_path.into();
         validate_path(&source_path, limits.parse.max_path_bytes)?;
-        parse_schematic_definition_text(&source, &source_path, limits.parse)?;
-        Ok(Self {
-            source_path,
-            source,
-            limits,
-        })
+        let definition = parse_schematic_definition_text(&source, &source_path, limits.parse)?;
+        Ok((
+            Self {
+                source_path,
+                source,
+                limits,
+            },
+            definition,
+        ))
     }
 
     /// Read at most the configured source ceiling plus one sentinel byte.
@@ -81,9 +95,20 @@ impl SchematicDocument {
     /// Read and validate one named schematic without an unbounded input copy.
     pub fn from_named_reader(
         source_path: impl Into<String>,
-        mut reader: impl Read,
+        reader: impl Read,
         limits: SchematicDocumentLimits,
     ) -> Result<Self, SourceBundleError> {
+        Self::from_named_reader_with_definition(source_path, reader, limits)
+            .map(|(document, _definition)| document)
+    }
+
+    /// Read, validate, and return the typed definition from the same bounded
+    /// parse rather than reparsing the retained source immediately.
+    pub fn from_named_reader_with_definition(
+        source_path: impl Into<String>,
+        mut reader: impl Read,
+        limits: SchematicDocumentLimits,
+    ) -> Result<(Self, SchematicDefinition), SourceBundleError> {
         let source_path = source_path.into();
         validate_path(&source_path, limits.parse.max_path_bytes)?;
         let read_limit = limits
@@ -113,7 +138,7 @@ impl SchematicDocument {
                 ),
             )
         })?;
-        Self::parse_named(source_path, source, limits)
+        Self::parse_named_with_definition(source_path, source, limits)
     }
 
     pub fn source_path(&self) -> &str {

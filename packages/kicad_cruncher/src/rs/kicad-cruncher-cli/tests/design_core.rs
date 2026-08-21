@@ -89,6 +89,23 @@ fn project_sources_feed_graph_and_netlist_without_a_sidecar() {
     assert!(facts.kicad_netlist.contains("(design"));
 }
 
+#[test]
+fn validated_schematic_definition_preserves_cruncher_source_and_facts() {
+    let loaded = load_design_sources(&hlr_test_project()).expect("single-pass schematic load");
+    let source = loaded
+        .bundle
+        .root_schematic()
+        .text()
+        .expect("exact root schematic source");
+    assert!(source.starts_with("(kicad_sch"));
+    let facts = build_structured_design_facts(&loaded).expect("facts from validated definition");
+    assert_eq!(facts.schematic_instances.len(), 1);
+    assert_eq!(facts.netlist.components.len(), 1);
+    assert!(!facts.netlist.nets.is_empty());
+    validate_compiled_schematic_graph(&facts.compiled_schematic_graph)
+        .expect("compiled graph from reused validation definition");
+}
+
 fn assert_hlr_netlist_json(payload: &Value, netlist: &KiCadNetlist) {
     assert_eq!(payload["schema"], "kicad_monkey.netlist.a0");
     assert_eq!(payload["generator"], "kicad_monkey");
