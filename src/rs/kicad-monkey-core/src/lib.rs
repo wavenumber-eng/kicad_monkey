@@ -84,9 +84,11 @@ pub use compiled_schematic_graph::{
     validate_compiled_schematic_graph,
 };
 pub use design_json::{
-    KiCadDesignFacts, KiCadDesignJsonError, KiCadDesignJsonLimits, KiCadDesignJsonPaths,
-    KiCadDesignPcb, KiCadDesignSourcePath, KiCadSchematicInstance, build_kicad_design_facts,
-    build_kicad_design_json, build_kicad_design_json_with_limits,
+    KiCadDesignFacts, KiCadDesignFactsBuildProfile, KiCadDesignJsonBuildProfile,
+    KiCadDesignJsonError, KiCadDesignJsonLimits, KiCadDesignJsonPaths, KiCadDesignPcb,
+    KiCadDesignSourcePath, KiCadSchematicInstance, build_kicad_design_facts,
+    build_kicad_design_facts_profiled, build_kicad_design_json, build_kicad_design_json_profiled,
+    build_kicad_design_json_with_limits,
 };
 pub use document_metadata::{KiCadPaper, KiCadTitleBlock};
 pub use font_outline::{

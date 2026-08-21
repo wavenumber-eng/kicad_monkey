@@ -125,7 +125,7 @@ def test_speedy_probe_semantically_validates_schematic_svg_bodies(tmp_path: Path
 
 def test_speedy_probe_requires_a_bundle_bound_rust_profile() -> None:
     probe = _probe()
-    stages = [{"name": name, "elapsed_ns": 20} for name in probe._RUST_PROFILE_STAGES]
+    stages = [{"name": name, "elapsed_ns": 100} for name in probe._RUST_PROFILE_STAGES]
     details = [
         {"parent": parent, "name": name, "elapsed_ns": 1}
         for parent, name in probe._RUST_PROFILE_DETAILS

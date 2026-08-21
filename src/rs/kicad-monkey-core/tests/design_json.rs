@@ -4,8 +4,80 @@ use kicad_monkey_contracts::generated::source_bundle_manifest::{
 use kicad_monkey_core::{
     KiCadDesignJsonLimits, KiCadDesignJsonPaths, KiCadNetlistLimits, ProjectLimits,
     SchematicBundleIndex, SchematicBundleLimits, SourceBundle, SourceBundleLimits,
-    build_kicad_design_facts, build_kicad_design_json, build_kicad_design_json_with_limits,
+    build_kicad_design_facts, build_kicad_design_facts_profiled, build_kicad_design_json,
+    build_kicad_design_json_profiled, build_kicad_design_json_with_limits,
 };
+
+#[test]
+fn profiled_facts_and_design_json_preserve_public_results() {
+    let (bundle, index) = design_input("Profiled");
+    let (facts, facts_profile) = build_kicad_design_facts_profiled(
+        &index,
+        &bundle,
+        ProjectLimits::default(),
+        Default::default(),
+        KiCadNetlistLimits::default(),
+    )
+    .expect("profiled design facts");
+    assert!(
+        facts_profile
+            .project_parse_ns
+            .saturating_add(facts_profile.compiled_graph_ns)
+            .saturating_add(facts_profile.netlist_ns)
+            > 0
+    );
+
+    let paths = KiCadDesignJsonPaths::default();
+    let expected =
+        build_kicad_design_json(&index, &facts, &paths, None, true).expect("design JSON");
+    let (actual, profile) = build_kicad_design_json_profiled(&index, &facts, &paths, None, true)
+        .expect("profiled design JSON");
+    assert_eq!(actual, expected);
+    assert_eq!(
+        actual
+            .as_object()
+            .expect("design JSON object")
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        [
+            "schema",
+            "generator",
+            "project",
+            "variants",
+            "options",
+            "sheets",
+            "components",
+            "schematic_hierarchy",
+            "nets",
+            "compiled_schematic_graph",
+            "net_classes",
+            "net_name_to_classes",
+            "indexes",
+        ]
+    );
+    let serialized = serde_json::to_string(&actual).expect("serialized design JSON");
+    assert!(
+        serialized.find("\"components\"").expect("components key")
+            < serialized
+                .find("\"schematic_hierarchy\"")
+                .expect("schematic hierarchy key")
+    );
+    assert!(
+        profile
+            .binding_and_preflight_ns
+            .saturating_add(profile.netlist_json_ns)
+            .saturating_add(profile.project_variants_options_ns)
+            .saturating_add(profile.sheets_ns)
+            .saturating_add(profile.components_ns)
+            .saturating_add(profile.hierarchy_and_nets_ns)
+            .saturating_add(profile.compiled_graph_value_ns)
+            .saturating_add(profile.pnp_ns)
+            .saturating_add(profile.classes_and_indexes_ns)
+            .saturating_add(profile.output_limit_serialization_ns)
+            > 0
+    );
+}
 
 #[test]
 fn public_builder_validates_binding_and_enforces_exact_limits() {

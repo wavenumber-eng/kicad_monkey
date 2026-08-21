@@ -31,6 +31,13 @@ pub struct KiCadDesignFacts<'index> {
     netlist: KiCadNetlist,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct KiCadDesignFactsBuildProfile {
+    pub project_parse_ns: u64,
+    pub compiled_graph_ns: u64,
+    pub netlist_ns: u64,
+}
+
 impl KiCadDesignFacts<'_> {
     pub fn project(&self) -> Option<ProjectView<'_>> {
         self.project.as_ref().map(ProjectDocument::view)
@@ -60,6 +67,42 @@ pub fn build_kicad_design_facts<'index>(
     graph_limits: CompiledSchematicGraphLimits,
     netlist_limits: KiCadNetlistLimits,
 ) -> Result<KiCadDesignFacts<'index>, SourceBundleError> {
+    build_kicad_design_facts_internal(
+        index,
+        bundle,
+        project_limits,
+        graph_limits,
+        netlist_limits,
+        false,
+    )
+    .map(|(facts, _profile)| facts)
+}
+
+pub fn build_kicad_design_facts_profiled<'index>(
+    index: &'index SchematicBundleIndex,
+    bundle: &SourceBundle,
+    project_limits: ProjectLimits,
+    graph_limits: CompiledSchematicGraphLimits,
+    netlist_limits: KiCadNetlistLimits,
+) -> Result<(KiCadDesignFacts<'index>, KiCadDesignFactsBuildProfile), SourceBundleError> {
+    build_kicad_design_facts_internal(
+        index,
+        bundle,
+        project_limits,
+        graph_limits,
+        netlist_limits,
+        true,
+    )
+}
+
+fn build_kicad_design_facts_internal<'index>(
+    index: &'index SchematicBundleIndex,
+    bundle: &SourceBundle,
+    project_limits: ProjectLimits,
+    graph_limits: CompiledSchematicGraphLimits,
+    netlist_limits: KiCadNetlistLimits,
+    profile: bool,
+) -> Result<(KiCadDesignFacts<'index>, KiCadDesignFactsBuildProfile), SourceBundleError> {
     if !index.project_belongs_to(bundle) {
         return Err(SourceBundleError::new(
             SourceBundleErrorKind::Contract,
@@ -67,6 +110,7 @@ pub fn build_kicad_design_facts<'index>(
             "project source does not belong to the schematic index",
         ));
     }
+    let project_started = profile.then(std::time::Instant::now);
     let project = bundle
         .project()
         .map(|source| ProjectDocument::from_reader(source.bytes(), project_limits))
@@ -78,15 +122,27 @@ pub fn build_kicad_design_facts<'index>(
                 format!("project document is invalid: {error}"),
             )
         })?;
+    let project_parse_ns = elapsed_ns(project_started);
     let project_view = project.as_ref().map(ProjectDocument::view);
+    let graph_started = profile.then(std::time::Instant::now);
     let graph = build_compiled_schematic_graph(index, graph_limits)?;
+    let compiled_graph_ns = elapsed_ns(graph_started);
+    let netlist_started = profile.then(std::time::Instant::now);
     let netlist = build_kicad_netlist(index, project_view, netlist_limits)?;
-    Ok(KiCadDesignFacts {
-        index,
-        project,
-        graph,
-        netlist,
-    })
+    let netlist_ns = elapsed_ns(netlist_started);
+    Ok((
+        KiCadDesignFacts {
+            index,
+            project,
+            graph,
+            netlist,
+        },
+        KiCadDesignFactsBuildProfile {
+            project_parse_ns,
+            compiled_graph_ns,
+            netlist_ns,
+        },
+    ))
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -94,6 +150,20 @@ pub struct KiCadDesignJsonLimits {
     pub max_derived_items: usize,
     pub max_materialized_bytes: usize,
     pub max_output_bytes: usize,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct KiCadDesignJsonBuildProfile {
+    pub binding_and_preflight_ns: u64,
+    pub netlist_json_ns: u64,
+    pub project_variants_options_ns: u64,
+    pub sheets_ns: u64,
+    pub components_ns: u64,
+    pub hierarchy_and_nets_ns: u64,
+    pub compiled_graph_value_ns: u64,
+    pub pnp_ns: u64,
+    pub classes_and_indexes_ns: u64,
+    pub output_limit_serialization_ns: u64,
 }
 
 impl Default for KiCadDesignJsonLimits {
@@ -147,6 +217,12 @@ impl fmt::Display for KiCadDesignJsonError {
 
 impl std::error::Error for KiCadDesignJsonError {}
 
+fn elapsed_ns(started: Option<std::time::Instant>) -> u64 {
+    started.map_or(0, |started| {
+        u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
+    })
+}
+
 impl From<SourceBundleError> for KiCadDesignJsonError {
     fn from(error: SourceBundleError) -> Self {
         Self::context("could not resolve design variant", error)
@@ -178,6 +254,42 @@ pub fn build_kicad_design_json_with_limits(
     include_indexes: bool,
     limits: KiCadDesignJsonLimits,
 ) -> Result<Value, KiCadDesignJsonError> {
+    build_kicad_design_json_internal(index, facts, paths, pcb, include_indexes, limits, false)
+        .map(|(value, _profile)| value)
+}
+
+pub fn build_kicad_design_json_profiled(
+    index: &SchematicBundleIndex,
+    facts: &KiCadDesignFacts<'_>,
+    paths: &KiCadDesignJsonPaths,
+    pcb: Option<KiCadDesignPcb<'_>>,
+    include_indexes: bool,
+) -> Result<(Value, KiCadDesignJsonBuildProfile), KiCadDesignJsonError> {
+    build_kicad_design_json_internal(
+        index,
+        facts,
+        paths,
+        pcb,
+        include_indexes,
+        KiCadDesignJsonLimits::default(),
+        true,
+    )
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "the profiled builder preserves one ordered Design JSON assembly flow"
+)]
+fn build_kicad_design_json_internal(
+    index: &SchematicBundleIndex,
+    facts: &KiCadDesignFacts<'_>,
+    paths: &KiCadDesignJsonPaths,
+    pcb: Option<KiCadDesignPcb<'_>>,
+    include_indexes: bool,
+    limits: KiCadDesignJsonLimits,
+    profile: bool,
+) -> Result<(Value, KiCadDesignJsonBuildProfile), KiCadDesignJsonError> {
+    let preflight_started = profile.then(std::time::Instant::now);
     validate_facts_binding(index, facts)?;
     let project = facts.project();
     let graph = facts.graph();
@@ -192,39 +304,55 @@ pub fn build_kicad_design_json_with_limits(
         include_indexes,
         limits,
     )?;
+    let binding_and_preflight_ns = elapsed_ns(preflight_started);
+    let netlist_json_started = profile.then(std::time::Instant::now);
     let netlist_json = build_kicad_netlist_json(netlist, KiCadNetlistJsonMetadata::default());
+    let netlist_json_ns = elapsed_ns(netlist_json_started);
     let mut result = serde_json::Map::new();
     result.insert("schema".to_owned(), json!(KICAD_DESIGN_JSON_SCHEMA));
     result.insert("generator".to_owned(), json!(KICAD_DESIGN_JSON_GENERATOR));
+    let project_started = profile.then(std::time::Instant::now);
     result.insert("project".to_owned(), project_json(project, paths)?);
     result.insert(
         "variants".to_owned(),
         variants::variants_json(index, project)?,
     );
     result.insert("options".to_owned(), options_json(project));
+    let project_variants_options_ns = elapsed_ns(project_started);
+    let sheets_started = profile.then(std::time::Instant::now);
     result.insert(
         "sheets".to_owned(),
         hierarchy::sheets_json(index, netlist, paths),
     );
+    let sheets_ns = elapsed_ns(sheets_started);
+    let components_started = profile.then(std::time::Instant::now);
     result.insert(
         "components".to_owned(),
         components::components_json(netlist, &netlist_json),
     );
+    let components_ns = elapsed_ns(components_started);
+    let hierarchy_started = profile.then(std::time::Instant::now);
     result.insert(
         "schematic_hierarchy".to_owned(),
         hierarchy::schematic_hierarchy_json(index, paths),
     );
     result.insert("nets".to_owned(), netlist_json["nets"].clone());
+    let hierarchy_and_nets_ns = elapsed_ns(hierarchy_started);
+    let graph_started = profile.then(std::time::Instant::now);
     result.insert(
         "compiled_schematic_graph".to_owned(),
         serde_json::to_value(graph)
             .map_err(|error| KiCadDesignJsonError::context("could not encode graph", error))?,
     );
+    let compiled_graph_value_ns = elapsed_ns(graph_started);
+    let pnp_started = profile.then(std::time::Instant::now);
     if let Some(pcb) = pcb
         && let Some(payload) = pnp::pnp_json(pcb, netlist, &netlist_json)?
     {
         result.insert("pnp".to_owned(), payload);
     }
+    let pnp_ns = elapsed_ns(pnp_started);
+    let indexes_started = profile.then(std::time::Instant::now);
     if !netlist.net_classes.is_empty() {
         result.insert(
             "net_classes".to_owned(),
@@ -238,9 +366,26 @@ pub fn build_kicad_design_json_with_limits(
     if include_indexes {
         result.insert("indexes".to_owned(), indexes::indexes_json(netlist));
     }
+    let classes_and_indexes_ns = elapsed_ns(indexes_started);
     let result = Value::Object(result);
+    let output_limit_started = profile.then(std::time::Instant::now);
     enforce_output_limit(&result, limits.max_output_bytes)?;
-    Ok(result)
+    let output_limit_serialization_ns = elapsed_ns(output_limit_started);
+    Ok((
+        result,
+        KiCadDesignJsonBuildProfile {
+            binding_and_preflight_ns,
+            netlist_json_ns,
+            project_variants_options_ns,
+            sheets_ns,
+            components_ns,
+            hierarchy_and_nets_ns,
+            compiled_graph_value_ns,
+            pnp_ns,
+            classes_and_indexes_ns,
+            output_limit_serialization_ns,
+        },
+    ))
 }
 
 fn validate_facts_binding(

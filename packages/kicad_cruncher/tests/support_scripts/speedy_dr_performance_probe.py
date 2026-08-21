@@ -38,7 +38,7 @@ JsonObject = dict[str, Any]
 _NUMBER = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
 _DRAWABLE = {"path", "polygon", "polyline", "line", "rect", "circle", "ellipse"}
 _RUST_PROFILE_PREFIX = "KICAD_CRUNCHER_PERFORMANCE_PROFILE="
-_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a1"
+_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a2"
 _RUST_PROFILE_STAGES = (
     "resolve_and_validate_output",
     "create_staging_directory",
@@ -69,12 +69,29 @@ _RUST_PROFILE_DETAILS = (
     ("build_structured_design_facts", "parse_schematic_index_definitions"),
     ("build_structured_design_facts", "realize_schematic_occurrences"),
     ("build_structured_design_facts", "assemble_schematic_indexes"),
-    ("build_structured_design_facts", "build_native_graph_and_netlist_facts"),
+    ("build_structured_design_facts", "parse_project_document"),
+    ("build_structured_design_facts", "build_compiled_schematic_graph"),
+    ("build_structured_design_facts", "build_kicad_netlist"),
     ("build_structured_design_facts", "validate_compiled_schematic_graph"),
     ("build_structured_design_facts", "emit_kicad_netlist"),
     ("build_structured_design_facts", "build_kicad_netlist_json"),
     ("build_structured_design_facts", "parse_pcb_view"),
-    ("build_structured_design_facts", "build_kicad_design_json"),
+    ("build_structured_design_facts", "design_json_binding_and_preflight"),
+    ("build_structured_design_facts", "design_json_netlist_json"),
+    ("build_structured_design_facts", "design_json_project_variants_options"),
+    ("build_structured_design_facts", "design_json_sheets"),
+    ("build_structured_design_facts", "design_json_components"),
+    (
+        "build_structured_design_facts",
+        "design_json_schematic_hierarchy_and_nets",
+    ),
+    ("build_structured_design_facts", "design_json_compiled_graph_value"),
+    ("build_structured_design_facts", "design_json_pnp"),
+    ("build_structured_design_facts", "design_json_classes_and_indexes"),
+    (
+        "build_structured_design_facts",
+        "design_json_output_limit_serialization",
+    ),
     ("build_structured_design_facts", "enumerate_schematic_instances"),
 )
 

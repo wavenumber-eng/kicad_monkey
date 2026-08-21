@@ -32,9 +32,10 @@ use kicad_monkey_core::{
     SchematicDrawingSettings, SchematicPlotContext, SchematicPlotContractBudget,
     SchematicPlotContractLimits, SchematicPlotLimits, SchematicPlotVariables, SourceBundle,
     SourceBundleLimits, TokenKind, board_plot_facts_with_sidecars, build_kicad_design_facts,
-    build_kicad_design_json, build_kicad_netlist_json, emit_kicad_netlist,
-    schematic_plot_document_budget, schematic_plot_document_json,
-    schematic_plot_document_with_sheets, validate_compiled_schematic_graph,
+    build_kicad_design_facts_profiled, build_kicad_design_json, build_kicad_design_json_profiled,
+    build_kicad_netlist_json, emit_kicad_netlist, schematic_plot_document_budget,
+    schematic_plot_document_json, schematic_plot_document_with_sheets,
+    validate_compiled_schematic_graph,
 };
 use kicad_monkey_svg::{SvgMetrics, render_svg};
 use sha2::{Digest, Sha256};
@@ -672,19 +673,39 @@ fn build_structured_design_facts_internal(
         "assemble_schematic_indexes",
         std::time::Duration::from_nanos(index_profile.assemble_indexes_ns),
     );
-    let native_facts_started = performance.start();
-    let design_facts = build_kicad_design_facts(
-        &index,
-        &loaded.bundle,
-        ProjectLimits::default(),
-        Default::default(),
-        KiCadNetlistLimits::default(),
-    )
+    let (design_facts, facts_profile) = if performance.is_enabled() {
+        build_kicad_design_facts_profiled(
+            &index,
+            &loaded.bundle,
+            ProjectLimits::default(),
+            Default::default(),
+            KiCadNetlistLimits::default(),
+        )
+    } else {
+        build_kicad_design_facts(
+            &index,
+            &loaded.bundle,
+            ProjectLimits::default(),
+            Default::default(),
+            KiCadNetlistLimits::default(),
+        )
+        .map(|facts| (facts, Default::default()))
+    }
     .map_err(|error| DesignError::context("could not build structured design facts", error))?;
-    performance.finish_detail(
+    performance.record_detail(
         "build_structured_design_facts",
-        "build_native_graph_and_netlist_facts",
-        native_facts_started,
+        "parse_project_document",
+        std::time::Duration::from_nanos(facts_profile.project_parse_ns),
+    );
+    performance.record_detail(
+        "build_structured_design_facts",
+        "build_compiled_schematic_graph",
+        std::time::Duration::from_nanos(facts_profile.compiled_graph_ns),
+    );
+    performance.record_detail(
+        "build_structured_design_facts",
+        "build_kicad_netlist",
+        std::time::Duration::from_nanos(facts_profile.netlist_ns),
     );
     let graph_validation_started = performance.start();
     validate_compiled_schematic_graph(design_facts.graph())
@@ -749,20 +770,53 @@ fn build_structured_design_facts_internal(
             source_filename: filename,
             view,
         });
-    let design_json_started = performance.start();
-    let design_json = build_kicad_design_json(
-        &index,
-        &design_facts,
-        &design_json_paths(loaded)?,
-        pcb,
-        include_indexes,
-    )
+    let json_paths = design_json_paths(loaded)?;
+    let (design_json, design_json_profile) = if performance.is_enabled() {
+        build_kicad_design_json_profiled(&index, &design_facts, &json_paths, pcb, include_indexes)
+    } else {
+        build_kicad_design_json(&index, &design_facts, &json_paths, pcb, include_indexes)
+            .map(|value| (value, Default::default()))
+    }
     .map_err(|error| DesignError::context("could not build KiCad design JSON", error))?;
-    performance.finish_detail(
-        "build_structured_design_facts",
-        "build_kicad_design_json",
-        design_json_started,
-    );
+    for (name, elapsed_ns) in [
+        (
+            "design_json_binding_and_preflight",
+            design_json_profile.binding_and_preflight_ns,
+        ),
+        (
+            "design_json_netlist_json",
+            design_json_profile.netlist_json_ns,
+        ),
+        (
+            "design_json_project_variants_options",
+            design_json_profile.project_variants_options_ns,
+        ),
+        ("design_json_sheets", design_json_profile.sheets_ns),
+        ("design_json_components", design_json_profile.components_ns),
+        (
+            "design_json_schematic_hierarchy_and_nets",
+            design_json_profile.hierarchy_and_nets_ns,
+        ),
+        (
+            "design_json_compiled_graph_value",
+            design_json_profile.compiled_graph_value_ns,
+        ),
+        ("design_json_pnp", design_json_profile.pnp_ns),
+        (
+            "design_json_classes_and_indexes",
+            design_json_profile.classes_and_indexes_ns,
+        ),
+        (
+            "design_json_output_limit_serialization",
+            design_json_profile.output_limit_serialization_ns,
+        ),
+    ] {
+        performance.record_detail(
+            "build_structured_design_facts",
+            name,
+            std::time::Duration::from_nanos(elapsed_ns),
+        );
+    }
     let instances_started = performance.start();
     let schematic_instances = design_facts
         .schematic_instances()

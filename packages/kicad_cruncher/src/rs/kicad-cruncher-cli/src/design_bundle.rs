@@ -1106,6 +1106,10 @@ mod tests {
     }
 
     #[test]
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one contract test lists the exact stage and detail inventories"
+    )]
     fn profiled_bundle_reports_each_whole_pipeline_stage() {
         let root = std::env::temp_dir().join(format!(
             "kicad-cruncher-profile-{}-{}",
@@ -1184,10 +1188,12 @@ mod tests {
                     "build_structured_design_facts",
                     "assemble_schematic_indexes",
                 ),
+                ("build_structured_design_facts", "parse_project_document",),
                 (
                     "build_structured_design_facts",
-                    "build_native_graph_and_netlist_facts",
+                    "build_compiled_schematic_graph",
                 ),
+                ("build_structured_design_facts", "build_kicad_netlist"),
                 (
                     "build_structured_design_facts",
                     "validate_compiled_schematic_graph",
@@ -1195,7 +1201,34 @@ mod tests {
                 ("build_structured_design_facts", "emit_kicad_netlist"),
                 ("build_structured_design_facts", "build_kicad_netlist_json",),
                 ("build_structured_design_facts", "parse_pcb_view"),
-                ("build_structured_design_facts", "build_kicad_design_json",),
+                (
+                    "build_structured_design_facts",
+                    "design_json_binding_and_preflight",
+                ),
+                ("build_structured_design_facts", "design_json_netlist_json",),
+                (
+                    "build_structured_design_facts",
+                    "design_json_project_variants_options",
+                ),
+                ("build_structured_design_facts", "design_json_sheets",),
+                ("build_structured_design_facts", "design_json_components",),
+                (
+                    "build_structured_design_facts",
+                    "design_json_schematic_hierarchy_and_nets",
+                ),
+                (
+                    "build_structured_design_facts",
+                    "design_json_compiled_graph_value",
+                ),
+                ("build_structured_design_facts", "design_json_pnp"),
+                (
+                    "build_structured_design_facts",
+                    "design_json_classes_and_indexes",
+                ),
+                (
+                    "build_structured_design_facts",
+                    "design_json_output_limit_serialization",
+                ),
                 (
                     "build_structured_design_facts",
                     "enumerate_schematic_instances",
