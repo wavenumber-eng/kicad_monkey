@@ -3,27 +3,33 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import re
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from kicad_cruncher.kicad_cruncher_common import (
     find_kicad_project_in_cwd,
-    resolve_output_dir,
     supported_design_input_suffixes,
 )
 from kicad_cruncher.logging_utils import stage_done_text, stage_progress_text, stage_start_text
 
+from .kicad_cruncher_native_design import selected_design_facts_provider
+from .kicad_cruncher_transaction import (
+    publish_staged_tree as _publish_design_review_tree,
+)
+
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from kicad_monkey import KiCadDesign, KiCadPcb
+    from kicad_monkey import KiCadDesign, KiCadNativeDesignFacts, KiCadPcb
 
 JsonObject = dict[str, object]
 Artifact = dict[str, object]
@@ -39,7 +45,7 @@ class _SchematicInstanceLike(Protocol):
     sheet_number: int
     sheet_count: int
     instance_index: int
-    sheet_path_uuids: list[str]
+    sheet_path_uuids: str
     sheet_instance_path: str
 
 
@@ -111,6 +117,11 @@ def _validate_input_suffix(input_file: Path) -> bool:
     return False
 
 
+def _resolve_design_output_dir(output: Path | None) -> Path:
+    """Resolve the design destination without creating it before staging succeeds."""
+    return output if output is not None else Path("output") / "design"
+
+
 def _safe_filename(value: str, *, fallback: str = "artifact") -> str:
     """Return a filesystem-safe filename stem."""
     text = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
@@ -120,6 +131,63 @@ def _safe_filename(value: str, *, fallback: str = "artifact") -> str:
 
 def _relpath(path: Path, root: Path) -> str:
     return str(path.relative_to(root)).replace("\\", "/")
+
+
+def _manifest_artifact_paths(manifest: JsonObject) -> list[str]:
+    """Return every bundle-relative artifact path from the a0 manifest."""
+
+    paths: list[str] = []
+    for key in ("design_json", "netlist_json", "netlist_kicad_sexpr", "readme"):
+        value = manifest.get(key)
+        if not isinstance(value, str):
+            raise ValueError(f"Design-review manifest {key} must be a string")
+        paths.append(value)
+
+    graph = manifest.get("compiled_schematic_graph")
+    if not isinstance(graph, dict) or not isinstance(graph.get("file"), str):
+        raise ValueError("Design-review manifest compiled graph file must be a string")
+    paths.append(graph["file"])
+
+    for collection_name in ("schematic_svgs", "pcb_svgs"):
+        collection = manifest.get(collection_name)
+        if not isinstance(collection, list):
+            raise ValueError(f"Design-review manifest {collection_name} must be a list")
+        for index, record in enumerate(collection):
+            if not isinstance(record, dict) or not isinstance(record.get("file"), str):
+                raise ValueError(
+                    f"Design-review manifest {collection_name}[{index}].file must be a string"
+                )
+            paths.append(record["file"])
+    return paths
+
+
+def _validate_design_review_manifest_artifacts(manifest: JsonObject, output_dir: Path) -> None:
+    """Require safe, contained, existing files before publishing a manifest."""
+
+    root = output_dir.resolve()
+    for value in _manifest_artifact_paths(manifest):
+        segments = value.split("/")
+        if (
+            not value
+            or value.startswith("/")
+            or re.match(r"^[A-Za-z]:", value)
+            or "\\" in value
+            or any(segment in {"", ".", ".."} for segment in segments)
+        ):
+            raise ValueError(
+                f"Design-review manifest artifact path is not safe bundle-relative: {value!r}"
+            )
+        candidate = root.joinpath(*segments).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError as error:
+            raise ValueError(
+                f"Design-review manifest artifact escapes the bundle: {value!r}"
+            ) from error
+        if not candidate.is_file():
+            raise ValueError(
+                f"Design-review manifest artifact does not exist before publication: {value!r}"
+            )
 
 
 def _write_json(path: Path, payload: JsonObject) -> None:
@@ -667,14 +735,96 @@ def write_design_review_bundle(
     include_indexes: bool = True,
     progress: ProgressCallback | None = None,
 ) -> DesignReviewBundle:
-    """Write the shared design-review bundle used by design and megamaid."""
+    """Transactionally publish the shared design-review bundle."""
+
+    output_parent = output_dir.resolve().parent
+    output_parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix=".kicad-cruncher-design-",
+        dir=output_parent,
+    ) as temporary:
+        staging = Path(temporary) / "output"
+        bundle = _write_design_review_bundle_staged(
+            input_file,
+            staging,
+            include_indexes=include_indexes,
+            progress=progress,
+        )
+        _publish_design_review_tree(staging, output_dir)
+
+        def published(path: Path) -> Path:
+            return output_dir / path.relative_to(staging)
+
+        return replace(
+            bundle,
+            output_dir=output_dir,
+            design_json_path=published(bundle.design_json_path),
+            compiled_schematic_graph_path=published(bundle.compiled_schematic_graph_path),
+            netlist_json_path=published(bundle.netlist_json_path),
+            netlist_kicad_sexpr_path=published(bundle.netlist_kicad_sexpr_path),
+            manifest_path=published(bundle.manifest_path),
+            readme_path=published(bundle.readme_path),
+        )
+
+
+def _load_native_design_facts(
+    design: KiCadDesign,
+    *,
+    progress: ProgressCallback | None,
+) -> KiCadNativeDesignFacts | None:
+    """Build the selected native facts before staged artifact generation."""
+
+    facts_provider = selected_design_facts_provider()
+    if facts_provider is None:
+        return None
+    top = design.top_schematic
+    source_path = str(getattr(top, "source_path", "") or "")
+    _emit_progress(progress, "building native design facts")
+    return facts_provider.design_facts(
+        design,
+        source_path=source_path,
+        date="",
+        tool="kicad_cruncher",
+    )
+
+
+def _write_kicad_netlist(
+    path: Path,
+    design: KiCadDesign,
+    native_facts: KiCadNativeDesignFacts | None,
+) -> None:
+    """Publish native bytes exactly while preserving the legacy text path."""
+
+    if native_facts is not None:
+        path.write_bytes(native_facts.kicad_netlist.encode("utf-8"))
+        return
+    path.write_text(
+        design.to_kicad_netlist_sexpr(tool="kicad_cruncher", date=""),
+        encoding="utf-8",
+    )
+
+
+def _write_design_review_bundle_staged(
+    input_file: Path,
+    output_dir: Path,
+    *,
+    include_indexes: bool = True,
+    progress: ProgressCallback | None = None,
+) -> DesignReviewBundle:
+    """Write a complete bundle into an unpublished staging directory."""
     from kicad_monkey import KiCadDesign
 
     output_dir.mkdir(parents=True, exist_ok=True)
     _emit_progress(progress, f"loading design from {input_file}")
     design = KiCadDesign.from_file(input_file)
+    native_facts = _load_native_design_facts(design, progress=progress)
     _emit_progress(progress, "building design JSON")
-    design_payload = design.to_json(include_indexes=include_indexes)
+    # Design/netlist JSON presentation remains Python-owned in this bounded
+    # slice.  Only the validated native compiled graph is injected here.
+    design_payload = design.to_json(
+        include_indexes=include_indexes,
+        compiled_schematic_graph=native_facts,
+    )
 
     design_json_path = output_dir / f"{input_file.stem}_design.json"
     compiled_schematic_graph_path = (
@@ -704,10 +854,7 @@ def write_design_review_bundle(
     _emit_progress(progress, f"writing netlist JSON: {_relpath(netlist_json_path, output_dir)}")
     _write_json(netlist_json_path, netlist_payload)
     _emit_progress(progress, "building KiCad S-expression netlist")
-    netlist_kicad_sexpr_path.write_text(
-        design.to_kicad_netlist_sexpr(tool="kicad_cruncher", date=""),
-        encoding="utf-8",
-    )
+    _write_kicad_netlist(netlist_kicad_sexpr_path, design, native_facts)
 
     schematic_svgs = _render_schematic_svgs(
         design,
@@ -741,8 +888,30 @@ def write_design_review_bundle(
         "pcb_svgs": pcb_svgs,
         "readme": "README.md",
     }
+    if native_facts is not None:
+        if (
+            native_facts.resource_profile is None
+            or native_facts.source_snapshot_sha256 is None
+            or native_facts.kicad_netlist_bytes is None
+            or native_facts.kicad_netlist_sha256 is None
+        ):
+            raise ValueError("Native design facts omitted required a1 provenance")
+        canonical_graph = json.dumps(
+            compiled_schematic_graph,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        manifest["design_facts"] = {
+            "backend": "kicad-monkey-native",
+            "engine_version": native_facts.engine_version,
+            "resource_profile": native_facts.resource_profile,
+            "source_snapshot_sha256": native_facts.source_snapshot_sha256,
+            "compiled_schematic_graph_sha256": hashlib.sha256(canonical_graph).hexdigest(),
+            "kicad_netlist_bytes": native_facts.kicad_netlist_bytes,
+            "kicad_netlist_sha256": native_facts.kicad_netlist_sha256,
+        }
     _emit_progress(progress, "writing design-review manifest and README")
-    _write_json(manifest_path, manifest)
     readme_path = _write_review_readme(
         output_dir,
         input_file=input_file,
@@ -754,6 +923,8 @@ def write_design_review_bundle(
         pcb_svgs=pcb_svgs,
         manifest_path=manifest_path,
     )
+    _validate_design_review_manifest_artifacts(manifest, output_dir)
+    _write_json(manifest_path, manifest)
     return DesignReviewBundle(
         output_dir=output_dir,
         design_json_path=design_json_path,
@@ -778,7 +949,6 @@ def cmd_design(args: argparse.Namespace) -> int:
     if not _validate_input_suffix(input_file):
         return 1
 
-    output_dir = resolve_output_dir(args.output, "design")
     include_indexes = not bool(args.no_indexes)
     started = time.perf_counter()
 
@@ -786,6 +956,7 @@ def cmd_design(args: argparse.Namespace) -> int:
         log.info("%s", stage_progress_text(f"Design review: {message}"))
 
     try:
+        output_dir = _resolve_design_output_dir(args.output)
         log.info("%s", stage_start_text(f"Design review: starting bundle for {input_file}"))
         bundle = write_design_review_bundle(
             input_file,
@@ -797,12 +968,15 @@ def cmd_design(args: argparse.Namespace) -> int:
         log.error("Design review generation failed: %s", exc)
         return 1
 
+    graph_record = bundle.manifest.get("compiled_schematic_graph")
+    graph_counts = graph_record.get("counts") if isinstance(graph_record, dict) else None
+    graph_collection_count = len(graph_counts) if isinstance(graph_counts, dict) else 0
     log.info(
         "%s",
         stage_done_text(
             "Design review: "
             f"{bundle.component_count} components, {bundle.net_count} nets, "
-            f"{len(bundle.manifest['compiled_schematic_graph']['counts'])} graph collections, "
+            f"{graph_collection_count} graph collections, "
             f"{len(bundle.schematic_svgs)} schematic SVGs, {len(bundle.pcb_svgs)} PCB SVGs "
             f"-> {bundle.readme_path} in {time.perf_counter() - started:.2f}s"
         ),

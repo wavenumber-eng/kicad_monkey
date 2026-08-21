@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
+import os
 from pathlib import Path
+import subprocess
 
 import pytest
 
 from kicad_cli_resolver import resolve_kicad_cli
 from kicad_monkey.kicad_pcb import KiCadPcb
+from kicad_monkey.kicad_primitives import RenderCache
 from kicad_monkey.kicad_render_cache import (
     RenderCacheResolver,
     render_cache_request_for_board_text,
@@ -20,15 +24,20 @@ from kicad_monkey.kicad_render_cache import (
     render_cache_request_for_table_cell,
 )
 from kicad_monkey.kicad_render_cache_oracle import (
+    collect_render_cache_requests_from_pcb,
     compare_render_caches,
     compare_render_cache_entry_sets,
     run_kicad_pcb_render_cache_save_oracle,
     summarize_render_cache_entries,
 )
+from kicad_monkey.kicad_sexpr import parse_sexp
 
 
 _CLI = resolve_kicad_cli(required_capability="pcb_svg")
 _CONSOLAS = Path("C:/Windows/Fonts/consola.ttf")
+_ARIAL = Path("C:/Windows/Fonts/arial.ttf")
+_ARIAL_BOLD = Path("C:/Windows/Fonts/arialbd.ttf")
+_IMPACT = Path("C:/Windows/Fonts/impact.ttf")
 
 
 def _find_wavenumber_font() -> Path | None:
@@ -239,6 +248,7 @@ def _write_outline_text_board(
     font_face: str = "Arial",
     angle: float = 0.0,
     justify: str | None = "left top",
+    font_size: str = "2 2",
 ) -> None:
     justify_expr = f"\t\t\t(justify {justify})\n" if justify else ""
     source.write_text(
@@ -266,10 +276,47 @@ def _write_outline_text_board(
 \t\t(layer "F.SilkS")
 \t\t(uuid "11111111-1111-1111-1111-111111111111")
 \t\t(effects
-\t\t\t(font (face "{font_face}") (size 2 2) (thickness 0.2) {font_style})
+\t\t\t(font (face "{font_face}") (size {font_size}) (thickness 0.2) {font_style})
 {justify_expr}
 \t\t)
 \t)
+)
+""",
+        encoding="utf-8",
+    )
+
+
+def _write_native_outline_text_box_board(source: Path) -> None:
+    source.write_text(
+        """(kicad_pcb
+	(version 20241229)
+	(generator "pcbnew")
+	(generator_version "9.0")
+	(general (thickness 1.6) (legacy_teardrops no))
+	(paper "A4")
+	(layers
+		(0 "F.Cu" signal)
+		(2 "B.Cu" signal)
+		(5 "F.SilkS" user "F.Silkscreen")
+		(7 "B.SilkS" user "B.Silkscreen")
+		(1 "F.Mask" user)
+		(3 "B.Mask" user)
+		(25 "Edge.Cuts" user)
+	)
+	(setup (pad_to_mask_clearance 0))
+	(gr_text_box "TE TE"
+		(start 10 10)
+		(end 14 12)
+		(margins 0.2 0.3 0.4 0.5)
+		(angle 90)
+		(layer "F.SilkS")
+		(uuid "22222222-2222-2222-2222-222222222222")
+		(effects
+			(font (face "Arial") (size 2 2) (thickness 0.2) (line_spacing 1))
+			(justify right bottom mirror)
+		)
+		(stroke (width 0.2) (type solid))
+	)
 )
 """,
         encoding="utf-8",
@@ -341,10 +388,13 @@ def _write_footprint_outline_text_board(
     footprint_layer: str = "F.Cu",
     text_layer: str = "F.SilkS",
     justify: str = "left top",
+    text_angle: float = 0.0,
+    unlocked: bool = False,
 ) -> None:
+    unlocked_expr = "\n\t\t\t(unlocked yes)" if unlocked else ""
     if object_kind == "fp_text":
         text_body = f'''\t\t(fp_text user "{text}"
-\t\t\t(at 10 10 0)
+\t\t\t(at 10 10 {text_angle:g}){unlocked_expr}
 \t\t\t(layer "{text_layer}")
 \t\t\t(uuid "11111111-1111-1111-1111-111111111111")
 \t\t\t(effects
@@ -354,7 +404,7 @@ def _write_footprint_outline_text_board(
 \t\t)'''
     elif object_kind == "property":
         text_body = f'''\t\t(property "Label" "{text}"
-\t\t\t(at 10 10 0)
+\t\t\t(at 10 10 {text_angle:g}){unlocked_expr}
 \t\t\t(layer "{text_layer}")
 \t\t\t(uuid "11111111-1111-1111-1111-111111111111")
 \t\t\t(effects
@@ -933,6 +983,10 @@ def _write_leader_dimension_text_board(
         ("TE", "straight"),
         ("S", "curved"),
         ("O", "holed"),
+        ("B", "double_holed"),
+        # "%" mixes a hole-free slash outer with two holed rings in one glyph,
+        # so Simplify rewrites every ring seam and reorders the outers.
+        ("%", "percent_ordering"),
     ],
 )
 def test_python_render_cache_generator_matches_kicad_oracle_for_outline_glyphs(
@@ -967,6 +1021,638 @@ def test_python_render_cache_generator_matches_kicad_oracle_for_outline_glyphs(
 
 
 @pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.parametrize(
+    ("text", "case_name"),
+    [
+        # Mirroring flips every ring's winding, but Fracture()'s Clipper2
+        # Simplify() emits a fixed orientation, so mirrored holed glyphs must
+        # orientation-normalize before the seam/bridge rules.
+        ("D", "mirrored_holed"),
+        ("R8", "mirrored_multi_holed"),
+    ],
+)
+def test_python_render_cache_generator_matches_kicad_oracle_for_mirrored_glyphs(
+    tmp_path: Path,
+    text: str,
+    case_name: str,
+):
+    source = tmp_path / f"render_cache_python_generator_{case_name}.kicad_pcb"
+    _write_outline_text_board(source, text, justify="left top mirror")
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.parametrize(
+    ("text", "angle", "justify", "case_name"),
+    [
+        # At small glyph sizes a fracture bridge split point can coincide
+        # exactly with the hole's bridge vertex; KiCad's
+        # SHAPE_LINE_CHAIN::Append drops the duplicated point.
+        ("C203", 90.0, "left top mirror", "small_bold_mirrored_rotated"),
+        ("R80", 0.0, "left top mirror", "small_bold_mirrored"),
+    ],
+)
+def test_python_render_cache_generator_matches_small_size_dedup_oracle(
+    tmp_path: Path,
+    text: str,
+    angle: float,
+    justify: str,
+    case_name: str,
+):
+    source = tmp_path / f"render_cache_python_generator_{case_name}.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        text,
+        font_style="bold",
+        angle=angle,
+        justify=justify,
+        font_size="0.6 0.6",
+    )
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(not _ARIAL.exists(), reason="Arial font not installed")
+@pytest.mark.parametrize(
+    (
+        "board_text",
+        "semantic_text",
+        "font_style",
+        "case_name",
+        "line_spacing",
+        "angle",
+        "justify",
+        "horizontal_alignment",
+        "vertical_alignment",
+        "mirrored",
+    ),
+    [
+        ("TE", "TE", "", "straight", 1.0, 0.0, "left top", "left", "top", False),
+        ("S", "S", "", "curved", 1.0, 0.0, "left top", "left", "top", False),
+        ("O", "O", "", "holed", 1.0, 0.0, "left top", "left", "top", False),
+        (
+            "S\\nS",
+            "S\nS",
+            "",
+            "multiline",
+            1.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
+        ),
+        ("S\\tS", "S\tS", "", "tab", 1.0, 0.0, "left top", "left", "top", False),
+        (
+            "S\\nS",
+            "S\nS",
+            "(line_spacing 2.0)",
+            "line_spacing_2",
+            2.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
+        ),
+        (
+            "S\\nSS",
+            "S\nSS",
+            "",
+            "multiline_center",
+            1.0,
+            0.0,
+            None,
+            "center",
+            "center",
+            False,
+        ),
+        (
+            "S\\nS",
+            "S\nS",
+            "",
+            "multiline_rotated_mirror",
+            1.0,
+            37.0,
+            "left top mirror",
+            "left",
+            "top",
+            True,
+        ),
+        (
+            "S\\nSS",
+            "S\nSS",
+            "",
+            "multiline_right_bottom",
+            1.0,
+            0.0,
+            "right bottom",
+            "right",
+            "bottom",
+            False,
+        ),
+        (
+            "AV To",
+            "AV To",
+            "",
+            "kerning_right",
+            1.0,
+            0.0,
+            "right top",
+            "right",
+            "top",
+            False,
+        ),
+        (
+            "S S",
+            "S S",
+            "",
+            "space_right",
+            1.0,
+            0.0,
+            "right top",
+            "right",
+            "top",
+            False,
+        ),
+        (
+            "V_{IN}",
+            "V_{IN}",
+            "",
+            "markup_subscript",
+            1.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
+        ),
+        (
+            "X^{2}",
+            "X^{2}",
+            "",
+            "markup_superscript",
+            1.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
+        ),
+        (
+            "~{AV}",
+            "~{AV}",
+            "",
+            "markup_overbar",
+            1.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
+        ),
+        # "B" carries two holes and "D" a vertical-left-edge hole, pinning the
+        # hole-bridge order and the max-y leftmost tie-break against the oracle.
+        (
+            "BD",
+            "BD",
+            "",
+            "double_hole_fracture",
+            1.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
+        ),
+        (
+            "~{S}",
+            "~{S}",
+            "",
+            "markup_overbar_rotated_mirror",
+            1.0,
+            37.0,
+            "left top mirror",
+            "left",
+            "top",
+            True,
+        ),
+        # "%" is one glyph whose holed rings trigger Simplify, pinning the
+        # per-glyph outer reorder and the hole-free slash seam rewrite while
+        # the hole-free "T"/"p" glyphs keep font order across the string.
+        (
+            "Tp%",
+            "Tp%",
+            "",
+            "percent_outer_ordering",
+            1.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
+        ),
+        # Hole-free multi-outer glyphs never see Simplify, pinning that font
+        # contour order and ring seams survive untouched.
+        (
+            "i:j;!?",
+            "i:j;!?",
+            "",
+            "holeless_multi_outer_font_order",
+            1.0,
+            0.0,
+            "left top",
+            "left",
+            "top",
+            False,
+        ),
+    ],
+)
+def test_native_render_cache_matches_kicad_save_oracle_for_outline_glyphs(
+    tmp_path: Path,
+    board_text: str,
+    semantic_text: str,
+    font_style: str,
+    case_name: str,
+    line_spacing: float,
+    angle: float,
+    justify: str | None,
+    horizontal_alignment: str,
+    vertical_alignment: str,
+    mirrored: bool,
+):
+    source = tmp_path / f"render_cache_native_{case_name}.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        board_text,
+        font_style=font_style,
+        angle=angle,
+        justify=justify,
+    )
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_native",
+    )
+
+    font_bytes = _ARIAL.read_bytes()
+    # Arial's OpenType head table uses 2048 units per em. Keeping this explicit
+    # makes the live system-font precondition and shaping scale independently visible.
+    units_per_em = 2048
+    request_path = tmp_path / "native_request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "shaping": {
+                    "font_id": "windows_arial_regular",
+                    "font_sha256": hashlib.sha256(font_bytes).hexdigest(),
+                    "face_index": 0,
+                    "variations": [],
+                    "text": semantic_text,
+                    "text_index_unit": "utf8_byte_offset",
+                    "scale_x": units_per_em,
+                    "scale_y": units_per_em,
+                    "direction": "left_to_right",
+                    "script": "Latn",
+                    "language": "en",
+                    "features": [],
+                    "buffer_properties": {
+                        "cluster_level": "monotone_graphemes",
+                        "beginning_of_text": True,
+                        "end_of_text": True,
+                        "default_ignorables": "normal",
+                        "do_not_insert_dotted_circle": False,
+                        "produce_unsafe_to_concat": False,
+                        "produce_safe_to_insert_tatweel": False,
+                    },
+                },
+                "size_x": 2.0,
+                "size_y": 2.0,
+                "position_x": 10.0,
+                "position_y": 10.0,
+                "angle_degrees": angle,
+                "mirrored": mirrored,
+                "horizontal_alignment": horizontal_alignment,
+                "vertical_alignment": vertical_alignment,
+                "line_spacing": line_spacing,
+                # The authored board font thickness; it strokes overbar markup.
+                "stroke_width": 0.2,
+                "max_error": 2.0,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--quiet",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--example",
+            "text_render_cache_oracle_gate",
+            "--",
+            str(_ARIAL),
+            str(request_path),
+        ],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=180,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    native_cache = RenderCache.from_sexp(parse_sexp(f"(holder {completed.stdout})"))
+    assert native_cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        native_cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(not _ARIAL.exists(), reason="Arial font not installed")
+@pytest.mark.parametrize("carrier", ["text", "text_box"])
+def test_native_board_text_carrier_bridge_matches_kicad_save_oracle(
+    tmp_path: Path,
+    carrier: str,
+):
+    source = tmp_path / f"render_cache_native_board_{carrier}.kicad_pcb"
+    if carrier == "text_box":
+        _write_native_outline_text_box_board(source)
+    else:
+        _write_outline_text_board(source, "TE")
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_native_board_carrier",
+    )
+    font_bytes = _ARIAL.read_bytes()
+    request_path = tmp_path / "native_board_carrier_request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "face": "Arial",
+                "bold": False,
+                "italic": False,
+                "shaping": {
+                    "font_id": "windows_arial_regular",
+                    "font_sha256": hashlib.sha256(font_bytes).hexdigest(),
+                    "face_index": 0,
+                    "variations": [],
+                    "text": "",
+                    "text_index_unit": "utf8_byte_offset",
+                    "scale_x": 2048,
+                    "scale_y": 2048,
+                    "direction": "left_to_right",
+                    "script": "Latn",
+                    "language": "en",
+                    "features": [],
+                    "buffer_properties": {
+                        "cluster_level": "monotone_graphemes",
+                        "beginning_of_text": True,
+                        "end_of_text": True,
+                        "default_ignorables": "normal",
+                        "do_not_insert_dotted_circle": False,
+                        "produce_unsafe_to_concat": False,
+                        "produce_safe_to_insert_tatweel": False,
+                    },
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--quiet",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--example",
+            "board_plot_text_cache_gate",
+            "--",
+            str(_ARIAL),
+            str(request_path),
+            str(source),
+        ],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=180,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    native_cache = RenderCache.from_sexp(parse_sexp(f"(holder {completed.stdout})"))
+    assert native_cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        native_cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(
+    not (_IMPACT.exists() and _ARIAL_BOLD.exists()),
+    reason="Impact/Arial Bold fonts not installed",
+)
+@pytest.mark.parametrize(
+    (
+        "case_name",
+        "font_face",
+        "font_style",
+        "font_path",
+        "font_id",
+        "fake_bold",
+        "fake_italic",
+    ),
+    [
+        # Impact ships no bold or italic faces, so KiCad synthesizes both
+        # from the regular face.
+        (
+            "impact_fake_bold",
+            "Impact",
+            "(bold yes)",
+            _IMPACT,
+            "windows_impact_regular",
+            True,
+            False,
+        ),
+        (
+            "impact_fake_italic",
+            "Impact",
+            "(italic yes)",
+            _IMPACT,
+            "windows_impact_regular",
+            False,
+            True,
+        ),
+        # Arial bold+italic resolves to the real bold face and fakes only
+        # the italic shear.
+        (
+            "arial_bold_fake_italic",
+            "Arial",
+            "(bold yes) (italic yes)",
+            _ARIAL_BOLD,
+            "windows_arial_bold",
+            False,
+            True,
+        ),
+    ],
+)
+def test_native_render_cache_matches_kicad_save_oracle_for_fake_styles(
+    tmp_path: Path,
+    case_name: str,
+    font_face: str,
+    font_style: str,
+    font_path: Path,
+    font_id: str,
+    fake_bold: bool,
+    fake_italic: bool,
+):
+    source = tmp_path / f"render_cache_native_{case_name}.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        "TS",
+        font_style=font_style,
+        font_face=font_face,
+    )
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_native",
+    )
+
+    font_bytes = font_path.read_bytes()
+    # Impact and both Arial faces use 2048 head-table units per em.
+    units_per_em = 2048
+    request_path = tmp_path / "native_request.json"
+    request_path.write_text(
+        json.dumps(
+            {
+                "shaping": {
+                    "font_id": font_id,
+                    "font_sha256": hashlib.sha256(font_bytes).hexdigest(),
+                    "face_index": 0,
+                    "variations": [],
+                    "text": "TS",
+                    "text_index_unit": "utf8_byte_offset",
+                    "scale_x": units_per_em,
+                    "scale_y": units_per_em,
+                    "direction": "left_to_right",
+                    "script": "Latn",
+                    "language": "en",
+                    "features": [],
+                    "buffer_properties": {
+                        "cluster_level": "monotone_graphemes",
+                        "beginning_of_text": True,
+                        "end_of_text": True,
+                        "default_ignorables": "normal",
+                        "do_not_insert_dotted_circle": False,
+                        "produce_unsafe_to_concat": False,
+                        "produce_safe_to_insert_tatweel": False,
+                    },
+                },
+                "size_x": 2.0,
+                "size_y": 2.0,
+                "position_x": 10.0,
+                "position_y": 10.0,
+                "angle_degrees": 0.0,
+                "mirrored": False,
+                "horizontal_alignment": "left",
+                "vertical_alignment": "top",
+                "line_spacing": 1.0,
+                "stroke_width": 0.2,
+                "max_error": 2.0,
+                "fake_bold": fake_bold,
+                "fake_italic": fake_italic,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--quiet",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--example",
+            "text_render_cache_oracle_gate",
+            "--",
+            str(font_path),
+            str(request_path),
+        ],
+        cwd=Path(__file__).resolve().parents[2],
+        capture_output=True,
+        encoding="utf-8",
+        timeout=180,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    native_cache = RenderCache.from_sexp(parse_sexp(f"(holder {completed.stdout})"))
+    assert native_cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        native_cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
 @pytest.mark.skipif(not _CONSOLAS.exists(), reason="Consolas font not installed")
 def test_python_render_cache_generator_matches_system_font_lookup_oracle(
     tmp_path: Path,
@@ -988,6 +1674,265 @@ def test_python_render_cache_generator_matches_system_font_lookup_oracle(
     generated = RenderCacheResolver().ensure_cache(request)
 
     assert request.font_face == "Consolas"
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(
+    not os.environ.get("KICAD_FONTCONFIG_DLL"),
+    reason="KiCad fontconfig DLL not provisioned",
+)
+@pytest.mark.parametrize(
+    ("font_style", "case_name"),
+    [
+        ("", "substituted_regular"),
+        ("(bold yes)", "substituted_bold"),
+    ],
+)
+def test_python_render_cache_generator_matches_fontconfig_substitution_oracle(
+    tmp_path: Path,
+    font_style: str,
+    case_name: str,
+):
+    # "Ubuntu Sans" is not shipped with KiCad and is absent from stock
+    # Windows installs, so KiCad's FONTCONFIG::FindFont substitutes an
+    # installed face (Noto Sans here). Our resolver must run the same match
+    # through KiCad's bundled fontconfig instead of falling back to Arial.
+    source = tmp_path / f"render_cache_fontconfig_{case_name}.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        "FC",
+        font_style=font_style,
+        font_face="Ubuntu Sans",
+    )
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / f"oracle_fontconfig_{case_name}",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert request.font_face == "Ubuntu Sans"
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(
+    not os.environ.get("KICAD_FONTCONFIG_DLL"),
+    reason="KiCad fontconfig DLL not provisioned",
+)
+def test_python_render_cache_generator_matches_holed_substituted_glyph_oracle(
+    tmp_path: Path,
+):
+    # Noto Sans (the substitution target for absent faces) stores a glyph's
+    # hole contours before the owning exterior. The fracture classifier must
+    # be storage-order independent or every holed substituted glyph stays
+    # unfractured (icepi/royalblue polygon_count mismatches like 'e'
+    # [13, 42] vs oracle [58]).
+    source = tmp_path / "render_cache_holed_substituted.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        "Re",
+        font_style="(bold yes)",
+        font_face="Ubuntu Sans",
+    )
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_holed_substituted",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+def test_python_render_cache_generator_matches_trailing_newline_oracle(
+    tmp_path: Path,
+):
+    # KiCad's `getLinePositions` splits with `wxStringSplit`, which never
+    # emits a trailing empty segment: "S1\n" aligns as one line, not two.
+    # icepi's bottom-aligned 'Icepi Zero v1.3\n' sat exactly one interline
+    # pitch (1.68 * size) off before this rule.
+    source = tmp_path / "render_cache_trailing_newline.kicad_pcb"
+    _write_outline_text_board(source, "S1\\n", justify="left bottom")
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_trailing_newline",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert request.text_params is not None
+    assert request.text_params.text.endswith("\n")
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(
+    not os.environ.get("KICAD_FONTCONFIG_DLL"),
+    reason="KiCad fontconfig DLL not provisioned",
+)
+def test_python_render_cache_generator_matches_degenerate_ring_oracle(
+    tmp_path: Path,
+):
+    # KiCad keeps glyph rings that cache-frame quantization collapses below
+    # three points and publishes them as standalone one-point polygons when
+    # the glyph set is hole-free (jumperless '-' oracle [4, 1], royalblue
+    # apostrophe [4, 1, 1]); dropping them loses whole cache polygons.
+    source = tmp_path / "render_cache_degenerate_ring.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        "-",
+        font_face="Eurostile Extended",
+        font_size="0.4 0.4",
+    )
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_degenerate_ring",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+    # The substituted face's hyphen collapses only on hosts resolving the
+    # same face KiCad does; when it does, parity must include the 1-point
+    # polygon, and polygon counts must agree either way (asserted above).
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.skipif(
+    not os.environ.get("KICAD_FONTCONFIG_DLL"),
+    reason="KiCad fontconfig DLL not provisioned",
+)
+def test_python_render_cache_generator_matches_weight_token_bold_oracle(
+    tmp_path: Path,
+):
+    # KiCad's FONTCONFIG::FindFont forces the bold flag whenever the
+    # requested font NAME contains bold/heavy/black/thick/dark (substring,
+    # case-insensitive - "SemiBold" contains "bold"), regardless of the
+    # board's style flag. cm0's 'Fira Code SemiBold' texts save with the
+    # bold substituted face while the board carries no (bold yes).
+    source = tmp_path / "render_cache_weight_token_bold.kicad_pcb"
+    _write_outline_text_board(
+        source,
+        "PWR",
+        font_face="Fira Code SemiBold",
+        font_size="1.5 1.5",
+    )
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_weight_token_bold",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert request.text_params is not None
+    assert not request.text_params.bold
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+def test_python_render_cache_generator_matches_nonsquare_size_oracle(
+    tmp_path: Path,
+):
+    # KiCad serializes text size as (size height width): parseEDA_TEXT reads
+    # height then width into TEXT_ATTRIBUTES x=width/y=height. A non-square
+    # size pins the axis order for board text; royalblue's 0.8x0.7 labels
+    # regressed exactly this (generated width tracked the height value).
+    source = tmp_path / "render_cache_python_generator_nonsquare.kicad_pcb"
+    _write_outline_text_board(source, "I2", font_size="0.8 0.7", font_style="(bold yes)")
+
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_nonsquare",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_texts[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
     assert generated.usable
     assert generated.cache is not None
     comparison = compare_render_caches(
@@ -1095,6 +2040,45 @@ def test_python_render_cache_generator_matches_markup_text_box_wrap_oracle(
     assert request.text == "~{S S}"
     assert generated.usable
     assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+def test_python_render_cache_generator_matches_multiword_text_box_wrap_oracle(
+    tmp_path: Path,
+):
+    # KiCad's linebreaker measures each word WITHOUT its trailing space
+    # (`wxTOKEN_RET_DELIMS` tokens are width-measured trimmed); the space
+    # enters the overflow check only as pending-space width.  Double-counting
+    # it inflated lines by one space per word and wrapped one word early
+    # (cm0 text box).  The width here puts the true rule's break after "and"
+    # while the inflated rule broke before it.
+    source = tmp_path / "render_cache_python_generator_text_box_multiword_wrap.kicad_pcb"
+    _write_outline_text_box_board(
+        source, "50ohm 0.15 coplanar impedance on L1 and L4", end_x=59.84
+    )
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_text_box_multiword_wrap",
+    )
+    pcb = KiCadPcb.from_file(source)
+    request = render_cache_request_for_board_text(
+        pcb.gr_text_boxes[0],
+        pcb,
+        include_text_params=True,
+    )
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    assert generated.cache.text == "50ohm 0.15 coplanar impedance on L1 and\nL4"
+    assert oracle.entries[0].cache.text == generated.cache.text
     comparison = compare_render_caches(
         oracle.entries[0].cache,
         generated.cache,
@@ -1540,6 +2524,107 @@ def test_python_render_cache_generator_matches_footprint_text_oracle(
     else:
         request = render_cache_request_for_footprint_text_box(
             footprint.fp_text_boxes[0],
+            footprint,
+            include_text_params=True,
+        )
+
+    generated = RenderCacheResolver().ensure_cache(request)
+
+    assert generated.usable
+    assert generated.cache is not None
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+def test_python_render_cache_generator_matches_empty_footprint_text_oracle(
+    tmp_path: Path,
+):
+    # KiCad saves a polygon-less render_cache for empty outline-font texts
+    # (blank fp_text placeholders and Datasheet properties in the corpus),
+    # so the collector must emit requests for empty texts and the resolver
+    # must accept the empty generated cache, preserving the resolved angle.
+    source = tmp_path / "render_cache_python_generator_fp_text_empty.kicad_pcb"
+    _write_footprint_outline_text_board(source, "fp_text", "", text_angle=90.0)
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / "oracle_fp_text_empty",
+    )
+    pcb = KiCadPcb.from_file(source)
+    requests = [
+        request
+        for request in collect_render_cache_requests_from_pcb(pcb)
+        if request.object_path.endswith("/fp_text[0]")
+    ]
+    assert len(requests) == 1
+
+    generated = RenderCacheResolver().ensure_cache(requests[0])
+
+    assert generated.usable
+    assert generated.cache is not None
+    assert not generated.cache.polygons
+    assert len(oracle.entries) == 1
+    assert not oracle.entries[0].cache.polygons
+    comparison = compare_render_caches(
+        oracle.entries[0].cache,
+        generated.cache,
+        tolerance=0.002,
+    )
+    assert comparison.matched, comparison
+
+
+@pytest.mark.skipif(_CLI is None, reason="PCB-capable kicad-cli not resolvable")
+@pytest.mark.parametrize("object_kind", ["fp_text", "property"])
+@pytest.mark.parametrize(
+    ("text_angle", "unlocked", "case_name"),
+    [
+        # Locked footprint text keeps itself upright: the absolute angle is
+        # folded into (-90, 90] in half-turn steps before rendering, and the
+        # oracle cache stores the folded (possibly negative) value.
+        (180.0, False, "locked_half_turn"),
+        (91.0, False, "locked_fold_negative"),
+        # `(unlocked yes)` disables keep-upright: the angle passes through.
+        (180.0, True, "unlocked_half_turn"),
+    ],
+)
+def test_python_render_cache_generator_matches_keep_upright_oracle(
+    tmp_path: Path,
+    object_kind: str,
+    text_angle: float,
+    unlocked: bool,
+    case_name: str,
+):
+    source = tmp_path / f"render_cache_keep_upright_{object_kind}_{case_name}.kicad_pcb"
+    _write_footprint_outline_text_board(
+        source,
+        object_kind,
+        "S",
+        footprint_at=(30.0, 40.0, 30.0),
+        text_angle=text_angle,
+        unlocked=unlocked,
+    )
+    oracle = run_kicad_pcb_render_cache_save_oracle(
+        kicad_cli=_CLI,
+        source_pcb=source,
+        work_dir=tmp_path / f"oracle_{object_kind}",
+    )
+    pcb = KiCadPcb.from_file(source)
+    footprint = pcb.footprints[0]
+
+    if object_kind == "fp_text":
+        request = render_cache_request_for_footprint_text(
+            footprint.fp_texts[0],
+            footprint,
+            include_text_params=True,
+        )
+    else:
+        request = render_cache_request_for_footprint_property(
+            footprint.properties[0],
             footprint,
             include_text_params=True,
         )

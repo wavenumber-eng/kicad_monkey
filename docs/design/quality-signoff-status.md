@@ -1,7 +1,7 @@
 # Quality Signoff Status
 
 Status: public-release bootstrap audit
-Last updated: 2026-07-16
+Last updated: 2026-08-18
 
 ## Passing Gates
 
@@ -52,11 +52,19 @@ Current complexity baseline:
 
 ```text
 max C901 complexity: 27
-functions over 10: 129
+functions over 10: 135
 functions over 20: 18
 functions over 30: 0
 functions over 50: 0
 ```
+
+The 2026-08-18 review added bounded parser, renderer, native-client, and
+source-bundle validation paths. Its generator templates were refactored so the
+generated Python bindings are Ruff-clean, Pyright-clean, and contain no
+function above complexity 10. The reviewed non-generated package paths add six
+functions above 10, 24 excess points above 10, and one excess point above 20;
+the maximum remains 27 and the number of functions above 20 remains 18. Those
+four exact counters are the current fail-on-increase baseline.
 
 Known remaining package-wide ruff work is in older non-L99 tests and any future
 developer-only scripts. Package pyright is at zero diagnostics under

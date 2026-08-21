@@ -1,0 +1,38 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.native.handshake:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.native.handshake"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "engine_version": {
+            "type": "string"
+        },
+        "operations": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "const": "design-facts"
+            },
+            "minItems": 1,
+            "maxItems": 1
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "engine_version",
+        "operations"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Exact native process handshake.",
+    "title": "Native handshake a0"
+}

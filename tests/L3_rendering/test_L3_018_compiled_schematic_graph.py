@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import copy
+import json
+import os
+import shutil
+import subprocess
 from functools import lru_cache
+from pathlib import Path
 
 import pytest
 
 from kicad_monkey import KiCadDesign, validate_compiled_schematic_graph
+from kicad_monkey.contracts.generated import decode_compiled_schematic_graph_a0
 from kicad_monkey.kicad_compiled_schematic_graph import build_compiled_schematic_graph
 from kicad_monkey.kicad_compiled_schematic_graph_identity import (
     SchCompiledSchematicGraphIdentityAllocator,
@@ -31,6 +37,13 @@ COLLECTIONS = (
     "terminal_occurrences",
     "hierarchy_terminal_bindings",
     "graphical_artifact_links",
+)
+PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+REFERENCE_CASES = (
+    "real_world/yoshi_mainboard",
+    "real_world/taillight",
+    "real_world/speedy_processing_module",
+    "real_world/jumperless_v5r7",
 )
 
 
@@ -80,6 +93,7 @@ def test_reference_projects_emit_complete_valid_graphs(
 
     assert tuple(len(graph[name]) for name in COLLECTIONS) == expected_counts
     validate_compiled_schematic_graph(graph)
+    decode_compiled_schematic_graph_a0(json.dumps(graph).encode())
     row_ids = [row["id"] for name in COLLECTIONS for row in graph[name]]
     assert len(row_ids) == len(set(row_ids))
     selectors = [
@@ -93,6 +107,41 @@ def test_reference_projects_emit_complete_valid_graphs(
         for row in graph[name]
         for policy_key in ("dnp", "in_bom", "on_board", "variant")
     )
+
+
+def test_reference_projects_pass_the_native_semantic_validator() -> None:
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for native graph validation"
+    input_text = "".join(
+        f"{json.dumps(_compiled_graph(case_id), separators=(',', ':'))}\n"
+        for case_id in REFERENCE_CASES
+    )
+    environment = os.environ.copy()
+    environment["CARGO_BUILD_JOBS"] = "4"
+    environment["RUST_TEST_THREADS"] = "2"
+    completed = subprocess.run(
+        [
+            cargo,
+            "run",
+            "--locked",
+            "--jobs",
+            "4",
+            "--quiet",
+            "--package",
+            "kicad-monkey-core",
+            "--example",
+            "compiled_graph_validation_gate",
+        ],
+        cwd=PACKAGE_ROOT,
+        input=input_text,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+        env=environment,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.count(" rows ") == len(REFERENCE_CASES)
 
 
 def test_speedy_preserves_reuse_multipart_and_scalar_hierarchy_bindings() -> None:

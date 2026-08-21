@@ -1,0 +1,204 @@
+"""Rack ownership for the first Rust footprint-to-plotter-IR slice."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import shutil
+import subprocess
+
+from jsonschema import Draft202012Validator
+import msgspec
+import pytest
+
+from kicad_monkey.contracts.generated import (
+    decode_footprint_plot_document_a0,
+    decode_footprint_plot_request_a0,
+)
+from kicad_monkey.kicad_footprint import KiCadFootprint
+from kicad_monkey.kicad_footprint_to_ir import footprint_to_ir
+
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+VECTOR_PATH = PACKAGE_ROOT / "tests" / "parity" / "footprint_plotter_a0_vectors.json"
+SLICE_SCHEMA_PATH = (
+    PACKAGE_ROOT / "contracts" / "generated" / "schema" / "FootprintPlotDocument.json"
+)
+ESTABLISHED_SCHEMA_PATH = (
+    PACKAGE_ROOT / "docs" / "contracts" / "kicad_plotter_ir_a0.schema.json"
+)
+
+
+def _run(command: list[str]) -> None:
+    completed = subprocess.run(
+        command,
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert completed.returncode == 0, (
+        f"Command failed: {' '.join(command)}\n"
+        f"stdout:\n{completed.stdout}\n"
+        f"stderr:\n{completed.stderr}"
+    )
+
+
+def test_shared_plotter_vectors_match_python_generated_types_and_both_schemas() -> None:
+    payload = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))
+    assert payload["schema"] == "kicad_monkey.footprint_plotter_parity.a0"
+
+    slice_schema = json.loads(SLICE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    established_schema = json.loads(ESTABLISHED_SCHEMA_PATH.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(slice_schema)
+    Draft202012Validator.check_schema(established_schema)
+    safe_integer = slice_schema["$defs"]["JavaScriptSafeInteger"]
+    assert safe_integer["minimum"] == -9_007_199_254_740_991
+    assert safe_integer["maximum"] == 9_007_199_254_740_991
+
+    for vector in payload["vectors"]:
+        footprint = KiCadFootprint.from_string(vector["source"])
+        actual = footprint_to_ir(
+            footprint,
+            source_path=vector["source_path"],
+            document_id=vector["document_id"],
+        ).to_dict()
+        assert actual == vector["expected"], vector["id"]
+        Draft202012Validator(slice_schema).validate(actual)
+        Draft202012Validator(established_schema).validate(actual)
+
+        # The established Python model retains integral coordinates as floats
+        # internally; the canonical interchange vector normalizes them to the
+        # TypeSpec-owned integer representation used by Rust and WASM.
+        encoded = json.dumps(vector["expected"]).encode("utf-8")
+        generated = decode_footprint_plot_document_a0(encoded)
+        assert json.loads(msgspec.json.encode(generated)) == vector["expected"]
+
+        unsafe = json.loads(json.dumps(actual))
+        unsafe["version"] = 9_007_199_254_740_992
+        assert list(Draft202012Validator(slice_schema).iter_errors(unsafe))
+
+    promoted = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "promoted-graphics-and-stroke-decomposition"
+    )
+    malformed_point = json.loads(json.dumps(promoted))
+    malformed_point["records"][0]["operations"][-1]["points"][0] = [0]
+    with pytest.raises(msgspec.ValidationError):
+        decode_footprint_plot_document_a0(json.dumps(malformed_point).encode("utf-8"))
+
+    unknown_kind = json.loads(json.dumps(promoted))
+    unknown_kind["records"][0]["operations"][0]["kind"] = "Unknown"
+    with pytest.raises(msgspec.ValidationError):
+        decode_footprint_plot_document_a0(json.dumps(unknown_kind).encode("utf-8"))
+
+    custom = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "custom-and-chamfered-pad-flashes"
+    )
+    mismatched_widths = json.loads(json.dumps(custom))
+    mismatched_widths["records"][0]["operations"][0]["polygon_widths_nm"] = [50_000]
+    with pytest.raises(msgspec.ValidationError, match="polygon_width_count_mismatch"):
+        decode_footprint_plot_document_a0(
+            json.dumps(mismatched_widths).encode("utf-8")
+        )
+
+    for mutation in ("missing_layer", "arbitrary_role", "mixed_graphic_drill"):
+        invalid = json.loads(json.dumps(promoted))
+        operation = invalid["records"][0]["operations"][0]
+        if mutation == "missing_layer":
+            del operation["layer"]
+        elif mutation == "arbitrary_role":
+            del operation["layer"]
+            operation["role"] = "arbitrary"
+            operation["layers"] = ["F.Cu"]
+        else:
+            operation["layers"] = ["F.Cu"]
+            operation["mask_margin_nm"] = 0
+        with pytest.raises(msgspec.ValidationError):
+            decode_footprint_plot_document_a0(json.dumps(invalid).encode("utf-8"))
+
+    text = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "standalone-properties-text-and-text-box"
+    )
+    invalid_text_documents: list[dict] = []
+
+    missing_text_layer = json.loads(json.dumps(text))
+    del missing_text_layer["records"][0]["operations"][0]["layer"]
+    invalid_text_documents.append(missing_text_layer)
+
+    for field, value in (
+        ("mirror", True),
+        ("render_cache_polygons", []),
+        ("render_cache_exact", False),
+    ):
+        invalid = json.loads(json.dumps(text))
+        invalid["records"][0]["operations"][0][field] = value
+        invalid_text_documents.append(invalid)
+
+    wrong_index = json.loads(json.dumps(text))
+    wrong_index["records"][0]["operations"][0]["index"] = 7
+    invalid_text_documents.append(wrong_index)
+
+    wrong_record = json.loads(json.dumps(text))
+    wrong_record["records"][0]["object_id"] = "wrong"
+    invalid_text_documents.append(wrong_record)
+
+    duplicate_record = json.loads(json.dumps(text))
+    duplicate_record["records"].append(
+        json.loads(json.dumps(duplicate_record["records"][0]))
+    )
+    duplicate_record["total_operations"] *= 2
+    invalid_text_documents.append(duplicate_record)
+
+    for invalid in invalid_text_documents:
+        with pytest.raises(msgspec.ValidationError):
+            decode_footprint_plot_document_a0(json.dumps(invalid).encode("utf-8"))
+
+
+def test_rust_core_and_host_adapter_consume_the_shared_vector() -> None:
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for the Rust plotter-IR gate"
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "footprint_plotter_slice",
+        ]
+    )
+    _run([cargo, "test", "--locked", "--package", "kicad-monkey-wasm"])
+
+
+def test_footprint_plot_request_requires_points_and_accepts_optional_text_budgets() -> None:
+    request = {
+        "type": "kicad_monkey.footprint_plot.request",
+        "version": "a0",
+        "max_source_bytes": "4096",
+        "max_output_bytes": "4096",
+        "max_depth": 32,
+        "max_metadata_forms": 32,
+        "max_text_carriers": 32,
+        "max_text_bytes": "4096",
+        "max_operations": 32,
+        "max_points": 128,
+    }
+    decoded = decode_footprint_plot_request_a0(json.dumps(request).encode())
+    assert decoded.max_points == 128
+    assert decoded.max_text_carriers == 32
+    assert decoded.max_text_bytes == "4096"
+    legacy = dict(request)
+    del legacy["max_text_carriers"]
+    del legacy["max_text_bytes"]
+    decode_footprint_plot_request_a0(json.dumps(legacy).encode())
+    del legacy["max_points"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_footprint_plot_request_a0(json.dumps(legacy).encode())

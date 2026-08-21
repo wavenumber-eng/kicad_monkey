@@ -27,6 +27,7 @@ from .kicad_netlist_design import (
     merge_design_nets,
 )
 from .kicad_netlist_model import KiCadDriverKind
+from .kicad_schematic_ids import schematic_sheet_pin_group_id
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .kicad_design import KiCadDesign
@@ -710,7 +711,13 @@ def build_compiled_schematic_graph(
     )
     identity_allocator = SchCompiledSchematicGraphIdentityAllocator(design_scope=scope)
     graph = KiCadCompiledSchematicGraph()
-    compiled = compile_design_subgraphs(top, include_off_board=True)
+    subpart_first_id, subpart_id_separator = _design_subpart_settings(design)
+    compiled = compile_design_subgraphs(
+        top,
+        subpart_first_id=subpart_first_id,
+        subpart_id_separator=subpart_id_separator,
+        include_off_board=True,
+    )
     merge_design_nets(compiled)
     legacy_refs = _build_legacy_instance_lookup(compiled)
     legacy_units = _build_legacy_unit_lookup(compiled)
@@ -891,6 +898,21 @@ def build_compiled_schematic_graph(
     return graph
 
 
+def _design_subpart_settings(design: "KiCadDesign") -> tuple[int, int]:
+    first_id = ord("A")
+    separator = 0
+    project = design.project
+    if project is None:
+        return first_id, separator
+    value = project.get_path("schematic.subpart_first_id")
+    if isinstance(value, int):
+        first_id = value
+    value = project.get_path("schematic.subpart_id_separator")
+    if isinstance(value, int):
+        separator = value
+    return first_id, separator
+
+
 def _add_hierarchy_bindings(
     graph: KiCadCompiledSchematicGraph,
     compiled: Iterable[CompiledSheet],
@@ -937,8 +959,13 @@ def _add_hierarchy_bindings(
                         child_ports.setdefault(str(driver.name), ref)
         bound_child_refs: set[str] = set()
         for pin in sheet_symbol.pins:
+            pin_id = schematic_sheet_pin_group_id(
+                sheet_uuid=str(sheet_symbol.uuid or ""),
+                pin_name=str(pin.name or ""),
+                source_pin_uuid=str(pin.uuid or ""),
+            )
             parent_ref = terminal_by_source.get(
-                (parent.sheet_path, "sheet_entry", str(pin.uuid or ""))
+                (parent.sheet_path, "sheet_entry", pin_id)
             )
             child_ref = child_ports.get(str(pin.name))
             if not parent_ref or not child_ref:
@@ -960,7 +987,7 @@ def _add_hierarchy_bindings(
                     child_terminal_occurrence_ref=child_ref,
                     source_identity=_source_identity(
                         **{
-                            "sch.source_key.source_uuid": pin.uuid,
+                            "sch.source_key.source_uuid": pin_id,
                             "sch.source_key.source_subobject": pin.name,
                         }
                     ),
@@ -1054,15 +1081,22 @@ def _validate_graph_rows(
 
 
 def _validate_definition_ownership(payload: dict[str, object]) -> None:
-    unit_by_id = {
-        str(row["id"]): row for row in _payload_collection(payload, "unit_definitions")
-    }
+    pages_by_unit: dict[str, set[str]] = {}
     for page in _payload_collection(payload, "page_definitions"):
-        page_ref = str(page["id"])
-        unit = unit_by_id[str(page["unit_definition_ref"])]
+        pages_by_unit.setdefault(str(page["unit_definition_ref"]), set()).add(
+            str(page["id"])
+        )
+    for unit in _payload_collection(payload, "unit_definitions"):
         page_refs = unit.get("page_definition_refs", [])
-        if not isinstance(page_refs, list) or page_ref not in map(str, page_refs):
+        if not isinstance(page_refs, list):
+            raise ValueError("page_definition_refs must be a list")
+        actual = [str(value) for value in page_refs]
+        actual_set = set(actual)
+        expected = pages_by_unit.get(str(unit["id"]), set())
+        if not expected.issubset(actual_set):
             raise ValueError("page definition is not listed by its owning unit")
+        if len(actual) != len(expected) or actual_set != expected:
+            raise ValueError("unit definition page ownership inverse is inconsistent")
 
 
 def _validate_occurrence_ownership(payload: dict[str, object]) -> None:
@@ -1072,17 +1106,27 @@ def _validate_occurrence_ownership(payload: dict[str, object]) -> None:
     unit_occurrence_by_id = {
         str(row["id"]): row for row in _payload_collection(payload, "unit_occurrences")
     }
+    pages_by_unit: dict[str, set[str]] = {}
     for page in _payload_collection(payload, "page_occurrences"):
         page_ref = str(page["id"])
         definition = page_definition_by_id[str(page["page_definition_ref"])]
         unit = unit_occurrence_by_id[str(page["unit_occurrence_ref"])]
         if definition.get("unit_definition_ref") != unit.get("unit_definition_ref"):
             raise ValueError("page occurrence definition has the wrong unit owner")
+        pages_by_unit.setdefault(str(unit["id"]), set()).add(page_ref)
+    for unit_ref, unit in unit_occurrence_by_id.items():
         page_refs = unit.get("page_occurrence_refs", [])
-        if not isinstance(page_refs, list) or page_ref not in map(str, page_refs):
+        if not isinstance(page_refs, list):
+            raise ValueError("page_occurrence_refs must be a list")
+        actual = [str(value) for value in page_refs]
+        actual_set = set(actual)
+        expected = pages_by_unit.get(unit_ref, set())
+        if not expected.issubset(actual_set):
             raise ValueError(
                 "page occurrence is not listed by its owning unit occurrence"
             )
+        if len(actual) != len(expected) or actual_set != expected:
+            raise ValueError("unit occurrence page ownership inverse is inconsistent")
 
 
 def _validate_hierarchy_ownership(payload: dict[str, object]) -> None:
@@ -1105,6 +1149,11 @@ def _validate_hierarchy_ownership(payload: dict[str, object]) -> None:
             raise ValueError("unit occurrence has multiple incoming hierarchy owners")
         child = unit_by_id[child_ref]
         if str(child.get("parent_hierarchy_occurrence_ref", "")) != hierarchy_ref:
+            raise ValueError("unit occurrence hierarchy inverse is inconsistent")
+    for unit_ref, unit in unit_by_id.items():
+        actual = str(unit.get("parent_hierarchy_occurrence_ref", ""))
+        expected = incoming_by_child.get(unit_ref, "")
+        if actual != expected:
             raise ValueError("unit occurrence hierarchy inverse is inconsistent")
 
 

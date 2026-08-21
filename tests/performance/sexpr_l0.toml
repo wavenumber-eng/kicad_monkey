@@ -1,0 +1,43 @@
+schema = "kicad_monkey.performance_workload.a0"
+id = "sexpr.synthetic_pcb_20000"
+status = "measurement"
+generator = "src/rs/kicad-monkey-core/examples/sexpr_l0_benchmark.rs"
+items = 20000
+operations = ["structural_scan", "full_parse", "deterministic_build"]
+rounds = 5
+
+[promotion]
+threshold_status = "pending_corpus_and_platform_ratification"
+corpus_measurement_status = "windows_complete_linux_pending"
+corpus_manifest = "tests/performance/sexpr_corpus_cases.toml"
+required_metrics = [
+    "input_bytes",
+    "selected_forms",
+    "output_bytes",
+    "scan_seconds",
+    "parse_seconds",
+    "build_seconds",
+    "scan_mib_s",
+    "parse_mib_s",
+    "build_mib_s",
+]
+
+[[watchlist]]
+id = "selected_span_sort"
+complexity = "O(n + k log k)"
+required_workload = "select_everything"
+measurement_status = "material_on_large_windows_corpus"
+rack_case = "L1_024"
+decision = "backlog source-order emission; optimize only if ratified budgets or consumer profiles require it"
+
+[[watchlist]]
+id = "owned_path_depth"
+complexity = "memory proportional to sum of stored path depths"
+required_workload = "deepest_promoted_corpus_files"
+decision = "consider parent indices and interned head IDs only if material"
+
+[[watchlist]]
+id = "many_path_selector"
+complexity = "eligible forms times requested paths"
+required_workload = "many_exact_paths"
+decision = "consider selector trie only if material"

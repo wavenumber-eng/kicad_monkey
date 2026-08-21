@@ -2,7 +2,7 @@ name: PR Hygiene
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened, ready_for_review]
+    types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
 
 permissions:
   contents: read

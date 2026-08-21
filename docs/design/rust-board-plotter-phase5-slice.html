@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust board plotter Phase 5 slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust board plotter Phase 5 slice</h1>
+
+  <p>Status: accepted. These slices extend the native board
+  plotter producer from graphics, routing, vias, authored zone fills, and net
+  metadata to board-level <code>gr_text</code> and
+  <code>gr_text_box</code> records plus board <code>table</code> grid, border,
+  faced cell-text records, aligned, orthogonal, radial, leader, and center
+  <code>dimension</code> records, and PCB-embedded footprint records. They are bounded Phase 5 increments, not the
+  complete schematic/PCB plotter exit gate.</p>
+
+  <p>The carrier-text bridge adds an opt-in, caller-supplied
+  <code>PlotterTextCacheResources</code> sidecar. Each exact face/bold/italic
+  key binds deterministic font bytes to a complete shaping template; core
+  performs no platform-font or path discovery. When a faced board text,
+  text-box, or table cell has a missing or stale cache, the producer uses the
+  accepted hinted native engine, attaches
+  <code>native_generated_cache</code> provenance, and retains the pre-existing
+  no-sidecar behavior for compatibility.</p>
+
+  <h2>Promoted behavior</h2>
+  <p>The producer matches the established Python record ordering and text
+  payload for effects, size, alignment, mirroring, text variables, border
+  operations, authored render-cache validation, and cached knockout
+  restructuring. Ordinary Newstroke text boxes wrap incrementally with the
+  same glyph advances, markup scaling, ASCII-space rules, and strict width
+  boundary as Python. Text-box font colors retain opaque or fractional alpha,
+  while a zero-alpha color falls back to the established black default;
+  ordinary <code>gr_text</code> remains black like the Python source model. Project text
+  variables are case-expanded and board
+  properties overlay them. Records retain source UUID, layer, resolved text,
+  and optional border state. The TypeSpec-owned document and request project
+  through Rust, Python, TypeScript, JSON Schema, and the maintained WASM
+  feasibility adapter.</p>
+
+  <p>Board tables retain Python's category order between vias and zones.
+  Column separators, row separators, and the external border emit bounded
+  layered thick segments before any cell text. Cell text uses board/project
+  variables overlaid by case-expanded <code>ROW</code>, <code>COL</code>,
+  <code>ADDR</code>, and <code>LAYER</code> values. Faced cells may reuse a
+  structurally valid authored outline cache without requiring its angle to
+  equal the cell angle, matching the angle-less Python cache request. Empty
+  resolved text emits a Text operation without cache polygons, non-faced
+  cache-only cells remain silent, and each cell operation carries its own
+  PCB layer while the record exposes sorted unique participating layers.</p>
+
+  <p>Faced text boxes and table cells use the native outline measurer before
+  cache generation. The linebreaker keeps marked groups atomic, retains
+  KiCad's pending-space/bury behavior, subtracts stroke width from the column,
+  and shares one bounded hinted face across all word measurements. Authored
+  caches remain preferred when they match the resulting wrapped request text;
+  missing or stale caches regenerate from the same request.</p>
+
+  <p>Dimensions retain Python's category boundary after tables and before
+  zones. Resolved dimension text precedes every shape operation: Newstroke
+  text becomes one layered thick segment per glyph segment, including bounded
+  subscript, superscript, and overbar markup; faced text uses the same authored
+  or caller-supplied cache bridge as other board carriers. The record retains
+  the formatted pre-substitution value while faced Text operations apply board
+  and project variables, matching the established Python asymmetry. Formatting
+  preserves unit, precision-remapping, zero suppression, override, prefix, and
+  suffix behavior behind a fixed precision-allocation guard.</p>
+
+  <p>Aligned and orthogonal dimensions preserve extension, crossbar, inward
+  and outward arrow ordering, including the canonical orthogonal marker.
+  Radial and leader connectors intersect the logical axis-aligned text box;
+  leader frames draw that same box, and center dimensions emit the two full
+  crossing arms. Participating dimension and nested-text layers are sorted and
+  unique, UUID ownership prefers the dimension carrier, and the strict
+  contract admits only layered segments, one canonical orthogonal marker, and
+  at most one leading faced Text operation. Unknown future dimension types are
+  intentionally rejected at this bounded five-style contract boundary.</p>
+
+  <p>Embedded footprints are the terminal board-record phase after zones.
+  Each record retains its library identity, component fields, attributes, and
+  board placement while its operations stay footprint-local. Child operations
+  follow the Python property, text, text-box, graphic-family, and pad order and
+  carry closed typed ownership metadata. Pad flashes and drills are enclosed
+  by balanced StartBlock/EndBlock triples; authored or caller-generated faced
+  text caches are inverse-transformed from board space into the explicit
+  <code>footprint_local</code> cache coordinate space.</p>
+
+  <h2>Resource and complexity boundary</h2>
+  <p>Source, parse depth, selected graphic count, operation count, resolved
+  retained text occurrences, parse nodes, decoded input polygons and points,
+  cache polygons, cache contours, cache points, and serialized output bytes
+  have independent request limits. Core conversion also bounds retained
+  net-class storage; WASM derives that ceiling from the output limit and a
+  fixed 16 MiB cap. The WASM
+  boundary also fixes request-byte, text-variable-count, and text-variable-byte
+  ceilings before case expansion and reports post-request violations through
+  the result diagnostic envelope. Board properties retain a separate fixed
+  structural ceiling and do not consume <code>max_graphics</code>. Variable substitution checks the resolved
+  byte ceiling before every append and copies an unterminated placeholder tail
+  once. Text wrapping streams each scalar at most twice and uses a generated
+  compact Newstroke advance table; it never remeasures growing prefixes.
+  Authored cache structure is rejected during parsing before an unbounded
+  intermediate cache can be retained. Table and cell counts remain parser
+  bounded; each decoded cell charges two structural input points. Cartesian
+  separator counts and the external border are preflighted against the shared
+  operation allowance before allocation or emission, and faced cell operations
+  are preflighted before cache materialization. Dimension counts share the
+  caller's graphic-record ceiling; complete source points charge the aggregate
+  input-point budget. Fixed shape demand and retained record/operation/cache
+  text occurrences are checked before faced cache materialization, while glyph
+  segments, cache contours and duplicated exterior points charge the shared
+  output ceilings. Every derived dimension coordinate and width passes through
+  JavaScript-safe nanometer conversion.</p>
+
+  <p>Embedded footprint counts and every selected child family share the
+  caller's structural ceilings. Input polygons and points, block wrappers,
+  operation points, duplicated cache exteriors, resolved/cache text, net-class
+  strings, and retained ownership metadata are charged before document output.
+  The host adapter derives the metadata ceiling from the serialized-output
+  allowance and a fixed 16 MiB cap without adding a required request field.</p>
+
+  <p>The optional font sidecar independently bounds selection count and bytes,
+  font bytes, shaping metadata, variations and features, linebreak tokens and
+  output, lines, runs, run metadata, glyphs, outline commands, Bezier work and
+  scratch points, contours, topology work, cache polygons/points, and retained
+  board output. Reusable shaping templates require global feature ranges so
+  text substitution cannot silently reinterpret byte offsets. Font selections
+  are strictly sorted by face/style for logarithmic carrier lookup; duplicate
+  keys, malformed templates, and every supplied font-byte/hash mismatch fail
+  before board parsing. A per-document hash-byte budget charges initial
+  authentication and every shaping/outline session rebuild. Native generation receives the remaining board point,
+  polygon, and contour ceilings up front rather than materializing beyond the
+  carrier's output allowance.</p>
+
+  <h2>Explicitly deferred behavior</h2>
+  <p>The optional Shapely synthetic text-box knockout fallback
+  remains deferred. Only the vector that exercises that fallback declares
+  <code>oracle_mode: without_shapely</code>; other vectors run against the
+  installed Python environment. Without a font sidecar, faced carriers retain
+  the accepted authored-cache-only boundary and stable outline-bridge
+  diagnostic. Empty table-cell text still ignores a missing or stale authored
+  cache but retains a structurally valid matching cache. These exclusions must be resolved
+  or explicitly accepted when the complete Phase 5 plotter gate is reviewed.</p>
+
+  <h2>Evidence</h2>
+  <p>Rack <code>L1_035</code> regenerates every board vector from the Python
+  authority, validates the generated board schema and the established Plotter
+  IR schema, and executes both the native core and host-side WASM adapter.
+  Core tests cover inclusive aggregate cache-point and shared-operation limits,
+  bounded variable amplification and malformed placeholders, independent
+  cache-structure/tree ceilings, exact wrapping edges, and generated font-width
+  drift. Semantic contract tests mutate render-cache identity and mirror fields and
+  reject board-only text operations in footprint documents. The table oracle
+  vector covers record order, separator and border widths, reversed endpoints,
+  local and board/project variables, angle-independent inexact caches, silent
+  cells, empty tables, zero column counts, and empty resolved text with missing
+  and stale caches plus matching empty caches with polygons. Core tests
+  cover Cartesian separator preflight, aggregate structural points, wide and
+  zero column counts, operation preflight before cache retention, and stable
+  deferral diagnostics. Contract mutations reject identity drift, empty or
+  duplicate layers, phase violations, undeclared cell layers, impossible
+  shared segment state, and exact table-cache claims.
+  The dimension oracle places a table, all five dimension styles, and a zone
+  in one document; it covers stroke and faced text, markup, rotated leader
+  frames, inward and outward arrows, an orthogonal marker, authored cache
+  reuse, participating layers, and exact operation ordering. Focused native
+  tests cover parser defaults and malformed scalars, incomplete points,
+  formatting edge cases, zero-operation records, fixed precision, markup,
+  operation/input/cache/text ceilings, unknown-style narrowing, and derived
+  safe-integer failure. Rust and generated-Python mutation tables reject bad
+  counts, local indexes, sorted/unique layers, undeclared layers, wrong kinds,
+  impossible marker/text states, duplicate markers, and explicit null text.
+  Host and real-WASM tests prove raw record versus expanded faced-operation
+  text and diagnostic-only unsafe-coordinate failure. The shared font sidecar
+  vector additionally regenerates stale and missing faced dimension caches
+  with native provenance. Independent core and contract/WASM re-reviews found
+  no remaining dimension-slice blocker.
+  The embedded-footprint oracle places a rich rotated B-side footprint and an
+  empty default footprint after a zone. It covers canonical regrouping,
+  placement, property variables, text-box suboperations, local cache
+  conversion, pad and plated-slot blocks, net classes, mask clamping, and
+  exact typed metadata. Focused native tests cover defaults, duplicate
+  Reference/Value behavior, NPTH fallback, and exact/one-under operation,
+  input-point, input-polygon, cache-point, retained-text, and metadata limits.
+  Rust and generated-Python mutation suites reject record-order, identity,
+  placement, metadata, cache-space, marker, block-balance, and string-typing
+  drift; the host adapter matches every shared board vector exactly. The
+  focused warm <code>L1_035</code> Rack gate passed all four tests in 24.19
+  seconds, below the Phase 5 two-minute policy.
+  The carrier bridge suite generates text, wrapped text-box, and wrapped table
+  caches from the bundled deterministic font; compares rotated, mirrored,
+  stroked text-box and default table-cell cache geometry to the authoritative
+  TextParams mapping; preserves whitespace-only and no-sidecar behavior; and
+  forces selection, font identity, shaping, cache, and retained-output ceilings.
+  The shared sidecar vector distinguishes matching authored, regenerated stale,
+  and generated missing provenance through the generated TypeSpec contract and
+  host-side WASM projection. The contract also retains established
+  <code>python_generated_cache</code> provenance for Python-authority output.
+  Rack <code>L2_009</code> retains live KiCad save-oracle coverage for plain
+  board text and a wrapping rotated/mirrored/stroked text box, alongside the
+  same hinted multiline, markup, style, and fake-style engine.
+  <code>L0_046</code> and <code>L0_049</code> retain workspace and generated
+  contract signoff.</p>
+</body>
+</html>

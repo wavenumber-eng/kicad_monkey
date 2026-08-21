@@ -1,0 +1,654 @@
+use kicad_monkey_contracts::{
+    decode_native_design_facts_request_a0, decode_native_design_facts_request_a1,
+    decode_native_design_facts_result_a0, decode_native_design_facts_result_a1,
+    decode_native_error_a0, decode_native_handshake_a0, decode_native_handshake_a1,
+    decode_native_handshake_a2, decode_native_svg_render_request_a0,
+    decode_native_svg_render_result_a0,
+};
+use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
+
+#[test]
+fn native_transport_envelopes_decode_and_round_trip_exact_wire_names() {
+    let handshake = json!({
+        "type": "kicad_monkey.native.handshake",
+        "version": "a0",
+        "engine_version": "0.1.0",
+        "operations": ["design-facts"]
+    });
+    let decoded = decode_native_handshake_a0(&encode(&handshake)).expect("strict handshake");
+    assert_eq!(decoded.type_, handshake["type"]);
+    assert_eq!(
+        serde_json::to_value(decoded).expect("handshake encode"),
+        handshake
+    );
+
+    let request = request_value();
+    let decoded = decode_native_design_facts_request_a0(&encode(&request)).expect("strict request");
+    assert_eq!(decoded.type_, request["type"]);
+    assert_eq!(
+        serde_json::to_value(decoded).expect("request encode"),
+        request
+    );
+
+    let result = result_value();
+    let decoded = decode_native_design_facts_result_a0(&encode(&result)).expect("strict result");
+    assert_eq!(decoded.type_, result["type"]);
+    assert_eq!(
+        serde_json::to_value(decoded).expect("result encode"),
+        result
+    );
+
+    let error = json!({
+        "type": "kicad_monkey.native.error",
+        "version": "a0",
+        "kind": "resource_limit",
+        "message": "bounded failure"
+    });
+    let decoded = decode_native_error_a0(&encode(&error)).expect("strict error");
+    assert_eq!(decoded.type_, error["type"]);
+    assert_eq!(serde_json::to_value(decoded).expect("error encode"), error);
+}
+
+#[test]
+fn native_svg_envelopes_and_a1_handshake_are_strict() {
+    let handshake = json!({
+        "type": "kicad_monkey.native.handshake",
+        "version": "a1",
+        "engine_version": "0.1.0",
+        "operations": ["design-facts", "render-svg"]
+    });
+    let decoded = decode_native_handshake_a1(&encode(&handshake)).expect("strict a1 handshake");
+    assert_eq!(
+        serde_json::to_value(decoded).expect("a1 handshake encode"),
+        handshake
+    );
+
+    let request = svg_request_value();
+    decode_native_svg_render_request_a0(&encode(&request)).expect("strict SVG request");
+    let result = svg_result_value();
+    decode_native_svg_render_result_a0(&encode(&result)).expect("strict SVG result");
+
+    assert_rejected(
+        handshake.clone(),
+        "/operations",
+        json!(["design-facts", "design-facts"]),
+        true,
+        decode_native_handshake_a1,
+    );
+    assert_rejected(
+        handshake,
+        "/operations",
+        json!(["render-svg", "design-facts"]),
+        true,
+        decode_native_handshake_a1,
+    );
+    assert_rejected(
+        request.clone(),
+        "/document/kind",
+        json!("symbol"),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/document/value/document_id",
+        json!(""),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/document/value/total_operations",
+        json!(0),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/limits/max_points",
+        json!("01"),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/limits/max_points",
+        json!("18446744073709551616"),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        request,
+        "/viewport/width_nm",
+        json!(9_007_199_254_740_992_u64),
+        true,
+        decode_native_svg_render_request_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/document_id",
+        json!(""),
+        true,
+        decode_native_svg_render_result_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/svg_utf8",
+        json!(""),
+        true,
+        decode_native_svg_render_result_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/svg_bytes",
+        json!("0"),
+        true,
+        decode_native_svg_render_result_a0,
+    );
+    assert_rejected(
+        result,
+        "/svg_sha256",
+        json!("0000000000000000000000000000000000000000000000000000000000000000"),
+        true,
+        decode_native_svg_render_result_a0,
+    );
+}
+
+#[test]
+fn native_a2_handshake_capability_is_strict() {
+    let handshake = json!({
+        "type": "kicad_monkey.native.handshake",
+        "version": "a2",
+        "engine_version": "0.1.0",
+        "operations": ["design-facts", "render-svg", "design-facts-a1"]
+    });
+    let decoded = decode_native_handshake_a2(&encode(&handshake)).expect("strict a2 handshake");
+    assert_eq!(
+        serde_json::to_value(decoded).expect("a2 handshake encode"),
+        handshake
+    );
+    assert_rejected(
+        handshake.clone(),
+        "/operations",
+        json!(["design-facts-a1", "render-svg", "design-facts"]),
+        true,
+        decode_native_handshake_a2,
+    );
+    assert_rejected(
+        handshake,
+        "/engine_version",
+        json!(""),
+        true,
+        decode_native_handshake_a2,
+    );
+}
+
+#[test]
+fn native_design_facts_a1_request_is_strict() {
+    let request = request_a1_value();
+    let decoded =
+        decode_native_design_facts_request_a1(&encode(&request)).expect("strict a1 request");
+    assert_eq!(
+        serde_json::to_value(decoded).expect("a1 request encode"),
+        request
+    );
+
+    assert_rejected(
+        request.clone(),
+        "/resource_profile",
+        json!("invented"),
+        true,
+        decode_native_design_facts_request_a1,
+    );
+    assert_rejected(
+        request,
+        "/limits/max_output_bytes",
+        json!("01"),
+        true,
+        decode_native_design_facts_request_a1,
+    );
+}
+
+#[test]
+fn native_design_facts_a1_result_integrity_is_strict() {
+    let result = result_a1_value();
+    let decoded = decode_native_design_facts_result_a1(&encode(&result)).expect("strict a1 result");
+    assert_eq!(
+        serde_json::to_value(decoded).expect("a1 result encode"),
+        result
+    );
+
+    assert_rejected(
+        result.clone(),
+        "/source_snapshot_sha256",
+        json!("A".repeat(64)),
+        true,
+        decode_native_design_facts_result_a1,
+    );
+    let mut empty_netlist = result.clone();
+    empty_netlist["kicad_netlist"] = json!("");
+    empty_netlist["kicad_netlist_bytes"] = json!("0");
+    empty_netlist["kicad_netlist_sha256"] =
+        json!("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    assert!(
+        decode_native_design_facts_result_a1(&encode(&empty_netlist)).is_err(),
+        "empty but internally consistent netlist accepted"
+    );
+    assert_rejected(
+        result.clone(),
+        "/kicad_netlist_bytes",
+        json!("01"),
+        true,
+        decode_native_design_facts_result_a1,
+    );
+    assert_rejected(
+        result.clone(),
+        "/kicad_netlist_bytes",
+        json!("18446744073709551616"),
+        true,
+        decode_native_design_facts_result_a1,
+    );
+    assert_rejected(
+        result.clone(),
+        "/kicad_netlist_bytes",
+        json!(
+            result["kicad_netlist"]
+                .as_str()
+                .expect("netlist")
+                .chars()
+                .count()
+        ),
+        true,
+        decode_native_design_facts_result_a1,
+    );
+    assert_rejected(
+        result.clone(),
+        "/kicad_netlist_sha256",
+        json!("0".repeat(64)),
+        true,
+        decode_native_design_facts_result_a1,
+    );
+    assert_removed_rejected(
+        result,
+        "/source_snapshot_sha256",
+        decode_native_design_facts_result_a1,
+    );
+}
+
+#[test]
+fn native_handshake_and_error_mutations_fail_closed() {
+    let handshake = json!({
+        "type": "kicad_monkey.native.handshake",
+        "version": "a0",
+        "engine_version": "0.1.0",
+        "operations": ["design-facts"]
+    });
+    assert_rejected(
+        handshake.clone(),
+        "/type",
+        json!("invented"),
+        true,
+        decode_native_handshake_a0,
+    );
+    assert_rejected(
+        handshake.clone(),
+        "/version",
+        json!("a1"),
+        true,
+        decode_native_handshake_a0,
+    );
+    assert_rejected(
+        handshake.clone(),
+        "/engine_version",
+        json!(""),
+        true,
+        decode_native_handshake_a0,
+    );
+    assert_rejected(
+        handshake.clone(),
+        "/operations",
+        json!([]),
+        true,
+        decode_native_handshake_a0,
+    );
+    assert_rejected(
+        handshake.clone(),
+        "/operations",
+        json!(["invented"]),
+        true,
+        decode_native_handshake_a0,
+    );
+    assert_rejected(
+        handshake,
+        "/unknown",
+        json!(true),
+        false,
+        decode_native_handshake_a0,
+    );
+
+    let error = json!({
+        "type": "kicad_monkey.native.error",
+        "version": "a0",
+        "kind": "request",
+        "message": "failure"
+    });
+    assert_rejected(
+        error.clone(),
+        "/type",
+        json!("invented"),
+        true,
+        decode_native_error_a0,
+    );
+    assert_rejected(
+        error.clone(),
+        "/version",
+        json!("a1"),
+        true,
+        decode_native_error_a0,
+    );
+    assert_rejected(
+        error.clone(),
+        "/kind",
+        json!("invented"),
+        true,
+        decode_native_error_a0,
+    );
+    assert_rejected(
+        error,
+        "/unknown",
+        json!(true),
+        false,
+        decode_native_error_a0,
+    );
+}
+
+#[test]
+fn native_request_mutations_fail_closed() {
+    let request = request_value();
+    assert_rejected(
+        request.clone(),
+        "/manifest/project_path",
+        Value::Null,
+        true,
+        decode_native_design_facts_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/type",
+        json!("invented"),
+        true,
+        decode_native_design_facts_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/version",
+        json!("a1"),
+        true,
+        decode_native_design_facts_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/limits/max_output_bytes",
+        json!("01"),
+        true,
+        decode_native_design_facts_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/limits/max_source_bytes",
+        json!("18446744073709551616"),
+        true,
+        decode_native_design_facts_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/manifest/version",
+        json!("a1"),
+        true,
+        decode_native_design_facts_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/file_slots/0/slot",
+        json!(-1),
+        true,
+        decode_native_design_facts_request_a0,
+    );
+    assert_rejected(
+        request.clone(),
+        "/unknown",
+        json!(true),
+        false,
+        decode_native_design_facts_request_a0,
+    );
+    assert_rejected(
+        request,
+        "/file_slots",
+        Value::Null,
+        true,
+        decode_native_design_facts_request_a0,
+    );
+}
+
+#[test]
+fn native_result_mutations_fail_closed() {
+    let result = result_value();
+    assert_rejected(
+        result.clone(),
+        "/compiled_schematic_graph/page_occurrences/0/address_key",
+        Value::Null,
+        true,
+        decode_native_design_facts_result_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/type",
+        json!("invented"),
+        true,
+        decode_native_design_facts_result_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/version",
+        json!("a1"),
+        true,
+        decode_native_design_facts_result_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/engine_version",
+        json!(""),
+        true,
+        decode_native_design_facts_result_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/kicad_netlist_version",
+        json!("D"),
+        true,
+        decode_native_design_facts_result_a0,
+    );
+    assert_rejected(
+        result.clone(),
+        "/compiled_schematic_graph/unknown",
+        json!(true),
+        false,
+        decode_native_design_facts_result_a0,
+    );
+    assert_rejected(
+        result,
+        "/unknown",
+        json!(true),
+        false,
+        decode_native_design_facts_result_a0,
+    );
+}
+
+fn request_value() -> Value {
+    let source_bundle: Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/source_bundle_a0_vectors.json"
+    ))
+    .expect("source bundle vectors");
+    json!({
+        "type": "kicad_monkey.native.design_facts.request",
+        "version": "a0",
+        "bundle_root": "C:/bundle",
+        "manifest": source_bundle["manifest"],
+        "file_slots": [
+            {"slot": 0, "path": "design/root.kicad_pro"},
+            {"slot": 1, "path": "design/root.kicad_sch"}
+        ],
+        "limits": {
+            "max_sources": 2,
+            "max_source_bytes": "1048576",
+            "max_total_source_bytes": "2097152",
+            "max_path_bytes": 4096,
+            "max_output_bytes": "8388608"
+        },
+        "netlist": {"source_path": "design/root.kicad_sch", "date": "", "tool": "kicad-monkey-native"}
+    })
+}
+
+fn result_value() -> Value {
+    let graph_vectors: Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/compiled_schematic_graph_a0_vectors.json"
+    ))
+    .expect("compiled graph vectors");
+    json!({
+        "type": "kicad_monkey.native.design_facts.result",
+        "version": "a0",
+        "engine_version": "0.1.0",
+        "compiled_schematic_graph": graph_vectors["graph"],
+        "kicad_netlist_version": "E",
+        "kicad_netlist": "(export (version \"E\"))"
+    })
+}
+
+fn request_a1_value() -> Value {
+    let mut request = request_value();
+    request["version"] = json!("a1");
+    request.as_object_mut().expect("request object").insert(
+        "resource_profile".to_owned(),
+        json!("design-facts-bounded-a1"),
+    );
+    request
+}
+
+fn result_a1_value() -> Value {
+    let graph_vectors: Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/compiled_schematic_graph_a0_vectors.json"
+    ))
+    .expect("compiled graph vectors");
+    let netlist = "(export (version \"E\") (design (tool \"native-Ω\")))";
+    let digest = Sha256::digest(netlist.as_bytes());
+    let hash = digest
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    json!({
+        "type": "kicad_monkey.native.design_facts.result",
+        "version": "a1",
+        "engine_version": "0.1.0",
+        "resource_profile": "design-facts-bounded-a1",
+        "source_snapshot_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "compiled_schematic_graph": graph_vectors["graph"],
+        "kicad_netlist_version": "E",
+        "kicad_netlist": netlist,
+        "kicad_netlist_bytes": netlist.len().to_string(),
+        "kicad_netlist_sha256": hash
+    })
+}
+
+fn svg_request_value() -> Value {
+    let vectors: Value = serde_json::from_str(include_str!(
+        "../../../../tests/parity/footprint_plotter_a0_vectors.json"
+    ))
+    .expect("footprint vectors");
+    json!({
+        "type": "kicad_monkey.native.svg.request",
+        "version": "a0",
+        "profile": "plotter-base-a0",
+        "document": {"kind": "footprint", "value": vectors["vectors"][0]["expected"]},
+        "viewport": {"min_x_nm": 0, "min_y_nm": -2000000, "width_nm": 2000000, "height_nm": 3000000},
+        "limits": {
+            "max_records": 1,
+            "max_operations": 1,
+            "max_points": "10",
+            "max_text_bytes": "100",
+            "max_image_encoded_bytes": "100",
+            "max_block_depth": 1,
+            "max_svg_elements": "10",
+            "max_render_work": "100000",
+            "max_svg_bytes": "100000",
+            "max_result_bytes": "200000"
+        }
+    })
+}
+
+fn svg_result_value() -> Value {
+    let svg = "<svg/>\n";
+    let digest = Sha256::digest(svg.as_bytes());
+    let hash = digest
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    json!({
+        "type": "kicad_monkey.native.svg.result",
+        "version": "a0",
+        "engine_version": "0.1.0",
+        "profile": "plotter-base-a0",
+        "source_kind": "MOD",
+        "document_id": "fixture",
+        "svg_utf8": svg,
+        "svg_bytes": svg.len().to_string(),
+        "svg_sha256": hash
+    })
+}
+
+fn encode(value: &Value) -> Vec<u8> {
+    serde_json::to_vec(value).expect("JSON encoding")
+}
+
+fn assert_rejected<T, E>(
+    mut value: Value,
+    pointer: &str,
+    replacement: Value,
+    replace: bool,
+    decode: fn(&[u8]) -> Result<T, E>,
+) {
+    if replace {
+        *value.pointer_mut(pointer).expect("mutation path") = replacement;
+    } else {
+        let (parent, field) = pointer.rsplit_once('/').expect("object mutation path");
+        value
+            .pointer_mut(parent)
+            .expect("mutation parent")
+            .as_object_mut()
+            .expect("mutation object")
+            .insert(field.to_owned(), replacement);
+    }
+    assert!(
+        decode(&encode(&value)).is_err(),
+        "mutation accepted at {pointer}"
+    );
+}
+
+fn assert_removed_rejected<T, E>(
+    mut value: Value,
+    pointer: &str,
+    decode: fn(&[u8]) -> Result<T, E>,
+) {
+    let (parent, field) = pointer.rsplit_once('/').expect("object mutation path");
+    value
+        .pointer_mut(parent)
+        .expect("mutation parent")
+        .as_object_mut()
+        .expect("mutation object")
+        .remove(field)
+        .expect("mutation field");
+    assert!(
+        decode(&encode(&value)).is_err(),
+        "missing field accepted at {pointer}"
+    );
+}

@@ -1,0 +1,26 @@
+# Structural Rust policy enforced by Rack through wn-dev-std.
+schema = 1
+mode = "ratchet"
+baseline = "rust-hygiene-baseline.json"
+
+[limits]
+max_parameters = 7
+max_function_lines = 100
+max_test_function_lines = 150
+max_file_lines = 1000
+max_cyclomatic_complexity = 10
+max_nesting = 4
+
+[paths]
+source_roots = ["src/rs", "packages/kicad_cruncher/src/rs", "tests"]
+exclude_parts = [
+  ".git",
+  "_build",
+  "bindings",
+  "build",
+  "generated",
+  "node_modules",
+  "target",
+  "third_party",
+  "vendor",
+]

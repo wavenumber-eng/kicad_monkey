@@ -1,0 +1,86 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.sexpr_build.request:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.sexpr_build.request"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "root": {
+            "$ref": "#/$defs/Node"
+        },
+        "max_output_bytes": {
+            "type": "string"
+        },
+        "max_depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "max_nodes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "root",
+        "max_output_bytes",
+        "max_depth",
+        "max_nodes"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Deterministic generic-tree build request.",
+    "title": "S-expression build request a0",
+    "$defs": {
+        "Node": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "$ref": "#/$defs/NodeKind"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "integer": {
+                    "type": "string"
+                },
+                "float": {
+                    "type": "number"
+                },
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/Node"
+                    }
+                }
+            },
+            "required": [
+                "kind"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Portable generic S-expression tree node used only by explicit build operations."
+        },
+        "NodeKind": {
+            "type": "string",
+            "enum": [
+                "list",
+                "atom",
+                "quoted",
+                "integer",
+                "float"
+            ]
+        }
+    }
+}

@@ -148,12 +148,16 @@ class Property:
         """Convert footprint property text to `TextParams` for outline rendering."""
 
         from .kicad_geometry import HAlign, TextParams, VAlign
+        from .kicad_fp_text import keep_upright_draw_angle
 
         h_align_map = {'left': HAlign.LEFT, 'center': HAlign.CENTER, 'right': HAlign.RIGHT}
         v_align_map = {'top': VAlign.TOP, 'center': VAlign.CENTER, 'bottom': VAlign.BOTTOM}
         font = self.effects.font
         position_x = self.at_x
         position_y = self.at_y
+        angle = self.at_angle
+        if footprint is not None and not self.unlocked:
+            angle = keep_upright_draw_angle(angle)
 
         if footprint is not None:
             fp_angle = float(getattr(footprint, "at_angle", 0.0) or 0.0)
@@ -170,7 +174,7 @@ class Property:
             size_y=font.size_y,
             position_x=position_x,
             position_y=position_y,
-            angle=self.at_angle,
+            angle=angle,
             bold=font.bold,
             italic=font.italic,
             mirrored=self.is_mirrored,

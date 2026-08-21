@@ -1,8 +1,8 @@
 # KiCad Monkey Tests
 
 This suite follows the package-local corpus model:
-- persistent file-backed fixtures resolve through `WN_TEST_CORPUS`
-- the default public-repo corpus mirror lives under `tests/corpus`
+- persistent file-backed fixtures resolve from the archive selected by `KM_CORPUS`
+- the default public-repo carrier is `tests/corpus/kicad.zip`
 - synthetic tests may stay local
 - `input/`, `reference_output/`, and `output/` are the standard case buckets
 - `output/` is transient
@@ -15,12 +15,14 @@ is not a local fork of the rack framework.
 ```powershell
 cd kicad_monkey
 uv sync --group dev
+uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
 uv run python tests/rack.py list
 ```
 
-`tests/conftest.py` points `WN_TEST_CORPUS` at `tests/corpus` when no usable
-external KiCad corpus is configured. Set `WN_TEST_CORPUS` only when you want to
-override the package-local mirror.
+The harness safely extracts the selected archive and publishes its directory
+internally as `KM_CORPUS_ROOT`. Set `KM_CORPUS` to another reviewed
+`kicad.zip` when a bot or developer needs to override the package archive. A
+directory containing `kicad/` is accepted only for fixture authoring.
 
 Run a stratum:
 
@@ -60,21 +62,20 @@ The early KiCad strata are still converging on how much data each lane should co
 ## Corpus Layout
 
 Examples:
-- `${WN_TEST_CORPUS}/kicad/common/board/input`
-- `${WN_TEST_CORPUS}/kicad/common/footprints/input`
-- `${WN_TEST_CORPUS}/kicad/common/reference_symbols/input`
-- `${WN_TEST_CORPUS}/kicad/common/reference_schematics/input`
-- `${WN_TEST_CORPUS}/kicad/common/reference_worksheets/input`
-- `${WN_TEST_CORPUS}/kicad/pcb_roundtrip_features/input`
+- `${KM_CORPUS_ROOT}/kicad/common/board/input`
+- `${KM_CORPUS_ROOT}/kicad/common/footprints/input`
+- `${KM_CORPUS_ROOT}/kicad/common/reference_symbols/input`
+- `${KM_CORPUS_ROOT}/kicad/common/reference_schematics/input`
+- `${KM_CORPUS_ROOT}/kicad/common/reference_worksheets/input`
+- `${KM_CORPUS_ROOT}/kicad/pcb_roundtrip_features/input`
 
 Keep new persistent assets under `tests/corpus/kicad/...` with the mirrored
 corpus layout unless they are synthetic/local-only by design.
 
-Generated visual-review outputs should use the owning corpus case's
-`output/<domain>/` folder. For example, board SVG review files for a real-world
-project belong under `${WN_TEST_CORPUS}/kicad/projects/<name>/output/board_svg/`;
-synthetic PCB foundation review files belong under
-`${WN_TEST_CORPUS}/kicad/pcb_foundation/<case>/output/board_svg/`.
+Generated visual-review outputs belong under the owning stratum's ignored
+`output/<domain>/` tree. The extracted `KM_CORPUS_ROOT` is immutable runtime
+input. Persistent reference updates must target an explicit writable fixture-
+authoring tree and then rebuild the reviewed ZIP.
 
 Real-world `projects/*_assembly` entries are assembly-procedure documentation
 projects. They are valid schematic SVG/IR cases, but their PCB files are

@@ -155,5 +155,53 @@ if (net) {
       themselves.
     </p>
   </section>
+  <section
+    data-interface="KiCadNativeDesignFacts"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_062_native_process_client.py"
+    data-test-target="test_source_bound_design_facts_validate_identity_metadata_and_provenance"
+  >
+    <h2>KiCadNativeDesignFacts</h2>
+    <h3>Rationale</h3>
+    <p>Callers need one immutable result that keeps a native compiled graph and exact version-E netlist bound to the source snapshot and validated process metadata.</p>
+    <h3>Purpose</h3>
+    <p>Carry the validated graph, netlist bytes and hashes, engine version, resource profile, and source-snapshot identity returned by the public native client.</p>
+    <h3>Test Requirements</h3>
+    <p>Tests must prove exact digest, metadata, byte-count, hash, graph-semantic, and netlist-version binding and reject mismatched results.</p>
+    <h3>Working Definition</h3>
+    <p>The result is usable only after strict generated decoding and semantic validation bind every published field to the current source bundle.</p>
+  </section>
+  <section
+    data-interface="KiCadNativeError"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_062_native_process_client.py"
+    data-test-target="test_process_capture_terminates_at_independent_byte_ceilings"
+  >
+    <h2>KiCadNativeError</h2>
+    <h3>Rationale</h3>
+    <p>Native resolution, transport, resource, and result-validation failures need one public fail-closed exception boundary without exposing subprocess internals.</p>
+    <h3>Purpose</h3>
+    <p>Report bounded native client failures to library and application callers.</p>
+    <h3>Test Requirements</h3>
+    <p>Tests must cover missing executables, protocol violations, hostile output, independent byte ceilings, timeouts, and invalid identities.</p>
+    <h3>Working Definition</h3>
+    <p>The exception is raised before an invalid or partial native result can be returned or published.</p>
+  </section>
+  <section
+    data-interface="KiCadNativeSvg"
+    data-rack-stratum="L0_foundation"
+    data-test-file="tests/L0_foundation/test_L0_063_native_svg_transport.py"
+    data-test-target="test_svg_client_validates_a1_handshake_and_hashed_result"
+  >
+    <h2>KiCadNativeSvg</h2>
+    <h3>Rationale</h3>
+    <p>SVG text must remain coupled to its engine, document identity, byte count, and content hash after semantic XML validation.</p>
+    <h3>Purpose</h3>
+    <p>Carry a validated native SVG result through the public Python API.</p>
+    <h3>Test Requirements</h3>
+    <p>Tests must verify the handshake, request identity, byte ceiling, hash, XML safety, and hostile-result rejection.</p>
+    <h3>Working Definition</h3>
+    <p>The result contains safe nonempty SVG whose identity, size, and digest exactly match the accepted native response.</p>
+  </section>
 </body>
 </html>

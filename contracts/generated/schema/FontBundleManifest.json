@@ -1,0 +1,132 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.font_bundle:a0",
+    "type": "object",
+    "properties": {
+        "schema": {
+            "type": "string",
+            "const": "kicad_monkey.font_bundle.a0"
+        },
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.font_bundle"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "fonts": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/FontBundleEntry"
+            }
+        }
+    },
+    "required": [
+        "schema",
+        "type",
+        "version",
+        "fonts"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Metadata for font buffers supplied out of band in matching numeric slots.",
+    "title": "Font bundle manifest a0",
+    "$defs": {
+        "FontBundleEntry": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "$ref": "#/$defs/StableTextId"
+                },
+                "slot": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "sha256": {
+                    "$ref": "#/$defs/Sha256Hex"
+                },
+                "face_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "variations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/FontVariationCoordinate"
+                    }
+                },
+                "aliases": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "family": {
+                    "type": "string"
+                },
+                "style": {
+                    "type": "string"
+                },
+                "postscript_name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "id",
+                "slot",
+                "sha256",
+                "face_index",
+                "variations",
+                "aliases"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One font face whose bytes are supplied in a separate binary slot."
+        },
+        "StableTextId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "description": "Stable ASCII identifier shared by manifests and oracle cases."
+        },
+        "Sha256Hex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Lowercase SHA-256 digest for one out-of-band font buffer."
+        },
+        "FontVariationCoordinate": {
+            "type": "object",
+            "properties": {
+                "axis": {
+                    "$ref": "#/$defs/OpenTypeTag"
+                },
+                "value": {
+                    "$ref": "#/$defs/FiniteFloat"
+                }
+            },
+            "required": [
+                "axis",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One ordered OpenType variation coordinate."
+        },
+        "OpenTypeTag": {
+            "type": "string",
+            "pattern": "^[ -~]{4}$",
+            "description": "Four-byte OpenType variation or feature tag."
+        },
+        "FiniteFloat": {
+            "type": "number",
+            "minimum": -1.7976931348623157e+308,
+            "maximum": 1.7976931348623157e+308,
+            "description": "Finite float64 value, including fractional CFF/CFF2 design coordinates."
+        }
+    }
+}

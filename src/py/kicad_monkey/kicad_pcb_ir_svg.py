@@ -179,13 +179,80 @@ def _filter_record_ops_by_layer(
     ops = record.operations or ()
     if not ops:
         return record
+    fill_layers = (record.extras or {}).get("fill_layers")
+    if isinstance(fill_layers, list) and fill_layers:
+        from dataclasses import replace
+
+        fill_count = min(len(fill_layers), len(ops))
+        kept_indexes = [
+            index
+            for index in range(fill_count)
+            if _layer_matches_wanted(str(fill_layers[index]), wanted)
+        ]
+        tail_extras = dict(record.extras or {})
+        tail_extras.pop("fill_layers", None)
+        tail_extras.pop("fill_island", None)
+        tail_record = replace(
+            record,
+            operations=list(ops[fill_count:]),
+            extras=tail_extras,
+        )
+        tail = _filter_record_ops_by_layer(tail_record, wanted).operations
+        new_extras = dict(record.extras or {})
+        new_extras["fill_layers"] = [fill_layers[index] for index in kept_indexes]
+        fill_island = new_extras.get("fill_island")
+        if isinstance(fill_island, list):
+            new_extras["fill_island"] = [
+                fill_island[index]
+                for index in kept_indexes
+                if index < len(fill_island)
+            ]
+        return replace(
+            record,
+            operations=[ops[index] for index in kept_indexes] + list(tail),
+            extras=new_extras,
+        )
     new_ops = []
     changed = False
-    for op in ops:
+    operation_index = 0
+    while operation_index < len(ops):
+        op = ops[operation_index]
+        kind = _plotter_operation_kind(op)
+        if kind == "StartBlock":
+            if (
+                operation_index + 2 < len(ops)
+                and _plotter_operation_kind(ops[operation_index + 2]) == "EndBlock"
+            ):
+                inner = ops[operation_index + 1]
+                inner_layers = _op_layer_set(inner)
+                role = str((getattr(inner, "payload", None) or {}).get("role", ""))
+                allow_copper_span = role in {"via_aperture", "via_drill"}
+                if (
+                    role == "npth_hole"
+                    or not inner_layers
+                    or _layer_set_matches_wanted(
+                        inner_layers,
+                        wanted,
+                        allow_copper_span=allow_copper_span,
+                    )
+                ):
+                    new_ops.extend(ops[operation_index : operation_index + 3])
+                else:
+                    changed = True
+                operation_index += 3
+                continue
+            new_ops.append(op)
+            operation_index += 1
+            continue
+        if kind == "EndBlock":
+            new_ops.append(op)
+            operation_index += 1
+            continue
         op_layers = _op_layer_set(op)
         role = str((getattr(op, "payload", None) or {}).get("role", ""))
         if role == "npth_hole":
             new_ops.append(op)
+            operation_index += 1
             continue
         allow_copper_span = role in {"via_aperture", "via_drill"}
         if not op_layers or _layer_set_matches_wanted(
@@ -196,11 +263,17 @@ def _filter_record_ops_by_layer(
             new_ops.append(op)
         else:
             changed = True
+        operation_index += 1
     if not changed:
         return record
     from dataclasses import replace
 
     return replace(record, operations=new_ops)
+
+
+def _plotter_operation_kind(operation: object) -> str:
+    kind = getattr(operation, "kind", "")
+    return str(getattr(kind, "value", kind))
 
 
 def _record_has_npth_hole(record: "KiCadPlotterRecord") -> bool:

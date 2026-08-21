@@ -1,0 +1,37 @@
+[package]
+name = "kicad-monkey-core"
+description = "KiCad source parsing, round-trip, and close-to-format operations"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[features]
+default = ["schematic-embedded-zstd"]
+measurement = []
+schematic-embedded-zstd = ["dep:zstd"]
+
+[dependencies]
+harfrust.workspace = true
+kicad-monkey-contracts = { path = "../kicad-monkey-contracts" }
+read-fonts.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+skrifa.workspace = true
+ttf-parser.workspace = true
+unicode-casefold.workspace = true
+zstd = { workspace = true, optional = true }
+
+[[example]]
+name = "sexpr_selection_sort_benchmark"
+required-features = ["measurement"]
+
+[dev-dependencies]
+serde.workspace = true

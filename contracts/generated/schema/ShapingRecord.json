@@ -1,0 +1,341 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.shaping_record:a0",
+    "type": "object",
+    "properties": {
+        "schema": {
+            "type": "string",
+            "const": "kicad_monkey.shaping_record.a0"
+        },
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.shaping_record"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "case_id": {
+            "$ref": "#/$defs/StableTextId"
+        },
+        "comparison": {
+            "$ref": "#/$defs/ExactComparisonPolicy"
+        },
+        "input": {
+            "$ref": "#/$defs/ShapingInput"
+        },
+        "glyphs": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/ShapedGlyph"
+            }
+        }
+    },
+    "required": [
+        "schema",
+        "type",
+        "version",
+        "case_id",
+        "comparison",
+        "input",
+        "glyphs"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Intermediate shaping oracle, intentionally separate from glyph outlines.",
+    "title": "Shaping record a0",
+    "$defs": {
+        "StableTextId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "description": "Stable ASCII identifier shared by manifests and oracle cases."
+        },
+        "ExactComparisonPolicy": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "const": "exact"
+                }
+            },
+            "required": [
+                "mode"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            }
+        },
+        "ShapingInput": {
+            "type": "object",
+            "properties": {
+                "font_id": {
+                    "$ref": "#/$defs/StableTextId"
+                },
+                "font_sha256": {
+                    "$ref": "#/$defs/Sha256Hex"
+                },
+                "face_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "variations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/FontVariationCoordinate"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                },
+                "text_index_unit": {
+                    "type": "string",
+                    "const": "utf8_byte_offset"
+                },
+                "scale_x": {
+                    "type": "integer",
+                    "minimum": -2147483648,
+                    "maximum": 2147483647,
+                    "description": "HarfBuzz hb_font_set_scale x value."
+                },
+                "scale_y": {
+                    "type": "integer",
+                    "minimum": -2147483648,
+                    "maximum": 2147483647,
+                    "description": "HarfBuzz hb_font_set_scale y value."
+                },
+                "direction": {
+                    "$ref": "#/$defs/TextDirection"
+                },
+                "script": {
+                    "$ref": "#/$defs/OpenTypeTag"
+                },
+                "language": {
+                    "$ref": "#/$defs/NonEmptyText"
+                },
+                "features": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/ShapingFeature"
+                    }
+                },
+                "buffer_properties": {
+                    "$ref": "#/$defs/ShapingBufferProperties"
+                }
+            },
+            "required": [
+                "font_id",
+                "font_sha256",
+                "face_index",
+                "variations",
+                "text",
+                "text_index_unit",
+                "scale_x",
+                "scale_y",
+                "direction",
+                "features",
+                "buffer_properties"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Complete deterministic shaping input retained with an oracle record."
+        },
+        "ShapedGlyph": {
+            "type": "object",
+            "properties": {
+                "glyph_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "cluster": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295,
+                    "description": "UTF-8 scalar-start byte offset into ShapingInput.text, as assigned by push_str."
+                },
+                "x_advance": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "y_advance": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "x_offset": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "y_offset": {
+                    "$ref": "#/$defs/TextSafeInteger"
+                },
+                "unsafe_to_break": {
+                    "type": "boolean"
+                },
+                "safe_to_insert_tatweel": {
+                    "type": "boolean"
+                },
+                "unsafe_to_concat": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "glyph_id",
+                "cluster",
+                "x_advance",
+                "y_advance",
+                "x_offset",
+                "y_offset",
+                "unsafe_to_break",
+                "safe_to_insert_tatweel",
+                "unsafe_to_concat"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One shaped glyph in logical buffer order."
+        },
+        "Sha256Hex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Lowercase SHA-256 digest for one out-of-band font buffer."
+        },
+        "FontVariationCoordinate": {
+            "type": "object",
+            "properties": {
+                "axis": {
+                    "$ref": "#/$defs/OpenTypeTag"
+                },
+                "value": {
+                    "$ref": "#/$defs/FiniteFloat"
+                }
+            },
+            "required": [
+                "axis",
+                "value"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "One ordered OpenType variation coordinate."
+        },
+        "TextDirection": {
+            "type": "string",
+            "enum": [
+                "left_to_right",
+                "right_to_left",
+                "top_to_bottom",
+                "bottom_to_top"
+            ]
+        },
+        "OpenTypeTag": {
+            "type": "string",
+            "pattern": "^[ -~]{4}$",
+            "description": "Four-byte OpenType variation or feature tag."
+        },
+        "NonEmptyText": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Nonempty text token whose detailed grammar is owned by the consumer API."
+        },
+        "ShapingFeature": {
+            "type": "object",
+            "properties": {
+                "tag": {
+                    "$ref": "#/$defs/OpenTypeTag"
+                },
+                "value": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "start": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                },
+                "end": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                }
+            },
+            "required": [
+                "tag",
+                "value",
+                "start",
+                "end"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "HarfBuzz-compatible feature range over half-open UTF-8 byte offsets.\nNon-global endpoints are UTF-8 code-point boundaries. A global range is\nstart=0 and end=4294967295. HarfRust receives these values unchanged after\nUnicodeBuffer::push_str assigns char_indices clusters."
+        },
+        "ShapingBufferProperties": {
+            "type": "object",
+            "properties": {
+                "cluster_level": {
+                    "$ref": "#/$defs/ShapingClusterLevel"
+                },
+                "beginning_of_text": {
+                    "type": "boolean"
+                },
+                "end_of_text": {
+                    "type": "boolean"
+                },
+                "default_ignorables": {
+                    "$ref": "#/$defs/DefaultIgnorablePolicy"
+                },
+                "do_not_insert_dotted_circle": {
+                    "type": "boolean"
+                },
+                "produce_unsafe_to_concat": {
+                    "type": "boolean"
+                },
+                "produce_safe_to_insert_tatweel": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "cluster_level",
+                "beginning_of_text",
+                "end_of_text",
+                "default_ignorables",
+                "do_not_insert_dotted_circle",
+                "produce_unsafe_to_concat",
+                "produce_safe_to_insert_tatweel"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Explicit HarfBuzz buffer state; no ambient library defaults are implied."
+        },
+        "TextSafeInteger": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Integer that remains exact through JSON and JavaScript."
+        },
+        "FiniteFloat": {
+            "type": "number",
+            "minimum": -1.7976931348623157e+308,
+            "maximum": 1.7976931348623157e+308,
+            "description": "Finite float64 value, including fractional CFF/CFF2 design coordinates."
+        },
+        "ShapingClusterLevel": {
+            "type": "string",
+            "enum": [
+                "monotone_graphemes",
+                "monotone_characters",
+                "characters"
+            ]
+        },
+        "DefaultIgnorablePolicy": {
+            "type": "string",
+            "enum": [
+                "normal",
+                "preserve",
+                "remove"
+            ]
+        }
+    }
+}

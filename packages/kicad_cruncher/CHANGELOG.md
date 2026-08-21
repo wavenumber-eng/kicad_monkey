@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+- Reduce the pure-Rust Speedy design-review median from 28.0167 seconds to
+  6.0271 seconds on the matched three-round Windows x64 release comparison,
+  versus 60.5809 seconds for the retained Python oracle. The accepted result
+  is a 10.0514x speedup with contracted structured-artifact and 29-SVG parity,
+  unchanged reviewed source bytes, unchanged resource ceilings, and
+  transactional publication preserved.
+
+- Promote the complete design-review vertical slice as pure-Rust Windows x64
+  `kicad-cruncher` and `kcr` executables. The release gate now installs both
+  names into an isolated prefix, rejects workspace-path leakage, runs a copied
+  public design with Python removed from the runtime environment, and attaches
+  the exact hash-bound archive to the Cruncher GitHub release. The Python wheel
+  remains the full cross-platform command distribution.
+
+## 2026.8.18
+
+- Add an accepted native-backed CLI compatibility contract for the installed
+  `kicad-cruncher`, `kcr`, and module entry points and the primary design
+  aliases. Strict manifest paths, exact output channels and exit statuses,
+  wheel-owned native provenance, and transactional failure behavior are now
+  part of the Windows release gate.
+
+- Add an accepted Windows no-fallback native PCB physical-base SVG provider
+  with preserved Cruncher enrichment, drill ordering, cache ceilings, and
+  transactional command publication. Non-Windows and higher-level
+  composition remain on their explicit Python path.
+
+- Add an accepted Windows native design-facts provider for the compiled
+  schematic graph and version-E netlist. Native failures preserve the prior
+  transactional design-review tree and never retry the Python graph or
+  version-E writer; Design JSON and netlist JSON remain Python-owned.
+
 ## 2026.8.11.1
 
 - Route Altium footprint conversion through import-specific cleanup so

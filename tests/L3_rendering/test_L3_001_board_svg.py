@@ -13,7 +13,6 @@ Test setup:
 
 import logging
 import math
-import pytest
 import re
 import warnings
 from pathlib import Path
@@ -21,6 +20,9 @@ from typing import List, Set, Tuple
 from collections import Counter, defaultdict
 from xml.etree import ElementTree as ET
 
+import pytest
+
+from _suite_paths import resolve_test_corpus_output_path
 from kicad_monkey.testing.corpus import (
     get_kicad_corpus_case,
     get_kicad_corpus_root,
@@ -978,17 +980,17 @@ def _review_case_board_path(case: dict) -> Path | None:
 
 def _review_case_output_dir(case: dict, board_path: Path) -> Path:
     """Return the output folder for generated review SVGs."""
-    output_root = resolve_kicad_manifest_path(case, "output_root")
+    output_root = resolve_test_corpus_output_path(case)
     if output_root is not None:
         return output_root / "board_svg"
     if case.get("layout") == "case_bucket":
-        return board_path.parent.parent / "output" / "board_svg"
+        return OUTPUT_DIR / _safe_path_token(str(case.get("id") or board_path.stem))
     return OUTPUT_DIR / _safe_path_token(str(case.get("id") or board_path.stem))
 
 
 def _board_svg_output_dir_for_board_path(board_path: Path) -> Path:
-    """Return the corpus-local output folder for a synthetic board path."""
-    return board_path.parent.parent / "output" / "board_svg"
+    """Return an ignored output folder for a synthetic board path."""
+    return OUTPUT_DIR / _safe_path_token(str(board_path))
 
 
 def _pcb_review_layer_names(pcb) -> list[str]:

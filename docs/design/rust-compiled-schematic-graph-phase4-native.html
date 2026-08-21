@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 4 native compiled graph semantics</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 4 native compiled graph semantics</h1>
+  <p>
+    Status: accepted with direct executable Rust evidence. This vertical
+    slice ports deterministic identity, graph-wide semantic validation, and
+    native project-to-graph production for all ten <code>a0</code> row families.
+  </p>
+
+  <h2>Identity allocation</h2>
+  <p>
+    <code>CompiledGraphIdentityAllocator</code> owns scope and selector
+    normalization, canonical ASCII JSON, duplicate-address detection, and UUIDv7
+    byte formatting. It matches all shared source, derived, supporting, Unicode,
+    precedence, normalization, and failure vectors. RustCrypto <code>sha2</code>
+    supplies only SHA-256, and <code>unicode-casefold</code> supplies Unicode full
+    case folding; both sit behind package-owned APIs and work without native FFI.
+    Canonicalization and allocation policy remain in-house. Locked dependency
+    versions and the package-owned API boundary are governed by the Rust
+    workspace standard; neither dependency API is part of this public contract.
+  </p>
+
+  <h2>Semantic validation</h2>
+  <p>
+    Validation first applies the strict TypeSpec transport boundary, then builds
+    each reference index exactly once. It validates RFC 4122 UUIDv7 row identity,
+    uniqueness, typed references, exact bidirectional definition/page and
+    occurrence/page ownership, exact hierarchy parent/child inverse ownership,
+    terminal/local/component page ownership, scalar hierarchy bindings,
+    resolution completeness, and graphical target attribution.
+  </p>
+  <p>
+    Hierarchy cycle detection uses one color map and marks each unit occurrence
+    visiting and done once. Runtime is O(rows + references), retained validation
+    memory is O(rows), and no collection cross-product or repeated parent-chain
+    walk is used. The validator borrows generated DTO strings and does not clone
+    row payloads. Compiler input and output ceilings belong to the upcoming named
+    source-bundle/compiler operation; this already-owned DTO validator does not
+    invent a second arbitrary size policy.
+  </p>
+
+  <h2>Native production boundary</h2>
+  <p>
+    <code>CompiledSchematicGraphLimits</code> independently bounds every emitted
+    row family and aggregate retained string bytes. Each row check occurs before
+    publication and each retained-string charge occurs before the corresponding
+    graph allocation. Defaults are broad format-safety ceilings rather than
+    product-size assumptions; native callers can retain them while untrusted-input
+    adapters may tighten them. Source-bundle and connectivity limits separately
+    bound parsed input, compiler work, and intermediate connectivity state.
+  </p>
+
+  <h2>Evidence and retained work</h2>
+  <ul>
+    <li>The native allocator consumes the same language-neutral vectors as Python, including Unicode canonicalization.</li>
+    <li>Shared Python/Rust negative vectors cover missing, duplicate, cross-owner, and hierarchy inverse failures; a wide-owner regression protects the indexed linear path.</li>
+    <li>Focused Rust tests also cover valid semantics, wrong reference types, cycles, duplicate IDs, binding roles, and graphical target types.</li>
+    <li>Rack L0_050 directly runs the generated Rust contract target, native allocator and semantic-validator target, producer limit target, and bounded-line validator example under four build jobs and two test threads.</li>
+    <li>Rack L3_018 sends all four reference-project graphs through the native strict and semantic validators in one sequential native process. The process enforces its line ceiling while reading, before retaining bytes past the bounded payload-plus-line-ending allowance.</li>
+    <li><code>build_compiled_schematic_graph</code> emits definitions, occurrences, hierarchy, components, local nets, terminals, scalar hierarchy bindings, and graphical links from one indexed bundle and one compiled connectivity pass. Rack L3_020 compares the complete serialized graph exactly with Python for Yoshi, Taillight, Speedy, and Jumperless.</li>
+    <li>A shared two-sheet differential proves two UUID-less sheet pins receive distinct deterministic render/source identities and hierarchy bindings; the fallback participates consistently in Python and Rust terminal and binding identity.</li>
+    <li>The bundle index reads <code>schematic.subpart_first_id</code> and <code>schematic.subpart_id_separator</code> directly from the named project source. Default native netlist and graph entry points use those settings; a shared non-default digit-and-separator project proves complete graph parity.</li>
+    <li>A synthetic two-sheet project exercises every row family, deterministic identity, portable source ownership, semantic validation, and exact/one-under limits for every family and aggregate retained string bytes.</li>
+    <li>Production is linear apart from deterministic set/index ordering. Component and hierarchy-terminal lookup are indexed; unresolved hierarchy diagnostics do not rescan terminal rows. Graphical IDs use per-family borrowed indexes while retaining source order, avoiding per-push scans of a growing output vector.</li>
+    <li>Package-owned unsafe code remains forbidden.</li>
+    <li>Schematic mutation, semantic round-trip, and the bounded native CLI are governed by their accepted later slices; they remain outside this compiled-graph slice rather than open prerequisites for it.</li>
+  </ul>
+</body>
+</html>

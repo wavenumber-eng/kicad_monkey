@@ -8,9 +8,16 @@ import math
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, cast
 
+from kicad_cruncher.kicad_cruncher_native_physical import (
+    NativePhysicalProvider,
+    PhysicalSvgProvenance,
+    PhysicalSvgProvider,
+    board_document_id,
+    use_native_physical_provider,
+)
 from kicad_cruncher.kicad_cruncher_pcb_svg_config import (
     PCB_SVG_ASSEMBLY_VIRTUAL_LAYERS,
     _PcbSvgConfig,
@@ -51,6 +58,8 @@ _DESIGNATOR_RANGE_RE = re.compile(r"^([A-Za-z]+)(\d+)-([A-Za-z]*)(\d+)$")
 _POINT_PRECISION = 4
 _POINT_KEY_EPSILON = 1.0e-6
 _MIN_REGION_AREA_MM2 = 1.0e-4
+_MAX_NATIVE_ROOTS = 32
+_MAX_RETAINED_NATIVE_SVG_BYTES = 512 * 1024 * 1024
 
 ET.register_namespace("", _SVG_NS)
 ET.register_namespace("xlink", _XLINK_NS)
@@ -69,9 +78,16 @@ class PcbSvgCompositionRenderCache:
     """Command-scoped caches for repeated PCB SVG composition work."""
 
     pcb: KiCadPcb
+    physical_provider: PhysicalSvgProvider | None = None
+    max_native_roots: int = _MAX_NATIVE_ROOTS
+    max_retained_native_svg_bytes: int = _MAX_RETAINED_NATIVE_SVG_BYTES
     _bbox: object | None = None
     _base_doc: object | None = None
     _root_svg_text_by_layers: dict[tuple[str, ...], str] = field(default_factory=dict)
+    _native_provenance_by_layers: dict[tuple[str, ...], PhysicalSvgProvenance] = field(
+        default_factory=dict
+    )
+    _retained_native_svg_bytes: int = 0
     _physical_fragments_by_key: dict[
         tuple[str, bool, tuple[object, ...]],
         tuple[ET.Element, ...],
@@ -85,16 +101,54 @@ class PcbSvgCompositionRenderCache:
     )
     _origin: tuple[float, float] | None = None
 
+    def __post_init__(self) -> None:
+        if self.max_native_roots <= 0 or self.max_native_roots > _MAX_NATIVE_ROOTS:
+            raise ValueError("max_native_roots exceeds the physical-provider ceiling")
+        if (
+            self.max_retained_native_svg_bytes <= 0
+            or self.max_retained_native_svg_bytes > _MAX_RETAINED_NATIVE_SVG_BYTES
+        ):
+            raise ValueError(
+                "max_retained_native_svg_bytes exceeds the physical-provider ceiling"
+            )
+        if self.physical_provider is None and use_native_physical_provider():
+            self.physical_provider = NativePhysicalProvider()
+
     def root_svg(self, pcb: KiCadPcb, layers: list[str] | None) -> ET.Element:
         """Return a fresh SVG root rendered from a cached board IR."""
         if pcb is not self.pcb:
-            return _render_root_svg_uncached(pcb, layers)
+            return PcbSvgCompositionRenderCache(
+                pcb,
+                physical_provider=self.physical_provider,
+                max_native_roots=self.max_native_roots,
+                max_retained_native_svg_bytes=self.max_retained_native_svg_bytes,
+            ).root_svg(pcb, layers)
         key = _layers_cache_key(layers)
         svg_text = self._root_svg_text_by_layers.get(key)
         if svg_text is None:
+            if (
+                self.physical_provider is not None
+                and len(self._root_svg_text_by_layers) >= self.max_native_roots
+            ):
+                raise ValueError("physical SVG provider root ceiling exceeded")
             svg_text = self._render_root_svg_text(layers)
+            retained = len(svg_text.encode("utf-8"))
+            if self.physical_provider is not None and retained > (
+                self.max_retained_native_svg_bytes - self._retained_native_svg_bytes
+            ):
+                self._native_provenance_by_layers.pop(key, None)
+                raise ValueError("physical SVG provider retained-byte ceiling exceeded")
             self._root_svg_text_by_layers[key] = svg_text
+            if self.physical_provider is not None:
+                self._retained_native_svg_bytes += retained
         return ET.fromstring(svg_text)
+
+    def native_provenance(
+        self, layers: list[str] | None
+    ) -> PhysicalSvgProvenance | None:
+        """Return provenance for a cached native root, when this platform uses one."""
+
+        return self._native_provenance_by_layers.get(_layers_cache_key(layers))
 
     def root_origin(self, pcb: KiCadPcb) -> tuple[float, float]:
         if pcb is not self.pcb:
@@ -185,6 +239,7 @@ class PcbSvgCompositionRenderCache:
             self._base_doc = pcb_to_ir(
                 self.pcb,
                 source_path=str(source_path) if source_path else None,
+                document_id=board_document_id(self.pcb),
             )
         return cast("KiCadPlotterDocument", self._base_doc)
 
@@ -194,17 +249,34 @@ class PcbSvgCompositionRenderCache:
 
         bbox = self._computed_bbox()
         if getattr(bbox, "is_empty", False):
+            if self.physical_provider is not None:
+                raise ValueError("native physical provider rejects an empty PCB viewport")
             return str(empty_pcb_svg())
 
         base_opts, opts = _pcb_root_svg_options(layers)
         ctx = _pcb_root_svg_context(bbox, opts)
-        doc = _filtered_pcb_root_doc(self.pcb, self._computed_base_doc(), layers)
+        doc = _filtered_pcb_root_doc(
+            self.pcb,
+            self._computed_base_doc(),
+            layers,
+        )
         root_attrs, metadata_elements = _pcb_root_svg_metadata(
             self.pcb,
             bbox=bbox,
             layers=layers,
             profile=base_opts.profile,
         )
+        if self.physical_provider is not None:
+            doc = _materialize_native_pad_views(doc, layers)
+            artifact = self.physical_provider.render_pcb_root(doc, bbox)
+            enriched = _enrich_native_root_svg(
+                artifact.svg_text,
+                root_attrs=root_attrs,
+                metadata_elements=metadata_elements,
+            )
+            key = _layers_cache_key(layers)
+            self._native_provenance_by_layers[key] = artifact.provenance
+            return enriched
         return str(
             render_ir_to_svg(
                 doc,
@@ -213,6 +285,21 @@ class PcbSvgCompositionRenderCache:
                 metadata_elements=metadata_elements,
             )
         )
+
+
+def _enrich_native_root_svg(
+    svg_text: str,
+    *,
+    root_attrs: dict[str, object] | None,
+    metadata_elements: list[str] | None,
+) -> str:
+    root = ET.fromstring(svg_text)
+    for name, value in (root_attrs or {}).items():
+        if value is not None:
+            root.set(str(name), str(value))
+    for metadata in reversed(metadata_elements or []):
+        root.insert(0, ET.fromstring(metadata))
+    return ET.tostring(root, encoding="unicode", short_empty_elements=True)
 
 
 def _pcb_root_svg_options(
@@ -255,8 +342,6 @@ def _filtered_pcb_root_doc(
     doc: KiCadPlotterDocument,
     layers: list[str] | None,
 ) -> KiCadPlotterDocument:
-    from dataclasses import replace
-
     from kicad_monkey.kicad_pcb_ir_svg import (
         _filter_records_by_layer,
         _is_copper_layer,
@@ -288,6 +373,257 @@ def _first_drill_outline_layer(
         ),
         None,
     )
+
+
+_PAD_FLASH_KINDS = {
+    "FlashPadCircle",
+    "FlashPadOval",
+    "FlashPadRect",
+    "FlashPadRoundRect",
+    "FlashPadCustom",
+    "FlashPadTrapez",
+}
+
+
+def _materialize_native_pad_views(
+    doc: KiCadPlotterDocument,
+    layers: list[str] | None,
+) -> KiCadPlotterDocument:
+    records = []
+    for record in doc.records:
+        records.append(
+            record
+            if record.kind != "footprint"
+            else replace(
+                record,
+                operations=_materialize_footprint_operations(record, layers),
+            )
+        )
+    return replace(doc, records=records)
+
+
+def _materialize_footprint_operations(
+    record: object,
+    layers: list[str] | None,
+) -> list[object]:
+    operations = list(getattr(record, "operations", None) or ())
+    materialized: list[object] = []
+    operation_index = 0
+    while operation_index < len(operations):
+        block = _three_operation_block(operations, operation_index)
+        if block is None:
+            materialized.append(operations[operation_index])
+            operation_index += 1
+        else:
+            materialized.extend(_materialize_footprint_block(*block, layers, record))
+            operation_index += 3
+    return materialized
+
+
+def _three_operation_block(
+    operations: list[object],
+    operation_index: int,
+) -> tuple[object, object, object] | None:
+    if operation_index + 2 >= len(operations):
+        return None
+    start, inner, end = operations[operation_index : operation_index + 3]
+    if _operation_kind(start) != "StartBlock" or _operation_kind(end) != "EndBlock":
+        return None
+    return start, inner, end
+
+
+def _materialize_footprint_block(
+    start: object,
+    inner: object,
+    end: object,
+    layers: list[str] | None,
+    record: object,
+) -> list[object]:
+    start, inner = _bind_unlayered_footprint_block(start, inner, layers, record)
+    operation_kind = _operation_kind(inner)
+    if operation_kind not in _PAD_FLASH_KINDS:
+        return [start, inner, end]
+    return [
+        operation
+        for suffix, kind, payload in _pad_view_payloads(
+            operation_kind,
+            getattr(inner, "payload", None) or {},
+            layers,
+        )
+        for operation in (
+            _block_start_with_suffix(start, suffix),
+            replace(inner, kind=kind, payload=payload),
+            end,
+        )
+    ]
+
+
+def _block_start_with_suffix(start: object, suffix: str) -> object:
+    if not suffix:
+        return start
+    payload = dict(getattr(start, "payload", None) or {})
+    for key in ("label", "data_uuid"):
+        value = str(payload.get(key, "") or "")
+        if value:
+            payload[key] = f"{value}{suffix}"
+    return replace(start, payload=payload)
+
+
+def _bind_unlayered_footprint_block(
+    start: object,
+    inner: object,
+    layers: list[str] | None,
+    record: object,
+) -> tuple[object, object]:
+    inner_payload = dict(getattr(inner, "payload", None) or {})
+    declared = inner_payload.get("layers")
+    if isinstance(declared, list) and declared:
+        return start, inner
+    selected = _unlayered_binding_layers(layers, record)
+    inner_payload["layers"] = selected
+    start_payload = dict(getattr(start, "payload", None) or {})
+    start_payload["layers"] = selected
+    attrs = dict(start_payload.get("extra_attrs", {}) or {})
+    attrs["layer_names"] = ",".join(selected)
+    start_payload["extra_attrs"] = attrs
+    return replace(start, payload=start_payload), replace(inner, payload=inner_payload)
+
+
+def _unlayered_binding_layers(
+    layers: list[str] | None,
+    record: object,
+) -> list[str]:
+    selected = [str(layer) for layer in layers or [] if str(layer)]
+    if selected:
+        return selected
+    extras = getattr(record, "extras", None) or {}
+    return [str(extras.get("layer", "") or "F.Cu")]
+
+
+def _pad_view_payloads(
+    operation_kind: str,
+    operation_payload: dict[str, object],
+    layers: list[str] | None,
+) -> list[tuple[str, object, dict[str, object]]]:
+    from kicad_monkey.kicad_plotter_ir import KiCadPlotterOpKind
+
+    nominal_kind = KiCadPlotterOpKind(operation_kind)
+    payload = dict(operation_payload)
+    nominal = _materialize_custom_pad_payload(
+        operation_kind,
+        payload,
+        expand_for_mask=False,
+    )
+    if layers is None or operation_kind == "FlashPadTrapez":
+        return [("", nominal_kind, nominal)]
+    mask_visible, non_mask_visible = _pad_layer_visibility(payload, layers)
+    margin = int(payload.get("mask_margin_nm", 0) or 0)
+    if not mask_visible or margin == 0:
+        return [("", nominal_kind, nominal)]
+    expanded = _expanded_pad_payload(operation_kind, payload, margin)
+    expanded_kind = _expanded_pad_kind(nominal_kind, operation_kind, margin)
+    if non_mask_visible:
+        return [
+            ("", nominal_kind, nominal),
+            (":mask", expanded_kind, expanded),
+        ]
+    return [("", expanded_kind, expanded)]
+
+
+def _pad_layer_visibility(
+    payload: dict[str, object],
+    layers: list[str],
+) -> tuple[bool, bool]:
+    declared = {
+        str(layer)
+        for layer in payload.get("layers", [])
+        if isinstance(layer, str) and layer
+    }
+    selected_mask = {layer for layer in layers if layer.endswith(".Mask")}
+    selected_other = set(layers) - selected_mask
+    mask_visible = any(
+        _declared_layer_visible(layer, selected_mask) for layer in declared
+    )
+    other_visible = any(
+        _declared_layer_visible(layer, selected_other) for layer in declared
+    )
+    return mask_visible, other_visible
+
+
+def _expanded_pad_payload(
+    operation_kind: str,
+    payload: dict[str, object],
+    margin: int,
+) -> dict[str, object]:
+    if operation_kind == "FlashPadCustom":
+        return _materialize_custom_pad_payload(
+            operation_kind,
+            payload,
+            expand_for_mask=True,
+        )
+    expanded = dict(payload)
+    for key in ("diameter_nm", "size_x_nm", "size_y_nm"):
+        if key in expanded:
+            expanded[key] = int(expanded.get(key, 0) or 0) + 2 * margin
+    if "corner_radius_nm" in expanded:
+        expanded["corner_radius_nm"] = max(
+            0,
+            int(expanded.get("corner_radius_nm", 0) or 0) + margin,
+        )
+    expanded["mask_margin_nm"] = 0
+    if operation_kind == "FlashPadRect" and margin > 0:
+        expanded["corner_radius_nm"] = margin
+    return expanded
+
+
+def _expanded_pad_kind(
+    nominal_kind: object,
+    operation_kind: str,
+    margin: int,
+) -> object:
+    if operation_kind != "FlashPadRect" or margin <= 0:
+        return nominal_kind
+    from kicad_monkey.kicad_plotter_ir import KiCadPlotterOpKind
+
+    return KiCadPlotterOpKind.FLASH_PAD_ROUNDRECT
+
+
+def _materialize_custom_pad_payload(
+    operation_kind: str,
+    payload: dict[str, object],
+    *,
+    expand_for_mask: bool,
+) -> dict[str, object]:
+    if operation_kind != "FlashPadCustom":
+        return dict(payload)
+    from kicad_monkey.kicad_ir_to_svg import _custom_pad_rings
+
+    rings = _custom_pad_rings(payload, expand_for_mask=expand_for_mask)
+    materialized = dict(payload)
+    materialized["polygons"] = [
+        [[int(round(x)), int(round(y))] for x, y in ring]
+        for ring in rings
+    ]
+    materialized["polygon_widths_nm"] = [0 for _ in rings]
+    materialized["mask_margin_nm"] = 0
+    return materialized
+
+
+def _declared_layer_visible(declared: str, selected: set[str]) -> bool:
+    if declared in selected:
+        return True
+    if declared == "*.Cu":
+        return any(layer.endswith(".Cu") for layer in selected)
+    if declared == "*.Mask":
+        return any(layer.endswith(".Mask") for layer in selected)
+    if declared == "F&B.Cu":
+        return bool({"F.Cu", "B.Cu"} & selected)
+    return False
+
+
+def _operation_kind(operation: object) -> str:
+    kind = getattr(operation, "kind", "")
+    return str(getattr(kind, "value", kind))
 
 
 def _pcb_root_svg_metadata(
@@ -573,6 +909,11 @@ def _render_root_svg(
 
 
 def _render_root_svg_uncached(pcb: KiCadPcb, layers: list[str] | None) -> ET.Element:
+    if use_native_physical_provider():
+        return PcbSvgCompositionRenderCache(
+            pcb,
+            physical_provider=NativePhysicalProvider(),
+        ).root_svg(pcb, layers)
     from kicad_monkey import KiCadSvgRenderOptions
 
     svg_text = str(

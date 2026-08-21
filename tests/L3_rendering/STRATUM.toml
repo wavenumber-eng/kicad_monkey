@@ -43,7 +43,7 @@ objectives = [
 file = "test_L3_001_board_svg.py"
 name = "Board SVG Rendering"
 description = "Board SVG matches kicad-cli reference output"
-test_cases = "${WN_TEST_CORPUS}/kicad/board_svg"
+test_cases = "${KM_CORPUS_ROOT}/kicad/board_svg"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -64,7 +64,7 @@ secondary = [
 file = "test_L3_002_footprint_svg.py"
 name = "Footprint SVG Rendering"
 description = "Footprint SVG matches kicad-cli reference output"
-test_cases = "${WN_TEST_CORPUS}/kicad/footprint_svg"
+test_cases = "${KM_CORPUS_ROOT}/kicad/footprint_svg"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -84,7 +84,7 @@ secondary = [
 file = "test_L3_003_element_coverage.py"
 name = "Element Coverage"
 description = "All element types render correctly"
-test_cases = "${WN_TEST_CORPUS}/kicad/board_svg"
+test_cases = "${KM_CORPUS_ROOT}/kicad/board_svg"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -109,7 +109,7 @@ secondary = [
 file = "test_L3_004_symbol_svg.py"
 name = "Symbol SVG Rendering"
 description = "Symbol library SVG rendering compared to kicad-cli"
-test_cases = "${WN_TEST_CORPUS}/kicad/symbol_svg"
+test_cases = "${KM_CORPUS_ROOT}/kicad/symbol_svg"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -130,7 +130,7 @@ secondary = [
 file = "test_L3_005_schematic_svg.py"
 name = "Schematic SVG Rendering"
 description = "Schematic document SVG rendering compared to kicad-cli"
-test_cases = "${WN_TEST_CORPUS}/kicad/schematic_svg"
+test_cases = "${KM_CORPUS_ROOT}/kicad/schematic_svg"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -152,7 +152,7 @@ secondary = [
 file = "test_L3_006_synthetic_svg_oracle.py"
 name = "Synthetic Board SVG Oracle"
 description = "Targeted synthetic semantic parity checks against kicad-cli"
-test_cases = "${WN_TEST_CORPUS}/kicad/pcb_foundation/"
+test_cases = "${KM_CORPUS_ROOT}/kicad/pcb_foundation/"
 test_case_type = "synthetic"
 
 [subtests.code_under_test]
@@ -173,7 +173,7 @@ secondary = [
 file = "test_L3_012_netlist_project_corpus_oracle.py"
 name = "Modern Project Netlist Oracle"
 description = "Project-rooted KiCad 9/10 netlists match kicad-cli"
-test_cases = "${WN_TEST_CORPUS}/kicad"
+test_cases = "${KM_CORPUS_ROOT}/kicad"
 test_case_type = "oracle"
 
 [subtests.code_under_test]
@@ -193,7 +193,7 @@ secondary = [
 file = "test_L3_017_pcb_bounds_oracle.py"
 name = "PCB Bounds Oracle"
 description = "PCB graphical shape bounds match KiCad GetBoundingBox output"
-test_cases = "${WN_TEST_CORPUS}/kicad/pcb_foundation/"
+test_cases = "${KM_CORPUS_ROOT}/kicad/pcb_foundation/"
 test_case_type = "oracle"
 
 [subtests.code_under_test]
@@ -205,4 +205,256 @@ secondary = [
     "Synthetic gr_line, gr_rect, gr_arc, gr_circle, gr_poly, gr_curve coverage",
     "Real-world board smoke coverage",
     "Comparison in pcb internal units"
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L3_018"
+file = "test_L3_018_compiled_schematic_graph.py"
+name = "Compiled Schematic Graph"
+description = "Require generated-contract and semantic graph parity over the accepted project corpus"
+concerns = ["schematic", "compiled_graph", "parity", "contracts"]
+test_cases = "${KM_CORPUS_ROOT}/kicad/projects"
+test_case_type = "shared_corpus"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_compiled_schematic_graph"
+
+[subtests.objectives]
+primary = "Compiled graph identity, hierarchy, connectivity, and policy match the Python authority"
+secondary = [
+    "All accepted real-world project cases are mandatory",
+    "Generated contract decoding and semantic validation both pass",
+    "Malformed identity and reference mutations fail deterministically",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L3_020"
+file = "test_L3_020_rust_schematic_bundle.py"
+name = "Rust Schematic Source Bundle"
+description = "Compare native named-source hierarchy and connectivity carriers with Python over the compiled-graph reference projects"
+concerns = ["rust", "schematic", "source_bundle", "hierarchy", "connectivity"]
+test_case_type = "corpus"
+
+[subtests.objectives]
+primary = "Native Rust realizes the same schematic definitions and occurrences from named project bytes"
+secondary = [
+    "Every schematic source is scanned once even when a page is placed repeatedly",
+    "Relative child references and inherited sheet policy are deterministic",
+    "All four compiled-graph reference projects pass through one native process",
+    "Wire, bus, bus-entry, junction, no-connect, and label carriers match Python",
+    "Wire components match Python on KiCad's 100-nm schematic grid",
+    "Shared decimal vectors fix exact ties-even and signed-IU boundary policy",
+    "Hierarchical sheet-pin name, shape, UUID, and position match Python",
+    "Placed-symbol source fields, policy, properties, and pin mappings match Python",
+    "Modern and legacy symbol instance paths plus variant overlays match Python",
+    "Effective per-occurrence symbol references, units, fields, and policy match Python",
+    "Top-schematic legacy records resolve distinct repeated child occurrences",
+    "Modern suffix compatibility and fallback resolution use bounded indexes rather than occurrence-by-instance scans",
+    "Compact modern-instance indexes enforce an aggregate per-source byte allowance at the exact boundary",
+    "Embedded library pins, active unit/style selection, and transformed occurrence terminals match Python",
+    "Typed bus aliases match Python and bounded native vector/group/alias expansion covers current KiCad syntax",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L3_021"
+file = "test_L3_021_render_cache_corpus.py"
+name = "Render Cache Corpus Audit"
+description = "Every corpus render_cache entry matches the kicad-cli save oracle through the Python reference pipeline"
+test_cases = "${KM_CORPUS_ROOT}/kicad"
+test_case_type = "oracle"
+concerns = ["rendering.text", "parity"]
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_render_cache"
+
+[subtests.objectives]
+primary = "Full repo-corpus render-cache closure against the KiCad save oracle"
+secondary = [
+    "Every oracle entry is covered by a collected request",
+    "Deduplicated corpus boards audited board-by-board",
+    "Polygon comparison at 0.002 mm tolerance",
+    "Empty-text objects carry polygon-less caches",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L3_023"
+file = "test_L3_023_native_svg_exit.py"
+name = "Native Base SVG Exit"
+description = "Require all frozen Plotter-IR documents, pinned SVG hashes or governed safety rejection, and exact resource ceilings through the real native serializer"
+concerns = ["rust", "contracts", "svg", "transport", "resource-limits"]
+test_case_type = "contract"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_native"
+
+[subtests.objectives]
+primary = "Every frozen Phase-5 document produces its pinned deterministic plotter-base-a0 SVG or the single governed negative-width safety rejection"
+secondary = [
+    "The 30-case manifest pins source-document hashes, 29 SVG hashes/tag counts, and one exact fail-closed negative-width outcome",
+    "Independent record, operation, point, text, image, block, element, work, SVG-byte, and result-byte ceilings accept exact and reject one-under",
+    "The old handshake remains closed while the expanded handshake advertises render-svg",
+    "TypeSpec, generated bindings, native transport contracts, and the frozen Phase-5 unions are rechecked before rendering",
+    "The native executable is explicitly built before snapshot generation on a clean tree",
+    "Cargo work is serialized at four jobs and two test threads",
+]
+
+[[subtests]]
+id = "L3_024"
+file = "test_L3_024_native_physical_provider.py"
+name = "Native Physical Provider Exit"
+description = "Require Cruncher's selected Windows PCB physical base to use the installed native serializer without a Python fallback"
+concerns = ["rust", "contracts", "svg", "cross-package", "release"]
+test_case_type = "release_acceptance"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_native"
+modules = [
+    "kicad_cruncher.kicad_cruncher_native_physical",
+    "kicad_cruncher.kicad_cruncher_pcb_svg_compositor",
+]
+
+[subtests.objectives]
+primary = "The promoted Windows Cruncher PCB physical base is serialized by kicad-monkey-native with no legacy retry"
+secondary = [
+    "The native nanometre viewport is normalized to Cruncher's millimetre canvas without changing the full-board origin",
+    "Layer, net, component, pad, via, and hole enrichment remains available to Cruncher theming and composition",
+    "Ordinary and custom pad mask views preserve enriched-renderer geometry with custom buffered points quantized within half a nanometre",
+    "Via drills are terminal enriched overlays and pad holes retain plating and shape identity",
+    "Repeated layer sets reuse one validated native artifact and the sequential per-board cache bounds roots, process launches, and retained native SVG bytes",
+    "Missing or malformed native results fail with zero calls to KiCadPcb.to_svg or render_ir_to_svg",
+    "PCB SVG and design-review trees stage every file before publication so later native failure leaves no partial artifacts",
+    "Cargo work is serialized at four jobs and two test threads",
+]
+
+[[subtests]]
+id = "L3_025"
+file = "test_L3_025_native_design_facts.py"
+name = "Native Design Facts Provider Exit"
+description = "Require source-bound native compiled-graph and version-E netlist facts in the selected Windows Cruncher design-review path"
+concerns = ["rust", "contracts", "connectivity", "cross-package", "release"]
+test_case_type = "release_acceptance"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_native"
+modules = [
+    "kicad_cruncher.kicad_cruncher_native_design",
+    "kicad_cruncher.kicad_cruncher_cmd_design",
+]
+
+[subtests.objectives]
+primary = "The promoted Windows design-review graph and version-E netlist come from one source-bound native result without a Python retry"
+secondary = [
+    "The A2 handshake and A1 request/result remain generated and preserve every accepted older native protocol",
+    "The native snapshot digest covers the exact current in-memory project and schematic bytes read through contained source slots",
+    "Netlist source, date, tool, UTF-8 byte count, SHA-256, and canonical top-level structure are validated before publication",
+    "Design JSON, the standalone graph, and schematic SVG linkage consume the same injected native graph while Design JSON and netlist JSON remain Python-owned",
+    "The four governed hierarchy projects retain exact compiled-graph and typed-netlist semantic parity",
+    "Provider failure performs zero Python graph or version-E writer retry and leaves no partial design-review tree",
+    "Cargo work is serialized at four jobs and two test threads",
+]
+
+[[subtests]]
+id = "L3_027"
+file = "test_L3_027_rust_phase6_exit.py"
+name = "Rust Phase 6 Windows Release Exit"
+description = "Require one hash-bound Windows x64 candidate set to pass the clean installed native Cruncher workflow without fallback"
+test_cases = "tests/corpus/kicad.archive.toml"
+test_case_type = "release_acceptance"
+concerns = ["rust", "contracts", "cli", "cross-package", "release", "provenance"]
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_native"
+modules = [
+    "kicad_cruncher._cli",
+    "kicad_cruncher.kicad_cruncher_cmd_design",
+    "kicad_cruncher.kicad_cruncher_native_physical",
+    "kicad_cruncher.kicad_cruncher_native_design",
+    "kicad_monkey.kicad_native",
+]
+
+[subtests.objectives]
+primary = "The exact Windows x64 Monkey and universal Cruncher release candidates pass the installed native-backed CLI contract and remain publishable unchanged"
+secondary = [
+    "P6_000 through P6_040 are closed prerequisites and the accepted native/CLI contracts remain frozen",
+    "KM_CORPUS is the exact content-addressed reviewed ZIP prerequisite and missing corpus or candidate artifacts fails rather than skips",
+    "Corpus semantic/oracle evidence is inherited from mandatory L3_023 and L3_025; L3_027 binds the ZIP hash and runs installed candidate smokes rather than rerendering the corpus",
+    "Every candidate sdist and wheel is contained, byte-counted, SHA-256 bound, and tied to the tested commit",
+    "The Windows Monkey wheel contains the package-owned native executable and the Cruncher wheel retains a public one-way Monkey dependency",
+    "Clean installed entry points select the wheel-owned native executable without an environment override or Python provider retry",
+    "Success, malformed input, provider failure, and transactional no-partial-output behavior remain governed by the composed installed test",
+    "Release publication consumes these exact tested files rather than rebuilding equivalents",
+]
+
+[[subtests]]
+id = "L3_026"
+file = "test_L3_026_native_full_cli.py"
+name = "Native-backed Cruncher CLI Compatibility Exit"
+description = "Require the installed Windows Cruncher entry points and design aliases to preserve their public CLI and artifact contract over mandatory native providers"
+concerns = ["rust", "contracts", "cli", "cross-package", "release"]
+test_case_type = "release_acceptance"
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_native"
+modules = [
+    "kicad_cruncher._cli",
+    "kicad_cruncher.kicad_cruncher_cmd_design",
+    "kicad_cruncher.kicad_cruncher_native_physical",
+    "kicad_cruncher.kicad_cruncher_native_design",
+    "kicad_monkey.kicad_native",
+]
+
+[subtests.objectives]
+primary = "The installed kicad-cruncher, kcr, and module entry points preserve the primary design alias workflow over mandatory Windows native providers"
+secondary = [
+    "The governed public command inventory and design arguments retain their help and parser behavior",
+    "Success, argparse misuse, input failures, and provider failures preserve their established exit status and stdout/stderr channels",
+    "All three design aliases publish the same strict manifest and complete artifact topology with exact native graph and version-E netlist provenance",
+    "Missing, incompatible, timed-out, malformed, or resource-rejected native results never retry through Python physical, graph, or version-E writers",
+    "Every failure preserves an existing destination and leaves no unpublished staging tree",
+    "The Monkey Windows wheel is rebuilt from its sdist and the universal Cruncher wheel retains a normal public kicad-monkey dependency without workspace paths",
+    "The installed two-wheel test runs with repository imports unavailable and verifies all three public entry mechanisms",
+    "Cargo work is serialized at four jobs and two test threads",
+]
+
+[[subtests]]
+id = "L3_022"
+file = "test_L3_022_rust_phase5_exit.py"
+name = "Rust Phase 5 Plotter-IR Exit"
+description = "Mandatory cross-producer vector, reviewed-corpus, live KiCad, and native cache acceptance"
+test_cases = "${KM_CORPUS_ROOT}/kicad"
+test_case_type = "release_acceptance"
+concerns = ["rust", "rendering", "rendering.text", "parity", "contracts", "release"]
+
+[subtests.code_under_test]
+module = "kicad_monkey.kicad_plotter_ir"
+modules = [
+    "kicad_monkey.kicad_footprint_to_ir",
+    "kicad_monkey.kicad_lib_symbol_to_ir",
+    "kicad_monkey.kicad_pcb_to_ir",
+    "kicad_monkey.kicad_schematic_to_ir",
+]
+
+[subtests.objectives]
+primary = "Footprint, symbol, board, and schematic native Plotter-IR close against governed Python and live KiCad authorities"
+secondary = [
+    "Every checked-in producer vector remains exact under the Python authority and strict generated decoder",
+    "Stable active manifest inputs under input/ produce nonempty strict documents for all four producers",
+    "KM_CORPUS must be a reviewed ZIP and missing corpus, fonts, Cargo, or KiCad capabilities fail rather than skip",
+    "KM_PHASE5_PRODUCERS and KM_PHASE5_PARTITION_INDEX/COUNT select deterministic source shards",
+    "The Phase 5 schema freeze, TypeSpec and generated bindings, vector generators, and native Rust codegen are checked directly",
+    "Selected producer-native semantic and resource test targets run explicitly under the four-job cap",
+    "The full Cargo format, check, Clippy, workspace test, doctest, rustdoc, and real wasm32 gates are mandatory",
+    "The existing Rust sexpr_corpus_gate accepts every selected manifest source with jobs capped at four",
+    "Broad 264-file corpus evidence is source/S-expression acceptance; exact producer parity remains the frozen vectors and four selected strict cases",
+    "The known Python Device__R multi-subsymbol record-local index drift is not represented as strict producer parity",
+    "PCB and schematic kicad-cli exporters produce valid SVG artifacts without claiming visual parity",
+    "A focused Arial board cache matches the live KiCad save oracle through the native carrier at 0.002 mm tolerance",
 ]

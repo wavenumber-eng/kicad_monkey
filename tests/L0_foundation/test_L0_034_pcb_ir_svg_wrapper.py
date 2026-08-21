@@ -661,6 +661,99 @@ def test_render_pcb_ir_to_svg_layer_filter_none_keeps_all():
     assert len(_filter_records_by_layer(doc.records, None)) == len(doc.records)
 
 
+def test_layer_filter_keeps_footprint_pad_blocks_balanced():
+    """Layer filtering removes Start/payload/End as one strict-contract unit."""
+
+    from kicad_monkey import pcb_to_ir
+    from kicad_monkey.kicad_pcb_ir_svg import _filter_records_by_layer
+
+    pcb = KiCadPcb.from_string(
+        """(kicad_pcb
+  (version 20240108)
+  (generator "pcbnew")
+  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (36 "B.SilkS" user))
+  (footprint "Fixture:BlockFilter"
+    (layer "F.Cu")
+    (at 10 10)
+    (fp_line (start 0 0) (end 1 0) (stroke (width 0.1) (type solid)) (layer "B.SilkS"))
+    (pad "1" thru_hole circle (at 0 0) (size 1 1) (drill 0.5) (layers "*.Cu" "*.Mask"))
+  )
+)
+"""
+    )
+    doc = pcb_to_ir(pcb)
+    filtered = _filter_records_by_layer(doc.records, ["F.Cu"])
+    footprint = next(record for record in filtered if record.kind == "footprint")
+    kinds = [str(operation.kind.value) for operation in footprint.operations]
+    assert len(kinds) % 3 == 0
+    assert all(
+        kinds[index] == "StartBlock" and kinds[index + 2] == "EndBlock"
+        for index in range(0, len(kinds), 3)
+    )
+    assert "FlashPadCircle" in kinds
+
+    silk_filtered = _filter_records_by_layer(doc.records, ["B.SilkS"])
+    silk_footprint = next(record for record in silk_filtered if record.kind == "footprint")
+    silk_kinds = [str(operation.kind.value) for operation in silk_footprint.operations]
+    assert silk_kinds == ["ThickSegment"]
+
+
+def test_layer_filter_retains_direct_npth_hole_without_looping():
+    from kicad_monkey.kicad_pcb_ir_svg import _filter_records_by_layer
+    from kicad_monkey.kicad_plotter_ir import (
+        KiCadPlotterOp,
+        KiCadPlotterOpKind,
+        KiCadPlotterRecord,
+    )
+
+    hole = KiCadPlotterOp(
+        kind=KiCadPlotterOpKind.CIRCLE,
+        payload={"role": "npth_hole", "layer": "B.Cu"},
+    )
+    record = KiCadPlotterRecord(
+        uuid="npth",
+        kind="fixture",
+        object_id="npth",
+        operations=[hole],
+    )
+    filtered = _filter_records_by_layer([record], ["F.Cu"])
+    assert filtered[0].operations == [hole]
+
+
+def test_layer_filter_keeps_zone_fill_layers_positionally_aligned():
+    from kicad_monkey.kicad_pcb_ir_svg import _filter_records_by_layer
+    from kicad_monkey.kicad_plotter_ir import (
+        KiCadPlotterOp,
+        KiCadPlotterOpKind,
+        KiCadPlotterRecord,
+    )
+
+    front = KiCadPlotterOp(
+        kind=KiCadPlotterOpKind.PLOT_POLY,
+        payload={"points": [[0, 0], [1, 0], [0, 1]], "fill": "FILLED_SHAPE"},
+    )
+    back = KiCadPlotterOp(
+        kind=KiCadPlotterOpKind.PLOT_POLY,
+        payload={"points": [[2, 0], [3, 0], [2, 1]], "fill": "FILLED_SHAPE"},
+    )
+    record = KiCadPlotterRecord(
+        uuid="zone-two-layer",
+        kind="zone",
+        object_id="zone-two-layer",
+        operations=[front, back],
+        extras={
+            "fill_layers": ["F.Cu", "B.Cu"],
+            "fill_island": ["front", "back"],
+        },
+    )
+
+    filtered = _filter_records_by_layer([record], ["B.Cu"])
+
+    assert filtered[0].operations == [back]
+    assert filtered[0].extras["fill_layers"] == ["B.Cu"]
+    assert filtered[0].extras["fill_island"] == ["back"]
+
+
 def test_render_pcb_ir_to_svg_layer_filter_via_keeps_for_any_layer_in_span():
     """Through-hole vias span multiple layers; selecting any one keeps the via."""
 

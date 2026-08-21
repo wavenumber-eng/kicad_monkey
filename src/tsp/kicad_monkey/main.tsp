@@ -1,0 +1,10 @@
+import "@typespec/json-schema";
+import "./sexpr-a0.tsp";
+import "./footprint-a0.tsp";
+import "./plotter-ir-a0.tsp";
+import "./schematic-plot-a0.tsp";
+import "./symbol-library-a0.tsp";
+import "./compiled-schematic-graph-a0.tsp";
+import "./source-bundle-a0.tsp";
+import "./font-text-a0.tsp";
+import "./native-transport-a0.tsp";

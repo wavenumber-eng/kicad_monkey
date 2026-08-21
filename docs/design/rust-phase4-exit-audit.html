@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 4 schematic compiler exit audit</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 4 schematic compiler exit audit</h1>
+
+  <p>Status: accepted after independent review of <code>bd168c7</code>. Phase 4
+  is complete. This audit evaluates the native schematic compiler boundary
+  only; plotter/text closure and the native <code>kicad-cruncher</code> command
+  remain later plan phases.</p>
+
+  <h2>Accepted project corpus</h2>
+  <p>The complete accepted Phase 4 project corpus is the following mandatory,
+  restored set. Rack <code>L3_020</code> resolves every case through the
+  package-local corpus manifest and fails rather than skips if a case is
+  unavailable.</p>
+  <ul>
+    <li><code>real_world/yoshi_mainboard</code></li>
+    <li><code>real_world/taillight</code></li>
+    <li><code>real_world/speedy_processing_module</code></li>
+    <li><code>real_world/jumperless_v5r7</code></li>
+  </ul>
+
+  <h2>Plan-bullet evidence</h2>
+  <table>
+    <thead>
+      <tr><th>Phase 4 obligation</th><th>Durable implementation and evidence</th><th>Disposition</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Project bundles, hierarchy discovery, occurrence realization, connectivity, and bus expansion</td>
+        <td><code>rust-source-bundle-phase4-slice.html</code> and
+        <code>rust-schematic-connectivity-phase4-slice.html</code>;
+        <code>schematic_bundle</code>, connectivity, bus, bus-connectivity,
+        design, and netlist Rust tests; complete Python differential in
+        Rack <code>L3_020</code>.</td>
+        <td>Closed</td>
+      </tr>
+      <tr>
+        <td>Compiled graph TypeSpec authority, deterministic identity allocator, validator, and compiler</td>
+        <td><code>rust-compiled-schematic-graph-phase4-contract.html</code> and
+        <code>rust-compiled-schematic-graph-phase4-native.html</code>;
+        generated contract tests, shared identity vectors, Rust
+        <code>compiled_graph_producer</code>/<code>compiled_graph_semantics</code>,
+        and Rack <code>L0_050</code>.</td>
+        <td>Closed</td>
+      </tr>
+      <tr>
+        <td>Native netlist model and serialization</td>
+        <td><code>rust-netlist-phase4-slice.html</code>;
+        <code>kicad_netlist</code> Rust tests and Rack <code>L3_020</code>
+        compare the governed version-E projection and parsed version-E output
+        against Python for all four accepted projects.</td>
+        <td>Closed for the explicitly governed version-E surface</td>
+      </tr>
+      <tr>
+        <td>Single-page, hierarchy, repeated-page, multipart, scalar/global/bus binding, DNP/off-board, and malformed cases</td>
+        <td>Source-bundle, effective-symbol, terminal, occurrence-local net,
+        scalar-design, bus-promotion, compiled-graph producer, and netlist
+        tests cover the positive cells. Shared semantic-failure vectors plus
+        Rust graph validation cover invalid identity, duplicate identity,
+        inverse ownership, reference closure, role payload, graphical target,
+        and hierarchy-cycle failures.</td>
+        <td>Closed</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Reader and writer closure</h2>
+  <table>
+    <thead>
+      <tr><th>Source family</th><th>Required evidence</th><th>Latest exit run</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Schematic</td>
+        <td>Rack <code>L1_032</code> requires every durable schematic, exact
+        owned write, equal reparsed typed state, stable second write,
+        transactional mutation, limits/I/O diagnostics, and Python mutation
+        semantics. The accepted exit run also used an installed
+        schematic-capable KiCad CLI oracle; ongoing L1_032 CLI coverage is
+        optional when no capable executable is available.</td>
+        <td>5 passed</td>
+      </tr>
+      <tr>
+        <td>Standalone symbol library</td>
+        <td>Rack <code>L1_028</code> and <code>symbol_library_typed_slice</code>
+        cover every promoted summary field, exact source preservation,
+        replacement/insertion, semantic reparse, stable second write,
+        ambiguity, and resource failure. A complete owned graphical symbol
+        model is not promoted by Phase 4 and is not implied by this gate.</td>
+        <td>2 Rack tests and 4 focused Rust tests passed</td>
+      </tr>
+      <tr>
+        <td>Worksheet</td>
+        <td>Rack <code>L1_033</code> compares all five durable modern/legacy
+        worksheets with Python, requires exact first and stable second writes,
+        and covers bounded mutation, bitmap variants, and I/O failures.</td>
+        <td>3 passed</td>
+      </tr>
+      <tr>
+        <td>Project</td>
+        <td>Rack <code>L1_034</code> requires all 217 restored project files,
+        exact writes, stable canonical writes, full canonical hash parity,
+        promoted typed fields, direct Python mutation parity, and resource/I/O
+        failures.</td>
+        <td>3 passed</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Exit-gate result</h2>
+  <p>Rack <code>L3_020</code> compares the entire generated a0 compiled graph
+  exactly with Python for each accepted project. It separately compares the
+  documented version-E netlist projection exactly and compares emitted KiCad
+  netlists as parsed semantic trees. Synthetic cases add alias-only and
+  reordered bus boundaries, distinct UUID-less sheet-pin identities, and
+  project-controlled multipart naming.</p>
+
+  <p>No native schematic, standalone symbol-library, worksheet, project, or
+  malformed compiled-graph cell identified by the Phase 4 plan remains open.
+  Text shaping/outlining, schematic and PCB plotter-IR closure, complete native
+  command packaging, and downstream interchange models are explicitly owned
+  by later plan steps and do not widen this exit gate.</p>
+</body>
+</html>

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import os
+import zipfile
 from pathlib import Path
+from pathlib import PurePosixPath
 
 import pytest
 
 from kicad_monkey.testing.corpus import (
+    CORPUS_ARCHIVE_ENV,
+    DEFAULT_CORPUS_ARCHIVE,
     get_kicad_corpus_case,
     get_kicad_corpus_root,
     load_kicad_corpus_manifest,
@@ -14,33 +19,32 @@ from kicad_monkey.testing.corpus import (
 )
 
 _DEBRIS_FILE_NAMES = {".DS_Store", "Thumbs.db", "fp-info-cache"}
-_DEBRIS_SUFFIXES = {".bak", ".lck", ".log", ".tmp", ".zip"}
-_DEBRIS_DIR_NAMES = {".git", ".history", ".pytest_cache", "__pycache__", "review", "review_tmp"}
-
-# Directories holding regenerable test products. Tests write here at runtime
-# (manifest cases declare ``output_root``; netlist oracles stage project
-# copies under ``_stage``), so their presence is not corpus debris; the
-# corpus zip build excludes them when shipping fixtures.
-_RUNTIME_PRODUCT_DIR_NAMES = {"_stage", "output"}
-
-# kicad-cli regenerates a .kicad_prl beside every board/project it touches,
-# so L3 oracle runs recreate them at runtime even in a fresh corpus unpack.
-# They are runtime products, not corpus debris; the zip build still excludes
-# them from shipped fixtures.
-_RUNTIME_PRODUCT_SUFFIXES = {".kicad_prl"}
+_DEBRIS_SUFFIXES = {".bak", ".kicad_prl", ".lck", ".log", ".tmp", ".zip"}
+_DEBRIS_DIR_NAMES = {
+    ".git",
+    ".history",
+    ".pytest_cache",
+    "__pycache__",
+    "_stage",
+    "output",
+    "review",
+    "review_tmp",
+}
 
 
 def _is_debris(path: Path) -> bool:
-    if any(part in _RUNTIME_PRODUCT_DIR_NAMES for part in path.parts):
-        return False
-    if path.suffix.lower() in _RUNTIME_PRODUCT_SUFFIXES:
-        return False
-    if path.is_dir():
-        return path.name in _DEBRIS_DIR_NAMES or path.name.lower().endswith("-backups")
-    name = path.name.lower()
+    return _is_debris_name(path.name, is_dir=path.is_dir())
+
+
+def _is_debris_name(name_value: str, *, is_dir: bool) -> bool:
+    if is_dir:
+        return name_value in _DEBRIS_DIR_NAMES or name_value.lower().endswith(
+            "-backups"
+        )
+    name = name_value.lower()
     return (
-        path.name in _DEBRIS_FILE_NAMES
-        or path.suffix.lower() in _DEBRIS_SUFFIXES
+        name_value in _DEBRIS_FILE_NAMES
+        or PurePosixPath(name_value).suffix.lower() in _DEBRIS_SUFFIXES
         or name.startswith("~")
         and name.endswith((".kicad_pro.lck", ".kicad_prl.lck"))
     )
@@ -100,12 +104,26 @@ def test_normalized_input_roots_are_clean():
 
 def test_corpus_tree_has_no_editor_or_backup_debris():
     _manifest()
-    root = get_kicad_corpus_root()
-    offenders = [
-        path.relative_to(root).as_posix()
-        for path in root.rglob("*")
-        if _is_debris(path)
-    ]
+    configured = os.environ.get(CORPUS_ARCHIVE_ENV)
+    carrier = Path(configured).expanduser() if configured else DEFAULT_CORPUS_ARCHIVE
+    if carrier.is_file():
+        with zipfile.ZipFile(carrier) as archive:
+            offenders = []
+            for member in archive.infolist():
+                relative = PurePosixPath(member.filename.rstrip("/"))
+                if (
+                    len(relative.parts) > 1
+                    and relative.parts[0] == "kicad"
+                    and _is_debris_name(relative.name, is_dir=member.is_dir())
+                ):
+                    offenders.append(PurePosixPath(*relative.parts[1:]).as_posix())
+    else:
+        root = get_kicad_corpus_root()
+        offenders = [
+            path.relative_to(root).as_posix()
+            for path in root.rglob("*")
+            if _is_debris(path)
+        ]
     assert not offenders, "generated/editor debris found in corpus:\n" + "\n".join(offenders[:50])
 
 

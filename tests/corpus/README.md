@@ -2,7 +2,7 @@
 
 This directory carries the public KiCad test corpus so the public repository
 can run corpus-backed tests without depending on a machine-local
-`WN_TEST_CORPUS`.
+fixture checkout.
 
 The public archive form is `kicad.zip`. It is restored locally and ignored by
 Git; only `kicad.archive.toml` is tracked. The archive contains a top-level
@@ -17,10 +17,13 @@ tests/corpus/kicad.zip
 key. CI restores the real archive from the public URL recorded in that manifest,
 then verifies it before any tests extract or use the corpus.
 
-For local review, the unpacked mirror may exist at `tests/corpus/kicad/`; that
-directory is gitignored. Tests prefer the loose mirror when present. Otherwise
-`tests/_suite_paths.py` extracts `kicad.zip` to `tests/corpus/.unpacked/` and
-uses that path as the default `WN_TEST_CORPUS`.
+Tests use the ZIP even when a loose authoring mirror exists. The shared corpus
+resolver verifies the package archive manifest, hashes the selected ZIP, and
+extracts it to an immutable content-addressed directory under
+`tests/corpus/.unpacked/`. That directory is published internally as
+`KM_CORPUS_ROOT`. `KM_CORPUS` may select another reviewed ZIP. For fixture
+maintenance only, it may instead explicitly name a writable directory
+containing `kicad/`; there is no implicit loose-tree fallback.
 
 Source snapshot:
 
@@ -28,10 +31,8 @@ Source snapshot:
 - Excluded generated/local-only directories: `output`, `review`,
   `review_tmp`, `.git`, `.history`
 - Preserved oracle/reference directories such as `reference_output`
-- Generated visual-review artifacts are written under each case's
-  `output/<domain>/` folder, for example `projects/<name>/output/board_svg/`.
-  These files are local review outputs and are not part of the tracked corpus
-  archive.
+- Generated visual-review artifacts are written under the owning test
+  stratum's ignored `output/` tree, never into the extracted archive cache.
 - Real-world `projects/*_assembly` entries are assembly-procedure
   documentation projects. Their PCB files are intentionally empty/header-only,
   so they are schematic SVG/IR fixtures rather than `board_svg` review cases.
@@ -39,9 +40,11 @@ Source snapshot:
 Archive SOP:
 
 ```powershell
+uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
 uv run --extra test python scripts/package_kicad_corpus.py
-uv run --extra test python scripts/kicad_corpus_archive.py verify
+uv run --extra test python scripts/kicad_corpus_archive.py verify --check-zip
 uv run --extra test python scripts/package_kicad_corpus.py --check
+uv run --extra test python tests/rack.py run L1_029
 uv run --extra test python tests/rack.py run L99_signoff
 ```
 

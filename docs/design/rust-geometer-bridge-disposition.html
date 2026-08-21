@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Geometer bridge-entry disposition</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Geometer bridge-entry disposition</h1>
+
+  <p>Status: proposal. This document resolves the conditional Geometer
+  bridge-entry gate (plan step <code>geometer-bridge-entry</code>, strategy
+  section 7.6) by <strong>explicit deferral</strong>. It records the required
+  inventory of Python polygon-kernel operations, maps each to its port-scope
+  classification, and states the concrete conditions that reopen the gate as
+  a promotion.</p>
+
+  <h2>Decision</h2>
+  <p>No bridge is implemented now. No currently promoted native operation
+  requires a generalized planar boolean/offset/cleanup/triangulation kernel.
+  The one geometry workload closed during the render-cache work &mdash; text
+  glyph hole fracture and Clipper2-compatible simplification &mdash; was
+  delivered as the small tested native module
+  <code>src/rs/kicad-monkey-core/src/text_topology.rs</code>, which is the
+  outcome section 7.6 explicitly allows when no boolean kernel is needed.
+  The parity registry records the deferral as surface
+  <code>geometry.planar_kernel_bridge</code> with disposition
+  <code>deferred_geometer_service</code>; the native release claims no parity
+  for a generic planar kernel surface.</p>
+
+  <h2>Inventory: Python polygon-kernel operations</h2>
+  <table>
+    <thead>
+      <tr><th>Operation</th><th>Module</th><th>Kernel used</th>
+          <th>Port-scope classification</th><th>Geometer capability if promoted</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Zone refill: boolean add/subtract/intersect/xor, inflate/deflate,
+        morphological opening for minimum-width enforcement, thermal reliefs,
+        clearance holes</td>
+        <td><code>kicad_zone_filler.py</code>, <code>kicad_zone_utils.py</code></td>
+        <td><code>pyclipr</code> (Clipper2 binding; optional import, not a
+        declared dependency, and no repo consumer or test imports either
+        module)</td>
+        <td>Zone refill/recalculation: deferred &mdash; the port consumes
+        authored <code>filled_polygon</code> records
+        (<code>zone_filled_polygon_to_op</code>)</td>
+        <td>Batch boolean + offset; the main workload that would justify the
+        bridge if refill is ever promoted</td>
+      </tr>
+      <tr>
+        <td>Knockout text from render caches (compound polygon: margin
+        rectangle plus glyph contours under <code>evenodd</code>)</td>
+        <td><code>kicad_pcb_to_ir.py</code>
+        <code>_apply_knockout_to_text_op</code></td>
+        <td>None &mdash; bbox arithmetic and contour coalescing only</td>
+        <td>Promoted plotter-IR path</td>
+        <td>None</td>
+      </tr>
+      <tr>
+        <td>Synthetic knockout for text boxes without a render cache: union of
+        stroke-segment polygons, simplify, border-rectangle round-join buffer</td>
+        <td><code>kicad_pcb_to_ir.py</code>
+        <code>_apply_synthetic_knockout_to_text_box_op</code></td>
+        <td>Shapely <code>unary_union</code>/<code>buffer</code>/<code>simplify</code>
+        behind a guarded import (returns the op unchanged without Shapely)</td>
+        <td>Fallback path; native disposition decided at
+        <code>phase5-plotter-ir</code> entry</td>
+        <td>Union + offset (small, bounded input)</td>
+      </tr>
+      <tr>
+        <td>Custom pad acceptance rings: per-ring width buffer, anchor-shape
+        union, solder-mask margin inflate</td>
+        <td><code>kicad_ir_to_svg.py</code> <code>_custom_pad_rings</code>,
+        <code>_custom_pad_cli_rings</code>, <code>_custom_pad_anchor_geometry</code></td>
+        <td>Shapely <code>buffer</code>/<code>unary_union</code> behind guarded
+        imports with ring fallbacks</td>
+        <td>SVG acceptance-rendering path; native disposition decided at
+        <code>phase5-plotter-ir</code> entry</td>
+        <td>Union + offset (small, bounded input)</td>
+      </tr>
+      <tr>
+        <td>Convex-hull footprint filters and related helpers</td>
+        <td><code>kicad_filter_footprint.py</code></td>
+        <td>Shapely</td>
+        <td>Python-only/deferred per the port-scope table</td>
+        <td>Not applicable</td>
+      </tr>
+      <tr>
+        <td>Text glyph hole fracture and Clipper2-compatible simplify for
+        render caches</td>
+        <td><code>kicad_render_cache.py</code></td>
+        <td>None &mdash; ported natively
+        (<code>text_topology.rs</code>, closed under
+        <code>render-cache-parity</code> with full repo-corpus closure pinned
+        by rack L3_021)</td>
+        <td>Promoted and closed</td>
+        <td>None</td>
+      </tr>
+      <tr>
+        <td>Mesh loading, STEP handling, debug viewers</td>
+        <td>Trimesh-based helpers</td>
+        <td>Trimesh</td>
+        <td>Python-only/deferred per the port-scope table</td>
+        <td>Not applicable</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Re-entry conditions</h2>
+  <p>The gate reopens as a promotion when a promoted operation actually needs
+  a generic kernel &mdash; the expected candidates are the two Shapely
+  touchpoints above if <code>phase5-plotter-ir</code> promotes them, or zone
+  refill if it is ever reclassified. Promotion then follows section 7.6 in
+  full before any bridge work:</p>
+  <ol>
+    <li>map the promoted operation to an existing Geometer capability;</li>
+    <li>consume Geometer's generated, versioned TypeSpec request/result
+    projections once promoted upstream &mdash; pin contract version and test
+    vectors, publish no private duplicate contract here;</li>
+    <li>add a parity-registry bridge-entry record naming operation, owner,
+    upstream contract/version, execution modes, vectors, and resource
+    budget;</li>
+    <li>cover process version/ABI negotiation, executable discovery, timeouts
+    and cancellation, crash/exit/stderr mapping, request/result limits, and
+    deterministic error translation in the adapter design;</li>
+    <li>keep the adapter in a sibling optional crate, never
+    <code>kicad-monkey-core</code>, with board/net/render policy in the
+    caller.</li>
+  </ol>
+
+  <p>Small bounded KiCad-specific geometry (curve tessellation, shape
+  conversion, the existing text topology module) remains in focused native
+  modules and does not constitute kernel promotion.</p>
+</body>
+</html>

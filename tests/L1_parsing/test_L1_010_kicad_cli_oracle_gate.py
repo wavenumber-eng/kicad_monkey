@@ -14,18 +14,19 @@ Skips entirely if no `kicad-cli` is resolvable on this machine.
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
+from _suite_paths import TEST_CORPUS_ROOT
 from kicad_cli_resolver import resolve_kicad_cli
 from kicad_monkey import KiCadSchematic, KiCadSymbolLib
 
 try:
     from kicad_monkey.kicad_pcb import KiCadPcb
+
     HAVE_PCB = True
 except Exception:
     HAVE_PCB = False
@@ -51,20 +52,13 @@ def _stage_file_with_siblings(src: Path, stage: Path) -> Path:
 # Corpus root resolution
 # ---------------------------------------------------------------------------
 
-_PACKAGE_CORPUS = Path(__file__).resolve().parents[1] / "corpus"
+_PACKAGE_CORPUS = TEST_CORPUS_ROOT
 
 
 def _find_fixture(rel: str) -> Path | None:
-    """Look up a fixture under ``$WN_TEST_CORPUS`` or the package corpus."""
-    candidates: list[Path] = []
-    env = os.environ.get("WN_TEST_CORPUS")
-    if env:
-        candidates.append(Path(env) / rel)
-    candidates.append(_PACKAGE_CORPUS / rel)
-    for p in candidates:
-        if p.is_file():
-            return p
-    return None
+    """Look up a fixture in the resolved ``KM_CORPUS`` archive."""
+    candidate = _PACKAGE_CORPUS / rel
+    return candidate if candidate.is_file() else None
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +144,7 @@ def _our_emit(path: Path) -> str:
         if hasattr(pcb, "to_text"):
             return pcb.to_text()
         from kicad_monkey import build_sexp  # type: ignore
+
         return build_sexp(pcb.to_sexp())
     raise ValueError(f"Unsupported file kind: {suffix}")
 
@@ -177,7 +172,7 @@ def test_kicad_cli_accepts_emitted(
     ``kicad-cli * upgrade --force`` returns 0."""
     src = _find_fixture(rel)
     if src is None:
-        pytest.skip(f"fixture {rel!r} not found in $WN_TEST_CORPUS or package corpus")
+        pytest.skip(f"fixture {rel!r} not found in the resolved $KM_CORPUS archive")
 
     # Stage the source's parent directory (siblings — `.kicad_pro`, `sym-lib-table`, etc.).
     stage = tmp_path / "ours"
@@ -220,7 +215,7 @@ def test_kicad_cli_accepts_unfilled_copper_zone(
     )
     src = _find_fixture(rel)
     if src is None:
-        pytest.skip(f"fixture {rel!r} not found in $WN_TEST_CORPUS or package corpus")
+        pytest.skip(f"fixture {rel!r} not found in the resolved $KM_CORPUS archive")
 
     pcb = KiCadPcb.from_file(src)
     copper_zones = [zone for zone in pcb.zones if zone.keepout is None]

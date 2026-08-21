@@ -1,6 +1,6 @@
 """L3 oracle parity — project-rooted (Phase G Slice N-10).
 
-For every ``.kicad_pro`` under ``$WN_TEST_CORPUS/kicad/projects/``,
+For every ``.kicad_pro`` under the resolved ``$KM_CORPUS`` projects tree,
 load via :class:`KiCadDesign` and structurally compare our compiled
 netlist against ``kicad-cli sch export netlist --format kicadsexpr``
 on the project's top schematic.
@@ -19,19 +19,16 @@ terminal set. Cases that exercise compiler gaps already documented in
 ``KNOWN_GAPS`` are marked ``xfail(strict=False)``.
 
 Gated by:
-* a kicad-cli binary resolvable via ``$KICAD_CLI`` /
-  ``$WN_TEST_CORPUS/tools/kicad-cli/<hash>/bin/kicad-cli.exe`` /
-  installed KiCad. Resolution mirrors ``oracle_diff.py::_resolve_cli``.
-* the corpus root being present (env ``WN_TEST_CORPUS`` or package-local
-  corpus).
+* a kicad-cli binary resolvable via ``$KICAD_CLI``,
+  ``$KICAD_CLI_CACHE_ROOT``, or installed KiCad.
+* the resolved ``KM_CORPUS`` archive containing project fixtures.
 
 Run cost: one ``kicad-cli`` invocation per project (cached on disk
-between sessions under ``<corpus>/kicad/netlist/reference_output/<stem>.net``).
+between sessions under this stratum's ignored ``output/`` tree).
 """
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import subprocess
@@ -39,6 +36,7 @@ from pathlib import Path
 
 import pytest
 
+from _suite_paths import TEST_CORPUS_ROOT
 from kicad_cli_resolver import resolve_kicad_cli
 from kicad_monkey import (
     KiCadDesign,
@@ -55,15 +53,9 @@ from kicad_monkey import (
 
 
 def _resolve_corpus() -> Path | None:
-    env = os.environ.get("WN_TEST_CORPUS")
-    candidates: list[Path] = []
-    if env:
-        candidates.append(Path(env))
-    candidates.append(Path(__file__).resolve().parents[1] / "corpus")
-    for cand in candidates:
-        if (cand / "kicad" / "projects").is_dir():
-            return cand
-    return None
+    return (
+        TEST_CORPUS_ROOT if (TEST_CORPUS_ROOT / "kicad" / "projects").is_dir() else None
+    )
 
 
 def _resolve_cli() -> Path | None:
@@ -74,11 +66,7 @@ def _resolve_cli() -> Path | None:
 _CORPUS = _resolve_corpus()
 _CLI = _resolve_cli()
 _PROJECTS_DIR = (_CORPUS / "kicad" / "projects") if _CORPUS is not None else None
-_REF_OUTPUT_DIR = (
-    _CORPUS / "kicad" / "netlist" / "reference_output"
-    if _CORPUS is not None
-    else None
-)
+_REF_OUTPUT_DIR = Path(__file__).parent / "output" / "netlist_kicad_cli_oracle"
 _STAGE_SKIP_NAMES = {".git", ".history", "_stage", "output", "reference_output"}
 
 
@@ -103,7 +91,11 @@ def _manifest_real_world_projects() -> list[Path]:
             required=False,
         ):
             pro = resolve_kicad_manifest_path(case, "project_file")
-            if pro is not None and pro.is_file() and _find_top_schematic(pro) is not None:
+            if (
+                pro is not None
+                and pro.is_file()
+                and _find_top_schematic(pro) is not None
+            ):
                 out.append(pro)
         return sorted(out)
     except Exception:
@@ -115,7 +107,8 @@ def _manifest_real_world_projects() -> list[Path]:
 # but our oracle has nothing to render).
 CASES: list[Path] = _manifest_real_world_projects() or (
     sorted(
-        p for p in _PROJECTS_DIR.rglob("*.kicad_pro")
+        p
+        for p in _PROJECTS_DIR.rglob("*.kicad_pro")
         if _find_top_schematic(p) is not None
     )
     if _PROJECTS_DIR
@@ -201,9 +194,14 @@ def _emit_golden(pro: Path, *, cli: Path, dest_dir: Path) -> Path:
     staged_sch = stage / sch.name
     proc = subprocess.run(
         [
-            str(cli), "sch", "export", "netlist",
-            "--format", "kicadsexpr",
-            "--output", str(out_path),
+            str(cli),
+            "sch",
+            "export",
+            "netlist",
+            "--format",
+            "kicadsexpr",
+            "--output",
+            str(out_path),
             str(staged_sch),
         ],
         capture_output=True,
@@ -211,7 +209,9 @@ def _emit_golden(pro: Path, *, cli: Path, dest_dir: Path) -> Path:
     )
     if proc.returncode != 0:
         msg = (proc.stdout or "") + (proc.stderr or "")
-        raise RuntimeError(f"kicad-cli netlist export failed for {pro.name}: {msg.strip()}")
+        raise RuntimeError(
+            f"kicad-cli netlist export failed for {pro.name}: {msg.strip()}"
+        )
     return out_path
 
 
@@ -298,11 +298,14 @@ def _component_metadata_rows(export_sexp) -> dict[tuple[str, str, str], tuple]:
             ("datasheet", _child_text(comp, "datasheet")),
             ("description", _child_text(comp, "description")),
             ("fields", _field_rows(comp)),
-            ("libsource", (
-                _child_text(libsource, "lib"),
-                _child_text(libsource, "part"),
-                _child_text(libsource, "description"),
-            )),
+            (
+                "libsource",
+                (
+                    _child_text(libsource, "lib"),
+                    _child_text(libsource, "part"),
+                    _child_text(libsource, "description"),
+                ),
+            ),
             ("properties", _property_rows(comp)),
             ("tstamps", _tstamp_rows(comp)),
             ("units", _unit_rows(comp)),
@@ -317,8 +320,7 @@ def _format_component_metadata_diff(
     missing = sorted(set(golden) - set(ours))
     extra = sorted(set(ours) - set(golden))
     changed = [
-        key for key in sorted(set(ours) & set(golden))
-        if ours[key] != golden[key]
+        key for key in sorted(set(ours) & set(golden)) if ours[key] != golden[key]
     ]
     lines = [
         f"  missing component rows: {missing[:10]}",
@@ -401,8 +403,10 @@ def _load_export(text: str):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(_CORPUS is None, reason="WN_TEST_CORPUS kicad/projects not present")
-@pytest.mark.skipif(_CLI is None, reason="kicad-cli not resolvable; set $KICAD_CLI or stage one")
+@pytest.mark.skipif(_CORPUS is None, reason="KM_CORPUS kicad/projects not present")
+@pytest.mark.skipif(
+    _CLI is None, reason="kicad-cli not resolvable; set $KICAD_CLI or stage one"
+)
 @pytest.mark.parametrize("pro", CASES, ids=lambda p: p.stem)
 def test_netlist_matches_kicad_cli_oracle(pro: Path, request):
     stem = pro.stem
@@ -411,7 +415,7 @@ def test_netlist_matches_kicad_cli_oracle(pro: Path, request):
             pytest.mark.xfail(reason=KNOWN_GAPS[stem], strict=False)
         )
 
-    assert _CLI is not None and _REF_OUTPUT_DIR is not None  # for type-checker
+    assert _CLI is not None
     golden_path = _emit_golden(pro, cli=_CLI, dest_dir=_REF_OUTPUT_DIR)
     golden_text = golden_path.read_text(encoding="utf-8")
 
@@ -463,8 +467,10 @@ def test_netlist_matches_kicad_cli_oracle(pro: Path, request):
         )
 
 
-@pytest.mark.skipif(_CORPUS is None, reason="WN_TEST_CORPUS kicad/projects not present")
-@pytest.mark.skipif(_CLI is None, reason="kicad-cli not resolvable; set $KICAD_CLI or stage one")
+@pytest.mark.skipif(_CORPUS is None, reason="KM_CORPUS kicad/projects not present")
+@pytest.mark.skipif(
+    _CLI is None, reason="kicad-cli not resolvable; set $KICAD_CLI or stage one"
+)
 @pytest.mark.parametrize("pro", CASES, ids=lambda p: p.stem)
 def test_component_metadata_matches_kicad_cli_oracle(pro: Path, request):
     stem = pro.stem
@@ -476,7 +482,7 @@ def test_component_metadata_matches_kicad_cli_oracle(pro: Path, request):
             )
         )
 
-    assert _CLI is not None and _REF_OUTPUT_DIR is not None  # for type-checker
+    assert _CLI is not None
     golden_path = _emit_golden(pro, cli=_CLI, dest_dir=_REF_OUTPUT_DIR)
     golden_text = golden_path.read_text(encoding="utf-8")
 

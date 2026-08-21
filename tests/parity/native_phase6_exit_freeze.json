@@ -1,0 +1,28 @@
+{
+  "schema": "kicad_monkey.native_phase6_exit_freeze.v1",
+  "artifacts": [
+    {"path": "contracts/generated/schema/NativeDesignFactsRequest.json", "canonical_sha256": "213ed2b1d55148791e31f5647746e4b863b07089a4b6ca599e21acad0812042c"},
+    {"path": "contracts/generated/schema/NativeDesignFactsRequestA1.json", "canonical_sha256": "8ebe5e06adccab97ac7dd0426881c17f0a51bcd260be430b10bdab45296c11da"},
+    {"path": "contracts/generated/schema/NativeDesignFactsResult.json", "canonical_sha256": "0158950289c63360116e5bbeea080e400c95a0f7d47c36ce8a9a8055f455a9bb"},
+    {"path": "contracts/generated/schema/NativeDesignFactsResultA1.json", "canonical_sha256": "84db24b07c3db71e88fe31797e7ec76247ea6fcf7aa79f2d0f707360ab79c1d5"},
+    {"path": "contracts/generated/schema/NativeError.json", "canonical_sha256": "a460c8dda60ab78662c9ac2f443f0ffeaacc365f8580fefe1a800380bd0e85c5"},
+    {"path": "contracts/generated/schema/NativeHandshake.json", "canonical_sha256": "8c2a7b1655047da9b56049593e4797f3f9da1d009412674438b407e59a735945"},
+    {"path": "contracts/generated/schema/NativeHandshakeA1.json", "canonical_sha256": "ea08ddebbef8b711fdc9c83766483550d0cdec57f80f6230c6c68a1994b7b628"},
+    {"path": "contracts/generated/schema/NativeHandshakeA2.json", "canonical_sha256": "f6500249e65592cfc7eb2e252780ff651917922ce7d330d9aec9d043ede30eff"},
+    {"path": "contracts/generated/schema/NativeSvgRenderRequest.json", "canonical_sha256": "4a3ba624fc1b605e15c3ee6ebb04d18bb95dc7a5372243676caee425fcc59b50"},
+    {"path": "contracts/generated/schema/NativeSvgRenderResult.json", "canonical_sha256": "c894054f12b4deee69571cc675bf78f7cdf914e8eabf368c411e5fd9642f73e8"},
+    {"path": "contracts/generated/schema/SourceBundleManifest.json", "canonical_sha256": "fe1b0438d72a9aad318ecde45f656543a87768a1da9916e1244648ff8f53d1f4"},
+    {"path": "contracts/generated/schema/CompiledSchematicGraph.json", "canonical_sha256": "54f03c938ccab2b704e0bb61b729427c8fb9cbfa089b1a4a79130b38092a9d5f"},
+    {"path": "packages/kicad_cruncher/docs/contracts/command_manifest.a0.json", "canonical_sha256": "b3a714798cd81de67ebc32b267ff1995db488f67f9c6c624c6057ddee547de1d"},
+    {"path": "packages/kicad_cruncher/docs/contracts/design_review_manifest.a0.schema.json", "canonical_sha256": "ecb8525e8a498f175605367fff22b878901b32e20850a14f636005923536a60c"}
+  ],
+  "handshakes": [
+    {"path": "contracts/generated/schema/NativeHandshake.json", "operations": ["design-facts"]},
+    {"path": "contracts/generated/schema/NativeHandshakeA1.json", "operations": ["design-facts", "render-svg"]},
+    {"path": "contracts/generated/schema/NativeHandshakeA2.json", "operations": ["design-facts", "render-svg", "design-facts-a1"]}
+  ],
+  "phase5_freeze": {
+    "path": "tests/parity/plotter_ir_phase5_freeze.json",
+    "canonical_sha256": "edaa251da0e07acf60d331f1d61b89ac87cfc87112c24ce306b8f2a29d9e0d95"
+  }
+}

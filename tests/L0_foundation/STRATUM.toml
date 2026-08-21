@@ -81,3 +81,369 @@ module = "kicad_monkey.kicad_stroke_font"
 
 [subtests.objectives]
 primary = "The complete U+0020 through U+2BFF Newstroke range decodes without changing legacy glyphs"
+
+[[subtests]]
+id = "L0_044"
+file = "test_L0_044_rust_sexpr_core.py"
+name = "Rust L0 Workspace Tests"
+description = "Run the locked Rust core, generated-contract, and adapter unit tests through Rack"
+concerns = ["sexpr", "contracts", "wasm"]
+test_case_type = "algorithmic"
+
+[subtests.objectives]
+primary = "All native Rust L0 workspace tests pass under Rack"
+secondary = [
+    "Lexer tokens borrow exact source ranges and report byte offsets",
+    "Parse -> build -> parse is semantically equal",
+    "Deterministic output is stable on the second write",
+    "Malformed and resource-limited input fails with structured diagnostics",
+]
+
+[[subtests]]
+id = "L0_045"
+file = "test_L0_045_sexpr_cross_language_vectors.py"
+name = "Cross-Language S-Expression Vectors"
+description = "Require Python and Rust to consume one language-neutral parser/build vector set"
+concerns = ["sexpr"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Python and Rust agree on canonical build output and diagnostic phase for the first parser slice"
+secondary = [
+    "Stable case IDs identify every parity vector",
+    "Successful cases are semantically stable on the second write",
+    "Failure cases preserve lex/tree phase and message family",
+]
+
+[[subtests]]
+id = "L0_046"
+file = "test_L0_046_rust_l0_signoff.py"
+name = "Rust L0 Signoff"
+description = "Use Rack to close parity registry, TypeSpec generation, structural Rust hygiene, quality, and real WASM smoke gates"
+concerns = ["sexpr", "contracts", "wasm"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Every required Rust L0 surface has evidence and all generated/native/WASM checks are clean"
+secondary = [
+    "TypeSpec JSON Schema and generated Rust projections are reproducible",
+    "Cargo formatting, checking, and Clippy pass with warnings denied",
+    "wn-dev-std Tree-sitter hygiene prevents new parameter, size, complexity, and nesting debt",
+    "The WASM target executes a byte-input/byte-output smoke test under Node",
+]
+
+[[subtests]]
+id = "L0_047"
+file = "test_L0_047_rust_sexpr_performance.py"
+name = "Rust S-Expression Performance Evidence"
+description = "Advisory strict-lane measurement of release Rust and Python on one frozen synthetic parser workload"
+concerns = ["sexpr", "performance"]
+test_case_type = "benchmark"
+
+[subtests.objectives]
+primary = "Rack emits reproducible scan, parse, and build evidence before threshold ratification"
+secondary = [
+    "The benchmark skips in ordinary fast/full development runs",
+    "Python and Rust process byte-identical generated input",
+    "Selected form count and deterministic output size agree",
+    "Thresholds remain explicitly pending the L0 architecture review",
+]
+
+[[subtests]]
+id = "L0_048"
+file = "test_L0_048_rust_build_contract.py"
+name = "Rust Semantic Build Contract"
+description = "Require TypeSpec limits, semantic node-union validation, bounded output, and executable WASM build bytes"
+concerns = ["sexpr", "contracts", "wasm"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "The public build operation accepts only semantically valid bounded generic trees"
+secondary = [
+    "Node kind and payload are exclusive",
+    "Depth, node count, integer range, and output size fail closed",
+    "Native and actual Node-hosted WASM tests execute the same validator path",
+]
+
+[[subtests]]
+id = "L0_049"
+file = "test_L0_049_generated_contract_projections.py"
+name = "Generated Python and TypeScript Contract Projections"
+description = "Require strict, reproducible consumer projections from TypeSpec-owned schemas"
+concerns = ["contracts", "python", "typescript"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Python and TypeScript transport bindings are generated, strict, current, and usable by consumers"
+secondary = [
+    "Python msgspec decoding rejects unknown fields and preserves wire names",
+    "TypeScript declarations compile under strict consumer settings",
+    "Regeneration checks reject hand-edited or stale projections",
+]
+
+[[subtests]]
+id = "L0_050"
+file = "test_L0_050_compiled_graph_contract.py"
+name = "Compiled Schematic Graph Contract and Identity Vectors"
+description = "Require strict generated a0 graph projections and portable deterministic identity allocation"
+concerns = ["contracts", "schematic", "compiled_graph", "identity"]
+test_cases = "tests/parity/compiled_schematic_graph_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "TypeSpec owns the complete compiled-graph transport and freezes deterministic identity allocation in language-neutral vectors"
+secondary = [
+    "All ten graph row families have strict generated transport projections and exact allocator outputs",
+    "Unknown fields, unregistered enum tokens, and every Rust envelope or row literal mismatch fail closed",
+    "Project scope normalization and selector precedence are portable across path separators, case, and whitespace",
+    "The Python authority rejects missing, invalid, and duplicate identities and emits RFC 4122 UUIDv7 values ready for the native compiler",
+    "Capped native tests replay allocator failures, semantic ownership and cycle mutations, exact producer row/string ceilings, and bounded validator input",
+]
+
+[[subtests]]
+id = "L0_051"
+file = "test_L0_051_source_bundle_contract.py"
+name = "Source Bundle Manifest Contract"
+description = "Require a strict generated multi-file inventory with separate deterministic byte slots"
+concerns = ["contracts", "schematic", "source_bundle"]
+test_cases = "tests/parity/source_bundle_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "TypeSpec owns the named source inventory while file bytes remain out of band"
+secondary = [
+    "Source paths, kinds, byte sizes, and slots have strict generated projections",
+    "Shared schema, Python, and Rust vectors enforce uint32 slots and canonical uint64 decimal byte counts",
+    "Unknown fields and unsupported contract literals fail closed",
+    "The manifest cannot hide base64 or embedded source payloads",
+    "Capped native tests cover exact byte-slot ownership, path and project failures, and exact/one-under source count, per-source bytes, aggregate bytes, and path bytes",
+]
+
+[[subtests]]
+id = "L0_052"
+file = "test_L0_052_font_text_contract.py"
+name = "Font and Text Interchange Contracts"
+description = "Require deterministic out-of-band font selection and separate shaping/outline oracle records"
+concerns = ["contracts", "rendering.text", "fonts"]
+test_cases = "tests/parity/font_text_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "TypeSpec owns FontBundle, shaping-record, and outline-vector interchange from the first text slice"
+secondary = [
+    "Font IDs and buffer slots are unique, complete, in range, and hash exact",
+    "Explicit font IDs win while missing and ambiguous aliases fail closed",
+    "Caller-selected resource ceilings are inclusive and enforced before hashing",
+    "Shaping evidence is independently attributable from glyph outline extraction",
+    "Python, TypeScript, JSON Schema, and Rust projections remain generated and strict",
+]
+
+[[subtests]]
+id = "L0_053"
+file = "test_L0_053_native_text_shaping.py"
+name = "Native HarfRust Shaping Parity"
+description = "Require exact native shaping parity plus explicit version-bound optional-flag evidence"
+concerns = ["rust", "rendering.text", "fonts", "parity"]
+test_cases = "tests/parity/font_shaping_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native safe-Rust shaping matches promoted HarfBuzz glyph records exactly"
+secondary = [
+    "UTF-8 clusters, scaled RTL output, default ignorables, ranged features, and variation axes are behavioral evidence",
+    "Optional Arabic glyph flags remain explicit under the pinned C/Rust engine-version policy",
+    "Font bytes are out of band and SHA-256 exact",
+    "Input and publication resource ceilings fail closed",
+    "The Python oracle generator is deterministic and the focused Rust suite passes",
+]
+
+[[subtests]]
+id = "L0_054"
+file = "test_L0_054_native_font_outlines.py"
+name = "Native Font Outline Parity"
+description = "Require bounded native TTF, composite/variable-glyf, CFF, CFF2, and collection outline parity"
+concerns = ["rust", "rendering.text", "fonts", "parity"]
+test_cases = "tests/parity/font_outline_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native safe-Rust outline extraction matches fixed FontTools design-unit records"
+secondary = [
+    "Tracked KiCad stroke, quadratic and transformed composite glyf, gvar, CFF, CFF2, and nonzero collection-face paths are behavioral evidence",
+    "Font bytes remain out of band and SHA-256 exact",
+    "Font, metadata, variation, and command ceilings have inclusive exact and one-under evidence",
+    "Unknown faces, glyphs, axes, and duplicate axes have stable failures",
+    "The Python oracle generator is deterministic and the focused Rust suite passes",
+]
+
+[[subtests]]
+id = "L0_055"
+file = "test_L0_055_native_text_bezier.py"
+name = "Native KiCad Text Bezier Decomposition"
+description = "Require bounded native parity with KiCad's quadratic and cubic outline decomposition"
+concerns = ["rust", "rendering.text", "geometry", "parity"]
+test_cases = "tests/parity/text_bezier_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native safe-Rust curve flattening matches the Python port of KiCad outline_decomposer.cpp"
+secondary = [
+    "Quadratic, collinear, fractional, cubic, and inflection paths are fixed evidence",
+    "Error-tolerance changes produce independently observable subdivision",
+    "Retained points and decomposition work have inclusive exact and one-under gates",
+    "Nonfinite and extreme inputs fail closed without recursive stack growth",
+    "The Python oracle generator is deterministic and the focused Rust suite passes",
+]
+
+[[subtests]]
+id = "L0_056"
+file = "test_L0_056_native_text_contours.py"
+name = "Native Shaping-to-Contour Placement"
+description = "Require bounded native composition of shaping, reusable font outlines, KiCad curve flattening, and raw text-run placement"
+concerns = ["rust", "rendering.text", "geometry", "parity"]
+test_cases = "tests/parity/text_contour_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native plain text runs match fixed uharfbuzz, FontTools, and KiCad curve intermediate contours"
+secondary = [
+    "One validated outline face is reused across every glyph in a run",
+    "Kerning, RTL placement, offsets, anisotropic sizing, origins, holes, and missing space outlines are observable",
+    "Aggregate outline-command, curve-work, temporary-point, contour, and retained-point limits are inclusive and fail closed",
+    "Partial malformed outlines are terminal errors while genuine zero-outline spaces still advance",
+    "Font bytes remain out of band and fixed records are deterministic",
+    "The focused Rust suite passes through Rack",
+]
+
+[[subtests]]
+id = "L0_057"
+file = "test_L0_057_native_text_layout.py"
+name = "Native KiCad Single-Line Text Layout"
+description = "Require native horizontal/vertical alignment, mirror, and rotation parity over accepted raw contours"
+concerns = ["rust", "rendering.text", "geometry", "parity"]
+test_cases = "tests/parity/text_layout_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native single-line text applies KiCad alignment, mirror, and clockwise rotation in the established order"
+secondary = [
+    "Left, center, and right horizontal alignment are fixed evidence",
+    "Top, center, and bottom vertical alignment use KiCad's 1.17 height factor",
+    "Positive, negative, mirrored, and quarter-turn transforms rotate around the authored origin",
+    "Right-to-left horizontal runs are fixed evidence and unsupported vertical shaping fails closed",
+    "Returned advances remain pre-layout local run metrics",
+    "Transforms operate in place under the accepted contour point ceiling",
+    "Nonfinite transforms fail closed and deterministic records pass through Rack",
+]
+
+[[subtests]]
+id = "L0_058"
+file = "test_L0_058_native_text_topology.py"
+name = "Native KiCad Text Contour Topology"
+description = "Require bounded duplicate-closure normalization, contour containment, and hole-fracture parity"
+concerns = ["rust", "rendering.text", "geometry", "parity", "resource-limits"]
+test_cases = "tests/parity/text_topology_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native cache contour topology matches the Python port of KiCad-compatible hole fracture ordering"
+secondary = [
+    "Duplicate closure, degenerate contours, one hole, multiple sorted holes, disjoint exteriors, and a real shaped O outline are fixed evidence",
+    "Containment and bridge scans expose independent ceilings instead of hiding pairwise work",
+    "Input, edge-slot, output, and link-traversal ceilings are inclusive and fail closed",
+    "Signed-zero ordering matches Python and nonfinite input or derived coordinates fail before topology publication",
+    "The Python oracle generator is deterministic and the focused Rust suite passes through Rack",
+]
+
+[[subtests]]
+id = "L0_059"
+file = "test_L0_059_native_text_render_cache.py"
+name = "Native Typed Text Render Cache"
+description = "Require bounded native cache composition plus streaming KiCad S-expression read/write parity"
+concerns = ["rust", "rendering.text", "parity", "roundtrip", "resource-limits"]
+test_cases = "tests/parity/text_render_cache_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native horizontal text stages compose into a typed KiCad render cache with semantic S-expression round-trip"
+secondary = [
+    "Plain and transformed holed-glyph caches match fixed Python composition records",
+    "The writer shape and upstream KiCad formatRenderCache implementation are revision-pinned",
+    "The reader consumes streaming lexical tokens without allocating a generic S-expression tree",
+    "Text, source, polygon, contour, point, and output-byte ceilings are inclusive and fail closed",
+    "Quoted text, signed zero, multiple contours, malformed forms, and nonfinite scalars are durable evidence",
+    "The Python oracle generator is deterministic and the focused Rust suite passes through Rack",
+]
+
+[[subtests]]
+id = "L0_060"
+file = "test_L0_060_native_text_block_layout.py"
+name = "Native KiCad Text Block Layout"
+description = "Require bounded multiline, tab-stop, line-spacing, alignment, and authored-origin transform parity"
+concerns = ["rust", "rendering.text", "parity", "resource-limits"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Native hinted text composes KiCad multiline and tab-delimited runs without reparsing the font for each run"
+secondary = [
+    "KiCad 1.68 interline pitch, line-spacing multipliers, per-line horizontal alignment, and 2.4-em tab stops are explicit",
+    "Mirroring and clockwise rotation remain anchored at the authored block origin",
+    "Font and shaping state are reused once per block while global and bounded feature ranges are rebased source-order per UTF-8 run",
+    "Line, run, metadata, feature-inspection/application, glyph, outline-command, Bezier-work, contour, and point ceilings are inclusive and fail closed",
+    "Delimiter-heavy inputs reject at the configured span ceiling without an allocation-sizing pre-scan",
+    "Focused Rust evidence passes through Rack and live Arial multiline/tab cases remain in L2_009",
+]
+
+[[subtests]]
+id = "L0_061"
+file = "test_L0_061_km_corpus_archive.py"
+name = "KM Corpus Archive Resolution"
+description = "Require bot-compatible ZIP-first corpus selection and a hard namespace cutover"
+concerns = ["parsing", "release", "resource-limits"]
+test_cases = "../corpus/kicad.archive.toml"
+test_case_type = "algorithmic"
+
+[subtests.objectives]
+primary = "KM_CORPUS selects one reviewed kicad.zip and safely exposes its extracted fixture tree"
+secondary = [
+    "The package-local archive remains the default carrier",
+    "Explicit ZIP and fixture-authoring directory inputs are supported",
+    "Invalid carriers and unsafe ZIP members fail closed",
+    "Archive replacement refreshes the extracted cache",
+    "The removed WN_TEST_CORPUS namespace cannot override KM_CORPUS",
+]
+
+[[subtests]]
+id = "L0_063"
+file = "test_L0_063_native_svg_transport.py"
+name = "Native SVG Transport Contracts"
+description = "Require strict generated envelopes and fail-closed hash/length validation for native base SVG"
+concerns = ["rust", "contracts", "svg", "transport", "resource-limits"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "The Python client accepts only the generated a1 handshake and hashed plotter-base-a0 result"
+secondary = [
+    "The closed a0 design-facts handshake remains unchanged",
+    "The request embeds exactly one frozen producer document and an explicit positive viewport",
+    "Generated request semantics revalidate the nested Phase-5 document, source kind, nonempty identity, viewport, and canonical ceilings",
+    "Malformed identity, hashes, lengths, unsafe XML, external links or paints, duplicate IDs, and over-ceiling results fail before SVG publication",
+]
+
+[[subtests]]
+id = "L0_062"
+file = "test_L0_062_native_process_client.py"
+name = "Native Process Client Foundation"
+description = "Require an explicit, bounded, fail-closed Python client for the package-owned native operation process"
+concerns = ["rust", "project", "contracts", "resource-limits", "release"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "The Python boundary validates the native handshake and strict design-facts result without PATH discovery or Python fallback"
+secondary = [
+    "The package-owned binary or an explicit development override is the only executable authority",
+    "Subprocess stdout and stderr are drained concurrently and terminate the child at independent byte ceilings",
+    "Compiled graph payloads pass generated decoding and semantic validation before publication",
+    "File-backed project and schematic sources become explicit portable source-bundle slots",
+    "Injected compiled graphs bypass the Python graph builder without sharing mutable state",
+]

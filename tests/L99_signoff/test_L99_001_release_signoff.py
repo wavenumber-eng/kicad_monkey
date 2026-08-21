@@ -45,8 +45,8 @@ def _load_corpus_archive_module():
 
 
 PACKAGE_ROOT = _project_root()
-EXPECTED_VERSION = "2026.8.17"
-EXPECTED_RELEASE_DATE = date(2026, 8, 17)
+EXPECTED_VERSION = "2026.8.18"
+EXPECTED_RELEASE_DATE = date(2026, 8, 18)
 CORPUS_ARCHIVE_PATH = "tests/corpus/kicad.zip"
 CORPUS_ARCHIVE_MANIFEST_PATH = "tests/corpus/kicad.archive.toml"
 DEV_STD_AUDIT_SCOPES = {"repo", "ci", "docs.design", "docs.links", "docs.plans"}
@@ -112,7 +112,7 @@ def test_version_contract_matches_date_based_release() -> None:
     assert (parsed.major, parsed.minor, parsed.patch, parsed.build, parsed.alpha) == (
         2026,
         8,
-        17,
+        18,
         None,
         None,
     )
@@ -223,6 +223,43 @@ def test_developer_working_docs_are_excluded_from_release_artifacts() -> None:
     assert "docs/plans/**" in sdist["exclude"]
     assert "docs/research/**" in sdist["exclude"]
     assert "tests/corpus/**" in sdist["exclude"]
+
+
+def test_monkey_sdist_workspace_excludes_downstream_members_without_drift() -> None:
+    """Keep the sdist Cargo workspace standalone without copying Cruncher source."""
+    checkout = tomllib.loads((PACKAGE_ROOT / "Cargo.toml").read_text(encoding="utf-8"))
+    standalone = tomllib.loads(
+        (PACKAGE_ROOT / "packaging" / "Cargo.sdist.toml").read_text(encoding="utf-8")
+    )
+    expected = checkout.copy()
+    expected_workspace = checkout["workspace"].copy()
+    expected_workspace["members"] = [
+        member
+        for member in expected_workspace["members"]
+        if not member.startswith("packages/")
+    ]
+    expected["workspace"] = expected_workspace
+    assert standalone == expected
+
+    pyproject = tomllib.loads(
+        (PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    sdist = pyproject["tool"]["hatch"]["build"]["targets"]["sdist"]
+    assert sdist["hooks"]["custom"]["path"] == "hatch_build.py"
+    assert "Cargo.toml" not in sdist["include"]
+    assert "packaging/Cargo.sdist.toml" in sdist["include"]
+    assert "packages/**" in sdist["exclude"]
+    assert "tests/.tmp/**" in sdist["exclude"]
+
+
+def test_release_build_backend_stays_compatible_with_twine_metadata_check() -> None:
+    """Keep generated core metadata within Twine 6.2's accepted range."""
+    for project_path in (
+        PACKAGE_ROOT / "pyproject.toml",
+        PACKAGE_ROOT / "packages" / "kicad_cruncher" / "pyproject.toml",
+    ):
+        project = tomllib.loads(project_path.read_text(encoding="utf-8"))
+        assert project["build-system"]["requires"] == ["hatchling==1.31.0"]
 
 
 def test_public_corpus_archive_uses_manifest_not_lfs() -> None:

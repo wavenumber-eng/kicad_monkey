@@ -45,7 +45,7 @@ objectives = [
 file = "test_L1_001_pcb_roundtrip.py"
 name = "PCB Round-Trip"
 description = "Parse -> serialize -> parse PCB files with equivalency check"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/board/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/board/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -68,7 +68,7 @@ secondary = [
 file = "test_L1_002_footprint_roundtrip.py"
 name = "Footprint Round-Trip"
 description = "Parse -> serialize -> parse footprint files with equivalency check"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/footprints/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/footprints/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -90,7 +90,7 @@ secondary = [
 file = "test_L1_003_oop_equivalency.py"
 name = "OOP Model Equivalency"
 description = "OOP model data matches raw sexp after parsing"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/board/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/board/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -117,7 +117,7 @@ primary = "Consistency across parsing methods"
 file = "test_L1_005_symbol_roundtrip.py"
 name = "Symbol Library Round-Trip"
 description = "Parse -> serialize -> parse symbol library files with equivalency check"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/reference_symbols/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/reference_symbols/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -140,7 +140,7 @@ secondary = [
 file = "test_L1_006_schematic_roundtrip.py"
 name = "Schematic Round-Trip"
 description = "Parse -> serialize -> parse schematic document files with equivalency check"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/reference_schematics/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/reference_schematics/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -164,7 +164,7 @@ secondary = [
 file = "test_L1_007_worksheet_roundtrip.py"
 name = "Worksheet Round-Trip"
 description = "Parse -> serialize -> parse worksheet/page layout files with equivalency check"
-test_cases = "${WN_TEST_CORPUS}/kicad/common/reference_worksheets/input"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common/reference_worksheets/input"
 test_case_type = "reference"
 
 [subtests.code_under_test]
@@ -188,7 +188,7 @@ secondary = [
 file = "test_L1_008_shared_corpus_source_model_readiness.py"
 name = "Shared Corpus Source Model Readiness"
 description = "Validate the real KiCad OOP surface on the shared KiCad corpus"
-test_cases = "${WN_TEST_CORPUS}/kicad/common"
+test_cases = "${KM_CORPUS_ROOT}/kicad/common"
 test_case_type = "shared_corpus"
 
 [subtests.code_under_test]
@@ -221,4 +221,455 @@ primary = "Authoritative KiCad source-model modules stay fully type-annotated"
 secondary = [
     "Common KiCad layer defaults stay centralized in kicad_base",
     "Core OOP modules do not regress into ad hoc parser constants"
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_018"
+file = "test_L1_018_corpus_sexpr_passthrough.py"
+name = "Python Corpus S-Expression Pass-Through"
+description = "Run the Python parser/writer over every promoted KiCad S-expression file"
+concerns = ["sexpr", "python", "parity"]
+test_cases = "${KM_CORPUS_ROOT}/kicad"
+test_case_type = "shared_corpus"
+
+[subtests.objectives]
+primary = "Python parse -> build -> parse preserves every promoted corpus tree"
+secondary = [
+    "All promoted KiCad S-expression suffixes are represented",
+    "Failures are attributed to lex, tree, build, reparse, or compare",
+    "Real-world project inputs remain mandatory parser evidence",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_022"
+file = "test_L1_022_rust_corpus_sexpr_passthrough.py"
+name = "Rust Corpus S-Expression Pass-Through"
+description = "Run the Rust parser/writer over every promoted KiCad S-expression file"
+concerns = ["sexpr", "rust", "performance"]
+test_cases = "${KM_CORPUS_ROOT}/kicad"
+test_case_type = "shared_corpus"
+
+[subtests.objectives]
+primary = "Rust parse -> build -> parse preserves every promoted corpus tree with byte-stable second output"
+secondary = [
+    "All promoted KiCad S-expression suffixes are represented",
+    "Real-world projects contribute parser-only evidence",
+    "Failures are attributed to read, lex, tree, build, reparse, or compare",
+    "Rack writes transient corpus throughput and largest-file evidence",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_023"
+file = "test_L1_023_rust_corpus_performance_memory.py"
+name = "Rust Named-Corpus Performance and Peak Memory"
+description = "Advisory strict-lane release measurements for hashed small, medium, and large corpus files"
+concerns = ["sexpr", "rust", "performance", "memory"]
+test_cases = "tests/performance/sexpr_corpus_cases.toml"
+test_case_type = "benchmark"
+
+[subtests.objectives]
+primary = "Rack records reproducible stage timing and peak RSS evidence for named content-addressed corpus tiers"
+secondary = [
+    "The benchmark skips in ordinary fast/full development runs",
+    "Compilation time is excluded from measurements",
+    "Every measured run proves semantic equality and deterministic second output",
+    "Host and Rust toolchain identity are recorded",
+    "Thresholds remain pending independent Windows and Linux ratification",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_024"
+file = "test_L1_024_rust_selected_span_sort.py"
+name = "Rust Selected-Span Sort Measurement"
+description = "Advisory strict-lane isolation of final source-order sorting from select-all scans"
+concerns = ["sexpr", "rust", "performance", "projection"]
+test_cases = "tests/performance/sexpr_corpus_cases.toml"
+test_case_type = "benchmark"
+
+[subtests.objectives]
+primary = "Measure O(n + k log k) selected-span sorting independently on every named corpus tier"
+secondary = [
+    "The benchmark skips in ordinary fast/full development runs",
+    "Memory and streaming scanners return the same selected-form count",
+    "All raw runs and best/median sort fractions are transient evidence",
+    "Representation changes remain profiling-driven",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_025"
+file = "test_L1_025_rust_footprint_typed_slice.py"
+name = "Rust Typed Footprint Reader/Writer Slice"
+description = "Run the source-backed footprint view and focused property writer through Rack"
+concerns = ["sexpr", "rust", "footprint", "writeback"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "A footprint can be read and edited without a generic full-file tree or loss of unknown forms"
+secondary = [
+    "Name, property, and pad facts are read from selected source spans",
+    "Focused property edits preserve untouched bytes and reparse semantically",
+    "Only children of the single footprint root contribute typed facts",
+    "Lazy diagnostics use absolute source positions",
+    "A repeated edit is byte stable",
+    "Resource and ambiguity limits fail closed",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_026"
+file = "test_L1_026_rust_footprint_plotter_slice.py"
+name = "Rust Footprint Plotter-IR Slice"
+description = "Prove standalone footprint text, graphics, standard/custom pads, and drills from KiCad bytes to shared kicad.plotter_ir.a0 operations"
+concerns = ["sexpr", "rust", "footprint", "plotter_ir", "wasm"]
+test_cases = "tests/parity/footprint_plotter_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Rust and Python emit the same established plotter-IR document for the promoted footprint subset"
+secondary = [
+    "The TypeSpec slice remains a strict valid subset of the established plotter-IR contract",
+    "The core reads selected forms without constructing a generic full-file tree",
+    "Standalone properties, fp_text, and fp_text_box use dedicated source-backed ownership types",
+    "Property skip/order rules, local variables, text effects, and bordered wrapping match Python",
+    "Text carrier counts and aggregate retained text bytes fail closed before publication",
+    "Python and Rust preserve canonical graphic grouping and patterned-stroke decomposition",
+    "Footprint and future PCB producers share one TypeSpec and Rust plotter-operation vocabulary",
+    "Standard pad flashes, mask margins, circular drills, slots, and NPTH hints match Python",
+    "Custom gr_poly flashes and chamfered roundrect polygons match Python exactly",
+    "Shared graphic and drill states are semantically exclusive after structural decoding",
+    "Pattern step caps and zero-progress strokes fail without partial geometry",
+    "Footprint and custom-pad polygon points are bounded before retained output growth",
+    "Generated Python and TypeScript projections preserve the strict tagged operation union",
+    "The WASM boundary accepts source bytes and returns bounded out-of-band JSON bytes",
+    "Unsupported stroke styles and all resource limits fail explicitly",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_027"
+file = "test_L1_027_rust_symbol_plotter_slice.py"
+name = "Rust Symbol Plotter-IR Slice"
+description = "Prove shared library-symbol body geometry/text and pin geometry/label operations from KiCad bytes"
+concerns = ["sexpr", "rust", "symbol", "plotter_ir", "wasm"]
+test_cases = "tests/parity/symbol_plotter_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Rust and Python emit the same established plotter-IR operations for the promoted symbol subset"
+secondary = [
+    "Body geometry/text and all nine pin graphic styles plus number/name labels match Python",
+    "Exact-case project variables, text defaults/styles, inheritance settings, and operation order match Python",
+    "Shared operations remain producer-neutral across symbol and footprint inputs",
+    "TypeSpec, schema, Python, Rust, and TypeScript projections stay strict",
+    "Operation, geometry-point, text-carrier, text-byte, sidecar, and output limits fail closed in native and WASM paths",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_028"
+file = "test_L1_028_rust_symbol_library_typed_slice.py"
+name = "Rust Typed Symbol-Library Reader/Writer Slice"
+description = "Run the source-backed symbol iterator and focused semantic writer through Rack"
+concerns = ["sexpr", "rust", "symbol", "writeback", "wasm"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "A symbol library can be iterated and edited without a generic full-file tree or loss of unknown forms"
+secondary = [
+    "Ordered symbol metadata and nested object counts match the Python model",
+    "Focused writes replace existing fields and insert defaulted fields",
+    "Semantic reparse and a byte-stable second write are required",
+    "Source, selected-form, nested-object, and output limits fail closed",
+    "TypeSpec projections and native, host, and real-WASM operations share one contract",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_029"
+file = "test_L1_029_rust_pcb_typed_slice.py"
+name = "Rust Native PCB Reader/Writer Slice"
+description = "Run the source-backed PCB view, focused writer, and promoted corpus parity through Rack"
+concerns = ["sexpr", "rust", "pcb", "writeback", "native"]
+test_cases = "${KM_CORPUS_ROOT}/kicad/projects"
+test_case_type = "shared_corpus"
+
+[subtests.objectives]
+primary = "Native Rust indexes and edits major PCB families without a generic full-file tree"
+secondary = [
+    "Board metadata, layers, nets, footprints, pads, models, routing, and zones match the Python model",
+    "Both named corpus boards are mandatory and missing evidence fails rather than skips",
+    "Board net references resolve ordinal-only and name-only encodings against the net table",
+    "Exact source spans and unknown top-level forms remain available in source order",
+    "Focused property writes preserve untouched bytes and are stable after semantic reparse",
+    "Board graphics, routing arcs, dimensions, groups, generated items, and embedded files expose bounded typed iterators",
+    "Variants, images, barcodes, tables, and nested table cells expose bounded source-ordered typed iterators",
+    "Zones expose Python-parity fill, keepout, placement, per-layer, authored-outline, and filled-polygon semantics",
+    "Zone polygon, point, and per-layer-property ceilings fail during lazy decoding before typed collections exceed their limits",
+    "Pad/via holes, footprint placement transforms, and board/footprint-local Edge.Cuts carriers are iterable physical facts with explicit coordinate spaces",
+    "Footprint profile indexing is bounded before append, while non-profile graphics remain lazily unparsed by the selective profile view",
+    "An owned board document exposes bounded native stream I/O and commits source-preserving edits only after semantic reparse",
+    "Dependency-aware selected views match full-view pads, zones, holes, profiles, and transforms on both mandatory boards while hiding internal net, footprint, via, and graphic dependencies",
+    "Embedded footprint metadata, manufacturing settings, properties, and non-text graphics are bounded, source ordered, parent identified, and selectively equivalent on both mandatory boards",
+    "Board setup origins and physical stackup layers expose bounded close-to-format material and electrical semantics with Python corpus parity",
+    "Owned failed edits are transactional, unknown forms survive, and repeated writes are stable no-ops",
+    "Board properties support ambiguity-safe source-preserving create, update, remove, semantic reparse, CRLF retention, output ceilings, and stable no-ops",
+    "Top-level UUID and legacy-ID removal checks all forms, is ambiguity-safe, source preserving, bounded, and idempotent",
+    "Identified top-level layer replacement is exact, ambiguity-safe, bounded, and byte stable after semantic reparse",
+    "Source, family, nested-object, depth, and output limits fail closed",
+    "Lazy typed diagnostics use absolute board-source positions",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_030"
+file = "test_L1_030_rust_pcb_roundtrip.py"
+name = "Rust Native PCB Owned Round-Trip"
+description = "Require exact owned writeback and complete promoted semantic decoding over every authoritative PCB input"
+concerns = ["sexpr", "rust", "pcb", "writeback", "native", "shared_corpus"]
+test_cases = "${KM_CORPUS_ROOT}/kicad/**/input/**/*.kicad_pcb"
+test_case_type = "shared_corpus"
+
+[subtests.objectives]
+primary = "Every authoritative PCB input survives two complete promoted semantic decode passes and byte-exact owned writes"
+secondary = [
+    "Derived output and reference-output trees are excluded from the authority",
+    "Every failure identifies the input path and processing stage",
+    "The first owned write is exact and the second write is byte stable",
+    "File-local source and decoded values are released before the next board",
+    "Focused mutation, transaction, I/O, and resource-limit tests remain Rack owned",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_031"
+file = "test_L1_031_rust_pcb_cli_mutation.py"
+name = "Rust Native PCB Mutation KiCad CLI Acceptance"
+description = "Require every promoted native Rust PCB edit family to preserve unrelated semantics, stabilize, and load in KiCad"
+concerns = ["sexpr", "rust", "pcb", "writeback", "native", "kicad_cli"]
+test_cases = "tests/parity/pcb_native_mutation_a0.kicad_pcb"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "KiCad accepts source-preserving outputs from every promoted native PCB edit family"
+secondary = [
+    "Property insertion, update, and removal reparse and stabilize",
+    "Top-level identified removal reparses and stabilizes",
+    "Identified layer replacement reparses and stabilizes",
+    "Each edit preserves unrelated promoted semantics",
+    "The native semantic gate remains mandatory when kicad-cli is unavailable",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_032"
+file = "test_L1_032_rust_schematic_roundtrip.py"
+name = "Rust Native Schematic Owned Round-Trip"
+description = "Require exact native writeback, promoted semantic stability, and transactional symbol-property edits"
+concerns = ["sexpr", "rust", "schematic", "writeback", "native"]
+test_cases = "tests/L1_parsing/cases/schematics/input/*.kicad_sch"
+test_case_type = "reference"
+
+[subtests.objectives]
+primary = "Every durable schematic input survives two promoted semantic decode passes and byte-exact owned writes"
+secondary = [
+    "All eight package-local schematic references are mandatory",
+    "The first owned write is exact and the second write is byte stable",
+    "Promoted typed definitions compare equal after reparse",
+    "Placed-symbol property create, update, and removal preserve unknown forms",
+    "Inserted properties carry KiCad's mandatory three-value placement child",
+    "Python always accepts the focused mutation output; a schematic-capable kicad-cli supplies optional ongoing acceptance coverage when available",
+    "Ambiguous UUIDs and property names fail without changing owned source",
+    "Source, property, decoded-scalar, and output ceilings fail closed",
+    "CRLF and one-line source layouts remain valid after focused insertion",
+    "Failures identify the input path and processing stage",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_033"
+file = "test_L1_033_rust_worksheet_roundtrip.py"
+name = "Rust Native Worksheet Reader/Writer"
+description = "Require complete typed worksheet parity and exact owned writeback"
+concerns = ["sexpr", "rust", "worksheet", "writeback", "native"]
+test_cases = "tests/L1_parsing/cases/worksheets/input/*.kicad_wks"
+test_case_type = "reference"
+
+[subtests.objectives]
+primary = "All durable modern and legacy worksheets match Python semantics and write exactly"
+secondary = [
+    "Setup, line, rectangle, polygon, text, font, repeat, corner, and bitmap fields match Python",
+    "Interleaved worksheet item order and bitmap data-part boundaries are preserved",
+    "The first owned write is exact and the second write is byte stable",
+    "Focused setup-line-width edits preserve unknown forms and reparse transactionally",
+    "Direct-root forms and typed items have independent exact/one-over limits",
+    "Source, node, polygon, bitmap, decoded-string, and output limits fail closed",
+    "Modern string-only bitmap chunks and legacy first-payload semantics match Python",
+    "Lazy item diagnostics are rebased to absolute worksheet positions",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_034"
+file = "test_L1_034_rust_project_roundtrip.py"
+name = "Rust Native Project Reader/Writer"
+description = "Require full restored-corpus project JSON parity and transactional writeback"
+concerns = ["json", "rust", "project", "writeback", "native"]
+test_cases = "${KM_CORPUS_ROOT}/kicad"
+test_case_type = "shared_corpus"
+
+[subtests.objectives]
+primary = "Every restored project has exact source writes and Python-equivalent canonical and typed semantics"
+secondary = [
+    "All 217 restored project files and 3,048,297 bytes are mandatory evidence",
+    "Text variables, variants, net settings, and board routing defaults match Python",
+    "Insertion order and authored JSON number spelling survive canonical serialization",
+    "Text-variable, variant, and dotted-path mutations match Python and preserve unknown JSON",
+    "Source, output, typed-string, and promoted collection limits fail closed",
+    "Invalid UTF-8, malformed JSON, non-object roots, conflicts, and I/O failures are structured",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_035"
+file = "test_L1_035_rust_board_plotter_slice.py"
+name = "Rust Board Plotter-IR Slice"
+description = "Prove promoted board graphics, text, routing, tables, dimensions, zone fills, and embedded footprints from KiCad bytes to shared kicad.plotter_ir.a0 operations"
+concerns = ["sexpr", "rust", "pcb", "plotter_ir", "wasm"]
+test_cases = "tests/parity/board_plotter_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Rust and Python emit the same established plotter-IR document for promoted board graphics, text, tracks, vias, tables, dimensions, zone fills, and embedded footprints"
+secondary = [
+    "The TypeSpec board slice remains a strict valid subset of the established plotter-IR contract",
+    "Board documents carry version, generator, thickness, and paper metadata with Python defaults",
+    "Records keep Python category ordering, Python layer defaults, and per-record operation indexes",
+    "Board stroke widths stay unclamped and legacy widths apply only without a stroke form",
+    "Patterned strokes decompose inside one record and unknown styles fail closed",
+    "Unknown fills stay unfilled and malformed curves keep stroke validation with empty records",
+    "Board graphic operations stay layerless after generated semantic validation",
+    "Pattern step caps, zero-progress strokes, and polygon point budgets fail without partial geometry",
+    "The WASM boundary accepts source bytes and returns bounded out-of-band JSON bytes",
+    "Board text and text boxes preserve variables, wrapping, alignment, authored caches, cache exactness, and knockout behavior",
+    "A caller-supplied bounded font/shaping sidecar generates missing or stale board text, text-box, and table caches without platform discovery",
+    "Native outline line breaking preserves KiCad pending-space and markup grouping rules under independent shaping and output ceilings",
+    "Render-cache provenance distinguishes authored file caches from native generated caches across generated bindings and semantic validation",
+    "A shared sidecar vector projects matching, stale, and missing cache paths through the generated host-WASM contract",
+    "Rotated, mirrored, stroked text boxes and default-aligned table cells use Python TextParams cache geometry",
+    "Track records follow graphics with bare locked flags, verbatim widths, and truthy net-name extras",
+    "Track arcs plot from the file end point back to the start with no lock state",
+    "Via records emit an aperture/drill pair then mask pairs gated by explicit untenting on outer copper",
+    "Via drills fall back to half the pad size only for non-positive diameters while extras stay raw",
+    "Via fabrication flags surface as ipc4761 string extras only when authored",
+    "Track and via records observe the shared operation and per-family record budgets",
+    "Zone records serialize filled-polygon rings with parallel fill-layer and island annotations and layerless filled operations",
+    "Keepout zones keep zero-operation records, zone outlines never serialize, and present-but-empty net names resolve from the net table",
+    "Net-class extras follow normalized exact-match project assignments carried on the request for tracks, arcs, vias, and zones",
+    "Zone rings observe the shared operation, point, and per-family record budgets",
+    "Tables preserve grid-before-text ordering, cell variables and layers, authored/native cache behavior, and aggregate resource limits",
+    "Aligned, orthogonal, radial, leader, and center dimensions preserve Python text-before-shape operation order between tables and zones",
+    "Dimension formatting, Newstroke markup, faced text variables, leader frames, arrows, markers, layers, UUIDs, and authored/native caches match Python",
+    "Dimension records and generated operations reject noncanonical identities, kinds, local indexes, layers, cache markers, null optional text, and duplicate orthogonal markers",
+    "Dimension carriers observe fixed precision, record, input-point, parse-node, operation, cache, retained-text, safe-integer, and serialized-output ceilings without partial IR",
+    "Embedded footprint records remain terminal after zones and preserve local placement, canonical child-family ordering, and closed source ownership metadata",
+    "Pad and drill operations remain in balanced typed blocks while footprint-local caches, input geometry, retained text, metadata, and operation ceilings fail closed",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_036"
+file = "test_L1_036_rust_schematic_plotter_slice.py"
+name = "Rust Schematic Plotter-IR Foundation Through Hierarchical Sheets"
+description = "Prove bounded schematic headers, worksheets, connectivity, annotations, graphics, rule areas, inline images, tables, placed symbols, overplots, hierarchical sheets, sheet pins, and fields from explicit KiCad bytes and caller-owned project/font sidecars"
+concerns = ["sexpr", "rust", "schematic", "plotter_ir", "worksheet", "annotations", "graphics", "rule_area", "images", "tables", "symbols", "pins", "occurrences", "hierarchy", "sheets", "sheet_pins", "fonts"]
+test_cases = "tests/parity/schematic_plotter_a0_vectors.json"
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "Rust and Python emit the same established plotter-IR document through hierarchical schematic sheets without project, worksheet, child-sheet, or font discovery"
+secondary = [
+    "The strict TypeSpec schematic slice remains a valid subset of the forward-tolerant established plotter-IR contract",
+    "A compact custom worksheet proves explicit variables, drawing settings, sheet context, page geometry, connectivity, annotation family order, and operation ordering",
+    "The package default worksheet produces an exact header-only document when explicitly selected",
+    "A valid PNG worksheet placement and authored transparent junction retain exact image geometry and present-null color semantics",
+    "Connectivity records retain Python family ordering, local operation indexes, widths, styles, colors, and geometry defaults",
+    "A checked-in fixture font proves exact global-label width, ordinary-text line-height adjustment, and text-box wrapping without ambient fonts",
+    "Interleaved source proves canonical polyline, arc, circle, rectangle, Bezier, rule-area, image, and table phases with fill-before-outline operation order",
+    "All five rule-area shape carriers preserve nested identity, policy metadata, and closed polyline geometry",
+    "Authenticated PNG, JPEG, and BMP payloads prove physical-density scaling and exact retained inline image bytes",
+    "Multi-cell tables preserve cell operation grouping, project and built-in variables, hyperlinks, ignored authored caches, and continuous local indexes",
+    "The checked-in fixture font also proves exact table-cell wrapping without ambient font lookup",
+    "Placed symbols follow tables, preserve occurrence references, unit/style selection, rotation and mirror transforms, visible fields, and project-variable body text",
+    "Placed and alternate pins retain balanced typed ownership blocks, library and placed UUIDs, designators, graphics, names, numbers, and drawing-setting pen widths",
+    "DNP dimming, exact diagonal markers, overlap bounds, and terminal source-ordered overplots match the Python authority",
+    "Sheets declared before symbols in source remain terminal after symbol overplots and preserve source order within the sheet phase",
+    "Opaque DNP sheets preserve an undimmed background, dimmed border/pins/fields, and exact terminal markers while transparent sheets duplicate the canonical outline pass and authored negative strokes preserve Python's zero-width border",
+    "All nine sheet-pin shapes preserve UUID or derived ownership blocks and continuous operation indexes: the five electrical shapes retain exact decorations while dot, round, diamond, and rectangle retain text-only ownership blocks",
+    "Sheet fields preserve show-name and Sheetfile prefixes, hyperlinks, literal project-variable text, hidden and empty omission, while instance variant flags remain outside the plot record",
+    "Generated decoding rejects unknown vocabulary, malformed points or images, missing structure, invalid identities, record or operation reordering, mismatched graphics or sheet metadata, malformed sheet-pin blocks and DNP markers, injected table caches, and incorrect counts",
+    "The native API consumes caller-owned source, worksheet bytes, variables, drawing settings, sheet context, and font resources without project, path, child-sheet, or font discovery",
+    "Native schematic, worksheet, graphic, rule-area, image, table, symbol, pin, library, overlap, hierarchical-sheet, sheet-pin, and sheet-field parsing plus retained text, metadata, records, operations, points, inline bytes, dimensions, pixels, and work fail closed under independent limits",
+    "The strict request reserves an independent serialized-output ceiling for the deferred transport adapter",
+]
+
+# -----------------------------------------------------------------------------
+
+[[subtests]]
+id = "L1_038"
+file = "test_L1_038_native_svg_transport.py"
+name = "Native Base SVG Process Transport"
+description = "Require the public Python client and real Rust process to agree on deterministic plotter-base-a0 SVG"
+concerns = ["rust", "contracts", "svg", "transport", "resource-limits"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "A real packaged-process candidate renders a strict frozen Plotter-IR document to a validated deterministic SVG result"
+secondary = [
+    "The closed a0 handshake remains byte-compatible while a1 advertises render-svg",
+    "All 30 frozen documents are covered as 29 pinned SVG results plus the exact negative-width safety rejection",
+    "The caller supplies the viewport explicitly and no source/project/font discovery occurs",
+    "The result byte count and SHA-256 are validated before publication",
+    "Cargo execution is serialized at four build jobs and two test threads",
+]
+
+[[subtests]]
+id = "L1_037"
+file = "test_L1_037_native_design_facts_transport.py"
+name = "Native Design Facts Process Transport"
+description = "Require the public Python client and real Rust process to agree on the strict design-facts protocol"
+concerns = ["rust", "project", "contracts", "transport", "resource-limits"]
+test_case_type = "contract"
+
+[subtests.objectives]
+primary = "A real packaged-process candidate returns the exact Python compiled graph and a parsed version-E netlist through the fail-closed client"
+secondary = [
+    "The original a0 handshake/design-facts operation remains accepted with its unchanged result surface",
+    "The a2 handshake advertises design-facts-a1 and its engine version agrees with the source-bound operation",
+    "The a1 result binds the exact source snapshot plus resource profile and netlist byte/hash provenance",
+    "The version-E netlist contains the exact source, date, and tool requested by the caller",
+    "Current in-memory project and schematic bytes are staged explicitly without PATH or project discovery",
+    "The generated graph decoder and semantic validator run before facts are published",
+    "The validated native graph can be injected only into the matching in-memory design state",
+    "Cargo execution is serialized at four build jobs and two test threads",
 ]

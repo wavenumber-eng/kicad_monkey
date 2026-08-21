@@ -1,0 +1,4 @@
+# Keep these values at or below the wn-dev-std 2026.8.12 maxima.
+too-many-arguments-threshold = 7
+too-many-lines-threshold = 100
+cognitive-complexity-threshold = 15

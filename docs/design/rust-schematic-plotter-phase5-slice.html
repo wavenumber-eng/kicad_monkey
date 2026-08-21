@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust schematic Plotter-IR Phase 5 foundation</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust schematic Plotter-IR Phase 5 foundation</h1>
+
+  <p>Status: accepted. P5_060 establishes the native schematic document
+  boundary and promotes the sheet header, drawing sheet, wires, buses, bus
+  entries, junctions, and no-connects. It is the foundation for the later
+  schematic annotation, graphic, symbol, and hierarchy slices; it is not the
+  complete schematic plotter.</p>
+
+  <h2>Producer boundary</h2>
+  <p>The producer scans the raw schematic source so plotting preserves
+  nanometre conversion independently of the connectivity model's intentional
+  100-nm grid. It emits one leading <code>sheet_header</code> record followed
+  by source-ordered records in the fixed family order
+  <code>wire</code>, <code>bus</code>, <code>bus_entry</code>,
+  <code>junction</code>, and <code>no_connect</code>. Empty wire and bus
+  carriers do not produce records.</p>
+
+  <p>Page occurrence values, exact-case project text variables, and optional
+  decompressed worksheet UTF-8 bytes are explicit caller sidecars. Core never
+  discovers project files, worksheet paths, or platform resources. Absence of
+  worksheet bytes selects the embedded KiCad default worksheet; supplied
+  bytes are parsed as the complete worksheet authority and fail closed when
+  malformed.</p>
+
+  <h2>Drawing and source semantics</h2>
+  <p>The header carries paper, canvas, generator, UUID, and title-block
+  metadata. Its operation stream starts with the canonical page-background
+  rectangle, then preserves worksheet item order and repeat behavior. Lines,
+  rectangles, text, and PNG bitmaps become bounded Plotter-IR operations;
+  worksheet polygons remain ignored to match the Python authority. Modern
+  variables expand recursively for at most ten passes, built-in page and
+  title values override project values, legacy percent substitutions follow,
+  and unknown or malformed placeholders remain literal.</p>
+
+  <p>Schematic strokes preserve authored width, style, and color with the
+  KiCad defaults and minimum pen rules. Junctions retain the authored color
+  distinction and default diameter. No-connects emit the authoritative pair
+  of crossing polylines. Every emitted coordinate is converted directly from
+  source millimetres and checked against the JavaScript-safe integer range.</p>
+
+  <h2>Contract and compatibility</h2>
+  <p><code>SchematicPlotDocumentA0</code> is a distinct strict generated
+  producer contract with <code>source_kind: "SCH"</code>, canvas metadata,
+  nanometre/downward coordinates, exact record phases, local operation
+  indexes, and exact operation counts. TypeSpec regenerates the JSON Schema,
+  Rust, Python, and TypeScript projections atomically. The reusable
+  <code>PlotImage</code> operation joins the shared operation vocabulary, but
+  existing board, footprint, and symbol semantic validators continue to
+  reject it.</p>
+
+  <p>The request and result DTOs reserve the bounded transport shape for a
+  later adapter, including explicit default/provided worksheet selection.
+  P5_060 remains <code>deferred_native_first</code>: it does not add a public
+  WASM export, does not claim serialized-output enforcement in native core,
+  and does not change an existing bot-facing endpoint. Later schematic slices
+  may extend the incubating strict record vocabulary before the Phase 5
+  contract freeze.</p>
+
+  <h2>Resource boundary</h2>
+  <p>Source bytes, parse depth and nodes, selected forms, family carriers,
+  records, operations, input and output points, retained text and metadata,
+  variable count and bytes, and worksheet bytes/items/repeats/point sets are
+  independently bounded. Bitmap limits separately cover data parts, encoded
+  and decoded bytes, dimensions, pixels, and chunk-scan work. Aggregate limits
+  are preflighted before retained output is appended; repeated text faces and
+  bitmap payloads are charged before cloning. Limit or model errors return no
+  partial document.</p>
+
+  <h2>Evidence and deferred work</h2>
+  <p>The hermetic Python generator owns a compact provided-worksheet vector
+  containing every promoted connectivity family and a header-only vector for
+  the exact embedded default worksheet. A third vector pins a real PNG
+  worksheet operation and the present-null metadata of an authored transparent
+  junction. Rack <code>L1_036</code> regenerates those vectors, validates both strict and generic schemas plus generated
+  Python decoding, checks semantic mutations and no-path-discovery behavior,
+  and runs the focused native parity suite. Native tests cover exact family
+  order and payloads, default worksheet output, aggregate parse/resource
+  limits, malformed carriers, variable expansion, and bitmap ceilings.
+  Contract tests cover identity, phase, count/index, operation-shape, image,
+  and JavaScript-safe-integer failures.</p>
+
+  <p>P5_061 now owns schematic labels, netclass flags, text, text boxes,
+  project drawing settings, and deterministic outline-font metric sidecars.
+  P5_062 now owns schematic shapes, rule areas, images, and tables. P5_070
+  owns placed symbols, their fields and pins, and overlap records. P5_071
+  retains hierarchical sheets, sheet fields, and sheet pins.
+  The bounded native domain also rejects nonpositive custom page dimensions,
+  nonpositive bitmap scales, and malformed PNG/base64 payloads rather than
+  reproducing permissive Python failure behavior.
+  The WASM/host adapter and its serialized-output ceiling remain deferred
+  until the native schematic surface is sufficiently complete to justify a
+  stable transport endpoint.</p>
+</body>
+</html>

@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust schematic connectivity carrier slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust schematic connectivity carrier slice</h1>
+
+  <p>Status: accepted native Phase 4 foundation. This page governs the
+  connectivity boundary; the complete compiler and compiled-graph promotion
+  are covered by the accepted Phase 4 exit under separate governed surfaces.</p>
+
+  <h2>Boundary</h2>
+  <p><code>SchematicBundleIndex</code> now realizes typed, iterable source carriers
+  for wires, buses, bus entries, junctions, no-connect markers, and local/global/
+  hierarchical labels. Each carrier retains its KiCad UUID and connectivity-relevant
+  geometry. Labels retain their scope, text, and shape. Hierarchical sheet definitions
+  also expose ordered pins with name, electrical shape, UUID, and exact connection
+  position. Electrical shape is a closed Rust enum covering the complete Python
+  <code>LabelShape</code> vocabulary: input, output, bidirectional, tri_state, passive,
+  dot, round, diamond, and rectangle. Missing or unknown source tokens normalize to
+  <code>input</code>, matching the Python source model.</p>
+
+  <p>Each source definition also exposes its ordered placed-symbol carriers. A
+  carrier retains library identifiers, exact position, angle, mirror, unit, convert,
+  placement/policy flags, UUID, ordered property key/value pairs, and ordered source
+  pin mappings (number, UUID, and optional alternate).</p>
+
+  <p>Top-level <code>bus_alias</code> declarations are typed in source order with
+  their member order preserved. The native bus-expression module parses vectors,
+  groups, qualified groups, and recursive aliases. It retains current KiCad
+  formatting, quoted-name, escaped-space, slash-escape, ascending-vector, and
+  suffix behavior while preserving the established Python compiler's dotted
+  group qualification and alias recursion semantics. Expansion is iterative;
+  alias cycles fail closed rather than recursing indefinitely.</p>
+
+  <p><code>build_schematic_bus_subgraphs</code> now realizes the separate KiCad
+  bus-connectivity domain. It groups physically connected bus polylines,
+  classifies each bus-entry endpoint against exact bus and wire geometry,
+  retains the wire-side taps, attaches local/global/hierarchical labels and
+  sheet pins, creates bus-form orphan groups, applies KiCad driver priority and
+  alphabetical/source-order tiebreaks, and expands the selected name. Duplicate
+  aliases deliberately use Python's last-writer visibility. A borrowed alias
+  index is built once per definition compile, so member strings are not copied
+  into every subgraph.</p>
+
+  <p><code>build_schematic_occurrence_subgraphs</code> now realizes the native
+  occurrence-local wire domain. It retains every wire/bus/bus-entry coordinate,
+  unions consecutive wire points, attaches junctions and labels to exact
+  segment interiors, keeps pins exact-coordinate-only, merges same-sheet local/
+  hierarchical labels and power names, and merges canonical bus-member taps.
+  Segment endpoints deliberately do not create a bus or bus-entry edge when a
+  label lands there. Pin drivers carry occurrence reference, expanded physical
+  pin number/name, electrical type, power classification, and hidden-power
+  provenance; label drivers carry scope-derived kind/priority, shape where KiCad
+  uses it, UUID, and source order. Hidden no-connect pins parked at one library
+  coordinate receive deterministic virtual coordinates, as in the Python
+  compiler.</p>
+
+  <p><code>build_schematic_occurrence_nets</code> now turns each accepted
+  occurrence-local wire subgraph into a deterministic native local-net record.
+  It applies KiCad's global/power/local path scoping, net-name escaping,
+  isolated/no-connect rules, high- versus low-quality pin selection, duplicate
+  shown-name disambiguation, multi-unit reference suffixes, weak sheet-pin
+  suffixing, sequential codes, and reference/pin terminal ordering. Terminals
+  retain placed-pin source identity and the same visible-pin or parent-symbol
+  render target selected by Python. A configurable subpart policy supports the
+  project-level letter, digit, and separator conventions without coupling this
+  local compiler to a generic project tree.</p>
+
+  <p><code>build_schematic_scalar_design_nets</code> now compiles every realized
+  occurrence once and performs the first design-wide connectivity pass with a
+  bounded union-find. Parent sheet pins bind to same-name child hierarchical
+  labels; equal global labels and equal global-power values merge across the
+  design; local-power values remain occurrence-local. The output preserves
+  every resolved and unresolved hierarchy boundary, stable member references,
+  human-path naming, canonical UUID-path terminals, source/render pin identity,
+  deduplicated component terminals, and sequential emitted-net codes. It also
+  promotes bus members across hierarchy boundaries: canonical same-sheet member
+  names merge, exact names pair first across parent sheet pins and child
+  hierarchical labels, unmatched members pair positionally, and the winning bus
+  driver supplies a bounded synthetic naming candidate. Global wire labels and
+  global power remain stronger than that promotion.</p>
+
+  <p>Bus aliases are collected once in realized occurrence order for design
+  compilation, with later definitions replacing earlier definitions exactly as in
+  the Python compiler. The same borrowed alias map drives both occurrence wire/bus
+  compilation and cross-sheet bus-form recognition; alias names or member strings
+  are not cloned into each occurrence.</p>
+
+  <p>Off-board sheet-pin naming uses one design-wide target index keyed by exact
+  parent occurrence plus source UUID, with name and coordinate used only when the
+  UUID is absent. Driver selection and weak-name suffixing share that index rather
+  than rescanning child occurrences. Target count and retained key/path bytes are
+  independently bounded while the index is constructed.</p>
+
+  <p>The accepted bus and wire segment indexes plus borrowed alias map are built
+  once and shared by the bus-subgraph and local-wire passes for an occurrence.
+  Custom static indexes are not rebuilt for each bus subgraph or driver. Embedded
+  library symbols also retain KiCad 9/10 duplicate-pin jumper policy and ordered
+  jumper groups. Stacked pin ranges and lists are expanded iteratively before
+  driver publication. Aggregate range byte cost is preflighted in logarithmic
+  time before any generated member string is retained. Nonempty jumper-group
+  capacity is likewise checked at the first scalar, before member decoding;
+  empty groups retain Python's no-op semantics. Jumper connectivity uses
+  indexed pin-number lookup
+  rather than pairwise pin scans.</p>
+
+  <p>Each definition also exposes embedded library symbols, subsymbol unit/body-style
+  identity, and connectivity-relevant pins. A bounded first-writer suffix-key index
+  matches KiCad/Python full and basename library lookup without a placement-by-library
+  scan. A linear, three-state graph pass resolves and memoizes every symbol's
+  effective pin owner once; missing or cyclic inheritance fails closed and each
+  placement thereafter performs constant-time lookup. <code>symbol_terminals</code> selects
+  common plus effective unit/style pins, retains hidden pins for connectivity, carries
+  effective occurrence references, and transforms library Y-up coordinates through
+  exact orthogonal rotation, mirror, and placement translation on the 100-nm grid.
+  Arbitrary rotations use checked ties-to-even grid snapping.</p>
+
+  <p>Placed symbols retain both generations of KiCad occurrence metadata. Modern
+  <code>instances/project/path</code> records retain project, path, reference, unit,
+  ordered variant overlays, tri-state policy overrides, and ordered field overrides.
+  Legacy schematic-level <code>symbol_instances/path</code> records retain path,
+  reference, unit, value, and footprint. Modern records have normalized,
+  ambiguity-aware indexes while the legacy normalized index deliberately preserves
+  Python's source-first lookup; both source-order vectors remain available for
+  diagnostics and round-trip work. Modern lookup is primarily keyed by project and
+  path; path-only lookup succeeds only for a unique record. Repeated paths
+  share their owning project through <code>Arc&lt;str&gt;</code>, so a long project name is
+  retained once rather than once per child path. A modern path is accepted only when
+  its selected span is structurally owned by the current project form.</p>
+
+  <p><code>SchematicBundleIndex::effective_symbols</code> resolves those source
+  records for one realized occurrence. It follows the Python compiler's canonical
+  modern path, UUID sheet path, suffix, legacy path, and source fallback chain;
+  carries occurrence-specific reference and unit; overlays optional variant flags and
+  fields; and folds the placed-sheet policy into each symbol. The index records both
+  the canonical modern address and the legacy UUID address once per occurrence, so
+  repeated symbol resolution does not reconstruct hierarchy paths. Legacy symbol
+  instances use one bundle-wide, source-first index because KiCad commonly stores
+  child-occurrence records in the top schematic rather than in the child definition.
+  Modern compatibility lookup uses one compact reversed-byte arena, sorted
+  project-specific and bundle-fallback instance vectors, rolling-fingerprint prefix
+  indexes, and a constant-time first-instance fallback. Resolution is therefore
+  bounded by the queried path length and logarithmic range lookup instead of
+  rescanning every instance for every repeated occurrence. A separate aggregate
+  per-source index-byte allowance accounts for copied path bytes, retained ranges,
+  and both project/global index entries before any of them are retained.</p>
+
+  <p>Coordinates are snapped immediately to KiCad's 100-nm schematic internal-unit
+  grid and stored as signed integers. A dependency-free decimal parser performs the
+  scale and ties-to-even rounding without conversion through binary floating point.
+  Shared vectors encode the intended Python decimal policy and cover both signed
+  <code>i64</code> boundaries, just-outside values, half-even cases, exponents,
+  malformed input, and non-finite spellings. Equality, hashing, component membership,
+  and exported evidence use exact integer coordinates without a saturating cast.</p>
+
+  <h2>Connectivity semantics</h2>
+  <ul>
+    <li>Consecutive wire points are unioned.</li>
+    <li>Bus points are registered but are not electrically unioned.</li>
+    <li>Both bus-entry endpoints are registered but are not unioned.</li>
+    <li>Junctions register their coordinate; coincident coordinates share the
+      existing point node.</li>
+    <li>Labels and no-connect markers remain typed source carriers but do not add
+      graph nodes in this foundation, matching the Python
+      <code>ConnectivityGraph</code> construction used by the netlist compiler.</li>
+  </ul>
+
+  <p>The immutable result stores deterministic, sorted components and supports
+  point iteration, component lookup, and connected-point queries. Construction uses
+  union by rank with path compression. Structural source scanning is linear and each
+  selected carrier span is lexed independently. Per-carrier selected-span sorting and
+  deterministic final component sorting give a worst-case bound of
+  <code>O(N + sum(p_i log p_i) + P log P)</code>; there is no all-pairs or quadratic
+  connectivity scan.</p>
+
+  <p>Bus point/segment queries use a package-owned static bounding-volume index.
+  Its median partition build is <code>O(S log S)</code>, retains each segment
+  once, and exact checked-integer collinearity is evaluated only beneath
+  containing bounding boxes. An aggregate node/candidate-visit budget bounds
+  pathological overlapping boxes; the compiler does not perform the Python
+  implementation's unconditional entry-or-driver by every-segment nested scan.
+  Cross-product overflow is reported instead of wrapping.</p>
+
+  <h2>Resource behavior</h2>
+  <p>Callers can independently bound wires, buses, bus entries, junctions,
+  no-connect markers, and labels, as well as aggregate connectivity objects, points
+  per carrier, total carrier points per source, placed symbols per source, properties
+  per symbol, source pin mappings per symbol, modern instance projects and paths,
+  variants and their fields, legacy instance paths, embedded library symbols,
+  subsymbols, pins, lookup-key bytes, emitted occurrence terminals, and aggregate
+  string bytes retained by those terminals. The byte allowance includes repeated
+  placement UUIDs and effective references for every emitted pin, preventing a long
+  symbol field from being multiplied below the terminal-count ceiling. Every
+  retained-family check occurs before parsing and pushing that object. Point collectors check before pushing past
+  the effective per-form or remaining per-source allowance. Carrier-local structural
+  selection is also bounded from that remaining allowance. Invalid/non-finite
+  coordinates and overflowing bus-entry endpoints fail closed with the owning source
+  path.</p>
+
+  <p>Bus aliases and their aggregate source members have separate parsing
+  ceilings. Bus expressions independently bound input bytes, direct group
+  members, parsed-member bytes, expanded members, live expansion work items,
+  live work bytes, final output bytes, and nesting depth. Alias members and
+  combined group qualifiers are length-checked as borrowed data before they are
+  cloned or concatenated; the live-work and final-output budgets remain
+  independently tunable even while both collections coexist. Alias fanout is
+  rejected from its cardinality before member contents are scanned, and an
+  empty alias terminates without consuming a nonexistent child-depth step.
+  Vector cardinality is checked before reserving or generating members, so a
+  syntactically small extreme range cannot trigger proportional allocation.</p>
+
+  <p>Bus-subgraph compilation independently bounds source segments, index nodes,
+  aggregate query work, alias-index entries, live graph points, taps, drivers,
+  subgraphs, retained output points and strings, and aggregate expanded member
+  count/bytes. Exact aggregate member limits are passed into each expansion, so
+  a later subgraph fails before allocating beyond the remaining allowance.
+  Physical component count and retained-point limits are checked before
+  component vectors are materialized.</p>
+
+  <p>Occurrence-local compilation independently bounds entry segments/index
+  nodes, aggregate segment-query work, live graph points, pin and label drivers,
+  subgraphs, retained output points/strings, stacked-pin count/bytes, and jumper
+  union work. Stacked ranges are cardinality-checked against the remaining
+  aggregate pin and driver allowances before member generation. Jumper group,
+  member, and source-byte ceilings are enforced while the embedded library form
+  is lexed. Duplicate-number and group expansion use a bounded index; repeated
+  group references cannot create unbounded hidden work.</p>
+
+  <p>Local-net materialization separately bounds net count, emitted terminal
+  count, one final or candidate name, and aggregate retained output strings.
+  Escaped-name size and aggregate range costs are computed before allocating
+  the final name or cloning terminal strings. Defaults remain broad
+  format-safety ceilings (millions of records and hundreds of MiB), not small
+  product assumptions. Off-board terminals are filtered before pin-name indexes
+  or render identifiers are built. Per-name validation applies to both chosen
+  and transient naming candidates, while aggregate retention charges only final
+  net names, emitted terminal strings, and later suffix bytes. The emitted code
+  range is checked from the preflighted net count before any name or terminal is
+  materialized.</p>
+
+  <p>Design-wide materialization separately bounds target-index entries and owned
+  strings, hierarchy unions and merge keys, drivers per merged net, and temporary
+  merged-driver bytes. Before driver vectors are allocated, the compiler computes
+  their exact record payload plus every cloned pin/label string and the selected
+  naming record that will coexist with them. Label accounting includes both
+  authored source UUID and deterministic render ID. A one-over request therefore fails
+  before fan-in clone allocation. These ceilings default to broad format-safety
+  values and remain caller-configurable.</p>
+
+  <p>Cross-sheet bus work independently bounds the design alias index, aggregate
+  bus subgraphs/members/coordinates, canonical mapping work bytes, member-union
+  work, promoted overrides, override references, and retained override strings.
+  Each bus's eligible winning driver is selected once, so member promotion is
+  linear in bus members plus drivers rather than rescanning all drivers for every
+  member. Override count, strings, references, and required unions are preflighted
+  before allocating the wire-reference vector or cloning the override.</p>
+
+  <p>The defaults are deliberately large format-safety ceilings, not product-size
+  assumptions: four million aggregate objects and per family, one million points in
+  one carrier, and eight million carrier points per schematic source. They are
+  configurable and can
+  be tightened by untrusted-input adapters without imposing small arbitrary limits on
+  native KiCad projects.</p>
+
+  <p>Default occurrence, scalar-design, and compiled-graph entry points use the
+  owning bundle's project schematic subpart settings. The project decoder streams
+  only the typed <code>schematic</code> fields through Serde and ignores unrelated
+  project sections without materializing a generic JSON tree. Missing settings use
+  KiCad's <code>A</code>/no-separator defaults; malformed types and values outside
+  <code>u32</code> fail with a project-scoped diagnostic. This is an intentional
+  stricter native malformed-input boundary: Python accepts any
+  <code>isinstance(value, int)</code> value and otherwise retains its default, so
+  native rejection is not claimed as exact Python error parity.</p>
+
+  <h2>Evidence</h2>
+  <p>The focused Rust suite covers all carrier families, label scope/shape, exact
+  connected and disconnected components, bus-entry non-union, absent no-connect graph
+  membership, all six independent family ceilings, and each point ceiling. Shared
+  Rust/Python decimal vectors cover coordinate rounding and range. Rack L3_020 compares every carrier and
+  every connectivity component with the established Python implementation across the
+  four compiled-graph reference projects in one native process, including every
+  hierarchical sheet pin and placed-symbol field, property, and pin mapping. The
+  same corpus comparison covers modern project/path records, variant overlays, and
+  legacy schematic-level symbol-instance paths. It also compares every effective
+  reference, unit, field map, and folded policy plus every active library-pin terminal
+  and transformed connection coordinate for every occurrence. The
+  native evidence process and its Python harness explicitly use UTF-8 at the process
+  boundary, so non-ASCII KiCad values such as micro and ohm symbols remain exact on
+  Windows. Focused synthetic tests cover pin defaults and independent pre-push limits
+  for sheet pins, symbols, symbol properties, symbol pin mappings, embedded library
+  families, terminal count and retained bytes, long-chain inheritance with many
+  placements, missing/cyclic parents, active unit/style selection, arbitrary and
+  negative angles, mirror order, ties-to-even half-grid rounding, and transform and
+  translation overflow.</p>
+
+  <p>Native bus tests mirror the established Python vector/group/alias corpus and
+  add current KiCad C++ regression vectors for formatted ranges, overbar/
+  superscript/subscript names, quoted and escaped spaces, and formatted members.
+  Exact/one-over parsed, work-item, live-work-byte, output-count, and
+  output-byte tests include simultaneous queued work and retained output.
+  Huge-range rejection, oversized borrowed aliases, nested qualifiers,
+  iterative alias ordering, cycle detection, and nesting ceilings are durable
+  Rust evidence. Rack L3_020 also compares every authored bus alias and member on
+  the four real compiled-graph projects.</p>
+
+  <p>The bus-subgraph suite covers midpoint and endpoint attachment, two-sided
+  tap classification, source-order drivers, priority selection, orphan aliases
+  and sheet pins, duplicate-alias visibility, exact checked diagonal geometry,
+  cross-product overflow, and simultaneous exact/one-over resource ceilings.
+  Rack L3_020 compares every normalized bus subgraph, driver, tap, chosen name,
+  priority/kind, and expanded member directly with Python across the same four
+  real projects.</p>
+
+  <p>The occurrence-local suite covers junction and label midpoint attachment,
+  pin non-attachment at a wire midpoint, bus-entry endpoint isolation, canonical
+  slash member merging, stacked alphanumeric pin expansion, local power priority,
+  hidden no-connect isolation, jumper policies, and independent exact/one-over
+  ceilings. Rack L3_020 compares every local component coordinate, pin and label
+  driver, selected name/priority/kind, and no-connect flag with Python for every
+  occurrence in all four compiled-graph reference projects.</p>
+
+  <p>The same Rack differential now compares every finalized occurrence-local
+  net name, code, chosen driver, auto-name flag, sorted terminal, placed-pin
+  source ID, and render target across those projects. Focused Rust evidence
+  covers scoped escaping, duplicate pin-name quality, isolated passive and
+  named multi-pin behavior, letter/digit/separator unit suffixes, source-pin
+  identity, duplicate weak sheet-pin suffixes, and simultaneous exact/one-over
+  output ceilings.</p>
+
+  <p>The four-project differential compares the complete scalar design result:
+  hierarchy bindings, union membership, final names, driver semantics, codes,
+  and terminals, with cross-sheet bus-member promotion enabled in both
+  implementations. Focused native vectors cover
+  resolved and unresolved boundaries, global-label and global-power merging,
+  local-power isolation, human versus UUID paths, exact output ceilings, merge
+  keys, union work, driver fan-in, and diagnostic order. A 32-child repeated-source
+  hierarchy proves UUID and UUID-less name/coordinate target lookup at exact and
+  one-under index ceilings. A 24-terminal, long-reference fan-in vector proves the
+  exact temporary merged-driver byte boundary before cloning. Shared Rack
+  differential vectors prove that a plain design alias is a bus at both the
+  parent sheet-pin and child hierarchical-label boundary and remains eligible
+  to win member naming. A second vector uses reordered, partly overlapping
+  member sets to prove exact canonical names pair before the unmatched remainder
+  is paired positionally. The vectors also cover parent-bus name promotion,
+  stronger global-wire precedence, design-wide last-writer alias visibility,
+  and simultaneous exact/one-under limits for every promoted bus resource
+  family. The Python oracle and Rust use the same occurrence-wide alias policy,
+  and Rack L3_020 compares the complete scalar design across all four projects
+  plus both synthetic boundary vectors; the former oracle suppression is
+  removed.</p>
+
+  <p>The same native pass now feeds <code>build_compiled_schematic_graph</code>,
+  which emits every generated <code>a0</code> graph row family. Connectivity
+  subgraphs retain their source graphical IDs so terminal and local-net drawing
+  links are attributed without reparsing source forms. Rack L3_020 compares the
+  complete graph exactly with the Python producer for all four projects.</p>
+
+  <p>Wide synthetic evidence places 2,048 uniquely identified wires in one
+  connected component and proves source-ordered indexed deduplication plus the
+  exact/one-under retained-string boundary. A long UUID-less sheet-pin vector
+  separately proves its generated render ID is charged both when the label
+  driver is retained and when graphical ownership is emitted.</p>
+
+  <h2>Retained boundary</h2>
+  <p>Schematic mutation and semantic round-trip are covered by the accepted
+  Phase 4 exit under the separate native writer surface. Browser/WASM packaging
+  remains outside this native-first connectivity boundary.</p>
+</body>
+</html>

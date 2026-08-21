@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import tempfile
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Any, Iterable
 
 from .kicad_plotter_ir import KICAD_PLOTTER_IR_ACCEPTED_SCHEMAS, KiCadPlotterOpKind
 from .kicad_recorder_loader import load_recorder_file
+from .testing.corpus import get_kicad_corpus_root
 
 
 SCHEMA = "kicad_monkey.ir_coverage_report.v1"
@@ -178,13 +180,13 @@ def _add_recorder_file(path: Path, *, op_hist: Counter[str]) -> bool:
 def _read_recorder_reports(
     case: dict[str, Any],
     *,
-    kicad_root: Path,
+    generated_root: Path,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     output_root_value = case.get("output_root")
     name = str(case.get("name") or "")
     if not output_root_value or not name:
         return None, None
-    output_root = kicad_root / str(output_root_value)
+    output_root = generated_root / str(output_root_value)
     safe_name = "".join(ch if ch.isalnum() or ch in "_.-" else "_" for ch in name).strip("_")
     drift = _read_json(output_root / "recorder_drift" / f"{safe_name}.json")
     equiv = _read_json(output_root / "op_equivalence" / f"{safe_name}.json")
@@ -194,11 +196,13 @@ def _read_recorder_reports(
 def build_ir_coverage_report(
     kicad_root: Path,
     *,
+    generated_root: Path | None = None,
     statuses: Iterable[str] | None = ("active", "reference_only"),
     top_limit: int = 40,
 ) -> dict[str, Any]:
     """Build an aggregate histogram report from corpus IR outputs."""
     kicad_root = kicad_root.resolve()
+    generated_root = (generated_root or kicad_root).resolve()
     manifest_path = kicad_root / "manifest.json"
     manifest = _read_json(manifest_path)
     if manifest is None:
@@ -213,7 +217,7 @@ def build_ir_coverage_report(
     payload_keys_by_kind: dict[str, Counter[str]] = {}
     style_values: dict[str, Counter[str]] = {}
     ir_files = 0
-    for path in _iter_ir_files(kicad_root):
+    for path in _iter_ir_files(generated_root):
         if _add_ir_file(
             path,
             op_hist=monkey_op_hist,
@@ -239,7 +243,7 @@ def build_ir_coverage_report(
     equivalence_reports = 0
 
     for case in recorder_cases:
-        drift, equiv = _read_recorder_reports(case, kicad_root=kicad_root)
+        drift, equiv = _read_recorder_reports(case, generated_root=generated_root)
         if drift:
             drift_reports += 1
             delta = ((drift.get("op_hist") or {}).get("delta") or {})
@@ -525,8 +529,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--kicad-root",
         type=Path,
-        default=Path(os.environ.get("WN_TEST_CORPUS", "tests/corpus")) / "kicad",
-        help="Path to the KiCad corpus root containing manifest.json.",
+        default=None,
+        help="Path to the KiCad corpus root. Defaults to resolved KM_CORPUS.",
     )
     parser.add_argument(
         "--status",
@@ -537,19 +541,31 @@ def main(argv: list[str] | None = None) -> int:
             "Defaults to active and reference_only."
         ),
     )
+    parser.add_argument(
+        "--generated-root",
+        type=Path,
+        default=None,
+        help="Optional root containing remapped generated corpus outputs.",
+    )
     parser.add_argument("--output-json", type=Path, default=None)
     parser.add_argument("--output-md", type=Path, default=None)
     parser.add_argument("--top-limit", type=int, default=40)
     args = parser.parse_args(argv)
+    kicad_root = args.kicad_root or get_kicad_corpus_root()
+    generated_root = args.generated_root
+    if generated_root is None and os.environ.get("KM_CORPUS_OUTPUT_ROOT"):
+        generated_root = Path(os.environ["KM_CORPUS_OUTPUT_ROOT"])
 
     statuses = args.status if args.status is not None else ["active", "reference_only"]
     report = build_ir_coverage_report(
-        args.kicad_root,
+        kicad_root,
+        generated_root=generated_root,
         statuses=statuses,
         top_limit=args.top_limit,
     )
-    output_json = args.output_json or (args.kicad_root / "review" / "ir_coverage_report.json")
-    output_md = args.output_md or (args.kicad_root / "review" / "ir_coverage_report.md")
+    report_root = Path(tempfile.gettempdir()) / "kicad-monkey" / "reports"
+    output_json = args.output_json or (report_root / "ir_coverage_report.json")
+    output_md = args.output_md or (report_root / "ir_coverage_report.md")
     write_ir_coverage_report(
         report,
         output_json=output_json,

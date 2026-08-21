@@ -1,0 +1,103 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:wavenumber:schema:kicad_monkey.footprint_plot.result:a0",
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "const": "kicad_monkey.footprint_plot.result"
+        },
+        "version": {
+            "type": "string",
+            "const": "a0"
+        },
+        "output_bytes": {
+            "type": "string"
+        },
+        "total_operations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "diagnostics": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/Diagnostic"
+            }
+        }
+    },
+    "required": [
+        "type",
+        "version",
+        "output_bytes",
+        "total_operations",
+        "diagnostics"
+    ],
+    "unevaluatedProperties": {
+        "not": {}
+    },
+    "description": "Metadata paired with a separate kicad.plotter_ir.a0 JSON byte buffer.",
+    "title": "Footprint plot result a0",
+    "$defs": {
+        "Diagnostic": {
+            "type": "object",
+            "properties": {
+                "phase": {
+                    "$ref": "#/$defs/DiagnosticPhase"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "position": {
+                    "$ref": "#/$defs/SourcePosition"
+                },
+                "token": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "phase",
+                "code",
+                "message"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Stable operation diagnostic shared by native, Python, and browser adapters."
+        },
+        "DiagnosticPhase": {
+            "type": "string",
+            "enum": [
+                "lex",
+                "tree",
+                "build"
+            ]
+        },
+        "SourcePosition": {
+            "type": "object",
+            "properties": {
+                "offset": {
+                    "type": "string"
+                },
+                "line": {
+                    "type": "string"
+                },
+                "column": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "offset",
+                "line",
+                "column"
+            ],
+            "unevaluatedProperties": {
+                "not": {}
+            },
+            "description": "Zero-based UTF-8 byte offset with one-based source coordinates."
+        }
+    }
+}

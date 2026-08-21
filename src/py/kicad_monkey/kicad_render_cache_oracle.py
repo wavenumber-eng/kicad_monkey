@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
+import tempfile
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -31,6 +31,7 @@ from .kicad_render_cache import (
     render_cache_request_for_table_cell,
 )
 from .kicad_sexpr import build_sexp, parse_sexp
+from .testing.corpus import get_kicad_corpus_root
 
 
 class KiCadRenderCacheOracleError(RuntimeError):
@@ -332,34 +333,34 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
 
     requests: list[RenderCacheRequest] = []
 
+    # Empty-text objects are collected too: KiCad saves a polygon-less
+    # render_cache for empty outline-font texts (fp_text "" reference
+    # placeholders, blank Datasheet properties), so parity requires a
+    # request for every text object regardless of resolved content.
     for index, text in enumerate(getattr(pcb, "gr_texts", []) or []):
-        if getattr(text, "text", ""):
-            requests.append(
-                render_cache_request_for_board_text(
-                    text,
-                    pcb,
-                    object_type="gr_text",
-                    object_path=f"gr_text[{index}]",
-                    include_text_params=_has_outline_font(text),
-                )
+        requests.append(
+            render_cache_request_for_board_text(
+                text,
+                pcb,
+                object_type="gr_text",
+                object_path=f"gr_text[{index}]",
+                include_text_params=_has_outline_font(text),
             )
+        )
 
     for index, text_box in enumerate(getattr(pcb, "gr_text_boxes", []) or []):
-        if getattr(text_box, "text", ""):
-            requests.append(
-                render_cache_request_for_board_text(
-                    text_box,
-                    pcb,
-                    object_type="gr_text_box",
-                    object_path=f"gr_text_box[{index}]",
-                    include_text_params=_has_outline_font(text_box),
-                )
+        requests.append(
+            render_cache_request_for_board_text(
+                text_box,
+                pcb,
+                object_type="gr_text_box",
+                object_path=f"gr_text_box[{index}]",
+                include_text_params=_has_outline_font(text_box),
             )
+        )
 
     for table_index, table in enumerate(getattr(pcb, "tables", []) or []):
         for cell_index, cell in enumerate(getattr(table, "cells", []) or []):
-            if not getattr(cell, "text", ""):
-                continue
             requests.append(
                 render_cache_request_for_table_cell(
                     cell,
@@ -376,7 +377,7 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
             if hasattr(dimension, "resolved_gr_text")
             else getattr(dimension, "gr_text", None)
         )
-        if text is None or not getattr(text, "text", ""):
+        if text is None:
             continue
         requests.append(
             render_cache_request_for_dimension_text(
@@ -396,8 +397,6 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
         footprint_path = f"footprint[{footprint_index}:{footprint_id}]"
 
         for text_index, text in enumerate(getattr(footprint, "fp_texts", []) or []):
-            if not getattr(text, "text", ""):
-                continue
             requests.append(
                 render_cache_request_for_footprint_text(
                     text,
@@ -408,8 +407,6 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
             )
 
         for prop_index, prop in enumerate(getattr(footprint, "properties", []) or []):
-            if not getattr(prop, "value", ""):
-                continue
             requests.append(
                 render_cache_request_for_footprint_property(
                     prop,
@@ -420,8 +417,6 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
             )
 
         for box_index, text_box in enumerate(getattr(footprint, "fp_text_boxes", []) or []):
-            if not getattr(text_box, "text", ""):
-                continue
             requests.append(
                 render_cache_request_for_footprint_text_box(
                     text_box,
@@ -433,8 +428,6 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
 
         for table_index, table in enumerate(getattr(footprint, "tables", []) or []):
             for cell_index, cell in enumerate(getattr(table, "cells", []) or []):
-                if not getattr(cell, "text", ""):
-                    continue
                 requests.append(
                     render_cache_request_for_table_cell(
                         cell,
@@ -447,7 +440,7 @@ def collect_render_cache_requests_from_pcb(pcb: KiCadPcb) -> list[RenderCacheReq
 
         for dimension_index, dimension in enumerate(getattr(footprint, "dimensions", []) or []):
             text = getattr(dimension, "gr_text", None)
-            if text is None or not getattr(text, "text", ""):
+            if text is None:
                 continue
             requests.append(
                 render_cache_request_for_dimension_text(
@@ -905,8 +898,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--kicad-root",
         type=Path,
-        default=Path(os.environ.get("WN_TEST_CORPUS", "tests/corpus")) / "kicad",
-        help="Path to the KiCad corpus root containing manifest.json.",
+        default=None,
+        help="Path to the KiCad corpus root. Defaults to resolved KM_CORPUS.",
     )
     parser.add_argument(
         "--status",
@@ -921,15 +914,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-md", type=Path, default=None)
     parser.add_argument("--top-limit", type=int, default=40)
     args = parser.parse_args(argv)
+    kicad_root = args.kicad_root or get_kicad_corpus_root()
 
     statuses = args.status if args.status is not None else ["active", "reference_only"]
-    report = build_render_cache_coverage_report(args.kicad_root, statuses=statuses)
-    output_json = args.output_json or (
-        args.kicad_root / "review" / "render_cache_coverage_report.json"
-    )
-    output_md = args.output_md or (
-        args.kicad_root / "review" / "render_cache_coverage_report.md"
-    )
+    report = build_render_cache_coverage_report(kicad_root, statuses=statuses)
+    report_root = Path(tempfile.gettempdir()) / "kicad-monkey" / "reports"
+    output_json = args.output_json or (report_root / "render_cache_coverage_report.json")
+    output_md = args.output_md or (report_root / "render_cache_coverage_report.md")
     write_render_cache_coverage_report(
         report,
         output_json=output_json,

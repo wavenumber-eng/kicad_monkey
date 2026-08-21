@@ -1,6 +1,6 @@
 [project]
 name = "kicad-monkey"
-version = "2026.8.17"
+version = "2026.8.18"
 description = "Core KiCad parser, round-trip, and 2D rendering tooling"
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
@@ -16,6 +16,7 @@ dependencies = [
     "trimesh",
     "uharfbuzz",
     "zstandard",
+    "msgspec>=0.21.1",
 ]
 
 [project.optional-dependencies]
@@ -31,7 +32,7 @@ test = [
     "ruff>=0.8.0",
     "twine>=5.0.0",
     "build>=1.2.0",
-    "wn-dev-std>=2026.7.18; python_version >= '3.12'",
+    "wn-dev-std>=2026.8.12; python_version >= '3.12'",
 ]
 
 [dependency-groups]
@@ -47,7 +48,7 @@ dev = [
     "ruff>=0.8.0",
     "twine>=5.0.0",
     "build>=1.2.0",
-    "wn-dev-std>=2026.7.18; python_version >= '3.12'",
+    "wn-dev-std>=2026.8.12; python_version >= '3.12'",
 ]
 
 [project.urls]
@@ -56,19 +57,28 @@ Repository = "https://github.com/wavenumber-eng/kicad_monkey"
 Issues = "https://github.com/wavenumber-eng/kicad_monkey/issues"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.31.0"]
 build-backend = "hatchling.build"
 
 [tool.wn_dev_std]
-standard_version = "2026.7.18"
-enabled_scopes = ["repo", "ci", "docs.design", "docs.links", "docs.plans"]
+standard_version = "2026.8.12"
+enabled_scopes = ["repo", "language", "ci", "docs.design", "docs.links", "docs.plans"]
 profile = "python-package"
 distribution = "pypi"
-languages = ["python"]
+languages = ["python", "rust"]
 strict = true
 
 [tool.wn_dev_std.pr_hygiene]
 enabled = true
+
+[tool.wn_dev_std.rust]
+source_root = "src/rs"
+
+[tool.wn_dev_std.rust.hygiene]
+config = "rust-hygiene.toml"
+
+[tool.wn_dev_std.documentation.standard_docs]
+rust = "docs/design/rust-standard.html"
 
 [tool.uv]
 package = true
@@ -79,9 +89,16 @@ members = ["packages/kicad_cruncher"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/py/kicad_monkey"]
 
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
 [tool.hatch.build.targets.sdist]
 include = [
+    "Cargo.lock",
+    "hatch_build.py",
+    "packaging/Cargo.sdist.toml",
     "assets/**",
+    "src/rs/**",
     "src/py/**",
     "tests/**",
     "docs/**",
@@ -102,9 +119,13 @@ exclude = [
     "rack_results/**",
     "tests/corpus/**",
     "tests/cross_package/**",
+    "tests/.tmp/**",
     "tests/**/output/**",
     "**/__pycache__/**",
 ]
+
+[tool.hatch.build.targets.sdist.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.version]
 path = "src/py/kicad_monkey/_version.py"

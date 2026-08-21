@@ -14,25 +14,24 @@ longer reproduces. Running the live oracle keeps both sides honest
 against the current KiCad source. The pre-baked ``<case>.net`` files
 in the corpus are retained for archaeology / spot-checks only.
 
-The cached fresh golden lives at
-``<corpus>/kicad/netlist/upstream_qa/<case>/_fresh.net`` and is
+The cached fresh golden lives under this stratum's ignored ``output/`` tree and is
 invalidated whenever the source schematic's mtime advances.
 
 Gated by:
-* kicad-cli resolvable (``$KICAD_CLI`` / corpus-staged / installed
+* kicad-cli resolvable (``$KICAD_CLI`` / cache-staged / installed
   KiCad). Resolution mirrors L3_011's ``_resolve_cli``.
-* corpus root present (env ``WN_TEST_CORPUS`` or package-local corpus).
+* the resolved ``KM_CORPUS`` archive contains the upstream-QA fixtures.
 """
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
+from _suite_paths import TEST_CORPUS_ROOT
 from kicad_cli_resolver import resolve_kicad_cli
 from kicad_monkey import (
     KiCadDesign,
@@ -49,15 +48,8 @@ from kicad_monkey import (
 
 
 def _resolve_corpus_root() -> Path | None:
-    env = os.environ.get("WN_TEST_CORPUS")
-    candidates: list[Path] = []
-    if env:
-        candidates.append(Path(env))
-    candidates.append(Path(__file__).resolve().parents[1] / "corpus")
-    for cand in candidates:
-        if (cand / "kicad" / "netlist" / "upstream_qa").is_dir():
-            return cand
-    return None
+    expected = TEST_CORPUS_ROOT / "kicad" / "netlist" / "upstream_qa"
+    return TEST_CORPUS_ROOT if expected.is_dir() else None
 
 
 def _resolve_cli() -> Path | None:
@@ -66,7 +58,9 @@ def _resolve_cli() -> Path | None:
 
 _CORPUS = _resolve_corpus_root()
 _CLI = _resolve_cli()
-_QA_ROOT = (_CORPUS / "kicad" / "netlist" / "upstream_qa") if _CORPUS is not None else None
+_QA_ROOT = (
+    (_CORPUS / "kicad" / "netlist" / "upstream_qa") if _CORPUS is not None else None
+)
 MIN_SUPPORTED_SCHEMATIC_VERSION = 20240716
 
 
@@ -110,7 +104,11 @@ def _manifest_upstream_qa_cases() -> list[str]:
             required=False,
         ):
             root = resolve_kicad_manifest_path(case, "input_root")
-            if root is not None and root.is_dir() and _is_supported_kicad_9_10_case(root):
+            if (
+                root is not None
+                and root.is_dir()
+                and _is_supported_kicad_9_10_case(root)
+            ):
                 out.append(root.name)
         return sorted(out)
     except Exception:
@@ -118,7 +116,11 @@ def _manifest_upstream_qa_cases() -> list[str]:
 
 
 CASES: list[str] = _manifest_upstream_qa_cases() or (
-    sorted(p.name for p in _QA_ROOT.iterdir() if p.is_dir() and _is_supported_kicad_9_10_case(p))
+    sorted(
+        p.name
+        for p in _QA_ROOT.iterdir()
+        if p.is_dir() and _is_supported_kicad_9_10_case(p)
+    )
     if _QA_ROOT is not None
     else []
 )
@@ -151,17 +153,19 @@ def _top_schematic_path(case: str) -> Path:
 # ---------------------------------------------------------------------------
 
 
+_ORACLE_CACHE_ROOT = Path(__file__).parent / "output" / "netlist_upstream_qa"
+
+
 def _emit_fresh_golden(case: str, *, cli: Path) -> Path:
     """Run kicad-cli on the case's top sch and cache the netlist.
 
-    The cache lives alongside the shipped ``<case>.net`` as
-    ``_fresh.net`` so a) it doesn't shadow the historical golden and
-    b) it's trivial to wipe / regenerate. Invalidates whenever the
-    source schematic's mtime advances.
+    The cache is separate from the extracted corpus and invalidates whenever
+    the source schematic's mtime advances.
     """
     sch = _top_schematic_path(case)
-    case_dir = _case_root(case)
-    out_path = case_dir / "_fresh.net"
+    cache_dir = _ORACLE_CACHE_ROOT / case
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    out_path = cache_dir / "_fresh.net"
     if (
         out_path.exists()
         and out_path.stat().st_mtime >= sch.stat().st_mtime
@@ -171,7 +175,7 @@ def _emit_fresh_golden(case: str, *, cli: Path) -> Path:
 
     # Stage into a scratch dir so kicad-cli sees sub-sheets and any
     # .kicad_pro / sym-lib-table without polluting the corpus.
-    stage = case_dir / "_stage"
+    stage = cache_dir / "_stage"
     if stage.exists():
         shutil.rmtree(stage, ignore_errors=True)
     stage.mkdir(parents=True, exist_ok=True)
@@ -182,9 +186,14 @@ def _emit_fresh_golden(case: str, *, cli: Path) -> Path:
     staged_sch = stage / sch.name
     proc = subprocess.run(
         [
-            str(cli), "sch", "export", "netlist",
-            "--format", "kicadsexpr",
-            "--output", str(out_path),
+            str(cli),
+            "sch",
+            "export",
+            "netlist",
+            "--format",
+            "kicadsexpr",
+            "--output",
+            str(out_path),
             str(staged_sch),
         ],
         capture_output=True,
@@ -255,12 +264,13 @@ def test_corpus_present_and_has_all_cases():
         "jumpers",
         "multinetclasses",
     }
-    assert expected.issubset(set(CASES)), \
-        f"missing cases: {expected - set(CASES)}"
+    assert expected.issubset(set(CASES)), f"missing cases: {expected - set(CASES)}"
 
 
 @pytest.mark.skipif(_QA_ROOT is None, reason="netlist upstream_qa mirror not present")
-@pytest.mark.skipif(_CLI is None, reason="kicad-cli not resolvable; set $KICAD_CLI or stage one")
+@pytest.mark.skipif(
+    _CLI is None, reason="kicad-cli not resolvable; set $KICAD_CLI or stage one"
+)
 @pytest.mark.parametrize("case", CASES)
 def test_netlist_structurally_matches_upstream_golden(case, request):
     if case in KNOWN_GAPS:

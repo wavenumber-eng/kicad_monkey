@@ -606,11 +606,20 @@ def _union_within_sheet_bus_members(
                 _uf_union(m_parent, m_rank, base, member_idx[(s_i, b_i, pos)])
 
 
-def _hier_bus_by_name(child_cs: CompiledSheet) -> Dict[str, int]:
+def _is_design_bus_label(text: str, bus_aliases: Dict[str, List[str]]) -> bool:
+    """Return whether *text* names an aggregate bus in the compiled design."""
+    return is_bus_label(text) or text in bus_aliases
+
+
+def _hier_bus_by_name(
+    child_cs: CompiledSheet, bus_aliases: Dict[str, List[str]]
+) -> Dict[str, int]:
     hier_bus_by_name: Dict[str, int] = {}
     for b_i, bsg in enumerate(child_cs.bus_subgraphs):
         for driver in bsg.drivers:
-            if driver.kind == KiCadDriverKind.HIER_LABEL and is_bus_label(driver.text):
+            if driver.kind == KiCadDriverKind.HIER_LABEL and _is_design_bus_label(
+                driver.text, bus_aliases
+            ):
                 hier_bus_by_name.setdefault(driver.text, b_i)
     return hier_bus_by_name
 
@@ -670,6 +679,7 @@ def _union_bus_member_pairing(
 def _union_cross_sheet_bus_members(
     compiled: List[CompiledSheet],
     sheet_to_index: Dict[int, int],
+    bus_aliases: Dict[str, List[str]],
     member_idx: Dict[_BusMemberKey, int],
     m_parent: List[int],
     m_rank: List[int],
@@ -681,10 +691,10 @@ def _union_cross_sheet_bus_members(
             if child_cs.parent is not parent_cs or child_cs.parent_sheet is None:
                 continue
             child_idx = sheet_to_index[id(child_cs)]
-            hier_bus_by_name = _hier_bus_by_name(child_cs)
+            hier_bus_by_name = _hier_bus_by_name(child_cs, bus_aliases)
             for pin in child_cs.parent_sheet.pins:
                 pin_name = pin.name or ""
-                if not is_bus_label(pin_name):
+                if not _is_design_bus_label(pin_name, bus_aliases):
                     continue
                 parent_b = _parent_bus_index_for_pin(
                     parent_cs,
@@ -717,6 +727,7 @@ def _bus_member_candidates(
     group: List[int],
     member_flat: List[_BusMemberKey],
     compiled: List[CompiledSheet],
+    bus_aliases: Dict[str, List[str]],
 ) -> List[_BusMemberCandidate]:
     candidates: List[_BusMemberCandidate] = []
     for index in group:
@@ -725,7 +736,7 @@ def _bus_member_candidates(
         bsg = cs.bus_subgraphs[b_i]
         depth = cs.sheet_path_human.count("/")
         for driver_idx, driver in enumerate(bsg.drivers):
-            if not is_bus_label(driver.text):
+            if not _is_design_bus_label(driver.text, bus_aliases):
                 continue
             candidates.append(
                 (
@@ -771,8 +782,9 @@ def _promote_bus_member_group(
     parent: List[int],
     rank: List[int],
     overrides_by_flat: Dict[int, List[_BusMemberOverride]],
+    bus_aliases: Dict[str, List[str]],
 ) -> None:
-    candidates = _bus_member_candidates(group, member_flat, compiled)
+    candidates = _bus_member_candidates(group, member_flat, compiled, bus_aliases)
     if not candidates:
         return
     candidates.sort(key=lambda t: (t[0], t[1], t[2], t[3], t[4]))
@@ -819,10 +831,12 @@ def _merge_buses_cross_sheet(
         return
 
     m_parent, m_rank = _make_union_find(len(member_flat))
+    bus_aliases = compiled[0].bus_aliases_design if compiled else {}
     _union_within_sheet_bus_members(compiled, member_idx, m_parent, m_rank)
     _union_cross_sheet_bus_members(
         compiled,
         sheet_to_index,
+        bus_aliases,
         member_idx,
         m_parent,
         m_rank,
@@ -837,6 +851,7 @@ def _merge_buses_cross_sheet(
             parent,
             rank,
             overrides_by_flat,
+            bus_aliases,
         )
 
 

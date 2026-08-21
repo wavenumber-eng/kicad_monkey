@@ -50,3 +50,47 @@ test_megamaid_help_describes_project_dissection = "Megamaid help describes the f
 test_design_alias_help_starts = "Design review aliases start and print command help"
 test_pcb_svg_help_describes_config_and_hlr = "pcb-svg help describes config-driven SVG and HLR behavior"
 test_resolve_output_dir_defaults_to_command_subfolder = "Shared output resolver defaults to output/<command> and accepts command-specific defaults"
+
+[[subtests]]
+id = "L0_004"
+file = "test_L0_004_design_review_manifest.py"
+name = "Design Review Manifest Contract"
+description = "Validate the strict existing design-review manifest wire and command failure boundary"
+concerns = ["cli", "contracts", "release"]
+test_case_type = "contract"
+test_cases = "docs/contracts/design_review_manifest.a0.schema.json and synthetic command failures"
+
+[subtests.code_under_test]
+module = "kicad_cruncher.kicad_cruncher_cmd_design"
+contract = "docs/contracts/design_review_manifest.a0.schema.json"
+
+[subtests.objectives]
+existing_wire = "The strict schema accepts native provenance and the compatible retained-Python manifest without provenance"
+strictness = "Unknown fields, incomplete graph counts, malformed hashes, and unsafe absolute, backslash, dot, or traversal artifact paths fail validation"
+publication = "Every manifest artifact resolves beneath staging and exists before the manifest and complete tree publish"
+failure = "Handled output-resolution, invalid-manifest, or generation failures return 1 and leave a new destination absent"
+
+[[subtests]]
+id = "L0_005"
+file = "test_L0_005_speedy_performance_probe.py"
+name = "Speedy Performance Probe"
+description = "Validate reviewed-corpus extraction safety and semantic SVG parity enforcement in the release benchmark"
+concerns = ["cli", "contracts", "release"]
+test_case_type = "contract"
+test_cases = "Synthetic hostile ZIP paths, scaled legacy/native schematic SVGs, and native performance-profile records"
+
+[subtests.code_under_test]
+module = "tests.support_scripts.speedy_dr_performance_probe"
+
+[subtests.objectives]
+corpus_safety = "Windows traversal and drive-like ZIP members cannot escape the temporary Speedy source root"
+svg_parity = "The benchmark accepts renderer scale and identity-carrier differences while rejecting missing SVG record geometry"
+profile_binding = "Profile mode requires exactly one valid native trace bound to measured bundle artifact counts and bytes"
+memory_sampling = "The benchmark records a positive root-process peak and propagates live sampler failures"
+
+[subtests.test_functions]
+test_speedy_probe_rejects_windows_archive_escape_members = "Reviewed-corpus selection rejects Windows backslash traversal before extraction"
+test_speedy_probe_semantically_validates_schematic_svg_bodies = "Semantic schematic SVG validation accepts known carrier differences and detects a corrupted body"
+test_speedy_probe_requires_a_bundle_bound_rust_profile = "Profile capture rejects missing, unexpected, malformed, arithmetically invalid, or bundle-mismatched records"
+test_speedy_probe_captures_root_process_peak_working_set = "Root-process peak sampling observes a durable allocation rather than only process startup"
+test_speedy_probe_rejects_memory_sampler_failure = "A live-process sampler failure aborts the benchmark instead of publishing a zero or partial measurement"

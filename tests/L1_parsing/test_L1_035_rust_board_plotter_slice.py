@@ -1,0 +1,618 @@
+"""Rack ownership for the first Rust board-to-plotter-IR slice."""
+
+from __future__ import annotations
+
+import contextlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+from jsonschema import Draft202012Validator
+import msgspec
+import pytest
+
+from kicad_monkey.contracts.generated import (
+    decode_board_plot_document_a0,
+    decode_board_plot_request_a0,
+)
+from kicad_monkey.kicad_pcb import KiCadPcb
+from kicad_monkey.kicad_pcb_to_ir import pcb_to_ir
+from kicad_monkey.kicad_project import KiCadProject
+
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+VECTOR_PATH = PACKAGE_ROOT / "tests" / "parity" / "board_plotter_a0_vectors.json"
+TEXT_CACHE_SIDECAR_VECTOR_PATH = (
+    PACKAGE_ROOT / "tests" / "parity" / "board_text_cache_sidecar_vectors.json"
+)
+SLICE_SCHEMA_PATH = (
+    PACKAGE_ROOT / "contracts" / "generated" / "schema" / "BoardPlotDocument.json"
+)
+ESTABLISHED_SCHEMA_PATH = (
+    PACKAGE_ROOT / "docs" / "contracts" / "kicad_plotter_ir_a0.schema.json"
+)
+
+
+def _run(command: list[str]) -> None:
+    completed = subprocess.run(
+        command,
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=240,
+        check=False,
+    )
+    assert completed.returncode == 0, (
+        f"Command failed: {' '.join(command)}\n"
+        f"stdout:\n{completed.stdout}\n"
+        f"stderr:\n{completed.stderr}"
+    )
+
+
+@contextlib.contextmanager
+def _without_shapely():
+    """Pin the governed no-Shapely synthetic-knockout baseline.
+
+    The Rust producer ports the established serializer's behavior when
+    Shapely is unavailable: text-box knockout leaves the text operation
+    unchanged. Blocking the import keeps the oracle on that baseline even
+    in environments where Shapely is installed.
+    """
+
+    saved = {
+        name: sys.modules.pop(name)
+        for name in list(sys.modules)
+        if name == "shapely" or name.startswith("shapely.")
+    }
+    sys.modules["shapely"] = None
+    try:
+        yield
+    finally:
+        del sys.modules["shapely"]
+        sys.modules.update(saved)
+
+
+def test_shared_board_vectors_match_python_generated_types_and_both_schemas() -> None:
+    payload = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))
+    assert payload["schema"] == "kicad_monkey.board_plotter_parity.a0"
+
+    slice_schema = json.loads(SLICE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    established_schema = json.loads(ESTABLISHED_SCHEMA_PATH.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(slice_schema)
+    Draft202012Validator.check_schema(established_schema)
+    safe_integer = slice_schema["$defs"]["JavaScriptSafeInteger"]
+    assert safe_integer["minimum"] == -9_007_199_254_740_991
+    assert safe_integer["maximum"] == 9_007_199_254_740_991
+
+    for vector in payload["vectors"]:
+        pcb = KiCadPcb.from_string(vector["source"])
+        project_raw: dict = {}
+        assignments = vector.get("net_class_assignments")
+        if assignments is not None:
+            project_raw["net_settings"] = {"netclass_assignments": assignments}
+        variables = vector.get("text_variables")
+        if variables is not None:
+            project_raw["text_variables"] = variables
+        if project_raw:
+            pcb.project = KiCadProject.from_json_dict(project_raw)
+        oracle_mode = vector.get("oracle_mode")
+        assert oracle_mode in (None, "without_shapely")
+        oracle = (
+            _without_shapely()
+            if oracle_mode == "without_shapely"
+            else contextlib.nullcontext()
+        )
+        with oracle:
+            actual = pcb_to_ir(
+                pcb,
+                source_path=vector["source_path"],
+                document_id=vector["document_id"],
+            ).to_dict()
+        assert actual == vector["expected"], vector["id"]
+        Draft202012Validator(slice_schema).validate(actual)
+        Draft202012Validator(established_schema).validate(actual)
+
+        # The established Python model retains integral coordinates as floats
+        # internally; the canonical interchange vector normalizes them to the
+        # TypeSpec-owned integer representation used by Rust and WASM.
+        encoded = json.dumps(vector["expected"]).encode("utf-8")
+        generated = decode_board_plot_document_a0(encoded)
+        assert json.loads(msgspec.json.encode(generated)) == vector["expected"]
+
+        unsafe = json.loads(json.dumps(actual))
+        unsafe["version"] = 9_007_199_254_740_992
+        assert list(Draft202012Validator(slice_schema).iter_errors(unsafe))
+
+    mixed = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "board-metadata-and-category-ordered-graphics"
+    )
+
+    unknown_record_kind = json.loads(json.dumps(mixed))
+    unknown_record_kind["records"][0]["kind"] = "gr_text"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(unknown_record_kind).encode("utf-8"))
+
+    missing_layer = json.loads(json.dumps(mixed))
+    del missing_layer["records"][0]["layer"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_layer).encode("utf-8"))
+
+    unknown_operation = json.loads(json.dumps(mixed))
+    unknown_operation["records"][0]["operations"][0]["kind"] = "Unknown"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(unknown_operation).encode("utf-8"))
+
+    malformed_point = json.loads(json.dumps(mixed))
+    malformed_point["records"][4]["operations"][0]["points"][0] = [0]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(malformed_point).encode("utf-8"))
+
+    tracks = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "tracks-follow-graphics-with-net-extras"
+    )
+
+    # Vector record layout: gr_line, three segments, two arcs, one via.
+    missing_lock = json.loads(json.dumps(tracks))
+    del missing_lock["records"][1]["locked"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_lock).encode("utf-8"))
+
+    non_boolean_lock = json.loads(json.dumps(tracks))
+    non_boolean_lock["records"][1]["locked"] = "yes"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(non_boolean_lock).encode("utf-8"))
+
+    locked_arc = json.loads(json.dumps(tracks))
+    locked_arc["records"][4]["locked"] = True
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(locked_arc).encode("utf-8"))
+
+    unknown_via_role = json.loads(json.dumps(tracks))
+    unknown_via_role["records"][6]["operations"][0]["role"] = "Unknown"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(unknown_via_role).encode("utf-8"))
+
+    unknown_via_type = json.loads(json.dumps(tracks))
+    unknown_via_type["records"][6]["via_type"] = "half"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(unknown_via_type).encode("utf-8"))
+
+    missing_via_type = json.loads(json.dumps(tracks))
+    del missing_via_type["records"][6]["via_type"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_via_type).encode("utf-8"))
+
+    zones = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "zones-bundle-fill-rings-and-annotations"
+    )
+
+    # Vector record layout: zone-single (two rings), zone-multi,
+    # zone-keepout (no rings), zone-empty-name.
+    missing_fill_layers = json.loads(json.dumps(zones))
+    del missing_fill_layers["records"][0]["fill_layers"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_fill_layers).encode("utf-8"))
+
+    non_boolean_island = json.loads(json.dumps(zones))
+    non_boolean_island["records"][0]["fill_island"][0] = "no"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(non_boolean_island).encode("utf-8"))
+
+    unknown_zone_kind = json.loads(json.dumps(zones))
+    unknown_zone_kind["records"][0]["kind"] = "zone_outline"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(unknown_zone_kind).encode("utf-8"))
+
+    net_class_extras = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "net-class-extras-follow-project-assignments"
+    )
+
+    non_array_classes = json.loads(json.dumps(net_class_extras))
+    non_array_classes["records"][1]["net_classes"] = "Power"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(non_array_classes).encode("utf-8"))
+
+    texts = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "board-text-follows-python-serializer"
+    )
+
+    # Vector record layout: plain, styled, empty, vars, cache, stale-cache,
+    # knockout, face-cache.
+    missing_hide = json.loads(json.dumps(texts))
+    del missing_hide["records"][0]["hide"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_hide).encode("utf-8"))
+
+    unknown_alignment = json.loads(json.dumps(texts))
+    unknown_alignment["records"][0]["operations"][0]["h_align"] = "GR_TEXT_H_ALIGN_JUSTIFY"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(unknown_alignment).encode("utf-8"))
+
+    missing_cache_schema = json.loads(json.dumps(texts))
+    del missing_cache_schema["records"][4]["operations"][0]["render_cache"]["schema"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_cache_schema).encode("utf-8"))
+
+    malformed_cache_point = json.loads(json.dumps(texts))
+    cache = malformed_cache_point["records"][4]["operations"][0]["render_cache"]
+    cache["polygons"][0]["contours"][0][0] = [0]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(malformed_cache_point).encode("utf-8"))
+
+    native_cache = json.loads(json.dumps(texts))
+    native_op = native_cache["records"][4]["operations"][0]
+    native_op["render_cache_source"] = "native_generated_cache"
+    native_op["render_cache"]["source"] = "native_generated_cache"
+    decode_board_plot_document_a0(json.dumps(native_cache).encode("utf-8"))
+    Draft202012Validator(slice_schema).validate(native_cache)
+
+    python_cache = json.loads(json.dumps(texts))
+    python_op = python_cache["records"][4]["operations"][0]
+    python_op["render_cache_source"] = "python_generated_cache"
+    python_op["render_cache"]["source"] = "python_generated_cache"
+    decode_board_plot_document_a0(json.dumps(python_cache).encode("utf-8"))
+    Draft202012Validator(slice_schema).validate(python_cache)
+
+    text_boxes = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "text-boxes-bundle-border-and-alignment"
+    )
+
+    missing_border = json.loads(json.dumps(text_boxes))
+    del missing_border["records"][0]["border"]
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(missing_border).encode("utf-8"))
+
+    dimensions = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"] == "dimensions-follow-tables-and-precede-zones"
+    )
+
+    dimension_mutations = []
+    for layers in ([], ["Dwgs.User", "Dwgs.User"], ["F.SilkS", "Dwgs.User"]):
+        mutation = json.loads(json.dumps(dimensions))
+        mutation["records"][1]["layers"] = layers
+        dimension_mutations.append(mutation)
+
+    wrong_index = json.loads(json.dumps(dimensions))
+    wrong_index["records"][1]["operations"][0]["index"] = 1
+    dimension_mutations.append(wrong_index)
+
+    wrong_count = json.loads(json.dumps(dimensions))
+    wrong_count["records"][1]["operation_count"] -= 1
+    dimension_mutations.append(wrong_count)
+
+    undeclared_layer = json.loads(json.dumps(dimensions))
+    undeclared_layer["records"][1]["operations"][0]["layer"] = "B.Cu"
+    dimension_mutations.append(undeclared_layer)
+
+    impossible_segment = json.loads(json.dumps(dimensions))
+    impossible_segment["records"][1]["operations"][0]["role"] = "via_drill"
+    dimension_mutations.append(impossible_segment)
+
+    nonleading_text = json.loads(json.dumps(dimensions))
+    nonleading_text["records"][3]["operations"][0:2] = reversed(
+        nonleading_text["records"][3]["operations"][0:2]
+    )
+    for index, operation in enumerate(nonleading_text["records"][3]["operations"]):
+        operation["index"] = index
+    dimension_mutations.append(nonleading_text)
+
+    duplicate_marker = json.loads(json.dumps(dimensions))
+    marker = json.loads(json.dumps(duplicate_marker["records"][2]["operations"][1]))
+    duplicate_marker["records"][2]["operations"].insert(2, marker)
+    for index, operation in enumerate(duplicate_marker["records"][2]["operations"]):
+        operation["index"] = index
+    duplicate_marker["records"][2]["operation_count"] += 1
+    duplicate_marker["total_operations"] += 1
+    dimension_mutations.append(duplicate_marker)
+
+    for field, value in (
+        ("mirror", False),
+        ("text_as_polygons", True),
+        ("polyline_per_segment", False),
+        ("knockout", False),
+    ):
+        mutation = json.loads(json.dumps(dimensions))
+        mutation["records"][3]["operations"][0][field] = value
+        dimension_mutations.append(mutation)
+
+    missing_text_layer = json.loads(json.dumps(dimensions))
+    del missing_text_layer["records"][3]["operations"][0]["layer"]
+    dimension_mutations.append(missing_text_layer)
+
+    mismatched_cache = json.loads(json.dumps(dimensions))
+    mismatched_cache["records"][3]["operations"][0][
+        "render_cache_source"
+    ] = "native_generated_cache"
+    dimension_mutations.append(mismatched_cache)
+
+    for mutation in dimension_mutations:
+        with pytest.raises(msgspec.ValidationError):
+            decode_board_plot_document_a0(json.dumps(mutation).encode("utf-8"))
+
+    wrong_dimension_kind = json.loads(json.dumps(dimensions))
+    wrong_dimension_kind["records"][1]["operations"][0]["kind"] = "Circle"
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(wrong_dimension_kind).encode("utf-8"))
+
+    null_dimension_text = json.loads(json.dumps(dimensions))
+    null_dimension_text["records"][2]["text"] = None
+    with pytest.raises(msgspec.ValidationError):
+        decode_board_plot_document_a0(json.dumps(null_dimension_text).encode("utf-8"))
+
+    empty_dimension_text = json.loads(json.dumps(dimensions))
+    empty_dimension_text["records"][2]["text"] = ""
+    decode_board_plot_document_a0(json.dumps(empty_dimension_text).encode("utf-8"))
+
+    footprints = next(
+        vector["expected"]
+        for vector in payload["vectors"]
+        if vector["id"]
+        == "embedded-footprints-follow-zones-and-keep-local-ownership"
+    )
+    assert [record["kind"] for record in footprints["records"]] == [
+        "zone_fill",
+        "footprint",
+        "footprint",
+    ]
+    rich = footprints["records"][1]
+    empty = footprints["records"][2]
+    assert rich["placement"] == {
+        "x_nm": 10_000_000,
+        "y_nm": 20_000_000,
+        "angle_deg": 90,
+    }
+    assert [operation["kind"] for operation in rich["operations"]] == [
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Rect",
+        "Text",
+        "ThickSegment",
+        "ArcThreePoint",
+        "Circle",
+        "Rect",
+        "PlotPoly",
+        "StartBlock",
+        "FlashPadOval",
+        "EndBlock",
+        "StartBlock",
+        "ThickSegment",
+        "EndBlock",
+    ]
+    assert rich["operations"][0]["render_cache"]["coordinate_space"] == (
+        "footprint_local"
+    )
+    assert rich["operations"][0]["render_cache_polygons"] == [
+        [[0, 0], [-1_000_000, 0], [-1_000_000, -1_000_000]]
+    ]
+    assert "mirror" not in rich["operations"][3]
+    assert rich["operations"][6]["extra_attrs"]["footprint_object_index"] == 0
+    assert rich["operations"][6]["extra_attrs"]["footprint_subop_index"] == 0
+    assert rich["operations"][11]["extra_attrs"]["net_classes"] == (
+        "Power,HighCurrent"
+    )
+    assert rich["operations"][12]["orient_deg"] == 45.0
+    assert rich["operations"][14]["extra_attrs"]["hole_height_mm"] == "1.0"
+    assert empty["operations"] == []
+    assert empty["layer"] == "F.Cu"
+    assert empty["descr"] == ""
+    assert empty["tags"] == ""
+
+    footprint_mutations = []
+
+    missing_placement = json.loads(json.dumps(footprints))
+    del missing_placement["records"][1]["placement"]
+    footprint_mutations.append(missing_placement)
+
+    non_integer_child_index = json.loads(json.dumps(footprints))
+    non_integer_child_index["records"][1]["operations"][6]["extra_attrs"][
+        "footprint_object_index"
+    ] = "0"
+    footprint_mutations.append(non_integer_child_index)
+
+    missing_child_owner = json.loads(json.dumps(footprints))
+    del missing_child_owner["records"][1]["operations"][6]["data_ref"]
+    footprint_mutations.append(missing_child_owner)
+
+    board_space_cache = json.loads(json.dumps(footprints))
+    board_space_cache["records"][1]["operations"][0]["render_cache"][
+        "coordinate_space"
+    ] = "board"
+    footprint_mutations.append(board_space_cache)
+
+    false_mirror_marker = json.loads(json.dumps(footprints))
+    false_mirror_marker["records"][1]["operations"][3]["mirror"] = False
+    footprint_mutations.append(false_mirror_marker)
+
+    broken_pad_block = json.loads(json.dumps(footprints))
+    del broken_pad_block["records"][1]["operations"][13]
+    for index, operation in enumerate(broken_pad_block["records"][1]["operations"]):
+        operation["index"] = index
+    broken_pad_block["records"][1]["operation_count"] -= 1
+    broken_pad_block["total_operations"] -= 1
+    footprint_mutations.append(broken_pad_block)
+
+    non_string_hole_dimension = json.loads(json.dumps(footprints))
+    non_string_hole_dimension["records"][1]["operations"][14]["extra_attrs"][
+        "hole_height_mm"
+    ] = 1.0
+    footprint_mutations.append(non_string_hole_dimension)
+
+    null_description = json.loads(json.dumps(footprints))
+    null_description["records"][2]["descr"] = None
+    footprint_mutations.append(null_description)
+
+    wrong_record_order = json.loads(json.dumps(footprints))
+    wrong_record_order["records"][0:2] = reversed(wrong_record_order["records"][0:2])
+    footprint_mutations.append(wrong_record_order)
+
+    for mutation in footprint_mutations:
+        with pytest.raises(msgspec.ValidationError):
+            decode_board_plot_document_a0(json.dumps(mutation).encode("utf-8"))
+
+
+def test_rust_core_and_host_adapter_consume_the_shared_board_vector() -> None:
+    _run([sys.executable, "scripts/generate_board_plotter_vectors.py", "--check"])
+    _run([sys.executable, "scripts/generate_stroke_font_widths.py", "--check"])
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for the Rust plotter-IR gate"
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "board_plotter_slice",
+        ]
+    )
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "board_plotter_resource_limits",
+        ]
+    )
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "board_dimension_slice",
+        ]
+    )
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "board_footprint_slice",
+        ]
+    )
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-contracts",
+            "--test",
+            "board_plot_contracts",
+        ]
+    )
+    _run(
+        [
+            cargo,
+            "test",
+            "--locked",
+            "--package",
+            "kicad-monkey-core",
+            "--test",
+            "plotter_text_cache",
+        ]
+    )
+    _run([cargo, "test", "--locked", "--package", "kicad-monkey-wasm"])
+
+
+def test_native_cache_sidecar_vector_reaches_generated_contract_projection() -> None:
+    cargo = shutil.which("cargo")
+    assert cargo is not None, "cargo is required for the Rust plotter-IR gate"
+    vector = json.loads(TEXT_CACHE_SIDECAR_VECTOR_PATH.read_text(encoding="utf-8"))[
+        "vectors"
+    ][0]
+    completed = subprocess.run(
+        [
+            cargo,
+            "run",
+            "--quiet",
+            "--locked",
+            "--package",
+            "kicad-monkey-wasm",
+            "--example",
+            "board_text_cache_sidecar_contract",
+        ],
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=240,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    payload = json.loads(completed.stdout)
+    decode_board_plot_document_a0(completed.stdout.encode("utf-8"))
+    Draft202012Validator(
+        json.loads(SLICE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    ).validate(payload)
+    actual_sources = [
+        next(
+            operation["render_cache"]["source"]
+            for operation in record["operations"]
+            if "render_cache" in operation
+        )
+        for record in payload["records"]
+    ]
+    assert actual_sources == vector["expected_cache_sources"]
+
+
+def test_board_plot_request_requires_explicit_graphic_and_point_budgets() -> None:
+    request = {
+        "type": "kicad_monkey.board_plot.request",
+        "version": "a0",
+        "max_source_bytes": "65536",
+        "max_output_bytes": "65536",
+        "max_depth": 32,
+        "max_graphics": 1000,
+        "max_operations": 1000,
+        "max_points": 10000,
+        "max_text_bytes": "65536",
+        "max_parse_nodes": 10000,
+        "max_input_points": 10000,
+        "max_input_polygons": 1000,
+        "max_cache_polygons": 1000,
+        "max_cache_contours": 10000,
+    }
+    decoded = decode_board_plot_request_a0(json.dumps(request).encode())
+    assert decoded.max_graphics == 1000
+    assert decoded.max_points == 10000
+    for budget in (
+        "max_graphics",
+        "max_points",
+        "max_text_bytes",
+        "max_parse_nodes",
+        "max_input_points",
+        "max_input_polygons",
+        "max_cache_polygons",
+        "max_cache_contours",
+    ):
+        trimmed = dict(request)
+        del trimmed[budget]
+        with pytest.raises(msgspec.ValidationError):
+            decode_board_plot_request_a0(json.dumps(trimmed).encode())

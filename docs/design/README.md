@@ -19,6 +19,96 @@ sections live under `api/`, and all design HTML uses `styles.css`.
 
 Current design notes:
 
+- `rust-standard.html` - provisional Rust workspace, safety, dependency, and
+  review policy for the native/WASM port.
+- `rust-sexpr-l0-review.html` - accepted Rust S-expression foundation review,
+  evidence, corrections, and retained parser-promotion gates.
+- `rust-sexpr-l1-review.html` - accepted parser-only corpus parity review and
+  the remaining performance and memory gates before typed-reader expansion.
+- `rust-sexpr-phase1-measurement.html` - accepted named-corpus release timing
+  and peak-memory method, Windows evidence, and retained Linux ratification.
+- `rust-sexpr-phase1-promotion.html` - accepted parser correctness, safety,
+  API-boundary, and deferred-performance decision authorizing typed readers.
+- `rust-footprint-phase2-slice.html` - accepted first source-backed footprint
+  reader and unknown-form-preserving focused writer boundary.
+- `rust-footprint-plotter-phase2-slice.html` - review-ready shared plotter
+  operation vocabulary plus non-text footprint graphics, standard pads,
+  patterned strokes, drills, generated contracts, native, and WASM boundary.
+- `rust-symbol-plotter-phase2-slice.html` - library-symbol body geometry, body
+  text, and pin geometry/labels using the shared plotter operation vocabulary.
+- `rust-symbol-library-phase2-slice.html` - typed symbol-library iteration and
+  source-preserving write-back boundary.
+- `rust-phase2-boundary-review.html` - review packet for the first typed native
+  boundary, the completed WASM feasibility proof, and the native-first
+  continuation decision.
+- `rust-compiled-schematic-graph-phase4-contract.html` - accepted TypeSpec
+  authority, generated transport projections, and deterministic identity
+  vectors for the native schematic compiler.
+- `rust-compiled-schematic-graph-phase4-native.html` - accepted native deterministic
+  identity allocation and linear semantic graph validation over generated DTOs.
+- `rust-source-bundle-phase4-slice.html` - accepted named byte ownership, portable path
+  validation, one-scan schematic definitions, and repeated hierarchy occurrences.
+- `rust-schematic-connectivity-phase4-slice.html` - accepted typed schematic connection
+  carriers and deterministic 100-nm-grid wire connectivity over source bundles.
+- `rust-schematic-writer-phase4-slice.html` - accepted exact owned schematic writeback,
+  transactional placed-symbol property edits, and promoted semantic reparse.
+- `rust-native-performance-instrumentation.html` - accepted opt-in timing
+  companions, shared normal/profiled implementations, and single-pass owned
+  schematic definition admission used by native consumers.
+- `rust-worksheet-phase4-slice.html` - accepted source-ordered modern and legacy
+  worksheet semantics, bounded lazy item decoding, and exact owned writeback.
+- `rust-project-phase4-slice.html` - accepted insertion-ordered project JSON semantics,
+  full restored-corpus parity, and transactional exact/canonical writeback.
+- `rust-netlist-phase4-slice.html` - native resolved netlist model, project
+  net-class enrichment, and bounded KiCad version-E S-expression output.
+- `rust-phase4-exit-audit.html` - explicit accepted-corpus, compiler,
+  writer, malformed-graph, and netlist/compiled-graph exit mapping.
+- `rust-kicad-version-compatibility.html` - exact stable-release format and
+  operation evidence matrix policy plus opt-in nightly observation rules.
+- `rust-font-text-contracts.html` - TypeSpec-owned out-of-band font bundles,
+  deterministic selection, and independently attributable shaping and outline
+  oracle records.
+- `rust-native-text-shaping.html` - accepted native HarfRust shaping parity,
+  fixed records, resource policy, and explicit version-bound flag evidence.
+- `rust-native-font-outlines.html` - accepted bounded native TTF/gvar/CFF
+  outline extraction and deterministic FontTools parity evidence.
+- `rust-native-render-cache.html` - accepted native shaping, outline, curve
+  decomposition, placement, and bounded KiCad cache-parity ladder.
+- `rust-board-plotter-phase5-slice.html` - accepted bounded native board
+  text, text-box, table, five-style dimension, and embedded-footprint
+  Plotter-IR parity with
+  explicit outline-bridge deferrals and independent resource ceilings.
+- `rust-schematic-plotter-phase5-slice.html` - accepted bounded native
+  schematic page-header, worksheet, and connectivity Plotter-IR foundation
+  with a distinct strict generated document contract.
+- `rust-schematic-annotations-phase5-slice.html` - accepted bounded native schematic
+  labels, netclass flags, text, and text-box Plotter-IR with explicit drawing
+  settings and deterministic caller-supplied font metrics.
+- `rust-schematic-graphics-phase5-slice.html` - accepted bounded native schematic
+  graphics, rule-area, embedded-image, and table Plotter-IR with strict image
+  decoding and shared deterministic font resources.
+- `rust-schematic-symbols-phase5-slice.html` - accepted bounded placed schematic
+  symbols, typed pin ownership, occurrence fields, transforms, DNP rendering,
+  and overlap overplots with deterministic font resources.
+- `rust-schematic-sheets-phase5-slice.html` - accepted bounded hierarchical
+  sheet boxes, typed pin ownership and decorations, visible fields, and DNP
+  rendering with deterministic font resources.
+- `rust-phase5-exit-audit.html` - accepted inventory and bounded closure order
+  for the remaining native text, footprint, symbol, board, and schematic
+  Plotter-IR surfaces before the native application phase.
+- `rust-phase6-native-cruncher-audit.html` - accepted bounded Windows x64
+  transport, SVG, provider, design-fact, CLI, and release-exit boundaries.
+- `rust-native-svg-phase6-slice.html` - accepted bounded native base-SVG
+  serialization over the frozen Plotter-IR documents.
+- `rust-native-physical-provider-phase6-slice.html` - accepted Windows
+  no-fallback PCB physical-base provider and transactional Cruncher boundary.
+- `rust-native-design-facts-phase6-slice.html` - accepted source-bound
+  native compiled-graph and version-E netlist provider for Windows Cruncher.
+- `rust-native-full-cli-phase6-slice.html` - accepted compatibility
+  boundary for the installed Cruncher entry points, primary design aliases,
+  exact artifacts and exits over mandatory Windows native providers.
+- `rust-phase6-exit.html` - accepted Windows x64 candidate-artifact,
+  contract-freeze, reviewed-corpus, and exact-release-publication boundary.
 - `kicad-stroke-webfont.html` - ownership, licensing, generation, and package
   contract for the KiCad Newstroke webfont bundle.
 - `../guides/project-workflows.html` - user-facing workflow and read-path

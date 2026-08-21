@@ -1,6 +1,6 @@
 """Build the KiCad corpus manifest.
 
-The manifest is a registry over the existing ``wn_test_corpus/kicad`` tree. It
+The manifest is a registry over the package authoring ``tests/corpus/kicad`` tree. It
 does not move files; it labels the current layout so tests can stop relying on
 ad hoc recursive discovery while the corpus is normalized case by case.
 """
@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1156,7 +1155,7 @@ def build_manifest(kicad_root: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    default_corpus = Path(os.environ.get("WN_TEST_CORPUS", REPO_ROOT / "tests" / "corpus"))
+    default_corpus = REPO_ROOT / "tests" / "corpus"
     parser.add_argument("--corpus-root", type=Path, default=default_corpus)
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()

@@ -10,6 +10,7 @@ from pathlib import Path
 import kicad_cruncher
 import kicad_monkey
 from kicad_cruncher import AltiumAssetConversionExecutor
+from kicad_cruncher.kicad_cruncher_native_design import NativeDesignFactsProvider
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -84,6 +85,15 @@ def test_workspace_cruncher_cli_uses_live_monkey() -> None:
     assert f"kicad-cruncher {kicad_cruncher.__version__}" in completed.stdout
 
 
+def test_cruncher_native_design_provider_uses_the_public_monkey_boundary() -> None:
+    """The cross-package hard switch depends only on exported Monkey APIs."""
+
+    assert callable(kicad_monkey.kicad_native_handshake_a2)
+    assert callable(kicad_monkey.native_design_facts_a1)
+    assert callable(kicad_monkey.native_design_facts_for_design)
+    assert NativeDesignFactsProvider.__module__.startswith("kicad_cruncher.")
+
+
 def test_repository_governance_routes_both_packages() -> None:
     """Only root workflows are active and release tags are package-qualified."""
 
@@ -123,6 +133,7 @@ def test_history_import_hygiene_exception_is_explicit_and_ancestry_bounded() -> 
         REPOSITORY_ROOT / ".github" / "workflows" / "pr-hygiene.yml"
     ).read_text(encoding="utf-8")
 
+    assert "ready_for_review, labeled, unlabeled" in hygiene
     assert 'label.name === "history-import"' in hygiene
     assert "Imported history head:" in hygiene
     assert "([0-9a-f]{40})" in hygiene

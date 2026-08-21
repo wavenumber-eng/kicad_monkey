@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Native design-review performance decision</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-doc-status="accepted" data-doc-kind="performance-decision">
+<main>
+<nav class="nav"><a href="index.html">Design Index</a><a href="rust-cli-phase7-audit.html">Pure-Rust CLI audit</a></nav>
+<header>
+  <p class="status">Accepted and implemented</p>
+  <h1>Native design-review performance decision</h1>
+  <p class="lede">The standalone Rust design-review CLI is the performance path; Python remains the migration oracle.</p>
+</header>
+
+<section id="decision">
+  <h2>Decision</h2>
+  <p>The promoted Windows x64 <code>kicad-cruncher design</code> path retains the profiled Rust implementation that produces one complete review bundle without a Python interpreter. On the reviewed Speedy Processing Module input, its accepted median runtime is at least ten times faster than the equivalent Python command while preserving the established artifact, source-binding, resource, and transactional contracts.</p>
+  <p>The detailed whole-pipeline timing surface remains an explicit development option, and ordinary commands do not emit a profile. Coarse clocks used to account for bounded worker overlap remain active on the normal path. Performance evidence is advisory and source-bound; it is not added to routine CI because a complete three-round comparison takes several minutes and is sensitive to host power and scheduling policy.</p>
+</section>
+
+<section id="measurement">
+  <h2>Measurement authority</h2>
+  <p><code>tests/support_scripts/speedy_dr_performance_probe.py</code> extracts Speedy only from the reviewed <code>KM_CORPUS</code> ZIP, builds the locked release executable, alternates Python and Rust command order, excludes build, extraction, validation, and cleanup from the measured command interval, samples root-process peak working set, and fails closed unless every structured artifact and every SVG satisfies the migration oracle.</p>
+  <table>
+    <thead><tr><th>Evidence</th><th>Python median</th><th>Rust median</th><th>Speedup</th><th>Disposition</th></tr></thead>
+    <tbody>
+      <tr><td>Matched release baseline, commit <code>b210d3d</code>, three rounds</td><td>62.3544 s</td><td>28.0167 s</td><td>2.2256&times;</td><td>Rejected for promotion performance</td></tr>
+      <tr><td>Accepted clean tree, commit <code>9c41108</code>, three alternating-order pairs</td><td>60.5809 s</td><td>6.0271 s</td><td>10.0514&times;</td><td>Accepted</td></tr>
+    </tbody>
+  </table>
+  <p>The accepted rounds used reviewed archive SHA-256 <code>2f0ab3ae70a4b7dfe7a8acb0030687b152c45dbd97d8a443015e06d6c28f9f26</code>. The Speedy source tree remained byte-identical before and after all six commands. Each command produced 35 files. Structured comparisons covered the manifest excluding its backend-specific source snapshot, Design JSON, compiled graph, JSON and S-expression netlists, and README. SVG comparison covered 19 schematic documents with 8,892 record identities and 10 PCB documents with 34,992 identities.</p>
+  <p>The three accepted Rust runs measured 5.9617, 6.0271, and 6.0712 seconds. Their root-process peak working sets were 859,529,216, 835,121,152, and 823,713,792 bytes. These are observed diagnostic values, not a replacement for the independently enforced source, model, derived-item, materialization, work, and output ceilings.</p>
+</section>
+
+<section id="implementation">
+  <h2>Retained implementation decisions</h2>
+  <ul>
+    <li>Buffered staged artifact writers preserve exact pretty-JSON and text bytes while avoiding small synchronous file writes.</li>
+    <li>SVG enrichment and contract projection borrow validated spans and typed values instead of repeatedly cloning complete documents.</li>
+    <li>One full source-backed PCB view feeds Monkey board Plotter-IR, bounds, and contract projection; caller limits are intersected field by field and every formerly public family remains available. Cruncher review enrichment and structured Design JSON retain their separately bounded PCB parses.</li>
+    <li>Design metadata is serialized once into an exact-sized, preflighted cache and reused by every schematic occurrence.</li>
+    <li>The validated schematic definition returned by source loading is reused for same-pass hierarchy discovery, eliminating an immediate <code>definition()</code> reparse without changing the public source carrier. The later source-bound schematic index separately parses its bundle carriers.</li>
+    <li>Independent schematic and board branches overlap only when their disjoint maximum retained-byte budgets fit. The sequential fallback recomputes its remaining budget after schematic publication.</li>
+    <li>Board font discovery overlaps board-facts construction only after exact source-limit preflight. Scoped workers are always joined; the primary facts error wins over a simultaneous worker failure.</li>
+  </ul>
+</section>
+
+<section id="safety">
+  <h2>Safety and compatibility invariants</h2>
+  <p>No optimization raises a Monkey or Cruncher resource ceiling, changes deterministic artifact order, weakens exact or one-under boundary behavior, or permits work to outlive the transaction. Concurrent work publishes nothing directly. The existing staged-tree promotion and restoration state machine remains the sole publisher, and tight aggregate budgets select the bounded sequential path.</p>
+  <p>Profile details record both actual elapsed time and overlap-accounted time. Parent/detail arithmetic, exact detail inventories, serialized artifact counts and bytes, positive memory samples, source hashes, executable hashes, lockfile hashes, and the reviewed corpus hash are validated before a performance report is accepted.</p>
+</section>
+
+<section id="verification">
+  <h2>Verification</h2>
+  <p>Persistent unit and cross-package tests cover profiled-versus-normal construction, exact timing inventories, report rejection, source mutation detection, artifact and SVG parity, worker panic and drop/join behavior, tight-budget sequential fallback, prepared-source identity, one-view PCB limits, cached-metadata ceilings, single schematic parsing, and text-cache authentication before PCB parsing. Final acceptance also passed the complete locked Rust workspace suite, strict all-target Clippy, formatting, and the performance probe's fail-closed tests.</p>
+</section>
+
+<section id="test-runtime-impact">
+  <h2>Test inventory and runtime impact</h2>
+  <p>The performance work adds 21 Rust tests and five Python test functions. The Python functions are fully registered as <code>L0_005</code>; no new corpus-backed L3 case or repeated full design-review command was added to routine CI.</p>
+  <table>
+    <thead><tr><th>Location</th><th>Added tests</th><th>Owned evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Cruncher <code>design.rs</code></td><td>3</td><td>Overlap accounting, facts-error precedence, and source-limit preflight</td></tr>
+      <tr><td>Cruncher <code>design_bundle.rs</code></td><td>7</td><td>Parallel gate, joined workers, exact prepared bytes, buffered output, profile inventory, sequential fallback, and publication timing</td></tr>
+      <tr><td>Cruncher schematic review and cross-package design-core tests</td><td>4</td><td>Cached metadata/XML output plus validated schematic and full PCB-view reuse</td></tr>
+      <tr><td>Monkey core bundle, document, Design JSON, board, and schematic plot tests</td><td>6</td><td>Profiled/ordinary identity, timing separation, caller-limit intersection, and owned definition identity</td></tr>
+      <tr><td>Monkey SVG sink</td><td>1</td><td>Streaming escaped XML text</td></tr>
+      <tr><td>Cruncher <code>L0_005</code></td><td>5 Python functions</td><td>Safe ZIP extraction, semantic SVG comparison, profile binding, positive memory sampling, and sampler failure</td></tr>
+    </tbody>
+  </table>
+  <p>On the acceptance host, the warm locked workspace run collected 631 Rust tests and passed in 14.11 seconds. The preceding CLI slice recorded 610 tests in 14.25 seconds on the same host, so the 21 focused additions produce no material warm-lane increase beyond normal timing noise. <code>L0_005</code> passes all five functions in 0.54 seconds.</p>
+  <p>The accepted three-pair Speedy comparison contains about 200 seconds of measured command time plus release build, extraction, validation, and cleanup. It remains an explicit advisory/signoff invocation and is not part of an ordinary Rack or Cargo lane. This preserves fast failure feedback while retaining a repeatable full-system performance authority when executable-producing code changes.</p>
+</section>
+</main>
+</body>
+</html>

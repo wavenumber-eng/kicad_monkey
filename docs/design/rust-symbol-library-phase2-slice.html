@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en" data-doc-status="proposal">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 2 Symbol-Library Reader/Writer Slice</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 2 Symbol-Library Reader/Writer Slice</h1>
+
+  <section>
+    <h2>Decision</h2>
+    <p>
+      A <code>.kicad_sym</code> byte buffer now has a source-backed Rust view
+      that iterates ordered top-level symbol summaries and a focused writer for
+      <code>in_bom</code> and <code>on_board</code>. The view retains selected
+      spans and counts rather than a generic S-expression tree. The writer
+      replaces an existing value or inserts an omitted default field while
+      preserving every unrelated source byte.
+    </p>
+  </section>
+
+  <section>
+    <h2>Typed Surface</h2>
+    <ul>
+      <li>
+        Summaries expose name, inheritance, BOM/board flags, power state and
+        kind, property count, subsymbol count, and direct pin count.
+      </li>
+      <li>
+        Symbol and child spans are associated in one source-ordered pass.
+        Individual strings and booleans are decoded only when iterated.
+      </li>
+      <li>
+        One library root is mandatory. Symbol, metadata, subsymbol, pin,
+        source-byte, depth, and output-byte bounds fail closed.
+      </li>
+      <li>
+        Duplicate target names make edits ambiguous. Read ordering still
+        reflects the source so callers can diagnose invalid libraries.
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Contracts And Boundaries</h2>
+    <p>
+      TypeSpec owns read and edit requests/results plus the summary DTO.
+      Generated JSON Schema, Rust, Python/msgspec, and TypeScript projections
+      are committed. Browser operations accept source and request bytes as
+      separate arrays. Reads return only DTO JSON; edits return metadata and
+      the resulting KiCad bytes separately. Source/model failures use the
+      structured diagnostic envelope and never return partial edited bytes.
+    </p>
+  </section>
+
+  <section>
+    <h2>Evidence And Retained Work</h2>
+    <p>
+      Rack L1_028 compares summaries with the Python object model and validates
+      the generated strict contract. Native, host-adapter, and real wasm32
+      tests cover iteration, replacement, insertion, unknown-form retention,
+      semantic reparse, stable second write, ambiguity, and resource limits.
+    </p>
+    <p>
+      This slice does not claim a complete owned symbol model. Properties,
+      pins, graphical primitives, inheritance resolution, text shaping, and
+      broad mutation will be promoted through consumer-driven vertical slices.
+      Every promoted family must retain a corresponding semantic writer gate.
+    </p>
+  </section>
+</body>
+</html>

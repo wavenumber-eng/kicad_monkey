@@ -91,11 +91,14 @@ binding-or-diagnostic completeness.
 
 ## Compatibility
 
-Additive fields may be introduced within a0. Removing or reinterpreting fields,
-changing identity inputs, changing collection cardinalities, or adding aggregate
-binding semantics requires a new schema token. Existing `indexes` data remains
-a derived compatibility view during consumer cutover and is not an independent
-connectivity truth.
+The accepted a0 wire shape is closed and strict. Adding a field, source-identity
+selector, enum value, or row family requires a new schema token plus an explicit
+consumer migration; readers must not silently accept fields that their generated
+projection cannot represent. Removing or reinterpreting fields, changing identity
+inputs, changing collection cardinalities, or adding aggregate binding semantics
+likewise requires a new schema token. Existing `indexes` data remains a derived
+compatibility view during consumer cutover and is not an independent connectivity
+truth.
 
 ## Validation ownership
 

@@ -1,0 +1,90 @@
+{
+  "manifest": {
+    "schema": "kicad_monkey.source_bundle_manifest.a0",
+    "type": "kicad_monkey.source_bundle_manifest",
+    "version": "a0",
+    "root_schematic_path": "design/root.kicad_sch",
+    "project_path": "design/root.kicad_pro",
+    "sources": [
+      {
+        "path": "design/root.kicad_pro",
+        "kind": "project",
+        "slot": 0,
+        "source_bytes": "2"
+      },
+      {
+        "path": "design/root.kicad_sch",
+        "kind": "schematic",
+        "slot": 1,
+        "source_bytes": "45"
+      }
+    ]
+  },
+  "buffers_utf8": [
+    "{}",
+    "(kicad_sch (version 20250114) (uuid root-id))"
+  ],
+  "transport_cases": [
+    {
+      "id": "slot-minimum",
+      "field": "slot",
+      "value": 0,
+      "valid": true
+    },
+    {
+      "id": "slot-maximum",
+      "field": "slot",
+      "value": 4294967295,
+      "valid": true
+    },
+    {
+      "id": "slot-negative",
+      "field": "slot",
+      "value": -1,
+      "valid": false
+    },
+    {
+      "id": "slot-overflow",
+      "field": "slot",
+      "value": 4294967296,
+      "valid": false
+    },
+    {
+      "id": "source-bytes-zero",
+      "field": "source_bytes",
+      "value": "0",
+      "valid": true
+    },
+    {
+      "id": "source-bytes-maximum",
+      "field": "source_bytes",
+      "value": "18446744073709551615",
+      "valid": true
+    },
+    {
+      "id": "source-bytes-malformed",
+      "field": "source_bytes",
+      "value": "not-a-uint64",
+      "valid": false
+    },
+    {
+      "id": "source-bytes-negative",
+      "field": "source_bytes",
+      "value": "-1",
+      "valid": false
+    },
+    {
+      "id": "source-bytes-leading-zero",
+      "field": "source_bytes",
+      "value": "01",
+      "valid": false
+    },
+    {
+      "id": "source-bytes-overflow",
+      "field": "source_bytes",
+      "value": "18446744073709551616",
+      "valid": false,
+      "schema_valid": true
+    }
+  ]
+}

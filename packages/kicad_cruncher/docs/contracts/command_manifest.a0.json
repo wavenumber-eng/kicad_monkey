@@ -45,6 +45,13 @@
       "summary": "Generate a design review bundle with KiCad-native design JSON, schematic SVGs, PCB copper-layer SVGs, a manifest, and a README for agents.",
       "design_doc": "docs/design/cli/design.html",
       "aliases": ["design-review", "dr"],
+      "output_contracts": [
+        {
+          "path": "docs/contracts/design_review_manifest.a0.schema.json",
+          "mode": "output",
+          "rationale": "design, design-review, and dr write design_review_manifest.json as the strict bundle artifact index."
+        }
+      ],
       "verification_refs": [
         {
           "kind": "local_pytest",

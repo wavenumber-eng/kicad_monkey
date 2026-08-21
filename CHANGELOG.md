@@ -2,6 +2,140 @@
 
 ## Unreleased
 
+- Add the source-bound Speedy design-review performance harness and retain the
+  validated schematic definition for same-pass hierarchy discovery, avoiding
+  an immediate `definition()` reparse. The promoted Rust Cruncher
+  path now reuses bounded Monkey board facts and exact source carriers while
+  preserving the public parser, projection, and resource-limit contracts
+  consumed by Cruncher.
+
+- Close the nine remaining implementation-complete native schematic compiler
+  registry surfaces:
+  native compiled-graph identity, validation, and production; strict source
+  bundles and hierarchy; project-controlled subpart settings; and owned
+  schematic, worksheet, and project readers/writers. Rack now directly owns
+  their native mutation/resource suites as well as the four-project Python
+  differential. S-expression performance and typed footprint read/write stay
+  review-ready pending their separately documented evidence and hardening.
+
+- Add the accepted Windows x64 native release exit: frozen native/CLI
+  contracts, a content-addressed reviewed-corpus prerequisite with inherited
+  oracle evidence, hash-bound candidate distributions, a fail-not-skip Rack
+  owner, and CI/release publication of the tested Windows Monkey and Cruncher
+  artifacts. Linux and macOS retain their Python provider path. The final
+  promoted-tree candidate passed L3_027 1/1 in 67.38 seconds (68.38 seconds
+  with Rack); the complete build plus gate took 192.6 seconds wall clock.
+  The refreshed aggregate Rack report passed 7/7 subtests and 43/43 tests,
+  including L99 23/23, and three independent final reviews approved closure.
+
+- Refresh the unchanged-limit Rust hygiene debt inventory from 29 to 131 exact
+  findings after the reviewed native Plotter-IR and application work, with
+  future increases still rejected.
+
+- Add the accepted P6_040 native-backed Cruncher CLI compatibility gate.
+  It preserves the installed Python entry points and primary design aliases
+  while requiring their selected Windows PCB physical-base, compiled-graph,
+  and version-E netlist providers to remain native and fail closed. This is
+  not a separately compiled Rust Cruncher executable; the accepted P6_050
+  release exit retains that Python-facade boundary.
+
+## 2026.8.18
+
+- Open native Cruncher delivery governance, explicitly
+  separating the closed Plotter-IR boundary from native SVG, platform
+  packaging, no-fallback design facts, full public CLI compatibility, and the
+  final hard-switchover exit gate. This is a plan, not a native CLI release.
+
+- Add the accepted native operation transport foundation: strict
+  generated request/result envelopes, bounded `kicad-monkey-native`
+  design-facts execution, current-state Python staging, and a platform-tagged
+  Windows Monkey wheel with an installed-process test. Native SVG and the
+  no-fallback Cruncher switch remain later slices.
+
+- Add the accepted P6_010 `plotter-base-a0` native SVG operation over the
+  30 frozen Plotter-IR vectors: 29 deterministic hashed SVG results plus one
+  governed rejection for a legacy negative-width carrier that cannot form
+  valid SVG geometry. Explicit viewports and independent resource ceilings
+  are required. P6_010 itself left existing Python SVG and Cruncher providers
+  unchanged; the separately reviewed P6_020 provider follows below.
+
+- Add the accepted P6_020 Windows Cruncher PCB physical provider. It uses
+  the packaged native base-SVG operation without legacy retry, restores the
+  existing layer/drill/enrichment topology, bounds retained native roots, and
+  publishes PCB SVG and design-review trees transactionally. PCB parsing,
+  Plotter-IR production, theming, virtual/HLR geometry, schematic rendering,
+  and non-Windows providers remain Python-owned.
+
+- Add the accepted P6_030 Windows native design-facts provider. A new
+  source-bound A1 operation supplies the compiled schematic graph and
+  deterministic version-E netlist without Python fallback, while Design JSON,
+  netlist JSON, SVG presentation, and orchestration remain Python-owned.
+
+- Complete and freeze the bounded native Plotter-IR producers with a
+  mandatory Windows Rack gate over exact cross-producer vectors, resource and
+  semantic suites, exact selected `KM_CORPUS` producers plus broad corpus
+  S-expression acceptance, live KiCad 10.0.5 PCB/schematic acceptance, native
+  cache parity, Cargo quality, and real WASM checks.
+
+- Complete bounded native schematic Plotter-IR with hierarchical sheet boxes,
+  typed sheet-pin ownership and decorations, visible fields, DNP rendering,
+  strict generated contracts, and hermetic Python-oracle evidence.
+
+- Add bounded placed schematic symbols, typed pin ownership blocks,
+  occurrence-aware visible fields, DNP rendering, transforms, and overlap
+  overplots with strict generated contracts and hermetic Python-oracle
+  evidence.
+
+- Add bounded native schematic graphics, rule areas, PNG/JPEG/BMP images, and
+  tables with strict generated contracts and hermetic Python-oracle evidence.
+
+- Add bounded native schematic labels and decorations, netclass flags, text,
+  and text boxes with explicit drawing settings, deterministic caller-supplied
+  font metrics, strict generated contracts, and hermetic Python-oracle evidence.
+
+- Add the bounded native schematic Plotter-IR foundation for page metadata,
+  default or caller-supplied worksheets, wires, buses, bus entries, junctions,
+  and no-connects, with a distinct strict generated contract and hermetic
+  Python-oracle evidence.
+
+- Add bounded PCB-embedded footprint Plotter-IR after zones, preserving
+  footprint-local child ordering and ownership metadata, balanced pad/drill
+  blocks, local render-cache coordinates, strict generated contracts, and
+  native/host/Python-oracle resource evidence.
+
+- Replace the removed shared `WN_TEST_CORPUS` directory convention with the
+  bot-compatible `KM_CORPUS` ZIP carrier, safe cached extraction, Rack-visible
+  `KM_CORPUS_ROOT`, and an independent `KICAD_CLI_CACHE_ROOT` for oracle tools.
+
+- Add bounded native board-dimension Plotter-IR for aligned, orthogonal,
+  radial, leader, and center carriers, including Python-compatible formatting,
+  Newstroke markup, faced text/cache projection, strict generated contracts,
+  and native, host-WASM, and shared-oracle evidence.
+
+- Add native library-symbol body text and pin number/name Plotter-IR emission
+  with Python-compatible styling and placement, exact-case project variables,
+  inherited pin settings, bounded text resources, strict cache-free contracts,
+  and shared native/host/WASM parity evidence.
+
+- Complete native standalone-footprint property, text, and text-box Plotter-IR
+  emission with dedicated source-backed ownership types, canonical ordering,
+  local property variables, bounded text wrapping, strict semantic validation,
+  and shared Python/Rust/WASM parity vectors.
+
+- Connect the accepted native hinted text-cache engine to board text,
+  text-box, and table carriers through a deterministic bounded font/shaping
+  sidecar, with authenticated font identities, outline-font wrapping,
+  geometry-correct carrier mapping, bounded native output, and generated-cache
+  provenance across the shared contract projection.
+
+- Record the native Rust Plotter-IR exit audit and explicit parity-ledger gaps for
+  plotter text integration, standalone footprint and library-symbol text,
+  board dimensions and embedded footprints, and schematic Plotter-IR.
+
+- Extend the native Rust board Plotter-IR producer with bounded table grids,
+  borders, layer-aware faced cell text, local table variables, generated
+  cross-language contracts, and Python-oracle parity evidence.
+
 ## 2026.8.17
 
 - Build one immutable board-net snapshot and one project netclass lookup per

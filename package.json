@@ -1,0 +1,21 @@
+{
+  "name": "@wavenumber/kicad-monkey-contract-toolchain",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "npm@11.6.2",
+  "scripts": {
+    "generate:contracts": "tsp compile src/tsp/kicad_monkey/main.tsp --config tspconfig.yaml",
+    "generate:python": "node scripts/generate-contract-bindings.mjs --python",
+    "generate:typescript": "node scripts/generate-contract-bindings.mjs --typescript",
+    "check:python-generation": "node scripts/generate-contract-bindings.mjs --python --check",
+    "check:typescript-generation": "node scripts/generate-contract-bindings.mjs --typescript --check && tsc --noEmit -p tsconfig.contracts.json",
+    "check:typespec": "tsp compile src/tsp/kicad_monkey/main.tsp --config tspconfig.yaml --no-emit"
+  },
+  "devDependencies": {
+    "@typespec/compiler": "1.14.0",
+    "@typespec/json-schema": "1.14.0",
+    "json-schema-to-typescript": "15.0.4",
+    "typescript": "5.9.3"
+  }
+}

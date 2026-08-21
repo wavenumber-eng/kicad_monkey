@@ -11,7 +11,8 @@ KiCad Source Reference:
     Key files referenced:
     - common/font/outline_font.cpp - TrueType glyph generation with FreeType/HarfBuzz
     - common/font/font.cpp - Font base class, alignment calculations
-    - common/font/outline_decomposer.cpp - Bezier curve flattening
+    - libs/kimath/src/bezier_curves.cpp - Bezier curve flattening algorithm
+    - common/font/outline_decomposer.cpp - Text outline integration path
     - include/font/outline_font.h - Constants (OUTLINE_FONT_SIZE_COMPENSATION=1.4)
     - include/font/text_attributes.h - TEXT_ATTRIBUTES structure
     - pcbnew/pcb_text.cpp - TransformTextToPolySet(), knockout rendering
@@ -85,7 +86,8 @@ KiCad Source References:
 - kicad/common/font/outline_font.cpp - Main glyph rendering
 - kicad/common/font/font.cpp - Alignment calculation (HEIGHT_FUDGE_FACTOR)
 - kicad/include/font/outline_font.h - OUTLINE_FONT_SIZE_COMPENSATION constant
-- kicad/common/font/outline_decomposer.cpp - Bezier curve flattening
+- kicad/libs/kimath/src/bezier_curves.cpp - Bezier curve flattening algorithm
+- kicad/common/font/outline_decomposer.cpp - Text outline integration path
 
 See ARCHITECTURE.md for full documentation of the text rendering algorithm.
 """
@@ -229,6 +231,20 @@ def _font_style_flags(family: str, style: str) -> Tuple[bool, bool]:
     return bold, italic
 
 
+def _font_name_forces_bold(font_name: str) -> bool:
+    """Mirror KiCad ``FONTCONFIG::FindFont``'s name-token bold forcing.
+
+    KiCad treats the request as bold whenever the requested font NAME
+    contains one of these substrings, regardless of the requested style
+    flag. The check is a case-insensitive substring match, so it also
+    catches "SemiBold"/"UltraBold"/"ExtraBlack" style suffixes.
+    """
+    lowered = font_name.casefold()
+    return any(
+        token in lowered for token in ("bold", "heavy", "black", "thick", "dark")
+    )
+
+
 def _font_style_lookup_order(
     key: str,
     *,
@@ -310,8 +326,131 @@ def _system_font_paths() -> Dict[Tuple[str, bool, bool], Tuple[str, ...]]:
     return {key: tuple(value) for key, value in out.items()}
 
 
+class _KiCadFontconfigApi:
+    """ctypes wrapper over KiCad's bundled fontconfig DLL.
+
+    Mirrors KiCad's ``FONTCONFIG::FindFont``: the family name with ``:Bold``
+    / ``:Italic`` appended is parsed by ``FcNameParse``, run through
+    ``FcConfigSubstitute(FcMatchPattern)`` + ``FcDefaultSubstitute`` +
+    ``FcFontMatch``, and the matched ``file`` value is extracted. This is how
+    KiCad substitutes an installed face (e.g. Noto Sans) for a board font
+    that is not present on the machine.
+    """
+
+    _FC_MATCH_PATTERN = 0
+    _FC_RESULT_MATCH = 0
+
+    def __init__(self, dll_path: Path) -> None:
+        # KiCad ships its fontconfig configuration next to the DLL at
+        # <root>/etc/fonts; without FONTCONFIG_PATH the DLL finds no config.
+        etc_fonts = dll_path.parent.parent / "etc" / "fonts"
+        if etc_fonts.is_dir():
+            os.environ.setdefault("FONTCONFIG_PATH", str(etc_fonts))
+        add_dll_directory = getattr(os, "add_dll_directory", None)
+        if add_dll_directory is not None:
+            add_dll_directory(str(dll_path.parent))
+        lib = ctypes.CDLL(str(dll_path))
+        lib.FcInitLoadConfigAndFonts.restype = ctypes.c_void_p
+        lib.FcNameParse.restype = ctypes.c_void_p
+        lib.FcNameParse.argtypes = [ctypes.c_char_p]
+        lib.FcConfigSubstitute.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_int,
+        ]
+        lib.FcDefaultSubstitute.argtypes = [ctypes.c_void_p]
+        lib.FcFontMatch.restype = ctypes.c_void_p
+        lib.FcFontMatch.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_int),
+        ]
+        lib.FcPatternGetString.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.POINTER(ctypes.c_char_p),
+        ]
+        lib.FcPatternDestroy.argtypes = [ctypes.c_void_p]
+        self.lib = lib
+        config = lib.FcInitLoadConfigAndFonts()
+        if not config:
+            raise OSError("fontconfig configuration failed to load")
+        self.config = config
+
+    def match_file(self, font_name: str, bold: bool, italic: bool) -> Optional[str]:
+        query = font_name
+        if bold:
+            query += ":Bold"
+        if italic:
+            query += ":Italic"
+        pattern = self.lib.FcNameParse(query.encode("utf-8"))
+        if not pattern:
+            return None
+        try:
+            self.lib.FcConfigSubstitute(self.config, pattern, self._FC_MATCH_PATTERN)
+            self.lib.FcDefaultSubstitute(pattern)
+            result = ctypes.c_int(0)
+            match = self.lib.FcFontMatch(self.config, pattern, ctypes.byref(result))
+            if not match:
+                return None
+            try:
+                value = ctypes.c_char_p()
+                status = self.lib.FcPatternGetString(
+                    match, b"file", 0, ctypes.byref(value)
+                )
+                if status != self._FC_RESULT_MATCH:
+                    return None
+                return (value.value or b"").decode("utf-8", "replace") or None
+            finally:
+                self.lib.FcPatternDestroy(match)
+        finally:
+            self.lib.FcPatternDestroy(pattern)
+
+
+_FONTCONFIG_API: Optional[_KiCadFontconfigApi] = None
+_FONTCONFIG_API_MISSING = False
+
+
+def _find_fontconfig_dll() -> Optional[Path]:
+    env_path = os.environ.get("KICAD_FONTCONFIG_DLL")
+    if env_path and Path(env_path).is_file():
+        return Path(env_path)
+
+    return None
+
+
+def _get_fontconfig_api() -> Optional[_KiCadFontconfigApi]:
+    global _FONTCONFIG_API, _FONTCONFIG_API_MISSING
+    if _FONTCONFIG_API_MISSING:
+        return None
+    if _FONTCONFIG_API is not None:
+        return _FONTCONFIG_API
+
+    dll_path = _find_fontconfig_dll()
+    if dll_path is None:
+        _FONTCONFIG_API_MISSING = True
+        return None
+
+    try:
+        _FONTCONFIG_API = _KiCadFontconfigApi(dll_path)
+    except OSError:
+        _FONTCONFIG_API_MISSING = True
+        return None
+
+    return _FONTCONFIG_API
+
+
 @lru_cache(maxsize=128)
 def _fontconfig_match_path(font_name: str, bold: bool = False, italic: bool = False) -> Optional[str]:
+    api = _get_fontconfig_api()
+    if api is not None:
+        matched = api.match_file(font_name.strip(), bold=bold, italic=italic)
+        if matched:
+            path = Path(matched)
+            if path.exists() and path.suffix.casefold() in {".ttf", ".otf", ".ttc"}:
+                return str(path)
+
     query = font_name.strip() or "sans-serif"
     styles: List[str] = []
     if bold:
@@ -552,6 +691,9 @@ class KiCadTextRenderer:
         self._hb_font_cache: Dict[HBFontCacheKey, Any] = {}
         # Embedded fonts: font_name -> (font_data_bytes, virtual_path)
         self._embedded_fonts: Dict[str, Tuple[bytes, str]] = {}
+        # Contiguous per-glyph (and per-overbar) contour counts recorded by
+        # the most recent _render_contours() call, in draw order.
+        self._contour_group_sizes: List[int] = []
 
     def register_embedded_font(self, font_name: str, font_data: bytes) -> str:
         """Register an embedded font from raw TTF data.
@@ -598,6 +740,9 @@ class KiCadTextRenderer:
         First checks embedded fonts, then known local files, system font
         indexes, fontconfig, and finally the Windows Arial fallback.
         """
+        # KiCad forces the bold flag before any matching when the requested
+        # name carries a weight token (bold/heavy/black/thick/dark).
+        bold = bold or _font_name_forces_bold(font_name)
         # Check embedded fonts first
         base_name: str = font_name.lower()
         if base_name in self._embedded_fonts:
@@ -675,6 +820,7 @@ class KiCadTextRenderer:
         italic: bool = False
     ) -> Any | None:
         """Get or load a FreeType font face."""
+        bold = bold or _font_name_forces_bold(font_name)
         cache_key: FontCacheKey = (font_name, bold, italic)
         if cache_key in self._font_cache:
             return self._font_cache[cache_key]
@@ -1035,8 +1181,15 @@ class KiCadTextRenderer:
                 markup_runs.append((token, self.measure_markup_width(params, token)))
                 continue
 
-            for token in re.findall(r" +|[^ ]+", part.text):
-                measured = token.strip() or token
+            # KiCad tokenizes with `wxTOKEN_RET_DELIMS`: each word keeps ONE
+            # trailing space and extra spaces become lone " " tokens.  The
+            # measured width right-trims the token, so an attached space is
+            # never counted here -- it enters the overflow check later as
+            # pending-space width.  Counting it in the word width too made
+            # lines measure one space wider per word and wrapped one word
+            # early (cm0 text box).
+            for token in re.findall(r"[^ ]* |[^ ]+", part.text):
+                measured = token.rstrip(" ") or token
                 markup_runs.append((token, self.measure_markup_width(params, measured)))
 
         words: List[Tuple[str, float]] = []
@@ -1618,6 +1771,17 @@ class KiCadTextRenderer:
         for contour in contours:
             geometry.add_contour(contour)
 
+        # add_contour() drops empty contours, so recount each glyph group
+        # against the retained contours to keep the group sizes an exact
+        # partition of geometry.contours.  Degenerate (<3 point) contours are
+        # kept: KiCad publishes collapsed rings in the saved render cache.
+        start = 0
+        for size in self._contour_group_sizes:
+            retained = sum(1 for contour in contours[start:start + size] if contour)
+            start += size
+            if retained:
+                geometry.contour_group_sizes.append(retained)
+
         return geometry
 
     def _styled_scaler_for_style(self, style: _TextStyle, scaler: int) -> int:
@@ -1858,6 +2022,7 @@ class KiCadTextRenderer:
             hb_x_offset = float(position.x_offset) * shaped.position_scale
             hb_y_offset = float(position.y_offset) * shaped.position_scale
 
+        appended_before = len(contours_out)
         for contour in self._outline_to_contours(outline):
             transformed: List[Point] = []
             for pt in contour:
@@ -1865,17 +2030,25 @@ class KiCadTextRenderer:
                 gy = pt[1] + cursor_y + hb_y_offset + vertical_offset
                 vx = run_x + gx * scale_x
                 vy = run_y - gy * scale_y
-                transformed.append(
-                    self._transform_rendered_text_point(
-                        params,
-                        cos_a=cos_a,
-                        sin_a=sin_a,
-                        x=vx,
-                        y=vy,
-                    )
+                transformed_pt = self._transform_rendered_text_point(
+                    params,
+                    cos_a=cos_a,
+                    sin_a=sin_a,
+                    x=vx,
+                    y=vy,
                 )
+                # KiCad's SHAPE_LINE_CHAIN::Append drops points equal to the
+                # last one; distinct outline points can collapse after the
+                # glyph scale at small text sizes. The Rust port dedups at the
+                # same post-transform stage (`push_transformed`).
+                if transformed and transformed[-1] == transformed_pt:
+                    continue
+                transformed.append(transformed_pt)
             if transformed:
                 contours_out.append(transformed)
+        appended = len(contours_out) - appended_before
+        if appended:
+            self._contour_group_sizes.append(appended)
 
     def _render_plain_text_contours(
         self,
@@ -2031,6 +2204,7 @@ class KiCadTextRenderer:
         )
         if bar_contour:
             contours_out.append(bar_contour)
+            self._contour_group_sizes.append(1)
 
     @staticmethod
     def _vertical_line_offset(params: TextParams, *, line_count: int, interline: float) -> float:
@@ -2054,6 +2228,7 @@ class KiCadTextRenderer:
 
     def _render_contours(self, params: TextParams) -> List[List[Point]]:
         """Internal method to render text to contour lists."""
+        self._contour_group_sizes = []
         face: Any | None = self._get_font(params.font_name, params.bold, params.italic)
         if face is None:
             return []
@@ -2068,7 +2243,10 @@ class KiCadTextRenderer:
         hb_font: Any = self._get_hb_font(font_path, upem)
         scale_x: float = params.size_x / float(scaler) * OUTLINE_FONT_SIZE_COMPENSATION
         scale_y: float = params.size_y / float(scaler) * OUTLINE_FONT_SIZE_COMPENSATION
-        fake_bold: bool = params.bold and not self._face_has_bold(face)
+        # KiCad's FindFont forces the bold request when the font NAME carries
+        # a weight token, so the fake-bold decision sees the forced flag too.
+        effective_bold: bool = params.bold or _font_name_forces_bold(params.font_name)
+        fake_bold: bool = effective_bold and not self._face_has_bold(face)
         fake_italic: bool = params.italic and not self._face_has_italic(face)
 
         rad: float = math.radians(params.angle)
@@ -2076,6 +2254,11 @@ class KiCadTextRenderer:
         sin_a: float = math.sin(rad)
 
         lines = params.text.split("\n")
+        # KiCad's `getLinePositions` splits with `wxStringSplit`, which never
+        # emits a trailing empty segment: text ending in '\n' contributes no
+        # extra line to the count used for vertical alignment.
+        if lines and lines[-1] == "":
+            lines.pop()
         line_widths = [
             self._measure_line_width_for_face(
                 face,

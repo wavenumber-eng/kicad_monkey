@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust Phase 6 Windows release exit</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust Phase 6 Windows release exit</h1>
+
+  <p><strong>Status:</strong> accepted. P6_050 and the bounded Phase 6 Windows
+  x64 native Cruncher milestone closed on 2026-08-18.</p>
+
+  <p>The final promoted-tree candidate passed Rack L3_027 1/1 in 67.38 seconds
+  (68.38 seconds including Rack orchestration), and the complete candidate
+  build plus gate took 192.6 seconds wall clock. The refreshed aggregate Rack
+  report passed 7/7 subtests and 43/43 tests, including L99 23/23. Three
+  independent final reviews approved the corrected contract, release, and
+  governance boundary.</p>
+
+  <h2>Boundary</h2>
+  <p>The selected release target is Windows x64. The installed universal
+  Cruncher wheel keeps its Python CLI, presentation, enrichment, and
+  transaction orchestration. Its Windows PCB physical-base SVG, compiled
+  schematic graph, and version-E netlist facts are supplied by the
+  package-owned <code>kicad-monkey-native.exe</code> in the Windows x64 Monkey
+  wheel. A native failure is terminal for those promoted providers; there is
+  no Python retry. Linux and macOS retain their established Python providers
+  and are not promoted by this exit.</p>
+
+  <h2>Immutable candidate set</h2>
+  <p>The reusable Phase 6 exit workflow builds one Monkey sdist, one Windows
+  x64 Monkey wheel from that sdist, one Cruncher sdist, and one universal
+  Cruncher wheel. A manifest binds their filenames, byte counts, SHA-256
+  digests, the reviewed corpus digest, and the source commit. Rack L3_027
+  rejects missing or changed files and runs the existing isolated native-wheel
+  and two-package CLI checks without a native executable override. Release
+  jobs download this candidate set: they publish the tested Cruncher wheel and
+  sdist unchanged and the tested Windows Monkey wheel unchanged. The portable
+  Monkey wheel is built only from the exact tested Monkey sdist.</p>
+
+  <p>This is an immutable-candidate requirement, not a claim that two
+  independent archive builds are byte-for-byte reproducible. The selected
+  Windows Monkey wheel and both Cruncher distributions are published from the
+  same hash-checked candidate set that L3_027 tested. The portable Monkey wheel
+  is the only later build and is derived from the exact tested Monkey sdist,
+  then checked and installed before publication.</p>
+
+  <h2>Contract and oracle freeze</h2>
+  <p>The Phase 6 freeze ledger pins all ten native transport schemas, their
+  SourceBundleManifest and CompiledSchematicGraph dependencies, the exact
+  ordered A0/A1/A2 handshakes, and Cruncher's command and design-review
+  manifest contracts. It also binds the accepted Phase 5 freeze. The workflow
+  prerequisites retain the 30 native SVG cases, four reviewed hierarchy
+  projects, no-fallback provider tests, and complete installed CLI
+  compatibility gate. L3_027 requires and hash-checks the content-addressed
+  <code>KM_CORPUS</code> ZIP, but does not rerun those corpus semantics against
+  the candidate artifacts; that oracle evidence is inherited from mandatory
+  L3_023 and L3_025. It fails rather than skipping when corpus or candidate
+  evidence is absent.</p>
+
+  <h2>Release and provenance</h2>
+  <p>The independent Cruncher release lane downloads the exact public Windows
+  Monkey version and runs the tested Cruncher candidate through the real
+  installed design workflows before publishing it. The coordinated lane does
+  the same after Monkey publication. The candidate manifest is checked again
+  before any selected artifact is copied into a publication directory.
+  Neither wheel may contain the other package, an editable/path dependency, or
+  a workspace-native override.</p>
+
+  <h2>Hygiene ratchet</h2>
+  <p>The Rust hygiene baseline is refreshed from 29 to 131 exact findings to
+  catch up with the already reviewed Phase 5 and P6_000 through P6_040 Rust
+  slices. The policy limits are unchanged, the refreshed snapshot passes the
+  source scanner exactly, and any future increase remains a failure. This is
+  an explicit debt inventory, not a relaxation of limits or evidence that the
+  listed functions were simplified during P6_050.</p>
+
+  <h2>Closure</h2>
+  <p>The clean-commit L3_027 result, recorded runtime, three independent final
+  approvals, and mandatory CI/release dependency graph close P6_050. The top
+  parity milestone is <code>rust_phase6_native_cruncher_closed</code>. This
+  acceptance remains the bounded Windows x64 provider hard switch described
+  above: it does not promote Linux or macOS, remove the retained Python
+  orchestration/presentation boundary, or claim a separate all-Rust Cruncher
+  executable.</p>
+</body>
+</html>
