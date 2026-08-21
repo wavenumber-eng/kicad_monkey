@@ -14,7 +14,10 @@ use kicad_cruncher_cli::pcb_review_svg::{
 use kicad_cruncher_cli::schematic_review_svg::{
     SchematicReviewSvgLimits, build_schematic_review_svgs, build_schematic_review_svgs_with_limits,
 };
-use kicad_monkey_core::{KiCadNetlist, validate_compiled_schematic_graph};
+use kicad_monkey_core::{
+    BoardPlotLimits, BoardTextVariables, KiCadNetlist, PcbLimits, board_plot_facts_with_sidecars,
+    validate_compiled_schematic_graph,
+};
 use serde_json::Value;
 
 fn hlr_test_project() -> PathBuf {
@@ -58,7 +61,9 @@ fn hlr_with_board_image() -> (TemporaryDesign, PathBuf) {
     let closing = board.rfind(')').expect("board root close");
     board.insert_str(
         closing,
-        r#"(image (at 1000 2000) (layer "F.SilkS") (scale 0)
+        r#"(net 1 "VIEW_REUSE_NET")
+        (property "view_reuse_property" "present")
+        (image (at 1000 2000) (layer "F.SilkS") (scale 0)
           (data "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"))
 "#,
     );
@@ -245,6 +250,46 @@ fn board_image_viewport_crosses_the_monkey_cruncher_boundary() {
         assert_eq!(artifact.viewport_bounds_nm[2], 1_000_050_000);
         assert_eq!(artifact.viewport_bounds_nm[3], 2_000_050_000);
     }
+}
+
+#[test]
+fn reused_board_view_preserves_full_monkey_facts_and_caller_limits() {
+    let (_temporary, project) = hlr_with_board_image();
+    let loaded = load_design_sources(&project).expect("image design sources");
+    let source = loaded.pcb_source.as_deref().expect("PCB source");
+    let facts = board_plot_facts_with_sidecars(
+        source,
+        BoardPlotLimits::default(),
+        PcbLimits::default(),
+        &Default::default(),
+        &BoardTextVariables::default(),
+    )
+    .expect("source-bound board facts");
+    assert!(facts.view().layers().next().is_some());
+    assert!(facts.view().nets().next().is_some());
+    assert!(facts.view().properties().next().is_some());
+    assert!(facts.view().images().next().is_some());
+    assert!(facts.view().setup().expect("board setup").is_some());
+    assert!(
+        facts
+            .bounds(None, Default::default())
+            .expect("image-aware bounds")
+            .is_some()
+    );
+
+    assert!(
+        board_plot_facts_with_sidecars(
+            source,
+            BoardPlotLimits::default(),
+            PcbLimits {
+                max_images: 0,
+                ..PcbLimits::default()
+            },
+            &Default::default(),
+            &BoardTextVariables::default(),
+        )
+        .is_err()
+    );
 }
 
 #[test]

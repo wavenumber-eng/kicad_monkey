@@ -90,6 +90,26 @@ fn profiled_board_facts_preserve_the_normal_document() {
 }
 
 #[test]
+fn board_facts_intersect_caller_and_plot_parse_limits() {
+    let error = board_plot_facts_with_sidecars(
+        LINE_BOARD,
+        BoardPlotLimits::default(),
+        PcbLimits {
+            max_graphics: 0,
+            ..PcbLimits::default()
+        },
+        &BoardNetClassAssignments::default(),
+        &BoardTextVariables::default(),
+    )
+    .err()
+    .expect("caller PCB limit must remain authoritative");
+    assert!(
+        error.to_string().to_ascii_lowercase().contains("limit"),
+        "{error}"
+    );
+}
+
+#[test]
 #[allow(
     clippy::cognitive_complexity,
     reason = "single parity assertion test intentionally verifies the complete promoted record"

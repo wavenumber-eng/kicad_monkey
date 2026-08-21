@@ -116,6 +116,80 @@ pub struct PcbLimits {
     pub max_table_values: usize,
 }
 
+impl PcbLimits {
+    pub(crate) fn intersect(self, other: Self) -> Self {
+        macro_rules! minimums {
+            ($($field:ident),+ $(,)?) => {
+                Self {
+                    $($field: self.$field.min(other.$field),)+
+                }
+            };
+        }
+        minimums!(
+            max_source_bytes,
+            max_output_bytes,
+            max_depth,
+            max_top_level_forms,
+            max_object_children,
+            max_setup_children,
+            max_stackup_layers,
+            max_title_block_children,
+            max_title_block_comments,
+            max_layers,
+            max_nets,
+            max_properties,
+            max_footprints,
+            max_footprint_children,
+            max_footprint_attributes,
+            max_footprint_properties,
+            max_footprint_graphics,
+            max_footprint_texts,
+            max_footprint_text_boxes,
+            max_text_effect_children,
+            max_text_font_children,
+            max_text_justify_tokens,
+            max_text_box_points,
+            max_pad_header_scalars,
+            max_pad_children,
+            max_pad_chamfer_corners,
+            max_pad_custom_primitives,
+            max_pad_custom_point_forms,
+            max_pad_custom_points,
+            max_via_header_scalars,
+            max_via_children,
+            max_via_policy_children,
+            max_manufacturing_children,
+            max_teardrop_scalars,
+            max_zone_layer_connections,
+            max_model_children,
+            max_pads,
+            max_models,
+            max_segments,
+            max_vias,
+            max_zones,
+            max_zone_polygons,
+            max_zone_points,
+            max_zone_layer_properties,
+            max_arcs,
+            max_graphics,
+            max_graphic_points,
+            max_dimensions,
+            max_groups,
+            max_generated_items,
+            max_generated_children,
+            max_members,
+            max_embedded_files,
+            max_variants,
+            max_images,
+            max_image_data_parts,
+            max_barcodes,
+            max_tables,
+            max_table_cells,
+            max_table_values,
+        )
+    }
+}
+
 impl Default for PcbLimits {
     fn default() -> Self {
         Self {
