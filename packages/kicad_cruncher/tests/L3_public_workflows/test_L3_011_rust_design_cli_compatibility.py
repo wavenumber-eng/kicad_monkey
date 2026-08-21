@@ -261,6 +261,15 @@ def _run(
     )
 
 
+_WINDOWS_EXACT_RENDER_ORACLE = pytest.mark.skipif(
+    os.name != "nt",
+    reason=(
+        "exact plot/font geometry is governed against the Windows x64 release "
+        "target; Linux intentionally resolves a different system-font authority"
+    ),
+)
+
+
 @pytest.mark.parametrize("alias", ("design", "design-review", "dr"))
 def test_rust_design_help_matches_the_python_cli_contract(alias: str) -> None:
     python = _run([sys.executable, "-m", "kicad_cruncher", alias, "--help"])
@@ -527,6 +536,7 @@ def test_rust_schematic_instances_match_the_python_hierarchy_oracle(source: Path
         _EMBEDDED_WORKSHEET_PROJECT,
     ),
 )
+@_WINDOWS_EXACT_RENDER_ORACLE
 def test_rust_schematic_plot_documents_match_the_python_oracle_exactly(
     source: Path,
 ) -> None:
@@ -544,6 +554,7 @@ def test_rust_schematic_plot_documents_match_the_python_oracle_exactly(
     assert actual == expected, _first_json_difference(actual, expected)
 
 
+@_WINDOWS_EXACT_RENDER_ORACLE
 def test_rust_plot_document_uses_generic_embedded_font_family_and_style() -> None:
     source = _EMBEDDED_BERKELEY_PROJECT.resolve()
     completed = _run(
@@ -644,6 +655,7 @@ def test_rust_schematic_base_svg_preserves_python_plot_identity(source: Path) ->
     ("source", "first_only"),
     ((_PROJECT, True), (_REPRESENTATIVE_PROJECTS[0], False)),
 )
+@_WINDOWS_EXACT_RENDER_ORACLE
 def test_rust_schematic_review_svg_matches_python_enrichment_contract(
     source: Path,
     first_only: bool,
@@ -749,6 +761,7 @@ def _assert_schematic_review_svg(
 @pytest.mark.parametrize(
     "source", (_PROJECT, _REPRESENTATIVE_PROJECTS[0], _EMBEDDED_BERKELEY_PROJECT)
 )
+@_WINDOWS_EXACT_RENDER_ORACLE
 def test_rust_pcb_review_svg_matches_python_enrichment_contract(source: Path) -> None:
     from kicad_cruncher.kicad_cruncher_cmd_design import (
         _cached_pcb_review_svg_text,

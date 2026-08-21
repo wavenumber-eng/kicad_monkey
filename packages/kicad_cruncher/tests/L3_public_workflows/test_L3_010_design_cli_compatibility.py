@@ -29,7 +29,9 @@ _NATIVE_EXE = _WORKSPACE / "target" / "debug" / (
 
 def _console_script(name: str) -> Path:
     suffix = ".exe" if os.name == "nt" else ""
-    candidate = Path(sys.executable).resolve().parent / f"{name}{suffix}"
+    # Do not resolve the virtual-environment interpreter symlink: console
+    # scripts live beside that link, not beside uv's managed base interpreter.
+    candidate = Path(sys.executable).parent / f"{name}{suffix}"
     assert candidate.is_file(), f"installed console script is required: {candidate}"
     return candidate
 

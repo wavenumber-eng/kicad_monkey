@@ -156,10 +156,10 @@ transactions = "All aliases publish the same complete bundle transactionally, pr
 netlist_json = "Direct Rust structured facts reproduce Python's exact KiCad-native netlist JSON on the HLR project"
 design_json = "Direct Rust facts reproduce exact indexed/no-index HLR Design JSON plus taillight, Yoshi, and large hierarchical 4-channel graph, graphics, multi-unit, and PnP cases"
 schematic_instances = "Rust occurrence and page metadata reproduce Python across simple and repeated hierarchy"
-plot_documents = "Rust plot documents reproduce Python records, worksheets, images, and built-in or embedded font-family/style selection"
+plot_documents = "On the Windows x64 release target, Rust plot documents reproduce Python records, worksheets, images, and built-in or embedded font-family/style selection"
 base_svg = "Rust native schematic SVGs preserve Python plot identity for flat and hierarchical designs"
-schematic_review_svg = "Rust schematic review SVGs reproduce Python occurrence binding, graph links, view indexes, metadata, and black-and-white theme behavior"
-pcb_review_svg = "Rust all-copper PCB review SVGs reproduce Python viewport, enrichment, record identity, geometry, and color contracts"
+schematic_review_svg = "On the Windows x64 release target, Rust schematic review SVGs reproduce Python occurrence binding, graph links, view indexes, metadata, and black-and-white theme behavior"
+pcb_review_svg = "On the Windows x64 release target, Rust all-copper PCB review SVGs reproduce Python viewport, enrichment, record identity, geometry, and color contracts"
 
 [subtests.test_functions]
 test_rust_design_help_matches_the_python_cli_contract = "Compare help for design, design-review, and dr"
