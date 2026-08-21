@@ -143,7 +143,7 @@ name = "Rust Design CLI Compatibility"
 description = "Keep the complete pure-Rust design command and bundle aligned with the canonical Python migration oracle"
 concerns = ["cli", "contracts", "cross-package", "release"]
 test_case_type = "reference"
-test_cases = "all three design aliases, command help, invalid-option usage failures, and the public hlr_test project and schematic"
+test_cases = "all three design aliases; command help and invalid-option failures; transactional replacement, rollback, and project auto-detection; HLR, taillight, Yoshi, 4-channel backplane, Charge Indicator, and Speedy projects; synthetic embedded-font and custom-worksheet cases"
 
 [subtests.code_under_test]
 python_entrypoint = "kicad_cruncher._cli"
@@ -152,8 +152,32 @@ rust_crate = "src/rs/kicad-cruncher-cli"
 [subtests.objectives]
 help = "Rust design, design-review, and dr help retain the canonical Python workflow contract"
 usage_errors = "Rust aliases return 2 on invalid options, write usage only to stderr, and create no traceback"
+transactions = "All aliases publish the same complete bundle transactionally, preserve the prior bundle on failure, and auto-detect exactly one project"
 netlist_json = "Direct Rust structured facts reproduce Python's exact KiCad-native netlist JSON on the HLR project"
 design_json = "Direct Rust facts reproduce exact indexed/no-index HLR Design JSON plus taillight, Yoshi, and large hierarchical 4-channel graph, graphics, multi-unit, and PnP cases"
+schematic_instances = "Rust occurrence and page metadata reproduce Python across simple and repeated hierarchy"
+plot_documents = "Rust plot documents reproduce Python records, worksheets, images, and built-in or embedded font-family/style selection"
+base_svg = "Rust native schematic SVGs preserve Python plot identity for flat and hierarchical designs"
+schematic_review_svg = "Rust schematic review SVGs reproduce Python occurrence binding, graph links, view indexes, metadata, and black-and-white theme behavior"
+pcb_review_svg = "Rust all-copper PCB review SVGs reproduce Python viewport, enrichment, record identity, geometry, and color contracts"
+
+[subtests.test_functions]
+test_rust_design_help_matches_the_python_cli_contract = "Compare help for design, design-review, and dr"
+test_rust_usage_errors_match_the_python_cli_contract = "Compare invalid-option exit, stderr, and no-artifact behavior for every alias"
+test_rust_design_aliases_publish_the_same_complete_transactional_bundle = "Compare the complete transactional bundle from every Rust alias"
+test_rust_design_failure_preserves_the_previous_bundle = "Verify a failed publication leaves the previous tree intact"
+test_rust_design_auto_detects_one_project_and_honors_no_indexes = "Verify project auto-detection and the no-indexes bundle option"
+test_rust_netlist_json_matches_the_python_design_oracle_exactly = "Compare Rust and Python KiCad-native netlist JSON exactly"
+test_rust_design_json_matches_the_python_oracle_exactly = "Compare indexed and no-index Design JSON exactly on HLR"
+test_rust_design_json_matches_hierarchy_graphics_multi_unit_and_pnp_oracles = "Compare Design JSON on taillight and Yoshi hierarchy, graphics, multi-unit, and PnP cases"
+test_rust_design_json_matches_large_hierarchical_net_naming_oracle = "Compare Design JSON net naming on the 4-channel hierarchy"
+test_rust_schematic_instances_match_the_python_hierarchy_oracle = "Compare occurrence and page metadata across representative hierarchies"
+test_rust_schematic_plot_documents_match_the_python_oracle_exactly = "Compare complete plot documents across representative projects"
+test_rust_plot_document_uses_generic_embedded_font_family_and_style = "Verify generic embedded font family/style selection on Speedy"
+test_rust_plot_documents_load_custom_worksheet_and_missing_italic_face = "Verify custom worksheet loading and missing italic-face fallback"
+test_rust_schematic_base_svg_preserves_python_plot_identity = "Compare flat and hierarchical native schematic SVG plot identity"
+test_rust_schematic_review_svg_matches_python_enrichment_contract = "Compare enriched schematic SVG occurrence, graph, metadata, and theme contracts"
+test_rust_pcb_review_svg_matches_python_enrichment_contract = "Compare PCB review viewport, identity, geometry, enrichment, and colors"
 
 [[subtests]]
 id = "L3_012"

@@ -13,7 +13,9 @@ candidate workflow restores the reviewed `KM_CORPUS` ZIP, installs the Rust
 crate through `cargo install --locked`, verifies Windows x64 PE architecture
 and workspace-path hygiene, runs a design bundle without Python in the runtime
 environment, and emits an archive plus `kicad_cruncher.rust_cli_release.a0`
-manifest.
+manifest. Before candidate construction it runs the complete L3_011
+Rust/Python migration oracle and L3_012 installed-candidate/tamper suite
+sequentially under package-local Rack.
 
 Before normal-lane PyPI publication, the release workflow verifies the native
 archive's exact topology, sizes, SHA-256 values, source commit, and version

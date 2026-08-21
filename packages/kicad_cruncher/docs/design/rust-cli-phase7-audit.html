@@ -95,6 +95,22 @@
   <p>Those conditions are now satisfied for the promoted Windows x64 design aliases. Other commands and operating systems require separate measured promotion decisions.</p>
 </section>
 
+<section id="test-runtime-impact">
+  <h2>Test inventory and runtime impact</h2>
+  <p>Phase 7 added 58 Rust <code>#[test]</code> cases and 17 Python test functions that expand to 35 persistent L3 cases. The Rust cases are distributed across Cruncher CLI/design-core tests, Monkey structured-design/netlist/project/schematic tests, and board-plot contract tests; they cover exact/one-under limits, source binding, invalid public carriers, projection and composition budgets, transaction failpoints, and both executable names. The Python cases live in L3_011 and L3_012 and are registered in the package STRATUM.</p>
+  <table>
+    <thead><tr><th>Gate</th><th>Observed 2026-08-20 runtime</th><th>Disposition</th></tr></thead>
+    <tbody>
+      <tr><td>Workspace Cargo all targets</td><td>14.25 seconds with a warm build cache; 610 current workspace tests</td><td>Retain on ordinary Rust CI. Strict all-target Clippy was 0.53 seconds warm.</td></tr>
+      <tr><td>L3_011 Rust/Python compatibility</td><td>34 cases in 381.53 seconds; independent Rack run was 385.18 seconds</td><td>Retain as a sequential release gate because every slow corpus case exercises a distinct parity risk.</td></tr>
+      <tr><td>L3_012 installed Windows candidate</td><td>About 183.66 seconds for the first uncached release install; 4.14-4.69 seconds after Cargo release artifacts are cached</td><td>Retain in the Windows release gate. It is the only no-Python installed/archive/tamper proof.</td></tr>
+      <tr><td>Cruncher L99 signoff</td><td>26 cases in 19.09 seconds</td><td>Retain; it covers documentation inventory, release governance, Ruff, Pyright, complexity, and config contracts.</td></tr>
+    </tbody>
+  </table>
+  <p>L3_011 is dominated by Speedy's PCB review oracle (105.57 seconds), the 4-channel graph naming and instance oracles (51.13 and 42.19 seconds), taillight review enrichment (39.20 seconds), plot-document worksheet/font cases (31.56, 29.98, and 25.34 seconds), and Yoshi/taillight follow-on cases (13.17 and 13.10 seconds). These are not duplicate happy paths: they cover large embedded fonts, all-copper board composition, repeated hierarchy, page naming, custom worksheets, images, and occurrence-bound enrichment. The alias transaction test is only 3.10 seconds.</p>
+  <p>The Windows oracles remain sequential. Concurrent Cargo/example execution has produced executable-lock collisions on Windows, so xdist-style parallelism would trade elapsed time for nondeterministic linker failures. The Phase 7 workflow runs L3_011 and L3_012 explicitly after restoring the reviewed corpus and retains a 60-minute job ceiling, leaving substantial headroom for a cold Cargo install and corpus download.</p>
+</section>
+
 <section id="deferred">
   <h2>Deferred work</h2>
   <p>KiCad-to-PCB-A0 and Plotter-IR-to-DWG-Scene integration belongs in the Viz repository. New Monkey WASM packaging remains deferred until a concrete Monkey core-library browser use case exists. Other Cruncher commands follow the design-review migration pattern after this vertical slice.</p>
