@@ -51,9 +51,15 @@ DEV_STD_AUDIT_SCOPES = {
 def test_version_contract_matches_date_based_release() -> None:
     """Verify that package version metadata follows the date release contract."""
     pyproject = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    cargo = tomllib.loads(
+        (PACKAGE_ROOT / "src" / "rs" / "kicad-cruncher-cli" / "Cargo.toml").read_text(
+            encoding="utf-8"
+        )
+    )
     version = kicad_cruncher.version()
 
     assert pyproject["project"]["version"] == EXPECTED_VERSION
+    assert cargo["package"]["version"] == EXPECTED_VERSION
     assert kicad_cruncher.__version__ == EXPECTED_VERSION
     assert version.string == EXPECTED_VERSION
     assert (version.major, version.minor, version.patch, version.build) == (

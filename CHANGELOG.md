@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Move all package-owned Rust workspace crates from provisional `0.1.0`
+  numbering to the same `YYYY.M.D` calendar-version format used by
+  the Python distribution, beginning with `2026.8.21`. Release
+  signoff enforces that the Rust workspace version remains a valid release
+  date; downstream Cargo consumers pin its exact Git commit until Cargo
+  publication and tagging policy are separately accepted.
+
 - Add the source-bound Speedy design-review performance harness and retain the
   validated schematic definition for same-pass hierarchy discovery, avoiding
   an immediate `definition()` reparse. The promoted Rust Cruncher

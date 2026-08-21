@@ -133,7 +133,7 @@ def main() -> int:
         )
         payload = json.loads(completed.stdout)
     if payload["a0"] != {
-        "engine_version": "0.1.0",
+        "engine_version": "2026.8.21",
         "operations": ["design-facts"],
         "type": "kicad_monkey.native.handshake",
         "version": "a0",

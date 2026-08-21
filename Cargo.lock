@@ -373,7 +373,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-codegen"
-version = "0.1.0"
+version = "2026.8.21"
 dependencies = [
  "anyhow",
  "prettyplease",
@@ -385,7 +385,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-contracts"
-version = "0.1.0"
+version = "2026.8.21"
 dependencies = [
  "serde",
  "serde_json",
@@ -394,7 +394,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-core"
-version = "0.1.0"
+version = "2026.8.21"
 dependencies = [
  "harfrust",
  "kicad-monkey-contracts",
@@ -410,7 +410,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-native"
-version = "0.1.0"
+version = "2026.8.21"
 dependencies = [
  "cap-std",
  "kicad-monkey-contracts",
@@ -423,7 +423,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-svg"
-version = "0.1.0"
+version = "2026.8.21"
 dependencies = [
  "kicad-monkey-contracts",
  "serde_json",
@@ -431,7 +431,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-monkey-wasm"
-version = "0.1.0"
+version = "2026.8.21"
 dependencies = [
  "kicad-monkey-contracts",
  "kicad-monkey-core",
