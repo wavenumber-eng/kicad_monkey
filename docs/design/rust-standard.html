@@ -19,6 +19,10 @@
       <li>Rust source lives under <code>src/rs/</code> in the polyglot repository.</li>
       <li>The root Cargo workspace uses edition 2024 and resolver 3.</li>
       <li>Workspace metadata, lint policy, and release profiles are centralized.</li>
+      <li>Package-owned <code>kicad-monkey-*</code> crates use the same
+        <code>YYYY.M.D</code> calendar-version format as the Python
+        distribution. Downstream applications pin an exact Git commit until a
+        Cargo publication and tagging policy is separately accepted.</li>
       <li><code>Cargo.lock</code> is committed and signoff commands use <code>--locked</code>.</li>
       <li><code>rust-toolchain.toml</code> pins the reviewed Rust 1.98.0 toolchain with rustfmt and Clippy; CI uses the same version.</li>
     </ul>

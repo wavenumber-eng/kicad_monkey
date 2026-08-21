@@ -47,6 +47,8 @@ def _load_corpus_archive_module():
 PACKAGE_ROOT = _project_root()
 EXPECTED_VERSION = "2026.8.18"
 EXPECTED_RELEASE_DATE = date(2026, 8, 18)
+EXPECTED_RUST_VERSION = "2026.8.21"
+EXPECTED_RUST_RELEASE_DATE = date(2026, 8, 21)
 CORPUS_ARCHIVE_PATH = "tests/corpus/kicad.zip"
 CORPUS_ARCHIVE_MANIFEST_PATH = "tests/corpus/kicad.archive.toml"
 DEV_STD_AUDIT_SCOPES = {"repo", "ci", "docs.design", "docs.links", "docs.plans"}
@@ -103,9 +105,18 @@ FORBIDDEN_PUBLIC_TEXT_PATTERNS = (
 def test_version_contract_matches_date_based_release() -> None:
     """Verify that package metadata follows the date release contract."""
     pyproject = tomllib.loads((PACKAGE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    cargo = tomllib.loads((PACKAGE_ROOT / "Cargo.toml").read_text(encoding="utf-8"))
     parsed = version()
 
     assert pyproject["project"]["version"] == EXPECTED_VERSION
+    assert cargo["workspace"]["package"]["version"] == EXPECTED_RUST_VERSION
+    rust_version_parts = tuple(int(part) for part in EXPECTED_RUST_VERSION.split("."))
+    assert rust_version_parts == (
+        EXPECTED_RUST_RELEASE_DATE.year,
+        EXPECTED_RUST_RELEASE_DATE.month,
+        EXPECTED_RUST_RELEASE_DATE.day,
+    )
+    assert EXPECTED_RUST_RELEASE_DATE <= date.today()
     assert __version__ == EXPECTED_VERSION
     assert kicad_monkey.__version__ == EXPECTED_VERSION
     assert parsed.string == EXPECTED_VERSION
