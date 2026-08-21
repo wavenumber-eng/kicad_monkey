@@ -3,9 +3,9 @@
 ## Unreleased
 
 - Reduce the pure-Rust Speedy design-review median from 28.0167 seconds to
-  6.0254 seconds on the matched three-round Windows x64 release comparison,
-  versus 60.5868 seconds for the retained Python oracle. The accepted result
-  is a 10.0552x speedup with contracted structured-artifact and 29-SVG parity,
+  6.0271 seconds on the matched three-round Windows x64 release comparison,
+  versus 60.5809 seconds for the retained Python oracle. The accepted result
+  is a 10.0514x speedup with contracted structured-artifact and 29-SVG parity,
   unchanged reviewed source bytes, unchanged resource ceilings, and
   transactional publication preserved.
 

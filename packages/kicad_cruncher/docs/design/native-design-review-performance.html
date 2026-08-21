@@ -28,11 +28,11 @@
     <thead><tr><th>Evidence</th><th>Python median</th><th>Rust median</th><th>Speedup</th><th>Disposition</th></tr></thead>
     <tbody>
       <tr><td>Matched release baseline, commit <code>b210d3d</code>, three rounds</td><td>62.3544 s</td><td>28.0167 s</td><td>2.2256&times;</td><td>Rejected for promotion performance</td></tr>
-      <tr><td>Accepted clean tree, commit <code>217b8db</code>, three alternating-order pairs</td><td>60.5868 s</td><td>6.0254 s</td><td>10.0552&times;</td><td>Accepted</td></tr>
+      <tr><td>Accepted clean tree, commit <code>9c41108</code>, three alternating-order pairs</td><td>60.5809 s</td><td>6.0271 s</td><td>10.0514&times;</td><td>Accepted</td></tr>
     </tbody>
   </table>
   <p>The accepted rounds used reviewed archive SHA-256 <code>2f0ab3ae70a4b7dfe7a8acb0030687b152c45dbd97d8a443015e06d6c28f9f26</code>. The Speedy source tree remained byte-identical before and after all six commands. Each command produced 35 files. Structured comparisons covered the manifest excluding its backend-specific source snapshot, Design JSON, compiled graph, JSON and S-expression netlists, and README. SVG comparison covered 19 schematic documents with 8,892 record identities and 10 PCB documents with 34,992 identities.</p>
-  <p>The three accepted Rust runs measured 5.9180, 6.0254, and 6.1351 seconds. Their root-process peak working sets were 836,435,968, 833,974,272, and 831,979,520 bytes. These are observed diagnostic values, not a replacement for the independently enforced source, model, derived-item, materialization, work, and output ceilings.</p>
+  <p>The three accepted Rust runs measured 5.9617, 6.0271, and 6.0712 seconds. Their root-process peak working sets were 859,529,216, 835,121,152, and 823,713,792 bytes. These are observed diagnostic values, not a replacement for the independently enforced source, model, derived-item, materialization, work, and output ceilings.</p>
 </section>
 
 <section id="implementation">
