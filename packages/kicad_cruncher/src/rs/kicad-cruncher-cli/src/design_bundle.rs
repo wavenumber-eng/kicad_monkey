@@ -867,29 +867,36 @@ fn write_staged_bundle(
     performance.finish("write_schematic_svgs", schematic_write_started);
 
     let (board_elapsed, board_blocking, board_profile) = board_performance;
-    performance.record_overlapped_stage("build_board_plot_document", board_elapsed, board_blocking);
-    for (name, elapsed_ns) in board_plot_profile_details(board_profile) {
+    let (board_elapsed_ns, board_accounted_ns) = performance.record_overlapped_stage(
+        "build_board_plot_document",
+        board_elapsed,
+        board_blocking,
+    );
+    let board_details = board_plot_profile_details(board_profile).map(|(name, elapsed_ns)| {
         let accounted_ns = match name {
             "scan_board_font_faces" => board_profile.font_face_scan_accounted_ns,
             "extract_board_embedded_fonts" => board_profile.embedded_font_extraction_accounted_ns,
             _ => elapsed_ns,
         };
-        performance.record_overlapped_detail(
-            "build_board_plot_document",
-            name,
-            std::time::Duration::from_nanos(elapsed_ns),
-            std::time::Duration::from_nanos(accounted_ns),
-        );
-    }
+        (name, elapsed_ns, accounted_ns)
+    });
+    performance.record_overlap_accounted_details(
+        "build_board_plot_document",
+        &board_details,
+        board_elapsed_ns,
+        board_accounted_ns,
+    );
     let mut pcb_artifacts = Vec::new();
     if let Some(pcb_work) = pcb_work {
-        let (pcb_reviews, pcb_profile) = match pcb_work {
+        let (pcb_reviews, pcb_profile, pcb_accounted_ns) = match pcb_work {
             PcbBuildWork::Concurrent(worker) => {
                 let join_started = Instant::now();
                 let (result, elapsed) = worker.join()?;
                 let blocking = join_started.elapsed();
-                performance.record_overlapped_stage("build_pcb_review_svgs", elapsed, blocking);
-                result?
+                let accounting =
+                    performance.record_overlapped_stage("build_pcb_review_svgs", elapsed, blocking);
+                let (reviews, profile) = result?;
+                (reviews, profile, Some(accounting))
             }
             PcbBuildWork::Sequential(document) => {
                 let pcb_limits =
@@ -902,10 +909,10 @@ fn write_staged_bundle(
                         .map(|reviews| (reviews, Default::default()))
                 }?;
                 performance.finish("build_pcb_review_svgs", started);
-                result
+                (result.0, result.1, None)
             }
         };
-        for (name, elapsed_ns) in [
+        let pcb_details = [
             ("validate_pcb_source_binding", pcb_profile.source_binding_ns),
             ("parse_pcb_enrichment_view", pcb_profile.pcb_view_parse_ns),
             ("parse_pcb_project", pcb_profile.project_parse_ns),
@@ -941,12 +948,24 @@ fn write_staged_bundle(
                 "finalize_pcb_review_artifacts",
                 pcb_profile.artifact_finalize_ns,
             ),
-        ] {
-            performance.record_detail(
+        ];
+        if let Some((parent_elapsed_ns, parent_accounted_ns)) = pcb_accounted_ns {
+            let overlapped_details =
+                pcb_details.map(|(name, elapsed_ns)| (name, elapsed_ns, elapsed_ns));
+            performance.record_overlap_accounted_details(
                 "build_pcb_review_svgs",
-                name,
-                std::time::Duration::from_nanos(elapsed_ns),
+                &overlapped_details,
+                parent_elapsed_ns,
+                parent_accounted_ns,
             );
+        } else {
+            for (name, elapsed_ns) in pcb_details {
+                performance.record_detail(
+                    "build_pcb_review_svgs",
+                    name,
+                    std::time::Duration::from_nanos(elapsed_ns),
+                );
+            }
         }
         let pcb_write_started = performance.start();
         let board_name = board_name
@@ -1576,6 +1595,36 @@ mod tests {
         let limits = pcb_review_limits(123, 100);
         assert_eq!(limits.max_total_svg_bytes, 123);
         assert_eq!(limits.max_svg_bytes_per_layer, 100);
+
+        let mut recorder = PerformanceRecorder::new(true);
+        let (parent_elapsed_ns, parent_accounted_ns) = recorder.record_overlapped_stage(
+            "overlapped",
+            Duration::from_nanos(100),
+            Duration::from_nanos(10),
+        );
+        recorder.record_overlap_accounted_details(
+            "overlapped",
+            &[("first", 30, 30), ("second", 60, 60)],
+            parent_elapsed_ns,
+            parent_accounted_ns,
+        );
+        let profile = recorder.complete(0, 0);
+        assert_eq!(
+            profile
+                .details
+                .iter()
+                .map(|detail| detail.accounted_ns)
+                .collect::<Vec<_>>(),
+            [3, 6]
+        );
+        assert_eq!(
+            profile
+                .details
+                .iter()
+                .map(|detail| detail.accounted_ns)
+                .sum::<u64>(),
+            profile.stages[0].accounted_ns - 1
+        );
     }
 
     #[test]
@@ -2021,6 +2070,23 @@ mod tests {
                 ("publish_staged_tree", "promote_staged_bundle"),
             ]
         );
+        for parent in ["build_board_plot_document", "build_pcb_review_svgs"] {
+            let stage = profile
+                .stages
+                .iter()
+                .find(|stage| stage.name == parent)
+                .expect("overlapped parent stage");
+            let detail_accounted_ns = profile
+                .details
+                .iter()
+                .filter(|detail| detail.parent == parent)
+                .map(|detail| detail.accounted_ns)
+                .sum::<u64>();
+            assert!(
+                detail_accounted_ns <= stage.accounted_ns,
+                "{parent} details must fit the parent's critical-path budget"
+            );
+        }
         let load_detail = |name| {
             profile
                 .details

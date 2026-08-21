@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 import os
@@ -174,6 +175,14 @@ def test_speedy_probe_requires_a_bundle_bound_rust_profile() -> None:
     invalid = dict(profile)
     invalid["artifact_bytes"] = 99
     invalid_profiles.append((invalid, "artifact bytes"))
+    invalid = copy.deepcopy(profile)
+    board_stage = next(
+        stage for stage in invalid["stages"] if stage["name"] == "build_board_plot_document"
+    )
+    board_stage["accounted_ns"] = 10
+    invalid["accounted_elapsed_ns"] -= 90
+    invalid["unattributed_elapsed_ns"] += 90
+    invalid_profiles.append((invalid, "detail accounting"))
     for invalid, message in invalid_profiles:
         with pytest.raises(AssertionError, match=message):
             probe._performance_profile(

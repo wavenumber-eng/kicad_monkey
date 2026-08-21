@@ -56,7 +56,7 @@ class _ProcessMemoryCounters(ctypes.Structure):
 _NUMBER = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
 _DRAWABLE = {"path", "polygon", "polyline", "line", "rect", "circle", "ellipse"}
 _RUST_PROFILE_PREFIX = "KICAD_CRUNCHER_PERFORMANCE_PROFILE="
-_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a7"
+_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a8"
 _RUST_PROFILE_STAGES = (
     "resolve_and_validate_output",
     "create_staging_directory",
@@ -941,13 +941,15 @@ def _validate_profile_stages(profile: JsonObject) -> None:
 
 
 def _validate_detail_parent_ceilings(details: list[JsonObject], stages: list[JsonObject]) -> None:
-    stage_times = {stage["name"]: stage["elapsed_ns"] for stage in stages}
+    stage_times = {stage["name"]: stage["accounted_ns"] for stage in stages}
     for parent in {detail["parent"] for detail in details}:
         detail_total = sum(
             detail["accounted_ns"] for detail in details if detail["parent"] == parent
         )
         if detail_total > stage_times[parent]:
-            raise AssertionError("Rust performance profile details exceed their parent stage")
+            raise AssertionError(
+                "Rust performance profile detail accounting exceeds its parent stage"
+            )
 
 
 def _validate_profile_details(profile: JsonObject) -> None:

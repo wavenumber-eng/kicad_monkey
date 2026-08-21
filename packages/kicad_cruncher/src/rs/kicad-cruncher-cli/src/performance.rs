@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
-pub(crate) const PROFILE_SCHEMA: &str = "kicad_cruncher.design_review.performance_profile.a7";
+pub(crate) const PROFILE_SCHEMA: &str = "kicad_cruncher.design_review.performance_profile.a8";
 
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct PerformanceStage {
@@ -74,14 +74,17 @@ impl PerformanceRecorder {
         name: &'static str,
         elapsed: Duration,
         blocking: Duration,
-    ) {
+    ) -> (u64, u64) {
+        let elapsed_ns = duration_ns(elapsed);
+        let accounted_ns = duration_ns(blocking.min(elapsed));
         if self.enabled {
             self.stages.push(PerformanceStage {
                 name,
-                elapsed_ns: duration_ns(elapsed),
-                accounted_ns: duration_ns(blocking.min(elapsed)),
+                elapsed_ns,
+                accounted_ns,
             });
         }
+        (elapsed_ns, accounted_ns)
     }
 
     pub(crate) fn finish_detail(
@@ -138,6 +141,29 @@ impl PerformanceRecorder {
         }
     }
 
+    pub(crate) fn record_overlap_accounted_details(
+        &mut self,
+        parent: &'static str,
+        details: &[(&'static str, u64, u64)],
+        parent_elapsed_ns: u64,
+        parent_accounted_ns: u64,
+    ) {
+        if !self.enabled {
+            return;
+        }
+        let weights = details.iter().map(|detail| detail.2).collect::<Vec<_>>();
+        let accounted =
+            allocate_accounted_details(&weights, parent_elapsed_ns, parent_accounted_ns);
+        for ((name, elapsed_ns, _), accounted_ns) in details.iter().zip(accounted) {
+            self.record_overlapped_detail(
+                parent,
+                name,
+                Duration::from_nanos(*elapsed_ns),
+                Duration::from_nanos(accounted_ns),
+            );
+        }
+    }
+
     pub(crate) fn complete(
         self,
         artifact_count: usize,
@@ -162,6 +188,40 @@ impl PerformanceRecorder {
             details: self.details,
         }
     }
+}
+
+fn allocate_accounted_details(
+    weights: &[u64],
+    parent_elapsed_ns: u64,
+    parent_accounted_ns: u64,
+) -> Vec<u64> {
+    let total = weights
+        .iter()
+        .fold(0u128, |sum, weight| sum.saturating_add(u128::from(*weight)));
+    if total == 0 || parent_elapsed_ns == 0 {
+        return vec![0; weights.len()];
+    }
+    let covered = total.min(u128::from(parent_elapsed_ns));
+    let target = u128::from(parent_accounted_ns) * covered / u128::from(parent_elapsed_ns);
+    let mut shares = weights
+        .iter()
+        .map(|weight| {
+            let share = u128::from(*weight) * target / total;
+            u64::try_from(share).unwrap_or(u64::MAX)
+        })
+        .collect::<Vec<_>>();
+    let allocated = shares.iter().map(|share| u128::from(*share)).sum::<u128>();
+    let mut remainder = target.saturating_sub(allocated);
+    for (share, weight) in shares.iter_mut().zip(weights) {
+        if remainder == 0 {
+            break;
+        }
+        if *share < *weight {
+            *share += 1;
+            remainder -= 1;
+        }
+    }
+    shares
 }
 
 fn duration_ns(duration: Duration) -> u64 {
