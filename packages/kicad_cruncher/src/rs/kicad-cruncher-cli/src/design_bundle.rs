@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::{self, Write};
+use std::io::{self, BufWriter, Write};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -44,6 +44,7 @@ const NPTH_SLOT_COLOR: &str = "#F97316";
 const UNKNOWN_HOLE_COLOR: &str = "#6B7280";
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 const PERFORMANCE_PROFILE_ENV: &str = "KICAD_CRUNCHER_PERFORMANCE_PROFILE";
+const ARTIFACT_WRITE_BUFFER_BYTES: usize = 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DesignReviewBundleLimits {
@@ -1099,7 +1100,7 @@ impl ArtifactBudget {
 }
 
 struct BoundedArtifactWriter<'a> {
-    file: File,
+    file: BufWriter<File>,
     budget: &'a mut ArtifactBudget,
     artifact_bytes: usize,
 }
@@ -1150,7 +1151,7 @@ fn artifact_writer<'a>(
     let file = File::create(&target)
         .map_err(|error| DesignError::context("could not create design-review artifact", error))?;
     Ok(BoundedArtifactWriter {
-        file,
+        file: BufWriter::with_capacity(ARTIFACT_WRITE_BUFFER_BYTES, file),
         budget,
         artifact_bytes: 0,
     })
@@ -1480,6 +1481,33 @@ mod tests {
         assert!(write_text(&root, "e", b"a", &mut budget).is_err());
         assert!(validate_relative_path("abc", 3).is_ok());
         assert!(validate_relative_path("abc", 2).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn buffered_json_writer_preserves_pretty_bytes_and_budget() {
+        let root = std::env::temp_dir().join(format!(
+            "kicad-cruncher-buffered-json-{}-{}",
+            std::process::id(),
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let value = serde_json::json!({"items": [1, 2], "text": "exact"});
+        let expected = format!("{}\n", serde_json::to_string_pretty(&value).unwrap());
+        let mut budget = ArtifactBudget::new(DesignReviewBundleLimits {
+            max_artifacts: 6,
+            max_artifact_path_bytes: 128,
+            max_artifact_bytes: expected.len(),
+            max_total_artifact_bytes: expected.len(),
+        });
+
+        write_json(&root, "value.json", &value, &mut budget).unwrap();
+        assert_eq!(
+            fs::read(root.join("value.json")).unwrap(),
+            expected.as_bytes()
+        );
+        assert_eq!(budget.artifacts, 1);
+        assert_eq!(budget.bytes, expected.len());
         fs::remove_dir_all(root).unwrap();
     }
 
