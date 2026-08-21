@@ -16,14 +16,17 @@ use sha2::{Digest, Sha256};
 use crate::DesignOptions;
 use crate::design::{
     DesignError, SchematicSvgDocumentsLimits, build_board_plot_document,
+    build_schematic_base_svgs_for_plot_documents_profiled,
     build_schematic_base_svgs_for_plot_documents_with_limits,
-    build_schematic_plot_document_artifacts, build_structured_design_facts_profiled,
-    display_source_path, hex_encoded, load_design_sources_profiled, sha256_hex,
+    build_schematic_plot_document_artifacts, build_schematic_plot_document_artifacts_profiled,
+    build_structured_design_facts_profiled, display_source_path, hex_encoded,
+    load_design_sources_profiled, sha256_hex,
 };
 use crate::pcb_review_svg::{PcbReviewSvgLimits, build_pcb_review_svgs_with_limits};
 use crate::performance::{PerformanceProfile, PerformanceRecorder};
 use crate::schematic_review_svg::{
-    SchematicReviewSvgLimits, build_schematic_review_svgs_with_limits,
+    SchematicReviewSvgLimits, build_schematic_review_svgs_profiled,
+    build_schematic_review_svgs_with_limits,
 };
 
 const MANIFEST_SCHEMA: &str = "kicad_cruncher.design_review_manifest.a0";
@@ -362,6 +365,56 @@ struct StagedSummary {
     artifact_bytes: usize,
 }
 
+fn schematic_plot_profile_details(
+    profile: crate::design::SchematicPlotDocumentsBuildProfile,
+) -> [(&'static str, u64); 19] {
+    [
+        ("extract_embedded_sidecars", profile.embedded_sidecars_ns),
+        ("load_project_plot_sidecars", profile.project_sidecars_ns),
+        ("scan_requested_font_faces", profile.requested_font_faces_ns),
+        (
+            "index_and_select_plot_fonts",
+            profile.font_index_and_selection_ns,
+        ),
+        ("build_plot_font_resources", profile.font_resource_setup_ns),
+        (
+            "plot_ir_validate_source_parse",
+            profile.plot_ir.validate_source_parse_ns,
+        ),
+        (
+            "plot_ir_select_and_collect_inputs",
+            profile.plot_ir.select_and_collect_inputs_ns,
+        ),
+        (
+            "plot_ir_worksheet_header",
+            profile.plot_ir.worksheet_header_ns,
+        ),
+        ("plot_ir_connectivity", profile.plot_ir.connectivity_ns),
+        (
+            "plot_ir_text_resource_setup",
+            profile.plot_ir.text_resource_setup_ns,
+        ),
+        ("plot_ir_annotations", profile.plot_ir.annotations_ns),
+        (
+            "plot_ir_graphics_and_rule_areas",
+            profile.plot_ir.graphics_and_rule_areas_ns,
+        ),
+        ("plot_ir_images", profile.plot_ir.images_ns),
+        ("plot_ir_tables", profile.plot_ir.tables_ns),
+        ("plot_ir_symbols", profile.plot_ir.symbols_ns),
+        ("plot_ir_sheets", profile.plot_ir.sheets_ns),
+        ("budget_plot_contracts", profile.plot_contract_budget_ns),
+        (
+            "project_plot_contract_json",
+            profile.plot_json_projection_ns,
+        ),
+        (
+            "serialize_plot_contract_aggregate",
+            profile.aggregate_output_serialization_ns,
+        ),
+    ]
+}
+
 #[allow(
     clippy::too_many_lines,
     reason = "one transaction assembles and validates one manifest"
@@ -418,19 +471,49 @@ fn write_staged_bundle(
 
     budget.ensure_future_artifacts(facts.schematic_instances.len().saturating_add(2))?;
     let schematic_documents_started = performance.start();
-    let documents = build_schematic_plot_document_artifacts(&loaded, &facts.schematic_instances)?;
+    let (documents, plot_profile) = if performance.is_enabled() {
+        build_schematic_plot_document_artifacts_profiled(&loaded, &facts.schematic_instances)
+    } else {
+        build_schematic_plot_document_artifacts(&loaded, &facts.schematic_instances)
+            .map(|documents| (documents, Default::default()))
+    }?;
     performance.finish(
         "build_schematic_plot_documents",
         schematic_documents_started,
     );
+    for (name, elapsed_ns) in schematic_plot_profile_details(plot_profile) {
+        performance.record_detail(
+            "build_schematic_plot_documents",
+            name,
+            std::time::Duration::from_nanos(elapsed_ns),
+        );
+    }
     let mut base_limits = SchematicSvgDocumentsLimits::default();
     base_limits.max_total_svg_bytes = base_limits
         .max_total_svg_bytes
         .min(budget.remaining_bytes());
     let schematic_base_started = performance.start();
-    let base_svgs =
-        build_schematic_base_svgs_for_plot_documents_with_limits(&documents, base_limits)?;
+    let (base_svgs, base_profile) = if performance.is_enabled() {
+        build_schematic_base_svgs_for_plot_documents_profiled(&documents, base_limits)
+    } else {
+        build_schematic_base_svgs_for_plot_documents_with_limits(&documents, base_limits)
+            .map(|artifacts| (artifacts, Default::default()))
+    }?;
     performance.finish("render_schematic_base_svgs", schematic_base_started);
+    for (name, elapsed_ns) in [
+        (
+            "project_native_svg_requests",
+            base_profile.request_projection_ns,
+        ),
+        ("render_native_base_svg", base_profile.native_render_ns),
+        ("bind_base_svg_identity", base_profile.artifact_identity_ns),
+    ] {
+        performance.record_detail(
+            "render_schematic_base_svgs",
+            name,
+            std::time::Duration::from_nanos(elapsed_ns),
+        );
+    }
     let mut review_limits = SchematicReviewSvgLimits::default();
     review_limits.max_total_output_bytes = review_limits
         .max_total_output_bytes
@@ -440,15 +523,75 @@ fn write_staged_bundle(
         .min(budget.remaining_bytes())
         .min(limits.max_artifact_bytes);
     let schematic_review_started = performance.start();
-    let reviews = build_schematic_review_svgs_with_limits(
-        &documents,
-        &base_svgs,
-        &facts.compiled_schematic_graph,
-        &facts.design_json,
-        &format!("../{graph_path}"),
-        review_limits,
-    )?;
+    let graph_artifact = format!("../{graph_path}");
+    let (reviews, review_profile) = if performance.is_enabled() {
+        build_schematic_review_svgs_profiled(
+            &documents,
+            &base_svgs,
+            &facts.compiled_schematic_graph,
+            &facts.design_json,
+            &graph_artifact,
+            review_limits,
+        )
+    } else {
+        build_schematic_review_svgs_with_limits(
+            &documents,
+            &base_svgs,
+            &facts.compiled_schematic_graph,
+            &facts.design_json,
+            &graph_artifact,
+            review_limits,
+        )
+        .map(|reviews| (reviews, Default::default()))
+    }?;
     performance.finish("enrich_schematic_review_svgs", schematic_review_started);
+    for (name, elapsed_ns) in [
+        (
+            "validate_graph_and_design_binding",
+            review_profile.validate_and_bind_ns,
+        ),
+        ("build_graph_page_index", review_profile.graph_index_ns),
+        (
+            "build_view_index_authority",
+            review_profile.view_authority_ns,
+        ),
+        (
+            "validate_document_alignment",
+            review_profile.document_alignment_ns,
+        ),
+        ("build_graph_page_views", review_profile.graph_page_view_ns),
+        (
+            "project_record_attributes",
+            review_profile.record_attributes_ns,
+        ),
+        (
+            "index_and_validate_svg_selectors",
+            review_profile.selector_index_and_validation_ns,
+        ),
+        (
+            "build_schematic_view_indexes",
+            review_profile.view_indexes_ns,
+        ),
+        (
+            "compose_review_svg_root",
+            review_profile.composition_root_ns,
+        ),
+        (
+            "serialize_review_svg_metadata",
+            review_profile.metadata_serialization_ns,
+        ),
+        (
+            "transform_review_svg_body",
+            review_profile.base_svg_transform_ns,
+        ),
+        ("finish_review_svg_output", review_profile.output_finish_ns),
+    ] {
+        performance.record_detail(
+            "enrich_schematic_review_svgs",
+            name,
+            std::time::Duration::from_nanos(elapsed_ns),
+        );
+    }
     if reviews.len() != facts.schematic_instances.len() {
         return Err(DesignError::new(
             "schematic review output count does not match design instances",
@@ -1233,6 +1376,88 @@ mod tests {
                     "build_structured_design_facts",
                     "enumerate_schematic_instances",
                 ),
+                (
+                    "build_schematic_plot_documents",
+                    "extract_embedded_sidecars",
+                ),
+                (
+                    "build_schematic_plot_documents",
+                    "load_project_plot_sidecars",
+                ),
+                (
+                    "build_schematic_plot_documents",
+                    "scan_requested_font_faces",
+                ),
+                (
+                    "build_schematic_plot_documents",
+                    "index_and_select_plot_fonts",
+                ),
+                (
+                    "build_schematic_plot_documents",
+                    "build_plot_font_resources",
+                ),
+                (
+                    "build_schematic_plot_documents",
+                    "plot_ir_validate_source_parse",
+                ),
+                (
+                    "build_schematic_plot_documents",
+                    "plot_ir_select_and_collect_inputs",
+                ),
+                ("build_schematic_plot_documents", "plot_ir_worksheet_header",),
+                ("build_schematic_plot_documents", "plot_ir_connectivity",),
+                (
+                    "build_schematic_plot_documents",
+                    "plot_ir_text_resource_setup",
+                ),
+                ("build_schematic_plot_documents", "plot_ir_annotations",),
+                (
+                    "build_schematic_plot_documents",
+                    "plot_ir_graphics_and_rule_areas",
+                ),
+                ("build_schematic_plot_documents", "plot_ir_images"),
+                ("build_schematic_plot_documents", "plot_ir_tables"),
+                ("build_schematic_plot_documents", "plot_ir_symbols"),
+                ("build_schematic_plot_documents", "plot_ir_sheets"),
+                ("build_schematic_plot_documents", "budget_plot_contracts",),
+                (
+                    "build_schematic_plot_documents",
+                    "project_plot_contract_json",
+                ),
+                (
+                    "build_schematic_plot_documents",
+                    "serialize_plot_contract_aggregate",
+                ),
+                ("render_schematic_base_svgs", "project_native_svg_requests",),
+                ("render_schematic_base_svgs", "render_native_base_svg"),
+                ("render_schematic_base_svgs", "bind_base_svg_identity"),
+                (
+                    "enrich_schematic_review_svgs",
+                    "validate_graph_and_design_binding",
+                ),
+                ("enrich_schematic_review_svgs", "build_graph_page_index",),
+                ("enrich_schematic_review_svgs", "build_view_index_authority",),
+                (
+                    "enrich_schematic_review_svgs",
+                    "validate_document_alignment",
+                ),
+                ("enrich_schematic_review_svgs", "build_graph_page_views",),
+                ("enrich_schematic_review_svgs", "project_record_attributes",),
+                (
+                    "enrich_schematic_review_svgs",
+                    "index_and_validate_svg_selectors",
+                ),
+                (
+                    "enrich_schematic_review_svgs",
+                    "build_schematic_view_indexes",
+                ),
+                ("enrich_schematic_review_svgs", "compose_review_svg_root",),
+                (
+                    "enrich_schematic_review_svgs",
+                    "serialize_review_svg_metadata",
+                ),
+                ("enrich_schematic_review_svgs", "transform_review_svg_body",),
+                ("enrich_schematic_review_svgs", "finish_review_svg_output",),
             ]
         );
         fs::remove_dir_all(root).unwrap();

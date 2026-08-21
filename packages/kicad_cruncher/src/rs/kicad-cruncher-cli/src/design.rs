@@ -29,12 +29,13 @@ use kicad_monkey_core::{
     KiCadNetlistLimits, KiCadSchematicInstance, PcbLimits, PcbView, PlotterTextCacheLimits,
     PlotterTextCacheResources, PlotterTextFont, ProjectDocument, ProjectLimits,
     SchematicBundleIndex, SchematicBundleLimits, SchematicDocument, SchematicDocumentLimits,
-    SchematicDrawingSettings, SchematicPlotContext, SchematicPlotContractBudget,
-    SchematicPlotContractLimits, SchematicPlotLimits, SchematicPlotVariables, SourceBundle,
-    SourceBundleLimits, TokenKind, board_plot_facts_with_sidecars, build_kicad_design_facts,
-    build_kicad_design_facts_profiled, build_kicad_design_json, build_kicad_design_json_profiled,
-    build_kicad_netlist_json, emit_kicad_netlist, schematic_plot_document_budget,
-    schematic_plot_document_json, schematic_plot_document_with_sheets,
+    SchematicDrawingSettings, SchematicPlotBuildProfile, SchematicPlotContext,
+    SchematicPlotContractBudget, SchematicPlotContractLimits, SchematicPlotLimits,
+    SchematicPlotVariables, SourceBundle, SourceBundleLimits, TokenKind,
+    board_plot_facts_with_sidecars, build_kicad_design_facts, build_kicad_design_facts_profiled,
+    build_kicad_design_json, build_kicad_design_json_profiled, build_kicad_netlist_json,
+    emit_kicad_netlist, schematic_plot_document_budget, schematic_plot_document_json,
+    schematic_plot_document_with_sheets, schematic_plot_document_with_sheets_profiled,
     validate_compiled_schematic_graph,
 };
 use kicad_monkey_svg::{SvgMetrics, render_svg};
@@ -86,6 +87,56 @@ pub struct SchematicPlotDocumentsLimits {
     pub max_total_materialized_bytes: usize,
     pub max_total_output_bytes: usize,
     pub per_document: SchematicPlotContractLimits,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct SchematicPlotDocumentsBuildProfile {
+    pub embedded_sidecars_ns: u64,
+    pub project_sidecars_ns: u64,
+    pub requested_font_faces_ns: u64,
+    pub font_index_and_selection_ns: u64,
+    pub font_resource_setup_ns: u64,
+    pub plot_ir: SchematicPlotBuildProfile,
+    pub plot_contract_budget_ns: u64,
+    pub plot_json_projection_ns: u64,
+    pub aggregate_output_serialization_ns: u64,
+}
+
+impl SchematicPlotDocumentsBuildProfile {
+    fn add_plot_ir(&mut self, profile: SchematicPlotBuildProfile) {
+        self.plot_ir.validate_source_parse_ns = self
+            .plot_ir
+            .validate_source_parse_ns
+            .saturating_add(profile.validate_source_parse_ns);
+        self.plot_ir.select_and_collect_inputs_ns = self
+            .plot_ir
+            .select_and_collect_inputs_ns
+            .saturating_add(profile.select_and_collect_inputs_ns);
+        self.plot_ir.worksheet_header_ns = self
+            .plot_ir
+            .worksheet_header_ns
+            .saturating_add(profile.worksheet_header_ns);
+        self.plot_ir.connectivity_ns = self
+            .plot_ir
+            .connectivity_ns
+            .saturating_add(profile.connectivity_ns);
+        self.plot_ir.text_resource_setup_ns = self
+            .plot_ir
+            .text_resource_setup_ns
+            .saturating_add(profile.text_resource_setup_ns);
+        self.plot_ir.annotations_ns = self
+            .plot_ir
+            .annotations_ns
+            .saturating_add(profile.annotations_ns);
+        self.plot_ir.graphics_and_rule_areas_ns = self
+            .plot_ir
+            .graphics_and_rule_areas_ns
+            .saturating_add(profile.graphics_and_rule_areas_ns);
+        self.plot_ir.images_ns = self.plot_ir.images_ns.saturating_add(profile.images_ns);
+        self.plot_ir.tables_ns = self.plot_ir.tables_ns.saturating_add(profile.tables_ns);
+        self.plot_ir.symbols_ns = self.plot_ir.symbols_ns.saturating_add(profile.symbols_ns);
+        self.plot_ir.sheets_ns = self.plot_ir.sheets_ns.saturating_add(profile.sheets_ns);
+    }
 }
 
 impl Default for SchematicPlotDocumentsLimits {
@@ -147,6 +198,13 @@ pub struct SchematicBaseSvg {
     pub plot_document_sha256: String,
     pub svg: String,
     pub metrics: SvgMetrics,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct SchematicBaseSvgBuildProfile {
+    pub request_projection_ns: u64,
+    pub native_render_ns: u64,
+    pub artifact_identity_ns: u64,
 }
 
 #[derive(Debug)]
@@ -992,6 +1050,24 @@ pub fn build_schematic_plot_document_artifacts(
     )
 }
 
+pub(crate) fn build_schematic_plot_document_artifacts_profiled(
+    loaded: &LoadedDesignSources,
+    instances: &[KiCadSchematicInstance],
+) -> Result<
+    (
+        Vec<SchematicPlotDocument>,
+        SchematicPlotDocumentsBuildProfile,
+    ),
+    DesignError,
+> {
+    build_schematic_plot_document_artifacts_internal(
+        loaded,
+        instances,
+        SchematicPlotDocumentsLimits::default(),
+        true,
+    )
+}
+
 #[allow(
     clippy::too_many_lines,
     reason = "one pass keeps sidecar budgets and each occurrence-bound document together"
@@ -1001,6 +1077,26 @@ pub fn build_schematic_plot_document_artifacts_with_limits(
     instances: &[KiCadSchematicInstance],
     limits: SchematicPlotDocumentsLimits,
 ) -> Result<Vec<SchematicPlotDocument>, DesignError> {
+    build_schematic_plot_document_artifacts_internal(loaded, instances, limits, false)
+        .map(|(documents, _profile)| documents)
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "one pass keeps sidecar budgets and each occurrence-bound document together"
+)]
+fn build_schematic_plot_document_artifacts_internal(
+    loaded: &LoadedDesignSources,
+    instances: &[KiCadSchematicInstance],
+    limits: SchematicPlotDocumentsLimits,
+    profile_enabled: bool,
+) -> Result<
+    (
+        Vec<SchematicPlotDocument>,
+        SchematicPlotDocumentsBuildProfile,
+    ),
+    DesignError,
+> {
     if instances.len() > limits.max_documents {
         return Err(DesignError::new(format!(
             "schematic plot document count exceeds its limit: {} > {}",
@@ -1013,11 +1109,21 @@ pub fn build_schematic_plot_document_artifacts_with_limits(
             "schematic plot aggregate output limit is smaller than an empty JSON array",
         ));
     }
+    let mut profile = SchematicPlotDocumentsBuildProfile::default();
+    let embedded_started = profile_enabled.then(std::time::Instant::now);
     let embedded_files = design_embedded_files(loaded)?;
+    profile.embedded_sidecars_ns = profile_elapsed_ns(embedded_started);
+    let project_started = profile_enabled.then(std::time::Instant::now);
     let (variables, drawing_settings, worksheet_source) =
         project_plot_sidecars(loaded, &embedded_files)?;
+    profile.project_sidecars_ns = profile_elapsed_ns(project_started);
+    let faces_started = profile_enabled.then(std::time::Instant::now);
     let font_faces = requested_font_faces(loaded, worksheet_source.as_deref())?;
+    profile.requested_font_faces_ns = profile_elapsed_ns(faces_started);
+    let font_selection_started = profile_enabled.then(std::time::Instant::now);
     let font_styles = schematic_font_styles(&font_faces, &embedded_files)?;
+    profile.font_index_and_selection_ns = profile_elapsed_ns(font_selection_started);
+    let font_resources_started = profile_enabled.then(std::time::Instant::now);
     let mut fonts = Vec::with_capacity(font_styles.len());
     for style in &font_styles {
         fonts.push(PlotterTextFont {
@@ -1040,6 +1146,7 @@ pub fn build_schematic_plot_document_artifacts_with_limits(
         fonts: &fonts,
         limits: PlotterTextCacheLimits::default(),
     };
+    profile.font_resource_setup_ns = profile_elapsed_ns(font_resources_started);
     let mut documents = Vec::with_capacity(instances.len());
     let mut total_output_bytes = 2_usize;
     let mut batch_budget = SchematicPlotContractBudget {
@@ -1074,35 +1181,66 @@ pub fn build_schematic_plot_document_artifacts_with_limits(
             project_variables: variables.clone(),
             worksheet_source: worksheet_source.clone(),
         };
-        let document = schematic_plot_document_with_sheets(
-            source
-                .text()
-                .map_err(|error| DesignError::context("schematic source is not UTF-8", error))?,
-            SchematicPlotLimits::default(),
-            &context,
-            drawing_settings,
-            Some(&text_resources),
-        )
+        let source_text = source
+            .text()
+            .map_err(|error| DesignError::context("schematic source is not UTF-8", error))?;
+        let (document, document_profile) = if profile_enabled {
+            schematic_plot_document_with_sheets_profiled(
+                source_text,
+                SchematicPlotLimits::default(),
+                &context,
+                drawing_settings,
+                Some(&text_resources),
+            )
+        } else {
+            schematic_plot_document_with_sheets(
+                source_text,
+                SchematicPlotLimits::default(),
+                &context,
+                drawing_settings,
+                Some(&text_resources),
+            )
+            .map(|document| (document, SchematicPlotBuildProfile::default()))
+        }
         .map_err(|error| DesignError::context("could not build schematic plot document", error))?;
+        profile.add_plot_ir(document_profile);
+        let budget_started = profile_enabled.then(std::time::Instant::now);
         let document_budget = schematic_plot_document_budget(&document).map_err(|error| {
             DesignError::context("could not budget schematic plot document", error)
         })?;
         charge_plot_batch_budget(&mut batch_budget, document_budget, limits)?;
+        profile.plot_contract_budget_ns = profile
+            .plot_contract_budget_ns
+            .saturating_add(profile_elapsed_ns(budget_started));
+        let projection_started = profile_enabled.then(std::time::Instant::now);
         let value =
             schematic_plot_document_json(&document, limits.per_document).map_err(|error| {
                 DesignError::context("could not project schematic plot document", error)
             })?;
+        profile.plot_json_projection_ns = profile
+            .plot_json_projection_ns
+            .saturating_add(profile_elapsed_ns(projection_started));
+        let serialization_started = profile_enabled.then(std::time::Instant::now);
         let mut writer =
             AggregateLimitedWriter::new(&mut total_output_bytes, limits.max_total_output_bytes);
         serde_json::to_writer(&mut writer, &value).map_err(|error| {
             DesignError::context("schematic plot aggregate output limit exceeded", error)
         })?;
+        profile.aggregate_output_serialization_ns = profile
+            .aggregate_output_serialization_ns
+            .saturating_add(profile_elapsed_ns(serialization_started));
         documents.push(SchematicPlotDocument {
             value,
             instance: instance.clone(),
         });
     }
-    Ok(documents)
+    Ok((documents, profile))
+}
+
+fn profile_elapsed_ns(started: Option<std::time::Instant>) -> u64 {
+    started.map_or(0, |started| {
+        u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
+    })
 }
 
 pub fn build_schematic_base_svgs(
@@ -1133,7 +1271,23 @@ pub fn build_schematic_base_svgs_for_plot_documents_with_limits(
         .iter()
         .map(|document| &document.value)
         .collect::<Vec<_>>();
-    build_schematic_base_svg_values(&values, limits)
+    build_schematic_base_svg_values(&values, limits, false).map(|(artifacts, _profile)| artifacts)
+}
+
+pub(crate) fn build_schematic_base_svgs_for_plot_documents_profiled(
+    documents: &[SchematicPlotDocument],
+    limits: SchematicSvgDocumentsLimits,
+) -> Result<(Vec<SchematicBaseSvg>, SchematicBaseSvgBuildProfile), DesignError> {
+    if documents.len() > limits.max_documents {
+        return Err(DesignError::new(
+            "schematic SVG document count exceeds its limit",
+        ));
+    }
+    let values = documents
+        .iter()
+        .map(|document| &document.value)
+        .collect::<Vec<_>>();
+    build_schematic_base_svg_values(&values, limits, true)
 }
 
 pub fn build_schematic_base_svgs_with_limits(
@@ -1148,13 +1302,14 @@ fn build_schematic_base_svgs_bound(
     limits: SchematicSvgDocumentsLimits,
 ) -> Result<Vec<SchematicBaseSvg>, DesignError> {
     let values = documents.iter().collect::<Vec<_>>();
-    build_schematic_base_svg_values(&values, limits)
+    build_schematic_base_svg_values(&values, limits, false).map(|(artifacts, _profile)| artifacts)
 }
 
 fn build_schematic_base_svg_values(
     documents: &[&serde_json::Value],
     limits: SchematicSvgDocumentsLimits,
-) -> Result<Vec<SchematicBaseSvg>, DesignError> {
+    profile_enabled: bool,
+) -> Result<(Vec<SchematicBaseSvg>, SchematicBaseSvgBuildProfile), DesignError> {
     if documents.len() > limits.max_documents {
         return Err(DesignError::new(format!(
             "schematic SVG document count exceeds its limit: {} > {}",
@@ -1164,6 +1319,7 @@ fn build_schematic_base_svg_values(
     }
     let mut artifacts = Vec::with_capacity(documents.len());
     let mut total_svg_bytes = 0_usize;
+    let mut profile = SchematicBaseSvgBuildProfile::default();
     for document in documents {
         let source_path = document["source_path"]
             .as_str()
@@ -1172,12 +1328,21 @@ fn build_schematic_base_svg_values(
             .max_total_svg_bytes
             .checked_sub(total_svg_bytes)
             .ok_or_else(|| DesignError::new("schematic SVG aggregate byte limit exceeded"))?;
+        let request_started = profile_enabled.then(std::time::Instant::now);
         let request = schematic_svg_request((*document).clone(), &limits.per_document, remaining)?;
+        profile.request_projection_ns = profile
+            .request_projection_ns
+            .saturating_add(profile_elapsed_ns(request_started));
+        let render_started = profile_enabled.then(std::time::Instant::now);
         let artifact = render_svg(&request)
             .map_err(|error| DesignError::context("could not render schematic base SVG", error))?;
+        profile.native_render_ns = profile
+            .native_render_ns
+            .saturating_add(profile_elapsed_ns(render_started));
         total_svg_bytes = total_svg_bytes
             .checked_add(artifact.metrics.svg_bytes)
             .ok_or_else(|| DesignError::new("schematic SVG aggregate byte count overflowed"))?;
+        let identity_started = profile_enabled.then(std::time::Instant::now);
         artifacts.push(SchematicBaseSvg {
             document_id: artifact.document_id,
             source_path: source_path.to_owned(),
@@ -1185,8 +1350,11 @@ fn build_schematic_base_svg_values(
             svg: artifact.svg,
             metrics: artifact.metrics,
         });
+        profile.artifact_identity_ns = profile
+            .artifact_identity_ns
+            .saturating_add(profile_elapsed_ns(identity_started));
     }
-    Ok(artifacts)
+    Ok((artifacts, profile))
 }
 
 fn json_sha256(value: &serde_json::Value) -> Result<String, DesignError> {

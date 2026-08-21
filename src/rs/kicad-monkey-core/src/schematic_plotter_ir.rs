@@ -22,6 +22,7 @@ use crate::plotter_types::{
 use crate::sexpr::{Error, ErrorKind, ErrorPhase, Limits, Position, Sexp, parse_with_limits};
 use crate::sexpr_projection::{FormSpan, ProjectionLimits, Selector, scan_form_spans_with_limits};
 use std::collections::{BTreeMap, BTreeSet};
+use std::time::Instant;
 
 use annotation_render::{annotation_variables, append_annotation_records};
 use graphic_render::{append_graphic_records, append_image_records, append_rule_area_records};
@@ -114,6 +115,23 @@ pub struct SchematicPlotLimits {
     pub max_worksheet_bitmap_height_px: usize,
     pub max_worksheet_bitmap_pixels: usize,
     pub max_worksheet_bitmap_decode_work: usize,
+}
+
+/// Opt-in successful-build timings for the bounded schematic Plotter-IR path.
+/// Normal builders do not read a clock.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct SchematicPlotBuildProfile {
+    pub validate_source_parse_ns: u64,
+    pub select_and_collect_inputs_ns: u64,
+    pub worksheet_header_ns: u64,
+    pub connectivity_ns: u64,
+    pub text_resource_setup_ns: u64,
+    pub annotations_ns: u64,
+    pub graphics_and_rule_areas_ns: u64,
+    pub images_ns: u64,
+    pub tables_ns: u64,
+    pub symbols_ns: u64,
+    pub sheets_ns: u64,
 }
 
 impl Default for SchematicPlotLimits {
@@ -778,6 +796,7 @@ pub fn schematic_plot_document(
         SchematicPlotScope::Foundation,
         None,
         None,
+        None,
     )
 }
 
@@ -799,6 +818,7 @@ pub fn schematic_plot_document_with_annotations(
         SchematicPlotScope::Annotations,
         Some(drawing_settings),
         text_resources,
+        None,
     )
 }
 
@@ -820,6 +840,7 @@ pub fn schematic_plot_document_with_graphics(
         SchematicPlotScope::Graphics,
         Some(drawing_settings),
         text_resources,
+        None,
     )
 }
 
@@ -841,6 +862,7 @@ pub fn schematic_plot_document_with_symbols(
         SchematicPlotScope::Symbols,
         Some(drawing_settings),
         text_resources,
+        None,
     )
 }
 
@@ -862,7 +884,30 @@ pub fn schematic_plot_document_with_sheets(
         SchematicPlotScope::Sheets,
         Some(drawing_settings),
         text_resources,
+        None,
     )
+}
+
+/// Produce a complete schematic page and successful-build phase timings.
+pub fn schematic_plot_document_with_sheets_profiled(
+    source: &str,
+    limits: SchematicPlotLimits,
+    context: &SchematicPlotContext,
+    drawing_settings: SchematicDrawingSettings,
+    text_resources: Option<&PlotterTextCacheResources<'_>>,
+) -> Result<(SchematicPlotDocument, SchematicPlotBuildProfile), Error> {
+    validate_drawing_settings(drawing_settings)?;
+    let mut profile = SchematicPlotBuildProfile::default();
+    let document = schematic_plot_document_impl(
+        source,
+        limits,
+        context,
+        SchematicPlotScope::Sheets,
+        Some(drawing_settings),
+        text_resources,
+        Some(&mut profile),
+    )?;
+    Ok((document, profile))
 }
 
 fn schematic_plot_document_impl(
@@ -872,6 +917,7 @@ fn schematic_plot_document_impl(
     scope: SchematicPlotScope,
     drawing_settings: Option<SchematicDrawingSettings>,
     text_resources: Option<&PlotterTextCacheResources<'_>>,
+    mut profile: Option<&mut SchematicPlotBuildProfile>,
 ) -> Result<SchematicPlotDocument, Error> {
     let build = SchematicBuildContext {
         source,
@@ -881,8 +927,16 @@ fn schematic_plot_document_impl(
         drawing: drawing_settings,
         text_resources,
     };
+    let validate_started = profile.is_some().then(Instant::now);
     validate_schematic_source(&build)?;
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.validate_source_parse_ns = elapsed_ns(validate_started);
+    }
+    let collect_started = profile.is_some().then(Instant::now);
     let inputs = collect_schematic_inputs(&build)?;
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.select_and_collect_inputs_ns = elapsed_ns(collect_started);
+    }
     let SchematicSourceInputs {
         version,
         generator,
@@ -892,6 +946,7 @@ fn schematic_plot_document_impl(
         title_block,
         carriers,
     } = inputs;
+    let header_started = profile.is_some().then(Instant::now);
     let header = build_schematic_header(
         &build,
         version,
@@ -901,8 +956,11 @@ fn schematic_plot_document_impl(
         paper,
         title_block,
     )?;
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.worksheet_header_ns = elapsed_ns(header_started);
+    }
     let mut budget = header.budget;
-    let records = render_schematic_records(&build, carriers, header.header, &mut budget)?;
+    let records = render_schematic_records(&build, carriers, header.header, &mut budget, profile)?;
     Ok(SchematicPlotDocument {
         source_path: context.source_path.clone(),
         document_id: header.document_id,
@@ -911,6 +969,12 @@ fn schematic_plot_document_impl(
             height_nm: header.height_nm,
         },
         records,
+    })
+}
+
+fn elapsed_ns(started: Option<Instant>) -> u64 {
+    started.map_or(0, |started| {
+        u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
     })
 }
 
@@ -1105,10 +1169,15 @@ fn render_schematic_records(
     mut carriers: CarrierSpans,
     header: SchematicSheetHeaderRecord,
     budget: &mut PlotBudget,
+    mut profile: Option<&mut SchematicPlotBuildProfile>,
 ) -> Result<Vec<SchematicPlotRecord>, Error> {
     let mut records = vec![SchematicPlotRecord::SheetHeader(header)];
+    let connectivity_started = profile.is_some().then(Instant::now);
     append_connectivity_records(build, &mut carriers, budget, &mut records)?;
-    append_scoped_records(build, carriers, budget, &mut records)?;
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.connectivity_ns = elapsed_ns(connectivity_started);
+    }
+    append_scoped_records(build, carriers, budget, &mut records, profile)?;
     Ok(records)
 }
 
@@ -1171,6 +1240,7 @@ fn append_scoped_records(
     mut carriers: CarrierSpans,
     budget: &mut PlotBudget,
     records: &mut Vec<SchematicPlotRecord>,
+    mut profile: Option<&mut SchematicPlotBuildProfile>,
 ) -> Result<(), Error> {
     let annotation_spans = AnnotationSpans {
         labels: std::mem::take(&mut carriers.labels),
@@ -1190,6 +1260,7 @@ fn append_scoped_records(
         images: std::mem::take(&mut carriers.images),
         tables: std::mem::take(&mut carriers.tables),
     };
+    let setup_started = profile.is_some().then(Instant::now);
     let session = if build.scope >= SchematicPlotScope::Annotations {
         build
             .text_resources
@@ -1207,6 +1278,9 @@ fn append_scoped_records(
     } else {
         None
     };
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.text_resource_setup_ns = elapsed_ns(setup_started);
+    }
     append_annotation_scope(
         build,
         annotation_spans,
@@ -1215,9 +1289,14 @@ fn append_scoped_records(
         variables.as_ref(),
         session.as_ref(),
         (budget, records),
+        profile,
     )
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one ordered render pass keeps every bounded family and its opt-in profile together"
+)]
 fn append_annotation_scope(
     build: &SchematicBuildContext<'_, '_>,
     annotation_spans: AnnotationSpans,
@@ -1226,8 +1305,10 @@ fn append_annotation_scope(
     variables: Option<&BTreeMap<String, String>>,
     session: Option<&PlotterTextCacheSession<'_>>,
     output: (&mut PlotBudget, &mut Vec<SchematicPlotRecord>),
+    mut profile: Option<&mut SchematicPlotBuildProfile>,
 ) -> Result<(), Error> {
     let (budget, records) = output;
+    let annotations_started = profile.is_some().then(Instant::now);
     if let Some(drawing) = build.drawing {
         append_annotation_records(
             build.source,
@@ -1239,10 +1320,22 @@ fn append_annotation_scope(
             (budget, records),
         )?;
     }
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.annotations_ns = elapsed_ns(annotations_started);
+    }
     if build.scope >= SchematicPlotScope::Graphics {
+        let graphics_started = profile.is_some().then(Instant::now);
         append_graphic_records(build.source, graphic_spans, build.limits, budget, records)?;
         append_rule_area_records(build.source, graphic_spans, build.limits, budget, records)?;
+        if let Some(profile) = profile.as_deref_mut() {
+            profile.graphics_and_rule_areas_ns = elapsed_ns(graphics_started);
+        }
+        let images_started = profile.is_some().then(Instant::now);
         append_image_records(build.source, graphic_spans, build.limits, budget, records)?;
+        if let Some(profile) = profile.as_deref_mut() {
+            profile.images_ns = elapsed_ns(images_started);
+        }
+        let tables_started = profile.is_some().then(Instant::now);
         append_table_records(
             build.source,
             graphic_spans,
@@ -1252,8 +1345,12 @@ fn append_annotation_scope(
             budget,
             records,
         )?;
+        if let Some(profile) = profile.as_deref_mut() {
+            profile.tables_ns = elapsed_ns(tables_started);
+        }
     }
     if build.scope >= SchematicPlotScope::Symbols {
+        let symbols_started = profile.is_some().then(Instant::now);
         append_symbol_records(
             build.source,
             carriers.lib_symbols.as_ref(),
@@ -1266,8 +1363,12 @@ fn append_annotation_scope(
             budget,
             records,
         )?;
+        if let Some(profile) = profile.as_deref_mut() {
+            profile.symbols_ns = elapsed_ns(symbols_started);
+        }
     }
     if build.scope >= SchematicPlotScope::Sheets {
+        let sheets_started = profile.is_some().then(Instant::now);
         append_sheet_records(
             build.source,
             &carriers.sheets,
@@ -1277,6 +1378,9 @@ fn append_annotation_scope(
             budget,
             records,
         )?;
+        if let Some(profile) = profile {
+            profile.sheets_ns = elapsed_ns(sheets_started);
+        }
     }
     Ok(())
 }

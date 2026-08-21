@@ -38,7 +38,7 @@ JsonObject = dict[str, Any]
 _NUMBER = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
 _DRAWABLE = {"path", "polygon", "polyline", "line", "rect", "circle", "ellipse"}
 _RUST_PROFILE_PREFIX = "KICAD_CRUNCHER_PERFORMANCE_PROFILE="
-_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a2"
+_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a3"
 _RUST_PROFILE_STAGES = (
     "resolve_and_validate_output",
     "create_staging_directory",
@@ -93,6 +93,40 @@ _RUST_PROFILE_DETAILS = (
         "design_json_output_limit_serialization",
     ),
     ("build_structured_design_facts", "enumerate_schematic_instances"),
+    ("build_schematic_plot_documents", "extract_embedded_sidecars"),
+    ("build_schematic_plot_documents", "load_project_plot_sidecars"),
+    ("build_schematic_plot_documents", "scan_requested_font_faces"),
+    ("build_schematic_plot_documents", "index_and_select_plot_fonts"),
+    ("build_schematic_plot_documents", "build_plot_font_resources"),
+    ("build_schematic_plot_documents", "plot_ir_validate_source_parse"),
+    ("build_schematic_plot_documents", "plot_ir_select_and_collect_inputs"),
+    ("build_schematic_plot_documents", "plot_ir_worksheet_header"),
+    ("build_schematic_plot_documents", "plot_ir_connectivity"),
+    ("build_schematic_plot_documents", "plot_ir_text_resource_setup"),
+    ("build_schematic_plot_documents", "plot_ir_annotations"),
+    ("build_schematic_plot_documents", "plot_ir_graphics_and_rule_areas"),
+    ("build_schematic_plot_documents", "plot_ir_images"),
+    ("build_schematic_plot_documents", "plot_ir_tables"),
+    ("build_schematic_plot_documents", "plot_ir_symbols"),
+    ("build_schematic_plot_documents", "plot_ir_sheets"),
+    ("build_schematic_plot_documents", "budget_plot_contracts"),
+    ("build_schematic_plot_documents", "project_plot_contract_json"),
+    ("build_schematic_plot_documents", "serialize_plot_contract_aggregate"),
+    ("render_schematic_base_svgs", "project_native_svg_requests"),
+    ("render_schematic_base_svgs", "render_native_base_svg"),
+    ("render_schematic_base_svgs", "bind_base_svg_identity"),
+    ("enrich_schematic_review_svgs", "validate_graph_and_design_binding"),
+    ("enrich_schematic_review_svgs", "build_graph_page_index"),
+    ("enrich_schematic_review_svgs", "build_view_index_authority"),
+    ("enrich_schematic_review_svgs", "validate_document_alignment"),
+    ("enrich_schematic_review_svgs", "build_graph_page_views"),
+    ("enrich_schematic_review_svgs", "project_record_attributes"),
+    ("enrich_schematic_review_svgs", "index_and_validate_svg_selectors"),
+    ("enrich_schematic_review_svgs", "build_schematic_view_indexes"),
+    ("enrich_schematic_review_svgs", "compose_review_svg_root"),
+    ("enrich_schematic_review_svgs", "serialize_review_svg_metadata"),
+    ("enrich_schematic_review_svgs", "transform_review_svg_body"),
+    ("enrich_schematic_review_svgs", "finish_review_svg_output"),
 )
 
 

@@ -43,6 +43,30 @@ pub struct SchematicReviewSvgLimits {
     pub max_total_view_index_work: usize,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct SchematicReviewSvgBuildProfile {
+    pub validate_and_bind_ns: u64,
+    pub graph_index_ns: u64,
+    pub view_authority_ns: u64,
+    pub document_alignment_ns: u64,
+    pub graph_page_view_ns: u64,
+    pub record_attributes_ns: u64,
+    pub selector_index_and_validation_ns: u64,
+    pub view_indexes_ns: u64,
+    pub composition_root_ns: u64,
+    pub metadata_serialization_ns: u64,
+    pub base_svg_transform_ns: u64,
+    pub output_finish_ns: u64,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct SvgCompositionProfile {
+    root_ns: u64,
+    metadata_serialization_ns: u64,
+    base_svg_transform_ns: u64,
+    output_finish_ns: u64,
+}
+
 impl Default for SchematicReviewSvgLimits {
     fn default() -> Self {
         Self {
@@ -108,11 +132,67 @@ pub fn build_schematic_review_svgs_with_limits(
     graph_artifact: &str,
     limits: SchematicReviewSvgLimits,
 ) -> Result<Vec<SchematicReviewSvg>, DesignError> {
+    build_schematic_review_svgs_internal(
+        documents,
+        base_svgs,
+        graph,
+        design,
+        graph_artifact,
+        limits,
+        false,
+    )
+    .map(|(reviews, _profile)| reviews)
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the profiled path mirrors the bounded review input surface"
+)]
+pub(crate) fn build_schematic_review_svgs_profiled(
+    documents: &[SchematicPlotDocument],
+    base_svgs: &[SchematicBaseSvg],
+    graph: &CompiledSchematicGraphA0,
+    design: &Value,
+    graph_artifact: &str,
+    limits: SchematicReviewSvgLimits,
+) -> Result<(Vec<SchematicReviewSvg>, SchematicReviewSvgBuildProfile), DesignError> {
+    build_schematic_review_svgs_internal(
+        documents,
+        base_svgs,
+        graph,
+        design,
+        graph_artifact,
+        limits,
+        true,
+    )
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    reason = "one ordered pass keeps bounded review derivation and its opt-in timings aligned"
+)]
+fn build_schematic_review_svgs_internal(
+    documents: &[SchematicPlotDocument],
+    base_svgs: &[SchematicBaseSvg],
+    graph: &CompiledSchematicGraphA0,
+    design: &Value,
+    graph_artifact: &str,
+    limits: SchematicReviewSvgLimits,
+    profile_enabled: bool,
+) -> Result<(Vec<SchematicReviewSvg>, SchematicReviewSvgBuildProfile), DesignError> {
+    let mut profile = SchematicReviewSvgBuildProfile::default();
+    let validation_started = profile_enabled.then(std::time::Instant::now);
     validate_compiled_schematic_graph(graph)
         .map_err(|error| DesignError::context("invalid compiled schematic graph", error))?;
     validate_graph_design_binding(graph, design)?;
+    profile.validate_and_bind_ns = profile_elapsed_ns(validation_started);
+    let graph_index_started = profile_enabled.then(std::time::Instant::now);
     let graph_index = GraphIndex::build(graph, limits)?;
+    profile.graph_index_ns = profile_elapsed_ns(graph_index_started);
+    let authority_started = profile_enabled.then(std::time::Instant::now);
     let view_authority = ViewIndexAuthority::build(design, limits)?;
+    profile.view_authority_ns = profile_elapsed_ns(authority_started);
     let count = documents.len();
     if base_svgs.len() != count {
         return Err(DesignError::new(
@@ -130,6 +210,7 @@ pub fn build_schematic_review_svgs_with_limits(
     let mut total_bytes = 0_usize;
     let mut total_view_work = 0_usize;
     for (document, base) in documents.iter().zip(base_svgs) {
+        let alignment_started = profile_enabled.then(std::time::Instant::now);
         let instance = &document.instance;
         let document = &document.value;
         if document["document_id"].as_str() != Some(&base.document_id)
@@ -142,17 +223,36 @@ pub fn build_schematic_review_svgs_with_limits(
                 "schematic review SVG document identities are not aligned",
             ));
         }
+        profile.document_alignment_ns = profile
+            .document_alignment_ns
+            .saturating_add(profile_elapsed_ns(alignment_started));
+        let graph_view_started = profile_enabled.then(std::time::Instant::now);
         let graph_view = graph_page_view(graph, &graph_index, instance, graph_artifact, limits)?;
+        profile.graph_page_view_ns = profile
+            .graph_page_view_ns
+            .saturating_add(profile_elapsed_ns(graph_view_started));
+        let attributes_started = profile_enabled.then(std::time::Instant::now);
         let record_attrs = record_attribute_fragments(document, limits)?;
+        profile.record_attributes_ns = profile
+            .record_attributes_ns
+            .saturating_add(profile_elapsed_ns(attributes_started));
+        let selectors_started = profile_enabled.then(std::time::Instant::now);
         let selectors = svg_id_counts(&base.svg, limits)?;
         validate_record_selectors(&selectors, record_attrs.keys())?;
         validate_graph_selectors(&selectors, &graph_view)?;
+        profile.selector_index_and_validation_ns = profile
+            .selector_index_and_validation_ns
+            .saturating_add(profile_elapsed_ns(selectors_started));
         let remaining_view_work = limits
             .max_total_view_index_work
             .checked_sub(total_view_work)
             .ok_or_else(|| DesignError::new("schematic view index aggregate work exceeded"))?;
+        let view_indexes_started = profile_enabled.then(std::time::Instant::now);
         let (view_indexes, view_work) =
             schematic_view_indexes(&view_authority, instance, limits, remaining_view_work)?;
+        profile.view_indexes_ns = profile
+            .view_indexes_ns
+            .saturating_add(profile_elapsed_ns(view_indexes_started));
         total_view_work = total_view_work
             .checked_add(view_work)
             .ok_or_else(|| DesignError::new("schematic view index work overflowed"))?;
@@ -166,7 +266,7 @@ pub fn build_schematic_review_svgs_with_limits(
             .checked_sub(total_bytes)
             .ok_or_else(|| DesignError::new("schematic review SVG aggregate limit exceeded"))?;
         let output_limit = remaining.min(limits.max_output_bytes_per_document);
-        let svg = enrich_svg(
+        let (svg, composition_profile) = enrich_svg(
             &base.svg,
             &record_attrs,
             design,
@@ -175,7 +275,20 @@ pub fn build_schematic_review_svgs_with_limits(
             &view_indexes,
             &graph_view.value,
             output_limit,
+            profile_enabled,
         )?;
+        profile.composition_root_ns = profile
+            .composition_root_ns
+            .saturating_add(composition_profile.root_ns);
+        profile.metadata_serialization_ns = profile
+            .metadata_serialization_ns
+            .saturating_add(composition_profile.metadata_serialization_ns);
+        profile.base_svg_transform_ns = profile
+            .base_svg_transform_ns
+            .saturating_add(composition_profile.base_svg_transform_ns);
+        profile.output_finish_ns = profile
+            .output_finish_ns
+            .saturating_add(composition_profile.output_finish_ns);
         total_bytes = total_bytes
             .checked_add(svg.len())
             .ok_or_else(|| DesignError::new("schematic review SVG byte count overflowed"))?;
@@ -188,7 +301,13 @@ pub fn build_schematic_review_svgs_with_limits(
             resolved_svg_identity_count: graph_view.element_count,
         });
     }
-    Ok(output)
+    Ok((output, profile))
+}
+
+fn profile_elapsed_ns(started: Option<std::time::Instant>) -> u64 {
+    started.map_or(0, |started| {
+        u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
+    })
 }
 
 fn path_has_suffix(path: &str, suffix: &str) -> bool {
@@ -746,7 +865,10 @@ fn enrich_svg(
     view_indexes: &Value,
     graph_view: &Value,
     limit: usize,
-) -> Result<String, DesignError> {
+    profile_enabled: bool,
+) -> Result<(String, SvgCompositionProfile), DesignError> {
+    let mut profile = SvgCompositionProfile::default();
+    let root_started = profile_enabled.then(std::time::Instant::now);
     let root_start = base
         .find("<svg ")
         .ok_or_else(|| DesignError::new("base SVG root is missing"))?;
@@ -768,6 +890,7 @@ fn enrich_svg(
         "<metadata id=\"{ENRICHMENT_METADATA_ID}\" data-schema=\"{ENRICHMENT_SCHEMA}\">"
     )
     .map_err(output_error)?;
+    profile.root_ns = profile_elapsed_ns(root_started);
     let payload = EnrichmentPayload {
         schema: ENRICHMENT_SCHEMA,
         source: SourceMetadata {
@@ -784,14 +907,21 @@ fn enrich_svg(
         design,
         compiled_schematic_graph_view: graph_view,
     };
+    let metadata_started = profile_enabled.then(std::time::Instant::now);
     {
         let mut escaped = XmlTextWriter(&mut writer);
         serde_json::to_writer_pretty(&mut escaped, &payload)
             .map_err(|error| DesignError::context("schematic enrichment limit exceeded", error))?;
     }
     writer.write_all(b"\n</metadata>\n").map_err(output_error)?;
+    profile.metadata_serialization_ns = profile_elapsed_ns(metadata_started);
+    let transform_started = profile_enabled.then(std::time::Instant::now);
     write_transformed(&mut writer, &base[root_end + 2..], record_attrs)?;
-    writer.finish()
+    profile.base_svg_transform_ns = profile_elapsed_ns(transform_started);
+    let finish_started = profile_enabled.then(std::time::Instant::now);
+    let output = writer.finish()?;
+    profile.output_finish_ns = profile_elapsed_ns(finish_started);
+    Ok((output, profile))
 }
 
 fn root_attributes(

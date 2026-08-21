@@ -10,7 +10,7 @@ use kicad_monkey_core::{
     SchematicPlotOperation, SchematicPlotRecord, SchematicPlotVariables, schematic_plot_document,
     schematic_plot_document_json, schematic_plot_document_with_annotations,
     schematic_plot_document_with_graphics, schematic_plot_document_with_sheets,
-    schematic_plot_document_with_symbols,
+    schematic_plot_document_with_sheets_profiled, schematic_plot_document_with_symbols,
 };
 use serde_json::{Map, Value, json};
 
@@ -1415,6 +1415,48 @@ fn earlier_schematic_entries_exclude_terminal_sheets() {
     assert_eq!(symbols.records.len(), 1);
     assert_eq!(sheets.records.len(), 2);
     assert!(matches!(sheets.records[1], SchematicPlotRecord::Sheet(_)));
+}
+
+#[test]
+fn profiled_sheet_plot_preserves_the_normal_document() {
+    let source = r#"(kicad_sch
+      (wire (pts (xy 0 0) (xy 1 1)) (uuid "w"))
+      (text "note" (at 2 2 0) (effects (font (size 1 1))))
+      (sheet (at 0 0) (size 1 1) (uuid "s")
+        (property "Sheetname" "Child" (hide yes))))"#;
+    let context = SchematicPlotContext::default();
+    let expected = schematic_plot_document_with_sheets(
+        source,
+        SchematicPlotLimits::default(),
+        &context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("normal sheet plot");
+    let (actual, profile) = schematic_plot_document_with_sheets_profiled(
+        source,
+        SchematicPlotLimits::default(),
+        &context,
+        SchematicDrawingSettings::default(),
+        None,
+    )
+    .expect("profiled sheet plot");
+    assert_eq!(actual, expected);
+    assert!(
+        profile
+            .validate_source_parse_ns
+            .saturating_add(profile.select_and_collect_inputs_ns)
+            .saturating_add(profile.worksheet_header_ns)
+            .saturating_add(profile.connectivity_ns)
+            .saturating_add(profile.text_resource_setup_ns)
+            .saturating_add(profile.annotations_ns)
+            .saturating_add(profile.graphics_and_rule_areas_ns)
+            .saturating_add(profile.images_ns)
+            .saturating_add(profile.tables_ns)
+            .saturating_add(profile.symbols_ns)
+            .saturating_add(profile.sheets_ns)
+            > 0
+    );
 }
 
 #[test]
