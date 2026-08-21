@@ -41,11 +41,11 @@ uv run --package kicad-cruncher kicad-cruncher --help
 uv run --package kicad-cruncher python -m kicad_cruncher version
 ```
 
-The promoted native production path is Windows x64. On that platform, the
-installed Monkey wheel supplies `kicad-monkey-native` for PCB physical-base
+Within the universal wheel's Python module path, Windows x64 selects the
+installed Monkey wheel's `kicad-monkey-native` sidecar for PCB physical-base
 SVG, compiled schematic graphs, and version-E netlists; a native failure is
 terminal and is never retried through the corresponding Python implementation.
-Linux and macOS retain their Python providers. The
+Linux and macOS retain the Python providers for that module path. The
 `KICAD_CRUNCHER_NATIVE_DESIGN_FACTS=1` and
 `KICAD_CRUNCHER_NATIVE_PHYSICAL=1` environment switches are development/test
 opt-ins on other platforms, not production-support declarations.

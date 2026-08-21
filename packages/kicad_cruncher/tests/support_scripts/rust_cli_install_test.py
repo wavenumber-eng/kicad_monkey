@@ -95,19 +95,29 @@ def _copy_fixture(workspace: Path, destination: Path) -> Path:
         if not selected:
             raise AssertionError(f"reviewed corpus omits fixture {prefix}")
         for info in selected:
-            relative = PurePosixPath(info.filename).relative_to(prefix)
-            if relative == PurePosixPath(".") or info.is_dir():
-                continue
-            if any(part in ("", ".", "..") for part in relative.parts):
-                raise AssertionError(f"unsafe reviewed corpus member: {info.filename}")
-            target = copied.joinpath(*relative.parts)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with archive.open(info) as source, target.open("wb") as output:
-                shutil.copyfileobj(source, output)
+            _extract_fixture_member(archive, info, prefix=prefix, destination=copied)
     project = copied / "led_component.kicad_pro"
     if not project.is_file():
         raise AssertionError(f"reviewed corpus fixture omits {project.name}")
     return project
+
+
+def _extract_fixture_member(
+    archive: zipfile.ZipFile,
+    info: zipfile.ZipInfo,
+    *,
+    prefix: PurePosixPath,
+    destination: Path,
+) -> None:
+    relative = PurePosixPath(info.filename).relative_to(prefix)
+    if relative == PurePosixPath(".") or info.is_dir():
+        return
+    if any(part in ("", ".", "..") for part in relative.parts):
+        raise AssertionError(f"unsafe reviewed corpus member: {info.filename}")
+    target = destination.joinpath(*relative.parts)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with archive.open(info) as source, target.open("wb") as output:
+        shutil.copyfileobj(source, output)
 
 
 def _assert_bundle(output: Path) -> None:

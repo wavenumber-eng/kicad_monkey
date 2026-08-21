@@ -59,7 +59,7 @@ build-backend = "hatchling.build"
 
 [tool.wn_dev_std]
 standard_version = "2026.8.12"
-enabled_scopes = ["repo", "docs.design", "docs.links", "docs.cli", "docs.plans", "docs.requirements"]
+enabled_scopes = ["repo", "docs.design", "docs.links", "docs.cli", "docs.plans", "docs.requirements", "docs.release"]
 profile = "python-package"
 distribution = "pypi"
 languages = ["python"]

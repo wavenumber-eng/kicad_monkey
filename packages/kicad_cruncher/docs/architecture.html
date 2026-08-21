@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>KiCad Cruncher Architecture</title>
 </head>
-<body data-doc="architecture" data-profile="python-package">
+<body data-doc="architecture" data-profile="hybrid-cli-package">
   <h1>Architecture</h1>
   <p>
     KiCad Cruncher owns public KiCad workflow commands and generated artifact
@@ -15,8 +15,8 @@
 
   <h2>Boundaries</h2>
   <ul>
-    <li><code>src/rs/kicad-cruncher-cli</code> is the migration home of the canonical pure-Rust executable and owns native command dispatch and workflow artifact orchestration.</li>
-    <li><code>_cli.py</code> owns top-level CLI registration and dispatch.</li>
+    <li><code>src/rs/kicad-cruncher-cli</code> owns the promoted Windows x64 <code>design</code>, <code>design-review</code>, <code>dr</code>, and version executable path, including native dispatch and review-bundle orchestration.</li>
+    <li><code>_cli.py</code> owns the full cross-platform Python command catalog and remains the explicit module entry point for commands outside the promoted Rust slice.</li>
     <li><code>kicad_cruncher_cmd_* </code> modules own individual public commands.</li>
     <li><code>bom_pnp_* </code> modules own shared BOM, PnP, and JLC normalization.</li>
     <li><code>kicad_cruncher_pcb_svg_* </code> modules own configured SVG view composition.</li>
@@ -27,11 +27,12 @@
 
   <h2>Pure-Rust CLI Migration</h2>
   <p>
-    The current installed console script remains Python while the Rust
-    executable is built and checked against it as an oracle. Design review is
-    the first complete vertical slice. The Rust executable is promoted only
-    after it reproduces the contracted bundle and installed behavior without a
-    Python runtime.
+    Design review is the first complete promoted Rust vertical slice. Windows
+    x64 GitHub releases include hash-bound <code>kicad-cruncher.exe</code> and
+    <code>kcr.exe</code> artifacts that generate the contracted bundle without
+    Python. The universal wheel remains the full cross-platform Python command
+    distribution and the Python design path remains the exact migration oracle.
+    Other commands require their own measured Rust slices before promotion.
   </p>
 
   <h2>Release Policy</h2>

@@ -3,7 +3,7 @@ type = "requirement"
 id = "cli-req-001-public-command-documentation"
 domain = "cli"
 status = "implemented"
-title = "Public CLI commands have governed documentation and inventory signoff"
+title = "The universal-wheel command catalog has governed documentation and inventory signoff"
 created = "2026-07-17"
 issue_refs = ["wavenumber-eng/kicad_cruncher#8"]
 design_refs = [
@@ -24,9 +24,16 @@ rationale = "The L99 design-doc signoff verifies every public command has an acc
 
 # Public CLI Command Documentation
 
-Every public root command declared by `kicad-cruncher` must have a governed
+Every public root command declared by the universal wheel's
+`python -m kicad_cruncher` and Python console-script parser must have a governed
 manifest entry, a row in the CLI design index, an accepted per-command design
-document, README command-table coverage, and parser help visibility.
+document, README command-table coverage, and parser help visibility. This is
+the full cross-platform catalog.
+
+The standalone Windows x64 Rust executables intentionally expose only
+`design`, `design-review`, `dr`, and version. That promoted subset is governed
+by ADR-0009, the Phase 7 audit, the native archive contract, and L3_011/L3_012;
+it is not required to pretend that unported Python commands exist.
 
 The command manifest uses `wn_dev_std.command_manifest.a0` so dev-std can audit
 the public CLI inventory directly. Project-specific L99 tests continue to check

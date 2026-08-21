@@ -48,7 +48,7 @@
 <section id="installed-cli-slice">
   <h2>Installed CLI and release slice</h2>
   <p>Cargo installs both native command names from one Cruncher library dispatch surface. The Windows gate uses <code>cargo install --locked</code> into an isolated prefix, verifies both outputs are Windows x64 PE files, scans them for UTF-8 and UTF-16 spellings of the source workspace, removes Python and virtual-environment variables from the runtime, reduces <code>PATH</code> to the installed binary directory, and generates a complete <code>led_component</code> design-review bundle extracted only from the reviewed <code>KM_CORPUS</code> ZIP.</p>
-  <p>The exact installed bytes are archived with the license and native-scope README. A separate verifier requires the exact archive topology, validates every executable size and SHA-256 against the release manifest, and binds the candidate to the release commit before publication. The normal Python wheel remains a companion artifact with its public <code>kicad-monkey</code> dependency and owns commands outside the first Rust vertical slice.</p>
+  <p>The exact installed bytes are archived with the license and native-scope README. A separate verifier requires the exact archive topology, validates every executable size and SHA-256 against the release manifest, and binds the candidate to the release commit and Python package version before publication. The normal Python wheel remains a companion artifact with its public <code>kicad-monkey</code> dependency and owns commands outside the first Rust vertical slice.</p>
 </section>
 
 <section id="bundle-publication-slice">

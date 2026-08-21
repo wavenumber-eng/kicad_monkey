@@ -36,11 +36,22 @@ Monkey must not depend on Cruncher.
 
 - New Phase 7 CLI implementation work is Rust-first; no new Python facade
   command is accepted as the target architecture.
-- The Python CLI remains available only as migration coverage until an explicit
-  installed-entry-point cutover is accepted.
+- The Python CLI remains available as the full cross-platform command
+  distribution and as migration coverage for the promoted design slice.
 - A new Cruncher-owned Rust crate is required in the Cargo workspace.
-- Platform artifact construction must install the Rust executable and continue
-  to satisfy the public `kicad-monkey` dependency and no-workspace-path rules
-  that govern built Cruncher artifacts.
+- Platform artifact construction must install the Rust executable without
+  workspace paths. The companion universal wheel continues to carry the normal
+  public `kicad-monkey` distribution dependency; the native executable composes
+  the reviewed Monkey Rust crates at build time.
 - Other commands migrate after the design-review vertical slice establishes the
   executable, packaging, and cross-package acceptance pattern.
+
+## Implementation Status
+
+The Windows x64 cutover for `design`, `design-review`, `dr`, and version was
+accepted on 2026-08-20. Releases attach hash-bound `kicad-cruncher.exe` and
+`kcr.exe` artifacts built from one Rust dispatch implementation. An isolated
+install smoke rejects workspace-path leakage, runs a reviewed ZIP-corpus design
+without Python in the runtime environment, and verifies the exact archive
+before release publication. Commands outside this slice remain explicitly
+available through `python -m kicad_cruncher`.

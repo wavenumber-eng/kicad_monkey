@@ -8,8 +8,8 @@
 <section id="usage"><h2>Usage</h2><pre><code>kicad-cruncher version
 kicad-cruncher --version</code></pre></section>
 <section id="arguments"><h2>Arguments</h2><p>No command arguments are accepted.</p></section>
-<section id="output"><h2>Output</h2><p>The command writes one line for <code>kicad-cruncher</code> and one line for each controlled dependency. The controlled dependency lines currently include <code>kicad-monkey</code> and <code>wn-geometer</code>.</p></section>
-<section id="tests"><h2>Tests</h2><p>L0 and L99 verify both version entry points, package metadata, release notes, and controlled dependency pins.</p></section>
+<section id="output"><h2>Output</h2><p>The promoted Rust executable writes one <code>kicad-cruncher &lt;version&gt;</code> line and binds that version to the companion Python package during release verification. The full Python module entry point additionally reports controlled Python dependency versions, including <code>kicad-monkey</code> and <code>wn-geometer</code>.</p></section>
+<section id="tests"><h2>Tests</h2><p>L0 and L99 verify Python version entry points, package metadata, release notes, and controlled dependency pins. Rust CLI and installed-artifact tests verify both native executable names, version equality with the Python distribution, and rejection of a mismatched release candidate.</p></section>
 </main>
 </body>
 </html>

@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -35,8 +36,27 @@ def test_installed_rust_cli_runs_design_without_python(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert len(list((tmp_path / "artifact").glob("*.zip"))) == 1
     assert len(list((tmp_path / "artifact").glob("*.json"))) == 1
+    expected_version = tomllib.loads(
+        (_PACKAGE_ROOT / "pyproject.toml").read_text("utf-8")
+    )["project"]["version"]
+    expected_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=_WORKSPACE,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
+    ).stdout.strip()
     valid = subprocess.run(
-        [sys.executable, str(_VERIFY_CANDIDATE), str(tmp_path / "artifact")],
+        [
+            sys.executable,
+            str(_VERIFY_CANDIDATE),
+            str(tmp_path / "artifact"),
+            "--git-sha",
+            expected_commit,
+            "--expected-version",
+            expected_version,
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,

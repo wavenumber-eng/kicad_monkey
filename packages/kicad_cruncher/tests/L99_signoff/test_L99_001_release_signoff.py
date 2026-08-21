@@ -44,6 +44,7 @@ DEV_STD_AUDIT_SCOPES = {
     "docs.cli",
     "docs.plans",
     "docs.requirements",
+    "docs.release",
 }
 
 
