@@ -690,6 +690,12 @@ pub struct BoardPlotBuildProfile {
     pub footprint_records_ns: u64,
 }
 
+#[derive(Default)]
+struct PreparedTextCache<'a> {
+    session: Option<PlotterTextCacheSession<'a>>,
+    setup_ns: u64,
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct BoardPlotFactsBuildProfile {
     pub plot: BoardPlotBuildProfile,
@@ -771,7 +777,7 @@ fn build_board_plot_facts_internal<'a>(
         plot_limits,
         net_classes,
         text_variables,
-        None,
+        PreparedTextCache::default(),
         profile_enabled,
     )?;
     Ok((
@@ -815,6 +821,9 @@ fn board_plot_document_with_text_cache_sidecar_internal(
     text_cache: Option<&PlotterTextCacheResources<'_>>,
     profile_enabled: bool,
 ) -> Result<(BoardPlotDocument, BoardPlotBuildProfile), Error> {
+    let text_cache_started = profile_enabled.then(Instant::now);
+    let text_cache = text_cache.map(PlotterTextCacheSession::new).transpose()?;
+    let text_cache_setup_ns = elapsed_ns(text_cache_started);
     let view_started = profile_enabled.then(Instant::now);
     let view = PcbView::parse_selected(source, board_pcb_limits(limits), board_selection())?;
     let selected_view_parse_ns = elapsed_ns(view_started);
@@ -824,7 +833,10 @@ fn board_plot_document_with_text_cache_sidecar_internal(
         limits,
         net_classes,
         text_variables,
-        text_cache,
+        PreparedTextCache {
+            session: text_cache,
+            setup_ns: text_cache_setup_ns,
+        },
         profile_enabled,
     )?;
     profile.selected_view_parse_ns = selected_view_parse_ns;
@@ -841,13 +853,14 @@ fn board_plot_document_from_view_internal(
     limits: BoardPlotLimits,
     net_classes: &BoardNetClassAssignments,
     text_variables: &BoardTextVariables,
-    text_cache: Option<&PlotterTextCacheResources<'_>>,
+    text_cache: PreparedTextCache<'_>,
     profile_enabled: bool,
 ) -> Result<(BoardPlotDocument, BoardPlotBuildProfile), Error> {
-    let mut profile = BoardPlotBuildProfile::default();
-    let text_cache_started = profile_enabled.then(Instant::now);
-    let text_cache = text_cache.map(PlotterTextCacheSession::new).transpose()?;
-    profile.text_cache_setup_ns = elapsed_ns(text_cache_started);
+    let mut profile = BoardPlotBuildProfile {
+        text_cache_setup_ns: text_cache.setup_ns,
+        ..BoardPlotBuildProfile::default()
+    };
+    let text_cache = text_cache.session;
     let metadata_started = profile_enabled.then(Instant::now);
     let metadata = view.metadata()?;
     ensure_javascript_safe_integer(metadata.version)?;
