@@ -130,8 +130,9 @@ pub use project::{
     ProjectTuningDefaults, ProjectTuningSettings, ProjectVariant, ProjectView,
 };
 pub use schematic_bundle::{
-    SchematicBundleIndex, SchematicBundleLimits, SchematicDefinition, SchematicDocument,
-    SchematicDocumentLimits, SchematicOccurrence, SchematicPageInstance, SchematicSheet,
+    SchematicBundleIndex, SchematicBundleIndexBuildProfile, SchematicBundleLimits,
+    SchematicDefinition, SchematicDocument, SchematicDocumentLimits, SchematicOccurrence,
+    SchematicPageInstance, SchematicSheet,
 };
 pub use schematic_bus::{
     SchematicBusExpansionError, SchematicBusExpansionErrorKind, SchematicBusExpansionLimits,

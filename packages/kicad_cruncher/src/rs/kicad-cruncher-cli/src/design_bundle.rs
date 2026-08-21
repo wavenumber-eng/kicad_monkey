@@ -5,7 +5,7 @@ use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
 use kicad_monkey_core::{ENGINE_VERSION, KiCadSchematicInstance};
@@ -17,10 +17,11 @@ use crate::DesignOptions;
 use crate::design::{
     DesignError, SchematicSvgDocumentsLimits, build_board_plot_document,
     build_schematic_base_svgs_for_plot_documents_with_limits,
-    build_schematic_plot_document_artifacts, build_structured_design_facts_with_options,
-    display_source_path, hex_encoded, load_design_sources, sha256_hex,
+    build_schematic_plot_document_artifacts, build_structured_design_facts_profiled,
+    display_source_path, hex_encoded, load_design_sources_profiled, sha256_hex,
 };
 use crate::pcb_review_svg::{PcbReviewSvgLimits, build_pcb_review_svgs_with_limits};
+use crate::performance::{PerformanceProfile, PerformanceRecorder};
 use crate::schematic_review_svg::{
     SchematicReviewSvgLimits, build_schematic_review_svgs_with_limits,
 };
@@ -38,7 +39,6 @@ const NPTH_SLOT_COLOR: &str = "#F97316";
 const UNKNOWN_HOLE_COLOR: &str = "#6B7280";
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 const PERFORMANCE_PROFILE_ENV: &str = "KICAD_CRUNCHER_PERFORMANCE_PROFILE";
-const PERFORMANCE_PROFILE_SCHEMA: &str = "kicad_cruncher.design_review.performance_profile.a0";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DesignReviewBundleLimits {
@@ -67,80 +67,6 @@ pub struct DesignReviewBundle {
     pub net_count: usize,
     pub schematic_svg_count: usize,
     pub pcb_svg_count: usize,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct DesignReviewPerformanceStage {
-    pub name: &'static str,
-    pub elapsed_ns: u64,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct DesignReviewPerformanceProfile {
-    pub schema: &'static str,
-    pub total_elapsed_ns: u64,
-    pub accounted_elapsed_ns: u64,
-    pub unattributed_elapsed_ns: u64,
-    pub artifact_count: usize,
-    pub artifact_bytes: usize,
-    pub stages: Vec<DesignReviewPerformanceStage>,
-}
-
-struct PerformanceRecorder {
-    enabled: bool,
-    total_started: Option<Instant>,
-    stages: Vec<DesignReviewPerformanceStage>,
-}
-
-impl PerformanceRecorder {
-    fn new(enabled: bool) -> Self {
-        Self {
-            enabled,
-            total_started: enabled.then(Instant::now),
-            stages: Vec::new(),
-        }
-    }
-
-    fn start(&self) -> Option<Instant> {
-        self.enabled.then(Instant::now)
-    }
-
-    fn finish(&mut self, name: &'static str, started: Option<Instant>) {
-        if let Some(started) = started {
-            self.stages.push(DesignReviewPerformanceStage {
-                name,
-                elapsed_ns: duration_ns(started.elapsed()),
-            });
-        }
-    }
-
-    fn complete(
-        self,
-        artifact_count: usize,
-        artifact_bytes: usize,
-    ) -> DesignReviewPerformanceProfile {
-        let total_elapsed_ns = self
-            .total_started
-            .map_or(0, |started| duration_ns(started.elapsed()));
-        let accounted_elapsed_ns = self
-            .stages
-            .iter()
-            .map(|stage| stage.elapsed_ns)
-            .sum::<u64>();
-        DesignReviewPerformanceProfile {
-            schema: PERFORMANCE_PROFILE_SCHEMA,
-            total_elapsed_ns,
-            accounted_elapsed_ns,
-            unattributed_elapsed_ns: total_elapsed_ns.saturating_sub(accounted_elapsed_ns),
-            artifact_count,
-            artifact_bytes,
-            stages: self.stages,
-        }
-    }
-}
-
-fn duration_ns(duration: std::time::Duration) -> u64 {
-    u64::try_from(duration.as_nanos()).unwrap_or(u64::MAX)
 }
 
 #[derive(Serialize)]
@@ -289,12 +215,12 @@ pub fn write_design_review_bundle(
     .map(|(bundle, _profile)| bundle)
 }
 
-pub fn write_design_review_bundle_profiled(
+pub(crate) fn write_design_review_bundle_profiled(
     input: &Path,
     output: &Path,
     include_indexes: bool,
     limits: DesignReviewBundleLimits,
-) -> Result<(DesignReviewBundle, DesignReviewPerformanceProfile), DesignError> {
+) -> Result<(DesignReviewBundle, PerformanceProfile), DesignError> {
     write_design_review_bundle_internal(
         input,
         output,
@@ -310,7 +236,7 @@ fn write_design_review_bundle_internal(
     include_indexes: bool,
     limits: DesignReviewBundleLimits,
     mut performance: PerformanceRecorder,
-) -> Result<(DesignReviewBundle, DesignReviewPerformanceProfile), DesignError> {
+) -> Result<(DesignReviewBundle, PerformanceProfile), DesignError> {
     let resolve_started = performance.start();
     validate_limits(limits)?;
     let (destination, parent) = resolve_destination(output)?;
@@ -449,11 +375,11 @@ fn write_staged_bundle(
     performance: &mut PerformanceRecorder,
 ) -> Result<StagedSummary, DesignError> {
     let load_started = performance.start();
-    let loaded = load_design_sources(input)?;
+    let loaded = load_design_sources_profiled(input, performance)?;
     performance.finish("load_design_sources", load_started);
     validate_destination_source_separation(&loaded, destination)?;
     let facts_started = performance.start();
-    let facts = build_structured_design_facts_with_options(&loaded, include_indexes)?;
+    let facts = build_structured_design_facts_profiled(&loaded, include_indexes, performance)?;
     performance.finish("build_structured_design_facts", facts_started);
     let stem = loaded
         .input_path
@@ -1113,6 +1039,7 @@ fn write_readme(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::design::load_design_sources;
 
     #[test]
     fn filenames_match_the_python_contract() {
@@ -1196,7 +1123,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(profile.schema, PERFORMANCE_PROFILE_SCHEMA);
+        assert_eq!(profile.schema, crate::performance::PROFILE_SCHEMA);
         assert!(profile.total_elapsed_ns > 0);
         assert!(profile.accounted_elapsed_ns > 0);
         assert_eq!(
@@ -1227,6 +1154,52 @@ mod tests {
                 "build_and_write_bundle_metadata",
                 "publish_staged_tree",
                 "cleanup_transaction",
+            ]
+        );
+        assert_eq!(
+            profile
+                .details
+                .iter()
+                .map(|detail| (detail.parent, detail.name))
+                .collect::<Vec<_>>(),
+            [
+                ("load_design_sources", "resolve_design_paths"),
+                ("load_design_sources", "read_project_source"),
+                ("load_design_sources", "read_schematic_sources"),
+                ("load_design_sources", "parse_schematic_documents"),
+                ("load_design_sources", "extract_schematic_definitions",),
+                ("load_design_sources", "discover_schematic_hierarchy"),
+                ("load_design_sources", "insert_schematic_source_carriers",),
+                ("load_design_sources", "assemble_and_hash_source_bundle",),
+                ("load_design_sources", "read_pcb_source"),
+                (
+                    "build_structured_design_facts",
+                    "parse_schematic_index_definitions",
+                ),
+                (
+                    "build_structured_design_facts",
+                    "realize_schematic_occurrences",
+                ),
+                (
+                    "build_structured_design_facts",
+                    "assemble_schematic_indexes",
+                ),
+                (
+                    "build_structured_design_facts",
+                    "build_native_graph_and_netlist_facts",
+                ),
+                (
+                    "build_structured_design_facts",
+                    "validate_compiled_schematic_graph",
+                ),
+                ("build_structured_design_facts", "emit_kicad_netlist"),
+                ("build_structured_design_facts", "build_kicad_netlist_json",),
+                ("build_structured_design_facts", "parse_pcb_view"),
+                ("build_structured_design_facts", "build_kicad_design_json",),
+                (
+                    "build_structured_design_facts",
+                    "enumerate_schematic_instances",
+                ),
             ]
         );
         fs::remove_dir_all(root).unwrap();

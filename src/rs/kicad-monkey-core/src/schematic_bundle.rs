@@ -116,12 +116,35 @@ pub struct SchematicBundleIndex {
     project_identity_sha256: [u8; 32],
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct SchematicBundleIndexBuildProfile {
+    pub parse_definitions_ns: u64,
+    pub realize_occurrences_ns: u64,
+    pub assemble_indexes_ns: u64,
+}
+
 impl SchematicBundleIndex {
     /// Scan every schematic source once, then realize the reachable hierarchy.
     pub fn build(
         bundle: &SourceBundle,
         limits: SchematicBundleLimits,
     ) -> Result<Self, SourceBundleError> {
+        Self::build_internal(bundle, limits, false).map(|(index, _profile)| index)
+    }
+
+    pub fn build_profiled(
+        bundle: &SourceBundle,
+        limits: SchematicBundleLimits,
+    ) -> Result<(Self, SchematicBundleIndexBuildProfile), SourceBundleError> {
+        Self::build_internal(bundle, limits, true)
+    }
+
+    fn build_internal(
+        bundle: &SourceBundle,
+        limits: SchematicBundleLimits,
+        profile: bool,
+    ) -> Result<(Self, SchematicBundleIndexBuildProfile), SourceBundleError> {
+        let definitions_started = profile.then(std::time::Instant::now);
         let mut definitions = Vec::new();
         let mut definition_by_path = HashMap::new();
         let root_path = bundle.root_schematic_path();
@@ -136,25 +159,44 @@ impl SchematicBundleIndex {
             definition_by_path.insert(definition.source_path.clone(), definitions.len());
             definitions.push(definition);
         }
+        let parse_definitions_ns = elapsed_ns(definitions_started);
+        let occurrences_started = profile.then(std::time::Instant::now);
         let occurrences = realize_occurrences(bundle, &definitions, &definition_by_path, limits)?;
+        let realize_occurrences_ns = elapsed_ns(occurrences_started);
+        let indexes_started = profile.then(std::time::Instant::now);
         let legacy_symbol_instance_by_path = index_bundle_legacy_instances(&definitions);
         let identity_path = bundle
             .project_path()
             .unwrap_or_else(|| bundle.root_schematic_path());
-        Ok(Self {
+        let project_name = bundle
+            .project_path()
+            .map_or_else(String::new, portable_file_stem);
+        let project_file = portable_file_name(identity_path).to_owned();
+        let source_anchor = portable_parent(identity_path).to_owned();
+        let subpart_settings =
+            crate::schematic_project::project_subpart_settings(bundle.project())?;
+        let project_identity_sha256 = bundle.project_identity_sha256();
+        let assemble_indexes_ns = elapsed_ns(indexes_started);
+        let index = Self {
             limits,
-            project_name: bundle
-                .project_path()
-                .map_or_else(String::new, portable_file_stem),
-            project_file: portable_file_name(identity_path).to_owned(),
-            source_anchor: portable_parent(identity_path).to_owned(),
-            subpart_settings: crate::schematic_project::project_subpart_settings(bundle.project())?,
+            project_name,
+            project_file,
+            source_anchor,
+            subpart_settings,
             definitions,
             definition_by_path,
             occurrences,
             legacy_symbol_instance_by_path,
-            project_identity_sha256: bundle.project_identity_sha256(),
-        })
+            project_identity_sha256,
+        };
+        Ok((
+            index,
+            SchematicBundleIndexBuildProfile {
+                parse_definitions_ns,
+                realize_occurrences_ns,
+                assemble_indexes_ns,
+            },
+        ))
     }
 
     pub fn definitions(&self) -> impl ExactSizeIterator<Item = &SchematicDefinition> {
@@ -264,6 +306,12 @@ impl SchematicBundleIndex {
         let effective = self.effective_symbols(occurrence_index, None)?;
         resolve_symbol_terminals(definition, occurrence, &effective, self.limits)
     }
+}
+
+fn elapsed_ns(started: Option<std::time::Instant>) -> u64 {
+    started.map_or(0, |started| {
+        u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
+    })
 }
 
 fn parse_schematic_definition(

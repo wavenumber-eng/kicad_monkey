@@ -313,6 +313,24 @@ fn schematics_are_scanned_once_and_repeated_pages_realize_distinct_occurrences()
 }
 
 #[test]
+fn profiled_index_preserves_results_and_separates_internal_phases() {
+    let bundle = hierarchy_bundle();
+    let (index, profile) =
+        SchematicBundleIndex::build_profiled(&bundle, SchematicBundleLimits::default())
+            .expect("profiled schematic hierarchy");
+
+    assert_eq!(index.definitions().len(), 3);
+    assert_eq!(index.occurrences().len(), 5);
+    assert!(
+        profile
+            .parse_definitions_ns
+            .saturating_add(profile.realize_occurrences_ns)
+            .saturating_add(profile.assemble_indexes_ns)
+            > 0
+    );
+}
+
+#[test]
 fn hierarchy_occurrences_fold_parent_policy_without_mutating_definitions() {
     let bundle = hierarchy_bundle();
     let index = SchematicBundleIndex::build(&bundle, SchematicBundleLimits::default())

@@ -38,7 +38,7 @@ JsonObject = dict[str, Any]
 _NUMBER = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
 _DRAWABLE = {"path", "polygon", "polyline", "line", "rect", "circle", "ellipse"}
 _RUST_PROFILE_PREFIX = "KICAD_CRUNCHER_PERFORMANCE_PROFILE="
-_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a0"
+_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a1"
 _RUST_PROFILE_STAGES = (
     "resolve_and_validate_output",
     "create_staging_directory",
@@ -55,6 +55,27 @@ _RUST_PROFILE_STAGES = (
     "build_and_write_bundle_metadata",
     "publish_staged_tree",
     "cleanup_transaction",
+)
+_RUST_PROFILE_DETAILS = (
+    ("load_design_sources", "resolve_design_paths"),
+    ("load_design_sources", "read_project_source"),
+    ("load_design_sources", "read_schematic_sources"),
+    ("load_design_sources", "parse_schematic_documents"),
+    ("load_design_sources", "extract_schematic_definitions"),
+    ("load_design_sources", "discover_schematic_hierarchy"),
+    ("load_design_sources", "insert_schematic_source_carriers"),
+    ("load_design_sources", "assemble_and_hash_source_bundle"),
+    ("load_design_sources", "read_pcb_source"),
+    ("build_structured_design_facts", "parse_schematic_index_definitions"),
+    ("build_structured_design_facts", "realize_schematic_occurrences"),
+    ("build_structured_design_facts", "assemble_schematic_indexes"),
+    ("build_structured_design_facts", "build_native_graph_and_netlist_facts"),
+    ("build_structured_design_facts", "validate_compiled_schematic_graph"),
+    ("build_structured_design_facts", "emit_kicad_netlist"),
+    ("build_structured_design_facts", "build_kicad_netlist_json"),
+    ("build_structured_design_facts", "parse_pcb_view"),
+    ("build_structured_design_facts", "build_kicad_design_json"),
+    ("build_structured_design_facts", "enumerate_schematic_instances"),
 )
 
 
@@ -576,6 +597,7 @@ def _performance_profile(
         "artifact_count",
         "artifact_bytes",
         "stages",
+        "details",
     }
     if profile.keys() != expected_keys:
         raise AssertionError("Rust performance profile fields do not match the contract")
@@ -613,6 +635,27 @@ def _performance_profile(
         != profile["total_elapsed_ns"]
     ):
         raise AssertionError("Rust performance profile total time arithmetic is invalid")
+    details = profile["details"]
+    if not isinstance(details, list) or any(
+        not isinstance(detail, dict)
+        or detail.keys() != {"parent", "name", "elapsed_ns"}
+        or not isinstance(detail["parent"], str)
+        or not isinstance(detail["name"], str)
+        or not isinstance(detail["elapsed_ns"], int)
+        or detail["elapsed_ns"] < 0
+        for detail in details
+    ):
+        raise AssertionError("Rust performance profile details are malformed")
+    detail_inventory = [(detail["parent"], detail["name"]) for detail in details]
+    if tuple(detail_inventory) != _RUST_PROFILE_DETAILS or len(set(detail_inventory)) != len(
+        detail_inventory
+    ):
+        raise AssertionError("Rust performance profile detail inventory is incomplete")
+    stage_times = {stage["name"]: stage["elapsed_ns"] for stage in stages}
+    for parent in {detail["parent"] for detail in details}:
+        detail_total = sum(detail["elapsed_ns"] for detail in details if detail["parent"] == parent)
+        if detail_total > stage_times[parent]:
+            raise AssertionError("Rust performance profile details exceed their parent stage")
     if profile["artifact_count"] != signature["file_count"]:
         raise AssertionError("Rust performance profile artifact count does not match the bundle")
     if profile["artifact_bytes"] != signature["total_bytes"]:

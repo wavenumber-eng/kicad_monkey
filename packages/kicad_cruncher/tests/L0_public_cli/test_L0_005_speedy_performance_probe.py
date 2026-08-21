@@ -125,15 +125,21 @@ def test_speedy_probe_semantically_validates_schematic_svg_bodies(tmp_path: Path
 
 def test_speedy_probe_requires_a_bundle_bound_rust_profile() -> None:
     probe = _probe()
-    stages = [{"name": name, "elapsed_ns": 1} for name in probe._RUST_PROFILE_STAGES]
+    stages = [{"name": name, "elapsed_ns": 20} for name in probe._RUST_PROFILE_STAGES]
+    details = [
+        {"parent": parent, "name": name, "elapsed_ns": 1}
+        for parent, name in probe._RUST_PROFILE_DETAILS
+    ]
+    accounted = sum(stage["elapsed_ns"] for stage in stages)
     profile = {
         "schema": probe._RUST_PROFILE_SCHEMA,
-        "total_elapsed_ns": len(stages) + 5,
-        "accounted_elapsed_ns": len(stages),
+        "total_elapsed_ns": accounted + 5,
+        "accounted_elapsed_ns": accounted,
         "unattributed_elapsed_ns": 5,
         "artifact_count": 35,
         "artifact_bytes": 100,
         "stages": stages,
+        "details": details,
     }
     line = probe._RUST_PROFILE_PREFIX + json.dumps(profile)
     signature = {"file_count": 35, "total_bytes": 100}
@@ -154,6 +160,9 @@ def test_speedy_probe_requires_a_bundle_bound_rust_profile() -> None:
     invalid = dict(profile)
     invalid["stages"] = stages[:-1]
     invalid_profiles.append((invalid, "stage inventory"))
+    invalid = dict(profile)
+    invalid["details"] = details[:-1]
+    invalid_profiles.append((invalid, "detail inventory"))
     invalid = dict(profile)
     invalid["artifact_count"] = 34
     invalid_profiles.append((invalid, "artifact count"))

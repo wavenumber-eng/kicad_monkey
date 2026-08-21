@@ -10,6 +10,7 @@ use std::process::ExitCode;
 pub mod design;
 pub mod design_bundle;
 pub mod pcb_review_svg;
+mod performance;
 pub mod schematic_review_svg;
 
 pub const TOP_LEVEL_HELP: &str = "\

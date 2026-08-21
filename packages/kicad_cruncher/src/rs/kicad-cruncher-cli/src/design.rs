@@ -39,6 +39,8 @@ use kicad_monkey_core::{
 use kicad_monkey_svg::{SvgMetrics, render_svg};
 use sha2::{Digest, Sha256};
 
+use crate::performance::PerformanceRecorder;
+
 const GRAPH_TOOL: &str = "kicad_cruncher";
 const KICAD_STROKE_REGULAR: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -387,7 +389,27 @@ fn find_adjacent_project(source: &Path) -> Result<Option<PathBuf>, DesignError> 
 }
 
 pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignError> {
+    load_design_sources_internal(input, &mut PerformanceRecorder::new(false))
+}
+
+pub(crate) fn load_design_sources_profiled(
+    input: &Path,
+    performance: &mut PerformanceRecorder,
+) -> Result<LoadedDesignSources, DesignError> {
+    load_design_sources_internal(input, performance)
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "source loading records bounded parser and carrier sub-stages in one flow"
+)]
+fn load_design_sources_internal(
+    input: &Path,
+    performance: &mut PerformanceRecorder,
+) -> Result<LoadedDesignSources, DesignError> {
+    let paths_started = performance.start();
     let paths = resolve_design_paths(input)?;
+    performance.finish_detail("load_design_sources", "resolve_design_paths", paths_started);
 
     let limits = SourceBundleLimits::default();
     let schematic_limits = SchematicDocumentLimits {
@@ -398,6 +420,7 @@ pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignEr
     let mut buffers = Vec::new();
     let mut total_bytes = 0_usize;
 
+    let project_started = performance.start();
     if let Some(project_path) = paths.project.as_ref() {
         let relative = portable_relative(&paths.root, project_path)?;
         let bytes = read_bounded(project_path, limits.max_source_bytes)?;
@@ -411,25 +434,49 @@ pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignEr
             limits,
         )?;
     }
+    performance.finish_detail(
+        "load_design_sources",
+        "read_project_source",
+        project_started,
+    );
 
     let root_relative = portable_relative(&paths.root, &paths.root_schematic)?;
     let mut pending = VecDeque::from([paths.root_schematic]);
     let mut seen = HashSet::new();
+    let mut schematic_read_elapsed = std::time::Duration::ZERO;
+    let mut schematic_parse_elapsed = std::time::Duration::ZERO;
+    let mut definition_elapsed = std::time::Duration::ZERO;
+    let mut discovery_elapsed = std::time::Duration::ZERO;
+    let mut carrier_elapsed = std::time::Duration::ZERO;
     while let Some(source_path) = pending.pop_front() {
+        let discovery_started = performance.start();
         let relative = portable_relative(&paths.root, &source_path)?;
         if !seen.insert(relative.clone()) {
+            discovery_elapsed += performance.elapsed(discovery_started);
             continue;
         }
+        discovery_elapsed += performance.elapsed(discovery_started);
+
+        let read_started = performance.start();
+        let bytes = read_bounded(&source_path, schematic_limits.parse.max_source_bytes)?;
+        schematic_read_elapsed += performance.elapsed(read_started);
+
+        let parse_started = performance.start();
         let source = SchematicDocument::from_named_reader(
             &relative,
-            File::open(&source_path)
-                .map_err(|error| DesignError::context("could not open schematic", error))?,
+            io::Cursor::new(bytes),
             schematic_limits,
         )
         .map_err(|error| DesignError::context("could not parse schematic", error))?;
+        schematic_parse_elapsed += performance.elapsed(parse_started);
+
+        let definition_started = performance.start();
         let definition = source
             .definition()
             .map_err(|error| DesignError::context("could not inspect schematic sheets", error))?;
+        definition_elapsed += performance.elapsed(definition_started);
+
+        let discovery_started = performance.start();
         let source_parent = source_path
             .parent()
             .ok_or_else(|| DesignError::new("schematic has no parent directory"))?;
@@ -437,6 +484,9 @@ pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignEr
             let child = resolve_child_schematic(&paths.root, source_parent, &sheet.sheet_file)?;
             pending.push_back(child);
         }
+        discovery_elapsed += performance.elapsed(discovery_started);
+
+        let carrier_started = performance.start();
         push_source(
             &mut source_rows,
             &mut buffers,
@@ -446,8 +496,35 @@ pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignEr
             source.into_source().into_bytes(),
             limits,
         )?;
+        carrier_elapsed += performance.elapsed(carrier_started);
     }
+    performance.record_detail(
+        "load_design_sources",
+        "read_schematic_sources",
+        schematic_read_elapsed,
+    );
+    performance.record_detail(
+        "load_design_sources",
+        "parse_schematic_documents",
+        schematic_parse_elapsed,
+    );
+    performance.record_detail(
+        "load_design_sources",
+        "extract_schematic_definitions",
+        definition_elapsed,
+    );
+    performance.record_detail(
+        "load_design_sources",
+        "discover_schematic_hierarchy",
+        discovery_elapsed,
+    );
+    performance.record_detail(
+        "load_design_sources",
+        "insert_schematic_source_carriers",
+        carrier_elapsed,
+    );
 
+    let bundle_started = performance.start();
     let project_relative = paths
         .project
         .as_ref()
@@ -464,6 +541,12 @@ pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignEr
     let source_snapshot_sha256 = source_snapshot_sha256(&manifest, &buffers)?;
     let bundle = SourceBundle::from_manifest(manifest, buffers, limits)
         .map_err(|error| DesignError::context("source bundle is invalid", error))?;
+    performance.finish_detail(
+        "load_design_sources",
+        "assemble_and_hash_source_bundle",
+        bundle_started,
+    );
+    let pcb_started = performance.start();
     let (pcb_path, pcb_source) = paths
         .pcb
         .map(|path| {
@@ -474,6 +557,7 @@ pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignEr
         })
         .transpose()?
         .map_or((None, None), |(path, source)| (Some(path), Some(source)));
+    performance.finish_detail("load_design_sources", "read_pcb_source", pcb_started);
     Ok(LoadedDesignSources {
         input_path: paths.input,
         bundle_root: paths.root,
@@ -542,8 +626,53 @@ pub fn build_structured_design_facts_with_options(
     loaded: &LoadedDesignSources,
     include_indexes: bool,
 ) -> Result<StructuredDesignFacts, DesignError> {
-    let index = SchematicBundleIndex::build(&loaded.bundle, SchematicBundleLimits::default())
-        .map_err(|error| DesignError::context("could not index schematic hierarchy", error))?;
+    build_structured_design_facts_internal(
+        loaded,
+        include_indexes,
+        &mut PerformanceRecorder::new(false),
+    )
+}
+
+pub(crate) fn build_structured_design_facts_profiled(
+    loaded: &LoadedDesignSources,
+    include_indexes: bool,
+    performance: &mut PerformanceRecorder,
+) -> Result<StructuredDesignFacts, DesignError> {
+    build_structured_design_facts_internal(loaded, include_indexes, performance)
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "facts construction records each bounded native derivation sub-stage"
+)]
+fn build_structured_design_facts_internal(
+    loaded: &LoadedDesignSources,
+    include_indexes: bool,
+    performance: &mut PerformanceRecorder,
+) -> Result<StructuredDesignFacts, DesignError> {
+    let (index, index_profile) = if performance.is_enabled() {
+        SchematicBundleIndex::build_profiled(&loaded.bundle, SchematicBundleLimits::default())
+    } else {
+        SchematicBundleIndex::build(&loaded.bundle, SchematicBundleLimits::default())
+            .map(|index| (index, Default::default()))
+    }
+    .map_err(|error| DesignError::context("could not index schematic hierarchy", error))?;
+    performance.record_detail(
+        "build_structured_design_facts",
+        "parse_schematic_index_definitions",
+        std::time::Duration::from_nanos(index_profile.parse_definitions_ns),
+    );
+    performance.record_detail(
+        "build_structured_design_facts",
+        "realize_schematic_occurrences",
+        std::time::Duration::from_nanos(index_profile.realize_occurrences_ns),
+    );
+    performance.record_detail(
+        "build_structured_design_facts",
+        "assemble_schematic_indexes",
+        std::time::Duration::from_nanos(index_profile.assemble_indexes_ns),
+    );
+    let native_facts_started = performance.start();
     let design_facts = build_kicad_design_facts(
         &index,
         &loaded.bundle,
@@ -552,11 +681,23 @@ pub fn build_structured_design_facts_with_options(
         KiCadNetlistLimits::default(),
     )
     .map_err(|error| DesignError::context("could not build structured design facts", error))?;
+    performance.finish_detail(
+        "build_structured_design_facts",
+        "build_native_graph_and_netlist_facts",
+        native_facts_started,
+    );
+    let graph_validation_started = performance.start();
     validate_compiled_schematic_graph(design_facts.graph())
         .map_err(|error| DesignError::context("compiled schematic graph is invalid", error))?;
+    performance.finish_detail(
+        "build_structured_design_facts",
+        "validate_compiled_schematic_graph",
+        graph_validation_started,
+    );
     let netlist = design_facts.netlist();
     let netlist_source =
         display_source_path(&loaded.bundle_root.join(loaded.bundle.root_schematic_path()));
+    let netlist_emit_started = performance.start();
     let kicad_netlist = emit_kicad_netlist(
         netlist,
         &netlist_source,
@@ -565,6 +706,12 @@ pub fn build_structured_design_facts_with_options(
         KiCadNetlistLimits::default().max_output_bytes,
     )
     .map_err(|error| DesignError::context("could not emit KiCad netlist", error))?;
+    performance.finish_detail(
+        "build_structured_design_facts",
+        "emit_kicad_netlist",
+        netlist_emit_started,
+    );
+    let netlist_json_started = performance.start();
     let netlist_json = build_kicad_netlist_json(
         netlist,
         KiCadNetlistJsonMetadata {
@@ -573,12 +720,23 @@ pub fn build_structured_design_facts_with_options(
             tool: "kicad_monkey",
         },
     );
+    performance.finish_detail(
+        "build_structured_design_facts",
+        "build_kicad_netlist_json",
+        netlist_json_started,
+    );
+    let pcb_parse_started = performance.start();
     let pcb_view = loaded
         .pcb_source
         .as_deref()
         .map(|source| PcbView::parse(source, PcbLimits::default()))
         .transpose()
         .map_err(|error| DesignError::context("could not parse PCB", error))?;
+    performance.finish_detail(
+        "build_structured_design_facts",
+        "parse_pcb_view",
+        pcb_parse_started,
+    );
     let pcb_filename = loaded
         .pcb_path
         .as_deref()
@@ -591,6 +749,7 @@ pub fn build_structured_design_facts_with_options(
             source_filename: filename,
             view,
         });
+    let design_json_started = performance.start();
     let design_json = build_kicad_design_json(
         &index,
         &design_facts,
@@ -599,9 +758,20 @@ pub fn build_structured_design_facts_with_options(
         include_indexes,
     )
     .map_err(|error| DesignError::context("could not build KiCad design JSON", error))?;
+    performance.finish_detail(
+        "build_structured_design_facts",
+        "build_kicad_design_json",
+        design_json_started,
+    );
+    let instances_started = performance.start();
     let schematic_instances = design_facts
         .schematic_instances()
         .map_err(|error| DesignError::context("could not enumerate schematic instances", error))?;
+    performance.finish_detail(
+        "build_structured_design_facts",
+        "enumerate_schematic_instances",
+        instances_started,
+    );
     let (compiled_schematic_graph, netlist) = design_facts.into_parts();
     Ok(StructuredDesignFacts {
         compiled_schematic_graph,
