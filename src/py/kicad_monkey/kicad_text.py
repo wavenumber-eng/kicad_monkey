@@ -346,8 +346,9 @@ class _KiCadFontconfigApi:
         etc_fonts = dll_path.parent.parent / "etc" / "fonts"
         if etc_fonts.is_dir():
             os.environ.setdefault("FONTCONFIG_PATH", str(etc_fonts))
-        if hasattr(os, "add_dll_directory"):
-            os.add_dll_directory(str(dll_path.parent))
+        add_dll_directory = getattr(os, "add_dll_directory", None)
+        if add_dll_directory is not None:
+            add_dll_directory(str(dll_path.parent))
         lib = ctypes.CDLL(str(dll_path))
         lib.FcInitLoadConfigAndFonts.restype = ctypes.c_void_p
         lib.FcNameParse.restype = ctypes.c_void_p
