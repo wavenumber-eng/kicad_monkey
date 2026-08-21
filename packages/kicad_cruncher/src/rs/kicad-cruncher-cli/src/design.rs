@@ -307,7 +307,9 @@ pub(crate) struct BoardPlotDocumentBuildProfile {
     pub facts: BoardPlotFactsBuildProfile,
     pub copper_layer_enumeration_ns: u64,
     pub font_face_scan_ns: u64,
+    pub font_face_scan_accounted_ns: u64,
     pub embedded_font_extraction_ns: u64,
+    pub embedded_font_extraction_accounted_ns: u64,
     pub font_index_and_selection_ns: u64,
     pub font_resource_setup_ns: u64,
     pub bounds_ns: u64,
@@ -1075,6 +1077,64 @@ fn build_board_plot_document_from_sources(
     )
 }
 
+struct BoardFontInputs {
+    faces: BTreeSet<String>,
+    embedded_files: Vec<SchematicEmbeddedFile>,
+    face_scan_ns: u64,
+    embedded_extraction_ns: u64,
+}
+
+fn board_font_inputs(source: &str, profile_enabled: bool) -> Result<BoardFontInputs, DesignError> {
+    let faces_started = profile_enabled.then(std::time::Instant::now);
+    let mut faces = BTreeSet::from(["Arial".to_owned()]);
+    collect_font_faces(source, &mut faces)?;
+    let face_scan_ns = profile_elapsed_ns(faces_started);
+    let embedded_started = profile_enabled.then(std::time::Instant::now);
+    let embedded_files = schematic_embedded_files(source, SchematicEmbeddedLimits::default())
+        .map_err(|error| DesignError::context("could not extract board font sidecars", error))?;
+    Ok(BoardFontInputs {
+        faces,
+        embedded_files,
+        face_scan_ns,
+        embedded_extraction_ns: profile_elapsed_ns(embedded_started),
+    })
+}
+
+fn account_overlapped_pair(first: u64, second: u64, blocking: u64) -> (u64, u64) {
+    let total = first.saturating_add(second);
+    if total == 0 || blocking == 0 {
+        return (0, 0);
+    }
+    let accounted = blocking.min(total);
+    let first = u128::from(accounted)
+        .saturating_mul(u128::from(first))
+        .checked_div(u128::from(total))
+        .and_then(|value| u64::try_from(value).ok())
+        .unwrap_or(accounted);
+    (first, accounted.saturating_sub(first))
+}
+
+fn preflight_parallel_board_fonts(
+    source: &str,
+    limits: BoardPlotLimits,
+) -> Result<(), DesignError> {
+    if source.len() > limits.max_source_bytes {
+        return Err(DesignError::new(
+            "could not build board plot facts: board source exceeds max_source_bytes",
+        ));
+    }
+    Ok(())
+}
+
+fn resolve_parallel_board_inputs<T, U>(
+    facts: Result<T, DesignError>,
+    fonts: std::thread::Result<Result<U, DesignError>>,
+) -> Result<(T, U), DesignError> {
+    let facts = facts?;
+    let fonts = fonts.map_err(|_| DesignError::new("board font worker panicked"))??;
+    Ok((facts, fonts))
+}
+
 #[allow(
     clippy::too_many_arguments,
     clippy::too_many_lines,
@@ -1089,25 +1149,35 @@ fn build_board_plot_document_with_resolved_sidecars(
     profile_enabled: bool,
     mut profile: BoardPlotDocumentBuildProfile,
 ) -> Result<(Option<BoardPlotDocument>, BoardPlotDocumentBuildProfile), DesignError> {
-    let (facts, facts_profile) = if profile_enabled {
-        board_plot_facts_with_sidecars_profiled(
-            source,
-            limits.plot,
-            PcbLimits::default(),
-            &net_classes,
-            &text_variables,
-        )
-    } else {
-        board_plot_facts_with_sidecars(
-            source,
-            limits.plot,
-            PcbLimits::default(),
-            &net_classes,
-            &text_variables,
-        )
-        .map(|facts| (facts, BoardPlotFactsBuildProfile::default()))
-    }
-    .map_err(|error| DesignError::context("could not build board plot facts", error))?;
+    preflight_parallel_board_fonts(source, limits.plot)?;
+    let ((facts, facts_profile), font_inputs, font_blocking_ns) = std::thread::scope(|scope| {
+        let font_worker = scope.spawn(|| board_font_inputs(source, profile_enabled));
+        let facts = if profile_enabled {
+            board_plot_facts_with_sidecars_profiled(
+                source,
+                limits.plot,
+                PcbLimits::default(),
+                &net_classes,
+                &text_variables,
+            )
+        } else {
+            board_plot_facts_with_sidecars(
+                source,
+                limits.plot,
+                PcbLimits::default(),
+                &net_classes,
+                &text_variables,
+            )
+            .map(|facts| (facts, BoardPlotFactsBuildProfile::default()))
+        };
+        let join_started = profile_enabled.then(std::time::Instant::now);
+        let font_inputs = font_worker.join();
+        let font_blocking_ns = profile_elapsed_ns(join_started);
+        let facts =
+            facts.map_err(|error| DesignError::context("could not build board plot facts", error));
+        let (facts, font_inputs) = resolve_parallel_board_inputs(facts, font_inputs)?;
+        Ok::<_, DesignError>((facts, font_inputs, font_blocking_ns))
+    })?;
     profile.facts = facts_profile;
     let layers_started = profile_enabled.then(std::time::Instant::now);
     let mut copper_layers = Vec::new();
@@ -1122,16 +1192,18 @@ fn build_board_plot_document_with_resolved_sidecars(
         }
     }
     profile.copper_layer_enumeration_ns = profile_elapsed_ns(layers_started);
-    let faces_started = profile_enabled.then(std::time::Instant::now);
-    let mut faces = BTreeSet::from(["Arial".to_owned()]);
-    collect_font_faces(source, &mut faces)?;
-    profile.font_face_scan_ns = profile_elapsed_ns(faces_started);
-    let embedded_started = profile_enabled.then(std::time::Instant::now);
-    let embedded_files = schematic_embedded_files(source, SchematicEmbeddedLimits::default())
-        .map_err(|error| DesignError::context("could not extract board font sidecars", error))?;
-    profile.embedded_font_extraction_ns = profile_elapsed_ns(embedded_started);
+    let (font_face_scan_accounted_ns, embedded_font_extraction_accounted_ns) =
+        account_overlapped_pair(
+            font_inputs.face_scan_ns,
+            font_inputs.embedded_extraction_ns,
+            font_blocking_ns,
+        );
+    profile.font_face_scan_ns = font_inputs.face_scan_ns;
+    profile.font_face_scan_accounted_ns = font_face_scan_accounted_ns;
+    profile.embedded_font_extraction_ns = font_inputs.embedded_extraction_ns;
+    profile.embedded_font_extraction_accounted_ns = embedded_font_extraction_accounted_ns;
     let font_selection_started = profile_enabled.then(std::time::Instant::now);
-    let font_styles = schematic_font_styles(&faces, &embedded_files)?;
+    let font_styles = schematic_font_styles(&font_inputs.faces, &font_inputs.embedded_files)?;
     profile.font_index_and_selection_ns = profile_elapsed_ns(font_selection_started);
     let font_resources_started = profile_enabled.then(std::time::Instant::now);
     let fonts = font_styles
@@ -2449,6 +2521,33 @@ mod plot_batch_budget_tests {
             };
             assert!(charge_plot_batch_budget(&mut total, document, limits).is_err());
         }
+    }
+
+    #[test]
+    fn overlapped_profile_pair_charges_only_blocking_time() {
+        assert_eq!(account_overlapped_pair(30, 70, 10), (3, 7));
+        assert_eq!(account_overlapped_pair(30, 70, 100), (30, 70));
+        assert_eq!(account_overlapped_pair(30, 70, 150), (30, 70));
+        assert_eq!(account_overlapped_pair(0, 0, 10), (0, 0));
+    }
+
+    #[test]
+    fn board_facts_error_precedes_joined_font_worker_panic() {
+        let facts = Err::<(), _>(DesignError::new("primary board facts error"));
+        let font_panic: std::thread::Result<Result<(), DesignError>> =
+            Err(Box::new("injected font panic"));
+        let error = resolve_parallel_board_inputs(facts, font_panic).unwrap_err();
+        assert_eq!(error.to_string(), "primary board facts error");
+    }
+
+    #[test]
+    fn board_source_limit_rejects_before_parallel_font_work_is_eligible() {
+        let limits = BoardPlotLimits {
+            max_source_bytes: 2,
+            ..BoardPlotLimits::default()
+        };
+        assert!(preflight_parallel_board_fonts("abc", limits).is_err());
+        assert!(preflight_parallel_board_fonts("ab", limits).is_ok());
     }
 
     #[test]

@@ -132,7 +132,7 @@ def test_speedy_probe_requires_a_bundle_bound_rust_profile() -> None:
         for name in probe._RUST_PROFILE_STAGES
     ]
     details = [
-        {"parent": parent, "name": name, "elapsed_ns": 1}
+        {"parent": parent, "name": name, "elapsed_ns": 1, "accounted_ns": 1}
         for parent, name in probe._RUST_PROFILE_DETAILS
     ]
     accounted = sum(stage["accounted_ns"] for stage in stages)

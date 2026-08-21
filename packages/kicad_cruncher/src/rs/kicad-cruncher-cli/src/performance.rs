@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
-pub(crate) const PROFILE_SCHEMA: &str = "kicad_cruncher.design_review.performance_profile.a6";
+pub(crate) const PROFILE_SCHEMA: &str = "kicad_cruncher.design_review.performance_profile.a7";
 
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct PerformanceStage {
@@ -18,6 +18,7 @@ pub(crate) struct PerformanceDetail {
     pub parent: &'static str,
     pub name: &'static str,
     pub elapsed_ns: u64,
+    pub accounted_ns: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -90,10 +91,12 @@ impl PerformanceRecorder {
         started: Option<Instant>,
     ) {
         if let Some(started) = started {
+            let elapsed_ns = duration_ns(started.elapsed());
             self.details.push(PerformanceDetail {
                 parent,
                 name,
-                elapsed_ns: duration_ns(started.elapsed()),
+                elapsed_ns,
+                accounted_ns: elapsed_ns,
             });
         }
     }
@@ -113,6 +116,24 @@ impl PerformanceRecorder {
                 parent,
                 name,
                 elapsed_ns: duration_ns(duration),
+                accounted_ns: duration_ns(duration),
+            });
+        }
+    }
+
+    pub(crate) fn record_overlapped_detail(
+        &mut self,
+        parent: &'static str,
+        name: &'static str,
+        elapsed: Duration,
+        accounted: Duration,
+    ) {
+        if self.enabled {
+            self.details.push(PerformanceDetail {
+                parent,
+                name,
+                elapsed_ns: duration_ns(elapsed),
+                accounted_ns: duration_ns(accounted.min(elapsed)),
             });
         }
     }

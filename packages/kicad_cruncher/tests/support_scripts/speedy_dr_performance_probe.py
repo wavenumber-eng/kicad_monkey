@@ -56,7 +56,7 @@ class _ProcessMemoryCounters(ctypes.Structure):
 _NUMBER = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
 _DRAWABLE = {"path", "polygon", "polyline", "line", "rect", "circle", "ellipse"}
 _RUST_PROFILE_PREFIX = "KICAD_CRUNCHER_PERFORMANCE_PROFILE="
-_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a6"
+_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a7"
 _RUST_PROFILE_STAGES = (
     "resolve_and_validate_output",
     "create_staging_directory",
@@ -877,11 +877,14 @@ def _performance_profile(
     details = profile["details"]
     if not isinstance(details, list) or any(
         not isinstance(detail, dict)
-        or detail.keys() != {"parent", "name", "elapsed_ns"}
+        or detail.keys() != {"parent", "name", "elapsed_ns", "accounted_ns"}
         or not isinstance(detail["parent"], str)
         or not isinstance(detail["name"], str)
         or not isinstance(detail["elapsed_ns"], int)
         or detail["elapsed_ns"] < 0
+        or not isinstance(detail["accounted_ns"], int)
+        or detail["accounted_ns"] < 0
+        or detail["accounted_ns"] > detail["elapsed_ns"]
         for detail in details
     ):
         raise AssertionError("Rust performance profile details are malformed")
@@ -892,7 +895,9 @@ def _performance_profile(
         raise AssertionError("Rust performance profile detail inventory is incomplete")
     stage_times = {stage["name"]: stage["elapsed_ns"] for stage in stages}
     for parent in {detail["parent"] for detail in details}:
-        detail_total = sum(detail["elapsed_ns"] for detail in details if detail["parent"] == parent)
+        detail_total = sum(
+            detail["accounted_ns"] for detail in details if detail["parent"] == parent
+        )
         if detail_total > stage_times[parent]:
             raise AssertionError("Rust performance profile details exceed their parent stage")
     if profile["artifact_count"] != signature["file_count"]:

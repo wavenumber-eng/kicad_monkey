@@ -869,10 +869,16 @@ fn write_staged_bundle(
     let (board_elapsed, board_blocking, board_profile) = board_performance;
     performance.record_overlapped_stage("build_board_plot_document", board_elapsed, board_blocking);
     for (name, elapsed_ns) in board_plot_profile_details(board_profile) {
-        performance.record_detail(
+        let accounted_ns = match name {
+            "scan_board_font_faces" => board_profile.font_face_scan_accounted_ns,
+            "extract_board_embedded_fonts" => board_profile.embedded_font_extraction_accounted_ns,
+            _ => elapsed_ns,
+        };
+        performance.record_overlapped_detail(
             "build_board_plot_document",
             name,
             std::time::Duration::from_nanos(elapsed_ns),
+            std::time::Duration::from_nanos(accounted_ns),
         );
     }
     let mut pcb_artifacts = Vec::new();
