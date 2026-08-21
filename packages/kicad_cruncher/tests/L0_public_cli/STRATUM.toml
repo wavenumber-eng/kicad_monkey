@@ -69,3 +69,23 @@ existing_wire = "The strict schema accepts native provenance and the compatible 
 strictness = "Unknown fields, incomplete graph counts, malformed hashes, and unsafe absolute, backslash, dot, or traversal artifact paths fail validation"
 publication = "Every manifest artifact resolves beneath staging and exists before the manifest and complete tree publish"
 failure = "Handled output-resolution, invalid-manifest, or generation failures return 1 and leave a new destination absent"
+
+[[subtests]]
+id = "L0_005"
+file = "test_L0_005_speedy_performance_probe.py"
+name = "Speedy Performance Probe"
+description = "Validate reviewed-corpus extraction safety and semantic SVG parity enforcement in the release benchmark"
+concerns = ["cli", "contracts", "release"]
+test_case_type = "contract"
+test_cases = "Synthetic hostile ZIP paths and scaled legacy/native schematic SVGs"
+
+[subtests.code_under_test]
+module = "tests.support_scripts.speedy_dr_performance_probe"
+
+[subtests.objectives]
+corpus_safety = "Windows traversal and drive-like ZIP members cannot escape the temporary Speedy source root"
+svg_parity = "The benchmark accepts renderer scale and identity-carrier differences while rejecting missing SVG record geometry"
+
+[subtests.test_functions]
+test_speedy_probe_rejects_windows_archive_escape_members = "Reviewed-corpus selection rejects Windows backslash traversal before extraction"
+test_speedy_probe_semantically_validates_schematic_svg_bodies = "Semantic schematic SVG validation accepts known carrier differences and detects a corrupted body"
