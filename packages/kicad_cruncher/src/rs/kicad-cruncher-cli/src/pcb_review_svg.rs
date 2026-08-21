@@ -1051,7 +1051,7 @@ fn enrichment_metadata(
         "board": {
             "bbox_mm": [nm_mm(bounds.min_x), nm_mm(bounds.min_y), nm_mm(bounds.max_x), nm_mm(bounds.max_y)],
             "aux_axis_origin_mm": aux_axis_origin,
-            "thickness_mm": document_number(&loaded.pcb_source, "thickness").unwrap_or(1.6),
+            "thickness_mm": document_number(loaded.pcb_source.as_deref(), "thickness").unwrap_or(1.6),
             "stackup": {
                 "present": stackup.is_some(),
                 "computed_thickness_mm": computed_thickness,
@@ -1105,8 +1105,8 @@ fn enrichment_metadata(
     }))
 }
 
-fn document_number(source: &Option<String>, name: &str) -> Option<f64> {
-    let source = source.as_deref()?;
+fn document_number(source: Option<&str>, name: &str) -> Option<f64> {
+    let source = source?;
     let marker = format!("({name} ");
     let value = source.split_once(&marker)?.1.split_once(')')?.0.trim();
     value.parse().ok()

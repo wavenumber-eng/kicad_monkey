@@ -6,6 +6,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 
 use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
 use kicad_monkey_contracts::generated::native_svg_render_request::{
@@ -366,7 +367,23 @@ pub struct LoadedDesignSources {
     pub bundle: SourceBundle,
     pub source_snapshot_sha256: String,
     pub pcb_path: Option<PathBuf>,
-    pub pcb_source: Option<String>,
+    pub pcb_source: Option<Arc<str>>,
+}
+
+#[derive(Debug)]
+pub(crate) struct PreparedDesignSources {
+    paths: DesignPaths,
+    project_source: Option<Vec<u8>>,
+    pcb_source: Option<Arc<str>>,
+}
+
+#[derive(Debug)]
+pub(crate) struct PreparedBoardPlotSources {
+    source_path: PathBuf,
+    pub(crate) source: Arc<str>,
+    net_classes: BoardNetClassAssignments,
+    text_variables: BoardTextVariables,
+    project_sidecars_ns: u64,
 }
 
 #[derive(Debug)]
@@ -379,6 +396,7 @@ pub struct StructuredDesignFacts {
     pub schematic_instances: Vec<KiCadSchematicInstance>,
 }
 
+#[derive(Debug)]
 struct DesignPaths {
     input: PathBuf,
     root: PathBuf,
@@ -487,28 +505,96 @@ fn find_adjacent_project(source: &Path) -> Result<Option<PathBuf>, DesignError> 
 }
 
 pub fn load_design_sources(input: &Path) -> Result<LoadedDesignSources, DesignError> {
-    load_design_sources_internal(input, &mut PerformanceRecorder::new(false))
+    let mut performance = PerformanceRecorder::new(false);
+    let prepared = prepare_design_sources_internal(input, &mut performance)?;
+    finish_design_sources_internal(prepared, &mut performance)
 }
 
-pub(crate) fn load_design_sources_profiled(
+pub(crate) fn prepare_design_sources_profiled(
     input: &Path,
     performance: &mut PerformanceRecorder,
+) -> Result<PreparedDesignSources, DesignError> {
+    prepare_design_sources_internal(input, performance)
+}
+
+pub(crate) fn finish_design_sources_profiled(
+    prepared: PreparedDesignSources,
+    performance: &mut PerformanceRecorder,
 ) -> Result<LoadedDesignSources, DesignError> {
-    load_design_sources_internal(input, performance)
+    finish_design_sources_internal(prepared, performance)
+}
+
+pub(crate) fn prepare_board_plot_sources(
+    prepared: &PreparedDesignSources,
+    profile_enabled: bool,
+) -> Result<Option<PreparedBoardPlotSources>, DesignError> {
+    let (Some(source_path), Some(source)) =
+        (prepared.paths.pcb.as_ref(), prepared.pcb_source.as_ref())
+    else {
+        return Ok(None);
+    };
+    let started = profile_enabled.then(std::time::Instant::now);
+    let (net_classes, text_variables) = board_project_sidecars(prepared.project_source.as_deref())?;
+    Ok(Some(PreparedBoardPlotSources {
+        source_path: source_path.clone(),
+        source: Arc::clone(source),
+        net_classes,
+        text_variables,
+        project_sidecars_ns: profile_elapsed_ns(started),
+    }))
+}
+
+fn prepare_design_sources_internal(
+    input: &Path,
+    performance: &mut PerformanceRecorder,
+) -> Result<PreparedDesignSources, DesignError> {
+    let paths_started = performance.start();
+    let paths = resolve_design_paths(input)?;
+    performance.finish_detail("load_design_sources", "resolve_design_paths", paths_started);
+    let limits = SourceBundleLimits::default();
+    let project_started = performance.start();
+    let project_source = paths
+        .project
+        .as_ref()
+        .map(|path| read_bounded(path, limits.max_source_bytes))
+        .transpose()?;
+    performance.finish_detail(
+        "load_design_sources",
+        "read_project_source",
+        project_started,
+    );
+    let pcb_started = performance.start();
+    let pcb_source = paths
+        .pcb
+        .as_ref()
+        .map(|path| {
+            let bytes = read_bounded(path, limits.max_source_bytes)?;
+            String::from_utf8(bytes)
+                .map(Arc::<str>::from)
+                .map_err(|error| DesignError::context("PCB source is not UTF-8", error))
+        })
+        .transpose()?;
+    performance.finish_detail("load_design_sources", "read_pcb_source", pcb_started);
+    Ok(PreparedDesignSources {
+        paths,
+        project_source,
+        pcb_source,
+    })
 }
 
 #[allow(
     clippy::too_many_lines,
     reason = "source loading records bounded parser and carrier sub-stages in one flow"
 )]
-fn load_design_sources_internal(
-    input: &Path,
+fn finish_design_sources_internal(
+    prepared: PreparedDesignSources,
     performance: &mut PerformanceRecorder,
 ) -> Result<LoadedDesignSources, DesignError> {
-    let paths_started = performance.start();
-    let paths = resolve_design_paths(input)?;
-    performance.finish_detail("load_design_sources", "resolve_design_paths", paths_started);
-
+    let PreparedDesignSources {
+        paths,
+        project_source,
+        pcb_source,
+    } = prepared;
     let limits = SourceBundleLimits::default();
     let schematic_limits = SchematicDocumentLimits {
         parse: SchematicBundleLimits::default(),
@@ -518,10 +604,8 @@ fn load_design_sources_internal(
     let mut buffers = Vec::new();
     let mut total_bytes = 0_usize;
 
-    let project_started = performance.start();
-    if let Some(project_path) = paths.project.as_ref() {
+    if let Some((project_path, bytes)) = paths.project.as_ref().zip(project_source) {
         let relative = portable_relative(&paths.root, project_path)?;
-        let bytes = read_bounded(project_path, limits.max_source_bytes)?;
         push_source(
             &mut source_rows,
             &mut buffers,
@@ -532,14 +616,9 @@ fn load_design_sources_internal(
             limits,
         )?;
     }
-    performance.finish_detail(
-        "load_design_sources",
-        "read_project_source",
-        project_started,
-    );
 
     let root_relative = portable_relative(&paths.root, &paths.root_schematic)?;
-    let mut pending = VecDeque::from([paths.root_schematic]);
+    let mut pending = VecDeque::from([paths.root_schematic.clone()]);
     let mut seen = HashSet::new();
     let mut schematic_read_elapsed = std::time::Duration::ZERO;
     let mut schematic_parse_elapsed = std::time::Duration::ZERO;
@@ -644,24 +723,12 @@ fn load_design_sources_internal(
         "assemble_and_hash_source_bundle",
         bundle_started,
     );
-    let pcb_started = performance.start();
-    let (pcb_path, pcb_source) = paths
-        .pcb
-        .map(|path| {
-            let bytes = read_bounded(&path, limits.max_source_bytes)?;
-            let source = String::from_utf8(bytes)
-                .map_err(|error| DesignError::context("PCB source is not UTF-8", error))?;
-            Ok::<_, DesignError>((path, source))
-        })
-        .transpose()?
-        .map_or((None, None), |(path, source)| (Some(path), Some(source)));
-    performance.finish_detail("load_design_sources", "read_pcb_source", pcb_started);
     Ok(LoadedDesignSources {
         input_path: paths.input,
         bundle_root: paths.root,
         bundle,
         source_snapshot_sha256,
-        pcb_path,
+        pcb_path: paths.pcb,
         pcb_source,
     })
 }
@@ -947,10 +1014,23 @@ pub fn build_board_plot_document_with_limits(
     build_board_plot_document_internal(loaded, limits, false).map(|(document, _profile)| document)
 }
 
-pub(crate) fn build_board_plot_document_profiled(
-    loaded: &LoadedDesignSources,
+pub(crate) fn build_prepared_board_plot_document_profiled(
+    prepared: PreparedBoardPlotSources,
+    profile_enabled: bool,
 ) -> Result<(Option<BoardPlotDocument>, BoardPlotDocumentBuildProfile), DesignError> {
-    build_board_plot_document_internal(loaded, BoardPlotDocumentLimits::default(), true)
+    let profile = BoardPlotDocumentBuildProfile {
+        project_sidecars_ns: prepared.project_sidecars_ns,
+        ..BoardPlotDocumentBuildProfile::default()
+    };
+    build_board_plot_document_with_resolved_sidecars(
+        &prepared.source,
+        &prepared.source_path,
+        prepared.net_classes,
+        prepared.text_variables,
+        BoardPlotDocumentLimits::default(),
+        profile_enabled,
+        profile,
+    )
 }
 
 #[allow(
@@ -962,17 +1042,59 @@ fn build_board_plot_document_internal(
     limits: BoardPlotDocumentLimits,
     profile_enabled: bool,
 ) -> Result<(Option<BoardPlotDocument>, BoardPlotDocumentBuildProfile), DesignError> {
+    build_board_plot_document_from_sources(
+        loaded.pcb_source.as_deref(),
+        loaded.pcb_path.as_deref(),
+        loaded.bundle.project().map(|source| source.bytes()),
+        limits,
+        profile_enabled,
+    )
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "one source-bound board build keeps bounded projection and opt-in timings aligned"
+)]
+fn build_board_plot_document_from_sources(
+    source: Option<&str>,
+    source_path: Option<&Path>,
+    project_source: Option<&[u8]>,
+    limits: BoardPlotDocumentLimits,
+    profile_enabled: bool,
+) -> Result<(Option<BoardPlotDocument>, BoardPlotDocumentBuildProfile), DesignError> {
     let mut profile = BoardPlotDocumentBuildProfile::default();
-    let Some(source) = loaded.pcb_source.as_deref() else {
+    let Some(source) = source else {
         return Ok((None, profile));
     };
-    let source_path = loaded
-        .pcb_path
-        .as_deref()
-        .ok_or_else(|| DesignError::new("PCB source path is missing"))?;
+    let source_path = source_path.ok_or_else(|| DesignError::new("PCB source path is missing"))?;
     let project_started = profile_enabled.then(std::time::Instant::now);
-    let (net_classes, text_variables) = board_project_sidecars(loaded)?;
+    let (net_classes, text_variables) = board_project_sidecars(project_source)?;
     profile.project_sidecars_ns = profile_elapsed_ns(project_started);
+    build_board_plot_document_with_resolved_sidecars(
+        source,
+        source_path,
+        net_classes,
+        text_variables,
+        limits,
+        profile_enabled,
+        profile,
+    )
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    reason = "one source-bound board build keeps bounded projection and opt-in timings aligned"
+)]
+fn build_board_plot_document_with_resolved_sidecars(
+    source: &str,
+    source_path: &Path,
+    net_classes: BoardNetClassAssignments,
+    text_variables: BoardTextVariables,
+    limits: BoardPlotDocumentLimits,
+    profile_enabled: bool,
+    mut profile: BoardPlotDocumentBuildProfile,
+) -> Result<(Option<BoardPlotDocument>, BoardPlotDocumentBuildProfile), DesignError> {
     let (facts, facts_profile) = if profile_enabled {
         board_plot_facts_with_sidecars_profiled(
             source,
@@ -1085,12 +1207,10 @@ fn build_board_plot_document_internal(
 }
 
 fn board_project_sidecars(
-    loaded: &LoadedDesignSources,
+    project_source: Option<&[u8]>,
 ) -> Result<(BoardNetClassAssignments, BoardTextVariables), DesignError> {
-    let project = loaded
-        .bundle
-        .project()
-        .map(|source| ProjectDocument::from_reader(source.bytes(), ProjectLimits::default()))
+    let project = project_source
+        .map(|source| ProjectDocument::from_reader(source, ProjectLimits::default()))
         .transpose()
         .map_err(|error| DesignError::context("could not parse board project settings", error))?;
     let Some(project) = project.as_ref().map(ProjectDocument::view) else {

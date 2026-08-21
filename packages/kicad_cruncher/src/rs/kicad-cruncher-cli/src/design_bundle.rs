@@ -18,12 +18,13 @@ use sha2::{Digest, Sha256};
 use crate::DesignOptions;
 use crate::design::{
     BoardPlotDocument, BoardPlotDocumentBuildProfile, DesignError, LoadedDesignSources,
-    SchematicSvgDocumentsLimits, build_board_plot_document, build_board_plot_document_profiled,
+    PreparedBoardPlotSources, SchematicSvgDocumentsLimits,
+    build_prepared_board_plot_document_profiled,
     build_schematic_base_svgs_for_plot_documents_profiled,
     build_schematic_base_svgs_for_plot_documents_with_limits,
     build_schematic_plot_document_artifacts, build_schematic_plot_document_artifacts_profiled,
-    build_structured_design_facts_profiled, display_source_path, hex_encoded,
-    load_design_sources_profiled, sha256_hex,
+    build_structured_design_facts_profiled, display_source_path, finish_design_sources_profiled,
+    hex_encoded, prepare_board_plot_sources, prepare_design_sources_profiled, sha256_hex,
 };
 use crate::pcb_review_svg::{
     PcbReviewSvg, PcbReviewSvgBuildProfile, PcbReviewSvgLimits, build_pcb_review_svgs_profiled,
@@ -56,15 +57,13 @@ type BoardBuildResult =
 struct BoardBuildWorker(Option<JoinHandle<(BoardBuildResult, Duration)>>);
 
 impl BoardBuildWorker {
-    fn spawn(loaded: Arc<LoadedDesignSources>, profile_enabled: bool) -> Self {
+    fn spawn(prepared: Option<PreparedBoardPlotSources>, profile_enabled: bool) -> Self {
         let started = Instant::now();
         Self(Some(std::thread::spawn(move || {
-            let result = if profile_enabled {
-                build_board_plot_document_profiled(&loaded)
-            } else {
-                build_board_plot_document(&loaded)
-                    .map(|document| (document, BoardPlotDocumentBuildProfile::default()))
-            };
+            let result = prepared.map_or_else(
+                || Ok((None, BoardPlotDocumentBuildProfile::default())),
+                |prepared| build_prepared_board_plot_document_profiled(prepared, profile_enabled),
+            );
             (result, started.elapsed())
         })))
     }
@@ -608,10 +607,12 @@ fn write_staged_bundle(
     performance: &mut PerformanceRecorder,
 ) -> Result<StagedSummary, DesignError> {
     let load_started = performance.start();
-    let loaded = Arc::new(load_design_sources_profiled(input, performance)?);
+    let prepared = prepare_design_sources_profiled(input, performance)?;
+    let prepared_board = prepare_board_plot_sources(&prepared, performance.is_enabled())?;
+    let board_worker = BoardBuildWorker::spawn(prepared_board, performance.is_enabled());
+    let loaded = Arc::new(finish_design_sources_profiled(prepared, performance)?);
     performance.finish("load_design_sources", load_started);
     validate_destination_source_separation(&loaded, destination)?;
-    let board_worker = BoardBuildWorker::spawn(Arc::clone(&loaded), performance.is_enabled());
     let facts_started = performance.start();
     let facts = build_structured_design_facts_profiled(&loaded, include_indexes, performance)?;
     performance.finish("build_structured_design_facts", facts_started);
@@ -1592,6 +1593,44 @@ mod tests {
     }
 
     #[test]
+    fn prepared_board_and_finished_bundle_share_exact_source_bytes() {
+        let project = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../tests/corpus/kicad/projects/hlr_test/hlr_test.kicad_pro");
+        let mut performance = PerformanceRecorder::new(false);
+        let prepared = prepare_design_sources_profiled(&project, &mut performance).unwrap();
+        let prepared_board = prepare_board_plot_sources(&prepared, false)
+            .unwrap()
+            .expect("HLR board sources");
+        let pcb_identity = Arc::clone(&prepared_board.source);
+        let loaded = finish_design_sources_profiled(prepared, &mut performance).unwrap();
+        assert!(Arc::ptr_eq(
+            &pcb_identity,
+            loaded.pcb_source.as_ref().expect("finished PCB source")
+        ));
+        assert_eq!(
+            loaded.bundle.project().expect("project source").bytes(),
+            fs::read(&project).unwrap()
+        );
+
+        let (prepared_document, _) =
+            build_prepared_board_plot_document_profiled(prepared_board, false).unwrap();
+        let loaded_document = crate::design::build_board_plot_document(&loaded).unwrap();
+        let prepared_document = prepared_document.expect("prepared board document");
+        let loaded_document = loaded_document.expect("loaded board document");
+        assert_eq!(prepared_document.value, loaded_document.value);
+        assert_eq!(prepared_document.source_path, loaded_document.source_path);
+        assert_eq!(
+            prepared_document.source_sha256,
+            loaded_document.source_sha256
+        );
+        assert_eq!(
+            prepared_document.copper_layers,
+            loaded_document.copper_layers
+        );
+        assert_eq!(prepared_document.bounds, loaded_document.bounds);
+    }
+
+    #[test]
     fn filenames_match_the_python_contract() {
         assert_eq!(safe_filename(" F.Cu ", "layer"), "F.Cu");
         assert_eq!(safe_filename("a / b", "sheet"), "a_b");
@@ -1746,13 +1785,13 @@ mod tests {
             [
                 ("load_design_sources", "resolve_design_paths"),
                 ("load_design_sources", "read_project_source"),
+                ("load_design_sources", "read_pcb_source"),
                 ("load_design_sources", "read_schematic_sources"),
                 ("load_design_sources", "parse_schematic_documents"),
                 ("load_design_sources", "extract_schematic_definitions",),
                 ("load_design_sources", "discover_schematic_hierarchy"),
                 ("load_design_sources", "insert_schematic_source_carriers",),
                 ("load_design_sources", "assemble_and_hash_source_bundle",),
-                ("load_design_sources", "read_pcb_source"),
                 (
                     "build_structured_design_facts",
                     "parse_schematic_index_definitions",
