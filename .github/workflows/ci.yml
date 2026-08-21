@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.98.0
         with:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
@@ -62,6 +62,11 @@ jobs:
           uv run --extra test python tests/rack.py run L1_029
           uv run --extra test python tests/rack.py run L1_030
           uv run --extra test python tests/rack.py run L99_signoff
+      - name: Run Linux TypeSpec Phase 5 gate
+        if: runner.os == 'Linux'
+        run: >-
+          uv run --extra test pytest -q
+          tests/L3_rendering/test_L3_022_rust_phase5_exit.py::test_phase5_contract_freeze_and_codegen_are_current
       - name: Run cross-package source gate
         run: uv run --all-packages --all-extras python -m pytest tests/cross_package -q
       - name: Run Cruncher Rack gates against workspace Monkey

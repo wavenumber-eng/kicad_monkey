@@ -90,6 +90,27 @@ def _sdist_names(sdist: Path) -> list[str]:
         return archive.getnames()
 
 
+def _unique_sdist_payload(sdist: Path, relative_name: str) -> bytes:
+    """Read one package-root-relative regular member and reject duplicates."""
+    expected_parts = tuple(relative_name.split("/"))
+    with tarfile.open(sdist, "r:gz") as archive:
+        matches = [
+            member
+            for member in archive.getmembers()
+            if member.isfile()
+            and tuple(Path(member.name).parts[1:]) == expected_parts
+        ]
+        if len(matches) != 1:
+            raise SystemExit(
+                f"{sdist.name} must contain exactly one {relative_name}; "
+                f"found {len(matches)}"
+            )
+        stream = archive.extractfile(matches[0])
+        if stream is None:
+            raise SystemExit(f"Could not read {relative_name} from {sdist.name}")
+        return stream.read()
+
+
 def _assert_windows_x64_native_payload(wheel: Path) -> None:
     """Require the selected Windows artifact to contain one AMD64 PE sidecar."""
 
@@ -635,6 +656,22 @@ def validate_artifacts(
             raise SystemExit(
                 f"{package_name} sdist contains working-only documentation"
             )
+        if any(
+            "/tests/.tmp/" in name
+            or "/dist/" in name
+            or name.endswith((".whl", ".tar.gz"))
+            for name in names
+        ):
+            raise SystemExit(
+                f"{package_name} sdist contains transient or nested build artifacts"
+            )
+
+    packaged_manifest = _unique_sdist_payload(monkey_sdist, "Cargo.toml")
+    expected_manifest = (
+        REPOSITORY_ROOT / "packaging" / "Cargo.sdist.toml"
+    ).read_bytes()
+    if packaged_manifest != expected_manifest:
+        raise SystemExit("Monkey sdist Cargo.toml is not the standalone workspace manifest")
     if any(
         requirement.startswith("kicad-cruncher") for requirement in monkey_requirements
     ):

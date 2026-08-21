@@ -21,12 +21,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.98.0
       - uses: Swatinem/rust-cache@v2
       - name: Set up Python
         run: uv python install 3.14
       - name: Sync monorepo packages
         run: uv sync --all-packages --all-extras
+      - name: Restore the exact reviewed corpus ZIP
+        shell: pwsh
+        run: |
+          uv run --extra test python scripts/kicad_corpus_archive.py metadata
+          uv run --extra test python scripts/kicad_corpus_archive.py restore --check-zip
+          uv run --extra test python scripts/package_kicad_corpus.py --check
+          $corpus = Join-Path $env:GITHUB_WORKSPACE 'tests\corpus\kicad.zip'
+          if (-not (Test-Path -LiteralPath $corpus -PathType Leaf)) {
+            throw "Reviewed corpus ZIP was not restored at $corpus"
+          }
+          "KM_CORPUS=$corpus" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Run the no-fallback provider Rack gate
         run: uv run --extra test python tests/rack.py run L3_024
       - name: Build public package artifacts

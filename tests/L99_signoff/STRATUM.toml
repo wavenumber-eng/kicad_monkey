@@ -31,7 +31,7 @@ test_case_type = "audit_meta"
 [subtests.objectives]
 version_contract = "Date-based version metadata matches pyproject and package API"
 changelog = "Release notes mention the package version"
-sdist_boundary = "Developer-only docs are excluded from public artifacts"
+sdist_boundary = "Developer-only docs and downstream workspace members are excluded while the Monkey sdist retains a standalone Rust build and Twine-compatible metadata"
 public_api_contract = "Promoted package-root API exports resolve and retain markers"
 repo_support = "Public repository contribution, issue, CI, and release files exist"
 corpus_archive = "Public corpus archive transport is manifest-backed and not Git LFS-backed"

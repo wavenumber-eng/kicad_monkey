@@ -12,6 +12,8 @@ import tomllib
 
 from wn_dev_std.rust_policy import check_rust_policy
 
+from _toolchain_paths import typespec_executable
+
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_ROOT = PACKAGE_ROOT / "contracts" / "generated" / "schema"
@@ -56,6 +58,13 @@ _PHASE6_HANDSHAKE_PATHS = (
     "contracts/generated/schema/NativeHandshake.json",
     "contracts/generated/schema/NativeHandshakeA1.json",
     "contracts/generated/schema/NativeHandshakeA2.json",
+)
+_PHASE6_RACK_WORKFLOWS = (
+    "phase6-exit.yml",
+    "phase6-native-design-facts.yml",
+    "phase6-native-full-cli.yml",
+    "phase6-native-physical-provider.yml",
+    "phase6-native-svg.yml",
 )
 
 
@@ -373,7 +382,7 @@ def test_typespec_and_generated_rust_contracts_are_clean() -> None:
     cargo = shutil.which("cargo")
     assert npm is not None, "npm is required for TypeSpec generation checks"
     assert cargo is not None, "cargo is required for Rust contract generation checks"
-    assert (PACKAGE_ROOT / "node_modules" / ".bin" / "tsp.cmd").exists(), (
+    assert typespec_executable(PACKAGE_ROOT).exists(), (
         "TypeSpec dependencies are missing; run `npm ci`"
     )
     before = _schema_hashes()
@@ -393,6 +402,59 @@ def test_typespec_and_generated_rust_contracts_are_clean() -> None:
             "--check",
         ]
     )
+
+
+def test_typespec_launcher_name_is_cross_platform() -> None:
+    assert typespec_executable(PACKAGE_ROOT, platform="nt").name == "tsp.cmd"
+    assert typespec_executable(PACKAGE_ROOT, platform="posix").name == "tsp"
+
+
+def test_ci_uses_the_repository_pinned_rust_toolchain() -> None:
+    toolchain = tomllib.loads(
+        (PACKAGE_ROOT / "rust-toolchain.toml").read_text(encoding="utf-8")
+    )["toolchain"]["channel"]
+    assert toolchain == "1.98.0"
+    action = "dtolnay/rust-toolchain@"
+    pinned_action = f"{action}{toolchain}"
+    governed = 0
+    for workflow in sorted((PACKAGE_ROOT / ".github" / "workflows").glob("*.yml")):
+        text = workflow.read_text(encoding="utf-8")
+        uses = text.count(action)
+        if uses:
+            governed += uses
+            assert text.count(pinned_action) == uses, workflow
+    assert governed > 0
+
+
+def test_ci_runs_the_phase5_typespec_gate_on_linux() -> None:
+    workflow = (PACKAGE_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "name: Run Linux TypeSpec Phase 5 gate" in workflow
+    assert "if: runner.os == 'Linux'" in workflow
+    assert (
+        "test_L3_022_rust_phase5_exit.py::"
+        "test_phase5_contract_freeze_and_codegen_are_current"
+    ) in workflow
+
+
+def test_phase6_rack_workflows_restore_reviewed_corpus_before_rack() -> None:
+    workflows = PACKAGE_ROOT / ".github" / "workflows"
+    required_fragments = (
+        "scripts/kicad_corpus_archive.py metadata",
+        "scripts/kicad_corpus_archive.py restore --check-zip",
+        "scripts/package_kicad_corpus.py --check",
+        "KM_CORPUS=$corpus",
+    )
+    for workflow_name in _PHASE6_RACK_WORKFLOWS:
+        workflow = workflows / workflow_name
+        text = workflow.read_text(encoding="utf-8")
+        rack_offset = text.index("tests/rack.py")
+        for fragment in required_fragments:
+            assert fragment in text, f"{workflow_name} is missing {fragment}"
+            assert text.index(fragment) < rack_offset, (
+                f"{workflow_name} restores the reviewed corpus after Rack starts"
+            )
 
 
 def test_wn_dev_std_rust_hygiene_profile_passes() -> None:

@@ -22,6 +22,7 @@ from typing import Any
 import msgspec
 
 from _suite_paths import KICAD_PACKAGE_ROOT
+from _toolchain_paths import typespec_executable
 from kicad_cli_resolver import kicad_cli_subprocess_env, resolve_kicad_cli
 from kicad_monkey import (
     KiCadFootprint,
@@ -426,7 +427,7 @@ def test_phase5_contract_freeze_and_codegen_are_current() -> None:
     npm = shutil.which("npm")
     assert cargo is not None, "Cargo is required by mandatory L3_022"
     assert npm is not None, "npm is required by mandatory L3_022 contract checks"
-    assert (PACKAGE_ROOT / "node_modules/.bin/tsp.cmd").is_file(), (
+    assert typespec_executable(PACKAGE_ROOT).is_file(), (
         "TypeSpec dependencies are required by L3_022; run `npm ci`"
     )
     _assert_phase5_freeze()

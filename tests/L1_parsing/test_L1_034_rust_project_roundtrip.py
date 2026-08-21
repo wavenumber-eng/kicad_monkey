@@ -212,7 +212,9 @@ def _net_class(value: Any) -> dict[str, Any]:
         "priority",
         "tuning_profile",
     )
-    return {field: getattr(value, field) for field in fields}
+    projected = {field: getattr(value, field) for field in fields}
+    projected["description"] = str(value.raw.get("description", "") or "")
+    return projected
 
 
 def _tuning(value: Any) -> dict[str, Any]:

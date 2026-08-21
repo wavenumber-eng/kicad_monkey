@@ -852,6 +852,34 @@ def _netlist_version_e_summary(design: KiCadDesign) -> dict[str, object]:
                 "driver_kind": str(net.driver_kind),
                 "auto_named": net.auto_named,
                 "net_class": net.net_class,
+                "aliases": list(net.aliases),
+                "graphical": {
+                    key: list(net.graphical.get(key, ()))
+                    for key in (
+                        "wires",
+                        "junctions",
+                        "labels",
+                        "power_ports",
+                        "ports",
+                        "sheet_entries",
+                    )
+                },
+                "endpoints": [
+                    {
+                        "endpoint_id": endpoint.endpoint_id,
+                        "role": endpoint.role,
+                        "element_id": endpoint.element_id,
+                        "object_id": endpoint.object_id,
+                        "name": endpoint.name,
+                        "source_sheet": endpoint.source_sheet,
+                        "connection_point": (
+                            list(endpoint.connection_point)
+                            if endpoint.connection_point is not None
+                            else None
+                        ),
+                    }
+                    for endpoint in net.endpoints
+                ],
             }
             for net in netlist.nets
         ],
@@ -899,6 +927,10 @@ def _netlist_version_e_summary(design: KiCadDesign) -> dict[str, object]:
             for part in netlist.libparts
         ],
         "libraries": list(netlist.libraries),
+        "net_classes": [
+            {"name": net_class.name, "description": net_class.description}
+            for net_class in netlist.net_classes
+        ],
         "sheets": [
             {
                 "number": sheet.number,

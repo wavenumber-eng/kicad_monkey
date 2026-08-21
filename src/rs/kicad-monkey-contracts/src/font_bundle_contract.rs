@@ -392,10 +392,14 @@ fn valid_sha256(value: &str) -> bool {
 
 fn sha256_matches(buffer: &[u8], expected: &str) -> bool {
     const HEX: &[u8; 16] = b"0123456789abcdef";
+    let (pairs, remainder) = expected.as_bytes().as_chunks::<2>();
+    if !remainder.is_empty() {
+        return false;
+    }
     Sha256::digest(buffer)
         .iter()
-        .zip(expected.as_bytes().chunks_exact(2))
-        .all(|(byte, pair)| pair == [HEX[(byte >> 4) as usize], HEX[(byte & 0x0f) as usize]])
+        .zip(pairs)
+        .all(|(byte, pair)| *pair == [HEX[(byte >> 4) as usize], HEX[(byte & 0x0f) as usize]])
 }
 
 fn valid_tag(value: &str) -> bool {

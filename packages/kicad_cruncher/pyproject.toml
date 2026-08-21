@@ -54,7 +54,7 @@ kicad-cruncher = "kicad_cruncher._cli:main"
 kcr = "kicad_cruncher._cli:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.31.0"]
 build-backend = "hatchling.build"
 
 [tool.wn_dev_std]

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import os
+import zipfile
 from pathlib import Path
+from pathlib import PurePosixPath
 
 import pytest
 
 from kicad_monkey.testing.corpus import (
+    CORPUS_ARCHIVE_ENV,
+    DEFAULT_CORPUS_ARCHIVE,
     get_kicad_corpus_case,
     get_kicad_corpus_root,
     load_kicad_corpus_manifest,
@@ -28,12 +33,18 @@ _DEBRIS_DIR_NAMES = {
 
 
 def _is_debris(path: Path) -> bool:
-    if path.is_dir():
-        return path.name in _DEBRIS_DIR_NAMES or path.name.lower().endswith("-backups")
-    name = path.name.lower()
+    return _is_debris_name(path.name, is_dir=path.is_dir())
+
+
+def _is_debris_name(name_value: str, *, is_dir: bool) -> bool:
+    if is_dir:
+        return name_value in _DEBRIS_DIR_NAMES or name_value.lower().endswith(
+            "-backups"
+        )
+    name = name_value.lower()
     return (
-        path.name in _DEBRIS_FILE_NAMES
-        or path.suffix.lower() in _DEBRIS_SUFFIXES
+        name_value in _DEBRIS_FILE_NAMES
+        or PurePosixPath(name_value).suffix.lower() in _DEBRIS_SUFFIXES
         or name.startswith("~")
         and name.endswith((".kicad_pro.lck", ".kicad_prl.lck"))
     )
@@ -93,12 +104,26 @@ def test_normalized_input_roots_are_clean():
 
 def test_corpus_tree_has_no_editor_or_backup_debris():
     _manifest()
-    root = get_kicad_corpus_root()
-    offenders = [
-        path.relative_to(root).as_posix()
-        for path in root.rglob("*")
-        if _is_debris(path)
-    ]
+    configured = os.environ.get(CORPUS_ARCHIVE_ENV)
+    carrier = Path(configured).expanduser() if configured else DEFAULT_CORPUS_ARCHIVE
+    if carrier.is_file():
+        with zipfile.ZipFile(carrier) as archive:
+            offenders = []
+            for member in archive.infolist():
+                relative = PurePosixPath(member.filename.rstrip("/"))
+                if (
+                    len(relative.parts) > 1
+                    and relative.parts[0] == "kicad"
+                    and _is_debris_name(relative.name, is_dir=member.is_dir())
+                ):
+                    offenders.append(PurePosixPath(*relative.parts[1:]).as_posix())
+    else:
+        root = get_kicad_corpus_root()
+        offenders = [
+            path.relative_to(root).as_posix()
+            for path in root.rglob("*")
+            if _is_debris(path)
+        ]
     assert not offenders, "generated/editor debris found in corpus:\n" + "\n".join(offenders[:50])
 
 

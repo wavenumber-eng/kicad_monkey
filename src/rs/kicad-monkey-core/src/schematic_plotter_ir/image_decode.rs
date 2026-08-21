@@ -48,7 +48,7 @@ pub(super) fn decode_base64(value: &str, maximum: usize) -> Result<Vec<u8>, Erro
         return Err(limit_error());
     }
     let mut output = Vec::with_capacity(decoded_len);
-    for (block_index, encoded) in bytes.chunks_exact(4).enumerate() {
+    for (block_index, encoded) in bytes.as_chunks::<4>().0.iter().enumerate() {
         let mut block = [0u8; 4];
         for (index, byte) in encoded.iter().copied().enumerate() {
             block[index] = match byte {

@@ -472,8 +472,8 @@ fn validate_hash(font_bytes: &[u8], expected: &str) -> Result<(), FontOutlineErr
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let matches = Sha256::digest(font_bytes)
         .iter()
-        .zip(expected.as_bytes().chunks_exact(2))
-        .all(|(byte, pair)| pair == [HEX[(byte >> 4) as usize], HEX[(byte & 0x0f) as usize]]);
+        .zip(expected.as_bytes().as_chunks::<2>().0)
+        .all(|(byte, pair)| *pair == [HEX[(byte >> 4) as usize], HEX[(byte & 0x0f) as usize]]);
     if matches {
         Ok(())
     } else {

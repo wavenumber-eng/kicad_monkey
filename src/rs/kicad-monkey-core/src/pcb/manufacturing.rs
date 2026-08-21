@@ -200,7 +200,9 @@ fn bare_teardrop_values<'a>(
 ) -> Result<Vec<(String, Token<'a>)>, Error> {
     let values = bounded_scalar_values(source, span, maximum)?;
     Ok(values
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| (token_string(&pair[0]), pair[1].clone()))
         .collect())
 }

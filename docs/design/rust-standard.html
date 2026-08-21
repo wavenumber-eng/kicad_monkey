@@ -20,13 +20,12 @@
       <li>The root Cargo workspace uses edition 2024 and resolver 3.</li>
       <li>Workspace metadata, lint policy, and release profiles are centralized.</li>
       <li><code>Cargo.lock</code> is committed and signoff commands use <code>--locked</code>.</li>
-      <li><code>rust-toolchain.toml</code> requests stable Rust with rustfmt and Clippy.</li>
+      <li><code>rust-toolchain.toml</code> pins the reviewed Rust 1.98.0 toolchain with rustfmt and Clippy; CI uses the same version.</li>
     </ul>
     <p>
-      The bootstrap MSRV is Rust 1.95 because it is the available reviewed
-      local toolchain. The downstream Alexandria workspace currently declares
-      Rust 1.96. This mismatch is provisional and must be resolved at or before
-      the Phase 2 boundary review; it is not an implied long-term MSRV policy.
+      Cargo manifests retain Rust 1.95 as the declared MSRV. Repository
+      formatting and lint evidence uses the separately pinned Rust 1.98.0
+      toolchain so local and CI diagnostics are deterministic.
     </p>
   </section>
 

@@ -16,6 +16,14 @@ class CustomBuildHook(BuildHookInterface):
     """Build and include the Monkey-owned native executable on Windows."""
 
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
+        if self.target_name == "sdist":
+            standalone_manifest = Path(self.root) / "packaging" / "Cargo.sdist.toml"
+            if not standalone_manifest.is_file():
+                raise RuntimeError(
+                    f"standalone sdist workspace manifest is missing: {standalone_manifest}"
+                )
+            build_data["force_include"][str(standalone_manifest)] = "Cargo.toml"
+            return
         if self.target_name != "wheel" or version == "editable" or os.name != "nt":
             return
         cargo = shutil.which("cargo")

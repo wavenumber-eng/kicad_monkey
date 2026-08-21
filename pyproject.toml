@@ -57,7 +57,7 @@ Repository = "https://github.com/wavenumber-eng/kicad_monkey"
 Issues = "https://github.com/wavenumber-eng/kicad_monkey/issues"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.31.0"]
 build-backend = "hatchling.build"
 
 [tool.wn_dev_std]
@@ -94,9 +94,9 @@ path = "hatch_build.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "Cargo.toml",
     "Cargo.lock",
     "hatch_build.py",
+    "packaging/Cargo.sdist.toml",
     "assets/**",
     "src/rs/**",
     "src/py/**",
@@ -119,9 +119,13 @@ exclude = [
     "rack_results/**",
     "tests/corpus/**",
     "tests/cross_package/**",
+    "tests/.tmp/**",
     "tests/**/output/**",
     "**/__pycache__/**",
 ]
+
+[tool.hatch.build.targets.sdist.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.version]
 path = "src/py/kicad_monkey/_version.py"

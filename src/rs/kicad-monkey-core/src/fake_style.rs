@@ -530,9 +530,7 @@ fn embolden_contour(points: &mut [FtVector], orientation: Orientation, strength:
     let mut j = first;
     let mut k: isize = -1;
     while j != i && i != k {
-        let out_vector;
-        let l_out;
-        if j != k {
+        let (out_vector, l_out) = if j != k {
             let mut out = FtVector {
                 x: points[j as usize].x - points[i as usize].x,
                 y: points[j as usize].y - points[i as usize].y,
@@ -542,12 +540,10 @@ fn embolden_contour(points: &mut [FtVector], orientation: Orientation, strength:
                 j = if j < last { j + 1 } else { first };
                 continue;
             }
-            out_vector = out;
-            l_out = length;
+            (out, length)
         } else {
-            out_vector = anchor;
-            l_out = l_anchor;
-        }
+            (anchor, l_anchor)
+        };
 
         if l_in != 0 {
             if k < 0 {
