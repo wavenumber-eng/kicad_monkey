@@ -4,8 +4,10 @@ use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread::JoinHandle;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use kicad_monkey_contracts::generated::compiled_schematic_graph::CompiledSchematicGraphA0;
 use kicad_monkey_core::{ENGINE_VERSION, KiCadSchematicInstance};
@@ -15,15 +17,17 @@ use sha2::{Digest, Sha256};
 
 use crate::DesignOptions;
 use crate::design::{
-    DesignError, SchematicSvgDocumentsLimits, build_board_plot_document,
-    build_board_plot_document_profiled, build_schematic_base_svgs_for_plot_documents_profiled,
+    BoardPlotDocument, BoardPlotDocumentBuildProfile, DesignError, LoadedDesignSources,
+    SchematicSvgDocumentsLimits, build_board_plot_document, build_board_plot_document_profiled,
+    build_schematic_base_svgs_for_plot_documents_profiled,
     build_schematic_base_svgs_for_plot_documents_with_limits,
     build_schematic_plot_document_artifacts, build_schematic_plot_document_artifacts_profiled,
     build_structured_design_facts_profiled, display_source_path, hex_encoded,
     load_design_sources_profiled, sha256_hex,
 };
 use crate::pcb_review_svg::{
-    PcbReviewSvgLimits, build_pcb_review_svgs_profiled, build_pcb_review_svgs_with_limits,
+    PcbReviewSvg, PcbReviewSvgBuildProfile, PcbReviewSvgLimits, build_pcb_review_svgs_profiled,
+    build_pcb_review_svgs_with_limits,
 };
 use crate::performance::{PerformanceProfile, PerformanceRecorder};
 use crate::schematic_review_svg::{
@@ -45,6 +49,104 @@ const UNKNOWN_HOLE_COLOR: &str = "#6B7280";
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 const PERFORMANCE_PROFILE_ENV: &str = "KICAD_CRUNCHER_PERFORMANCE_PROFILE";
 const ARTIFACT_WRITE_BUFFER_BYTES: usize = 1024 * 1024;
+
+type BoardBuildResult =
+    Result<(Option<BoardPlotDocument>, BoardPlotDocumentBuildProfile), DesignError>;
+
+struct BoardBuildWorker(Option<JoinHandle<(BoardBuildResult, Duration)>>);
+
+impl BoardBuildWorker {
+    fn spawn(loaded: Arc<LoadedDesignSources>, profile_enabled: bool) -> Self {
+        let started = Instant::now();
+        Self(Some(std::thread::spawn(move || {
+            let result = if profile_enabled {
+                build_board_plot_document_profiled(&loaded)
+            } else {
+                build_board_plot_document(&loaded)
+                    .map(|document| (document, BoardPlotDocumentBuildProfile::default()))
+            };
+            (result, started.elapsed())
+        })))
+    }
+
+    fn join(mut self) -> Result<(BoardBuildResult, Duration), DesignError> {
+        self.0
+            .take()
+            .expect("board worker handle")
+            .join()
+            .map_err(|_| DesignError::new("board plot worker panicked"))
+    }
+}
+
+impl Drop for BoardBuildWorker {
+    fn drop(&mut self) {
+        if let Some(handle) = self.0.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
+type PcbBuildResult = Result<(Vec<PcbReviewSvg>, PcbReviewSvgBuildProfile), DesignError>;
+
+struct PcbBuildWorker(Option<JoinHandle<(PcbBuildResult, Duration)>>);
+
+impl PcbBuildWorker {
+    fn spawn(
+        loaded: Arc<LoadedDesignSources>,
+        document: BoardPlotDocument,
+        limits: PcbReviewSvgLimits,
+        profile_enabled: bool,
+    ) -> Self {
+        let started = Instant::now();
+        Self(Some(std::thread::spawn(move || {
+            let result = if profile_enabled {
+                build_pcb_review_svgs_profiled(&loaded, &document, limits)
+            } else {
+                build_pcb_review_svgs_with_limits(&loaded, &document, limits)
+                    .map(|reviews| (reviews, PcbReviewSvgBuildProfile::default()))
+            };
+            (result, started.elapsed())
+        })))
+    }
+
+    fn join(mut self) -> Result<(PcbBuildResult, Duration), DesignError> {
+        self.0
+            .take()
+            .expect("PCB worker handle")
+            .join()
+            .map_err(|_| DesignError::new("PCB review worker panicked"))
+    }
+}
+
+impl Drop for PcbBuildWorker {
+    fn drop(&mut self) {
+        if let Some(handle) = self.0.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
+enum PcbBuildWork {
+    Concurrent(PcbBuildWorker),
+    Sequential(Box<BoardPlotDocument>),
+}
+
+fn pcb_review_limits(remaining_bytes: usize, max_artifact_bytes: usize) -> PcbReviewSvgLimits {
+    let mut limits = PcbReviewSvgLimits::default();
+    limits.max_total_svg_bytes = limits.max_total_svg_bytes.min(remaining_bytes);
+    limits.max_svg_bytes_per_layer = limits
+        .max_svg_bytes_per_layer
+        .min(remaining_bytes)
+        .min(max_artifact_bytes);
+    limits
+}
+
+fn parallel_review_limits_fit(remaining_bytes: usize, pcb_maximum: usize) -> bool {
+    SchematicReviewSvgLimits::default()
+        .max_total_output_bytes
+        .checked_add(pcb_maximum)
+        .is_some_and(|maximum| maximum <= remaining_bytes)
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DesignReviewBundleLimits {
@@ -506,9 +608,10 @@ fn write_staged_bundle(
     performance: &mut PerformanceRecorder,
 ) -> Result<StagedSummary, DesignError> {
     let load_started = performance.start();
-    let loaded = load_design_sources_profiled(input, performance)?;
+    let loaded = Arc::new(load_design_sources_profiled(input, performance)?);
     performance.finish("load_design_sources", load_started);
     validate_destination_source_separation(&loaded, destination)?;
+    let board_worker = BoardBuildWorker::spawn(Arc::clone(&loaded), performance.is_enabled());
     let facts_started = performance.start();
     let facts = build_structured_design_facts_profiled(&loaded, include_indexes, performance)?;
     performance.finish("build_structured_design_facts", facts_started);
@@ -571,7 +674,46 @@ fn write_staged_bundle(
     );
     performance.finish("write_structured_artifacts", structured_write_started);
 
-    budget.ensure_future_artifacts(facts.schematic_instances.len().saturating_add(2))?;
+    let board_join_started = Instant::now();
+    let (board_result, board_elapsed) = board_worker.join()?;
+    let board_blocking = board_join_started.elapsed();
+    let (board_document, board_profile) = board_result?;
+    let board_performance = (board_elapsed, board_blocking, board_profile);
+    let board_name = board_document.as_ref().map(|_| {
+        safe_filename(
+            loaded
+                .pcb_path
+                .as_deref()
+                .and_then(Path::file_stem)
+                .and_then(|value| value.to_str())
+                .unwrap_or("board"),
+            "board",
+        )
+    });
+    let pcb_layer_count = board_document
+        .as_ref()
+        .map_or(0, BoardPlotDocument::copper_layer_count);
+    budget.ensure_future_artifacts(
+        facts
+            .schematic_instances
+            .len()
+            .saturating_add(pcb_layer_count)
+            .saturating_add(2),
+    )?;
+    let pcb_work = board_document.map(|document| {
+        let pcb_limits = pcb_review_limits(budget.remaining_bytes(), limits.max_artifact_bytes);
+        if parallel_review_limits_fit(budget.remaining_bytes(), pcb_limits.max_total_svg_bytes) {
+            PcbBuildWork::Concurrent(PcbBuildWorker::spawn(
+                Arc::clone(&loaded),
+                document,
+                pcb_limits,
+                performance.is_enabled(),
+            ))
+        } else {
+            PcbBuildWork::Sequential(Box::new(document))
+        }
+    });
+
     let schematic_documents_started = performance.start();
     let (documents, plot_profile) = if performance.is_enabled() {
         build_schematic_plot_document_artifacts_profiled(&loaded, &facts.schematic_instances)
@@ -723,14 +865,8 @@ fn write_staged_bundle(
     }
     performance.finish("write_schematic_svgs", schematic_write_started);
 
-    let mut pcb_artifacts = Vec::new();
-    let board_document_started = performance.start();
-    let (board_document, board_profile) = if performance.is_enabled() {
-        build_board_plot_document_profiled(&loaded)
-    } else {
-        build_board_plot_document(&loaded).map(|document| (document, Default::default()))
-    }?;
-    performance.finish("build_board_plot_document", board_document_started);
+    let (board_elapsed, board_blocking, board_profile) = board_performance;
+    performance.record_overlapped_stage("build_board_plot_document", board_elapsed, board_blocking);
     for (name, elapsed_ns) in board_plot_profile_details(board_profile) {
         performance.record_detail(
             "build_board_plot_document",
@@ -738,32 +874,30 @@ fn write_staged_bundle(
             std::time::Duration::from_nanos(elapsed_ns),
         );
     }
-    if let Some(document) = board_document {
-        budget.ensure_future_artifacts(document.copper_layer_count().saturating_add(2))?;
-        let board_name = safe_filename(
-            loaded
-                .pcb_path
-                .as_deref()
-                .and_then(Path::file_stem)
-                .and_then(|value| value.to_str())
-                .unwrap_or("board"),
-            "board",
-        );
-        let mut pcb_limits = PcbReviewSvgLimits::default();
-        pcb_limits.max_total_svg_bytes =
-            pcb_limits.max_total_svg_bytes.min(budget.remaining_bytes());
-        pcb_limits.max_svg_bytes_per_layer = pcb_limits
-            .max_svg_bytes_per_layer
-            .min(budget.remaining_bytes())
-            .min(limits.max_artifact_bytes);
-        let pcb_reviews_started = performance.start();
-        let (pcb_reviews, pcb_profile) = if performance.is_enabled() {
-            build_pcb_review_svgs_profiled(&loaded, &document, pcb_limits)
-        } else {
-            build_pcb_review_svgs_with_limits(&loaded, &document, pcb_limits)
-                .map(|reviews| (reviews, Default::default()))
-        }?;
-        performance.finish("build_pcb_review_svgs", pcb_reviews_started);
+    let mut pcb_artifacts = Vec::new();
+    if let Some(pcb_work) = pcb_work {
+        let (pcb_reviews, pcb_profile) = match pcb_work {
+            PcbBuildWork::Concurrent(worker) => {
+                let join_started = Instant::now();
+                let (result, elapsed) = worker.join()?;
+                let blocking = join_started.elapsed();
+                performance.record_overlapped_stage("build_pcb_review_svgs", elapsed, blocking);
+                result?
+            }
+            PcbBuildWork::Sequential(document) => {
+                let pcb_limits =
+                    pcb_review_limits(budget.remaining_bytes(), limits.max_artifact_bytes);
+                let started = performance.start();
+                let result = if performance.is_enabled() {
+                    build_pcb_review_svgs_profiled(&loaded, &document, pcb_limits)
+                } else {
+                    build_pcb_review_svgs_with_limits(&loaded, &document, pcb_limits)
+                        .map(|reviews| (reviews, Default::default()))
+                }?;
+                performance.finish("build_pcb_review_svgs", started);
+                result
+            }
+        };
         for (name, elapsed_ns) in [
             ("validate_pcb_source_binding", pcb_profile.source_binding_ns),
             ("parse_pcb_enrichment_view", pcb_profile.pcb_view_parse_ns),
@@ -808,6 +942,9 @@ fn write_staged_bundle(
             );
         }
         let pcb_write_started = performance.start();
+        let board_name = board_name
+            .as_deref()
+            .ok_or_else(|| DesignError::new("PCB review board filename is missing"))?;
         for review in pcb_reviews {
             let layer_name = safe_filename(&review.layer, "layer");
             let path = format!("pcb/copper_layers/{board_name}__{layer_name}__review.svg");
@@ -1421,6 +1558,40 @@ mod tests {
     use crate::design::load_design_sources;
 
     #[test]
+    fn parallel_review_gate_and_limits_are_exact() {
+        let pcb_maximum = PcbReviewSvgLimits::default().max_total_svg_bytes;
+        let exact = SchematicReviewSvgLimits::default()
+            .max_total_output_bytes
+            .checked_add(pcb_maximum)
+            .unwrap();
+        assert!(parallel_review_limits_fit(exact, pcb_maximum));
+        assert!(!parallel_review_limits_fit(exact - 1, pcb_maximum));
+        let limits = pcb_review_limits(123, 100);
+        assert_eq!(limits.max_total_svg_bytes, 123);
+        assert_eq!(limits.max_svg_bytes_per_layer, 100);
+    }
+
+    #[test]
+    fn worker_panics_become_errors_and_drop_joins() {
+        let panic_worker = BoardBuildWorker(Some(std::thread::spawn(|| {
+            panic!("injected board worker panic")
+        })));
+        assert!(panic_worker.join().is_err());
+
+        let joined = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let worker_flag = Arc::clone(&joined);
+        let worker = BoardBuildWorker(Some(std::thread::spawn(move || {
+            worker_flag.store(true, Ordering::Release);
+            (
+                Ok((None, BoardPlotDocumentBuildProfile::default())),
+                Duration::ZERO,
+            )
+        })));
+        drop(worker);
+        assert!(joined.load(Ordering::Acquire));
+    }
+
+    #[test]
     fn filenames_match_the_python_contract() {
         assert_eq!(safe_filename(" F.Cu ", "layer"), "F.Cu");
         assert_eq!(safe_filename("a / b", "sheet"), "a_b");
@@ -1836,6 +2007,39 @@ mod tests {
                 .to_string_lossy()
                 .starts_with(".kicad-cruncher-design-")
         }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn tight_sequential_review_budget_preserves_previous_destination() {
+        let root = std::env::temp_dir().join(format!(
+            "kicad-cruncher-tight-review-{}-{}",
+            std::process::id(),
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        let baseline = root.join("baseline");
+        let output = root.join("review");
+        let project = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../tests/corpus/kicad/projects/hlr_test/hlr_test.kicad_pro");
+        let (_bundle, profile) = write_design_review_bundle_profiled(
+            &project,
+            &baseline,
+            true,
+            DesignReviewBundleLimits::default(),
+        )
+        .expect("baseline bundle");
+        assert!(
+            profile.artifact_bytes < SchematicReviewSvgLimits::default().max_total_output_bytes
+        );
+        fs::create_dir_all(&output).unwrap();
+        fs::write(output.join("previous.txt"), b"keep me").unwrap();
+        let limits = DesignReviewBundleLimits {
+            max_total_artifact_bytes: profile.artifact_bytes - 1,
+            ..DesignReviewBundleLimits::default()
+        };
+
+        assert!(write_design_review_bundle(&project, &output, true, limits).is_err());
+        assert_eq!(fs::read(output.join("previous.txt")).unwrap(), b"keep me");
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -56,7 +56,7 @@ class _ProcessMemoryCounters(ctypes.Structure):
 _NUMBER = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
 _DRAWABLE = {"path", "polygon", "polyline", "line", "rect", "circle", "ellipse"}
 _RUST_PROFILE_PREFIX = "KICAD_CRUNCHER_PERFORMANCE_PROFILE="
-_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a5"
+_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a6"
 _RUST_PROFILE_STAGES = (
     "resolve_and_validate_output",
     "create_staging_directory",
@@ -853,17 +853,20 @@ def _performance_profile(
     stages = profile["stages"]
     if not isinstance(stages, list) or any(
         not isinstance(stage, dict)
-        or stage.keys() != {"name", "elapsed_ns"}
+        or stage.keys() != {"name", "elapsed_ns", "accounted_ns"}
         or not isinstance(stage["name"], str)
         or not isinstance(stage["elapsed_ns"], int)
         or stage["elapsed_ns"] < 0
+        or not isinstance(stage["accounted_ns"], int)
+        or stage["accounted_ns"] < 0
+        or stage["accounted_ns"] > stage["elapsed_ns"]
         for stage in stages
     ):
         raise AssertionError("Rust performance profile stages are malformed")
     stage_names = [stage["name"] for stage in stages]
     if tuple(stage_names) != _RUST_PROFILE_STAGES or len(set(stage_names)) != len(stage_names):
         raise AssertionError("Rust performance profile stage inventory is incomplete")
-    stage_total = sum(stage["elapsed_ns"] for stage in stages)
+    stage_total = sum(stage["accounted_ns"] for stage in stages)
     if stage_total != profile["accounted_elapsed_ns"]:
         raise AssertionError("Rust performance profile accounted time does not match its stages")
     if (
