@@ -238,8 +238,8 @@ def _root_peak_working_set_bytes(pid: int) -> int:
     if sys.platform == "win32":
         process_query_information = 0x0400
         process_vm_read = 0x0010
-        kernel32: Any = ctypes.WinDLL("kernel32", use_last_error=True)
-        psapi: Any = ctypes.WinDLL("psapi", use_last_error=True)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        psapi = ctypes.WinDLL("psapi", use_last_error=True)
         kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
         kernel32.OpenProcess.restype = wintypes.HANDLE
         kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
@@ -388,24 +388,36 @@ def _reviewed_archive(workspace: Path) -> Path:
     return archive
 
 
+def _speedy_member_target(
+    info: zipfile.ZipInfo,
+    destination: Path,
+    resolved_destination: Path,
+) -> Path | None:
+    member = PurePosixPath(info.filename)
+    if not member.is_relative_to(SPEEDY_PREFIX):
+        return None
+    relative = member.relative_to(SPEEDY_PREFIX)
+    if relative == PurePosixPath(".") or info.is_dir():
+        return None
+    unsafe = any(
+        part in ("", ".", "..") or "\\" in part or ":" in part for part in relative.parts
+    )
+    if unsafe:
+        raise AssertionError(f"unsafe reviewed corpus member: {info.filename}")
+    target = destination.joinpath(*relative.parts).resolve()
+    if not target.is_relative_to(resolved_destination):
+        raise AssertionError(f"reviewed corpus member escaped: {info.filename}")
+    return target
+
+
 def _extract_speedy(archive_path: Path, destination: Path) -> Path:
     selected = 0
     resolved_destination = destination.resolve()
     with zipfile.ZipFile(archive_path) as archive:
         for info in archive.infolist():
-            member = PurePosixPath(info.filename)
-            if not member.is_relative_to(SPEEDY_PREFIX):
+            target = _speedy_member_target(info, destination, resolved_destination)
+            if target is None:
                 continue
-            relative = member.relative_to(SPEEDY_PREFIX)
-            if relative == PurePosixPath(".") or info.is_dir():
-                continue
-            if any(
-                part in ("", ".", "..") or "\\" in part or ":" in part for part in relative.parts
-            ):
-                raise AssertionError(f"unsafe reviewed corpus member: {info.filename}")
-            target = destination.joinpath(*relative.parts).resolve()
-            if not target.is_relative_to(resolved_destination):
-                raise AssertionError(f"reviewed corpus member escaped: {info.filename}")
             target.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(info) as source, target.open("wb") as output:
                 shutil.copyfileobj(source, output)
@@ -650,9 +662,12 @@ def _normalized_schematic_attrs(element: ET.Element) -> dict[str, str]:
     return attrs
 
 
-def _assert_schematic_svg_parity(python_path: Path, rust_path: Path) -> int:
-    python_root = ET.parse(python_path).getroot()
-    rust_root = ET.parse(rust_path).getroot()
+def _assert_schematic_root_parity(
+    python_root: ET.Element,
+    rust_root: ET.Element,
+    python_path: Path,
+    rust_path: Path,
+) -> tuple[float, float]:
     python_attrs, rust_attrs = dict(python_root.attrib), dict(rust_root.attrib)
     python_attrs.pop("viewBox")
     rust_attrs.pop("viewBox")
@@ -672,16 +687,80 @@ def _assert_schematic_svg_parity(python_path: Path, rust_path: Path) -> int:
         rust_root, context=str(rust_path)
     ):
         raise AssertionError(f"schematic SVG metadata drift: {python_path.name}")
-    python_by_id = _unique_svg_ids(python_root, context=str(python_path))
-    rust_by_id = _unique_svg_ids(rust_root, context=str(rust_path))
-    python_records = {
+    return python_scale, rust_scale
+
+
+def _schematic_record_index(
+    root: ET.Element, *, context: str, python: bool
+) -> dict[str, ET.Element]:
+    by_id = _unique_svg_ids(root, context=context)
+    return {
         name: element
-        for name, element in python_by_id.items()
-        if element.attrib.get("data-ref") and not name.endswith(":background")
+        for name, element in by_id.items()
+        if element.attrib.get("data-ref") and (not python or not name.endswith(":background"))
     }
-    rust_records = {
-        name: element for name, element in rust_by_id.items() if element.attrib.get("data-ref")
-    }
+
+
+def _assert_schematic_record_geometry(
+    python_element: ET.Element,
+    rust_element: ET.Element,
+    *,
+    python_scale: float,
+    rust_scale: float,
+    context: str,
+) -> None:
+    python_colors = _svg_colors(python_element)
+    rust_colors = _svg_colors(rust_element)
+    allowed_colors = {"#000000", "#FFFFFF"}
+    if not python_colors <= allowed_colors or not rust_colors <= allowed_colors:
+        raise AssertionError(f"schematic SVG record is not black-and-white {context}")
+    python_geometry = _svg_geometry(python_element, coordinate_scale=python_scale)
+    rust_geometry = _svg_geometry(rust_element, coordinate_scale=rust_scale)
+    if not math.isclose(rust_geometry[0], python_geometry[0], rel_tol=0.01, abs_tol=2):
+        raise AssertionError(f"schematic SVG geometry-count drift {context}")
+    _assert_close_sequence(
+        rust_geometry[1],
+        python_geometry[1],
+        absolute=0.001,
+        context=f"schematic SVG geometry {context}",
+    )
+
+
+def _assert_schematic_record_parity(
+    python_element: ET.Element,
+    rust_element: ET.Element,
+    *,
+    python_scale: float,
+    rust_scale: float,
+    context: str,
+) -> None:
+    if _normalized_schematic_attrs(python_element) != _normalized_schematic_attrs(rust_element):
+        raise AssertionError(f"schematic SVG record attribute drift {context}")
+    if python_element.attrib.get("data-ref") == "sheet_header":
+        python_count = _svg_geometry(python_element, coordinate_scale=python_scale)[0]
+        rust_count = _svg_geometry(rust_element, coordinate_scale=rust_scale)[0]
+        if python_count == 0 or rust_count == 0:
+            raise AssertionError(f"schematic SVG sheet header is empty {context}")
+        return
+    _assert_schematic_record_geometry(
+        python_element,
+        rust_element,
+        python_scale=python_scale,
+        rust_scale=rust_scale,
+        context=context,
+    )
+
+
+def _assert_schematic_svg_parity(python_path: Path, rust_path: Path) -> int:
+    python_root = ET.parse(python_path).getroot()
+    rust_root = ET.parse(rust_path).getroot()
+    python_scale, rust_scale = _assert_schematic_root_parity(
+        python_root, rust_root, python_path, rust_path
+    )
+    python_records = _schematic_record_index(
+        python_root, context=str(python_path), python=True
+    )
+    rust_records = _schematic_record_index(rust_root, context=str(rust_path), python=False)
     if python_records.keys() != rust_records.keys():
         raise AssertionError(
             f"schematic SVG record identity drift {python_path.name}: "
@@ -689,39 +768,12 @@ def _assert_schematic_svg_parity(python_path: Path, rust_path: Path) -> int:
         )
     for element_id, python_element in python_records.items():
         rust_element = rust_records[element_id]
-        if _normalized_schematic_attrs(python_element) != _normalized_schematic_attrs(rust_element):
-            raise AssertionError(
-                f"schematic SVG record attribute drift {python_path.name}: {element_id}"
-            )
-        if python_element.attrib.get("data-ref") == "sheet_header":
-            if (
-                _svg_geometry(python_element, coordinate_scale=python_scale)[0] == 0
-                or _svg_geometry(rust_element, coordinate_scale=rust_scale)[0] == 0
-            ):
-                raise AssertionError(
-                    f"schematic SVG sheet header is empty {python_path.name}: {element_id}"
-                )
-            continue
-        python_colors = _svg_colors(python_element)
-        rust_colors = _svg_colors(rust_element)
-        if not python_colors <= {"#000000", "#FFFFFF"} or not rust_colors <= {
-            "#000000",
-            "#FFFFFF",
-        }:
-            raise AssertionError(
-                f"schematic SVG record is not black-and-white {python_path.name}: {element_id}"
-            )
-        python_geometry = _svg_geometry(python_element, coordinate_scale=python_scale)
-        rust_geometry = _svg_geometry(rust_element, coordinate_scale=rust_scale)
-        if not math.isclose(rust_geometry[0], python_geometry[0], rel_tol=0.01, abs_tol=2):
-            raise AssertionError(
-                f"schematic SVG geometry-count drift {python_path.name}: {element_id}"
-            )
-        _assert_close_sequence(
-            rust_geometry[1],
-            python_geometry[1],
-            absolute=0.001,
-            context=f"schematic SVG geometry {python_path.name}: {element_id}",
+        _assert_schematic_record_parity(
+            python_element,
+            rust_element,
+            python_scale=python_scale,
+            rust_scale=rust_scale,
+            context=f"{python_path.name}: {element_id}",
         )
     return len(python_records)
 
@@ -805,12 +857,7 @@ def _assert_svg_parity(python_output: Path, rust_output: Path) -> JsonObject:
     }
 
 
-def _performance_profile(
-    stderr_lines: list[str],
-    *,
-    expected: bool,
-    signature: JsonObject,
-) -> JsonObject | None:
+def _load_performance_profile(stderr_lines: list[str], *, expected: bool) -> JsonObject | None:
     profile_lines = [
         line.removeprefix(_RUST_PROFILE_PREFIX)
         for line in stderr_lines
@@ -825,6 +872,10 @@ def _performance_profile(
     profile = json.loads(profile_lines[0])
     if not isinstance(profile, dict):
         raise AssertionError("Rust performance profile must be a JSON object")
+    return profile
+
+
+def _validate_profile_header(profile: JsonObject) -> None:
     expected_keys = {
         "schema",
         "total_elapsed_ns",
@@ -850,18 +901,31 @@ def _performance_profile(
         raise AssertionError("Rust performance profile counters must be unsigned integers")
     if profile["total_elapsed_ns"] == 0 or profile["accounted_elapsed_ns"] == 0:
         raise AssertionError("Rust performance profile timing must be nonzero")
+
+
+def _valid_timing_row(
+    row: object,
+    *,
+    keys: set[str],
+    string_fields: tuple[str, ...],
+) -> bool:
+    if not isinstance(row, dict) or row.keys() != keys:
+        return False
+    for name in string_fields:
+        if not isinstance(row[name], str):
+            return False
+    for name in ("elapsed_ns", "accounted_ns"):
+        if not isinstance(row[name], int) or row[name] < 0:
+            return False
+    return row["accounted_ns"] <= row["elapsed_ns"]
+
+
+def _validate_profile_stages(profile: JsonObject) -> None:
     stages = profile["stages"]
-    if not isinstance(stages, list) or any(
-        not isinstance(stage, dict)
-        or stage.keys() != {"name", "elapsed_ns", "accounted_ns"}
-        or not isinstance(stage["name"], str)
-        or not isinstance(stage["elapsed_ns"], int)
-        or stage["elapsed_ns"] < 0
-        or not isinstance(stage["accounted_ns"], int)
-        or stage["accounted_ns"] < 0
-        or stage["accounted_ns"] > stage["elapsed_ns"]
-        for stage in stages
-    ):
+    keys = {"name", "elapsed_ns", "accounted_ns"}
+    if not isinstance(stages, list):
+        raise AssertionError("Rust performance profile stages are malformed")
+    if any(not _valid_timing_row(stage, keys=keys, string_fields=("name",)) for stage in stages):
         raise AssertionError("Rust performance profile stages are malformed")
     stage_names = [stage["name"] for stage in stages]
     if tuple(stage_names) != _RUST_PROFILE_STAGES or len(set(stage_names)) != len(stage_names):
@@ -874,17 +938,25 @@ def _performance_profile(
         != profile["total_elapsed_ns"]
     ):
         raise AssertionError("Rust performance profile total time arithmetic is invalid")
+
+
+def _validate_detail_parent_ceilings(details: list[JsonObject], stages: list[JsonObject]) -> None:
+    stage_times = {stage["name"]: stage["elapsed_ns"] for stage in stages}
+    for parent in {detail["parent"] for detail in details}:
+        detail_total = sum(
+            detail["accounted_ns"] for detail in details if detail["parent"] == parent
+        )
+        if detail_total > stage_times[parent]:
+            raise AssertionError("Rust performance profile details exceed their parent stage")
+
+
+def _validate_profile_details(profile: JsonObject) -> None:
     details = profile["details"]
-    if not isinstance(details, list) or any(
-        not isinstance(detail, dict)
-        or detail.keys() != {"parent", "name", "elapsed_ns", "accounted_ns"}
-        or not isinstance(detail["parent"], str)
-        or not isinstance(detail["name"], str)
-        or not isinstance(detail["elapsed_ns"], int)
-        or detail["elapsed_ns"] < 0
-        or not isinstance(detail["accounted_ns"], int)
-        or detail["accounted_ns"] < 0
-        or detail["accounted_ns"] > detail["elapsed_ns"]
+    keys = {"parent", "name", "elapsed_ns", "accounted_ns"}
+    if not isinstance(details, list):
+        raise AssertionError("Rust performance profile details are malformed")
+    if any(
+        not _valid_timing_row(detail, keys=keys, string_fields=("parent", "name"))
         for detail in details
     ):
         raise AssertionError("Rust performance profile details are malformed")
@@ -893,17 +965,29 @@ def _performance_profile(
         detail_inventory
     ):
         raise AssertionError("Rust performance profile detail inventory is incomplete")
-    stage_times = {stage["name"]: stage["elapsed_ns"] for stage in stages}
-    for parent in {detail["parent"] for detail in details}:
-        detail_total = sum(
-            detail["accounted_ns"] for detail in details if detail["parent"] == parent
-        )
-        if detail_total > stage_times[parent]:
-            raise AssertionError("Rust performance profile details exceed their parent stage")
+    _validate_detail_parent_ceilings(details, profile["stages"])
+
+
+def _validate_profile_artifacts(profile: JsonObject, signature: JsonObject) -> None:
     if profile["artifact_count"] != signature["file_count"]:
         raise AssertionError("Rust performance profile artifact count does not match the bundle")
     if profile["artifact_bytes"] != signature["total_bytes"]:
         raise AssertionError("Rust performance profile artifact bytes do not match the bundle")
+
+
+def _performance_profile(
+    stderr_lines: list[str],
+    *,
+    expected: bool,
+    signature: JsonObject,
+) -> JsonObject | None:
+    profile = _load_performance_profile(stderr_lines, expected=expected)
+    if profile is None:
+        return None
+    _validate_profile_header(profile)
+    _validate_profile_stages(profile)
+    _validate_profile_details(profile)
+    _validate_profile_artifacts(profile, signature)
     return profile
 
 
@@ -972,7 +1056,9 @@ def _git_status(workspace: Path) -> list[str]:
     ).stdout.splitlines()
 
 
-def run_probe(args: argparse.Namespace) -> JsonObject:
+def _probe_inputs(
+    args: argparse.Namespace,
+) -> tuple[Path, bool, Path, Path, Path, JsonObject, str, str]:
     workspace = args.workspace.resolve()
     build_release = not args.skip_release_build
     if build_release:
@@ -992,6 +1078,57 @@ def run_probe(args: argparse.Namespace) -> JsonObject:
             f"Rust executable version does not contain Cargo version {cargo_version}: "
             f"{rust_version}"
         )
+    return (
+        workspace,
+        build_release,
+        native,
+        cruncher,
+        archive,
+        python_provenance,
+        cargo_version,
+        rust_version,
+    )
+
+
+def _round_configuration(
+    project: Path,
+    runtime: Path,
+    native: Path,
+    cruncher: Path,
+    *,
+    rust_profile: bool,
+) -> tuple[dict[str, list[str]], dict[str, dict[str, str]], dict[str, Path]]:
+    python_output = runtime / "python-review"
+    rust_output = runtime / "rust-review"
+    python_env = os.environ.copy()
+    python_env["KICAD_MONKEY_NATIVE"] = str(native)
+    rust_env = os.environ.copy()
+    if rust_profile:
+        rust_env["KICAD_CRUNCHER_PERFORMANCE_PROFILE"] = "1"
+    commands = {
+        "python": [
+            sys.executable,
+            "-m",
+            "kicad_cruncher",
+            "dr",
+            str(project),
+            "--output",
+            str(python_output),
+        ],
+        "rust": [str(cruncher), "dr", str(project), "--output", str(rust_output)],
+    }
+    return commands, {"python": python_env, "rust": rust_env}, {
+        "python": python_output,
+        "rust": rust_output,
+    }
+
+
+def _measure_speedy_rounds(
+    args: argparse.Namespace,
+    archive: Path,
+    native: Path,
+    cruncher: Path,
+) -> tuple[list[JsonObject], str, str]:
     with tempfile.TemporaryDirectory(prefix="kicad_speedy_dr_performance_") as temp:
         temp_root = Path(temp)
         source = temp_root / "source"
@@ -999,33 +1136,9 @@ def run_probe(args: argparse.Namespace) -> JsonObject:
         source_tree_before = _tree_sha256(source)
         runtime = temp_root / "runtime"
         runtime.mkdir()
-        python_output = runtime / "python-review"
-        rust_output = runtime / "rust-review"
-        python_env = os.environ.copy()
-        python_env["KICAD_MONKEY_NATIVE"] = str(native)
-        rust_env = os.environ.copy()
-        if args.rust_profile:
-            rust_env["KICAD_CRUNCHER_PERFORMANCE_PROFILE"] = "1"
-        commands = {
-            "python": [
-                sys.executable,
-                "-m",
-                "kicad_cruncher",
-                "dr",
-                str(project),
-                "--output",
-                str(python_output),
-            ],
-            "rust": [
-                str(cruncher),
-                "dr",
-                str(project),
-                "--output",
-                str(rust_output),
-            ],
-        }
-        environments = {"python": python_env, "rust": rust_env}
-        outputs = {"python": python_output, "rust": rust_output}
+        commands, environments, outputs = _round_configuration(
+            project, runtime, native, cruncher, rust_profile=args.rust_profile
+        )
         measured: list[JsonObject] = []
         for round_index in range(args.rounds):
             order = ("python", "rust") if round_index % 2 == 0 else ("rust", "python")
@@ -1040,15 +1153,33 @@ def run_probe(args: argparse.Namespace) -> JsonObject:
                         expect_profile=args.rust_profile and implementation == "rust",
                     )
                 )
-            svg_parity = _assert_svg_parity(python_output, rust_output)
+            svg_parity = _assert_svg_parity(outputs["python"], outputs["rust"])
             for result in measured[-2:]:
                 result["svg_parity"] = svg_parity
-            shutil.rmtree(python_output)
-            shutil.rmtree(rust_output)
+            shutil.rmtree(outputs["python"])
+            shutil.rmtree(outputs["rust"])
         _assert_parity(measured)
         source_tree_after = _tree_sha256(source)
         if source_tree_after != source_tree_before:
             raise AssertionError("Python/Rust design review mutated the Speedy source tree")
+    return measured, source_tree_before, source_tree_after
+
+
+def _probe_report(
+    *,
+    workspace: Path,
+    build_release: bool,
+    rust_profile: bool,
+    native: Path,
+    cruncher: Path,
+    archive: Path,
+    python_provenance: JsonObject,
+    cargo_version: str,
+    rust_version: str,
+    measured: list[JsonObject],
+    source_tree_before: str,
+    source_tree_after: str,
+) -> JsonObject:
     python_rounds = [result for result in measured if result["implementation"] == "python"]
     rust_rounds = [result for result in measured if result["implementation"] == "rust"]
     python_summary = _summary(python_rounds)
@@ -1062,7 +1193,7 @@ def run_probe(args: argparse.Namespace) -> JsonObject:
         "platform": platform.platform(),
         "python": sys.version,
         "release_build_performed": build_release,
-        "rust_profile_enabled": args.rust_profile,
+        "rust_profile_enabled": rust_profile,
         "probe": {
             "path": str(Path(__file__).resolve()),
             "sha256": _sha256_file(Path(__file__).resolve()),
@@ -1096,6 +1227,36 @@ def run_probe(args: argparse.Namespace) -> JsonObject:
             "target_gap_ratio": rust_median / (python_median / 10),
         },
     }
+
+
+def run_probe(args: argparse.Namespace) -> JsonObject:
+    (
+        workspace,
+        build_release,
+        native,
+        cruncher,
+        archive,
+        python_provenance,
+        cargo_version,
+        rust_version,
+    ) = _probe_inputs(args)
+    measured, source_tree_before, source_tree_after = _measure_speedy_rounds(
+        args, archive, native, cruncher
+    )
+    return _probe_report(
+        workspace=workspace,
+        build_release=build_release,
+        rust_profile=args.rust_profile,
+        native=native,
+        cruncher=cruncher,
+        archive=archive,
+        python_provenance=python_provenance,
+        cargo_version=cargo_version,
+        rust_version=rust_version,
+        measured=measured,
+        source_tree_before=source_tree_before,
+        source_tree_after=source_tree_after,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
