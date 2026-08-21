@@ -491,10 +491,15 @@ fn schematic_review_svg_enforces_exact_and_one_under_output_limits() {
     )
     .unwrap();
     let bytes = baseline[0].svg.len();
+    let pretty_design = serde_json::to_string_pretty(&facts.design_json).unwrap();
+    let nested_design_bytes =
+        pretty_design.len() + pretty_design.bytes().filter(|byte| *byte == b'\n').count() * 2;
+    let cache_bytes = pretty_design.len() + nested_design_bytes;
     let exact = SchematicReviewSvgLimits {
         max_documents: 1,
         max_total_output_bytes: bytes,
         max_output_bytes_per_document: bytes,
+        max_cached_design_bytes: cache_bytes,
         ..SchematicReviewSvgLimits::default()
     };
     build_schematic_review_svgs_with_limits(
@@ -581,6 +586,10 @@ fn schematic_review_svg_enforces_exact_and_one_under_output_limits() {
         },
         SchematicReviewSvgLimits {
             max_total_view_index_work: 0,
+            ..exact
+        },
+        SchematicReviewSvgLimits {
+            max_cached_design_bytes: cache_bytes - 1,
             ..exact
         },
     ] {

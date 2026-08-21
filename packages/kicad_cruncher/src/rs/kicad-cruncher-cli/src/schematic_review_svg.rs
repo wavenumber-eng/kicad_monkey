@@ -8,6 +8,7 @@ use kicad_monkey_contracts::generated::compiled_schematic_graph::{
 };
 use kicad_monkey_core::{KiCadSchematicInstance, validate_compiled_schematic_graph};
 use serde::Serialize;
+use serde_json::value::RawValue;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
@@ -41,6 +42,7 @@ pub struct SchematicReviewSvgLimits {
     pub max_view_authority_items: usize,
     pub max_view_authority_materialized_bytes: usize,
     pub max_total_view_index_work: usize,
+    pub max_cached_design_bytes: usize,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -89,6 +91,7 @@ impl Default for SchematicReviewSvgLimits {
             max_view_authority_items: 16_000_000,
             max_view_authority_materialized_bytes: 512 * 1024 * 1024,
             max_total_view_index_work: 64_000_000,
+            max_cached_design_bytes: 512 * 1024 * 1024,
         }
     }
 }
@@ -209,6 +212,9 @@ fn build_schematic_review_svgs_internal(
     let mut output = Vec::with_capacity(count);
     let mut total_bytes = 0_usize;
     let mut total_view_work = 0_usize;
+    let metadata_cache_started = profile_enabled.then(std::time::Instant::now);
+    let cached_design = nested_pretty_raw_value(design, limits.max_cached_design_bytes)?;
+    profile.metadata_serialization_ns = profile_elapsed_ns(metadata_cache_started);
     for (document, base) in documents.iter().zip(base_svgs) {
         let alignment_started = profile_enabled.then(std::time::Instant::now);
         let instance = &document.instance;
@@ -269,7 +275,7 @@ fn build_schematic_review_svgs_internal(
         let (svg, composition_profile) = enrich_svg(
             &base.svg,
             &record_attrs,
-            design,
+            &cached_design,
             instance,
             &base.source_path,
             &view_indexes,
@@ -828,13 +834,54 @@ fn text_field<'a>(value: &'a Value, field: &str) -> Result<&'a str, DesignError>
         .ok_or_else(|| DesignError::new(format!("schematic record {field} is missing")))
 }
 
+fn nested_pretty_raw_value(value: &Value, limit: usize) -> Result<Box<RawValue>, DesignError> {
+    let mut preflight = PrettyCachePreflight::new(limit);
+    serde_json::to_writer_pretty(&mut preflight, value).map_err(|error| {
+        DesignError::context("schematic design metadata cache exceeds its limit", error)
+    })?;
+    let indentation_bytes = preflight
+        .newlines
+        .checked_mul(2)
+        .ok_or_else(|| DesignError::new("schematic metadata indentation count overflowed"))?;
+    let nested_bytes = preflight
+        .written
+        .checked_add(indentation_bytes)
+        .ok_or_else(|| DesignError::new("schematic metadata cache size overflowed"))?;
+    preflight
+        .written
+        .checked_add(nested_bytes)
+        .filter(|bytes| *bytes <= limit)
+        .ok_or_else(|| DesignError::new("schematic design metadata cache exceeds its limit"))?;
+
+    let mut writer = ExactBytesWriter::new(preflight.written);
+    serde_json::to_writer_pretty(&mut writer, value).map_err(|error| {
+        DesignError::context("schematic design metadata cache exceeds its limit", error)
+    })?;
+    let serialized = writer.finish()?;
+    let mut nested = vec![0_u8; nested_bytes];
+    let mut output = 0_usize;
+    for byte in serialized.bytes() {
+        nested[output] = byte;
+        output += 1;
+        if byte == b'\n' {
+            nested[output..output + 2].copy_from_slice(b"  ");
+            output += 2;
+        }
+    }
+    debug_assert_eq!(output, nested_bytes);
+    let nested = String::from_utf8(nested)
+        .map_err(|error| DesignError::context("schematic metadata cache is not UTF-8", error))?;
+    RawValue::from_string(nested)
+        .map_err(|error| DesignError::context("schematic metadata cache is invalid", error))
+}
+
 #[derive(Serialize)]
 struct EnrichmentPayload<'a> {
     schema: &'static str,
     source: SourceMetadata<'a>,
     view: ViewMetadata<'a>,
     view_indexes: &'a Value,
-    design: &'a Value,
+    design: &'a RawValue,
     compiled_schematic_graph_view: &'a Value,
 }
 
@@ -859,7 +906,7 @@ struct ViewMetadata<'a> {
 fn enrich_svg(
     base: &str,
     record_attrs: &BTreeMap<String, String>,
-    design: &Value,
+    design: &RawValue,
     instance: &KiCadSchematicInstance,
     source_path: &str,
     view_indexes: &Value,
@@ -1448,6 +1495,82 @@ struct CountingWriter {
     limit: usize,
 }
 
+struct PrettyCachePreflight {
+    written: usize,
+    newlines: usize,
+    limit: usize,
+}
+
+impl PrettyCachePreflight {
+    const fn new(limit: usize) -> Self {
+        Self {
+            written: 0,
+            newlines: 0,
+            limit,
+        }
+    }
+}
+
+impl Write for PrettyCachePreflight {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.written = self
+            .written
+            .checked_add(bytes.len())
+            .filter(|written| *written <= self.limit)
+            .ok_or_else(|| io::Error::other("byte limit exceeded"))?;
+        self.newlines = self
+            .newlines
+            .checked_add(bytes.iter().filter(|byte| **byte == b'\n').count())
+            .ok_or_else(|| io::Error::other("newline count overflowed"))?;
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+struct ExactBytesWriter {
+    bytes: Vec<u8>,
+    written: usize,
+}
+
+impl ExactBytesWriter {
+    fn new(size: usize) -> Self {
+        Self {
+            bytes: vec![0; size],
+            written: 0,
+        }
+    }
+
+    fn finish(self) -> Result<String, DesignError> {
+        if self.written != self.bytes.len() {
+            return Err(DesignError::new(
+                "schematic metadata cache serialization size changed",
+            ));
+        }
+        String::from_utf8(self.bytes)
+            .map_err(|error| DesignError::context("schematic metadata cache is not UTF-8", error))
+    }
+}
+
+impl Write for ExactBytesWriter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        let end = self
+            .written
+            .checked_add(bytes.len())
+            .filter(|end| *end <= self.bytes.len())
+            .ok_or_else(|| io::Error::other("exact buffer length exceeded"))?;
+        self.bytes[self.written..end].copy_from_slice(bytes);
+        self.written = end;
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 impl CountingWriter {
     fn new(limit: usize) -> Self {
         Self { written: 0, limit }
@@ -1476,7 +1599,45 @@ impl Write for CountingWriter {
 mod tests {
     use std::io::Write;
 
-    use super::{LimitedBytes, XmlTextWriter, black_and_white};
+    use serde::Serialize;
+    use serde_json::Value;
+
+    use super::{LimitedBytes, XmlTextWriter, black_and_white, nested_pretty_raw_value};
+
+    #[test]
+    fn cached_design_preserves_nested_pretty_json_exactly() {
+        #[derive(Serialize)]
+        struct Original<'a> {
+            before: &'static str,
+            design: &'a Value,
+            after: u8,
+        }
+        #[derive(Serialize)]
+        struct Cached<'a> {
+            before: &'static str,
+            design: &'a serde_json::value::RawValue,
+            after: u8,
+        }
+        let design = serde_json::json!({"nested": {"items": [1, 2]}, "text": "exact"});
+        let raw = nested_pretty_raw_value(&design, 4096).unwrap();
+        let expected = serde_json::to_string_pretty(&Original {
+            before: "value",
+            design: &design,
+            after: 3,
+        })
+        .unwrap();
+        let actual = serde_json::to_string_pretty(&Cached {
+            before: "value",
+            design: &raw,
+            after: 3,
+        })
+        .unwrap();
+        assert_eq!(actual, expected);
+        let exact_cache_bytes =
+            serde_json::to_string_pretty(&design).unwrap().len() + raw.get().len();
+        nested_pretty_raw_value(&design, exact_cache_bytes).expect("exact cache ceiling");
+        assert!(nested_pretty_raw_value(&design, exact_cache_bytes - 1).is_err());
+    }
 
     #[test]
     fn xml_text_writer_preserves_utf8_and_escapes_only_xml_text_bytes() {

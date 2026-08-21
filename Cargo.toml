@@ -36,7 +36,7 @@ prettyplease = "0.2.37"
 read-fonts = "0.43.0"
 schemars = "0.8.22"
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.151", features = ["arbitrary_precision", "preserve_order", "unbounded_depth"] }
+serde_json = { version = "1.0.151", features = ["arbitrary_precision", "preserve_order", "raw_value", "unbounded_depth"] }
 sha2 = { version = "0.11.0", default-features = false }
 skrifa = { version = "0.46.0", default-features = false, features = ["std"] }
 syn = { version = "2.0.117", features = ["full"] }
