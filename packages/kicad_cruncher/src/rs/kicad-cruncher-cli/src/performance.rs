@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
-pub(crate) const PROFILE_SCHEMA: &str = "kicad_cruncher.design_review.performance_profile.a4";
+pub(crate) const PROFILE_SCHEMA: &str = "kicad_cruncher.design_review.performance_profile.a5";
 
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct PerformanceStage {

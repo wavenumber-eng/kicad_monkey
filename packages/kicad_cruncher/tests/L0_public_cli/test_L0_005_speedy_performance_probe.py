@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import sys
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
@@ -176,3 +178,45 @@ def test_speedy_probe_requires_a_bundle_bound_rust_profile() -> None:
                 expected=True,
                 signature=signature,
             )
+
+
+def test_speedy_probe_captures_root_process_peak_working_set() -> None:
+    probe = _probe()
+    completed, peak = probe._run_checked_monitored(
+        [
+            str(getattr(sys, "_base_executable", sys.executable)),
+            "-c",
+            "import time; payload = bytearray(16 * 1024 * 1024); "
+            "payload[:] = b'x' * len(payload); time.sleep(0.2)",
+        ],
+        cwd=_PACKAGE_ROOT,
+        env=os.environ.copy(),
+        timeout=30,
+    )
+    assert completed.returncode == 0
+    assert peak >= 16 * 1024 * 1024
+
+
+def test_speedy_probe_rejects_memory_sampler_failure() -> None:
+    probe = _probe()
+    calls = 0
+
+    def failing_sampler(_pid: int) -> int:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return 1
+        raise RuntimeError("injected sampler failure")
+
+    probe.__dict__["_root_peak_working_set_bytes"] = failing_sampler
+    with pytest.raises(AssertionError, match="sampling failed"):
+        probe._run_checked_monitored(
+            [
+                str(getattr(sys, "_base_executable", sys.executable)),
+                "-c",
+                "import time; time.sleep(0.2)",
+            ],
+            cwd=_PACKAGE_ROOT,
+            env=os.environ.copy(),
+            timeout=30,
+        )

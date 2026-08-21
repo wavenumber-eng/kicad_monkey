@@ -264,10 +264,27 @@ fn write_design_review_bundle_internal(
     let (result, preserve_transaction) = match staged {
         Ok(result) => {
             let publish_started = performance.start();
-            let published = publish_staged_tree(&staging, &destination, &temporary);
+            let published = if performance.is_enabled() {
+                publish_staged_tree_profiled(&staging, &destination, &temporary)
+            } else {
+                publish_staged_tree(&staging, &destination, &temporary)
+                    .map(|()| ((), PublishProfile::default()))
+            };
             performance.finish("publish_staged_tree", publish_started);
             match published {
-                Ok(()) => (Ok(result), false),
+                Ok(((), profile)) => {
+                    performance.record_detail(
+                        "publish_staged_tree",
+                        "stage_previous_bundle",
+                        std::time::Duration::from_nanos(profile.stage_previous_ns),
+                    );
+                    performance.record_detail(
+                        "publish_staged_tree",
+                        "promote_staged_bundle",
+                        std::time::Duration::from_nanos(profile.promote_staging_ns),
+                    );
+                    (Ok(result), false)
+                }
                 Err(failure) => (Err(failure.error), failure.preserve_transaction),
             }
         }
@@ -508,25 +525,49 @@ fn write_staged_bundle(
     let mut budget = ArtifactBudget::new(limits);
 
     let structured_write_started = performance.start();
+    let design_write_started = performance.start();
     write_json(staging, &design_path, &facts.design_json, &mut budget)?;
+    performance.finish_detail(
+        "write_structured_artifacts",
+        "serialize_and_write_design_json",
+        design_write_started,
+    );
+    let graph_write_started = performance.start();
     write_json(
         staging,
         &graph_path,
         &facts.compiled_schematic_graph,
         &mut budget,
     )?;
+    performance.finish_detail(
+        "write_structured_artifacts",
+        "serialize_and_write_compiled_graph",
+        graph_write_started,
+    );
+    let netlist_json_write_started = performance.start();
     write_json(
         staging,
         &netlist_json_path,
         &facts.netlist_json,
         &mut budget,
     )?;
+    performance.finish_detail(
+        "write_structured_artifacts",
+        "serialize_and_write_netlist_json",
+        netlist_json_write_started,
+    );
+    let netlist_write_started = performance.start();
     write_text(
         staging,
         &netlist_sexpr_path,
         facts.kicad_netlist.as_bytes(),
         &mut budget,
     )?;
+    performance.finish_detail(
+        "write_structured_artifacts",
+        "write_kicad_netlist_sexpr",
+        netlist_write_started,
+    );
     performance.finish("write_structured_artifacts", structured_write_started);
 
     budget.ensure_future_artifacts(facts.schematic_instances.len().saturating_add(2))?;
@@ -781,8 +822,21 @@ fn write_staged_bundle(
     }
 
     let metadata_started = performance.start();
+    let graph_hash_started = performance.start();
     let graph_sha256 = canonical_json_sha256(&facts.design_json["compiled_schematic_graph"])?;
+    performance.finish_detail(
+        "build_and_write_bundle_metadata",
+        "hash_compiled_graph_canonical_json",
+        graph_hash_started,
+    );
+    let netlist_hash_started = performance.start();
     let netlist_sha256 = sha256_hex(facts.kicad_netlist.as_bytes());
+    performance.finish_detail(
+        "build_and_write_bundle_metadata",
+        "hash_kicad_netlist",
+        netlist_hash_started,
+    );
+    let manifest_started = performance.start();
     let manifest = Manifest {
         schema: MANIFEST_SCHEMA,
         input: display_source_path(&loaded.input_path),
@@ -810,6 +864,12 @@ fn write_staged_bundle(
             kicad_netlist_sha256: &netlist_sha256,
         },
     };
+    performance.finish_detail(
+        "build_and_write_bundle_metadata",
+        "assemble_bundle_manifest",
+        manifest_started,
+    );
+    let readme_started = performance.start();
     write_readme(
         staging,
         readme_path,
@@ -823,8 +883,25 @@ fn write_staged_bundle(
         manifest_path,
         &mut budget,
     )?;
+    performance.finish_detail(
+        "build_and_write_bundle_metadata",
+        "write_bundle_readme",
+        readme_started,
+    );
+    let validation_started = performance.start();
     validate_manifest_artifacts(&manifest, staging, limits)?;
+    performance.finish_detail(
+        "build_and_write_bundle_metadata",
+        "validate_staged_manifest_artifacts",
+        validation_started,
+    );
+    let manifest_write_started = performance.start();
     write_json(staging, manifest_path, &manifest, &mut budget)?;
+    performance.finish_detail(
+        "build_and_write_bundle_metadata",
+        "serialize_and_write_bundle_manifest",
+        manifest_write_started,
+    );
     performance.finish("build_and_write_bundle_metadata", metadata_started);
     Ok(StagedSummary {
         component_count: facts.design_json["components"]
@@ -1187,30 +1264,63 @@ struct PublishFailure {
     preserve_transaction: bool,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct PublishProfile {
+    stage_previous_ns: u64,
+    promote_staging_ns: u64,
+}
+
 fn publish_staged_tree(
     staging: &Path,
     destination: &Path,
     temporary: &Path,
 ) -> Result<(), PublishFailure> {
-    publish_staged_tree_with(staging, destination, temporary, |from, to| {
+    publish_staged_tree_internal(staging, destination, temporary, false, |from, to| {
+        fs::rename(from, to)
+    })
+    .map(|((), _profile)| ())
+}
+
+fn publish_staged_tree_profiled(
+    staging: &Path,
+    destination: &Path,
+    temporary: &Path,
+) -> Result<((), PublishProfile), PublishFailure> {
+    publish_staged_tree_internal(staging, destination, temporary, true, |from, to| {
         fs::rename(from, to)
     })
 }
 
+#[cfg(test)]
 fn publish_staged_tree_with(
     staging: &Path,
     destination: &Path,
     temporary: &Path,
-    mut rename: impl FnMut(&Path, &Path) -> io::Result<()>,
+    rename: impl FnMut(&Path, &Path) -> io::Result<()>,
 ) -> Result<(), PublishFailure> {
+    publish_staged_tree_internal(staging, destination, temporary, false, rename)
+        .map(|((), _profile)| ())
+}
+
+fn publish_staged_tree_internal(
+    staging: &Path,
+    destination: &Path,
+    temporary: &Path,
+    profile_enabled: bool,
+    mut rename: impl FnMut(&Path, &Path) -> io::Result<()>,
+) -> Result<((), PublishProfile), PublishFailure> {
+    let mut profile = PublishProfile::default();
     let backup = temporary.join("previous");
     let had_previous = destination.exists();
     if had_previous {
+        let previous_started = profile_enabled.then(std::time::Instant::now);
         rename(destination, &backup).map_err(|error| PublishFailure {
             error: DesignError::context("could not stage previous bundle", error),
             preserve_transaction: false,
         })?;
+        profile.stage_previous_ns = performance_elapsed_ns(previous_started);
     }
+    let promote_started = profile_enabled.then(std::time::Instant::now);
     if let Err(error) = rename(staging, destination) {
         if had_previous && let Err(restore_error) = rename(&backup, destination) {
             return Err(PublishFailure {
@@ -1226,7 +1336,14 @@ fn publish_staged_tree_with(
             preserve_transaction: false,
         });
     }
-    Ok(())
+    profile.promote_staging_ns = performance_elapsed_ns(promote_started);
+    Ok(((), profile))
+}
+
+fn performance_elapsed_ns(started: Option<std::time::Instant>) -> u64 {
+    started.map_or(0, |started| {
+        u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
+    })
 }
 
 #[allow(
@@ -1495,6 +1612,19 @@ mod tests {
                     "enumerate_schematic_instances",
                 ),
                 (
+                    "write_structured_artifacts",
+                    "serialize_and_write_design_json",
+                ),
+                (
+                    "write_structured_artifacts",
+                    "serialize_and_write_compiled_graph",
+                ),
+                (
+                    "write_structured_artifacts",
+                    "serialize_and_write_netlist_json",
+                ),
+                ("write_structured_artifacts", "write_kicad_netlist_sexpr",),
+                (
                     "build_schematic_plot_documents",
                     "extract_embedded_sidecars",
                 ),
@@ -1625,6 +1755,26 @@ mod tests {
                 ("build_pcb_review_svgs", "preflight_pcb_svg_composition",),
                 ("build_pcb_review_svgs", "compose_pcb_review_svgs"),
                 ("build_pcb_review_svgs", "finalize_pcb_review_artifacts"),
+                (
+                    "build_and_write_bundle_metadata",
+                    "hash_compiled_graph_canonical_json",
+                ),
+                ("build_and_write_bundle_metadata", "hash_kicad_netlist",),
+                (
+                    "build_and_write_bundle_metadata",
+                    "assemble_bundle_manifest",
+                ),
+                ("build_and_write_bundle_metadata", "write_bundle_readme",),
+                (
+                    "build_and_write_bundle_metadata",
+                    "validate_staged_manifest_artifacts",
+                ),
+                (
+                    "build_and_write_bundle_metadata",
+                    "serialize_and_write_bundle_manifest",
+                ),
+                ("publish_staged_tree", "stage_previous_bundle"),
+                ("publish_staged_tree", "promote_staged_bundle"),
             ]
         );
         fs::remove_dir_all(root).unwrap();
@@ -1732,6 +1882,35 @@ mod tests {
         assert_eq!(
             fs::read(destination.join("previous.txt")).unwrap(),
             b"restore me"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn profiled_publish_measures_previous_staging_and_promotion() {
+        let root = std::env::temp_dir().join(format!(
+            "kicad-cruncher-profile-publish-{}-{}",
+            std::process::id(),
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        let temporary = root.join(".kicad-cruncher-design-test");
+        let staging = temporary.join("output");
+        let destination = root.join("review");
+        fs::create_dir_all(&staging).unwrap();
+        fs::create_dir_all(&destination).unwrap();
+        fs::write(staging.join("new.txt"), b"new").unwrap();
+        fs::write(destination.join("old.txt"), b"old").unwrap();
+
+        let profile = match publish_staged_tree_profiled(&staging, &destination, &temporary) {
+            Ok(((), profile)) => profile,
+            Err(_) => panic!("profiled publication should succeed"),
+        };
+        assert!(profile.stage_previous_ns > 0);
+        assert!(profile.promote_staging_ns > 0);
+        assert_eq!(fs::read(destination.join("new.txt")).unwrap(), b"new");
+        assert_eq!(
+            fs::read(temporary.join("previous/old.txt")).unwrap(),
+            b"old"
         );
         fs::remove_dir_all(root).unwrap();
     }

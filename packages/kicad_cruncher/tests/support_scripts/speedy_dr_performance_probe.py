@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import ctypes
 import hashlib
 import importlib.metadata
 import importlib.util
@@ -23,10 +24,12 @@ import statistics
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import xml.etree.ElementTree as ET
 import zipfile
 from collections import Counter
+from ctypes import wintypes
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -35,10 +38,25 @@ WORKSPACE = PACKAGE_ROOT.parents[1]
 SPEEDY_PREFIX = PurePosixPath("kicad/projects/speedy_processing_module/input")
 SPEEDY_PROJECT = "11-10084__speedy_processing_module__B.kicad_pro"
 JsonObject = dict[str, Any]
+
+
+class _ProcessMemoryCounters(ctypes.Structure):
+    _fields_ = [
+        ("cb", ctypes.c_ulong),
+        ("PageFaultCount", ctypes.c_ulong),
+        ("PeakWorkingSetSize", ctypes.c_size_t),
+        ("WorkingSetSize", ctypes.c_size_t),
+        ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+        ("QuotaPagedPoolUsage", ctypes.c_size_t),
+        ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+        ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+        ("PagefileUsage", ctypes.c_size_t),
+        ("PeakPagefileUsage", ctypes.c_size_t),
+    ]
 _NUMBER = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
 _DRAWABLE = {"path", "polygon", "polyline", "line", "rect", "circle", "ellipse"}
 _RUST_PROFILE_PREFIX = "KICAD_CRUNCHER_PERFORMANCE_PROFILE="
-_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a4"
+_RUST_PROFILE_SCHEMA = "kicad_cruncher.design_review.performance_profile.a5"
 _RUST_PROFILE_STAGES = (
     "resolve_and_validate_output",
     "create_staging_directory",
@@ -93,6 +111,10 @@ _RUST_PROFILE_DETAILS = (
         "design_json_output_limit_serialization",
     ),
     ("build_structured_design_facts", "enumerate_schematic_instances"),
+    ("write_structured_artifacts", "serialize_and_write_design_json"),
+    ("write_structured_artifacts", "serialize_and_write_compiled_graph"),
+    ("write_structured_artifacts", "serialize_and_write_netlist_json"),
+    ("write_structured_artifacts", "write_kicad_netlist_sexpr"),
     ("build_schematic_plot_documents", "extract_embedded_sidecars"),
     ("build_schematic_plot_documents", "load_project_plot_sidecars"),
     ("build_schematic_plot_documents", "scan_requested_font_faces"),
@@ -167,6 +189,23 @@ _RUST_PROFILE_DETAILS = (
     ("build_pcb_review_svgs", "preflight_pcb_svg_composition"),
     ("build_pcb_review_svgs", "compose_pcb_review_svgs"),
     ("build_pcb_review_svgs", "finalize_pcb_review_artifacts"),
+    (
+        "build_and_write_bundle_metadata",
+        "hash_compiled_graph_canonical_json",
+    ),
+    ("build_and_write_bundle_metadata", "hash_kicad_netlist"),
+    ("build_and_write_bundle_metadata", "assemble_bundle_manifest"),
+    ("build_and_write_bundle_metadata", "write_bundle_readme"),
+    (
+        "build_and_write_bundle_metadata",
+        "validate_staged_manifest_artifacts",
+    ),
+    (
+        "build_and_write_bundle_metadata",
+        "serialize_and_write_bundle_manifest",
+    ),
+    ("publish_staged_tree", "stage_previous_bundle"),
+    ("publish_staged_tree", "promote_staged_bundle"),
 )
 
 
@@ -193,6 +232,112 @@ def _run_checked(
             f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
         )
     return completed
+
+
+def _root_peak_working_set_bytes(pid: int) -> int:
+    if sys.platform == "win32":
+        process_query_information = 0x0400
+        process_vm_read = 0x0010
+        kernel32: Any = ctypes.WinDLL("kernel32", use_last_error=True)
+        psapi: Any = ctypes.WinDLL("psapi", use_last_error=True)
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        psapi.GetProcessMemoryInfo.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(_ProcessMemoryCounters),
+            wintypes.DWORD,
+        ]
+        psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+        handle = kernel32.OpenProcess(
+            process_query_information | process_vm_read,
+            False,
+            pid,
+        )
+        if not handle:
+            raise OSError(ctypes.get_last_error(), "OpenProcess failed")
+        try:
+            counters = _ProcessMemoryCounters()
+            counters.cb = ctypes.sizeof(counters)
+            if not psapi.GetProcessMemoryInfo(
+                handle,
+                ctypes.byref(counters),
+                ctypes.sizeof(counters),
+            ):
+                raise OSError(ctypes.get_last_error(), "GetProcessMemoryInfo failed")
+            return int(counters.PeakWorkingSetSize)
+        finally:
+            kernel32.CloseHandle(handle)
+    if sys.platform.startswith("linux"):
+        status = Path(f"/proc/{pid}/status")
+        for line in status.read_text(encoding="utf-8").splitlines():
+            if line.startswith("VmHWM:"):
+                return int(line.split()[1]) * 1024
+        raise RuntimeError("Linux process status did not contain VmHWM")
+    raise RuntimeError(f"peak working-set sampling is unsupported on {sys.platform}")
+
+
+def _run_checked_monitored(
+    command: list[str],
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    timeout: float = 900,
+) -> tuple[subprocess.CompletedProcess[str], int]:
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+    )
+    stop = threading.Event()
+    samples: list[int] = []
+    sampler_errors: list[BaseException] = []
+
+    def monitor() -> None:
+        try:
+            peak = 0
+            while not stop.is_set():
+                try:
+                    peak = max(peak, _root_peak_working_set_bytes(process.pid))
+                except BaseException as error:
+                    if process.poll() is None:
+                        sampler_errors.append(error)
+                    break
+                stop.wait(0.01)
+            samples.append(peak)
+        except BaseException as error:
+            sampler_errors.append(error)
+
+    monitor_thread = threading.Thread(target=monitor, name="speedy-memory", daemon=True)
+    monitor_thread.start()
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        stdout, stderr = process.communicate()
+        raise AssertionError(
+            f"Command timed out: {' '.join(command)}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        ) from None
+    finally:
+        stop.set()
+        monitor_thread.join()
+    completed = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+    if completed.returncode != 0:
+        raise AssertionError(
+            f"Command failed ({completed.returncode}): {' '.join(command)}\n"
+            f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    if sampler_errors:
+        raise AssertionError(f"peak working-set sampling failed: {sampler_errors[0]}")
+    peak = max(samples, default=0)
+    if peak <= 0:
+        raise AssertionError("peak working-set sampling produced no positive measurement")
+    return completed, peak
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -766,7 +911,7 @@ def _run_round(
     if output.exists():
         shutil.rmtree(output)
     started = time.perf_counter()
-    completed = _run_checked(command, cwd=cwd, env=env)
+    completed, peak_working_set_bytes = _run_checked_monitored(command, cwd=cwd, env=env)
     elapsed = time.perf_counter() - started
     signature = _bundle_signature(output)
     stderr_lines = completed.stderr.strip().splitlines()
@@ -776,6 +921,7 @@ def _run_round(
     result: JsonObject = {
         "implementation": implementation,
         "seconds": elapsed,
+        "root_process_peak_working_set_bytes": peak_working_set_bytes,
         "stdout_tail": completed.stdout.strip().splitlines()[-1:],
         "stderr_tail": [line for line in stderr_lines if not line.startswith(_RUST_PROFILE_PREFIX)][
             -1:
