@@ -133,6 +133,8 @@ def test_history_import_hygiene_exception_is_explicit_and_ancestry_bounded() -> 
         REPOSITORY_ROOT / ".github" / "workflows" / "pr-hygiene.yml"
     ).read_text(encoding="utf-8")
 
+    assert "labeled" in hygiene
+    assert "unlabeled" in hygiene
     assert 'label.name === "history-import"' in hygiene
     assert "Imported history head:" in hygiene
     assert "([0-9a-f]{40})" in hygiene
