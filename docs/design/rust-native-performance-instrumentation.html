@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en" data-doc-status="accepted">
+<head>
+  <meta charset="utf-8">
+  <title>Rust native performance instrumentation</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>Rust native performance instrumentation</h1>
+  <p><strong>Status:</strong> accepted close-to-format diagnostic surface.</p>
+
+  <section>
+    <h2>Decision and boundary</h2>
+    <p>KiCad Monkey exposes opt-in timing companions for the source-bundle
+    index, structured design facts and Design JSON, schematic Plotter-IR, and
+    board facts/Plotter-IR. Cruncher uses those companions to attribute one
+    complete native design-review transaction, but Monkey does not own the
+    downstream command, artifact tree, benchmark policy, or performance
+    target.</p>
+    <p>The public entry points are
+    <code>SchematicBundleIndex::build_profiled</code>,
+    <code>build_kicad_design_facts_profiled</code>,
+    <code>build_kicad_design_json_profiled</code>,
+    <code>schematic_plot_document_with_sheets_profiled</code>, and
+    <code>board_plot_facts_with_sidecars_profiled</code>. Each returns the same
+    bounded product as its ordinary companion plus an elapsed-nanosecond
+    profile. Profile fields describe internal close-to-format stages; they do
+    not alter a serialized KiCad, Plotter-IR, or SVG contract and do not
+    establish a cross-host timing guarantee.</p>
+  </section>
+
+  <section>
+    <h2>Shared implementation and source ownership</h2>
+    <p>Profiled and ordinary entry points call one implementation. Detailed
+    clocks are created only for the profiled Monkey path. Resource ceilings,
+    parsing, validation, source identities, returned model ownership, and
+    errors are otherwise identical.</p>
+    <p><code>SchematicDocument::parse_named_with_definition</code> and
+    <code>from_named_reader_with_definition</code> return the owned document
+    together with the promoted typed definition validated during the same
+    bounded source admission. The definition is an owned snapshot and cannot
+    observe later document edits. Existing constructors delegate to that path
+    and discard the snapshot; <code>definition()</code> remains available when
+    a caller needs a fresh typed view after mutation. This avoids a redundant
+    parse for consumers that immediately need both carriers without introducing
+    a self-referential model.</p>
+  </section>
+
+  <section>
+    <h2>Safety and evidence</h2>
+    <p>No diagnostic entry point raises a source, item, point, text, nested,
+    materialization, work, or output ceiling. The profiled builders preserve
+    exact artifact ordering and fail-closed behavior. Focused Monkey tests
+    compare profiled and ordinary products and assert exact timing inventories;
+    same-change Cruncher tests consume every public companion, preserve source
+    binding, and verify the complete transaction profile. The accepted
+    downstream Speedy decision records the system benchmark and artifact
+    parity; it does not broaden Monkey's close-to-format ownership.</p>
+  </section>
+</body>
+</html>

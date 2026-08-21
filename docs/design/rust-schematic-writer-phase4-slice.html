@@ -16,6 +16,12 @@
     self-referential typed model. <code>definition()</code> rebuilds the
     promoted typed schematic model on demand, while writes patch exact source
     ranges and reparse the complete promoted model before committing.</p>
+    <p>The combined <code>parse_named_with_definition</code> and
+    <code>from_named_reader_with_definition</code> constructors additionally
+    return the owned typed definition validated during the same bounded source
+    admission. Existing constructors delegate to this path and discard the
+    snapshot. The snapshot cannot observe later document edits; callers use
+    <code>definition()</code> when they need a fresh post-mutation model.</p>
     <p>This establishes native schematic writeback without claiming a
     canonical pretty-printer. Unrecognized top-level and nested KiCad forms
     remain byte-for-byte unchanged. The first promoted mutations address a

@@ -52,6 +52,9 @@ Current design notes:
   carriers and deterministic 100-nm-grid wire connectivity over source bundles.
 - `rust-schematic-writer-phase4-slice.html` - accepted exact owned schematic writeback,
   transactional placed-symbol property edits, and promoted semantic reparse.
+- `rust-native-performance-instrumentation.html` - accepted opt-in timing
+  companions, shared normal/profiled implementations, and single-pass owned
+  schematic definition admission used by native consumers.
 - `rust-worksheet-phase4-slice.html` - accepted source-ordered modern and legacy
   worksheet semantics, bounded lazy item decoding, and exact owned writeback.
 - `rust-project-phase4-slice.html` - accepted insertion-ordered project JSON semantics,

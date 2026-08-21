@@ -2,11 +2,12 @@
 
 ## Unreleased
 
-- Add the source-bound Speedy design-review performance harness and retain a
-  single validated schematic parse for downstream indexing. The promoted Rust
-  Cruncher path now reuses bounded Monkey board facts and exact source carriers
-  while preserving the public parser, projection, and resource-limit
-  contracts consumed by Cruncher.
+- Add the source-bound Speedy design-review performance harness and retain the
+  validated schematic definition for same-pass hierarchy discovery, avoiding
+  an immediate `definition()` reparse. The promoted Rust Cruncher
+  path now reuses bounded Monkey board facts and exact source carriers while
+  preserving the public parser, projection, and resource-limit contracts
+  consumed by Cruncher.
 
 - Close the nine remaining implementation-complete native schematic compiler
   registry surfaces:

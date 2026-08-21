@@ -42,7 +42,7 @@
     <li>SVG enrichment and contract projection borrow validated spans and typed values instead of repeatedly cloning complete documents.</li>
     <li>One full source-backed PCB view feeds Monkey board Plotter-IR, bounds, and contract projection; caller limits are intersected field by field and every formerly public family remains available. Cruncher review enrichment and structured Design JSON retain their separately bounded PCB parses.</li>
     <li>Design metadata is serialized once into an exact-sized, preflighted cache and reused by every schematic occurrence.</li>
-    <li>The validated schematic definition is retained from source loading, eliminating a redundant parse without changing the public source carrier.</li>
+    <li>The validated schematic definition returned by source loading is reused for same-pass hierarchy discovery, eliminating an immediate <code>definition()</code> reparse without changing the public source carrier. The later source-bound schematic index separately parses its bundle carriers.</li>
     <li>Independent schematic and board branches overlap only when their disjoint maximum retained-byte budgets fit. The sequential fallback recomputes its remaining budget after schematic publication.</li>
     <li>Board font discovery overlaps board-facts construction only after exact source-limit preflight. Scoped workers are always joined; the primary facts error wins over a simultaneous worker failure.</li>
   </ul>
