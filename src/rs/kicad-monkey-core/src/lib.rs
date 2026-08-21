@@ -34,6 +34,7 @@ pub mod schematic_bus_connectivity;
 pub mod schematic_connectivity;
 pub mod schematic_design;
 mod schematic_effective;
+#[cfg(feature = "schematic-embedded-zstd")]
 pub mod schematic_embedded;
 pub mod schematic_netlist;
 pub mod schematic_plot_contract;

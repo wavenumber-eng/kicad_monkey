@@ -13,7 +13,9 @@ publish = false
 workspace = true
 
 [features]
+default = ["schematic-embedded-zstd"]
 measurement = []
+schematic-embedded-zstd = ["dep:zstd"]
 
 [dependencies]
 harfrust.workspace = true
@@ -25,7 +27,7 @@ sha2.workspace = true
 skrifa.workspace = true
 ttf-parser.workspace = true
 unicode-casefold.workspace = true
-zstd.workspace = true
+zstd = { workspace = true, optional = true }
 
 [[example]]
 name = "sexpr_selection_sort_benchmark"
