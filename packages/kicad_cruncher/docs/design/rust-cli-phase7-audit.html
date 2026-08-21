@@ -10,14 +10,14 @@
 <main>
 <nav class="nav"><a href="index.html">Design Index</a><a href="cli/design.html">design</a></nav>
 <header>
-  <p class="status">Accepted migration boundary</p>
+  <p class="status">Accepted and implemented migration boundary</p>
   <h1>Phase 7 pure-Rust CLI audit</h1>
   <p class="lede">Use the design-review bundle as the first complete native CLI vertical slice.</p>
 </header>
 
 <section id="decision">
   <h2>Decision</h2>
-  <p>The Phase 7 target is a real Rust <code>kicad-cruncher</code> executable, not Python commands that invoke the existing Monkey native sidecar. The executable is Cruncher-owned and composes the Rust Monkey crates directly. The existing Python <code>design</code> workflow remains the migration oracle until the installed Rust command reproduces its contracted bundle.</p>
+  <p>Phase 7 delivers a real Rust <code>kicad-cruncher</code> executable, not Python commands that invoke the existing Monkey native sidecar. The executable is Cruncher-owned and composes the Rust Monkey crates directly. The existing Python <code>design</code> workflow remains the retained migration oracle for the contracted bundle.</p>
 </section>
 
 <section id="current-state">
@@ -25,16 +25,16 @@
   <table>
     <thead><tr><th>Piece</th><th>Current implementation</th><th>Rust migration state</th></tr></thead>
     <tbody>
-      <tr><td>CLI parsing, aliases, input discovery, output defaults</td><td>Cruncher Python remains the installed migration oracle</td><td>The dedicated Rust executable parses and executes <code>design</code>, <code>design-review</code>, and <code>dr</code>, matches the Python help and usage-error contract, auto-detects one project, and applies the established output default.</td></tr>
+      <tr><td>CLI parsing, aliases, input discovery, output defaults</td><td>Rust on the promoted Windows design path; Cruncher Python retained as the migration oracle</td><td>The dedicated Rust executable parses and executes <code>design</code>, <code>design-review</code>, and <code>dr</code>, matches the Python help and usage-error contract, auto-detects one project, and applies the established output default.</td></tr>
       <tr><td>Project and schematic parsing</td><td>Monkey Python aggregate remains canonical</td><td>Cruncher Rust now discovers project and recursive schematic sources, including the adjacent-project rule for direct schematic input, and assembles a bounded Monkey source bundle directly.</td></tr>
       <tr><td>Compiled schematic graph</td><td>Rust on the promoted Windows path, transported through <code>kicad-monkey-native</code></td><td>The Cruncher Rust crate now calls the reusable Monkey graph builder directly without Python or the native transport process.</td></tr>
       <tr><td>Version-E S-expression netlist</td><td>Rust on the promoted Windows path, transported with design facts</td><td>The Cruncher Rust crate now builds the typed netlist and calls the exact-byte Monkey emitter directly.</td></tr>
-      <tr><td>Design JSON and netlist JSON</td><td>Monkey Python presentation remains canonical until executable promotion</td><td>Monkey Rust now presents both <code>kicad_monkey.netlist.a0</code> and <code>kicad_monkey.design.a0</code>. Exact cross-package oracles cover project and direct-schematic HLR inputs, indexed and no-index output, hierarchy, graphical linkage, multi-unit UUID selection, PCB placement, off-board components, and large hierarchical net naming.</td></tr>
+      <tr><td>Design JSON and netlist JSON</td><td>Monkey Rust on the promoted design path; Monkey Python retained as the exact presentation oracle</td><td>Monkey Rust now presents both <code>kicad_monkey.netlist.a0</code> and <code>kicad_monkey.design.a0</code>. Exact cross-package oracles cover project and direct-schematic HLR inputs, indexed and no-index output, hierarchy, graphical linkage, multi-unit UUID selection, PCB placement, off-board components, and large hierarchical net naming.</td></tr>
       <tr><td>Base schematic and PCB SVG</td><td>Monkey Plotter-IR and native rendering</td><td>Rust assembles schematic and board Plotter-IR documents and projects both through Monkey's bounded, deterministic native SVG renderer.</td></tr>
       <tr><td>Schematic graph linkage, metadata enrichment, review theme</td><td>Monkey Python enrichment called by Cruncher Python</td><td>Rust now composes occurrence-bound graph views, full enrichment metadata and record attributes, exact selector validation, and the black-and-white review theme over Monkey's native base SVG.</td></tr>
       <tr><td>PCB layer selection, metadata preservation, and review theme</td><td>Cruncher Rust around Monkey render output</td><td>Rust composes one occurrence-bound review artifact per copper layer, retains the board outline and drilling overlays, and reproduces the Python enrichment and review-theme contract.</td></tr>
       <tr><td>Manifest, README, safe relative paths, staging and publication</td><td>Cruncher Rust, with Python retained as the migration oracle</td><td>Rust emits the strict a0 manifest and agent README through bounded writers, validates every contained artifact before the manifest is written, and atomically replaces the destination from a sibling staging directory with restoration of the previous tree on publication failure.</td></tr>
-      <tr><td>Installed <code>kicad-cruncher</code> entry point</td><td>Python console script in a universal wheel</td><td>Requires a platform executable artifact and installed smoke coverage.</td></tr>
+      <tr><td>Installed <code>kicad-cruncher</code> entry point</td><td>Rust platform executable for the design aliases; Python module for the remaining command catalog</td><td>The Windows x64 release archive contains <code>kicad-cruncher.exe</code> and <code>kcr.exe</code> built from one Rust dispatch surface. The installed smoke rejects workspace-path leakage and runs a complete copied-fixture review bundle with Python removed from the runtime environment.</td></tr>
     </tbody>
   </table>
 </section>
@@ -42,7 +42,13 @@
 <section id="structured-facts-slice">
   <h2>Structured facts slice</h2>
   <p>The accepted structured-facts boundary keeps source discovery and CLI orchestration in Cruncher while Monkey owns close-to-format graph, netlist, hierarchy, component, variant, index, and placement presentation. The Design JSON presenter accepts only an immutable facts handle that binds the project view, compiled graph, and typed netlist to the exact schematic-index instance; facts from a stale same-path index are rejected, and callers cannot mix a current graph with a stale netlist. Before aggregate JSON materialization, a dedicated budget accounts for variants and overrides, project variables, component parameter maps, aliases, generated indexes, PCB footprint properties, graph rows and nested values, serialized text, derived items, and retained model bytes. Exact and one-over resource tests exercise both the public builder and a graph-heavy underlying model budget.</p>
-  <p>Cross-language acceptance includes HLR project and schematic entry points, taillight hierarchy and graphical linkage, Yoshi multi-unit and PnP behavior, and the 4-channel backplane's power-only hierarchical net naming. Transactional publication now completes the in-tree bundle path; installed-entry-point promotion remains.</p>
+  <p>Cross-language acceptance includes HLR project and schematic entry points, taillight hierarchy and graphical linkage, Yoshi multi-unit and PnP behavior, and the 4-channel backplane's power-only hierarchical net naming. Transactional publication and installed-entry-point promotion now complete the vertical slice.</p>
+</section>
+
+<section id="installed-cli-slice">
+  <h2>Installed CLI and release slice</h2>
+  <p>Cargo installs both native command names from one Cruncher library dispatch surface. The Windows gate uses <code>cargo install --locked</code> into an isolated prefix, verifies both outputs are Windows x64 PE files, scans them for UTF-8 and UTF-16 spellings of the source workspace, removes Python and virtual-environment variables from the runtime, reduces <code>PATH</code> to the installed binary directory, and generates a complete <code>led_component</code> design-review bundle extracted only from the reviewed <code>KM_CORPUS</code> ZIP.</p>
+  <p>The exact installed bytes are archived with the license and native-scope README. A separate verifier requires the exact archive topology, validates every executable size and SHA-256 against the release manifest, and binds the candidate to the release commit before publication. The normal Python wheel remains a companion artifact with its public <code>kicad-monkey</code> dependency and owns commands outside the first Rust vertical slice.</p>
 </section>
 
 <section id="bundle-publication-slice">
@@ -86,6 +92,7 @@
 <section id="acceptance">
   <h2>Acceptance</h2>
   <p>The slice is complete only when the Rust executable generates the full contracted review bundle for representative corpus projects, passes cross-package Monkey/Cruncher tests, preserves exact graph and netlist evidence, matches required SVG linkage and physical metadata, fails without partially publishing output, installs without workspace paths, and runs without a Python interpreter.</p>
+  <p>Those conditions are now satisfied for the promoted Windows x64 design aliases. Other commands and operating systems require separate measured promotion decisions.</p>
 </section>
 
 <section id="deferred">

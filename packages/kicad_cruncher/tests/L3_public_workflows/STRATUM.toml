@@ -140,7 +140,7 @@ public_cli = "design, design-review, and dr produce deterministic native facts t
 id = "L3_011"
 file = "test_L3_011_rust_design_cli_compatibility.py"
 name = "Rust Design CLI Compatibility"
-description = "Keep the pure-Rust design command surface aligned with the canonical Python CLI while implementation slices land"
+description = "Keep the complete pure-Rust design command and bundle aligned with the canonical Python migration oracle"
 concerns = ["cli", "contracts", "cross-package", "release"]
 test_case_type = "reference"
 test_cases = "all three design aliases, command help, invalid-option usage failures, and the public hlr_test project and schematic"
@@ -154,6 +154,25 @@ help = "Rust design, design-review, and dr help retain the canonical Python work
 usage_errors = "Rust aliases return 2 on invalid options, write usage only to stderr, and create no traceback"
 netlist_json = "Direct Rust structured facts reproduce Python's exact KiCad-native netlist JSON on the HLR project"
 design_json = "Direct Rust facts reproduce exact indexed/no-index HLR Design JSON plus taillight, Yoshi, and large hierarchical 4-channel graph, graphics, multi-unit, and PnP cases"
+
+[[subtests]]
+id = "L3_012"
+file = "test_L3_012_rust_cli_install.py"
+name = "Installed Rust Design CLI"
+description = "Install the Windows x64 Rust binaries and run a complete design-review bundle without Python at runtime"
+concerns = ["cli", "contracts", "cross-package", "release"]
+test_case_type = "reference"
+test_cases = "isolated Cargo install prefix and the reviewed led_component project extracted from KM_CORPUS/kicad.zip"
+
+[subtests.code_under_test]
+rust_crate = "src/rs/kicad-cruncher-cli"
+install_harness = "tests/support_scripts/rust_cli_install_test.py"
+
+[subtests.objectives]
+entrypoints = "cargo install publishes both kicad-cruncher.exe and kcr.exe from one Rust dispatch surface"
+native_runtime = "the installed kcr design-review command publishes a complete bundle with Python removed from its runtime environment"
+source_hygiene = "installed executables contain no UTF-8 or UTF-16 workspace path"
+release_artifact = "the exact smoke-tested binaries produce a hash-bound Windows x64 archive and release manifest"
 
 [[subtests]]
 id = "L3_004"

@@ -86,3 +86,27 @@ after native test parity and consume documented KiCad-native crate features.
   adding external model concepts or dependencies to `kicad_monkey`.
 - Public Cargo publication remains a later explicit release decision after
   native parity and artifact disposition.
+
+## Phase 7 follow-on decision
+
+Accepted on 2026-08-20, this follow-on supersedes the earlier statement that a
+literal Rust executable was outside the bounded application delivery. The
+first real application consumer is now proven: the complete design-review
+bundle. Windows x64 releases therefore include a hash-bound platform archive
+containing pure-Rust `kicad-cruncher` and `kcr` executables for `design`,
+`design-review`, `dr`, and version reporting.
+
+The installed smoke builds through `cargo install --locked`, rejects binaries
+that embed the source workspace path, removes Python from the runtime
+environment, and publishes a real review bundle from copied public KiCad
+sources. Both executable names share one Rust dispatch implementation. The
+tested archive and its SHA-256 manifest are attached to the Cruncher GitHub
+release; release publication consumes the candidate produced by the same
+Windows gate.
+
+This is not an all-command or all-platform Rust claim. The universal Cruncher
+wheel remains the cross-platform distribution for commands that have not yet
+received Rust vertical slices and retains its normal public `kicad-monkey`
+dependency. When the native archive is first on `PATH`, legacy commands remain
+available explicitly through `python -m kicad_cruncher`. Public publication of
+the internal Monkey Rust crates remains deferred.

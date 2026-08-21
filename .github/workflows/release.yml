@@ -75,6 +75,13 @@ jobs:
     needs: phase6-native-full-cli
     uses: ./.github/workflows/phase6-exit.yml
 
+  phase7-rust-cli:
+    if: >-
+      startsWith(github.event.release.tag_name, 'kicad-cruncher-v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.confirm == 'publish-both')
+    needs: phase6-exit
+    uses: ./.github/workflows/phase7-rust-cli.yml
+
   publish-monkey:
     if: >-
       startsWith(github.event.release.tag_name, 'kicad-monkey-v') ||
@@ -201,7 +208,7 @@ jobs:
     if: >-
       github.event_name == 'release' &&
       startsWith(github.event.release.tag_name, 'kicad-cruncher-v')
-    needs: [phase6-exit, verify-public-monkey-toolchain]
+    needs: [phase6-exit, phase7-rust-cli, verify-public-monkey-toolchain]
     runs-on: ubuntu-latest
     environment: pypi-kicad-cruncher
     steps:
@@ -239,6 +246,19 @@ jobs:
       - name: Run installed Cruncher console test
         working-directory: packages/kicad_cruncher
         run: uv run --package kicad-cruncher --extra test python tests/support_scripts/install_test.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase7-rust-cli-windows-x64
+          path: phase7-rust-cli
+      - name: Verify and attach the tested Rust CLI candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(uv run python -c 'import tomllib; print(tomllib.load(open("packages/kicad_cruncher/pyproject.toml","rb"))["project"]["version"])')"
+          uv run python scripts/verify_phase7_rust_cli.py phase7-rust-cli \
+            --git-sha "${GITHUB_SHA}" --expected-version "${VERSION}"
+          gh release upload "${GITHUB_REF_NAME}" phase7-rust-cli/* --clobber
       - name: Publish Cruncher to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -334,7 +354,7 @@ jobs:
 
   publish-coordinated-cruncher:
     if: github.event_name == 'workflow_dispatch'
-    needs: [verify-coordinated-phase6-toolchain, phase6-exit]
+    needs: [verify-coordinated-phase6-toolchain, phase6-exit, phase7-rust-cli]
     runs-on: ubuntu-latest
     environment: pypi-kicad-cruncher
     steps:
@@ -379,6 +399,17 @@ jobs:
           .coordinated-cruncher-venv/bin/kicad-cruncher --version
           .coordinated-cruncher-venv/bin/kcr --version
           .coordinated-cruncher-venv/bin/python -I -m kicad_cruncher version
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase7-rust-cli-windows-x64
+          path: phase7-rust-cli
+      - name: Verify the tested Rust CLI candidate before publication
+        shell: bash
+        env:
+          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
+        run: |
+          uv run python scripts/verify_phase7_rust_cli.py phase7-rust-cli \
+            --git-sha "${GITHUB_SHA}" --expected-version "${CRUNCHER_VERSION}"
       - name: Publish Cruncher to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -386,10 +417,20 @@ jobs:
 
   create-coordinated-releases:
     if: github.event_name == 'workflow_dispatch'
-    needs: [publish-monkey, publish-coordinated-cruncher]
+    needs: [publish-monkey, publish-coordinated-cruncher, phase7-rust-cli]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase7-rust-cli-windows-x64
+          path: phase7-rust-cli
+      - name: Verify the tested Rust CLI candidate
+        env:
+          CRUNCHER_VERSION: ${{ inputs.cruncher_version }}
+        run: >-
+          python scripts/verify_phase7_rust_cli.py phase7-rust-cli
+          --git-sha ${{ github.sha }} --expected-version ${CRUNCHER_VERSION}
       - name: Create package-qualified GitHub Releases
         shell: bash
         env:
@@ -404,4 +445,5 @@ jobs:
             --notes-file "docs/releases/${MONKEY_DATE}.md"
           gh release create "kicad-cruncher-v${CRUNCHER_VERSION}" \
             --title "kicad-cruncher ${CRUNCHER_VERSION}" \
-            --notes-file "packages/kicad_cruncher/docs/releases/${CRUNCHER_DATE}.md"
+            --notes-file "packages/kicad_cruncher/docs/releases/${CRUNCHER_DATE}.md" \
+            phase7-rust-cli/*

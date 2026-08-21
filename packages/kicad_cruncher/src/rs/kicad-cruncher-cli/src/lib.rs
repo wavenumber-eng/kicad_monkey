@@ -5,6 +5,7 @@
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 pub mod design;
 pub mod design_bundle;
@@ -168,6 +169,38 @@ pub fn os_args(args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Vec<OsStrin
     args.into_iter()
         .map(|argument| argument.as_ref().to_os_string())
         .collect()
+}
+
+/// Execute the native CLI over an explicit argument sequence.
+pub fn run_cli(args: impl IntoIterator<Item = OsString>) -> ExitCode {
+    let invocation = match parse_args(args) {
+        Ok(invocation) => invocation,
+        Err(error) => {
+            eprintln!("{TOP_LEVEL_HELP}kicad-cruncher: error: {error}");
+            return ExitCode::from(2);
+        }
+    };
+
+    match invocation {
+        Invocation::TopLevelHelp => print!("{}\n\n{TOP_LEVEL_HELP}", version_text()),
+        Invocation::Version => println!("{}", version_text()),
+        Invocation::DesignHelp => print!("{}\n\n{DESIGN_HELP}", version_text()),
+        Invocation::Design(options) => match design_bundle::run_design(&options) {
+            Ok(bundle) => println!(
+                "Design review: {} components, {} nets, {} schematic SVGs, {} PCB SVGs -> {}",
+                bundle.component_count,
+                bundle.net_count,
+                bundle.schematic_svg_count,
+                bundle.pcb_svg_count,
+                bundle.output_dir.display()
+            ),
+            Err(error) => {
+                eprintln!("kicad-cruncher: error: {error}");
+                return ExitCode::FAILURE;
+            }
+        },
+    }
+    ExitCode::SUCCESS
 }
 
 #[cfg(test)]

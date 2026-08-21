@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Promote the complete design-review vertical slice as pure-Rust Windows x64
+  `kicad-cruncher` and `kcr` executables. The release gate now installs both
+  names into an isolated prefix, rejects workspace-path leakage, runs a copied
+  public design with Python removed from the runtime environment, and attaches
+  the exact hash-bound archive to the Cruncher GitHub release. The Python wheel
+  remains the full cross-platform command distribution.
+
 ## 2026.8.18
 
 - Add an accepted native-backed CLI compatibility contract for the installed

@@ -50,9 +50,35 @@ Linux and macOS retain their Python providers. The
 `KICAD_CRUNCHER_NATIVE_PHYSICAL=1` environment switches are development/test
 opt-ins on other platforms, not production-support declarations.
 
+### Pure-Rust design CLI on Windows x64
+
+Each Cruncher GitHub release now includes a hash-manifested
+`kicad-cruncher-<version>-windows-x64.zip`. Extract it and put that directory
+before Python tool-script directories on `PATH` to select the pure-Rust
+`kicad-cruncher.exe` and `kcr.exe`. These executables currently own
+`design`, `design-review`, `dr`, and `--version`; they generate the complete
+review bundle without a Python interpreter.
+
+For a source checkout, the equivalent tested install is:
+
+```powershell
+cargo install --locked `
+  --path packages/kicad_cruncher/src/rs/kicad-cruncher-cli `
+  --root .native-cruncher --force --bins
+$env:PATH = "$PWD\.native-cruncher\bin;$env:PATH"
+kcr design-review board.kicad_pro
+```
+
+The universal Python wheel remains the cross-platform distribution for the
+full command set below and retains its public `kicad-monkey` dependency. Until
+another command receives its own Rust vertical slice, invoke it explicitly as
+`python -m kicad_cruncher <command>` when the native directory is first on
+`PATH`.
+
 ## Commands
 
-Run `kicad-cruncher <command> --help` for command-specific options.
+Run `python -m kicad_cruncher <command> --help` for the full Python command
+set. The promoted Rust executable accepts the design aliases documented above.
 
 | Command | Purpose | Status |
 | --- | --- | --- |
